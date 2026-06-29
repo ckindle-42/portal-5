@@ -1,4 +1,5 @@
 """``portal workspace <cmd>`` — workspace operations."""
+
 from __future__ import annotations
 
 import os
@@ -8,8 +9,6 @@ import typer
 
 from ._apps import workspace_app
 from ._common import _fmt_size
-
-
 
 
 @workspace_app.command("init")
@@ -31,11 +30,10 @@ def workspace_init() -> None:
         ws_root.chmod(0o775)
     except OSError:
         pass
-    typer.echo(f"✅ Workspace structure created")
+    typer.echo("✅ Workspace structure created")
     typer.echo(f"   {ws_root}/")
     for sub in subdirs:
         typer.echo(f"   {ws_root / sub}/")
-
 
 
 @workspace_app.command("status")
@@ -50,7 +48,7 @@ def workspace_status() -> None:
     typer.echo(f"Workspace: {ws_root}")
     typer.echo("")
     typer.echo(f"{'Path':<30} {'Files':>10} {'Size':>10}")
-    typer.echo(f"{'─'*30} {'─'*10} {'─'*10}")
+    typer.echo(f"{'─' * 30} {'─' * 10} {'─' * 10}")
 
     dirs = [
         "uploads",
@@ -70,9 +68,7 @@ def workspace_status() -> None:
             typer.echo(f"{d:<30} {n:>10} {s_str:>10}")
     typer.echo("")
 
-    total_s = sum(
-        _.stat().st_size for _ in ws_root.rglob("*") if _.is_file()
-    )
+    total_s = sum(_.stat().st_size for _ in ws_root.rglob("*") if _.is_file())
     typer.echo(f"Total: {_fmt_size(total_s)}")
 
 
@@ -88,4 +84,3 @@ def workspace_show() -> None:
     typer.echo("Generated subdirs:")
     for cat in ["transcripts", "documents", "images", "videos", "music", "speech"]:
         typer.echo(f"  {cat}: {ws_root / 'generated' / cat}/")
-

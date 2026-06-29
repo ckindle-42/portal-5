@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -252,7 +252,7 @@ class NotificationScheduler:
         # handled by sibling workers.
         state = _load_aggregated_state()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         report_date = (now - timedelta(days=1)).strftime("%Y-%m-%d")
 
         # Snapshot current cumulative metrics

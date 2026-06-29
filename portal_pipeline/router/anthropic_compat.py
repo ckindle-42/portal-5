@@ -71,14 +71,16 @@ def anthropic_to_openai_body(body: dict) -> dict:
             if btype == "text":
                 text_parts.append(block.get("text", ""))
             elif btype == "tool_use":
-                tool_calls.append({
-                    "id": block.get("id", f"call_{uuid.uuid4().hex[:8]}"),
-                    "type": "function",
-                    "function": {
-                        "name": block.get("name", ""),
-                        "arguments": json.dumps(block.get("input", {})),
-                    },
-                })
+                tool_calls.append(
+                    {
+                        "id": block.get("id", f"call_{uuid.uuid4().hex[:8]}"),
+                        "type": "function",
+                        "function": {
+                            "name": block.get("name", ""),
+                            "arguments": json.dumps(block.get("input", {})),
+                        },
+                    }
+                )
             elif btype == "tool_result":
                 tool_result_id = block.get("tool_use_id", "")
                 rc = block.get("content", "")
@@ -87,7 +89,9 @@ def anthropic_to_openai_body(body: dict) -> dict:
                 tool_result_text = str(rc)
 
         if tool_result_text is not None:
-            messages.append({"role": "tool", "tool_call_id": tool_result_id or "", "content": tool_result_text})
+            messages.append(
+                {"role": "tool", "tool_call_id": tool_result_id or "", "content": tool_result_text}
+            )
         elif tool_calls:
             out: dict = {"role": "assistant", "tool_calls": tool_calls}
             if text_parts:
@@ -146,12 +150,14 @@ def openai_response_to_anthropic(data: dict, model_id: str) -> dict:
             inp = json.loads(fn.get("arguments", "{}"))
         except (json.JSONDecodeError, TypeError):
             inp = {}
-        content.append({
-            "type": "tool_use",
-            "id": tc.get("id", f"toolu_{uuid.uuid4().hex[:24]}"),
-            "name": fn.get("name", ""),
-            "input": inp,
-        })
+        content.append(
+            {
+                "type": "tool_use",
+                "id": tc.get("id", f"toolu_{uuid.uuid4().hex[:24]}"),
+                "name": fn.get("name", ""),
+                "input": inp,
+            }
+        )
 
     finish = choice.get("finish_reason", "stop")
     stop_reason = "tool_use" if tool_calls else ("end_turn" if finish == "stop" else finish)
@@ -186,24 +192,30 @@ async def openai_stream_to_anthropic_sse(
     def _evt(event: str, data: dict) -> str:
         return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
-    yield _evt("message_start", {
-        "type": "message_start",
-        "message": {
-            "id": msg_id,
-            "type": "message",
-            "role": "assistant",
-            "content": [],
-            "model": model_id,
-            "stop_reason": None,
-            "stop_sequence": None,
-            "usage": {"input_tokens": 0, "output_tokens": 0},
+    yield _evt(
+        "message_start",
+        {
+            "type": "message_start",
+            "message": {
+                "id": msg_id,
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": model_id,
+                "stop_reason": None,
+                "stop_sequence": None,
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+            },
         },
-    })
-    yield _evt("content_block_start", {
-        "type": "content_block_start",
-        "index": 0,
-        "content_block": {"type": "text", "text": ""},
-    })
+    )
+    yield _evt(
+        "content_block_start",
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "text", "text": ""},
+        },
+    )
     yield _evt("ping", {"type": "ping"})
 
     output_tokens = 0
@@ -235,19 +247,25 @@ async def openai_stream_to_anthropic_sse(
         text = delta.get("content") or ""
         if text:
             output_tokens += 1
-            yield _evt("content_block_delta", {
-                "type": "content_block_delta",
-                "index": 0,
-                "delta": {"type": "text_delta", "text": text},
-            })
+            yield _evt(
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {"type": "text_delta", "text": text},
+                },
+            )
 
         if finish:
             stop_reason = "tool_use" if finish == "tool_calls" else "end_turn"
 
     yield _evt("content_block_stop", {"type": "content_block_stop", "index": 0})
-    yield _evt("message_delta", {
-        "type": "message_delta",
-        "delta": {"stop_reason": stop_reason, "stop_sequence": None},
-        "usage": {"output_tokens": output_tokens},
-    })
+    yield _evt(
+        "message_delta",
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": stop_reason, "stop_sequence": None},
+            "usage": {"output_tokens": output_tokens},
+        },
+    )
     yield _evt("message_stop", {"type": "message_stop"})

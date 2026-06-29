@@ -5,12 +5,13 @@ raw model behavior independent of routing logic.
 Includes admission helpers (_ollama_unload with cooldown) that mirror
 the bench_tps.py pattern for memory discipline.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -180,7 +181,7 @@ async def run_audit_tools(args) -> dict:
                 await asyncio.sleep(EVICT_BACKOFF_S)
 
     report = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "workspace": workspace_id,
         "audit_prompt": AUDIT_PROMPT,
         "audit_tool": AUDIT_TOOL_DEFINITION["function"]["name"],
@@ -191,7 +192,7 @@ async def run_audit_tools(args) -> dict:
         Path(args.output)
         if args.output
         else RESULTS_DIR
-        / f"audit_tools_{workspace_id}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+        / f"audit_tools_{workspace_id}_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.json"
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2))
@@ -243,4 +244,3 @@ async def _ollama_unload(client: httpx.AsyncClient, model_id: str) -> None:
 
 
 # ── Per-cell runner ───────────────────────────────────────────────────────
-

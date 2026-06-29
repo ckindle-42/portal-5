@@ -1,4 +1,5 @@
 """Section C1 — ComfyUI direct API (system stats, object info, models)."""
+
 from __future__ import annotations
 
 import time
@@ -171,4 +172,3 @@ async def run() -> None:
 
     # Store checkpoints for later sections
     return checkpoints
-

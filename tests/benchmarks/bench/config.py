@@ -6,7 +6,7 @@ package depth; everything else is unchanged.
 """
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 OLLAMA_URL = "http://localhost:11434"
@@ -44,10 +44,10 @@ REQUEST_TIMEOUT = 180.0
 # Reference: UAT 20260627 — phi4-reasoning ran 67min on P-DA05;
 # tongyi-deepresearch 901s on P-R05; qwen3.5-abliterated 1293s on WS-PT02.
 PER_WORKSPACE_TIMEOUT: dict[str, float] = {
-    "auto-phi4": 1500.0,             # phi4-reasoning:plus
-    "auto-research": 1200.0,         # tongyi-deepresearch-abliterated
+    "auto-phi4": 1500.0,  # phi4-reasoning:plus
+    "auto-research": 1200.0,  # tongyi-deepresearch-abliterated
     "auto-purpleteam-deep": 1500.0,  # qwen3.5-abliterated
-    "auto-spl": 600.0,               # huihui-ai_qwen3-coder-next
+    "auto-spl": 600.0,  # huihui-ai_qwen3-coder-next
     # auto-purpleteam-exec NOT capped here — Phase 2 sets supports_tools=false
     # on supergemma4 which removes the underlying cause of long runtime.
 }
@@ -140,9 +140,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
 # Default output: timestamped UTC file under tests/benchmarks/results/
 # Override with --output. Operator commits selected baselines manually.
-RESULTS_FILE = str(
-    RESULTS_DIR / f"bench_tps_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
-)
+RESULTS_FILE = str(RESULTS_DIR / f"bench_tps_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.json")
 
 
 def _load_env() -> None:

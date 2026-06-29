@@ -416,24 +416,24 @@ _CVE_DEFAULT_HIT = "VULNERABLE: CVE confirmed on target. Service not patched. Po
 
 _DYNAMIC_CVE_DB: dict[str, str] = {
     # Lab service banners → CVE (used by --dynamic-cve mode)
-    "samba 4.7.6": "CVE-2017-0144",           # EternalBlue/SambaRCE (lab-dc01)
-    "apache tomcat 9.0.0.m1": "CVE-2019-0232", # Tomcat CGI RCE (lab-vulhub :8282)
-    "apache tomcat 8.5": "CVE-2019-0232",      # Metasploitable3 Tomcat
-    "apache solr 8.11": "CVE-2021-44228",      # Log4Shell (lab-vulhub :8983)
-    "redis 6.0": "CVE-2022-0543",              # Redis Lua sandbox escape
+    "samba 4.7.6": "CVE-2017-0144",  # EternalBlue/SambaRCE (lab-dc01)
+    "apache tomcat 9.0.0.m1": "CVE-2019-0232",  # Tomcat CGI RCE (lab-vulhub :8282)
+    "apache tomcat 8.5": "CVE-2019-0232",  # Metasploitable3 Tomcat
+    "apache solr 8.11": "CVE-2021-44228",  # Log4Shell (lab-vulhub :8983)
+    "redis 6.0": "CVE-2022-0543",  # Redis Lua sandbox escape
     "redis 5.0": "CVE-2022-0543",
     "redis 4.0": "CVE-2022-0543",
-    "proftpd 1.3.5": "CVE-2019-12815",         # Metasploitable3 FTP
-    "mysql 5.7": "CVE-2012-5615",              # MySQL auth bypass
-    "vsftpd 2.3.4": "CVE-2011-2523",           # Metasploitable2 FTP backdoor
-    "apache httpd 2.4": "CVE-2021-41773",      # Apache path traversal
-    "apache httpd 2.2": "CVE-2017-9798",       # Optionsbleed
-    "openldap 2.4": "CVE-2020-25710",          # LDAP assertion DoS
-    "microsoft iis 7.5": "CVE-2010-2730",      # IIS Metasploitable3
-    "microsoft iis 8.5": "CVE-2017-7269",      # IIS WebDAV buffer overflow
-    "elasticsearch 1.4": "CVE-2014-3120",      # Metasploitable3 ES RCE
-    "glassfish 4.1": "CVE-2017-1000028",       # Metasploitable3 GlassFish
-    "nfs-utils 1.3": "CVE-2014-0208",          # NFS privilege escalation
+    "proftpd 1.3.5": "CVE-2019-12815",  # Metasploitable3 FTP
+    "mysql 5.7": "CVE-2012-5615",  # MySQL auth bypass
+    "vsftpd 2.3.4": "CVE-2011-2523",  # Metasploitable2 FTP backdoor
+    "apache httpd 2.4": "CVE-2021-41773",  # Apache path traversal
+    "apache httpd 2.2": "CVE-2017-9798",  # Optionsbleed
+    "openldap 2.4": "CVE-2020-25710",  # LDAP assertion DoS
+    "microsoft iis 7.5": "CVE-2010-2730",  # IIS Metasploitable3
+    "microsoft iis 8.5": "CVE-2017-7269",  # IIS WebDAV buffer overflow
+    "elasticsearch 1.4": "CVE-2014-3120",  # Metasploitable3 ES RCE
+    "glassfish 4.1": "CVE-2017-1000028",  # Metasploitable3 GlassFish
+    "nfs-utils 1.3": "CVE-2014-0208",  # NFS privilege escalation
 }
 
 _WEB_SEARCH_CHAIN_TOOL: dict = {
@@ -725,9 +725,7 @@ INLINE_TOOLS: list[dict] = [
             "description": "Run Python code in the lab environment",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "code": {"type": "string", "description": "Python code to execute"}
-                },
+                "properties": {"code": {"type": "string", "description": "Python code to execute"}},
                 "required": ["code"],
             },
         },
@@ -902,19 +900,20 @@ def _call_via_pipeline(
         headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
 
     try:
-        with httpx.Client(
-            timeout=httpx.Timeout(CHAIN_MODEL_TURN_TIMEOUT_S, connect=5.0)
-        ) as _client, _client.stream(
-            "POST",
-            f"{PIPELINE_URL}/v1/chat/completions",
-            headers=headers,
-            json={
-                "model": workspace,
-                "messages": msgs,
-                "stream": True,
-                "exec_audit": True,
-            },
-        ) as _resp:
+        with (
+            httpx.Client(timeout=httpx.Timeout(CHAIN_MODEL_TURN_TIMEOUT_S, connect=5.0)) as _client,
+            _client.stream(
+                "POST",
+                f"{PIPELINE_URL}/v1/chat/completions",
+                headers=headers,
+                json={
+                    "model": workspace,
+                    "messages": msgs,
+                    "stream": True,
+                    "exec_audit": True,
+                },
+            ) as _resp,
+        ):
             _resp.raise_for_status()
             for _line in _resp.iter_lines():
                 if not _line.startswith("data: "):
@@ -935,19 +934,28 @@ def _call_via_pipeline(
                         _args_raw = _tc.get("arguments", "")
                         _out = _tc.get("output", "")
                         try:
-                            _args = json.loads(_args_raw) if isinstance(_args_raw, str) else _args_raw
+                            _args = (
+                                json.loads(_args_raw) if isinstance(_args_raw, str) else _args_raw
+                            )
                         except Exception:
                             _args = {"_raw": _args_raw}
                         if _name:
                             _tool_calls.append({"tool": _name, "arguments": _args})
-                            _cmd = _args.get("cmd", "") or _args.get("command", "") or _args.get("code", "") or str(_args)
-                            _lab_outputs.append({
-                                "tool": _name,
-                                "cmd": _cmd,
-                                "output": _out,
-                                "ok": bool(_out) and "[stderr]" not in _out[:30],
-                                "elapsed_s": 0.0,
-                            })
+                            _cmd = (
+                                _args.get("cmd", "")
+                                or _args.get("command", "")
+                                or _args.get("code", "")
+                                or str(_args)
+                            )
+                            _lab_outputs.append(
+                                {
+                                    "tool": _name,
+                                    "cmd": _cmd,
+                                    "output": _out,
+                                    "ok": bool(_out) and "[stderr]" not in _out[:30],
+                                    "elapsed_s": 0.0,
+                                }
+                            )
                     continue
                 # Content delta
                 _choice = (_obj.get("choices") or [{}])[0]
@@ -1005,27 +1013,17 @@ def _run_model_turn(
         exec_hint = f"\nLab context: {_et[:_hint_end]}"
 
     _hint_dc = (
-        (_LAB_DC or "10.10.11.21")
-        if (lab_exec and _LAB_EXEC_AVAILABLE)
-        else "$LAB_TARGET_DC"
+        (_LAB_DC or "10.10.11.21") if (lab_exec and _LAB_EXEC_AVAILABLE) else "$LAB_TARGET_DC"
     )
     _hint_srv = (
-        (_LAB_SRV or "10.10.11.33")
-        if (lab_exec and _LAB_EXEC_AVAILABLE)
-        else "$LAB_TARGET_SRV"
+        (_LAB_SRV or "10.10.11.33") if (lab_exec and _LAB_EXEC_AVAILABLE) else "$LAB_TARGET_SRV"
     )
     _hint_web = (
-        (_LAB_WEB or "10.10.11.50")
-        if (lab_exec and _LAB_EXEC_AVAILABLE)
-        else "$LAB_TARGET_WEB"
+        (_LAB_WEB or "10.10.11.50") if (lab_exec and _LAB_EXEC_AVAILABLE) else "$LAB_TARGET_WEB"
     )
-    _hint_dom = (
-        (_LAB_DOMAIN or "portal.lab") if (lab_exec and _LAB_EXEC_AVAILABLE) else "$DOMAIN"
-    )
+    _hint_dom = (_LAB_DOMAIN or "portal.lab") if (lab_exec and _LAB_EXEC_AVAILABLE) else "$DOMAIN"
     _hint_pass = (
-        (_LAB_ADMIN_PASS or "LabAdmin1!")
-        if (lab_exec and _LAB_EXEC_AVAILABLE)
-        else "$ADMIN_PASS"
+        (_LAB_ADMIN_PASS or "LabAdmin1!") if (lab_exec and _LAB_EXEC_AVAILABLE) else "$ADMIN_PASS"
     )
 
     def _sub_hint(h: str) -> str:
@@ -1153,9 +1151,7 @@ def _run_model_turn(
         _fallback_max_tokens = 2000
         if not _tcs:
             try:
-                with httpx.Client(
-                    timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)
-                ) as _nc:
+                with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as _nc:
                     _nr = _nc.post(
                         f"{ollama_url}/v1/chat/completions",
                         json={
@@ -1220,17 +1216,13 @@ def _run_model_turn(
             parts, tool_calls_this = _call_chain_model_timed(messages)
 
         def _has_meaningful_args(tcs: list[dict]) -> bool:
-            return any(
-                any(str(v).strip() for v in tc.get("arguments", {}).values()) for tc in tcs
-            )
+            return any(any(str(v).strip() for v in tc.get("arguments", {}).values()) for tc in tcs)
 
         retried = False
         if not _is_pipeline_mode and (
             not tool_calls_this or not _has_meaningful_args(tool_calls_this)
         ):
-            retry_hints = [
-                _sub_hint(s["tool_hint"]) for s in assigned if s.get("tool_hint")
-            ]
+            retry_hints = [_sub_hint(s["tool_hint"]) for s in assigned if s.get("tool_hint")]
             if retry_hints:
                 _primary_hint = retry_hints[0]
                 _hint_lines = "\n".join(f"  {h}" for h in retry_hints)
@@ -1310,14 +1302,11 @@ def _run_model_turn(
                 _out_lines.append(f"$ {_lo['cmd']}")
                 _out_lines.append(f"[{_status} {_lo['elapsed_s']:.1f}s]\n{_lo['output']}")
             handoff = (
-                f"[{model} — real execution output:]\n"
-                + "\n".join(_out_lines)
-                + f"\n{content}"
+                f"[{model} — real execution output:]\n" + "\n".join(_out_lines) + f"\n{content}"
             )
         elif tool_calls_this:
             tc_summary = "; ".join(
-                f"{tc['tool']}({list(tc['arguments'].values())[:1]})"
-                for tc in tool_calls_this
+                f"{tc['tool']}({list(tc['arguments'].values())[:1]})" for tc in tool_calls_this
             )
             handoff = f"[{model} called: {tc_summary}]\n{content}"
         else:
@@ -1334,17 +1323,13 @@ def _run_model_turn(
                 lab_outputs=lab_outputs if lab_outputs else None,
             )
             blue_turns.append({**_bt, "round": round_num + 1, "after_model": model})
-            _mitre_tag = (
-                f" [{', '.join(_bt['mitre_ids'][:3])}]" if _bt.get("mitre_ids") else ""
-            )
+            _mitre_tag = f" [{', '.join(_bt['mitre_ids'][:3])}]" if _bt.get("mitre_ids") else ""
             _conf = (
                 "MISSED"
                 if _bt.get("explicitly_missed")
                 else ("DETECTED" if _bt["detected"] else "LOW")
             )
-            _blue_inject = (
-                f"[BLUE SOC{_mitre_tag}] {_conf}: {_bt['response'][:300].strip()}"
-            )
+            _blue_inject = f"[BLUE SOC{_mitre_tag}] {_conf}: {_bt['response'][:300].strip()}"
             shared_context.append({"role": "user", "content": _blue_inject})
 
         return {

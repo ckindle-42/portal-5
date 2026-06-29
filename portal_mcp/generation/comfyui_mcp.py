@@ -149,6 +149,7 @@ async def list_tools(request):
 
 # ── POST /tools/<name> — pipeline dispatch endpoints ─────────────────────────
 
+
 @mcp.custom_route("/tools/start_image_generation", methods=["POST"])
 async def start_image_generation_endpoint(request):
     body = await request.json()

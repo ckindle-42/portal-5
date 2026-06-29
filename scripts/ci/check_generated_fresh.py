@@ -7,6 +7,7 @@ instead of editing portal.yaml and re-running sync-config.
 
 Does NOT run if portal.yaml or config/ has no tracked changes (fast-path skip).
 """
+
 from __future__ import annotations
 
 import subprocess

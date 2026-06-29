@@ -196,7 +196,9 @@ async def run() -> None:
     # S1-17: workspace hint reachability
     t0 = time.time()
     try:
-        import os, tempfile as _tf  # noqa: E401
+        import os  # noqa: E401
+        import tempfile as _tf
+
         _prom = os.environ.get("PROMETHEUS_MULTIPROC_DIR", "")
         if not _prom or not os.path.isdir(_prom):
             _mp = _tf.mkdtemp(prefix="portal5_acceptance_metrics_")

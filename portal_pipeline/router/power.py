@@ -36,7 +36,6 @@ _POWERMETRICS_SOCKET = "/tmp/portal5-powermetrics.sock"
 ELECTRICITY_RATE_USD_PER_KWH = float(os.environ.get("ELECTRICITY_RATE_USD_PER_KWH", "0.15"))
 
 
-
 async def _power_polling_loop():
     """Background task: poll the host powermetrics daemon every 10s; update gauges.
 

@@ -309,8 +309,8 @@ def bench_pipeline(
                     runs=runs,
                     label="pipeline",
                     prompt_category="math",
-                request_timeout=PER_WORKSPACE_TIMEOUT.get(ws, PIPELINE_INACTIVITY_TIMEOUT),
-            )
+                    request_timeout=PER_WORKSPACE_TIMEOUT.get(ws, PIPELINE_INACTIVITY_TIMEOUT),
+                )
             rm["backend"] = "pipeline"
             rm["path"] = "pipeline"
             rm["workspace"] = math_label
@@ -319,9 +319,7 @@ def bench_pipeline(
             if output_path:
                 _append_result(output_path, rm)
             if rm["avg_tps"] > 0:
-                print(
-                    f"{rm['avg_tps']} t/s  ({rm['runs_success']}/{rm['runs_total']} ok) [math]"
-                )
+                print(f"{rm['avg_tps']} t/s  ({rm['runs_success']}/{rm['runs_total']} ok) [math]")
             else:
                 errors = [run.get("error", "?") for run in rm["runs"] if "error" in run]
                 print(f"FAIL [math] ({', '.join(set(errors))})")

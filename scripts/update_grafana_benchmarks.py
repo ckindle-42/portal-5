@@ -10,7 +10,7 @@ Usage:
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -260,7 +260,7 @@ def _build_summary_panel(
 
 
 def _build_metadata_panel(data: dict, runs: int, cooldown: int, wall_s: float, hw: dict) -> str:
-    ts = data.get("timestamp", datetime.now(timezone.utc).isoformat())
+    ts = data.get("timestamp", datetime.now(UTC).isoformat())
     try:
         dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
         ts_fmt = dt.strftime("%Y-%m-%d %H:%M UTC")

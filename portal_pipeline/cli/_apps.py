@@ -1,4 +1,5 @@
 """Shared typer app instances — no circular imports."""
+
 from __future__ import annotations
 
 import typer

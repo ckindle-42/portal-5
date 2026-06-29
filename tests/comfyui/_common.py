@@ -1,4 +1,5 @@
 """Shared infrastructure for Portal 5 comfyui acceptance section modules."""
+
 from __future__ import annotations
 
 import asyncio
@@ -77,7 +78,9 @@ async def _unload_ollama_models() -> None:
         if not models:
             print("  \u2139\ufe0f  No Ollama models loaded \u2014 nothing to evict")
             return
-        print(f"  \u2500\u2500 Evicting {len(models)} Ollama model(s) from unified memory \u2500\u2500")
+        print(
+            f"  \u2500\u2500 Evicting {len(models)} Ollama model(s) from unified memory \u2500\u2500"
+        )
         async with httpx.AsyncClient(timeout=30) as c:
             for model in models:
                 try:
@@ -188,7 +191,7 @@ async def _mcp(
         detail = (detail_fn(text) if detail_fn else text[:120]) if text else "(empty)"
         record(section, tid, name, status, detail, t0=t0)
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         record(section, tid, name, "WARN", f"timeout after {timeout}s", t0=t0)
     except ImportError:
         record(section, tid, name, "FAIL", "pip install mcp --break-system-packages", t0=t0)

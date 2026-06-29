@@ -1,15 +1,16 @@
 """Pipeline auth — bearer-token verification for /v1/* and /admin/* endpoints."""
+
 from __future__ import annotations
 
 import hmac
+import os
 
 from fastapi import HTTPException
-
-import os
 
 _raw_api_key = os.environ.get("PIPELINE_API_KEY", "")
 PIPELINE_API_KEY: str = _raw_api_key
 PORTAL5_ADMIN_KEY: str = os.environ.get("PORTAL5_ADMIN_KEY", _raw_api_key)
+
 
 def _verify_key(authorization: str | None) -> None:
     """Validate the Authorization header against ``PIPELINE_API_KEY``.
@@ -61,5 +62,3 @@ def _verify_admin_key(authorization: str | None) -> None:
     token = authorization.removeprefix("Bearer ").strip()
     if not hmac.compare_digest(token.encode(), PORTAL5_ADMIN_KEY.encode()):
         raise HTTPException(status_code=401, detail="Invalid admin key")
-
-

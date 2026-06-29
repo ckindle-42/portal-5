@@ -4,6 +4,7 @@ Extracted from router_pipe.py during M6-A finish. Each function
 is a route handler body; the ``@app.<method>`` decorators live in
 ``router/app.py``.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -11,8 +12,8 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timezone
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -21,25 +22,31 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from prometheus_client import generate_latest
 
 from portal_pipeline.cluster_backends import BackendRegistry
-from portal_pipeline.router.auth import _verify_key, _verify_admin_key
+from portal_pipeline.router.auth import _verify_admin_key, _verify_key
 from portal_pipeline.router.concurrency import (
     RequestSlot,
 )
 from portal_pipeline.router.lifespan import (
     _startup_time,
 )
+
 # Set by lifespan — NOT captured at import time.
 # Importing registry/dispatcher by name from lifespan would capture the module-level
 # None before lifespan runs; lifespan pushes the live objects in, same pattern
 # as _routing_mod._http_client and _streaming_mod._http_client.
 registry: BackendRegistry | None = None
 _notification_dispatcher: Any = None
+from portal_pipeline.config import ollama_url
+from portal_pipeline.router.anthropic_compat import (
+    anthropic_to_openai_body,
+    openai_stream_to_anthropic_sse,
+)
 from portal_pipeline.router.metrics import (
     _REGISTRY,
     _record_response_time,
     _requests_total,
 )
-from portal_pipeline.router.non_streaming import _try_non_streaming
+from portal_pipeline.router.non_streaming import _run_non_streaming_chain, _try_non_streaming
 from portal_pipeline.router.preinject import (
     _inject_attached_files,
     _inject_system_prompt_append,
@@ -51,29 +58,23 @@ from portal_pipeline.router.preinject import (
 from portal_pipeline.router.state import (
     _record_error,
     _record_persona,
-    _request_count,
     _req_count_by_model,
+    _request_count,
 )
-from portal_pipeline.config import ollama_url
-from portal_pipeline.router.anthropic_compat import (
-    anthropic_to_openai_body,
-    openai_stream_to_anthropic_sse,
-)
-from portal_pipeline.router.non_streaming import _run_non_streaming_chain
 from portal_pipeline.router.streaming import (
     _json_completion_to_sse,
     _stream_with_chain,
     _stream_with_preamble,
-    _stream_with_tool_loop,
     _stream_with_secondary_chain,
+    _stream_with_tool_loop,
 )
 from portal_pipeline.router.validation import (
     _inject_ollama_options,
     _model_supports_tools,
 )
 from portal_pipeline.router.workspaces import (
-    WORKSPACES,
     _PERSONA_MAP,
+    WORKSPACES,
     _resolve_persona_tools,
 )
 
@@ -248,8 +249,8 @@ async def test_notifications(authorization: str | None = Header(None)) -> dict:
 
     # Fire a test summary (stats will be zeros/minimal for a test)
     summary = SummaryEvent(
-        timestamp=datetime.now(timezone.utc),
-        report_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        timestamp=datetime.now(UTC),
+        report_date=datetime.now(UTC).strftime("%Y-%m-%d"),
         total_requests=sum(_request_count.values()),
         requests_by_workspace=dict(_request_count),
         healthy_backends=len(registry.list_healthy_backends()) if registry else 0,
@@ -361,7 +362,8 @@ async def metrics() -> PlainTextResponse:
         # fails with errno-2 (see ACCEPTANCE_RESULTS S70-07, 2026-04-25).
         os.makedirs(mp_dir, exist_ok=True)
         if _mp_registry_cache is None or _mp_registry_dir_cache != mp_dir:
-            from prometheus_client import CollectorRegistry as _CollectorRegistry, multiprocess
+            from prometheus_client import CollectorRegistry as _CollectorRegistry
+            from prometheus_client import multiprocess
 
             _mp_registry_cache = _CollectorRegistry()
             multiprocess.MultiProcessCollector(_mp_registry_cache)
@@ -1083,6 +1085,7 @@ async def anthropic_messages(
     from portal_pipeline.router.app import app as _app  # noqa: PLC0415
 
     if stream:
+
         async def _generate() -> AsyncIterator[str]:
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=_app),  # type: ignore[arg-type]

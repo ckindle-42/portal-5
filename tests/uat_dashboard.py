@@ -10,6 +10,7 @@ Usage:
     python3 tests/uat_dashboard.py --trend 5    # show last N runs in trend table
     python3 tests/uat_dashboard.py --md --trend 8
 """
+
 from __future__ import annotations
 
 import argparse
@@ -17,7 +18,7 @@ import json
 import re
 import sys
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 RESULTS_FILE = Path("tests/UAT_RESULTS.md")
@@ -161,8 +162,8 @@ def _section_table(rows: list[dict]) -> str:
         icon = "✅" if c.get("FAIL", 0) + c.get("BLOCKED", 0) == 0 else "❌"
         failing = ", ".join(section_tests[sec])[:40] if section_tests[sec] else ""
         lines.append(
-            f"| {icon} {sec:<6} | {c.get('PASS',0):<4} | {c.get('WARN',0):<4} | "
-            f"{c.get('FAIL',0):<4} | {c.get('BLOCKED',0):<7} | {c.get('SKIP',0):<4} | "
+            f"| {icon} {sec:<6} | {c.get('PASS', 0):<4} | {c.get('WARN', 0):<4} | "
+            f"{c.get('FAIL', 0):<4} | {c.get('BLOCKED', 0):<7} | {c.get('SKIP', 0):<4} | "
             f"{total:<5} | {pass_pct}% |"
         )
     return "\n".join(lines)
@@ -192,10 +193,14 @@ def _model_table(rows: list[dict]) -> str:
     for model, c in sorted(models.items(), key=sort_key):
         total = sum(c.values())
         pass_pct = round(100 * c.get("PASS", 0) / total) if total else 0
-        icon = "✅" if c.get("FAIL", 0) + c.get("BLOCKED", 0) == 0 else ("⚠️" if c.get("FAIL",0)==0 else "❌")
+        icon = (
+            "✅"
+            if c.get("FAIL", 0) + c.get("BLOCKED", 0) == 0
+            else ("⚠️" if c.get("FAIL", 0) == 0 else "❌")
+        )
         lines.append(
-            f"| {icon} `{model[:40]}`  | {c.get('PASS',0):<4} | {c.get('WARN',0):<4} | "
-            f"{c.get('FAIL',0):<4} | {c.get('SKIP',0):<4} | {total:<5} | {pass_pct}% |"
+            f"| {icon} `{model[:40]}`  | {c.get('PASS', 0):<4} | {c.get('WARN', 0):<4} | "
+            f"{c.get('FAIL', 0):<4} | {c.get('SKIP', 0):<4} | {total:<5} | {pass_pct}% |"
         )
     return "\n".join(lines)
 
@@ -239,8 +244,8 @@ def _trend_table(runs: list[dict]) -> str:
         c = run["counts"]
         ts = run["timestamp"][:10] if run["timestamp"] else run["run_id"][:10]
         lines.append(
-            f"| `{run['run_id']}`  | {ts} | {c.get('PASS',0):<4} | {c.get('WARN',0):<4} | "
-            f"{c.get('FAIL',0):<4} | {c.get('BLOCKED',0):<7} | {run['total']:<5} | {run['pass_pct']}% |"
+            f"| `{run['run_id']}`  | {ts} | {c.get('PASS', 0):<4} | {c.get('WARN', 0):<4} | "
+            f"{c.get('FAIL', 0):<4} | {c.get('BLOCKED', 0):<7} | {run['total']:<5} | {run['pass_pct']}% |"
         )
     return "\n".join(lines)
 
@@ -260,11 +265,13 @@ def build_dashboard(results: dict, trend_runs: list[dict]) -> str:
     blocked_ct = summary.get("BLOCKED", 0)
     skip_ct = summary.get("SKIP", 0)
     manual_ct = summary.get("MANUAL", 0)
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     pass_pct = round(100 * pass_ct / total) if total else 0
-    health = "🟢 HEALTHY" if fail_ct + blocked_ct == 0 else (
-        "🟡 DEGRADED" if fail_ct <= 3 else "🔴 FAILING"
+    health = (
+        "🟢 HEALTHY"
+        if fail_ct + blocked_ct == 0
+        else ("🟡 DEGRADED" if fail_ct <= 3 else "🔴 FAILING")
     )
 
     header = f"""# Portal 5 UAT Dashboard
@@ -278,8 +285,8 @@ def build_dashboard(results: dict, trend_runs: list[dict]) -> str:
 | Status | Count | Pct |
 |--------|-------|-----|
 | ✅ PASS    | {pass_ct:<5} | {pass_pct}% |
-| ⚠️  WARN   | {warn_ct:<5} | {round(100*warn_ct/total) if total else 0}% |
-| ❌ FAIL    | {fail_ct:<5} | {round(100*fail_ct/total) if total else 0}% |
+| ⚠️  WARN   | {warn_ct:<5} | {round(100 * warn_ct / total) if total else 0}% |
+| ❌ FAIL    | {fail_ct:<5} | {round(100 * fail_ct / total) if total else 0}% |
 | 🚫 BLOCKED | {blocked_ct:<5} | |
 | ⏭ SKIP    | {skip_ct:<5} | |
 | 🔵 MANUAL | {manual_ct:<5} | |
@@ -308,9 +315,9 @@ def _print_terminal(results: dict, trend_runs: list[dict]) -> None:
     print("=" * 90)
     print(f"Run:    {run_ts}")
     print(
-        f"Result: {summary.get('PASS',0)} PASS  {summary.get('WARN',0)} WARN  "
-        f"{summary.get('FAIL',0)} FAIL  {summary.get('BLOCKED',0)} BLOCKED  "
-        f"{summary.get('SKIP',0)} SKIP  {summary.get('MANUAL',0)} MANUAL  |  {total} total"
+        f"Result: {summary.get('PASS', 0)} PASS  {summary.get('WARN', 0)} WARN  "
+        f"{summary.get('FAIL', 0)} FAIL  {summary.get('BLOCKED', 0)} BLOCKED  "
+        f"{summary.get('SKIP', 0)} SKIP  {summary.get('MANUAL', 0)} MANUAL  |  {total} total"
     )
     print()
 
@@ -318,7 +325,9 @@ def _print_terminal(results: dict, trend_runs: list[dict]) -> None:
     sections: dict[str, Counter] = defaultdict(Counter)
     for r in rows:
         sections[r["section"]][r["status"]] += 1
-    print(f"{'Section':<10} {'Pass':>4} {'Warn':>4} {'Fail':>4} {'Blk':>4} {'Skip':>4} {'Total':>5} {'Pass%':>6}")
+    print(
+        f"{'Section':<10} {'Pass':>4} {'Warn':>4} {'Fail':>4} {'Blk':>4} {'Skip':>4} {'Total':>5} {'Pass%':>6}"
+    )
     print("-" * 55)
     for sec in sorted(sections):
         c = sections[sec]
@@ -326,8 +335,8 @@ def _print_terminal(results: dict, trend_runs: list[dict]) -> None:
         pct = round(100 * c.get("PASS", 0) / t) if t else 0
         icon = "✓" if c.get("FAIL", 0) + c.get("BLOCKED", 0) == 0 else "✗"
         print(
-            f"{icon} {sec:<8} {c.get('PASS',0):>4} {c.get('WARN',0):>4} {c.get('FAIL',0):>4} "
-            f"{c.get('BLOCKED',0):>4} {c.get('SKIP',0):>4} {t:>5} {pct:>5}%"
+            f"{icon} {sec:<8} {c.get('PASS', 0):>4} {c.get('WARN', 0):>4} {c.get('FAIL', 0):>4} "
+            f"{c.get('BLOCKED', 0):>4} {c.get('SKIP', 0):>4} {t:>5} {pct:>5}%"
         )
     print()
 
@@ -346,14 +355,16 @@ def _print_terminal(results: dict, trend_runs: list[dict]) -> None:
 
     # Trend (corpus)
     if trend_runs:
-        print(f"{'Run ID':<22} {'Date':<12} {'Pass':>4} {'Warn':>4} {'Fail':>4} {'Total':>5} {'Pass%':>6}")
+        print(
+            f"{'Run ID':<22} {'Date':<12} {'Pass':>4} {'Warn':>4} {'Fail':>4} {'Total':>5} {'Pass%':>6}"
+        )
         print("-" * 60)
         for run in trend_runs:
             c = run["counts"]
             ts = run["timestamp"][:10] if run["timestamp"] else run["run_id"][:10]
             print(
-                f"{run['run_id']:<22} {ts:<12} {c.get('PASS',0):>4} {c.get('WARN',0):>4} "
-                f"{c.get('FAIL',0):>4} {run['total']:>5} {run['pass_pct']:>5}%"
+                f"{run['run_id']:<22} {ts:<12} {c.get('PASS', 0):>4} {c.get('WARN', 0):>4} "
+                f"{c.get('FAIL', 0):>4} {run['total']:>5} {run['pass_pct']:>5}%"
             )
     print("=" * 90)
 
@@ -361,8 +372,13 @@ def _print_terminal(results: dict, trend_runs: list[dict]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Portal 5 UAT Dashboard")
     parser.add_argument("--md", action="store_true", help=f"Write {DASHBOARD_FILE}")
-    parser.add_argument("--trend", type=int, default=8, metavar="N",
-                        help="Number of recent corpus runs to include in trend (default: 8)")
+    parser.add_argument(
+        "--trend",
+        type=int,
+        default=8,
+        metavar="N",
+        help="Number of recent corpus runs to include in trend (default: 8)",
+    )
     parser.add_argument("--input", default=str(RESULTS_FILE), help="Path to UAT_RESULTS.md")
     args = parser.parse_args()
 

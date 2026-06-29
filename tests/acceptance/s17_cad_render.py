@@ -25,6 +25,7 @@ from tests.acceptance._common import (
 
 _CAD_RENDER_PORT = int(os.environ.get("CAD_RENDER_HOST_PORT", "8926"))
 
+
 # Minimal valid binary STL for a 20×10×5 mm box (12 triangles, 684 bytes).
 # Generated inline so the test has no file fixtures.
 def _make_box_stl(w: float = 20, h: float = 10, d: float = 5) -> bytes:
@@ -41,16 +42,16 @@ def _make_box_stl(w: float = 20, h: float = 10, d: float = 5) -> bytes:
     tris = [
         ((0, 0, -1), (0, 0, 0), (x, 0, 0), (x, y, 0)),
         ((0, 0, -1), (0, 0, 0), (x, y, 0), (0, y, 0)),
-        ((0, 0, 1),  (0, 0, z), (x, y, z), (x, 0, z)),
-        ((0, 0, 1),  (0, 0, z), (0, y, z), (x, y, z)),
+        ((0, 0, 1), (0, 0, z), (x, y, z), (x, 0, z)),
+        ((0, 0, 1), (0, 0, z), (0, y, z), (x, y, z)),
         ((-1, 0, 0), (0, 0, 0), (0, y, 0), (0, y, z)),
         ((-1, 0, 0), (0, 0, 0), (0, y, z), (0, 0, z)),
-        ((1, 0, 0),  (x, 0, 0), (x, 0, z), (x, y, z)),
-        ((1, 0, 0),  (x, 0, 0), (x, y, z), (x, y, 0)),
+        ((1, 0, 0), (x, 0, 0), (x, 0, z), (x, y, z)),
+        ((1, 0, 0), (x, 0, 0), (x, y, z), (x, y, 0)),
         ((0, -1, 0), (0, 0, 0), (0, 0, z), (x, 0, z)),
         ((0, -1, 0), (0, 0, 0), (x, 0, z), (x, 0, 0)),
-        ((0, 1, 0),  (0, y, 0), (x, y, 0), (x, y, z)),
-        ((0, 1, 0),  (0, y, 0), (x, y, z), (0, y, z)),
+        ((0, 1, 0), (0, y, 0), (x, y, 0), (x, y, z)),
+        ((0, 1, 0), (0, y, 0), (x, y, z), (0, y, z)),
     ]
     body = b"".join(tri(*t) for t in tris)
     return b"\x00" * 80 + struct.pack("<I", len(tris)) + body
@@ -92,6 +93,7 @@ async def run() -> None:
     from portal_mcp.core.workspace import (
         get_generated_dir,  # noqa: PLC0415 — lazy import, avoids import at module level
     )
+
     models3d = get_generated_dir("models3d")
     models3d.mkdir(parents=True, exist_ok=True)
     test_stl = models3d / "s17_smoke_box.stl"
@@ -137,9 +139,23 @@ async def run() -> None:
         # Convert container-internal URL to host-accessible URL
         host_url = png_url.replace("http://localhost", "http://localhost")
         code_f, _ = await _get(host_url, timeout=10)
-        record(sec, "S17-04", "render_mesh PNG URL reachable via HTTP", "PASS" if code_f == 200 else "FAIL", f"GET {host_url} → {code_f}", t0=t0)
+        record(
+            sec,
+            "S17-04",
+            "render_mesh PNG URL reachable via HTTP",
+            "PASS" if code_f == 200 else "FAIL",
+            f"GET {host_url} → {code_f}",
+            t0=t0,
+        )
     else:
-        record(sec, "S17-04", "render_mesh PNG URL reachable via HTTP", "WARN", "Could not extract png_url from render_mesh result", t0=t0)
+        record(
+            sec,
+            "S17-04",
+            "render_mesh PNG URL reachable via HTTP",
+            "WARN",
+            "Could not extract png_url from render_mesh result",
+            t0=t0,
+        )
 
     # ── S17-05: render_openscad — SCAD → STL → PNG ───────────────────────────
     scad_code = (
@@ -218,7 +234,9 @@ async def run() -> None:
         f"{PIPELINE_URL}/v1/chat/completions",
         {
             "model": "auto-cad",
-            "messages": [{"role": "user", "content": "Design a 20x10x5mm mounting bracket in OpenSCAD"}],
+            "messages": [
+                {"role": "user", "content": "Design a 20x10x5mm mounting bracket in OpenSCAD"}
+            ],
             "max_tokens": 50,
             "stream": False,
         },

@@ -39,7 +39,7 @@ def _check_image_freshness() -> list[str]:
             )
             ts = result.stdout.strip()
             if ts:
-                return datetime.datetime.fromtimestamp(int(ts), tz=datetime.timezone.utc)
+                return datetime.datetime.fromtimestamp(int(ts), tz=datetime.UTC)
         except Exception:
             pass
         return None

@@ -1,4 +1,5 @@
 """Section C4 — Image generation: FLUX schnell."""
+
 from __future__ import annotations
 
 import time
@@ -135,4 +136,3 @@ async def run() -> None:
             f"ComfyUI /history returned HTTP {code}",
             t0=t0,
         )
-

@@ -1,4 +1,5 @@
 """``portal config <cmd>`` — config introspection."""
+
 from __future__ import annotations
 
 import json
@@ -6,14 +7,16 @@ from typing import Annotated
 
 import typer
 
-from ._apps import config_app
 from portal_pipeline.config import load_portal_config
 
+from ._apps import config_app
 
 
 @config_app.command("show")
 def config_show(
-    raw: Annotated[bool, typer.Option("--raw", help="Emit raw YAML values (no env override)")] = False,
+    raw: Annotated[
+        bool, typer.Option("--raw", help="Emit raw YAML values (no env override)")
+    ] = False,
 ) -> None:
     """Print the resolved portal.yaml config as pretty-printed JSON."""
     cfg = load_portal_config()
@@ -34,4 +37,3 @@ def config_show(
         ],
     }
     typer.echo(json.dumps(data, indent=2))
-

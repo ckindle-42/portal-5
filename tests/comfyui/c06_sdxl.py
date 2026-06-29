@@ -1,4 +1,5 @@
 """Section C6 — Image generation: SDXL variants."""
+
 from __future__ import annotations
 
 import time
@@ -120,4 +121,3 @@ async def run() -> None:
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed", "rejected"],
         )
-

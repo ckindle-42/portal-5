@@ -4,6 +4,7 @@
 Checks all dependency lists across [project.dependencies] and [project.optional-dependencies]
 for repeated package names (case-insensitive, ignoring version specifiers).
 """
+
 from __future__ import annotations
 
 import re
@@ -37,6 +38,7 @@ def main() -> int:
 
     # Find duplicates within the same context (same extra/core)
     from collections import defaultdict
+
     by_context: dict[str, list[str]] = defaultdict(list)
     for ctx, name in all_deps:
         by_context[ctx].append(name)

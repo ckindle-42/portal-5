@@ -784,7 +784,9 @@ async def run_test(
         # Run assertions on turn 1
         _incl_think = test.get("include_thinking_in_assertions", False)
         assertions_result = run_assertions(
-            response_text, test.get("assertions", []), artifact_path,
+            response_text,
+            test.get("assertions", []),
+            artifact_path,
             include_thinking=_incl_think,
             tool_calls_before=_tool_calls_before,
             tool_calls_after=_tool_calls_after,
@@ -794,7 +796,10 @@ async def run_test(
         t2_spec = test.get("turn2_assertions", [])
         if t2_spec and turn2_response:
             t2_results = run_assertions(
-                turn2_response, t2_spec, artifact_path, include_thinking=_incl_think,
+                turn2_response,
+                t2_spec,
+                artifact_path,
+                include_thinking=_incl_think,
                 tool_calls_before=_tool_calls_before,
                 tool_calls_after=_tool_calls_after,
             )

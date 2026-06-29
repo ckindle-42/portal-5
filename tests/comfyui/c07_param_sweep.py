@@ -1,4 +1,5 @@
 """Section C7 — Image generation: parameter sweep."""
+
 from __future__ import annotations
 
 import time
@@ -117,4 +118,3 @@ async def run() -> None:
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
     )
-

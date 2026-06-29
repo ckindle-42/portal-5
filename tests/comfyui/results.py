@@ -1,4 +1,5 @@
 """ComfyUI-specific result writer — writes to ACCEPTANCE_RESULTS_COMFYUI.md."""
+
 from __future__ import annotations
 
 from datetime import datetime

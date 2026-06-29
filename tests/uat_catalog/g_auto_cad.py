@@ -34,13 +34,30 @@ TESTS: list[dict] = [
             {
                 "type": "any_of",
                 "label": "OpenSCAD code block present",
-                "keywords": ["```openscad", "```scad", "module ", "linear_extrude", "translate(", "cube(", "cylinder("],
+                "keywords": [
+                    "```openscad",
+                    "```scad",
+                    "module ",
+                    "linear_extrude",
+                    "translate(",
+                    "cube(",
+                    "cylinder(",
+                ],
                 "critical": True,
             },
             {
                 "type": "any_of",
                 "label": "Named dimension variables declared",
-                "keywords": ["base_w", "base_width", "arm_height", "wall", "thickness", "clearance", "fillet", "="],
+                "keywords": [
+                    "base_w",
+                    "base_width",
+                    "arm_height",
+                    "wall",
+                    "thickness",
+                    "clearance",
+                    "fillet",
+                    "=",
+                ],
                 "critical": True,
             },
             {
@@ -51,13 +68,26 @@ TESTS: list[dict] = [
             {
                 "type": "any_of",
                 "label": "render_openscad called — PNG or STL referenced in response",
-                "keywords": ["png_url", "stl_path", ".png", ".stl", "rendered", "preview", "/files/models3d/"],
+                "keywords": [
+                    "png_url",
+                    "stl_path",
+                    ".png",
+                    ".stl",
+                    "rendered",
+                    "preview",
+                    "/files/models3d/",
+                ],
                 "critical": False,
             },
             {
                 "type": "not_contains",
                 "label": "No CadQuery import attempted",
-                "keywords": ["import cadquery", "import build123d", "cq.Workplane", "from cadquery"],
+                "keywords": [
+                    "import cadquery",
+                    "import build123d",
+                    "cq.Workplane",
+                    "from cadquery",
+                ],
             },
         ],
     },
@@ -95,13 +125,27 @@ TESTS: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Two modules (box + lid)",
-                "keywords": ["module lid", "module box", "module enclosure", "module top", "module cover"],
+                "keywords": [
+                    "module lid",
+                    "module box",
+                    "module enclosure",
+                    "module top",
+                    "module cover",
+                ],
                 "critical": False,
             },
             {
                 "type": "any_of",
                 "label": "Render called — artifact referenced",
-                "keywords": ["png_url", ".png", ".stl", "rendered", "preview", "/files/models3d/", "stl_path"],
+                "keywords": [
+                    "png_url",
+                    ".png",
+                    ".stl",
+                    "rendered",
+                    "preview",
+                    "/files/models3d/",
+                    "stl_path",
+                ],
                 "critical": False,
             },
         ],
@@ -127,11 +171,16 @@ TESTS: list[dict] = [
             {
                 "type": "not_contains",
                 "label": "No error reported",
-                "keywords": ["file not found", "conversion failed", "unable to convert", "could not find", "does not exist"],
+                "keywords": [
+                    "file not found",
+                    "conversion failed",
+                    "unable to convert",
+                    "could not find",
+                    "does not exist",
+                ],
             },
         ],
     },
-
     # ── Persona tests ──────────────────────────────────────────────────────
     {
         "id": "P-CAD-01",
@@ -148,13 +197,29 @@ TESTS: list[dict] = [
             {
                 "type": "any_of",
                 "label": "OpenSCAD or parametric geometry code present",
-                "keywords": ["```openscad", "```scad", "module gear", "module spur", "teeth", "module =", "modul ="],
+                "keywords": [
+                    "```openscad",
+                    "```scad",
+                    "module gear",
+                    "module spur",
+                    "teeth",
+                    "module =",
+                    "modul =",
+                ],
                 "critical": True,
             },
             {
                 "type": "any_of",
                 "label": "Named tooth/module variables",
-                "keywords": ["teeth", "num_teeth", "tooth_count", "module", "modul", "face_width", "bore"],
+                "keywords": [
+                    "teeth",
+                    "num_teeth",
+                    "tooth_count",
+                    "module",
+                    "modul",
+                    "face_width",
+                    "bore",
+                ],
                 "critical": True,
             },
             {
@@ -188,13 +253,27 @@ TESTS: list[dict] = [
             {
                 "type": "any_of",
                 "label": "OpenSCAD code block present",
-                "keywords": ["```openscad", "```scad", "module ", "linear_extrude", "cube(", "cylinder("],
+                "keywords": [
+                    "```openscad",
+                    "```scad",
+                    "module ",
+                    "linear_extrude",
+                    "cube(",
+                    "cylinder(",
+                ],
                 "critical": True,
             },
             {
                 "type": "any_of",
                 "label": "DfAM parameters declared",
-                "keywords": ["nozzle_dia", "nozzle", "wall_count", "overhang", "clearance", "layer_height"],
+                "keywords": [
+                    "nozzle_dia",
+                    "nozzle",
+                    "wall_count",
+                    "overhang",
+                    "clearance",
+                    "layer_height",
+                ],
                 "critical": True,
             },
             {

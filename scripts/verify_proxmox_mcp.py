@@ -77,7 +77,6 @@ async def main():
         sys.exit(1)
 
     async with _client() as c:
-
         # 1 — reachability + auth
         try:
             nodes = await _get(c, "/nodes")
@@ -103,7 +102,11 @@ async def main():
         try:
             status = await _get(c, f"/nodes/{node}/status")
             cpu = status.get("cpu", "?")
-            mem_pct = round(status["memory"]["used"] / status["memory"]["total"] * 100) if status.get("memory") else "?"
+            mem_pct = (
+                round(status["memory"]["used"] / status["memory"]["total"] * 100)
+                if status.get("memory")
+                else "?"
+            )
             ok("node status", f"cpu={cpu:.1%}  mem={mem_pct}%")
         except Exception as e:
             fail("node status", str(e))
@@ -158,14 +161,20 @@ async def main():
             # 10 — VM status detail
             try:
                 s = await _get(c, f"/nodes/{node}/qemu/{vmid}/status/current")
-                ok("VM status detail", f"vmid={vmid} status={s.get('status')} cpu={s.get('cpu', 0):.1%}")
+                ok(
+                    "VM status detail",
+                    f"vmid={vmid} status={s.get('status')} cpu={s.get('cpu', 0):.1%}",
+                )
             except Exception as e:
                 fail("VM status detail", str(e))
 
             # 11 — VM snapshots
             try:
                 snaps = await _get(c, f"/nodes/{node}/qemu/{vmid}/snapshot") or []
-                ok("list snapshots", f"vmid={vmid} snapshots={[s['name'] for s in snaps if s.get('name') != 'current']}")
+                ok(
+                    "list snapshots",
+                    f"vmid={vmid} snapshots={[s['name'] for s in snaps if s.get('name') != 'current']}",
+                )
             except Exception as e:
                 fail("list snapshots", str(e))
         else:

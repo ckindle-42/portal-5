@@ -6,30 +6,24 @@ as its FastAPI app. This file preserves that contract by re-exporting
 
 New code should import from portal_pipeline.router.* directly.
 """
+
 from __future__ import annotations
+
+# Anthropic compat (router/anthropic_compat.py)
+from portal_pipeline.router.anthropic_compat import (  # noqa: F401
+    anthropic_to_openai_body,
+    openai_response_to_anthropic,
+    openai_stream_to_anthropic_sse,
+)
 
 # ── FastAPI app (the main thing OWUI imports) ──────────────────────────────────
 from portal_pipeline.router.app import app  # noqa: F401
 
-# ── Re-export historical public symbols ────────────────────────────────────────
-
-# State persistence (router/state.py)
-from portal_pipeline.router.state import (  # noqa: F401
-    _STATE_FILE,
-    _load_state,
-    _peak_concurrent,
-    _persona_usage_raw,
-    _record_error,
-    _record_persona,
-    _req_count_by_error,
-    _req_count_by_model,
-    _request_count,
-    _request_tps_count,
-    _save_state,
-    _state_save_loop,
-    _total_input_tokens,
-    _total_output_tokens,
-    _total_tps,
+# Auth (router/auth.py)
+from portal_pipeline.router.auth import (  # noqa: F401
+    PIPELINE_API_KEY,
+    _verify_admin_key,
+    _verify_key,
 )
 
 # Concurrency (router/concurrency.py)
@@ -41,6 +35,29 @@ from portal_pipeline.router.concurrency import (  # noqa: F401
     _acquire_workspace_sem,
     _api_key_limit,
     _get_workspace_concurrency_limit,
+)
+
+# Handlers (router/handlers.py)
+from portal_pipeline.router.handlers import (  # noqa: F401
+    admin_refresh_tools,
+    chat_completions,
+    health,
+    health_all,
+    list_backends_endpoint,
+    list_models,
+    metrics,
+    test_notifications,
+)
+
+# Lifespan (router/lifespan.py)
+from portal_pipeline.router.lifespan import (  # noqa: F401
+    _http_client,
+    _notification_dispatcher,
+    _notification_scheduler,
+    _startup_time,
+    _state_save_task,
+    lifespan,
+    registry,
 )
 
 # Metrics (router/metrics.py)
@@ -75,12 +92,27 @@ from portal_pipeline.router.metrics import (  # noqa: F401
     _workspace_semaphore_busy_total_metric,
 )
 
+# Non-streaming (router/non_streaming.py)
+from portal_pipeline.router.non_streaming import (  # noqa: F401
+    _try_non_streaming,
+)
+
 # Power (router/power.py)
 from portal_pipeline.router.power import (  # noqa: F401
     _POWERMETRICS_SOCKET,
     ELECTRICITY_RATE_USD_PER_KWH,
     _power_polling_loop,
     _record_usage,
+)
+
+# Pre-dispatch injection (router/preinject.py)
+from portal_pipeline.router.preinject import (  # noqa: F401
+    _inject_attached_files,
+    _inject_system_prompt_append,
+    _inject_temporal_context,
+    _resolve_auto_routing,
+    _resolve_persona_workspace,
+    _resolve_vision_fallback,
 )
 
 # Routing (router/routing.py)
@@ -95,6 +127,26 @@ from portal_pipeline.router.routing import (  # noqa: F401
     _detect_workspace,
     _load_routing_config,
     _route_with_llm,
+)
+
+# ── Re-export historical public symbols ────────────────────────────────────────
+# State persistence (router/state.py)
+from portal_pipeline.router.state import (  # noqa: F401
+    _STATE_FILE,
+    _load_state,
+    _peak_concurrent,
+    _persona_usage_raw,
+    _record_error,
+    _record_persona,
+    _req_count_by_error,
+    _req_count_by_model,
+    _request_count,
+    _request_tps_count,
+    _save_state,
+    _state_save_loop,
+    _total_input_tokens,
+    _total_output_tokens,
+    _total_tps,
 )
 
 # Streaming (router/streaming.py)
@@ -113,15 +165,6 @@ from portal_pipeline.router.tools import (  # noqa: F401
     _dispatch_tool_call,
 )
 
-# Workspaces (router/workspaces.py)
-from portal_pipeline.router.workspaces import (  # noqa: F401
-    _PERSONA_MAP,
-    MAX_TOOL_HOPS,
-    WORKSPACES,
-    _resolve_persona_tools,
-    _workspace_tools,
-)
-
 # Validation (router/validation.py)
 from portal_pipeline.router.validation import (  # noqa: F401
     _inject_ollama_options,
@@ -129,54 +172,11 @@ from portal_pipeline.router.validation import (  # noqa: F401
     _validate_workspace_hints,
 )
 
-# Lifespan (router/lifespan.py)
-from portal_pipeline.router.lifespan import (  # noqa: F401
-    lifespan,
-    _http_client,
-    _notification_dispatcher,
-    _notification_scheduler,
-    _startup_time,
-    _state_save_task,
-    registry,
-)
-
-# Auth (router/auth.py)
-from portal_pipeline.router.auth import (  # noqa: F401
-    PIPELINE_API_KEY,
-    _verify_key,
-    _verify_admin_key,
-)
-
-# Non-streaming (router/non_streaming.py)
-from portal_pipeline.router.non_streaming import (  # noqa: F401
-    _try_non_streaming,
-)
-
-# Pre-dispatch injection (router/preinject.py)
-from portal_pipeline.router.preinject import (  # noqa: F401
-    _inject_attached_files,
-    _inject_system_prompt_append,
-    _inject_temporal_context,
-    _resolve_auto_routing,
-    _resolve_persona_workspace,
-    _resolve_vision_fallback,
-)
-
-# Handlers (router/handlers.py)
-from portal_pipeline.router.handlers import (  # noqa: F401
-    chat_completions,
-    health,
-    health_all,
-    admin_refresh_tools,
-    list_backends_endpoint,
-    list_models,
-    metrics,
-    test_notifications,
-)
-
-# Anthropic compat (router/anthropic_compat.py)
-from portal_pipeline.router.anthropic_compat import (  # noqa: F401
-    anthropic_to_openai_body,
-    openai_response_to_anthropic,
-    openai_stream_to_anthropic_sse,
+# Workspaces (router/workspaces.py)
+from portal_pipeline.router.workspaces import (  # noqa: F401
+    _PERSONA_MAP,
+    MAX_TOOL_HOPS,
+    WORKSPACES,
+    _resolve_persona_tools,
+    _workspace_tools,
 )

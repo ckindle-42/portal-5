@@ -32,6 +32,7 @@ from portal_pipeline.router.workspaces import WORKSPACES
 
 # ── Gather OWUI preset metadata ───────────────────────────────────────────────
 
+
 def _load_owui_metadata() -> dict[str, dict]:
     """Read existing workspace JSON files for params.system and enable_web_search."""
     data: dict[str, dict] = {}
@@ -54,6 +55,7 @@ def _load_owui_metadata() -> dict[str, dict]:
 
 # ── Orphan detection ──────────────────────────────────────────────────────────
 
+
 def _classify_workspaces(owui_meta: dict[str, dict]) -> tuple[set[str], set[str], set[str]]:
     """Return (live_ws_ids, bench_with_preset, orphan_preset_ids).
 
@@ -62,7 +64,9 @@ def _classify_workspaces(owui_meta: dict[str, dict]) -> tuple[set[str], set[str]
     orphan_preset_ids — JSON preset IDs for workspaces no longer in WORKSPACES
     """
     live = set(WORKSPACES.keys())
-    bench_with_preset = {ws_id for ws_id in owui_meta if ws_id.startswith("bench-") and ws_id in live}
+    bench_with_preset = {
+        ws_id for ws_id in owui_meta if ws_id.startswith("bench-") and ws_id in live
+    }
     orphan = {ws_id for ws_id in owui_meta if ws_id not in live}
     return live, bench_with_preset, orphan
 
@@ -78,7 +82,13 @@ _IDE_COMMAND_SERVERS: list[dict] = [
         "expose_to_ide": True,
         "command": {
             "type": "local",
-            "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "${HOME}/projects", "/tmp"],
+            "command": [
+                "npx",
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "${HOME}/projects",
+                "/tmp",
+            ],
         },
     },
     {
@@ -117,30 +127,132 @@ _IDE_COMMAND_SERVERS: list[dict] = [
 # Reconciles drift between tool_registry (pipeline id) and .mcp.json (IDE name)
 _HTTP_MCP_FLEET: list[dict] = [
     # Port  Pipeline-id      IDE-name                  pipeline  ide
-    {"id": "comfyui",        "name": "portal-comfyui",        "port": 8910, "expose_to_pipeline": True,  "expose_to_ide": True},
-    {"id": "video",          "name": "portal-video",          "port": 8911, "expose_to_pipeline": True,  "expose_to_ide": True},
-    {"id": "music",          "name": "portal-music",          "port": 8912, "expose_to_pipeline": True,  "expose_to_ide": True},
-    {"id": "documents",      "name": "portal-documents",      "port": 8913, "expose_to_pipeline": True,  "expose_to_ide": True},
+    {
+        "id": "comfyui",
+        "name": "portal-comfyui",
+        "port": 8910,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
+    {
+        "id": "video",
+        "name": "portal-video",
+        "port": 8911,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
+    {
+        "id": "music",
+        "name": "portal-music",
+        "port": 8912,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
+    {
+        "id": "documents",
+        "name": "portal-documents",
+        "port": 8913,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
     # 8914: pipeline calls it "execution"; .mcp.json calls it "portal-sandbox" — canonical: execution
-    {"id": "execution",      "name": "portal-sandbox",        "port": 8914, "expose_to_pipeline": True,  "expose_to_ide": True,
-     "aliases": ["sandbox"]},
-    {"id": "whisper",        "name": "portal-whisper",        "port": 8915, "expose_to_pipeline": True,  "expose_to_ide": True},
-    {"id": "tts",            "name": "portal-tts",            "port": 8916, "expose_to_pipeline": True,  "expose_to_ide": True},
-    {"id": "security",       "name": "portal-security",       "port": 8919, "expose_to_pipeline": True,  "expose_to_ide": True},
-    {"id": "memory",         "name": "portal-memory",         "port": 8920, "expose_to_pipeline": True,  "expose_to_ide": True},
-    {"id": "rag",            "name": "portal-rag",            "port": 8921, "expose_to_pipeline": True,  "expose_to_ide": True},
-    {"id": "research",       "name": "portal-research",       "port": 8922, "expose_to_pipeline": True,  "expose_to_ide": True},
+    {
+        "id": "execution",
+        "name": "portal-sandbox",
+        "port": 8914,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+        "aliases": ["sandbox"],
+    },
+    {
+        "id": "whisper",
+        "name": "portal-whisper",
+        "port": 8915,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
+    {
+        "id": "tts",
+        "name": "portal-tts",
+        "port": 8916,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
+    {
+        "id": "security",
+        "name": "portal-security",
+        "port": 8919,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
+    {
+        "id": "memory",
+        "name": "portal-memory",
+        "port": 8920,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
+    {
+        "id": "rag",
+        "name": "portal-rag",
+        "port": 8921,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
+    {
+        "id": "research",
+        "name": "portal-research",
+        "port": 8922,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
     # 8923 browser: pipeline deliberately excludes it (raw browser tools not model-callable),
     # but IDE uses it for Playwright automation
-    {"id": "browser",        "name": "portal-browser",        "port": 8923, "expose_to_pipeline": False, "expose_to_ide": True},
+    {
+        "id": "browser",
+        "name": "portal-browser",
+        "port": 8923,
+        "expose_to_pipeline": False,
+        "expose_to_ide": True,
+    },
     # 8924: pipeline calls it "mlx_transcribe"; .mcp.json calls it "portal-mlx-transcribe"
-    {"id": "mlx_transcribe", "name": "portal-mlx-transcribe", "port": 8924, "expose_to_pipeline": True,  "expose_to_ide": True},
+    {
+        "id": "mlx_transcribe",
+        "name": "portal-mlx-transcribe",
+        "port": 8924,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
     # 8925 reranker: internal, not exposed to models or IDE
-    {"id": "reranker",       "name": "portal-reranker",       "port": 8925, "expose_to_pipeline": False, "expose_to_ide": False},
-    {"id": "cad_render",     "name": "portal-cad-render",     "port": 8926, "expose_to_pipeline": True,  "expose_to_ide": False},
+    {
+        "id": "reranker",
+        "name": "portal-reranker",
+        "port": 8925,
+        "expose_to_pipeline": False,
+        "expose_to_ide": False,
+    },
+    {
+        "id": "cad_render",
+        "name": "portal-cad-render",
+        "port": 8926,
+        "expose_to_pipeline": True,
+        "expose_to_ide": False,
+    },
     # 8927 proxmox: IDE-only (Proxmox VM control is not model-callable from pipeline)
-    {"id": "proxmox",        "name": "portal-proxmox",        "port": 8927, "expose_to_pipeline": False, "expose_to_ide": True},
-    {"id": "pipeline",       "name": "portal-pipeline",       "port": 8928, "expose_to_pipeline": True,  "expose_to_ide": True},
+    {
+        "id": "proxmox",
+        "name": "portal-proxmox",
+        "port": 8927,
+        "expose_to_pipeline": False,
+        "expose_to_ide": True,
+    },
+    {
+        "id": "pipeline",
+        "name": "portal-pipeline",
+        "port": 8928,
+        "expose_to_pipeline": True,
+        "expose_to_ide": True,
+    },
 ]
 
 
@@ -151,6 +263,7 @@ def _build_mcp_fleet() -> list[dict]:
 
 
 # ── Workspace catalog construction ────────────────────────────────────────────
+
 
 def _workspace_entry(
     ws_id: str,
@@ -170,10 +283,18 @@ def _workspace_entry(
 
     # Numeric/bool tuning knobs
     for key in [
-        "predict_limit", "context_limit", "max_concurrent",
-        "keep_alive", "temperature", "top_p", "top_k", "min_p",
-        "repeat_penalty", "seed",
-        "think", "emits_reasoning",
+        "predict_limit",
+        "context_limit",
+        "max_concurrent",
+        "keep_alive",
+        "temperature",
+        "top_p",
+        "top_k",
+        "min_p",
+        "repeat_penalty",
+        "seed",
+        "think",
+        "emits_reasoning",
         "system_prompt_append",
     ]:
         if key in ws:
@@ -209,6 +330,7 @@ def _workspace_entry(
 
 # ── YAML dumper that uses block literals for multiline strings ────────────────
 
+
 class _BlockDumper(yaml.Dumper):
     pass
 
@@ -223,6 +345,7 @@ _BlockDumper.add_representer(str, _str_representer)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     owui_meta = _load_owui_metadata()
@@ -265,7 +388,7 @@ def main() -> None:
         "# backends: block in backends.yaml is NOT generated — it is the operator's",
         "# hand-edited cluster scaling interface (CLAUDE.md Rule 1).",
         "",
-        "ollama_url: \"http://host.docker.internal:11434\"",
+        'ollama_url: "http://host.docker.internal:11434"',
         "request_timeout: 300",
         "",
         "# ── MCP Fleet ──────────────────────────────────────────────────────────────",
@@ -279,7 +402,9 @@ def main() -> None:
         out_lines.append(f"    name: {server['name']}")
         if "port" in server:
             out_lines.append(f"    port: {server['port']}")
-        out_lines.append(f"    expose_to_pipeline: {'true' if server['expose_to_pipeline'] else 'false'}")
+        out_lines.append(
+            f"    expose_to_pipeline: {'true' if server['expose_to_pipeline'] else 'false'}"
+        )
         out_lines.append(f"    expose_to_ide: {'true' if server['expose_to_ide'] else 'false'}")
         if server.get("aliases"):
             out_lines.append(f"    aliases: {json.dumps(server['aliases'])}")

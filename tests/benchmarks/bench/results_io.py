@@ -5,7 +5,7 @@ Extracted byte-for-byte from tests/benchmarks/bench_tps.py.
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .config import OLLAMA_URL, PIPELINE_URL, RESULTS_DIR
 
@@ -27,7 +27,7 @@ def _init_output(
         except Exception:
             pass
     output = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "mode": args.mode,
         "order": args.order,
         "cooldown_s": args.cooldown,

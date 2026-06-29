@@ -71,7 +71,9 @@ def test_pipeline_mcp_servers_all_pipeline_exposed() -> None:
     config = load_portal_config()
     pipeline_exposed = {s.id for s in config.mcp_fleet if s.expose_to_pipeline}
     non_exposed = set(MCP_SERVERS.keys()) - pipeline_exposed
-    assert not non_exposed, f"MCP_SERVERS has servers not expose_to_pipeline in fleet: {non_exposed}"
+    assert not non_exposed, (
+        f"MCP_SERVERS has servers not expose_to_pipeline in fleet: {non_exposed}"
+    )
 
 
 def test_fleet_pipeline_exposed_matches_mcp_servers() -> None:
@@ -114,6 +116,5 @@ def test_browser_is_ide_only() -> None:
     browser = next((s for s in config.mcp_fleet if s.id == "browser"), None)
     if browser is not None:
         assert not browser.expose_to_pipeline, (
-            "browser MCP should not be pipeline-exposed "
-            "(raw browser tools are not model-callable)"
+            "browser MCP should not be pipeline-exposed (raw browser tools are not model-callable)"
         )

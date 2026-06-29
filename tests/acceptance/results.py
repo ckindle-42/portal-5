@@ -3,12 +3,13 @@
 Existing acceptance section modules import from this path. New code
 should import directly from tests.lib.results.
 """
+
 from tests.lib.results import *  # noqa: F401, F403
 from tests.lib.results import (  # noqa: F401 — explicit for static checkers
-    R,
     _ICON,
     _PROGRESS_LOG,
     _ROUTING_LOG,
+    R,
     _blocked,
     _classify,
     _emit,

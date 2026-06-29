@@ -157,5 +157,3 @@ def _resolve_persona_tools(persona: PersonaSpec | dict, workspace_id: str) -> li
     deny = set(persona.get("tools_deny", []) or [])
     effective = set(ws_tools) if raw_allow is None else set(raw_allow)
     return sorted(effective - deny)
-
-

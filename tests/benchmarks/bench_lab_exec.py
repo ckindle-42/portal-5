@@ -37,7 +37,7 @@ import json
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +52,7 @@ RESULTS_DIR = Path(__file__).parent / "results"
 
 # ── Env ───────────────────────────────────────────────────────────────────────
 
+
 def _load_env() -> None:
     env_file = _ROOT / ".env"
     if env_file.exists():
@@ -64,27 +65,29 @@ def _load_env() -> None:
 
 _load_env()
 
-SANDBOX_PORT  = int(os.environ.get("SANDBOX_HOST_PORT", "8914"))
-LAB_EXEC      = os.environ.get("SANDBOX_LAB_EXEC", "").lower() == "true"
-DC            = os.environ.get("LAB_TARGET_DC", "")
-SRV           = os.environ.get("LAB_TARGET_SRV", "")
-WEB           = os.environ.get("LAB_TARGET_WEB", "10.10.11.50")  # lab-vulhub LXC
-DOMAIN        = "portal.lab"
-ADMIN_PASS    = "LabAdmin1!"
+SANDBOX_PORT = int(os.environ.get("SANDBOX_HOST_PORT", "8914"))
+LAB_EXEC = os.environ.get("SANDBOX_LAB_EXEC", "").lower() == "true"
+DC = os.environ.get("LAB_TARGET_DC", "")
+SRV = os.environ.get("LAB_TARGET_SRV", "")
+WEB = os.environ.get("LAB_TARGET_WEB", "10.10.11.50")  # lab-vulhub LXC
+DOMAIN = "portal.lab"
+ADMIN_PASS = "LabAdmin1!"
 SVC_BACKUP_PASS = "Backup123!"
 
 # Proxmox lifecycle — optional; if not set, bench assumes VMs are already running
-PROXMOX_URL          = os.environ.get("PROXMOX_URL", "https://10.0.0.203:8006")
-PROXMOX_TOKEN_ID     = os.environ.get("PROXMOX_TOKEN_ID", "")
+PROXMOX_URL = os.environ.get("PROXMOX_URL", "https://10.0.0.203:8006")
+PROXMOX_TOKEN_ID = os.environ.get("PROXMOX_TOKEN_ID", "")
 PROXMOX_TOKEN_SECRET = os.environ.get("PROXMOX_TOKEN_SECRET", "")
-PROXMOX_VERIFY_SSL   = os.environ.get("PROXMOX_VERIFY_SSL", "false").lower() == "true"
-PROXMOX_NODE         = os.environ.get("PROXMOX_DEFAULT_NODE", "")
+PROXMOX_VERIFY_SSL = os.environ.get("PROXMOX_VERIFY_SSL", "false").lower() == "true"
+PROXMOX_NODE = os.environ.get("PROXMOX_DEFAULT_NODE", "")
 PROXMOX_TASK_TIMEOUT = int(os.environ.get("PROXMOX_TASK_TIMEOUT", "120"))
 
-LAB_DC_VMID      = os.environ.get("LAB_DC_VMID", "")       # VMID of Domain Controller
-LAB_SRV_VMID     = os.environ.get("LAB_SRV_VMID", "")      # VMID of member server
-LAB_WS_VMID      = os.environ.get("LAB_WS_VMID", "")       # VMID of workstation (optional)
-LAB_CLEAN_SNAPSHOT = os.environ.get("LAB_CLEAN_SNAPSHOT", "baseline-ad")  # agent creates this in lab_setup.py phase6
+LAB_DC_VMID = os.environ.get("LAB_DC_VMID", "")  # VMID of Domain Controller
+LAB_SRV_VMID = os.environ.get("LAB_SRV_VMID", "")  # VMID of member server
+LAB_WS_VMID = os.environ.get("LAB_WS_VMID", "")  # VMID of workstation (optional)
+LAB_CLEAN_SNAPSHOT = os.environ.get(
+    "LAB_CLEAN_SNAPSHOT", "baseline-ad"
+)  # agent creates this in lab_setup.py phase6
 
 PROXMOX_MCP_PORT = int(os.environ.get("PROXMOX_MCP_HOST_PORT", "8927"))
 _PROXMOX_AVAILABLE = bool(LAB_DC_VMID)  # MCP handles auth; we just need a VMID
@@ -94,7 +97,10 @@ ALL_PHASES = ["recon", "kerberoast", "asrep", "crack", "spray", "bloodhound", "w
 
 # ── Proxmox MCP call ──────────────────────────────────────────────────────────
 
-def _proxmox_mcp_call(tool_name: str, arguments: dict[str, Any], timeout: int = 180) -> dict[str, Any]:
+
+def _proxmox_mcp_call(
+    tool_name: str, arguments: dict[str, Any], timeout: int = 180
+) -> dict[str, Any]:
     """Call a proxmox_mcp tool via the Proxmox MCP server (:8927).
 
     Uses the same FastMCP SSE protocol as _mcp_call (sandbox). Returns
@@ -106,11 +112,21 @@ def _proxmox_mcp_call(tool_name: str, arguments: dict[str, Any], timeout: int = 
 
     with httpx.Client(timeout=timeout + 30) as c:
         sid = ""
-        with c.stream("POST", base, headers=hdrs, json={
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {"protocolVersion": "2024-11-05", "capabilities": {},
-                       "clientInfo": {"name": "bench_lab_exec", "version": "1"}},
-        }) as r:
+        with c.stream(
+            "POST",
+            base,
+            headers=hdrs,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "bench_lab_exec", "version": "1"},
+                },
+            },
+        ) as r:
             r.raise_for_status()
             sid = r.headers.get("mcp-session-id", "")
             for _ in r.iter_lines():
@@ -118,10 +134,17 @@ def _proxmox_mcp_call(tool_name: str, arguments: dict[str, Any], timeout: int = 
 
         call_hdrs = {**hdrs, "mcp-session-id": sid} if sid else hdrs
         last_result: dict = {}
-        with c.stream("POST", base, headers=call_hdrs, json={
-            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
-            "params": {"name": tool_name, "arguments": arguments},
-        }) as r:
+        with c.stream(
+            "POST",
+            base,
+            headers=call_hdrs,
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": tool_name, "arguments": arguments},
+            },
+        ) as r:
             r.raise_for_status()
             for line in r.iter_lines():
                 line = line.strip()
@@ -192,15 +215,21 @@ def lab_setup(dry_run: bool = False) -> bool:
         return True
     print("\n── Lab Setup (Proxmox MCP :8927) ──")
     if dry_run:
-        print(f"  [proxmox-mcp] DRY-RUN — would start vmid={LAB_DC_VMID},{LAB_SRV_VMID},{LAB_WS_VMID}")
+        print(
+            f"  [proxmox-mcp] DRY-RUN — would start vmid={LAB_DC_VMID},{LAB_SRV_VMID},{LAB_WS_VMID}"
+        )
         return True
     ok = True
-    ok &= _lab_vm_start(LAB_DC_VMID,  label="dc01")
+    ok &= _lab_vm_start(LAB_DC_VMID, label="dc01")
     ok &= _lab_vm_start(LAB_SRV_VMID, label="srv01")
     if LAB_WS_VMID:
         ok &= _lab_vm_start(LAB_WS_VMID, label="ws01")
     if ok:
-        print("  [proxmox-mcp] VMs up — waiting 15s for AD services to settle ...", end=" ", flush=True)
+        print(
+            "  [proxmox-mcp] VMs up — waiting 15s for AD services to settle ...",
+            end=" ",
+            flush=True,
+        )
         time.sleep(15)
         print("ok")
     return ok
@@ -216,7 +245,7 @@ def lab_teardown(dry_run: bool = False) -> bool:
         print(f"  [proxmox-mcp] DRY-RUN — would revert to snapshot '{LAB_CLEAN_SNAPSHOT}'")
         return True
     ok = True
-    ok &= _lab_vm_revert(LAB_DC_VMID,  LAB_CLEAN_SNAPSHOT, label="dc01")
+    ok &= _lab_vm_revert(LAB_DC_VMID, LAB_CLEAN_SNAPSHOT, label="dc01")
     ok &= _lab_vm_revert(LAB_SRV_VMID, LAB_CLEAN_SNAPSHOT, label="srv01")
     if LAB_WS_VMID:
         ok &= _lab_vm_revert(LAB_WS_VMID, LAB_CLEAN_SNAPSHOT, label="ws01")
@@ -224,6 +253,7 @@ def lab_teardown(dry_run: bool = False) -> bool:
 
 
 # ── MCP sandwich ──────────────────────────────────────────────────────────────
+
 
 def _mcp_call(code: str, timeout: int = 120, dry_run: bool = False) -> dict[str, Any]:
     """Call execute_bash on the sandbox MCP and return {ok, output, elapsed_s}.
@@ -242,11 +272,21 @@ def _mcp_call(code: str, timeout: int = 120, dry_run: bool = False) -> dict[str,
     with httpx.Client(timeout=timeout + 30) as c:
         # ── initialize (streaming, short) ────────────────────────────────────
         sid = ""
-        with c.stream("POST", base, headers=hdrs, json={
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {"protocolVersion": "2024-11-05", "capabilities": {},
-                       "clientInfo": {"name": "bench_lab_exec", "version": "1"}},
-        }) as r:
+        with c.stream(
+            "POST",
+            base,
+            headers=hdrs,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "bench_lab_exec", "version": "1"},
+                },
+            },
+        ) as r:
             r.raise_for_status()
             sid = r.headers.get("mcp-session-id", "")
             for _ in r.iter_lines():
@@ -256,11 +296,17 @@ def _mcp_call(code: str, timeout: int = 120, dry_run: bool = False) -> dict[str,
 
         # ── tools/call (streaming, long) — consume all SSE events ────────────
         last_result: dict = {}
-        with c.stream("POST", base, headers=call_hdrs, json={
-            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
-            "params": {"name": "execute_bash",
-                       "arguments": {"code": code, "timeout": timeout}},
-        }) as r:
+        with c.stream(
+            "POST",
+            base,
+            headers=call_hdrs,
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "execute_bash", "arguments": {"code": code, "timeout": timeout}},
+            },
+        ) as r:
             r.raise_for_status()
             for line in r.iter_lines():
                 line = line.strip()
@@ -285,6 +331,7 @@ def _mcp_call(code: str, timeout: int = 120, dry_run: bool = False) -> dict[str,
 
 
 # ── Phase definitions ─────────────────────────────────────────────────────────
+
 
 def _phase_recon(dry_run: bool) -> dict:
     # Use Python socket TCP-connect rather than nmap.
@@ -315,10 +362,7 @@ print(f'Found {{len(open_ports)}} of {{len(ad_ports)}} AD ports open')
 
 
 def _phase_kerberoast(dry_run: bool) -> dict:
-    code = (
-        f"impacket-GetUserSPNs {DOMAIN}/administrator:{ADMIN_PASS}"
-        f" -dc-ip {DC} -request 2>&1"
-    )
+    code = f"impacket-GetUserSPNs {DOMAIN}/administrator:{ADMIN_PASS} -dc-ip {DC} -request 2>&1"
     r = _mcp_call(code, timeout=60, dry_run=dry_run)
     count = r["output"].count("$krb5tgs$")
     ok = r["ok"] and count >= 3
@@ -463,18 +507,19 @@ PYEOF
 
 
 PHASE_FNS = {
-    "recon":      _phase_recon,
+    "recon": _phase_recon,
     "kerberoast": _phase_kerberoast,
-    "asrep":      _phase_asrep,
-    "crack":      _phase_crack,
-    "spray":      _phase_spray,
+    "asrep": _phase_asrep,
+    "crack": _phase_crack,
+    "spray": _phase_spray,
     "bloodhound": _phase_bloodhound,
-    "winrm":      _phase_winrm,
-    "dcsync":     _phase_dcsync,
+    "winrm": _phase_winrm,
+    "dcsync": _phase_dcsync,
 }
 
 
 # ── Runner ────────────────────────────────────────────────────────────────────
+
 
 def run_bench(
     phases: list[str],
@@ -483,7 +528,7 @@ def run_bench(
     output_path: Path | None,
     manage_lifecycle: bool = True,
 ) -> None:
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     results: dict[str, Any] = {
         "bench": "lab_exec",
         "started_at": ts,
@@ -500,7 +545,9 @@ def run_bench(
     total_t0 = time.monotonic()
     print(f"\nPortal 5 — Lab-Exec Bench  [{ts}]")
     print(f"DC={DC}  SRV={SRV}  runs={runs}  dry_run={dry_run}")
-    print(f"Proxmox lifecycle: {'enabled' if manage_lifecycle and _PROXMOX_AVAILABLE else 'disabled'}")
+    print(
+        f"Proxmox lifecycle: {'enabled' if manage_lifecycle and _PROXMOX_AVAILABLE else 'disabled'}"
+    )
     print(f"Phases: {', '.join(phases)}\n")
 
     if manage_lifecycle:
@@ -536,7 +583,7 @@ def run_bench(
 
     total_elapsed = time.monotonic() - total_t0
     results["total_elapsed_s"] = round(total_elapsed, 1)
-    results["finished_at"] = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    results["finished_at"] = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
     # ── Summary table ─────────────────────────────────────────────────────────
     print(f"\n{'Phase':<14} {'OK':>4} {'Fail':>4} {'Avg(s)':>8} {'Min':>6} {'Max':>6}  Detail")
@@ -566,10 +613,18 @@ def run_bench(
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
+
 def _parse() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--phases", nargs="+", choices=ALL_PHASES, default=ALL_PHASES,
-                   help="phases to run (default: all)")
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    p.add_argument(
+        "--phases",
+        nargs="+",
+        choices=ALL_PHASES,
+        default=ALL_PHASES,
+        help="phases to run (default: all)",
+    )
     p.add_argument("--runs", type=int, default=1, help="repetitions per phase")
     p.add_argument("--output", type=Path, help="JSON results file path")
     p.add_argument("--dry-run", action="store_true", help="skip MCP calls, measure overhead only")

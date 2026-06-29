@@ -45,6 +45,7 @@ import httpx
 try:
     from tests.benchmarks.bench.notify import _send_bench_notification
 except ImportError:
+
     def _send_bench_notification(message: str, title: str = "Portal 5 Bench") -> None:  # type: ignore[misc]
         pass
 
@@ -97,14 +98,14 @@ ROUTING_CONFIG_DIR = Path(os.environ.get("ROUTING_CONFIG_DIR", _REPO_ROOT / "con
 
 DEFAULT_CANDIDATES: list[str] = [
     "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",  # current production baseline
-    "granite3.3:2b",       # IBM 2B, strong IFEval, no think tokens
-    "gemma4:e2b-it-qat",   # Google 2B, already fleet, fast Metal
-    "llama3.2:1b",         # Meta 1B, speed floor
-    "llama3.2:3b",         # Meta 3B, non-abliterated comparison
-    "smollm2:1.7b",        # HF 1.7B, edge model
-    "qwen2.5:1.5b",        # Alibaba 1.5B, tiny
-    "qwen2.5:3b",          # Alibaba 3B, strong IFEval
-    "phi4-mini",           # Microsoft 3.8B, quality ceiling
+    "granite3.3:2b",  # IBM 2B, strong IFEval, no think tokens
+    "gemma4:e2b-it-qat",  # Google 2B, already fleet, fast Metal
+    "llama3.2:1b",  # Meta 1B, speed floor
+    "llama3.2:3b",  # Meta 3B, non-abliterated comparison
+    "smollm2:1.7b",  # HF 1.7B, edge model
+    "qwen2.5:1.5b",  # Alibaba 1.5B, tiny
+    "qwen2.5:3b",  # Alibaba 3B, strong IFEval
+    "phi4-mini",  # Microsoft 3.8B, quality ceiling
 ]
 
 # Round 2: huihui_ai abliterated variants of the best Round 1 candidates.
@@ -120,11 +121,11 @@ DEFAULT_CANDIDATES: list[str] = [
 #   ollama pull huihui_ai/phi4-mini-abliterated       # vs phi4-mini (71.2%)
 #   ollama pull huihui_ai/granite3.2-abliterated:2b   # vs granite3.3:2b (68.5%)
 ROUND2_CANDIDATES: list[str] = [
-    "huihui_ai/llama3.2-abliterate:3b",      # huihui abliterated vs plain llama3.2:3b
-    "huihui_ai/gemma-4-abliterated:e2b",     # huihui abliterated gemma4 e2b (7.2GB Ollama quant)
-    "huihui_ai/qwen2.5-abliterate:3b",       # huihui abliterated qwen2.5 3B
-    "huihui_ai/phi4-mini-abliterated",       # huihui abliterated phi4-mini
-    "huihui_ai/granite3.2-abliterated:2b",   # huihui abliterated granite3.2 2B
+    "huihui_ai/llama3.2-abliterate:3b",  # huihui abliterated vs plain llama3.2:3b
+    "huihui_ai/gemma-4-abliterated:e2b",  # huihui abliterated gemma4 e2b (7.2GB Ollama quant)
+    "huihui_ai/qwen2.5-abliterate:3b",  # huihui abliterated qwen2.5 3B
+    "huihui_ai/phi4-mini-abliterated",  # huihui abliterated phi4-mini
+    "huihui_ai/granite3.2-abliterated:2b",  # huihui abliterated granite3.2 2B
 ]
 
 # Round 3: mradermacher GGUF abliterations + OBLITERATED E4B variant.
@@ -140,9 +141,9 @@ ROUND2_CANDIDATES: list[str] = [
 #   ollama pull hf.co/mradermacher/Huihui-gemma-4-E4B-it-abliterated-GGUF:Q4_K_M   # 5.9GB
 #   ollama pull hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M           # 5.3GB
 ROUND3_CANDIDATES: list[str] = [
-    "hf.co/mradermacher/Huihui-gemma-4-E2B-it-abliterated-GGUF:Q4_K_M",   # mradermacher Q4_K_M, 4.0GB
-    "hf.co/mradermacher/Huihui-gemma-4-E4B-it-abliterated-GGUF:Q4_K_M",   # E4B abliterated, 5.9GB
-    "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",           # OBLITERATED E4B, 5.3GB
+    "hf.co/mradermacher/Huihui-gemma-4-E2B-it-abliterated-GGUF:Q4_K_M",  # mradermacher Q4_K_M, 4.0GB
+    "hf.co/mradermacher/Huihui-gemma-4-E4B-it-abliterated-GGUF:Q4_K_M",  # E4B abliterated, 5.9GB
+    "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",  # OBLITERATED E4B, 5.3GB
 ]
 
 # Round 4: LFM2.5 micro candidates (Liquid AI hybrid architecture).
@@ -174,8 +175,8 @@ ROUND3_CANDIDATES: list[str] = [
 #   LFM2.5-1.2B: viable if it clears 70%+ — offers 4x RAM saving vs E4B OBLITERATED
 #
 ROUND4_LFM_CANDIDATES: list[str] = [
-    "hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M",         # ~146MB, sub-250M baseline
-    "hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M",         # ~218MB, 313 t/s CPU
+    "hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M",  # ~146MB, sub-250M baseline
+    "hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M",  # ~218MB, 313 t/s CPU
     "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",  # ~697MB, reasoning-capable
 ]
 
@@ -192,134 +193,297 @@ GOLDEN_SET: list[tuple[str, str, str, str]] = [
     ("implement a Rust async HTTP server", "auto-coding", "standard", ""),
     ("write a Dockerfile for a FastAPI app", "auto-coding", "standard", ""),
     ("refactor this function to use dependency injection", "auto-coding", "standard", ""),
-
     # ── auto-spl ─────────────────────────────────────────────────────────────
     ("write a Splunk tstats search for failed logins by source IP", "auto-spl", "standard", ""),
     ("explain how data model acceleration works in Splunk ES", "auto-spl", "standard", ""),
-    ("create a correlation search for lateral movement in SPL", "auto-spl", "standard", "domain overlap with security"),
-
+    (
+        "create a correlation search for lateral movement in SPL",
+        "auto-spl",
+        "standard",
+        "domain overlap with security",
+    ),
     # ── auto-redteam ─────────────────────────────────────────────────────────
-    ("write an exploit for an authorized buffer overflow test", "auto-redteam", "security", "offensive"),
-    ("explain how to perform pass-the-hash in an AD environment", "auto-redteam", "security", "offensive"),
-    ("generate a reverse shell payload for a red team exercise", "auto-redteam", "security", "offensive"),
-    ("what AV evasion techniques work on current EDR products", "auto-redteam", "security", "offensive"),
-
+    (
+        "write an exploit for an authorized buffer overflow test",
+        "auto-redteam",
+        "security",
+        "offensive",
+    ),
+    (
+        "explain how to perform pass-the-hash in an AD environment",
+        "auto-redteam",
+        "security",
+        "offensive",
+    ),
+    (
+        "generate a reverse shell payload for a red team exercise",
+        "auto-redteam",
+        "security",
+        "offensive",
+    ),
+    (
+        "what AV evasion techniques work on current EDR products",
+        "auto-redteam",
+        "security",
+        "offensive",
+    ),
     # ── auto-redteam-deep ────────────────────────────────────────────────────
-    ("full kill-chain analysis for a supply chain compromise — ATT&CK mapped", "auto-redteam-deep", "security", "depth signal"),
-    ("detailed kerberoasting walkthrough with OPSEC considerations", "auto-redteam-deep", "security", "depth signal"),
-
+    (
+        "full kill-chain analysis for a supply chain compromise — ATT&CK mapped",
+        "auto-redteam-deep",
+        "security",
+        "depth signal",
+    ),
+    (
+        "detailed kerberoasting walkthrough with OPSEC considerations",
+        "auto-redteam-deep",
+        "security",
+        "depth signal",
+    ),
     # ── auto-pentest ─────────────────────────────────────────────────────────
-    ("authorized engagement: enumerate AD kerberoastable accounts and crack hashes", "auto-pentest", "security", "execution mode"),
-    ("run sqlmap against the authorized target at 10.0.0.50", "auto-pentest", "security", "execution mode"),
-
+    (
+        "authorized engagement: enumerate AD kerberoastable accounts and crack hashes",
+        "auto-pentest",
+        "security",
+        "execution mode",
+    ),
+    (
+        "run sqlmap against the authorized target at 10.0.0.50",
+        "auto-pentest",
+        "security",
+        "execution mode",
+    ),
     # ── auto-security ────────────────────────────────────────────────────────
     ("analyze this YARA rule for potential false positives", "auto-security", "standard", ""),
     ("what does CVE-2024-3400 mean for our Palo Alto firewalls", "auto-security", "standard", ""),
-    ("write a Sigma rule for detecting Mimikatz", "auto-security", "standard", "defensive creation"),
-
+    (
+        "write a Sigma rule for detecting Mimikatz",
+        "auto-security",
+        "standard",
+        "defensive creation",
+    ),
     # ── auto-blueteam ────────────────────────────────────────────────────────
     ("we detected ransomware on WS-42 — what do we isolate first", "auto-blueteam", "standard", ""),
-    ("write an incident response playbook for a phishing campaign", "auto-blueteam", "standard", ""),
+    (
+        "write an incident response playbook for a phishing campaign",
+        "auto-blueteam",
+        "standard",
+        "",
+    ),
     ("harden our Windows Server 2022 baseline per CIS benchmarks", "auto-blueteam", "standard", ""),
-
     # ── auto-purpleteam ──────────────────────────────────────────────────────
-    ("attack chain for cobalt strike beacon plus matching detection rules", "auto-purpleteam", "standard", "red+blue signal"),
-    ("purple team analysis: credential dumping TTPs and SIEM detections", "auto-purpleteam-deep", "standard", "deep chain"),
-
+    (
+        "attack chain for cobalt strike beacon plus matching detection rules",
+        "auto-purpleteam",
+        "standard",
+        "red+blue signal",
+    ),
+    (
+        "purple team analysis: credential dumping TTPs and SIEM detections",
+        "auto-purpleteam-deep",
+        "standard",
+        "deep chain",
+    ),
     # ── auto-purpleteam-exec ─────────────────────────────────────────────────
-    ("authorized lab: scan 192.168.100.0/24 and identify vulnerable services", "auto-purpleteam-exec", "security", "execution mode"),
-
+    (
+        "authorized lab: scan 192.168.100.0/24 and identify vulnerable services",
+        "auto-purpleteam-exec",
+        "security",
+        "execution mode",
+    ),
     # ── auto-compliance ──────────────────────────────────────────────────────
-    ("is our patch management process compliant with NERC CIP-007-6 R4", "auto-compliance", "standard", ""),
-    ("map our access control logs to CIP-004 R6 evidence requirements", "auto-compliance", "standard", ""),
-
+    (
+        "is our patch management process compliant with NERC CIP-007-6 R4",
+        "auto-compliance",
+        "standard",
+        "",
+    ),
+    (
+        "map our access control logs to CIP-004 R6 evidence requirements",
+        "auto-compliance",
+        "standard",
+        "",
+    ),
     # ── auto-bigfix ──────────────────────────────────────────────────────────
-    ("query the BigFix REST API for all computers missing KB5034765", "auto-bigfix", "standard", ""),
-    ("write a BigFix relevance expression to check .NET 4.8 patch state", "auto-bigfix", "standard", ""),
-    ("create a BigFix fixlet to deploy an emergency patch to Windows servers", "auto-bigfix", "standard", ""),
-
+    (
+        "query the BigFix REST API for all computers missing KB5034765",
+        "auto-bigfix",
+        "standard",
+        "",
+    ),
+    (
+        "write a BigFix relevance expression to check .NET 4.8 patch state",
+        "auto-bigfix",
+        "standard",
+        "",
+    ),
+    (
+        "create a BigFix fixlet to deploy an emergency patch to Windows servers",
+        "auto-bigfix",
+        "standard",
+        "",
+    ),
     # ── auto-cad ─────────────────────────────────────────────────────────────
     ("design a parametric mounting bracket in OpenSCAD for M4 screws", "auto-cad", "standard", ""),
     ("generate OpenSCAD code for a hex enclosure with snap-fit lid", "auto-cad", "standard", ""),
     ("create an STL for a spur gear, module 2, 20 teeth", "auto-cad", "standard", ""),
-
     # ── auto-data ────────────────────────────────────────────────────────────
-    ("analyze this CSV for outliers and suggest visualization approaches", "auto-data", "standard", ""),
-    ("explain the difference between ANOVA and a t-test for my experiment", "auto-data", "standard", ""),
-
+    (
+        "analyze this CSV for outliers and suggest visualization approaches",
+        "auto-data",
+        "standard",
+        "",
+    ),
+    (
+        "explain the difference between ANOVA and a t-test for my experiment",
+        "auto-data",
+        "standard",
+        "",
+    ),
     # ── auto-research ────────────────────────────────────────────────────────
-    ("find recent papers on diffusion models for protein structure prediction", "auto-research", "standard", ""),
+    (
+        "find recent papers on diffusion models for protein structure prediction",
+        "auto-research",
+        "standard",
+        "",
+    ),
     ("what happened with the CrowdStrike outage in July 2024", "auto-research", "standard", ""),
-
     # ── auto-reasoning ───────────────────────────────────────────────────────
-    ("deep dive: pros and cons of event sourcing vs CQRS for this system", "auto-reasoning", "standard", ""),
-    ("step by step: how does a transformer's attention mechanism work", "auto-reasoning", "standard", ""),
-
+    (
+        "deep dive: pros and cons of event sourcing vs CQRS for this system",
+        "auto-reasoning",
+        "standard",
+        "",
+    ),
+    (
+        "step by step: how does a transformer's attention mechanism work",
+        "auto-reasoning",
+        "standard",
+        "",
+    ),
     # ── auto-math ────────────────────────────────────────────────────────────
-    ("solve the differential equation dy/dx = 2xy with initial condition y(0)=1", "auto-math", "standard", ""),
-    ("prove by induction that the sum of first n integers is n(n+1)/2", "auto-math", "standard", ""),
-
+    (
+        "solve the differential equation dy/dx = 2xy with initial condition y(0)=1",
+        "auto-math",
+        "standard",
+        "",
+    ),
+    (
+        "prove by induction that the sum of first n integers is n(n+1)/2",
+        "auto-math",
+        "standard",
+        "",
+    ),
     # ── auto-documents ───────────────────────────────────────────────────────
     ("create a Word document with our Q3 financial summary", "auto-documents", "standard", ""),
-    ("make a PowerPoint presentation from these 10 bullet points", "auto-documents", "standard", ""),
+    (
+        "make a PowerPoint presentation from these 10 bullet points",
+        "auto-documents",
+        "standard",
+        "",
+    ),
     ("transcribe this meeting recording with speaker labels", "auto-documents", "standard", ""),
-
     # ── auto-audio ───────────────────────────────────────────────────────────
     ("summarize the key points from this podcast episode", "auto-audio", "standard", ""),
     ("what topics were discussed in this interview recording", "auto-audio", "standard", ""),
-
     # ── auto-vision ──────────────────────────────────────────────────────────
     ("what does this network diagram show", "auto-vision", "standard", ""),
     ("analyze the architecture in this screenshot", "auto-vision", "standard", ""),
-
     # ── auto-creative ────────────────────────────────────────────────────────
     ("write a noir detective short story set in a rainy city", "auto-creative", "standard", ""),
     ("write product copy for a new headphone launch", "auto-creative", "standard", ""),
-
     # ── auto-music ───────────────────────────────────────────────────────────
     ("generate a 30-second ambient track for a meditation app", "auto-music", "standard", ""),
     ("create an upbeat lo-fi hip hop beat", "auto-music", "standard", ""),
-
     # ── auto-video ───────────────────────────────────────────────────────────
     ("generate a 5-second video of ocean waves at sunset", "auto-video", "standard", ""),
     ("create a time-lapse video of a city skyline", "auto-video", "standard", ""),
-
     # ── auto-agentic ─────────────────────────────────────────────────────────
-    ("refactor this entire 8000-line monolith to use async/await throughout", "auto-agentic", "standard", "scale signal"),
-    ("analyze and document every function in this 200-file codebase", "auto-agentic", "standard", "scale signal"),
-
+    (
+        "refactor this entire 8000-line monolith to use async/await throughout",
+        "auto-agentic",
+        "standard",
+        "scale signal",
+    ),
+    (
+        "analyze and document every function in this 200-file codebase",
+        "auto-agentic",
+        "standard",
+        "scale signal",
+    ),
     # ── auto-mistral ─────────────────────────────────────────────────────────
-    ("use Magistral to walk through this strategic partnership decision", "auto-mistral", "standard", "model-name signal"),
-    ("structured Mistral reasoning: evaluate these three architecture options", "auto-mistral", "standard", "model-name signal"),
-
+    (
+        "use Magistral to walk through this strategic partnership decision",
+        "auto-mistral",
+        "standard",
+        "model-name signal",
+    ),
+    (
+        "structured Mistral reasoning: evaluate these three architecture options",
+        "auto-mistral",
+        "standard",
+        "model-name signal",
+    ),
     # ── auto-phi4 ────────────────────────────────────────────────────────────
     ("use Phi-4 to reason through this STEM problem", "auto-phi4", "standard", "model-name signal"),
-
     # ── auto-daily ───────────────────────────────────────────────────────────
     ("can you help me draft a quick reply to this email", "auto-daily", "standard", ""),
     ("what's a good way to organize my week", "auto-daily", "standard", ""),
-
     # ── tools-specialist ─────────────────────────────────────────────────────
-    ("read all Python files in this directory recursively", "tools-specialist", "standard", "tool invocation"),
-    ("list running Docker containers and show their resource usage", "tools-specialist", "standard", "tool invocation"),
-
+    (
+        "read all Python files in this directory recursively",
+        "tools-specialist",
+        "standard",
+        "tool invocation",
+    ),
+    (
+        "list running Docker containers and show their resource usage",
+        "tools-specialist",
+        "standard",
+        "tool invocation",
+    ),
     # ── auto (general / abstain) ─────────────────────────────────────────────
     ("hello, how are you today", "auto", "abstain", "no routing gain"),
     ("what is 2 + 2", "auto", "abstain", "trivial — no workspace needed"),
     ("who invented the telephone", "auto", "abstain", "general knowledge"),
     ("can you help me think through something", "auto", "abstain", "vague intent"),
-
     # ── Adversarial / hard cases ──────────────────────────────────────────────
-    ("write a Splunk search to detect Mimikatz", "auto-spl", "standard", "security + SPL overlap — SPL should win"),
-    ("CIP-007 requirements for patching ICS systems", "auto-compliance", "standard", "compliance + security overlap"),
-    ("design a bracket that holds a Raspberry Pi", "auto-cad", "standard", "coding vs CAD ambiguity"),
-    ("write tests for my OpenSCAD model generator", "auto-coding", "standard", "OpenSCAD but task is coding"),
+    (
+        "write a Splunk search to detect Mimikatz",
+        "auto-spl",
+        "standard",
+        "security + SPL overlap — SPL should win",
+    ),
+    (
+        "CIP-007 requirements for patching ICS systems",
+        "auto-compliance",
+        "standard",
+        "compliance + security overlap",
+    ),
+    (
+        "design a bracket that holds a Raspberry Pi",
+        "auto-cad",
+        "standard",
+        "coding vs CAD ambiguity",
+    ),
+    (
+        "write tests for my OpenSCAD model generator",
+        "auto-coding",
+        "standard",
+        "OpenSCAD but task is coding",
+    ),
     ("explain how kerberoasting works", "auto-security", "standard", "explanation vs execution"),
-    ("i need to know about lateral movement techniques", "auto-security", "standard", "general vs redteam"),
+    (
+        "i need to know about lateral movement techniques",
+        "auto-security",
+        "standard",
+        "general vs redteam",
+    ),
 ]
 
 
 # ── Router infrastructure (mirrors production routing.py) ─────────────────────
+
 
 def _load_routing_config() -> tuple[dict[str, str], list[dict]]:
     desc_path = ROUTING_CONFIG_DIR / "routing_descriptions.json"
@@ -411,15 +575,24 @@ def route_one(
 
 # ── Scoring ───────────────────────────────────────────────────────────────────
 
+
 def score_results(rows: list[dict]) -> dict[str, Any]:
     total = len(rows)
     correct = sum(1 for r in rows if r["result"] == "correct")
-    correct_abstain = sum(1 for r in rows if r["category"] == "abstain" and r["result"] == "correct")
+    correct_abstain = sum(
+        1 for r in rows if r["category"] == "abstain" and r["result"] == "correct"
+    )
     total_abstain = sum(1 for r in rows if r["category"] == "abstain")
     total_security = sum(1 for r in rows if r["category"] == "security")
-    correct_security = sum(1 for r in rows if r["category"] == "security" and r["result"] == "correct")
-    security_refused = sum(1 for r in rows if r["category"] == "security" and "refused" in r.get("error", "").lower())
-    security_timeout = sum(1 for r in rows if r["category"] == "security" and r.get("error") == "TIMEOUT")
+    correct_security = sum(
+        1 for r in rows if r["category"] == "security" and r["result"] == "correct"
+    )
+    security_refused = sum(
+        1 for r in rows if r["category"] == "security" and "refused" in r.get("error", "").lower()
+    )
+    security_timeout = sum(
+        1 for r in rows if r["category"] == "security" and r.get("error") == "TIMEOUT"
+    )
     latencies = [r["elapsed_ms"] for r in rows if r.get("elapsed_ms", 0) > 0]
     return {
         "accuracy": correct / total if total else 0,
@@ -437,6 +610,7 @@ def score_results(rows: list[dict]) -> dict[str, Any]:
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 
+
 def run_bench(
     models: list[str],
     dry_run: bool = False,
@@ -450,6 +624,7 @@ def run_bench(
     try:
         sys.path.insert(0, str(_REPO_ROOT))
         from portal_pipeline.router.workspaces import WORKSPACES  # type: ignore[import]
+
         valid_ids = frozenset(k for k in WORKSPACES if not k.startswith("bench-"))
     except ImportError:
         # Fallback to descriptions keys
@@ -458,16 +633,13 @@ def run_bench(
     schema = _build_schema(valid_ids)
 
     # Pre-build prompts per test case
-    prompts = [
-        _build_prompt(msg, descriptions, examples)
-        for msg, _, _, _ in GOLDEN_SET
-    ]
+    prompts = [_build_prompt(msg, descriptions, examples) for msg, _, _, _ in GOLDEN_SET]
 
     if dry_run:
         print(f"DRY RUN — {len(GOLDEN_SET)} test cases × {len(models)} models\n")
         for i, (msg, expected, cat, note) in enumerate(GOLDEN_SET):
             note_str = f"  [{note}]" if note else ""
-            print(f"  {i+1:2d}. [{cat:10s}] → {expected:30s}  {msg[:60]!r}{note_str}")
+            print(f"  {i + 1:2d}. [{cat:10s}] → {expected:30s}  {msg[:60]!r}{note_str}")
         return {}
 
     all_results: dict[str, list[dict]] = {}
@@ -481,9 +653,9 @@ def run_bench(
 
     with httpx.Client() as client:
         for model in models:
-            print(f"\n{'─'*70}")
+            print(f"\n{'─' * 70}")
             print(f"MODEL: {model}")
-            print(f"{'─'*70}")
+            print(f"{'─' * 70}")
 
             rows: list[dict] = []
             timeout_s = TIMEOUT_MS / 1000.0
@@ -507,42 +679,54 @@ def run_bench(
 
                 symbol = "✓" if result == "correct" else ("·" if result == "abstained" else "✗")
                 latency_flag = " ⚠️ SLOW" if elapsed_ms > TIMEOUT_MS else ""
-                ws_display = workspace or f"(none/fallback){' TIMEOUT' if error == 'TIMEOUT' else ''}"
+                ws_display = (
+                    workspace or f"(none/fallback){' TIMEOUT' if error == 'TIMEOUT' else ''}"
+                )
                 print(
-                    f"  {i+1:2d}/{n} {symbol} [{cat[:3]:3s}] {expected:28s}"
+                    f"  {i + 1:2d}/{n} {symbol} [{cat[:3]:3s}] {expected:28s}"
                     f"  → {ws_display:28s}  {elapsed_ms:5.0f}ms{latency_flag}"
                 )
                 if error and error != "TIMEOUT":
                     print(f"       error: {error}")
 
-                rows.append({
-                    "message": msg,
-                    "expected": expected,
-                    "got": workspace,
-                    "confidence": confidence,
-                    "elapsed_ms": round(elapsed_ms, 1),
-                    "result": result,
-                    "category": cat,
-                    "error": error,
-                    "notes": note,
-                })
+                rows.append(
+                    {
+                        "message": msg,
+                        "expected": expected,
+                        "got": workspace,
+                        "confidence": confidence,
+                        "elapsed_ms": round(elapsed_ms, 1),
+                        "result": result,
+                        "category": cat,
+                        "error": error,
+                        "notes": note,
+                    }
+                )
 
             stats = score_results(rows)
             all_results[model] = rows
 
-            print(f"\n  SUMMARY  accuracy={stats['accuracy_pct']}  ({stats['accuracy']*100:.1f}%)")
-            print(f"           security={stats['security_pct']}  ({stats['security_accuracy']*100:.1f}%)")
-            print(f"           abstain_acc={stats['abstain_accuracy']*100:.1f}%")
+            print(
+                f"\n  SUMMARY  accuracy={stats['accuracy_pct']}  ({stats['accuracy'] * 100:.1f}%)"
+            )
+            print(
+                f"           security={stats['security_pct']}  ({stats['security_accuracy'] * 100:.1f}%)"
+            )
+            print(f"           abstain_acc={stats['abstain_accuracy'] * 100:.1f}%")
             print(f"           p50={stats['p50_ms']:.0f}ms  p95={stats['p95_ms']:.0f}ms")
-            print(f"           timeouts={stats['timeout_count']}  security_refused={stats['security_refused']}")
+            print(
+                f"           timeouts={stats['timeout_count']}  security_refused={stats['security_refused']}"
+            )
             if stats["security_refused"] > 0:
-                print(f"  *** ROUTER DISQUALIFIED: {stats['security_refused']} security classification refusals ***")
+                print(
+                    f"  *** ROUTER DISQUALIFIED: {stats['security_refused']} security classification refusals ***"
+                )
 
             short_name = model.split("/")[-1][:40]
             _send_bench_notification(
                 f"{short_name}\n"
-                f"acc={stats['accuracy_pct']} ({stats['accuracy']*100:.1f}%)  "
-                f"sec={stats['security_accuracy']*100:.1f}%\n"
+                f"acc={stats['accuracy_pct']} ({stats['accuracy'] * 100:.1f}%)  "
+                f"sec={stats['security_accuracy'] * 100:.1f}%\n"
                 f"p50={stats['p50_ms']:.0f}ms  p95={stats['p95_ms']:.0f}ms  "
                 f"TO={stats['timeout_count']}",
                 title="🔀 Router Bench — model done",
@@ -555,11 +739,11 @@ def run_bench(
         s = score_results(rows)
         lines.append(
             f"{model.split('/')[-1][:30]:30s}  "
-            f"acc={s['accuracy']*100:.0f}%  sec={s['security_accuracy']*100:.0f}%  "
+            f"acc={s['accuracy'] * 100:.0f}%  sec={s['security_accuracy'] * 100:.0f}%  "
             f"p50={s['p50_ms']:.0f}ms"
         )
     _send_bench_notification(
-        f"{len(all_results)} models  {len(GOLDEN_SET)} tests  {elapsed_total/60:.1f}min\n\n"
+        f"{len(all_results)} models  {len(GOLDEN_SET)} tests  {elapsed_total / 60:.1f}min\n\n"
         + "\n".join(lines),
         title="🔀 Router Bench — DONE",
     )
@@ -570,9 +754,9 @@ def run_bench(
 def print_comparison(all_results: dict[str, list[dict]]) -> None:
     if len(all_results) < 2:
         return
-    print(f"\n{'━'*80}")
+    print(f"\n{'━' * 80}")
     print("COMPARISON")
-    print(f"{'━'*80}")
+    print(f"{'━' * 80}")
     header = f"{'Model':<55} {'Acc':>6} {'Sec':>6} {'Abs':>6} {'p50ms':>6} {'p95ms':>6} {'TO':>4}"
     print(header)
     print("─" * 80)
@@ -580,9 +764,9 @@ def print_comparison(all_results: dict[str, list[dict]]) -> None:
         stats = score_results(rows)
         short = model.split("/")[-1][:52]
         print(
-            f"{short:<55} {stats['accuracy']*100:>5.1f}% "
-            f"{stats['security_accuracy']*100:>5.1f}% "
-            f"{stats['abstain_accuracy']*100:>5.1f}% "
+            f"{short:<55} {stats['accuracy'] * 100:>5.1f}% "
+            f"{stats['security_accuracy'] * 100:>5.1f}% "
+            f"{stats['abstain_accuracy'] * 100:>5.1f}% "
             f"{stats['p50_ms']:>5.0f} "
             f"{stats['p95_ms']:>5.0f} "
             f"{stats['timeout_count']:>4}"
@@ -598,10 +782,13 @@ def print_comparison(all_results: dict[str, list[dict]]) -> None:
             print(f"  [{cat[:3]:3s}] → {expected:25s}  {msg[:45]!r}")
             for m, verdict in zip(model_names, verdicts):
                 got = all_results[m][i].get("got") or "(fallback)"
-                print(f"    {'✓' if verdict=='correct' else '✗'} {m.split('/')[-1][:30]:30s} → {got}")
+                print(
+                    f"    {'✓' if verdict == 'correct' else '✗'} {m.split('/')[-1][:30]:30s} → {got}"
+                )
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     global TIMEOUT_MS  # noqa: PLW0603
@@ -617,8 +804,14 @@ def main() -> None:
         metavar="MODEL",
         help="Ollama model IDs to evaluate (default: DEFAULT_CANDIDATES or ROUND2_CANDIDATES with --round2)",
     )
-    parser.add_argument("--round2", action="store_true", help="Run Round 2 huihui_ai abliterated candidates")
-    parser.add_argument("--round3", action="store_true", help="Run Round 3 mradermacher GGUF + OBLITERATED E4B candidates")
+    parser.add_argument(
+        "--round2", action="store_true", help="Run Round 2 huihui_ai abliterated candidates"
+    )
+    parser.add_argument(
+        "--round3",
+        action="store_true",
+        help="Run Round 3 mradermacher GGUF + OBLITERATED E4B candidates",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print test cases only, don't run")
     parser.add_argument("--output", metavar="FILE", help="Save full results as JSON")
     parser.add_argument(

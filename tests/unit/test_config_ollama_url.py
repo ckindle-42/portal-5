@@ -81,9 +81,9 @@ def test_ollama_base_url_deprecated_alias(
     with caplog.at_level(logging.WARNING, logger="portal_pipeline.config"):
         cfg = load_portal_config(path=p, _force_reload=True)
     assert cfg.ollama_url == "http://legacy-host:11434"
-    assert any("OLLAMA_BASE_URL" in r.message and "deprecated" in r.message for r in caplog.records), (
-        "Expected a deprecation warning for OLLAMA_BASE_URL"
-    )
+    assert any(
+        "OLLAMA_BASE_URL" in r.message and "deprecated" in r.message for r in caplog.records
+    ), "Expected a deprecation warning for OLLAMA_BASE_URL"
 
 
 def test_ollama_url_env_takes_priority_over_base_url(
@@ -114,7 +114,9 @@ def test_production_config_has_valid_ollama_url() -> None:
 
 def test_cluster_backends_yaml_uses_ollama_url() -> None:
     """backends.yaml must reference OLLAMA_URL (not a hardcoded non-env URL)."""
-    backends = (Path(__file__).resolve().parent.parent.parent / "config" / "backends.yaml").read_text()
+    backends = (
+        Path(__file__).resolve().parent.parent.parent / "config" / "backends.yaml"
+    ).read_text()
     assert "OLLAMA_URL" in backends, (
         "backends.yaml must use ${OLLAMA_URL:-...} so native Ollama on Apple Silicon is reachable"
     )

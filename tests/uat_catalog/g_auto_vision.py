@@ -98,11 +98,26 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             "belong at each layer. No image provided — answer from knowledge."
         ),
         "assertions": [
-            {"type": "any_of", "label": "Three tiers named",
-             "keywords": ["presentation", "application", "data", "frontend", "backend",
-                          "database", "client", "server", "tier"]},
-            {"type": "any_of", "label": "Communication described",
-             "keywords": ["http", "api", "request", "response", "connect", "communicate"]},
+            {
+                "type": "any_of",
+                "label": "Three tiers named",
+                "keywords": [
+                    "presentation",
+                    "application",
+                    "data",
+                    "frontend",
+                    "backend",
+                    "database",
+                    "client",
+                    "server",
+                    "tier",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "Communication described",
+                "keywords": ["http", "api", "request", "response", "connect", "communicate"],
+            },
             {"type": "min_length", "label": "Substantive description", "chars": 300},
         ],
     },
@@ -118,10 +133,16 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             "70B-parameter model for a production chatbot? Give 3 advantages of each."
         ),
         "assertions": [
-            {"type": "any_of", "label": "Small model advantages",
-             "keywords": ["fast", "latency", "cost", "cheap", "memory", "lightweight", "speed"]},
-            {"type": "any_of", "label": "Large model advantages",
-             "keywords": ["accurate", "quality", "capability", "complex", "nuanced", "better"]},
+            {
+                "type": "any_of",
+                "label": "Small model advantages",
+                "keywords": ["fast", "latency", "cost", "cheap", "memory", "lightweight", "speed"],
+            },
+            {
+                "type": "any_of",
+                "label": "Large model advantages",
+                "keywords": ["accurate", "quality", "capability", "complex", "nuanced", "better"],
+            },
             {"type": "min_length", "label": "Substantive comparison", "chars": 250},
         ],
     },
@@ -134,9 +155,19 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "workspace_tier": "ollama",
         "prompt": "In two sentences, explain what a Python context manager is and when to use one.",
         "assertions": [
-            {"type": "any_of", "label": "Context manager explained",
-             "keywords": ["with", "__enter__", "__exit__", "context", "resource",
-                          "cleanup", "manages"]},
+            {
+                "type": "any_of",
+                "label": "Context manager explained",
+                "keywords": [
+                    "with",
+                    "__enter__",
+                    "__exit__",
+                    "context",
+                    "resource",
+                    "cleanup",
+                    "manages",
+                ],
+            },
             {"type": "min_length", "label": "Non-trivial response", "chars": 80},
         ],
     },

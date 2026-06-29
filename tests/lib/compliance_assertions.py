@@ -16,8 +16,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-
 # ── Result type ───────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class AssertionResult:
@@ -58,8 +58,8 @@ def _strip_think_blocks(text: str) -> str:
     return _THINK_RE.sub("\n", text)
 
 
-_MARKDOWN_BOLD_RE = re.compile(r'\*\*([^*]+)\*\*')
-_MARKDOWN_ITALIC_RE = re.compile(r'\*([^*]+)\*')
+_MARKDOWN_BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
+_MARKDOWN_ITALIC_RE = re.compile(r"\*([^*]+)\*")
 
 
 def _normalize_response(text: str) -> str:
@@ -67,8 +67,8 @@ def _normalize_response(text: str) -> str:
     text = _strip_think_blocks(text)
     # Strip markdown bold/italic so patterns like **Coverage:** don't break
     # separator matching (e.g. Coverage[:\s|]+Token).
-    text = _MARKDOWN_BOLD_RE.sub(r'\1', text)
-    text = _MARKDOWN_ITALIC_RE.sub(r'\1', text)
+    text = _MARKDOWN_BOLD_RE.sub(r"\1", text)
+    text = _MARKDOWN_ITALIC_RE.sub(r"\1", text)
     return text
 
 
@@ -150,9 +150,7 @@ def assert_policy_sections(response: str) -> AssertionResult:
         ("cross-references", "cross-reference", "references"),
     )
     response_lower = response.lower()
-    found_count = sum(
-        1 for grp in needles_any if any(n in response_lower for n in grp)
-    )
+    found_count = sum(1 for grp in needles_any if any(n in response_lower for n in grp))
     if found_count >= 4:  # 4-of-5 tolerance for minor renaming
         return AssertionResult(
             name="structural.policy_sections",
@@ -200,19 +198,15 @@ def assert_classification_token(response: str) -> AssertionResult:
     is evaluated on its final answer, not its chain of thought.
     """
     normalized = _normalize_response(response)
-    classification_patterns = [
-        rf"\bCoverage[:\s|]+{re.escape(t)}\b" for t in CLASSIFICATION_TOKENS
-    ] + [
-        rf"\|\s*{re.escape(t)}\s*\|" for t in CLASSIFICATION_TOKENS
-    ] + [
-        rf"^\s*{re.escape(t)}\b" for t in CLASSIFICATION_TOKENS
-    ]
+    classification_patterns = (
+        [rf"\bCoverage[:\s|]+{re.escape(t)}\b" for t in CLASSIFICATION_TOKENS]
+        + [rf"\|\s*{re.escape(t)}\s*\|" for t in CLASSIFICATION_TOKENS]
+        + [rf"^\s*{re.escape(t)}\b" for t in CLASSIFICATION_TOKENS]
+    )
     matched_token = next(
         (
             t
-            for t, pat in zip(
-                CLASSIFICATION_TOKENS * 3, classification_patterns
-            )
+            for t, pat in zip(CLASSIFICATION_TOKENS * 3, classification_patterns)
             if re.search(pat, normalized, re.MULTILINE)
         ),
         None,
@@ -354,7 +348,7 @@ def assert_no_fabrication_when_asked(
         passed=False,
         detail="no refusal pattern found and prompt asked for verbatim text",
         severity="SHOULD",  # SHOULD: granite may answer without a listed refusal phrase;
-                             # only the long-quoted-block heuristic above triggers MUST FAIL
+        # only the long-quoted-block heuristic above triggers MUST FAIL
     )
 
 
@@ -568,9 +562,7 @@ def assert_insufficient_context_pattern(response: str) -> AssertionResult:
             detail="exact phrase present",
         )
     response_lower = response.lower()
-    matched = next(
-        (p for p in INSUFFICIENT_CONTEXT_LOOSE if p in response_lower), None
-    )
+    matched = next((p for p in INSUFFICIENT_CONTEXT_LOOSE if p in response_lower), None)
     if matched:
         return AssertionResult(
             name="insufficient_context.exact_phrase",
@@ -603,9 +595,7 @@ def assert_uses_modal_verbs(response: str) -> AssertionResult:
     and avoids aspirational hedges.
     """
     found_modal = [v for v in MANDATORY_VERBS if v in response or v.lower() in response]
-    found_aspirational = [
-        p for p in ASPIRATIONAL_PHRASES if p in response.lower()
-    ]
+    found_aspirational = [p for p in ASPIRATIONAL_PHRASES if p in response.lower()]
     if not found_modal:
         return AssertionResult(
             name="policy.modal_verbs",
@@ -638,16 +628,16 @@ CITATION_PATTERNS: dict[str, str] = {
     # HIPAA: accept "45 CFR §164.x", "HIPAA §164.x", "HIPAA Security Rule", or
     #        bare "HIPAA" followed by a section reference in the sentence.
     #        Also accept "HIPAA [Security|Privacy] Rule" as a citation marker.
-    "HIPAA":    r"\b(?:45\s*CFR\s*§?\s*164\.\d+|45\s*CFR\s*Part\s*16[024]|HIPAA\s*(?:Security\s*Rule\s*)?§?\s*164\.\d+|HIPAA\s*(?:Security|Privacy)\s*Rule)\b",
+    "HIPAA": r"\b(?:45\s*CFR\s*§?\s*164\.\d+|45\s*CFR\s*Part\s*16[024]|HIPAA\s*(?:Security\s*Rule\s*)?§?\s*164\.\d+|HIPAA\s*(?:Security|Privacy)\s*Rule)\b",
     # GDPR: accept "Article 32", "Art. 32", "Art 32", with or without GDPR prefix,
     #       with or without sub-clause
-    "GDPR":     r"\b(?:GDPR\s*)?Art(?:icle|\.|\b)\s*\d+(?:\s*\(\d+\))?(?:\s*\([a-z]\))?\b",
+    "GDPR": r"\b(?:GDPR\s*)?Art(?:icle|\.|\b)\s*\d+(?:\s*\(\d+\))?(?:\s*\([a-z]\))?\b",
     # SOC2: accept "TSC CC6.1", "SOC 2 CC6.1", "SOC2 CC6.1", "Trust Services CC6.1"
     #       Also accept bare "SOC 2" followed by a control reference
-    "SOC2":     r"\b(?:(?:TSC|Trust\s*Services?\s*(?:Criteria|Criterion)?)\s*[A-Z]{2}\d+(?:\.\d+)?|SOC\s*2\s*[A-Z]{2}\d+(?:\.\d+)?|SOC\s*2\b)\b",
+    "SOC2": r"\b(?:(?:TSC|Trust\s*Services?\s*(?:Criteria|Criterion)?)\s*[A-Z]{2}\d+(?:\.\d+)?|SOC\s*2\s*[A-Z]{2}\d+(?:\.\d+)?|SOC\s*2\b)\b",
     # PCI DSS: accept "PCI-DSS", "PCI DSS", "PCI DSS 4.0", "Requirement 8.3",
     #          "PCI DSS Requirement 8.3", "PCI DSS v4 Req 8.3"
-    "PCI_DSS":  r"\b(?:PCI(?:-|\s)?DSS(?:\s*v?\d(?:\.\d(?:\.\d)?)?)?(?:\s*Req(?:uirement)?\s*\d+(?:\.\d+)*)?|PCI\s*DSS\b)",
+    "PCI_DSS": r"\b(?:PCI(?:-|\s)?DSS(?:\s*v?\d(?:\.\d(?:\.\d)?)?)?(?:\s*Req(?:uirement)?\s*\d+(?:\.\d+)*)?|PCI\s*DSS\b)",
     # NIST 800-53: accept "NIST SP 800-53", "NIST 800-53", bare control ID "AC-2"
     #              in context of 800-53, with or without Rev
     "NIST_800_53": r"\b(?:NIST\s*(?:SP\s*)?800-53(?:\s*Rev\.?\s*\d)?\s*[A-Z]{2}-\d+|NIST\s*(?:SP\s*)?800-53\b)",
@@ -655,9 +645,9 @@ CITATION_PATTERNS: dict[str, str] = {
     # ISO 27001: accept "ISO/IEC 27001", "ISO 27001", "ISO 27001:2022 A.5.15",
     #            "ISO 27001 Control 5.15", "27001 Annex A"
     "ISO_27001": r"\b(?:ISO(?:/IEC)?\s*27001(?::\d{4})?(?:\s*A\.\d+\.\d+)?|ISO(?:/IEC)?\s*27001\b)",
-    "FedRAMP":  r"\bFedRAMP\s*(?:Low|Moderate|High)\b",
-    "NIS2":     r"\bNIS2?\s*Art(?:icle|\.|\b)\s*\d+(?:\s*\(\d+\))?\b",
-    "CMMC":     r"\bCMMC(?:\s*\d\.\d)?\s*L\d\b",
+    "FedRAMP": r"\bFedRAMP\s*(?:Low|Moderate|High)\b",
+    "NIS2": r"\bNIS2?\s*Art(?:icle|\.|\b)\s*\d+(?:\s*\(\d+\))?\b",
+    "CMMC": r"\bCMMC(?:\s*\d\.\d)?\s*L\d\b",
 }
 
 
@@ -691,6 +681,7 @@ def assert_citation_present(response: str, framework: str) -> AssertionResult:
 
 # ── Aggregation ───────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class ScenarioOutcome:
     """All assertion results for one (scenario, response) pair."""
@@ -707,9 +698,7 @@ class ScenarioOutcome:
     @property
     def warned(self) -> bool:
         """All MUST passed but ≥1 SHOULD failed."""
-        return self.passed and any(
-            not r.passed for r in self.results if r.severity == "SHOULD"
-        )
+        return self.passed and any(not r.passed for r in self.results if r.severity == "SHOULD")
 
     @property
     def status(self) -> str:

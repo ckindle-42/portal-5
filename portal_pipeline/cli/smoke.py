@@ -1,4 +1,5 @@
 """``portal test`` — end-to-end live-stack smoke tests."""
+
 from __future__ import annotations
 
 import os
@@ -84,7 +85,7 @@ def cmd_test(
             r = client.get("http://localhost:11434/api/tags")
             models = r.json().get("models", [])
             ok = len(models) >= 1
-            _check(f"Ollama has models", ok, f"{len(models)} model(s)")
+            _check("Ollama has models", ok, f"{len(models)} model(s)")
         except Exception as e:
             _check("Ollama has models", False, str(e)[:80])
 

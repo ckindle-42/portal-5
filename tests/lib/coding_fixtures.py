@@ -30,7 +30,10 @@ def load_scenarios_yaml(path: Path = SCENARIOS_PATH) -> dict[str, Any]:
 
 
 DEFAULT_CODING_CATEGORIES: tuple[str, ...] = (
-    "coding", "software", "development", "systems",
+    "coding",
+    "software",
+    "development",
+    "systems",
 )
 
 
@@ -55,9 +58,7 @@ def load_coding_persona_slugs(
     return tuple(out)
 
 
-def _resolve_personas(
-    applies_to: list[str], all_coding: tuple[str, ...]
-) -> tuple[str, ...]:
+def _resolve_personas(applies_to: list[str], all_coding: tuple[str, ...]) -> tuple[str, ...]:
     out: list[str] = []
     for entry in applies_to:
         if entry == "coding:*":
@@ -109,9 +110,7 @@ def _resolve_parameterized_assertion(
     return None, None
 
 
-def run_assertions(
-    scenario: ConcreteScenario, response: str
-):
+def run_assertions(scenario: ConcreteScenario, response: str):
     from tests.lib.compliance_assertions import AssertionResult, ScenarioOutcome
 
     results: list = []
@@ -120,23 +119,27 @@ def run_assertions(
         # dict carrying kwargs ({"structural.required_elements": {"elements": [...]}}).
         if isinstance(raw_spec, dict):
             if len(raw_spec) != 1:
-                results.append(AssertionResult(
-                    name=str(raw_spec),
-                    passed=False,
-                    detail="parameterized assertion must be a single-key dict",
-                    severity="INFO",
-                ))
+                results.append(
+                    AssertionResult(
+                        name=str(raw_spec),
+                        passed=False,
+                        detail="parameterized assertion must be a single-key dict",
+                        severity="INFO",
+                    )
+                )
                 continue
             spec, kwargs = next(iter(raw_spec.items()))
             if kwargs is None:
                 kwargs = {}
             elif not isinstance(kwargs, dict):
-                results.append(AssertionResult(
-                    name=str(spec),
-                    passed=False,
-                    detail=f"parameterized assertion args must be a dict, got {type(kwargs).__name__}",
-                    severity="INFO",
-                ))
+                results.append(
+                    AssertionResult(
+                        name=str(spec),
+                        passed=False,
+                        detail=f"parameterized assertion args must be a dict, got {type(kwargs).__name__}",
+                        severity="INFO",
+                    )
+                )
                 continue
         else:
             spec = raw_spec
@@ -170,12 +173,14 @@ def run_assertions(
             results.append(ca.assert_handles_stateful_session(response, language))
             continue
 
-        results.append(AssertionResult(
-            name=spec,
-            passed=False,
-            detail=f"unknown coding assertion '{spec}'",
-            severity="INFO",
-        ))
+        results.append(
+            AssertionResult(
+                name=spec,
+                passed=False,
+                detail=f"unknown coding assertion '{spec}'",
+                severity="INFO",
+            )
+        )
 
     return ScenarioOutcome(
         scenario_id=scenario.scenario_id,

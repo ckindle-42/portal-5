@@ -6,6 +6,7 @@ Run from repo root:
 
 All implementation is in tests/comfyui/{cli,runner,results,_common}.py.
 """
+
 from __future__ import annotations
 
 import asyncio

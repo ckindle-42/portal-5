@@ -164,7 +164,7 @@ class McpServer(BaseModel):
 
     id: str
     name: str
-    port: int | None = None              # None for command-based (IDE-only) servers
+    port: int | None = None  # None for command-based (IDE-only) servers
     expose_to_pipeline: bool = False
     expose_to_ide: bool = True
     aliases: list[str] = Field(default_factory=list)
@@ -242,9 +242,7 @@ def load_portal_config(
     try:
         _CONFIG_CACHE = PortalConfig.model_validate(raw)
     except Exception as exc:
-        raise RuntimeError(
-            f"portal.yaml failed validation ({yaml_path}): {exc}"
-        ) from exc
+        raise RuntimeError(f"portal.yaml failed validation ({yaml_path}): {exc}") from exc
 
     return _CONFIG_CACHE
 
@@ -381,8 +379,6 @@ def resolve_preset_tools(
     """
     if persona is None:
         return sorted(set(workspace_tools))
-    effective = (
-        set(workspace_tools) if persona.tools_allow is None else set(persona.tools_allow)
-    )
+    effective = set(workspace_tools) if persona.tools_allow is None else set(persona.tools_allow)
     deny = set(persona.tools_deny or [])
     return sorted(effective - deny)

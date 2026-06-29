@@ -244,8 +244,7 @@ def _load_mlx_chat_template_overrides() -> dict[str, str]:
 MODEL_CHAT_TEMPLATE_OVERRIDE: dict[str, str] = _load_mlx_chat_template_overrides()
 if MODEL_CHAT_TEMPLATE_OVERRIDE:
     print(
-        f"[proxy] chat-template overrides loaded for "
-        f"{len(MODEL_CHAT_TEMPLATE_OVERRIDE)} models",
+        f"[proxy] chat-template overrides loaded for {len(MODEL_CHAT_TEMPLATE_OVERRIDE)} models",
         flush=True,
     )
 
@@ -1543,9 +1542,10 @@ class Handler(BaseHTTPRequestHandler):
         # large models (70B @ 17min) because the pipeline saw no bytes until
         # the entire generation finished. With streaming, the first SSE chunk
         # arrives at the pipeline as soon as the first token is generated.
-        with httpx.Client(
-            timeout=httpx.Timeout(REQUEST_TIMEOUT, read=INFERENCE_TIMEOUT)
-        ) as c, c.stream("POST", url, content=body, headers=hdrs) as resp:
+        with (
+            httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, read=INFERENCE_TIMEOUT)) as c,
+            c.stream("POST", url, content=body, headers=hdrs) as resp,
+        ):
             self.send_response(resp.status_code)
             for k, v in resp.headers.items():
                 if k.lower() not in ("transfer-encoding", "content-encoding", "content-length"):

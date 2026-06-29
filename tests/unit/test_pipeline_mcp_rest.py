@@ -18,7 +18,9 @@ import re
 
 import pytest
 
-_SRC_PATH = pathlib.Path(__file__).resolve().parents[2] / "portal_mcp" / "platform" / "pipeline_mcp.py"
+_SRC_PATH = (
+    pathlib.Path(__file__).resolve().parents[2] / "portal_mcp" / "platform" / "pipeline_mcp.py"
+)
 _SRC = _SRC_PATH.read_text()
 
 EXPECTED_TOOLS = {
@@ -46,9 +48,7 @@ def _tool_names() -> set[str]:
 
 
 def _post_route_names() -> set[str]:
-    return set(
-        re.findall(r'@mcp\.custom_route\("/tools/(\w+)", methods=\["POST"\]\)', _SRC)
-    )
+    return set(re.findall(r'@mcp\.custom_route\("/tools/(\w+)", methods=\["POST"\]\)', _SRC))
 
 
 def test_manifest_matches_expected_tools():

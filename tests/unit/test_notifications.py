@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -71,7 +71,7 @@ class TestSummaryEvent:
 
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
-            timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=UTC),
             report_date="2026-03-29",
             total_requests=1234,
             requests_by_workspace={"auto": 500, "auto-coding": 734},
@@ -99,7 +99,7 @@ class TestSummaryEvent:
 
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
-            timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=UTC),
             report_date="2026-03-29",
             total_requests=100,
             requests_by_workspace={"auto": 100},
@@ -119,7 +119,7 @@ class TestSummaryEvent:
 
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
-            timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=UTC),
             report_date="2026-03-29",
             total_requests=5000,
             requests_by_workspace={"auto": 3000, "auto-coding": 2000},
@@ -139,7 +139,7 @@ class TestSummaryEvent:
 
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
-            timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=UTC),
             report_date="2026-03-29",
             total_requests=1000,
             requests_by_workspace={"auto": 1000},
@@ -511,7 +511,7 @@ class TestWebhookSummaryExtendedMetrics:
             channel = WebhookChannel()
             event = SummaryEvent(
                 type=EventType.DAILY_SUMMARY,
-                timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+                timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=UTC),
                 report_date="2026-03-29",
                 total_requests=500,
                 requests_by_workspace={"auto": 300, "auto-coding": 200},
@@ -558,7 +558,7 @@ class TestPushoverSummaryPriority:
             channel = PushoverChannel()
             event = SummaryEvent(
                 type=EventType.DAILY_SUMMARY,
-                timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+                timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=UTC),
                 report_date="2026-03-29",
                 total_requests=100,
                 requests_by_workspace={"auto": 100},

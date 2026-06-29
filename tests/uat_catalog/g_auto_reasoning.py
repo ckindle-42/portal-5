@@ -225,10 +225,16 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             "Show your reasoning step by step."
         ),
         "assertions": [
-            {"type": "any_of", "label": "Proportional reasoning applied",
-             "keywords": ["35", "25", "proportion", "ratio", "redistribut", "percent"]},
-            {"type": "any_of", "label": "Final percentages given",
-             "keywords": ["58.3", "58%", "41.6", "41%", "58", "42", "63", "37"]},
+            {
+                "type": "any_of",
+                "label": "Proportional reasoning applied",
+                "keywords": ["35", "25", "proportion", "ratio", "redistribut", "percent"],
+            },
+            {
+                "type": "any_of",
+                "label": "Final percentages given",
+                "keywords": ["58.3", "58%", "41.6", "41%", "58", "42", "63", "37"],
+            },
             {"type": "min_length", "label": "Reasoning shown", "chars": 150},
         ],
     },

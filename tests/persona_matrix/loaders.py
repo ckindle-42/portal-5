@@ -1,5 +1,6 @@
 """Loaders for backends.yaml, persona files, and routing-chain resolution.
 Pure I/O — no HTTP, no async."""
+
 from __future__ import annotations
 
 import sys
@@ -7,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
 
 ROOT = Path(__file__).parent.parent.resolve()
 REPO_ROOT = ROOT.parent
@@ -151,4 +151,3 @@ def load_personas_by_slugs(slugs: tuple[str, ...]) -> list[dict[str, Any]]:
 
 
 # ── Direct backend calls ──────────────────────────────────────────────────
-

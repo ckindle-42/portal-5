@@ -269,11 +269,9 @@ class TestWorkspaceModelHintUpdated:
         # baronllm retained in auto-security-uncensored
         ws = WORKSPACES.get("auto-security", {})
         hint = ws.get("model_hint", "").lower()
-        assert (
-            "vulnllm" in hint
-            or "baronllm" in hint
-            or "baron" in hint
-        ), "Security workspace should use a dedicated security model (VulnLLM-R-7B or baronllm)"
+        assert "vulnllm" in hint or "baronllm" in hint or "baron" in hint, (
+            "Security workspace should use a dedicated security model (VulnLLM-R-7B or baronllm)"
+        )
 
     def test_coding_uses_qwen_or_glm(self):
         ws = WORKSPACES.get("auto-coding", {})
@@ -549,7 +547,7 @@ class TestR20NativeOllama:
         This test verifies the delegation shim rather than the moved logic.
         """
         content = open("launch.sh").read()
-        assert 'exec python3 -m portal_pipeline.cli models pull' in content, (
+        assert "exec python3 -m portal_pipeline.cli models pull" in content, (
             "pull-models must delegate to portal CLI (post-M5-S2)"
         )
 
@@ -622,7 +620,7 @@ class TestR22CodingModelUpdates:
         """pull-models delegates to portal CLI; model list lives in portal.yaml."""
         content = open("launch.sh").read()
         # Post-M5-S2: pull-models delegates to portal CLI
-        assert 'portal_pipeline.cli models pull' in content, (
+        assert "portal_pipeline.cli models pull" in content, (
             "launch.sh pull-models must delegate to portal CLI (post-M5-S2)"
         )
 
@@ -1038,8 +1036,7 @@ class TestCodeHygiene:
 
         vendored = Path("portal_mcp/mcp_server")
         assert not vendored.exists(), (
-            "Vendored MCP SDK directory reappeared. "
-            "M4 de-vendor was supposed to delete this."
+            "Vendored MCP SDK directory reappeared. M4 de-vendor was supposed to delete this."
         )
 
     def test_only_dind_is_privileged(self):

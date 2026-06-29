@@ -1,4 +1,5 @@
 """``portal update`` — full Portal 5 upgrade flow."""
+
 from __future__ import annotations
 
 import os
@@ -43,16 +44,13 @@ _HEAVY_MODELS: list[str] = [
     "hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF",
 ]
 
+
 def cmd_update(
-    skip_models: Annotated[
-        bool, typer.Option("--skip-models", help="Skip model refresh")
-    ] = False,
+    skip_models: Annotated[bool, typer.Option("--skip-models", help="Skip model refresh")] = False,
     models_only: Annotated[
         bool, typer.Option("--models-only", help="Refresh models only, skip everything else")
     ] = False,
-    yes: Annotated[
-        bool, typer.Option("--yes", "-y", help="Skip interactive prompts")
-    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip interactive prompts")] = False,
 ) -> None:
     """Full Portal 5 update: git pull → docker → rebuild → models → re-seed → restart."""
     if skip_models and models_only:
@@ -78,12 +76,14 @@ def cmd_update(
 
             before = _sp.run(
                 ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             ).stdout.strip()
             _sp.run(["git", "-C", str(repo_root), "pull", "--ff-only"], check=False)
             after = _sp.run(
                 ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             ).stdout.strip()
             if before != after:
                 typer.echo(f"  ✅ Updated ({before} → {after})")
@@ -97,9 +97,19 @@ def cmd_update(
         typer.echo("[2/8] Pulling latest Docker images...")
         compose_dir = repo_root / "deploy" / "portal-5"
         subprocess.run(
-            ["docker", "compose", "-f", str(compose_dir / "docker-compose.yml"),
-             "pull", "ollama", "open-webui", "searxng"],
-            check=False, cwd=str(compose_dir), capture_output=True,
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_dir / "docker-compose.yml"),
+                "pull",
+                "ollama",
+                "open-webui",
+                "searxng",
+            ],
+            check=False,
+            cwd=str(compose_dir),
+            capture_output=True,
         )
         typer.echo("  ✅ Docker images pulled")
         typer.echo("")
@@ -109,8 +119,17 @@ def cmd_update(
         build_cmd = ["docker", "compose", "-f", str(compose_dir / "docker-compose.yml"), "build"]
         comfyui_dir = os.environ.get("COMFYUI_DIR", str(Path.home() / "ComfyUI"))
         if Path(comfyui_dir).exists():
-            build_cmd.extend(["mcp-comfyui", "mcp-video", "portal-pipeline", "mcp-documents",
-                              "mcp-tts", "mcp-whisper", "mcp-sandbox"])
+            build_cmd.extend(
+                [
+                    "mcp-comfyui",
+                    "mcp-video",
+                    "portal-pipeline",
+                    "mcp-documents",
+                    "mcp-tts",
+                    "mcp-whisper",
+                    "mcp-sandbox",
+                ]
+            )
         else:
             build_cmd.append("portal-pipeline")
         subprocess.run(build_cmd, check=False, cwd=str(compose_dir), capture_output=True)
@@ -164,14 +183,26 @@ def cmd_update(
         typer.echo("[7/7] Re-seeding Open WebUI + restarting stack...")
         compose_dir = repo_root / "deploy" / "portal-5"
         subprocess.run(
-            ["docker", "compose", "-f", str(compose_dir / "docker-compose.yml"),
-             "up", "-d"],
-            check=False, cwd=str(compose_dir), capture_output=True,
+            ["docker", "compose", "-f", str(compose_dir / "docker-compose.yml"), "up", "-d"],
+            check=False,
+            cwd=str(compose_dir),
+            capture_output=True,
         )
         subprocess.run(
-            ["docker", "compose", "-f", str(compose_dir / "docker-compose.yml"),
-             "run", "--rm", "-e", "FORCE_RESEED=true", "openwebui-init"],
-            check=False, cwd=str(compose_dir), capture_output=True,
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_dir / "docker-compose.yml"),
+                "run",
+                "--rm",
+                "-e",
+                "FORCE_RESEED=true",
+                "openwebui-init",
+            ],
+            check=False,
+            cwd=str(compose_dir),
+            capture_output=True,
         )
         typer.echo("  ✅ Stack restarted + re-seeded")
         typer.echo("")

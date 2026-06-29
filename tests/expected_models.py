@@ -107,9 +107,13 @@ def expected_model_keys_for_persona(
     if not p:
         return [], f"persona '{persona_slug}' not in _PERSONA_MAP"
     # p is now a PersonaSpec (typed); fall back to dict .get for legacy compat
-    ws = (p.workspace_model if hasattr(p, "workspace_model") else None) or (
-        p.get("workspace_model") if hasattr(p, "get") else None  # type: ignore[union-attr]
-    ) or (p.get("workspace") if hasattr(p, "get") else None)  # type: ignore[union-attr]
+    ws = (
+        (p.workspace_model if hasattr(p, "workspace_model") else None)
+        or (
+            p.get("workspace_model") if hasattr(p, "get") else None  # type: ignore[union-attr]
+        )
+        or (p.get("workspace") if hasattr(p, "get") else None)
+    )  # type: ignore[union-attr]
     if not ws:
         return [], f"persona '{persona_slug}' has no workspace_model"
     keys, src = expected_model_keys(ws)

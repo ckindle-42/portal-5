@@ -19,7 +19,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -50,7 +50,7 @@ def render(rows: list[dict], source: str) -> str:
     out = [
         "# CC-01 Challenge Shootout — Capability Matrix",
         "",
-        f"**Source**: `{source}` · generated {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",
+        f"**Source**: `{source}` · generated {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}",
         "",
         "One identical creative coding task per model (CC-01 Asteroids), plus",
         "domain challenges (BT-01, EX-01). No verdict — the matrix is the",
@@ -83,7 +83,7 @@ def main() -> int:
         / "tests"
         / "benchmarks"
         / "results"
-        / ("CC01_CHALLENGE_MATRIX_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + ".md")
+        / ("CC01_CHALLENGE_MATRIX_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + ".md")
     )
     ap.add_argument("--output", default=str(default_out))
     args = ap.parse_args()

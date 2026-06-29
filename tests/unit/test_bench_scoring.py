@@ -2,6 +2,7 @@
 
 All tests use only in-memory data; no network, no Docker, no lab.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -130,9 +131,24 @@ class TestScoringCriteriaMet:
 class TestScoreExecution:
     def _make_seq(self):
         return [
-            {"step": "recon", "tool": "execute_bash", "keywords": ["nmap", "scan"], "output_keywords": ["open"]},
-            {"step": "exploit", "tool": "execute_bash", "keywords": ["exploit", "shell"], "output_keywords": ["shell obtained"]},
-            {"step": "persist", "tool": "execute_bash", "keywords": ["cron", "backdoor"], "output_keywords": ["persistence"]},
+            {
+                "step": "recon",
+                "tool": "execute_bash",
+                "keywords": ["nmap", "scan"],
+                "output_keywords": ["open"],
+            },
+            {
+                "step": "exploit",
+                "tool": "execute_bash",
+                "keywords": ["exploit", "shell"],
+                "output_keywords": ["shell obtained"],
+            },
+            {
+                "step": "persist",
+                "tool": "execute_bash",
+                "keywords": ["cron", "backdoor"],
+                "output_keywords": ["persistence"],
+            },
         ]
 
     def test_perfect_match(self):
@@ -182,7 +198,12 @@ class TestScoreExecution:
         # the tool call index that matched each step (not the step index).
         seq = [
             {"step": "recon", "tool": "nmap", "keywords": ["nmap"], "output_keywords": []},
-            {"step": "exploit", "tool": "exploit_svc", "keywords": ["exploit"], "output_keywords": []},
+            {
+                "step": "exploit",
+                "tool": "exploit_svc",
+                "keywords": ["exploit"],
+                "output_keywords": [],
+            },
             {"step": "persist", "tool": "persist_svc", "keywords": ["cron"], "output_keywords": []},
         ]
         # Steps executed in reverse order
@@ -346,7 +367,10 @@ class TestScoreCveResearch:
     def test_searched_first_and_carried(self):
         tools = [
             {"name": "web_search", "args": {"query": "samba 4.7.6 CVE"}},
-            {"name": "check_cve", "args": {"cve_id": "CVE-2017-0144", "host": "10.0.0.1", "port": 445}},
+            {
+                "name": "check_cve",
+                "args": {"cve_id": "CVE-2017-0144", "host": "10.0.0.1", "port": 445},
+            },
         ]
         result = score_cve_research(tools, self.DB)
         assert result["searched"] is True
@@ -377,7 +401,11 @@ class TestScoreCveResearch:
 
 class TestScoreChainCoherence:
     def test_empty(self):
-        assert score_chain_coherence([], {}) == {"coherence_score": 0.0, "references": 0, "opportunities": 0}
+        assert score_chain_coherence([], {}) == {
+            "coherence_score": 0.0,
+            "references": 0,
+            "opportunities": 0,
+        }
 
     def test_references_prior_observation(self):
         tools = [{"name": "exploit_service", "args": {"host": "10.0.0.1", "port": 8080}}]
@@ -565,8 +593,12 @@ class TestEvaluateCondition:
 
     def test_not_equals(self):
         obs = {"smb_signing_disabled": True}
-        assert evaluate_condition({"field": "smb_signing_disabled", "not_equals": False}, obs) is True
-        assert evaluate_condition({"field": "smb_signing_disabled", "not_equals": True}, obs) is False
+        assert (
+            evaluate_condition({"field": "smb_signing_disabled", "not_equals": False}, obs) is True
+        )
+        assert (
+            evaluate_condition({"field": "smb_signing_disabled", "not_equals": True}, obs) is False
+        )
 
     def test_truthy_field(self):
         obs = {"shell_access": True}
@@ -580,8 +612,14 @@ class TestEvaluateCondition:
 
     def test_any_field(self):
         obs = {"open_ports": [22, 445], "http_ports": [80, 8080]}
-        assert evaluate_condition({"any_field": ["open_ports", "http_ports"], "contains": 80}, obs) is True
-        assert evaluate_condition({"any_field": ["open_ports", "http_ports"], "contains": 9999}, obs) is False
+        assert (
+            evaluate_condition({"any_field": ["open_ports", "http_ports"], "contains": 80}, obs)
+            is True
+        )
+        assert (
+            evaluate_condition({"any_field": ["open_ports", "http_ports"], "contains": 9999}, obs)
+            is False
+        )
 
     def test_no_condition(self):
         assert evaluate_condition({}, {"anything": True}) is True
@@ -696,7 +734,12 @@ class TestConditionalBranching:
                 "output_keywords": [],
                 "condition": {"field": "smb_signing_disabled", "equals": True},
             },
-            {"step": "responder", "tool": "execute_bash", "keywords": ["responder"], "output_keywords": []},
+            {
+                "step": "responder",
+                "tool": "execute_bash",
+                "keywords": ["responder"],
+                "output_keywords": [],
+            },
         ]
 
     def test_condition_met_step_included(self):

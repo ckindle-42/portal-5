@@ -14,7 +14,7 @@ import json
 import re
 import sys
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -194,7 +194,7 @@ def _build_metadata_panel(run_ts: str, total: int, fail_ct: int, blocked_ct: int
         if fail_ct + blocked_ct == 0
         else ("🟡 DEGRADED" if fail_ct <= 3 else "🔴 FAILING")
     )
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     return (
         '<div style="font-size:11px;color:#888;padding:2px 8px;display:flex;gap:16px;flex-wrap:wrap">'
         f"<span><b>Source run:</b> {run_ts}</span>"

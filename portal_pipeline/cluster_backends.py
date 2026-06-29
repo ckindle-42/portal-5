@@ -593,6 +593,7 @@ class BackendRegistry:
             # Push to admission gate — no subprocess call per request
             try:
                 import portal_pipeline.router.concurrency as _conc
+
                 _conc._last_memory_pct = _mem
             except Exception:
                 pass  # concurrency gate update is best-effort; poller continues

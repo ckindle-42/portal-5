@@ -68,8 +68,20 @@ def test_duplicate_port_raises(tmp_path: Path) -> None:
         tmp_path,
         {
             "mcp_fleet": [
-                {"id": "a", "name": "svc-a", "port": 9000, "expose_to_pipeline": True, "expose_to_ide": True},
-                {"id": "b", "name": "svc-b", "port": 9000, "expose_to_pipeline": True, "expose_to_ide": True},
+                {
+                    "id": "a",
+                    "name": "svc-a",
+                    "port": 9000,
+                    "expose_to_pipeline": True,
+                    "expose_to_ide": True,
+                },
+                {
+                    "id": "b",
+                    "name": "svc-b",
+                    "port": 9000,
+                    "expose_to_pipeline": True,
+                    "expose_to_ide": True,
+                },
             ]
         },
     )
@@ -83,8 +95,20 @@ def test_duplicate_id_raises(tmp_path: Path) -> None:
         tmp_path,
         {
             "mcp_fleet": [
-                {"id": "dup", "name": "svc-a", "port": 9001, "expose_to_pipeline": True, "expose_to_ide": True},
-                {"id": "dup", "name": "svc-b", "port": 9002, "expose_to_pipeline": True, "expose_to_ide": True},
+                {
+                    "id": "dup",
+                    "name": "svc-a",
+                    "port": 9001,
+                    "expose_to_pipeline": True,
+                    "expose_to_ide": True,
+                },
+                {
+                    "id": "dup",
+                    "name": "svc-b",
+                    "port": 9002,
+                    "expose_to_pipeline": True,
+                    "expose_to_ide": True,
+                },
             ]
         },
     )
@@ -127,7 +151,9 @@ def test_load_portal_config_force_reload(tmp_path: Path) -> None:
     assert set(a.workspaces.keys()) == set(b.workspaces.keys())
 
 
-def test_load_portal_config_bad_yaml_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_portal_config_bad_yaml_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """A syntactically invalid YAML file raises RuntimeError with a clear message."""
     bad_yaml = tmp_path / "portal.yaml"
     bad_yaml.write_text(": bad: yaml: {{{")
@@ -140,11 +166,29 @@ def test_load_portal_config_schema_error_raises(tmp_path: Path) -> None:
     """A schema error (duplicate port) surfaces as RuntimeError from load_portal_config."""
     raw = {
         "mcp_fleet": [
-            {"id": "a", "name": "svc-a", "port": 9000, "expose_to_pipeline": True, "expose_to_ide": True},
-            {"id": "b", "name": "svc-b", "port": 9000, "expose_to_pipeline": True, "expose_to_ide": True},
+            {
+                "id": "a",
+                "name": "svc-a",
+                "port": 9000,
+                "expose_to_pipeline": True,
+                "expose_to_ide": True,
+            },
+            {
+                "id": "b",
+                "name": "svc-b",
+                "port": 9000,
+                "expose_to_pipeline": True,
+                "expose_to_ide": True,
+            },
         ],
         "workspaces": {
-            "auto": {"name": "Auto", "description": "x", "tools": [], "expose_to_owui": True, "enable_web_search": False}
+            "auto": {
+                "name": "Auto",
+                "description": "x",
+                "tools": [],
+                "expose_to_owui": True,
+                "enable_web_search": False,
+            }
         },
     }
     p = tmp_path / "portal.yaml"
@@ -159,7 +203,13 @@ def test_ollama_url_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         "ollama_url": "http://docker-internal:11434",
         "mcp_fleet": [],
         "workspaces": {
-            "auto": {"name": "Auto", "description": "x", "tools": [], "expose_to_owui": True, "enable_web_search": False}
+            "auto": {
+                "name": "Auto",
+                "description": "x",
+                "tools": [],
+                "expose_to_owui": True,
+                "enable_web_search": False,
+            }
         },
     }
     p = tmp_path / "portal.yaml"
@@ -221,9 +271,7 @@ def test_model_schema_rejects_unknown_fields() -> None:
     from pydantic import ValidationError as PydanticValidationError
 
     with pytest.raises(PydanticValidationError):
-        Model.model_validate(
-            {"hf_id": "x/y", "ollama_name": "tag", "not_a_field": 42}
-        )
+        Model.model_validate({"hf_id": "x/y", "ollama_name": "tag", "not_a_field": 42})
 
 
 def test_portal_config_models_default_empty_list() -> None:

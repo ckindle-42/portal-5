@@ -3,6 +3,7 @@
 Pure flag/logic tests — no Docker, no network. Each test reimports the module
 under a fresh env so module-level posture constants re-resolve.
 """
+
 from __future__ import annotations
 
 import importlib

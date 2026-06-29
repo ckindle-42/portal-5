@@ -3,6 +3,7 @@
 Extracted from tests/portal5_persona_matrix.py. Module-level state
 that was previously at the top of the monolithic script.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -130,7 +131,6 @@ ca = importlib.import_module("tests.lib.compliance_assertions")
 cf = importlib.import_module("tests.lib.compliance_fixtures")
 
 
-
 # Re-export _load_workspace_modules (now defined here since it references WORKSPACE_REGISTRY)
 def _load_workspace_modules(workspace_id: str):
     """Resolve (assertions, fixtures) modules for a workspace."""
@@ -185,4 +185,3 @@ AUDIT_PROMPT = "What time is it in Paris right now?"
 
 
 # ── Backend enumeration ───────────────────────────────────────────────────
-

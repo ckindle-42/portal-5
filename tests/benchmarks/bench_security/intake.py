@@ -13,8 +13,8 @@ from .refusal import _audit_tools_probe
 
 # ── Candidate intake constants ────────────────────────────────────────────────
 
-TPS_FLOOR = 20.0          # minimum t/s for chain participation
-PULL_TIMEOUT_S = 900.0    # large models on slow connections need headroom
+TPS_FLOOR = 20.0  # minimum t/s for chain participation
+PULL_TIMEOUT_S = 900.0  # large models on slow connections need headroom
 
 
 # ── Pull helper ───────────────────────────────────────────────────────────────
@@ -26,11 +26,14 @@ def _pull_model(model: str, ollama_url: str = OLLAMA_URL) -> dict:
 
     print(f"  pulling  {model} ...", end="", flush=True)
     try:
-        with httpx.Client(timeout=httpx.Timeout(PULL_TIMEOUT_S, connect=10.0)) as _c, _c.stream(
-            "POST",
-            f"{ollama_url}/api/pull",
-            json={"name": model, "stream": True},
-        ) as _r:
+        with (
+            httpx.Client(timeout=httpx.Timeout(PULL_TIMEOUT_S, connect=10.0)) as _c,
+            _c.stream(
+                "POST",
+                f"{ollama_url}/api/pull",
+                json={"name": model, "stream": True},
+            ) as _r,
+        ):
             _r.raise_for_status()
             _status = ""
             for _line in _r.iter_lines():
@@ -66,19 +69,21 @@ def _tps_warmup(
         _t0 = _t.perf_counter()
         _n = 0
         _probe_prompt = (
-            "List 10 common network penetration testing tools "
-            "and briefly state what each one does."
+            "List 10 common network penetration testing tools and briefly state what each one does."
         )
-        with httpx.Client(timeout=httpx.Timeout(120.0, connect=5.0)) as _c2, _c2.stream(
-            "POST",
-            f"{ollama_url}/api/generate",
-            json={
-                "model": model,
-                "prompt": _probe_prompt,
-                "options": {"num_predict": tokens},
-                "stream": True,
-            },
-        ) as _r2:
+        with (
+            httpx.Client(timeout=httpx.Timeout(120.0, connect=5.0)) as _c2,
+            _c2.stream(
+                "POST",
+                f"{ollama_url}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": _probe_prompt,
+                    "options": {"num_predict": tokens},
+                    "stream": True,
+                },
+            ) as _r2,
+        ):
             _r2.raise_for_status()
             for _line2 in _r2.iter_lines():
                 if not _line2:

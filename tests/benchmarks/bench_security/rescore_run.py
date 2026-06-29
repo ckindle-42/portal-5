@@ -182,7 +182,10 @@ def main() -> None:
         results_dir = Path(__file__).parent / "results"
         if not results_dir.exists():
             # Try main repo location (when running from worktree)
-            alt = Path(__file__).parent.parent.parent.parent / "tests/benchmarks/bench_security/results"
+            alt = (
+                Path(__file__).parent.parent.parent.parent
+                / "tests/benchmarks/bench_security/results"
+            )
             if alt.exists():
                 results_dir = alt
         files = sorted(results_dir.glob("sec_bench_*.json"))
@@ -231,8 +234,8 @@ def main() -> None:
         o_h, o_t = _compute_step_coverage(o_ec)
         c_h, c_t = _compute_step_coverage(c_ec)
         changed = "  ← CORRECTED" if (o_h != c_h or o_t != c_t) else ""
-        o_pct = f"{o_h/o_t*100:.0f}%" if o_t else "n/a"
-        c_pct = f"{c_h/c_t*100:.0f}%" if c_t else "n/a"
+        o_pct = f"{o_h / o_t * 100:.0f}%" if o_t else "n/a"
+        c_pct = f"{c_h / c_t * 100:.0f}%" if c_t else "n/a"
         print(f"  {pk:<35}  {o_h}/{o_t} ({o_pct}) → {c_h}/{c_t} ({c_pct}){changed}")
 
     # --- Print changes log ---

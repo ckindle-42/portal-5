@@ -54,4 +54,3 @@ workspaces
     ``WORKSPACES`` dict, persona map, workspace tool helpers,
     ``MAX_TOOL_HOPS``.
 """
-

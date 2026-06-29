@@ -26,13 +26,15 @@ mcp = FastMCP("code-sandbox", host="0.0.0.0")
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
-    return JSONResponse({
-        "status": "ok",
-        "service": "sandbox-mcp",
-        "lab_exec_active": SANDBOX_LAB_EXEC,
-        "lab_image": SANDBOX_LAB_IMAGE or None,
-        "network": "bridge" if SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC else "disabled",
-    })
+    return JSONResponse(
+        {
+            "status": "ok",
+            "service": "sandbox-mcp",
+            "lab_exec_active": SANDBOX_LAB_EXEC,
+            "lab_image": SANDBOX_LAB_IMAGE or None,
+            "network": "bridge" if SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC else "disabled",
+        }
+    )
 
 
 # Tool manifest for discovery
@@ -212,73 +214,92 @@ async def _run_in_docker(
         _cpus, _mem = SANDBOX_NET_CPUS, SANDBOX_NET_MEMORY
     else:
         _cpus, _mem = "0.5", "256m"
-    docker_cmd = [
-        "docker",
-        "run",
-        "--rm",
-        "--network",
-        _net,  # "none" by default; "bridge" only under SANDBOX_ALLOW_NETWORK
-        "--cpus",
-        _cpus,  # 0.5 default; SANDBOX_NET_CPUS when network-enabled
-        "--memory",
-        _mem,  # 256m default; SANDBOX_NET_MEMORY when network-enabled
-        "--pids-limit",
-        "64",  # Max 64 processes
-    ] + (
-        # Default + ALLOW_NETWORK: block privilege escalation via setuid/file-caps.
-        # Lab-exec: omit — Kali tools (nmap, responder) rely on cap_net_raw+eip file
-        # capabilities which no-new-privileges blocks even after --cap-add NET_RAW.
-        [] if SANDBOX_LAB_EXEC else ["--security-opt", "no-new-privileges"]
-    ) + [
-        "--cap-drop",
-        "ALL",  # Drop all Linux capabilities
-    ] + (
-        # Lab-exec: restore NET_RAW + NET_ADMIN for raw-socket attack tools.
-        # SYS_TIME allows ntpdate/rdate to sync container clock with the DC —
-        # required for Kerberos attacks (KRB_AP_ERR_SKEW if >5min drift).
-        # Inject DC FQDN via --add-host so tools requiring hostname (bloodhound-ce-python,
-        # certipy) can resolve it — container /etc/hosts is read-only under --read-only.
-        ["--cap-add", "NET_RAW", "--cap-add", "NET_ADMIN", "--cap-add", "SYS_TIME"]
+    docker_cmd = (
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            _net,  # "none" by default; "bridge" only under SANDBOX_ALLOW_NETWORK
+            "--cpus",
+            _cpus,  # 0.5 default; SANDBOX_NET_CPUS when network-enabled
+            "--memory",
+            _mem,  # 256m default; SANDBOX_NET_MEMORY when network-enabled
+            "--pids-limit",
+            "64",  # Max 64 processes
+        ]
         + (
-            [
-                f"--add-host=lab-dc01.portal.lab:{SANDBOX_LAB_TARGET_DC}",
-                f"--add-host=lab-dc01:{SANDBOX_LAB_TARGET_DC}",
-            ]
-            if SANDBOX_LAB_TARGET_DC else []
+            # Default + ALLOW_NETWORK: block privilege escalation via setuid/file-caps.
+            # Lab-exec: omit — Kali tools (nmap, responder) rely on cap_net_raw+eip file
+            # capabilities which no-new-privileges blocks even after --cap-add NET_RAW.
+            [] if SANDBOX_LAB_EXEC else ["--security-opt", "no-new-privileges"]
         )
-        if SANDBOX_LAB_EXEC else []
-    ) + [
-        "--read-only",  # Read-only root filesystem
-        "--tmpfs",
-        "/tmp:size=64m",  # 64MB /tmp
-    ] + (
-        # pip writes to /root/.local; needs a writable home when network-enabled.
-        # PYTHONPATH set so user-installed packages are importable immediately
-        # (user site isn't in sys.path at startup when the dir doesn't exist yet).
-        [
-            "--tmpfs", "/root:size=256m,exec",  # exec needed for C-extension .so files
-            "--env", "PYTHONPATH=/root/.local/lib/python3.11/site-packages",
-        ] if _network_on else []
-    ) + (
-        # Lab-exec: inject target coordinates so model-emitted commands and
-        # scripts can reference the lab without hardcoding. Empty values are
-        # skipped so a partial config doesn't pass blank envs.
-        [
-            arg
-            for k, v in (
-                ("LAB_TARGET_NETWORK", SANDBOX_LAB_TARGET_NETWORK),
-                ("LAB_TARGET_DC", SANDBOX_LAB_TARGET_DC),
-                ("LAB_TARGET_WS", SANDBOX_LAB_TARGET_WS),
-                ("LAB_TARGET_SRV", SANDBOX_LAB_TARGET_SRV),
+        + [
+            "--cap-drop",
+            "ALL",  # Drop all Linux capabilities
+        ]
+        + (
+            # Lab-exec: restore NET_RAW + NET_ADMIN for raw-socket attack tools.
+            # SYS_TIME allows ntpdate/rdate to sync container clock with the DC —
+            # required for Kerberos attacks (KRB_AP_ERR_SKEW if >5min drift).
+            # Inject DC FQDN via --add-host so tools requiring hostname (bloodhound-ce-python,
+            # certipy) can resolve it — container /etc/hosts is read-only under --read-only.
+            ["--cap-add", "NET_RAW", "--cap-add", "NET_ADMIN", "--cap-add", "SYS_TIME"]
+            + (
+                [
+                    f"--add-host=lab-dc01.portal.lab:{SANDBOX_LAB_TARGET_DC}",
+                    f"--add-host=lab-dc01:{SANDBOX_LAB_TARGET_DC}",
+                ]
+                if SANDBOX_LAB_TARGET_DC
+                else []
             )
-            if v
-            for arg in ("--env", f"{k}={v}")
-        ] if SANDBOX_LAB_EXEC else []
-    ) + (extra_args or []) + [
-        "-v",
-        f"{code_file.absolute()}:/code:ro",
-        image,
-    ] + command
+            if SANDBOX_LAB_EXEC
+            else []
+        )
+        + [
+            "--read-only",  # Read-only root filesystem
+            "--tmpfs",
+            "/tmp:size=64m",  # 64MB /tmp
+        ]
+        + (
+            # pip writes to /root/.local; needs a writable home when network-enabled.
+            # PYTHONPATH set so user-installed packages are importable immediately
+            # (user site isn't in sys.path at startup when the dir doesn't exist yet).
+            [
+                "--tmpfs",
+                "/root:size=256m,exec",  # exec needed for C-extension .so files
+                "--env",
+                "PYTHONPATH=/root/.local/lib/python3.11/site-packages",
+            ]
+            if _network_on
+            else []
+        )
+        + (
+            # Lab-exec: inject target coordinates so model-emitted commands and
+            # scripts can reference the lab without hardcoding. Empty values are
+            # skipped so a partial config doesn't pass blank envs.
+            [
+                arg
+                for k, v in (
+                    ("LAB_TARGET_NETWORK", SANDBOX_LAB_TARGET_NETWORK),
+                    ("LAB_TARGET_DC", SANDBOX_LAB_TARGET_DC),
+                    ("LAB_TARGET_WS", SANDBOX_LAB_TARGET_WS),
+                    ("LAB_TARGET_SRV", SANDBOX_LAB_TARGET_SRV),
+                )
+                if v
+                for arg in ("--env", f"{k}={v}")
+            ]
+            if SANDBOX_LAB_EXEC
+            else []
+        )
+        + (extra_args or [])
+        + [
+            "-v",
+            f"{code_file.absolute()}:/code:ro",
+            image,
+        ]
+        + command
+    )
 
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -546,7 +567,10 @@ async def execute_bash_endpoint(request):
         except Exception:
             py_code = ""
         if py_code:
-            result = await execute_python(code=py_code, timeout=min(timeout, SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120))
+            result = await execute_python(
+                code=py_code,
+                timeout=min(timeout, SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120),
+            )
             return JSONResponse(result)
     result = await execute_bash(code=code, timeout=timeout)
     return JSONResponse(result)

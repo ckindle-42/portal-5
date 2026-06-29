@@ -4,6 +4,7 @@ The ``lifespan`` async context manager runs on app startup/shutdown.
 It loads the backend registry, validates workspace hints, initializes
 notifications, runs model warmups, and tears them down cleanly on exit.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -16,16 +17,18 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI
 
-from portal_pipeline.cluster_backends import BackendRegistry
-from portal_pipeline.router.workspaces import WORKSPACES
-from portal_pipeline.router.state import _load_state, _request_count
-from portal_pipeline.router.routing import _LLM_ROUTER_ENABLED, _LLM_ROUTER_MODEL, _LLM_ROUTER_OLLAMA_URL
-from portal_pipeline.router.power import _power_polling_loop
-from portal_pipeline.router.state import _save_state, _state_save_loop
-from portal_pipeline.router.validation import _validate_workspace_hints
-
 import portal_pipeline.router.concurrency as _concurrency_mod
 import portal_pipeline.router.streaming as _streaming_mod
+from portal_pipeline.cluster_backends import BackendRegistry
+from portal_pipeline.router.power import _power_polling_loop
+from portal_pipeline.router.routing import (
+    _LLM_ROUTER_ENABLED,
+    _LLM_ROUTER_MODEL,
+    _LLM_ROUTER_OLLAMA_URL,
+)
+from portal_pipeline.router.state import _load_state, _request_count, _save_state, _state_save_loop
+from portal_pipeline.router.validation import _validate_workspace_hints
+from portal_pipeline.router.workspaces import WORKSPACES
 
 logger = logging.getLogger(__name__)
 
@@ -361,6 +364,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     import portal_pipeline.router.handlers as _handlers_mod  # noqa: PLC0415
     import portal_pipeline.router.non_streaming as _non_streaming_mod  # noqa: PLC0415
     import portal_pipeline.router.validation as _validation_mod  # noqa: PLC0415
+
     _handlers_mod.registry = registry
     _non_streaming_mod.registry = registry
     _non_streaming_mod._http_client = _http_client
@@ -454,4 +458,3 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if _notification_scheduler:
         _notification_scheduler.stop()
     await BackendRegistry.close_health_client()
-

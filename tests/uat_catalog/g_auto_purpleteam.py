@@ -126,7 +126,6 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             {"type": "min_length", "label": "Substantive response", "chars": 800},
         ],
     },
-
     # ── auto-purpleteam-exec (execution mode) ────────────────────────────────
     # WS-PE01/02/03: verifies the model actually calls execute_bash (not just talks about it).
     # KNOWN ISSUE (2026-06-27): supergemma4-26b-uncensored with tool_choice=auto hallucinates

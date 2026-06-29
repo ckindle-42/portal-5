@@ -1,8 +1,10 @@
 """Section C10 — Output validation."""
+
 from __future__ import annotations
 
-import httpx
 import time
+
+import httpx
 
 from ._common import (
     COMFYUI_URL,
@@ -127,4 +129,3 @@ async def run() -> None:
             "no videos in recent history",
             t0=None,
         )
-

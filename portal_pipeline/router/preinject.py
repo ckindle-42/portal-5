@@ -6,14 +6,15 @@ routing, vision fallback, temporal context, system prompt append, file
 attachment normalization) before the request is dispatched to the
 selected backend.
 """
+
 from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from portal_pipeline.router.routing import _detect_workspace, _route_with_llm
-from portal_pipeline.router.workspaces import WORKSPACES, _PERSONA_MAP
+from portal_pipeline.router.workspaces import _PERSONA_MAP, WORKSPACES
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +45,7 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict]) -> str:
     # LLM router first — semantic intent, ~100ms, falls back on timeout/low confidence
     detected = await _route_with_llm(messages)
     if detected:
-        logger.info(
-            "Auto-routing (LLM): detected workspace '%s' from message content", detected
-        )
+        logger.info("Auto-routing (LLM): detected workspace '%s' from message content", detected)
         return detected
     # Keyword fallback — deterministic, zero-latency
     detected = _detect_workspace(messages)
@@ -112,7 +111,7 @@ def _inject_temporal_context(workspace_id: str, body: dict) -> dict:
     _web_tools = {"web_search", "news_search", "web_fetch"}
     if not (_ws_tools & _web_tools or _ws_cfg.get("inject_temporal_context")):
         return body
-    _today = datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
+    _today = datetime.now(UTC).strftime("%A, %B %d, %Y")
     _temporal = (
         f"\n\nToday's date is {_today} (UTC). Your training data has a fixed "
         "cutoff and is very likely out of date for anything that changes over "
@@ -130,9 +129,7 @@ def _inject_temporal_context(workspace_id: str, body: dict) -> dict:
         "fabrication is a failure."
     )
     _msgs = body.get("messages", [])
-    _sys_i = next(
-        (i for i, m in enumerate(_msgs) if m.get("role") == "system"), None
-    )
+    _sys_i = next((i for i, m in enumerate(_msgs) if m.get("role") == "system"), None)
     if _sys_i is not None:
         _u = dict(_msgs[_sys_i])
         _u["content"] = _u.get("content", "") + _temporal

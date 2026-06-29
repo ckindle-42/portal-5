@@ -32,30 +32,36 @@ def _run_with_empty_retry(stub, run_num):
 
 
 def test_empty_then_success_is_retried():
-    stub, calls = _make_stub([
-        {"error": "empty response (0 tokens)", "elapsed_s": 1.0},
-        {"tps": 30.0, "completion_tokens": 100, "elapsed_s": 3.3},
-    ])
+    stub, calls = _make_stub(
+        [
+            {"error": "empty response (0 tokens)", "elapsed_s": 1.0},
+            {"tps": 30.0, "completion_tokens": 100, "elapsed_s": 3.3},
+        ]
+    )
     result = _run_with_empty_retry(stub, 1)
     assert "tps" in result, "successful retry should promote to success"
     assert calls["n"] == 2, "should have retried exactly once"
 
 
 def test_timeout_is_not_retried():
-    stub, calls = _make_stub([
-        {"error": "timeout", "elapsed_s": 600.0},
-        {"tps": 30.0, "completion_tokens": 100, "elapsed_s": 3.3},
-    ])
+    stub, calls = _make_stub(
+        [
+            {"error": "timeout", "elapsed_s": 600.0},
+            {"tps": 30.0, "completion_tokens": 100, "elapsed_s": 3.3},
+        ]
+    )
     result = _run_with_empty_retry(stub, 1)
     assert result["error"] == "timeout"
     assert calls["n"] == 1, "timeout must not be retried"
 
 
 def test_double_empty_records_failure():
-    stub, calls = _make_stub([
-        {"error": "empty response (0 tokens)", "elapsed_s": 1.0},
-        {"error": "empty response (0 tokens)", "elapsed_s": 1.0},
-    ])
+    stub, calls = _make_stub(
+        [
+            {"error": "empty response (0 tokens)", "elapsed_s": 1.0},
+            {"error": "empty response (0 tokens)", "elapsed_s": 1.0},
+        ]
+    )
     result = _run_with_empty_retry(stub, 1)
     assert result["error"] == "empty response (0 tokens)"
     assert calls["n"] == 2, "retry once, then accept failure"

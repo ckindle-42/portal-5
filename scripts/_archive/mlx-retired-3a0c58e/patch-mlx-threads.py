@@ -45,7 +45,7 @@ from pathlib import Path
 # These files must be installed after any mlx-lm upgrade.
 SCRIPT_DIR = Path(__file__).parent
 LAGUNA_PLUGINS = [
-    (SCRIPT_DIR / "mlx-model-laguna.py",       "models/laguna.py"),
+    (SCRIPT_DIR / "mlx-model-laguna.py", "models/laguna.py"),
     (SCRIPT_DIR / "mlx-tool-parser-laguna.py", "tool_parsers/laguna.py"),
 ]
 
@@ -176,7 +176,9 @@ def main() -> int:
     try:
         result = subprocess.run(
             [sys.executable, "-c", "import mlx_lm; print(mlx_lm.__file__)"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         mlx_lm_dir = Path(result.stdout.strip()).parent if result.returncode == 0 else None
     except Exception:

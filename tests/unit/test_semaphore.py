@@ -20,9 +20,9 @@ HEADERS = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
 @pytest.fixture
 def client():
     """Create a test client with proper lifespan + fake registry."""
-    import portal_pipeline.router.handlers as handlers_mod
     from unittest.mock import MagicMock
 
+    import portal_pipeline.router.handlers as handlers_mod
     from portal_pipeline.cluster_backends import BackendRegistry
 
     reg = MagicMock(spec=BackendRegistry)

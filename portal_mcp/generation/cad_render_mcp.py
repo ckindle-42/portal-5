@@ -32,7 +32,9 @@ logger = logging.getLogger(__name__)
 port = int(os.getenv("CAD_RENDER_MCP_PORT", "8926"))
 mcp = FastMCP("cad-render", host="0.0.0.0")
 
-PUBLIC_URL = os.getenv("CAD_RENDER_PUBLIC_URL", f"http://localhost:{port}/files/models3d").rstrip("/")
+PUBLIC_URL = os.getenv("CAD_RENDER_PUBLIC_URL", f"http://localhost:{port}/files/models3d").rstrip(
+    "/"
+)
 SAFE_FILENAME = re.compile(r"^[\w\-\.\s]+$")
 
 # Master switch for the vision review loop. Default OFF (see B6). Per-call `review`
@@ -134,12 +136,15 @@ def _maybe_review(png_path: Path, prompt: str) -> str | None:
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": (
-                            "This is a headless render of a 3D-printed part the user is "
-                            "designing: " + prompt + ". In 3-4 sentences, critique the "
-                            "geometry for obvious modelling errors, non-manifold hints, "
-                            "missing features, or printability red flags. Be concrete."
-                        )},
+                        {
+                            "type": "text",
+                            "text": (
+                                "This is a headless render of a 3D-printed part the user is "
+                                "designing: " + prompt + ". In 3-4 sentences, critique the "
+                                "geometry for obvious modelling errors, non-manifold hints, "
+                                "missing features, or printability red flags. Be concrete."
+                            ),
+                        },
                         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
                     ],
                 }
@@ -184,10 +189,25 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "mesh_path": {"type": "string", "description": "Absolute path or filename of the mesh (e.g. part.stl) produced by the CAD sandbox"},
-                "resolution": {"type": "integer", "description": "Square render resolution in px", "default": 1024},
-                "review": {"type": "boolean", "description": "If true AND CAD_RENDER_REVIEW_LOOP=1, send the PNG to the vision model for a geometry critique", "default": False},
-                "prompt": {"type": "string", "description": "Short description of the part, used only by the review loop", "default": ""},
+                "mesh_path": {
+                    "type": "string",
+                    "description": "Absolute path or filename of the mesh (e.g. part.stl) produced by the CAD sandbox",
+                },
+                "resolution": {
+                    "type": "integer",
+                    "description": "Square render resolution in px",
+                    "default": 1024,
+                },
+                "review": {
+                    "type": "boolean",
+                    "description": "If true AND CAD_RENDER_REVIEW_LOOP=1, send the PNG to the vision model for a geometry critique",
+                    "default": False,
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "Short description of the part, used only by the review loop",
+                    "default": "",
+                },
             },
             "required": ["mesh_path"],
         },
@@ -199,7 +219,11 @@ TOOLS_MANIFEST = [
             "type": "object",
             "properties": {
                 "code": {"type": "string", "description": "OpenSCAD source code"},
-                "resolution": {"type": "integer", "description": "Square render resolution in px", "default": 1024},
+                "resolution": {
+                    "type": "integer",
+                    "description": "Square render resolution in px",
+                    "default": 1024,
+                },
             },
             "required": ["code"],
         },
@@ -210,8 +234,14 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "input_path": {"type": "string", "description": "Absolute path or filename of the input model"},
-                "to_format": {"type": "string", "description": "Target extension without dot: stl | 3mf | obj | ply"},
+                "input_path": {
+                    "type": "string",
+                    "description": "Absolute path or filename of the input model",
+                },
+                "to_format": {
+                    "type": "string",
+                    "description": "Target extension without dot: stl | 3mf | obj | ply",
+                },
             },
             "required": ["input_path", "to_format"],
         },
@@ -225,6 +255,7 @@ async def list_tools(request):
 
 
 # ── POST /tools/<name> — pipeline dispatch endpoints ─────────────────────────
+
 
 @mcp.custom_route("/tools/render_mesh", methods=["POST"])
 async def render_mesh_endpoint(request):
@@ -263,20 +294,28 @@ async def convert_cad_endpoint(request):
 
 # ── tools ───────────────────────────────────────────────────────────────────
 @mcp.tool()
-async def render_mesh(mesh_path: str, resolution: int = 1024, review: bool = False, prompt: str = "") -> dict:
+async def render_mesh(
+    mesh_path: str, resolution: int = 1024, review: bool = False, prompt: str = ""
+) -> dict:
     """Render a mesh to PNG (headless) and report bounding-box dimensions."""
     import trimesh
 
     src = _resolve_input(mesh_path)
     if src.suffix.lower() not in MESH_EXTS:
-        return {"error": f"Unsupported mesh extension {src.suffix!r}. Supported: {sorted(MESH_EXTS)}"}
+        return {
+            "error": f"Unsupported mesh extension {src.suffix!r}. Supported: {sorted(MESH_EXTS)}"
+        }
     out_name = f"render_{uuid.uuid4().hex[:8]}.png"
     out_png = _out_dir() / out_name
     note = _render_mesh_to_png(src, out_png, resolution=resolution)
 
     geom = trimesh.load(str(src), force="mesh")
     extents = getattr(geom, "extents", None)
-    dims = {"x": float(extents[0]), "y": float(extents[1]), "z": float(extents[2])} if extents is not None else None
+    dims = (
+        {"x": float(extents[0]), "y": float(extents[1]), "z": float(extents[2])}
+        if extents is not None
+        else None
+    )
 
     result = {
         "png_path": str(out_png),
@@ -289,7 +328,9 @@ async def render_mesh(mesh_path: str, resolution: int = 1024, review: bool = Fal
     if critique:
         result["review"] = critique
     elif review and not REVIEW_LOOP_ENABLED:
-        result["review_note"] = "review requested but CAD_RENDER_REVIEW_LOOP is off (default); artifact emitted without critique"
+        result["review_note"] = (
+            "review requested but CAD_RENDER_REVIEW_LOOP is off (default); artifact emitted without critique"
+        )
     return result
 
 
@@ -348,7 +389,9 @@ async def convert_cad(input_path: str, to_format: str) -> dict:
             mesh = shape.tessellate(0.1)
             geom = trimesh.Trimesh(vertices=mesh[0], faces=mesh[1])
         except Exception as e:  # noqa: BLE001
-            return {"error": f"STEP read requires build123d/OCP and failed: {e}. Export STL from the sandbox instead."}
+            return {
+                "error": f"STEP read requires build123d/OCP and failed: {e}. Export STL from the sandbox instead."
+            }
     else:
         geom = trimesh.load(str(src), force="mesh")
 

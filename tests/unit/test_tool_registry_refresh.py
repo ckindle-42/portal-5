@@ -1,6 +1,5 @@
 """Tests for ToolRegistry refresh carry-forward and dispatch fixes."""
 
-import asyncio
 import time
 from unittest.mock import MagicMock, patch
 
@@ -193,7 +192,7 @@ class TestDispatchTimeoutHandling:
         mock_client = MagicMock()
 
         async def mock_post(*args, **kwargs):
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
 
         mock_client.post = mock_post
         mock_client.is_closed = False

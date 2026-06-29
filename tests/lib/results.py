@@ -1,4 +1,5 @@
 """Result model and recording helpers for Portal 5 acceptance tests."""
+
 from __future__ import annotations
 
 import re

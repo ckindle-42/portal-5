@@ -8,7 +8,7 @@ import argparse
 import json
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .config import (
@@ -145,9 +145,9 @@ def _check_image_freshness() -> None:
                     timeout=10,
                 )
                 ts = r.stdout.strip()
-                from datetime import datetime, timezone
+                from datetime import datetime
 
-                return datetime.fromtimestamp(int(ts), tz=timezone.utc) if ts else None
+                return datetime.fromtimestamp(int(ts), tz=UTC) if ts else None
             if image:
                 r = subprocess.run(
                     ["docker", "inspect", "--format", "{{.Created}}", image],
@@ -270,7 +270,11 @@ def _run_main(args) -> None:
         print("\n── Pipeline Workspace Tests ──")
         all_results.extend(
             bench_pipeline(
-                pipeline_available, args.workspaces, args.runs, args.dry_run, output_path=args.output
+                pipeline_available,
+                args.workspaces,
+                args.runs,
+                args.dry_run,
+                output_path=args.output,
             )
         )
 
@@ -291,7 +295,7 @@ def _run_main(args) -> None:
         _print_persona_table(all_results)
 
     # Finalize output with wall time and metadata
-    output["timestamp"] = datetime.now(timezone.utc).isoformat()
+    output["timestamp"] = datetime.now(UTC).isoformat()
     output["total_wall_time_s"] = round(total_time, 1)
     output["backends"] = {
         "ollama": {"url": OLLAMA_URL, "available": ollama_available},

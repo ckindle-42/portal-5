@@ -5,6 +5,7 @@ Per TASK_MODEL_REFRESH_V5 §3. Detects P5-MLX-006/008-class empty-content
 defects and runtime failures. JSON results gate which models proceed to
 Phase E bench (failed models are skipped to avoid wasting bench time).
 """
+
 import json
 import os
 import subprocess
@@ -52,13 +53,37 @@ PROMPT = "In one sentence, what is the capital of France?"
 
 def smoke_one(model_id: str, kind: str) -> dict:
     import sys as _sys
+
     exe = _sys.executable
     cmd = (
-        [exe, "-m", "mlx_vlm.generate", "--model", model_id,
-         "--prompt", PROMPT, "--max-tokens", "50", "--temperature", "0.0"]
-        if kind == "vlm" else
-        [exe, "-m", "mlx_lm", "generate", "--model", model_id,
-         "--prompt", PROMPT, "--max-tokens", "50", "--temp", "0"]
+        [
+            exe,
+            "-m",
+            "mlx_vlm.generate",
+            "--model",
+            model_id,
+            "--prompt",
+            PROMPT,
+            "--max-tokens",
+            "50",
+            "--temperature",
+            "0.0",
+        ]
+        if kind == "vlm"
+        else [
+            exe,
+            "-m",
+            "mlx_lm",
+            "generate",
+            "--model",
+            model_id,
+            "--prompt",
+            PROMPT,
+            "--max-tokens",
+            "50",
+            "--temp",
+            "0",
+        ]
     )
     env = os.environ.copy()
     env.setdefault("HF_HUB_CACHE", str(HF_CACHE))
@@ -69,14 +94,25 @@ def smoke_one(model_id: str, kind: str) -> dict:
         out = result.stdout.strip()
         body_chars = sum(1 for c in out if c.isalnum())
         if result.returncode != 0:
-            return {"model": model_id, "status": "FAIL_RUNTIME",
-                    "stderr_tail": result.stderr[-500:], "stdout_tail": out[-200:]}
+            return {
+                "model": model_id,
+                "status": "FAIL_RUNTIME",
+                "stderr_tail": result.stderr[-500:],
+                "stdout_tail": out[-200:],
+            }
         if body_chars < 10:
-            return {"model": model_id, "status": "FAIL_EMPTY_CONTENT",
-                    "body_chars": body_chars,
-                    "diagnosis": "Likely P5-MLX-006/008 — Apple Metal compatibility defect"}
-        return {"model": model_id, "status": "PASS",
-                "stdout_tail": out[-200:], "body_chars": body_chars}
+            return {
+                "model": model_id,
+                "status": "FAIL_EMPTY_CONTENT",
+                "body_chars": body_chars,
+                "diagnosis": "Likely P5-MLX-006/008 — Apple Metal compatibility defect",
+            }
+        return {
+            "model": model_id,
+            "status": "PASS",
+            "stdout_tail": out[-200:],
+            "body_chars": body_chars,
+        }
     except subprocess.TimeoutExpired:
         return {"model": model_id, "status": "FAIL_TIMEOUT", "timeout_s": timeout}
     except Exception as e:

@@ -28,8 +28,7 @@ _INDENT_BLOCK_RE = re.compile(r"(?:^ {4}.+\n){3,}", re.MULTILINE)
 
 
 def assert_code_block_present(response: str) -> AssertionResult:
-    """Pass if response contains at least one code block (fenced or indented).
-    """
+    """Pass if response contains at least one code block (fenced or indented)."""
     fenced = _FENCED_RE.findall(response)
     tilded = _TILDE_RE.findall(response)
     indented = _INDENT_BLOCK_RE.findall(response)
@@ -266,17 +265,17 @@ _STATEFUL_RESULT_MARKERS: dict[str, tuple[str, ...]] = {
     "sql": (
         r"\b\d+\s+row(?:s)?\b",
         r"\(\s*\d+\s+row(?:s)?\s*(?:returned|affected)?\s*\)",
-        r"\|\s*\w+\s*\|",          # ASCII table row
-        r"-{3,}\+\-{3,}",          # ASCII table separator
-        r"INSERT\s+0\s+\d+",       # postgres-style insert ack
+        r"\|\s*\w+\s*\|",  # ASCII table row
+        r"-{3,}\+\-{3,}",  # ASCII table separator
+        r"INSERT\s+0\s+\d+",  # postgres-style insert ack
     ),
     "bash": (
-        r"^\$\s+",                  # shell prompt echoed
+        r"^\$\s+",  # shell prompt echoed
         r"\b\d+\s+bytes\b",
-        r"^/[\w/.-]+$",            # absolute path output
+        r"^/[\w/.-]+$",  # absolute path output
     ),
     "python": (
-        r">>>\s+",                  # REPL prompt
+        r">>>\s+",  # REPL prompt
         r"\bTraceback\b",
         r"\bError\b.*:.*",
     ),
@@ -321,9 +320,7 @@ def assert_handles_stateful_session(response: str, language: str) -> AssertionRe
 # ── Required-elements check (named primitives by API/library/language) ────
 
 
-def assert_contains_required_elements(
-    response: str, elements: list[str]
-) -> AssertionResult:
+def assert_contains_required_elements(response: str, elements: list[str]) -> AssertionResult:
     """Pass if every element in `elements` appears in the response.
 
     Elements are matched case-insensitively as plain substrings. Use for

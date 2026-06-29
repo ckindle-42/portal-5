@@ -57,7 +57,9 @@ def test_backends_yaml_workspace_routing_matches_catalog() -> None:
     missing = portal_ws - backends_routing
     extra = backends_routing - portal_ws
 
-    assert not missing, f"Workspaces in portal.yaml but missing from workspace_routing: {sorted(missing)}"
+    assert not missing, (
+        f"Workspaces in portal.yaml but missing from workspace_routing: {sorted(missing)}"
+    )
     assert not extra, f"workspace_routing entries with no workspace in portal.yaml: {sorted(extra)}"
 
 
@@ -90,8 +92,7 @@ def test_owui_presets_cover_all_exposed_workspaces() -> None:
 
     exposed = {ws_id for ws_id, spec in workspaces.items() if spec.get("expose_to_owui", True)}
     preset_ids = {
-        json.loads(f.read_text()).get("id", "")
-        for f in sorted(ws_dir.glob("workspace_*.json"))
+        json.loads(f.read_text()).get("id", "") for f in sorted(ws_dir.glob("workspace_*.json"))
     }
 
     missing = exposed - preset_ids
@@ -112,4 +113,6 @@ def test_no_orphan_owui_presets() -> None:
         if ws_id and ws_id not in live_ws:
             orphans.append(ws_id)
 
-    assert not orphans, f"Orphan OWUI preset files (workspace no longer in portal.yaml): {sorted(orphans)}"
+    assert not orphans, (
+        f"Orphan OWUI preset files (workspace no longer in portal.yaml): {sorted(orphans)}"
+    )

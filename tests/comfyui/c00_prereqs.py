@@ -1,9 +1,11 @@
 """Section C0 — Prerequisites (memory, deps, ComfyUI process)."""
+
 from __future__ import annotations
 
-import httpx
 import subprocess
 import time
+
+import httpx
 
 from ._common import (
     COMFYUI_URL,
@@ -90,4 +92,3 @@ async def run() -> None:
 
     # Clear ComfyUI queue — stuck tasks from previous runs block all generation tests
     await _clear_comfyui_queue()
-
