@@ -26,14 +26,14 @@ promote models — promotions are operator decisions.
 
 Evaluates configured security workspaces on a fixed prompt set. Scores each
 response on structure, MITRE ATT&CK density, disclaimer rate, and completeness.
-Fast (< 5 min for all workspaces).
+~13h for all 504 prompts across all 9 workspaces.
 
 ```bash
-python3 tests/benchmarks/bench_security.py
+python3 -m tests.benchmarks.bench_security
 # or filter to one workspace:
-python3 tests/benchmarks/bench_security.py --workspaces bench-qwable5-27b
+python3 -m tests.benchmarks.bench_security --workspaces auto-pentest
 # dry run to see what would execute:
-python3 tests/benchmarks/bench_security.py --dry-run
+python3 -m tests.benchmarks.bench_security --dry-run
 ```
 
 ### 2. Standard: Chain test for a candidate model
@@ -44,29 +44,56 @@ report. 8 steps, scoring each on tool selection, argument correctness, and
 completion without refusal. The gold standard for security model qualification.
 
 ```bash
-# Single model chain test (standard — no lab execution):
-python3 tests/benchmarks/bench_security.py \
+# Single model, single scenario (default: kerberoast_to_da):
+python3 -m tests.benchmarks.bench_security \
+    --skip-workspace-bench \
     --chain-models hf.co/DJLougen/Qwable-5-27B-Coder-GGUF:Q4_K_M
 
-# Multiple models (runs sequentially):
-python3 tests/benchmarks/bench_security.py \
+# Multiple models, all 8 scenarios:
+python3 -m tests.benchmarks.bench_security \
+    --skip-workspace-bench \
+    --all-scenarios \
     --chain-models hf.co/model1:tag hf.co/model2:tag
-
-# Named workspace chain test (tests the workspace's configured model_hint):
-python3 tests/benchmarks/bench_security.py \
-    --workspaces bench-qwable5-27b \
-    --chain-models hf.co/DJLougen/Qwable-5-27B-Coder-GGUF:Q4_K_M
 ```
 
-### 3. Full: Chain test with real lab execution (advanced)
+**Important:** By default only `kerberoast_to_da` runs. Use `--all-scenarios`
+for full coverage (8 scenarios). The "2/2 scenarios" promotion criterion
+refers to two scenarios you choose to run; `--all-scenarios` runs all 8.
 
-Runs actual commands via MCP sandbox against a live Windows/AD lab
-environment. Only use when `SANDBOX_LAB_EXEC=true` and the lab VM is up.
+### 3. Full: Workspace scoring + chain test with real lab execution
 
+Runs workspace scoring (all 504 prompts) then executes the multi-model chain
+against live Windows/AD lab VMs via MCP sandbox. Only when
+`SANDBOX_LAB_EXEC=true`, `portal5-attack:latest` image exists, and lab VMs
+are reachable.
+
+**Phase 1 — Workspace scoring (run first, ~13h):**
 ```bash
-python3 tests/benchmarks/bench_security.py \
-    --chain-models <model_id> --lab-exec
+TS=$(date -u +%Y%m%dT%H%M%SZ)
+python3 -m tests.benchmarks.bench_security \
+    --lab-snapshot \
+    --output tests/benchmarks/bench_security/results/sec_bench_${TS}.json \
+    > sec_bench_${TS}.log 2>&1 &
 ```
+
+**Phase 2 — Exec chain with real lab execution (after Phase 1 completes):**
+```bash
+TS=$(date -u +%Y%m%dT%H%M%SZ)
+python3 -m tests.benchmarks.bench_security \
+    --skip-workspace-bench \
+    --all-scenarios \
+    --chain-models hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M \
+                   huihui_ai/baronllm-abliterated:latest \
+                   qwen3-coder:30b-a3b-q4_K_M \
+    --blue-defender-model hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0 \
+    --lab-exec \
+    --lab-snapshot \
+    --output tests/benchmarks/bench_security/results/sec_bench_chain_${TS}.json \
+    > sec_bench_chain_${TS}.log 2>&1 &
+```
+
+`--lab-snapshot` takes a Proxmox snapshot before the run and restores it on
+completion, leaving VMs in clean state. Always include it for lab-exec runs.
 
 ---
 
@@ -108,7 +135,22 @@ git log --oneline -3
 ```
 If any portal image predates a relevant commit: `./launch.sh rebuild`.
 
-### 4. TPS bench first
+### 4. Lab exec prerequisites (Mode 3 only)
+```bash
+# Confirm SANDBOX_LAB_EXEC is set:
+grep SANDBOX_LAB_EXEC .env
+
+# Confirm portal5-attack image exists:
+docker images portal5-attack --format "{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}"
+
+# Confirm lab VMs are reachable from sandbox:
+docker run --rm --network host portal5-attack:latest \
+    python3 -c "import socket; s=socket.socket(); s.settimeout(2); s.connect(('10.10.11.21',445)); print('DC reachable')"
+```
+If `portal5-attack` image is missing: check `deploy/portal-5/docker-compose.yml`
+for the `portal5-attack` service and rebuild with `docker compose build portal5-attack`.
+
+### 5. TPS bench first
 Run `bench_tps.py --mode direct --model <substring>` before the security
 chain. A model at < 20 t/s will drag every chain step through 30–90s
 timeouts. Know the speed before you interpret the chain results.
@@ -118,16 +160,22 @@ timeouts. Know the speed before you interpret the chain results.
 ## Standard Chain Command
 
 ```bash
-# Candidate evaluation — chain test only:
-python3 tests/benchmarks/bench_security.py \
+# Quick candidate evaluation — 2 scenarios, no lab:
+python3 -m tests.benchmarks.bench_security \
+    --skip-workspace-bench \
+    --scenario kerberoast_to_da \
     --chain-models <model_id> \
-    --output tests/benchmarks/results/sec_bench_$(date -u +%Y%m%dT%H%M%SZ).json
+    --output tests/benchmarks/bench_security/results/sec_bench_$(date -u +%Y%m%dT%H%M%SZ).json
 
-# Full: workspace scoring + chain test together:
-python3 tests/benchmarks/bench_security.py \
-    --workspaces bench-<name> \
+# Full qualification — all 8 scenarios, with real lab execution:
+python3 -m tests.benchmarks.bench_security \
+    --skip-workspace-bench \
+    --all-scenarios \
     --chain-models <model_id> \
-    --output tests/benchmarks/results/sec_bench_$(date -u +%Y%m%dT%H%M%SZ).json
+    --blue-defender-model hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0 \
+    --lab-exec \
+    --lab-snapshot \
+    --output tests/benchmarks/bench_security/results/sec_bench_chain_$(date -u +%Y%m%dT%H%M%SZ).json
 ```
 
 ---
@@ -230,14 +278,19 @@ Authoritative: `portal_pipeline/router/workspaces.py`
 ## Output and Results
 
 Results write to `--output` path (default: `/tmp/sec_bench_<ts>.json`).
-Commit final results to `tests/benchmarks/results/` after a significant
-fleet-wide run. Single-candidate evals don't need to be committed.
+Commit significant runs to `tests/benchmarks/bench_security/results/`.
+Single-candidate quick evals don't need to be committed.
 
 ```bash
-# After a significant multi-model run:
-git add tests/benchmarks/results/sec_bench_*.json
-git commit -m "bench(security): chain eval <model-names> $(date -u +%Y-%m-%d)"
+# After a significant multi-model or fleet-wide run:
+git add tests/benchmarks/bench_security/results/sec_bench_*.json
+git commit -m "bench(security): <description> $(date -u +%Y-%m-%d)"
+git push origin main
 ```
+
+Phase 1 (workspace scoring) and Phase 2 (exec chain) produce separate JSON
+files — commit both. The workspace scoring file contains `results[]`; the
+chain file contains `chain_tests[]` and `blue_tests[]`.
 
 ---
 
@@ -246,20 +299,41 @@ git commit -m "bench(security): chain eval <model-names> $(date -u +%Y-%m-%d)"
 | Flag | Meaning |
 |---|---|
 | `--workspaces <id> [<id>...]` | Evaluate specific workspace(s) on prompt set |
-| `--chain-models <id> [<id>...]` | Run multi-turn chain test against these model IDs |
-| `--prompt <keyword>` | Override prompt (kerberoasting, asrep, etc.) |
-| `--audit-tools` | Single tool-call probe — verifies supports_tools before chain |
+| `--skip-workspace-bench` | Skip the 504-prompt workspace scoring pass (chain-only run) |
+| `--chain-models <id> [<id>...]` | Run multi-turn chain test against these model IDs (Ollama direct) |
+| `--all-scenarios` | Run all 8 scenarios per model (default: kerberoast_to_da only) |
+| `--scenario <name>` | Run a single named scenario (see `--list-scenarios`) |
+| `--blue-defender-model <id>` | Run blue defender pass after each exec chain |
 | `--lab-exec` | Real execution via MCP sandbox (requires lab environment up) |
+| `--lab-snapshot` | Take Proxmox snapshot before run, restore on completion |
+| `--audit-tools` | Single tool-call probe — verifies supports_tools before chain |
 | `--dry-run` | Show what would execute, don't run |
-| `--output <path>` | Result JSON path (default: /tmp/sec_bench_<ts>.json) |
+| `--list-scenarios` | Print available scenario keys and exit |
+| `--output <path>` | Result JSON path (default: /tmp/sec_bench_&lt;ts&gt;.json) |
 
 ---
 
 ## Known Behavior Notes
 
-- **Two scenarios** are always run per model: both must pass for promotion.
+- **Default is one scenario** — `--all-scenarios` is required for full 8-scenario
+  coverage. Without it, only `kerberoast_to_da` runs. The "2/2 scenarios" promotion
+  criterion means two scenarios you choose to run, not a hard-coded pair.
+- **Lab execution is real but exploit/persist are bounded** — `run_nmap_scan` uses
+  Python TCP connect (no raw socket needed in DinD); `exploit_service` uses
+  `impacket-GetUserSPNs` Kerberoast; `establish_persistence` uses `nxc smb` schtasks.
+  `start_lab_target` / `revert_lab_target` require `vmid` in the tool args to trigger
+  real Proxmox calls — without it they return immediately.
 - **CVE step is conditional** — fires only if `vuln_enum` finds a named service. A
   model that returns a generic "open ports" response may skip this step legitimately.
-- **Slow models skew chain_time_s** — don't compare 35b dense models against 7b MoE on chain time alone; normalize by TPS.
-- **Reasoning trace bleed** — models fine-tuned on agent traces sometimes emit memorized context paths (e.g., `/home/lane/TII/.claude/instructions`). This is a training data contamination signal, not a capability failure — but it's a red flag for production use in shared environments.
-- **PROMOTE_POLICY=confirm** is the default for all bench- security workspaces.
+- **`open_ports` requires VMs fully booted** — if VMs were just restored from snapshot,
+  TCP connect scans may return empty for 15–30s. `--lab-snapshot` waits 15s after
+  restore; if scans still return empty, check VM boot time vs scan timeout.
+- **Slow models skew chain_time_s** — don't compare 35b dense models against 7b MoE
+  on chain time alone; normalize by TPS.
+- **Reasoning trace bleed** — models fine-tuned on agent traces sometimes emit
+  memorized context paths. Training data contamination signal — red flag for shared
+  environments.
+- **PROMOTE_POLICY=confirm** is the default for all bench-security workspaces.
+- **exec_chain_models vs chain_models** — `--exec-chain-models` runs a multi-model
+  chain for every workspace scoring prompt (504 × chain). `--chain-models` runs the
+  8-step scenario chain test. For standard qualification use `--chain-models`.
