@@ -119,8 +119,8 @@ PER_WORKSPACE_TIMEOUT: dict[str, float] = {
     "auto-research": 1200.0,         # tongyi-deepresearch-abliterated
     "auto-purpleteam-deep": 1500.0,  # qwen3.5-abliterated
     "auto-spl": 600.0,               # huihui-ai_qwen3-coder-next
-    # auto-purpleteam-exec NOT capped here — Phase 2 sets supports_tools=false
-    # on supergemma4 which removes the underlying cause of long runtime.
+    # auto-purpleteam-exec: theory pass uses max_tokens=2000 override (run.py)
+    # to bound degenerate exec-model runs. No timeout override needed here.
 }
 PROMPT_MAX_TOKENS = 6000  # model-level token cap — capacity event, not a timer
 # Hard wall-clock cap per model turn in the exec chain. Thinking models (Qwable-35B)
