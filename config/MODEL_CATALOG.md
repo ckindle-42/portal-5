@@ -175,6 +175,18 @@ GLM-4.7-Flash REAP UD-Q4_K_XL (~14.2GB, unsloth, MIT). Same base as glm-4.7-flas
 
 GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI, April 2026). GLM thinking/reasoning variant — ZhipuAI answer to QwQ/DeepSeek-R1. Multi-step chain-of-thought. PROMOTED 2026-06-21: quality 1.00, 12.1 TPS in bench. auto-glm-thinking production workspace. emits_reasoning=True. supports_tools=false: Ollama HTTP 400 "does not support tools" — confirmed by audit-tools 2026-06-21.
 
+### `hf.co/deepreinforce-ai/Ornith-1.0-9B-GGUF:Q4_K_M`
+
+Ornith-1.0-9B Q4_K_M (~5.6GB, DeepReinforce/MIT, Qwen3.5-9B base, 262K ctx, dense). Self-improving agentic-coding RL. Reasoning model, qwen3_xml tool parser. V10 candidate — bench-ornith-9b. PROMOTE_POLICY=confirm.
+
+### `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M`
+
+Ornith-1.0-35B Q4_K_M (~21GB, DeepReinforce/MIT, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Same RL training as 9B sibling. V10 candidate — bench-ornith-35b. Substitutes for AEON-7 NVFP4 (Blackwell-only). PROMOTE_POLICY=confirm.
+
+### `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4`
+
+North-Mini-Code-1.0-QAD NVFP4 W4A16 (~19.3GB, Cohere Labs, Apache 2.0, cohere2moe arch, 256K ctx, 64K out, 30B-A3B MoE 128 experts top-8). Agentic-coding RL. NVFP4 weight-only quant (no FP4 hardware required). V10 candidate — bench-north-mini-code. PROMOTE_POLICY=confirm.
+
 ## Security group
 
 ### `huihui_ai/qwen3.5-abliterated:9b`
@@ -278,6 +290,14 @@ DeepSeek-R1-0528-Qwen3-8B Q4_K_XL (~5GB, MIT, Qwen3-8B base, May 2026). Chain-of
 ### `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`
 
 Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Cisco fdtn-ai, Llama-3.1-8B cybersec continued-pretrain + reasoning, Apache 2.0). Native <think>. MOVED from security group to reasoning (SECURITY_FLEET_REVIEW_2026-06) — training is security reasoning/analysis, not agentic tool-calling; 400 error on all tool probes confirmed in Run A 2026-06-21. Correctly serves auto-blueteam analytical work (DFIR, threat modeling, ATT&CK analysis) through reasoning group pathway. supports_tools=false.
+
+### `hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M`
+
+Qwythos-9B Claude-Mythos-5-1M Q4_K_M (~5.6GB, Empero, Apache 2.0, Qwen3.5-9B base, 1,048,576 ctx via YaRN). Post-trained on ~500M tokens of Claude Mythos/Fable reasoning traces. Function calling + uncensored. V10 candidate — bench-qwythos-9b. PROMOTE_POLICY=confirm.
+
+### `hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:Q4_K_M`
+
+GLM-4.7-Flash Claude-Opus-4.5 High-Reasoning Distill Q4_K_M (~18.1GB, TeichAI, Apache 2.0, base unsloth/GLM-4.7-Flash, deepseek2/glm4_moe_lite, 30B total). 250-sample Opus-4.5 reasoning distill. V10 candidate — bench-glm47f-claude-distill. PROMOTE_POLICY=confirm.
 
 ## Vision group
 
