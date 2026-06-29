@@ -184,7 +184,9 @@ async def main() -> None:
     # --purge-uat mode: delete all chats in the UAT folder, then delete the folder
     if args.purge_uat:
         folders = _owui_list_folders(token)
-        uat_folder = next((f for f in folders if f.get("name") == "UAT" and not f.get("parent_id")), None)
+        uat_folder = next(
+            (f for f in folders if f.get("name") == "UAT" and not f.get("parent_id")), None
+        )
         if not uat_folder:
             print("  No UAT folder found — nothing to purge.")
             return
@@ -405,12 +407,16 @@ async def main() -> None:
     except Exception as _e:
         print(f"  WARNING: could not pre-create UAT folder — chats will be moved at run end ({_e})")
     _install_archival_signal_handler(run_date)
-    print(f"  Chat archival: conversations run in root → UAT/{run_date} on completion (or interrupt)")
+    print(
+        f"  Chat archival: conversations run in root → UAT/{run_date} on completion (or interrupt)"
+    )
     folder_id: str | None = None  # kept for legacy call sites in run_single_test
     _targeted = bool((args.test or args.section) and not args.rerun and not args.append)
     if _targeted:
         args.append = True
-        print("  [targeted run] --append implied — UAT_RESULTS.md preserved (use --rerun to replace rows)")
+        print(
+            "  [targeted run] --append implied — UAT_RESULTS.md preserved (use --rerun to replace rows)"
+        )
     if not args.append:
         init_results(run_ts)
     counts: dict[str, int] = {}
@@ -424,6 +430,7 @@ async def main() -> None:
     print(f"  Corpus: tests/uat_corpus/uat_{corpus_run_id}.jsonl")
 
     from playwright.async_api import async_playwright  # lazy: keeps unit-test collection light
+
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=not args.headed)
         ctx = await browser.new_context(
@@ -515,11 +522,15 @@ async def main() -> None:
                     # moving to next tier. Warn but don't block — tier transitions
                     # are between sections, not individual tests; a single BLOCKED
                     # row per test is already the guard if drain fails there.
-                    if not _wait_for_drain(threshold_pct=75.0, label="tier-transition",
-                                           timeout_s=30.0, retries=2):
+                    if not _wait_for_drain(
+                        threshold_pct=75.0, label="tier-transition", timeout_s=30.0, retries=2
+                    ):
                         used_pct = _get_memory_pct()
-                        print(f"  [mem] WARNING: Metal still at {used_pct:.0f}% after all recovery — "
-                              "individual force_unload_before gates will catch affected tests", flush=True)
+                        print(
+                            f"  [mem] WARNING: Metal still at {used_pct:.0f}% after all recovery — "
+                            "individual force_unload_before gates will catch affected tests",
+                            flush=True,
+                        )
 
                 _last_tier = tier
 
@@ -539,8 +550,9 @@ async def main() -> None:
                 print(f"  [mem] Force-unloading before {test['id']}")
                 unload_all_models()
                 _wait_for_ollama_ps_empty(timeout_s=15.0)
-                drain_ok = _wait_for_drain(threshold_pct=75.0, label="force-unload",
-                                           timeout_s=30.0, retries=2)
+                drain_ok = _wait_for_drain(
+                    threshold_pct=75.0, label="force-unload", timeout_s=30.0, retries=2
+                )
                 if not drain_ok:
                     used_pct = _get_memory_pct()
                     drain_msg = f"Metal drain failed ({used_pct:.0f}% wired after purge+restart)"
@@ -638,14 +650,18 @@ async def main() -> None:
                 if not same_model:
                     print(f"  [mem] Post-test memory at {mem_pct:.0f}% — evicting (model changing)")
                     unload_all_models()
-                    _wait_for_drain(threshold_pct=MEMORY_WARN_PCT, timeout_s=90.0, label="post-evict")
+                    _wait_for_drain(
+                        threshold_pct=MEMORY_WARN_PCT, timeout_s=90.0, label="post-evict"
+                    )
                     mem_after = _get_memory_pct()
                     if mem_after >= MEMORY_CRITICAL_PCT:
                         print(
                             f"  [mem] Memory still {mem_after:.0f}% after eviction — second eviction pass"
                         )
                         unload_all_models()
-                        _wait_for_drain(threshold_pct=MEMORY_WARN_PCT, timeout_s=120.0, label="post-evict-2")
+                        _wait_for_drain(
+                            threshold_pct=MEMORY_WARN_PCT, timeout_s=120.0, label="post-evict-2"
+                        )
                 elif same_model and mem_pct >= MEMORY_SAME_MODEL_EVICT_PCT:
                     # KV cache from this test's inference will compound with the next
                     # test's allocation even when the same model stays loaded.
@@ -680,9 +696,7 @@ async def main() -> None:
                 if next_tier in ("ollama",):
                     alive, detail = _backend_alive(next_tier)
                     if not alive:
-                        print(
-                            f"  [health] post-settling backend check: {detail}", flush=True
-                        )
+                        print(f"  [health] post-settling backend check: {detail}", flush=True)
                         await _wait_for_backend(next_tier, max_wait=60)
 
         # Navigate away from the last chat before closing so OWUI can commit its
@@ -745,18 +759,28 @@ async def main() -> None:
     # Print routing summary to stdout as well
     if state._ROUTING_LOG:
         tier_fallbacks = [r for r in state._ROUTING_LOG if not r["matched"] and r["tier_mismatch"]]
-        wrong_model = [r for r in state._ROUTING_LOG if not r["matched"] and not r["tier_mismatch"] and r["actual"]]
+        wrong_model = [
+            r
+            for r in state._ROUTING_LOG
+            if not r["matched"] and not r["tier_mismatch"] and r["actual"]
+        ]
         correct = [r for r in state._ROUTING_LOG if r["matched"]]
         print(f"\n{'─' * 50}")
         print("ROUTING SUMMARY")
         print(f"{'─' * 50}")
-        print(f"  Checked: {len(state._ROUTING_LOG)}   ✅ {len(correct)} correct"
-              + (f"   ⚠️  {len(tier_fallbacks)} routing mismatch" if tier_fallbacks else "")
-              + (f"   ⚠️  {len(wrong_model)} wrong model" if wrong_model else ""))
+        print(
+            f"  Checked: {len(state._ROUTING_LOG)}   ✅ {len(correct)} correct"
+            + (f"   ⚠️  {len(tier_fallbacks)} routing mismatch" if tier_fallbacks else "")
+            + (f"   ⚠️  {len(wrong_model)} wrong model" if wrong_model else "")
+        )
         for r in tier_fallbacks:
-            print(f"  FALLBACK  {r['test_id']:12s} {r['section']:18s} intended={r['intended'][:35]}  got={r['actual'][:35]}")
+            print(
+                f"  FALLBACK  {r['test_id']:12s} {r['section']:18s} intended={r['intended'][:35]}  got={r['actual'][:35]}"
+            )
         for r in wrong_model:
-            print(f"  MISMATCH  {r['test_id']:12s} {r['section']:18s} intended={r['intended'][:35]}  got={r['actual'][:35]}")
+            print(
+                f"  MISMATCH  {r['test_id']:12s} {r['section']:18s} intended={r['intended'][:35]}  got={r['actual'][:35]}"
+            )
         if not tier_fallbacks and not wrong_model:
             print("  All tests served by intended primary model.")
         print(f"{'─' * 50}")

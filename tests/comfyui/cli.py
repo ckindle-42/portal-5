@@ -1,4 +1,5 @@
 """CLI entry point for Portal 5 ComfyUI acceptance tests."""
+
 from __future__ import annotations
 
 import argparse
@@ -15,14 +16,16 @@ async def main() -> int:
     from . import _common
     from ._common import (
         _ICON,
+        COMFYUI_URL,
         _comfyui_watchdog,
         _git_sha,
-        COMFYUI_URL,
     )
     from .results import _write_results
     from .runner import _parse_sections, run_sections
 
-    parser = argparse.ArgumentParser(description="Portal 5 — ComfyUI / Image & Video Generation Acceptance Tests")
+    parser = argparse.ArgumentParser(
+        description="Portal 5 — ComfyUI / Image & Video Generation Acceptance Tests"
+    )
     parser.add_argument("--section", default="ALL", help="Section(s) to run (e.g. C4, C4-C8, ALL)")
     parser.add_argument("--verbose", action="store_true", help="Print evidence lines")
     parser.add_argument("--skip-comfyui-prereqs", action="store_true", help="Skip C0 prerequisites")

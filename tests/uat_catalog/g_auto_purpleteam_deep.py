@@ -28,7 +28,15 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             {
                 "type": "any_of",
                 "label": "RED phase indicators",
-                "keywords": ["red", "attack", "lateral", "T1", "exploit", "phishing", "initial access"],
+                "keywords": [
+                    "red",
+                    "attack",
+                    "lateral",
+                    "T1",
+                    "exploit",
+                    "phishing",
+                    "initial access",
+                ],
                 "critical": True,
             },
             {
@@ -40,12 +48,28 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Detection artifact (Sigma/Wazuh/rule)",
-                "keywords": ["sigma", "wazuh", "title:", "detection:", "logsource:", "rule", "query"],
+                "keywords": [
+                    "sigma",
+                    "wazuh",
+                    "title:",
+                    "detection:",
+                    "logsource:",
+                    "rule",
+                    "query",
+                ],
             },
             {
                 "type": "any_of",
                 "label": "IR playbook present",
-                "keywords": ["playbook", "incident", "triage", "escalate", "containment", "eradication", "recovery"],
+                "keywords": [
+                    "playbook",
+                    "incident",
+                    "triage",
+                    "escalate",
+                    "containment",
+                    "eradication",
+                    "recovery",
+                ],
             },
             {
                 "type": "not_contains",

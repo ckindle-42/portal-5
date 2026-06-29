@@ -17,6 +17,7 @@ Usage:
       [--output tests/benchmarks/results/CAPABILITY_PROBE_<UTC>.md] \
       [--dry-run]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,7 +25,7 @@ import asyncio
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -48,18 +49,30 @@ HEADERS = {"Authorization": f"Bearer {PIPELINE_API_KEY}"} if PIPELINE_API_KEY el
 
 DEFAULT_MODELS = [
     # V1 incumbents
-    "bench-qwen3-coder-next", "bench-qwen3-coder-30b", "bench-devstral-small-2",
-    "bench-laguna", "bench-glm", "bench-omnicoder2", "bench-qwen36-27b",
-    "bench-deepseek-coder-v2", "bench-qwopus-coder-mtp",
+    "bench-qwen3-coder-next",
+    "bench-qwen3-coder-30b",
+    "bench-devstral-small-2",
+    "bench-laguna",
+    "bench-glm",
+    "bench-omnicoder2",
+    "bench-qwen36-27b",
+    "bench-deepseek-coder-v2",
+    "bench-qwopus-coder-mtp",
     "bench-gemma4-12b-coder",
     # V2 additions — fast-lane / reasoning probes (TASK_CODING_CAPABILITY_PROBE_V2)
-    "bench-lfm25-8b", "bench-granite41-8b", "bench-granite41-30b",
-    "bench-r1-0528-qwen3-8b", "bench-r1-0528-abliterated", "bench-harness1",
+    "bench-lfm25-8b",
+    "bench-granite41-8b",
+    "bench-granite41-30b",
+    "bench-r1-0528-qwen3-8b",
+    "bench-r1-0528-abliterated",
+    "bench-harness1",
     # V3 additions — new fleet candidates (TASK_MODEL_EVAL_V9_CANDIDATES)
     # bench-magistral and bench-apriel-nemotron excluded: emits_reasoning thinking chains
     # exceed 600s budget on this hardware — probe results are hardware-timeout artifacts, not
     # capability measurements. Run separately with /nothink or a dedicated reasoning eval.
-    "bench-devstral", "bench-qwopus-coder-mtp-v2", "bench-fastcontext",
+    "bench-devstral",
+    "bench-qwopus-coder-mtp-v2",
+    "bench-fastcontext",
     "bench-gemma4-31b-crack",
 ]
 
@@ -76,7 +89,7 @@ def extract_code(response: str) -> str | None:
 
 _MAIN_GUARD_RE = re.compile(r'\nif __name__\s*==\s*[\'"]__main__[\'"]\s*:.*', re.DOTALL)
 # Also catches bare unindented `main()` / `main(sys.argv[1:])` calls without a guard.
-_MODULE_MAIN_CALL_RE = re.compile(r'^main\s*\(.*?\)\s*$', re.MULTILINE)
+_MODULE_MAIN_CALL_RE = re.compile(r"^main\s*\(.*?\)\s*$", re.MULTILINE)
 
 
 def _strip_main_guard(code: str) -> str:
@@ -88,8 +101,9 @@ def _strip_main_guard(code: str) -> str:
     return code.rstrip()
 
 
-async def chat(client: httpx.AsyncClient, workspace: str, prompt: str,
-               history: list | None = None) -> str:
+async def chat(
+    client: httpx.AsyncClient, workspace: str, prompt: str, history: list | None = None
+) -> str:
     msgs = list(history or []) + [{"role": "user", "content": prompt}]
     r = await client.post(
         f"{PIPELINE_URL}/v1/chat/completions",
@@ -102,10 +116,15 @@ async def chat(client: httpx.AsyncClient, workspace: str, prompt: str,
     return data["choices"][0]["message"]["content"]
 
 
-async def sandbox_exec(client: httpx.AsyncClient, code: str,
-                       language: str, timeout: int = 120) -> dict:
-    tool = {"python": "execute_python", "javascript": "execute_nodejs",
-            "bash": "execute_bash", "powershell": "execute_powershell"}.get(language, "execute_python")
+async def sandbox_exec(
+    client: httpx.AsyncClient, code: str, language: str, timeout: int = 120
+) -> dict:
+    tool = {
+        "python": "execute_python",
+        "javascript": "execute_nodejs",
+        "bash": "execute_bash",
+        "powershell": "execute_powershell",
+    }.get(language, "execute_python")
     key = "command" if tool == "execute_bash" else "code"
     r = await client.post(
         f"{SANDBOX_URL}/tools/{tool}",
@@ -125,7 +144,7 @@ def score_execution(result: dict, expected_stdout: str) -> tuple[bool, str]:
     if expected_stdout and expected_stdout in out:
         return True, "expected stdout matched"
     if result.get("exit_code", 1) != 0:
-        return False, f"exit {result.get('exit_code')}: {(result.get('stderr','') or '')[:120]}"
+        return False, f"exit {result.get('exit_code')}: {(result.get('stderr', '') or '')[:120]}"
     return False, f"expected '{expected_stdout}' not in stdout: {out[:120]}"
 
 
@@ -134,8 +153,13 @@ async def run_scenario(client, workspace, scn, context_text="") -> dict:
     if context_text:
         prompt = f"{context_text}\n\n---\n\n{prompt}"
     lang = scn.get("language", "python")
-    cell = {"model": workspace, "dimension": scn["dimension"],
-            "id": scn["id"], "passed": False, "detail": ""}
+    cell = {
+        "model": workspace,
+        "dimension": scn["dimension"],
+        "id": scn["id"],
+        "passed": False,
+        "detail": "",
+    }
 
     if scn.get("manual_review"):
         resp = await chat(client, workspace, prompt)
@@ -147,12 +171,19 @@ async def run_scenario(client, workspace, scn, context_text="") -> dict:
     if scn.get("turns"):
         history = []
         turn_results = []
-        turns = [{"prompt": prompt, "test_harness": scn.get("test_harness"),
-                  "expected_stdout": scn.get("expected_stdout")}] + scn["turns"]
+        turns = [
+            {
+                "prompt": prompt,
+                "test_harness": scn.get("test_harness"),
+                "expected_stdout": scn.get("expected_stdout"),
+            }
+        ] + scn["turns"]
         for t in turns:
             resp = await chat(client, workspace, t["prompt"], history)
-            history += [{"role": "user", "content": t["prompt"]},
-                        {"role": "assistant", "content": resp}]
+            history += [
+                {"role": "user", "content": t["prompt"]},
+                {"role": "assistant", "content": resp},
+            ]
             code = extract_code(resp)
             if not code:
                 turn_results.append(False)
@@ -189,8 +220,11 @@ async def run_scenario(client, workspace, scn, context_text="") -> dict:
 DIM_LABELS = {
     # D1/D2/D3/D5 moved to UAT keyword-graded tests (g_auto_coding, g_auto_data, g_auto_security).
     # Probe focuses on execution-validated routing dimensions only.
-    "D4": "D4 LongCtx", "D6": "D6 Security",
-    "D7": "D7 Domain", "D8": "D8 PowerShell", "D9": "D9 PyProd",
+    "D4": "D4 LongCtx",
+    "D6": "D6 Security",
+    "D7": "D7 Domain",
+    "D8": "D8 PowerShell",
+    "D9": "D9 PyProd",
     "D10": "D10 SecAPI",  # Nessus, Splunk, SolarWinds, Tripwire, MSSQL, SSRS×2, ChangeGear×2, BigFix
 }
 
@@ -204,8 +238,7 @@ def render_matrix(cells: list[dict], source: str) -> str:
     out = [
         "# Coding Capability Probe — Matrix",
         "",
-        f"**Source**: `{source}` · generated "
-        f"{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",
+        f"**Source**: `{source}` · generated {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}",
         "",
         "Execution-validated where applicable: PASS = the model's code ran in "
         "the sandbox and produced correct output. D6 is manual-review "
@@ -214,12 +247,14 @@ def render_matrix(cells: list[dict], source: str) -> str:
         f"| Model | {dim_headers} |",
         "|---|" + "---|" * len(dims),
     ]
+
     def frac(lst):
         scored = [c for c in lst if c["passed"] is not None]
         if not scored:
             return "manual"
         p = sum(1 for c in scored if c["passed"])
         return f"{p}/{len(scored)}"
+
     for model in sorted(by_model):
         row = [model]
         for d in dims:
@@ -250,8 +285,10 @@ async def main_async(args) -> int:
             ctx_cache[cf] = p.read_text() if p.exists() else ""
 
     if args.dry_run:
-        print(f"models: {len(models)}  scenarios: {len(scenarios)}  "
-              f"cells: {len(models)*len(scenarios)}")
+        print(
+            f"models: {len(models)}  scenarios: {len(scenarios)}  "
+            f"cells: {len(models) * len(scenarios)}"
+        )
         for m in models:
             print(f"  {m}")
         return 0
@@ -269,9 +306,11 @@ async def main_async(args) -> int:
             try:
                 ps = (await client.get("http://localhost:11434/api/ps", timeout=5)).json()
                 for m in ps.get("models", []):
-                    await client.post("http://localhost:11434/api/generate",
-                                      json={"model": m["name"], "keep_alive": 0},
-                                      timeout=10)
+                    await client.post(
+                        "http://localhost:11434/api/generate",
+                        json={"model": m["name"], "keep_alive": 0},
+                        timeout=10,
+                    )
             except Exception:
                 pass
             model_pass = model_fail = model_manual = 0
@@ -283,19 +322,25 @@ async def main_async(args) -> int:
                 print(
                     f"  [{done_count:3d}/{total_scenarios}] "
                     f"{scn['dimension']} {scn['id']:<24} running...  "
-                    f"(probe {elapsed_probe/60:.0f}m{elapsed_probe%60:.0f}s)",
-                    end="\r", flush=True,
+                    f"(probe {elapsed_probe / 60:.0f}m{elapsed_probe % 60:.0f}s)",
+                    end="\r",
+                    flush=True,
                 )
                 t0 = time.monotonic()
                 try:
                     cell = await run_scenario(client, model, scn, ctx)
                 except Exception as e:  # noqa: BLE001
-                    cell = {"model": model, "dimension": scn["dimension"],
-                            "id": scn["id"], "passed": False,
-                            "detail": f"harness error: {e}"}
+                    cell = {
+                        "model": model,
+                        "dimension": scn["dimension"],
+                        "id": scn["id"],
+                        "passed": False,
+                        "detail": f"harness error: {e}",
+                    }
                 scn_elapsed = time.monotonic() - t0
-                mark = "manual" if cell["passed"] is None else (
-                    "PASS" if cell["passed"] else "FAIL")
+                mark = (
+                    "manual" if cell["passed"] is None else ("PASS" if cell["passed"] else "FAIL")
+                )
                 icon = "~" if cell["passed"] is None else ("✓" if cell["passed"] else "✗")
                 if cell["passed"] is None:
                     model_manual += 1
@@ -313,14 +358,17 @@ async def main_async(args) -> int:
             model_elapsed = time.monotonic() - model_start
             print(
                 f"  ── {model}: {model_pass}P/{model_fail}F/{model_manual}M  "
-                f"({model_elapsed/60:.0f}m{model_elapsed%60:.0f}s)",
+                f"({model_elapsed / 60:.0f}m{model_elapsed % 60:.0f}s)",
                 flush=True,
             )
 
     out_path = args.output or str(
-        ROOT / "tests" / "benchmarks" / "results" /
-        ("CAPABILITY_PROBE_" +
-         datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + ".md"))
+        ROOT
+        / "tests"
+        / "benchmarks"
+        / "results"
+        / ("CAPABILITY_PROBE_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + ".md")
+    )
     Path(out_path).write_text(render_matrix(cells, args.scenarios))
     total_elapsed = time.monotonic() - probe_start
     passed = sum(1 for c in cells if c["passed"] is True)
@@ -328,7 +376,7 @@ async def main_async(args) -> int:
     manual = sum(1 for c in cells if c["passed"] is None)
     print(
         f"\n── probe complete: {passed}P/{failed}F/{manual}M  "
-        f"total {total_elapsed/60:.0f}m{total_elapsed%60:.0f}s"
+        f"total {total_elapsed / 60:.0f}m{total_elapsed % 60:.0f}s"
     )
     print(f"wrote {out_path} ({len(cells)} cells)")
     return 0
@@ -336,12 +384,15 @@ async def main_async(args) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--scenarios",
-                    default=str(ROOT / "tests" / "fixtures" / "capability_scenarios.yaml"))
+    ap.add_argument(
+        "--scenarios", default=str(ROOT / "tests" / "fixtures" / "capability_scenarios.yaml")
+    )
     ap.add_argument("--models", default="")
-    ap.add_argument("--dimensions", default="",
-                    help="Comma-separated list of dimensions to run (e.g. D8,D9,D10). "
-                         "Empty means all.")
+    ap.add_argument(
+        "--dimensions",
+        default="",
+        help="Comma-separated list of dimensions to run (e.g. D8,D9,D10). Empty means all.",
+    )
     ap.add_argument("--output", default="")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()

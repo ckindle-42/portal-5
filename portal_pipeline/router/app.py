@@ -1,4 +1,5 @@
 """FastAPI app wiring — instantiates the app and binds route handlers."""
+
 from __future__ import annotations
 
 import importlib.metadata

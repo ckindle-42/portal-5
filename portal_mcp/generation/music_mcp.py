@@ -120,6 +120,7 @@ async def list_tools(request):
 
 # ── POST /tools/<name> — pipeline dispatch endpoints ─────────────────────────
 
+
 @mcp.custom_route("/tools/generate_music", methods=["POST"])
 async def generate_music_endpoint(request):
     body = await request.json()

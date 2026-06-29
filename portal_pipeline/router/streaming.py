@@ -339,7 +339,9 @@ async def _stream_with_tool_loop_impl(
     hop = 0
     current_body = dict(body)
     _exec_audit: bool = bool(body.get("exec_audit"))
-    _exec_audit_calls: list[dict] = []  # accumulates tool calls across all hops when exec_audit=true
+    _exec_audit_calls: list[
+        dict
+    ] = []  # accumulates tool calls across all hops when exec_audit=true
 
     while hop < MAX_TOOL_HOPS:
         hop += 1
@@ -443,9 +445,13 @@ async def _stream_with_tool_loop_impl(
                     # same fallback behaviour applies regardless of stream mode.
                     _thinking_off = not current_body.get("enable_thinking", True)
                     _rewrite_chunk, _emitted, _skip = _apply_reasoning_rewrite(
-                        line, delta, choice, obj,
+                        line,
+                        delta,
+                        choice,
+                        obj,
                         _thinking_off,
-                        hop, _think_content_buf,
+                        hop,
+                        _think_content_buf,
                     )
                     if _rewrite_chunk is not None:
                         yield _rewrite_chunk
@@ -562,7 +568,13 @@ async def _stream_with_tool_loop_impl(
 
             # Dispatch all tool calls in parallel
             assistant_msg, dispatch_results = await _dispatch_hop_tool_calls(
-                all_tool_calls, effective_tools, workspace_id, persona, request_id, hop, MAX_TOOL_HOPS
+                all_tool_calls,
+                effective_tools,
+                workspace_id,
+                persona,
+                request_id,
+                hop,
+                MAX_TOOL_HOPS,
             )
             current_body["messages"] = (
                 current_body.get("messages", []) + [assistant_msg] + dispatch_results
@@ -758,7 +770,11 @@ async def _stream_from_backend_guarded(
                 # chunk before [DONE]. Detect by "completion_tokens" in the line so we parse
                 # it once and record TPS for every streaming request (not just the 13% that
                 # happen to return Ollama native format with eval_count/eval_duration).
-                elif '"completion_tokens"' in line and line.startswith("data:") and not _usage_recorded:
+                elif (
+                    '"completion_tokens"' in line
+                    and line.startswith("data:")
+                    and not _usage_recorded
+                ):
                     payload = line[5:].strip()
                     if payload:
                         try:
@@ -993,7 +1009,10 @@ async def _stream_with_chain(
                     hop_body["tool_choice"] = "auto"
                     logger.info(
                         "Chain hop %d tool-loop: workspace=%s model=%s tools=%d",
-                        hop_idx + 1, workspace_id, hop_model, len(tools_array),
+                        hop_idx + 1,
+                        workspace_id,
+                        hop_model,
+                        len(tools_array),
                     )
                     async for chunk in _stream_with_tool_loop_impl(
                         backend_url=url,
@@ -1012,7 +1031,8 @@ async def _stream_with_chain(
                     # Tool registry returned nothing — fall through to no-tools path
                     logger.warning(
                         "Chain hop %d: tools=%s resolved to empty list, falling back to no-tools",
-                        hop_idx + 1, hop_tools,
+                        hop_idx + 1,
+                        hop_tools,
                     )
                     hop_tools = []
 

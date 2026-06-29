@@ -1017,14 +1017,18 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         ),
         "assertions": [
             {"type": "has_code", "label": "Code block present"},
-            {"type": "any_of", "label": "OrderedDict or deque approach",
-             "keywords": ["ordereddict", "deque", "collections", "move_to_end", "capacity"]},
-            {"type": "any_of", "label": "get method defined",
-             "keywords": ["def get", "def get("]},
-            {"type": "any_of", "label": "put method defined",
-             "keywords": ["def put", "def put("]},
-            {"type": "any_of", "label": "Eviction logic present",
-             "keywords": ["evict", "popitem", "popleft", "pop(", "capacity"]},
+            {
+                "type": "any_of",
+                "label": "OrderedDict or deque approach",
+                "keywords": ["ordereddict", "deque", "collections", "move_to_end", "capacity"],
+            },
+            {"type": "any_of", "label": "get method defined", "keywords": ["def get", "def get("]},
+            {"type": "any_of", "label": "put method defined", "keywords": ["def put", "def put("]},
+            {
+                "type": "any_of",
+                "label": "Eviction logic present",
+                "keywords": ["evict", "popitem", "popleft", "pop(", "capacity"],
+            },
         ],
     },
     {
@@ -1049,12 +1053,21 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         ),
         "assertions": [
             {"type": "has_code", "label": "Fixed code present"},
-            {"type": "any_of", "label": "Off-by-one identified",
-             "keywords": ["off-by-one", "off by one", "+ 1", "+1", "inclusive", "range(len"]},
-            {"type": "any_of", "label": "Correct range fix",
-             "keywords": ["len(nums) - k + 1", "- k + 1", "range(len(nums) - k + 1)"]},
-            {"type": "any_of", "label": "Explains the bug",
-             "keywords": ["bug", "issue", "problem", "misses", "excludes", "last window"]},
+            {
+                "type": "any_of",
+                "label": "Off-by-one identified",
+                "keywords": ["off-by-one", "off by one", "+ 1", "+1", "inclusive", "range(len"],
+            },
+            {
+                "type": "any_of",
+                "label": "Correct range fix",
+                "keywords": ["len(nums) - k + 1", "- k + 1", "range(len(nums) - k + 1)"],
+            },
+            {
+                "type": "any_of",
+                "label": "Explains the bug",
+                "keywords": ["bug", "issue", "problem", "misses", "excludes", "last window"],
+            },
         ],
     },
     {
@@ -1077,10 +1090,23 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         ),
         "assertions": [
             {"type": "has_code", "label": "Fixed code present"},
-            {"type": "any_of", "label": "Copy approach used",
-             "keywords": ["copy()", ".copy()", "dict(base)", "{**base}", "deepcopy", "result = {"]},
-            {"type": "any_of", "label": "Mutation explained",
-             "keywords": ["mutate", "mutation", "reference", "alias", "same object", "modif"]},
+            {
+                "type": "any_of",
+                "label": "Copy approach used",
+                "keywords": [
+                    "copy()",
+                    ".copy()",
+                    "dict(base)",
+                    "{**base}",
+                    "deepcopy",
+                    "result = {",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "Mutation explained",
+                "keywords": ["mutate", "mutation", "reference", "alias", "same object", "modif"],
+            },
         ],
     },
     {
@@ -1098,12 +1124,22 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         ),
         "assertions": [
             {"type": "has_code", "label": "Code block present"},
-            {"type": "any_of", "label": "csv module used",
-             "keywords": ["import csv", "csv.reader", "splitlines", "split(',')"]},
-            {"type": "not_contains", "label": "No pandas",
-             "keywords": ["import pandas", "pd.read_csv", "DataFrame"], "critical": True},
-            {"type": "any_of", "label": "Mean computed",
-             "keywords": ["sum(", "/ len", "mean", "average", "total"]},
+            {
+                "type": "any_of",
+                "label": "csv module used",
+                "keywords": ["import csv", "csv.reader", "splitlines", "split(',')"],
+            },
+            {
+                "type": "not_contains",
+                "label": "No pandas",
+                "keywords": ["import pandas", "pd.read_csv", "DataFrame"],
+                "critical": True,
+            },
+            {
+                "type": "any_of",
+                "label": "Mean computed",
+                "keywords": ["sum(", "/ len", "mean", "average", "total"],
+            },
         ],
     },
     {
@@ -1132,12 +1168,21 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         ),
         "assertions": [
             {"type": "has_code", "label": "Fixed code present"},
-            {"type": "any_of", "label": "Lock or atomic fix",
-             "keywords": ["lock", "asyncio.lock", "lock()", "async with", "semaphore", "atomic"]},
-            {"type": "any_of", "label": "Race condition explained",
-             "keywords": ["race", "interleav", "context switch", "yield", "await", "concurrent"]},
-            {"type": "any_of", "label": "1000 referenced as expected value",
-             "keywords": ["1000", "thousand"]},
+            {
+                "type": "any_of",
+                "label": "Lock or atomic fix",
+                "keywords": ["lock", "asyncio.lock", "lock()", "async with", "semaphore", "atomic"],
+            },
+            {
+                "type": "any_of",
+                "label": "Race condition explained",
+                "keywords": ["race", "interleav", "context switch", "yield", "await", "concurrent"],
+            },
+            {
+                "type": "any_of",
+                "label": "1000 referenced as expected value",
+                "keywords": ["1000", "thousand"],
+            },
         ],
     },
     # ── Workspace smoke tests (uncovered auto-* coverage) ─────────────────────
@@ -1155,10 +1200,16 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         ),
         "assertions": [
             {"type": "has_code", "label": "Code block present"},
-            {"type": "any_of", "label": "argparse used",
-             "keywords": ["argparse", "ArgumentParser", "add_parser", "add_subparsers"]},
-            {"type": "any_of", "label": "Subcommands present",
-             "keywords": ["init", "run", "status"]},
+            {
+                "type": "any_of",
+                "label": "argparse used",
+                "keywords": ["argparse", "ArgumentParser", "add_parser", "add_subparsers"],
+            },
+            {
+                "type": "any_of",
+                "label": "Subcommands present",
+                "keywords": ["init", "run", "status"],
+            },
         ],
     },
     {
@@ -1174,10 +1225,16 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         ),
         "assertions": [
             {"type": "has_code", "label": "Code block present"},
-            {"type": "any_of", "label": "async generator syntax",
-             "keywords": ["async def", "yield", "async for", "aiofiles", "asyncio"]},
-            {"type": "any_of", "label": "Type annotations present",
-             "keywords": ["AsyncGenerator", "AsyncIterator", "str", "-> "]},
+            {
+                "type": "any_of",
+                "label": "async generator syntax",
+                "keywords": ["async def", "yield", "async for", "aiofiles", "asyncio"],
+            },
+            {
+                "type": "any_of",
+                "label": "Type annotations present",
+                "keywords": ["AsyncGenerator", "AsyncIterator", "str", "-> "],
+            },
         ],
     },
     {
@@ -1194,10 +1251,16 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         ),
         "assertions": [
             {"type": "has_code", "label": "Code block present"},
-            {"type": "any_of", "label": "Dataclass decorator",
-             "keywords": ["@dataclass", "dataclass", "dataclasses"]},
-            {"type": "any_of", "label": "Validation present",
-             "keywords": ["__post_init__", "ValueError", "raise", "if "]},
+            {
+                "type": "any_of",
+                "label": "Dataclass decorator",
+                "keywords": ["@dataclass", "dataclass", "dataclasses"],
+            },
+            {
+                "type": "any_of",
+                "label": "Validation present",
+                "keywords": ["__post_init__", "ValueError", "raise", "if "],
+            },
         ],
     },
 ]

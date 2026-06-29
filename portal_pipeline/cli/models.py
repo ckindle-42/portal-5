@@ -1,4 +1,5 @@
 """``portal models <cmd>`` — model registry operations."""
+
 from __future__ import annotations
 
 import os
@@ -9,11 +10,10 @@ from typing import Annotated
 
 import typer
 
-from ._apps import models_app
-from ._common import _detect_ollama_cmd, _model_exists_in_ollama
 from portal_pipeline.config import Model, load_portal_config
 
-
+from ._apps import models_app
+from ._common import _detect_ollama_cmd, _model_exists_in_ollama
 
 
 def _pull_native(model: str, ollama_cmd: str) -> bool:
@@ -25,7 +25,6 @@ def _pull_native(model: str, ollama_cmd: str) -> bool:
         return True
     except subprocess.CalledProcessError:
         return False
-
 
 
 def _pull_hf_model(m: Model, ollama_cmd: str) -> bool:
@@ -81,13 +80,13 @@ def _pull_hf_model(m: Model, ollama_cmd: str) -> bool:
         )
     except Exception as e:
         typer.echo(f"  ❌ Download failed: {e}")
-        typer.echo(f"     Retry manually:")
+        typer.echo("     Retry manually:")
         typer.echo(f"       hf hub download {actual_repo} {filename}")
         typer.echo(f"     Then import: ./launch.sh import-gguf <path> {ollama_name}")
         return False
 
     if not gguf_path or not Path(gguf_path).exists():
-        typer.echo(f"  ❌ Download failed — file not found after download")
+        typer.echo("  ❌ Download failed — file not found after download")
         return False
 
     typer.echo(f"  ✅ Ready: {Path(gguf_path).name}")
@@ -96,9 +95,7 @@ def _pull_hf_model(m: Model, ollama_cmd: str) -> bool:
     typer.echo(f"  Importing as: {ollama_name}")
     import tempfile
 
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".modelfile", delete=False
-    ) as mf:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".modelfile", delete=False) as mf:
         mf.write(f"FROM {gguf_path}\nPARAMETER temperature 0.7\nPARAMETER num_ctx 8192\n")
         modelfile_path = mf.name
 
@@ -152,7 +149,9 @@ def models_pull(
     ] = False,
     include_retired: Annotated[
         bool,
-        typer.Option("--include-retired", help="Include models marked retired=true (default skips)"),
+        typer.Option(
+            "--include-retired", help="Include models marked retired=true (default skips)"
+        ),
     ] = False,
 ) -> None:
     """Pull HuggingFace models into Ollama per config/portal.yaml models: block.
@@ -181,13 +180,9 @@ def models_pull(
 
     typer.echo("=== Portal 5: Pulling AI models ===")
     typer.echo("This may take 30-90 minutes depending on connection speed.\n")
+    typer.echo("[portal-5] HuggingFace models: using hf hub download (bypasses Ollama auth issues)")
     typer.echo(
-        "[portal-5] HuggingFace models: using hf hub download "
-        "(bypasses Ollama auth issues)"
-    )
-    typer.echo(
-        "   For gated models, first accept terms at huggingface.co"
-        " then set HF_TOKEN in .env\n"
+        "   For gated models, first accept terms at huggingface.co then set HF_TOKEN in .env\n"
     )
 
     total = len(targets)
@@ -209,7 +204,6 @@ def models_pull(
         raise typer.Exit(code=1)
 
 
-
 @models_app.command("refresh")
 def models_refresh() -> None:
     """Force re-pull of every currently-installed model.
@@ -217,7 +211,6 @@ def models_refresh() -> None:
     Shortcut for ``portal models pull --force --include-retired``.
     """
     models_pull(model_ids=None, force=True, skip_gated=False, include_retired=True)
-
 
 
 @models_app.command("import-gguf")
@@ -263,7 +256,6 @@ def cmd_models_import_gguf(
         raise typer.Exit(code=1) from None
     finally:
         Path(mf_path).unlink(missing_ok=True)
-
 
 
 @models_app.command("apply-params")
@@ -363,7 +355,9 @@ def cmd_models_apply_mtp_drafts() -> None:
 
 @models_app.command("list")
 def cmd_models_list(
-    output_json: Annotated[bool, typer.Option("--json", help="Emit JSON instead of a table")] = False,
+    output_json: Annotated[
+        bool, typer.Option("--json", help="Emit JSON instead of a table")
+    ] = False,
     include_retired: Annotated[
         bool,
         typer.Option("--include-retired", help="Include retired entries (default hides them)"),
@@ -416,7 +410,9 @@ def cmd_models_list(
 def cmd_models_validate(
     strict: Annotated[
         bool,
-        typer.Option("--strict", help="Exit 1 on unused-model warnings (default exits only on orphans)"),
+        typer.Option(
+            "--strict", help="Exit 1 on unused-model warnings (default exits only on orphans)"
+        ),
     ] = False,
 ) -> None:
     """Cross-check portal.yaml workspaces ↔ models registry.

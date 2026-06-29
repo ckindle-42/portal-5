@@ -174,7 +174,10 @@ TOOLS_MANIFEST: list[dict[str, Any]] = [
         "parameters": {
             "type": "object",
             "properties": {
-                "workspace": {"type": "string", "description": "Workspace id (default auto-coding-agentic)"}
+                "workspace": {
+                    "type": "string",
+                    "description": "Workspace id (default auto-coding-agentic)",
+                }
             },
             "required": [],
         },
@@ -186,8 +189,14 @@ TOOLS_MANIFEST: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Absolute or repo-relative file path"},
-                "start_line": {"type": "integer", "description": "First line to return (1-indexed, inclusive)"},
-                "end_line": {"type": "integer", "description": "Last line to return (inclusive); omit for entire file"},
+                "start_line": {
+                    "type": "integer",
+                    "description": "First line to return (1-indexed, inclusive)",
+                },
+                "end_line": {
+                    "type": "integer",
+                    "description": "Last line to return (inclusive); omit for entire file",
+                },
             },
             "required": ["path"],
         },
@@ -198,7 +207,10 @@ TOOLS_MANIFEST: list[dict[str, Any]] = [
         "parameters": {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "Absolute or repo-relative directory path"},
+                "path": {
+                    "type": "string",
+                    "description": "Absolute or repo-relative directory path",
+                },
             },
             "required": ["path"],
         },
@@ -209,10 +221,22 @@ TOOLS_MANIFEST: list[dict[str, Any]] = [
         "parameters": {
             "type": "object",
             "properties": {
-                "pattern": {"type": "string", "description": "Regex or literal string to search for"},
-                "path": {"type": "string", "description": "Directory to search (default: repo root)"},
-                "glob": {"type": "string", "description": "File glob filter, e.g. '**/*.py' (default: all files)"},
-                "max_results": {"type": "integer", "description": "Max matching lines to return (default 50)"},
+                "pattern": {
+                    "type": "string",
+                    "description": "Regex or literal string to search for",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Directory to search (default: repo root)",
+                },
+                "glob": {
+                    "type": "string",
+                    "description": "File glob filter, e.g. '**/*.py' (default: all files)",
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Max matching lines to return (default 50)",
+                },
             },
             "required": ["pattern"],
         },
@@ -223,7 +247,10 @@ TOOLS_MANIFEST: list[dict[str, Any]] = [
         "parameters": {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "Absolute or repo-relative file path to write"},
+                "path": {
+                    "type": "string",
+                    "description": "Absolute or repo-relative file path to write",
+                },
                 "content": {"type": "string", "description": "Full file content to write"},
             },
             "required": ["path", "content"],
@@ -807,7 +834,9 @@ def _impl_search_files(
             try:
                 for i, line in enumerate(p.read_text(errors="replace").splitlines(), 1):
                     if compiled.search(line):
-                        rel = str(p.relative_to(REPO_ROOT)) if p.is_relative_to(REPO_ROOT) else str(p)
+                        rel = (
+                            str(p.relative_to(REPO_ROOT)) if p.is_relative_to(REPO_ROOT) else str(p)
+                        )
                         hits.append(f"{rel}:{i}: {line.rstrip()}")
                         if len(hits) >= cap:
                             return {"matches": hits, "truncated": True}

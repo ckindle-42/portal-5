@@ -1,8 +1,10 @@
 """Section C11 — All LoRAs x FLUX schnell coverage."""
+
 from __future__ import annotations
 
-import httpx
 import time
+
+import httpx
 
 from ._common import (
     COMFYUI_MCP_PORT,
@@ -161,5 +163,3 @@ async def run() -> None:
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed"],
         )
-
-

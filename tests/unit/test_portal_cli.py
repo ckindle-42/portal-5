@@ -90,8 +90,10 @@ def test_models_pull_default_excludes_retired() -> None:
     )
 
     default_targets = _select_pull_targets(
-        cfg.models, requested_ids=None,
-        include_retired=False, skip_gated=False,
+        cfg.models,
+        requested_ids=None,
+        include_retired=False,
+        skip_gated=False,
     )
     for m in default_targets:
         assert not m.retired, (
@@ -100,8 +102,10 @@ def test_models_pull_default_excludes_retired() -> None:
         )
 
     include_retired_targets = _select_pull_targets(
-        cfg.models, requested_ids=None,
-        include_retired=True, skip_gated=False,
+        cfg.models,
+        requested_ids=None,
+        include_retired=True,
+        skip_gated=False,
     )
     assert len(include_retired_targets) >= len(default_targets), (
         "--include-retired must broaden, not narrow, the target set"
@@ -115,10 +119,10 @@ def test_models_pull_explicit_id_overrides_retired_filter() -> None:
     """A user who explicitly names a retired model in args should
     still get it — the retired filter is for the default-everything path.
     """
+    import pytest as _pytest
+
     from portal_pipeline.cli.models import _select_pull_targets
     from portal_pipeline.config import load_portal_config
-
-    import pytest as _pytest
 
     cfg = load_portal_config()
     retired = next((m for m in cfg.models if m.retired), None)
@@ -126,8 +130,10 @@ def test_models_pull_explicit_id_overrides_retired_filter() -> None:
         _pytest.skip("no retired fixtures in portal.yaml")
 
     targets = _select_pull_targets(
-        cfg.models, requested_ids=[retired.ollama_name],
-        include_retired=False, skip_gated=False,
+        cfg.models,
+        requested_ids=[retired.ollama_name],
+        include_retired=False,
+        skip_gated=False,
     )
     assert any(m.ollama_name == retired.ollama_name for m in targets), (
         "Explicit ollama_name in args should override default-retired filter"

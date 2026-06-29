@@ -195,7 +195,9 @@ async def web_search_endpoint(request):
     if not args.get("query"):
         return JSONResponse({"error": "query is required"}, status_code=400)
     num = min(max(args.get("num_results", 5), 1), 20)
-    results = await _search_with_fallback(args["query"], num, args.get("time_range", "any"), "general")
+    results = await _search_with_fallback(
+        args["query"], num, args.get("time_range", "any"), "general"
+    )
     return JSONResponse({"query": args["query"], "num_results": len(results), "results": results})
 
 
@@ -215,9 +217,7 @@ _WS = re.compile(r"\s+")
 _SCRIPT = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
 
 
-_CHROME = re.compile(
-    r"<(nav|header|footer|aside|form)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL
-)
+_CHROME = re.compile(r"<(nav|header|footer|aside|form)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
 
 
 def _html_to_text(html):

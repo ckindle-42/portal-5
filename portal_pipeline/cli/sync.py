@@ -1,4 +1,5 @@
 """``portal sync-config`` / ``portal sync-readme``."""
+
 from __future__ import annotations
 
 import sys
@@ -6,7 +7,6 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-
 
 
 def register(app: typer.Typer) -> None:
@@ -37,6 +37,7 @@ def sync_config(
         raise typer.Exit(code=0)
 
     sys.exit(_sync_main())
+
 
 def sync_readme(
     dry_run: Annotated[
@@ -96,4 +97,3 @@ def sync_readme(
         return
     readme_path.write_text(new_readme)
     typer.echo("README.md acceptance section refreshed.")
-

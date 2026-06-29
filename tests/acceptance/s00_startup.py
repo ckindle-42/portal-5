@@ -1,4 +1,5 @@
 """S0: Prerequisites and environment check."""
+
 import sys
 import time
 

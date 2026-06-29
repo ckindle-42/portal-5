@@ -26,7 +26,13 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Relevance syntax present",
-                "keywords": ["whose", "of it", "exists", "computer name", "name of operating system"],
+                "keywords": [
+                    "whose",
+                    "of it",
+                    "exists",
+                    "computer name",
+                    "name of operating system",
+                ],
                 "critical": True,
             },
             {
@@ -64,7 +70,13 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Python requests usage",
-                "keywords": ["requests.get", "requests.post", "import requests", "session", "auth="],
+                "keywords": [
+                    "requests.get",
+                    "requests.post",
+                    "import requests",
+                    "session",
+                    "auth=",
+                ],
             },
             {
                 "type": "any_of",

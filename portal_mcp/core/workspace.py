@@ -20,7 +20,9 @@ from pathlib import Path
 
 # Container default; on host, callers can pass a path or set AI_OUTPUT_DIR.
 _DEFAULT_WORKSPACE = "/workspace"
-_VALID_CATEGORIES = frozenset({"transcripts", "documents", "images", "videos", "music", "speech", "models3d"})
+_VALID_CATEGORIES = frozenset(
+    {"transcripts", "documents", "images", "videos", "music", "speech", "models3d"}
+)
 
 
 def get_workspace_root() -> Path:

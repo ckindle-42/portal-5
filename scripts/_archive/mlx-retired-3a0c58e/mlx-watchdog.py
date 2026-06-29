@@ -66,7 +66,7 @@ import sys
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -286,7 +286,7 @@ async def _pgrep(pattern: str) -> list[int]:
         )
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
         return [int(p) for p in stdout.decode().split() if p.isdigit()]
-    except (asyncio.TimeoutError, FileNotFoundError, ValueError):
+    except (TimeoutError, FileNotFoundError, ValueError):
         return []
 
 
@@ -541,7 +541,7 @@ async def restart_proxy_via_launchctl(config: Config) -> tuple[bool, str]:
         return False, f"launchctl kickstart returned {proc.returncode}: {err_msg}"
     except FileNotFoundError:
         return False, "launchctl not found — Linux dev environment"
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return False, "launchctl kickstart timed out after 30s"
     except Exception as e:
         return False, f"launchctl kickstart raised: {e}"
@@ -608,11 +608,11 @@ async def capture_proxy_forensics(
       * Timestamp + the reason recovery was triggered
     """
     config.forensics_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     out = config.forensics_dir / f"mlx-watchdog-forensics-{ts}.json"
 
     payload: dict[str, Any] = {
-        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "captured_at": datetime.now(UTC).isoformat(),
         "trigger_reason": reason,
         "last_known_proxy_health": last_known_health.raw if last_known_health else None,
     }
@@ -718,7 +718,7 @@ class NotificationBus:
         self._last_sent[event_class] = now
         title = f"[MLX {severity}]"
         full_message = f"{title} {message}"
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         full_with_ts = f"{full_message}\n{ts}"
 
         tasks: list[asyncio.Task] = []
@@ -788,7 +788,7 @@ class NotificationBus:
                     "source": "mlx-watchdog",
                     "severity": severity,
                     "message": message,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
                 timeout=10,
             )
@@ -909,7 +909,7 @@ async def _serve_metrics(metrics: WatchdogMetrics, port: int) -> None:
             # Read request line + headers (we ignore them but must consume)
             try:
                 await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=2)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return
             body = metrics.render_text().encode("utf-8")
             response = (
@@ -1365,7 +1365,7 @@ async def main_async() -> None:
                 # Use shutdown.wait so SIGTERM exits promptly
                 try:
                     await asyncio.wait_for(shutdown.wait(), timeout=sleep_for)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
         finally:
             shutdown_dispatched = await bus.send(

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 PROXMOX_URL = os.getenv("PROXMOX_URL", "https://10.0.0.203:8006").rstrip("/")
-PROXMOX_TOKEN_ID = os.getenv("PROXMOX_TOKEN_ID", "")       # e.g. root@pam!claude
+PROXMOX_TOKEN_ID = os.getenv("PROXMOX_TOKEN_ID", "")  # e.g. root@pam!claude
 PROXMOX_TOKEN_SECRET = os.getenv("PROXMOX_TOKEN_SECRET", "")  # UUID from Proxmox UI
 PROXMOX_VERIFY_SSL = os.getenv("PROXMOX_VERIFY_SSL", "false").lower() == "true"
 PROXMOX_DEFAULT_NODE = os.getenv("PROXMOX_DEFAULT_NODE", "")  # auto-discover if empty
@@ -37,6 +37,7 @@ API_BASE = f"{PROXMOX_URL}/api2/json"
 
 
 # ── Client helpers ─────────────────────────────────────────────────────────────
+
 
 def _client() -> httpx.AsyncClient:
     headers: dict[str, str] = {}
@@ -52,13 +53,17 @@ async def _get(client: httpx.AsyncClient, path: str, **params: Any) -> Any:
 
 
 async def _post(client: httpx.AsyncClient, path: str, **body: Any) -> Any:
-    r = await client.post(f"{API_BASE}{path}", json={k: v for k, v in body.items() if v is not None})
+    r = await client.post(
+        f"{API_BASE}{path}", json={k: v for k, v in body.items() if v is not None}
+    )
     r.raise_for_status()
     return r.json().get("data")
 
 
 async def _delete(client: httpx.AsyncClient, path: str, **body: Any) -> Any:
-    r = await client.delete(f"{API_BASE}{path}", json={k: v for k, v in body.items() if v is not None} or None)
+    r = await client.delete(
+        f"{API_BASE}{path}", json={k: v for k, v in body.items() if v is not None} or None
+    )
     r.raise_for_status()
     return r.json().get("data")
 
@@ -77,7 +82,7 @@ async def _resolve_node(client: httpx.AsyncClient, node: str | None) -> str:
 async def _find_vm_node(client: httpx.AsyncClient, vmid: int) -> str:
     """Return the node name for any VM or container by vmid."""
     resources = await _get(client, "/cluster/resources", type="vm")
-    for r in (resources or []):
+    for r in resources or []:
         if r.get("vmid") == vmid:
             return r["node"]
     raise ValueError(f"VM/CT {vmid} not found on any node")
@@ -92,7 +97,11 @@ async def _wait_task(client: httpx.AsyncClient, node: str, upid: str) -> dict:
         if (data or {}).get("status") == "stopped":
             return data
         await asyncio.sleep(2)
-    return {"status": "timeout", "upid": upid, "message": f"Task not done within {PROXMOX_TASK_TIMEOUT}s"}
+    return {
+        "status": "timeout",
+        "upid": upid,
+        "message": f"Task not done within {PROXMOX_TASK_TIMEOUT}s",
+    }
 
 
 def _ok(data: Any) -> dict:
@@ -105,6 +114,7 @@ def _err(exc: Exception) -> dict:
 
 # ── Health ─────────────────────────────────────────────────────────────────────
 
+
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     return JSONResponse({"status": "ok", "service": "proxmox-mcp"})
@@ -113,6 +123,7 @@ async def health_check(request):
 # ═══════════════════════════════════════════════════════════════════════════════
 # NODE TOOLS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @mcp.tool()
 async def proxmox_list_nodes() -> dict:
@@ -153,6 +164,7 @@ async def proxmox_cluster_status() -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 # VM (QEMU) TOOLS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @mcp.tool()
 async def proxmox_list_vms(node: str = "") -> dict:
@@ -227,7 +239,9 @@ async def proxmox_vm_start(vmid: int, node: str = "", wait: bool = True) -> dict
 
 
 @mcp.tool()
-async def proxmox_vm_shutdown(vmid: int, node: str = "", timeout: int = 60, wait: bool = True) -> dict:
+async def proxmox_vm_shutdown(
+    vmid: int, node: str = "", timeout: int = 60, wait: bool = True
+) -> dict:
     """
     Gracefully shut down a VM (ACPI power-off signal).
 
@@ -294,7 +308,9 @@ async def proxmox_vm_reset(vmid: int, node: str = "", wait: bool = True) -> dict
 
 
 @mcp.tool()
-async def proxmox_vm_reboot(vmid: int, node: str = "", timeout: int = 60, wait: bool = True) -> dict:
+async def proxmox_vm_reboot(
+    vmid: int, node: str = "", timeout: int = 60, wait: bool = True
+) -> dict:
     """
     Gracefully reboot a VM via ACPI.
 
@@ -384,7 +400,8 @@ async def proxmox_clone_vm(
         try:
             n = node or await _find_vm_node(c, vmid)
             upid = await _post(
-                c, f"/nodes/{n}/qemu/{vmid}/clone",
+                c,
+                f"/nodes/{n}/qemu/{vmid}/clone",
                 newid=newid,
                 name=name or None,
                 full=1 if full else 0,
@@ -398,7 +415,9 @@ async def proxmox_clone_vm(
 
 
 @mcp.tool()
-async def proxmox_delete_vm(vmid: int, node: str = "", purge: bool = True, wait: bool = True) -> dict:
+async def proxmox_delete_vm(
+    vmid: int, node: str = "", purge: bool = True, wait: bool = True
+) -> dict:
     """
     Delete a VM and (by default) purge its disk images and backups.
 
@@ -426,6 +445,7 @@ async def proxmox_delete_vm(vmid: int, node: str = "", purge: bool = True, wait:
 # ═══════════════════════════════════════════════════════════════════════════════
 # SNAPSHOT TOOLS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @mcp.tool()
 async def proxmox_list_snapshots(vmid: int, node: str = "") -> dict:
@@ -468,7 +488,8 @@ async def proxmox_create_snapshot(
         try:
             n = node or await _find_vm_node(c, vmid)
             upid = await _post(
-                c, f"/nodes/{n}/qemu/{vmid}/snapshot",
+                c,
+                f"/nodes/{n}/qemu/{vmid}/snapshot",
                 snapname=snapname,
                 description=description or None,
                 vmstate=1 if vmstate else 0,
@@ -541,6 +562,7 @@ async def proxmox_delete_snapshot(
 # QEMU GUEST AGENT
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @mcp.tool()
 async def proxmox_exec_vm(
     vmid: int,
@@ -563,7 +585,8 @@ async def proxmox_exec_vm(
             n = node or await _find_vm_node(c, vmid)
             # Start the exec
             result = await _post(
-                c, f"/nodes/{n}/qemu/{vmid}/agent/exec",
+                c,
+                f"/nodes/{n}/qemu/{vmid}/agent/exec",
                 command=command,
             )
             pid = (result or {}).get("pid")
@@ -576,7 +599,13 @@ async def proxmox_exec_vm(
                 if (out or {}).get("exited"):
                     return _ok(out)
                 await asyncio.sleep(1)
-            return _ok({"pid": pid, "status": "timeout", "message": f"Command not done within {poll_timeout}s"})
+            return _ok(
+                {
+                    "pid": pid,
+                    "status": "timeout",
+                    "message": f"Command not done within {poll_timeout}s",
+                }
+            )
         except Exception as e:
             return _err(e)
 
@@ -604,6 +633,7 @@ async def proxmox_vm_agent_info(vmid: int, node: str = "") -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 # LXC CONTAINER TOOLS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @mcp.tool()
 async def proxmox_list_containers(node: str = "") -> dict:
@@ -669,7 +699,9 @@ async def proxmox_container_stop(vmid: int, node: str = "", wait: bool = True) -
 
 
 @mcp.tool()
-async def proxmox_container_shutdown(vmid: int, node: str = "", timeout: int = 60, wait: bool = True) -> dict:
+async def proxmox_container_shutdown(
+    vmid: int, node: str = "", timeout: int = 60, wait: bool = True
+) -> dict:
     """Gracefully shut down an LXC container."""
     async with _client() as c:
         try:
@@ -684,7 +716,9 @@ async def proxmox_container_shutdown(vmid: int, node: str = "", timeout: int = 6
 
 
 @mcp.tool()
-async def proxmox_container_exec(vmid: int, command: str, node: str = "", timeout: int = 60) -> dict:
+async def proxmox_container_exec(
+    vmid: int, command: str, node: str = "", timeout: int = 60
+) -> dict:
     """
     Execute a shell command inside an LXC container via SSH + pct exec on the Proxmox host.
     Requires PROXMOX_SSH_HOST (auto-derived from PROXMOX_URL) and optionally PROXMOX_SSH_KEY.
@@ -697,12 +731,17 @@ async def proxmox_container_exec(vmid: int, command: str, node: str = "", timeou
     """
     pct_cmd = f"pct exec {int(vmid)} -- bash -c {shlex.quote(command)}"
     r = await _ssh_exec(pct_cmd, timeout=timeout)
-    return _ok(r) if r.get("ok") else {"success": False, "error": r.get("error") or r.get("stderr", "pct exec failed")}
+    return (
+        _ok(r)
+        if r.get("ok")
+        else {"success": False, "error": r.get("error") or r.get("stderr", "pct exec failed")}
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STORAGE TOOLS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @mcp.tool()
 async def proxmox_list_storage(node: str = "") -> dict:
@@ -741,6 +780,7 @@ async def proxmox_list_storage_content(node: str = "", storage: str = "local") -
 # NETWORK TOOLS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @mcp.tool()
 async def proxmox_list_networks(node: str = "") -> dict:
     """
@@ -760,6 +800,7 @@ async def proxmox_list_networks(node: str = "") -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 # TASK TOOLS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @mcp.tool()
 async def proxmox_task_status(upid: str, node: str = "") -> dict:
@@ -804,6 +845,7 @@ async def proxmox_list_tasks(node: str = "", vmid: int = 0, limit: int = 50) -> 
 # CLUSTER RESOURCES (cross-node view)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @mcp.tool()
 async def proxmox_list_all_vms() -> dict:
     """
@@ -838,9 +880,9 @@ async def proxmox_find_vm(name: str) -> dict:
 # NODE EXEC (SSH-BASED)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PROXMOX_SSH_HOST       = os.getenv("PROXMOX_SSH_HOST", "") or PROXMOX_URL.split("://")[-1].split(":")[0]
-PROXMOX_SSH_USER       = os.getenv("PROXMOX_SSH_USER", "root")
-PROXMOX_SSH_KEY        = os.getenv("PROXMOX_SSH_KEY", "")
+PROXMOX_SSH_HOST = os.getenv("PROXMOX_SSH_HOST", "") or PROXMOX_URL.split("://")[-1].split(":")[0]
+PROXMOX_SSH_USER = os.getenv("PROXMOX_SSH_USER", "root")
+PROXMOX_SSH_KEY = os.getenv("PROXMOX_SSH_KEY", "")
 PROXMOX_SSH_KNOWN_HOSTS = os.getenv("PROXMOX_SSH_KNOWN_HOSTS", "~/.ssh/known_hosts")
 
 _CTF_LAB_GIT_ALLOWLIST = {
@@ -856,9 +898,12 @@ async def _ssh_exec(command: str, timeout: int = 60) -> dict:
     known_hosts = os.path.expanduser(PROXMOX_SSH_KNOWN_HOSTS)
     ssh_cmd = [
         "ssh",
-        "-o", "StrictHostKeyChecking=yes",
-        "-o", f"UserKnownHostsFile={known_hosts}",
-        "-o", "ConnectTimeout=10",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        f"UserKnownHostsFile={known_hosts}",
+        "-o",
+        "ConnectTimeout=10",
     ]
     if PROXMOX_SSH_KEY:
         ssh_cmd += ["-i", PROXMOX_SSH_KEY]
@@ -877,7 +922,7 @@ async def _ssh_exec(command: str, timeout: int = 60) -> dict:
             "stderr": stderr.decode(errors="replace"),
             "returncode": proc.returncode,
         }
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         return {"ok": False, "error": f"SSH command timed out after {timeout}s"}
 
@@ -921,11 +966,11 @@ async def proxmox_deploy_ctf_lab(
     if git_url not in _CTF_LAB_GIT_ALLOWLIST:
         return {"success": False, "error": f"git_url not in allowlist: {git_url}"}
 
-    lab_safe       = shlex.quote(lab)
+    lab_safe = shlex.quote(lab)
     deploy_dir_safe = shlex.quote(deploy_dir)
-    git_url_safe   = shlex.quote(git_url)
+    git_url_safe = shlex.quote(git_url)
     compose_subdir = {"mbptl": "mbptl"}.get(lab, "")
-    compose_path   = shlex.quote(f"{deploy_dir}/{lab}/{compose_subdir}".rstrip("/"))
+    compose_path = shlex.quote(f"{deploy_dir}/{lab}/{compose_subdir}".rstrip("/"))
 
     steps = [
         "apt-get install -y git docker.io docker-compose-plugin 2>&1 | tail -5",
@@ -973,16 +1018,25 @@ TOOLS_MANIFEST = [
     {"name": "proxmox_create_snapshot", "description": "Create a VM snapshot"},
     {"name": "proxmox_rollback_snapshot", "description": "Roll back VM to a snapshot"},
     {"name": "proxmox_delete_snapshot", "description": "Delete a VM snapshot"},
-    {"name": "proxmox_exec_vm", "description": "Execute a command inside a VM via QEMU guest agent"},
+    {
+        "name": "proxmox_exec_vm",
+        "description": "Execute a command inside a VM via QEMU guest agent",
+    },
     {"name": "proxmox_vm_agent_info", "description": "Get OS/network info from QEMU guest agent"},
     {"name": "proxmox_list_containers", "description": "List LXC containers on a node"},
     {"name": "proxmox_container_status", "description": "Get LXC container status"},
     {"name": "proxmox_container_start", "description": "Start an LXC container"},
     {"name": "proxmox_container_stop", "description": "Force-stop an LXC container"},
     {"name": "proxmox_container_shutdown", "description": "Gracefully shut down an LXC container"},
-    {"name": "proxmox_container_exec", "description": "Execute a command inside an LXC container via pct exec"},
+    {
+        "name": "proxmox_container_exec",
+        "description": "Execute a command inside an LXC container via pct exec",
+    },
     {"name": "proxmox_node_exec", "description": "Execute a command on the Proxmox host via SSH"},
-    {"name": "proxmox_deploy_ctf_lab", "description": "Deploy a CTF lab (MBPTL etc.) in an LXC container with Docker"},
+    {
+        "name": "proxmox_deploy_ctf_lab",
+        "description": "Deploy a CTF lab (MBPTL etc.) in an LXC container with Docker",
+    },
     {"name": "proxmox_list_storage", "description": "List storage pools on a node"},
     {"name": "proxmox_list_storage_content", "description": "List content in a storage pool"},
     {"name": "proxmox_list_networks", "description": "List network interfaces on a node"},

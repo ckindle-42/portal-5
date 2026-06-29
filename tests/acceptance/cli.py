@@ -1,4 +1,5 @@
 """CLI entry point for Portal 5 acceptance tests."""
+
 from __future__ import annotations
 
 import argparse

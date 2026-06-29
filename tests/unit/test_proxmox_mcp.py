@@ -2,6 +2,7 @@
 
 No network access. All HTTP calls are mocked.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -14,7 +15,13 @@ MOD = "portal_mcp.proxmox.proxmox_mcp"
 
 
 def _reload(monkeypatch, **env):
-    for k in ("PROXMOX_URL", "PROXMOX_TOKEN_ID", "PROXMOX_TOKEN_SECRET", "PROXMOX_VERIFY_SSL", "PROXMOX_DEFAULT_NODE"):
+    for k in (
+        "PROXMOX_URL",
+        "PROXMOX_TOKEN_ID",
+        "PROXMOX_TOKEN_SECRET",
+        "PROXMOX_VERIFY_SSL",
+        "PROXMOX_DEFAULT_NODE",
+    ):
         monkeypatch.delenv(k, raising=False)
     for k, v in env.items():
         monkeypatch.setenv(k, v)
@@ -80,10 +87,16 @@ async def test_resolve_node_explicit_overrides_default(monkeypatch):
 async def test_find_vm_node_returns_correct_node(monkeypatch):
     m = _reload(monkeypatch)
     mock_client = AsyncMock()
-    with patch.object(m, "_get", new=AsyncMock(return_value=[
-        {"vmid": 100, "node": "pve", "type": "qemu"},
-        {"vmid": 101, "node": "pve2", "type": "qemu"},
-    ])):
+    with patch.object(
+        m,
+        "_get",
+        new=AsyncMock(
+            return_value=[
+                {"vmid": 100, "node": "pve", "type": "qemu"},
+                {"vmid": 101, "node": "pve2", "type": "qemu"},
+            ]
+        ),
+    ):
         node = await m._find_vm_node(mock_client, 101)
     assert node == "pve2"
 

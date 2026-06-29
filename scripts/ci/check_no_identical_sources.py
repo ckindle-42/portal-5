@@ -7,6 +7,7 @@ is local, so the files cannot be collapsed to a symlink. This guard prevents
 them from silently diverging — if they differ, it fails and forces either a
 manual sync or a build-context change.
 """
+
 from __future__ import annotations
 
 import sys
@@ -47,7 +48,9 @@ def main() -> int:
         # up as a behavioral difference, not caught here.
         return 0
 
-    print("[guard] no-identical-sources: OK (no byte-identical deploy↔mcp files, or known pair still in sync)")
+    print(
+        "[guard] no-identical-sources: OK (no byte-identical deploy↔mcp files, or known pair still in sync)"
+    )
     return 0
 
 

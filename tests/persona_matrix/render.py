@@ -1,4 +1,5 @@
 """Console and JSON rendering for persona-matrix output."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -41,4 +42,3 @@ def render_matrix_table(report: dict[str, Any]) -> str:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────
-

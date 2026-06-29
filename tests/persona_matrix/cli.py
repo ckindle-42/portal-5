@@ -1,17 +1,18 @@
 """CLI entry — argparse, main async coroutine, sync wrapper."""
+
 from __future__ import annotations
 
 import argparse
 import asyncio
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ._common import RESULTS_DIR, WORKSPACE_REGISTRY
 from .ollama_client import run_audit_tools
-from .sweep import run_sweep
 from .render import render_matrix_table
+from .sweep import run_sweep
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -100,7 +101,7 @@ async def amain(argv: list[str] | None = None) -> int:
     if args.dry_run:
         return 0
 
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     out_path = (
         Path(args.output)
         if args.output
@@ -138,9 +139,6 @@ async def amain(argv: list[str] | None = None) -> int:
     if regressions:
         return 2 if any_fail else 1
     return 1 if any_fail else 0
-
-
-
 
 
 def main() -> int:

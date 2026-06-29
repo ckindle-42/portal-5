@@ -1,4 +1,5 @@
 """Section C5 — Image generation: FLUX dev."""
+
 from __future__ import annotations
 
 import time
@@ -157,4 +158,3 @@ async def run() -> None:
             "no NSFW checkpoint installed (e.g. Flux_v8-NSFW.safetensors)",
             t0=None,
         )
-

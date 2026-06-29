@@ -2,6 +2,7 @@
 
 Asserts the source wiring without launching Docker (CI-safe).
 """
+
 from pathlib import Path
 
 SRC = Path("portal_mcp/execution/code_sandbox_mcp.py").read_text()

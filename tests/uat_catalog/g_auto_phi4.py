@@ -26,12 +26,29 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Characteristic polynomial",
-                "keywords": ["characteristic", "det", "lambda", "determinant", "(4-λ)", "(4 - λ)", "λ²"],
+                "keywords": [
+                    "characteristic",
+                    "det",
+                    "lambda",
+                    "determinant",
+                    "(4-λ)",
+                    "(4 - λ)",
+                    "λ²",
+                ],
             },
             {
                 "type": "any_of",
                 "label": "Correct eigenvalues (2 and 5)",
-                "keywords": ["λ = 5", "λ = 2", "λ=5", "λ=2", "eigenvalue.*5", "eigenvalue.*2", "= 5", "= 2"],
+                "keywords": [
+                    "λ = 5",
+                    "λ = 2",
+                    "λ=5",
+                    "λ=2",
+                    "eigenvalue.*5",
+                    "eigenvalue.*2",
+                    "= 5",
+                    "= 2",
+                ],
                 "critical": True,
             },
             {

@@ -28,7 +28,10 @@ async def run() -> None:
     # in 3a0c58e). Groups are for readability/ordering only.
     PRODUCTION_WORKSPACES = [
         ("General / daily", ["auto", "auto-daily", "auto-mistral", "auto-music", "auto-video"]),
-        ("Coding / agentic", ["auto-coding", "auto-coding-agentic", "auto-agentic", "auto-spl", "auto-documents"]),
+        (
+            "Coding / agentic",
+            ["auto-coding", "auto-coding-agentic", "auto-agentic", "auto-spl", "auto-documents"],
+        ),
         ("Security", ["auto-security", "auto-redteam", "auto-blueteam"]),
         (
             "Reasoning / analysis",

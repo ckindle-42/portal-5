@@ -16,7 +16,6 @@ import yaml
 
 from tests.lib import compliance_assertions as ca
 
-
 # ── Resolve file paths ────────────────────────────────────────────────────
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -25,6 +24,7 @@ PERSONAS_DIR = _REPO_ROOT / "config" / "personas"
 
 
 # ── Data classes ──────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class Framework:
@@ -51,6 +51,7 @@ class ConcreteScenario:
 
 
 # ── Loader ────────────────────────────────────────────────────────────────
+
 
 def load_scenarios_yaml(path: Path = SCENARIOS_PATH) -> dict[str, Any]:
     """Read and parse the scenario YAML."""
@@ -79,9 +80,8 @@ def load_compliance_persona_slugs(
 
 # ── Expansion ─────────────────────────────────────────────────────────────
 
-def _resolve_personas(
-    applies_to: list[str], all_compliance: tuple[str, ...]
-) -> tuple[str, ...]:
+
+def _resolve_personas(applies_to: list[str], all_compliance: tuple[str, ...]) -> tuple[str, ...]:
     """Expand the applies_to list. The token 'compliance:*' expands to every
     compliance-category persona slug.
     """
@@ -154,24 +154,23 @@ def expand_scenarios(
 
 # ── Assertion dispatch ────────────────────────────────────────────────────
 
+
 def _resolve_citation_assertion(
     spec: str,
-) -> "tuple[str | None, str | None]":
+) -> tuple[str | None, str | None]:
     """Parse 'citation.format[FRAMEWORK]' into ('citation.format', FRAMEWORK).
     Bare 'citation.format' returns ('citation.format', None) — caller resolves
     framework from the scenario context.
     """
     if not spec.startswith("citation.format"):
         return None, None
-    rest = spec[len("citation.format"):]
+    rest = spec[len("citation.format") :]
     if rest.startswith("[") and rest.endswith("]"):
         return "citation.format", rest[1:-1]
     return "citation.format", None
 
 
-def run_assertions(
-    scenario: ConcreteScenario, response: str
-) -> ca.ScenarioOutcome:
+def run_assertions(scenario: ConcreteScenario, response: str) -> ca.ScenarioOutcome:
     """Run all assertions for one scenario against one response. Returns a
     ScenarioOutcome aggregating every result.
     """
@@ -181,20 +180,16 @@ def run_assertions(
         if cit_name == "citation.format":
             framework = cit_framework or scenario.framework_id
             if framework:
-                results.append(
-                    ca.assert_citation_present(response, framework)
-                )
+                results.append(ca.assert_citation_present(response, framework))
             continue
         # Plain assertion dispatch table
         dispatch = {
             "structural.table_columns": ca.assert_table_columns,
             "structural.policy_sections": ca.assert_policy_sections,
             "classification.exact_token": ca.assert_classification_token,
-            "anti_fabrication.refusal_pattern":
-                ca.assert_no_fabrication_when_asked,
+            "anti_fabrication.refusal_pattern": ca.assert_no_fabrication_when_asked,
             "refuse_to_certify": ca.assert_refuses_to_certify,
-            "insufficient_context.exact_phrase":
-                ca.assert_insufficient_context_pattern,
+            "insufficient_context.exact_phrase": ca.assert_insufficient_context_pattern,
             "policy.modal_verbs": ca.assert_uses_modal_verbs,
         }
         fn = dispatch.get(spec)

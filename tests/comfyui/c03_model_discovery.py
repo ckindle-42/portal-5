@@ -1,4 +1,5 @@
 """Section C3 — Model discovery via MCP."""
+
 from __future__ import annotations
 
 import time
@@ -53,4 +54,3 @@ async def run() -> None:
         "Not implemented in comfyui_mcp — KSampler sampler list available via /object_info",
         t0=t0,
     )
-

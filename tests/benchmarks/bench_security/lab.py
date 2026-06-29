@@ -259,6 +259,7 @@ def dispatch_blue_response(
 
 # ── Defense verification ─────────────────────────────────────────────────────
 
+
 def verify_defense(tool_name: str, arguments: dict, dc: str = "") -> dict:
     """Verify that a blue defensive action actually took effect.
 
@@ -289,7 +290,9 @@ def verify_defense(tool_name: str, arguments: dict, dc: str = "") -> dict:
             r = _lab_mcp_call(cmd, timeout=15)
             ok, out = parse_sandbox_output(r.get("output", ""))
             # Account disabled = logon failure with specific error
-            disabled = "account" in out.lower() or "disabled" in out.lower() or "logon" in out.lower()
+            disabled = (
+                "account" in out.lower() or "disabled" in out.lower() or "logon" in out.lower()
+            )
             return {"verified": disabled, "evidence": out[:200]}
         elif tool_name == "revoke_tgt":
             # Verify: check krbtgt password age — should be very recent
@@ -534,7 +537,11 @@ def lab_dispatch(fn_name: str, fn_args: dict, dry_run: bool = False) -> str:
                 {"vmid": vmid, "snapname": snapname},
                 timeout=240,
             )
-            return r.get("output", f"Reverted to {snapname}") if r["ok"] else f"Error: {r.get('error')}"
+            return (
+                r.get("output", f"Reverted to {snapname}")
+                if r["ok"]
+                else f"Error: {r.get('error')}"
+            )
         except Exception as exc:
             return f"Error reverting VM {vmid}: {exc}"
 
@@ -545,7 +552,7 @@ def lab_dispatch(fn_name: str, fn_args: dict, dry_run: bool = False) -> str:
         # Python TCP connect — no cap_net_raw needed in DinD
         target = fn_args.get("target", dc)
         code = (
-            f"python3 -c \""
+            f'python3 -c "'
             f"import socket\n"
             f"ports = [22,53,80,88,135,389,443,445,464,636,3268,8080,8443]\n"
             f"for p in ports:\n"
@@ -553,7 +560,7 @@ def lab_dispatch(fn_name: str, fn_args: dict, dry_run: bool = False) -> str:
             f"    s=socket.socket();s.settimeout(1);s.connect(('{target}',p));s.close()\n"
             f"    print(f'{{p}}/tcp open')\n"
             f"  except: pass\n"
-            f"\" 2>&1"
+            f'" 2>&1'
         )
         if dry_run:
             return f"[DRY-RUN] port scan: {target}"

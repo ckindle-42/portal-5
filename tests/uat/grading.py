@@ -350,6 +350,7 @@ def assert_tool_output_pattern(text: str, patterns: list, label: str) -> tuple:
     describing what it would do.
     """
     import re
+
     stripped = _strip_think_blocks(text)
     for p in patterns:
         try:
@@ -431,13 +432,9 @@ def run_assertions(
             mh = int(a.get("min_height", 0))
             results.append(assert_png_valid(artifact_path, label, min_width=mw, min_height=mh))
         elif t == "tool_output_pattern":
-            results.append(
-                assert_tool_output_pattern(text, a.get("patterns", []), label)
-            )
+            results.append(assert_tool_output_pattern(text, a.get("patterns", []), label))
         elif t == "pipeline_tool_called":
-            results.append(
-                assert_pipeline_tool_called(tool_calls_before, tool_calls_after, label)
-            )
+            results.append(assert_pipeline_tool_called(tool_calls_before, tool_calls_after, label))
         elif t == "mp4_valid":
             min_s = float(a.get("min_seconds", 0.0))
             results.append(assert_mp4_valid(artifact_path, label, min_seconds=min_s))

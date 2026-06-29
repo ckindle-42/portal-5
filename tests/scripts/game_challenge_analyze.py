@@ -16,13 +16,14 @@ Usage:
       [--artifacts tests/artifacts] \
       [--output tests/benchmarks/results/GAME_CHALLENGE_MATRIX_<UTC>.md]
 """
+
 from __future__ import annotations
 
 import argparse
 import asyncio
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -62,16 +63,18 @@ async def _playk_check(html: str) -> dict:
         async with async_playwright() as p:
             b = await p.chromium.launch()
             page = await b.new_page()
-            page.on("console", lambda msg: result["errors"].append(msg.text)
-                    if msg.type == "error" else None)
+            page.on(
+                "console",
+                lambda msg: result["errors"].append(msg.text) if msg.type == "error" else None,
+            )
             page.on("pageerror", lambda e: result["errors"].append(str(e)))
             await page.set_content(html, wait_until="networkidle", timeout=15000)
             await page.wait_for_timeout(800)  # let the loop run frames
-            result["has_canvas"] = await page.evaluate(
-                "() => !!document.querySelector('canvas')")
+            result["has_canvas"] = await page.evaluate("() => !!document.querySelector('canvas')")
             # Frames ran = no uncaught error AND rAF/setInterval was scheduled.
             result["frames_ran"] = await page.evaluate(
-                "() => (window.requestAnimationFrame && true) || false")
+                "() => (window.requestAnimationFrame && true) || false"
+            )
             result["booted"] = len(result["errors"]) == 0
             await b.close()
     except Exception as e:  # noqa: BLE001
@@ -98,8 +101,7 @@ def render_matrix(rows: list[dict], playk: dict[str, dict], source: str) -> str:
     out = [
         "# Game-Challenge Capability Matrix (V1)",
         "",
-        f"**Source**: `{source}` · generated "
-        f"{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",
+        f"**Source**: `{source}` · generated {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}",
         "",
         "Two-layer scoring per band: **static** assertion pass-% and **Play@k** "
         "(did the single-file game boot clean + render a canvas headless). "
@@ -141,9 +143,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", default=str(ROOT / "tests" / "UAT_RESULTS.md"))
     ap.add_argument("--artifacts", default=str(ROOT / "tests" / "artifacts"))
-    out_default = (ROOT / "tests" / "benchmarks" / "results" /
-                   ("GAME_CHALLENGE_MATRIX_" +
-                    datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + ".md"))
+    out_default = (
+        ROOT
+        / "tests"
+        / "benchmarks"
+        / "results"
+        / ("GAME_CHALLENGE_MATRIX_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + ".md")
+    )
     ap.add_argument("--output", default=str(out_default))
     args = ap.parse_args()
 

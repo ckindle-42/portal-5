@@ -75,7 +75,7 @@ import json
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -102,6 +102,7 @@ except Exception as e:
 try:
     from tests.benchmarks.bench.notify import _send_bench_notification  # type: ignore[import]
 except ImportError:
+
     def _send_bench_notification(message: str, title: str = "Portal 5 Bench") -> None:  # type: ignore[misc]
         pass
 
@@ -109,8 +110,8 @@ except ImportError:
 
 OLLAMA_URL: str = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 PRODUCTION_TIMEOUT_MS: int = int(os.environ.get("LLM_ROUTER_TIMEOUT_MS", "1000"))
-COLD_LOAD_PROBE_TIMEOUT_S: float = 60.0   # extended timeout for cold-load measurement
-COMPANION_WAIT_TIMEOUT_S: float = 120.0   # wait for companion to appear in /api/ps
+COLD_LOAD_PROBE_TIMEOUT_S: float = 60.0  # extended timeout for cold-load measurement
+COMPANION_WAIT_TIMEOUT_S: float = 120.0  # wait for companion to appear in /api/ps
 CONFIDENCE_THRESHOLD: float = 0.5
 
 ROUTER_CANDIDATES: list[dict[str, Any]] = [
@@ -144,6 +145,7 @@ SCENARIO_KEYS: list[str] = ["isolated", "one_peer", "eviction_test", "cold_entry
 
 
 # ── Ollama management ─────────────────────────────────────────────────────────
+
 
 def get_loaded_models(client: httpx.Client) -> list[dict[str, Any]]:
     try:
@@ -228,9 +230,7 @@ def unload_all(client: httpx.Client) -> None:
     time.sleep(3.0)
 
 
-def wait_for_model_loaded(
-    client: httpx.Client, model: str, timeout_s: float = 60.0
-) -> bool:
+def wait_for_model_loaded(client: httpx.Client, model: str, timeout_s: float = 60.0) -> bool:
     """Poll /api/ps until model appears or timeout. Returns True if found."""
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
@@ -272,6 +272,7 @@ def measure_cold_load(
 
 # ── Companion selection ───────────────────────────────────────────────────────
 
+
 def select_companions(
     client: httpx.Client,
     router_models: list[str],
@@ -291,7 +292,10 @@ def select_companions(
         result = []
         for m in override[:count]:
             if not is_model_available(client, m):
-                print(f"  WARNING: companion '{m}' not available in Ollama — skipping", file=sys.stderr)
+                print(
+                    f"  WARNING: companion '{m}' not available in Ollama — skipping",
+                    file=sys.stderr,
+                )
             else:
                 result.append({"name": m, "size_gb": 0.0})
         return result
@@ -331,6 +335,7 @@ def select_companions(
 
 
 # ── Router (mirrors production routing.py) ───────────────────────────────────
+
 
 def route_one(
     client: httpx.Client,
@@ -375,6 +380,7 @@ def route_one(
 
 # ── Scenario runner ───────────────────────────────────────────────────────────
 
+
 def run_scenario(
     client: httpx.Client,
     router: dict[str, Any],
@@ -393,7 +399,7 @@ def run_scenario(
     c1 = companions[0]["name"] if len(companions) >= 1 else None
     c2 = companions[1]["name"] if len(companions) >= 2 else None
 
-    print(f"\n  ── {scenario_key.upper()} {'─'*55}")
+    print(f"\n  ── {scenario_key.upper()} {'─' * 55}")
 
     # ── Setup: bring VRAM to the required state ────────────────────────────────
     print("     Setup: clearing all models from VRAM...", end=" ", flush=True)
@@ -493,21 +499,23 @@ def run_scenario(
         latency_flag = "  ⚠SLOW" if elapsed_ms > router["timeout_ms"] else ""
         ws_disp = workspace or ("(timeout)" if error == "TIMEOUT" else "(fallback)")
         print(
-            f"     {i+1:2d}/{n} {symbol} [{cat[:3]:3s}] {expected:26s}"
+            f"     {i + 1:2d}/{n} {symbol} [{cat[:3]:3s}] {expected:26s}"
             f"  → {ws_disp:26s}  {elapsed_ms:6.0f}ms{latency_flag}"
         )
 
-        rows.append({
-            "message": msg,
-            "expected": expected,
-            "got": workspace,
-            "confidence": confidence,
-            "elapsed_ms": round(elapsed_ms, 1),
-            "result": result,
-            "category": cat,
-            "error": error,
-            "notes": note,
-        })
+        rows.append(
+            {
+                "message": msg,
+                "expected": expected,
+                "got": workspace,
+                "confidence": confidence,
+                "elapsed_ms": round(elapsed_ms, 1),
+                "result": result,
+                "category": cat,
+                "error": error,
+                "notes": note,
+            }
+        )
 
     stats = score_results(rows)
 
@@ -515,8 +523,8 @@ def run_scenario(
     first_req_ms = rows[0]["elapsed_ms"] if rows else 0.0
 
     print(
-        f"\n     RESULT  acc={stats['accuracy_pct']} ({stats['accuracy']*100:.1f}%)  "
-        f"sec={stats['security_accuracy']*100:.1f}%  "
+        f"\n     RESULT  acc={stats['accuracy_pct']} ({stats['accuracy'] * 100:.1f}%)  "
+        f"sec={stats['security_accuracy'] * 100:.1f}%  "
         f"p50={stats['p50_ms']:.0f}ms  p95={stats['p95_ms']:.0f}ms  "
         f"TO={stats['timeout_count']}"
     )
@@ -542,6 +550,7 @@ def run_scenario(
 
 # ── Full bench runner ─────────────────────────────────────────────────────────
 
+
 def run_conditions_bench(
     routers: list[dict[str, Any]],
     companions: list[dict[str, Any]],
@@ -557,6 +566,7 @@ def run_conditions_bench(
         _repo_root = Path(__file__).resolve().parent.parent.parent
         sys.path.insert(0, str(_repo_root))
         from portal_pipeline.router.workspaces import WORKSPACES  # type: ignore[import]
+
         valid_ids = frozenset(k for k in WORKSPACES if not k.startswith("bench-"))
     except ImportError:
         valid_ids = frozenset(descriptions.keys())
@@ -567,10 +577,14 @@ def run_conditions_bench(
     prompts = [_build_prompt(msg, descriptions, examples) for msg, _, _, _ in GOLDEN_SET]
 
     if dry_run:
-        print(f"\nDRY RUN  {len(routers)} routers × {len(scenarios)} scenarios × {len(GOLDEN_SET)} tests")
+        print(
+            f"\nDRY RUN  {len(routers)} routers × {len(scenarios)} scenarios × {len(GOLDEN_SET)} tests"
+        )
         print("\nRouter candidates:")
         for r in routers:
-            print(f"  [{r['role']:8s}]  {r['label']:35s}  {r['vram_gb']}GB  timeout={r['timeout_ms']}ms")
+            print(
+                f"  [{r['role']:8s}]  {r['label']:35s}  {r['vram_gb']}GB  timeout={r['timeout_ms']}ms"
+            )
         print(f"\nScenarios: {scenarios}")
         print("\nCompanion models:")
         for c in companions:
@@ -593,13 +607,17 @@ def run_conditions_bench(
 
     with httpx.Client() as client:
         for router in routers:
-            print(f"\n{'═'*80}")
-            print(f"ROUTER: {router['label']}  ({router['role']}, {router['vram_gb']}GB, timeout={router['timeout_ms']}ms)")
+            print(f"\n{'═' * 80}")
+            print(
+                f"ROUTER: {router['label']}  ({router['role']}, {router['vram_gb']}GB, timeout={router['timeout_ms']}ms)"
+            )
             print(f"MODEL:  {router['model']}")
-            print(f"{'═'*80}")
+            print(f"{'═' * 80}")
 
             if not is_model_available(client, router["model"]):
-                print(f"  ✗ SKIPPED — model not available in Ollama (run: ollama pull {router['model']})")
+                print(
+                    f"  ✗ SKIPPED — model not available in Ollama (run: ollama pull {router['model']})"
+                )
                 continue
 
             router_results: list[dict[str, Any]] = []
@@ -623,8 +641,8 @@ def run_conditions_bench(
                 s = r["stats"]
                 evict_str = "  EVICTED" if r["evicted"] else ""
                 lines.append(
-                    f"  {r['scenario']:15s}  acc={s['accuracy']*100:.0f}%  "
-                    f"sec={s['security_accuracy']*100:.0f}%  "
+                    f"  {r['scenario']:15s}  acc={s['accuracy'] * 100:.0f}%  "
+                    f"sec={s['security_accuracy'] * 100:.0f}%  "
                     f"p50={s['p50_ms']:.0f}ms  TO={s['timeout_count']}{evict_str}"
                 )
             _send_bench_notification(
@@ -633,10 +651,10 @@ def run_conditions_bench(
             )
 
     elapsed_total = time.monotonic() - bench_start
-    print(f"\n\nTotal elapsed: {elapsed_total/60:.1f} min")
+    print(f"\n\nTotal elapsed: {elapsed_total / 60:.1f} min")
 
     _send_bench_notification(
-        f"Conditions bench complete  {elapsed_total/60:.1f}min\n"
+        f"Conditions bench complete  {elapsed_total / 60:.1f}min\n"
         f"{len(routers)} routers × {len(scenarios)} scenarios × {len(GOLDEN_SET)} tests",
         title="🔀 Router Conditions — DONE",
     )
@@ -646,13 +664,14 @@ def run_conditions_bench(
 
 # ── Summary printer ───────────────────────────────────────────────────────────
 
+
 def print_summary(all_results: list[dict[str, Any]]) -> None:
     if not all_results:
         return
 
-    print(f"\n\n{'━'*100}")
+    print(f"\n\n{'━' * 100}")
     print("SUMMARY TABLE  —  router × scenario")
-    print(f"{'━'*100}")
+    print(f"{'━' * 100}")
 
     header = (
         f"{'Router':20s}  {'Role':8s}  {'VRAM':4s}  {'Scenario':15s}  "
@@ -675,14 +694,16 @@ def print_summary(all_results: list[dict[str, Any]]) -> None:
         print(
             f"{r['router_label']:20s}  {r['router_role']:8s}  {r['router_vram_gb']:3.1f}G  "
             f"{r['scenario']:15s}  "
-            f"{s['accuracy']*100:>5.1f}%  {s['security_accuracy']*100:>4.0f}%  "
+            f"{s['accuracy'] * 100:>5.1f}%  {s['security_accuracy'] * 100:>4.0f}%  "
             f"{s['p50_ms']:>6.0f}  {s['p95_ms']:>6.0f}  {s['timeout_count']:>4}  "
             f"{evict_str:8}  {cold_str:>10}"
         )
 
-    print(f"\n{'━'*100}")
-    print("EVICTION ANALYSIS  —  eviction_test scenario (router pre-warmed, then both companions loaded)")
-    print(f"{'━'*100}")
+    print(f"\n{'━' * 100}")
+    print(
+        "EVICTION ANALYSIS  —  eviction_test scenario (router pre-warmed, then both companions loaded)"
+    )
+    print(f"{'━' * 100}")
 
     eviction_rows = [r for r in all_results if r["scenario"] == "eviction_test"]
     if not eviction_rows:
@@ -697,26 +718,30 @@ def print_summary(all_results: list[dict[str, Any]]) -> None:
 
         s = r["stats"]
         if r["evicted"]:
-            print(
-                f"\n  {r['router_label']:20s} ({r['router_vram_gb']}GB)  ← EVICTED"
-            )
+            print(f"\n  {r['router_label']:20s} ({r['router_vram_gb']}GB)  ← EVICTED")
             print(f"    Cold-load time:    {r['cold_load_ms']:.0f}ms")
             print(f"    First-req latency: {r['first_request_ms']:.0f}ms")
-            print(f"    Production TOs:    {s['timeout_count']} / {len(r['rows'])} requests ({s['timeout_count']/len(r['rows'])*100:.0f}%)")
-            print(f"    Accuracy:          {s['accuracy_pct']} ({s['accuracy']*100:.1f}%)")
+            print(
+                f"    Production TOs:    {s['timeout_count']} / {len(r['rows'])} requests ({s['timeout_count'] / len(r['rows']) * 100:.0f}%)"
+            )
+            print(f"    Accuracy:          {s['accuracy_pct']} ({s['accuracy'] * 100:.1f}%)")
             print("    → Verdict: ⚠️  Router eviction IS occurring with current MAX_LOADED_MODELS")
-            print("       Increase OLLAMA_MAX_LOADED_MODELS or switch to smaller router (qwen2.5:1.5b)")
+            print(
+                "       Increase OLLAMA_MAX_LOADED_MODELS or switch to smaller router (qwen2.5:1.5b)"
+            )
         else:
             print(
                 f"\n  {r['router_label']:20s} ({r['router_vram_gb']}GB)  ← survived (not evicted)"
             )
-            print(f"    Accuracy:  {s['accuracy_pct']} ({s['accuracy']*100:.1f}%)")
+            print(f"    Accuracy:  {s['accuracy_pct']} ({s['accuracy'] * 100:.1f}%)")
             print(f"    p50:       {s['p50_ms']:.0f}ms")
-            print("    → Verdict: ✓  Router stays warm under fleet load with current MAX_LOADED_MODELS")
+            print(
+                "    → Verdict: ✓  Router stays warm under fleet load with current MAX_LOADED_MODELS"
+            )
 
-    print(f"\n{'━'*100}")
+    print(f"\n{'━' * 100}")
     print("RECOMMENDATIONS")
-    print(f"{'━'*100}")
+    print(f"{'━' * 100}")
 
     # Find accuracy by scenario for each router
     router_data: dict[str, dict[str, Any]] = {}
@@ -735,18 +760,27 @@ def print_summary(all_results: list[dict[str, Any]]) -> None:
 
         print(f"\n  {label} ({r_meta['router_role']}, {r_meta['router_vram_gb']}GB):")
         if isolated:
-            print(f"    Warm accuracy:    {isolated.get('accuracy', 0)*100:.1f}%  p50={isolated.get('p50_ms', 0):.0f}ms")
+            print(
+                f"    Warm accuracy:    {isolated.get('accuracy', 0) * 100:.1f}%  p50={isolated.get('p50_ms', 0):.0f}ms"
+            )
         if eviction:
             ev_s = eviction.get("stats", {})
             evicted = eviction.get("evicted", False)
-            print(f"    Under pressure:   {'EVICTED — ' + str(eviction.get('cold_load_ms', 0))+' ms cold-load' if evicted else 'not evicted'}")
+            print(
+                f"    Under pressure:   {'EVICTED — ' + str(eviction.get('cold_load_ms', 0)) + ' ms cold-load' if evicted else 'not evicted'}"
+            )
             if evicted:
-                print(f"    Timeout rate:     {ev_s.get('timeout_count', 0)} / {len(eviction.get('rows', []))} ({ev_s.get('timeout_count', 0)/max(len(eviction.get('rows', [])), 1)*100:.0f}%)")
+                print(
+                    f"    Timeout rate:     {ev_s.get('timeout_count', 0)} / {len(eviction.get('rows', []))} ({ev_s.get('timeout_count', 0) / max(len(eviction.get('rows', [])), 1) * 100:.0f}%)"
+                )
         if cold:
-            print(f"    Cold TOs:         {cold.get('timeout_count', 0)} / {len(scenarios.get('cold_entry', {}).get('rows', []))}")
+            print(
+                f"    Cold TOs:         {cold.get('timeout_count', 0)} / {len(scenarios.get('cold_entry', {}).get('rows', []))}"
+            )
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -856,10 +890,12 @@ def main() -> None:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "bench": "router_conditions",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "ollama_url": OLLAMA_URL,
             "production_timeout_ms": PRODUCTION_TIMEOUT_MS,
-            "routers": [{"label": r["label"], "model": r["model"], "vram_gb": r["vram_gb"]} for r in routers],
+            "routers": [
+                {"label": r["label"], "model": r["model"], "vram_gb": r["vram_gb"]} for r in routers
+            ],
             "companions": companions,
             "scenarios": scenarios,
             "golden_set_count": len(GOLDEN_SET),

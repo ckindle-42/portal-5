@@ -66,9 +66,7 @@ def test_no_persona_has_browser_policy() -> None:
     """After M3, no persona YAML may contain a browser_policy field."""
     personas_dir = REPO / "config" / "personas"
     with_policy = [
-        f.name
-        for f in sorted(personas_dir.glob("*.yaml"))
-        if "browser_policy" in f.read_text()
+        f.name for f in sorted(personas_dir.glob("*.yaml")) if "browser_policy" in f.read_text()
     ]
     assert not with_policy, f"browser_policy found in retired persona YAMLs: {with_policy}"
 
@@ -81,7 +79,11 @@ def test_persona_tool_resolution_matches_snapshot() -> None:
     snap = json.loads(SNAPSHOT.read_text())
     failures = []
     for slug, spec in _PERSONA_MAP.items():
-        ws_id = spec.workspace_model if isinstance(spec, PersonaSpec) else spec.get("workspace_model", "")
+        ws_id = (
+            spec.workspace_model
+            if isinstance(spec, PersonaSpec)
+            else spec.get("workspace_model", "")
+        )
         effective = _resolve_persona_tools(spec, ws_id)
         key = f"persona::{slug}"
         if key in snap and snap[key]["effective_tools"] != effective:

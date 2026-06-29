@@ -520,14 +520,26 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         ),
         "assertions": [
             {"type": "has_code", "label": "Code block present"},
-            {"type": "any_of", "label": "pandas imported",
-             "keywords": ["import pandas", "import pd", "from pandas"]},
-            {"type": "any_of", "label": "groupby or aggregation used",
-             "keywords": ["groupby", "group_by", "agg(", "sum()", ".sum(", "pivot"]},
-            {"type": "any_of", "label": "Sort descending",
-             "keywords": ["sort_values", "nlargest", "ascending=false", "descending"]},
-            {"type": "any_of", "label": "Returns tuples or list",
-             "keywords": ["tuple", "tolist", "itertuples", "iterrows", "zip(", "return ["]},
+            {
+                "type": "any_of",
+                "label": "pandas imported",
+                "keywords": ["import pandas", "import pd", "from pandas"],
+            },
+            {
+                "type": "any_of",
+                "label": "groupby or aggregation used",
+                "keywords": ["groupby", "group_by", "agg(", "sum()", ".sum(", "pivot"],
+            },
+            {
+                "type": "any_of",
+                "label": "Sort descending",
+                "keywords": ["sort_values", "nlargest", "ascending=false", "descending"],
+            },
+            {
+                "type": "any_of",
+                "label": "Returns tuples or list",
+                "keywords": ["tuple", "tolist", "itertuples", "iterrows", "zip(", "return ["],
+            },
         ],
     },
 ]

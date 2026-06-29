@@ -21,10 +21,18 @@ WS_DIR = REPO / "imports" / "openwebui" / "workspaces"
 PERSONAS_DIR = REPO / "config" / "personas"
 
 # Workspace models for which OWUI enables web search
-_WEB_SEARCH_MODELS = frozenset({
-    "auto", "auto-research", "auto-security", "auto-reasoning",
-    "auto-data", "auto-redteam", "auto-blueteam", "auto-compliance",
-})
+_WEB_SEARCH_MODELS = frozenset(
+    {
+        "auto",
+        "auto-research",
+        "auto-security",
+        "auto-reasoning",
+        "auto-data",
+        "auto-redteam",
+        "auto-blueteam",
+        "auto-compliance",
+    }
+)
 
 
 def _build_persona_payload(persona: dict) -> dict:
@@ -78,8 +86,7 @@ def test_workspace_presets_cover_snapshot_ids() -> None:
     """Every workspace id in the snapshot must still have a preset JSON file."""
     snap = json.loads(WS_SNAP.read_text())
     present = {
-        json.loads(f.read_text()).get("id", "")
-        for f in sorted(WS_DIR.glob("workspace_*.json"))
+        json.loads(f.read_text()).get("id", "") for f in sorted(WS_DIR.glob("workspace_*.json"))
     }
     missing = set(snap.keys()) - present
     assert not missing, f"Snapshot workspace ids missing from preset files: {sorted(missing)}"

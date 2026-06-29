@@ -6,6 +6,7 @@ Run from repo root:
 
 All implementation is in tests/persona_matrix/.
 """
+
 from __future__ import annotations
 
 import sys

@@ -20,6 +20,7 @@ Requires:
   - lab-dc01 (vmid 110) and lab-srv01 (vmid 111) booted with Windows installed
   - QEMU guest agent running on both VMs (install from VirtIO ISO: guest-agent/qemu-ga-x86_64.msi)
 """
+
 import argparse
 import asyncio
 import base64
@@ -58,6 +59,7 @@ SAFE_PASS = "LabSafe1!"
 
 
 # ── Low-level agent helpers ───────────────────────────────────────────────────
+
 
 def _auth_headers() -> dict:
     return {"Authorization": f"PVEAPIToken={PROXMOX_TOKEN_ID}={PROXMOX_TOKEN_SECRET}"}
@@ -106,9 +108,20 @@ async def _exec_ps(c, vmid: int, script: str, timeout: int = 600) -> str:
     encoded = base64.b64encode(script_with_encoding.encode("utf-16-le")).decode("ascii")
     print(f"  [exec vmid={vmid}] {len(script)} chars of PowerShell...")
 
-    result = await _agent_post(c, vmid, "exec", {
-        "command": ["powershell.exe", "-NonInteractive", "-NoProfile", "-EncodedCommand", encoded],
-    })
+    result = await _agent_post(
+        c,
+        vmid,
+        "exec",
+        {
+            "command": [
+                "powershell.exe",
+                "-NonInteractive",
+                "-NoProfile",
+                "-EncodedCommand",
+                encoded,
+            ],
+        },
+    )
     pid = result.get("pid")
     if not pid:
         return f"ERROR: no pid returned: {result}"
@@ -164,7 +177,11 @@ async def _get_ip(c, vmid: int) -> str:
     """Get the primary IPv4 of a VM via QEMU agent network-get-interfaces."""
     try:
         ifaces_data = await _get(c, f"/nodes/{NODE}/qemu/{vmid}/agent/network-get-interfaces")
-        ifaces = (ifaces_data or {}).get("result", []) if isinstance(ifaces_data, dict) else (ifaces_data or [])
+        ifaces = (
+            (ifaces_data or {}).get("result", [])
+            if isinstance(ifaces_data, dict)
+            else (ifaces_data or [])
+        )
         for iface in ifaces:
             if iface.get("name", "").lower() in ("lo", "loopback"):
                 continue
@@ -181,8 +198,9 @@ async def _get_ip(c, vmid: int) -> str:
 async def _snapshot(c, vmid: int, name: str, desc: str):
     """Create a Proxmox snapshot."""
     try:
-        upid = await _post(c, f"/nodes/{NODE}/qemu/{vmid}/snapshot",
-                           snapname=name, description=desc)
+        upid = await _post(
+            c, f"/nodes/{NODE}/qemu/{vmid}/snapshot", snapname=name, description=desc
+        )
         print(f"  Snapshot '{name}' on vmid={vmid}: created")
     except Exception as e:
         if "already exists" in str(e).lower():
@@ -223,6 +241,7 @@ def _update_env(key: str, value: str):
 
 # ── Phase runners ─────────────────────────────────────────────────────────────
 
+
 async def phase0_wait_agents(c):
     print("\n=== Phase 0: Waiting for QEMU agents ===")
     print("  NOTE: Agent requires 'qemu-ga-x86_64.msi' installed in Windows")
@@ -238,8 +257,12 @@ async def phase0_wait_agents(c):
 async def phase1_baseline_snapshots(c):
     print("\n=== Phase 1: Baseline snapshots (clean Windows install) ===")
     for vmid, name in [(DC_VMID, "lab-dc01"), (SRV_VMID, "lab-srv01")]:
-        await _snapshot(c, vmid, "baseline-clean",
-                        "Clean Windows Server 2022 — before AD promotion — portal.lab")
+        await _snapshot(
+            c,
+            vmid,
+            "baseline-clean",
+            "Clean Windows Server 2022 — before AD promotion — portal.lab",
+        )
 
 
 async def phase2_promote_dc(c):
@@ -249,9 +272,14 @@ async def phase2_promote_dc(c):
     print(out)
     print("\n  Triggering reboot to complete DC promotion...")
     try:
-        await _agent_post(c, DC_VMID, "exec", {
-            "command": ["shutdown.exe", "/r", "/t", "5", "/f"],
-        })
+        await _agent_post(
+            c,
+            DC_VMID,
+            "exec",
+            {
+                "command": ["shutdown.exe", "/r", "/t", "5", "/f"],
+            },
+        )
     except Exception as e:
         print(f"  Reboot trigger error (may be OK if already rebooting): {e}")
     print("  Waiting for DC to go down and come back up (allow 3 min)...")
@@ -267,7 +295,7 @@ async def phase3_get_ips(c) -> tuple[str, str]:
         dc_ip = await _get_ip(c, DC_VMID)
         if dc_ip:
             break
-        print(f"  DC IP not ready (attempt {attempt+1}/8), retrying...")
+        print(f"  DC IP not ready (attempt {attempt + 1}/8), retrying...")
         await asyncio.sleep(20)
 
     srv_ip = ""
@@ -275,7 +303,7 @@ async def phase3_get_ips(c) -> tuple[str, str]:
         srv_ip = await _get_ip(c, SRV_VMID)
         if srv_ip:
             break
-        print(f"  SRV IP not ready (attempt {attempt+1}/4), retrying...")
+        print(f"  SRV IP not ready (attempt {attempt + 1}/4), retrying...")
         await asyncio.sleep(15)
 
     print(f"  lab-dc01  (vmid {DC_VMID}) → {dc_ip or 'NOT FOUND'}")
@@ -313,8 +341,7 @@ async def phase5_configure_srv(c, dc_ip: str):
 async def phase6_finalize(c):
     print("\n=== Phase 6: Post-join snapshots + enable lab-exec lane ===")
     for vmid, name in [(DC_VMID, "lab-dc01"), (SRV_VMID, "lab-srv01")]:
-        await _snapshot(c, vmid, "baseline-ad",
-                        "portal.lab AD domain seeded — red team baseline")
+        await _snapshot(c, vmid, "baseline-ad", "portal.lab AD domain seeded — red team baseline")
     _update_env("SANDBOX_LAB_EXEC", "true")
     _update_env("SANDBOX_LAB_IMAGE", "portal5-attack:latest")
     _update_env("SANDBOX_LAB_MEMORY", "2g")
@@ -362,6 +389,7 @@ def phase7_cheatsheet(dc_ip: str, srv_ip: str, admin_pass: str):
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 
+
 async def run(start_phase: int, admin_pass: str):
     async with _client() as c:
         if start_phase <= 0:
@@ -389,9 +417,14 @@ async def run(start_phase: int, admin_pass: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Portal 5 lab provisioner")
-    parser.add_argument("--phase", type=int, default=0,
-                        help="Start from phase N (0=full, 2=DC promotion only, 3=IPs+.env, etc.)")
-    parser.add_argument("--admin-pass", default=ADMIN_PASS,
-                        help="Windows Administrator password set during install")
+    parser.add_argument(
+        "--phase",
+        type=int,
+        default=0,
+        help="Start from phase N (0=full, 2=DC promotion only, 3=IPs+.env, etc.)",
+    )
+    parser.add_argument(
+        "--admin-pass", default=ADMIN_PASS, help="Windows Administrator password set during install"
+    )
     args = parser.parse_args()
     asyncio.run(run(start_phase=args.phase, admin_pass=args.admin_pass))

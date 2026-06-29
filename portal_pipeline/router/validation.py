@@ -4,6 +4,7 @@ Extracted from router_pipe.py during M6-A finish. Pure functions —
 no module-level state. Imported by lifespan (validation) and by the
 non-streaming + streaming dispatch paths (option injection).
 """
+
 from __future__ import annotations
 
 import os
@@ -69,6 +70,7 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
             )
     return errors
 
+
 def _model_supports_tools(model_id: str) -> bool:
     """Return whether ``model_id`` declares ``supports_tools: true`` in its metadata.
 
@@ -86,6 +88,7 @@ def _model_supports_tools(model_id: str) -> bool:
     if registry is None or not model_id:
         return False
     return registry.model_supports_tools(model_id)
+
 
 def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     """Add Ollama-specific tuning to the outgoing request body. Returns a copy.
@@ -163,12 +166,12 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     # ── Per-workspace sampling tuning ────────────────────────────────────────
     # All use setdefault — OWUI/user values always take precedence.
     _SAMPLING_KEYS = (
-        "temperature",   # creativity vs determinism
-        "top_p",         # nucleus sampling cutoff
-        "top_k",         # vocabulary candidate pool size
-        "min_p",         # minimum token probability floor
-        "repeat_penalty", # n-gram repetition penalty
-        "seed",          # RNG seed (bench reproducibility)
+        "temperature",  # creativity vs determinism
+        "top_p",  # nucleus sampling cutoff
+        "top_k",  # vocabulary candidate pool size
+        "min_p",  # minimum token probability floor
+        "repeat_penalty",  # n-gram repetition penalty
+        "seed",  # RNG seed (bench reproducibility)
     )
     for key in _SAMPLING_KEYS:
         val = ws_cfg_local.get(key)

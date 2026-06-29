@@ -46,8 +46,8 @@ DEFAULT_BLOCKED_ORIGINS = os.environ.get(
     "localhost;127.0.0.1;169.254.169.254;metadata.google.internal",
 ).split(";")
 PRIVATE_PREFIXES = (
-    "127.",        # full loopback range (127.0.0.0/8), not just 127.0.0.1
-    "169.254.",    # full link-local range (169.254.0.0/16), not just the AWS metadata IP
+    "127.",  # full loopback range (127.0.0.0/8), not just 127.0.0.1
+    "169.254.",  # full link-local range (169.254.0.0/16), not just the AWS metadata IP
     "192.168.",
     "10.",
     "172.16.",
@@ -330,7 +330,7 @@ async def _execute_tool(
         status = "ok" if "error" not in result else "error"
         _audit_log(persona, profile, tool_name, args, status, duration)
         return result.get("result", result), 200
-    except asyncio.TimeoutError:
+    except TimeoutError:
         duration = (time.monotonic() - t0) * 1000
         _audit_log(persona, profile, tool_name, args, "timeout", duration)
         return {"error": "tool timed out after 120s"}, 504
@@ -601,7 +601,9 @@ async def browser_click(element_ref: str, profile: str = "_isolated") -> dict:
         element_ref: Accessibility reference from a prior browser_snapshot call.
         profile: Browser profile name.
     """
-    result, _ = await _execute_tool("browser_click", {"element_ref": element_ref, "profile": profile})
+    result, _ = await _execute_tool(
+        "browser_click", {"element_ref": element_ref, "profile": profile}
+    )
     return result
 
 

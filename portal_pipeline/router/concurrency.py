@@ -253,7 +253,7 @@ class RequestSlot:
             raise HTTPException(status_code=503, detail="Request semaphore not initialised")
         try:
             await asyncio.wait_for(_request_semaphore.acquire(), timeout=_SEMAPHORE_TIMEOUT)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise HTTPException(
                 status_code=503,
                 detail="Server busy — too many concurrent requests. Please retry.",
@@ -272,7 +272,7 @@ class RequestSlot:
             return
         try:
             await asyncio.wait_for(sem.acquire(), timeout=_SEMAPHORE_TIMEOUT)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise HTTPException(
                 status_code=429,
                 detail="API key at concurrency limit. Please retry.",
@@ -291,7 +291,7 @@ class RequestSlot:
         sem = await _acquire_workspace_sem(workspace_id)
         try:
             await asyncio.wait_for(sem.acquire(), timeout=_SEMAPHORE_TIMEOUT)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             if _workspace_semaphore_busy_total is not None:
                 _workspace_semaphore_busy_total.labels(workspace=workspace_id).inc()
             raise HTTPException(

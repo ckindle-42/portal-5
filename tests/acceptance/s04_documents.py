@@ -120,7 +120,7 @@ async def run() -> None:
                 )
             else:
                 record(sec, tid, f"MCP {tool}", "FAIL", "empty result", t0=t0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             record(sec, tid, f"MCP {tool}", "WARN", "timeout after 30s", t0=t0)
         except ImportError:
             record(

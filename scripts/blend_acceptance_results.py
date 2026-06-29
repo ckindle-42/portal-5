@@ -11,26 +11,26 @@ Sources (in priority order):
 Run with no args to rebuild from git history only.
 Pass --s10-file <path> to pull S10 from a live file instead of git.
 """
+
 import re
 import subprocess
 from collections import defaultdict
 from pathlib import Path
 
-ORIGINAL  = "798614d"
-RERUN     = "5c64a01"
+ORIGINAL = "798614d"
+RERUN = "5c64a01"
 S10C_ONLY = "f945eb6"
 
 # Sections taken from the targeted rerun (better than original)
 RERUN_SECTIONS = {"S1", "S3a", "S6", "S41", "S60"}
 # S10c has its own dedicated source; S10 may come from live file
 S10C_SECTION = "S10c"
-S10_SECTION  = "S10"
+S10_SECTION = "S10"
 
 
 def git_show(commit: str, path: str = "ACCEPTANCE_RESULTS.md") -> str:
     r = subprocess.run(
-        ["git", "show", f"{commit}:{path}"],
-        capture_output=True, text=True, check=True
+        ["git", "show", f"{commit}:{path}"], capture_output=True, text=True, check=True
     )
     return r.stdout
 
@@ -52,7 +52,13 @@ def extract_data_rows(content: str) -> dict[str, list[str]]:
         if not section or section in ("", "Section", "Status", "**Total**"):
             continue
         # Skip emoji-only section labels (summary table rows)
-        if section.startswith("✅") or section.startswith("❌") or section.startswith("⚠️") or section.startswith("ℹ️") or section.startswith("**"):
+        if (
+            section.startswith("✅")
+            or section.startswith("❌")
+            or section.startswith("⚠️")
+            or section.startswith("ℹ️")
+            or section.startswith("**")
+        ):
             continue
         by_section[section].append(line)
     return dict(by_section)
@@ -75,7 +81,7 @@ def count_statuses(rows_by_section: dict[str, list[str]]) -> dict[str, int]:
 
 def section_sort_key(s: str) -> tuple:
     """Sort sections numerically: S0 < S1 < S2 < S3a < S4 ... S10 < S10c < S12 ..."""
-    m = re.match(r'S(\d+)([a-z]*)', s)
+    m = re.match(r"S(\d+)([a-z]*)", s)
     if m:
         return (int(m.group(1)), m.group(2))
     return (999, s)
@@ -83,18 +89,19 @@ def section_sort_key(s: str) -> tuple:
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--s10-file", help="Path to live ACCEPTANCE_RESULTS.md to extract S10 from")
     args = parser.parse_args()
 
     print("Loading git sources...")
-    orig_content  = git_show(ORIGINAL)
+    orig_content = git_show(ORIGINAL)
     rerun_content = git_show(RERUN)
-    s10c_content  = git_show(S10C_ONLY)
+    s10c_content = git_show(S10C_ONLY)
 
-    orig_rows  = extract_data_rows(orig_content)
+    orig_rows = extract_data_rows(orig_content)
     rerun_rows = extract_data_rows(rerun_content)
-    s10c_rows  = extract_data_rows(s10c_content)
+    s10c_rows = extract_data_rows(s10c_content)
 
     # S10 from live file if provided; else from rerun git commit
     s10_live_rows: dict[str, list[str]] = {}
@@ -115,8 +122,14 @@ def main():
     all_sections = set(orig_rows) | set(rerun_rows) | {S10C_SECTION, S10_SECTION}
     for section in sorted(all_sections, key=section_sort_key):
         if section == S10C_SECTION:
-            rows = s10c_rows.get(S10C_SECTION, rerun_rows.get(S10C_SECTION, orig_rows.get(S10C_SECTION, [])))
-            source = S10C_ONLY if S10C_SECTION in s10c_rows else (RERUN if S10C_SECTION in rerun_rows else ORIGINAL)
+            rows = s10c_rows.get(
+                S10C_SECTION, rerun_rows.get(S10C_SECTION, orig_rows.get(S10C_SECTION, []))
+            )
+            source = (
+                S10C_ONLY
+                if S10C_SECTION in s10c_rows
+                else (RERUN if S10C_SECTION in rerun_rows else ORIGINAL)
+            )
         elif section == S10_SECTION:
             # Prefer live file > rerun git > original git
             if s10_live_rows.get(S10_SECTION):
@@ -179,7 +192,9 @@ def main():
         f.write(output)
 
     print(f"\nWrote {out_path}")
-    print(f"  PASS={counts['PASS']}  FAIL={counts['FAIL']}  WARN={counts['WARN']}  INFO={counts['INFO']}  Total={total}")
+    print(
+        f"  PASS={counts['PASS']}  FAIL={counts['FAIL']}  WARN={counts['WARN']}  INFO={counts['INFO']}  Total={total}"
+    )
     print(f"  Sections: {section_list}")
 
 

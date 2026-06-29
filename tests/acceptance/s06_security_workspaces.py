@@ -213,7 +213,12 @@ async def run() -> None:
     except Exception:
         pass
 
-    if found and code == 200 and tool_called and route_status in ("match", "no_expectation", "no_actual"):
+    if (
+        found
+        and code == 200
+        and tool_called
+        and route_status in ("match", "no_expectation", "no_actual")
+    ):
         status = "PASS"
     elif found and code == 200 and route_status in ("match", "no_expectation", "no_actual"):
         status = "WARN"  # content OK but tool call not confirmed

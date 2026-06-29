@@ -5,6 +5,7 @@ Both modules are called from the chat_completions handler; the
 streaming/non-streaming branch is decided by the request body's
 ``stream`` flag.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -15,10 +16,10 @@ from typing import Any
 import httpx
 from fastapi.responses import JSONResponse
 
+from portal_pipeline.router.power import _record_usage
 from portal_pipeline.router.tools import _dispatch_tool_call
 from portal_pipeline.router.validation import _inject_ollama_options, _model_supports_tools
-from portal_pipeline.router.workspaces import WORKSPACES, _PERSONA_MAP, _resolve_persona_tools
-from portal_pipeline.router.power import _record_usage
+from portal_pipeline.router.workspaces import _PERSONA_MAP, WORKSPACES, _resolve_persona_tools
 
 # Set by lifespan — same push pattern as streaming.py
 _http_client: Any = None
@@ -157,7 +158,6 @@ def _apply_non_stream_response(
         content=data,
         headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
     )
-
 
 
 async def _try_non_streaming(
@@ -413,5 +413,3 @@ async def _try_non_streaming(
                 backend.id,
             )
         return None
-
-

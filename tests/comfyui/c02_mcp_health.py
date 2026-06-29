@@ -1,10 +1,12 @@
 """Section C2 — MCP bridge health (comfyui_mcp, video_mcp)."""
+
 from __future__ import annotations
 
-import httpx
 import json
 import subprocess
 import time
+
+import httpx
 
 from ._common import (
     COMFYUI_MCP_PORT,
@@ -66,4 +68,3 @@ async def run() -> None:
         ", ".join(containers) if containers else "none matched — check docker compose ps",
         t0=t0,
     )
-

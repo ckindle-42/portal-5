@@ -39,7 +39,15 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Tool mentions",
-                "keywords": ["mimikatz", "cobalt", "meterpreter", "powershell", "macro", "wscript", "cmd"],
+                "keywords": [
+                    "mimikatz",
+                    "cobalt",
+                    "meterpreter",
+                    "powershell",
+                    "macro",
+                    "wscript",
+                    "cmd",
+                ],
             },
             {
                 "type": "not_contains",

@@ -264,10 +264,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             "Which would you choose for a large enterprise network audit?"
         ),
         "assertions": [
-            {"type": "any_of", "label": "Both tools compared",
-             "keywords": ["nmap", "masscan"]},
-            {"type": "any_of", "label": "Comparison dimensions covered",
-             "keywords": ["speed", "fast", "accurate", "stealth", "port", "scan"]},
+            {"type": "any_of", "label": "Both tools compared", "keywords": ["nmap", "masscan"]},
+            {
+                "type": "any_of",
+                "label": "Comparison dimensions covered",
+                "keywords": ["speed", "fast", "accurate", "stealth", "port", "scan"],
+            },
             {"type": "min_length", "label": "Substantive comparison", "chars": 200},
         ],
     },
@@ -280,17 +282,23 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "workspace_tier": "ollama",
         "prompt": (
             "Extract all entities from this text as JSON:\n\n"
-            "\"John Smith (CEO, Acme Corp) signed a $2.5M contract with Beta Inc "
+            '"John Smith (CEO, Acme Corp) signed a $2.5M contract with Beta Inc '
             "on March 15, 2025, at their San Francisco office. "
-            "The deal covers 18 months of cloud migration services.\"\n\n"
+            'The deal covers 18 months of cloud migration services."\n\n'
             "Include: people, organizations, monetary values, dates, locations, durations."
         ),
         "assertions": [
             {"type": "has_code", "label": "Structured output present"},
-            {"type": "any_of", "label": "Key entities extracted",
-             "keywords": ["John Smith", "Acme", "Beta", "2.5", "March", "San Francisco"]},
-            {"type": "not_contains", "label": "No extraction failure",
-             "keywords": ["cannot extract", "unable to parse", "no entities"]},
+            {
+                "type": "any_of",
+                "label": "Key entities extracted",
+                "keywords": ["John Smith", "Acme", "Beta", "2.5", "March", "San Francisco"],
+            },
+            {
+                "type": "not_contains",
+                "label": "No extraction failure",
+                "keywords": ["cannot extract", "unable to parse", "no entities"],
+            },
         ],
     },
 ]

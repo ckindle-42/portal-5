@@ -1,4 +1,5 @@
 """Shared infrastructure for Portal 5 acceptance section modules."""
+
 from __future__ import annotations
 
 import asyncio
@@ -46,6 +47,7 @@ if _env_file.exists():
 _prom_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR", "")
 if _prom_dir and not os.path.isdir(_prom_dir):
     import tempfile as _tempfile
+
     _mp_dir = _tempfile.mkdtemp(prefix="portal5_acceptance_metrics_")
     os.environ["PROMETHEUS_MULTIPROC_DIR"] = _mp_dir
 
@@ -237,7 +239,7 @@ async def _mcp(
         detail = (detail_fn(text) if detail_fn else text[:120]) if text else "(empty)"
         record(section, tid, name, status, detail, t0=t0)
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         record(section, tid, name, "WARN", f"timeout after {timeout}s", t0=t0)
     except ImportError:
         record(section, tid, name, "FAIL", "pip install mcp --break-system-packages", t0=t0)
@@ -280,7 +282,7 @@ async def _mcp_raw(
         detail = (detail_fn(text) if detail_fn else text[:120]) if text else "(empty)"
         record(section, tid, name, status, detail, t0=t0)
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         record(section, tid, name, "WARN", f"timeout after {timeout}s", t0=t0)
     except ImportError:
         record(section, tid, name, "FAIL", "pip install mcp --break-system-packages", t0=t0)
@@ -468,9 +470,7 @@ def _grep_logs(container: str, pattern: str, lines: int = 500) -> list[str]:
             timeout=10,
         )
         return [
-            ln
-            for ln in (r.stdout + r.stderr).splitlines()
-            if re.search(pattern, ln, re.IGNORECASE)
+            ln for ln in (r.stdout + r.stderr).splitlines() if re.search(pattern, ln, re.IGNORECASE)
         ]
     except Exception:
         return []
@@ -644,9 +644,7 @@ def _check_image_freshness() -> None:
                 timeout=10,
             )
             ts = r.stdout.strip()
-            return (
-                datetime.datetime.fromtimestamp(int(ts), tz=datetime.timezone.utc) if ts else None
-            )
+            return datetime.datetime.fromtimestamp(int(ts), tz=datetime.UTC) if ts else None
         except Exception:
             return None
 
@@ -1092,7 +1090,17 @@ PERSONA_PROMPTS = {
     # Coding — additional models
     "devstral_coder": (
         "Write a Python function that flattens a nested list of arbitrary depth.",
-        ["def", "flatten", "recursive", "isinstance", "list", "return", "yield", "append", "extend"],
+        [
+            "def",
+            "flatten",
+            "recursive",
+            "isinstance",
+            "list",
+            "return",
+            "yield",
+            "append",
+            "extend",
+        ],
     ),
     "glm-coder": (
         "Write a Python function to check if a string is a palindrome.",
@@ -1157,7 +1165,17 @@ PERSONA_PROMPTS = {
     # Reasoning (4 personas)
     "glm-thinker": (
         "Explain the halting problem and why it's undecidable.",
-        ["halting", "turing", "undecidable", "decide", "halt", "terminate", "prove", "program", "computable"],
+        [
+            "halting",
+            "turing",
+            "undecidable",
+            "decide",
+            "halt",
+            "terminate",
+            "prove",
+            "program",
+            "computable",
+        ],
     ),
     "magistralstrategist": (
         "Create a 90-day strategic plan for launching a developer productivity SaaS, with milestones and KPIs.",
@@ -1178,7 +1196,18 @@ PERSONA_PROMPTS = {
     # Vision (4 personas)
     "gemma_vision": (
         "Describe the key elements you would look for when analyzing a bar chart to extract insights.",
-        ["axis", "label", "value", "bar", "trend", "data", "chart", "compare", "height", "category"],
+        [
+            "axis",
+            "label",
+            "value",
+            "bar",
+            "trend",
+            "data",
+            "chart",
+            "compare",
+            "height",
+            "category",
+        ],
     ),
     "gemma4e4bvision": (
         "A developer uploads a screenshot of an HTTP 500 error page with a stack trace. What would you identify and recommend?",
@@ -1432,11 +1461,31 @@ PERSONA_PROMPTS = {
     # Security / pentest personas
     "adversarysimulator": (
         "Simulate an adversary attempting lateral movement after initial access. List three techniques with MITRE ATT&CK IDs.",
-        ["lateral", "movement", "T1", "technique", "ATT&CK", "credential", "pivot", "pass-the-hash", "psexec"],
+        [
+            "lateral",
+            "movement",
+            "T1",
+            "technique",
+            "ATT&CK",
+            "credential",
+            "pivot",
+            "pass-the-hash",
+            "psexec",
+        ],
     ),
     "pentestlead": (
         "Outline the phases of a black-box web application penetration test and list two tools per phase.",
-        ["reconnaissance", "scanning", "exploitation", "reporting", "tool", "nmap", "burp", "nikto", "phase"],
+        [
+            "reconnaissance",
+            "scanning",
+            "exploitation",
+            "reporting",
+            "tool",
+            "nmap",
+            "burp",
+            "nikto",
+            "phase",
+        ],
     ),
     # CAD / 3D printing personas
     "cadquerydesigner": (

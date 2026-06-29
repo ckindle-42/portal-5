@@ -1,4 +1,5 @@
 """Shared helpers for the portal CLI sub-modules."""
+
 from __future__ import annotations
 
 import os
@@ -8,6 +9,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from portal_pipeline.config import PortalConfig
+
 
 def _detect_ollama_cmd() -> str | None:
     """Return the ollama command to use (native or docker exec), or None."""
@@ -25,7 +27,9 @@ def _detect_ollama_cmd() -> str | None:
     try:
         result = subprocess.run(
             ["docker", "ps", "--format", "{{.Names}}"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if "portal5-ollama" in result.stdout:
             return "docker exec portal5-ollama ollama"
@@ -127,4 +131,3 @@ def cross_reference_workspaces_and_models(cfg: PortalConfig) -> CrossRefReport:
         orphan_hints=sorted(orphan_hints),
         unused_models=unused_models,
     )
-

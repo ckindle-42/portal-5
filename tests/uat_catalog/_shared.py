@@ -299,7 +299,18 @@ _GC04_BASE_ASSERTIONS = [
     {
         "type": "any_of",
         "label": "Visual atmosphere described",
-        "keywords": ["paper", "letter", "cursive", "desk", "wooden", "yellow", "flame", "fire", "smoke", "particle"],
+        "keywords": [
+            "paper",
+            "letter",
+            "cursive",
+            "desk",
+            "wooden",
+            "yellow",
+            "flame",
+            "fire",
+            "smoke",
+            "particle",
+        ],
     },
 ]
 

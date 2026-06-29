@@ -1,8 +1,10 @@
 """Unit coverage for capability_probe scoring + code extraction (no live calls)."""
+
 import importlib.util
 
 spec = importlib.util.spec_from_file_location(
-    "capability_probe", "tests/scripts/capability_probe.py")
+    "capability_probe", "tests/scripts/capability_probe.py"
+)
 cp = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cp)
 

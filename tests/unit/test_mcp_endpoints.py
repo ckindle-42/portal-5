@@ -184,8 +184,11 @@ class TestBackendModelHintRouting:
         routing = cfg.get("workspace_routing", {})
 
         for ws_id in [
-            "auto-security", "auto-redteam", "auto-blueteam",
-            "auto-purpleteam-exec", "auto-pentest",
+            "auto-security",
+            "auto-redteam",
+            "auto-blueteam",
+            "auto-purpleteam-exec",
+            "auto-pentest",
         ]:
             groups = routing.get(ws_id, [])
             assert "security" in groups, (

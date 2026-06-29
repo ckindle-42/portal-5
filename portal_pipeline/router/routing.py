@@ -832,7 +832,7 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
         )
         return workspace
 
-    except (TimeoutError, asyncio.TimeoutError, httpx.TimeoutException):
+    except (TimeoutError, httpx.TimeoutException):
         logger.debug(
             "LLM router timed out after %dms — falling back to keywords",
             _LLM_ROUTER_TIMEOUT_MS,

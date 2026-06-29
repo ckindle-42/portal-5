@@ -430,7 +430,7 @@ class ToolRegistry:
                     "error": f"Tool '{tool_name}' returned HTTP {r.status_code}",
                     "detail": r.text[:200],
                 }
-        except (httpx.TimeoutException, asyncio.TimeoutError):
+        except (TimeoutError, httpx.TimeoutException):
             tool.consecutive_failures += 1
             tool.healthy = False
             tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)

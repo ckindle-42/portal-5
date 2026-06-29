@@ -52,13 +52,9 @@ class ModelArgs(BaseModelArgs):
             ]
         if not self.mlp_layer_types:
             # Default: first layer dense, rest sparse MoE
-            self.mlp_layer_types = ["dense"] + ["sparse"] * (
-                self.num_hidden_layers - 1
-            )
+            self.mlp_layer_types = ["dense"] + ["sparse"] * (self.num_hidden_layers - 1)
         if not self.num_attention_heads_per_layer:
-            self.num_attention_heads_per_layer = [
-                self.num_attention_heads
-            ] * self.num_hidden_layers
+            self.num_attention_heads_per_layer = [self.num_attention_heads] * self.num_hidden_layers
 
 
 class MoEGate(nn.Module):
@@ -131,12 +127,8 @@ class Attention(nn.Module):
         self.scale = head_dim**-0.5
 
         self.q_proj = nn.Linear(hidden, n_heads * head_dim, bias=args.attention_bias)
-        self.k_proj = nn.Linear(
-            hidden, n_kv_heads * head_dim, bias=args.attention_bias
-        )
-        self.v_proj = nn.Linear(
-            hidden, n_kv_heads * head_dim, bias=args.attention_bias
-        )
+        self.k_proj = nn.Linear(hidden, n_kv_heads * head_dim, bias=args.attention_bias)
+        self.v_proj = nn.Linear(hidden, n_kv_heads * head_dim, bias=args.attention_bias)
         self.o_proj = nn.Linear(n_heads * head_dim, hidden, bias=False)
 
         self.q_norm = nn.RMSNorm(head_dim, eps=args.rms_norm_eps)
@@ -187,15 +179,13 @@ class Attention(nn.Module):
         B, L, _ = x.shape
 
         # QKV projections with per-head RMSNorm
-        q = self.q_norm(
-            self.q_proj(x).reshape(B, L, self.n_heads, self.head_dim)
-        ).transpose(0, 2, 1, 3)
-        k = self.k_norm(
-            self.k_proj(x).reshape(B, L, self.n_kv_heads, self.head_dim)
-        ).transpose(0, 2, 1, 3)
-        v = self.v_proj(x).reshape(B, L, self.n_kv_heads, self.head_dim).transpose(
+        q = self.q_norm(self.q_proj(x).reshape(B, L, self.n_heads, self.head_dim)).transpose(
             0, 2, 1, 3
         )
+        k = self.k_norm(self.k_proj(x).reshape(B, L, self.n_kv_heads, self.head_dim)).transpose(
+            0, 2, 1, 3
+        )
+        v = self.v_proj(x).reshape(B, L, self.n_kv_heads, self.head_dim).transpose(0, 2, 1, 3)
 
         if cache is not None:
             q = self.rope(q, offset=cache.offset)
@@ -205,16 +195,12 @@ class Attention(nn.Module):
             q = self.rope(q)
             k = self.rope(k)
 
-        out = scaled_dot_product_attention(
-            q, k, v, cache=cache, scale=self.scale, mask=mask
-        )
+        out = scaled_dot_product_attention(q, k, v, cache=cache, scale=self.scale, mask=mask)
         out = out.transpose(0, 2, 1, 3).reshape(B, L, -1)
 
         if hasattr(self, "g_proj"):
             gate = nn.softplus(self.g_proj(x)).reshape(B, L, self.n_heads, 1)
-            out = (out.reshape(B, L, self.n_heads, self.head_dim) * gate).reshape(
-                B, L, -1
-            )
+            out = (out.reshape(B, L, self.n_heads, self.head_dim) * gate).reshape(B, L, -1)
 
         return self.o_proj(out)
 
@@ -225,14 +211,12 @@ class DecoderLayer(nn.Module):
         self.self_attn = Attention(args, layer_idx)
         mlp_type = args.mlp_layer_types[layer_idx]
         self.mlp = (
-            LagunaSparseMoE(args) if mlp_type == "sparse" else MLP(
-                args.hidden_size, args.intermediate_size
-            )
+            LagunaSparseMoE(args)
+            if mlp_type == "sparse"
+            else MLP(args.hidden_size, args.intermediate_size)
         )
         self.input_layernorm = nn.RMSNorm(args.hidden_size, eps=args.rms_norm_eps)
-        self.post_attention_layernorm = nn.RMSNorm(
-            args.hidden_size, eps=args.rms_norm_eps
-        )
+        self.post_attention_layernorm = nn.RMSNorm(args.hidden_size, eps=args.rms_norm_eps)
 
     def __call__(
         self,
@@ -251,9 +235,7 @@ class LagunaModel(nn.Module):
         super().__init__()
         self.args = args
         self.embed_tokens = nn.Embedding(args.vocab_size, args.hidden_size)
-        self.layers = [
-            DecoderLayer(args, i) for i in range(args.num_hidden_layers)
-        ]
+        self.layers = [DecoderLayer(args, i) for i in range(args.num_hidden_layers)]
         self.norm = nn.RMSNorm(args.hidden_size, eps=args.rms_norm_eps)
 
     def __call__(
@@ -268,9 +250,7 @@ class LagunaModel(nn.Module):
 
         # Build two masks: one full-context, one sliding-window
         full_mask = create_attention_mask(h, cache[0])
-        has_sliding = any(
-            l.self_attn.is_sliding for l in self.layers
-        )
+        has_sliding = any(l.self_attn.is_sliding for l in self.layers)
         if has_sliding:
             # Find the first sliding cache to generate the correct sliding mask
             sliding_cache = next(
@@ -328,11 +308,7 @@ class Model(nn.Module):
             weights.pop("lm_head.weight", None)
 
         # Remove RoPE buffers (computed at runtime in mlx-lm)
-        weights = {
-            k: v
-            for k, v in weights.items()
-            if "rotary_emb" not in k
-        }
+        weights = {k: v for k, v in weights.items() if "rotary_emb" not in k}
 
         result = {}
         for l in range(self.args.num_hidden_layers):
@@ -356,9 +332,7 @@ class Model(nn.Module):
                         result[f"{pfx}.mlp.switch_mlp.gate_proj.{suffix}"] = gate_up[
                             :, :split_dim, :
                         ]
-                        result[f"{pfx}.mlp.switch_mlp.up_proj.{suffix}"] = gate_up[
-                            :, split_dim:, :
-                        ]
+                        result[f"{pfx}.mlp.switch_mlp.up_proj.{suffix}"] = gate_up[:, split_dim:, :]
                     # Also handle per-expert naming (fallback)
                     src_gate = f"{pfx}.mlp.experts.gate_proj.{suffix}"
                     if src_gate in weights:
@@ -377,10 +351,12 @@ class Model(nn.Module):
                 for n in ["gate_proj", "up_proj", "down_proj"]:
                     e0_key = f"{pfx}.mlp.experts.0.{n}.weight"
                     if e0_key in weights:
-                        stacked = mx.stack([
-                            weights.pop(f"{pfx}.mlp.experts.{e}.{n}.weight")
-                            for e in range(n_experts)
-                        ])
+                        stacked = mx.stack(
+                            [
+                                weights.pop(f"{pfx}.mlp.experts.{e}.{n}.weight")
+                                for e in range(n_experts)
+                            ]
+                        )
                         result[f"{pfx}.mlp.switch_mlp.{n}.weight"] = stacked
 
         # Pass through any remaining weights unchanged

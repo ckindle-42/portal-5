@@ -85,12 +85,21 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             "Be specific about what to do in each step."
         ),
         "assertions": [
-            {"type": "any_of", "label": "Step-by-step structure",
-             "keywords": ["step", "first", "1.", "1)", "phase", "then"]},
-            {"type": "any_of", "label": "Class extraction mentioned",
-             "keywords": ["class", "encapsulate", "object", "__init__"]},
-            {"type": "any_of", "label": "Testing addressed",
-             "keywords": ["pytest", "fixture", "test", "mock", "assert"]},
+            {
+                "type": "any_of",
+                "label": "Step-by-step structure",
+                "keywords": ["step", "first", "1.", "1)", "phase", "then"],
+            },
+            {
+                "type": "any_of",
+                "label": "Class extraction mentioned",
+                "keywords": ["class", "encapsulate", "object", "__init__"],
+            },
+            {
+                "type": "any_of",
+                "label": "Testing addressed",
+                "keywords": ["pytest", "fixture", "test", "mock", "assert"],
+            },
             {"type": "min_length", "label": "Substantive plan", "chars": 400},
         ],
     },
@@ -108,12 +117,21 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             "and what tests to write."
         ),
         "assertions": [
-            {"type": "any_of", "label": "Files mentioned",
-             "keywords": ["requirements", "pyproject", "main.py", ".py", "redis", "middleware"]},
-            {"type": "any_of", "label": "Dependencies addressed",
-             "keywords": ["redis", "slowapi", "limits", "aioredis", "install", "pip", "uv"]},
-            {"type": "any_of", "label": "Testing mentioned",
-             "keywords": ["test", "pytest", "assert", "mock", "rate limit"]},
+            {
+                "type": "any_of",
+                "label": "Files mentioned",
+                "keywords": ["requirements", "pyproject", "main.py", ".py", "redis", "middleware"],
+            },
+            {
+                "type": "any_of",
+                "label": "Dependencies addressed",
+                "keywords": ["redis", "slowapi", "limits", "aioredis", "install", "pip", "uv"],
+            },
+            {
+                "type": "any_of",
+                "label": "Testing mentioned",
+                "keywords": ["test", "pytest", "assert", "mock", "rate limit"],
+            },
             {"type": "min_length", "label": "Substantive decomposition", "chars": 300},
         ],
     },

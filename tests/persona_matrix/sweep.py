@@ -5,12 +5,13 @@ against one (persona, model) pair, aggregating assertion outcomes.
 run_sweep iterates the cell-grid for a workspace, loading and
 evicting models one at a time per the memory-discipline contract.
 """
+
 from __future__ import annotations
 
 import asyncio
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -300,7 +301,7 @@ async def run_sweep(args) -> dict[str, Any]:
 
     return {
         "schema": "portal5.persona_matrix.v1",
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "timestamp_utc": datetime.now(UTC).isoformat(),
         "elapsed_s": round(elapsed, 1),
         "plan": plan,
         "cells": results,
@@ -308,4 +309,3 @@ async def run_sweep(args) -> dict[str, Any]:
 
 
 # ── Console summary table ─────────────────────────────────────────────────
-

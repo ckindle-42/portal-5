@@ -50,12 +50,10 @@ import httpx
 # ---------------------------------------------------------------------------
 
 MLX_PROXY_URL = os.environ.get("MLX_PROXY_URL", "http://localhost:8081")
-READINESS_FILE = os.environ.get(
-    "MLX_READINESS_FILE", "/tmp/portal5-mlx-readiness.json"
-)
-POLL_INTERVAL_S = 10.0      # seconds between /health polls
-STABLE_POLLS = 2            # consecutive ready polls before stable=True
-MAX_STALE_S = 60.0          # file older than this is considered stale by readers
+READINESS_FILE = os.environ.get("MLX_READINESS_FILE", "/tmp/portal5-mlx-readiness.json")
+POLL_INTERVAL_S = 10.0  # seconds between /health polls
+STABLE_POLLS = 2  # consecutive ready polls before stable=True
+MAX_STALE_S = 60.0  # file older than this is considered stale by readers
 
 _running = True
 
@@ -72,6 +70,7 @@ signal.signal(signal.SIGINT, _signal_handler)
 # ---------------------------------------------------------------------------
 # State file helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_state(
     state: str,
@@ -112,6 +111,7 @@ def read_state(path: str = READINESS_FILE) -> dict | None:
 # ---------------------------------------------------------------------------
 # Poll loop
 # ---------------------------------------------------------------------------
+
 
 def poll_once(proxy_url: str) -> tuple[str, str | None]:
     """Return (state, loaded_model). state = 'unreachable' on error."""
@@ -156,9 +156,7 @@ def run_watcher(
             stable = consecutive_ready >= STABLE_POLLS
             model_label = f" model={loaded_model}" if loaded_model else ""
             stable_label = " [STABLE]" if stable else f" [{consecutive_ready}/{STABLE_POLLS}]"
-            switch_label = (
-                f" switching={time.time() - switch_start:.0f}s" if switch_start else ""
-            )
+            switch_label = f" switching={time.time() - switch_start:.0f}s" if switch_start else ""
             print(
                 f"[mlx-readiness] state={state}{model_label}{stable_label}{switch_label}",
                 flush=True,
@@ -229,6 +227,7 @@ def wait_for_stable(
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     global READINESS_FILE

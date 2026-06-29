@@ -1,4 +1,5 @@
 """Section C9 — Pipeline round-trips (auto-video)."""
+
 from __future__ import annotations
 
 import time
@@ -79,4 +80,3 @@ async def run() -> None:
         else f"code={code} error: {text[:120]}",
         t0=t0,
     )
-

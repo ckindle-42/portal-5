@@ -1,4 +1,5 @@
 """Section wrapper functions and orchestration for Portal 5 ComfyUI acceptance tests."""
+
 from __future__ import annotations
 
 import asyncio

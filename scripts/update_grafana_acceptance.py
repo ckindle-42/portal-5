@@ -16,7 +16,7 @@ import json
 import re
 import sys
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -155,7 +155,7 @@ def _archive_corpus(rows: list[dict], meta: dict) -> Path | None:
     if not rows:
         return None
     CORPUS_DIR.mkdir(parents=True, exist_ok=True)
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     git_sha = meta.get("Git SHA", "unknown")
     date = meta.get("Date", "")
     out = CORPUS_DIR / f"acceptance_{run_id}.jsonl"
@@ -248,7 +248,7 @@ def _build_metadata_panel(meta: dict, rows: list[dict]) -> str:
         if fail_ct + blocked_ct == 0
         else ("🟡 DEGRADED" if fail_ct <= 3 else "🔴 FAILING")
     )
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     date = meta.get("Date", "unknown")
     sha = meta.get("Git SHA", "unknown")
     runtime = meta.get("Runtime", "unknown")

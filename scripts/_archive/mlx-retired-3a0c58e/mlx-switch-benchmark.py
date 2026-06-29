@@ -28,7 +28,7 @@ import json
 import os
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -301,7 +301,7 @@ def benchmark_raw(model: str, dry_run: bool = False) -> dict:
         "memory_before": None,
         "memory_after": None,
         "error": None,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
     if dry_run:
@@ -396,7 +396,7 @@ def benchmark_proxy(model: str, dry_run: bool = False, kill_proxy_before: bool =
         "proxy_after": None,
         "memory_before": None,
         "memory_after": None,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
     if dry_run:
@@ -816,7 +816,7 @@ def main() -> None:
 
     # Save results
     output = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "mode": args.mode,
         "total_wall_time_s": round(total_time, 1),
         "models_benchmarked": len(models),
