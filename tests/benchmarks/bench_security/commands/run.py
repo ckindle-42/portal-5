@@ -139,6 +139,12 @@ def run_bench(
                     # it reaches Ollama — tool_choice=none alone leaves tool definitions
                     # in the body and causes models to emit skeletal header-only responses.
                     request_overrides["portal_no_tools"] = True
+                    # Cap tokens for exec-workspace theory pass. Exec models have
+                    # exec-mode system prompts (mandatory tool calls) that conflict
+                    # with portal_no_tools, causing degenerate loops up to 6000 tokens
+                    # (~750s on SuperGemma4 at ~8 TPS). 2000 tokens is sufficient for
+                    # full header coverage and caps worst-case at ~250s.
+                    request_overrides["max_tokens"] = 2000
 
                 if request_overrides:
                     import json as _json_tmp
