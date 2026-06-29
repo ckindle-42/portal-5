@@ -1,0 +1,79 @@
+{
+  "task_id": "TASK_MODEL_EVAL_V10_CANDIDATES",
+  "timestamp": "20260629T202251Z",
+  "pipeline_url": "http://localhost:9099",
+  "results": [
+    {
+      "probe_id": "P2_toolchain",
+      "workspace": "bench-ornith-9b",
+      "score": 4.0,
+      "max_score": 5.0,
+      "markers": {
+        "emitted_tool_calls": true,
+        "two_plus_tool_calls": false,
+        "read_or_shell_present": true,
+        "investigative_first": true,
+        "no_refusal": true
+      },
+      "latency_s": 6.761106014251709,
+      "tokens_emitted": 200,
+      "response_excerpt": "{\"content\": \"Let me investigate the project structure and reproduce the error first.\\n\\n\", \"tool_calls\": [{\"name\": \"run_shell\", \"args\": \"{\\\"command\\\":\\\"pwd \\\\u0026\\\\u0026 ls -la\\\"}\"}]}",
+      "notes": "Tool-call chain on ImportError diagnosis",
+      "error": null
+    },
+    {
+      "probe_id": "P2_toolchain",
+      "workspace": "bench-ornith-35b",
+      "score": 4.0,
+      "max_score": 5.0,
+      "markers": {
+        "emitted_tool_calls": true,
+        "two_plus_tool_calls": false,
+        "read_or_shell_present": true,
+        "investigative_first": true,
+        "no_refusal": true
+      },
+      "latency_s": 17.628037929534912,
+      "tokens_emitted": 110,
+      "response_excerpt": "{\"content\": \"Let me investigate the project layout first to understand what we're working with.\\n\\n\", \"tool_calls\": [{\"name\": \"run_shell\", \"args\": \"{\\\"command\\\":\\\"ls -la\\\"}\"}]}",
+      "notes": "Tool-call chain on ImportError diagnosis",
+      "error": null
+    },
+    {
+      "probe_id": "P2_toolchain",
+      "workspace": "bench-north-mini-code",
+      "score": 4.0,
+      "max_score": 5.0,
+      "markers": {
+        "emitted_tool_calls": true,
+        "two_plus_tool_calls": false,
+        "read_or_shell_present": true,
+        "investigative_first": true,
+        "no_refusal": true
+      },
+      "latency_s": 37.56196188926697,
+      "tokens_emitted": 161,
+      "response_excerpt": "{\"content\": \"\", \"tool_calls\": [{\"name\": \"run_shell\", \"args\": \"{\\\"command\\\":\\\"ls -la\\\"}\"}]}",
+      "notes": "Tool-call chain on ImportError diagnosis",
+      "error": null
+    },
+    {
+      "probe_id": "P2_toolchain",
+      "workspace": "bench-omnicoder2",
+      "score": 4.0,
+      "max_score": 5.0,
+      "markers": {
+        "emitted_tool_calls": true,
+        "two_plus_tool_calls": false,
+        "read_or_shell_present": true,
+        "investigative_first": true,
+        "no_refusal": true
+      },
+      "latency_s": 8.380752801895142,
+      "tokens_emitted": 89,
+      "response_excerpt": "{\"content\": \"\", \"tool_calls\": [{\"name\": \"run_shell\", \"args\": \"{\\\"command\\\":\\\"pwd \\\\u0026\\\\u0026 ls -la\\\"}\"}]}",
+      "notes": "Tool-call chain on ImportError diagnosis",
+      "error": null
+    }
+  ]
+}

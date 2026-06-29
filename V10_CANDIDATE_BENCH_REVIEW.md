@@ -3,7 +3,7 @@
 **Date:** 2026-06-29
 **Task:** TASK_MODEL_EVAL_V10_CANDIDATES
 **PROMOTE_POLICY:** confirm-only — operator reads results and decides per candidate.
-**Probe results:** `v10_candidates_20260629T194541Z.json`
+**Probe results:** `v10_candidates_20260629T202251Z.json` (P2 corrected: direct Ollama)
 **TPS results:** `bench_tps_v10_candidates_20260629T200646Z.json`
 
 ## Hardware compatibility notice
@@ -35,9 +35,11 @@
 | `bench-qwythos-9b` | 8.6 | 0 |
 | `bench-glm47f-claude-distill` | 11.4 | 0 |
 
+North-Mini-Code cohere2moe architecture smoke-loaded OK on this Ollama build (0.30.7+ MLX Metal).
+
 ## Probe results
 
-Scoring is structural (regex + marker counts). 5/5 = all signature markers present, including no-refusal. P5 is binary per question (3 questions, max 3.0 total).
+Scoring is structural (regex + marker counts). P2 now calls Ollama directly (bypasses pipeline) so raw ``tool_calls`` arrays are observable. 5/5 = all signature markers present. P5 is binary per question (3 questions, max 3.0 total).
 
 ### `bench-agentworld` — Qwen-AgentWorld-35B-A3B (re-validate)
 
@@ -50,21 +52,21 @@ Scoring is structural (regex + marker counts). 5/5 = all signature markers prese
 
 | Probe | Score | Markers | Latency |
 |---|---|---|---|
-| P2_toolchain | 1.0/5.0 | 1/5 markers | 14.4s |
+| P2_toolchain | 4.0/5.0 | 4/5 markers | 6.8s |
 | P4_uncensored | 3.0/5.0 | 3/5 markers | 29.0s |
 
 ### `bench-ornith-35b` — Ornith-1.0-35B (DeepReinforce)
 
 | Probe | Score | Markers | Latency |
 |---|---|---|---|
-| P2_toolchain | 1.0/5.0 | 1/5 markers | 25.6s |
+| P2_toolchain | 4.0/5.0 | 4/5 markers | 17.6s |
 | P6_swe_handoff | 4.0/5.0 | 4/5 markers | 29.4s |
 
 ### `bench-north-mini-code` — North-Mini-Code-1.0-QAD (Cohere)
 
 | Probe | Score | Markers | Latency |
 |---|---|---|---|
-| P2_toolchain | 1.0/5.0 | 1/5 markers | 358.2s |
+| P2_toolchain | 4.0/5.0 | 4/5 markers | 37.6s |
 | P6_swe_handoff | 4.0/5.0 | 4/5 markers | 112.7s |
 
 ### `bench-qwythos-9b` — Qwythos-9B-Claude-Mythos-5-1M (Empero)
@@ -91,7 +93,7 @@ Scoring is structural (regex + marker counts). 5/5 = all signature markers prese
 
 | Probe | Score | Markers | Latency |
 |---|---|---|---|
-| P2_toolchain | 4.0/5.0 | 4/5 markers | 9.6s |
+| P2_toolchain | 4.0/5.0 | 4/5 markers | 8.4s |
 | P4_uncensored | 3.0/5.0 | 3/5 markers | 29.0s |
 
 ### `bench-qwen35-abliterated` — baseline · qwen3.5-abliterated 9B
@@ -121,7 +123,7 @@ Scoring is structural (regex + marker counts). 5/5 = all signature markers prese
 
 ## Promotion candidates
 
-> **PROMOTE_POLICY: confirm-only.** No action taken here. Operator decides per candidate.
+> **PROMOTE_POLICY: confirm-only.** Operator decides per candidate.
 
 ### `bench-agentworld` — Qwen-AgentWorld-35B-A3B (re-validate)
 
@@ -129,7 +131,7 @@ Scoring is structural (regex + marker counts). 5/5 = all signature markers prese
 - **Size:** ~22 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in based on score deltas vs baseline)
+- **Possible lanes:** (operator fills in)
 - **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
 
 ### `bench-ornith-9b` — Ornith-1.0-9B (DeepReinforce)
@@ -138,7 +140,7 @@ Scoring is structural (regex + marker counts). 5/5 = all signature markers prese
 - **Size:** ~5.6 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in based on score deltas vs baseline)
+- **Possible lanes:** (operator fills in)
 - **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
 
 ### `bench-ornith-35b` — Ornith-1.0-35B (DeepReinforce)
@@ -147,7 +149,7 @@ Scoring is structural (regex + marker counts). 5/5 = all signature markers prese
 - **Size:** ~21 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in based on score deltas vs baseline)
+- **Possible lanes:** (operator fills in)
 - **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
 
 ### `bench-north-mini-code` — North-Mini-Code-1.0-QAD (Cohere)
@@ -156,7 +158,7 @@ Scoring is structural (regex + marker counts). 5/5 = all signature markers prese
 - **Size:** ~19.3 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in based on score deltas vs baseline)
+- **Possible lanes:** (operator fills in)
 - **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
 
 ### `bench-qwythos-9b` — Qwythos-9B-Claude-Mythos-5-1M (Empero)
@@ -165,7 +167,7 @@ Scoring is structural (regex + marker counts). 5/5 = all signature markers prese
 - **Size:** ~5.6 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in based on score deltas vs baseline)
+- **Possible lanes:** (operator fills in)
 - **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
 
 ### `bench-glm47f-claude-distill` — GLM-4.7-Flash Claude-Opus-4.5 distill
@@ -174,10 +176,9 @@ Scoring is structural (regex + marker counts). 5/5 = all signature markers prese
 - **Size:** ~18.1 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in based on score deltas vs baseline)
+- **Possible lanes:** (operator fills in)
 - **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
 
 ## Watch items
 
-- **`AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-NVFP4`** — requested but Blackwell-only.
-  Monitor huihui-ai, mradermacher, and the AEON-7 org for a GGUF abliteration of `deepreinforce-ai/Ornith-1.0-35B`. If one ships, a follow-up task can swap `bench-ornith-35b` for the uncensored variant in the redteam/purpleteam lanes.
+- **`AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-NVFP4`** — Blackwell-only; await community GGUF abliteration.
