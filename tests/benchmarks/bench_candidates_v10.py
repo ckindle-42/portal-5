@@ -43,8 +43,28 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "portal-pipeline-key")
 REQUEST_TIMEOUT = float(os.environ.get("V10_REQUEST_TIMEOUT", "600"))
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 
 _HTTP_CLIENT: httpx.Client | None = None
+
+# Lazy cache: workspace slug → Ollama model hint (from portal.yaml)
+_MODEL_HINT_CACHE: dict[str, str] | None = None
+
+
+def _get_model_hint(workspace: str) -> str | None:
+    """Resolve a bench workspace slug to its Ollama model hint from portal.yaml."""
+    global _MODEL_HINT_CACHE
+    if _MODEL_HINT_CACHE is None:
+        import yaml
+
+        portal_yaml = REPO_ROOT / "config" / "portal.yaml"
+        if portal_yaml.exists():
+            cfg = yaml.safe_load(portal_yaml.read_text())
+            _MODEL_HINT_CACHE = {}
+            for ws_id, ws_cfg in cfg.get("workspaces", {}).items():
+                if isinstance(ws_cfg, dict) and ws_cfg.get("model_hint"):
+                    _MODEL_HINT_CACHE[ws_id] = ws_cfg["model_hint"]
+    return _MODEL_HINT_CACHE.get(workspace) if _MODEL_HINT_CACHE else None
 
 
 def _get_http_client() -> httpx.Client:
@@ -100,19 +120,25 @@ def call_pipeline(
     return content, dt, tokens
 
 
-def call_pipeline_with_tools(
+def call_ollama_with_tools(
     workspace: str,
     messages: list[dict[str, Any]],
     *,
     tools: list[dict] | None = None,
     max_tokens: int = 2048,
 ) -> tuple[dict, float, dict]:
-    headers = {
-        "Authorization": f"Bearer {PIPELINE_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    """Call Ollama directly (bypass pipeline) to observe raw tool_calls.
+
+    The pipeline dispatches tool calls server-side and never returns them
+    to the client. To score tool-call chain probes we must call Ollama
+    directly so the model's ``tool_calls`` array is visible.
+    """
+    hint = _get_model_hint(workspace)
+    if not hint:
+        raise RuntimeError(f"no model_hint in portal.yaml for workspace {workspace}")
+    headers = {"Content-Type": "application/json"}
     payload: dict[str, Any] = {
-        "model": workspace,
+        "model": hint,
         "messages": messages,
         "max_tokens": max_tokens,
         "stream": False,
@@ -122,7 +148,7 @@ def call_pipeline_with_tools(
         payload["tool_choice"] = "auto"
     client = _get_http_client()
     t0 = time.time()
-    r = client.post(f"{PIPELINE_URL}/v1/chat/completions", json=payload, headers=headers)
+    r = client.post(f"{OLLAMA_URL}/v1/chat/completions", json=payload, headers=headers)
     dt = time.time() - t0
     r.raise_for_status()
     data = r.json()
@@ -482,7 +508,7 @@ def run_p1(workspace: str) -> ProbeResult:
 
 def run_p2(workspace: str) -> ProbeResult:
     messages = [{"role": "user", "content": P2_PROMPT_USER}]
-    msg, dt, usage = call_pipeline_with_tools(workspace, messages, tools=P2_TOOLS, max_tokens=2048)
+    msg, dt, usage = call_ollama_with_tools(workspace, messages, tools=P2_TOOLS, max_tokens=2048)
     score, markers = score_p2_toolchain(msg)
     excerpt = json.dumps(
         {
