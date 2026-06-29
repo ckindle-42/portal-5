@@ -33,6 +33,7 @@ the gate before kicking off the full long-running suites:
     python3 scripts/validate_system.py && \
     python3 tests/portal5_acceptance_v6.py
 """
+
 from __future__ import annotations
 
 import argparse
@@ -42,9 +43,9 @@ import json
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -76,8 +77,9 @@ class Validator:
         except Exception as e:
             status, detail, sub = "FAIL", f"{type(e).__name__}: {e}", []
         elapsed_ms = int((time.time() - t0) * 1000)
-        r = CheckResult(name=name, status=status, detail=detail,
-                        elapsed_ms=elapsed_ms, sub_results=sub)
+        r = CheckResult(
+            name=name, status=status, detail=detail, elapsed_ms=elapsed_ms, sub_results=sub
+        )
         self.results.append(r)
         if not self.emit_json:
             self._emit(r)
@@ -92,7 +94,9 @@ class Validator:
         print(line, file=sys.stderr if r.status == "FAIL" else sys.stdout)
         if self.verbose and r.sub_results:
             for sub in r.sub_results:
-                sub_icon = {"PASS": "✓", "FAIL": "✗", "SKIP": "○", "WARN": "!"}.get(sub.get("status", ""), "·")
+                sub_icon = {"PASS": "✓", "FAIL": "✗", "SKIP": "○", "WARN": "!"}.get(
+                    sub.get("status", ""), "·"
+                )
                 print(f"      {sub_icon} {sub.get('name', '?')}: {sub.get('detail', '')}")
 
     def summary(self) -> int:
@@ -103,32 +107,48 @@ class Validator:
         total_ms = int((time.time() - self.started_at) * 1000)
 
         if self.emit_json:
-            print(json.dumps({
-                "elapsed_ms": total_ms,
-                "passes": passes,
-                "fails": fails,
-                "warns": warns,
-                "skips": skips,
-                "results": [
-                    {"name": r.name, "status": r.status, "detail": r.detail,
-                     "elapsed_ms": r.elapsed_ms, "sub_results": r.sub_results}
-                    for r in self.results
-                ],
-            }, indent=2))
+            print(
+                json.dumps(
+                    {
+                        "elapsed_ms": total_ms,
+                        "passes": passes,
+                        "fails": fails,
+                        "warns": warns,
+                        "skips": skips,
+                        "results": [
+                            {
+                                "name": r.name,
+                                "status": r.status,
+                                "detail": r.detail,
+                                "elapsed_ms": r.elapsed_ms,
+                                "sub_results": r.sub_results,
+                            }
+                            for r in self.results
+                        ],
+                    },
+                    indent=2,
+                )
+            )
         else:
             print()
-            print(f"  {passes} pass · {fails} fail · {warns} warn · {skips} skip"
-                  f"  ({total_ms}ms total)")
+            print(
+                f"  {passes} pass · {fails} fail · {warns} warn · {skips} skip"
+                f"  ({total_ms}ms total)"
+            )
             if fails:
-                print(f"  ⚠  System validation FAILED — fix the above before running"
-                      f" acceptance / UAT / bench suites.", file=sys.stderr)
+                print(
+                    "  ⚠  System validation FAILED — fix the above before running"
+                    " acceptance / UAT / bench suites.",
+                    file=sys.stderr,
+                )
             else:
-                print(f"  ✓ System validation passed — ready for full test suites.")
+                print("  ✓ System validation passed — ready for full test suites.")
 
         return 1 if fails else 0
 
 
 # ── Checks ────────────────────────────────────────────────────────────────────
+
 
 def check_imports() -> tuple[str, str, list[dict]]:
     """A. Every public package imports cleanly."""
@@ -163,8 +183,7 @@ def check_imports() -> tuple[str, str, list[dict]]:
             importlib.import_module(m)
             subs.append({"name": m, "status": "PASS"})
         except Exception as e:
-            subs.append({"name": m, "status": "FAIL",
-                         "detail": f"{type(e).__name__}: {e}"})
+            subs.append({"name": m, "status": "FAIL", "detail": f"{type(e).__name__}: {e}"})
             failed += 1
     if failed:
         return "FAIL", f"{failed}/{len(modules)} modules failed to import", subs
@@ -196,7 +215,7 @@ def check_pipeline_assembles() -> tuple[str, str, list[dict]]:
     missing = expected_routes - actual_routes
     if missing:
         return "FAIL", f"missing routes: {missing}", []
-    return "PASS", f"FastAPI app + all 9 routes registered", []
+    return "PASS", "FastAPI app + all 9 routes registered", []
 
 
 def check_config_loads() -> tuple[str, str, list[dict]]:
@@ -292,7 +311,9 @@ def check_cli_introspection() -> tuple[str, str, list[dict]]:
     for cmd in commands:
         result = subprocess.run(
             [sys.executable, "-m", "portal_pipeline.cli", *cmd],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
             cwd=str(REPO_ROOT),
         )
         ok = result.returncode == 0
@@ -303,8 +324,9 @@ def check_cli_introspection() -> tuple[str, str, list[dict]]:
             subs.append({"name": name, "status": "PASS"})
         else:
             err_summary = (result.stderr.strip() or result.stdout.strip())[:120]
-            subs.append({"name": name, "status": "FAIL",
-                         "detail": f"rc={result.returncode}: {err_summary}"})
+            subs.append(
+                {"name": name, "status": "FAIL", "detail": f"rc={result.returncode}: {err_summary}"}
+            )
             failed += 1
     if failed:
         return "FAIL", f"{failed}/{len(commands)} CLI commands failed", subs
@@ -322,8 +344,7 @@ def check_unit_tests(*, skip_env_only: bool = True) -> tuple[str, str, list[dict
             "--ignore=tests/unit/test_transcribe_diarize.py",
             "--ignore=tests/unit/test_reranker_mcp.py",
         ]
-    result = subprocess.run(args, capture_output=True, text=True,
-                            timeout=120, cwd=str(REPO_ROOT))
+    result = subprocess.run(args, capture_output=True, text=True, timeout=120, cwd=str(REPO_ROOT))
     # Parse the summary line ("= N failed, N passed, ... =")
     summary_line = ""
     for line in result.stdout.splitlines()[::-1]:
@@ -347,12 +368,18 @@ def check_bench_security_catalog() -> tuple[str, str, list[dict]]:
     # Production auto-* security workspaces must all appear in DEFAULT_WORKSPACES.
     # Bench-* security workspaces are operator-triaged; not checked here.
     prod_sec = {
-        ws_id for ws_id in cfg.workspaces
-        if ws_id.startswith("auto-") and any(t in ws_id for t in ("sec", "pentest", "redteam", "blueteam", "purpleteam"))
+        ws_id
+        for ws_id in cfg.workspaces
+        if ws_id.startswith("auto-")
+        and any(t in ws_id for t in ("sec", "pentest", "redteam", "blueteam", "purpleteam"))
     }
     missing = prod_sec - set(DEFAULT_WORKSPACES)
     if missing:
-        return "FAIL", f"{len(missing)} prod security workspace(s) missing from bench: {sorted(missing)}", []
+        return (
+            "FAIL",
+            f"{len(missing)} prod security workspace(s) missing from bench: {sorted(missing)}",
+            [],
+        )
     return "PASS", f"all {len(prod_sec)} production security workspaces in DEFAULT_WORKSPACES", []
 
 
@@ -364,8 +391,8 @@ def check_valid_workspaces_resolve() -> tuple[str, str, list[dict]]:
     Same shape as J/K — catalog drift detection.
     """
     try:
-        from portal_pipeline.config import load_portal_config
         from portal_channels.dispatcher import VALID_WORKSPACES
+        from portal_pipeline.config import load_portal_config
     except ImportError as e:
         return "SKIP", f"import: {e}", []
     live = set(load_portal_config().workspaces.keys())
@@ -384,6 +411,7 @@ def check_no_undefined_names() -> tuple[str, str, list[dict]]:
     Ruff F821 catches them statically.
     """
     import subprocess
+
     try:
         result = subprocess.run(
             ["python3", "-m", "ruff", "check", "--select", "F821", "."],
@@ -407,7 +435,9 @@ def check_persona_workspace_resolution() -> tuple[str, str, list[dict]]:
     """L. Every persona's workspace_model resolves to a live workspace."""
     try:
         import pathlib
+
         import yaml
+
         from portal_pipeline.config import load_portal_config
     except ImportError as e:
         return "SKIP", f"import: {e}", []
@@ -442,8 +472,9 @@ def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
     """
     try:
         import re
-        from portal_pipeline.config import load_portal_config
+
         import tests.uat_catalog as cat
+        from portal_pipeline.config import load_portal_config
     except ImportError as e:
         return "SKIP", f"import: {e}", []
 
@@ -468,18 +499,30 @@ def check_shim_contract() -> tuple[str, str, list[dict]]:
     from portal_pipeline import router_pipe
 
     historical = [
-        "app", "lifespan",
-        "_validate_workspace_hints", "_model_supports_tools",
-        "_inject_ollama_options", "_inject_attached_files",
-        "_inject_system_prompt_append", "_inject_temporal_context",
-        "_verify_key", "_verify_admin_key",
+        "app",
+        "lifespan",
+        "_validate_workspace_hints",
+        "_model_supports_tools",
+        "_inject_ollama_options",
+        "_inject_attached_files",
+        "_inject_system_prompt_append",
+        "_inject_temporal_context",
+        "_verify_key",
+        "_verify_admin_key",
         "_try_non_streaming",
-        "_resolve_persona_workspace", "_resolve_auto_routing",
+        "_resolve_persona_workspace",
+        "_resolve_auto_routing",
         "_resolve_vision_fallback",
-        "_detect_workspace", "_CODING_KEYWORDS", "_SPL_KEYWORDS",
-        "chat_completions", "health", "metrics",
-        "WORKSPACES", "_PERSONA_MAP",
-        "PIPELINE_API_KEY", "_record_usage",
+        "_detect_workspace",
+        "_CODING_KEYWORDS",
+        "_SPL_KEYWORDS",
+        "chat_completions",
+        "health",
+        "metrics",
+        "WORKSPACES",
+        "_PERSONA_MAP",
+        "PIPELINE_API_KEY",
+        "_record_usage",
     ]
     subs = []
     missing = []
@@ -494,23 +537,60 @@ def check_shim_contract() -> tuple[str, str, list[dict]]:
     return "PASS", f"all {len(historical)} historical symbols resolve", subs
 
 
+def check_bench_parallel_dispatch_safety() -> tuple[str, str, list[dict]]:
+    """O. bench_security Phase-1 dispatcher uses ThreadPoolExecutor + a lock.
+
+    Coarse regression guard: confirms the parallel-dispatch contract is still in
+    place. A refactor that reverts to serial-only or drops the lock without
+    documentation will fail this check.
+    """
+    target = REPO_ROOT / "tests" / "benchmarks" / "bench_security" / "commands" / "run.py"
+    if not target.exists():
+        return "FAIL", f"missing {target}", []
+    src = target.read_text()
+    subs = []
+    expectations = {
+        "ThreadPoolExecutor": "ThreadPoolExecutor imported/used",
+        "threading.Lock": "threading.Lock instantiated",
+        "parallel_workspaces": "run_bench accepts parallel_workspaces kwarg",
+        "_process_one": "per-task closure extracted",
+        "as_completed": "completion-order consumption",
+    }
+    missing = []
+    for needle, label in expectations.items():
+        if needle in src:
+            subs.append({"name": label, "status": "PASS"})
+        else:
+            subs.append({"name": label, "status": "FAIL"})
+            missing.append(needle)
+    if missing:
+        return "FAIL", f"missing: {missing}", subs
+    return "PASS", f"all {len(expectations)} parallel-dispatch markers present", subs
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Portal 5 system validation — pre-flight check before "
-                    "running the full acceptance / UAT / bench suites.",
+        "running the full acceptance / UAT / bench suites.",
     )
-    parser.add_argument("--verbose", "-v", action="store_true",
-                        help="Print sub-check details")
-    parser.add_argument("--skip-pytest", action="store_true",
-                        help="Skip the pytest tests/unit invocation (saves ~15s)")
-    parser.add_argument("--skip-lifespan", action="store_true",
-                        help="Skip the lifespan check (saves ~5s)")
-    parser.add_argument("--skip-cli", action="store_true",
-                        help="Skip CLI subprocess checks (saves ~10s)")
-    parser.add_argument("--json", action="store_true",
-                        help="Emit JSON instead of human-readable output")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Print sub-check details")
+    parser.add_argument(
+        "--skip-pytest",
+        action="store_true",
+        help="Skip the pytest tests/unit invocation (saves ~15s)",
+    )
+    parser.add_argument(
+        "--skip-lifespan", action="store_true", help="Skip the lifespan check (saves ~5s)"
+    )
+    parser.add_argument(
+        "--skip-cli", action="store_true", help="Skip CLI subprocess checks (saves ~10s)"
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Emit JSON instead of human-readable output"
+    )
     args = parser.parse_args()
 
     v = Validator(verbose=args.verbose, emit_json=args.json)
@@ -542,6 +622,7 @@ def main() -> int:
     v.run("L. persona workspace refs", check_persona_workspace_resolution)
     v.run("M. ruff F821 (undefined names)", check_no_undefined_names)
     v.run("N. VALID_WORKSPACES resolution", check_valid_workspaces_resolve)
+    v.run("O. bench parallel dispatch", check_bench_parallel_dispatch_safety)
 
     return v.summary()
 

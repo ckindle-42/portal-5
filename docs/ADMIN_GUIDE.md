@@ -151,13 +151,20 @@ The Ollama slot count is set to **3** (not 2) for two reasons:
 
 In production, the purple team chain steps execute sequentially (not concurrently), but having both models loaded avoids a cold-load stall between hops. With `MAX_LOADED=2`, the second chain model evicts the first, causing a cold-load on every hop reversal.
 
+**Bench parallelism (added 2026-06-29).** The default `MAX_LOADED` has been raised to **5**
+to support `tests/benchmarks/bench_security.py --parallel-workspaces N` (default N=2).
+The 4-hop `auto-purpleteam-deep` chain needs 4 distinct chain models hot; without `MAX_LOADED>=4`
+Ollama evicts and re-cold-loads between hops, defeating the parallelism gain. Operators running
+the security bench in parallel should verify the live Ollama process picks up the new value
+(`ps eww -p $(pgrep -f "ollama serve") | tr ' ' '\n' | grep OLLAMA_MAX_LOADED`).
+
 ### Changing the Router Model
 
 All three variables live in `.env`:
 ```bash
 LLM_ROUTER_MODEL=hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M
 LLM_ROUTER_TIMEOUT_MS=1000   # 1000 for PRIMARY, 500 for STANDBY/FALLBACK
-OLLAMA_MAX_LOADED_MODELS=3
+OLLAMA_MAX_LOADED_MODELS=5
 ```
 
 Then restart the pipeline (not Ollama):
