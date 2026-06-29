@@ -741,11 +741,11 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 90 (40 production + 50 bench-*) after auto-agentic-lite addition."""
+        """Total workspace count must be 95 (40 production + 55 bench-*) after V10 candidate additions."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 90, (
-            f"Expected 90 workspaces (40 production + 50 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 95, (
+            f"Expected 95 workspaces (40 production + 55 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
