@@ -46,6 +46,49 @@ def _workspace_category(workspace: str) -> str:
 # ── Main runner ───────────────────────────────────────────────────────────────
 
 
+def _emit_parallel_preflight(parallel_workspaces: int) -> None:
+    """Emit a startup banner + Ollama MAX_LOADED warning when running parallel."""
+    import contextlib
+    import os
+
+    _env_path = Path(__file__).resolve().parents[4] / ".env"
+    _max_loaded: int | None = None
+    if _env_path.exists():
+        for _line in _env_path.read_text().splitlines():
+            _line = _line.strip()
+            if _line.startswith("OLLAMA_MAX_LOADED_MODELS"):
+                _, _, _v = _line.partition("=")
+                _v = _v.split("#")[0].strip()
+                with contextlib.suppress(ValueError):
+                    _max_loaded = int(_v)
+                break
+
+    # Process env override wins over the .env file when both are set
+    _env_override = os.environ.get("OLLAMA_MAX_LOADED_MODELS", "").strip()
+    if _env_override:
+        with contextlib.suppress(ValueError):
+            _max_loaded = int(_env_override)
+
+    print(f"  [parallel] workspaces={parallel_workspaces}")
+    if _max_loaded is not None:
+        if _max_loaded < 4 and parallel_workspaces >= 2:
+            print(
+                f"  [parallel] WARNING: OLLAMA_MAX_LOADED_MODELS={_max_loaded} "
+                f"is below the recommended 4 for chained workspaces under "
+                f"parallel dispatch. auto-purpleteam-deep loads 4 chain "
+                f"models — at <4 slots Ollama will evict/reload between hops. "
+                f"Recommended: 5 (router + 4 chain models)."
+            )
+        else:
+            print(f"  [parallel] OLLAMA_MAX_LOADED_MODELS={_max_loaded} (OK)")
+    else:
+        print(
+            "  [parallel] note: could not read OLLAMA_MAX_LOADED_MODELS "
+            "from .env — verify the running Ollama process has it set to "
+            ">=4 for purpleteam-deep parallel runs."
+        )
+
+
 def run_bench(
     workspaces: list[str],
     prompt_keys: list[str],
@@ -58,7 +101,8 @@ def run_bench(
     lab_exec: bool = False,
     direct_theory_model: str | None = None,
     strip_think: bool = False,
-    checkpoint_path: "Path | None" = None,
+    checkpoint_path: Path | None = None,
+    parallel_workspaces: int = 1,
 ) -> list[dict[str, Any]]:
     """Run the dual-pass security bench.
 
@@ -68,13 +112,17 @@ def run_bench(
       tools enabled → tool call sequence scoring against exec_sequence
     Execution chain (when exec_chain_models provided):
       multi-model handoff chain per prompt → chain_exec_composite score
+
+    Phase 1 (theory + exec passes) supports concurrent dispatch via
+    ``parallel_workspaces``. Each (workspace, prompt) tuple is an independent
+    task; results are sorted deterministically before being returned. Phase 2
+    (chain batch) remains serial because the warm-up logic needs surgical
+    control over Ollama's MAX_LOADED slots.
     """
     # Deferred import to avoid circular dependency with __init__.py facade
     from .. import call_pipeline, call_pipeline_exec, call_theory_direct
 
-    results = []
-    total = len(workspaces) * len(prompt_keys)
-    done = 0
+    results: list[dict[str, Any]] = []
     # Collect (row_index, prompt_key) pairs that need chain runs — executed as a
     # separate phase AFTER all theory/exec pipeline passes complete. This prevents
     # pipeline workspace models (loaded by theory/exec) from evicting chain models
@@ -104,185 +152,243 @@ def run_bench(
             chain_pending.append((len(results) - 1, key))
         print(f"Chain-only mode: {len(chain_pending)} prompt(s) queued")
 
-    # ── Phase 1: Theory + Exec pipeline passes ───────────────────────────────
+    # ── Phase 1: Theory + Exec pipeline passes (parallel-capable) ────────────
+    # Build the (workspace, prompt, ws_cat, is_exec_ws) task list, then dispatch
+    # via ThreadPoolExecutor sized by parallel_workspaces. N=1 → effectively
+    # serial. The pipeline's per-workspace semaphore (default 5) and Ollama's
+    # OLLAMA_NUM_PARALLEL (default 4) bound backend-side concurrency.
+    tasks: list[tuple[str, str, str, bool]] = []
     for workspace in workspaces:
         ws_cat = _workspace_category(workspace)
         is_exec_ws = workspace in EXECUTION_WORKSPACES
-
         for key in prompt_keys:
-            done += 1
-            meta = PROMPTS[key]
-            if ws_cat == "blueteam" and meta["category"] == "redteam":
-                print(
-                    f"  [{done}/{total}] {workspace} × {key}: SKIP (blue-team workspace, red-team prompt)"
+            tasks.append((workspace, key, ws_cat, is_exec_ws))
+
+    total = len(tasks)
+
+    def _process_one(
+        workspace: str, key: str, ws_cat: str, is_exec_ws: bool
+    ) -> tuple[dict[str, Any] | None, list[str]]:
+        """Run theory + (optional) exec pass for one (workspace, prompt).
+
+        Returns ``(row, log_lines)``. ``row`` is ``None`` for skips. The
+        caller is responsible for emitting ``log_lines`` and appending
+        ``row`` to ``results`` under a lock.
+        """
+        log: list[str] = []
+        meta = PROMPTS[key]
+
+        if ws_cat == "blueteam" and meta["category"] == "redteam":
+            log.append(f"{workspace} × {key}: SKIP (blue-team workspace, red-team prompt)")
+            return None, log
+        if ws_cat == "redteam" and meta["category"] == "blueteam":
+            log.append(f"{workspace} × {key}: SKIP (red-team workspace, blue-team prompt)")
+            return None, log
+
+        if dry_run:
+            log.append(f"{workspace} × {key} ... DRY-RUN")
+            return None, log
+
+        # ── Theory pass (forced prose for execution workspaces) ───────────
+        theory_content, theory_elapsed, status, error = "", 0.0, "ok", None
+        theory_scores: dict = {}
+        try:
+            request_overrides: dict = {}
+            if is_exec_ws:
+                # portal_no_tools strips tools from the request entirely before
+                # it reaches Ollama — tool_choice=none alone leaves tool definitions
+                # in the body and causes models to emit skeletal header-only responses.
+                request_overrides["portal_no_tools"] = True
+                # Cap tokens for exec-workspace theory pass. Exec models have
+                # exec-mode system prompts (mandatory tool calls) that conflict
+                # with portal_no_tools, causing degenerate loops up to 6000 tokens
+                # (~750s on SuperGemma4 at ~8 TPS). 2000 tokens is sufficient for
+                # full header coverage and caps worst-case at ~250s.
+                request_overrides["max_tokens"] = 2000
+
+            if request_overrides:
+                import json as _json_tmp
+
+                import httpx as _httpx_tmp
+
+                _parts: list[str] = []
+                _t0 = time.monotonic()
+                _hdrs = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
+                _timeout = PER_WORKSPACE_TIMEOUT.get(workspace, REQUEST_TIMEOUT)
+                with (
+                    _httpx_tmp.Client(timeout=_httpx_tmp.Timeout(_timeout, connect=5.0)) as _cl,
+                    _cl.stream(
+                        "POST",
+                        f"{PIPELINE_URL}/v1/chat/completions",
+                        json={
+                            "model": workspace,
+                            "messages": [{"role": "user", "content": meta["text"]}],
+                            "stream": True,
+                            "max_tokens": PROMPT_MAX_TOKENS,
+                            **request_overrides,
+                        },
+                        headers=_hdrs,
+                    ) as _resp,
+                ):
+                    _resp.raise_for_status()
+                    for _line in _resp.iter_lines():
+                        if _line == "data: [DONE]":
+                            break
+                        if _line.startswith("data: "):
+                            try:
+                                _d = _json_tmp.loads(_line[6:])
+                                _c = _d["choices"][0]["delta"].get("content") or ""
+                                if _c:
+                                    _parts.append(_c)
+                            except Exception:
+                                pass
+                        # Safe to early-exit here: this path runs only for
+                        # EXECUTION_WORKSPACES with portal_no_tools=true, which
+                        # causes the pipeline to skip the chain (handlers.py:828).
+                        if meta and _parts and scoring_criteria_met("".join(_parts), meta):
+                            break
+                theory_content = "".join(_parts)
+                theory_elapsed = time.monotonic() - _t0
+            elif direct_theory_model:
+                theory_content, theory_elapsed = call_theory_direct(
+                    direct_theory_model,
+                    meta["text"],
+                    workspace=workspace,
+                    prompt_meta=meta,
                 )
-                continue
-            if ws_cat == "redteam" and meta["category"] == "blueteam":
-                print(
-                    f"  [{done}/{total}] {workspace} × {key}: SKIP (red-team workspace, blue-team prompt)"
+            else:
+                theory_content, theory_elapsed = call_pipeline(
+                    workspace, meta["text"], prompt_meta=meta
                 )
-                continue
 
-            print(f"  [{done}/{total}] {workspace} × {key} ...", end="", flush=True)
+            if strip_think:
+                from portal_pipeline.router.thinking import strip_think as _strip_think
 
-            if dry_run:
-                print(" DRY-RUN")
-                continue
+                theory_content = _strip_think(theory_content)
+            theory_scores = score_response(theory_content, meta, ws_cat)
+        except Exception as exc:
+            theory_scores = {"composite": 0.0, "disclaimers": 0, "mitre_count": 0, "words": 0}
+            status = "error"
+            error = str(exc)
 
-            # ── Theory pass (forced prose for execution workspaces) ───────────
-            theory_content, theory_elapsed, status, error = "", 0.0, "ok", None
-            theory_scores: dict = {}
+        # ── Execution pass (execution workspaces only) ────────────────────
+        exec_scores: dict = {}
+        exec_elapsed = 0.0
+        if exec_eval and is_exec_ws and meta.get("exec_sequence") and status == "ok":
             try:
-                request_overrides: dict = {}
-                if is_exec_ws:
-                    # portal_no_tools strips tools from the request entirely before
-                    # it reaches Ollama — tool_choice=none alone leaves tool definitions
-                    # in the body and causes models to emit skeletal header-only responses.
-                    request_overrides["portal_no_tools"] = True
-                    # Cap tokens for exec-workspace theory pass. Exec models have
-                    # exec-mode system prompts (mandatory tool calls) that conflict
-                    # with portal_no_tools, causing degenerate loops up to 6000 tokens
-                    # (~750s on SuperGemma4 at ~8 TPS). 2000 tokens is sufficient for
-                    # full header coverage and caps worst-case at ~250s.
-                    request_overrides["max_tokens"] = 2000
-
-                if request_overrides:
-                    import json as _json_tmp
-
-                    import httpx as _httpx_tmp
-
-                    _parts: list[str] = []
-                    _t0 = time.monotonic()
-                    _hdrs = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
-                    _timeout = PER_WORKSPACE_TIMEOUT.get(workspace, REQUEST_TIMEOUT)
-                    with (
-                        _httpx_tmp.Client(
-                            timeout=_httpx_tmp.Timeout(_timeout, connect=5.0)
-                        ) as _cl,
-                        _cl.stream(
-                            "POST",
-                            f"{PIPELINE_URL}/v1/chat/completions",
-                            json={
-                                "model": workspace,
-                                "messages": [{"role": "user", "content": meta["text"]}],
-                                "stream": True,
-                                "max_tokens": PROMPT_MAX_TOKENS,
-                                **request_overrides,
-                            },
-                            headers=_hdrs,
-                        ) as _resp,
-                    ):
-                        _resp.raise_for_status()
-                        for _line in _resp.iter_lines():
-                            if _line == "data: [DONE]":
-                                break
-                            if _line.startswith("data: "):
-                                try:
-                                    _d = _json_tmp.loads(_line[6:])
-                                    _c = _d["choices"][0]["delta"].get("content") or ""
-                                    if _c:
-                                        _parts.append(_c)
-                                except Exception:
-                                    pass
-                            if meta and _parts and scoring_criteria_met("".join(_parts), meta):
-                                break
-                    theory_content = "".join(_parts)
-                    theory_elapsed = time.monotonic() - _t0
-                elif direct_theory_model:
-                    theory_content, theory_elapsed = call_theory_direct(
-                        direct_theory_model,
-                        meta["text"],
-                        workspace=workspace,
-                        prompt_meta=meta,
-                    )
-                else:
-                    theory_content, theory_elapsed = call_pipeline(
-                        workspace, meta["text"], prompt_meta=meta
-                    )
-
-                if strip_think:
-                    from portal_pipeline.router.thinking import strip_think as _strip_think
-                    theory_content = _strip_think(theory_content)
-                theory_scores = score_response(theory_content, meta, ws_cat)
-            except Exception as exc:
-                theory_scores = {"composite": 0.0, "disclaimers": 0, "mitre_count": 0, "words": 0}
-                status = "error"
-                error = str(exc)
-
-            # ── Execution pass (execution workspaces only) ────────────────────
-            exec_scores: dict = {}
-            exec_elapsed = 0.0
-            if exec_eval and is_exec_ws and meta.get("exec_sequence") and status == "ok":
-                try:
-                    _, tool_calls, exec_elapsed = call_pipeline_exec(
-                        workspace, meta["text"], prompt_meta=meta
-                    )
-                    exec_scores = score_execution(tool_calls, meta)
-                except Exception as exc_e:
-                    exec_scores = {"exec_composite": 0.0, "error": str(exc_e)}
-
-            row: dict[str, Any] = {
-                "workspace": workspace,
-                "prompt_key": key,
-                "prompt_category": meta["category"],
-                "workspace_category": ws_cat,
-                "status": status,
-                "elapsed_s": round(theory_elapsed, 2),
-                "scores": theory_scores,
-                "error": error,
-            }
-            if exec_scores:
-                row["exec_scores"] = exec_scores
-                row["exec_elapsed_s"] = round(exec_elapsed, 2)
-
-            results.append(row)
-
-            # Write incremental checkpoint so a killed run loses at most one prompt.
-            if checkpoint_path and not dry_run:
-                try:
-                    checkpoint_path.write_text(json.dumps(results, indent=2))
-                except Exception:
-                    pass
-
-            # Queue chain-eligible rows — executed as a batch in Phase 2
-            if exec_eval and exec_chain_models and meta.get("exec_sequence") and status == "ok":
-                chain_pending.append((len(results) - 1, key))
-
-            c = theory_scores.get("composite", 0.0)
-            d = theory_scores.get("disclaimers", 0)
-            m = theory_scores.get("mitre_count", 0)
-            h = f"{len(theory_scores.get('headers_present', []))}/{len(theory_scores.get('headers_required', []))}"
-            flag = " ⚠️  disclaimers" if d > 0 and ws_cat in ("redteam", "purpleteam") else ""
-            exec_tag = (
-                (
-                    f"  exec={exec_scores.get('exec_composite', 0):.2f}"
-                    f"  steps={len(exec_scores.get('steps_hit', []))}/{len(meta.get('exec_sequence', []))}"
+                _, tool_calls, exec_elapsed = call_pipeline_exec(
+                    workspace, meta["text"], prompt_meta=meta
                 )
-                if exec_scores
-                else ""
-            )
-            print(f" {theory_elapsed:.0f}s  theory={c:.2f}  headers={h}  mitre={m}{exec_tag}{flag}")
-            # Score justification — drivers first, then response snippet
-            drivers = theory_scores.get("score_drivers", [])
-            if drivers:
-                print(f"    why: {' | '.join(drivers)}")
-            snip = theory_scores.get("snippet", "")
-            if snip:
-                print(f'    snip: "{snip[:200]}"')
-            # Exec pass: show what tool calls were made and which steps were missed and why
-            if exec_scores and exec_scores.get("tool_calls_made", 0) > 0:
-                for call in exec_scores.get("calls_made", []):
-                    print(f"    tool: {call['tool']}({call['args_snip']})")
-            if exec_scores and exec_scores.get("steps_missed"):
-                for md in exec_scores.get("miss_detail", []):
-                    args_seen = md["args_seen"]
-                    seen_str = (
-                        " / ".join(f'"{a}"' for a in args_seen[:2]) if args_seen else "(no calls)"
-                    )
-                    print(
-                        f"    miss [{md['step']}] needed={md['needed_keywords'][:3]}  saw={seen_str}"
-                    )
+                exec_scores = score_execution(tool_calls, meta)
+            except Exception as exc_e:
+                exec_scores = {"exec_composite": 0.0, "error": str(exc_e)}
 
+        row: dict[str, Any] = {
+            "workspace": workspace,
+            "prompt_key": key,
+            "prompt_category": meta["category"],
+            "workspace_category": ws_cat,
+            "status": status,
+            "elapsed_s": round(theory_elapsed, 2),
+            "scores": theory_scores,
+            "error": error,
+        }
+        if exec_scores:
+            row["exec_scores"] = exec_scores
+            row["exec_elapsed_s"] = round(exec_elapsed, 2)
+
+        # Mark chain-eligible rows — resolved to chain_pending after Phase 1 sorts
+        if exec_eval and exec_chain_models and meta.get("exec_sequence") and status == "ok":
+            row["_chain_eligible"] = True
+
+        # ── Build per-task log lines ───────────────────────────────────────
+        c = theory_scores.get("composite", 0.0)
+        d = theory_scores.get("disclaimers", 0)
+        m = theory_scores.get("mitre_count", 0)
+        h = f"{len(theory_scores.get('headers_present', []))}/{len(theory_scores.get('headers_required', []))}"
+        flag = " ⚠️  disclaimers" if d > 0 and ws_cat in ("redteam", "purpleteam") else ""
+        exec_tag = (
+            (
+                f"  exec={exec_scores.get('exec_composite', 0):.2f}"
+                f"  steps={len(exec_scores.get('steps_hit', []))}/{len(meta.get('exec_sequence', []))}"
+            )
+            if exec_scores
+            else ""
+        )
+        log.append(
+            f"{workspace} × {key}: {theory_elapsed:.0f}s  theory={c:.2f}  "
+            f"headers={h}  mitre={m}{exec_tag}{flag}"
+        )
+        drivers = theory_scores.get("score_drivers", [])
+        if drivers:
+            log.append(f"    why: {' | '.join(drivers)}")
+        snip = theory_scores.get("snippet", "")
+        if snip:
+            log.append(f'    snip: "{snip[:200]}"')
+        if exec_scores and exec_scores.get("tool_calls_made", 0) > 0:
+            for call in exec_scores.get("calls_made", []):
+                log.append(f"    tool: {call['tool']}({call['args_snip']})")
+        if exec_scores and exec_scores.get("steps_missed"):
+            for md in exec_scores.get("miss_detail", []):
+                args_seen = md["args_seen"]
+                seen_str = (
+                    " / ".join(f'"{a}"' for a in args_seen[:2]) if args_seen else "(no calls)"
+                )
+                log.append(
+                    f"    miss [{md['step']}] needed={md['needed_keywords'][:3]}  saw={seen_str}"
+                )
+
+        return row, log
+
+    if tasks:
+        print(f"\n── Phase 1: {total} task(s), parallel={parallel_workspaces} ──")
+        if parallel_workspaces >= 2:
+            _emit_parallel_preflight(parallel_workspaces)
+
+        import threading
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        _lock = threading.Lock()
+        _done = [0]
+        _raw_results: list[dict[str, Any]] = []
+
+        with ThreadPoolExecutor(max_workers=max(1, parallel_workspaces)) as ex:
+            _futures = {ex.submit(_process_one, *t): t for t in tasks}
+            for _fut in as_completed(_futures):
+                try:
+                    _row, _log_lines = _fut.result()
+                except Exception as _exc:
+                    _row, _log_lines = None, [f"ERROR: {_exc}"]
+                with _lock:
+                    _done[0] += 1
+                    _prefix = f"  [{_done[0]}/{total}] "
+                    if _log_lines:
+                        print(_prefix + _log_lines[0])
+                        for _extra in _log_lines[1:]:
+                            print(_extra)
+                    if _row is not None:
+                        _raw_results.append(_row)
+                    if checkpoint_path and not dry_run:
+                        try:
+                            checkpoint_path.write_text(json.dumps(_raw_results, indent=2))
+                        except Exception:
+                            pass
+
+        # Deterministic ordering: workspace-major (input order), prompt-secondary
+        _ws_idx = {w: i for i, w in enumerate(workspaces)}
+        _pk_idx = {k: i for i, k in enumerate(prompt_keys)}
+        _raw_results.sort(
+            key=lambda r: (
+                _ws_idx.get(r["workspace"], 9999),
+                _pk_idx.get(r["prompt_key"], 9999),
+            )
+        )
+
+        # Promote raw rows to results, building chain_pending from sorted indexes
+        for _r in _raw_results:
+            results.append(_r)
+            if _r.pop("_chain_eligible", False):
+                chain_pending.append((len(results) - 1, _r["prompt_key"]))
     # ── Phase 2: Chain batch — all chain runs after theory/exec complete ─────
     # Running chains as a batch prevents pipeline models (loaded above) from
     # evicting chain models. MAX_LOADED=3 means we must be surgical: unload
@@ -337,7 +443,11 @@ def run_bench(
             print(f"  warming {_cm.split('/')[-1][:35]} ...", end="", flush=True)
             # Workspace slugs (no "/" or ":") route through the pipeline, not Ollama.
             _is_slug = "/" not in _cm and ":" not in _cm
-            _warm_url = f"{PIPELINE_URL}/v1/chat/completions" if _is_slug else f"{_ollama_url}/v1/chat/completions"
+            _warm_url = (
+                f"{PIPELINE_URL}/v1/chat/completions"
+                if _is_slug
+                else f"{_ollama_url}/v1/chat/completions"
+            )
             _warm_headers: dict = {}
             if _is_slug and PIPELINE_API_KEY:
                 _warm_headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"

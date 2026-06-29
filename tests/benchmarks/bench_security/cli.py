@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -384,6 +384,19 @@ def main() -> None:
             "Example: --chain-rounds 2"
         ),
     )
+    parser.add_argument(
+        "--parallel-workspaces",
+        type=int,
+        default=2,
+        metavar="N",
+        help=(
+            "Phase-1 (theory + exec) dispatch concurrency (default: 2). "
+            "Each (workspace × prompt) is independent; the pipeline's per-workspace "
+            "semaphore (default 5) and Ollama's OLLAMA_NUM_PARALLEL (default 4) "
+            "bound backend concurrency. Set to 1 for legacy serial behavior. "
+            "Recommended: 4 for the full 9-workspace bench on M4 Pro 64GB."
+        ),
+    )
     args = parser.parse_args()
 
     if args.list_scenarios:
@@ -397,7 +410,11 @@ def main() -> None:
         if not _rescore_file.exists():
             print(f"ERROR: rescore file not found: {_rescore_file}")
             return
-        _rescore_path = Path(args.output) if args.output else _rescore_file.with_stem(_rescore_file.stem + "_rescored")
+        _rescore_path = (
+            Path(args.output)
+            if args.output
+            else _rescore_file.with_stem(_rescore_file.stem + "_rescored")
+        )
         _rescore_data = json.loads(_rescore_file.read_text())
         print(f"Rescoring: {_rescore_file}")
         print(f"  Original timestamp: {_rescore_data.get('timestamp', '?')}")
@@ -409,8 +426,7 @@ def main() -> None:
                 continue
             tools_called = ct.get("tools_called", [])
             tools_called_args = [
-                {"name": t.get("tool", ""), "args": t.get("arguments", {})}
-                for t in tools_called
+                {"name": t.get("tool", ""), "args": t.get("arguments", {})} for t in tools_called
             ]
             observations = ct.get("lab_observations", {})
             # Re-derive scoring metrics
@@ -430,13 +446,12 @@ def main() -> None:
                 steps_hit = ec.get("steps_hit", [])
                 steps_proven = ec.get("steps_proven", [])
                 ec["success_rate"] = (
-                    round(len(steps_proven) / max(len(steps_hit), 1), 3)
-                    if steps_hit else 0.0
+                    round(len(steps_proven) / max(len(steps_hit), 1), 3) if steps_hit else 0.0
                 )
                 _rescored_count += 1
 
         _rescore_data["rescored"] = True
-        _rescore_data["rescored_at"] = datetime.now(tz=timezone.utc).isoformat()
+        _rescore_data["rescored_at"] = datetime.now(tz=UTC).isoformat()
         _rescore_data["rescored_count"] = _rescored_count
         _rescore_path.write_text(json.dumps(_rescore_data, indent=2))
         print(f"  Rescored {_rescored_count} entries")
@@ -478,7 +493,7 @@ def main() -> None:
     # Merge --retry-prompts with --retry-failed
     _target_prompts: set[str] = set(args.retry_prompts) | _retry_failed_prompts
 
-    ts = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
     out_path = Path(args.output) if args.output else RESULTS_DIR / f"sec_bench_{ts}.json"
     checkpoint_path = out_path.with_suffix(".partial.json")
 
@@ -513,7 +528,12 @@ def main() -> None:
             tps_floor=TPS_FLOOR,
         )
         _print_intake_summary(intake_results)
-        if not args.dry_run and not args.workspaces and not args.chain_models and not args.exec_chain_models:
+        if (
+            not args.dry_run
+            and not args.workspaces
+            and not args.chain_models
+            and not args.exec_chain_models
+        ):
             return  # intake-only run; nothing else to do
 
     t0_bench = time.monotonic()
@@ -627,7 +647,6 @@ def main() -> None:
 
     # Step 2: tool call chain test (red), aligned to the selected scenario(s)
     if args.chain_models and not args.purple:
-
         if args.dynamic_cve:
             cfg.dynamic_cve_mode = True
             if _WEB_SEARCH_CHAIN_TOOL not in cfg.chain_tools:
@@ -773,31 +792,44 @@ def main() -> None:
                 benign_output = exec_result.get("output", "")[:500]
                 fake_tc = [{"tool": "execute_bash", "arguments": {"cmd": ct["command"]}}]
                 lab_out = (
-                    [{"cmd": ct["command"], "output": benign_output, "ok": exec_result.get("ok", False)}]
-                    if exec_result.get("ok") else None
+                    [
+                        {
+                            "cmd": ct["command"],
+                            "output": benign_output,
+                            "ok": exec_result.get("ok", False),
+                        }
+                    ]
+                    if exec_result.get("ok")
+                    else None
                 )
                 blue_result = _run_blue_turn(
-                    fake_tc, "benign_traffic", bm,
+                    fake_tc,
+                    "benign_traffic",
+                    bm,
                     ollama_url=cfg.ollama_url,
                     lab_outputs=lab_out,
                 )
-                fp_verdicts.append({
-                    "traffic": ct["name"],
-                    "description": ct["description"],
-                    "detected": blue_result.get("detected", False),
-                    "quality": blue_result.get("detection_quality", 0.0),
-                })
+                fp_verdicts.append(
+                    {
+                        "traffic": ct["name"],
+                        "description": ct["description"],
+                        "detected": blue_result.get("detected", False),
+                        "quality": blue_result.get("detection_quality", 0.0),
+                    }
+                )
                 det_tag = "FP!" if blue_result.get("detected") else "clean"
                 print(f"  {ct['name']:25s} → {det_tag}")
             fp_count = sum(1 for v in fp_verdicts if v["detected"])
             fp_rate = fp_count / len(fp_verdicts) if fp_verdicts else 0.0
-            false_positive_results.append({
-                "model": bm,
-                "false_positive_rate": round(fp_rate, 3),
-                "fp_count": fp_count,
-                "total": len(fp_verdicts),
-                "verdicts": fp_verdicts,
-            })
+            false_positive_results.append(
+                {
+                    "model": bm,
+                    "false_positive_rate": round(fp_rate, 3),
+                    "fp_count": fp_count,
+                    "total": len(fp_verdicts),
+                    "verdicts": fp_verdicts,
+                }
+            )
             print(f"  FP rate: {fp_rate:.1%} ({fp_count}/{len(fp_verdicts)})")
 
     # Step 2h: defense efficacy — re-run red after blue countermeasures
@@ -820,21 +852,25 @@ def main() -> None:
                     tid = reported.get("technique_id", "")
                     if tid:
                         vr = verify_defense("block_ip", {"ip": "10.10.10.50"})
-                        defense_verifications.append({"technique": tid, "verified": vr.get("verified", False)})
+                        defense_verifications.append(
+                            {"technique": tid, "verified": vr.get("verified", False)}
+                        )
                 print("  Round 2: red re-attacks after blue countermeasures ...")
                 red_r2 = _run_chain_test(rm, cfg, lab_exec=args.lab_exec)
                 r1_depth = red_r1.get("chain_depth", 0)
                 r2_depth = red_r2.get("chain_depth", 0)
                 efficacy = r2_depth < r1_depth
-                defense_efficacy_results.append({
-                    "red_model": rm,
-                    "blue_model": bm,
-                    "red_r1_depth": r1_depth,
-                    "red_r2_depth": r2_depth,
-                    "defense_effective": efficacy,
-                    "depth_reduction": r1_depth - r2_depth,
-                    "defense_verifications": defense_verifications,
-                })
+                defense_efficacy_results.append(
+                    {
+                        "red_model": rm,
+                        "blue_model": bm,
+                        "red_r1_depth": r1_depth,
+                        "red_r2_depth": r2_depth,
+                        "defense_effective": efficacy,
+                        "depth_reduction": r1_depth - r2_depth,
+                        "defense_verifications": defense_verifications,
+                    }
+                )
                 eff_tag = "EFFECTIVE" if efficacy else "INEFFECTIVE"
                 print(f"  {eff_tag}: depth {r1_depth} → {r2_depth} (Δ={r1_depth - r2_depth})")
 
@@ -859,6 +895,7 @@ def main() -> None:
             chain_rounds=args.chain_rounds,
             lab_exec=args.lab_exec,
             checkpoint_path=checkpoint_path,
+            parallel_workspaces=args.parallel_workspaces,
         )
     if not args.skip_workspace_bench:
         _explicit_prompts = args.prompts is not None
@@ -898,6 +935,7 @@ def main() -> None:
             direct_theory_model=getattr(args, "direct_theory", None) or None,
             strip_think=getattr(args, "strip_think", False),
             checkpoint_path=checkpoint_path,
+            parallel_workspaces=args.parallel_workspaces,
         )
 
     # ── Proxmox VM restore after exec_chain (Step 3) ────────────────────────

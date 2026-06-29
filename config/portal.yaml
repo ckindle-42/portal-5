@@ -1945,6 +1945,111 @@ workspaces:
     - recall
     expose_to_owui: false
     enable_web_search: false
+  bench-ornith-9b:
+    name: 🧪 Bench · Ornith-1.0-9B (DeepReinforce)
+    description: |-
+      Ornith-1.0-9B (DeepReinforce, MIT, Dec 2026, ~5.6GB Q4_K_M, Qwen3.5-9B base, 262K ctx, dense). Self-improving agentic-coding family — RL jointly optimizes solution rollout + scaffold. Reported Terminal-Bench 2.1 (Terminus-2) 43.1, SWE-bench Verified 69.4, NL2Repo 27.2. Reasoning model (<think>) with native qwen3_xml tool-call parser. Direct head-to-head vs bench-omnicoder2 (same Qwen3.5-9B base, same size). PROMOTE_POLICY=confirm.
+    model_hint: hf.co/deepreinforce-ai/Ornith-1.0-9B-GGUF:Q4_K_M
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.05
+    emits_reasoning: true
+    tools:
+    - execute_bash
+    - execute_python
+    - read_text_file
+    - write_file
+    - remember
+    - recall
+    expose_to_owui: false
+    enable_web_search: false
+  bench-ornith-35b:
+    name: 🧪 Bench · Ornith-1.0-35B (DeepReinforce)
+    description: |-
+      Ornith-1.0-35B (DeepReinforce, MIT, Dec 2026, ~21GB Q4_K_M, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Same self-improving RL training as the 9B sibling — agentic coding, Terminal-Bench / SWE-Bench / NL2Repo / OpenClaw. Reasoning model (<think>), qwen3_xml tool parser. Substitutes for the operator-requested AEON-7 NVFP4 uncensored variant which is Blackwell-only and incompatible with M4 Pro. Head-to-head vs bench-agentworld (same 35B-A3B class) and bench-laguna (33B-A3B agentic coder). PROMOTE_POLICY=confirm.
+    model_hint: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.05
+    emits_reasoning: true
+    tools:
+    - execute_bash
+    - execute_python
+    - read_text_file
+    - write_file
+    - remember
+    - recall
+    expose_to_owui: false
+    enable_web_search: false
+  bench-north-mini-code:
+    name: 🧪 Bench · North-Mini-Code-1.0 QAD (Cohere Labs)
+    description: |-
+      North-Mini-Code-1.0-QAD-GGUF (Cohere Labs, Apache 2.0, Nov 2026, ~19.3GB NVFP4 W4A16, cohere2moe arch, 256K ctx, 64K out, 30B-A3B MoE 128 experts top-8). Agentic-coding RL with verifiable rewards. NVFP4 weight-only quant — activations stay BF16 (no FP4 hardware required); QAD = quantization-aware distillation, claims >99% accuracy recovery vs unquantized. RISK: cohere2moe is a newer architecture; Ollama loader compatibility is unverified — Phase 4 includes an explicit smoke-load gate. If load fails, this workspace is marked BLOCKED in the report and the rest of the V10 run continues. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 1.0
+    top_p: 0.95
+    emits_reasoning: true
+    tools:
+    - execute_bash
+    - execute_python
+    - read_text_file
+    - write_file
+    - remember
+    - recall
+    expose_to_owui: false
+    enable_web_search: false
+  bench-qwythos-9b:
+    name: 🧪 Bench · Qwythos-9B Claude-Mythos-5 1M (Empero)
+    description: |-
+      Qwythos-9B-Claude-Mythos-5-1M-GGUF (Empero, Apache 2.0, Dec 2026, ~5.6GB Q4_K_M, Qwen3.5-9B base, 1,048,576-token ctx via YaRN rope-scaling). Post-trained on ~500M tokens of Claude Mythos/Fable reasoning traces. Reported +34 MMLU, +30 gsm8k-strict vs base Qwen3.5-9B. Native function calling per Qwen3.5 spec. Uncensored (engages with cybersec, redteam, biology, pharmacology, clinical medicine). Vision projector available separately (mmproj). Multi-lane candidate — evaluate against auto-research (long-doc), auto-reasoning (reasoning depth), auto-security-uncensored (refusal probe), auto-compliance (long-context KB). NOTE: "Claude Mythos" in the model name refers to synthetic traces in the style of Anthropic's frontier model — not the actual model. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M
+    predict_limit: 16384
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.05
+    emits_reasoning: true
+    tools:
+    - execute_bash
+    - execute_python
+    - read_text_file
+    - read_pdf
+    - web_search
+    - web_fetch
+    - kb_search
+    - kb_list
+    - remember
+    - recall
+    expose_to_owui: false
+    enable_web_search: false
+  bench-glm47f-claude-distill:
+    name: 🧪 Bench · GLM-4.7-Flash Claude-Opus-4.5 High-Reasoning Distill (TeichAI)
+    description: |-
+      GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF (TeichAI, Apache 2.0, Nov 2026, ~18.1GB Q4_K_M, base unsloth/GLM-4.7-Flash → reports as deepseek2/glm4_moe_lite, 30B total). Tiny distillation: 250 Opus-4.5 high-reasoning samples (2.13M tokens, $52). Reported aggregate vs base GLM-4.7-Flash — 4 wins / 3 losses across 7 benchmarks, avg delta +0.0103. Largest gains: GPQA-diamond +11.5% (52→58/198), winogrande +7.6%, MMLU +4.9%; ARC -3% regression. Compare head-to-head vs bench-glm (same base, no distill) to isolate the distill's signal. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:Q4_K_M
+    predict_limit: 16384
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 1.0
+    top_p: 0.95
+    min_p: 0.01
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
 
 # ── Model pull registry ────────────────────────────────────────────────────────
 # HuggingFace → Ollama pull metadata. Consumed by `portal models pull`.

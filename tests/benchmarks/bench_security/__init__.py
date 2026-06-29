@@ -162,9 +162,23 @@ def call_pipeline(
 
     1. [DONE] SSE event — model finished naturally
     2. Content-completion event — all scoring criteria satisfied
+       (SINGLE-MODEL workspaces only; chained workspaces skip this so the
+       full multi-hop output reaches the scorer)
     3. max_tokens capacity event — model-level token cap
     4. REQUEST_TIMEOUT per-chunk httpx ceiling — fires on absent data
+
+    Chained workspaces (those with a non-empty ``chain`` field in WORKSPACES)
+    must run their full multi-hop server-side chain so blue/detect/IR hops
+    contribute to scoring. Closing the SSE stream mid-chain triggers
+    Starlette to cancel the chain coroutine in _stream_with_chain, which
+    aborts subsequent hops. To prevent that we suppress the early-exit when
+    the workspace is chained.
     """
+    # Lazy import — WORKSPACES is populated at pipeline import time
+    from portal_pipeline.router.workspaces import WORKSPACES
+
+    _is_chained = bool(WORKSPACES.get(workspace, {}).get("chain"))
+
     headers = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
     parts: list[str] = []
     t0 = time.monotonic()
@@ -193,7 +207,15 @@ def call_pipeline(
                             parts.append(c)
                     except Exception:
                         pass
-                if prompt_meta and parts and scoring_criteria_met("".join(parts), prompt_meta):
+                # Skip early-exit for chained workspaces — closing the stream
+                # cancels the server-side chain coroutine, so hops 2..N never run
+                # and the score reflects only the partial output.
+                if (
+                    not _is_chained
+                    and prompt_meta
+                    and parts
+                    and scoring_criteria_met("".join(parts), prompt_meta)
+                ):
                     break
     return "".join(parts), time.monotonic() - t0
 

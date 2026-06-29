@@ -174,7 +174,7 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # ── 3B reasoning/uncensored bench workspaces (2026-06-17) ───────────────
     # ── CAD/3D-print bench workspace ────────────────────────────────────────
     # ── Fast-context bench workspace ────────────────────────────────────────
-    "bench-fastcontext": "coding",         # FastContext-1.0-4B-SFT (Microsoft long-context)
+    "bench-fastcontext": "coding",  # FastContext-1.0-4B-SFT (Microsoft long-context)
     # ── Generative image bench workspace ────────────────────────────────────
     # bench-diffusiongemma is a text→image diffusion model; the text harness produces
     # only the prompt text, not the image output, so TPS is not meaningful here.
@@ -190,6 +190,13 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # tools-specialist (granite4.1:8b) — same tool-call issue as auto-agentic with
     # coding prompt; use general (OSI layers) which is pure knowledge recall, safe.
     "tools-specialist": "general",  # granite4.1:8b tool-calling specialist
+    # ── TASK_MODEL_EVAL_V10_CANDIDATES — coding & reasoning candidates ───────
+    "bench-agentworld": "coding",  # env-sim language world model; coding is the closest fit
+    "bench-ornith-9b": "coding",  # Qwen3.5-9B agentic coder (DeepReinforce)
+    "bench-ornith-35b": "coding",  # Qwen3.5-35B-A3B agentic coder
+    "bench-north-mini-code": "coding",  # Cohere cohere2moe 30B-A3B agentic coder
+    "bench-qwythos-9b": "reasoning",  # Claude-Mythos reasoning + 1M ctx; primary lane is reasoning
+    "bench-glm47f-claude-distill": "reasoning",  # GLM-4.7-Flash Opus-4.5 reasoning distill
 }
 
 # Map Ollama backend group → prompt category

@@ -93,6 +93,15 @@ backends:
     supports_tools: true
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
     supports_tools: false
+  - id: hf.co/deepreinforce-ai/Ornith-1.0-9B-GGUF:Q4_K_M
+    supports_tools: true
+  - id: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M
+    supports_tools: true
+  - id: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4
+    # supports_tools=true per model card (cohere_command4 parser); demote to false
+    # in Phase 4 if audit-tools probe fails. cohere2moe architecture is newer than
+    # the currently-deployed Ollama llama.cpp build — Phase 4 smoke-load gates.
+    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: security
@@ -162,6 +171,12 @@ backends:
   - id: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL
     supports_tools: false
   - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+    supports_tools: false
+  - id: hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M
+    supports_tools: true
+  - id: hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:Q4_K_M
+    # supports_tools=false: glm4_moe_lite base (glm-4.7-flash:Q4_K_M) is already
+    # tools=false in this group; the Opus reasoning distill doesn't add tool training.
     supports_tools: false
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -486,3 +501,18 @@ workspace_routing:
   bench-agentworld:
   - general
   - coding
+  bench-ornith-9b:
+  - general
+  - coding
+  bench-ornith-35b:
+  - general
+  - coding
+  bench-north-mini-code:
+  - general
+  - coding
+  bench-qwythos-9b:
+  - general
+  - reasoning
+  bench-glm47f-claude-distill:
+  - general
+  - reasoning
