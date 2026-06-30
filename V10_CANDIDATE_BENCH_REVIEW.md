@@ -131,54 +131,42 @@ Scoring is structural (regex + marker counts). P2 now calls Ollama directly (byp
 - **Size:** ~22 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in)
-- **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
-
-### `bench-ornith-9b` — Ornith-1.0-9B (DeepReinforce)
+- **Possible lanes:** auto-agentic secondary, auto-agentic-lite primary (both unchanged)
+- **Operator verdict:** [ ] Promote  [x] Hold for re-bench  [ ] Drop — production status unchanged. Model card's env-simulation/tool-coherence training claims are well above what P1_envsim (3/5) and P6_swe_handoff (2/5) showed here; operator flagged this as a probable harness mismatch rather than a real regression. Re-bench with a methodology that better targets its trained strengths before drawing any conclusion either way.
 
 - **Model hint:** `hf.co/deepreinforce-ai/Ornith-1.0-9B-GGUF:Q4_K_M`
 - **Size:** ~5.6 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in)
-- **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
-
-### `bench-ornith-35b` — Ornith-1.0-35B (DeepReinforce)
+- **Possible lanes:** N/A — dropped
+- **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [x] Drop — modest gain over baseline didn't justify a new lane; the 35B sibling is the keeper. Workspace and backends.yaml entry removed 2026-06-30.
 
 - **Model hint:** `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M`
 - **Size:** ~21 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in)
-- **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
-
-### `bench-north-mini-code` — North-Mini-Code-1.0-QAD (Cohere)
+- **Possible lanes:** new `auto-agentic-ornith` workspace (additional opencode/Claude Code IDE option alongside auto-agentic, auto-agentic-lite — not a replacement)
+- **Operator verdict:** [x] Promote  [ ] Hold for re-bench  [ ] Drop — strong tool-chain (4/5) and SWE-handoff (4/5) probe markers. Promoted 2026-06-30 to `auto-agentic-ornith`, selectable via `opencode . --model portal/auto-agentic-ornith` and `cc-local.sh --model auto-agentic-ornith`.
 
 - **Model hint:** `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4`
 - **Size:** ~19.3 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in)
-- **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
-
-### `bench-qwythos-9b` — Qwythos-9B-Claude-Mythos-5-1M (Empero)
+- **Possible lanes:** new `auto-coding-northmini` workspace (diversity option alongside auto-coding — NOT a replacement; Qwen3-Coder-30B stays primary)
+- **Operator verdict:** [x] Promote  [ ] Hold for re-bench  [ ] Drop — 4/5 tool-chain + 4/5 SWE-handoff, cohere2moe architecture confirmed smoke-loads cleanly on this Ollama build (the Phase-4 compatibility gate flagged in this review is resolved). Promoted 2026-06-30 to `auto-coding-northmini`.
 
 - **Model hint:** `hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M`
 - **Size:** ~5.6 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in)
-- **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
-
-### `bench-glm47f-claude-distill` — GLM-4.7-Flash Claude-Opus-4.5 distill
+- **Possible lanes:** N/A — dropped
+- **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [x] Drop — worst performer in the set (0/5 needle-in-haystack despite the 1M-context headline, 2/5 uncensored-depth). Workspace and backends.yaml entry removed 2026-06-30.
 
 - **Model hint:** `hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:Q4_K_M`
 - **Size:** ~18.1 GB
 - **TPS:** see table above
 - **Probe pattern:** see per-workspace probe table
-- **Possible lanes:** (operator fills in)
-- **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [ ] Drop
-
-## Watch items
+- **Possible lanes:** N/A — dropped
+- **Operator verdict:** [ ] Promote  [ ] Hold for re-bench  [x] Drop — beat its own base (2.0/3.0 vs bench-glm's 1.0/3.0) but not enough to justify a new lane. Workspace and backends.yaml entry removed 2026-06-30.
 
 - **`AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-NVFP4`** — Blackwell-only; await community GGUF abliteration.

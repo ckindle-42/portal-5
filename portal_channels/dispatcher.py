@@ -138,13 +138,14 @@ VALID_WORKSPACES = frozenset(
         "bench-lfm-micro-350m",
         "bench-lfm-micro-1p2b",
         "bench-agentworld",
-        # TASK_MODEL_EVAL_V10_CANDIDATES
-        "bench-ornith-9b",
+        # TASK_MODEL_EVAL_V10_CANDIDATES — bench-ornith-9b, bench-qwythos-9b,
+        # bench-glm47f-claude-distill dropped 2026-06-30 (operator verdict: Drop)
         "bench-ornith-35b",
         "bench-north-mini-code",
-        "bench-qwythos-9b",
-        "bench-glm47f-claude-distill",
         "auto-agentic-lite",
+        # Promoted 2026-06-30 from V10 candidate eval
+        "auto-agentic-ornith",
+        "auto-coding-northmini",
     }
 )
 

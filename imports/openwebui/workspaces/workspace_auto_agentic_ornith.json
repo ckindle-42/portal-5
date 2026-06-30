@@ -1,0 +1,12 @@
+{
+  "id": "auto-agentic-ornith",
+  "name": "⚡ Portal Agentic Coder (Ornith)",
+  "meta": {
+    "description": "⚡ Portal Agentic Coder (Ornith)",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-agentic-ornith"
+  }
+}
