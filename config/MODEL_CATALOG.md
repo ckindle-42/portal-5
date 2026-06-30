@@ -217,9 +217,9 @@ VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base, ~4.4GB Q4_K_M). AppSec / co
 
 Gemma4-E2B QAT abliterated (~3GB, huihui_ai, Gemma4 base). auto-pentest PRIMARY (promoted 2026-06-25) + bench-exec-exploit PRIMARY. Thinking model — strips <think> blocks in pipeline output. Head-to-head vs baronllm 2026-06-25 (stripped final answer): composite 0.70 vs 0.50, header 0.83 vs 0.50, MITRE 1.4 vs 0.5 avg, zero refusals/disclaimers. Exec chain: 80.0% EXPLOIT slot (108/135), 71.6 t/s, zero zero-tool chains. Replaces Qwable-35B in bench chain (21GB → 3GB, +7.6pp) and baronllm on auto-pentest (8B → 2B, +0.20 composite). audit-tools 2026-06-24: tool_call confirmed.
 
-### `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf`
+### `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` — REMOVED from security group
 
-Qwable-3.6-35B MoE (~21GB, MIT). SUPERSEDED in bench chain and auto-pentest by gemma-4-abliterated:E2b-qat (2026-06-25). bench-exec-reasoning pipeline workspace target. Confirmed tool-use 2026-06-18.
+Qwable-3.6-35B MoE (~21GB, MIT). SUPERSEDED in bench chain and auto-pentest by gemma-4-abliterated:E2b-qat (2026-06-25). REMOVED from `ollama-security` group 2026-06-30 per SECURITY_FLEET_REVIEW_2026-06.md (security chain coverage 0.64, below 2/2 WIN threshold) — config had drifted from the documented decision; corrected here. Confirmed substituted by `qwen3-coder:30b-a3b-q4_K_M` in the 2026-06-29 chain rerun. Still present in `ollama-coding` group (separate decision, untouched). Confirmed tool-use 2026-06-18.
 
 ### `lfm2.5:8b`
 
