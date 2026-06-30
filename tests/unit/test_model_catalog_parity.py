@@ -33,6 +33,18 @@ def _catalog_model_ids() -> set[str]:
     return set(re.findall(r"^### `([^`]+)`", text, re.MULTILINE))
 
 
+def _catalog_retired_ids() -> set[str]:
+    """Catalog headers explicitly marked DROPPED/RETIRED in the header line.
+
+    Additive-only catalog discipline: nothing is deleted, retired models are
+    labeled in place rather than purged. Such entries are expected to have no
+    backends.yaml counterpart — that's the point of removal — so they're
+    exempt from the orphan check below without exempting genuine drift.
+    """
+    text = CATALOG.read_text()
+    return set(re.findall(r"^### `([^`]+)` — (?:DROPPED|RETIRED)\b", text, re.MULTILINE))
+
+
 def test_all_backends_models_have_catalog_entry() -> None:
     """Every model id in backends.yaml must have a ### `id` section in MODEL_CATALOG.md."""
     backend_ids = _backends_model_ids()
@@ -45,13 +57,15 @@ def test_all_backends_models_have_catalog_entry() -> None:
 
 
 def test_no_orphan_catalog_entries() -> None:
-    """Every MODEL_CATALOG.md section must correspond to a model in backends.yaml."""
+    """Every MODEL_CATALOG.md section must correspond to a model in backends.yaml,
+    unless explicitly labeled DROPPED/RETIRED (additive-only catalog discipline)."""
     backend_ids = _backends_model_ids()
     catalog_ids = _catalog_model_ids()
-    orphans = catalog_ids - backend_ids
+    retired_ids = _catalog_retired_ids()
+    orphans = catalog_ids - backend_ids - retired_ids
     assert not orphans, (
-        f"{len(orphans)} MODEL_CATALOG section(s) with no matching backends.yaml entry:\n"
-        + "\n".join(f"  {m}" for m in sorted(orphans))
+        f"{len(orphans)} MODEL_CATALOG section(s) with no matching backends.yaml entry "
+        "and no DROPPED/RETIRED label:\n" + "\n".join(f"  {m}" for m in sorted(orphans))
     )
 
 

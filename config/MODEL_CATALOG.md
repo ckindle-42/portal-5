@@ -55,7 +55,7 @@ Qwen3.6-35B-A3B UD-Q4_K_XL (~22GB, Unsloth Dynamic 2.0, MoE 3B active, 23 TPS). 
 
 ### `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
 
-Qwen-AgentWorld-35B-A3B UD-Q4_K_XL (~21GB, Alibaba/Qwen, Apache 2.0, 2026-06-24, MoE 3B active, 262K ctx). Language world model: trained on MCP, Terminal, SWE, Web, Android, OS, Search env-simulation trajectories. 45 TPS, TTFT 0.1s warm. audit-tools PASS 2026-06-25. PROMOTED to auto-agentic secondary (TASK_LFM_AGENTWORLD_ROUTER_V1). Also in ollama-coding.
+Qwen-AgentWorld-35B-A3B UD-Q4_K_XL (~21GB, Alibaba/Qwen, Apache 2.0, 2026-06-24, MoE 3B active, 262K ctx). Language world model: trained on MCP, Terminal, SWE, Web, Android, OS, Search env-simulation trajectories. 45 TPS, TTFT 0.1s warm. audit-tools PASS 2026-06-25. PROMOTED to auto-agentic secondary (TASK_LFM_AGENTWORLD_ROUTER_V1) and auto-agentic-lite primary. Also in ollama-coding. NEEDS FURTHER TESTING (2026-06-30): V10 re-validation probes (P1_envsim 3/5, P6_swe_handoff 2/5) scored well below what the model card's env-simulation/tool-coherence training would predict — operator flagged the gap as suspicious rather than conclusive. Production status unchanged pending a follow-up bench with a harness that better matches its trained strengths; do not treat the V10 probe scores as a demotion signal yet.
 
 ### `portal5/gemma4-12b:q4_K_M-ctx8k`
 
@@ -175,17 +175,17 @@ GLM-4.7-Flash REAP UD-Q4_K_XL (~14.2GB, unsloth, MIT). Same base as glm-4.7-flas
 
 GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI, April 2026). GLM thinking/reasoning variant — ZhipuAI answer to QwQ/DeepSeek-R1. Multi-step chain-of-thought. PROMOTED 2026-06-21: quality 1.00, 12.1 TPS in bench. auto-glm-thinking production workspace. emits_reasoning=True. supports_tools=false: Ollama HTTP 400 "does not support tools" — confirmed by audit-tools 2026-06-21.
 
-### `hf.co/deepreinforce-ai/Ornith-1.0-9B-GGUF:Q4_K_M`
+### `hf.co/deepreinforce-ai/Ornith-1.0-9B-GGUF:Q4_K_M` — DROPPED 2026-06-30
 
-Ornith-1.0-9B Q4_K_M (~5.6GB, DeepReinforce/MIT, Qwen3.5-9B base, 262K ctx, dense). Self-improving agentic-coding RL. Reasoning model, qwen3_xml tool parser. V10 candidate — bench-ornith-9b. PROMOTE_POLICY=confirm.
+Ornith-1.0-9B Q4_K_M (~5.6GB, DeepReinforce/MIT, Qwen3.5-9B base, 262K ctx, dense). Self-improving agentic-coding RL. Reasoning model, qwen3_xml tool parser. V10 candidate — bench-ornith-9b. DROPPED 2026-06-30: operator verdict — modest gain over baseline (4/5, 3/5 probe markers) didn't justify a new lane; the 35B sibling is the keeper. Workspace removed; backends.yaml entry removed.
 
-### `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M`
+### `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` — PROMOTED 2026-06-30
 
-Ornith-1.0-35B Q4_K_M (~21GB, DeepReinforce/MIT, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Same RL training as 9B sibling. V10 candidate — bench-ornith-35b. Substitutes for AEON-7 NVFP4 (Blackwell-only). PROMOTE_POLICY=confirm.
+Ornith-1.0-35B Q4_K_M (~21GB, DeepReinforce/MIT, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Same RL training as 9B sibling. V10 candidate — bench-ornith-35b. Substitutes for AEON-7 NVFP4 (Blackwell-only). PROMOTED 2026-06-30 to new `auto-agentic-ornith` workspace — strong tool-chain (4/5) and SWE-handoff (4/5) probe markers. Selectable in opencode (`portal/auto-agentic-ornith`) and Claude Code (`cc-local.sh --model auto-agentic-ornith`) alongside auto-agentic and auto-agentic-lite, not replacing either.
 
-### `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4`
+### `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4` — PROMOTED 2026-06-30
 
-North-Mini-Code-1.0-QAD NVFP4 W4A16 (~19.3GB, Cohere Labs, Apache 2.0, cohere2moe arch, 256K ctx, 64K out, 30B-A3B MoE 128 experts top-8). Agentic-coding RL. NVFP4 weight-only quant (no FP4 hardware required). V10 candidate — bench-north-mini-code. PROMOTE_POLICY=confirm.
+North-Mini-Code-1.0-QAD NVFP4 W4A16 (~19.3GB, Cohere Labs, Apache 2.0, cohere2moe arch, 256K ctx, 64K out, 30B-A3B MoE 128 experts top-8). Agentic-coding RL. NVFP4 weight-only quant (no FP4 hardware required). V10 candidate — bench-north-mini-code. PROMOTED 2026-06-30 to new `auto-coding-northmini` workspace as an additional option for lineage diversity — does NOT replace auto-coding (Qwen3-Coder-30B stays primary). cohere2moe architecture confirmed smoke-loads cleanly on this Ollama build.
 
 ## Security group
 
@@ -291,13 +291,13 @@ DeepSeek-R1-0528-Qwen3-8B Q4_K_XL (~5GB, MIT, Qwen3-8B base, May 2026). Chain-of
 
 Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Cisco fdtn-ai, Llama-3.1-8B cybersec continued-pretrain + reasoning, Apache 2.0). Native <think>. MOVED from security group to reasoning (SECURITY_FLEET_REVIEW_2026-06) — training is security reasoning/analysis, not agentic tool-calling; 400 error on all tool probes confirmed in Run A 2026-06-21. Correctly serves auto-blueteam analytical work (DFIR, threat modeling, ATT&CK analysis) through reasoning group pathway. supports_tools=false.
 
-### `hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M`
+### `hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M` — DROPPED 2026-06-30
 
-Qwythos-9B Claude-Mythos-5-1M Q4_K_M (~5.6GB, Empero, Apache 2.0, Qwen3.5-9B base, 1,048,576 ctx via YaRN). Post-trained on ~500M tokens of Claude Mythos/Fable reasoning traces. Function calling + uncensored. V10 candidate — bench-qwythos-9b. PROMOTE_POLICY=confirm.
+Qwythos-9B Claude-Mythos-5-1M Q4_K_M (~5.6GB, Empero, Apache 2.0, Qwen3.5-9B base, 1,048,576 ctx via YaRN). Post-trained on ~500M tokens of Claude Mythos/Fable reasoning traces (NOTE: claimed dataset provenance unverifiable — Anthropic's Mythos/Fable models are not publicly accessible; treat as unconfirmed marketing, not fabrication). Function calling + uncensored. V10 candidate — bench-qwythos-9b. DROPPED 2026-06-30: worst performer in the V10 set (0/5 needle-in-haystack despite the 1M-context headline, 2/5 uncensored-depth). Workspace removed; backends.yaml entry removed.
 
-### `hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:Q4_K_M`
+### `hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:Q4_K_M` — DROPPED 2026-06-30
 
-GLM-4.7-Flash Claude-Opus-4.5 High-Reasoning Distill Q4_K_M (~18.1GB, TeichAI, Apache 2.0, base unsloth/GLM-4.7-Flash, deepseek2/glm4_moe_lite, 30B total). 250-sample Opus-4.5 reasoning distill. V10 candidate — bench-glm47f-claude-distill. PROMOTE_POLICY=confirm.
+GLM-4.7-Flash Claude-Opus-4.5 High-Reasoning Distill Q4_K_M (~18.1GB, TeichAI, Apache 2.0, base unsloth/GLM-4.7-Flash, deepseek2/glm4_moe_lite, 30B total). 250-sample Opus-4.5 reasoning distill (NOTE: this is SFT on text outputs scraped/generated to mimic Claude's style, not true logit distillation — community discussion on the HF model page confirms this directly). V10 candidate — bench-glm47f-claude-distill. DROPPED 2026-06-30: did beat its own base (2.0/3.0 vs 1.0/3.0 on bench-glm) but not enough to justify a new lane given the 130-target persona/workspace surface already in place. Workspace removed; backends.yaml entry removed.
 
 ## Vision group
 

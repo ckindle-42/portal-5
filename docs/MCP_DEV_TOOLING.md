@@ -54,7 +54,7 @@ tools live introspection of the running Portal 5 stack and an AI-powered code ex
 | Tool | What it does |
 |---|---|
 | `get_pipeline_status` | Pipeline health, workspace count, version |
-| `list_workspaces` | All 90 workspaces with names/descriptions; accepts optional filter string |
+| `list_workspaces` | All 94 workspaces with names/descriptions; accepts optional filter string |
 | `get_loaded_models` | Which Ollama models are in VRAM, their sizes, expiry times |
 | `get_metrics_summary` | Request totals, tool call counts, error rates, TPS from Prometheus |
 | `get_workspace_recommendation` | Given a task description, returns the best workspace ID with reasoning |
@@ -119,7 +119,7 @@ repo root tells it to use Portal 5 as its AI backend instead of any cloud API.
 
 - **Fully local inference** — all completions go through portal-pipeline (:9099) to Ollama
   on your hardware. No tokens leave the machine.
-- **90 workspaces as models** — `opencode models` lists every Portal 5 workspace. Default:
+- **94 workspaces as models** — `opencode models` lists every Portal 5 workspace. Default:
   `portal/auto-coding-agentic` (Laguna-XS.2 33B-A3B with FastContext explore loop).
 - **All 19 MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
   filesystem, git, docker, sandbox, pipeline, and all 15 portal-* tool servers.
@@ -145,7 +145,9 @@ opencode .
 opencode .                                          # default: portal/auto-coding-agentic (Laguna-XS.2 33B)
 opencode . --model portal/auto-agentic              # heavy 80B MoE for complex multi-file refactors
 opencode . --model portal/auto-agentic-lite         # AgentWorld 35B direct (lighter load, 45 t/s)
+opencode . --model portal/auto-agentic-ornith       # Ornith-1.0-35B direct — agentic option, not a replacement
 opencode . --model portal/auto-coding               # one-shot code generation (Qwen3-Coder 30B)
+opencode . --model portal/auto-coding-northmini     # North-Mini-Code 30B-A3B — coding diversity option
 opencode . --model portal/auto-reasoning            # deep reasoning for architectural decisions
 opencode . --model portal/auto-security             # defensive security code review
 opencode . --model portal/auto-pentest              # authorized penetration testing assistance
@@ -154,7 +156,7 @@ opencode . --model portal/auto-data                 # data science, SQL, analysi
 opencode . --model portal/auto-research             # web-augmented research and summarization
 ```
 
-Run `opencode models` to list all 89 available workspaces.
+Run `opencode models` to list all 94 available workspaces.
 
 ### Dual mode: Portal vs stock (no file renaming)
 
@@ -210,7 +212,9 @@ scripts/cc-local.sh                              # default: auto-agentic workspa
 scripts/cc-local.sh --model auto-coding-agentic  # Laguna-XS.2 33B (agentic loop)
 scripts/cc-local.sh --model auto-agentic         # Qwen3-Coder-Next 80B / AgentWorld 35B fallback
 scripts/cc-local.sh --model auto-agentic-lite    # AgentWorld 35B direct (lighter, 45 t/s)
+scripts/cc-local.sh --model auto-agentic-ornith  # Ornith-1.0-35B direct — agentic option, not a replacement
 scripts/cc-local.sh --model auto-coding          # Qwen3-Coder 30B (one-shot)
+scripts/cc-local.sh --model auto-coding-northmini # North-Mini-Code 30B-A3B — coding diversity option
 scripts/cc-local.sh --model auto-reasoning       # DeepSeek-R1-0528 8B (reasoning)
 scripts/cc-local.sh --model auto-security        # VulnLLM-R-7B (security)
 ```
@@ -226,6 +230,16 @@ SSE format. No change to `.mcp.json` — all Portal tools still available.
 particularly well-matched — its pretraining covers MCP tool-calling, Terminal execution,
 SWE workflows, and web/OS environment simulation. These are exactly the trajectories
 Claude Code exercises. It runs as the `auto-agentic` fallback when the primary 80B isn't warm.
+(2026-06-30: a re-validation bench scored noticeably below what this training profile would
+predict — production status is unchanged while that gap is investigated, see
+`config/MODEL_CATALOG.md`.)
+
+**Ornith-1.0-35B for IDE use:** Ornith (DeepReinforce, `auto-agentic-ornith`) is a second,
+architecturally distinct agentic option — self-improving RL jointly optimizes solution
+rollout and scaffold rather than env-simulation pretraining. Promoted 2026-06-30 on strong
+tool-chain and SWE-handoff probe scores. Not a replacement for AgentWorld or the 80B
+primary — pick it when you want a different agentic lineage to compare against, or when
+the others aren't warm.
 
 **Environment variable shortcut** (without the script):
 ```bash
