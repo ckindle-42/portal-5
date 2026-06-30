@@ -496,10 +496,70 @@ def dag_parallel_groups(dag: dict[str, list[str]]) -> list[list[str]]:
     return groups
 
 
+def verify_lab_targets_reachable(dry_run: bool = False) -> bool:
+    """Hard reachability gate on the two static lab targets (DC, SRV).
+
+    Unlike probe_lab_services() — which is per-service and used only for prompt
+    auto-filtering, and only runs when --probe-lab is explicitly passed — this is a
+    fast, unconditional yes/no check meant to run whenever --lab-exec is set, on
+    every chain code path, before any model inference begins.
+
+    Added 2026-06-30 after sec_bench_chain_rerun_20260629T163759Z.json produced
+    lab_success=0/24 with open_ports empty on every test and no abort signal. See
+    docs/LAB_REACHABILITY_DIAGNOSTIC_2026-06-30.md.
+
+    Returns False (abort) only if NEITHER target responds — a strong signal the
+    whole lab network path is down. Partial reachability (one target up) warns but
+    does not block, since different scenarios depend on different targets.
+    """
+    if not _LAB_EXEC_AVAILABLE:
+        return True  # nothing to verify; synthetic fallback handles this itself
+    if dry_run:
+        return True
+    dc = _LAB_DC or "10.10.11.21"
+    srv = _LAB_SRV or "10.10.11.33"
+    probe_code_template = (
+        'python3 -c "'
+        "import socket\n"
+        "ports = [22,53,80,88,135,389,443,445,464,636,3268,8080,8443]\n"
+        "open_any = False\n"
+        "for p in ports:\n"
+        "  try:\n"
+        "    s=socket.socket();s.settimeout(1);s.connect(('{host}',p));s.close()\n"
+        "    open_any = True\n"
+        "    break\n"
+        "  except: pass\n"
+        "print('REACHABLE' if open_any else 'UNREACHABLE')\n"
+        '" 2>&1'
+    )
+    reachable: dict[str, bool] = {}
+    for label, host in (("DC", dc), ("SRV", srv)):
+        try:
+            r = _lab_mcp_call(probe_code_template.format(host=host), timeout=15)
+            out = r.get("output", "") if r else ""
+        except Exception:
+            out = ""
+        reachable[label] = out.strip() == "REACHABLE"
+        status = "reachable" if reachable[label] else "UNREACHABLE"
+        print(f"  [lab-gate] {label} ({host}): {status}")
+    if not any(reachable.values()):
+        print(
+            "  [lab-gate] both DC and SRV unreachable — aborting before wasting "
+            "inference time on a dead lab"
+        )
+        return False
+    if not all(reachable.values()):
+        print(
+            "  [lab-gate] WARNING: partial reachability — scenarios depending on the "
+            "unreachable target will produce misleading lab_success=False results"
+        )
+    return True
+
+
 # ── Lab dispatch for synthetic chain ─────────────────────────────────────────
 
 
-def lab_dispatch(fn_name: str, fn_args: dict, dry_run: bool = False) -> str:
+def _lab_dispatch_inner(fn_name: str, fn_args: dict, dry_run: bool = False) -> str:
     """Dispatch a chain tool call to the real lab or return synthetic result.
 
     Maps chain test tool names to real MCP tool calls:
@@ -627,3 +687,35 @@ def lab_dispatch(fn_name: str, fn_args: dict, dry_run: bool = False) -> str:
         return r.get("output", "") or "[exfil: no output]"
 
     return f"OK: {fn_name} completed (synthetic)."
+
+
+def lab_dispatch(fn_name: str, fn_args: dict, dry_run: bool = False) -> str:
+    """Thin wrapper over _lab_dispatch_inner with optional raw-output capture.
+
+    When the BENCH_LAB_RAW_LOG env var is set, appends one JSON line per dispatched
+    tool call (full raw tool_result text included) to that path. Added 2026-06-30 as
+    a direct response to lab_success=0/24 being undiagnosable from the summarized
+    chain_tests JSON alone — see docs/LAB_REACHABILITY_DIAGNOSTIC_2026-06-30.md.
+
+    Logging failures never break the bench run.
+    """
+    result = _lab_dispatch_inner(fn_name, fn_args, dry_run=dry_run)
+    raw_log_path = os.environ.get("BENCH_LAB_RAW_LOG")
+    if raw_log_path:
+        try:
+            with open(raw_log_path, "a") as f:
+                f.write(
+                    _json.dumps(
+                        {
+                            "ts": time.time(),
+                            "fn_name": fn_name,
+                            "fn_args": fn_args,
+                            "dry_run": dry_run,
+                            "raw_output": result,
+                        }
+                    )
+                    + "\n"
+                )
+        except Exception:
+            pass
+    return result

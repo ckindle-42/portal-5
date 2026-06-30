@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -49,6 +50,7 @@ from .lab import (
     probe_lab_services,
     restore_lab_vms,
     snapshot_lab_vms,
+    verify_lab_targets_reachable,
 )
 from .scoring import (
     score_argument_adaptation,
@@ -171,6 +173,17 @@ def main() -> None:
         help=(
             "Probe which lab services are reachable before running chains. "
             "Prints a report of reachable/unreachable services. Implies --lab-exec."
+        ),
+    )
+    parser.add_argument(
+        "--force-unreachable-lab",
+        action="store_true",
+        help=(
+            "Override the mandatory DC/SRV reachability gate that runs whenever "
+            "--lab-exec is set. Use only for deliberate testing against a known-down "
+            "lab (e.g. validating synthetic fallback behavior). Added 2026-06-30 after "
+            "a 24-test chain rerun produced lab_success=0/24 with no abort signal — "
+            "see docs/LAB_REACHABILITY_DIAGNOSTIC_2026-06-30.md."
         ),
     )
     parser.add_argument(
@@ -356,7 +369,7 @@ def main() -> None:
             "Scores per-model step_coverage, full-chain composite, and handoff_quality "
             "(whether each model references prior models' concrete findings). "
             "Requires --exec-eval. Example: "
-            "--exec-chain-models VulnLLM-7B:Q4_K_M Qwable-35B:Q4_K_M nemotron-70b:Q4_K_M"
+            "--exec-chain-models VulnLLM-7B:Q4_K_M qwen3-coder:30b-a3b-q4_K_M nemotron-70b:Q4_K_M"
         ),
     )
     parser.add_argument(
@@ -574,6 +587,23 @@ def main() -> None:
             print(
                 "  WARNING: lab exec requested but bench_lab_exec.py not importable — using synthetic"
             )
+
+        # ── Mandatory reachability gate (independent of --probe-lab) ────────────
+        # Added 2026-06-30: --probe-lab only auto-filters prompts, and that filter is
+        # bypassed by an explicit --prompt list and never consulted on the
+        # --chain-models + --all-scenarios path. This gate runs unconditionally
+        # whenever --lab-exec is set, on both paths, before any model inference.
+        if args.lab_exec and _LAB_EXEC_AVAILABLE and not args.force_unreachable_lab:
+            print("\n  [lab-gate] verifying DC/SRV reachability before chain dispatch ...")
+            if not verify_lab_targets_reachable(dry_run=args.dry_run):
+                print(
+                    "\n  ABORTING: lab targets unreachable — this run would otherwise "
+                    "produce lab_success=0 across the board with no signal anything was "
+                    "wrong (see docs/LAB_REACHABILITY_DIAGNOSTIC_2026-06-30.md). Verify "
+                    "VM state and network path, or pass --force-unreachable-lab to "
+                    "override deliberately.\n"
+                )
+                sys.exit(1)
 
         # ── Lab service auto-discovery ────────────────────────────────────────
         if args.probe_lab and _LAB_EXEC_AVAILABLE:

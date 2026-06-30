@@ -184,7 +184,7 @@ python3 -m tests.benchmarks.bench_security \
   --skip-workspace-bench \
   --exec-chain-models \
     "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M" \
-    "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf" \
+    "qwen3-coder:30b-a3b-q4_K_M" \
     "huihui_ai/baronllm-abliterated:latest" \
   --blue-defender "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0" \
   --prompt \
@@ -251,7 +251,7 @@ python3 -m tests.benchmarks.bench_security \
   --skip-workspace-bench \
   --exec-chain-models \
     "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M" \
-    "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf" \
+    "qwen3-coder:30b-a3b-q4_K_M" \
     "huihui_ai/baronllm-abliterated:latest" \
   --blue-defender "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0" \
   --prompt kerberoasting asrep_roasting bloodhound_ad_recon adcs_template_abuse \
@@ -273,7 +273,7 @@ python3 -m tests.benchmarks.bench_security \
   --skip-workspace-bench \
   --exec-chain-models \
     "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M" \
-    "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf" \
+    "qwen3-coder:30b-a3b-q4_K_M" \
     "huihui_ai/baronllm-abliterated:latest" \
   --blue-defender "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0" \
   --prompt kerberoasting \

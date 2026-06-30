@@ -126,8 +126,6 @@ backends:
     supports_tools: true
   - id: huihui_ai/gemma-4-abliterated:E2b-qat
     supports_tools: true
-  - id: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
-    supports_tools: true
   - id: lfm2.5:8b
     supports_tools: true
   - id: granite4.1:8b
