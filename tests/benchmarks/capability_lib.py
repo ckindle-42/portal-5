@@ -14,6 +14,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 # Markers that signal the model has stopped reasoning and started answering.
 # Ordered: the earliest match wins as the answer boundary.
 _ANSWER_BOUNDARIES = [
@@ -124,3 +126,47 @@ def parse_tcpdump_filter(cmd: str) -> dict:
         2,
     )
     return facts
+
+
+# ── Methodology stamping (v2-capability) ─────────────────────────────────────
+
+METHODOLOGY_VERSION = "v2-capability"
+
+
+def stamp_result_meta(payload: dict) -> dict:
+    """Inject methodology version + scored_at into a result payload.
+
+    Every v2 result writer must call this. Files lacking the stamp are treated
+    as implicit v1-format and are not cross-compared with v2 results.
+    """
+    from datetime import UTC, datetime
+
+    payload["methodology_version"] = METHODOLOGY_VERSION
+    payload["scored_at"] = datetime.now(tz=UTC).isoformat()
+    return payload
+
+
+def reasoning_aware_max_tokens(workspace: str) -> int:
+    """8192 for emits_reasoning workspaces, else 4096 (reads portal.yaml)."""
+    import yaml
+
+    try:
+        cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+        ws = cfg.get("workspaces", {}).get(workspace, {})
+        return 8192 if ws.get("emits_reasoning") else 4096
+    except Exception:
+        return 4096
+
+
+def numeric_answer_matches(text: str, expected: float, tol: float = 0.0) -> bool:
+    """True if the model's final numeric answer matches expected within tol.
+
+    Reasoning is stripped first via extract_final_answer, then the LAST number
+    in the answer body is compared (models state the final answer last).
+    """
+    body = extract_final_answer(text)
+    nums = re.findall(r"-?\d+(?:\.\d+)?", body.replace(",", ""))
+    if not nums:
+        return False
+    got = float(nums[-1])
+    return abs(got - expected) <= tol

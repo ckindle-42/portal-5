@@ -23,12 +23,14 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import yaml
 
 from tests.benchmarks.capability_lib import (
     extract_code_block,
     extract_final_answer,
     parse_tcpdump_filter,
     run_python_against_tests,
+    stamp_result_meta,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -853,14 +855,77 @@ def _compute_delta(
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
 
+def _production_workspaces() -> list[str]:
+    """All non-bench workspace IDs from portal.yaml (fleet re-baseline scope)."""
+    cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    return [k for k in cfg.get("workspaces", {}) if not k.startswith("bench-")]
+
+
+def _run_one_workspace(
+    workspace: str,
+    probes_to_run: list[str],
+    baselines: list[str],
+    ts: str,
+    out_path: Path,
+) -> None:
+    """Run the full probe set for a single candidate workspace and write its JSON."""
+    all_results: list[dict] = []
+    baseline_all: dict[str, list[ProbeResult]] = {}
+    for bl in baselines:
+        print(f"\n── Baseline: {bl} ──")
+        bl_results: list[ProbeResult] = []
+        for pid in probes_to_run:
+            print(f"  {pid} ...", end=" ", flush=True)
+            r = PROBES[pid](bl)
+            bl_results.extend(r)
+            fmt = sum(x.format_score for x in r) / max(len(r), 1)
+            cap = sum(x.capability_score for x in r) / max(len(r), 1)
+            print(f"fmt={fmt:.2f} cap={cap:.2f}")
+        baseline_all[bl] = bl_results
+        all_results.append(
+            {"role": "baseline", "workspace": bl, "results": [asdict(r) for r in bl_results]}
+        )
+
+    print(f"\n── Workspace: {workspace} ──")
+    ws_results: list[ProbeResult] = []
+    for pid in probes_to_run:
+        print(f"  {pid} ...", end=" ", flush=True)
+        r = PROBES[pid](workspace)
+        ws_results.extend(r)
+        fmt = sum(x.format_score for x in r) / max(len(r), 1)
+        cap = sum(x.capability_score for x in r) / max(len(r), 1)
+        print(f"fmt={fmt:.2f} cap={cap:.2f}")
+
+    for bl_results in baseline_all.values():
+        _compute_delta(ws_results, bl_results)
+    all_results.append(
+        {"role": "candidate", "workspace": workspace, "results": [asdict(r) for r in ws_results]}
+    )
+
+    payload = {
+        "task_id": "TASK_BENCH_CAPABILITY_V11",
+        "timestamp": ts,
+        "candidate": workspace,
+        "baselines": baselines,
+        "probes_run": probes_to_run,
+        "results": all_results,
+    }
+    payload = stamp_result_meta(payload)
+    out_path.write_text(json.dumps(payload, indent=2))
+    print(f"\nResults → {out_path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Portal 5 Capability Probe Harness (V11)")
-    parser.add_argument(
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument(
         "--workspace",
-        action="append",
-        dest="workspaces",
-        required=True,
         help="Workspace ID to probe (repeatable for multiple)",
+    )
+    target.add_argument(
+        "--all",
+        action="store_true",
+        help="Probe every production (non-bench) workspace from portal.yaml (fleet re-baseline)",
     )
     parser.add_argument(
         "--probe",
@@ -889,87 +954,29 @@ def main() -> None:
     args = parser.parse_args()
 
     ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
-    out_path = Path(args.output) if args.output else RESULTS_DIR / f"v11_capability_{ts}.json"
-
     probes_to_run = args.probes if args.probes else list(PROBES.keys())
+
+    workspaces = _production_workspaces() if args.all else [args.workspace]
 
     if args.dry_run:
         print(f"Capability Probe V11 — DRY RUN — {ts}")
-        print(f"  Workspaces: {args.workspaces}")
+        print(f"  Workspaces ({len(workspaces)}): {workspaces}")
         print(f"  Probes: {probes_to_run}")
         print(f"  Baselines: {args.baselines}")
-        print(f"  Output: {out_path}")
         return
 
     print(f"Capability Probe V11 — {ts}")
-    print(f"  Workspaces: {args.workspaces}")
+    print(f"  Workspaces: {len(workspaces)}")
     print(f"  Probes: {probes_to_run}")
     if args.baselines:
         print(f"  Baselines: {args.baselines}")
 
-    all_results: list[dict] = []
-    baseline_all: dict[str, list[ProbeResult]] = {}
-
-    # Run baselines first (only once, shared across all candidate workspaces)
-    for bl in args.baselines:
-        print(f"\n── Baseline: {bl} ──")
-        bl_results: list[ProbeResult] = []
-        for pid in probes_to_run:
-            print(f"  {pid} ...", end=" ", flush=True)
-            probe_fn = PROBES[pid]
-            r = probe_fn(bl)
-            bl_results.extend(r)
-            fmt = sum(x.format_score for x in r) / max(len(r), 1)
-            cap = sum(x.capability_score for x in r) / max(len(r), 1)
-            print(f"fmt={fmt:.2f} cap={cap:.2f}")
-        baseline_all[bl] = bl_results
-        all_results.append(
-            {
-                "role": "baseline",
-                "workspace": bl,
-                "results": [asdict(r) for r in bl_results],
-            }
-        )
-
-    # Run each candidate workspace
-    for ws in args.workspaces:
-        print(f"\n── Workspace: {ws} ──")
-        ws_results: list[ProbeResult] = []
-        for pid in probes_to_run:
-            print(f"  {pid} ...", end=" ", flush=True)
-            probe_fn = PROBES[pid]
-            r = probe_fn(ws)
-            ws_results.extend(r)
-            fmt = sum(x.format_score for x in r) / max(len(r), 1)
-            cap = sum(x.capability_score for x in r) / max(len(r), 1)
-            print(f"fmt={fmt:.2f} cap={cap:.2f}")
-
-        # Compute deltas against each baseline
-        for bl_results in baseline_all.values():
-            _compute_delta(ws_results, bl_results)
-
-        all_results.append(
-            {
-                "role": "candidate",
-                "workspace": ws,
-                "results": [asdict(r) for r in ws_results],
-            }
-        )
-
-    out_path.write_text(
-        json.dumps(
-            {
-                "task_id": "TASK_BENCH_CAPABILITY_V11",
-                "timestamp": ts,
-                "candidates": args.workspaces,
-                "baselines": args.baselines,
-                "probes_run": probes_to_run,
-                "results": all_results,
-            },
-            indent=2,
-        )
-    )
-    print(f"\nResults → {out_path}")
+    for ws in workspaces:
+        if args.output and len(workspaces) == 1:
+            out_path = Path(args.output)
+        else:
+            out_path = RESULTS_DIR / f"v11_capability_{ws}_{ts}.json"
+        _run_one_workspace(ws, probes_to_run, args.baselines, ts, out_path)
 
 
 if __name__ == "__main__":
