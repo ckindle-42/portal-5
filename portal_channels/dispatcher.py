@@ -146,6 +146,12 @@ VALID_WORKSPACES = frozenset(
         # Promoted 2026-06-30 from V10 candidate eval
         "auto-agentic-ornith",
         "auto-coding-northmini",
+        # Bench candidates 2026-06-30 (intake V11) — bench-only, PROMOTE_POLICY=confirm
+        "bench-qwen35-9b-heretic-vision",
+        "bench-agents-a1",
+        "bench-superqwen-agentworld-ablit",
+        "bench-bugtrace-ultra-27b",
+        "bench-gemma4-12b-agentic",
     }
 )
 

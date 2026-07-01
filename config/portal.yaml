@@ -2039,6 +2039,103 @@ workspaces:
     expose_to_owui: false
     enable_web_search: false
 
+  bench-qwen35-9b-heretic-vision:
+    name: "🧪 Bench · Qwen3.5-9B HERETIC Vision (DavidAU)"
+    description: |-
+      Qwen3.5-9B Claude-4.6 HighIQ THINKING HERETIC UNCENSORED (~5.6GB Q4_K_M, DavidAU, Apache 2.0, dense, vision image-text-to-text, 262K→1M ctx via YaRN, thinking model). trohrbaugh heretic-v2 abliteration (KLD 0.079, 6/100 refusals). First uncensored vision entry in the fleet — Portal's vision lane has no uncensored option. Claude-4.6 distill claim is unverifiable-provenance marketing (same class as dropped Qwythos/GLM47F). PROMOTE_POLICY=confirm.
+    model_hint: hf.co/DavidAU/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED:Q4_K_M
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 1.0
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.0
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-agents-a1:
+    name: "🧪 Bench · Agents-A1 35B-A3B (InternScience)"
+    description: |-
+      InternScience Agents-A1 (~21GB Q4_K_M, Apache 2.0, Qwen3.5-MoE 35B-A3B, 262K ctx, purpose-built long-horizon agentic). Strong self-reported agentic benchmarks (τ2-Bench 79.8, IFEval 94.8, GAIA 96.0, SciCode 44.3). Has GitHub repo + technical report + own open eval framework — most serious candidate in this intake batch. Direct competitor to held AgentWorld and promoted Ornith. GGUF availability: 2 community quants — MUST reconfirm loadable at pull time. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/InternScience/Agents-A1-GGUF:Q4_K_M
+    predict_limit: 16384
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.85
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.0
+    emits_reasoning: true
+    tools:
+    - execute_bash
+    - execute_python
+    - read_text_file
+    - write_file
+    - remember
+    - recall
+    expose_to_owui: false
+    enable_web_search: false
+  bench-superqwen-agentworld-ablit:
+    name: "🧪 Bench · AgentWorld Abliterated 35B (Jiunsong)"
+    description: |-
+      SuperQwen-AgentWorld-35B-A3B abliterated GGUF (~21.2GB Q4_K_M, Jiunsong, Apache 2.0, qwen35moe arch, Qwen AgentWorld base). Abliterated variant of the same Qwen AgentWorld 35B-A3B base Portal already runs — uncensored fork of the held AgentWorld. Card is a stub (see BF16 parent model for benchmarks); treat all capability claims as unverified until benched. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M
+    predict_limit: 16384
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.05
+    emits_reasoning: true
+    tools:
+    - execute_bash
+    - execute_python
+    - read_text_file
+    - write_file
+    - remember
+    - recall
+    expose_to_owui: false
+    enable_web_search: false
+  bench-bugtrace-ultra-27b:
+    name: "🧪 Bench · BugTraceAI-CORE-Ultra 27B"
+    description: |-
+      BugTraceAI-CORE-Ultra-27B-Q6 (~22.1GB Q6_K, BugTraceAI, Apache 2.0, Qwen3.6 dense 27B, SFT on 2,541 real bug-bounty/CVE writeups). A TOOLING model — emits runnable artifacts (Nuclei templates, CVE PoCs, JWT crackers, C exploits), not prose. Self-reported 5/5 tooling bench, 0% refusal. Complements Portal's analysis-focused security lanes with exploit-GENERATION capability — a genuinely new ability. Scored via security exec-chain scorer, not chat quality. supports_tools=false (per supergemma4 precedent: offensive models given tool definitions enter reasoning loops). PROMOTE_POLICY=confirm.
+    model_hint: hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.1
+    top_p: 0.9
+    top_k: 20
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-gemma4-12b-agentic:
+    name: "🧪 Bench · Gemma-4 12B Agentic (yuxinlu1)"
+    description: |-
+      Gemma-4-12B agentic/fable5/composer2.5 (~6.87GB Q4_K_M, yuxinlu1, Apache 2.0, Gemma-4-12B-it finetune, agentic/coding/terminal, native Gemma-4 tool protocol via <|tool_call|> tokens, thinking mode). Reports HONESTLY: tau2-bench telecom 55% vs base 15% under a stated LOCAL self-eval harness (explicitly not leaderboard-comparable) + 0% fabrication probe. Small enough to fit with room to spare — a fast agentic/coding worker. Needs recent Ollama/llama.cpp for gemma4_unified arch. fable5 provenance is marketing. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M
+    predict_limit: 16384
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 1.0
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
+    emits_reasoning: true
+    tools:
+    - execute_bash
+    - execute_python
+    - read_text_file
+    - write_file
+    - remember
+    - recall
+    expose_to_owui: false
+    enable_web_search: false
+
 # ── Model pull registry ────────────────────────────────────────────────────────
 # HuggingFace → Ollama pull metadata. Consumed by `portal models pull`.
 # Workspaces reference these via `model_hint: <ollama_name>`.

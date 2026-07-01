@@ -857,8 +857,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Portal 5 Capability Probe Harness (V11)")
     parser.add_argument(
         "--workspace",
+        action="append",
+        dest="workspaces",
         required=True,
-        help="Workspace ID to probe",
+        help="Workspace ID to probe (repeatable for multiple)",
     )
     parser.add_argument(
         "--probe",
@@ -893,22 +895,22 @@ def main() -> None:
 
     if args.dry_run:
         print(f"Capability Probe V11 — DRY RUN — {ts}")
-        print(f"  Workspace: {args.workspace}")
+        print(f"  Workspaces: {args.workspaces}")
         print(f"  Probes: {probes_to_run}")
         print(f"  Baselines: {args.baselines}")
         print(f"  Output: {out_path}")
         return
 
     print(f"Capability Probe V11 — {ts}")
-    print(f"  Workspace: {args.workspace}")
+    print(f"  Workspaces: {args.workspaces}")
     print(f"  Probes: {probes_to_run}")
     if args.baselines:
         print(f"  Baselines: {args.baselines}")
 
     all_results: list[dict] = []
-
-    # Run baselines first
     baseline_all: dict[str, list[ProbeResult]] = {}
+
+    # Run baselines first (only once, shared across all candidate workspaces)
     for bl in args.baselines:
         print(f"\n── Baseline: {bl} ──")
         bl_results: list[ProbeResult] = []
@@ -929,36 +931,37 @@ def main() -> None:
             }
         )
 
-    # Run main workspace
-    print(f"\n── Workspace: {args.workspace} ──")
-    ws_results: list[ProbeResult] = []
-    for pid in probes_to_run:
-        print(f"  {pid} ...", end=" ", flush=True)
-        probe_fn = PROBES[pid]
-        r = probe_fn(args.workspace)
-        ws_results.extend(r)
-        fmt = sum(x.format_score for x in r) / max(len(r), 1)
-        cap = sum(x.capability_score for x in r) / max(len(r), 1)
-        print(f"fmt={fmt:.2f} cap={cap:.2f}")
+    # Run each candidate workspace
+    for ws in args.workspaces:
+        print(f"\n── Workspace: {ws} ──")
+        ws_results: list[ProbeResult] = []
+        for pid in probes_to_run:
+            print(f"  {pid} ...", end=" ", flush=True)
+            probe_fn = PROBES[pid]
+            r = probe_fn(ws)
+            ws_results.extend(r)
+            fmt = sum(x.format_score for x in r) / max(len(r), 1)
+            cap = sum(x.capability_score for x in r) / max(len(r), 1)
+            print(f"fmt={fmt:.2f} cap={cap:.2f}")
 
-    # Compute deltas against each baseline
-    for bl_results in baseline_all.values():
-        _compute_delta(ws_results, bl_results)
+        # Compute deltas against each baseline
+        for bl_results in baseline_all.values():
+            _compute_delta(ws_results, bl_results)
 
-    all_results.append(
-        {
-            "role": "candidate",
-            "workspace": args.workspace,
-            "results": [asdict(r) for r in ws_results],
-        }
-    )
+        all_results.append(
+            {
+                "role": "candidate",
+                "workspace": ws,
+                "results": [asdict(r) for r in ws_results],
+            }
+        )
 
     out_path.write_text(
         json.dumps(
             {
                 "task_id": "TASK_BENCH_CAPABILITY_V11",
                 "timestamp": ts,
-                "candidate": args.workspace,
+                "candidates": args.workspaces,
                 "baselines": args.baselines,
                 "probes_run": probes_to_run,
                 "results": all_results,
