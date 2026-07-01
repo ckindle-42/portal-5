@@ -131,6 +131,18 @@ Qwen3.6-35B-A3B Unsloth Dynamic 2.0 UD-Q4_K_XL (~22GB, hf.co, MoE 3B active). Se
 
 Qwen3.6-27B dense Q4 (~16GB, Alibaba, April 2026, Apache 2.0, 262K ctx). 77.2% SWE-bench Verified. Official non-abliterated build. PROMOTED to auto-spl + auto-data production model_hint. supports_tools=true per Qwen3.6 family; audit pending empirical confirmation (not yet run -- behavior consistent with tool use in production).
 
+### `hf.co/InternScience/Agents-A1-GGUF:Q4_K_M`
+
+InternScience Agents-A1 (~21GB Q4_K_M, Apache 2.0, Qwen3.5-MoE 35B-A3B, 262K ctx, purpose-built long-horizon agentic). GitHub repo + technical report + open eval framework. Self-reported τ2-Bench 79.8, IFEval 94.8, GAIA 96.0. Direct competitor to AgentWorld/Ornith. 2 community GGUF quants — confirm loadable at pull. bench-only, PROMOTE_POLICY=confirm. V11 candidate intake 2026-06-30.
+
+### `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M`
+
+SuperQwen AgentWorld Abliterated (~21.2GB Q4_K_M, Jiunsong, Apache 2.0). Abliterated fork of the Qwen AgentWorld 35B-A3B base Portal already runs — uncensored variant of the held AgentWorld. Card is a stub (see BF16 parent). bench-only, PROMOTE_POLICY=confirm. V11 candidate intake 2026-06-30.
+
+### `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
+
+Gemma-4-12B agentic/coding (~6.87GB Q4_K_M, yuxinlu1, Apache 2.0, gemma4_unified arch, 256K ctx, thinking mode). Gemma-4-12B-it finetune for agentic/coding/terminal tasks. Reports honestly: tau2-bench 55% vs base 15% (local self-eval, not leaderboard). Needs recent Ollama/llama.cpp for gemma4_unified. fable5 provenance is marketing. bench-only, PROMOTE_POLICY=confirm. V11 candidate intake 2026-06-30.
+
 ### `qwen3.6:35b-a3b-q4_K_M`
 
 Qwen3.6-35B-A3B MoE Q4 (~22GB, Alibaba, April 2026, Apache 2.0, 262K ctx). 3B active — fast decode at 35B-class quality. PROMOTED to auto-compliance production model_hint. supports_tools=true per Qwen3.6 family; audit pending empirical confirmation (not yet run -- behavior consistent with tool use in production).
@@ -232,6 +244,10 @@ IBM Granite 4.1 8B (~5.3GB Q4_K_M, 128K ctx, Apache 2.0, ISO-certified). Cross-l
 ### `devstral-small-2:latest`
 
 Mistral Devstral Small 2 (~15GB). Agentic coding / software engineering model — cross-listed in security for deep chain workspaces (auto-purpleteam-deep, auto-redteam-deep) where its structured sequential planning discipline and depth 11 chains are assets. 15.5 TPS pipeline — below interactive floor; deep async use only. Run A 2026-06-21: 1.00/1.00 both scenarios, depth 11.0, 45s. Primary home: ollama-coding.
+
+### `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K`
+
+BugTraceAI-CORE-Ultra-27B-Q6 (~22.1GB Q6_K, BugTraceAI, Apache 2.0, Qwen3.6 dense 27B). SFT on 2,541 real bug-bounty/CVE writeups. TOOLING model — emits runnable artifacts (Nuclei templates, CVE PoCs, JWT crackers, C exploits), not prose. Self-reported 5/5 tooling bench, 0% refusal. Exploit-GENERATION capability complements Portal's analysis-focused security lanes. supports_tools=false (per supergemma4 reasoning-loop precedent). bench-only, PROMOTE_POLICY=confirm. V11 candidate intake 2026-06-30.
 
 ## Reasoning group
 
@@ -336,6 +352,10 @@ Gemma 4 31B Dense QAT (~18GB, Apache 2.0, 256K ctx, vision+text, QAT: near-BF16 
 ### `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
 
 Gemma 4 31B JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M, dealignai, Gemma license, 4M context, vision+text). douyamv community quant (33K downloads). audit-tools 2026-06-16: finish_reason=tool_calls confirmed. Pentest bench 0.933 vs supergemma4 0.867. PROMOTED to auto-pentest primary.
+
+### `hf.co/DavidAU/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED:Q4_K_M`
+
+Qwen3.5-9B HERETIC Vision (~5.6GB Q4_K_M, DavidAU, Apache 2.0, dense, 262K→1M ctx, thinking model, vision image-text-to-text). trohrbaugh heretic-v2 abliterated (KLD 0.079, 6/100 refusals). First uncensored vision entry in fleet. Claude-4.6 distill claim is unverifiable-provenance marketing. bench-only, PROMOTE_POLICY=confirm. V11 candidate intake 2026-06-30.
 
 ## Creative group
 
