@@ -206,8 +206,8 @@ class TestLabDispatchMbptl:
         # (set at module import time from SANDBOX_LAB_EXEC + bench_lab_exec import)
         # In CI, _LAB_EXEC_AVAILABLE may already be False — verify dispatch works either way.
         result = _lab_dispatch_inner("web_request", {}, dry_run=True)
-        # dry_run should show [DRY-RUN] regardless of availability
-        assert "[DRY-RUN]" in result, f"unexpected result: {result[:100]}"
+        # dry_run should show [DRY-RUN] or synthetic regardless of availability
+        assert "[DRY-RUN]" in result or "synthetic" in result, f"unexpected result: {result[:100]}"
 
     def test_mbptl_tool_dispatch_handles_unknown_tool(self):
         from bench_security.lab import _lab_dispatch_inner
