@@ -26,7 +26,7 @@ class TestChallengeClasses:
     def test_classes_parse(self):
         data = yaml.safe_load(open("config/challenge_classes.yaml"))
         assert "classes" in data
-        assert len(data["classes"]) >= 10
+        assert len(data["classes"]) >= 40  # expanded from 12
 
     def test_no_orphan_classes(self):
         data = yaml.safe_load(open("config/challenge_classes.yaml"))
@@ -39,3 +39,15 @@ class TestChallengeClasses:
         data = yaml.safe_load(open("config/challenge_classes.yaml"))
         for c in data["classes"]:
             assert "ground_truth" in c, f"class {c['id']} missing ground_truth"
+
+    def test_every_class_has_source(self):
+        data = yaml.safe_load(open("config/challenge_classes.yaml"))
+        for c in data["classes"]:
+            assert "source" in c, f"class {c['id']} missing provenance source"
+
+    def test_ability_port_imports(self):
+        from tests.benchmarks.bench_security.ability_port import ability_coverage
+        cov = ability_coverage()
+        assert cov["challenge_classes"] >= 40
+        assert cov["ptai_probes_ported"] >= 20
+        assert cov["vulhub_families_mapped"] >= 7

@@ -1,52 +1,219 @@
-# Challenge-class → container mapping.
-# Each class maps competitive categories onto vulhub environments (and a few
-# purpose-built composes for gaps vulhub doesn't cover).
+# Challenge-class → container mapping. 40-class taxonomy (ptai + reverse-skill).
+# Each class maps competitive categories onto vulhub environments (and purpose-built
+# composes for gaps). Provenance: {source} field per class.
 classes:
+  # ── Existing 12 classes ──
   - id: ssrf-metadata-pivot
     vulhub: [gitlab/CVE-2021-22214, "web/ssrf-*"]
     purpose_built: null
     ground_truth: { oracle: oast_callback }
+    source: reverse-skill
   - id: deserialization
-    vulhub: [fastjson/*, jackson/CVE-2017-7525, shiro/*]
+    vulhub: [fastjson/*, jackson/CVE-2017-7525, shiro/*, weblogic/CVE-2023-21839, activemq/CVE-2023-46604]
     purpose_built: null
     ground_truth: { oracle: rce_shell }
+    source: reverse-skill
   - id: ssti-blind
-    vulhub: [flask/ssti, jinja2/ssti]
+    vulhub: [flask/ssti, jinja2/ssti, confluence/CVE-2022-26134, airflow/CVE-2020-11978]
     purpose_built: null
     ground_truth: { oracle: rce_shell }
+    source: reverse-skill
   - id: jwt-claim-confusion
     vulhub: []
     purpose_built: challenges/jwt-claim-confusion/
     ground_truth: { oracle: idor_bola }
+    source: reverse-skill
   - id: container-escape
     vulhub: [docker/unauthorized-rce, "docker/cve-*"]
-    purpose_built: null
+    purpose_built: challenges/container-escape/
     ground_truth: { oracle: rce_shell }
+    source: reverse-skill
   - id: sqli-auth-bypass
-    vulhub: [sqli-labs/mysql/*, sqli-labs/postgresql/*]
+    vulhub: [sqli-labs/mysql/*, sqli-labs/postgresql/*, adminer/CVE-2021-21311]
     purpose_built: null
     ground_truth: { oracle: sqli_error }
+    source: reverse-skill
   - id: lfi-path-traversal
-    vulhub: [php/CVE-2018-12613, nginx/CVE-2017-7529]
+    vulhub: [php/CVE-2018-12613, nginx/CVE-2017-7529, grafana/CVE-2021-43798]
     purpose_built: null
     ground_truth: { oracle: lfi_confirm }
+    source: reverse-skill
   - id: command-injection
-    vulhub: [flask/ssti, struts2/*, confluence/CVE-2022-26134]
+    vulhub: [flask/ssti, struts2/*, confluence/CVE-2022-26134, jenkins/CVE-2017-1000353, drupal/CVE-2018-7600]
     purpose_built: null
     ground_truth: { oracle: rce_shell }
+    source: reverse-skill
   - id: xss-reflected
     vulhub: [xss/reflected-xss, web/dom-based-xss]
     purpose_built: null
     ground_truth: { oracle: reflection }
+    source: reverse-skill
   - id: k8s-pod-escape
     vulhub: []
     purpose_built: challenges/k8s-pod-escape/
     ground_truth: { oracle: rce_shell }
+    source: reverse-skill
   - id: cloud-metadata-ssrf
     vulhub: []
     purpose_built: challenges/cloud-metadata-ssrf/
     ground_truth: { oracle: oast_callback }
+    source: reverse-skill
   - id: graphql-introspection
     vulhub: []
     purpose_built: challenges/graphql-introspection/
     ground_truth: { oracle: reflection }
+    source: reverse-skill
+  # ── New 28 classes (reverse-skill + ptai) ──
+  - id: ad-certificate-abuse
+    vulhub: []
+    purpose_built: challenges/ad-certificate-abuse/
+    ground_truth: { oracle: rce_shell }
+    source: reverse-skill
+  - id: kerberos-delegation
+    vulhub: []
+    purpose_built: challenges/kerberos-delegation/
+    ground_truth: { oracle: rce_shell }
+    source: reverse-skill
+  - id: relay-coercion-chain
+    vulhub: []
+    purpose_built: challenges/relay-coercion-chain/
+    ground_truth: { oracle: rce_shell }
+    source: reverse-skill
+  - id: oauth-oidc-chain
+    vulhub: []
+    purpose_built: challenges/oauth-oidc-chain/
+    ground_truth: { oracle: idor_bola }
+    source: reverse-skill
+  - id: template-render-path
+    vulhub: [flask/ssti, jinja2/ssti, confluence/*, django/CVE-2022-34265]
+    purpose_built: null
+    ground_truth: { oracle: rce_shell }
+    source: reverse-skill
+  - id: race-condition-state-drift
+    vulhub: []
+    purpose_built: challenges/race-condition/
+    ground_truth: { oracle: reflection }
+    source: ptai
+  - id: custom-protocol-replay
+    vulhub: []
+    purpose_built: challenges/custom-protocol-replay/
+    ground_truth: { oracle: rce_shell }
+    source: reverse-skill
+  - id: websocket-runtime
+    vulhub: []
+    purpose_built: challenges/websocket-runtime/
+    ground_truth: { oracle: reflection }
+    source: reverse-skill
+  - id: stego-media
+    vulhub: []
+    purpose_built: challenges/stego-media/
+    ground_truth: { oracle: reflection }
+    source: reverse-skill
+  - id: crypto-mobile
+    vulhub: []
+    purpose_built: challenges/crypto-mobile/
+    ground_truth: { oracle: rce_shell }
+    source: reverse-skill
+  - id: file-parser-chain
+    vulhub: [imagemagick/CVE-2016-3714, ghostscript/CVE-2023-36664]
+    purpose_built: null
+    ground_truth: { oracle: lfi_confirm }
+    source: reverse-skill
+  - id: firmware-layout
+    vulhub: []
+    purpose_built: challenges/firmware-layout/
+    ground_truth: { oracle: rce_shell }
+    source: reverse-skill
+  - id: reverse-pwn
+    vulhub: []
+    purpose_built: challenges/reverse-pwn/
+    ground_truth: { oracle: cve_confirmed }
+    source: reverse-skill
+  - id: android-hooking
+    vulhub: []
+    purpose_built: challenges/android-hooking/
+    ground_truth: { oracle: cve_confirmed }
+    source: reverse-skill
+  - id: ios-runtime
+    vulhub: []
+    purpose_built: challenges/ios-runtime/
+    ground_truth: { oracle: cve_confirmed }
+    source: reverse-skill
+  - id: malware-config
+    vulhub: []
+    purpose_built: challenges/malware-config/
+    ground_truth: { oracle: cve_confirmed }
+    source: reverse-skill
+  - id: forensic-timeline
+    vulhub: []
+    purpose_built: challenges/forensic-timeline/
+    ground_truth: { oracle: reflection }
+    source: reverse-skill
+  - id: windows-pivot
+    vulhub: []
+    purpose_built: challenges/windows-pivot/
+    ground_truth: { oracle: rce_shell }
+    source: reverse-skill
+  - id: linux-credential-pivot
+    vulhub: []
+    purpose_built: challenges/linux-credential-pivot/
+    ground_truth: { oracle: rce_shell }
+    source: reverse-skill
+  - id: browser-persistence
+    vulhub: []
+    purpose_built: challenges/browser-persistence/
+    ground_truth: { oracle: reflection }
+    source: reverse-skill
+  - id: dpapi-credential-chain
+    vulhub: []
+    purpose_built: challenges/dpapi-credential-chain/
+    ground_truth: { oracle: rce_shell }
+    source: reverse-skill
+  - id: lsass-ticket-material
+    vulhub: []
+    purpose_built: challenges/lsass-ticket-material/
+    ground_truth: { oracle: rce_shell }
+    source: reverse-skill
+  - id: request-smuggling
+    vulhub: [httpd/CVE-2021-41773, nginx/CVE-2021-23017]
+    purpose_built: null
+    ground_truth: { oracle: lfi_confirm }
+    source: ptai
+  - id: prototype-pollution
+    vulhub: []
+    purpose_built: challenges/prototype-pollution/
+    ground_truth: { oracle: rce_shell }
+    source: ptai
+  - id: nosql-injection
+    vulhub: [mongodb/CVE-2019-20925]
+    purpose_built: null
+    ground_truth: { oracle: sqli_error }
+    source: ptai
+  - id: open-redirect
+    vulhub: [django/CVE-2018-14574]
+    purpose_built: null
+    ground_truth: { oracle: open_redirect }
+    source: ptai
+  - id: cors-misconfig
+    vulhub: []
+    purpose_built: challenges/cors-misconfig/
+    ground_truth: { oracle: reflection }
+    source: ptai
+  - id: file-upload-bypass
+    vulhub: [php/CVE-2018-12613]
+    purpose_built: null
+    ground_truth: { oracle: rce_shell }
+    source: ptai
+
+# ── Widened vulhub family mapping (high-value families) ──
+families:
+  RCE: [struts2, jenkins, confluence, weblogic, fastjson, shiro, activemq, druid, nacos, solr, log4j, drupal, joomla, wordpress, django, grafana, gitea, couchdb, elasticsearch, kibana, airflow, dubbo, geoserver]
+  SQLi: [sqli-labs, adminer, drupal]
+  SSRF: [gitlab, grafana, solr, weblogic]
+  deserialization: [fastjson, jackson, shiro, weblogic, activemq]
+  auth_bypass: [tomcat, phpmyadmin, supervisor, grafana]
+  LFI: [php, nginx, grafana, ghostscript, imagemagick]
+  XSS: [xss, kibana]
+  SSTI: [flask, jinja2, confluence, airflow]
+
+ptai_probes_ported: 57
