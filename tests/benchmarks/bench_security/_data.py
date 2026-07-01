@@ -1127,6 +1127,7 @@ PROMPTS: dict[str, dict[str, Any]] = {
         "word_min": 350,
         "difficulty": "hard",
         "exec_sequence": "log4shell_rce",
+        "oracle": "rce_shell",
     },
     "rbcd_attack": {
         "text": (
