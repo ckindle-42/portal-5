@@ -4,6 +4,7 @@ A use-case PASSES only if the finding lands on the vulnerable target AND
 vanishes on the hardened twin (zero false positives). Red, blue, and purple
 are each scored independently with their own twin-control gate.
 """
+
 from __future__ import annotations
 
 import os
@@ -27,20 +28,23 @@ def _call_pipeline(prompt: str, workspace: str = "auto-security", timeout: float
     headers = {"Content-Type": "application/json"}
     if PIPELINE_API_KEY:
         headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
-    try:
-        r = httpx.post(
-            f"{PIPELINE_URL}/v1/chat/completions",
-            headers=headers,
-            json={
-                "model": workspace,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-            },
-            timeout=timeout,
-        )
-        return r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-    except Exception as e:
-        return f"[error: {e}]"
+    urls_to_try = [PIPELINE_URL, "http://host.docker.internal:9099", "http://localhost:9099"]
+    for url in urls_to_try:
+        try:
+            r = httpx.post(
+                f"{url}/v1/chat/completions",
+                headers=headers,
+                json={
+                    "model": workspace,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                },
+                timeout=timeout,
+            )
+            return r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+        except Exception:
+            continue
+    return "[error: pipeline unreachable]"
 
 
 def validate_usecase(usecase: dict, *, dry_run: bool = False) -> dict:
@@ -95,7 +99,9 @@ def validate_usecase(usecase: dict, *, dry_run: bool = False) -> dict:
     # Score: does red find the vuln on vulnerable but not on hardened?
     vuln_indicators = usecase.get("vuln_indicators", [cve, "vulnerable", "exploit", "confirmed"])
     red_vuln_found = any(ind.lower() in red_vuln_response.lower() for ind in vuln_indicators if ind)
-    red_hard_clean = not any(ind.lower() in red_hard_response.lower() for ind in vuln_indicators if ind)
+    red_hard_clean = not any(
+        ind.lower() in red_hard_response.lower() for ind in vuln_indicators if ind
+    )
 
     red_pass = red_vuln_found and red_hard_clean
 
@@ -106,7 +112,9 @@ def validate_usecase(usecase: dict, *, dry_run: bool = False) -> dict:
         blue_response = _call_pipeline(blue_prompt, workspace=blue_ws)
         blue_elapsed = time.monotonic() - t0
 
-        detection_indicators = usecase.get("detection_indicators", ["detected", "alert", "mitre", "T1", "T1190"])
+        detection_indicators = usecase.get(
+            "detection_indicators", ["detected", "alert", "mitre", "T1", "T1190"]
+        )
         blue_detected = any(ind.lower() in blue_response.lower() for ind in detection_indicators)
 
         blue_result = {
