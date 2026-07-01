@@ -1,0 +1,62 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260701T002149Z",
+  "candidate": "bench-agentworld",
+  "baselines": [],
+  "probes_run": [
+    "C3"
+  ],
+  "results": [
+    {
+      "role": "candidate",
+      "workspace": "bench-agentworld",
+      "results": [
+        {
+          "probe_id": "C3/c3_1",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "```\n1\n2\n3\n4\n5\n```",
+          "latency_s": 11.162341540999478,
+          "notes": "c3_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C3/c3_2",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Command to simulate: `ls -1 /Applications | head -3`\n    *   Environment: macOS terminal\n    *   Assumption: Typical macOS Applications folder\n    *   Output requirement: Exactly what would appear, three lines.\n    *   Format requirement: Use a ``` fenced block for the answer.\n\n2.  **Analyze the Command:**\n    *   `ls -1 /Applications`: List ",
+          "latency_s": 202.9898389170121,
+          "notes": "c3_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C3/c3_3",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "```text\nFilesystem      Size   Used  Avail Capacity  Mounted on\n/dev/disk1s5s1   465Gi   20Gi  418Gi     5%    /\ndevfs           197k   197k     0   100%    /dev\n```",
+          "latency_s": 81.70361079199938,
+          "notes": "c3_3",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    }
+  ]
+}

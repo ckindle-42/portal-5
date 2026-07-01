@@ -1,0 +1,196 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260701T053258Z",
+  "candidate": "bench-superqwen-agentworld-ablit",
+  "baselines": [
+    "bench-agentworld",
+    "bench-ornith-35b"
+  ],
+  "probes_run": [
+    "C4"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "bench-agentworld",
+      "results": [
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "1. Determine the network interface (e.g., `eth0`, `docker0`, or `lo`) and ensure you have the necessary privileges (like `sudo`) to capture traffic destined for or coming from the upstream service on port 8080.\n2. Execute a `tcpdump` command filtered specifically for port 8080 to capture the TCP handshakes and application-layer communication between nginx and the upstream backend.\n3. Analyze the c",
+          "latency_s": 70.62008979200618,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered Plan\n\n1. **Identify the network interface**: Determine the active network interface on the server (e.g., `eth0`, `ens33`) or use `-i any` to capture across all interfaces.\n2. **Understand the traffic type**: Traffic to port 443 is typically HTTPS/TLS, meaning the HTTP payload is encrypted. However, we can still observe TCP-level connection states and flags (like resets) via packet ",
+          "latency_s": 86.13185958299437,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "1. **Numbered plan**\n   1. Open a terminal on the affected server or a network monitor and gain root/sudo privileges to capture network traffic.\n   2. Execute the `tcpdump` command with specific flags to capture DNS traffic exclusively on port 53, ensuring numeric output (to avoid resolver delays in the tool itself) and precise timestamps to measure query-to-response time differences.\n   3. Analyz",
+          "latency_s": 62.57090312500077,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "baseline",
+      "workspace": "bench-ornith-35b",
+      "results": [
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "1. **Numbered Plan**\n   1. Determine whether nginx and the upstream service are on the same host or different IPs. Adjust the filter accordingly (`host 127.0.0.1` for localhost, or `host <nginx_ip>`).\n   2. Run `tcpdump -i any -nn 'tcp port 8080'` and `-s 4096` to capture full HTTP headers/payload without truncation. Stop after a few seconds (`Ctrl+C`).\n   3. Analyze the output for connection esta",
+          "latency_s": 46.499186165994615,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered Plan\n1. **Identify the capture interface** that serves inbound traffic to your nginx instance (e.g., `eth0`, `ens3`, or `any` for all interfaces).\n2. **Run the tcpdump filter interactively or with a pcap export** during a window when you observe the intermittent slowdown. Keep it running long enough to catch the pattern.\n3. **Stop capture and inspect** the output (or open the pcap ",
+          "latency_s": 72.73180137500458,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "Here is the plan and command to capture DNS traffic, followed by an analysis of what the results mean.\n\n### 1. The Plan\n1.  **Run the Capture:** Execute the `tcpdump` command on a terminal with root privileges (`sudo`) to listen for UDP/TCP traffic on port 53 (DNS).\n2.  **Trigger the Problem:** While the capture is running, trigger the operation in your service that causes the timeout (e.g., acces",
+          "latency_s": 43.60356304200832,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-superqwen-agentworld-ablit",
+      "results": [
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "bench-superqwen-agentworld-ablit",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "Final answer:\n1. Filter by target port 8080 on the host OS interface where nginx is connecting to the upstream service.\n2. Capture both directions and include payload data to review HTTP or protocol errors.\n3. Look for connection resets, timeouts, malformed packets, or missing application responses indicating the upstream failure.\n\n```tcpdump -i any 'port 8080' -w nginx_upstream.pcap```\n\nIn the ou",
+          "latency_s": 12.922689375001937,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "bench-superqwen-agentworld-ablit",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "Final answer:\n--- Answer begins ---\nAnswer: <answer>\n1. Plan:\n- Run tcpdump with capture filter on destination port 443\n- Include IP and TCP headers to see reset flags\n- Save to a file or pipe for analysis\n\n2. Command:\n```bash\ntcpdump -i any -nn 'port 443' -w http_reset.pcap\n```\n\n3. Patterns indicating connection resets:\n- TCP packets with RST flag set\n- TCP RST/ACK sequences\n- \"Reset by peer\" or ",
+          "latency_s": 2.8971260829857783,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "bench-superqwen-agentworld-ablit",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "Final answer:\n### 1. Numbered Plan\n\n - **Step 1:** Capture packets using `tcpdump` with the capture filter for port 53 (DNS protocol) to monitor name resolution activity.\n - **Step 2:** Apply or extend the command with time-based outputs or specific flags, such as `-tttt`, so you can correlate the query and response timestamps with application-level log events.\n - **Step 3:** Review the captured q",
+          "latency_s": 5.900045709000551,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": 0.0
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-07-01T05:39:41.988219+00:00"
+}

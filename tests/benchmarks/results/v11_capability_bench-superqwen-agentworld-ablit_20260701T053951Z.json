@@ -1,0 +1,311 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260701T053951Z",
+  "candidate": "bench-superqwen-agentworld-ablit",
+  "baselines": [
+    "bench-agentworld",
+    "bench-ornith-35b"
+  ],
+  "probes_run": [
+    "C1",
+    "C2"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "bench-agentworld",
+      "results": [
+        {
+          "probe_id": "C1/c1_1",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 2,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": true
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C1/c1_2",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 3,
+          "markers": {
+            "reached_resolution": true,
+            "recovered_from_error": false,
+            "no_redundant_calls": true
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_1",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef merge_intervals(intervals):\n    if not intervals:\n        return []\n    \n    # Sort intervals based on the start time\n    sorted_intervals = sorted(intervals, key=lambda x: x[0])\n    \n    # Initialize the merged list with the first interval\n    merged = [[sorted_intervals[0][0], sorted_intervals[0][1]]]\n    \n    for current in sorted_intervals[1:]:\n        # Check if there is an over",
+          "latency_s": 48.553774749991135,
+          "notes": "c2_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_2",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef first_missing_positive(nums):\n    n = len(nums)\n    \n    # Place each number in its right place if it's in the range [1, n]\n    for i in range(n):\n        while 1 <= nums[i] <= n and nums[nums[i] - 1] != nums[i]:\n            correct_idx = nums[i] - 1\n            nums[correct_idx], nums[i] = nums[i], nums[correct_idx]\n            \n    # Find the first index where the number is not i +",
+          "latency_s": 51.64947841700632,
+          "notes": "c2_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_3",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "Here is the Python function to determine whether you can reach the last index using a greedy approach:\n\n```python\ndef can_jump(nums):\n    max_reach = 0\n    n = len(nums)\n    \n    for i in range(n):\n        # If the current index is beyond the maximum reachable index, we can't proceed\n        if i > max_reach:\n            return False\n        \n        # Update the maximum reachable index\n        ma",
+          "latency_s": 67.97617604199331,
+          "notes": "c2_3",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "baseline",
+      "workspace": "bench-ornith-35b",
+      "results": [
+        {
+          "probe_id": "C1/c1_1",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 3,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C1/c1_2",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 6,
+          "markers": {
+            "reached_resolution": true,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_1",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef merge_intervals(intervals):\n    if not intervals:\n        return []\n\n    # Sort the intervals by their start time\n    intervals.sort(key=lambda x: x[0])\n\n    merged = [intervals[0]]\n\n    for current in intervals[1:]:\n        last_merged = merged[-1]\n\n        # Check if the current interval overlaps with the last merged interval.\n        # Since the list is sorted by start time, we on",
+          "latency_s": 43.20425224999781,
+          "notes": "c2_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_2",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef first_missing_positive(nums):\n    n = len(nums)\n    i = 0\n    \n    # Place each number in its correct position if it's a positive integer <= n\n    while i < n:\n        val = nums[i]\n        target_idx = val - 1\n        if 1 <= val <= n and nums[target_idx] != val:\n            # Swap with the element at the target index\n            nums[i], nums[target_idx] = nums[target_idx], nums[i]",
+          "latency_s": 57.565421834005974,
+          "notes": "c2_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_3",
+          "workspace": "bench-ornith-35b",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 167.4913132090005,
+          "notes": "c2_3",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-superqwen-agentworld-ablit",
+      "results": [
+        {
+          "probe_id": "C1/c1_1",
+          "workspace": "bench-superqwen-agentworld-ablit",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": true
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_1",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C1/c1_2",
+          "workspace": "bench-superqwen-agentworld-ablit",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": true
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_2",
+          "error": null,
+          "baseline_delta": -0.5
+        },
+        {
+          "probe_id": "C2/c2_1",
+          "workspace": "bench-superqwen-agentworld-ablit",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "Final answer:\n```python\ndef merge_intervals(intervals):\n    if not intervals:\n        return []\n\n    # Sort by start time\n    intervals.sort(key=lambda x: x[0])\n    merged = [intervals[0]]\n\n    for current_start, current_end in intervals[1:]:\n        last_start, last_end = merged[-1]\n\n        if current_start <= last_end:\n            # Overlapping intervals, merge them\n            merged[-1][1] = ",
+          "latency_s": 3.4189885419909842,
+          "notes": "c2_1",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C2/c2_2",
+          "workspace": "bench-superqwen-agentworld-ablit",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "Final answer:\n```python\ndef first_missing_positive(nums):\n    n = len(nums)\n    for i in range(n):\n        while 1 <= nums[i] <= n and nums[nums[i]-1] != nums[i]:\n            nums[nums[i]-1], nums[i] = nums[i], nums[nums[i]-1]\n    \n    for i in range(n):\n        if nums[i] != i + 1:\n            return i + 1\n        \n    return n + 1\n```",
+          "latency_s": 2.490885541003081,
+          "notes": "c2_2",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C2/c2_3",
+          "workspace": "bench-superqwen-agentworld-ablit",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "Final answer:\n```python\ndef can_jump(nums):\n    goal = len(nums) - 1\n    \n    for i in range(len(nums) - 2, -1, -1):\n        if i + nums[i] >= goal:\n            goal = i\n            \n    return goal == 0\n\n```",
+          "latency_s": 1.6710873330011964,
+          "notes": "c2_3",
+          "error": null,
+          "baseline_delta": 1.0
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-07-01T06:03:18.172465+00:00"
+}
