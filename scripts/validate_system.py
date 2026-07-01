@@ -707,6 +707,36 @@ def check_loop_dry_run() -> tuple[str, str, list[dict]]:
     return "PASS", f"all {len(subs)} playbooks pass loop dry-run", subs
 
 
+def check_lab_setup_readiness() -> tuple[str, str, list[dict]]:
+    """V. Lab setup/readiness scripts import and parse correctly."""
+    subs: list[dict] = []
+    try:
+        from scripts.lab_setup import run_setup
+        result = run_setup(skip_heavy=True, dry_run=True)
+        subs.append({"name": "lab_setup", "status": "PASS" if "vulhub" in result else "FAIL"})
+    except Exception as e:
+        subs.append({"name": "lab_setup", "status": "FAIL", "error": str(e)})
+
+    try:
+        from scripts.lab_ready import run_readiness
+        passed, results = run_readiness()
+        subs.append({"name": "lab_ready", "status": "PASS" if len(results) >= 5 else "FAIL"})
+    except Exception as e:
+        subs.append({"name": "lab_ready", "status": "FAIL", "error": str(e)})
+
+    try:
+        from scripts.lab_targets import cmd_list
+        targets = cmd_list()
+        subs.append({"name": "lab_targets catalog", "status": "PASS" if len(targets) >= 7 else "FAIL"})
+    except Exception as e:
+        subs.append({"name": "lab_targets catalog", "status": "FAIL", "error": str(e)})
+
+    failed = [s["name"] for s in subs if s["status"] == "FAIL"]
+    if failed:
+        return "FAIL", f"{len(failed)} lab setup check(s) failed: {failed}", subs
+    return "PASS", "all lab setup/readiness/targets modules operational", subs
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -766,6 +796,7 @@ def main() -> int:
     v.run("Q. playbook validation", check_playbook_validation)
     v.run("U. lab target catalog", check_lab_target_catalog)
     v.run("R. loop dry-run gate", check_loop_dry_run)
+    v.run("V. lab setup readiness", check_lab_setup_readiness)
 
     return v.summary()
 
