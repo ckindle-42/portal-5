@@ -113,8 +113,11 @@ def call_chat(
     """
     token_budget = _get_token_budget(workspace, max_tokens)
 
+    # Resolve model_hint — call Ollama directly to avoid pipeline routing
+    # to a different model in the same backend group.
+    model = _get_model_hint(workspace) or workspace
+
     if use_ollama and tools:
-        model = _get_model_hint(workspace) or workspace
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -131,20 +134,17 @@ def call_chat(
         tokens = data.get("usage", {}).get("completion_tokens", 0)
         return choice["message"], elapsed, tokens
 
-    # Pipeline call (text-only, no tool_calls returned)
-    api_key = os.environ.get("PIPELINE_API_KEY", "")
-    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    # Text-only call — use Ollama directly with resolved model_hint
     payload = {
-        "model": workspace,
+        "model": model,
         "messages": messages,
         "max_tokens": token_budget,
         "stream": False,
     }
     t0 = time.monotonic()
     resp = httpx.post(
-        f"{PIPELINE_URL}/v1/chat/completions",
+        f"{OLLAMA_URL}/v1/chat/completions",
         json=payload,
-        headers=headers,
         timeout=600,
     )
     resp.raise_for_status()

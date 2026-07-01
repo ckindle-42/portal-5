@@ -489,9 +489,11 @@ class TestSchedulerSettings:
         import portal_pipeline.notifications.dispatcher as disp_mod
 
         importlib.reload(disp_mod)
-        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
+        # Explicitly disable regardless of earlier env mutations from other tests
+        with patch.dict(os.environ, {"NOTIFICATIONS_ENABLED": "false"}):
+            from portal_pipeline.notifications.dispatcher import NotificationDispatcher
 
-        disp = NotificationDispatcher()
+            disp = NotificationDispatcher()
         mock_channel = MagicMock()
         mock_channel.name = "test"
         disp.add_channel(mock_channel)

@@ -737,6 +737,54 @@ def check_lab_setup_readiness() -> tuple[str, str, list[dict]]:
     return "PASS", "all lab setup/readiness/targets modules operational", subs
 
 
+def check_labexec_coverage() -> tuple[str, str, list[dict]]:
+    """W. Every lab machine with an env entry has a registered live phase with an oracle."""
+    subs: list[dict] = []
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tests" / "benchmarks"))
+        from bench_lab_exec import LAB_TARGETS, PHASE_FNS, PHASE_TARGETS
+    except ImportError as e:
+        return "FAIL", f"cannot import bench_lab_exec: {e}", []
+
+    phase_map = {
+        "dc01": "dcsync", "srv01": "srv01_local", "vulhub": "vulhub_redis",
+        "meta3": "meta3_compromise", "mbptl": "mbptl_full_chain",
+    }
+
+    for name, tgt in LAB_TARGETS.items():
+        phase = phase_map.get(name, "")
+        has_phase = phase in PHASE_FNS
+        has_target = phase in PHASE_TARGETS and name in PHASE_TARGETS.get(phase, [])
+        status = "PASS" if has_phase and has_target else "FAIL"
+        subs.append({
+            "name": f"lab-exec-{name}",
+            "status": status,
+            "vmid": tgt.get("vmid", "?"),
+            "phase": phase if has_phase else "MISSING",
+            "reason": "" if has_phase else "no live oracle-scored phase registered",
+        })
+
+    # Check: no scenario that names a live target IP falls back to synthetic by default
+    try:
+        from bench_security.lab import _lab_dispatch_inner
+        for fn_name in ["web_request", "run_sqlmap", "upload_webshell", "webshell_exec",
+                         "exploit_binary_service"]:
+            # dry_run shouldn't return a synthetic-only message (it should say DRY-RUN)
+            result = _lab_dispatch_inner(fn_name, {}, dry_run=True)
+            if "[DRY-RUN]" in result or "synthetic" not in result:
+                subs.append({"name": f"mbptl-dispatch-{fn_name}", "status": "PASS"})
+            else:
+                subs.append({"name": f"mbptl-dispatch-{fn_name}", "status": "WARN",
+                             "reason": "synthetic-only fallback triggered on dry-run"})
+    except Exception as e:
+        subs.append({"name": "mbptl-dispatch", "status": "FAIL", "error": str(e)})
+
+    failed = [s["name"] for s in subs if s["status"] == "FAIL"]
+    if failed:
+        return "FAIL", f"{len(failed)} lab-exec coverage gap(s): {failed}", subs
+    return "PASS", f"all {len(LAB_TARGETS)} provisioned machines have live oracle-scored phases", subs
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -797,6 +845,7 @@ def main() -> int:
     v.run("U. lab target catalog", check_lab_target_catalog)
     v.run("R. loop dry-run gate", check_loop_dry_run)
     v.run("V. lab setup readiness", check_lab_setup_readiness)
+    v.run("W. lab-exec coverage", check_labexec_coverage)
 
     return v.summary()
 

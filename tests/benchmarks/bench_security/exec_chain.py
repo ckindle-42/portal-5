@@ -394,6 +394,8 @@ _CHAIN_STEP_RESULTS: dict[str, str] = {
         "Files transferred to 10.10.10.99:/loot/ via encrypted tunnel."
     ),
     "revert_lab_target": "VM reverted to snapshot 'baseline-ad'. Lab restored to baseline.",
+    # MBPTL synthetic results — used only when _LAB_EXEC_AVAILABLE is False
+    # (otherwise real dispatch via _lab_dispatch_inner hits LAB_MBPTL_HOST)
     "web_request": "HTTP/1.1 200 OK\nContent-Type: text/html\n\n<!-- MBPTL-1{bf094c0b92d13d593cbff56b3c57ad4d} -->\n<html>...</html>",
     "run_sqlmap": "Database: administrator\nTable: flag\n[1 entry]\nMBPTL-6{9fce407640f5425f688c98039bc67ee6}",
     "upload_webshell": "Shell uploaded successfully: http://192.168.1.80/administrator/uploads/a3f9d1b2c8e4.php",
