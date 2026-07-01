@@ -19,6 +19,7 @@
 | `blue.py` | Blue team defender: detection chain, telemetry, purple scoring, evasion loops |
 | `chain.py` | Chain execution: multi-turn tool-call chains, synthetic results, scenarios, refusal tests |
 | `cli.py` | CLI entry point: argparse, `run_bench()`, summary printing |
+| `matrix.py` | Scenario × container matrix: `build_run_matrix`, `run_matrix`, `TelemetryBackend` protocol, `WazuhBackend`, coverage reports |
 | `__init__.py` | Thin facade: pipeline I/O (`call_pipeline`, `call_pipeline_exec`) + re-exports |
 
 `bench_security.py` at the package root is a backward-compat re-export shim.
@@ -454,6 +455,45 @@ In lab-exec mode, the composite score uses `proven_coverage` (steps confirmed su
 | Lab-exec | `proven_coverage` | Only hits with success_indicators in output |
 
 Fields: `steps_proven`, `steps_attempted`, `success_rate`, `has_lab_output`, `proven_coverage`.
+
+### 21. Library × Container Matrix (`--matrix` / `--matrix-all`)
+
+The matrix mode crosses every scenario (56 in `PROMPTS`) and every challenge class (12 in `challenge_classes.yaml`) with every resolvable vulhub container on disk. Each class's vulhub globs (e.g., `fastjson/*`) expand into individual CVE environments — a dozen classes become hundreds of real test units.
+
+Each unit is scored by a **named oracle** (`verify_finding` N/N), not text-match `success_indicators`. A unit PASSES only when its oracle VERIFIES against real output on the spun container.
+
+```bash
+# Plan (no Docker needed):
+python3 -m tests.benchmarks.bench_security --matrix-all --dry-run
+
+# Coverage report:
+python3 -m tests.benchmarks.bench_security --matrix-coverage
+
+# Run specific classes (lab must be up):
+python3 -m tests.benchmarks.bench_security \
+    --matrix-classes deserialization,sqli-auth-bypass,lfi-path-traversal \
+    --lab-exec --max-concurrent 2
+
+# Blue + purple on web classes:
+python3 -m tests.benchmarks.bench_security \
+    --matrix-classes lfi-path-traversal --purple --dry-run
+```
+
+`--matrix-coverage` reports per-class/scenario: resolved containers, ran, verified by oracle, rejected. This is the "how much of the library are we testing" number.
+
+### 22. Linux/Web Telemetry (Adapter Seam)
+
+Blue telemetry now reads through a backend-agnostic `TelemetryBackend` protocol (defined in `matrix.py`). The first adapter is **Wazuh/OpenSearch** (`LAB_OPENSEARCH_URL` / `wazuh-alerts-*`). A future **Splunk** adapter drops in behind the same protocol — no changes to detection logic or ground truth.
+
+Linux/web targets (vulhub, mbptl, on-demand containers) have telemetry paths:
+- **auditd + agent** on vulhub/mbptl hosts: process-exec, file-access, network events.
+- **web-server access/error logs**: decoded for web attacks (LFI, SQLi, webshell, OAST).
+- Technique→signal ground truth (backend-independent):
+  - `T1190` web-exploit → access-log signature
+  - `T1059` command-exec → auditd execve
+  - `T1505.003` webshell → file-write + subsequent exec
+
+**Validation-integrity gate:** A blue/purple PASS requires real telemetry. Synthetic-fallback scores `indeterminate`, never PASS. This is enforced in code and tested in `test_blue_linux.py`.
 
 ---
 

@@ -441,6 +441,35 @@ def main() -> None:
         action="store_true",
         help="Write field-journal entry after engagement",
     )
+    # ── Matrix flags (TASK_SEC_VALIDATION_FOUNDATION_V1) ─────────────────────
+    parser.add_argument(
+        "--matrix",
+        action="store_true",
+        help="Run the scenario x container matrix (default: scenarios only)",
+    )
+    parser.add_argument(
+        "--matrix-all",
+        action="store_true",
+        help="Run every scenario + every challenge class against every resolvable container",
+    )
+    parser.add_argument(
+        "--matrix-classes",
+        default="",
+        metavar="CLASS1,CLASS2",
+        help="Comma-separated challenge class ids to run in the matrix (e.g. deserialization,sqli-auth-bypass)",
+    )
+    parser.add_argument(
+        "--matrix-coverage",
+        action="store_true",
+        help="Print per-class/scenario coverage report (resolved/ran/verified)",
+    )
+    parser.add_argument(
+        "--max-concurrent",
+        type=int,
+        default=3,
+        metavar="N",
+        help="Max concurrent containers in matrix mode (default: 3)",
+    )
     args = parser.parse_args()
 
     if args.list_scenarios:
@@ -1007,11 +1036,19 @@ def main() -> None:
 
     # ── Security expansion steps (run even during dry-run) ───────────────────
     expansion_steps: dict[str, dict] = {}
-    if args.full_expanded or args.verify_findings or args.ctf or args.llm_redteam or args.validate_suite or args.journal:
+    if (
+        args.full_expanded
+        or args.verify_findings
+        or args.ctf
+        or args.llm_redteam
+        or args.validate_suite
+        or args.journal
+    ):
         print("\n── Security Expansion Steps ──")
     if args.full_expanded or args.verify_findings:
         try:
             from .oracles import ORACLES
+
             print(f"  [verify-findings] {len(ORACLES)} named oracles registered")
             expansion_steps["oracles"] = {"oracles": len(ORACLES)}
         except ImportError:
@@ -1019,35 +1056,113 @@ def main() -> None:
     if args.full_expanded or args.ctf:
         try:
             from .ctf_bench import bench_ctf as _ctf
+
             r = _ctf("--dry-run", dry_run=True)
             expansion_steps["ctf"] = r
-            print(f"  [ctf] flag-oracle bench loaded")
+            print("  [ctf] flag-oracle bench loaded")
         except ImportError:
             print("  [ctf] ctf_bench module absent — skipped")
     if args.full_expanded or args.llm_redteam:
         try:
             from .llm_redteam import bench_llm_redteam as _lrt
+
             r = _lrt("auto-security", dry_run=True)
             expansion_steps["llm_redteam"] = r
-            print(f"  [llm-redteam] OWASP-LLM-Top-10 probes loaded")
+            print("  [llm-redteam] OWASP-LLM-Top-10 probes loaded")
         except ImportError:
             print("  [llm-redteam] llm_redteam module absent — skipped")
     if args.full_expanded or args.validate_suite:
         try:
             from .validation import validate_usecase as _vu
+
             r = _vu({"name": "validate-suite-dry"}, dry_run=True)
             expansion_steps["validation"] = r
-            print(f"  [validate-suite] validation harness loaded")
+            print("  [validate-suite] validation harness loaded")
         except ImportError:
             print("  [validate-suite] validation module absent — skipped")
     if (args.full_expanded or args.journal) and not args.dry_run:
         try:
             from .field_journal import record_engagement as _re
+
             _re({}, engagement_id=f"sec-bench-{ts}")
             expansion_steps["journal"] = "written"
-            print(f"  [journal] engagement journaled")
+            print("  [journal] engagement journaled")
         except ImportError:
             print("  [journal] field_journal module absent — skipped")
+
+    # ── Matrix execution (TASK_SEC_VALIDATION_FOUNDATION_V1) ────────────────
+    matrix_results: dict = {}
+    matrix_units: list = []
+    if args.matrix or args.matrix_all or args.matrix_classes or args.matrix_coverage:
+        from .matrix import build_coverage_report, build_run_matrix, run_matrix
+
+        print("\n── Scenario × Container Matrix ──")
+        domains = None  # all domains
+        class_filter = (
+            [c.strip() for c in args.matrix_classes.split(",") if c.strip()]
+            if args.matrix_classes
+            else None
+        )
+
+        matrix_units = build_run_matrix(
+            scenarios=True,
+            classes=args.matrix_all or bool(class_filter),
+            domains=domains,
+        )
+
+        # Filter to specific classes if requested
+        if class_filter:
+            matrix_units = [
+                u
+                for u in matrix_units
+                if u.kind == "scenario" or (u.kind == "class" and u.challenge_class in class_filter)
+            ]
+
+        print(f"  Units resolved: {len(matrix_units)}")
+        print(f"  Scenarios: {sum(1 for u in matrix_units if u.kind == 'scenario')}")
+        print(f"  Class containers: {sum(1 for u in matrix_units if u.kind == 'class')}")
+
+        matrix_results = run_matrix(
+            matrix_units,
+            dry_run=args.dry_run,
+            lab_exec=args.lab_exec,
+            max_concurrent=args.max_concurrent,
+            purple=args.purple,
+        )
+
+        print(f"\n  Verified: {matrix_results['verified']}")
+        print(f"  Rejected: {matrix_results['rejected']}")
+        print(f"  Indeterminate: {matrix_results['indeterminate']}")
+        print(f"  Errors: {matrix_results['errors']}")
+        if matrix_results["verified"] + matrix_results["rejected"] > 0:
+            print(f"  Pass rate: {matrix_results['pass_rate']:.1%}")
+
+    # ── Coverage report ─────────────────────────────────────────────────────
+    if args.matrix_coverage and matrix_units:
+        from .matrix import build_coverage_report
+
+        results_for_coverage = matrix_results.get("results", [])
+        coverage = build_coverage_report(matrix_units, results_for_coverage)
+        print("\n── Matrix Coverage Report ──")
+        print(
+            f"\n  {'Class/Scenario':<35} {'Resolved':>9} {'Ran':>5} {'Verified':>9} {'Rejected':>9}"
+        )
+        print("  " + "-" * 70)
+        for cls_id, stats in sorted(coverage.get("by_class", {}).items()):
+            print(
+                f"  {cls_id:<35} {stats['resolved']:>9} {stats['ran']:>5}"
+                f" {stats['verified']:>9} {stats['rejected']:>9}"
+            )
+        print()
+        for sc_key, stats in sorted(coverage.get("by_scenario", {}).items()):
+            oracle_tag = f" [{stats.get('oracle', '?')}]"
+            print(
+                f"  {sc_key + oracle_tag:<35} {stats['resolved']:>9} {stats['ran']:>5}"
+                f" {stats['verified']:>9} {stats['rejected']:>9}"
+            )
+        print(f"\n  Total resolved: {coverage['total_resolved']}")
+        print(f"  Total ran: {coverage['total_ran']}")
+        print(f"  Total verified: {coverage['total_verified']}")
 
     if args.dry_run:
         return
@@ -1143,6 +1258,15 @@ def main() -> None:
                 "false_positive_tests": false_positive_results,
                 "defense_efficacy_tests": defense_efficacy_results,
                 "expansion_steps": expansion_steps,
+                "matrix_results": {
+                    "total_units": matrix_results.get("total_units", 0),
+                    "verified": matrix_results.get("verified", 0),
+                    "rejected": matrix_results.get("rejected", 0),
+                    "indeterminate": matrix_results.get("indeterminate", 0),
+                    "pass_rate": matrix_results.get("pass_rate", 0.0),
+                }
+                if matrix_results
+                else {},
             },
             indent=2,
         )

@@ -485,7 +485,8 @@ def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
             continue
         mod = getattr(cat, attr)
         if hasattr(mod, "__file__"):
-            src = open(mod.__file__).read()
+            with open(mod.__file__) as _f:
+                src = _f.read()
             for m in re.finditer(r'["\']((auto|bench)-[a-z0-9_-]+)["\']', src):
                 ws_mentioned.add(m.group(1))
     stale = ws_mentioned - set(cfg.workspaces.keys())
@@ -588,13 +589,29 @@ def check_oracle_registry_consistency() -> tuple[str, str, list[dict]]:
                 oid = step["oracle"]
                 scenario_count += 1
                 in_registry = oid in ORACLES
-                subs.append({"name": f"{name}::{step.get('step','')}", "status": "PASS" if in_registry else "FAIL"})
+                subs.append(
+                    {
+                        "name": f"{name}::{step.get('step', '')}",
+                        "status": "PASS" if in_registry else "FAIL",
+                    }
+                )
                 if not in_registry:
-                    missing.append(f"{name}::{step.get('step','')} oracle={oid}")
+                    missing.append(f"{name}::{step.get('step', '')} oracle={oid}")
     # Also check PROMPTS that have oracle at the prompt level
     for name, prompt in PROMPTS.items():
         if isinstance(prompt, dict) and "oracle" in prompt:
             oid = prompt["oracle"]
+            if oid is None:
+                # oracle: null is deliberate (scoring: heuristic) — not a registry gap
+                scenario_count += 1
+                subs.append(
+                    {
+                        "name": f"PROMPT::{name}",
+                        "status": "PASS",
+                        "detail": "oracle=null (heuristic)",
+                    }
+                )
+                continue
             scenario_count += 1
             in_registry = oid in ORACLES
             subs.append({"name": f"PROMPT::{name}", "status": "PASS" if in_registry else "FAIL"})
@@ -603,7 +620,11 @@ def check_oracle_registry_consistency() -> tuple[str, str, list[dict]]:
     if missing:
         return "FAIL", f"{len(missing)} oracle id(s) not in registry: {missing}", subs
     if not scenario_count:
-        return "PASS", "no scenarios declare oracle (registry is active, nothing to cross-check)", subs
+        return (
+            "PASS",
+            "no scenarios declare oracle (registry is active, nothing to cross-check)",
+            subs,
+        )
     return "PASS", f"all {scenario_count} scenario oracle ids resolve to registered oracles", subs
 
 
@@ -698,7 +719,13 @@ def check_loop_dry_run() -> tuple[str, str, list[dict]]:
         try:
             result = run_engagement(str(p), dry_run=True)
             ok = result.get("status") == "dry_run"
-            subs.append({"name": name, "status": "PASS" if ok else "FAIL", "reason": result.get("status", "?")})
+            subs.append(
+                {
+                    "name": name,
+                    "status": "PASS" if ok else "FAIL",
+                    "reason": result.get("status", "?"),
+                }
+            )
         except Exception as e:
             subs.append({"name": name, "status": "FAIL", "error": str(e)})
     failed = [s["name"] for s in subs if s["status"] == "FAIL"]
@@ -712,6 +739,7 @@ def check_lab_setup_readiness() -> tuple[str, str, list[dict]]:
     subs: list[dict] = []
     try:
         from scripts.lab_setup import run_setup
+
         result = run_setup(skip_heavy=True, dry_run=True)
         subs.append({"name": "lab_setup", "status": "PASS" if "vulhub" in result else "FAIL"})
     except Exception as e:
@@ -719,6 +747,7 @@ def check_lab_setup_readiness() -> tuple[str, str, list[dict]]:
 
     try:
         from scripts.lab_ready import run_readiness
+
         passed, results = run_readiness()
         subs.append({"name": "lab_ready", "status": "PASS" if len(results) >= 5 else "FAIL"})
     except Exception as e:
@@ -726,8 +755,11 @@ def check_lab_setup_readiness() -> tuple[str, str, list[dict]]:
 
     try:
         from scripts.lab_targets import cmd_list
+
         targets = cmd_list()
-        subs.append({"name": "lab_targets catalog", "status": "PASS" if len(targets) >= 7 else "FAIL"})
+        subs.append(
+            {"name": "lab_targets catalog", "status": "PASS" if len(targets) >= 7 else "FAIL"}
+        )
     except Exception as e:
         subs.append({"name": "lab_targets catalog", "status": "FAIL", "error": str(e)})
 
@@ -747,8 +779,11 @@ def check_labexec_coverage() -> tuple[str, str, list[dict]]:
         return "FAIL", f"cannot import bench_lab_exec: {e}", []
 
     phase_map = {
-        "dc01": "dcsync", "srv01": "srv01_local", "vulhub": "vulhub_redis",
-        "meta3": "meta3_compromise", "mbptl": "mbptl_full_chain",
+        "dc01": "dcsync",
+        "srv01": "srv01_local",
+        "vulhub": "vulhub_redis",
+        "meta3": "meta3_compromise",
+        "mbptl": "mbptl_full_chain",
     }
 
     for name, tgt in LAB_TARGETS.items():
@@ -756,33 +791,119 @@ def check_labexec_coverage() -> tuple[str, str, list[dict]]:
         has_phase = phase in PHASE_FNS
         has_target = phase in PHASE_TARGETS and name in PHASE_TARGETS.get(phase, [])
         status = "PASS" if has_phase and has_target else "FAIL"
-        subs.append({
-            "name": f"lab-exec-{name}",
-            "status": status,
-            "vmid": tgt.get("vmid", "?"),
-            "phase": phase if has_phase else "MISSING",
-            "reason": "" if has_phase else "no live oracle-scored phase registered",
-        })
+        subs.append(
+            {
+                "name": f"lab-exec-{name}",
+                "status": status,
+                "vmid": tgt.get("vmid", "?"),
+                "phase": phase if has_phase else "MISSING",
+                "reason": "" if has_phase else "no live oracle-scored phase registered",
+            }
+        )
 
     # Check: no scenario that names a live target IP falls back to synthetic by default
     try:
         from bench_security.lab import _lab_dispatch_inner
-        for fn_name in ["web_request", "run_sqlmap", "upload_webshell", "webshell_exec",
-                         "exploit_binary_service"]:
+
+        for fn_name in [
+            "web_request",
+            "run_sqlmap",
+            "upload_webshell",
+            "webshell_exec",
+            "exploit_binary_service",
+        ]:
             # dry_run shouldn't return a synthetic-only message (it should say DRY-RUN)
             result = _lab_dispatch_inner(fn_name, {}, dry_run=True)
             if "[DRY-RUN]" in result or "synthetic" not in result:
                 subs.append({"name": f"mbptl-dispatch-{fn_name}", "status": "PASS"})
             else:
-                subs.append({"name": f"mbptl-dispatch-{fn_name}", "status": "WARN",
-                             "reason": "synthetic-only fallback triggered on dry-run"})
+                subs.append(
+                    {
+                        "name": f"mbptl-dispatch-{fn_name}",
+                        "status": "WARN",
+                        "reason": "synthetic-only fallback triggered on dry-run",
+                    }
+                )
     except Exception as e:
         subs.append({"name": "mbptl-dispatch", "status": "FAIL", "error": str(e)})
 
     failed = [s["name"] for s in subs if s["status"] == "FAIL"]
     if failed:
         return "FAIL", f"{len(failed)} lab-exec coverage gap(s): {failed}", subs
-    return "PASS", f"all {len(LAB_TARGETS)} provisioned machines have live oracle-scored phases", subs
+    return (
+        "PASS",
+        f"all {len(LAB_TARGETS)} provisioned machines have live oracle-scored phases",
+        subs,
+    )
+
+
+def check_scenario_oracle_matrix() -> tuple[str, str, list[dict]]:
+    """X. Every scenario has an oracle (or explicit null), every class oracle is registered, every class resolves to a container."""
+    import yaml
+
+    subs: list[dict] = []
+    problems: list[str] = []
+
+    try:
+        from tests.benchmarks.bench_security._data import PROMPTS
+        from tests.benchmarks.bench_security.oracles import ORACLES
+    except ImportError as e:
+        return "SKIP", f"import: {e}", []
+
+    # Check 1: every scenario has an oracle field
+    missing_oracle = []
+    bad_oracle = []
+    for key, prompt in PROMPTS.items():
+        if "oracle" not in prompt:
+            missing_oracle.append(key)
+        else:
+            oracle = prompt["oracle"]
+            if oracle is not None and oracle not in ORACLES:
+                bad_oracle.append(f"{key}→{oracle}")
+    if missing_oracle:
+        problems.append(
+            f"{len(missing_oracle)} scenario(s) missing oracle field: {missing_oracle[:3]}"
+        )
+    if bad_oracle:
+        problems.append(
+            f"{len(bad_oracle)} scenario(s) reference unregistered oracle: {bad_oracle[:3]}"
+        )
+    subs.append(
+        {
+            "name": "scenario oracles",
+            "status": "PASS" if not missing_oracle and not bad_oracle else "FAIL",
+        }
+    )
+
+    # Check 2: every challenge-class oracle is registered
+    cc_path = REPO_ROOT / "config" / "challenge_classes.yaml"
+    if cc_path.exists():
+        cc = yaml.safe_load(cc_path.read_text())
+        cc_oracle_problems = []
+        cc_orphan = []
+        for cls in cc.get("classes", []):
+            cid = cls.get("id", "?")
+            oracle = cls.get("ground_truth", {}).get("oracle", "")
+            if oracle and oracle not in ORACLES:
+                cc_oracle_problems.append(f"{cid}→{oracle}")
+            has_vulhub = len(cls.get("vulhub", [])) > 0
+            has_purpose = cls.get("purpose_built") is not None
+            if not has_vulhub and not has_purpose:
+                cc_orphan.append(cid)
+        if cc_oracle_problems:
+            problems.append(f"class oracles not registered: {cc_oracle_problems}")
+        if cc_orphan:
+            problems.append(f"orphan classes (no vulhub or purpose_built): {cc_orphan}")
+        subs.append(
+            {"name": "class oracles", "status": "PASS" if not cc_oracle_problems else "FAIL"}
+        )
+        subs.append({"name": "class containers", "status": "PASS" if not cc_orphan else "FAIL"})
+    else:
+        subs.append({"name": "challenge_classes.yaml", "status": "SKIP"})
+
+    if problems:
+        return "FAIL", f"{len(problems)} issue(s): {problems[:3]}", subs
+    return "PASS", f"all {len(PROMPTS)} scenarios oracle-bound, all class oracles registered", subs
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -846,6 +967,7 @@ def main() -> int:
     v.run("R. loop dry-run gate", check_loop_dry_run)
     v.run("V. lab setup readiness", check_lab_setup_readiness)
     v.run("W. lab-exec coverage", check_labexec_coverage)
+    v.run("X. scenario-oracle/matrix", check_scenario_oracle_matrix)
 
     return v.summary()
 
