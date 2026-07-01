@@ -1,0 +1,26 @@
+name: ics-firmware-assessment
+version: 1
+description: ICS firmware assessment — stub, phases guarded until TASK_SEC_RE_FIRMWARE_V1 lands
+authors: [chris]
+intensity: normal
+scope:
+  targets: ["$LAB_TARGET_ICS"]
+  networks: ["$LAB_TARGET_NETWORK"]
+budget:
+  max_iterations: 10
+  max_wall_clock_sec: 3600
+  max_lab_actions: 30
+stop_conditions:
+  - { field: "firmware_extracted", equals: true }
+phases:
+  - id: setup
+    manual: true
+    checklist:
+      - Ensure firmware emulation target is running (TASK_SEC_RE_FIRMWARE_V1)
+      - Confirm toolchain availability
+  - id: extract
+    depends_on: [setup]
+    steps: []
+  - id: analyze
+    depends_on: [extract]
+    steps: []
