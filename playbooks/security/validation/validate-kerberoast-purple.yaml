@@ -1,0 +1,11 @@
+name: validate-kerberoast-purple
+description: Red requests service tickets, blue detects 4769 events, evasion loop converges
+technique: kerberoast
+target: 10.10.11.21
+red_models: [VulnLLM-R-7B, gemma-4-abliterated:E2b-qat]
+blue_models: [sylink:8b]
+oracle: rce_shell
+hardened_twin:
+  method: snapshot
+  value: baseline-ad
+event_ids: [4769, 4768]
