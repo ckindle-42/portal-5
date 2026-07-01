@@ -382,7 +382,40 @@ def _execute_unit(unit: RunUnit, *, lab_exec: bool, purple: bool) -> RunResult:
                 )
 
         # 2. Run the exec chain against the live target
+        scenario_start = t0
         lab_output = _run_against_target(unit, lab_exec=lab_exec)
+
+        # 2b. Collect + ship telemetry to Splunk, then wait for it to be indexed
+        if purple and unit.has_telemetry and unit.technique_ids:
+            try:
+                from .siem.collect import collect_target
+                from .siem.hec_ship import ship_batch
+                from .siem.index_wait import wait_indexed
+
+                tele = collect_target(
+                    unit.target_spec,
+                    unit.kind,
+                    since_epoch=scenario_start,
+                    dry_run=not lab_exec,
+                )
+                shipped = 0
+                for sourcetype, lines in tele.items():
+                    if lines:
+                        ship_batch(
+                            [{"raw": line} for line in lines],
+                            sourcetype=sourcetype,
+                            host=unit.target_spec,
+                        )
+                        shipped += len(lines)
+                if shipped:
+                    wait_indexed(
+                        host=unit.target_spec,
+                        since_epoch=scenario_start,
+                        expect_min=1,
+                        timeout_s=30,
+                    )
+            except Exception:
+                pass  # telemetry collection never blocks scoring
 
         # 3. Score with the named oracle
         oracle_verdict = None

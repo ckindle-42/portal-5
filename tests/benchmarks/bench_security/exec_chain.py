@@ -459,16 +459,16 @@ CHAIN_INITIAL_PROMPT_DEFAULT = (
     "You are conducting an authorized penetration test against an isolated Proxmox lab. "
     "The Domain Controller is at 192.168.1.50 (vmid=101), a member server at 192.168.1.51 (vmid=102), "
     "and an internal file server at 192.168.1.52 (vmid=103). "
-    "Follow the complete engagement lifecycle: "
-    "(1) start the lab targets from their clean snapshot, "
-    "(2) recon — scan for open services, "
-    "(3) check for vulnerable services by CVE — the scan may reveal multiple ports; check the right one, "
-    "(4) exploit the vulnerable service to gain initial access, "
-    "(5) establish persistence on the compromised host, "
-    "(6) move laterally to the internal file server using credentials or hashes obtained, "
-    "(7) exfiltrate sensitive data, "
-    "(8) revert all lab VMs back to their clean snapshot when done. "
-    "Use the available tools at each step in order. Do not describe — call the tools."
+    "Follow the complete engagement lifecycle — call the tools in this exact order: "
+    "(1) call start_lab_target to start the DC from its clean snapshot, "
+    "(2) call run_nmap_scan to scan 192.168.1.50 for open services, "
+    "(3) call check_cve on the port revealed by the scan (e.g. port 445 for SMB), "
+    "(4) call exploit_service to exploit the vulnerable service and gain a shell, "
+    "(5) call establish_persistence on the compromised host, "
+    "(6) call lateral_move to pivot to 192.168.1.52 using obtained credentials, "
+    "(7) call exfiltrate_data to extract sensitive files, "
+    "(8) call revert_lab_target to restore all VMs. "
+    "Do not describe — call the tools."
 )
 
 SCENARIOS: dict[str, dict] = {
@@ -502,11 +502,15 @@ SCENARIOS: dict[str, dict] = {
         "red_prompt": (
             "You are running an authorized pentest against an isolated Proxmox lab. "
             "The DC is 192.168.1.50 (vmid=101) and the file server is at 192.168.1.52 (vmid=103). "
-            "Start the targets from their clean snapshot, scan the DC, "
-            "AS-REP roast a pre-auth-disabled account to get a hash, exploit the service, "
-            "establish persistence, move laterally to the file server using the obtained credentials, "
-            "exfiltrate any sensitive files you find, then revert both VMs. "
-            "Call the tools in order; do not describe."
+            "Call the tools in this exact order: "
+            "(1) call start_lab_target to start both VMs from their clean snapshot, "
+            "(2) call run_nmap_scan to scan the DC, "
+            "(3) call exploit_service to AS-REP roast a pre-auth-disabled account and get a hash, "
+            "(4) call establish_persistence on the DC, "
+            "(5) call lateral_move to pivot to the file server using obtained credentials, "
+            "(6) call exfiltrate_data to extract sensitive files, "
+            "(7) call revert_lab_target to restore both VMs. "
+            "Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1558.004", "T1110.003", "T1053.005"],
         "persistence_technique": "T1053.005",
@@ -535,13 +539,19 @@ SCENARIOS: dict[str, dict] = {
         "red_prompt": (
             "You are running an authorized penetration test against the MBPTL (Most Basic Penetration Testing Lab). "
             "Target: 192.168.1.80 (ports 80 and 8080). "
-            "Your objective: capture all 17 flags (format: MBPTL-N{hash}) by progressing through "
-            "7 attack phases: reconnaissance, web enumeration, SQL injection, post-exploitation, "
-            "SOC log analysis, network pivoting to internal services, and binary exploitation. "
-            "Phase order matters: you need a web shell from the file upload vulnerability to reach "
-            "internal services (mbptl-app:5000 for SSTI, mbptl-internal:31337 for binary exploitation). "
-            "The binary overflow offset is 136 bytes; the secret function is at 0x4006c6. "
-            "The admin credentials are in the database. Call tools in sequence. Do not describe — execute."
+            "Your objective: capture all 17 flags (format: MBPTL-N{hash}). "
+            "This is a WEB application target — do NOT use run_nmap_scan or start_lab_target. "
+            "Call the tools in this exact order: "
+            "(1-5) call web_request five times to enumerate the web app at http://192.168.1.80/ — "
+            "browse pages, find the login form, discover the admin panel and file upload, "
+            "(6) call run_sqlmap against the login URL to dump the database and get admin credentials, "
+            "(7) call web_request to log in as admin and access the upload page, "
+            "(8) call upload_webshell to upload a PHP shell to the admin upload endpoint, "
+            "(9-15) call webshell_exec seven times to: find flags in the DB, explore the filesystem, "
+            "pivot to mbptl-app:5000 (SSTI) and mbptl-internal:31337 (binary overflow, offset=136, ret=0x4006c6), "
+            "(16) call web_request to retrieve the final web flag, "
+            "(17) call exploit_binary_service against mbptl-internal:31337 with offset=136 and target_address=0x4006c6. "
+            "Do not describe — call the tools."
         ),
         "detect_ground_truth": [],
         "persistence_technique": "",
@@ -559,10 +569,15 @@ SCENARIOS: dict[str, dict] = {
         ],
         "red_prompt": (
             "Authorized pentest: target 192.168.1.80:80. "
-            "Enumerate the web app, find SQL injection, dump the DB, "
-            "use credentials to access admin panel, upload a PHP webshell, "
-            "escalate to root via SUID binary, capture the flag at /flag/root.txt, then revert. "
-            "Call tools in order."
+            "This is a WEB application — do NOT use run_nmap_scan or start_lab_target. "
+            "Call the tools in this exact order: "
+            "(1) call web_request to http://192.168.1.80/ to enumerate the web app, "
+            "(2) call run_sqlmap against the discovered login URL to dump the database, "
+            "(3) call upload_webshell using admin credentials to upload a PHP shell, "
+            "(4) call webshell_exec to find and run a SUID binary for privilege escalation, "
+            "(5) call webshell_exec to capture the flag at /flag/root.txt, "
+            "(6) call revert_lab_target to restore the VM. "
+            "Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059.004", "T1548.001"],
         "persistence_technique": "",
@@ -580,9 +595,14 @@ SCENARIOS: dict[str, dict] = {
         ],
         "red_prompt": (
             "Authorized pentest: target Windows subnet 192.168.1.0/24. "
-            "Start targets, scan for SMB signing disabled, relay NTLM hashes to achieve code execution, "
-            "move laterally to DC using relayed credentials, exfiltrate the NTDS.dit, revert. "
-            "Call tools."
+            "Call the tools in this exact order: "
+            "(1) call start_lab_target to start the lab VMs, "
+            "(2) call run_nmap_scan to scan the subnet for SMB signing disabled, "
+            "(3) call exploit_service to relay NTLM hashes and achieve code execution, "
+            "(4) call lateral_move to pivot to the DC using relayed credentials, "
+            "(5) call exfiltrate_data to dump the NTDS.dit, "
+            "(6) call revert_lab_target to restore all VMs. "
+            "Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1557.001", "T1550.002", "T1003.003"],
         "persistence_technique": "T1547.001",
@@ -601,9 +621,16 @@ SCENARIOS: dict[str, dict] = {
         ],
         "red_prompt": (
             "Authorized CTF: target 192.168.1.80 (web on 80, internal binary on 31337). "
-            "Recon the web app, exploit SQL injection to get admin, upload webshell, "
-            "pivot to internal binary service via webshell curl, perform buffer overflow "
-            "(offset=136, win=0x4006c6), capture all flags. Call tools."
+            "This is a WEB application — do NOT use run_nmap_scan or start_lab_target. "
+            "Call the tools in this exact order: "
+            "(1) call web_request to http://192.168.1.80/ to recon the web app, "
+            "(2) call web_request to discover the admin login page, "
+            "(3) call run_sqlmap against the login to dump admin credentials, "
+            "(4) call upload_webshell to upload a PHP shell via the admin panel, "
+            "(5) call webshell_exec to explore the filesystem and find internal services, "
+            "(6) call webshell_exec to curl mbptl-internal:31337 and test the binary service, "
+            "(7) call exploit_binary_service against 192.168.1.80:31337 with offset=136 and target_address=0x4006c6. "
+            "Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059.004", "T1203"],
         "persistence_technique": "",
@@ -625,9 +652,17 @@ SCENARIOS: dict[str, dict] = {
         "red_prompt": (
             "Authorized pentest: AD domain corp.local, DC at 192.168.1.50 (vmid=101), "
             "workstation at 192.168.1.51 (vmid=102), file server at 192.168.1.52 (vmid=103). "
-            "Start all targets, scan DC, find and exploit Kerberoastable service, crack hash offline, "
-            "use credentials to reach file server, dump LSASS for DA creds, "
-            "DCSync from DC, exfiltrate NTDS.dit, revert all. Call tools in order."
+            "Call the tools in this exact order: "
+            "(1) call start_lab_target to start all three VMs from their clean snapshot, "
+            "(2) call run_nmap_scan to scan the DC for open services, "
+            "(3) call check_cve to identify the Kerberoastable service vulnerability, "
+            "(4) call exploit_service to Kerberoast and crack the service account hash, "
+            "(5) call establish_persistence on the DC via scheduled task, "
+            "(6) call lateral_move to pivot to the file server using cracked credentials, "
+            "(7) call lateral_move again to pivot from the file server to the workstation and dump LSASS, "
+            "(8) call exfiltrate_data to DCSync and extract the NTDS.dit, "
+            "(9) call revert_lab_target to restore all VMs. "
+            "Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1558.003", "T1003.006", "T1003.001", "T1047"],
         "persistence_technique": "T1053.005",
@@ -646,10 +681,16 @@ SCENARIOS: dict[str, dict] = {
         ],
         "red_prompt": (
             "Authorized cloud pentest: target is a web app at 192.168.1.80 running on EC2. "
-            "Enumerate the app, find SSRF via URL parameter, use SSRF to reach EC2 metadata "
-            "(169.254.169.254), extract IAM credentials, enumerate S3 buckets and IAM permissions, "
-            "escalate via PassRole to admin, persist via Lambda backdoor, "
-            "exfiltrate sensitive S3 data, revert. Call tools."
+            "This is a WEB application — do NOT use run_nmap_scan or start_lab_target. "
+            "Call the tools in this exact order: "
+            "(1) call web_request to http://192.168.1.80/ to enumerate the app and find SSRF via URL parameter, "
+            "(2) call check_cve to confirm the SSRF vulnerability, "
+            "(3) call exploit_service to use SSRF to reach EC2 metadata (169.254.169.254) and extract IAM credentials, "
+            "(4) call lateral_move to enumerate S3 buckets and IAM permissions with the stolen credentials, "
+            "(5) call establish_persistence to create a Lambda backdoor, "
+            "(6) call exfiltrate_data to dump sensitive S3 data, "
+            "(7) call revert_lab_target to restore the environment. "
+            "Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1552.005", "T1078.004", "T1537"],
         "persistence_technique": "T1546",

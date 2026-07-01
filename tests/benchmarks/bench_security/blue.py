@@ -9,7 +9,9 @@ avoid circular imports.
 from __future__ import annotations
 
 import json
+import os
 import time
+from typing import Protocol, runtime_checkable
 
 import httpx
 
@@ -31,6 +33,120 @@ from .scoring import score_blue_detections as _score_blue_detections
 # Ollama direct URL — used for blue/purple chain tests that bypass the pipeline.
 OLLAMA_URL = "http://localhost:11434"
 
+
+# ── TelemetryBackend adapter seam ────────────────────────────────────────────
+
+
+@runtime_checkable
+class TelemetryBackend(Protocol):
+    """Backend-agnostic telemetry query interface.
+
+    Implementations: WinEventBackend (AD), SplunkBackend (web/linux/container).
+    The protocol is the contract — blue.py calls .query() without knowing
+    which SIEM answers.
+    """
+
+    name: str
+
+    def query(self, technique_id: str, window: dict) -> dict:
+        """Query telemetry for a technique.
+
+        Returns {telemetry: str, source: 'live'|'synthetic-fallback', backend: name}.
+        """
+        ...
+
+
+class WinEventBackend:
+    """Windows Event Log via nxc winrm -> Get-WinEvent (AD path, behavior-preserving)."""
+
+    name = "winrm-winevent"
+
+    def query(self, technique_id: str, window: dict) -> dict:
+        fx = _TELEMETRY_FIXTURES.get(technique_id)
+        if not fx:
+            return {"telemetry": "", "source": "synthetic-fallback", "backend": self.name}
+        if not (_LAB_EXEC_AVAILABLE and _LAB_DC):
+            return {
+                "telemetry": fx["synthetic"],
+                "source": "synthetic-fallback",
+                "backend": self.name,
+            }
+        ids = ",".join(str(e) for e in fx["event_ids"])
+        ps = (
+            f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={ids}}} "
+            f"-MaxEvents 50 | Format-List Id,TimeCreated,Message"
+        )
+        code = f"nxc winrm {_LAB_DC} -u administrator -p '{_LAB_ADMIN_PASS}' -x \"{ps}\" 2>&1"
+        r = _lab_mcp_call(code, timeout=90)
+        text = r.get("output", "")
+        if text.strip() and ("EventID" in text or any(str(e) in text for e in fx["event_ids"])):
+            return {"telemetry": text, "source": "live", "backend": self.name}
+        return {"telemetry": fx["synthetic"], "source": "synthetic-fallback", "backend": self.name}
+
+
+class SplunkBackend:
+    """Splunk telemetry backend — real SPL via REST export endpoint."""
+
+    name = "splunk"
+
+    def __init__(self):
+        self.url = os.environ.get("LAB_SPLUNK_URL", "https://10.0.1.30:8089")
+        self.user = os.environ.get("LAB_SPLUNK_USER", "admin")
+        self.pw = os.environ.get("LAB_SPLUNK_PASSWORD", "Portal5Lab1!")
+
+    def query(self, technique_id: str, window: dict) -> dict:
+        from .siem.spl_detections import spl_for
+
+        spl = spl_for(technique_id)
+        if not spl:
+            return {"telemetry": "", "source": "synthetic-fallback", "backend": self.name}
+        earliest = window.get("earliest", "-15m")
+        latest = window.get("latest", "now")
+        search = (
+            spl if spl.strip().startswith("search") or "|" in spl.split()[0:1] else f"search {spl}"
+        )
+        try:
+            r = httpx.post(
+                f"{self.url.rstrip('/')}/services/search/jobs/export",
+                auth=(self.user, self.pw),
+                verify=False,
+                timeout=90.0,
+                data={
+                    "search": search,
+                    "exec_mode": "oneshot",
+                    "earliest_time": earliest,
+                    "latest_time": latest,
+                    "output_mode": "json",
+                },
+            )
+            hits = [
+                ln for ln in r.text.splitlines() if ln.strip().startswith("{") and '"result"' in ln
+            ]
+            if hits:
+                return {"telemetry": "\n".join(hits), "source": "live", "backend": self.name}
+            return {"telemetry": "", "source": "synthetic-fallback", "backend": self.name}
+        except Exception as e:
+            return {
+                "telemetry": f"[splunk error: {e}]",
+                "source": "synthetic-fallback",
+                "backend": self.name,
+            }
+
+
+# Per-target backend selection.  AD targets -> WinEvent; web/linux/container -> Splunk.
+_AD_TARGETS = {"dc01", "srv01", "ws01", "meta3", "lab-dc01", "lab-srv01"}
+_winrm_backend = WinEventBackend()
+_splunk_backend = SplunkBackend()
+
+
+def get_backend(target: str) -> TelemetryBackend:
+    """Return the appropriate telemetry backend for a target."""
+    target_lower = target.lower()
+    if any(ad in target_lower for ad in _AD_TARGETS):
+        return _winrm_backend
+    return _splunk_backend
+
+
 # Re-export for sibling modules that may import these names from ``blue``.
 __all__ = [
     "_run_blue_defender",
@@ -44,6 +160,10 @@ __all__ = [
     "_run_evasion_purple",
     "BLUE_TOOLS",
     "BLUE_INITIAL_PROMPT",
+    "TelemetryBackend",
+    "WinEventBackend",
+    "SplunkBackend",
+    "get_backend",
 ]
 
 # ── Module-level constants ────────────────────────────────────────────────────

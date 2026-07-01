@@ -661,8 +661,7 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
         return r.get("output", "") or "[exploit_binary_service: no output]"
 
-    return f"OK: {fn_name} completed (synthetic)."
-
+    # ── AD / Proxmox lifecycle tools ─────────────────────────────────────────
     dc = _LAB_DC or "10.10.11.21"
     srv = _LAB_SRV or "10.10.11.33"
 
