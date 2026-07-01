@@ -568,6 +568,45 @@ def check_bench_parallel_dispatch_safety() -> tuple[str, str, list[dict]]:
     return "PASS", f"all {len(expectations)} parallel-dispatch markers present", subs
 
 
+def check_oracle_registry_consistency() -> tuple[str, str, list[dict]]:
+    """P. Every exec scenario with an 'oracle' field names a registered oracle."""
+    subs: list[dict] = []
+    try:
+        from tests.benchmarks.bench_security.oracles import ORACLES
+    except ImportError:
+        return "SKIP", "oracles module not found", []
+
+    from tests.benchmarks.bench_security._data import EXEC_SEQUENCES, PROMPTS
+
+    missing = []
+    scenario_count = 0
+    for name, seq in EXEC_SEQUENCES.items():
+        # EXEC_SEQUENCES is dict of name → list of step dicts
+        steps = seq if isinstance(seq, list) else seq.get("steps", [])
+        for step in steps:
+            if isinstance(step, dict) and "oracle" in step:
+                oid = step["oracle"]
+                scenario_count += 1
+                in_registry = oid in ORACLES
+                subs.append({"name": f"{name}::{step.get('step','')}", "status": "PASS" if in_registry else "FAIL"})
+                if not in_registry:
+                    missing.append(f"{name}::{step.get('step','')} oracle={oid}")
+    # Also check PROMPTS that have oracle at the prompt level
+    for name, prompt in PROMPTS.items():
+        if isinstance(prompt, dict) and "oracle" in prompt:
+            oid = prompt["oracle"]
+            scenario_count += 1
+            in_registry = oid in ORACLES
+            subs.append({"name": f"PROMPT::{name}", "status": "PASS" if in_registry else "FAIL"})
+            if not in_registry:
+                missing.append(f"PROMPT::{name} oracle={oid}")
+    if missing:
+        return "FAIL", f"{len(missing)} oracle id(s) not in registry: {missing}", subs
+    if not scenario_count:
+        return "PASS", "no scenarios declare oracle (registry is active, nothing to cross-check)", subs
+    return "PASS", f"all {scenario_count} scenario oracle ids resolve to registered oracles", subs
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -623,6 +662,7 @@ def main() -> int:
     v.run("M. ruff F821 (undefined names)", check_no_undefined_names)
     v.run("N. VALID_WORKSPACES resolution", check_valid_workspaces_resolve)
     v.run("O. bench parallel dispatch", check_bench_parallel_dispatch_safety)
+    v.run("P. oracle registry consistency", check_oracle_registry_consistency)
 
     return v.summary()
 
