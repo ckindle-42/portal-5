@@ -637,6 +637,51 @@ def check_playbook_validation() -> tuple[str, str, list[dict]]:
     return "PASS", f"all {len(subs)} playbooks pass validation", subs
 
 
+def check_lab_target_catalog() -> tuple[str, str, list[dict]]:
+    """U. lab_targets.yaml entries have source + ground_truth; challenge_classes.yaml no orphans."""
+    import yaml
+
+    subs: list[dict] = []
+    problems: list[str] = []
+
+    # Check lab_targets.yaml
+    lt_path = REPO_ROOT / "config" / "lab_targets.yaml"
+    if lt_path.exists():
+        try:
+            lt = yaml.safe_load(lt_path.read_text())
+            for t in lt.get("targets", []):
+                tid = t.get("id", "?")
+                if "source" not in t:
+                    problems.append(f"{tid}: missing source")
+                if "ground_truth" not in t:
+                    problems.append(f"{tid}: missing ground_truth")
+            subs.append({"name": "lab_targets.yaml", "status": "PASS" if not problems else "FAIL"})
+        except Exception as e:
+            problems.append(f"lab_targets.yaml parse error: {e}")
+
+    # Check challenge_classes.yaml
+    cc_path = REPO_ROOT / "config" / "challenge_classes.yaml"
+    if cc_path.exists():
+        try:
+            cc = yaml.safe_load(cc_path.read_text())
+            cc_problems = []
+            for c in cc.get("classes", []):
+                cid = c.get("id", "?")
+                has_vulhub = len(c.get("vulhub", [])) > 0
+                has_purpose = c.get("purpose_built") is not None
+                if not has_vulhub and not has_purpose:
+                    cc_problems.append(f"{cid}: orphan — no vulhub path or purpose_built dir")
+            cc_status = "PASS" if not cc_problems else "FAIL"
+            subs.append({"name": "challenge_classes.yaml", "status": cc_status})
+            problems.extend(cc_problems)
+        except Exception as e:
+            problems.append(f"challenge_classes.yaml parse error: {e}")
+
+    if problems:
+        return "FAIL", f"{len(problems)} catalog issue(s): {problems[:5]}", subs
+    return "PASS", "lab target catalog + challenge classes valid", subs
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -694,6 +739,7 @@ def main() -> int:
     v.run("O. bench parallel dispatch", check_bench_parallel_dispatch_safety)
     v.run("P. oracle registry consistency", check_oracle_registry_consistency)
     v.run("Q. playbook validation", check_playbook_validation)
+    v.run("U. lab target catalog", check_lab_target_catalog)
 
     return v.summary()
 

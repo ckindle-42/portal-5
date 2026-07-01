@@ -1,0 +1,52 @@
+# Challenge-class → container mapping.
+# Each class maps competitive categories onto vulhub environments (and a few
+# purpose-built composes for gaps vulhub doesn't cover).
+classes:
+  - id: ssrf-metadata-pivot
+    vulhub: [gitlab/CVE-2021-22214, "web/ssrf-*"]
+    purpose_built: null
+    ground_truth: { oracle: oast_callback }
+  - id: deserialization
+    vulhub: [fastjson/*, jackson/CVE-2017-7525, shiro/*]
+    purpose_built: null
+    ground_truth: { oracle: rce_shell }
+  - id: ssti-blind
+    vulhub: [flask/ssti, jinja2/ssti]
+    purpose_built: null
+    ground_truth: { oracle: rce_shell }
+  - id: jwt-claim-confusion
+    vulhub: []
+    purpose_built: challenges/jwt-claim-confusion/
+    ground_truth: { oracle: idor_bola }
+  - id: container-escape
+    vulhub: [docker/unauthorized-rce, "docker/cve-*"]
+    purpose_built: null
+    ground_truth: { oracle: rce_shell }
+  - id: sqli-auth-bypass
+    vulhub: [sqli-labs/mysql/*, sqli-labs/postgresql/*]
+    purpose_built: null
+    ground_truth: { oracle: sqli_error }
+  - id: lfi-path-traversal
+    vulhub: [php/CVE-2018-12613, nginx/CVE-2017-7529]
+    purpose_built: null
+    ground_truth: { oracle: lfi_confirm }
+  - id: command-injection
+    vulhub: [flask/ssti, struts2/*, confluence/CVE-2022-26134]
+    purpose_built: null
+    ground_truth: { oracle: rce_shell }
+  - id: xss-reflected
+    vulhub: [xss/reflected-xss, web/dom-based-xss]
+    purpose_built: null
+    ground_truth: { oracle: reflection }
+  - id: k8s-pod-escape
+    vulhub: []
+    purpose_built: challenges/k8s-pod-escape/
+    ground_truth: { oracle: rce_shell }
+  - id: cloud-metadata-ssrf
+    vulhub: []
+    purpose_built: challenges/cloud-metadata-ssrf/
+    ground_truth: { oracle: oast_callback }
+  - id: graphql-introspection
+    vulhub: []
+    purpose_built: challenges/graphql-introspection/
+    ground_truth: { oracle: reflection }

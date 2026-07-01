@@ -1,0 +1,87 @@
+# Declarative live lab target catalog.
+# Each entry is a recipe for an ephemeral container — spun up for a run, torn down after.
+# Sources: vulhub (1,234 environments), Project Black CVE targets, ptai honeypot/cleanapp pair.
+targets:
+  - id: vulhub-log4shell-solr
+    source: vulhub
+    path: log4j/CVE-2021-44228
+    host: 10.10.11.50
+    port: 8983
+    cve: CVE-2021-44228
+    technique: RCE
+    ground_truth:
+      oracle: rce_shell
+      success_indicators: ["uid=", "shell obtained"]
+    hardened_twin:
+      method: image_tag
+      value: "solr:8.11.2"
+    preexisting: true
+  - id: vulhub-tomcat-manager
+    source: vulhub
+    path: tomcat/CVE-2017-12615
+    host: 10.10.11.50
+    port: 8081
+    cve: CVE-2017-12615
+    technique: RCE
+    ground_truth:
+      oracle: rce_shell
+      success_indicators: ["JSP uploaded", "cmd executed"]
+    hardened_twin:
+      method: image_tag
+      value: "tomcat:9.0.2"
+    preexisting: true
+  - id: vulhub-redis-rce
+    source: vulhub
+    path: redis/CVE-2022-0543
+    host: 10.10.11.50
+    port: 6379
+    cve: CVE-2022-0543
+    technique: RCE
+    ground_truth:
+      oracle: rce_shell
+      success_indicators: ["uid=", "root"]
+    hardened_twin:
+      method: image_tag
+      value: "redis:7.0-alpine"
+    preexisting: true
+  - id: vulhub-nginx-lfi
+    source: vulhub
+    path: nginx/CVE-2017-7529
+    host: 10.10.11.50
+    port: 8080
+    cve: CVE-2017-7529
+    technique: LFI
+    ground_truth:
+      oracle: lfi_confirm
+      success_indicators: ["root:x:0:0", "etc/passwd"]
+    hardened_twin:
+      method: image_tag
+      value: "nginx:1.13.3"
+    preexisting: true
+  - id: pb-phpipam-lfi
+    source: projectblack
+    repo: https://github.com/phpipam/phpipam
+    cve: CVE-2026-12194
+    technique: LFI
+    ground_truth:
+      oracle: lfi_confirm
+      success_indicators: ["phpinfo", "root:x:0:0"]
+    code_review_target: true
+  - id: pb-myvesta-rce
+    source: projectblack
+    repo: https://github.com/myvesta/myvesta
+    cve: CVE-2026-12195
+    technique: RCE
+    ground_truth:
+      oracle: rce_shell
+      success_indicators: ["uid=", "command executed"]
+    code_review_target: true
+  - id: ptai-webapp-twin
+    source: ptai
+    method: in_process
+    techniques: [sqli, xxe, stored_xss, idor_mass_assign, race_toctou, type_confusion, header_bypass]
+    ground_truth:
+      per_endpoint: true
+    hardened_twin:
+      method: sibling_server
+      value: cleanapp
