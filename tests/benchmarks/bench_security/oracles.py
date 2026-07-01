@@ -13,6 +13,7 @@ The registry is extensible: downstream tasks add oracles via register_oracle().
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 
@@ -41,14 +42,18 @@ class Oracle:
         kind: str,
         honesty_claim: str,
         tier: str = "stable",
+        check: Callable | None = None,
     ):
         self.id = id
         self.kind = kind
         self.honesty_claim = honesty_claim
         self.tier = tier
+        self._check_fn = check
 
     def check(self, finding: dict, lab_output: str, observations: dict) -> bool:
         """Return True if the oracle confirms this finding against the evidence."""
+        if self._check_fn:
+            return self._check_fn(finding, lab_output, observations)
         raise NotImplementedError("subclasses must implement check()")
 
 
