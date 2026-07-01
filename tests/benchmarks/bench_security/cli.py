@@ -1005,6 +1005,50 @@ def main() -> None:
         restore_lab_vms(_snapshot_name, dry_run=args.dry_run)
         print(f"  [proxmox] restored to snapshot '{_snapshot_name}'\n")
 
+    # ── Security expansion steps (run even during dry-run) ───────────────────
+    expansion_steps: dict[str, dict] = {}
+    if args.full_expanded or args.verify_findings or args.ctf or args.llm_redteam or args.validate_suite or args.journal:
+        print("\n── Security Expansion Steps ──")
+    if args.full_expanded or args.verify_findings:
+        try:
+            from .oracles import ORACLES
+            print(f"  [verify-findings] {len(ORACLES)} named oracles registered")
+            expansion_steps["oracles"] = {"oracles": len(ORACLES)}
+        except ImportError:
+            print("  [verify-findings] oracles module absent — skipped")
+    if args.full_expanded or args.ctf:
+        try:
+            from .ctf_bench import bench_ctf as _ctf
+            r = _ctf("--dry-run", dry_run=True)
+            expansion_steps["ctf"] = r
+            print(f"  [ctf] flag-oracle bench loaded")
+        except ImportError:
+            print("  [ctf] ctf_bench module absent — skipped")
+    if args.full_expanded or args.llm_redteam:
+        try:
+            from .llm_redteam import bench_llm_redteam as _lrt
+            r = _lrt("auto-security", dry_run=True)
+            expansion_steps["llm_redteam"] = r
+            print(f"  [llm-redteam] OWASP-LLM-Top-10 probes loaded")
+        except ImportError:
+            print("  [llm-redteam] llm_redteam module absent — skipped")
+    if args.full_expanded or args.validate_suite:
+        try:
+            from .validation import validate_usecase as _vu
+            r = _vu({"name": "validate-suite-dry"}, dry_run=True)
+            expansion_steps["validation"] = r
+            print(f"  [validate-suite] validation harness loaded")
+        except ImportError:
+            print("  [validate-suite] validation module absent — skipped")
+    if (args.full_expanded or args.journal) and not args.dry_run:
+        try:
+            from .field_journal import record_engagement as _re
+            _re({}, engagement_id=f"sec-bench-{ts}")
+            expansion_steps["journal"] = "written"
+            print(f"  [journal] engagement journaled")
+        except ImportError:
+            print("  [journal] field_journal module absent — skipped")
+
     if args.dry_run:
         return
 
@@ -1082,49 +1126,6 @@ def main() -> None:
             print(f"{r['model'][:50]:<50} {r.get('outcome', '?'):<12} {win_str}")
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    # ── Security expansion steps (TASK_SEC_LAB_SETUP_V1) ───────────────────
-    expansion_steps: dict[str, dict] = {}
-    if args.full_expanded or args.verify_findings or args.ctf or args.llm_redteam or args.validate_suite or args.journal:
-        print("\n── Security Expansion Steps ──")
-    if args.full_expanded or args.verify_findings:
-        try:
-            from .oracles import ORACLES
-            print(f"  [verify-findings] {len(ORACLES)} named oracles registered")
-            expansion_steps["oracles"] = {"oracles": len(ORACLES)}
-        except ImportError:
-            print("  [verify-findings] oracles module absent — skipped")
-    if args.full_expanded or args.ctf:
-        try:
-            from .ctf_bench import bench_ctf as _ctf
-            r = _ctf("--dry-run", dry_run=True)
-            expansion_steps["ctf"] = r
-            print(f"  [ctf] flag-oracle bench loaded")
-        except ImportError:
-            print("  [ctf] ctf_bench module absent — skipped")
-    if args.full_expanded or args.llm_redteam:
-        try:
-            from .llm_redteam import bench_llm_redteam as _lrt
-            r = _lrt("auto-security", dry_run=True)
-            expansion_steps["llm_redteam"] = r
-            print(f"  [llm-redteam] OWASP-LLM-Top-10 probes loaded")
-        except ImportError:
-            print("  [llm-redteam] llm_redteam module absent — skipped")
-    if args.full_expanded or args.validate_suite:
-        try:
-            from .validation import validate_usecase as _vu
-            r = _vu({"name": "validate-suite-dry"}, dry_run=True)
-            expansion_steps["validation"] = r
-            print(f"  [validate-suite] validation harness loaded")
-        except ImportError:
-            print("  [validate-suite] validation module absent — skipped")
-    if (args.full_expanded or args.journal) and not args.dry_run:
-        try:
-            from .field_journal import record_engagement as _re
-            _re({}, engagement_id=f"sec-bench-{ts}")
-            expansion_steps["journal"] = "written"
-            print(f"  [journal] engagement journaled")
-        except ImportError:
-            print("  [journal] field_journal module absent — skipped")
     out_path.write_text(
         json.dumps(
             {
