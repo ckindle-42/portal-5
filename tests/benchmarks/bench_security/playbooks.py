@@ -18,10 +18,11 @@ def load_playbook(path: str) -> dict:
     """Parse and validate a playbook YAML file. Raises on bad schema."""
     p = Path(path)
     if not p.is_absolute():
-        p = PLAYBOOKS_DIR / p
+        # Only prepend PLAYBOOKS_DIR for bare filenames, not relative paths
+        if p.parent == Path() or not p.parent.name:
+            p = PLAYBOOKS_DIR / p
     if not p.exists():
-        fp = str(path)
-        raise FileNotFoundError(f"playbook not found: {fp}")
+        raise FileNotFoundError(f"playbook not found: {path}")
     data = yaml.safe_load(p.read_text())
     problems = validate_playbook(data)
     if problems:
