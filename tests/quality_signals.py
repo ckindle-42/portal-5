@@ -9,7 +9,80 @@ PROMPTS dict. If you change a category's prompt, update its signals here.
 
 A signal may be a string (exact substring match) or a tuple of strings
 (OR group: any one match counts as one signal hit).
+
+V11 (2026-06-30): Optional per-category verifiers. If a category defines a
+``verifier`` callable (function taking response_text → 0..1 score),
+quality_score prefers it over keyword matching. Falls back to signal counting
+when no verifier exists. Two categories upgraded:
+
+- coding: runs merge_intervals through capability_lib.run_python_against_tests
+- reasoning: checks the numeric ER bottleneck answer (keyword as fallback)
 """
+
+from __future__ import annotations
+
+import re
+from collections.abc import Callable
+
+# ── Verifier callables (optional per-category) ───────────────────────────────
+
+
+def _verify_coding(response: str) -> float:
+    """Run the coding answer against merge_intervals unit tests."""
+    try:
+        from tests.benchmarks.capability_lib import (
+            extract_code_block,
+            run_python_against_tests,
+        )
+    except ImportError:
+        return -1.0  # signal: unavailable, fall back to keyword
+
+    code = extract_code_block(response, "python")
+    if not code:
+        return 0.0
+
+    test = (
+        "from solution import merge_intervals\n\n"
+        "def test_basic():\n"
+        "    assert merge_intervals([[1,3],[2,6],[8,10]]) == [[1,6],[8,10]]\n\n"
+        "def test_single():\n"
+        "    assert merge_intervals([[1,4]]) == [[1,4]]\n\n"
+        "def test_non_overlapping():\n"
+        "    assert merge_intervals([[1,2],[3,4],[5,6]]) == [[1,2],[3,4],[5,6]]\n"
+    )
+    passed, _ = run_python_against_tests(code, test)
+    return 1.0 if passed else 0.0
+
+
+def _verify_reasoning(response: str) -> float:
+    """Check the ER bottleneck numeric answer instead of keyword bingo.
+
+    The correct ER bottleneck answer involves:
+    - 30 patients/hr arrival rate
+    - 8 beds with avg 3.5 hr stay → capacity of 8/(3.5) ≈ 2.29 patients/hr exit
+    - Bottleneck is the beds (doctors 12 patients/hr, nurses 16 patients/hr)
+    - Wait time ≈ 12+ hrs or 700+ minutes
+    """
+    try:
+        from tests.benchmarks.capability_lib import extract_final_answer
+    except ImportError:
+        return -1.0
+
+    final = extract_final_answer(response).lower()
+
+    # Check for the correct numeric answer (bottleneck is beds, ~2.29/hr)
+    correct_signals = [
+        bool(re.search(r"2\.2[0-9]|2\.3[0-9]", final)),  # beds capacity ~2.29/hr
+        "bottleneck" in final or "bottleneck" in final,
+        "bed" in final or "beds" in final,
+    ]
+    return sum(correct_signals) / len(correct_signals)
+
+
+_VERIFIERS: dict[str, Callable[[str], float]] = {
+    "coding": _verify_coding,
+    "reasoning": _verify_reasoning,
+}
 
 QUALITY_SIGNALS: dict[str, list] = {
     "general": [
@@ -83,10 +156,22 @@ QUALITY_SIGNALS: dict[str, list] = {
 def quality_score(category: str, response_text: str) -> float:
     """Return a quality score in [0.0, 1.0] for the given category and response.
 
-    Signals match case-insensitively. Score is signals-found / signals-expected.
-    A signal may be a string (single keyword) or a tuple (OR group: any one hit counts).
-    Categories without defined signals return 1.0 (don't penalize).
+    If the category has an optional verifier (V11), it is preferred and
+    keyword matching is used as fallback when the verifier is unavailable
+    or returns a negative sentinel. Otherwise, signals are matched
+    case-insensitively. Score is signals-found / signals-expected.
+    A signal may be a string (single keyword) or a tuple (OR group: any one
+    hit counts). Categories without defined signals return 1.0.
     """
+    verifier = _VERIFIERS.get(category)
+    if verifier is not None:
+        try:
+            v_score = verifier(response_text)
+            if v_score >= 0.0:  # -1.0 = verifier unavailable, fall through
+                return v_score
+        except Exception:
+            pass  # verifier failed — fall back to keyword
+
     signals = QUALITY_SIGNALS.get(category, [])
     if not signals:
         return 1.0
