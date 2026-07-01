@@ -17,6 +17,11 @@ class EventType(Enum):
     TEST_START = "test_start"
     TEST_END = "test_end"
     TEST_SUMMARY = "test_summary"
+    # Loop engagement events (TASK-SEC-LOOP-NOTIFY-V1)
+    ENGAGEMENT_ESCALATED = "engagement_escalated"
+    ENGAGEMENT_STUCK = "engagement_stuck"
+    ENGAGEMENT_COMPLETE = "engagement_complete"
+    VALIDATION_ALERT = "validation_alert"
 
 
 @dataclass
