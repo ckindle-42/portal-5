@@ -16,13 +16,17 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 LAB_DIR = os.environ.get("LAB_DIR", os.path.expanduser("~/AI_Output/lab"))
 
 CHECKS: dict[str, dict] = {
-    "attack_image": {"required": True, "desc": "Attack image built (portal5-attack)"},
-    "attack_manifest": {"required": False, "desc": "Arsenal manifest present"},
-    "vulhub_cloned": {"required": True, "desc": "vulhub repository cloned"},
-    "challenge_dirs": {"required": True, "desc": "Purpose-built challenge composes"},
-    "telemetry": {"required": False, "desc": "Wazuh/WinEvent answering"},
-    "snapshots": {"required": False, "desc": "Clean/hardened-twin VM snapshots"},
-    "disk_space": {"required": True, "desc": "Sufficient disk space (>10GB free)"},
+    "docker": {"required": True, "host": "local", "desc": "Docker daemon running"},
+    "dind": {"required": True, "host": "local", "desc": "DinD (portal5-dind) container running"},
+    "attack_image": {"required": True, "host": "local", "desc": "Attack image (portal5-attack) present"},
+    "vulhub_clone": {"required": True, "host": "local", "desc": "vulhub repo cloned (~1,920 CVE dirs)"},
+    "challenge_dirs": {"required": True, "host": "local", "desc": "Challenge compose dirs materialized"},
+    "disk": {"required": True, "host": "local", "desc": "Sufficient disk space (>10GB free)"},
+    "ollama": {"required": False, "host": "local", "desc": "Ollama running + models resident"},
+    "dc_reachable": {"required": True, "host": "bridge", "desc": "DC (10.10.11.21:445) reachable from sandbox"},
+    "srv_reachable": {"required": True, "host": "bridge", "desc": "SRV (10.10.11.33:445) reachable from sandbox"},
+    "web_reachable": {"required": True, "host": "bridge", "desc": "Web (10.10.11.50:8080) reachable from sandbox"},
+    "snapshots": {"required": False, "host": "proxmox", "desc": "Clean-baseline VM snapshots exist"},
 }
 
 
@@ -61,15 +65,95 @@ def _check_telemetry() -> str:
         return "AMBER"
 
 
+def _check_proxmox_online() -> str:
+    import subprocess
+    try:
+        r = subprocess.run(
+            ["curl", "-sk", f"{os.environ.get('PROXMOX_URL', 'https://10.10.11.5:8006')}/api2/json/nodes"],
+            capture_output=True, text=True, timeout=10
+        )
+        return "GREEN" if "proxmox" in r.stdout else "RED"
+    except Exception:
+        return "RED"
+
+
+def _check_lab_dc_running() -> str:
+    return _proxmox_vm_running(110)
+
+
+def _check_lab_srv_running() -> str:
+    return _proxmox_vm_running(111)
+
+
+def _check_lab_vulhub_running() -> str:
+    return _proxmox_vm_running(112)
+
+
+def _proxmox_vm_running(vmid: int) -> str:
+    import subprocess
+    try:
+        r = subprocess.run(
+            ["curl", "-sk", f"{os.environ.get('PROXMOX_URL', 'https://10.10.11.5:8006')}/api2/json/nodes/proxmox3/qemu/{vmid}/status/current"],
+            capture_output=True, text=True, timeout=10
+        )
+        import json
+        d = json.loads(r.stdout)
+        status = d.get("data", {}).get("status", "")
+        return "GREEN" if status == "running" else "RED"
+    except Exception:
+        return "AMBER"
+
+
+def _check_dc_reachable() -> str:
+    return _check_port_reachable("10.10.11.21", 445)
+
+
+def _check_srv_reachable() -> str:
+    return _check_port_reachable("10.10.11.33", 445)
+
+
+def _check_port_reachable(host: str, port: int) -> str:
+    try:
+        r = __import__("subprocess").run(
+            ["docker", "exec", "portal5-dind", "docker", "run", "--rm", "--net", "bridge",
+             "portal5-attack:latest", "timeout", "3", "bash", "-c",
+             f"echo > /dev/tcp/{host}/{port}"],
+            capture_output=True, text=True, timeout=15
+        )
+        return "GREEN" if r.returncode == 0 else "RED"
+    except Exception:
+        return "AMBER"
+
+
 def _check_snapshots() -> str:
-    dc_vmid = os.environ.get("LAB_DC_VMID", "")
-    if dc_vmid:
+    for vmid in [110, 111]:
+        try:
+            r = __import__("subprocess").run(
+                ["curl", "-sk", f"{os.environ.get('PROXMOX_URL', 'https://10.10.11.5:8006')}/api2/json/nodes/proxmox3/qemu/{vmid}/snapshot"],
+                capture_output=True, text=True, timeout=10
+            )
+            data = __import__("json").loads(r.stdout)
+            snaps = [s for s in data.get("data", []) if s.get("name") not in ("current",)]
+            if not snaps:
+                return "AMBER"
+        except Exception:
+            return "AMBER"
+    return "GREEN"
+
+
+def _check_docker() -> str:
+    import shutil
+    return "GREEN" if shutil.which("docker") else "RED"
+
+
+def _check_ollama() -> str:
+    import shutil
+    if shutil.which("ollama"):
         return "GREEN"
     return "AMBER"
 
 
 def _check_disk() -> str:
-    free = 0
     try:
         import shutil
         free_gb = shutil.disk_usage(LAB_DIR).free / (1024**3)

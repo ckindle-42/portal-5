@@ -92,8 +92,8 @@ def main() -> None:
     elif args.action == "down":
         result = cmd_down(args.target, dry_run=args.dry_run)
     elif args.action == "ephemeral":
-        cmd_list = args.command if args.command else None
-        result = cmd_ephemeral(args.target, cmd_list, dry_run=args.dry_run)
+        cmd_args = args.command if args.command else None
+        result = cmd_ephemeral(args.target, cmd_args, dry_run=args.dry_run)
     elif args.action == "status":
         result = cmd_status()
     elif args.action == "list":
