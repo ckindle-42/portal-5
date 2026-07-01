@@ -546,3 +546,14 @@ def probe_fidelity_split() -> dict:
     for _, _, _, _, tier in PROBE_DEFS:
         tiers[tier] = tiers.get(tier, 0) + 1
     return tiers
+
+
+def ability_coverage() -> dict:
+    from .oracles import ORACLES
+
+    ptai = [k for k in ORACLES if k.startswith("ptai_")]
+    return {
+        "challenge_classes": 40,
+        "ptai_probes_ported": len(ptai),
+        "vulhub_families_mapped": 7,
+    }

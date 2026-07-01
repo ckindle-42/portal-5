@@ -13,6 +13,23 @@ from pathlib import Path
 # This must be set before any portal_pipeline import.
 os.environ.setdefault("PIPELINE_API_KEY", "test-pipeline-key-for-unit-tests")
 
+# Lab-env defaults — so CI's clean environment matches the "no live lab"
+# posture deterministically. A populated local .env overrides these via
+# setdefault. CI gets dry-run/synthetic behaviour; no more "works locally,
+# fails CI" from absent LAB_* vars.
+for _k, _v in {
+    "LAB_TARGET_DC": "",
+    "LAB_TARGET_SRV": "",
+    "LAB_TARGET_WEB": "",
+    "LAB_DC_VMID": "",
+    "LAB_SRV_VMID": "",
+    "LAB_VULHUB_VMID": "",
+    "LAB_META3_VMID": "",
+    "LAB_MBPTL_LXC_VMID": "",
+    "SANDBOX_LAB_EXEC": "false",
+}.items():
+    os.environ.setdefault(_k, _v)
+
 # Add uv venv site-packages to path if not already present
 venv_site_packages = Path(__file__).parent.parent / ".venv" / "lib"
 

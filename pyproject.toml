@@ -172,6 +172,7 @@ warn_unused_ignores = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests/benchmarks", "."]
 asyncio_mode = "auto"
 # -v: show each test name + PASSED/FAILED/ERROR as it runs (no dots)
 # --tb=short: compact traceback on failures — enough to diagnose without wall of text
