@@ -49,9 +49,9 @@ backends:
   - id: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M
     supports_tools: false
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm
-  - id: hf.co/DavidAU/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED:Q4_K_M
+  - id: hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M
     supports_tools: false
-  - id: hf.co/InternScience/Agents-A1-GGUF:Q4_K_M
+  - id: hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M
     supports_tools: true
   - id: hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M
     supports_tools: true
@@ -112,7 +112,7 @@ backends:
     # 2026-06-29) — promoted to auto-coding-northmini 2026-06-30.
     supports_tools: true
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm
-  - id: hf.co/InternScience/Agents-A1-GGUF:Q4_K_M
+  - id: hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M
     supports_tools: true
   - id: hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M
     supports_tools: true
@@ -217,7 +217,7 @@ backends:
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
     supports_tools: true
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm
-  - id: hf.co/DavidAU/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED:Q4_K_M
+  - id: hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M
     # supports_tools=false: thinking model, not agentic. HERETIC-abliterated
     # Qwen3.5-9B-vision — first uncensored vision option in fleet.
     supports_tools: false
