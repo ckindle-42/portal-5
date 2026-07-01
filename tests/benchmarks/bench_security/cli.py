@@ -1057,27 +1057,27 @@ def main() -> None:
         try:
             from .ctf_bench import bench_ctf as _ctf
 
-            r = _ctf("--dry-run", dry_run=True)
+            r = _ctf("--dry-run" if args.dry_run else "", dry_run=args.dry_run)
             expansion_steps["ctf"] = r
-            print("  [ctf] flag-oracle bench loaded")
+            print(f"  [ctf] flag-oracle bench {'dry-run' if args.dry_run else 'LIVE'}")
         except ImportError:
             print("  [ctf] ctf_bench module absent — skipped")
     if args.full_expanded or args.llm_redteam:
         try:
             from .llm_redteam import bench_llm_redteam as _lrt
 
-            r = _lrt("auto-security", dry_run=True)
+            r = _lrt("auto-security", dry_run=args.dry_run)
             expansion_steps["llm_redteam"] = r
-            print("  [llm-redteam] OWASP-LLM-Top-10 probes loaded")
+            print(f"  [llm-redteam] OWASP-LLM-Top-10 probes {'dry-run' if args.dry_run else 'LIVE'}")
         except ImportError:
             print("  [llm-redteam] llm_redteam module absent — skipped")
     if args.full_expanded or args.validate_suite:
         try:
             from .validation import validate_usecase as _vu
 
-            r = _vu({"name": "validate-suite-dry"}, dry_run=True)
+            r = _vu({"name": "validate-suite-dry"}, dry_run=args.dry_run)
             expansion_steps["validation"] = r
-            print("  [validate-suite] validation harness loaded")
+            print(f"  [validate-suite] validation harness {'dry-run' if args.dry_run else 'LIVE'}")
         except ImportError:
             print("  [validate-suite] validation module absent — skipped")
     if (args.full_expanded or args.journal) and not args.dry_run:
