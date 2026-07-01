@@ -607,6 +607,36 @@ def check_oracle_registry_consistency() -> tuple[str, str, list[dict]]:
     return "PASS", f"all {scenario_count} scenario oracle ids resolve to registered oracles", subs
 
 
+def check_playbook_validation() -> tuple[str, str, list[dict]]:
+    """Q. Every file in playbooks/security/ passes validate_playbook."""
+    import glob
+
+    subs: list[dict] = []
+    playbook_dir = REPO_ROOT / "playbooks" / "security"
+    if not playbook_dir.exists():
+        return "SKIP", "playbooks/security/ not found", []
+
+    try:
+        from tests.benchmarks.bench_security.playbooks import load_playbook, validate_playbook
+    except ImportError:
+        return "SKIP", "playbooks module not found", []
+
+    for p in sorted(glob.glob(str(playbook_dir / "*.yaml"))):
+        try:
+            pb = load_playbook(p)
+            problems = validate_playbook(pb)
+            if problems:
+                subs.append({"name": Path(p).name, "status": "FAIL", "problems": problems})
+            else:
+                subs.append({"name": Path(p).name, "status": "PASS"})
+        except Exception as e:
+            subs.append({"name": Path(p).name, "status": "FAIL", "error": str(e)})
+    failed = [s["name"] for s in subs if s["status"] == "FAIL"]
+    if failed:
+        return "FAIL", f"{len(failed)} playbook(s) failed validation: {failed}", subs
+    return "PASS", f"all {len(subs)} playbooks pass validation", subs
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -663,6 +693,7 @@ def main() -> int:
     v.run("N. VALID_WORKSPACES resolution", check_valid_workspaces_resolve)
     v.run("O. bench parallel dispatch", check_bench_parallel_dispatch_safety)
     v.run("P. oracle registry consistency", check_oracle_registry_consistency)
+    v.run("Q. playbook validation", check_playbook_validation)
 
     return v.summary()
 

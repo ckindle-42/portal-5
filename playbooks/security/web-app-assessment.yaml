@@ -1,0 +1,36 @@
+name: web-app-assessment
+version: 1
+description: Web application assessment — recon to SQLi/IDOR exploitation.
+authors: [chris]
+intensity: normal
+inputs:
+  target:
+    required: true
+    prompt: "Target web app (e.g. 10.10.11.50)"
+scope:
+  targets: ["$LAB_TARGET_WEB"]
+  networks: ["$LAB_TARGET_NETWORK"]
+budget:
+  max_iterations: 15
+  max_wall_clock_sec: 1800
+  max_lab_actions: 40
+stop_conditions:
+  - { field: "compromise_confirmed", equals: true }
+escalate_when:
+  - out_of_scope_action
+  - repeated_failure: 3
+phases:
+  - id: recon
+    steps:
+      - { step: portscan, tool: run_nmap_scan, keywords: [nmap], output_keywords: [open] }
+      - { step: web_recon, tool: run_nmap_scan }
+  - id: sqli-probe
+    depends_on: [recon]
+    condition: { field: web_services_found, equals: true }
+    steps:
+      - { step: sqli_manual, tool: check_cve, oracle: sqli_error }
+  - id: idor-check
+    depends_on: [recon]
+    condition: has_finding(field=web_services_found, equals=true)
+    steps:
+      - { step: idor_test, tool: check_cve, oracle: idor_bola }
