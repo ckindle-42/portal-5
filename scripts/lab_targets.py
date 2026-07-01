@@ -35,7 +35,7 @@ def _get_used_ports() -> set[int]:
     """Get currently used HOST ports on the lab host via docker ps."""
     try:
         r = subprocess.run(
-            ["ssh", "-i", os.path.expanduser("~/.ssh/portal5_id_ed25519"),
+            ["ssh", "-i", os.path.expanduser("~/.ssh/portal-lab_id_ed25519"),
              "-o", "StrictHostKeyChecking=no", "root@10.0.0.203",
              "pct exec 112 -- docker ps --format '{{.Ports}}'"],
             capture_output=True, text=True, timeout=15, check=True

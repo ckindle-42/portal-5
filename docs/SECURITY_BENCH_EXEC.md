@@ -39,7 +39,7 @@ Lab-exec is the ground truth for red/purple team evaluation. All tiers run from 
 
 Attack chains are grounded in three sources:
 - **[HTB Writeups](https://github.com/momenbasel/htb-writeups)** — real attack patterns from HackTheBox machines (Responder relay chains, LFI log poisoning, SQLi-to-shell, privilege escalation techniques)
-- **[VulnHub](https://github.com/vulhub/vulhub)** — Docker-native vulnerable applications deployed on lab-vulhub (Redis, PHP LFI, Apache Solr Log4Shell, Tomcat, NFS, VulnerableApp)
+- **[VulnHub](https://github.com/vulhub/vulhub)** — Docker-native vulnerable applications deployed on portal-lab-vulhub (Redis, PHP LFI, Apache Solr Log4Shell, Tomcat, NFS, VulnerableApp)
 - **[Metasploitable3](https://github.com/rapid7/metasploitable3)** — Windows VM with 12+ vulnerable services (vsftpd backdoor, MySQL UDF, GlassFish WAR deploy, Elasticsearch script RCE, IIS WebDAV, SMB/AD)
 
 The bench exercises multi-model multi-chain theory calls, tool calls, and lab execution against all three targets. Cross-target chains (e.g., `web_to_dc_pivot`) test lateral movement from web-facing services to AD infrastructure.
@@ -52,12 +52,12 @@ The bench exercises multi-model multi-chain theory calls, tool calls, and lab ex
 ┌─────────────────────────────────────────────────────────┐
 │ Proxmox 3 (10.0.0.203)                                  │
 │                                                         │
-│  vmid 110  lab-dc01       10.10.11.21  (DC, Win2022)    │
-│  vmid 111  lab-srv01      10.10.11.33  (member server)  │
-│  vmid 113  meta3-win2k8    10.10.11.10  (Metasploitable3 Win2k8) │
-│  lxc  112  lab-vulhub      10.10.11.50  (Docker: Redis/LFI/       │
+│  vmid 110  portal-lab-dc01       10.10.11.21  (DC, Win2022)    │
+│  vmid 111  portal-lab-srv01      10.10.11.33  (member server)  │
+│  vmid 113  portal-lab-meta3-win2k8    10.10.11.10  (Metasploitable3 Win2k8) │
+│  lxc  112  portal-lab-vulhub      10.10.11.50  (Docker: Redis/LFI/       │
 │              Tomcat/Log4Shell/NFS/VulnerableApp)         │
-│  lxc  300  portal5-mbptl   10.0.1.140   (MBPTL CTF lab)  │
+│  lxc  300  portal-lab-mbptl   10.0.1.140   (MBPTL CTF lab)  │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -227,9 +227,9 @@ Target coverage of the Tier 3 command:
 
 | Target | Prompts exercising it |
 |---|---|
-| lab-dc01 (10.10.11.21) | kerberoasting, asrep_roasting, bloodhound_ad_recon, pass_the_hash, smb_enum_relay, ad_dcsync_golden_ticket, rbcd_attack, adcs_template_abuse, htb_responder_chain |
-| meta3-win2k8 (10.10.11.10) | kerberoasting, asrep_roasting, bloodhound_ad_recon, pass_the_hash, smb_enum_relay, eternalblue_ms17010, tomcat_manager, ftp_backdoor, mysql_udf_privesc, glassfish_deploy, es_script_rce, iis_webdav_scanner, meta3_full_compromise |
-| lab-vulhub (10.10.11.50) | redis_to_rce, lfi_to_rce, tomcat_manager, log4shell_rce, nfs_privesc_chain, htb_lfi_log_poison |
+| portal-lab-dc01 (10.10.11.21) | kerberoasting, asrep_roasting, bloodhound_ad_recon, pass_the_hash, smb_enum_relay, ad_dcsync_golden_ticket, rbcd_attack, adcs_template_abuse, htb_responder_chain |
+| portal-lab-meta3-win2k8 (10.10.11.10) | kerberoasting, asrep_roasting, bloodhound_ad_recon, pass_the_hash, smb_enum_relay, eternalblue_ms17010, tomcat_manager, ftp_backdoor, mysql_udf_privesc, glassfish_deploy, es_script_rce, iis_webdav_scanner, meta3_full_compromise |
+| portal-lab-vulhub (10.10.11.50) | redis_to_rce, lfi_to_rce, tomcat_manager, log4shell_rce, nfs_privesc_chain, htb_lfi_log_poison |
 | VulnerableApp (:80) | sqli_manual, web_shell_upload, ssrf_exploitation, htb_sqli_to_shell |
 | Cross-target | web_to_dc_pivot (webshell → DC), htb_responder_chain (Responder → relay) |
 
@@ -489,7 +489,7 @@ Key AD-focused prompts:
 | `nfs_privesc_chain` | enum_nfs → mount → suid → confirm | showmount | — (lxc 112) |
 | `eternalblue_ms17010` | scan → exploit → shell → flags | nmap, AutoBlue | ✅ (unpatched Win2k8) |
 
-Web-focused prompts (validated against VulnerableApp + lab-vulhub):
+Web-focused prompts (validated against VulnerableApp + portal-lab-vulhub):
 
 | Prompt key | Target | Service |
 |---|---|---|
@@ -497,7 +497,7 @@ Web-focused prompts (validated against VulnerableApp + lab-vulhub):
 | `web_shell_upload` | 10.10.11.50:80 | VulnerableApp file upload + path traversal |
 | `ssrf_exploitation` | 10.10.11.50:80 | VulnerableApp SSRF endpoint |
 | `lfi_to_rce` | 10.10.11.50:8080 | PHP LFI inclusion container |
-| `tomcat_manager` | 10.10.11.50:8081 or 10.10.11.10:8080 | Tomcat manager (lab-vulhub or meta3) |
+| `tomcat_manager` | 10.10.11.50:8081 or 10.10.11.10:8080 | Tomcat manager (portal-lab-vulhub or meta3) |
 | `log4shell_rce` | 10.10.11.50:8983 | Apache Solr 8.11 CVE-2021-44228 |
 | `redis_to_rce` | 10.10.11.50:6379 | Unauthenticated Redis |
 | `nfs_privesc_chain` | 10.10.11.50:2049 | NFS with no_root_squash |
