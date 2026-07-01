@@ -747,7 +747,7 @@ PYEOF
 
 def _phase_srv01_local(dry_run: bool) -> dict:
     """Member-server-focused check: local priv-esc / share exposure on srv01."""
-    if not SRV:
+    if not SRV and not dry_run:
         return {"ok": False, "elapsed_s": 0.0, "output": "", "detail": "LAB_TARGET_SRV not set"}
     code = f"""
 # srv01 member-server check: share enumeration + service misconfig probe
