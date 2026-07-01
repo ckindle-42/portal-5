@@ -108,6 +108,121 @@ not justified). P5-FUT-PARITY-001 is CLOSED/DONE — both specialists dispositio
 
 ---
 
+## Ollama Native MLX Engine — Evaluation Findings (2026-07-01)
+
+Ollama 0.31.1 added a built-in MLX engine (distinct from the retired standalone
+`mlx_lm`/`mlx_vlm` proxy above) that claims ~90% faster Gemma 4 via multi-token
+prediction (MTP). This section documents a same-day evaluation of that engine
+plus a broader catalog sweep for MLX equivalents of the fleet. **No production
+config was changed** — `config/backends.yaml` was reverted, all pulled MLX
+models (4 Ollama-native + 16 HF-sourced, ~254GB total) were deleted, and disk
+usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
+
+### P5-MLX-EVAL-001 — GGUF fleet regressed slightly on 0.31.1; MTP is MLX-engine-only
+- **Description**: Ollama 0.31.1's claimed MTP speedup applies only when Ollama
+  selects its own MLX engine subprocess (triggered by official `-mlx`-tagged
+  models). Our entire GGUF fleet routes through `llama-server` regardless of
+  Ollama version — confirmed via server log (`spec common_specu: no
+  implementations specified for speculative decoding`). Separately, the GGUF
+  fleet got measurably *slower* after the 0.31.1 upgrade (~5-11% across 15+
+  models tested, clean warm-up-matched methodology). Tested `num_batch=512`
+  (pre-upgrade default) vs 0.31.1's auto-selected 1024/2048 — **zero
+  measurable difference**, ruling out batch-size as the cause. Root cause is
+  presumably the bundled llama.cpp engine version bump itself; no known
+  workaround.
+- **Impact**: None today (no config changed). Documented so a future Ollama
+  upgrade isn't mistaken for a routing/pipeline regression.
+
+### P5-MLX-EVAL-002 — Ollama's official gemma4 `-mlx` tags are not drop-in swaps
+- **Description**: `gemma4:{e2b,e4b,12b}-mlx` (Ollama's own curated library
+  tags) showed real, large gains over our current `gemma4:{e2b,e4b,12b}-it-qat`
+  GGUF models: +93%, +61%, +30% respectively (clean, isolated, warm-up-matched
+  benching). However `ollama show` reveals these are **not the same
+  checkpoint in a different format** — they differ in parameter count
+  (4.6B→5.2B, 7.5B→8.1B, 11.9B→12.4B), quantization scheme (Q4_0
+  quantization-aware-trained vs nvfp4 post-training quant), and the 12b tag
+  even reports a different architecture name (`gemma4_unified` vs `gemma4`).
+  Critically, **none of the `-mlx` tags have vision or audio capability** —
+  the `Projector` block present on our current QAT variants is entirely
+  absent from the MLX tags.
+- **Impact**: Cannot be swapped in as a pure speed upgrade. Any workspace
+  routing image/audio input to `gemma4:e2b/e4b/12b-it-qat` would silently
+  lose that capability if swapped to the `-mlx` tag. Output quality is also
+  unverified — QAT training specifically targets low-precision quality
+  retention; nvfp4 post-training quant is a different tradeoff entirely.
+- **Future work needed**: (1) Audit which workspaces using these three models
+  actually rely on vision/audio input vs text-only — if none do, a text-only
+  swap may be viable for those specific workspaces. (2) Run a live tool-call
+  probe on any candidate before promotion — never infer `supports_tools` from
+  the model card (see `P5-TOOL-001` above for why). (3) Run a quality eval,
+  not just TPS, before promoting — QAT vs nvfp4 is not guaranteed equivalent.
+  **Do not add `gemma4:*-mlx` tags to `config/backends.yaml` until all three
+  are done.**
+
+### P5-MLX-EVAL-003 — HF-hosted MLX models are currently unreachable by the Pipeline
+- **Description**: Ollama's `hf.co/` puller only accepts GGUF repos —
+  confirmed directly: pulling any `mlx-community` (or other HF org) safetensors
+  repo fails with `"Repository is not GGUF or is not compatible with
+  llama.cpp"`. Only Ollama's own curated `ollama.com` library `-mlx` tags
+  (a narrow set — currently just the `gemma4` and `qwen3.6` families) can be
+  served through Ollama's MLX engine. A catalog sweep found HF `mlx-community`
+  (or individual-uploader) conversions for ~56 of our 71 fleet models, and
+  direct benching (bypassing Ollama entirely, via raw `mlx_lm`) showed large
+  real gains for most of the 11 spot-checked (69% to +487%, one clear
+  pre-existing-bug outlier, one regression — see below). **None of this is
+  usable in production** — `BackendRegistry` only talks to Ollama's `:11434`
+  API, and there is currently no way to route to a raw `mlx_lm`-served model.
+- **Impact**: Real, measured speed gains exist for most of the catalog but
+  are inaccessible without new serving infrastructure.
+- **Future work needed**: A deliberate decision on whether to stand up a
+  lightweight MLX serving layer (Ollama would remain the primary scheduler;
+  this would NOT be a revival of the full retired proxy/watchdog/
+  admission-control stack) to make these models reachable — or simply wait
+  for Ollama to expand its official `-mlx` library coverage further (it grew
+  from Gemma-only to Gemma+Qwen3.6 between the two testing sessions in this
+  same evaluation). No infrastructure work has started; this is an
+  evaluation finding only, pending a scope decision.
+- **Tooling**: `tests/benchmarks/bench_mlx_hf.py` (committed) — ad hoc
+  pull+bench of any HF MLX repo directly via `mlx_lm`, for future spot-checks.
+  This is **not** a serving mechanism, just a one-shot benchmark tool. Do not
+  build automation or hooks around it without a deliberate decision to revive
+  MLX serving.
+- **Not universal**: `huihui_ai/qwen3.5-abliterated:9b`'s MLX equivalent was
+  measurably *slower* than GGUF (-17%). MLX gains are not guaranteed —
+  verify per-model, don't assume.
+- **Known outlier, not an MLX win**: `qwen3-coder-next`'s GGUF baseline was
+  already flagged elsewhere in this file's history (MLX retirement commit)
+  as broken under Ollama ("sharded GGUF incompatible with Ollama"). Its huge
+  MLX gain in this evaluation reflects a pre-existing GGUF bug for this
+  specific model, not a general MLX advantage.
+
+### P5-MLX-EVAL-004 — Large single-blob MLX downloads hang intermittently
+- **Description**: During evaluation, 3 separate large (18-26GB) downloads
+  (both `ollama pull` from the official registry and `huggingface_hub`
+  pulls from HF) silently stalled mid-transfer for 30+ minutes with no error
+  — the blob simply stopped growing, with stale TCP `CloseWait` sockets.
+  Happened on both registries, so it isn't tool-specific; likely a
+  network/CDN reliability issue for large single-file transfers on this
+  connection. No stalls on smaller pulls.
+- **Mitigation**: A stall-detection wrapper (poll blob size every 10s, kill
+  + retry after 90s with no growth) recovered every case on retry. Not
+  currently a committed script — if large-model pulls become a recurring
+  pain point, consider promoting this pattern into `scripts/`.
+
+### P5-MLX-EVAL-005 — Two security-tier fine-tunes have no working MLX conversion
+- **Description**: `supergemma4-26b-uncensored` (auto-purpleteam-exec,
+  auto-redteam-deep) and `huihui_ai/gemma-4-abliterated:E2b-qat`
+  (auto-pentest) were searched across multiple HF uploaders (mlx-community,
+  Jiunsong, aa221241, EZCon). Every MLX conversion found for these specific
+  fine-tunes is a multimodal/vision-language checkpoint (`language_model.*`
+  prefixed weights) that crashes on plain text-only `mlx_lm` load with
+  `ValueError: Received N parameters not in model`.
+- **Impact**: These two stay GGUF-only for the foreseeable future.
+- **Do not** spend further time searching for a working MLX conversion for
+  either unless a new text-only-compatible upload appears.
+
+---
+
 ## Inference Performance
 
 ### devstral:24b Runtime VRAM Footprint (25.7 GB)

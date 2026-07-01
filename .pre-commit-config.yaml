@@ -21,6 +21,7 @@ repos:
       - id: generated-fresh
         name: generated artifacts fresh (sync-config idempotent)
         language: python
+        additional_dependencies: ["pyyaml>=6.0.1", "pydantic>=2.5.0", "pydantic-settings>=2.1.0"]
         entry: python3 scripts/ci/check_generated_fresh.py
         pass_filenames: false
         always_run: true
