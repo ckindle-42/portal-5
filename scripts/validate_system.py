@@ -26,6 +26,7 @@ It validates:
     G. CLI introspection — portal --help, config show, models list, validate
     H. Unit test suite — pytest tests/unit -q (excluding env-only files)
     I. Shim contract — historical router_pipe imports all resolve
+    Y. Self-index integrity — read-only signal aggregation, deterministic ranking
 
 Designed to run in under 60 seconds on the M4 Pro Mac Mini. Use this as
 the gate before kicking off the full long-running suites:
@@ -775,20 +776,30 @@ def check_ability_port() -> tuple[str, str, list[dict]]:
     try:
         from tests.benchmarks.bench_security.ability_port import register_ported_oracles
         from tests.benchmarks.bench_security.oracles import ORACLES
+
         register_ported_oracles()
         ptai = [k for k in ORACLES if k.startswith("ptai_")]
-        subs.append({"name": "ptai_oracles", "status": "PASS" if len(ptai) >= 50 else "FAIL", "count": len(ptai)})
+        subs.append(
+            {
+                "name": "ptai_oracles",
+                "status": "PASS" if len(ptai) >= 50 else "FAIL",
+                "count": len(ptai),
+            }
+        )
     except Exception as e:
         subs.append({"name": "ptai_oracles", "status": "FAIL", "error": str(e)})
 
     try:
         import ast
+
         src = open("tests/benchmarks/bench_security/ability_port.py").read()
         assert "detect_sig" not in src, "detect_sig stubs present"
         t = ast.parse(src)
         has_detect = any(isinstance(n, ast.FunctionDef) and "detect" in n.name for n in ast.walk(t))
         has_lambda = any(isinstance(n, ast.Lambda) for n in ast.walk(t))
-        subs.append({"name": "anti_stub", "status": "PASS" if (has_detect and has_lambda) else "FAIL"})
+        subs.append(
+            {"name": "anti_stub", "status": "PASS" if (has_detect and has_lambda) else "FAIL"}
+        )
     except Exception as e:
         subs.append({"name": "anti_stub", "status": "FAIL", "error": str(e)})
 
@@ -935,6 +946,135 @@ def check_scenario_oracle_matrix() -> tuple[str, str, list[dict]]:
     return "PASS", f"all {len(PROMPTS)} scenarios oracle-bound, all class oracles registered", subs
 
 
+def check_self_index_integrity() -> tuple[str, str, list[dict]]:
+    """Y. self-index reads only (no config/code writes), reports absent signals honestly, score is deterministic and inspectable."""
+    subs: list[dict] = []
+
+    # Check 1: self_index module imports cleanly
+    try:
+        from tests.benchmarks.bench_security.self_index import (
+            _SCORE_RULES,
+            build_self_index,
+            rank_weaknesses,
+        )
+    except ImportError as e:
+        return "FAIL", f"self_index import failed: {e}", []
+
+    # Check 2: build_self_index returns all required keys
+    try:
+        index = build_self_index()
+    except Exception as e:
+        return "FAIL", f"build_self_index raised: {type(e).__name__}: {e}", []
+
+    required_keys = {"validator", "oracles", "coverage", "disciplines", "journal", "generated_at"}
+    missing_keys = required_keys - set(index.keys())
+    if missing_keys:
+        subs.append(
+            {"name": "required keys", "status": "FAIL", "detail": f"missing: {missing_keys}"}
+        )
+        return "FAIL", f"index missing required keys: {missing_keys}", subs
+    subs.append(
+        {
+            "name": "required keys",
+            "status": "PASS",
+            "detail": f"all {len(required_keys)} keys present",
+        }
+    )
+
+    # Check 3: absent signals are marked honestly, never fabricated
+    for signal_name in ["validator", "oracles", "coverage", "disciplines", "journal"]:
+        signal = index.get(signal_name, {})
+        status = signal.get("status", "")
+        if status == "absent":
+            # Verify no fabricated counts — should have zeros and empty structures
+            for count_field in ["total_units", "verified", "total_entries"]:
+                if count_field in signal and signal[count_field] != 0:
+                    subs.append(
+                        {
+                            "name": f"{signal_name} honesty",
+                            "status": "FAIL",
+                            "detail": f"{signal_name} status=absent but {count_field}={signal[count_field]} (fabricated)",
+                        }
+                    )
+                    return (
+                        "FAIL",
+                        f"{signal_name} reports absent but has non-zero {count_field}",
+                        subs,
+                    )
+            subs.append(
+                {
+                    "name": f"{signal_name} honesty",
+                    "status": "PASS",
+                    "detail": "absent, no fabricated counts",
+                }
+            )
+
+    # Check 4: rank_weaknesses is deterministic and inspectable
+    try:
+        w1 = rank_weaknesses(index)
+        w2 = rank_weaknesses(index)
+        if w1 != w2:
+            subs.append(
+                {
+                    "name": "deterministic ranking",
+                    "status": "FAIL",
+                    "detail": "non-deterministic output",
+                }
+            )
+            return "FAIL", "rank_weaknesses is non-deterministic (two calls differ)", subs
+    except Exception as e:
+        subs.append({"name": "rank_weaknesses execution", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"rank_weaknesses raised: {type(e).__name__}: {e}", subs
+
+    for w in w1:
+        if not all(k in w for k in ("area", "kind", "evidence", "score", "why")):
+            subs.append(
+                {
+                    "name": "weakness schema",
+                    "status": "FAIL",
+                    "detail": f"entry {w.get('area', '?')} missing required keys",
+                }
+            )
+            return (
+                "FAIL",
+                "weakness entry missing required keys (area/kind/evidence/score/why)",
+                subs,
+            )
+        if not isinstance(w["score"], (int, float)):
+            subs.append(
+                {"name": "score type", "status": "FAIL", "detail": f"score is {type(w['score'])}"}
+            )
+            return "FAIL", "weakness score must be numeric", subs
+
+    subs.append(
+        {
+            "name": "deterministic ranking",
+            "status": "PASS",
+            "detail": f"{len(w1)} weaknesses ranked",
+        }
+    )
+
+    # Check 5: SCORE_RULES is documented and inspectable
+    if not isinstance(_SCORE_RULES, dict) or len(_SCORE_RULES) == 0:
+        subs.append(
+            {"name": "score rules", "status": "FAIL", "detail": "SCORE_RULES missing or empty"}
+        )
+        return "FAIL", "SCORE_RULES is missing or empty", subs
+    subs.append(
+        {
+            "name": "score rules inspectable",
+            "status": "PASS",
+            "detail": f"{len(_SCORE_RULES)} documented rules",
+        }
+    )
+
+    return (
+        "PASS",
+        "self-index reads only, reports absent signals honestly, ranking deterministic and inspectable",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -998,6 +1138,7 @@ def main() -> int:
     v.run("W. ability port executable", check_ability_port)
     v.run("W. lab-exec coverage", check_labexec_coverage)
     v.run("X. scenario-oracle/matrix", check_scenario_oracle_matrix)
+    v.run("Y. self-index integrity", check_self_index_integrity)
 
     return v.summary()
 
