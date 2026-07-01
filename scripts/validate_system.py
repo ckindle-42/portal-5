@@ -769,6 +769,35 @@ def check_lab_setup_readiness() -> tuple[str, str, list[dict]]:
     return "PASS", "all lab setup/readiness/targets modules operational", subs
 
 
+def check_ability_port() -> tuple[str, str, list[dict]]:
+    """W. ability_port defines real detect functions (not description strings)."""
+    subs: list[dict] = []
+    try:
+        from tests.benchmarks.bench_security.ability_port import register_ported_oracles
+        from tests.benchmarks.bench_security.oracles import ORACLES
+        register_ported_oracles()
+        ptai = [k for k in ORACLES if k.startswith("ptai_")]
+        subs.append({"name": "ptai_oracles", "status": "PASS" if len(ptai) >= 50 else "FAIL", "count": len(ptai)})
+    except Exception as e:
+        subs.append({"name": "ptai_oracles", "status": "FAIL", "error": str(e)})
+
+    try:
+        import ast
+        src = open("tests/benchmarks/bench_security/ability_port.py").read()
+        assert "detect_sig" not in src, "detect_sig stubs present"
+        t = ast.parse(src)
+        has_detect = any(isinstance(n, ast.FunctionDef) and "detect" in n.name for n in ast.walk(t))
+        has_lambda = any(isinstance(n, ast.Lambda) for n in ast.walk(t))
+        subs.append({"name": "anti_stub", "status": "PASS" if (has_detect and has_lambda) else "FAIL"})
+    except Exception as e:
+        subs.append({"name": "anti_stub", "status": "FAIL", "error": str(e)})
+
+    failed = [s["name"] for s in subs if s["status"] == "FAIL"]
+    if failed:
+        return "FAIL", f"ability port check(s) failed: {failed}", subs
+    return "PASS", f"{len(ptai) if 'ptai' in dir() else '?'} ported oracles, active anti-stub", subs
+
+
 def check_labexec_coverage() -> tuple[str, str, list[dict]]:
     """W. Every lab machine with an env entry has a registered live phase with an oracle."""
     subs: list[dict] = []
@@ -966,6 +995,7 @@ def main() -> int:
     v.run("U. lab target catalog", check_lab_target_catalog)
     v.run("R. loop dry-run gate", check_loop_dry_run)
     v.run("V. lab setup readiness", check_lab_setup_readiness)
+    v.run("W. ability port executable", check_ability_port)
     v.run("W. lab-exec coverage", check_labexec_coverage)
     v.run("X. scenario-oracle/matrix", check_scenario_oracle_matrix)
 
