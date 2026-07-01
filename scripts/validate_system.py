@@ -682,6 +682,31 @@ def check_lab_target_catalog() -> tuple[str, str, list[dict]]:
     return "PASS", "lab target catalog + challenge classes valid", subs
 
 
+def check_loop_dry_run() -> tuple[str, str, list[dict]]:
+    """R. Every starter playbook dry-runs through the loop without error."""
+    import glob
+
+    subs: list[dict] = []
+    playbook_dir = REPO_ROOT / "playbooks" / "security"
+    try:
+        from tests.benchmarks.bench_security.loop import run_engagement
+    except ImportError:
+        return "SKIP", "loop module not found", []
+
+    for p in sorted(glob.glob(str(playbook_dir / "*.yaml"))):
+        name = Path(p).name
+        try:
+            result = run_engagement(str(p), dry_run=True)
+            ok = result.get("status") == "dry_run"
+            subs.append({"name": name, "status": "PASS" if ok else "FAIL", "reason": result.get("status", "?")})
+        except Exception as e:
+            subs.append({"name": name, "status": "FAIL", "error": str(e)})
+    failed = [s["name"] for s in subs if s["status"] == "FAIL"]
+    if failed:
+        return "FAIL", f"{len(failed)} playbook(s) failed loop dry-run: {failed}", subs
+    return "PASS", f"all {len(subs)} playbooks pass loop dry-run", subs
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -740,6 +765,7 @@ def main() -> int:
     v.run("P. oracle registry consistency", check_oracle_registry_consistency)
     v.run("Q. playbook validation", check_playbook_validation)
     v.run("U. lab target catalog", check_lab_target_catalog)
+    v.run("R. loop dry-run gate", check_loop_dry_run)
 
     return v.summary()
 
