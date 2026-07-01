@@ -537,7 +537,7 @@ def _phase_bloodhound(dry_run: bool) -> dict:
 
 
 def _phase_winrm(dry_run: bool) -> dict:
-    if not SRV:
+    if not SRV and not dry_run:
         return {"ok": False, "elapsed_s": 0.0, "output": "", "detail": "LAB_TARGET_SRV not set"}
     # Domain Administrator is guaranteed to have WinRM access on lab-srv01.
     # LocalAccountTokenFilterPolicy blocks local accounts by default on Windows 2022.
@@ -774,19 +774,19 @@ echo "SRV01_DONE"
 
 def _phase_mbptl_full_chain(dry_run: bool) -> dict:
     """Run the full MBPTL 17-flag CTF bench as a single lab-exec phase."""
-    if not MBPTL_HOST:
-        return {
-            "ok": False,
-            "elapsed_s": 0.0,
-            "output": "",
-            "detail": "LAB_MBPTL_HOST not set — skip mbptl",
-        }
     if dry_run:
         return {
             "ok": True,
             "output": "[dry-run] mbptl_full_chain",
             "elapsed_s": 0.0,
             "detail": "mbptl dry-run skipped",
+        }
+    if not MBPTL_HOST:
+        return {
+            "ok": False,
+            "elapsed_s": 0.0,
+            "output": "",
+            "detail": "LAB_MBPTL_HOST not set — skip mbptl",
         }
     try:
         from bench_mbptl import ALL_PHASES as _MBPTL_PHASES
