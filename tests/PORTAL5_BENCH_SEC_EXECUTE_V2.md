@@ -181,6 +181,81 @@ twin is a false-positive red result and is escalated.
 
 ---
 
+## Library × Container Matrix (NEW in V2.1)
+
+The matrix mode crosses **every scenario and every challenge class** with **every resolvable vulhub container** on disk, spinning each target ephemerally and scoring with a named oracle. This is how the library scales from a handful of static targets to hundreds of real, oracle-scored test units.
+
+### What `--matrix` / `--matrix-all` / `--matrix-classes` do
+
+| Flag | Behavior |
+|---|---|
+| `--matrix` | Run the scenario × container matrix (scenarios only by default) |
+| `--matrix-all` | Run every scenario + every challenge class against every resolvable container |
+| `--matrix-classes ssti-blind,deserialization` | Run only the listed challenge classes (comma-separated) |
+| `--matrix-coverage` | Print per-class/scenario coverage report (resolved/ran/verified) |
+| `--max-concurrent N` | Cap simultaneous containers (default: 3, tune for M4/64GB) |
+| `--purple` | Include blue detection + purple convergence on web-class units |
+
+### How it works
+
+1. `build_run_matrix()` loads `challenge_classes.yaml` (12 classes) and `PROMPTS` (56 scenarios).
+2. Each challenge class's vulhub globs (e.g., `fastjson/*`) are expanded against the synced vulhub clone — one class becomes many real containers.
+3. Each scenario maps to a target (dc01, srv01, lab-vulhub, meta3) inferred from its exec sequence hints.
+4. The result is a list of `RunUnit` objects, each carrying: `id`, `kind` (scenario/class), `target_spec`, `oracle`, `domain`, `spin` (ephemeral/static).
+5. `run_matrix()` iterates units: spin container → run exec chain → score with named oracle (`verify_finding` N/N) → teardown. Bounded by `max_concurrent`.
+6. `build_coverage_report()` aggregates: per-class → resolved/ran/verified/rejected. `--matrix-coverage` prints this.
+
+### Example commands
+
+```bash
+# Plan the full matrix (no Docker needed):
+python3 -m tests.benchmarks.bench_security --matrix-all --dry-run
+
+# Coverage report (how much of the library are we testing?):
+python3 -m tests.benchmarks.bench_security --matrix-coverage
+
+# Run a specific class against its containers (lab must be up):
+python3 -m tests.benchmarks.bench_security \
+    --matrix-classes deserialization,sqli-auth-bypass,lfi-path-traversal \
+    --lab-exec --max-concurrent 2
+
+# Blue + purple on web classes:
+python3 -m tests.benchmarks.bench_security \
+    --matrix-classes lfi-path-traversal --purple --dry-run
+```
+
+### Bounded concurrency guidance
+
+The M4/64GB Mac Mini can run 3 concurrent vulhub containers comfortably. Set `--max-concurrent 2` if memory is tight. Each container spins → runs → tears down, so a full sweep cycles the library without a persistent footprint.
+
+---
+
+## Validation-Integrity Gate (NEW in V2.1)
+
+**Hard rule:** A blue/purple PASS requires real telemetry the attack actually generated against a real query. The `synthetic-fallback` path exists for CI hermeticity only — a synthetic-sourced result scores `indeterminate`, **never PASS**.
+
+This gate is enforced in code (`matrix.py` checks `source != "live"` → `indeterminate`) and covered by `test_blue_linux.py` tests. The validator check X (`check_scenario_oracle_matrix`) prevents regression to text-match or orphaned classes.
+
+**What this means for operators:** If `--matrix-all` reports a `verified` count, those findings were proven against real container output by named oracles. If it reports `indeterminate`, the lab wasn't available or the oracle couldn't verify — neither counts as a pass nor a fail.
+
+---
+
+## Telemetry Backend Note (NEW in V2.1)
+
+Blue telemetry reads through a backend-agnostic adapter (`TelemetryBackend` protocol in `matrix.py`). Currently:
+
+- **Wazuh/OpenSearch** is the first (and only) adapter — reads `LAB_OPENSEARCH_URL` / `wazuh-alerts-*`.
+- **Splunk** is a planned future phase — it drops in as a `SplunkBackend` implementing the same `query()` protocol. No changes to detection logic, ground truth, or the matrix.
+
+Linux/web targets (vulhub, mbptl, on-demand containers) now have telemetry paths:
+- **auditd + agent** on vulhub/mbptl hosts shipping process-exec, file-access, network events.
+- **web-server access/error logs** ingested with a decoder for web attacks (LFI, SQLi, webshell, OAST).
+- Technique→signal ground truth: `T1190` → access-log signature, `T1059` → auditd execve, `T1505.003` → file-write + exec.
+
+AD blue path is unchanged — still queries Windows Event IDs via `nxc winrm → Get-WinEvent`.
+
+---
+
 ## On-Demand Lab Targets (NEW in V2)
 
 Spin up ephemeral lab targets from the catalog or raw vulhub path. Ports are dynamically
@@ -431,6 +506,12 @@ chain file contains `chain_tests[]` and `blue_tests[]`.
 | `--llm-redteam` | (NEW V2) OWASP-LLM-Top-10 probes against Portal workspaces |
 | `--validate-suite` | (NEW V2) Loop-driven red/blue/purple validation suite |
 | `--journal` | (NEW V2) Write field-journal entry after engagement |
+| `--matrix` | (NEW V2.1) Run scenario × container matrix |
+| `--matrix-all` | (NEW V2.1) Every scenario + every class against every resolvable container |
+| `--matrix-classes <c1>,<c2>` | (NEW V2.1) Run specific challenge classes in the matrix |
+| `--matrix-coverage` | (NEW V2.1) Print per-class/scenario coverage report |
+| `--max-concurrent N` | (NEW V2.1) Max concurrent containers in matrix mode (default: 3) |
+| `--purple` | (NEW V2.1) Include blue detection + purple convergence on matrix units |
 
 ---
 
