@@ -18,6 +18,11 @@ class TestLabTargetTable:
         os.environ["LAB_DC_VMID"] = "110"
         os.environ["LAB_SRV_VMID"] = "111"
         try:
+            import importlib
+
+            import bench_lab_exec
+
+            importlib.reload(bench_lab_exec)
             from bench_lab_exec import LAB_TARGETS
 
             assert "dc01" in LAB_TARGETS
@@ -28,6 +33,7 @@ class TestLabTargetTable:
         finally:
             os.environ.pop("LAB_DC_VMID", None)
             os.environ.pop("LAB_SRV_VMID", None)
+            importlib.reload(bench_lab_exec)
 
     def test_target_skipped_when_vmid_not_set(self, monkeypatch):
         from bench_lab_exec import LAB_TARGETS
@@ -52,6 +58,11 @@ class TestLabTargetTable:
         os.environ["LAB_DC_VMID"] = "110"
         os.environ["LAB_VULHUB_VMID"] = "112"
         try:
+            import importlib
+
+            import bench_lab_exec
+
+            importlib.reload(bench_lab_exec)
             from bench_lab_exec import lab_setup
 
             ok = lab_setup(targets=["dc01", "vulhub"], dry_run=True)
@@ -59,6 +70,7 @@ class TestLabTargetTable:
         finally:
             os.environ.pop("LAB_DC_VMID", None)
             os.environ.pop("LAB_VULHUB_VMID", None)
+            importlib.reload(bench_lab_exec)
 
 
 class TestPhaseRegistry:
