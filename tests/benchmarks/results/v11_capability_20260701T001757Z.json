@@ -1,0 +1,68 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260701T001757Z",
+  "candidate": "bench-agentworld",
+  "baselines": [],
+  "probes_run": [
+    "C4"
+  ],
+  "results": [
+    {
+      "role": "candidate",
+      "workspace": "bench-agentworld",
+      "results": [
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "bench-agentworld",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "",
+          "error": "Client error '429 Too Many Requests' for url 'http://localhost:9099/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429",
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered Plan\n\n1. **Identify the capture interface and run with privileges:** Determine the active network interface (e.g., `eth0`, `ens33`, or use `any`) and ensure you have root/sudo privileges to capture network traffic.\n2. **Construct the tcpdump filter:** Use a filter that captures all TCP traffic involving port 443. Note that while the prompt mentions \"HTTP traffic,\" port 443 is stand",
+          "latency_s": 170.76555166700564,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "1. **Numbered Plan**:\n   1. Identify the network interface you want to monitor (or use `any` to capture on all interfaces).\n   2. Construct a `tcpdump` filter that captures traffic specifically on port 53, which is the standard port used for DNS queries and responses (both UDP and TCP).\n   3. Run `tcpdump` with useful flags: `-n` to prevent reverse DNS lookups of IP addresses during the capture (w",
+          "latency_s": 57.06403016600234,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,359 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260701T060330Z",
+  "candidate": "bench-gemma4-12b-agentic",
+  "baselines": [
+    "bench-agentworld",
+    "bench-ornith-35b"
+  ],
+  "probes_run": [
+    "C2",
+    "C4"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "bench-agentworld",
+      "results": [
+        {
+          "probe_id": "C2/c2_1",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef merge_intervals(intervals):\n    if not intervals:\n        return []\n    \n    # Sort intervals based on start time\n    sorted_intervals = sorted(intervals, key=lambda x: x[0])\n    \n    merged = []\n    for interval in sorted_intervals:\n        # If the list of merged intervals is empty or if the current\n        # interval does not overlap with the previous, simply append it.\n        if",
+          "latency_s": 49.472328207993996,
+          "notes": "c2_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_2",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef first_missing_positive(nums):\n    n = len(nums)\n    \n    # Place each number in its right place, i.e., place num at index num - 1\n    for i in range(n):\n        while 1 <= nums[i] <= n and nums[nums[i] - 1] != nums[i]:\n            correct_pos = nums[i] - 1\n            nums[i], nums[correct_pos] = nums[correct_pos], nums[i]\n            \n    # Find the first index where the number is n",
+          "latency_s": 58.7028559169994,
+          "notes": "c2_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_3",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "Here is the complete Python function using a greedy approach to determine if you can reach the last index:\n\n```python\ndef can_jump(nums):\n    max_reach = 0\n    n = len(nums)\n    for i, jump in enumerate(nums):\n        # If the current index is beyond the furthest reachable index, we can't proceed\n        if i > max_reach:\n            return False\n        \n        # Update the maximum reachable ind",
+          "latency_s": 82.0031465409993,
+          "notes": "c2_3",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "1. Numbered plan:\n   1. Identify the network interface where the traffic between nginx and the upstream server flows (e.g., `eth0`, `lo`, or `any`), and ensure the capture filter targets TCP port 8080 where the upstream service is running.\n   2. Run `tcpdump` with verbose flags (`-nn` to resolve IPs and ports numerically, `-X` to display packet payloads in hex and ASCII, and `-s 0` to capture full",
+          "latency_s": 63.433931833002134,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered Plan\n\n1. **Identify the target traffic:** The web application is behind nginx and listeners on port 443, which typically handles HTTPS/TLS traffic (rather than plain HTTP). We need to capture TCP traffic specifically directed to or from port 443.\n2. **Construct the `tcpdump` filter:** Create a filter that captures all TCP traffic on port 443 but isolates packets with the RST (Reset",
+          "latency_s": 113.39487570800702,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "bench-agentworld",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "1. **Numbered plan**:\n   1. Identify the network interfaces and configure `tcpdmup` to capture traffic specifically on port 53, which is the standard port used for both DNS over UDP (query responses) and DNS over TCP (large responses or DNS-over-TLS/DoT fallback).\n   2. Execute the `tcpdump` command with flags that disable hostname/IP resolution (`-nn`) to prevent secondary lookup delays, and enab",
+          "latency_s": 66.19238812501135,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "baseline",
+      "workspace": "bench-ornith-35b",
+      "results": [
+        {
+          "probe_id": "C2/c2_1",
+          "workspace": "bench-ornith-35b",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 177.17891408300784,
+          "notes": "c2_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_2",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef first_missing_positive(nums):\n    n = len(nums)\n    \n    # Place each number x (where 1 <= x <= n) at index x-1\n    for i in range(n):\n        while 1 <= nums[i] <= n and nums[nums[i] - 1] != nums[i]:\n            correct_idx = nums[i] - 1\n            nums[correct_idx], nums[i] = nums[i], nums[correct_idx]\n            \n    # Find the first index where the value doesn't match index + 1",
+          "latency_s": 45.94128091700259,
+          "notes": "c2_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_3",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef can_jump(nums):\n    max_reach = 0\n    for i in range(len(nums) - 1):\n        if i > max_reach:\n            return False\n        max_reach = max(max_reach, i + nums[i])\n    \n    return max_reach >= len(nums) - 1\n```\n\n**How it works:**\n- We track `max_reach`, the farthest index we can reach using jumps from indices we've already visited.\n- As we iterate through each position (except th",
+          "latency_s": 47.76644829199358,
+          "notes": "c2_3",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "**1. Numbered Diagnostic Plan**\n1. Start `tcpdump` on the nginx host, filtering strictly for port `8080`, and run it with `-nn -v` plus `-w` so you can safely reproduce the 502 while capturing.\n2. Trigger the upstream request from a client (or use `curl/httpie`) while the capture is running, then stop `tcpdump` once the 502 appears.\n3. Analyze the saved pcap with `tcpdump -r` or `tshark`, correlat",
+          "latency_s": 41.265599915990606,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered Plan\n\n1. **Identify the correct capture interface** (`eth0`, `ens5`, etc.) so you don't accidentally capture loopback or management traffic.\n2. **Run an RST-specific filter** on port 443 to isolate resets without drowning in retransmissions or ACK noise. High-load systems drop packets when captures are too broad; a tight filter keeps latency low.\n3. **Save to a `.pcap` file with a ",
+          "latency_s": 73.86169799999334,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "bench-ornith-35b",
+          "format_score": 1.0,
+          "capability_score": 0.33,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered Plan\n1. Identify the active network interface on the affected host (`ip -br addr` or `ifconfig`).\n2. Start tcpdump with a BPF filter for port 53 before reproducing one of the service timeouts.\n3. Capture traffic to a PCAP file, keeping the original packet payload intact (default truncation can drop DNS answer records).\n4. Stop capture once you've reproduced at least 3 timeout event",
+          "latency_s": 64.98592229200585,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-gemma4-12b-agentic",
+      "results": [
+        {
+          "probe_id": "C2/c2_1",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "Sort by start time so overlapping or touching intervals appear consecutively. Maintain a `merged` list: if the current interval starts within or at the end of the last merged one, extend that interval to its maximum end; otherwise append it as new.\n\n```python\ndef merge_intervals(intervals):\n    if not intervals:\n        return []\n\n    intervals.sort()\n    merged = [intervals[0]]\n\n    for start, en",
+          "latency_s": 21.036286999995355,
+          "notes": "c2_1",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C2/c2_2",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "I use a cycle-sort idea to place each valid positive integer at its correct index (`5` goes to index `4`), leaving gaps where values are missing or invalid. Valid values are those in the range 1..len(nums). After one pass, if any position contains something other than index+1, that's the gap; otherwise all 1..n are present and next is n+1.\n\n```python\ndef first_missing_positive(nums):\n    \"\"\"Return",
+          "latency_s": 30.34380995799438,
+          "notes": "c2_2",
+          "error": null,
+          "baseline_delta": -1.0
+        },
+        {
+          "probe_id": "C2/c2_3",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "Track the farthest reachable index as you scan left to right; if at any point your current index exceeds it, you can't proceed. Otherwise extend `farthest` by `num + i` and return whether the goal is within range.\n\n```python\ndef can_jump(nums):\n    reachable = 0\n    for i in range(len(nums)):\n        if i > reachable:\n            return False\n        reachable = max(reachable, i + nums[i])\n    ret",
+          "latency_s": 9.835752500002855,
+          "notes": "c2_3",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "1. Number the capture by destination port (8080). 2. Capture all traffic between client-facing and upstream with no name resolution (-n/-nn) so IPs remain readable. 3. Scan for retransmissions, RSTs after accept, or backend errors in the first few lines, which isolates whether nginx is wrongly configured or the backend truly unresponsive.\n\n```bash\ntcpdump -i any -nn port 8080 > /tmp/upstream_captu",
+          "latency_s": 22.578641874992172,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 0.67,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": false,
+            "fence": true
+          },
+          "transcript_excerpt": "Filter by destination/source 443 while capturing retries (`!ss!=&&!!tcp`), writing tcpdump without line numbers to save space for a long window.\n\n```bash\ntcpdump -n -O sru=capture.pcap 'not null not port 22 and host eth0.1 and not icmp and !ss==80!=6433!&&port<[7,0]=\"443\" && (iptos RST is [0]+|src[tcp].do=/RST/)'\n```\n\nLook for packets flagged `[R]st sent` or TCP segments with the reset flag set (r",
+          "latency_s": 15.05640412500361,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "The captured traffic is analyzed by measuring individual query-response pairs and looking for network errors that masquerade as server slowness.\n\nNumbered plan:\n1 Capture: capture all UDP(53) and TCP53 on every subnet, without name resolver in output (speeds processing).\n2 Command: tcpdump -i *:any\" not port392 = no \"port 53 or udp and broadcast\"\n3 Interpretation \u2014 a slow response (`rdo`, `ndop`) ",
+          "latency_s": 18.113770625001052,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": 0.34
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-07-01T06:20:13.007107+00:00"
+}
