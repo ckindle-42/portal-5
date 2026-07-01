@@ -1,8 +1,4 @@
-# PORTAL5_BENCH_SEC_EXECUTE_V2 — Security Bench Execution Prompt
-
-> **ARCHIVE:** V1 archived at `docs/_archive_execdocs/PORTAL5_BENCH_SEC_EXECUTE_V1.md` (2026-07-01).
-> V2 adds Phase 0 preconditions, Full Expanded mode, loop/validation, on-demand targets, and
-> honeypot+hardened-twin methodology. See `docs/LAB_SETUP.md` for the cold-start runbook.
+# PORTAL5_BENCH_SEC_EXECUTE_V1 — Security Bench Execution Prompt
 
 Run the Portal 5 security benchmark suite (`bench_security.py`). This bench
 evaluates security-oriented models and workspaces on offensive/defensive
@@ -15,22 +11,6 @@ structured output, call tools in the right order, and complete the chain?
 
 ---
 
-## Phase 0 — Precondition: Lab Readiness Gate
-
-**Do not bench a cold or unreachable lab.** Verify before any bench run:
-
-```bash
-./launch.sh lab-up                        # start the core lab stack
-./launch.sh lab-up-wazuh                  # start telemetry (optional; needed for blue-detection)
-./launch.sh lab-ready                     # readiness gate — RED means STOP
-```
-
-If `lab-ready` returns RED, resolve failures before proceeding. A green `lab-ready` confirms:
-attack box built, vulhub cloned, challenge dirs materialized, DC/SRV/WEB reachable from sandbox,
-disk space sufficient. `lab-ready` returns non-zero on RED — halt any automated bench pipeline.
-
----
-
 ## Your Role
 
 You are the **security benchmark execution agent**. You run the chain test
@@ -40,7 +20,7 @@ promote models — promotions are operator decisions.
 
 ---
 
-## Four Modes
+## Three Modes
 
 ### 1. Quick: Workspace scoring only (prompts + heuristics)
 
@@ -67,7 +47,7 @@ completion without refusal. The gold standard for security model qualification.
 # Single model, single scenario (default: kerberoast_to_da):
 python3 -m tests.benchmarks.bench_security \
     --skip-workspace-bench \
-    --chain-models hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
+    --chain-models hf.co/DJLougen/Qwable-5-27B-Coder-GGUF:Q4_K_M
 
 # Multiple models, all 8 scenarios:
 python3 -m tests.benchmarks.bench_security \
@@ -114,106 +94,6 @@ python3 -m tests.benchmarks.bench_security \
 
 `--lab-snapshot` takes a Proxmox snapshot before the run and restores it on
 completion, leaving VMs in clean state. Always include it for lab-exec runs.
-**Note:** Proxmox snapshot feature requires qcow2-backed VMs; SSD1/LVM storage
-may not support snapshots. Check `lab-ready` output for snapshot availability.
-
-### 4. Full Expanded — Every security bench step (NEW in V2)
-
-Runs workspace scoring + chain tests + the entire expansion suite. This is the
-"test everything we built" entrypoint.
-
-```bash
-# Dry-run first to enumerate available steps:
-python3 -m tests.benchmarks.bench_security --full-expanded --dry-run
-
-# Real run:
-./launch.sh sec-bench-full
-# or equivalently:
-python3 -m tests.benchmarks.bench_security --full-expanded --lab-exec
-```
-
-**What `--full-expanded` enables** (each step no-ops if its module is absent):
-
-| Flag | What it runs | Ground-truth basis |
-|---|---|---|
-| `--verify-findings` | Named-oracle verification pass — re-checks every claimed finding N/N | Named oracle (rce_shell, lfi_confirm, cve_confirmed, …) |
-| `--ctf` | CTF flag-oracle bench | Captured flag = unambiguous ground truth |
-| `--llm-redteam` | OWASP-LLM-Top-10 probes against Portal's own workspaces | Prompt-injection / tool-abuse / jailbreak resistance |
-| `--validate-suite` | Loop-driven red/blue/purple validation against real lab targets | Honeypot + hardened-twin (appear on vulnerable, vanish on twin) |
-| `--journal` | Field-journal write-back after engagement | Autonomy loop memory — engagement outcomes accrue |
-
-Use individual flags to run specific steps without the full sweep:
-```bash
-python3 -m tests.benchmarks.bench_security --ctf --verify-findings --dry-run
-python3 -m tests.benchmarks.bench_security --validate-suite --journal --dry-run
-```
-
----
-
-## Loop & Validation Invocations (NEW in V2)
-
-The autonomous engagement loop runs a playbook to completion without per-step operator input:
-
-```bash
-# Dry-run a playbook (prints phases, scope, budget — no actuation):
-./launch.sh sec-loop run playbooks/security/internal-ad-pentest.yaml --dry-run
-python3 -m tests.benchmarks.bench_security loop run playbooks/security/web-app-assessment.yaml --dry-run
-
-# Real run (requires lab-exec):
-./launch.sh sec-loop run playbooks/security/internal-ad-pentest.yaml --lab-exec
-```
-
-The validation suite proves red/blue/purple do their jobs against real lab data using the
-**honeypot + hardened-twin** method:
-
-```bash
-# Dry-run the suite:
-./launch.sh sec-validate --dry-run
-
-# Real run:
-python3 -m tests.benchmarks.bench_security --validate-suite --lab-exec
-```
-
-**Validation pass condition:** A use-case PASSES only if the finding lands on the vulnerable
-target AND vanishes on the hardened twin (zero false positives). Red, blue, and purple are each
-scored independently with their own twin-control gate. A use-case where red lands on the hardened
-twin is a false-positive red result and is escalated.
-
----
-
-## On-Demand Lab Targets (NEW in V2)
-
-Spin up ephemeral lab targets from the catalog or raw vulhub path. Ports are dynamically
-mapped if the desired port is in use:
-
-```bash
-# List available targets:
-./launch.sh lab-targets list
-
-# Spin up a target by catalog id:
-./launch.sh lab-targets up vulhub-log4shell-solr --dry-run
-
-# Spin up by raw vulhub path:
-./launch.sh lab-targets up struts2/s2-045 --dry-run
-
-# Ephemeral: spin up, run bench, tear down — self-cleaning:
-./launch.sh lab-targets ephemeral vulhub-log4shell-solr -- \
-    python3 -m tests.benchmarks.bench_security --chain-models VulnLLM-R-7B --lab-exec
-
-# Lane-specific targets:
-./launch.sh lab-web-up     # SPA target for browser/OAST probes
-./launch.sh lab-cloud-up   # LocalStack+kind for cloud lane
-./launch.sh oast-up        # OAST collaborator
-
-# Teardown:
-./launch.sh lab-targets down vulhub-log4shell-solr
-./launch.sh lab-down       # stops core + on-demand containers
-./launch.sh lab-teardown --purge-downloads  # deep reclaim
-```
-
-**Port conflict resolution:** Multiple vulhub targets want port 8080. The ephemeral model
-detects used ports and dynamically remaps (e.g., 8080→8082), writing a `.port_map.json`
-file so the bench knows which port to hit. No hard-coded port assumptions needed.
 
 ---
 
@@ -224,9 +104,9 @@ It sends a single tool-call request and verifies the model returns a valid
 JSON tool-call response.
 
 ```bash
-python3 -m tests.benchmarks.bench_security \
+python3 tests/benchmarks/bench_security.py \
     --audit-tools \
-    --chain-models hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
+    --chain-models hf.co/DJLougen/Qwable-5-27B-Coder-GGUF:Q4_K_M
 ```
 
 A model that fails this probe must NOT have `supports_tools: true` — it will
@@ -255,7 +135,7 @@ git log --oneline -3
 ```
 If any portal image predates a relevant commit: `./launch.sh rebuild`.
 
-### 4. Lab exec prerequisites (Mode 3/4 only)
+### 4. Lab exec prerequisites (Mode 3 only)
 ```bash
 # Confirm SANDBOX_LAB_EXEC is set:
 grep SANDBOX_LAB_EXEC .env
@@ -263,10 +143,17 @@ grep SANDBOX_LAB_EXEC .env
 # Confirm portal5-attack image exists:
 docker images portal5-attack --format "{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}"
 
-# Run the full readiness gate:
-./launch.sh lab-ready
+# Confirm lab VMs are reachable from sandbox:
+docker run --rm --network host portal5-attack:latest \
+    python3 -c "import socket; s=socket.socket(); s.settimeout(2); s.connect(('10.10.11.21',445)); print('DC reachable')"
 ```
-If `lab-ready` is RED, do not proceed — fix the failing components first.
+If `portal5-attack` image is missing: check `deploy/portal-5/docker-compose.yml`
+for the `portal5-attack` service and rebuild with `docker compose build portal5-attack`.
+
+### 5. TPS bench first
+Run `bench_tps.py --mode direct --model <substring>` before the security
+chain. A model at < 20 t/s will drag every chain step through 30–90s
+timeouts. Know the speed before you interpret the chain results.
 
 ---
 
@@ -419,18 +306,10 @@ chain file contains `chain_tests[]` and `blue_tests[]`.
 | `--blue-defender-model <id>` | Run blue defender pass after each exec chain |
 | `--lab-exec` | Real execution via MCP sandbox (requires lab environment up) |
 | `--lab-snapshot` | Take Proxmox snapshot before run, restore on completion |
-| `--probe-lab` | Probe which lab services are reachable before running chains |
-| `--force-unreachable-lab` | Override the DC/SRV reachability gate |
 | `--audit-tools` | Single tool-call probe — verifies supports_tools before chain |
 | `--dry-run` | Show what would execute, don't run |
 | `--list-scenarios` | Print available scenario keys and exit |
 | `--output <path>` | Result JSON path (default: /tmp/sec_bench_&lt;ts&gt;.json) |
-| `--full-expanded` | (NEW V2) Run every available security bench step |
-| `--verify-findings` | (NEW V2) Named-oracle verification pass over chain findings |
-| `--ctf` | (NEW V2) CTF flag-oracle bench |
-| `--llm-redteam` | (NEW V2) OWASP-LLM-Top-10 probes against Portal workspaces |
-| `--validate-suite` | (NEW V2) Loop-driven red/blue/purple validation suite |
-| `--journal` | (NEW V2) Write field-journal entry after engagement |
 
 ---
 
@@ -458,26 +337,3 @@ chain file contains `chain_tests[]` and `blue_tests[]`.
 - **exec_chain_models vs chain_models** — `--exec-chain-models` runs a multi-model
   chain for every workspace scoring prompt (504 × chain). `--chain-models` runs the
   8-step scenario chain test. For standard qualification use `--chain-models`.
-- **Port conflicts on lab host** — (NEW V2) multiple vulhub targets default to port 8080.
-  The ephemeral model (`lab-targets ephemeral`) detects used ports and dynamically remaps,
-  writing `.port_map.json` so the bench knows the correct port. Hard-coded port assumptions
-  in exec scenarios should read from the port map.
-- **Snapshot availability** — (NEW V2) Proxmox snapshots require qcow2-backed VMs on a
-  supported storage backend (dir, NFS, ZFS). LVM and LVM-thin do not support qemu snapshots.
-  If `lab-ready` reports snapshots as unavailable, run without `--lab-snapshot`.
-- **Expansion steps are self-guarding** — (NEW V2) each `--full-expanded` step no-ops
-  cleanly when its module is absent (e.g., CTF bench without CTF modules). A step present
-  and enabled prints its status; absent modules log "absent — skipped".
-
----
-
-## Reference Docs
-
-| Doc | What |
-|---|---|
-| `docs/LAB_SETUP.md` | Cold-start runbook: setup → up → gate → bench |
-| `docs/SECURITY_BENCH_EXEC.md` | Per-step methodology (oracle verification, CTF, LLM-redteam, validation suite) |
-| `config/lab_targets.yaml` | Live-target catalog (vulhub + Project Black + ptai twin) |
-| `config/challenge_classes.yaml` | Challenge-class → container map |
-| `playbooks/security/` | Engagement playbooks (AD, web, ICS-firmware) |
-| `playbooks/security/validation/` | Validation use-cases (log4shell, kerberoast-purple) |
