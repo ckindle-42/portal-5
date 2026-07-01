@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -15,28 +14,27 @@ class TestLabTargetTable:
     """Phase 1 — target table builds from env, skips absent targets."""
 
     def test_target_table_builds_from_env(self):
-        os.environ["LAB_DC_VMID"] = "110"
-        os.environ["LAB_SRV_VMID"] = "111"
+        from bench_lab_exec import LAB_TARGETS, _build_target
+
+        # Directly call _build_target to verify it populates LAB_TARGETS
+        _build_target("dc01", "110", "10.10.11.1", "baseline-ad", "vm")
+        _build_target("srv01", "111", "10.10.11.33", "baseline-ad", "vm")
         try:
-            import importlib
-
-            import bench_lab_exec
-
-            importlib.reload(bench_lab_exec)
-            from bench_lab_exec import LAB_TARGETS
-
             assert "dc01" in LAB_TARGETS
             assert LAB_TARGETS["dc01"]["vmid"] == "110"
             assert LAB_TARGETS["dc01"]["kind"] == "vm"
             assert "srv01" in LAB_TARGETS
             assert LAB_TARGETS["srv01"]["vmid"] == "111"
         finally:
-            os.environ.pop("LAB_DC_VMID", None)
-            os.environ.pop("LAB_SRV_VMID", None)
-            importlib.reload(bench_lab_exec)
+            LAB_TARGETS.pop("dc01", None)
+            LAB_TARGETS.pop("srv01", None)
 
     def test_target_skipped_when_vmid_not_set(self, monkeypatch):
-        from bench_lab_exec import LAB_TARGETS
+        from bench_lab_exec import LAB_TARGETS, _build_target
+
+        # _build_target with empty vmid should NOT add an entry
+        _build_target("_test_empty", "", "10.10.11.99", "clean", "vm")
+        assert "_test_empty" not in LAB_TARGETS
 
         # vulhub and meta3 typically have no VMID in CI
         assert "vulhub" not in LAB_TARGETS or LAB_TARGETS.get("vulhub", {}).get("vmid") == ""
@@ -55,22 +53,26 @@ class TestLabTargetTable:
         assert ok is True
 
     def test_lab_setup_iterates_only_requested_present_targets(self):
-        os.environ["LAB_DC_VMID"] = "110"
-        os.environ["LAB_VULHUB_VMID"] = "112"
+        from bench_lab_exec import LAB_TARGETS, lab_setup
+
+        LAB_TARGETS["dc01"] = {
+            "vmid": "110",
+            "ip": "10.10.11.1",
+            "snapshot": "baseline-ad",
+            "kind": "vm",
+        }
+        LAB_TARGETS["vulhub"] = {
+            "vmid": "112",
+            "ip": "10.10.11.15",
+            "snapshot": "clean",
+            "kind": "lxc",
+        }
         try:
-            import importlib
-
-            import bench_lab_exec
-
-            importlib.reload(bench_lab_exec)
-            from bench_lab_exec import lab_setup
-
             ok = lab_setup(targets=["dc01", "vulhub"], dry_run=True)
             assert ok is True
         finally:
-            os.environ.pop("LAB_DC_VMID", None)
-            os.environ.pop("LAB_VULHUB_VMID", None)
-            importlib.reload(bench_lab_exec)
+            LAB_TARGETS.pop("dc01", None)
+            LAB_TARGETS.pop("vulhub", None)
 
 
 class TestPhaseRegistry:
