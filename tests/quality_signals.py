@@ -21,7 +21,6 @@ when no verifier exists. Two categories upgraded:
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 
 # ── Verifier callables (optional per-category) ───────────────────────────────
@@ -64,15 +63,18 @@ def _verify_reasoning(response: str) -> float:
     - Wait time ≈ 12+ hrs or 700+ minutes
     """
     try:
-        from tests.benchmarks.capability_lib import extract_final_answer
+        from tests.benchmarks.capability_lib import (
+            extract_final_answer,
+            numeric_answer_matches,
+        )
     except ImportError:
         return -1.0
 
     final = extract_final_answer(response).lower()
 
-    # Check for the correct numeric answer (bottleneck is beds, ~2.29/hr)
+    # V11: use shared numeric_answer_matches for the cores number (2.29 beds/hr)
     correct_signals = [
-        bool(re.search(r"2\.2[0-9]|2\.3[0-9]", final)),  # beds capacity ~2.29/hr
+        numeric_answer_matches(response, 2.29, tol=0.1),
         "bottleneck" in final or "bottleneck" in final,
         "bed" in final or "beds" in final,
     ]

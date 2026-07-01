@@ -186,3 +186,72 @@ class TestParseTcpdumpFilter:
         assert facts["has_bpf_primitive"] is True
         assert facts["targets_http_ports"] is False  # port 22 is not HTTP
         assert 0.33 <= facts["capability_score"] <= 0.67
+
+
+# ── Phase 4 (V11 fleet mode) — numeric_answer_matches, reasoning_aware_max_tokens, stamp_result_meta ──
+
+
+class TestNumericAnswerMatches:
+    def test_exact_match(self):
+        from tests.benchmarks.capability_lib import numeric_answer_matches
+
+        assert numeric_answer_matches("The answer is 42", 42.0) is True
+
+    def test_wrong_value(self):
+        from tests.benchmarks.capability_lib import numeric_answer_matches
+
+        assert numeric_answer_matches("The answer is 99", 42.0) is False
+
+    def test_within_tolerance(self):
+        from tests.benchmarks.capability_lib import numeric_answer_matches
+
+        assert numeric_answer_matches("Value: 2.30", 2.29, tol=0.1) is True
+
+    def test_takes_last_number_ignoring_preamble(self):
+        """Regression: preamble contains a decoy '12' but final answer is 2.29."""
+        from tests.benchmarks.capability_lib import numeric_answer_matches
+
+        text = (
+            "Thinking Process:\n"
+            "1. The arrival rate is 30, beds are 12, wait is long.\n"
+            "2. Bottleneck capacity is 8/3.5 = 2.29 patients/hr.\n"
+            "## Answer\n"
+            "The bottleneck capacity is 2.29."
+        )
+        # Last number should be 2.29 (after preamble stripping)
+        assert numeric_answer_matches(text, 2.29, tol=0.1) is True
+
+    def test_no_numbers_returns_false(self):
+        from tests.benchmarks.capability_lib import numeric_answer_matches
+
+        assert numeric_answer_matches("no numbers here", 1.0) is False
+
+
+class TestReasoningAwareMaxTokens:
+    def test_emits_reasoning_workspace_returns_8192(self):
+        from tests.benchmarks.capability_lib import reasoning_aware_max_tokens
+
+        result = reasoning_aware_max_tokens("auto-agentic-lite")
+        assert result == 8192
+
+    def test_unknown_workspace_returns_4096(self):
+        from tests.benchmarks.capability_lib import reasoning_aware_max_tokens
+
+        result = reasoning_aware_max_tokens("nonexistent-workspace-xyz")
+        assert result == 4096
+
+
+class TestStampResultMeta:
+    def test_adds_methodology_version(self):
+        from tests.benchmarks.capability_lib import stamp_result_meta
+
+        payload = {"task_id": "test"}
+        result = stamp_result_meta(payload)
+        assert result["methodology_version"] == "v2-capability"
+
+    def test_adds_scored_at(self):
+        from tests.benchmarks.capability_lib import stamp_result_meta
+
+        payload = {}
+        result = stamp_result_meta(payload)
+        assert "scored_at" in result

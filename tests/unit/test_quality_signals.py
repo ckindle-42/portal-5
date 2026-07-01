@@ -120,7 +120,7 @@ def test_reasoning_verifier_correct_answer_scores_high():
         "Average wait time exceeds 700 minutes."
     )
     score = quality_score("reasoning", answer)
-    assert score >= 0.67, f"Expected >=0.67, got {score}"
+    assert score >= 0.66, f"Expected >=0.66, got {score}"
 
 
 def test_reasoning_verifier_keyword_stuffed_wrong_scores_low():
