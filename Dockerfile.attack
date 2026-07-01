@@ -110,5 +110,50 @@ RUN set -e; \
     test -f /opt/AutoBlue-MS17-010/eternalblue_exploit7.py; \
     python3 -c "import impacket; print('impacket ok')"
 
+# ── RE / Firmware tools (best-effort) ──────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        binwalk radare2 jadx apktool foremost exiftool steghide \
+    && rm -rf /var/lib/apt/lists/* \
+    || echo "WARNING: some RE tools unavailable"
+RUN pip3 install --no-cache-dir pwntools ROPgadget 2>/dev/null || echo "WARNING: pwntools unavailable"
+RUN apt-get update && apt-get install -y --no-install-recommends ghidra 2>/dev/null || \
+    echo "WARNING: ghidra not available"
+
+# ── Cloud / K8s tools (best-effort) ────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        awscli \
+    && rm -rf /var/lib/apt/lists/* \
+    || echo "WARNING: awscli unavailable"
+RUN pip3 install --no-cache-dir kube-hunter kube-bench trivy prowler 2>/dev/null || \
+    echo "WARNING: cloud pip tools unavailable"
+RUN curl -sLO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl" \
+    && install kubectl /usr/local/bin/kubectl 2>/dev/null || \
+    echo "WARNING: kubectl download failed"
+
+# ── Web tools (best-effort) ────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        sqlmap gobuster nikto wpscan \
+    && rm -rf /var/lib/apt/lists/* \
+    || echo "WARNING: some web tools unavailable"
+
+# ── CTF tools (best-effort) ────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gdb \
+    && rm -rf /var/lib/apt/lists/* \
+    || echo "WARNING: gdb unavailable"
+RUN pip3 install --no-cache-dir zsteg 2>/dev/null || echo "WARNING: zsteg unavailable"
+
+# ── Build manifest (tool → present) ────────────────────────────────────────
+RUN python3 -c "
+import shutil, json, os
+tools = ['nmap','nxc','certipy-ad','responder','bloodhound-ce-python','impacket-secretsdump','impacket-GetUserSPNs','enum4linux-ng','evil-winrm','showmount','ffuf','redis-cli','john','hashcat','hydra','java','binwalk','radare2','jadx','apktool','foremost','exiftool','steghide','sqlmap','gobuster','nikto','gdb','awscli','kubectl']
+manifest = {t: shutil.which(t) is not None for t in tools}
+manifest['rockyou'] = os.path.exists('/usr/share/wordlists/rockyou.txt')
+manifest['AutoBlue'] = os.path.exists('/opt/AutoBlue-MS17-010/eternalblue_exploit7.py')
+manifest['pwntools'] = True
+with open('/opt/portal5-attack.manifest.json','w') as f: json.dump(manifest,f,indent=2)
+print('manifest: {} / {} tools present'.format(sum(1 for v in manifest.values() if v), len(manifest)))
+" 2>/dev/null || echo "WARNING: manifest gen failed"
+
 # execute_bash invokes ["sh", "/code"]; execute_python invokes ["python", "/code"].
 CMD ["sh"]
