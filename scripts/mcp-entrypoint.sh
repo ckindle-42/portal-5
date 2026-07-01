@@ -3,10 +3,10 @@ set -e
 # Fix volume mount ownership — Docker named volumes initialize as root:root,
 # overriding the chown set during image build. Runs as root before dropping privileges.
 if [ -d /app/data/hf_cache ]; then
-    chown -R portal:portal /app/data/hf_cache
+    chown -R portal:portal /app/data/hf_cache 2>/dev/null || true
 fi
 if [ -d /app/data/generated ]; then
-    chown -R portal:portal /app/data/generated
+    chown -R portal:portal /app/data/generated 2>/dev/null || true
 fi
 # Drop to portal user and exec the service command
 exec su -s /bin/sh -c 'exec "$0" "$@"' portal -- "$@"
