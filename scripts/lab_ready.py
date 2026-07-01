@@ -7,7 +7,6 @@ snapshots, disk space. Returns non-zero if a REQUIRED component is missing.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -18,15 +17,43 @@ LAB_DIR = os.environ.get("LAB_DIR", os.path.expanduser("~/AI_Output/lab"))
 CHECKS: dict[str, dict] = {
     "docker": {"required": True, "host": "local", "desc": "Docker daemon running"},
     "dind": {"required": True, "host": "local", "desc": "DinD (portal5-dind) container running"},
-    "attack_image": {"required": True, "host": "local", "desc": "Attack image (portal5-attack) present"},
-    "vulhub_clone": {"required": True, "host": "local", "desc": "vulhub repo cloned (~1,920 CVE dirs)"},
-    "challenge_dirs": {"required": True, "host": "local", "desc": "Challenge compose dirs materialized"},
+    "attack_image": {
+        "required": True,
+        "host": "local",
+        "desc": "Attack image (portal5-attack) present",
+    },
+    "vulhub_clone": {
+        "required": True,
+        "host": "local",
+        "desc": "vulhub repo cloned (~1,920 CVE dirs)",
+    },
+    "challenge_dirs": {
+        "required": True,
+        "host": "local",
+        "desc": "Challenge compose dirs materialized",
+    },
     "disk": {"required": True, "host": "local", "desc": "Sufficient disk space (>10GB free)"},
     "ollama": {"required": False, "host": "local", "desc": "Ollama running + models resident"},
-    "dc_reachable": {"required": True, "host": "bridge", "desc": "DC (10.10.11.21:445) reachable from sandbox"},
-    "srv_reachable": {"required": True, "host": "bridge", "desc": "SRV (10.10.11.33:445) reachable from sandbox"},
-    "web_reachable": {"required": True, "host": "bridge", "desc": "Web (10.10.11.50:8080) reachable from sandbox"},
-    "snapshots": {"required": False, "host": "proxmox", "desc": "Clean-baseline VM snapshots exist"},
+    "dc_reachable": {
+        "required": True,
+        "host": "bridge",
+        "desc": "DC (10.10.11.21:445) reachable from sandbox",
+    },
+    "srv_reachable": {
+        "required": True,
+        "host": "bridge",
+        "desc": "SRV (10.10.11.33:445) reachable from sandbox",
+    },
+    "web_reachable": {
+        "required": True,
+        "host": "bridge",
+        "desc": "Web (10.10.11.50:8080) reachable from sandbox",
+    },
+    "snapshots": {
+        "required": False,
+        "host": "proxmox",
+        "desc": "Clean-baseline VM snapshots exist",
+    },
 }
 
 
@@ -55,6 +82,7 @@ def _check_challenge_dirs() -> str:
 
 def _check_telemetry() -> str:
     import socket
+
     try:
         s = socket.socket()
         s.settimeout(2)
@@ -67,10 +95,17 @@ def _check_telemetry() -> str:
 
 def _check_proxmox_online() -> str:
     import subprocess
+
     try:
         r = subprocess.run(
-            ["curl", "-sk", f"{os.environ.get('PROXMOX_URL', 'https://10.10.11.5:8006')}/api2/json/nodes"],
-            capture_output=True, text=True, timeout=10
+            [
+                "curl",
+                "-sk",
+                f"{os.environ.get('PROXMOX_URL', 'https://10.10.11.5:8006')}/api2/json/nodes",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         return "GREEN" if "proxmox" in r.stdout else "RED"
     except Exception:
@@ -91,12 +126,20 @@ def _check_lab_vulhub_running() -> str:
 
 def _proxmox_vm_running(vmid: int) -> str:
     import subprocess
+
     try:
         r = subprocess.run(
-            ["curl", "-sk", f"{os.environ.get('PROXMOX_URL', 'https://10.10.11.5:8006')}/api2/json/nodes/proxmox3/qemu/{vmid}/status/current"],
-            capture_output=True, text=True, timeout=10
+            [
+                "curl",
+                "-sk",
+                f"{os.environ.get('PROXMOX_URL', 'https://10.10.11.5:8006')}/api2/json/nodes/proxmox3/qemu/{vmid}/status/current",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         import json
+
         d = json.loads(r.stdout)
         status = d.get("data", {}).get("status", "")
         return "GREEN" if status == "running" else "RED"
@@ -115,10 +158,25 @@ def _check_srv_reachable() -> str:
 def _check_port_reachable(host: str, port: int) -> str:
     try:
         r = __import__("subprocess").run(
-            ["docker", "exec", "portal5-dind", "docker", "run", "--rm", "--net", "bridge",
-             "portal5-attack:latest", "timeout", "3", "bash", "-c",
-             f"echo > /dev/tcp/{host}/{port}"],
-            capture_output=True, text=True, timeout=15
+            [
+                "docker",
+                "exec",
+                "portal5-dind",
+                "docker",
+                "run",
+                "--rm",
+                "--net",
+                "bridge",
+                "portal5-attack:latest",
+                "timeout",
+                "3",
+                "bash",
+                "-c",
+                f"echo > /dev/tcp/{host}/{port}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         return "GREEN" if r.returncode == 0 else "RED"
     except Exception:
@@ -129,8 +187,14 @@ def _check_snapshots() -> str:
     for vmid in [110, 111]:
         try:
             r = __import__("subprocess").run(
-                ["curl", "-sk", f"{os.environ.get('PROXMOX_URL', 'https://10.10.11.5:8006')}/api2/json/nodes/proxmox3/qemu/{vmid}/snapshot"],
-                capture_output=True, text=True, timeout=10
+                [
+                    "curl",
+                    "-sk",
+                    f"{os.environ.get('PROXMOX_URL', 'https://10.10.11.5:8006')}/api2/json/nodes/proxmox3/qemu/{vmid}/snapshot",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             data = __import__("json").loads(r.stdout)
             snaps = [s for s in data.get("data", []) if s.get("name") not in ("current",)]
@@ -143,11 +207,13 @@ def _check_snapshots() -> str:
 
 def _check_docker() -> str:
     import shutil
+
     return "GREEN" if shutil.which("docker") else "RED"
 
 
 def _check_ollama() -> str:
     import shutil
+
     if shutil.which("ollama"):
         return "GREEN"
     return "AMBER"
@@ -156,10 +222,11 @@ def _check_ollama() -> str:
 def _check_disk() -> str:
     try:
         import shutil
+
         free_gb = shutil.disk_usage(LAB_DIR).free / (1024**3)
         free = int(free_gb)
     except Exception:
-        pass
+        return "AMBER"
     return "GREEN" if free > 10 else "RED"
 
 
@@ -169,11 +236,10 @@ def run_readiness() -> tuple[bool, list[dict]]:
     all_passed = True
     for cid, cfg in CHECKS.items():
         fn = globals().get(f"_check_{cid}")
-        if fn:
-            status = fn()
-        else:
-            status = "AMBER"
-        results.append({"check": cid, "desc": cfg["desc"], "status": status, "required": cfg["required"]})
+        status = fn() if fn else "AMBER"
+        results.append(
+            {"check": cid, "desc": cfg["desc"], "status": status, "required": cfg["required"]}
+        )
         if cfg["required"] and status == "RED":
             all_passed = False
     return all_passed, results
