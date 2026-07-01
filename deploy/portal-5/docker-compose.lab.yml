@@ -64,43 +64,34 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  # ── Talon SOC Analyst — Alert Triage via Foundation-Sec-8B ───────────────
-  # GitHub: github.com/taylorwalton/talon (SOCFortress)
-  # Polls OpenSearch/Wazuh for SIEM alerts, enriches with threat intel,
-  # produces structured P1-P4 triage reports via LLM.
-  # Routes to portal-pipeline → auto-blueteam (Foundation-Sec-8B-Reasoning).
-  talon-soc:
-    image: ghcr.io/taylorwalton/talon:latest
-    # Build from source if pre-built image is unavailable:
-    # build:
-    #   context: https://github.com/taylorwalton/talon.git
-    container_name: portal5-lab-talon
+  # ── Blue-Triage — Autonomous SIEM Alert Triage (replaces Talon) ───────────
+  # Polls Splunk for alerts, enriches via auto-blueteam workspace, produces
+  # P1-P4 reports to local store.  No CoPilot coupling.
+  # Splunk itself runs on Proxmox LXC 301 (10.0.1.30) — not in Docker.
+  blue-triage:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-lab-blue-triage
     profiles: [lab]
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:${TALON_PORT:-8931}:8931"
     environment:
-      # OpenSearch connection (Wazuh indexer)
-      - OPENSEARCH_URL=${LAB_OPENSEARCH_URL:-http://portal5-lab-wazuh-indexer:9200}
-      - OPENSEARCH_USER=${LAB_OPENSEARCH_USER:-admin}
-      - OPENSEARCH_PASSWORD=${LAB_OPENSEARCH_PASSWORD:-}
-      - OPENSEARCH_INDEX=${LAB_OPENSEARCH_INDEX:-wazuh-alerts-*}
-      # LLM backend — Portal 5 pipeline → auto-blueteam
-      - OPENAI_BASE_URL=http://host.docker.internal:${PIPELINE_PORT:-9099}/v1
-      - OPENAI_API_KEY=${PIPELINE_API_KEY}
-      - OPENAI_MODEL=${LAB_BLUETEAM_WORKSPACE:-auto-blueteam}
-      # Direct Ollama path (uncomment if bypassing pipeline):
-      # - OLLAMA_URL=http://host.docker.internal:11434
-      # - OLLAMA_MODEL=hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
-      - TALON_PORT=8931
-      - POLL_INTERVAL_SECONDS=${LAB_TALON_POLL_INTERVAL:-30}
-      - SEVERITY_THRESHOLD=${LAB_TALON_SEVERITY:-3}
+      - PIPELINE_API_KEY=${PIPELINE_API_KEY}
+      - PIPELINE_PORT=${PIPELINE_PORT:-9099}
+      - LAB_BLUETEAM_WORKSPACE=${LAB_BLUETEAM_WORKSPACE:-auto-blueteam}
+      - LAB_SPLUNK_URL=${LAB_SPLUNK_URL:-https://10.0.1.30:8089}
+      - LAB_SPLUNK_USER=${LAB_SPLUNK_USER:-admin}
+      - LAB_SPLUNK_PASSWORD=${LAB_SPLUNK_PASSWORD:-Portal5Lab1!}
+      - LAB_SPLUNK_INDEX=${LAB_SPLUNK_INDEX:-portal5_lab}
+      - LAB_TRIAGE_POLL_INTERVAL=${LAB_TRIAGE_POLL_INTERVAL:-30}
+      - LAB_TRIAGE_SEVERITY=${LAB_TRIAGE_SEVERITY:-3}
     volumes:
-      - talon-data:/data
+      - triage-data:/data/triage
     networks:
       - portal-lab
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    entrypoint: ["python3", "-m", "tests.benchmarks.bench_security.siem.blue_triage"]
 
   # ── Wazuh Manager — SIEM engine ───────────────────────────────────────────
   # Profile: lab-wazuh (separate — adds ~4GB RAM)
@@ -231,7 +222,7 @@ networks:
 volumes:
   incalmo-data:
   incalmo-logs:
-  talon-data:
+  triage-data:
   wazuh-manager-data:
   wazuh-manager-logs:
   wazuh-manager-queue:

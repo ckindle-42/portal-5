@@ -435,12 +435,12 @@ async def execute_bash(
     """
     _cap = SANDBOX_LAB_TIMEOUT_MAX if SANDBOX_LAB_EXEC else 60
     timeout = min(timeout, _cap)  # shell stays tight unless lab-exec widens it
-    # Lab-exec attack images are commonly Debian/Kali-based; fall back to the
-    # POSIX shell entrypoint either way (sh is present on both alpine and kali).
-    # Use file-based execution to avoid shell escaping issues
+    # Lab-exec attack images are commonly Debian/Kali-based; use bash when
+    # available since sh (dash) lacks /dev/tcp which lab probes rely on.
+    _shell = "bash" if SANDBOX_LAB_EXEC else "sh"
     return await _run_in_docker(
         image=_resolve_image(BASH_IMAGE),
-        command=["sh", "/code"],
+        command=[_shell, "/code"],
         code=code,
         timeout=timeout,
     )

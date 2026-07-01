@@ -119,8 +119,13 @@ def run_bench(
     (chain batch) remains serial because the warm-up logic needs surgical
     control over Ollama's MAX_LOADED slots.
     """
-    # Deferred import to avoid circular dependency with __init__.py facade
-    from .. import call_pipeline, call_pipeline_exec, call_theory_direct
+    # Deferred import to avoid circular dependency with __init__.py facade.
+    # These functions are only needed for workspace scoring (Phase 1); in
+    # chain-only mode they are never called, so tolerate absence.
+    try:
+        from .. import call_pipeline, call_pipeline_exec, call_theory_direct
+    except ImportError:
+        call_pipeline = call_pipeline_exec = call_theory_direct = None  # type: ignore[assignment]
 
     results: list[dict[str, Any]] = []
     # Collect (row_index, prompt_key) pairs that need chain runs — executed as a
@@ -369,7 +374,7 @@ def run_bench(
                     if _row is not None:
                         _raw_results.append(_row)
                     if checkpoint_path and not dry_run:
-                        try:
+                        try:  # noqa: SIM105
                             checkpoint_path.write_text(json.dumps(_raw_results, indent=2))
                         except Exception:
                             pass

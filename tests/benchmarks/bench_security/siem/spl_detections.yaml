@@ -1,0 +1,58 @@
+# SPL detection library — technique_id -> SPL search + expected-signal criteria.
+# Loaded by SplunkBackend.query().  Covers the disciplines the matrix covers.
+# Each entry: technique_id -> {spl: str, description: str, expected_signal: str}
+
+T1190:
+  description: "Web exploit — access-log signatures (LFI/SQLi/Log4Shell/webshell markers)"
+  spl: 'index=portal5_lab sourcetype="web:access" (passwd OR "../" OR "UNION SELECT" OR "${jndi:" OR ".php" OR "cmd=") | stats count by host, source, _raw'
+  expected_signal: "HTTP requests with attack payloads in URI/body"
+
+T1059:
+  description: "Command execution — auditd execve of shells/interpreters"
+  spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe=/bin/sh OR exe=/bin/bash OR exe=/usr/bin/python* OR exe=/usr/bin/perl) | stats count by host, exe, a0'
+  expected_signal: "Shell/interpreter execve events from attack payloads"
+
+T1505.003:
+  description: "Webshell — file-write + subsequent exec correlation"
+  spl: 'index=portal5_lab sourcetype="web:access" "uploads" ".php" | join host [search index=portal5_lab sourcetype="web:access" "cmd="] | stats count by host'
+  expected_signal: "PHP file upload followed by command execution via webshell"
+
+T1610:
+  description: "Container deploy — docker-daemon events"
+  spl: 'index=portal5_lab sourcetype="docker:daemon" (create OR start) | stats count by host, container_name'
+  expected_signal: "Container creation/start events from attack activity"
+
+T1611:
+  description: "Container escape — host auditd + docker events"
+  spl: 'index=portal5_lab (sourcetype="linux:auditd" "nsenter" OR "mount" OR "/proc/1") OR (sourcetype="docker:daemon" "privileged") | stats count by host'
+  expected_signal: "Container escape indicators (nsenter, privileged, /proc/1 access)"
+
+T1552.005:
+  description: "Cloud-metadata SSRF — 169.254.169.254 access signal"
+  spl: 'index=portal5_lab sourcetype="web:access" "169.254.169.254" | stats count by host, _raw'
+  expected_signal: "HTTP requests to cloud metadata endpoint"
+
+T1558.003:
+  description: "Kerberoasting — Windows Security Event 4769 with RC4 encryption"
+  spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4769 TicketEncryptionType=0x17 | stats count by ServiceName, Account'
+  expected_signal: "Kerberos service ticket requests with RC4 encryption"
+
+T1558.004:
+  description: "AS-REP Roasting — Windows Security Event 4768 without pre-auth"
+  spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4768 PreAuthType=0 | stats count by Account'
+  expected_signal: "Kerberos authentication without pre-authentication"
+
+T1003.006:
+  description: "DCSync — Windows Security Event 4662 replication rights"
+  spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4662 Properties="*Replication*" | stats count by Account, Properties'
+  expected_signal: "Directory replication requests from non-DC accounts"
+
+T1110.003:
+  description: "Password spray — multiple 4625/4771 events from single source"
+  spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4625 OR EventCode=4771) | stats dc(Account) as distinct_accounts by IpAddress | where distinct_accounts > 3'
+  expected_signal: "Multiple failed auth from single IP across many accounts"
+
+T1053.005:
+  description: "Scheduled task persistence — Windows Security Event 4698"
+  spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4698 | stats count by TaskName, Account'
+  expected_signal: "New scheduled task creation events"
