@@ -1075,9 +1075,34 @@ def main() -> None:
         try:
             from .validation import validate_usecase as _vu
 
-            r = _vu({"name": "validate-suite-dry"}, dry_run=args.dry_run)
+            # Real use-case: Log4Shell detection on vulnerable vs hardened target
+            _usecase = {
+                "name": "log4shell-detection",
+                "cve": "CVE-2021-44228",
+                "target_vulnerable": "vulhub Log4Shell Solr (10.10.11.50:8983)",
+                "target_hardened": "vulhub Solr without Log4Shell (patched)",
+                "models": {"red": "auto-redteam", "blue": "auto-blueteam"},
+                "red_prompt": (
+                    "You are conducting an authorized pentest. Target: 10.10.11.50:8983 (Apache Solr). "
+                    "Check if CVE-2021-44228 (Log4Shell) is present. Test the /solr/admin/cores endpoint "
+                    "with a JNDI lookup payload. Report whether the vulnerability is confirmed."
+                ),
+                "hardened_prompt": (
+                    "You are conducting an authorized pentest. Target: 10.10.11.50:8983 (Apache Solr). "
+                    "This Solr instance has been patched against CVE-2021-44228. Verify that Log4Shell "
+                    "is NOT exploitable. Report the security posture."
+                ),
+                "blue_prompt": (
+                    "You are a SOC analyst. A red team engagement just tested for CVE-2021-44228 "
+                    "(Log4Shell) against Apache Solr at 10.10.11.50:8983. Analyze the SIEM alerts "
+                    "and determine if the attack was detected. Report MITRE technique IDs and IOCs."
+                ),
+                "vuln_indicators": ["CVE-2021-44228", "Log4Shell", "JNDI", "vulnerable", "confirmed", "RCE"],
+                "detection_indicators": ["detected", "alert", "T1190", "CVE-2021-44228", "Log4Shell", "JNDI"],
+            }
+            r = _vu(_usecase, dry_run=args.dry_run)
             expansion_steps["validation"] = r
-            print(f"  [validate-suite] validation harness {'dry-run' if args.dry_run else 'LIVE'}")
+            print(f"  [validate-suite] log4shell {'dry-run' if args.dry_run else 'LIVE'}: {r.get('status', '?')}")
         except ImportError:
             print("  [validate-suite] validation module absent — skipped")
     if (args.full_expanded or args.journal) and not args.dry_run:
