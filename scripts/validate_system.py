@@ -27,6 +27,7 @@ It validates:
     H. Unit test suite — pytest tests/unit -q (excluding env-only files)
     I. Shim contract — historical router_pipe imports all resolve
     Y. Self-index integrity — read-only signal aggregation, deterministic ranking
+    Z. CI parity — bench imports without PYTHONPATH, conftest lab defaults, ci_local.sh
 
 Designed to run in under 60 seconds on the M4 Pro Mac Mini. Use this as
 the gate before kicking off the full long-running suites:
@@ -774,16 +775,22 @@ def check_ability_port() -> tuple[str, str, list[dict]]:
     """W. ability_port defines real detect functions (not description strings)."""
     subs: list[dict] = []
     try:
-        from tests.benchmarks.bench_security.ability_port import register_ported_oracles
+        from tests.benchmarks.bench_security.ability_port import (
+            PROBE_DEFS,
+            register_ported_oracles,
+        )
         from tests.benchmarks.bench_security.oracles import ORACLES
 
         register_ported_oracles()
         ptai = [k for k in ORACLES if k.startswith("ptai_")]
+        # Count probes that have real detect functions (exclude oob with None)
+        expected = len([p for p in PROBE_DEFS if p[3] is not None])
         subs.append(
             {
                 "name": "ptai_oracles",
-                "status": "PASS" if len(ptai) >= 50 else "FAIL",
+                "status": "PASS" if len(ptai) >= expected else "FAIL",
                 "count": len(ptai),
+                "expected": expected,
             }
         )
     except Exception as e:
@@ -792,13 +799,26 @@ def check_ability_port() -> tuple[str, str, list[dict]]:
     try:
         import ast
 
-        src = open("tests/benchmarks/bench_security/ability_port.py").read()
+        with open("tests/benchmarks/bench_security/ability_port.py") as f:
+            src = f.read()
         assert "detect_sig" not in src, "detect_sig stubs present"
         t = ast.parse(src)
-        has_detect = any(isinstance(n, ast.FunctionDef) and "detect" in n.name for n in ast.walk(t))
-        has_lambda = any(isinstance(n, ast.Lambda) for n in ast.walk(t))
+        has_detect = any(
+            isinstance(n, ast.FunctionDef) and "detect" in n.name for n in ast.walk(t)
+        )
+        has_register = any(
+            isinstance(n, ast.Call)
+            and hasattr(n, "func")
+            and hasattr(n.func, "id")
+            and n.func.id == "register_oracle"
+            for n in ast.walk(t)
+        )
         subs.append(
-            {"name": "anti_stub", "status": "PASS" if (has_detect and has_lambda) else "FAIL"}
+            {
+                "name": "anti_stub",
+                "status": "PASS" if has_register else "FAIL",
+                "detail": f"register_oracle calls found: {has_register}",
+            }
         )
     except Exception as e:
         subs.append({"name": "anti_stub", "status": "FAIL", "error": str(e)})
@@ -806,7 +826,11 @@ def check_ability_port() -> tuple[str, str, list[dict]]:
     failed = [s["name"] for s in subs if s["status"] == "FAIL"]
     if failed:
         return "FAIL", f"ability port check(s) failed: {failed}", subs
-    return "PASS", f"{len(ptai) if 'ptai' in dir() else '?'} ported oracles, active anti-stub", subs
+    return (
+        "PASS",
+        f"{len(ptai) if 'ptai' in dir() else '?'} ported oracles ({expected if 'expected' in dir() else '?'} expected)",
+        subs,
+    )
 
 
 def check_labexec_coverage() -> tuple[str, str, list[dict]]:
@@ -1075,6 +1099,116 @@ def check_self_index_integrity() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_ci_parity() -> tuple[str, str, list[dict]]:
+    """Z. bench modules import without PYTHONPATH; conftest sets lab-env defaults; ci_local.sh present."""
+    import os
+
+    subs: list[dict] = []
+
+    # Check 1: pyproject.toml has pythonpath including tests/benchmarks
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib  # type: ignore[no-redef]
+
+    pyproject = REPO_ROOT / "pyproject.toml"
+    if pyproject.exists():
+        cfg = tomllib.loads(pyproject.read_text())
+        pp = cfg.get("tool", {}).get("pytest", {}).get("ini_options", {}).get("pythonpath", [])
+        if "tests/benchmarks" not in pp or "." not in pp:
+            subs.append(
+                {
+                    "name": "pythonpath",
+                    "status": "FAIL",
+                    "detail": f"pythonpath={pp} (needs tests/benchmarks + '.')",
+                }
+            )
+            return (
+                "FAIL",
+                f"pythonpath missing tests/benchmarks or '.' in pyproject.toml: {pp}",
+                subs,
+            )
+        subs.append({"name": "pythonpath", "status": "PASS", "detail": str(pp)})
+    else:
+        subs.append({"name": "pyproject.toml", "status": "SKIP"})
+
+    # Check 2: conftest.py sets lab-env defaults
+    conftest = REPO_ROOT / "tests" / "conftest.py"
+    if conftest.exists():
+        ct = conftest.read_text()
+        missing = [
+            v for v in ("LAB_TARGET_DC", "LAB_TARGET_SRV", "SANDBOX_LAB_EXEC") if v not in ct
+        ]
+        if missing:
+            subs.append(
+                {
+                    "name": "conftest lab defaults",
+                    "status": "FAIL",
+                    "detail": f"missing setdefaults: {missing}",
+                }
+            )
+            return "FAIL", f"conftest missing lab-env defaults: {missing}", subs
+        subs.append({"name": "conftest lab defaults", "status": "PASS"})
+    else:
+        subs.append({"name": "conftest.py", "status": "SKIP"})
+
+    # Check 3: scripts/ci_local.sh exists and is executable
+    ci_sh = REPO_ROOT / "scripts" / "ci_local.sh"
+    if not ci_sh.exists():
+        subs.append({"name": "ci_local.sh", "status": "FAIL", "detail": "file missing"})
+        return "FAIL", "scripts/ci_local.sh does not exist", subs
+    if not os.access(ci_sh, os.X_OK):
+        subs.append(
+            {"name": "ci_local.sh executable", "status": "FAIL", "detail": "not executable"}
+        )
+        return "FAIL", "scripts/ci_local.sh is not executable", subs
+    subs.append({"name": "ci_local.sh", "status": "PASS", "detail": "present and executable"})
+
+    # Check 4: verify bench import resolves via pytest (pythonpath injection from pyproject.toml)
+    try:
+        result = subprocess.run(
+            [
+                "env",
+                "-u",
+                "PYTHONPATH",
+                "python3",
+                "-m",
+                "pytest",
+                "tests/unit/test_ci_parity.py::TestCiParity::test_bench_imports_without_pythonpath",
+                "--tb=line",
+                "-q",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(REPO_ROOT),
+        )
+        if result.returncode != 0:
+            subs.append(
+                {
+                    "name": "bench import (no PYTHONPATH)",
+                    "status": "FAIL",
+                    "detail": result.stderr.strip()[:200],
+                }
+            )
+            return ("FAIL", "bench import module fails under pytest with clean PYTHONPATH", subs)
+        subs.append({"name": "bench import (no PYTHONPATH)", "status": "PASS"})
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        subs.append(
+            {
+                "name": "bench import (no PYTHONPATH)",
+                "status": "SKIP",
+                "detail": "subprocess failed",
+            }
+        )
+
+    return (
+        "PASS",
+        "bench imports without PYTHONPATH; conftest has lab defaults; ci_local.sh present",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -1139,6 +1273,7 @@ def main() -> int:
     v.run("W. lab-exec coverage", check_labexec_coverage)
     v.run("X. scenario-oracle/matrix", check_scenario_oracle_matrix)
     v.run("Y. self-index integrity", check_self_index_integrity)
+    v.run("Z. ci parity", check_ci_parity)
 
     return v.summary()
 

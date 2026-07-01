@@ -13,6 +13,8 @@ from pathlib import Path
 
 import httpx
 
+from ._data import _LAB_EXEC_AVAILABLE  # noqa: F401 — test monkeypatching target
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
@@ -69,6 +71,9 @@ def validate_usecase(usecase: dict, *, dry_run: bool = False) -> dict:
             "hardened_twin": usecase.get("target_hardened", {}),
             "verdicts_expected": "red=land, blue=detect, purple=converge on vulnerable; zero on hardened",
         }
+
+    if not _LAB_EXEC_AVAILABLE:
+        return {"usecase": name, "status": "indeterminate", "reason": "lab exec not available"}
 
     red_prompt = usecase.get("red_prompt", "")
     blue_prompt = usecase.get("blue_prompt", "")
