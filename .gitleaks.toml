@@ -12,4 +12,6 @@ regexes = [
 paths = [
   '''\.env\.example$''',
   '''config/searxng/settings\.yml\.new$''',  # vendored upstream example config
+  '''tests/benchmarks/bench_security/results/.*\.json$''',   # generated bench output; prompt_key values (e.g. eternalblue_ms17010) trip generic-api-key on entropy
+  '''tests/benchmarks/bench_security/field_journal/.*\.json$''',  # same prompt_key field, journal copy
 ]

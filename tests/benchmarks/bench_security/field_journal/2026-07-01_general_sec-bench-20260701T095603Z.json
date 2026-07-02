@@ -1,0 +1,14 @@
+{
+  "engagement_id": "sec-bench-20260701T095603Z",
+  "ts": "2026-07-01T10:24:23.834789+00:00",
+  "scenario_category": "general",
+  "goal": "unknown",
+  "execution_chain": [],
+  "pitfalls": [],
+  "reusable": [],
+  "outcome": "failed",
+  "proven_coverage": {},
+  "verified_findings": [],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-07-01T10:24:23.835273+00:00"
+}

@@ -143,6 +143,9 @@ RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
 RESULTS_FILE = str(RESULTS_DIR / f"bench_tps_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.json")
 
 
+_ENV_KEYS_SKIP_FROM_DOTENV = {"PIPELINE_URL"}  # Compose-internal hostname; bench runs host-side
+
+
 def _load_env() -> None:
     env_file = PROJECT_ROOT / ".env"
     if env_file.exists():
@@ -150,7 +153,10 @@ def _load_env() -> None:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, _, v = line.partition("=")
-                os.environ.setdefault(k.strip(), v.strip())
+                k = k.strip()
+                if k in _ENV_KEYS_SKIP_FROM_DOTENV:
+                    continue
+                os.environ.setdefault(k, v.strip())
 
 
 _load_env()
