@@ -30,13 +30,22 @@ for _k, _v in {
 }.items():
     os.environ.setdefault(_k, _v)
 
-# Add uv venv site-packages to path if not already present
-venv_site_packages = Path(__file__).parent.parent / ".venv" / "lib"
+# Add the repo's dev .venv site-packages to path — but ONLY when pytest is running
+# under a bare interpreter with no venv of its own (sys.prefix == sys.base_prefix).
+# This lets `python3 -m pytest` work without activating .venv first. If pytest is
+# already running inside a real venv (dev .venv, ci_local.sh's isolated
+# .ci-local-venv, etc.), inserting a second, unrelated venv's site-packages ahead
+# of it on sys.path shadows the active venv's own (correctly matched) packages —
+# a compiled-extension mismatch (e.g. pydantic_core) in the repo .venv would then
+# break every venv's test run, defeating ci_local.sh's whole point of testing in
+# a clean, isolated environment.
+if sys.prefix == sys.base_prefix:
+    venv_site_packages = Path(__file__).parent.parent / ".venv" / "lib"
 
-# Find the site-packages directory
-for child in venv_site_packages.iterdir() if venv_site_packages.exists() else []:
-    if child.is_dir() and child.name.startswith("python"):
-        site_packages = child / "site-packages"
-        if site_packages.exists() and str(site_packages) not in sys.path:
-            sys.path.insert(0, str(site_packages))
-        break
+    # Find the site-packages directory
+    for child in venv_site_packages.iterdir() if venv_site_packages.exists() else []:
+        if child.is_dir() and child.name.startswith("python"):
+            site_packages = child / "site-packages"
+            if site_packages.exists() and str(site_packages) not in sys.path:
+                sys.path.insert(0, str(site_packages))
+            break
