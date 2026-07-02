@@ -168,6 +168,22 @@ class _OASTCallbackOracle(Oracle):
         return bool(callback) and callback in lab_output
 
 
+class _CredentialTheftOracle(Oracle):
+    def __init__(self):
+        super().__init__(
+            id="credential_theft",
+            kind="hash_capture",
+            honesty_claim="proves credential material (ticket/hash) was captured, not cracked or used for access",
+        )
+
+    def check(self, finding, lab_output, observations):
+        markers = finding.get(
+            "success_indicators",
+            ["$krb5tgs$", "$krb5asrep$", "$NTLM$", "hashcat", "krb5tgs", "krb5asrep"],
+        )
+        return any(m.lower() in lab_output.lower() for m in markers)
+
+
 # ── Registry ─────────────────────────────────────────────────────────────────
 
 ORACLES: dict[str, Oracle] = {
@@ -184,6 +200,7 @@ ORACLES: dict[str, Oracle] = {
     "cve_confirmed": _CVEConfirmedOracle(),
     "lfi_confirm": _LFIConfirmOracle(),
     "oast_callback": _OASTCallbackOracle(),
+    "credential_theft": _CredentialTheftOracle(),
 }
 
 

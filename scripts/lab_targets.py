@@ -88,6 +88,27 @@ def _host_compose_path(path: str) -> str:
     return f"{LAB_VULHUB_HOST_ROOT}/{path}/docker-compose.yml"
 
 
+def _published_port(compose_path: str) -> int | None:
+    """Ask Docker for the actual published host port(s) — never guess from a hardcoded
+    default. A raw vulhub path's real port can differ from any catalog assumption (e.g.
+    fastjson/1.2.47-rce publishes 8090, not the common 8080)."""
+    r = _host_exec(f"docker compose -f {compose_path} ps --format json", timeout=15)
+    if not r.get("ok"):
+        return None
+    for line in r["output"].splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        for pub in entry.get("Publishers") or []:
+            if pub.get("Protocol") == "tcp" and pub.get("PublishedPort"):
+                return int(pub["PublishedPort"])
+    return None
+
+
 def _wait_reachable(host: str, port: int, timeout_s: float = 30.0) -> bool:
     """Poll a mapped port on the lab host until it answers or timeout_s elapses."""
     import socket
@@ -130,10 +151,12 @@ def cmd_up(target_id: str, dry_run: bool = False, max_concurrent: int = 3) -> di
             "reason": f"docker compose up failed: {r.get('output', '')[:500]}",
         }
 
-    port = target.get("port", 8080) if target else 8080
     host = target.get("host", LAB_VULHUB_HOST) if target else LAB_VULHUB_HOST
-    used = _get_used_ports()
-    mapped = _find_free_port(port, used)
+    mapped = _published_port(compose_path)
+    if mapped is None:
+        # Fallback: catalog-declared or guessed port, dynamically remapped if in use.
+        port = target.get("port", 8080) if target else 8080
+        mapped = _find_free_port(port, _get_used_ports())
     ready = _wait_reachable(host, mapped)
     return {
         "status": "running" if ready else "error",
