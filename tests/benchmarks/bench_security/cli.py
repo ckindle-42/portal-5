@@ -53,6 +53,7 @@ from .lab import (
     verify_lab_targets_reachable,
 )
 from .scoring import (
+    classify_effort_tier,
     score_argument_adaptation,
     score_chain_coherence,
     score_pivot_correctness,
@@ -1266,15 +1267,19 @@ def main() -> None:
     if chain_results:
         print("\n── Chain Test Summary ──")
         print(
-            f"{'Model':<48} {'Depth':>6} {'Unique':>7} {'Acc':>5} {'Adapt':>7} {'Time':>6} {'Refused':>8}"
+            f"{'Model':<48} {'Depth':>6} {'Unique':>7} {'Acc':>5} {'Adapt':>7} {'Time':>6} "
+            f"{'Refused':>8}  {'Tier'}"
         )
-        print("-" * 95)
+        print("-" * 110)
+        tier_counts: dict[str, int] = {}
         for r in chain_results:
             adapt = r.get("argument_adaptation", {})
             adapt_str = f"{adapt['adapted']}/{adapt['checks']}" if adapt.get("checks") else "  n/a"
             unique = r.get("unique_steps_hit", [])
             unique_n = len(unique)
             max_d = r["max_depth"]
+            tier = classify_effort_tier(r)
+            tier_counts[tier] = tier_counts.get(tier, 0) + 1
             print(
                 f"{r['model'][:48]:<48}"
                 f"  {r['chain_depth']}/{max_d}"
@@ -1282,8 +1287,16 @@ def main() -> None:
                 f"  {r['order_accuracy']:>4.2f}"
                 f"  {adapt_str:>7}"
                 f"  {r.get('elapsed_s', 0):>4.0f}s"
-                f"  {'YES' if r.get('refused') else 'no':>8}"
+                f"  {'YES' if r.get('refused') else 'no':>8}  {tier}"
             )
+        print(
+            "\n  Effort tiers: "
+            + ", ".join(
+                f"{tier_counts.get(t, 0)} {t}"
+                for t in ("verified_success", "honest_partial", "minimal_attempt", "refused")
+                if tier_counts.get(t, 0)
+            )
+        )
 
     if blue_results:
         print("\n── Blue Detection Summary ──")
