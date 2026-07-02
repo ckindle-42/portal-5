@@ -11,16 +11,21 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
-import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from scripts.lab_host import _host_exec
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LAB_DIR = os.environ.get("LAB_DIR", os.path.expanduser("~/AI_Output/lab"))
+LAB_VULHUB_HOST_ROOT = os.environ.get("LAB_VULHUB_HOST_ROOT", "/opt/vulhub")
+LAB_VULHUB_HOST = os.environ.get("LAB_TARGET_WEB", "10.10.11.50")
 
 # Track port mappings for ephemeral sessions
-_PORT_MAP_FILE = REPO_ROOT / "tests" / "benchmarks" / "bench_security" / "results" / ".port_map.json"
+_PORT_MAP_FILE = (
+    REPO_ROOT / "tests" / "benchmarks" / "bench_security" / "results" / ".port_map.json"
+)
 
 
 @dataclass
@@ -33,28 +38,22 @@ class PortMapping:
 
 def _get_used_ports() -> set[int]:
     """Get currently used HOST ports on the lab host via docker ps."""
-    try:
-        r = subprocess.run(
-            ["ssh", "-i", os.path.expanduser("~/.ssh/portal-lab_id_ed25519"),
-             "-o", "StrictHostKeyChecking=no", "root@10.0.0.203",
-             "pct exec 112 -- docker ps --format '{{.Ports}}'"],
-            capture_output=True, text=True, timeout=15, check=True
-        )
-        ports: set[int] = set()
-        for line in r.stdout.splitlines():
-            for entry in line.split(","):
-                entry = entry.strip()
-                if "->" in entry:
-                    # Format: 0.0.0.0:8080->80/tcp → extract 8080
-                    host_part = entry.split("->")[0]
-                    if ":" in host_part:
-                        try:
-                            ports.add(int(host_part.rsplit(":", 1)[-1]))
-                        except ValueError:
-                            pass
-        return ports
-    except Exception:
+    r = _host_exec("docker ps --format '{{.Ports}}'", timeout=15)
+    if not r.get("ok"):
         return set()
+    ports: set[int] = set()
+    for line in r["output"].splitlines():
+        for entry in line.split(","):
+            entry = entry.strip()
+            if "->" in entry:
+                # Format: 0.0.0.0:8080->80/tcp → extract 8080
+                host_part = entry.split("->")[0]
+                if ":" in host_part:
+                    try:
+                        ports.add(int(host_part.rsplit(":", 1)[-1]))
+                    except ValueError:
+                        pass
+    return ports
 
 
 def _find_free_port(desired: int, used: set[int]) -> int:
@@ -69,6 +68,7 @@ def _find_free_port(desired: int, used: set[int]) -> int:
 
 def _load_catalog() -> dict:
     import yaml
+
     path = REPO_ROOT / "config" / "lab_targets.yaml"
     if not path.exists():
         return {"targets": []}
@@ -83,8 +83,27 @@ def _find_target(target_id: str) -> dict | None:
     return None
 
 
+def _host_compose_path(path: str) -> str:
+    """Absolute path to a vulhub env's docker-compose.yml on host 112."""
+    return f"{LAB_VULHUB_HOST_ROOT}/{path}/docker-compose.yml"
+
+
+def _wait_reachable(host: str, port: int, timeout_s: float = 30.0) -> bool:
+    """Poll a mapped port on the lab host until it answers or timeout_s elapses."""
+    import socket
+
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=2):
+                return True
+        except OSError:
+            time.sleep(1)
+    return False
+
+
 def cmd_up(target_id: str, dry_run: bool = False, max_concurrent: int = 3) -> dict:
-    """Bring up a target by catalog id or raw vulhub path."""
+    """Bring up a target by catalog id or raw vulhub path — real docker compose on LXC 112."""
     target = _find_target(target_id)
     if target:
         path = target.get("path", "")
@@ -95,16 +114,80 @@ def cmd_up(target_id: str, dry_run: bool = False, max_concurrent: int = 3) -> di
         print(f"  Target: {path} (raw vulhub path)")
     if dry_run:
         return {"status": "dry_run", "target": target_id, "action": "up", "vulhub_path": path}
-    vulhub_dir = Path(LAB_DIR) / "vulhub" / path
-    if not vulhub_dir.exists():
-        return {"status": "error", "reason": f"vulhub path not found: {vulhub_dir}"}
-    return {"status": "placeholder", "reason": "Docker compose up requires live Docker daemon"}
+
+    compose_path = _host_compose_path(path)
+    check = _host_exec(f"test -f {compose_path} && echo EXISTS")
+    if not check.get("ok") or "EXISTS" not in check.get("output", ""):
+        return {
+            "status": "error",
+            "reason": f"vulhub compose file not found on host: {compose_path}",
+        }
+
+    r = _host_exec(f"docker compose -f {compose_path} up -d", timeout=120)
+    if not r.get("ok"):
+        return {
+            "status": "error",
+            "reason": f"docker compose up failed: {r.get('output', '')[:500]}",
+        }
+
+    port = target.get("port", 8080) if target else 8080
+    host = target.get("host", LAB_VULHUB_HOST) if target else LAB_VULHUB_HOST
+    used = _get_used_ports()
+    mapped = _find_free_port(port, used)
+    ready = _wait_reachable(host, mapped)
+    return {
+        "status": "running" if ready else "error",
+        "target": target_id,
+        "vulhub_path": path,
+        "host": host,
+        "port": mapped,
+        "reachable": ready,
+        "reason": ""
+        if ready
+        else f"target did not become reachable at {host}:{mapped} within timeout",
+        "compose_output": r.get("output", "")[:500],
+    }
 
 
 def cmd_down(target_id: str, dry_run: bool = False) -> dict:
     if dry_run:
         return {"status": "dry_run", "target": target_id, "action": "down"}
-    return {"status": "placeholder", "reason": "Docker compose down requires live Docker daemon"}
+
+    target = _find_target(target_id)
+    path = target.get("path", "") if target else target_id
+    compose_path = _host_compose_path(path)
+    r = _host_exec(f"docker compose -f {compose_path} down", timeout=60)
+    return {
+        "status": "stopped" if r.get("ok") else "error",
+        "target": target_id,
+        "reason": "" if r.get("ok") else r.get("output", "")[:500],
+    }
+
+
+def provision_vulhub_env(path: str) -> dict:
+    """Idempotently clone the upstream vulhub repo onto host 112 under LAB_VULHUB_HOST_ROOT,
+    if the specific env directory for `path` isn't already present. Only pulls the repo (once);
+    does not pre-fetch all 328 envs — the sparse subdir is already in the clone once cloned."""
+    check = _host_exec(f"test -f {_host_compose_path(path)} && echo EXISTS")
+    if check.get("ok") and "EXISTS" in check.get("output", ""):
+        return {"status": "present", "vulhub_path": path}
+
+    root_check = _host_exec(f"test -d {LAB_VULHUB_HOST_ROOT}/.git && echo EXISTS")
+    if root_check.get("ok") and "EXISTS" in root_check.get("output", ""):
+        r = _host_exec(f"cd {LAB_VULHUB_HOST_ROOT} && git pull", timeout=180)
+    else:
+        r = _host_exec(
+            f"git clone --depth 1 https://github.com/vulhub/vulhub.git {LAB_VULHUB_HOST_ROOT}",
+            timeout=300,
+        )
+    recheck = _host_exec(f"test -f {_host_compose_path(path)} && echo EXISTS")
+    ok = recheck.get("ok") and "EXISTS" in recheck.get("output", "")
+    return {
+        "status": "provisioned" if ok else "error",
+        "vulhub_path": path,
+        "reason": "" if ok else "env still missing after clone/pull",
+        "provision_output": r.get("output", "")[:500],
+    }
 
 
 def cmd_ephemeral(target_id: str, command: list[str] | None, dry_run: bool = False) -> dict:
@@ -120,21 +203,30 @@ def cmd_ephemeral(target_id: str, command: list[str] | None, dry_run: bool = Fal
 
     if dry_run:
         result = {
-            "status": "dry_run", "target": target_id, "action": "ephemeral",
-            "port": mapped, "host": host,
-            "command": command, "note": f"{'port remapped' if mapped != port else 'port free'}"
+            "status": "dry_run",
+            "target": target_id,
+            "action": "ephemeral",
+            "port": mapped,
+            "host": host,
+            "command": command,
+            "note": f"{'port remapped' if mapped != port else 'port free'}",
         }
     else:
         # Write port map so bench knows where to hit
         _PORT_MAP_FILE.parent.mkdir(parents=True, exist_ok=True)
         _PORT_MAP_FILE.write_text(json.dumps({"target": target_id, "host": host, "port": mapped}))
         result = {
-            "status": "running", "target": target_id, "host": host, "port": mapped,
+            "status": "running",
+            "target": target_id,
+            "host": host,
+            "port": mapped,
             "vulhub_path": vulhub_path,
-            "port_map_file": str(_PORT_MAP_FILE)
+            "port_map_file": str(_PORT_MAP_FILE),
         }
 
-    print(f"  target={target_id} host={host} port={mapped} (desired={port}) {'remapped' if mapped != port else ''}")
+    print(
+        f"  target={target_id} host={host} port={mapped} (desired={port}) {'remapped' if mapped != port else ''}"
+    )
     return result
 
 
@@ -153,15 +245,22 @@ def cmd_status() -> dict:
 def cmd_list() -> list[dict]:
     catalog = _load_catalog()
     return [
-        {"id": t.get("id", "?"), "source": t.get("source", "?"), "cve": t.get("cve", ""),
-         "technique": t.get("technique", ""), "preexisting": t.get("preexisting", False)}
+        {
+            "id": t.get("id", "?"),
+            "source": t.get("source", "?"),
+            "cve": t.get("cve", ""),
+            "technique": t.get("technique", ""),
+            "preexisting": t.get("preexisting", False),
+        }
         for t in catalog.get("targets", [])
     ]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Lab targets — on-demand ephemeral containers")
-    parser.add_argument("action", choices=["up", "down", "ephemeral", "status", "list"], help="Action to perform")
+    parser.add_argument(
+        "action", choices=["up", "down", "ephemeral", "status", "list"], help="Action to perform"
+    )
     parser.add_argument("target", nargs="?", default="", help="Target ID or raw vulhub path")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--max-concurrent", type=int, default=3)
@@ -181,7 +280,9 @@ def main() -> None:
         targets = cmd_list()
         print(f"  {len(targets)} targets in catalog:")
         for t in targets:
-            print(f"    {t['id']:<30} {t['source']:<15} {t.get('cve',''):<18} {t.get('technique','')}")
+            print(
+                f"    {t['id']:<30} {t['source']:<15} {t.get('cve', ''):<18} {t.get('technique', '')}"
+            )
         return
     print(f"  {result}")
 

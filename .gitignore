@@ -63,3 +63,6 @@ tests/fixtures/sample.wav
 tests/uat_corpus/*.jsonl
 tests/uat_corpus/*.json
 config/proxmox_ca.pem
+
+# lab_discover.py output — live host state snapshot, not source
+/lab_discovery.json

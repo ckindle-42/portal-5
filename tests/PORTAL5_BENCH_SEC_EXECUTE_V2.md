@@ -230,6 +230,87 @@ The M4/64GB Mac Mini can run 3 concurrent vulhub containers comfortably. Set `--
 
 ---
 
+## Live-Lab Execution Foundation (NEW — TASK-SEC-LIVE-EXEC-V1)
+
+**The lab is live on the Proxmox host, not the local filesystem.** Proxmox host `10.0.0.203`
+runs the WEB/vulhub target on **LXC 112** (`10.10.11.50`). All host access goes through **one
+transport**: `scripts/lab_host.py::_host_exec(cmd)` — ssh → `pct exec 112 -- <cmd>` — the same
+pattern `lab_targets.py::_get_used_ports()` originated. Nothing resolves against a local
+`lab/vulhub` directory anymore; the earlier stub-era code did, and that was the "wrong machine"
+bug this task fixed.
+
+### Discovery first (`scripts/lab_discover.py`)
+
+Before any run, probe actual host state read-only:
+
+```bash
+python3 -m scripts.lab_discover | tee /tmp/lab_discovery_report.txt
+```
+
+It reports: is LXC 112 running, is the Docker daemon up, where vulhub actually lives on the
+host (searches `/opt/vulhub`, `/root/vulhub`, `/srv/vulhub`, `~/vulhub`), how many of the 328
+upstream vulhub envs (github.com/vulhub/vulhub) are present, the top-level categories, and
+currently running containers/used ports. Writes `lab_discovery.json` to the repo root. This
+phase changes nothing — every later phase (resolution, spin-up, dispatch) builds on what it
+reports, not on assumptions.
+
+**Baseline recorded 2026-07-01:** LXC 112 running, Docker up, vulhub present at `/opt/vulhub`
+with **328/328** upstream envs (full coverage, 153 top-level categories) — this is the coverage
+number the follow-on `TASK-SEC-VULHUB-COVERAGE` campaign (14→152 challenge-class categories)
+grows from.
+
+### `LAB_VULHUB_HOST_ROOT`
+
+Set this env var (default `/opt/vulhub`) if the discovered vulhub root differs from the
+default. `_expand_vulhub_globs`/`_resolve_challenge_class` in `matrix.py` and `cmd_up`/`cmd_down`
+in `lab_targets.py` all resolve against it — always on the host, via `_host_exec`, never a local
+`glob.glob`.
+
+### Real spin-up/teardown
+
+`scripts/lab_targets.py::cmd_up`/`cmd_down` now run real `docker compose -f
+<root>/<path>/docker-compose.yml up -d` / `down` on LXC 112 (previously placeholder returns).
+`cmd_up` polls the mapped port on `10.10.11.50` after `up` and only reports the target ready
+once it's reachable (bounded timeout) — a timeout is an `error` result, never a false-positive
+ready state. `provision_vulhub_env()` idempotently clones/pulls the upstream vulhub repo onto
+112 if a specific env directory is missing (guided by discovery, not a blind 328-env pre-fetch).
+
+### Dispatch tiers (`_run_against_target` in `matrix.py`)
+
+`_run_against_target(unit, lab_exec=...)` is a 3-tier router keyed on `unit.scenario_key`:
+
+| Tier | Confidence | Source |
+|---|---|---|
+| **Tier 1** | Highest — proven, hand-verified phase functions | `_PHASE_MAP`: `kerberoasting, asrep_roasting, log4shell_rce, redis_to_rce, tomcat_manager, htb_lfi_log_poison` → `bench_lab_exec._phase_*` |
+| **Tier 2** | Real, but generic dispatch of `EXEC_SEQUENCES` steps | The other ~29 real exec_sequence scenarios; each step's `tool_hint` runs via `bench_lab_exec._mcp_call` (sandbox), halting on the first required-step failure |
+| **Tier 3** | No path | `DISPATCH_NOT_RUN` sentinel — no `_phase_` function and no `EXEC_SEQUENCES` entry for that `scenario_key` |
+
+`dcsync`, `meta3_compromise`, `srv01_local_privesc`, `mbptl_full_chain` have real `_phase_*`
+functions in `bench_lab_exec.py` but are **not** `PROMPTS` keys, so no scenario-derived
+`RunUnit` can ever carry those `scenario_key` values — they're intentionally excluded from
+`_PHASE_MAP` rather than left as dead entries.
+
+`_resolve_env(hint)` substitutes `$LAB_TARGET_DC`/`$LAB_TARGET_SRV`/`$LAB_TARGET_WEB`/
+`$LAB_TARGET_META3`/`$DOMAIN`/`$ADMIN_PASS` from `bench_lab_exec`'s module-level constants (the
+one canonical source — no second config). An unset or unknown `$NAME` is left literal so the
+command visibly fails rather than silently mis-targeting.
+
+**Governing rule, enforced by test + validator:** `DISPATCH_NOT_RUN`, empty evidence, and any
+dry-run/halted transcript always score `indeterminate` — never `verified`. No code path emits
+`verified` without real host output. See `tests/unit/test_live_exec.py` and validator check
+`AA. live exec integrity` in `scripts/validate_system.py`.
+
+### Full re-run required
+
+Every bench run before this task landed scored 0% verified because the dispatcher was stubbed
+(`return ""`) and spin-up checked a local path that never matched the live host — not because
+models lacked capability. **A full re-run is warranted now** that tier-1 and the real
+exec_sequences actually dispatch against LXC 112. Read tier-1 results as highest-confidence,
+tier-2 as real-but-generic, and treat any `indeterminate` count as "lab/coverage gap," not "model
+failed."
+
+---
+
 ## Validation-Integrity Gate (NEW in V2.1)
 
 **Hard rule:** A blue/purple PASS requires real telemetry the attack actually generated against a real query. The `synthetic-fallback` path exists for CI hermeticity only — a synthetic-sourced result scores `indeterminate`, **never PASS**.
