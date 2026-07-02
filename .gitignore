@@ -69,3 +69,4 @@ config/proxmox_ca.pem
 
 # lab_discover.py output — live host state snapshot, not source
 /lab_discovery.json
+tests/benchmarks/bench_security/results/candidates/
