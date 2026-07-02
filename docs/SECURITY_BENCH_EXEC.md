@@ -102,6 +102,16 @@ that DISPATCH_NOT_RUN and any dry-run/halted evidence always score `indeterminat
 See `tests/PORTAL5_BENCH_SEC_EXECUTE_V2.md` § "Live-Lab Execution Foundation" for the full
 writeup, including the discovery baseline (328/328 vulhub envs present as of 2026-07-01).
 
+**Tier-1 phase content was also live-corrected 2026-07-01:** 3 of the 6 tier-1 phases
+(`htb_lfi_log_poison`, `tomcat_manager`, `log4shell_rce`) targeted the wrong CVE/endpoint for
+what's actually deployed on LXC 112 and are now fixed and live-verified to reach real `uid=`/root
+evidence (see `tests/PORTAL5_BENCH_SEC_EXECUTE_V2.md` for the per-scenario detail).
+`log4shell_rce` requires `javac` on the bench host (`brew install openjdk`) — it compiles a
+Java 8-targeted payload class at dispatch time and runs its own LDAP+HTTP catcher locally (the
+sandbox has no inbound-reachable IP from the lab subnet). `redis_to_rce` is honestly corrected
+(wrong CVE identified) but stays non-RCE: the real vector needs a compiled Redis module and no
+compiler/internet is available in the sandbox.
+
 ---
 
 ## Prerequisites

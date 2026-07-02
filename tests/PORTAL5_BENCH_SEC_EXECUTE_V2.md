@@ -309,6 +309,31 @@ exec_sequences actually dispatch against LXC 112. Read tier-1 results as highest
 tier-2 as real-but-generic, and treat any `indeterminate` count as "lab/coverage gap," not "model
 failed."
 
+### Tier-1 phase content was also wrong for the live images (fixed 2026-07-01)
+
+Wiring the dispatcher up revealed that 3 of the 6 tier-1 `_phase_*` functions targeted the
+**wrong CVE/endpoint** for what's actually deployed on LXC 112 — a pre-existing bug in
+`bench_lab_exec.py` unrelated to the dispatch layer, found and fixed by live-testing each phase
+against the real containers (`docker inspect` compose labels → each env's own `README.md` on the
+host, confirming ground truth rather than trusting the phase's docstring):
+
+| Scenario | Was | Actually running | Fix |
+|---|---|---|---|
+| `htb_lfi_log_poison` | Wrong endpoint (`?file=../../../../etc/passwd` on `/`) | `vulhub/php:7.1.3-apache`, `/opt/vulhub/php/inclusion` | Correct endpoint `/lfi.php?file=/etc/passwd` — **live-verified, reads real `/etc/passwd`** |
+| `tomcat_manager` | CVE-2017-12615 PUT bypass (probe only, no shell marker) | `vulhub/tomcat:8.0`, weak creds `tomcat:tomcat` (per the env's own README) | Real WAR-deploy JSP webshell via Manager API, executes `id`, undeploys — **live-verified, real `uid=0(root)`** |
+| `log4shell_rce` | JNDI header probe with no callback catcher (can't prove RCE) | `vulhub/solr:8.11.0` (log4j 2.14.1), JDK `1.8.0_102` | Real JNDI RCE: LDAP referral + HTTP exfil catcher run from the **bench host** (not the sandbox — sandbox has no inbound-reachable IP), Java 8-targeted payload class, `action=` query-param trigger (Solr's own request logger, not a header) — **live-verified, real `uid=0(root)`** |
+| `redis_to_rce` | CVE-2022-0543 (wrong CVE; malformed RESP payload) | `vulhub/redis:4.0.14`, `/opt/vulhub/redis/4-unacc` — master/slave-sync post-exploitation per its own README | Corrected identification; **RCE genuinely not achievable** in the current sandbox (no gcc/redis-module headers, no cron in the container, no internet to fetch a prebuilt module) — phase now honestly probes reachability only and never claims RCE it can't prove |
+
+**`log4shell_rce` requires `javac` on the bench host** (e.g. `brew install openjdk`) to compile
+the payload class at dispatch time, targeted with `--release 8` to match the live target's actual
+JDK (confirmed via `docker exec ... java -version` — a class compiled with a newer default target
+is silently rejected by that JVM with no error surfaced, which is why the first fix attempt
+produced no callback). If `javac` isn't found, the phase returns an honest `ok: False` with that
+reason — never a fabricated result. Live-verified end-to-end through the actual `_execute_unit` →
+`_run_against_target` → `verify_finding` pipeline (no mocks): `htb_lfi_log_poison`,
+`tomcat_manager`, and `log4shell_rce` all reach `status: verified`; `redis_to_rce` honestly stays
+`rejected`.
+
 ---
 
 ## Validation-Integrity Gate (NEW in V2.1)
