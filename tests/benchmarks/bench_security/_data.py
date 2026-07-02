@@ -93,6 +93,12 @@ except ImportError:
         pass
 
 
+# Keys that are only valid inside the Compose network (container hostnames) —
+# this bench always runs host-side, so loading these from .env would clobber
+# the correct localhost default with an unresolvable hostname.
+_ENV_KEYS_SKIP_FROM_DOTENV = {"PIPELINE_URL"}
+
+
 def _load_env() -> None:
     env_file = _PROJECT_ROOT / ".env"
     if env_file.exists():
@@ -100,7 +106,10 @@ def _load_env() -> None:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, _, v = line.partition("=")
-                os.environ.setdefault(k.strip(), v.strip())
+                k = k.strip()
+                if k in _ENV_KEYS_SKIP_FROM_DOTENV:
+                    continue
+                os.environ.setdefault(k, v.strip())
 
 
 _load_env()
@@ -118,6 +127,12 @@ PER_WORKSPACE_TIMEOUT: dict[str, float] = {
     "auto-phi4": 1500.0,  # phi4-reasoning:plus
     "auto-research": 1200.0,  # tongyi-deepresearch-abliterated
     "auto-purpleteam-deep": 1500.0,  # qwen3.5-abliterated
+    # auto-redteam and auto-purpleteam share qwen3.5-abliterated's first hop with
+    # auto-purpleteam-deep (portal.yaml model_hint) — same timeout applies. Confirmed
+    # a single kerberoasting-scale prompt takes ~114s (3332 output tokens); the 120s
+    # default trips under concurrent dispatch.
+    "auto-redteam": 1500.0,  # qwen3.5-abliterated
+    "auto-purpleteam": 1500.0,  # qwen3.5-abliterated
     "auto-spl": 600.0,  # huihui-ai_qwen3-coder-next
     # auto-purpleteam-exec: theory pass uses max_tokens=2000 override (run.py)
     # to bound degenerate exec-model runs. No timeout override needed here.

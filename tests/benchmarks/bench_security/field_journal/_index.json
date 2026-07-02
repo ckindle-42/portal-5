@@ -1,0 +1,13 @@
+{
+  "generated_at": "2026-07-01T10:52:18.091698+00:00",
+  "total_entries": 3,
+  "by_category": {
+    "general": 3
+  },
+  "outcomes": {
+    "goal_met": 0,
+    "partial": 0,
+    "failed": 3
+  },
+  "top_pitfalls": []
+}
