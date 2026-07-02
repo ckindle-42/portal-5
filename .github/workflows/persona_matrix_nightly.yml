@@ -1,15 +1,17 @@
-# Nightly persona-matrix sweep + baseline diff.
+# Persona-matrix sweep + baseline diff.
 #
-# Runs on a schedule and on PRs that touch persona/fixture/assertion code.
+# Runs on-demand (workflow_dispatch) and on PRs that touch persona/fixture/assertion code.
 # Must run on a self-hosted runner with access to the Portal 5 stack
 # (Ollama on host networking). Public GitHub-hosted runners
 # cannot host Portal 5's local backends.
+#
+# No `schedule:` trigger — no self-hosted runner is kept online for this repo, so a nightly
+# cron just queues forever and gets auto-cancelled by GitHub after 24h (confirmed: every
+# scheduled run from 2026-04-30 through 2026-07-02 did exactly this, none ever executed).
 
 name: persona-matrix-nightly
 
 on:
-  schedule:
-    - cron: "0 7 * * *"
   workflow_dispatch:
     inputs:
       workspace:
