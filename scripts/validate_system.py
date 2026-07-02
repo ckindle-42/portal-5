@@ -42,6 +42,7 @@ import argparse
 import asyncio
 import importlib
 import json
+import os
 import subprocess
 import sys
 import time
@@ -970,6 +971,18 @@ def check_scenario_oracle_matrix() -> tuple[str, str, list[dict]]:
 
 def check_self_index_integrity() -> tuple[str, str, list[dict]]:
     """Y. self-index reads only (no config/code writes), reports absent signals honestly, score is deterministic and inspectable."""
+    # self_index.build_self_index() shells out to `validate_system.py --json` to read
+    # validator health — which runs this very check again. self_index sets
+    # PORTAL5_SELF_INDEX_NESTED in that subprocess's env; bail out here rather than
+    # recursing (unbounded subprocess fork chain, found live 2026-07-02: 145+ processes
+    # before the guard caught it).
+    if os.environ.get("PORTAL5_SELF_INDEX_NESTED"):
+        return (
+            "SKIP",
+            "nested validator run — self-index check skipped to avoid recursive spawn",
+            [],
+        )
+
     subs: list[dict] = []
 
     # Check 1: self_index module imports cleanly

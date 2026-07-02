@@ -327,6 +327,18 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--retry-scenarios",
+        nargs="+",
+        default=[],
+        metavar="SCENARIO",
+        help=(
+            "Force these chain scenario names into the retry set alongside "
+            "--retry-failed's auto-detected failures. Use when a scoring/observation "
+            "fix (not a depth/stalled fix) needs re-verifying scenarios that already "
+            "executed perfectly under the old, buggy scoring criteria."
+        ),
+    )
+    parser.add_argument(
         "--retry-prompts",
         nargs="+",
         default=[],
@@ -563,10 +575,20 @@ def main() -> None:
                 if sr < 0.5:
                     _retry_failed_prompts.add(r.get("prompt_key", ""))
         _retry_failed_prompts.discard("")
+
+    if args.retry_scenarios:
+        forced = set(args.retry_scenarios) - _retry_failed_scenarios
+        if forced:
+            print(
+                f"  Retry: force-adding {len(forced)} scenario(s) via --retry-scenarios: {sorted(forced)}"
+            )
+        _retry_failed_scenarios |= set(args.retry_scenarios)
+
+    if args.retry_failed:
         if _retry_failed_prompts or _retry_failed_scenarios:
             print(
                 f"  Retry: {len(_retry_failed_prompts)} failed prompt(s), "
-                f"{len(_retry_failed_scenarios)} failed scenario(s) from previous run"
+                f"{len(_retry_failed_scenarios)} scenario(s) targeted for re-run"
             )
         else:
             print("  Retry: no failures found in previous run")
@@ -759,7 +781,16 @@ def main() -> None:
                 f"per-step timeout {cfg.step_timeout_s:.0f}s; refusal scenario runs after chain tests"
             )
 
-        scenarios_to_run = list(SCENARIOS.values()) if args.all_scenarios else [scenario]
+        # A retry-scenario target implies scanning the full scenario set to find it —
+        # the single default `scenario` almost never matches, which previously made
+        # --retry-scenarios silently select zero scenarios unless --all-scenarios was
+        # ALSO passed by hand (found live 2026-07-02: a targeted retry ran to completion
+        # having dispatched nothing, because this defaulted to [scenario] instead).
+        scenarios_to_run = (
+            list(SCENARIOS.values())
+            if (args.all_scenarios or _retry_failed_scenarios)
+            else [scenario]
+        )
         if _retry_failed_scenarios:
             scenarios_to_run = [
                 sc for sc in scenarios_to_run if sc["name"] in _retry_failed_scenarios

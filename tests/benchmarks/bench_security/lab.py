@@ -6,6 +6,7 @@ No imports from chain, blue, or cli modules.
 
 from __future__ import annotations
 
+import contextlib
 import json as _json
 import os
 import re
@@ -156,6 +157,7 @@ def restore_lab_vms(snapname: str = "", dry_run: bool = False) -> bool:
         print(f"  [proxmox] DRY-RUN restore to snapshot '{snapname}'")
         return True
     ok = True
+    rolled_back_vmids: list[int] = []
     for vmid, label in [(_LAB_DC_VMID, "dc01"), (_LAB_SRV_VMID, "srv01")]:
         if not vmid:
             continue
@@ -168,6 +170,7 @@ def restore_lab_vms(snapname: str = "", dry_run: bool = False) -> bool:
             )
             if r["ok"]:
                 print("OK")
+                rolled_back_vmids.append(int(vmid))
             else:
                 print(f"FAIL: {r.get('error')}")
                 ok = False
@@ -175,9 +178,45 @@ def restore_lab_vms(snapname: str = "", dry_run: bool = False) -> bool:
             print(f"ERR: {exc}")
             ok = False
     if ok:
-        print("  [proxmox] waiting 15s for VMs to boot ...", end=" ", flush=True)
-        time.sleep(15)
-        print("ok")
+        # Snapshot rollback restores whatever power state the snapshot itself captured —
+        # if that state was stopped/paused, the VM comes back stopped and this function
+        # used to just sleep(15) and unconditionally print "ok" without checking, which
+        # is exactly the "never a false verified" violation this bench elsewhere enforces
+        # for exploit evidence. Poll real status, start explicitly if needed, and only
+        # report a VM ready once it's confirmed running.
+        for vmid in rolled_back_vmids:
+            print(f"  [proxmox] verifying vmid={vmid} is running ...", end=" ", flush=True)
+            started = False
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline:
+                try:
+                    status_r = _proxmox_mcp_call("proxmox_vm_status", {"vmid": vmid}, timeout=15)
+                    _ok_status, status_text = parse_sandbox_output(status_r.get("output", ""))
+                    status_data = _json.loads(status_text) if status_r.get("ok") else {}
+                    state = status_data.get("data", {}).get("status", "")
+                except Exception:
+                    state = ""
+                if state == "running":
+                    print("running")
+                    started = True
+                    break
+                if not started:
+                    with contextlib.suppress(Exception):
+                        _proxmox_mcp_call(
+                            "proxmox_vm_start", {"vmid": vmid, "wait": False}, timeout=30
+                        )
+                time.sleep(3)
+            if not started:
+                print("FAILED TO START (still not running after 60s)")
+                ok = False
+        if ok:
+            print(
+                "  [proxmox] all VMs confirmed running, waiting 10s for network/services ...",
+                end=" ",
+                flush=True,
+            )
+            time.sleep(10)
+            print("ok")
     return ok
 
 
