@@ -17,6 +17,7 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _SELF_DIR = Path(__file__).resolve().parent
 _RESULTS_DIR = _SELF_DIR / "results"
+_EXTRA_RESULTS_DIR = _PROJECT_ROOT / "tests" / "benchmarks" / "results"
 _JOURNAL_DIR = _SELF_DIR / "field_journal"
 
 
@@ -40,9 +41,24 @@ def _run_validator_json() -> dict | None:
             # spawns another child spawns another... (unbounded fork chain).
             env={**os.environ, "PORTAL5_SELF_INDEX_NESTED": "1"},
         )
-        if result.returncode != 0 or not result.stdout.strip():
+        if not result.stdout.strip():
             return None
-        return json.loads(result.stdout.strip().split("\n")[-1])
+        # validate_system.py exits 1 whenever any check FAILs (main(): `return 1 if fails else 0`)
+        # — that's expected, not a run failure: the whole point of this axis is to surface those
+        # fails, so a nonzero returncode must not be treated as "absent". Only a genuinely empty/
+        # unparseable stdout (crash before the summary prints) should fall through to absent.
+        # validate_system.py --json emits one json.dumps(..., indent=2) block — pretty-printed,
+        # multi-line — but some checks (e.g. lab dry-run) print non-JSON lines ahead of it that
+        # aren't gated by emit_json. Taking just the last stdout line (the old approach) grabs a
+        # bare "}" and fails to parse; taking the whole stdout fails too because of the preamble.
+        # Find the JSON block by trying each '{' from the end until one parses to EOF.
+        text = result.stdout
+        for i in reversed([idx for idx, ch in enumerate(text) if ch == "{"]):
+            try:
+                return json.loads(text[i:])
+            except json.JSONDecodeError:
+                continue
+        return None
     except (subprocess.TimeoutExpired, subprocess.SubprocessError, json.JSONDecodeError):
         return None
 
@@ -124,32 +140,73 @@ def _read_oracle_fidelity() -> dict:
     }
 
 
+def _complete_result_files() -> list[Path]:
+    """All non-partial sec_bench_*.json result files across both result dirs, newest first."""
+    files = [
+        p
+        for results_dir in (_RESULTS_DIR, _EXTRA_RESULTS_DIR)
+        for p in results_dir.glob("sec_bench_*.json")
+        if not p.name.endswith(".partial.json")
+    ]
+    return sorted(files, key=os.path.getmtime, reverse=True)
+
+
+def _coverage_from_matrix(data: dict) -> dict | None:
+    """Matrix-format coverage: data['matrix_results'] with total_units/verified/rejected/..."""
+    mr = data.get("matrix_results", {})
+    if not mr or mr.get("total_units", 0) <= 0:
+        return None
+    return {
+        "resolved": mr.get("total_units", 0),
+        "verified": mr.get("verified", 0),
+        "rejected": mr.get("rejected", 0),
+        "indeterminate": mr.get("indeterminate", 0),
+        "pass_rate": mr.get("pass_rate", 0.0),
+        "matrix_results": mr,
+    }
+
+
+def _coverage_from_chain(data: dict) -> dict | None:
+    """Chain-test-format coverage: data['chain_tests'] entries with lab_success/unique_coverage.
+
+    Counts verified strictly from lab_success is True (never fabricated) and buckets every
+    entry's honest effort tier via scoring.classify_effort_tier. Chain scenarios (e.g.
+    'kerberoast_to_da') are attack-chain names, not vulnerability classes — there is no honest
+    class/domain mapping for them, so no by_class/by_scenario is synthesized here (that stays
+    theory-only, from _build_theoretical_coverage, to avoid fabricating a false taxonomy join).
+    """
+    chain_tests = data.get("chain_tests", [])
+    if not chain_tests:
+        return None
+
+    from .scoring import classify_effort_tier
+
+    tier_tally = {"verified_success": 0, "refused": 0, "honest_partial": 0, "minimal_attempt": 0}
+    verified = 0
+    for entry in chain_tests:
+        if entry.get("lab_success") is True:
+            verified += 1
+        tier_tally[classify_effort_tier(entry)] += 1
+
+    resolved = len(chain_tests)
+    return {
+        "resolved": resolved,
+        "verified": verified,
+        "pass_rate": verified / resolved if resolved else 0.0,
+        "tier_tally": tier_tally,
+    }
+
+
 def _read_coverage() -> dict:
     """Coverage: per-discipline/class resolved/ran/verified from results or theory."""
-    result_files = sorted(
-        [p for p in _RESULTS_DIR.glob("sec_bench_*.json") if not p.name.endswith(".partial.json")],
-        key=os.path.getmtime,
-        reverse=True,
-    )
-
-    # Try loading the latest result that has matrix data
-    for rf in result_files:
+    for rf in _complete_result_files():
         try:
             data = json.loads(rf.read_text())
-            mr = data.get("matrix_results", {})
-            if mr and mr.get("total_units", 0) > 0:
-                return {
-                    "status": "present",
-                    "source": rf.name,
-                    "total_units": mr.get("total_units", 0),
-                    "verified": mr.get("verified", 0),
-                    "rejected": mr.get("rejected", 0),
-                    "indeterminate": mr.get("indeterminate", 0),
-                    "pass_rate": mr.get("pass_rate", 0.0),
-                    "matrix_results": mr,
-                }
         except (json.JSONDecodeError, OSError):
             continue
+        cov = _coverage_from_matrix(data) or _coverage_from_chain(data)
+        if cov and cov.get("resolved"):
+            return {"status": "present", "source": rf.name, "total_units": cov["resolved"], **cov}
 
     # Build theoretical coverage from challenge_classes.yaml and matrix
     theoretical = _build_theoretical_coverage()
