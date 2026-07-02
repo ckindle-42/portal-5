@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -258,14 +259,145 @@ def cmd_models_import_gguf(
         Path(mf_path).unlink(missing_ok=True)
 
 
+_CTX_TAG_RE = re.compile(r"-ctx\d+k$")
+
+
+def _strip_ctx_tag(model_hint: str) -> str:
+    """Undo _derive_ctx_tag — recover the true base model name from a possibly
+    already-tagged model_hint, so re-running apply-params after a context_limit
+    change re-derives from the base rather than stacking -ctxNk-ctxMk suffixes."""
+    name, sep, tag = model_hint.rpartition(":")
+    if not sep:
+        return model_hint
+    tag = _CTX_TAG_RE.sub("", tag)
+    return f"{name}:{tag}"
+
+
+def _derive_ctx_tag(model_hint: str, ctx: int) -> str:
+    """Derive a ctx-tagged Ollama model name, e.g. gemma4:26b-a4b-it-qat -> gemma4:26b-a4b-it-qat-ctx8k.
+
+    Ollama tags allow only one colon (name:tag); the -ctxNk suffix is appended to
+    the tag half, matching the convention router/lifespan.py's validator checks for.
+    """
+    base = _strip_ctx_tag(model_hint)
+    name, sep, tag = base.rpartition(":")
+    if not sep:
+        name, tag = base, "latest"
+    k = ctx // 1024
+    return f"{name}:{tag}-ctx{k}k"
+
+
+def _write_back_model_hints(updates: dict[str, str]) -> None:
+    """Replace model_hint: <old> with model_hint: <new> for each targeted workspace
+    in config/portal.yaml, in place, without disturbing formatting/comments elsewhere.
+    Line-based (not a full YAML round-trip) so multi-line descriptions and comments
+    in the rest of the file are untouched.
+    """
+    import re
+
+    from portal_pipeline.config import PORTAL_YAML
+
+    text = PORTAL_YAML.read_text()
+    lines = text.splitlines(keepends=True)
+    out: list[str] = []
+    current_ws: str | None = None
+    for line in lines:
+        m = re.match(r"^  ([a-zA-Z0-9_-]+):\s*$", line)
+        if m and not line.startswith("    "):
+            current_ws = m.group(1)
+        if current_ws in updates and re.match(r"^    model_hint:\s*\S", line):
+            out.append(f"    model_hint: {updates[current_ws]}\n")
+            current_ws = None  # only rewrite the first model_hint line per workspace
+            continue
+        out.append(line)
+    PORTAL_YAML.write_text("".join(out))
+
+
 @models_app.command("apply-params")
 def cmd_models_apply_params() -> None:
-    """Apply per-model tuning parameters from portal.yaml to loaded Ollama models.
+    """Bake each workspace's context_limit into a derived Ollama model tag and
+    update model_hint to point at it.
 
-    Idempotent: re-running is safe (creates derived tags if needed).
+    Ollama's OpenAI-compatible /v1/chat/completions endpoint (what the pipeline
+    uses) ignores request-time options.num_ctx entirely — the only way to cap a
+    model's context window on that endpoint is a PARAMETER num_ctx baked into the
+    model at creation time. This command closes that loop: for every workspace
+    with context_limit set, it creates <model>:<tag>-ctxNk (idempotent — reuses
+    existing local layers, no re-download) and rewrites model_hint in
+    config/portal.yaml to point at it. Workspaces without context_limit are left
+    alone (protected only by the global OLLAMA_CONTEXT_LENGTH floor, if set).
+
+    Run ./launch.sh sync-config after this to regenerate derived artifacts
+    (backends.yaml workspace_routing, .mcp.json, OWUI presets) — CLAUDE.md §6.
     """
+    import tempfile
+
+    from portal_pipeline.config import get_workspace_dict, load_portal_config
+
+    ollama_cmd = _detect_ollama_cmd()
+    if ollama_cmd is None:
+        typer.echo("ERROR: Ollama not reachable", err=True)
+        raise typer.Exit(code=1)
+
+    workspaces = get_workspace_dict(load_portal_config())
     typer.echo("Applying model params (ctx tags) ...")
-    typer.echo("No active ctx tags in this fleet version.")
+
+    updates: dict[str, str] = {}
+    created = skipped = failed = 0
+
+    for ws_id, ws_cfg in workspaces.items():
+        ctx_limit = ws_cfg.get("context_limit")
+        model_hint = ws_cfg.get("model_hint", "")
+        if not ctx_limit or not model_hint:
+            continue
+
+        base_model = _strip_ctx_tag(model_hint)
+        derived = _derive_ctx_tag(model_hint, ctx_limit)
+
+        if model_hint == derived:
+            # Already pointing at the correctly-sized derived tag — nothing to do.
+            continue
+
+        if _model_exists_in_ollama(derived, ollama_cmd):
+            updates[ws_id] = derived
+            skipped += 1
+            continue
+
+        if not _model_exists_in_ollama(base_model, ollama_cmd):
+            typer.echo(f"  SKIP {ws_id}: base model {base_model} not pulled locally")
+            failed += 1
+            continue
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".Modelfile", delete=False, prefix="portal5_ctx_"
+        ) as mf:
+            mf.write(f"FROM {base_model}\nPARAMETER num_ctx {ctx_limit}\n")
+            mf_path = mf.name
+        try:
+            subprocess.run(
+                ollama_cmd.split() + ["create", derived, "-f", mf_path],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            updates[ws_id] = derived
+            created += 1
+            typer.echo(f"  ✅ {ws_id}: {model_hint} -> {derived}")
+        except subprocess.CalledProcessError as e:
+            typer.echo(f"  ❌ {ws_id}: failed to create {derived}: {e.stderr}")
+            failed += 1
+        finally:
+            Path(mf_path).unlink(missing_ok=True)
+
+    if updates:
+        _write_back_model_hints(updates)
+
+    typer.echo(
+        f"\napply-params: {created} created, {skipped} already tagged, "
+        f"{failed} failed/skipped ({len(updates)} model_hint(s) updated in portal.yaml)"
+    )
+    if updates:
+        typer.echo("Run './launch.sh sync-config' to regenerate derived artifacts.")
 
 
 # ── models apply-mtp-drafts ───────────────────────────────────────────────────

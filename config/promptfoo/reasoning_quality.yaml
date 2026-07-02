@@ -2,22 +2,22 @@ description: "Portal 5 — Reasoning workspaces quality evaluation (auto-reasoni
 prompts:
   - file://prompts/reasoning.txt
 providers:
-  - id: ollama:chat:hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL
+  - id: ollama:chat:hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
     label: auto-reasoning
     config:
       temperature: 0
       num_predict: 2048
-  - id: ollama:chat:phi4-mini-reasoning
+  - id: ollama:chat:phi4-mini-reasoning:latest-ctx24k
     label: auto-math
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:granite4.1:30b
+  - id: ollama:chat:granite4.1:30b-ctx64k
     label: auto-data
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:phi4-reasoning:plus
+  - id: ollama:chat:phi4-reasoning:plus-ctx32k
     label: auto-phi4
     config:
       temperature: 0

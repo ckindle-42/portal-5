@@ -2,12 +2,12 @@ description: "Portal 5 — Strategic workspaces quality evaluation (auto-mistral
 prompts:
   - file://prompts/strategic.txt
 providers:
-  - id: ollama:chat:hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0
+  - id: ollama:chat:hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k
     label: auto-mistral
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:huihui_ai/tongyi-deepresearch-abliterated
+  - id: ollama:chat:huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
     label: auto-research
     config:
       temperature: 0

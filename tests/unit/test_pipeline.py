@@ -901,7 +901,16 @@ class TestAgenticWorkspace:
         """auto-agentic should use the 30B interim hint while 480B is dead-by-decision.
 
         The 480B workspace (bench-qwen3-coder-next) was removed in TASK_MODEL_FLEET_REFRESH_V2
-        Phase 3. The context_limit was dropped with it — it was 480B-specific KV suppression.
+        Phase 3, and the 480B-specific KV-suppression context_limit was dropped with it.
+
+        A context_limit was reintroduced afterward (TASK-SEC-LIVE-EXEC-era Ollama 0.31
+        num_ctx-default fix): qwen3-coder-next's native max context (262144) made it
+        default to a KV cache that spilled off-GPU and stalled every request. auto-agentic
+        is a long-horizon agentic workspace (multi-file SWE-agent-style tool loops), so it
+        needs real room for both the accumulated tool-call history and reasoning — hence
+        the derived -ctx64k tag and context_limit=65536, not None. Enforced now via a
+        derived Ollama model tag, since Ollama's /v1/chat/completions ignores request-time
+        options.num_ctx (see portal_pipeline.cli.models apply-params).
         """
         from portal_pipeline.router_pipe import WORKSPACES
 
@@ -910,8 +919,8 @@ class TestAgenticWorkspace:
             f"auto-agentic hint should be qwen3-coder-next:latest (V8 promotion), got: {hint}"
         )
         ctx = WORKSPACES["auto-agentic"].get("context_limit")
-        assert ctx is None, (
-            f"auto-agentic context_limit should be None (30B interim, not 480B), got: {ctx}"
+        assert ctx == 65536, (
+            f"auto-agentic context_limit should be 65536 (agentic long-horizon tuning), got: {ctx}"
         )
 
     def test_agentic_workspace_has_model_hint(self):

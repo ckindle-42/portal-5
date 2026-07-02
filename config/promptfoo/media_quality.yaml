@@ -2,7 +2,7 @@ description: "Portal 5 — Media workspaces quality evaluation (auto-vision, aut
 prompts:
   - file://prompts/media.txt
 providers:
-  - id: ollama:chat:qwen3-vl:32b
+  - id: ollama:chat:qwen3-vl:32b-ctx8k
     label: auto-vision
     config:
       temperature: 0

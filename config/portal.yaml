@@ -141,7 +141,8 @@ workspaces:
     name: 🤖 Portal Auto Router
     description: |-
       Intelligently routes to the best specialist model based on your question. Security/redteam topics → BaronLLM. Coding → Qwen3-Coder. Reasoning/research → DeepSeek-R1. Other → general.
-    model_hint: huihui_ai/qwen3.5-abliterated:9b
+    model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx8k
+    context_limit: 8192
     tools: []
     expose_to_owui: true
     enable_web_search: true
@@ -151,7 +152,8 @@ workspaces:
     name: 🔓 Portal Extract (Uncensored)
     description: |-
       Text-only entity/data extraction and summarization with an uncensored model — fewer content refusals on sensitive source text. LFM2.5-8B-A1B Uncensored (gaston-parravicini, ~5GB, abliterated LFM2.5 base). BENCH-PASSED: EX-01 5/5 (100%, 18s) on this hardware. tools=false — extraction/summarization only, no tool loop. Explicit-select; not a default.
-    model_hint: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M
+    model_hint: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k
+    context_limit: 8192
     keep_alive: 10m
     system_prompt_append: |2-
   
@@ -164,7 +166,8 @@ workspaces:
     name: 🔓 Portal General (Uncensored)
     description: |-
       Uncensored generalist + reasoning lane — makes the documented general uncensored model explicitly promptable instead of fallback-only. Qwen3.6-abliterated 27B (huihui-ai, ~20GB, MoE 3B active, tools=True). [BENCH-GATED PROVISIONAL — no passing bench in an explicit general role yet; not a default; promotion requires a bench pass + separate operator task.]
-    model_hint: huihui_ai/Qwen3.6-abliterated:27b
+    model_hint: huihui_ai/Qwen3.6-abliterated:27b-ctx8k
+    context_limit: 8192
     keep_alive: 10m
     temperature: 0.7
     top_p: 0.9
@@ -187,7 +190,8 @@ workspaces:
     name: 🔓 Portal Security (Uncensored)
     description: |-
       Uncensored security analysis — same BaronLLM-abliterated as auto-security (Llama-3.1-8B, 53K cybersec examples, 200+ domains) with no safety filtering. Use when auto-security content-guards are interfering with authorized research. Counterpart to auto-security.
-    model_hint: huihui_ai/baronllm-abliterated
+    model_hint: huihui_ai/baronllm-abliterated:latest-ctx8k
+    context_limit: 8192
     keep_alive: 10m
     temperature: 0.3
     top_p: 0.9
@@ -209,7 +213,8 @@ workspaces:
     name: 🪶 Portal Daily Driver
     description: |-
       Fast everyday assistant: chat, writing, editing, summarization, planning, light technical help. gemma4:26b-a4b-it-qat primary (Ollama, MoE 4B active, VLM, Apache 2.0, QAT near-BF16). Upgraded from q4_K_M → QAT (V8: +23% TPS, same ~15GB footprint). Daily-driver lane — escalates to specialist workspaces when needed.
-    model_hint: gemma4:26b-a4b-it-qat
+    model_hint: gemma4:26b-a4b-it-qat-ctx8k
+    context_limit: 8192
     predict_limit: 4096
     tools:
     - web_search
@@ -234,7 +239,8 @@ workspaces:
   auto-coding:
     name: 💻 Portal Code Expert
     description: Code generation, debugging, architecture review (Qwen3-Coder-30B MoE, Ollama, 0.22s TTFT)
-    model_hint: qwen3-coder:30b-a3b-q4_K_M
+    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
+    context_limit: 16384
     predict_limit: 16384
     temperature: 0.2
     top_p: 0.9
@@ -264,7 +270,8 @@ workspaces:
     name: 💻 Portal Code Expert (North-Mini)
     description: |-
       Additional code generation option for model diversity — North-Mini-Code-1.0-QAD (Cohere Labs, Apache 2.0, ~19.3GB NVFP4 W4A16, cohere2moe arch, 256K ctx, 64K out, 30B-A3B MoE 128 experts top-8). Agentic-coding RL with verifiable rewards; QAD claims >99% accuracy recovery vs unquantized. PROMOTED 2026-06-30 from bench-north-mini-code (V10 candidate eval): 4/5 tool-chain + 4/5 SWE-handoff markers, cohere2moe smoke-loaded cleanly on this Ollama build. This is an *option*, not a replacement for auto-coding (Qwen3-Coder-30B remains primary) — pick this lane when you specifically want lineage diversity from the Qwen/GLM-heavy coding pool.
-    model_hint: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4
+    model_hint: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k
+    context_limit: 8192
     predict_limit: 16384
     temperature: 1.0
     top_p: 0.95
@@ -285,7 +292,8 @@ workspaces:
     name: 🔓 Portal Code (Uncensored)
     description: |-
       One-shot code generation with a tool-capable, lightly-aligned model — fewer content refusals than the filtered auto-coding lane. OmniCoder-2 9B (Qwen3.5-9B base, ~5.7GB, Apache 2.0, tools=True). Use for codegen the standard coder declines on policy grounds. [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run and a separate operator promotion task. For the agentic loop use auto-coding-uncensored-agentic.]
-    model_hint: omnicoder2:9b-q4_k_m
+    model_hint: omnicoder2:9b-q4_k_m-ctx8k
+    context_limit: 8192
     keep_alive: 10m
     temperature: 0.2
     top_p: 0.9
@@ -311,7 +319,8 @@ workspaces:
     name: 🔓 Portal Agentic Coder (Uncensored)
     description: |-
       Multi-turn agentic coding with an abliterated SWE-capable model — the uncensored counterpart to auto-coding-agentic. Qwen3-Coder-Next abliterated (80B/3B MoE, ~46GB, bartowski GGUF, tools per Qwen coding-family arch). Same read→explore→edit→verify loop and explore_repository subagent. [BENCH-GATED PROVISIONAL model_hint — ~46GB resident on 64GB unified memory; not a default; promotion requires a passing bench run + separate operator task. Tool support asserted by architecture, not yet audit-confirmed.]
-    model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
+    model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
+    context_limit: 65536
     keep_alive: 15m
     temperature: 0.2
     top_p: 0.9
@@ -352,7 +361,8 @@ workspaces:
     name: 🔄 Portal IDE / Agentic Coder
     description: |-
       Multi-turn agentic coding workspace — the default model for opencode and Claude Code in this repo. Laguna-XS.2 (Poolside AI, 33B-A3B MoE, ~19GB, 68.2% SWE-bench Verified, interleaved reasoning, 2/2 security chain). Tuned for the read → understand → edit → verify loop: inspects files via explore_repository + execute_bash, makes targeted changes, runs tests, iterates. Devstral-small-2 (V2, 256K ctx, vision) is the first fallback in the coding pool. For one-shot code generation, use auto-coding instead.
-    model_hint: laguna-xs.2:Q4_K_M
+    model_hint: laguna-xs.2:Q4_K_M-ctx64k
+    context_limit: 65536
     keep_alive: 15m
     temperature: 0.2
     top_p: 0.9
@@ -410,7 +420,8 @@ workspaces:
     name: ⚡ Portal Agentic Coder (Heavy)
     description: |-
       Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3-Coder-Next 80B/3B MoE (V8: agentic RL training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline). Fallback 1: Qwen-AgentWorld-35B-A3B (~21GB, 45 t/s, MoE 3B active, 262K ctx) — language world model trained on MCP/Terminal/SWE/Web/OS env-simulation; strong tool-call coherence, available in general+coding pools. Fallback 2: gpt-oss:20b (~12GB, o3-mini level, MoE, purpose-built for agent/tool use, 2/2 security chain at 45s) — available in the coding pool when the primary is not loaded.
-    model_hint: qwen3-coder-next:latest
+    model_hint: qwen3-coder-next:latest-ctx64k
+    context_limit: 65536
     tools:
     - execute_python
     - execute_bash
@@ -435,7 +446,8 @@ workspaces:
     name: ⚡ Portal Agentic Coder (Lite)
     description: |-
       Agentic coding workspace for tool-calling, MCP, SWE, and env-simulation tasks where the full 80B is unnecessary or too slow to load. Qwen-AgentWorld-35B-A3B (Alibaba/Qwen, Apache 2.0, MoE 3B active, 262K ctx, ~21GB, 45 t/s) — trained on MCP/Terminal/SWE/Web/Android/OS/Search env-simulation trajectories; strong tool-call coherence and long-horizon task planning. Use this when you want AgentWorld directly: lighter memory footprint, faster cold start, higher throughput than the heavy 80B workspace.
-    model_hint: hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL
+    model_hint: hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k
+    context_limit: 65536
     max_concurrent: 1
     keep_alive: 15m
     temperature: 0.6
@@ -465,7 +477,8 @@ workspaces:
     name: ⚡ Portal Agentic Coder (Ornith)
     description: |-
       Agentic coding workspace direct to Ornith-1.0-35B (DeepReinforce, MIT, ~21GB Q4_K_M, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Self-improving RL training jointly optimizes solution rollout + scaffold — Terminal-Bench/SWE-Bench/NL2Repo/OpenClaw agentic coding. PROMOTED 2026-06-30 from bench-ornith-35b (V10 candidate eval): strong tool-chain coverage (4/5 markers) and SWE handoff (4/5 markers) in TASK_MODEL_EVAL_V10_CANDIDATES probes. Use this for an architecturally-different agentic option alongside auto-agentic (Qwen3-Coder-Next) and auto-agentic-lite (AgentWorld) — not a replacement for either.
-    model_hint: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M
+    model_hint: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k
+    context_limit: 65536
     max_concurrent: 1
     keep_alive: 15m
     temperature: 0.6
@@ -495,7 +508,8 @@ workspaces:
     name: 🔍 Portal SPL Engineer
     description: |-
       Splunk SPL queries, YARA rules, detection search authoring, security scripting. Qwen3-Coder-Next abliterated (V8: 80B/3B MoE, 19 t/s, no refusals on offensive/security code, same quality as non-abliterated, ~46GB).
-    model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
+    model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
+    context_limit: 65536
     keep_alive: 10m
     tools:
     - classify_vulnerability
@@ -509,7 +523,8 @@ workspaces:
     name: 🔒 Portal Security Analyst
     description: |-
       Authorized security assessment, vulnerability analysis, CVE/CWE classification, hardening. VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base — trained on AppSec vulnerability research: CVE severity, CWE classification, vulnerable code patterns). Full-fleet bench 2026-06-20: 2/2 chain wins at 15s, fastest security model in fleet. Fast vuln analysis with web search, vuln classification, and code execution.
-    model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
+    model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k
+    context_limit: 8192
     keep_alive: 10m
     temperature: 0.3
     top_p: 0.9
@@ -532,7 +547,8 @@ workspaces:
     name: 🔴 Portal Red Team
     description: |-
       Deep offensive security, attack chain simulation, exploit scripting. Huihui-ai Qwen3.5-9B abliterated (zero refusals, Qwen3 architecture). Structures responses in attack phases with mandatory DEFENDER CUE for blue team handoff.
-    model_hint: huihui_ai/qwen3.5-abliterated:9b
+    model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx8k
+    context_limit: 8192
     keep_alive: 15m
     temperature: 0.3
     top_p: 0.9
@@ -577,7 +593,8 @@ workspaces:
       2. 🔵 BLUE — Foundation-Sec-8B-Reasoning: detection, IOCs, mitigations
   
       Use for threat modeling and attack/detect alignment. For full detection artifacts + IR playbook, use auto-purpleteam-deep.
-    model_hint: huihui_ai/qwen3.5-abliterated:9b
+    model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx8k
+    context_limit: 8192
     keep_alive: 15m
     temperature: 0.3
     top_p: 0.9
@@ -631,7 +648,8 @@ workspaces:
       4. 📋 IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery
   
       Terminates in deployable detection content + an IR playbook the SOC can execute. Latency is significant — four sequential model calls. Use when completeness matters.
-    model_hint: huihui_ai/qwen3.5-abliterated:9b
+    model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx64k
+    context_limit: 65536
     keep_alive: 15m
     temperature: 0.3
     top_p: 0.9
@@ -746,7 +764,8 @@ workspaces:
       4. 📋 IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery
   
       Unlike auto-purpleteam-deep (simulation only), this workspace executes commands against real targets. Use only on authorized systems. Latency is high — four sequential model calls, first hop uses tools.
-    model_hint: supergemma4-26b-uncensored:Q4_K_M
+    model_hint: supergemma4-26b-uncensored:Q4_K_M-ctx64k
+    context_limit: 65536
     keep_alive: 15m
     temperature: 0.1
     top_p: 0.9
@@ -875,7 +894,8 @@ workspaces:
     name: 🔴 Portal Red Team · Deep
     description: |-
       High-fidelity single-model red team analysis. SuperGemma4-26B-uncensored (abliterated Gemma4 MoE, bench score 0.90, 6.7 ATT&CK IDs avg, zero disclaimers). Slower than auto-redteam (~100s/prompt) but produces denser ATT&CK coverage. Use when you need maximum MITRE TTP specificity for threat models or red team reports. Pipe the output to auto-purpleteam-deep manually for full four-hop analysis.
-    model_hint: supergemma4-26b-uncensored:Q4_K_M
+    model_hint: supergemma4-26b-uncensored:Q4_K_M-ctx64k
+    context_limit: 65536
     keep_alive: 15m
     temperature: 0.3
     top_p: 0.9
@@ -914,7 +934,8 @@ workspaces:
     name: 🖊️ Portal Pentest Assistant
     description: |-
       Authorized penetration testing assistant with execution capability. Gemma4-E2B-QAT abliterated (2B thinking model, ~3GB). Head-to-head bench 2026-06-25: composite 0.70 vs 0.50 baronllm, header cov 0.83 vs 0.50, avg MITRE IDs 1.4 vs 0.5 — wins on stripped final answer alone (not just reasoning chain). Zero refusals, zero disclaimers. Exec chain: 80.0% EXPLOIT slot score, 71.6 t/s. Single-hop execution focus (pentest of one target); for multi-hop lateral movement use auto-purpleteam. execute_bash + execute_python + web_search for live target enumeration and PoC validation. Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings.
-    model_hint: huihui_ai/gemma-4-abliterated:E2b-qat
+    model_hint: huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k
+    context_limit: 8192
     keep_alive: 15m
     temperature: 0.3
     top_p: 0.9
@@ -956,7 +977,8 @@ workspaces:
     name: 🔵 Portal Blue Team
     description: |-
       Defensive security, SOC triage, threat hunting, incident response. SYLink 8B (Qwen3-8B base — purpose-built for SOC triage, threat intel, MITRE ATT&CK mapping, and incident response). Fleet bench 2026-06-20: 1.00/1.00 both scenarios, chain depth 12 (deepest 8B in fleet), security quality 0.83. Foundation-Sec-8B-Reasoning available via reasoning group for deep analytical tasks.
-    model_hint: sylink/sylink:8b
+    model_hint: sylink/sylink:8b-ctx8k
+    context_limit: 8192
     temperature: 0.3
     top_p: 0.9
     top_k: 40
@@ -976,7 +998,8 @@ workspaces:
     name: 🩹 Portal BigFix Analyst
     description: |-
       HCL BigFix endpoint management and patch compliance workspace. Handles: BigFix REST API queries and response parsing, Relevance Language expressions for targeting endpoints, RQL fixlet applicability queries, patch deployment status reporting, computer property retrieval, and compliance gap analysis across managed endpoints. Model_hint pending D10 sec10-bigfix-parse probe results — will be set to the top D10 scorer from TASK_MODEL_EVAL_V9_CANDIDATES.
-    model_hint: qwen3-coder:30b-a3b-q4_K_M
+    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
+    context_limit: 16384
     temperature: 0.1
     top_p: 0.9
     top_k: 20
@@ -992,7 +1015,8 @@ workspaces:
     name: 🔧 Portal Tool Composer
     description: |-
       Structured function/API calling via Granite-4.1 8B (tool-tagged, BFCL V3 68.27). Substitutes for ToolACE-2.5 (no GGUF after MLX retirement; re-sourcing tracked in P5-FUT-PARITY-001). Use for tasks composing multiple tool calls in sequence.
-    model_hint: granite4.1:8b
+    model_hint: granite4.1:8b-ctx8k
+    context_limit: 8192
     max_concurrent: 1
     tools:
     - execute_python
@@ -1006,7 +1030,8 @@ workspaces:
     name: ✍️  Portal Creative Writer
     description: |-
       Creative writing, storytelling, content generation. Qwen3.6-35B-A3B HauhauCS uncensored (V8: 0/465 refusals, MoE 3B active, tool-capable + vision, ~22GB. Upgraded from gemma-4-heretic Q4).
-    model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
+    model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
+    context_limit: 8192
     temperature: 0.85
     top_p: 0.95
     top_k: 50
@@ -1020,7 +1045,8 @@ workspaces:
     name: 🧠 Portal Deep Reasoner
     description: |-
       Complex analysis, research synthesis, step-by-step reasoning. DeepSeek R1-0528-Qwen3-8B (V8: 31 t/s pipeline, AIME 2024 = Qwen3-235B at 8B, ~5GB. Replaces Qwopus primary which had pull failures). deepseek-r1:32b remains reasoning group fallback for heavy tasks.
-    model_hint: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL
+    model_hint: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+    context_limit: 65536
     predict_limit: 16384
     temperature: 0.6
     top_p: 0.95
@@ -1035,7 +1061,8 @@ workspaces:
   auto-documents:
     name: 📄 Portal Document Builder
     description: Create Word, Excel, PowerPoint via MCP tools; diarized transcription
-    model_hint: granite4.1:8b
+    model_hint: granite4.1:8b-ctx16k
+    context_limit: 16384
     predict_limit: 8192
     temperature: 0.5
     top_p: 0.9
@@ -1057,7 +1084,8 @@ workspaces:
   auto-video:
     name: 🎬 Portal Video Creator
     description: Generate videos via ComfyUI / Wan2.2
-    model_hint: granite4.1:8b
+    model_hint: granite4.1:8b-ctx16k
+    context_limit: 16384
     tools:
     - generate_video
     - generate_image
@@ -1070,7 +1098,8 @@ workspaces:
     name: 🎵 Portal Music Producer
     description: |-
       Generate music and audio via AudioCraft/MusicGen. LFM2.5-8B-A1B hybrid (V8: fastest structured-output model in fleet, 89 t/s, unique non-transformer architecture, tool-capable, Apache 2.0).
-    model_hint: lfm2.5:8b
+    model_hint: lfm2.5:8b-ctx8k
+    context_limit: 8192
     system_prompt_append: |2-
   
   
@@ -1088,7 +1117,8 @@ workspaces:
   auto-research:
     name: 🔍 Portal Research Assistant
     description: Web research, information synthesis, fact-checking
-    model_hint: huihui_ai/tongyi-deepresearch-abliterated
+    model_hint: huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
+    context_limit: 65536
     predict_limit: 16384
     temperature: 0.6
     top_p: 0.95
@@ -1111,7 +1141,8 @@ workspaces:
   auto-vision:
     name: 👁️  Portal Vision
     description: Image understanding, visual analysis, multimodal tasks (Qwen3-VL, Ollama)
-    model_hint: qwen3-vl:32b
+    model_hint: qwen3-vl:32b-ctx8k
+    context_limit: 8192
     temperature: 0.5
     top_p: 0.9
     top_k: 40
@@ -1126,7 +1157,8 @@ workspaces:
     name: 📊 Portal Data Analyst
     description: |-
       Data analysis, statistics, visualization guidance. Granite 4.1 30B (IBM, tool-capable, writes pandas/numpy/matplotlib, executes Python, produces Excel output).
-    model_hint: granite4.1:30b
+    model_hint: granite4.1:30b-ctx64k
+    context_limit: 65536
     keep_alive: 10m
     temperature: 0.4
     top_p: 0.9
@@ -1144,7 +1176,8 @@ workspaces:
     name: ⚖️  Portal Compliance Analyst
     description: |-
       Multi-framework compliance analysis: NERC CIP, HIPAA, GDPR, SOC 2, PCI-DSS, NIST CSF/800-53, ISO 27001, FedRAMP, NIS2, CMMC, FFIEC, and state privacy laws (CCPA/CPRA, Texas TDPSA, Connecticut CTDPA, etc.). Gap analysis, policy drafting, evidence review, cross-framework control mapping, audit prep.
-    model_hint: granite4.1:8b
+    model_hint: granite4.1:8b-ctx16k
+    context_limit: 16384
     predict_limit: 16384
     emits_reasoning: false
     tools:
@@ -1176,7 +1209,8 @@ workspaces:
     name: 🧪 Portal Mistral Reasoner
     description: |-
       Magistral-Small-2509 (GGUF q8_0) — Mistral training lineage, [THINK] mode, distinct failure profile from Qwen/DeepSeek reasoning models.
-    model_hint: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0
+    model_hint: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k
+    context_limit: 65536
     predict_limit: 16384
     keep_alive: 10m
     emits_reasoning: true
@@ -1189,7 +1223,8 @@ workspaces:
     name: 🧮 Portal Math Reasoner
     description: |-
       Mathematical problem solving, proofs, calculus, algebra, statistics. Phi-4-Mini-Reasoning (V8: RL-trained math specialist, beats 7B models on AIME/MATH-500 at 3.8B, ~2.5GB, MIT).
-    model_hint: phi4-mini-reasoning
+    model_hint: phi4-mini-reasoning:latest-ctx24k
+    context_limit: 24576
     predict_limit: 8192
     emits_reasoning: true
     tools: []
@@ -1201,7 +1236,8 @@ workspaces:
     name: 🧮 Portal STEM Analyst
     description: |-
       STEM analysis, scientific reasoning, mathematical derivations, structured problem-solving. Phi-4-reasoning-plus (V8: RL-trained 14B, ~11GB, MIT — produces chain-of-thought traces before answers; ideal for stepwise STEM work).
-    model_hint: phi4-reasoning:plus
+    model_hint: phi4-reasoning:plus-ctx32k
+    context_limit: 32768
     predict_limit: 32768
     keep_alive: 10m
     emits_reasoning: true
@@ -1212,7 +1248,8 @@ workspaces:
     name: ⚡ Portal GLM Coder
     description: |-
       Coding and long-context tasks via GLM-4.7-Flash REAP UD-Q4_K_XL (ZhipuAI / Z.AI, MIT). 31B MoE, 4 experts/token (~3B active), 128K context. Non-Meta/Qwen lineage — distinct training data and architecture from fleet majority. REAP (Refined Expert Activation Pruning) + Unsloth Dynamic imatrix: quality 1.00 in bench 2026-06-21. Use for: coding tasks where Qwen/DeepSeek answers feel similar, 128K context jobs, second-opinion analysis. 12.3 t/s pipeline. supports_tools=true: audit-tools 2026-06-21 confirmed.
-    model_hint: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL
+    model_hint: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k
+    context_limit: 65536
     predict_limit: 16384
     tools:
     - execute_python
@@ -1229,7 +1266,8 @@ workspaces:
     name: 🧠 Portal GLM Deep Reasoner
     description: |-
       Deep reasoning and analysis via GLM-Z1-Rumination-32B (THUDM/ZhipuAI, April 2026, MIT). 32B dense, multi-step chain-of-thought, ZhipuAI thinking variant. Distinct reasoning lineage from DeepSeek-R1 and Magistral — different failure profile. Quality 1.00, 12.1 t/s in bench 2026-06-21. Use for: complex analysis, extended reasoning chains, second-opinion on hard problems. Emits reasoning traces before final answer.
-    model_hint: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
+    model_hint: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
+    context_limit: 65536
     predict_limit: 16384
     keep_alive: 10m
     emits_reasoning: true
@@ -1240,7 +1278,8 @@ workspaces:
     name: ⚡ Portal Gemma Fast
     description: |-
       Speed-optimised multimodal assistant. Gemma 4 E2B QAT (~3GB, Google DeepMind, Apache 2.0). 76.3 t/s, quality 1.00 on bench 2026-06-21. Encoder-free audio+image+video+text, 128K ctx. Use when response speed matters: quick Q&A, rapid iteration, conversational tasks, live audio or image analysis. Fastest quality-passing production model in fleet.
-    model_hint: gemma4:e2b-it-qat
+    model_hint: gemma4:e2b-it-qat-ctx8k
+    context_limit: 8192
     predict_limit: 8192
     tools:
     - transcribe_audio
@@ -1250,7 +1289,8 @@ workspaces:
     name: 🎯 Portal Gemma E4B
     description: |-
       Compact multimodal model. Gemma 4 E4B QAT (~5GB, Google DeepMind, Apache 2.0). 48.6 t/s, quality 1.00 on bench 2026-06-21. Encoder-free audio+image+video+text, 128K ctx. Second-tier audio/multimodal option alongside auto-audio (12B) — prefer this when throughput matters more than depth. Good for audio+image tasks where E2B is too thin and 12B is overkill.
-    model_hint: gemma4:e4b-it-qat
+    model_hint: gemma4:e4b-it-qat-ctx8k
+    context_limit: 8192
     predict_limit: 8192
     tools:
     - transcribe_audio
@@ -1260,7 +1300,8 @@ workspaces:
     name: 🔥 Portal Devstral
     description: |-
       Mistral-lineage coding assistant. Devstral Small 2 (~14GB, Mistral AI + All Hands AI, Apache 2.0). 24B, 256K ctx, vision added V2. 14.6 t/s, quality 0.83 on bench 2026-06-21. Distinct training lineage from Qwen-Coder — different strengths in repo navigation and agentic coding. Use when Qwen-Coder misses or for Mistral-architecture diversity.
-    model_hint: devstral-small-2
+    model_hint: devstral-small-2:latest-ctx8k
+    context_limit: 8192
     predict_limit: 16384
     tools:
     - execute_python
@@ -1275,7 +1316,8 @@ workspaces:
     name: 👁️ Portal Gemma Vision
     description: |-
       Heavy vision analysis. Gemma 4 31B Dense QAT (~18GB, Google DeepMind, Apache 2.0). 11.4 t/s, quality 1.00 on bench 2026-06-21. 256K ctx, vision+text. Gemma-architecture alternative to auto-vision (qwen3-vl:32b) — different model family, complementary failure profile. Use for detailed image analysis where Qwen3-VL underperforms.
-    model_hint: gemma4:31b-it-qat
+    model_hint: gemma4:31b-it-qat-ctx8k
+    context_limit: 8192
     predict_limit: 16384
     tools: []
     expose_to_owui: true
@@ -1284,7 +1326,8 @@ workspaces:
     name: 🎙️  Portal Audio Analyst
     description: |-
       Audio transcription, speech analysis, audio understanding. Gemma 4 12B QAT (V8: first encoder-free audio model in fleet, native audio+image+text, 256K ctx, function calling, ~7GB, Google, Apache 2.0).
-    model_hint: gemma4:12b-it-qat
+    model_hint: gemma4:12b-it-qat-ctx8k
+    context_limit: 8192
     tools:
     - transcribe_audio
     expose_to_owui: true
@@ -1765,7 +1808,8 @@ workspaces:
     name: 📐 Portal CAD / 3D-Print Designer
     description: |-
       Parametric 3D-model generation via code-CAD (OpenSCAD primary; Python+trimesh for procedural geometry). Produces STL/3MF for FDM/SLA printing. Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s). Use render_openscad tool to convert SCAD code → STL + preview PNG. Note: CadQuery/build123d require OCP which has no arm64 wheels — use OpenSCAD.
-    model_hint: qwen3-coder:30b-a3b-q4_K_M
+    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx8k
+    context_limit: 8192
     predict_limit: 16384
     system_prompt_append: |2-
   
