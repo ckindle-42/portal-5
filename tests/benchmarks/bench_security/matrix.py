@@ -6,7 +6,6 @@ run_matrix: spins each target ephemerally, runs the chain, scores with the named
 
 from __future__ import annotations
 
-import glob
 import logging
 import os
 import sys
@@ -23,6 +22,11 @@ _log = logging.getLogger(__name__)
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
+
+# module-level sentinel — evidence the oracle must always map to indeterminate, never verified
+DISPATCH_NOT_RUN = "__DISPATCH_NOT_RUN__"
+
+LAB_VULHUB_HOST_ROOT = os.environ.get("LAB_VULHUB_HOST_ROOT", "/opt/vulhub")
 
 
 # ── Telemetry backend protocol (P2.2) ────────────────────────────────────────
@@ -142,29 +146,42 @@ def _classify_domain(scenario_key: str, class_id: str = "") -> str:
     return "mixed"
 
 
-# ── Vulhub glob expansion ─────────────────────────────────────────────────────
+# ── Vulhub glob expansion (resolved ON the live host, LXC 112 — never local fs) ────────────
 
 
-def _expand_vulhub_globs(patterns: list[str], vulhub_root: Path) -> list[str]:
-    """Expand vulhub glob patterns against the synced vulhub clone.
+def _expand_vulhub_globs(patterns: list[str], vulhub_root: str | Path | None = None) -> list[str]:
+    """Expand vulhub glob patterns against the vulhub clone on host 112, via _host_exec.
 
     E.g. 'fastjson/*' → ['fastjson/CVE-2017-7525', 'fastjson/CVE-2019-...']
-    Returns list of relative paths from vulhub_root.
+    Returns list of relative paths from vulhub_root. A pattern matching no real host env
+    resolves to zero paths — those units are built with zero targets and honestly score
+    indeterminate (never silently fabricated).
     """
+    from scripts.lab_host import _host_exec
+
+    root = str(vulhub_root) if vulhub_root else LAB_VULHUB_HOST_ROOT
     resolved: list[str] = []
     for pat in patterns:
-        full_pattern = str(vulhub_root / pat)
-        matches = sorted(glob.glob(full_pattern))
-        for m in matches:
-            rel = os.path.relpath(m, vulhub_root)
-            # Only include directories that have a docker-compose.yml
-            if Path(m).is_dir() and (Path(m) / "docker-compose.yml").exists():
-                resolved.append(rel)
-    return resolved
+        # `; true` at the end so a mid-loop non-match (e.g. a dir without docker-compose.yml)
+        # doesn't flip the whole command's exit code and hide the matches found before it.
+        cmd = (
+            f"bash -lc 'for d in {root}/{pat}/; do "
+            f'[ -f "${{d}}docker-compose.yml" ] && echo "$d"; done; true\''
+        )
+        r = _host_exec(cmd, timeout=20)
+        if not r.get("ok"):
+            continue
+        for line in r["output"].splitlines():
+            line = line.strip().rstrip("/")
+            if not line:
+                continue
+            rel = os.path.relpath(line, root)
+            resolved.append(rel)
+    return sorted(resolved)
 
 
-def _resolve_challenge_class(cls: dict, vulhub_root: Path) -> list[str]:
-    """Resolve a challenge class to its list of vulhub target paths."""
+def _resolve_challenge_class(cls: dict, vulhub_root: str | Path | None = None) -> list[str]:
+    """Resolve a challenge class to its list of vulhub target paths (on the host)."""
     vulhub_patterns = cls.get("vulhub", [])
     if not vulhub_patterns:
         return []
@@ -195,7 +212,7 @@ def build_run_matrix(
     from ._data import EXEC_SEQUENCES
 
     units: list[RunUnit] = []
-    vulhub_root = Path(vulhub_root) if vulhub_root else _PROJECT_ROOT / "lab" / "vulhub"
+    vulhub_root = str(vulhub_root) if vulhub_root else LAB_VULHUB_HOST_ROOT
 
     # Load challenge classes
     cc_path = _PROJECT_ROOT / "config" / "challenge_classes.yaml"
@@ -419,7 +436,15 @@ def _execute_unit(unit: RunUnit, *, lab_exec: bool, purple: bool) -> RunResult:
 
         # 3. Score with the named oracle
         oracle_verdict = None
-        if unit.oracle and unit.oracle in ORACLES:
+        if lab_output == DISPATCH_NOT_RUN or not lab_output.strip():
+            # No dispatch path (tier-3) or empty evidence — never let this reach an oracle;
+            # the governing rule is no path emits verified without real host output.
+            status = "indeterminate"
+            oracle_verdict = {
+                "oracle": unit.oracle,
+                "reason": "no dispatch — DISPATCH_NOT_RUN or empty evidence",
+            }
+        elif unit.oracle and unit.oracle in ORACLES:
             finding = {"oracle": unit.oracle}
             observations = {}
             verdict = verify_finding(finding, lab_output, observations, required=2)
@@ -497,12 +522,109 @@ def _teardown_target(target_spec: str, *, lab_exec: bool) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
+# ── Tier-1 proven phase functions (verified against PROMPTS — see task Instruction #1) ───────
+# dcsync/meta3_compromise/srv01_local_privesc/mbptl_full_chain are NOT PROMPTS keys, so no
+# scenario-derived unit can ever carry those scenario_key values; they're intentionally excluded.
+try:
+    from bench_lab_exec import (
+        _phase_asrep,
+        _phase_kerberoast,
+        _phase_vulhub_lfi,
+        _phase_vulhub_log4shell,
+        _phase_vulhub_redis,
+        _phase_vulhub_tomcat,
+    )
+
+    _PHASE_MAP: dict[str, object] = {
+        "kerberoasting": _phase_kerberoast,
+        "asrep_roasting": _phase_asrep,
+        "log4shell_rce": _phase_vulhub_log4shell,
+        "redis_to_rce": _phase_vulhub_redis,
+        "tomcat_manager": _phase_vulhub_tomcat,
+        "htb_lfi_log_poison": _phase_vulhub_lfi,
+    }
+except ImportError:
+    _PHASE_MAP = {}
+
+
+def _phase_result_to_evidence(result: dict) -> str:
+    """Proven phases return {ok, output, detail,...}; the oracle scores the real output text.
+    Return output plus detail so the named-proof markers the phase produced stay visible."""
+    return f"{result.get('output', '')}\n[phase-detail] {result.get('detail', '')}".strip()
+
+
+def _lab_env_vars() -> dict[str, str]:
+    """The canonical lab-env values — reused from bench_lab_exec, never a second config.
+    Re-read (not cached) each call: bench_lab_exec's DC/SRV/WEB are read from os.environ at
+    import time, but tests and callers may patch them per-scenario."""
+    try:
+        import bench_lab_exec as _lab
+
+        return {
+            "LAB_TARGET_DC": _lab.DC,
+            "LAB_TARGET_SRV": _lab.SRV,
+            "LAB_TARGET_WEB": _lab.WEB,
+            "LAB_TARGET_META3": _lab.LAB_META3,
+            "DOMAIN": _lab.DOMAIN,
+            "ADMIN_PASS": _lab.ADMIN_PASS,
+        }
+    except ImportError:
+        return {}
+
+
+def _resolve_env(hint: str) -> str:
+    """Substitute known lab env vars ($LAB_TARGET_DC etc.) into a tool_hint.
+
+    Unset/unknown $NAME is left literal so the command visibly fails rather than
+    silently mis-targeting (→ indeterminate, never a false verified).
+    """
+    resolved = hint
+    for name, value in _lab_env_vars().items():
+        if value:
+            resolved = resolved.replace(f"${name}", value)
+    return resolved
+
+
+def _dispatch_exec_sequence(unit: RunUnit, seq: list, *, lab_exec: bool) -> str:
+    """Execute each step's real tool_hint via _mcp_call; accumulate REAL output for the oracle.
+    No fabricated success markers — dry-run and step-failure both yield honest evidence."""
+    from bench_lab_exec import _mcp_call  # sandbox attack-host transport, returns {ok,output}
+
+    transcript: list[str] = []
+    for step in seq:
+        if not isinstance(step, dict):
+            continue
+        cmd = _resolve_env(step.get("tool_hint", ""))
+        if not lab_exec:
+            transcript.append(f"[dry-run] {step.get('step', '?')}: {cmd}")
+            continue
+        r = _mcp_call(cmd, timeout=step.get("time_budget_s", 120))  # verified key: time_budget_s
+        transcript.append(f"[{step.get('step', '?')}] $ {cmd}\n{r.get('output', '')}")
+        if not r.get("ok"):  # every step required; halt on failure
+            transcript.append(
+                f"[dispatch-halt] step '{step.get('step', '?')}' failed; chain incomplete"
+            )
+            break
+    return "\n".join(transcript)  # REAL output only; the oracle's named N/N proof decides verified
+
+
 def _run_against_target(unit: RunUnit, *, lab_exec: bool) -> str:
-    """Run the scenario's exec chain against the live target. Returns output text."""
-    # In a full implementation, this would dispatch the exec chain via MCP sandbox.
-    # For now, return empty — the unit's oracle will score against real output
-    # when lab_exec=True and the chain runs against the live container.
-    return ""
+    """Run the scenario's exec chain against the live target. Returns output text.
+
+    3-tier router keyed on unit.scenario_key: tier-1 proven phase, tier-2 real exec_sequence,
+    tier-3 no path -> DISPATCH_NOT_RUN (oracle must score this indeterminate, never verified).
+    """
+    fn = _PHASE_MAP.get(unit.scenario_key)
+    if fn:
+        return _phase_result_to_evidence(fn(dry_run=not lab_exec))
+
+    from ._data import EXEC_SEQUENCES
+
+    seq = EXEC_SEQUENCES.get(unit.scenario_key)
+    if seq and isinstance(seq, list) and seq and isinstance(seq[0], dict):
+        return _dispatch_exec_sequence(unit, seq, lab_exec=lab_exec)
+
+    return DISPATCH_NOT_RUN
 
 
 def _run_blue_on_unit(unit: RunUnit, lab_output: str, *, lab_exec: bool) -> dict:

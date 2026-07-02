@@ -803,9 +803,7 @@ def check_ability_port() -> tuple[str, str, list[dict]]:
             src = f.read()
         assert "detect_sig" not in src, "detect_sig stubs present"
         t = ast.parse(src)
-        has_detect = any(
-            isinstance(n, ast.FunctionDef) and "detect" in n.name for n in ast.walk(t)
-        )
+        has_detect = any(isinstance(n, ast.FunctionDef) and "detect" in n.name for n in ast.walk(t))
         has_register = any(
             isinstance(n, ast.Call)
             and hasattr(n, "func")
@@ -1209,6 +1207,94 @@ def check_ci_parity() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_live_exec_integrity() -> tuple[str, str, list[dict]]:
+    """AA. live exec integrity: vulhub resolves+spins on the host via _host_exec (never local
+    fs); _run_against_target dispatches via phase/exec_sequence/not-run keyed on real fields;
+    no path emits verified without real host output."""
+    subs: list[dict] = []
+
+    try:
+        from tests.benchmarks.bench_security.matrix import (
+            _PHASE_MAP,
+            RunUnit,
+            _execute_unit,
+            _expand_vulhub_globs,
+        )
+    except ImportError as e:
+        return "FAIL", f"cannot import matrix module: {e}", []
+
+    # Check 1: vulhub resolution goes through _host_exec, not a local glob.
+    import scripts.lab_host as lab_host_mod
+
+    calls: list[str] = []
+    orig = lab_host_mod._host_exec
+    lab_host_mod._host_exec = lambda cmd, timeout=20: (
+        calls.append(cmd),
+        {"ok": True, "output": ""},
+    )[1]
+    try:
+        _expand_vulhub_globs(["nonexistent_probe_category/*"], "/opt/vulhub")
+    finally:
+        lab_host_mod._host_exec = orig
+    subs.append(
+        {
+            "name": "vulhub resolution via _host_exec",
+            "status": "PASS" if calls else "FAIL",
+        }
+    )
+
+    # Check 2: cmd_up/cmd_down issue real docker compose via _host_exec (not a placeholder).
+    lab_targets_src = (REPO_ROOT / "scripts" / "lab_targets.py").read_text()
+    no_placeholder = "placeholder" not in lab_targets_src
+    has_compose = "docker compose" in lab_targets_src and "_host_exec" in lab_targets_src
+    subs.append(
+        {
+            "name": "cmd_up/cmd_down real dispatch",
+            "status": "PASS" if no_placeholder and has_compose else "FAIL",
+        }
+    )
+
+    # Check 3: dispatcher no longer stubbed (return "").
+    import inspect
+
+    from tests.benchmarks.bench_security.matrix import _run_against_target
+
+    dispatch_src = inspect.getsource(_run_against_target)
+    not_stubbed = "return DISPATCH_NOT_RUN" in dispatch_src and 'return ""' not in dispatch_src
+    subs.append(
+        {
+            "name": "_run_against_target not stubbed",
+            "status": "PASS" if not_stubbed and len(_PHASE_MAP) > 0 else "FAIL",
+        }
+    )
+
+    # Check 4: the false-verified guard — DISPATCH_NOT_RUN must never score verified.
+    unit = RunUnit(
+        id="validator-probe",
+        kind="scenario",
+        target_spec="lab-vulhub",
+        oracle="rce_shell",
+        scoring="oracle",
+        domain="web",
+        spin="static",
+        scenario_key="__validator_probe_unknown_key__",
+    )
+    result = _execute_unit(unit, lab_exec=False, purple=False)
+    guard_ok = result.status != "verified"
+    subs.append(
+        {"name": "DISPATCH_NOT_RUN never verified", "status": "PASS" if guard_ok else "FAIL"}
+    )
+
+    failed = [s["name"] for s in subs if s["status"] == "FAIL"]
+    if failed:
+        return "FAIL", f"{len(failed)} live-exec integrity check(s) failed: {failed}", subs
+    return (
+        "PASS",
+        f"vulhub->host, dispatch real, {len(_PHASE_MAP)} tier-1 phases, guard holds",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -1274,6 +1360,7 @@ def main() -> int:
     v.run("X. scenario-oracle/matrix", check_scenario_oracle_matrix)
     v.run("Y. self-index integrity", check_self_index_integrity)
     v.run("Z. ci parity", check_ci_parity)
+    v.run("AA. live exec integrity", check_live_exec_integrity)
 
     return v.summary()
 

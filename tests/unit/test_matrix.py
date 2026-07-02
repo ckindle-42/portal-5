@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import glob
+import re
 from pathlib import Path
 
 import pytest
@@ -18,6 +20,36 @@ from tests.benchmarks.bench_security.matrix import (
     run_matrix,
 )
 from tests.benchmarks.bench_security.oracles import ORACLES
+
+
+def _fake_host_exec_factory(local_root: Path):
+    """Simulate the remote `_host_exec` glob-and-check-compose command against a LOCAL
+    fixture tree — production code (_expand_vulhub_globs) always resolves via _host_exec
+    against the live host; this fixture only stands in for what the real host would return.
+    """
+
+    def _fake_host_exec(cmd: str, timeout: int = 20) -> dict:
+        m = re.search(r"for d in (\S+)/; do", cmd)
+        if not m:
+            return {"ok": True, "output": ""}
+        pattern = m.group(1)
+        matches = sorted(glob.glob(pattern))
+        lines = [
+            m for m in matches if Path(m).is_dir() and (Path(m) / "docker-compose.yml").exists()
+        ]
+        return {"ok": True, "output": "\n".join(lines)}
+
+    return _fake_host_exec
+
+
+@pytest.fixture(autouse=True)
+def _no_real_ssh(monkeypatch):
+    """Default: no vulhub envs resolve on the (unmocked) host — never make a real ssh call
+    in the unit suite. Tests that need fixture matches override with _fake_host_exec_factory.
+    """
+    monkeypatch.setattr(
+        "scripts.lab_host._host_exec", lambda cmd, timeout=20: {"ok": True, "output": ""}
+    )
 
 
 class TestBuildRunMatrix:
@@ -39,9 +71,10 @@ class TestBuildRunMatrix:
         # but purpose_built dirs still produce units
         assert isinstance(units, list)
 
-    def test_build_with_fixture_vulhub_tree(self, tmp_path):
-        """Glob expansion against a fixture vulhub tree creates multiple units."""
-        # Create fixture vulhub directories
+    def test_build_with_fixture_vulhub_tree(self, tmp_path, monkeypatch):
+        """Glob expansion against a fixture vulhub tree (simulating the live host) creates
+        multiple units."""
+        # Create fixture vulhub directories standing in for what LXC 112 would report
         for p in [
             "fastjson/CVE-2017-7525",
             "fastjson/CVE-2019-xxxxx",
@@ -51,6 +84,8 @@ class TestBuildRunMatrix:
             d = tmp_path / p
             d.mkdir(parents=True)
             (d / "docker-compose.yml").write_text("version: '3'\n")
+
+        monkeypatch.setattr("scripts.lab_host._host_exec", _fake_host_exec_factory(tmp_path))
 
         # Build with only the deserialization class
         units = build_run_matrix(
@@ -165,7 +200,10 @@ class TestDomainClassification:
 
 
 class TestVulhubGlobExpansion:
-    def test_expands_glob_patterns(self, tmp_path):
+    """_expand_vulhub_globs always resolves via _host_exec against the live host — never
+    a local glob. These tests mock _host_exec with a fixture tree standing in for LXC 112."""
+
+    def test_expands_glob_patterns(self, tmp_path, monkeypatch):
         """Glob patterns expand to matching directories with docker-compose.yml."""
         for p in ["fastjson/CVE-2022-xxx", "fastjson/CVE-2023-yyy"]:
             d = tmp_path / p
@@ -174,11 +212,32 @@ class TestVulhubGlobExpansion:
         # Create a dir WITHOUT docker-compose.yml (should be excluded)
         (tmp_path / "fastjson" / "incomplete").mkdir(parents=True)
 
+        monkeypatch.setattr("scripts.lab_host._host_exec", _fake_host_exec_factory(tmp_path))
         result = _expand_vulhub_globs(["fastjson/*"], tmp_path)
         assert len(result) == 2
         assert "fastjson/CVE-2022-xxx" in result
         assert "fastjson/CVE-2023-yyy" in result
         assert "fastjson/incomplete" not in result
+
+    def test_expansion_calls_host_exec_not_local_glob(self, tmp_path, monkeypatch):
+        """Regression guard: resolution must go through _host_exec (the host), never a
+        local filesystem glob — this is the wrong-machine bug the task fixes."""
+        # Local fixture tree exists on disk, but _host_exec is mocked to report nothing —
+        # if the code fell back to local glob.glob, it would still find these local dirs.
+        d = tmp_path / "fastjson" / "CVE-local-only"
+        d.mkdir(parents=True)
+        (d / "docker-compose.yml").write_text("version: '3'\n")
+
+        calls = []
+
+        def _tracking_empty(cmd: str, timeout: int = 20) -> dict:
+            calls.append(cmd)
+            return {"ok": True, "output": ""}
+
+        monkeypatch.setattr("scripts.lab_host._host_exec", _tracking_empty)
+        result = _expand_vulhub_globs(["fastjson/*"], tmp_path)
+        assert calls, "_expand_vulhub_globs must call _host_exec"
+        assert result == [], "must not fall back to local glob when host reports no matches"
 
     def test_empty_patterns_returns_empty(self, tmp_path):
         assert _expand_vulhub_globs([], tmp_path) == []
