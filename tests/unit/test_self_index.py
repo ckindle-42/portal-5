@@ -124,8 +124,13 @@ class TestBuildSelfIndex:
 
         empty_results_dir = tmp_path / "empty_results"
         empty_results_dir.mkdir()
+        empty_extra_dir = tmp_path / "empty_extra_results"
+        empty_extra_dir.mkdir()
         monkeypatch.setattr(
             "tests.benchmarks.bench_security.self_index._RESULTS_DIR", empty_results_dir
+        )
+        monkeypatch.setattr(
+            "tests.benchmarks.bench_security.self_index._EXTRA_RESULTS_DIR", empty_extra_dir
         )
         coverage = _read_coverage()
         assert coverage["status"] in ("stale", "absent")
