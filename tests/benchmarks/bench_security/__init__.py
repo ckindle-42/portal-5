@@ -169,6 +169,10 @@ def call_theory_direct(model: str, prompt: str, **kwargs) -> tuple[str, float]:
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
                 "stream": False,
+                # Ollama 0.31+ defaults num_ctx to a model's full native max context
+                # when unset (262144 for e.g. qwen3-coder), forcing an oversized KV
+                # cache that spills off-GPU and stalls every call. See exec_chain.py.
+                "options": {"num_ctx": 32768},
             },
             timeout=120.0,
         )
