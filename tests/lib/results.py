@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import re
 import subprocess
 import time
@@ -245,10 +246,8 @@ def _load_prior_results(sections_to_skip: set[str]) -> None:
             continue
         dur = 0.0
         if dur_str.endswith("s"):
-            try:
+            with contextlib.suppress(ValueError):
                 dur = float(dur_str[:-1])
-            except ValueError:
-                pass
         r = R(section=section, tid=tid, name=name, status=status, detail=detail, duration=dur)
         _log.append(r)
         if status == "BLOCKED":

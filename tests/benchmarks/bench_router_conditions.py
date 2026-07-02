@@ -70,6 +70,7 @@ Requirements:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import importlib.util
 import json
 import os
@@ -176,23 +177,17 @@ def _model_name_matches(name: str, target: str) -> bool:
 
 
 def is_model_loaded(client: httpx.Client, model: str) -> bool:
-    for m in get_loaded_models(client):
-        if _model_name_matches(m.get("name", ""), model):
-            return True
-    return False
+    return any(_model_name_matches(m.get("name", ""), model) for m in get_loaded_models(client))
 
 
 def is_model_available(client: httpx.Client, model: str) -> bool:
-    for m in get_available_models(client):
-        if _model_name_matches(m.get("name", ""), model):
-            return True
-    return False
+    return any(_model_name_matches(m.get("name", ""), model) for m in get_available_models(client))
 
 
 def load_model(client: httpx.Client, model: str, timeout_s: float = 120.0) -> float:
     """Send a minimal generate request to load model into VRAM. Returns elapsed ms."""
     t0 = time.monotonic()
-    try:
+    with contextlib.suppress(Exception):
         client.post(
             f"{OLLAMA_URL}/api/generate",
             json={
@@ -204,21 +199,17 @@ def load_model(client: httpx.Client, model: str, timeout_s: float = 120.0) -> fl
             },
             timeout=timeout_s,
         )
-    except Exception:
-        pass
     return (time.monotonic() - t0) * 1000.0
 
 
 def unload_model(client: httpx.Client, model: str) -> None:
     """Unload model from VRAM via keep_alive=0."""
-    try:
+    with contextlib.suppress(Exception):
         client.post(
             f"{OLLAMA_URL}/api/generate",
             json={"model": model, "prompt": "", "keep_alive": 0},
             timeout=15.0,
         )
-    except Exception:
-        pass
 
 
 def unload_all(client: httpx.Client) -> None:
@@ -252,7 +243,7 @@ def measure_cold_load(
     to be cold (not in /api/ps) before the production-timeout test run begins.
     """
     t0 = time.monotonic()
-    try:
+    with contextlib.suppress(Exception):
         client.post(
             f"{OLLAMA_URL}/api/generate",
             json={
@@ -265,8 +256,6 @@ def measure_cold_load(
             },
             timeout=COLD_LOAD_PROBE_TIMEOUT_S,
         )
-    except Exception:
-        pass
     return (time.monotonic() - t0) * 1000.0
 
 
@@ -843,10 +832,7 @@ def main() -> None:
             r["timeout_ms"] = args.timeout_ms
 
     # Build scenario list
-    if args.scenarios:
-        scenarios = args.scenarios
-    else:
-        scenarios = [s for s in SCENARIO_KEYS if s not in args.skip]
+    scenarios = args.scenarios or [s for s in SCENARIO_KEYS if s not in args.skip]
 
     print("Portal 5 — Router Conditions Bench")
     print(f"Ollama URL    : {OLLAMA_URL}")

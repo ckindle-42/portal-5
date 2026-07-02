@@ -20,7 +20,11 @@ class TestValidatePlaybook:
             "stop_conditions": [{"field": "compromise_confirmed", "equals": True}],
             "phases": [
                 {"id": "recon", "steps": [{"step": "portscan", "tool": "nmap"}]},
-                {"id": "exploit", "depends_on": ["recon"], "steps": [{"step": "sqli", "tool": "sqlmap"}]},
+                {
+                    "id": "exploit",
+                    "depends_on": ["recon"],
+                    "steps": [{"step": "sqli", "tool": "sqlmap"}],
+                },
             ],
         }
         problems = validate_playbook(pb)

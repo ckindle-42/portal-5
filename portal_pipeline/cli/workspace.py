@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 
@@ -26,10 +27,8 @@ def workspace_init() -> None:
     ]
     for sub in subdirs:
         (ws_root / sub).mkdir(parents=True, exist_ok=True)
-    try:
+    with contextlib.suppress(OSError):
         ws_root.chmod(0o775)
-    except OSError:
-        pass
     typer.echo("✅ Workspace structure created")
     typer.echo(f"   {ws_root}/")
     for sub in subdirs:

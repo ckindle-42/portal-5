@@ -311,9 +311,12 @@ async def _wait_for_response_arrival(
             len_history.pop(0)
 
         # Stable: enough samples, content exists, and max growth < threshold
-        if len(len_history) == STABLE_COUNT and cur_len > 0:
-            if max(len_history) - min(len_history) <= STABLE_THRESHOLD:
-                return text
+        if (
+            len(len_history) == STABLE_COUNT
+            and cur_len > 0
+            and max(len_history) - min(len_history) <= STABLE_THRESHOLD
+        ):
+            return text
 
         remaining = deadline - time.monotonic()
         if remaining <= 0:

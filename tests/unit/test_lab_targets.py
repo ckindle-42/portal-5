@@ -33,7 +33,9 @@ class TestChallengeClasses:
         for c in data["classes"]:
             has_vulhub = len(c.get("vulhub", [])) > 0
             has_purpose = c.get("purpose_built") is not None
-            assert has_vulhub or has_purpose, f"class {c['id']} has no vulhub path or purpose_built dir"
+            assert has_vulhub or has_purpose, (
+                f"class {c['id']} has no vulhub path or purpose_built dir"
+            )
 
     def test_every_class_has_ground_truth(self):
         data = yaml.safe_load(open("config/challenge_classes.yaml"))
@@ -47,6 +49,7 @@ class TestChallengeClasses:
 
     def test_ability_port_imports(self):
         from tests.benchmarks.bench_security.ability_port import ability_coverage
+
         cov = ability_coverage()
         assert cov["challenge_classes"] >= 40
         assert cov["ptai_probes_ported"] >= 20

@@ -8,6 +8,7 @@ is a route handler body; the ``@app.<method>`` decorators live in
 from __future__ import annotations
 
 import asyncio
+import importlib.metadata
 import json
 import logging
 import os
@@ -22,24 +23,17 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from prometheus_client import generate_latest
 
 from portal_pipeline.cluster_backends import BackendRegistry
+from portal_pipeline.config import ollama_url
+from portal_pipeline.router.anthropic_compat import (
+    anthropic_to_openai_body,
+    openai_stream_to_anthropic_sse,
+)
 from portal_pipeline.router.auth import _verify_admin_key, _verify_key
 from portal_pipeline.router.concurrency import (
     RequestSlot,
 )
 from portal_pipeline.router.lifespan import (
     _startup_time,
-)
-
-# Set by lifespan — NOT captured at import time.
-# Importing registry/dispatcher by name from lifespan would capture the module-level
-# None before lifespan runs; lifespan pushes the live objects in, same pattern
-# as _routing_mod._http_client and _streaming_mod._http_client.
-registry: BackendRegistry | None = None
-_notification_dispatcher: Any = None
-from portal_pipeline.config import ollama_url
-from portal_pipeline.router.anthropic_compat import (
-    anthropic_to_openai_body,
-    openai_stream_to_anthropic_sse,
 )
 from portal_pipeline.router.metrics import (
     _REGISTRY,
@@ -80,9 +74,14 @@ from portal_pipeline.router.workspaces import (
 
 logger = logging.getLogger(__name__)
 
-# ── Constants from original router_pipe.py ────────────────────────────────────
-import importlib.metadata
+# Set by lifespan — NOT captured at import time.
+# Importing registry/dispatcher by name from lifespan would capture the module-level
+# None before lifespan runs; lifespan pushes the live objects in, same pattern
+# as _routing_mod._http_client and _streaming_mod._http_client.
+registry: BackendRegistry | None = None
+_notification_dispatcher: Any = None
 
+# ── Constants from original router_pipe.py ────────────────────────────────────
 try:
     _PKG_VERSION = importlib.metadata.version("portal-5")
 except importlib.metadata.PackageNotFoundError:
@@ -1087,21 +1086,23 @@ async def anthropic_messages(
     if stream:
 
         async def _generate() -> AsyncIterator[str]:
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=_app),  # type: ignore[arg-type]
-                base_url="http://portal-local",
-                timeout=httpx.Timeout(300.0),
-            ) as client:
-                async with client.stream(
+            async with (
+                httpx.AsyncClient(
+                    transport=httpx.ASGITransport(app=_app),  # type: ignore[arg-type]
+                    base_url="http://portal-local",
+                    timeout=httpx.Timeout(300.0),
+                ) as client,
+                client.stream(
                     "POST",
                     "/v1/chat/completions",
                     json=openai_body,
                     headers=fwd_headers,
-                ) as resp:
-                    async for chunk in openai_stream_to_anthropic_sse(
-                        resp.aiter_lines(), msg_id, model_id
-                    ):
-                        yield chunk
+                ) as resp,
+            ):
+                async for chunk in openai_stream_to_anthropic_sse(
+                    resp.aiter_lines(), msg_id, model_id
+                ):
+                    yield chunk
 
         return StreamingResponse(_generate(), media_type="text/event-stream")
 

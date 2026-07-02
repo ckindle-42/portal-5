@@ -12,7 +12,6 @@ from tests.benchmarks.bench_security.loop import (
     enforce_scope,
     run_engagement,
 )
-from tests.benchmarks.bench_security.playbooks import validate_playbook
 
 
 class TestScopeGuard:
@@ -34,7 +33,9 @@ class TestBudgetCheck:
         assert _check_budget(state, pb) is not None
 
     def test_hard_cap_enforced(self):
-        pb = {"budget": {"max_iterations": 100, "max_wall_clock_sec": 99999, "max_lab_actions": 999}}
+        pb = {
+            "budget": {"max_iterations": 100, "max_wall_clock_sec": 99999, "max_lab_actions": 999}
+        }
         state = EngagementState("test", "pb", started_at=0)
         state.iterations = 51  # exceeds HARD_MAX_ITERATIONS=50
         assert _check_budget(state, pb) is not None
@@ -64,9 +65,7 @@ class TestRunEngagement:
             run_engagement("nonexistent.yaml", dry_run=True)
 
     def test_valid_playbook_dry_runs(self):
-        result = run_engagement(
-            "playbooks/security/internal-ad-pentest.yaml", dry_run=True
-        )
+        result = run_engagement("playbooks/security/internal-ad-pentest.yaml", dry_run=True)
         assert result["status"] == "dry_run"
         assert result["playbook"] == "internal-ad-pentest"
         assert "phases_plan" in result

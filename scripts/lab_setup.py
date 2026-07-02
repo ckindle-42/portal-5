@@ -7,10 +7,8 @@ Usage: python3 scripts/lab_setup.py [--skip-heavy] [--update] [--dry-run]
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 LAB_DIR = os.environ.get("LAB_DIR", os.path.expanduser("~/AI_Output/lab"))
@@ -82,6 +80,7 @@ def setup_challenges(skip_heavy: bool, dry_run: bool) -> dict:
     # Materialise purpose-built challenge dirs referenced in challenge_classes.yaml
     try:
         import yaml
+
         cc = yaml.safe_load((REPO_ROOT / "config" / "challenge_classes.yaml").read_text())
         for c in cc.get("classes", []):
             pb = c.get("purpose_built")
@@ -99,7 +98,10 @@ def setup_models(skip_heavy: bool, dry_run: bool) -> dict:
         result["reason"] = "skipped (--skip-heavy)"
         return result
     # Reuse existing pull-models path
-    ok = _run(f"cd {REPO_ROOT} && ./launch.sh pull-models 2>/dev/null || echo 'pull-models skipped'", dry_run)
+    ok = _run(
+        f"cd {REPO_ROOT} && ./launch.sh pull-models 2>/dev/null || echo 'pull-models skipped'",
+        dry_run,
+    )
     result["status"] = "attempted" if ok else result["status"]
     return result
 
@@ -125,14 +127,18 @@ def run_setup(skip_heavy: bool = False, dry_run: bool = False, update: bool = Fa
         results[step_id] = r
         print(f"  → {r['status']}")
 
-    print(f"\n  Done. {sum(1 for r in results.values() if r['status'] == 'ok')}/{len(results)} steps OK")
+    print(
+        f"\n  Done. {sum(1 for r in results.values() if r['status'] == 'ok')}/{len(results)} steps OK"
+    )
     return results
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Lab Tier-1 setup — idempotent bulk downloads")
     parser.add_argument("--skip-heavy", action="store_true", help="Skip vulhub + model pulls")
-    parser.add_argument("--update", action="store_true", help="Update (git pull) existing downloads")
+    parser.add_argument(
+        "--update", action="store_true", help="Update (git pull) existing downloads"
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print plan without downloading")
     args = parser.parse_args()
     run_setup(skip_heavy=args.skip_heavy, dry_run=args.dry_run, update=args.update)

@@ -14,9 +14,7 @@ from tests.benchmarks.bench_security.field_journal import (
 
 class TestWriteEntry:
     def test_write_and_rebuild(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(
-            "tests.benchmarks.bench_security.field_journal.JOURNAL_DIR", tmp_path
-        )
+        monkeypatch.setattr("tests.benchmarks.bench_security.field_journal.JOURNAL_DIR", tmp_path)
         entry = {
             "engagement_id": "test-001",
             "ts": "2026-07-01T00:00:00Z",
@@ -37,9 +35,7 @@ class TestWriteEntry:
         assert index["outcomes"]["goal_met"] == 1
 
     def test_entries_stamped(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(
-            "tests.benchmarks.bench_security.field_journal.JOURNAL_DIR", tmp_path
-        )
+        monkeypatch.setattr("tests.benchmarks.bench_security.field_journal.JOURNAL_DIR", tmp_path)
         entry = {
             "engagement_id": "test-002",
             "ts": "2026-07-01T01:00:00Z",
@@ -60,9 +56,7 @@ class TestWriteEntry:
 
 class TestRecall:
     def test_recall_matches_category_and_keywords(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(
-            "tests.benchmarks.bench_security.field_journal.JOURNAL_DIR", tmp_path
-        )
+        monkeypatch.setattr("tests.benchmarks.bench_security.field_journal.JOURNAL_DIR", tmp_path)
         e1 = {
             "engagement_id": "r1",
             "ts": "2026-07-01T00:00:00Z",
@@ -104,9 +98,7 @@ class TestRecall:
 
 class TestRecordEngagement:
     def test_malformed_chain_does_not_raise(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(
-            "tests.benchmarks.bench_security.field_journal.JOURNAL_DIR", tmp_path
-        )
+        monkeypatch.setattr("tests.benchmarks.bench_security.field_journal.JOURNAL_DIR", tmp_path)
         # Should not raise — empty chain is handled gracefully
         record_engagement({})
         # May write a minimal entry or return None — both are acceptable
