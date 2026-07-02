@@ -28,6 +28,9 @@ It validates:
     I. Shim contract — historical router_pipe imports all resolve
     Y. Self-index integrity — read-only signal aggregation, deterministic ranking
     Z. CI parity — bench imports without PYTHONPATH, conftest lab defaults, ci_local.sh
+    AA. Live exec integrity — vulhub->host dispatch, DISPATCH_NOT_RUN guard
+    AB. Stage 2 propose integrity — bounded proposals, proof-gated promotion,
+        no hollow flag-flip, no writes without operator --apply
 
 Designed to run in under 60 seconds on the M4 Pro Mac Mini. Use this as
 the gate before kicking off the full long-running suites:
@@ -1308,6 +1311,115 @@ def check_live_exec_integrity() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_stage2_propose_integrity() -> tuple[str, str, list[dict]]:
+    """AB. stage2 propose integrity: bounded single-oracle changes; promotions require
+    positive+negative proof against real data; no hollow/flag-flip promotion is
+    promotable; the loop applies nothing without operator --apply."""
+    subs: list[dict] = []
+
+    try:
+        from tests.benchmarks.bench_security.oracles import ORACLES
+        from tests.benchmarks.bench_security.stage2_propose import (
+            apply_batch,
+            goal_eval,
+            run_stage2,
+            weak_oracle_ids,
+        )
+    except ImportError as e:
+        return "FAIL", f"stage2_propose import failed: {e}", []
+
+    # Check 1: weak_oracle_ids matches the Stage 1 weakness view exactly (46: 41+5)
+    weak = weak_oracle_ids(ORACLES)
+    if len(weak) != 46:
+        subs.append(
+            {
+                "name": "weak oracle count",
+                "status": "FAIL",
+                "detail": f"expected 46 (41 experimental + 5 differential), got {len(weak)}",
+            }
+        )
+        return "FAIL", f"weak_oracle_ids returned {len(weak)}, expected 46", subs
+    subs.append({"name": "weak oracle count", "status": "PASS", "detail": "46"})
+
+    # Check 2: false-promotion guard — a hollow tier-only flip can never be promotable
+    hollow_proposal = {
+        "oracle_id": "__validator_probe__",
+        "scope": ["__validator_probe__"],
+        "current_tier": "experimental",
+        "diff_touches_check": False,
+    }
+    hollow_proof = {
+        "insufficient_evidence": False,
+        "positive_tested": 0,
+        "positive_passed": 0,
+        "negative_tested": 0,
+        "negative_passed": 0,
+    }
+    hollow_result = goal_eval(hollow_proposal, hollow_proof, index=None)
+    if hollow_result["promotable"]:
+        subs.append(
+            {
+                "name": "false-promotion guard",
+                "status": "FAIL",
+                "detail": "hollow flag-flip marked promotable",
+            }
+        )
+        return "FAIL", "false-promotion guard failed: hollow proposal marked promotable", subs
+    subs.append({"name": "false-promotion guard", "status": "PASS"})
+
+    # Check 3: running propose without --apply writes nothing to oracle source files
+    import tests.benchmarks.bench_security.stage2_propose as s2
+
+    oracles_before = s2._ORACLES_PY.read_text()
+    ability_before = s2._ABILITY_PORT_PY.read_text()
+    try:
+        report = run_stage2()
+    except Exception as e:
+        subs.append({"name": "run_stage2", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"run_stage2 raised: {type(e).__name__}: {e}", subs
+    oracles_after = s2._ORACLES_PY.read_text()
+    ability_after = s2._ABILITY_PORT_PY.read_text()
+    if oracles_before != oracles_after or ability_before != ability_after:
+        subs.append({"name": "no-apply gate", "status": "FAIL", "detail": "source files mutated"})
+        return "FAIL", "propose without --apply wrote to oracle source files", subs
+    subs.append({"name": "no-apply gate", "status": "PASS", "detail": "oracle source untouched"})
+
+    # Check 4: apply_batch is not reachable from run_stage2/write_report — only from
+    # stage2_propose_main(apply=True), i.e. an explicit operator --apply.
+    import inspect
+
+    if "apply_batch" in inspect.getsource(s2.run_stage2) or "apply_batch" in inspect.getsource(
+        s2.write_report
+    ):
+        subs.append(
+            {
+                "name": "apply not auto-wired",
+                "status": "FAIL",
+                "detail": "apply_batch referenced from a non-operator code path",
+            }
+        )
+        return "FAIL", "apply_batch is reachable without operator --apply", subs
+    subs.append({"name": "apply not auto-wired", "status": "PASS"})
+
+    assert callable(apply_batch)  # imported to confirm it's a real, distinct, operator-only symbol
+    subs.append(
+        {
+            "name": "report shape",
+            "status": "PASS"
+            if hasattr(report, "promotable") and hasattr(report, "not_promotable")
+            else "FAIL",
+            "detail": f"{len(report.promotable)} promotable, {len(report.not_promotable)} not",
+        }
+    )
+
+    return (
+        "PASS",
+        f"46 weak oracles, false-promotion guard holds, no-apply gate holds "
+        f"({len(report.promotable)} promotable, {len(report.not_promotable)} not-promotable)",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -1374,6 +1486,7 @@ def main() -> int:
     v.run("Y. self-index integrity", check_self_index_integrity)
     v.run("Z. ci parity", check_ci_parity)
     v.run("AA. live exec integrity", check_live_exec_integrity)
+    v.run("AB. stage2 propose integrity", check_stage2_propose_integrity)
 
     return v.summary()
 

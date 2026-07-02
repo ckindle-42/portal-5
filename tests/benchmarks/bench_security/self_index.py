@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,6 +20,16 @@ _SELF_DIR = Path(__file__).resolve().parent
 _RESULTS_DIR = _SELF_DIR / "results"
 _EXTRA_RESULTS_DIR = _PROJECT_ROOT / "tests" / "benchmarks" / "results"
 _JOURNAL_DIR = _SELF_DIR / "field_journal"
+
+
+def _run_timestamp_key(p: Path) -> str:
+    """Sort key for sec_bench_<TS>.json: the run's own embedded UTC timestamp.
+
+    Filesystem mtime gets scrambled by git checkout/clone and doesn't reflect
+    actual bench-run order; the filename timestamp is authoritative.
+    """
+    m = re.search(r"sec_bench_(?:\w+_)*(\d{8}T\d{6}Z)", p.name)
+    return m.group(1) if m else ""
 
 
 # ── Phase 1: signal readers ───────────────────────────────────────────────────
@@ -112,7 +123,7 @@ def _read_oracle_fidelity() -> dict:
     # Try to enrich with verified counts from the freshest result JSON
     result_files = sorted(
         [p for p in _RESULTS_DIR.glob("sec_bench_*.json") if not p.name.endswith(".partial.json")],
-        key=os.path.getmtime,
+        key=_run_timestamp_key,
         reverse=True,
     )
     for rf in result_files:
@@ -148,7 +159,7 @@ def _complete_result_files() -> list[Path]:
         for p in results_dir.glob("sec_bench_*.json")
         if not p.name.endswith(".partial.json")
     ]
-    return sorted(files, key=os.path.getmtime, reverse=True)
+    return sorted(files, key=_run_timestamp_key, reverse=True)
 
 
 def _coverage_from_matrix(data: dict) -> dict | None:
