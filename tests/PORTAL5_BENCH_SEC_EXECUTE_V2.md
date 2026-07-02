@@ -334,6 +334,40 @@ reason — never a fabricated result. Live-verified end-to-end through the actua
 `tomcat_manager`, and `log4shell_rce` all reach `status: verified`; `redis_to_rce` honestly stays
 `rejected`.
 
+### Host readiness fixes (2026-07-01/02) — required before a full re-run
+
+Two infra gaps were found and fixed by live-testing the spin-up/dispatch paths for real, not by
+inspection alone:
+
+- **LXC 112 AppArmor block (fixed).** `docker compose up` on any vulhub env that wasn't already
+  running failed with `apparmor_parser: Access denied. You need policy admin privileges` — the
+  container was missing `CAP_MAC_ADMIN`/`CAP_MAC_OVERRIDE` in its Proxmox-default capability set,
+  even though it's privileged and `lxc.apparmor.profile: unconfined`. This blocked ~324 of the 328
+  present vulhub envs (only the 4 already-running ones worked). Fixed by adding `lxc.cap.drop:`
+  (empty override) to `/etc/pve/lxc/112.conf` (backed up as `112.conf.bak-pre-mac-admin-fix`) and
+  restarting the container. Verified live: a cold spin-up of `fastjson/1.2.47-rce` (not previously
+  running) now succeeds — real container start, real reachability, real teardown, no leftover
+  state. The 4 pre-existing services (`tomcat8-tomcat-1`, `cve-2021-44228-solr-1`,
+  `inclusion-php-1`, `4-unacc-redis-1`) don't have Docker restart policies (`no`) and were manually
+  restarted after the LXC reboot.
+- **`cmd_up` port-guessing (fixed).** The prior port logic defaulted to `8080` for any raw vulhub
+  path not in `config/lab_targets.yaml`'s catalog — wrong whenever the real compose file publishes
+  a different port (e.g. `fastjson/1.2.47-rce` actually publishes `8090`). `cmd_up` now queries
+  `docker compose ps --format json`'s `Publishers` field for the real published port
+  (`scripts/lab_targets.py::_published_port`), falling back to the catalog/guessed port +
+  dynamic remap only when Docker doesn't report one.
+- **`kerberoasting`/`asrep_roasting` oracle mismatch (fixed).** Both scenarios were assigned the
+  `rce_shell` oracle in `_data.py`, which requires a `uid=`/`shell obtained` marker — these are
+  credential-theft scenarios (capture a TGS/AS-REP hash), never RCE, so real successful runs could
+  never score `verified`. Added a new `credential_theft` oracle (`oracles.py`, checks for
+  `$krb5tgs$`/`$krb5asrep$`/`$NTLM$` markers) and reassigned both scenarios to it. Live-verified:
+  `asrep_roasting` now reaches `status: verified` with a real captured AS-REP hash.
+  `kerberoasting` still honestly rejects in the current environment — not an oracle problem this
+  time, but a **live clock-skew issue** between the attack sandbox and the DC
+  (`KRB_AP_ERR_SKEW(Clock skew too great)`), which breaks Kerberos ticket requests regardless of
+  dispatch/oracle correctness. Untouched — NTP sync on the attack container is a separate
+  operational fix, not in scope here.
+
 ---
 
 ## Validation-Integrity Gate (NEW in V2.1)
