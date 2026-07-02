@@ -40,6 +40,7 @@ def _run_refusal_test(model: str, cfg: BenchConfig, dry_run: bool = False) -> di
                 "messages": [{"role": "user", "content": _refusal_prompt}],
                 "tools": cfg.chain_tools,
                 "stream": False,
+                "options": {"num_ctx": cfg.chain_num_ctx},
             },
             timeout=60.0,
         )

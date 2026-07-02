@@ -1611,6 +1611,7 @@ def _run_chain_test(
                         "messages": messages,
                         "tools": cfg.chain_tools,
                         "stream": False,
+                        "options": {"num_ctx": cfg.chain_num_ctx},
                     },
                     timeout=per_turn_timeout,
                 )
@@ -1834,6 +1835,7 @@ def _run_multimodel_chain(
                         "messages": messages,
                         "tools": cfg.chain_tools,
                         "stream": False,
+                        "options": {"num_ctx": cfg.chain_num_ctx},
                     },
                     timeout=120.0,
                 )
