@@ -536,10 +536,17 @@ def verify_lab_targets_reachable(dry_run: bool = False) -> bool:
     for label, host in (("DC", dc), ("SRV", srv)):
         try:
             r = _lab_mcp_call(probe_code_template.format(host=host), timeout=15)
-            out = r.get("output", "") if r else ""
+            raw = r.get("output", "") if r else ""
         except Exception:
-            out = ""
-        reachable[label] = out.strip() == "REACHABLE"
+            raw = ""
+        # r["output"] is the sandbox's JSON-wrapped {"success","stdout","stderr",...}
+        # envelope, not bare stdout — the prior exact `raw.strip() == "REACHABLE"` check
+        # could never match that envelope and always reported UNREACHABLE regardless of
+        # real connectivity. Unwrap via the same helper probe_lab_services() already uses
+        # (this was the actual root cause of every "both DC and SRV unreachable" abort —
+        # the lab was up the whole time).
+        _, stdout = parse_sandbox_output(raw)
+        reachable[label] = stdout.strip() == "REACHABLE"
         status = "reachable" if reachable[label] else "UNREACHABLE"
         print(f"  [lab-gate] {label} ({host}): {status}")
     if not any(reachable.values()):
