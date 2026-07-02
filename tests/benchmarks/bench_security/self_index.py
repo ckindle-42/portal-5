@@ -35,6 +35,10 @@ def _run_validator_json() -> dict | None:
             text=True,
             timeout=30,
             cwd=str(_PROJECT_ROOT),
+            # Tell the child not to recurse into its own self-index check — this
+            # function IS that check's data source, so without this guard the child
+            # spawns another child spawns another... (unbounded fork chain).
+            env={**os.environ, "PORTAL5_SELF_INDEX_NESTED": "1"},
         )
         if result.returncode != 0 or not result.stdout.strip():
             return None
