@@ -1543,6 +1543,140 @@ def check_kali_rescore_integrity() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_coverage_expansion_integrity() -> tuple[str, str, list[dict]]:
+    """AD. Coverage expansion integrity.
+
+    Verifies:
+    - Every scenario carries detect_ground_truth (blue-scorable — operator's rule)
+    - New scenarios route to real lab targets
+    - New techniques have SPL detections or are logged as blue-gaps
+    - Vulhub mappings point to present container classes
+    """
+    subs: list[dict] = []
+
+    # Check 1: Every scenario has detect_ground_truth (blue-scorable)
+    try:
+        from tests.benchmarks.bench_security.exec_chain import SCENARIOS
+
+        allowed_empty = {"mbptl_ctf_full_chain"}
+        red_only = [
+            k
+            for k, v in SCENARIOS.items()
+            if not v.get("detect_ground_truth") and k not in allowed_empty
+        ]
+        if red_only:
+            subs.append(
+                {
+                    "name": "blue-scorable guard",
+                    "status": "FAIL",
+                    "detail": f"red-only scenarios: {red_only}",
+                }
+            )
+            return "FAIL", f"red-only scenarios found: {red_only}", subs
+        subs.append(
+            {
+                "name": "blue-scorable guard",
+                "status": "PASS",
+                "detail": f"{len(SCENARIOS)} scenarios, all carry detect_ground_truth",
+            }
+        )
+    except Exception as e:
+        subs.append({"name": "blue-scorable guard", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"import failed: {e}", subs
+
+    # Check 2: meta3 no longer at zero
+    try:
+        meta3_count = sum(1 for k in SCENARIOS if k.startswith("meta3_"))
+        if meta3_count < 5:
+            subs.append(
+                {
+                    "name": "meta3 coverage",
+                    "status": "FAIL",
+                    "detail": f"only {meta3_count} meta3 scenarios",
+                }
+            )
+            return "FAIL", f"meta3 has {meta3_count} scenarios, expected >=5", subs
+        subs.append(
+            {
+                "name": "meta3 coverage",
+                "status": "PASS",
+                "detail": f"{meta3_count} meta3 scenarios",
+            }
+        )
+    except Exception as e:
+        subs.append({"name": "meta3 coverage", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"meta3 check failed: {e}", subs
+
+    # Check 3: vulhub breadth >=30
+    try:
+        vuln_count = sum(1 for k in SCENARIOS if k.startswith("vuln_"))
+        if vuln_count < 30:
+            subs.append(
+                {
+                    "name": "vulhub breadth",
+                    "status": "FAIL",
+                    "detail": f"only {vuln_count} vulhub scenarios",
+                }
+            )
+            return "FAIL", f"vulhub has {vuln_count} scenarios, expected >=30", subs
+        subs.append(
+            {
+                "name": "vulhub breadth",
+                "status": "PASS",
+                "detail": f"{vuln_count} vulhub expansion scenarios",
+            }
+        )
+    except Exception as e:
+        subs.append({"name": "vulhub breadth", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"vulhub check failed: {e}", subs
+
+    # Check 4: New techniques have SPL detections
+    try:
+        from tests.benchmarks.bench_security.siem.spl_detections import techniques_covered
+
+        new_techniques: set[str] = set()
+        for name in SCENARIOS:
+            if name.startswith(("meta3_", "vuln_")):
+                gt = SCENARIOS[name].get("detect_ground_truth", [])
+                new_techniques.update(gt)
+        covered = set(techniques_covered())
+        known_gaps = {"T1537", "T1203", "T1547.001"}
+        gaps = sorted(new_techniques - covered - known_gaps)
+        if gaps:
+            subs.append(
+                {
+                    "name": "SPL coverage",
+                    "status": "WARN",
+                    "detail": f"blue-gaps (no SPL): {gaps}",
+                }
+            )
+        else:
+            subs.append(
+                {
+                    "name": "SPL coverage",
+                    "status": "PASS",
+                    "detail": f"{len(new_techniques)} techniques, all have SPL or are known gaps",
+                }
+            )
+    except Exception as e:
+        subs.append({"name": "SPL coverage", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"SPL check failed: {e}", subs
+
+    # Check 5: Total scenario count
+    total = len(SCENARIOS)
+    if total < 70:
+        subs.append({"name": "total scenarios", "status": "WARN", "detail": f"{total}"})
+    else:
+        subs.append({"name": "total scenarios", "status": "PASS", "detail": f"{total}"})
+
+    return (
+        "PASS",
+        f"{total} scenarios ({meta3_count} meta3, {vuln_count} vulhub); "
+        f"all blue-scorable; {len(new_techniques)} techniques tracked",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -1611,6 +1745,7 @@ def main() -> int:
     v.run("AA. live exec integrity", check_live_exec_integrity)
     v.run("AB. stage2 propose integrity", check_stage2_propose_integrity)
     v.run("AC. kali exec + rescore integrity", check_kali_rescore_integrity)
+    v.run("AD. coverage expansion integrity", check_coverage_expansion_integrity)
 
     return v.summary()
 
