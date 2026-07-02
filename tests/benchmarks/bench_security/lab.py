@@ -628,11 +628,31 @@ def _lab_dispatch_inner(fn_name: str, fn_args: dict, dry_run: bool = False) -> s
         if not mbptl_available:
             return f"OK: {fn_name} completed (synthetic — LAB_MBPTL_HOST not set)."
         method = fn_args.get("method", "GET")
-        url_path = fn_args.get("path", "/")
-        port = fn_args.get("port", mbptl_web)
+        # The tool schema declares "url" (required) — not "path"/"port", which don't
+        # exist in the schema at all. Reading fn_args.get("path", "/") silently ignored
+        # every URL the model ever specified and always hit the site root. Found live
+        # 2026-07-02: models consistently sent full target URLs (admin panels, upload
+        # endpoints, SSRF payloads to 169.254.169.254) that were never actually used.
+        # The model's URL host is the scenario's cover-story address (may not even be
+        # the real routable lab host) — keep only path+query, dispatch against the real
+        # mbptl_host:mbptl_web the same way every other MBPTL tool in this file does.
+        raw_url = fn_args.get("url", "/")
         if dry_run:
-            return f"[DRY-RUN] web_request {method} {mbptl_host}:{port}{url_path}"
-        cmd = f"curl -s {'-I' if method == 'HEAD' else ''} http://{mbptl_host}:{port}{url_path} 2>&1 | head -20"
+            return f"[DRY-RUN] web_request {method} {raw_url}"
+        parsed = urllib.parse.urlsplit(raw_url)
+        path_and_query = parsed.path or "/"
+        if parsed.query:
+            path_and_query += "?" + parsed.query
+        port = mbptl_web
+        if parsed.netloc and ":" in parsed.netloc:
+            maybe_port = parsed.netloc.rsplit(":", 1)[-1]
+            if maybe_port.isdigit():
+                port = maybe_port
+        encoded_target = urllib.parse.quote(path_and_query, safe="/?=&%:")
+        cmd = (
+            f"curl -s {'-I' if method == 'HEAD' else ''} "
+            f'"http://{mbptl_host}:{port}{encoded_target}" 2>&1 | head -20'
+        )
         r = _lab_mcp_call(cmd, timeout=30)  # type: ignore[misc]
         return parse_sandbox_output(r.get("output", ""))[1] or "[web_request: no output]"
 
