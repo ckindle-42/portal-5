@@ -21,15 +21,29 @@ def test_gate_skips_on_dry_run(monkeypatch):
     assert lab_mod.verify_lab_targets_reachable(dry_run=True) is True
 
 
+def _sandbox_envelope(stdout: str) -> dict:
+    """The REAL _lab_mcp_call/_mcp_call contract: output is a JSON-wrapped envelope
+    ({"success","stdout","stderr","exit_code","timed_out"}), never bare text. A prior
+    version of this test mocked bare text ({"output": "REACHABLE"}), which let
+    verify_lab_targets_reachable's exact-match bug (comparing the whole envelope
+    string against "REACHABLE") pass here while failing 100% of the time in
+    production — the lab was reachable the whole time. Never regress this shape."""
+    return {
+        "output": json.dumps(
+            {"success": True, "stdout": stdout, "stderr": "", "exit_code": 0, "timed_out": False}
+        )
+    }
+
+
 def test_gate_passes_when_both_reachable(monkeypatch):
     monkeypatch.setattr(lab_mod, "_LAB_EXEC_AVAILABLE", True)
-    monkeypatch.setattr(lab_mod, "_lab_mcp_call", lambda *a, **k: {"output": "REACHABLE"})
+    monkeypatch.setattr(lab_mod, "_lab_mcp_call", lambda *a, **k: _sandbox_envelope("REACHABLE"))
     assert lab_mod.verify_lab_targets_reachable() is True
 
 
 def test_gate_fails_when_both_unreachable(monkeypatch):
     monkeypatch.setattr(lab_mod, "_LAB_EXEC_AVAILABLE", True)
-    monkeypatch.setattr(lab_mod, "_lab_mcp_call", lambda *a, **k: {"output": "UNREACHABLE"})
+    monkeypatch.setattr(lab_mod, "_lab_mcp_call", lambda *a, **k: _sandbox_envelope("UNREACHABLE"))
     assert lab_mod.verify_lab_targets_reachable() is False
 
 
@@ -39,7 +53,7 @@ def test_gate_warns_but_passes_on_partial_reachability(monkeypatch):
 
     def _fake_call(*_a, **_k):
         calls["n"] += 1
-        return {"output": "REACHABLE" if calls["n"] == 1 else "UNREACHABLE"}
+        return _sandbox_envelope("REACHABLE" if calls["n"] == 1 else "UNREACHABLE")
 
     monkeypatch.setattr(lab_mod, "_lab_mcp_call", _fake_call)
     assert lab_mod.verify_lab_targets_reachable() is True
