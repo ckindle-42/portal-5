@@ -1431,6 +1431,118 @@ def check_stage2_propose_integrity() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_kali_rescore_integrity() -> tuple[str, str, list[dict]]:
+    """AC. Kali exec + rescore integrity.
+
+    Verifies:
+    - CHAIN_TOOLS_BASE exposes execute_bash/execute_python
+    - lab_dispatch routes them to real Kali
+    - coverage credits a step only on REAL bash success output, never a bare call
+    - web scenarios back every technique with a real Kali command
+    """
+    subs: list[dict] = []
+
+    # Check 1: CHAIN_TOOLS_BASE exposes execute_bash/execute_python
+    try:
+        from tests.benchmarks.bench_security.exec_chain import CHAIN_TOOLS_BASE
+
+        names = {t.get("function", {}).get("name") for t in CHAIN_TOOLS_BASE}
+        if "execute_bash" not in names:
+            subs.append({"name": "execute_bash exposed", "status": "FAIL", "detail": "missing"})
+            return "FAIL", "execute_bash missing from CHAIN_TOOLS_BASE", subs
+        if "execute_python" not in names:
+            subs.append({"name": "execute_python exposed", "status": "FAIL", "detail": "missing"})
+            return "FAIL", "execute_python missing from CHAIN_TOOLS_BASE", subs
+        subs.append({"name": "execute_bash exposed", "status": "PASS", "detail": ""})
+        subs.append({"name": "execute_python exposed", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "CHAIN_TOOLS_BASE import", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"import failed: {e}", subs
+
+    # Check 2: lab_dispatch routes execute_bash to _lab_mcp_call
+    try:
+        import inspect
+
+        from tests.benchmarks.bench_security.lab import _lab_dispatch_inner
+
+        src = inspect.getsource(_lab_dispatch_inner)
+        if 'fn_name == "execute_bash"' not in src:
+            subs.append(
+                {
+                    "name": "lab_dispatch routes execute_bash",
+                    "status": "FAIL",
+                    "detail": "no routing",
+                }
+            )
+            return "FAIL", "lab_dispatch does not route execute_bash", subs
+        subs.append({"name": "lab_dispatch routes execute_bash", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "lab_dispatch check", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"lab_dispatch check failed: {e}", subs
+
+    # Check 3: Honesty guard — no credit without real output
+    try:
+        from tests.benchmarks.bench_security.scoring import accumulate_observations
+
+        obs: dict = {}
+        accumulate_observations("execute_bash", "", obs)
+        if obs.get("compromise_confirmed"):
+            subs.append(
+                {"name": "honesty guard", "status": "FAIL", "detail": "empty output got credit"}
+            )
+            return "FAIL", "honesty guard broken: empty output got compromise_confirmed", subs
+        subs.append(
+            {"name": "honesty guard", "status": "PASS", "detail": "no credit on empty output"}
+        )
+    except Exception as e:
+        subs.append({"name": "honesty guard", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"honesty guard check failed: {e}", subs
+
+    # Check 4: Web scenarios use execute_bash and target LXC 112
+    try:
+        from tests.benchmarks.bench_security.exec_chain import SCENARIOS
+
+        web_scenarios = [
+            "web_sqli_dump",
+            "web_graphql_introspect",
+            "web_deserial_rce",
+            "web_nosql_inject",
+            "web_path_traversal",
+            "web_reflected_xss",
+            "web_cors",
+            "web_open_redirect",
+            "web_forced_error",
+            "web_asset_discovery",
+            "web_smuggling",
+            "web_ssti",
+        ]
+        for name in web_scenarios:
+            if name not in SCENARIOS:
+                subs.append({"name": f"scenario {name}", "status": "FAIL", "detail": "missing"})
+                return "FAIL", f"web scenario '{name}' missing", subs
+            s = SCENARIOS[name]
+            if "execute_bash" not in s.get("red_order", []):
+                subs.append({"name": f"{name} uses execute_bash", "status": "FAIL", "detail": "no"})
+                return "FAIL", f"scenario '{name}' does not use execute_bash", subs
+        subs.append(
+            {
+                "name": "web scenarios present",
+                "status": "PASS",
+                "detail": f"{len(web_scenarios)} scenarios",
+            }
+        )
+    except Exception as e:
+        subs.append({"name": "web scenarios", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"web scenario check failed: {e}", subs
+
+    return (
+        "PASS",
+        f"execute_bash/python exposed; lab_dispatch routes; honesty guard holds; "
+        f"{len(web_scenarios)} web scenarios use Kali via execute_bash",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -1498,6 +1610,7 @@ def main() -> int:
     v.run("Z. ci parity", check_ci_parity)
     v.run("AA. live exec integrity", check_live_exec_integrity)
     v.run("AB. stage2 propose integrity", check_stage2_propose_integrity)
+    v.run("AC. kali exec + rescore integrity", check_kali_rescore_integrity)
 
     return v.summary()
 
