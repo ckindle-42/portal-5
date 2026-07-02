@@ -56,3 +56,53 @@ T1053.005:
   description: "Scheduled task persistence — Windows Security Event 4698"
   spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4698 | stats count by TaskName, Account'
   expected_signal: "New scheduled task creation events"
+
+T1210:
+  description: "SMB/service exploitation — lateral movement via SMB"
+  spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="smbclient" OR a0="nxc" OR a0="crackmapexec") | stats count by host, a0'
+  expected_signal: "SMB client execution from attack host"
+
+T1021.002:
+  description: "SMB/Windows Admin Shares — remote file copy via SMB"
+  spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="smbclient" OR a0="smbget") | stats count by host, a0'
+  expected_signal: "SMB share access from attack host"
+
+T1548.001:
+  description: "SUID abuse — setuid binary execution for privilege escalation"
+  spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a1="*perm*4000*" OR exe="*/find" OR exe="*/bash" "-p") | stats count by host, exe'
+  expected_signal: "SUID binary discovery or bash -p execution"
+
+T1068:
+  description: "Exploitation for privilege escalation — kernel/userspace privesc"
+  spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="*/exploit" OR exe="*/privesc" OR a1="*CVE*") | stats count by host, exe'
+  expected_signal: "Exploit binary execution on target host"
+
+T1592:
+  description: "Gather victim host info — service fingerprinting and enumeration"
+  spl: 'index=portal5_lab sourcetype="web:access" (user_agent="-" OR user_agent="curl*" OR user_agent="nmap*") | stats count by host, uri_path'
+  expected_signal: "Fingerprinting requests with scanner user-agents"
+
+T1595:
+  description: "Active scanning — vulnerability scanning and directory brute-force"
+  spl: 'index=portal5_lab sourcetype="web:access" status=404 | stats count by host, uri_path | where count > 10'
+  expected_signal: "High 404 rate from directory brute-force or vulnerability scanning"
+
+T1083:
+  description: "File and directory discovery — path traversal and LFI"
+  spl: 'index=portal5_lab sourcetype="web:access" ("../" OR "..%2f" OR "etc/passwd" OR "proc/self") | stats count by host, uri_path'
+  expected_signal: "Path traversal sequences in HTTP requests"
+
+T1078:
+  description: "Valid accounts — default/weak credential usage"
+  spl: 'index=portal5_lab sourcetype="web:access" (status=200) | join host [search index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="curl" "-u" OR a0="mysql" "-u" OR a0="redis-cli")] | stats count by host'
+  expected_signal: "Authenticated sessions using default/weak credentials"
+
+T1557:
+  description: "Adversary-in-the-middle — NTLM relay and LLMNR/NBT-NS poisoning"
+  spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4624 LogonType=3) | stats count by IpAddress, Account | where count > 5'
+  expected_signal: "Multiple network logons from relay attack source"
+
+T1550.002:
+  description: "Pass-the-hash — NTLM hash authentication"
+  spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4624 LogonType=3 AuthenticationPackageName=NTLM | stats count by Account, IpAddress'
+  expected_signal: "NTLM hash-based network authentication"
