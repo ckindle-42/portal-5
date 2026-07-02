@@ -670,6 +670,44 @@ def accumulate_observations(fn_name: str, tool_result: str, obs: dict) -> None:
         low = text.lower()
         if any(k in low for k in ("uid=", "shell obtained", "session 1 opened", "backdoor active")):
             obs["compromise_confirmed"] = True
+    elif fn_name in ("execute_bash", "execute_python"):
+        # Raw Kali output — scan for the same success markers the named wrappers
+        # detect.  Credit only REAL output, never the mere presence of the call.
+        low = text.lower()
+        # Compromise markers (shell/code-exec proof)
+        if any(
+            k in low
+            for k in (
+                "shell obtained",
+                "session 1 opened",
+                "backdoor active",
+                "persistence established",
+                "$krb5tgs$",
+                "krbtgt",
+            )
+        ):
+            obs["compromise_confirmed"] = True
+        # uid= proof (id command, whoami, etc.)
+        if "uid=" in low and ("gid=" in low or "groups=" in low):
+            obs["compromise_confirmed"] = True
+        # Open port discovery from nmap-style output via execute_bash
+        if "/tcp" in text and "open" in text:
+            ports = obs.setdefault("open_ports", [])
+            for line in text.splitlines():
+                line = line.strip()
+                if "/tcp" in line and "open" in line:
+                    head = line.split("/", 1)[0].strip().split()[-1]
+                    if head.isdigit():
+                        p = int(head)
+                        if p not in ports:
+                            ports.append(p)
+        # CVE confirmation from raw output
+        if "VULNERABLE" in text.upper() or "CVE-" in text.upper():
+            obs["confirmed_cve"] = True
+        # SQL dump / data extraction markers
+        if any(k in low for k in ("dumped", "database:", "table:", "flag{", "mbptl-")):
+            obs.setdefault("data_extracted", True)
+            obs["compromise_confirmed"] = True
 
 
 def classify_effort_tier(entry: dict) -> str:

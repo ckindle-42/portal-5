@@ -850,6 +850,30 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
         return parse_sandbox_output(r.get("output", ""))[1] or "[exfil: no output]"
 
+    # ── Full Kali: execute_bash / execute_python ────────────────────────────
+    if fn_name == "execute_bash":
+        cmd = (fn_args.get("cmd") or "").strip()
+        if not cmd:
+            return "(empty cmd)"
+        if dry_run:
+            return f"[DRY-RUN] execute_bash: {cmd[:120]}"
+        r = _lab_mcp_call(cmd, timeout=120)  # type: ignore[misc]
+        ok, clean = parse_sandbox_output(r.get("output", ""))
+        return clean or "[execute_bash: no output]"
+
+    if fn_name == "execute_python":
+        code = (fn_args.get("code") or "").strip()
+        if not code:
+            return "(empty code)"
+        if dry_run:
+            return f"[DRY-RUN] execute_python: {code[:120]}"
+        import shlex
+
+        py_cmd = f"echo {shlex.quote(code)} | python3 2>&1 | head -200"
+        r = _lab_mcp_call(py_cmd, timeout=120)  # type: ignore[misc]
+        ok, clean = parse_sandbox_output(r.get("output", ""))
+        return clean or "[execute_python: no output]"
+
     return f"OK: {fn_name} completed (synthetic)."
 
 
