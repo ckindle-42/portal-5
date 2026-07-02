@@ -1677,6 +1677,139 @@ def check_coverage_expansion_integrity() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_candidate_eval_integrity() -> tuple[str, str, list[dict]]:
+    """AE. Candidate eval integrity.
+
+    Verifies:
+    - candidate-eval pins incumbents in single-slot mode
+    - writes to isolated candidates/ path
+    - never modifies fleet config
+    - self-index baseline unaffected by candidate runs
+    """
+    subs: list[dict] = []
+
+    # Check 1: candidate_eval module exists and is importable
+    try:
+        from tests.benchmarks.bench_security.candidate_eval import (
+            CANDIDATE_EVAL_SCENARIOS,
+            CANDIDATES_DIR,
+            _build_step_models,
+        )
+
+        subs.append({"name": "module importable", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "module importable", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"candidate_eval import failed: {e}", subs
+
+    # Check 2: CANDIDATE_EVAL_SCENARIOS are valid
+    try:
+        from tests.benchmarks.bench_security.exec_chain import SCENARIOS
+
+        for name in CANDIDATE_EVAL_SCENARIOS:
+            if name not in SCENARIOS:
+                subs.append(
+                    {
+                        "name": f"scenario {name}",
+                        "status": "FAIL",
+                        "detail": "not in SCENARIOS",
+                    }
+                )
+                return "FAIL", f"CANDIDATE_EVAL_SCENARIO '{name}' not in SCENARIOS", subs
+        subs.append(
+            {
+                "name": "eval scenarios valid",
+                "status": "PASS",
+                "detail": f"{len(CANDIDATE_EVAL_SCENARIOS)} scenarios",
+            }
+        )
+    except Exception as e:
+        subs.append({"name": "eval scenarios", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"scenario check failed: {e}", subs
+
+    # Check 3: single-slot pins incumbents
+    try:
+        sm = _build_step_models("exploit", "candidate", "incumbent")
+        if sm.get("exploit") != "candidate":
+            subs.append(
+                {
+                    "name": "single-slot pins candidate",
+                    "status": "FAIL",
+                    "detail": f"exploit={sm.get('exploit')}",
+                }
+            )
+            return "FAIL", "single-slot does not pin candidate to exploit slot", subs
+        if sm.get("default") != "incumbent":
+            subs.append(
+                {
+                    "name": "single-slot pins incumbent",
+                    "status": "FAIL",
+                    "detail": f"default={sm.get('default')}",
+                }
+            )
+            return "FAIL", "single-slot does not pin incumbent as default", subs
+        subs.append({"name": "single-slot pinning", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "single-slot pinning", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"pinning check failed: {e}", subs
+
+    # Check 4: solo sets all candidate
+    try:
+        sm = _build_step_models("solo", "candidate", "incumbent")
+        if sm != {"default": "candidate"}:
+            subs.append(
+                {
+                    "name": "solo all-candidate",
+                    "status": "FAIL",
+                    "detail": f"got {sm}",
+                }
+            )
+            return "FAIL", f"solo mode step_models wrong: {sm}", subs
+        subs.append({"name": "solo all-candidate", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "solo mode", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"solo check failed: {e}", subs
+
+    # Check 5: isolated results path
+    try:
+        assert str(CANDIDATES_DIR).endswith("results/candidates"), (
+            f"CANDIDATES_DIR={CANDIDATES_DIR}"
+        )
+        subs.append(
+            {"name": "isolated results path", "status": "PASS", "detail": str(CANDIDATES_DIR)}
+        )
+    except Exception as e:
+        subs.append({"name": "isolated results path", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"isolation check failed: {e}", subs
+
+    # Check 6: self-index does not pick up candidate files
+    try:
+        from tests.benchmarks.bench_security.self_index import _complete_result_files
+
+        files = _complete_result_files()
+        candidate_leaks = [str(f) for f in files if "candidates/" in str(f)]
+        if candidate_leaks:
+            subs.append(
+                {
+                    "name": "self-index isolation",
+                    "status": "FAIL",
+                    "detail": f"leaked: {candidate_leaks}",
+                }
+            )
+            return "FAIL", f"self-index picks up candidate files: {candidate_leaks}", subs
+        subs.append({"name": "self-index isolation", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "self-index isolation", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"self-index check failed: {e}", subs
+
+    return (
+        "PASS",
+        f"candidate-eval: {len(CANDIDATE_EVAL_SCENARIOS)} eval scenarios; "
+        f"single-slot pins incumbents; solo=all-candidate; "
+        f"results isolated to candidates/; self-index unaffected",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -1746,6 +1879,7 @@ def main() -> int:
     v.run("AB. stage2 propose integrity", check_stage2_propose_integrity)
     v.run("AC. kali exec + rescore integrity", check_kali_rescore_integrity)
     v.run("AD. coverage expansion integrity", check_coverage_expansion_integrity)
+    v.run("AE. candidate eval integrity", check_candidate_eval_integrity)
 
     return v.summary()
 

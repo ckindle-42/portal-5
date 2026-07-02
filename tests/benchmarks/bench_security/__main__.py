@@ -14,6 +14,10 @@ if __name__ == "__main__":
         from bench_security.stage2_propose import stage2_propose_main
 
         sys.exit(stage2_propose_main(as_json=as_json, apply=apply))
+    if len(sys.argv) > 1 and sys.argv[1] == "candidate-eval":
+        from bench_security.candidate_eval import candidate_eval_main
+
+        sys.exit(candidate_eval_main(sys.argv[2:]))
     from bench_security import main
 
     main()
