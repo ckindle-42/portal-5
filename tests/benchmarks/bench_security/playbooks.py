@@ -17,10 +17,9 @@ PLAYBOOKS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "playbook
 def load_playbook(path: str) -> dict:
     """Parse and validate a playbook YAML file. Raises on bad schema."""
     p = Path(path)
-    if not p.is_absolute():
-        # Only prepend PLAYBOOKS_DIR for bare filenames, not relative paths
-        if p.parent == Path() or not p.parent.name:
-            p = PLAYBOOKS_DIR / p
+    # Only prepend PLAYBOOKS_DIR for bare filenames, not relative paths
+    if not p.is_absolute() and (p.parent == Path() or not p.parent.name):
+        p = PLAYBOOKS_DIR / p
     if not p.exists():
         raise FileNotFoundError(f"playbook not found: {path}")
     data = yaml.safe_load(p.read_text())
@@ -43,9 +42,8 @@ def validate_playbook(pb: dict) -> list[str]:
 
     # scope validation
     scope = pb.get("scope", {})
-    if isinstance(scope, dict):
-        if not scope.get("targets"):
-            problems.append("scope.targets is empty or missing")
+    if isinstance(scope, dict) and not scope.get("targets"):
+        problems.append("scope.targets is empty or missing")
 
     # budget validation
     budget = pb.get("budget", {})
@@ -108,9 +106,8 @@ def resolve_phases(pb: dict, observations: dict) -> list[dict]:
                 if isinstance(cond, dict) and evaluate_condition:
                     if not evaluate_condition(cond, observations):
                         continue
-                elif isinstance(cond, str):
-                    if not _eval_finding_expr(cond, observations):
-                        continue
+                elif isinstance(cond, str) and not _eval_finding_expr(cond, observations):
+                    continue
             ready.append(phase)
 
     return ready
@@ -125,7 +122,10 @@ def _eval_finding_expr(expr: str, observations: dict) -> bool:
 
     parts = re.split(r"\s+(?:or|and)\s+", expr)
     for part in parts:
-        m = re.match(r"has_finding\(field\s*=\s*['\"]?(\w+)['\"]?\s*,\s*equals\s*=\s*['\"]?(\w+)['\"]?\)", part.strip())
+        m = re.match(
+            r"has_finding\(field\s*=\s*['\"]?(\w+)['\"]?\s*,\s*equals\s*=\s*['\"]?(\w+)['\"]?\)",
+            part.strip(),
+        )
         if m:
             field = m.group(1)
             value = m.group(2)
@@ -143,12 +143,16 @@ def list_playbooks() -> list[dict]:
     for p in sorted(PLAYBOOKS_DIR.glob("*.yaml")):
         try:
             data = yaml.safe_load(p.read_text())
-            results.append({
-                "file": p.name,
-                "name": data.get("name", p.stem),
-                "version": data.get("version", "?"),
-                "description": data.get("description", ""),
-            })
+            results.append(
+                {
+                    "file": p.name,
+                    "name": data.get("name", p.stem),
+                    "version": data.get("version", "?"),
+                    "description": data.get("description", ""),
+                }
+            )
         except Exception:
-            results.append({"file": p.name, "name": p.stem, "version": "?", "description": "parse error"})
+            results.append(
+                {"file": p.name, "name": p.stem, "version": "?", "description": "parse error"}
+            )
     return results

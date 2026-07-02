@@ -206,7 +206,7 @@ def assert_classification_token(response: str) -> AssertionResult:
     matched_token = next(
         (
             t
-            for t, pat in zip(CLASSIFICATION_TOKENS * 3, classification_patterns)
+            for t, pat in zip(CLASSIFICATION_TOKENS * 3, classification_patterns, strict=True)
             if re.search(pat, normalized, re.MULTILINE)
         ),
         None,

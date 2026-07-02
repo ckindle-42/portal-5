@@ -73,11 +73,11 @@ def rebuild_index() -> Path:
         by_category.setdefault(cat, []).append(p.name)
         for pit in data.get("pitfalls", []):
             all_pitfalls.append({"file": p.name, **pit})
-        outcomes[data.get("outcome", "partial")] = outcomes.get(data.get("outcome", "partial"), 0) + 1
+        outcomes[data.get("outcome", "partial")] = (
+            outcomes.get(data.get("outcome", "partial"), 0) + 1
+        )
 
-    top_pitfalls = sorted(
-        all_pitfalls, key=lambda x: len(x.get("problem", "")), reverse=True
-    )[:20]
+    top_pitfalls = sorted(all_pitfalls, key=lambda x: len(x.get("problem", "")), reverse=True)[:20]
 
     index = {
         "generated_at": datetime.now(tz=UTC).isoformat(),
@@ -91,9 +91,7 @@ def rebuild_index() -> Path:
     return out_path
 
 
-def recall(
-    scenario_category: str, keywords: list[str] | None = None, limit: int = 5
-) -> list[dict]:
+def recall(scenario_category: str, keywords: list[str] | None = None, limit: int = 5) -> list[dict]:
     """Return prior entries matching category/keywords, most-relevant first.
 
     Relevance = number of keyword matches across the entry.
@@ -158,12 +156,14 @@ def _extract_exec_chain(chain_result: dict) -> list[dict]:
         if isinstance(tc, str):
             chain.append({"step": tc, "tool": tc})
         elif isinstance(tc, dict):
-            chain.append({
-                "step": tc.get("tool", tc.get("step", "")),
-                "tool": tc.get("tool", ""),
-                "args_snip": str(tc.get("arguments", {}))[:200],
-                "observed": str(tc.get("output", ""))[:500],
-            })
+            chain.append(
+                {
+                    "step": tc.get("tool", tc.get("step", "")),
+                    "tool": tc.get("tool", ""),
+                    "args_snip": str(tc.get("arguments", {}))[:200],
+                    "observed": str(tc.get("output", ""))[:500],
+                }
+            )
     return chain
 
 
@@ -172,11 +172,13 @@ def _extract_pitfalls(chain_result: dict) -> list[dict]:
     pitfalls: list[dict] = []
     errors = chain_result.get("errors", [])
     for err in errors:
-        pitfalls.append({
-            "problem": str(err)[:200],
-            "cause": "chain execution",
-            "resolution": "see error trace",
-        })
+        pitfalls.append(
+            {
+                "problem": str(err)[:200],
+                "cause": "chain execution",
+                "resolution": "see error trace",
+            }
+        )
     return pitfalls
 
 
@@ -188,10 +190,12 @@ def _extract_reusable(chain_result: dict) -> list[dict]:
         if isinstance(tc, dict):
             snippet = str(tc.get("output", ""))[:300]
         if snippet:
-            reusable.append({
-                "pattern": tc.get("tool", "step") if isinstance(tc, dict) else str(tc),
-                "snippet": snippet,
-            })
+            reusable.append(
+                {
+                    "pattern": tc.get("tool", "step") if isinstance(tc, dict) else str(tc),
+                    "snippet": snippet,
+                }
+            )
     return reusable[:10]
 
 

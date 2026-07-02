@@ -256,20 +256,19 @@ async def main() -> None:
 
     if args.rerun_failed:
         failed_ids = _parse_failed_test_ids()
-        if not failed_ids:
+        if not failed_ids and _RERUN_FAILED_STATE.exists():
             # Rows may have been removed by a previous --rerun-failed that was
             # interrupted before completing. Check for a saved state file.
-            if _RERUN_FAILED_STATE.exists():
-                import json as _json_rf
+            import json as _json_rf
 
-                saved = _json_rf.loads(_RERUN_FAILED_STATE.read_text())
-                failed_ids = set(saved.get("ids", []))
-                if failed_ids:
-                    print(
-                        f"  --rerun-failed: restored {len(failed_ids)} ID(s) from previous "
-                        f"interrupted run ({_RERUN_FAILED_STATE})",
-                        file=sys.stderr,
-                    )
+            saved = _json_rf.loads(_RERUN_FAILED_STATE.read_text())
+            failed_ids = set(saved.get("ids", []))
+            if failed_ids:
+                print(
+                    f"  --rerun-failed: restored {len(failed_ids)} ID(s) from previous "
+                    f"interrupted run ({_RERUN_FAILED_STATE})",
+                    file=sys.stderr,
+                )
         if not failed_ids:
             print(
                 "--rerun-failed: no FAIL or BLOCKED tests found in UAT_RESULTS.md — nothing to do",

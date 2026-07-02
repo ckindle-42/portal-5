@@ -36,7 +36,7 @@ import asyncio
 import json
 import time
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 import httpx
 
@@ -49,7 +49,7 @@ POLL_PS_S: float = 3.0  # /api/ps poll cadence during Phase 1
 DEFAULT_OLLAMA_URL: str = "http://localhost:11434"
 
 
-class StreamStatus(str, Enum):
+class StreamStatus(StrEnum):
     """Outcome of a streaming wait."""
 
     OK = "ok"  # stream completed normally ([DONE] or clean EOF)

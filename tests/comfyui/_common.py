@@ -173,17 +173,19 @@ async def _mcp(
         from mcp.client.streamable_http import streamablehttp_client
 
         url = f"http://localhost:{port}/mcp"
-        async with streamablehttp_client(url) as (read, write, _):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                if timeout is not None:
-                    result = await asyncio.wait_for(session.call_tool(tool, args), timeout=timeout)
-                else:
-                    result = await session.call_tool(tool, args)
-                text = ""
-                for block in result.content:
-                    if hasattr(block, "text"):
-                        text += block.text
+        async with (
+            streamablehttp_client(url) as (read, write, _),
+            ClientSession(read, write) as session,
+        ):
+            await session.initialize()
+            if timeout is not None:
+                result = await asyncio.wait_for(session.call_tool(tool, args), timeout=timeout)
+            else:
+                result = await session.call_tool(tool, args)
+            text = ""
+            for block in result.content:
+                if hasattr(block, "text"):
+                    text += block.text
 
         is_ok = ok_fn(text)
         is_warn = warn_if and any(w.lower() in text.lower() for w in warn_if)

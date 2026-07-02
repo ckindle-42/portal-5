@@ -165,7 +165,7 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
 
     # ── Per-workspace sampling tuning ────────────────────────────────────────
     # All use setdefault — OWUI/user values always take precedence.
-    _SAMPLING_KEYS = (
+    sampling_keys = (
         "temperature",  # creativity vs determinism
         "top_p",  # nucleus sampling cutoff
         "top_k",  # vocabulary candidate pool size
@@ -173,7 +173,7 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
         "repeat_penalty",  # n-gram repetition penalty
         "seed",  # RNG seed (bench reproducibility)
     )
-    for key in _SAMPLING_KEYS:
+    for key in sampling_keys:
         val = ws_cfg_local.get(key)
         if val is not None:
             body["options"].setdefault(key, val)

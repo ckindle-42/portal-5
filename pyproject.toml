@@ -130,6 +130,12 @@ ignore = ["E501"]
 "tests/acceptance/runner.py" = ["N802"]
 "tests/portal5_persona_matrix.py" = ["F401", "F841"]
 "tests/benchmarks/bench_lab_exec.py" = ["SIM102"]
+# tests/comfyui/runner.py: same deliberate C0, C1… section-identifier convention as the
+# acceptance scripts above.
+"tests/comfyui/runner.py" = ["N802"]
+# scripts/_archive/: frozen, retired snapshots (see coding_task/TASK_ARCHIVE_RETIRED_MLX_SCRIPTS_V1.md)
+# — not maintained, not imported by live code; excluded rather than edited.
+"scripts/_archive/**/*.py" = ["E741", "N806", "B905", "SIM115"]
 "tests/benchmarks/bench_mbptl.py" = ["SIM102"]
 "tests/benchmarks/bench_router.py" = ["B905"]
 "tests/benchmarks/bench_router_conditions.py" = ["SIM102"]

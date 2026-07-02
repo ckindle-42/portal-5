@@ -89,7 +89,7 @@ async def run() -> None:
             loras = entries[0]
 
     # Regular LoRA test
-    regular_loras = [l for l in loras if "nsfw" not in l.lower()]
+    regular_loras = [lora for lora in loras if "nsfw" not in lora.lower()]
     if regular_loras:
         await _wait_for_comfyui_idle()
         await _mcp(

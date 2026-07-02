@@ -14,5 +14,9 @@ def bench_oast_probe(target_url: str, *, callback_host: str = "", dry_run: bool 
 def bench_browser_security(url: str, *, dry_run: bool = False) -> dict:
     """Run browser/DOM security probes via Playwright MCP."""
     if dry_run:
-        return {"status": "dry_run", "target": url, "probes": ["XSS", "CSP", "CORS", "DOM clobbering"]}
+        return {
+            "status": "dry_run",
+            "target": url,
+            "probes": ["XSS", "CSP", "CORS", "DOM clobbering"],
+        }
     return {"status": "placeholder", "reason": "browser automation target required"}

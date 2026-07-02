@@ -12,12 +12,11 @@ Bounded by playbook scope, budget, stop conditions, and hard caps in code.
 
 from __future__ import annotations
 
+import contextlib
 import json
-import os
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from . import field_journal as journal
 from . import oracles as oracle_mod
@@ -101,7 +100,11 @@ def _check_budget(state: EngagementState, pb: dict) -> str | None:
         budget.get("max_iterations", HARD_MAX_ITERATIONS),
         HARD_MAX_ITERATIONS,
     ):
-        return "hard_cap" if budget.get("max_iterations", 0) <= HARD_MAX_ITERATIONS else "budget_exhausted"
+        return (
+            "hard_cap"
+            if budget.get("max_iterations", 0) <= HARD_MAX_ITERATIONS
+            else "budget_exhausted"
+        )
 
     if wall_elapsed >= min(
         budget.get("max_wall_clock_sec", HARD_MAX_WALL_CLOCK_SEC),
@@ -158,8 +161,7 @@ def _oracle_rejection_rate(state: EngagementState) -> float:
     if total == 0:
         return 0.0
     rejected = sum(
-        f.get("oracle_attempts", 0) - f.get("oracle_successes", 0)
-        for f in state.findings
+        f.get("oracle_attempts", 0) - f.get("oracle_successes", 0) for f in state.findings
     )
     return rejected / total
 
@@ -232,14 +234,10 @@ def _run_loop(
 
         # Escalation check
         escalation = _check_escalate(state, pb)
-        if escalation:
-            if (
-                escalation == "out_of_scope_action"
-                or not auto_continue_safe
-            ):
-                state.escalations.append(escalation)
-                _write_checkpoint(state, f"escalated:{escalation}")
-                return _build_report(state, pb, prior, f"escalated:{escalation}")
+        if escalation and (escalation == "out_of_scope_action" or not auto_continue_safe):
+            state.escalations.append(escalation)
+            _write_checkpoint(state, f"escalated:{escalation}")
+            return _build_report(state, pb, prior, f"escalated:{escalation}")
 
         # Resolve runnable phases
         ready = resolve_phases(pb, state.observations)
@@ -291,25 +289,29 @@ def _execute_step_real(state: EngagementState, step: dict, pb: dict) -> None:
             lab_output=result,
             observations=state.observations,
         )
-        state.findings.append({
-            "oracle": oracle_id,
-            "verified": verdict.verified,
-            "evidence": verdict.evidence[:500],
-            "oracle_attempts": verdict.required,
-            "oracle_successes": verdict.reproductions,
-        })
+        state.findings.append(
+            {
+                "oracle": oracle_id,
+                "verified": verdict.verified,
+                "evidence": verdict.evidence[:500],
+                "oracle_attempts": verdict.required,
+                "oracle_successes": verdict.reproductions,
+            }
+        )
 
 
 def _dry_run_report(pb: dict, state: EngagementState, prior: list[dict]) -> dict:
     """Build a dry-run engagement plan."""
     phases_plan = []
     for phase in pb.get("phases", []):
-        phases_plan.append({
-            "id": phase.get("id", "?"),
-            "manual": phase.get("manual", False),
-            "depends_on": phase.get("depends_on", []),
-            "steps": len(phase.get("steps", [])),
-        })
+        phases_plan.append(
+            {
+                "id": phase.get("id", "?"),
+                "manual": phase.get("manual", False),
+                "depends_on": phase.get("depends_on", []),
+                "steps": len(phase.get("steps", [])),
+            }
+        )
 
     return {
         "status": "dry_run",
@@ -323,9 +325,7 @@ def _dry_run_report(pb: dict, state: EngagementState, prior: list[dict]) -> dict
     }
 
 
-def _build_report(
-    state: EngagementState, pb: dict, prior: list[dict], stop_reason: str
-) -> dict:
+def _build_report(state: EngagementState, pb: dict, prior: list[dict], stop_reason: str) -> dict:
     """Build the final engagement report and write journal + capsules."""
     report = {
         "status": "completed",
@@ -343,21 +343,17 @@ def _build_report(
     }
 
     # Write journal entry
-    try:
+    with contextlib.suppress(Exception):
         journal.record_engagement(
             chain_result={
                 "chain_depth": len(state.completed_phases),
                 "tools_called": state.findings,
                 "verified": any(f.get("verified") for f in state.findings),
-                "compromise_confirmed": any(
-                    f.get("verified") for f in state.findings
-                ),
+                "compromise_confirmed": any(f.get("verified") for f in state.findings),
             },
             scenario={"category": pb.get("name", "loop"), "goal": stop_reason},
             engagement_id=state.engagement_id,
         )
-    except Exception:
-        pass
 
     # Stamp
     try:

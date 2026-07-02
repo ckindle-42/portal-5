@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock
 
 from tests.benchmarks.bench_security.loop import (
     EngagementState,
@@ -24,9 +23,7 @@ class TestLoopNotifyEvents:
 
 class TestCheckpointResume:
     def test_checkpoint_writes_and_roundtrips(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(
-            "tests.benchmarks.bench_security.loop.CHECKPOINT_DIR", tmp_path
-        )
+        monkeypatch.setattr("tests.benchmarks.bench_security.loop.CHECKPOINT_DIR", tmp_path)
         state = EngagementState(
             engagement_id="test-eng-001",
             playbook_name="test-playbook",

@@ -20,8 +20,6 @@ class TestValidateUsecase:
         assert result["usecase"] == "test-usecase"
 
     def test_no_lab_exec_indeterminate(self, monkeypatch):
-        monkeypatch.setattr(
-            "tests.benchmarks.bench_security.validation._LAB_EXEC_AVAILABLE", False
-        )
+        monkeypatch.setattr("tests.benchmarks.bench_security.validation._LAB_EXEC_AVAILABLE", False)
         result = validate_usecase({"name": "test"})
         assert result["status"] == "indeterminate"

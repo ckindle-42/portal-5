@@ -3,10 +3,8 @@
 Ported from /tmp/reverse-skill/skills/*/SKILL.md methodologies.
 Each bench scored on ground truth (emulated firmware, known CVE, config extraction).
 """
-from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from __future__ import annotations
 
 
 def bench_firmware_extract(firmware_path: str, *, dry_run: bool = False) -> dict:
@@ -18,13 +16,17 @@ def bench_firmware_extract(firmware_path: str, *, dry_run: bool = False) -> dict
     """
     if dry_run:
         return {
-            "status": "dry_run", "target": firmware_path,
+            "status": "dry_run",
+            "target": firmware_path,
             "phases": ["extract", "filesystem", "emulate", "fuzz", "validate"],
             "tooling": "binwalk v3, unblob, EMBA, Firmadyne, QEMU, AFL++",
             "oracle": "firmware_planted_marker",
             "source": "reverse-skill",
         }
-    return {"status": "requires_live_target", "reason": "firmware image + emulation environment required"}
+    return {
+        "status": "requires_live_target",
+        "reason": "firmware image + emulation environment required",
+    }
 
 
 def bench_binary_re(binary_path: str, *, dry_run: bool = False) -> dict:
@@ -35,7 +37,8 @@ def bench_binary_re(binary_path: str, *, dry_run: bool = False) -> dict:
     """
     if dry_run:
         return {
-            "status": "dry_run", "target": binary_path,
+            "status": "dry_run",
+            "target": binary_path,
             "checks": ["triage", "disasm", "vuln_spot", "ROP"],
             "oracle": "cve_confirmed",
             "source": "reverse-skill",
@@ -51,7 +54,8 @@ def bench_malware_analysis(sample_path: str, *, dry_run: bool = False) -> dict:
     """
     if dry_run:
         return {
-            "status": "dry_run", "target": sample_path,
+            "status": "dry_run",
+            "target": sample_path,
             "phases": ["static", "sandbox", "config_extract", "ioc_generate"],
             "oracle": "cve_confirmed",
             "source": "reverse-skill",
@@ -67,7 +71,9 @@ def bench_patch_diff(vuln_path: str, patched_path: str, *, dry_run: bool = False
     """
     if dry_run:
         return {
-            "status": "dry_run", "target": vuln_path, "patched": patched_path,
+            "status": "dry_run",
+            "target": vuln_path,
+            "patched": patched_path,
             "oracle": "cve_confirmed",
             "source": "reverse-skill",
         }
@@ -81,11 +87,15 @@ def bench_edr_bypass(target_binary: str, *, dry_run: bool = False) -> dict:
     """
     if dry_run:
         return {
-            "status": "dry_run", "target": target_binary,
+            "status": "dry_run",
+            "target": target_binary,
             "oracle": "rce_shell",
             "source": "reverse-skill",
         }
-    return {"status": "requires_live_target", "reason": "EDR-hooked binary + bypass payload required"}
+    return {
+        "status": "requires_live_target",
+        "reason": "EDR-hooked binary + bypass payload required",
+    }
 
 
 def bench_apk_reverse(apk_path: str, *, dry_run: bool = False) -> dict:
@@ -95,7 +105,8 @@ def bench_apk_reverse(apk_path: str, *, dry_run: bool = False) -> dict:
     """
     if dry_run:
         return {
-            "status": "dry_run", "target": apk_path,
+            "status": "dry_run",
+            "target": apk_path,
             "oracle": "cve_confirmed",
             "source": "reverse-skill",
         }
@@ -107,7 +118,11 @@ def discipline_coverage() -> dict[str, dict]:
     return {
         "web_auth": {"status": "ready", "probes": 52, "oracles": "ptai_*"},
         "ad_windows": {"status": "ready", "scenarios": 13, "targets": ["DC", "SRV"]},
-        "re_firmware": {"status": "dry_run_ready", "benches": 6, "oracles": ["cve_confirmed", "rce_shell"]},
+        "re_firmware": {
+            "status": "dry_run_ready",
+            "benches": 6,
+            "oracles": ["cve_confirmed", "rce_shell"],
+        },
         "malware": {"status": "dry_run_ready", "benches": 1, "oracles": ["cve_confirmed"]},
         "cloud_k8s": {"status": "dry_run_ready", "benches": 1, "oracles": ["rce_shell"]},
         "mobile": {"status": "dry_run_ready", "benches": 1, "oracles": ["cve_confirmed"]},

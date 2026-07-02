@@ -6,7 +6,7 @@ Ships last per the build plan.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -29,7 +29,9 @@ def select_tools(
     strategy='rapid': pick the fastest tools first.
     """
     if not observations:
-        return [ToolCandidate(name=t, score=1.0, reason="initial coverage") for t in available_tools[:3]]
+        return [
+            ToolCandidate(name=t, score=1.0, reason="initial coverage") for t in available_tools[:3]
+        ]
 
     # Prioritize tools that target observed open ports/services
     scored: list[ToolCandidate] = []
@@ -37,8 +39,14 @@ def select_tools(
     if open_ports is True or (isinstance(open_ports, list) and len(open_ports) > 0):
         for t in available_tools:
             if "exploit" in t or "check" in t:
-                scored.append(ToolCandidate(name=t, score=0.9, reason="ports open, exploit candidate"))
-    return scored if scored else [ToolCandidate(name=t, score=0.5, reason="initial probe") for t in available_tools[:2]]
+                scored.append(
+                    ToolCandidate(name=t, score=0.9, reason="ports open, exploit candidate")
+                )
+    return (
+        scored
+        if scored
+        else [ToolCandidate(name=t, score=0.5, reason="initial probe") for t in available_tools[:2]]
+    )
 
 
 def select_parameters(
