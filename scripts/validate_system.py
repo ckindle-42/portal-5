@@ -1315,6 +1315,17 @@ def check_stage2_propose_integrity() -> tuple[str, str, list[dict]]:
     """AB. stage2 propose integrity: bounded single-oracle changes; promotions require
     positive+negative proof against real data; no hollow/flag-flip promotion is
     promotable; the loop applies nothing without operator --apply."""
+    # run_stage2() -> build_self_index() shells out to `validate_system.py --json`,
+    # which runs this very check again. Same recursive-fork hazard as check Y (see
+    # check_self_index_integrity) — bail out in the nested subprocess rather than
+    # spawning a grandchild that spawns a great-grandchild... (unbounded fork chain).
+    if os.environ.get("PORTAL5_SELF_INDEX_NESTED"):
+        return (
+            "SKIP",
+            "nested validator run — stage2 propose check skipped to avoid recursive spawn",
+            [],
+        )
+
     subs: list[dict] = []
 
     try:

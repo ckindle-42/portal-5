@@ -259,3 +259,25 @@ class TestGateHolds:
         # No staged diff on disk for this fake id -> skipped, nothing applied
         assert result["applied"] == []
         assert "does_not_exist_oracle" in result["skipped"]
+
+
+class TestValidatorRecursionGuard:
+    def test_check_stage2_propose_integrity_skips_when_nested(self, monkeypatch):
+        """check AB calls run_stage2() -> build_self_index() -> shells out to
+        validate_system.py --json, which runs check AB again. Without a guard this
+        forks unboundedly (the exact bug check Y already had to guard against —
+        found live as a 145+-process fork chain). Assert the guard fires and no
+        subprocess is spawned in the nested case."""
+        import subprocess
+
+        import scripts.validate_system as vs
+
+        monkeypatch.setenv("PORTAL5_SELF_INDEX_NESTED", "1")
+
+        def _fail_if_called(*_a, **_kw):
+            raise AssertionError("subprocess.run must not be called when nested")
+
+        monkeypatch.setattr(subprocess, "run", _fail_if_called)
+
+        status, _detail, _subs = vs.check_stage2_propose_integrity()
+        assert status == "SKIP"
