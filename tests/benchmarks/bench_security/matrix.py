@@ -564,7 +564,7 @@ def _lab_env_vars() -> dict[str, str]:
             "LAB_TARGET_DC": _lab.DC,
             "LAB_TARGET_SRV": _lab.SRV,
             "LAB_TARGET_WEB": _lab.WEB,
-            "LAB_TARGET_META3": _lab.LAB_META3,
+            "LAB_TARGET_META3_WIN": _lab.LAB_META3,
             "DOMAIN": _lab.DOMAIN,
             "ADMIN_PASS": _lab.ADMIN_PASS,
         }
