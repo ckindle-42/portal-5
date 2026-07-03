@@ -84,11 +84,12 @@ class TestWebScenarioStructure:
 
     @pytest.mark.parametrize("name", _WEB_SCENARIO_NAMES)
     def test_targets_lxc_112(self, name: str):
-        """All web scenarios must target 10.10.11.50 (LXC 112)."""
+        """All web scenarios must target LXC 112 via $TARGET_HOST variable."""
         scenario = SCENARIOS[name]
-        assert "10.10.11.50" in scenario["red_prompt"], (
-            f"Scenario '{name}' does not target 10.10.11.50"
-        )
+        # De-hardcoded: uses $TARGET_HOST variable, not literal IP
+        assert (
+            "$TARGET_HOST" in scenario["red_prompt"] or "10.10.11.50" in scenario["red_prompt"]
+        ), f"Scenario '{name}' does not target $TARGET_HOST or 10.10.11.50"
 
 
 # ── Coverage crediting parity ─────────────────────────────────────────────────

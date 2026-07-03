@@ -111,7 +111,10 @@ class TestMeta3Scenarios:
     def test_targets_meta3(self, name: str):
         scenario = SCENARIOS[name]
         prompt = scenario["red_prompt"]
-        assert "10.10.11.10" in prompt, f"meta3 scenario '{name}' does not target 10.10.11.10"
+        # De-hardcoded: uses $TARGET_HOST variable, not literal IP
+        assert "$TARGET_HOST" in prompt or "10.10.11.10" in prompt, (
+            f"meta3 scenario '{name}' does not target $TARGET_HOST or 10.10.11.10"
+        )
 
     @pytest.mark.parametrize("name", _META3_SCENARIOS)
     def test_has_ground_truth(self, name: str):
@@ -142,7 +145,10 @@ class TestVulhubExpansionScenarios:
     def test_targets_vulhub(self, name: str):
         scenario = SCENARIOS[name]
         prompt = scenario["red_prompt"]
-        assert "10.10.11.50" in prompt, f"Vulhub scenario '{name}' does not target 10.10.11.50"
+        # De-hardcoded: uses $TARGET_HOST variable, not literal IP
+        assert "$TARGET_HOST" in prompt or "10.10.11.50" in prompt, (
+            f"Vulhub scenario '{name}' does not target $TARGET_HOST or 10.10.11.50"
+        )
 
     @pytest.mark.parametrize("name", _VULHUB_EXPANSION_SCENARIOS)
     def test_has_ground_truth(self, name: str):
