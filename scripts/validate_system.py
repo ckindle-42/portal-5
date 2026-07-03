@@ -1801,10 +1801,55 @@ def check_candidate_eval_integrity() -> tuple[str, str, list[dict]]:
         subs.append({"name": "self-index isolation", "status": "FAIL", "detail": str(e)})
         return "FAIL", f"self-index check failed: {e}", subs
 
+    # Check 7: incumbent resolves to a real fleet model
+    try:
+        from tests.benchmarks.bench_security.candidate_eval import _get_incumbent_model
+
+        for slot in ("recon", "exploit", "post"):
+            model = _get_incumbent_model(slot)
+            if not model:
+                subs.append(
+                    {
+                        "name": f"incumbent({slot})",
+                        "status": "FAIL",
+                        "detail": "empty — resolution broken",
+                    }
+                )
+                return "FAIL", f"incumbent for slot '{slot}' resolves empty", subs
+        subs.append(
+            {"name": "incumbent resolution", "status": "PASS", "detail": "all slots resolve"}
+        )
+    except Exception as e:
+        subs.append({"name": "incumbent resolution", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"incumbent resolution check failed: {e}", subs
+
+    # Check 8: step_models never contains empty string
+    try:
+        from tests.benchmarks.bench_security.candidate_eval import _get_incumbent_model
+
+        for slot in ("recon", "exploit", "post"):
+            inc = _get_incumbent_model(slot)
+            sm = _build_step_models(slot, "candidate", inc)
+            empty_keys = [k for k, v in sm.items() if not v]
+            if empty_keys:
+                subs.append(
+                    {
+                        "name": f"no-empty-model({slot})",
+                        "status": "FAIL",
+                        "detail": f"empty values for keys: {empty_keys}",
+                    }
+                )
+                return "FAIL", f"step_models has empty model for keys: {empty_keys}", subs
+        subs.append({"name": "no empty models", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "no empty models", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"empty model check failed: {e}", subs
+
     return (
         "PASS",
         f"candidate-eval: {len(CANDIDATE_EVAL_SCENARIOS)} eval scenarios; "
         f"single-slot pins incumbents; solo=all-candidate; "
+        f"incumbent resolves from config; no empty models; "
         f"results isolated to candidates/; self-index unaffected",
         subs,
     )

@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
+
+import yaml
 
 from ._data import RESULTS_DIR
 from .exec_chain import (
@@ -40,20 +43,38 @@ _SLOT_TO_GROUPS: dict[str, list[str]] = {
     "post": ["persist", "move", "exfil", "cleanup"],
 }
 
+# ── Slot → portal.yaml workspace (incumbent resolution) ──────────────────────
+# Maps each slot to the workspace whose model_hint is the current fleet incumbent
+# for that slot.  Reads live from portal.yaml — not hardcoded model names.
+_SLOT_TO_WORKSPACE: dict[str, str] = {
+    "recon": "auto-security",
+    "exploit": "auto-pentest",
+    "post": "auto-purpleteam-exec",
+}
+
+_PORTAL_YAML = Path(__file__).resolve().parent.parent.parent.parent / "config" / "portal.yaml"
+
 # ── Candidate results directory (isolated from baseline) ─────────────────────
 CANDIDATES_DIR = RESULTS_DIR / "candidates"
 
 
 def _get_incumbent_model(slot: str) -> str:
-    """Return the incumbent model for a given slot.
+    """Resolve the real incumbent model for a slot from portal.yaml.
 
-    Reads from the first chain model in the current fleet config. In a real run,
-    this would read from backends.yaml; for now, it requires the caller to have
-    run a baseline or to pass --incumbent.
+    Reads the model_hint from the workspace mapped by _SLOT_TO_WORKSPACE.
+    Returns "" if the slot has no mapping, the YAML can't be read, or the
+    workspace/model_hint is missing.
     """
-    # Default: the first model that would be used in a normal chain run.
-    # The caller should pass --incumbent to override if no baseline exists.
-    return ""
+    workspace = _SLOT_TO_WORKSPACE.get(slot)
+    if not workspace:
+        return ""
+    try:
+        data = yaml.safe_load(_PORTAL_YAML.read_text()) or {}
+    except Exception:
+        return ""
+    workspaces = data.get("workspaces", {})
+    ws_cfg = workspaces.get(workspace, {})
+    return ws_cfg.get("model_hint", "")
 
 
 def _build_step_models(slot: str, candidate: str, incumbent: str) -> dict[str, str]:
@@ -168,7 +189,7 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
         "--incumbent",
         default="",
         metavar="MODEL",
-        help="Incumbent model to compare against (required unless --dry-run)",
+        help="Incumbent model override (auto-resolved from fleet config if omitted)",
     )
     parser.add_argument(
         "--scenario",
@@ -195,17 +216,26 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
 
     candidate = args.candidate
     slot = args.slot
-    incumbent = args.incumbent
 
-    if not incumbent and not args.dry_run:
-        print("  ERROR: --incumbent is required (the current model for comparison)")
-        print("  Pass --incumbent <model> or use --dry-run to test the flow")
+    # ── Resolve incumbent: explicit override → auto from config ──────────────
+    incumbent = args.incumbent
+    if not incumbent and slot != "solo":
+        incumbent = _get_incumbent_model(slot)
+    if not incumbent and slot != "solo":
+        workspace = _SLOT_TO_WORKSPACE.get(slot, "?")
+        print(
+            f"  ERROR: could not resolve incumbent for slot '{slot}' "
+            f"(workspace '{workspace}' not found or model_hint missing in portal.yaml).\n"
+            f"  Pass --incumbent <model> explicitly, or fix the fleet config."
+        )
         return 1
+    if slot == "solo":
+        incumbent = incumbent or "(solo — no incumbent pin)"
 
     # ── Step 1: Intake gate ──────────────────────────────────────────────────
     print(f"\n{'=' * 60}")
     print(f"  CANDIDATE EVAL: {candidate}")
-    print(f"  Slot: {slot} | Incumbent: {incumbent or '(dry-run)'}")
+    print(f"  Slot: {slot} | Incumbent: {incumbent}")
     print(f"  Scenarios: {args.scenario or f'{len(CANDIDATE_EVAL_SCENARIOS)} fixed'}")
     print(f"{'=' * 60}\n")
 
