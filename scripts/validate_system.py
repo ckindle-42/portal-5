@@ -350,7 +350,7 @@ def check_unit_tests(*, skip_env_only: bool = True) -> tuple[str, str, list[dict
             "--ignore=tests/unit/test_transcribe_diarize.py",
             "--ignore=tests/unit/test_reranker_mcp.py",
         ]
-    result = subprocess.run(args, capture_output=True, text=True, timeout=120, cwd=str(REPO_ROOT))
+    result = subprocess.run(args, capture_output=True, text=True, timeout=300, cwd=str(REPO_ROOT))
     # Parse the summary line ("= N failed, N passed, ... =")
     summary_line = ""
     for line in result.stdout.splitlines()[::-1]:

@@ -507,6 +507,14 @@ services:
       - PROXMOX_VERIFY_SSL=${PROXMOX_VERIFY_SSL:-false}
       - PROXMOX_DEFAULT_NODE=${PROXMOX_DEFAULT_NODE:-}
       - PROXMOX_TASK_TIMEOUT=${PROXMOX_TASK_TIMEOUT:-120}
+      # SSH exec (proxmox_node_exec / proxmox_container_exec — pct exec, docker ops,
+      # host diagnostics). Key + known_hosts are mounted read-only below.
+      - PROXMOX_SSH_KEY=/run/secrets/proxmox_ssh_key
+      - PROXMOX_SSH_KNOWN_HOSTS=/run/secrets/proxmox_known_hosts
+      - PROXMOX_SSH_USER=${PROXMOX_SSH_USER:-root}
+    volumes:
+      - ${PROXMOX_SSH_KEY:-~/.ssh/portal-lab_id_ed25519}:/run/secrets/proxmox_ssh_key:ro
+      - ${HOME}/.ssh/known_hosts:/run/secrets/proxmox_known_hosts:ro
     command: ["python", "-m", "portal_mcp.proxmox.proxmox_mcp"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8927/health"]

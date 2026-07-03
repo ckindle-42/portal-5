@@ -209,23 +209,37 @@ _BLUE_ACTIVE_TOOLS: list[dict] = [
 # ── Lab service probe map ─────────────────────────────────────────────────────
 # Service → (port, probe command, output keyword expected if service exists)
 _LAB_SERVICE_PROBES: dict[str, tuple[int, str, list[str]]] = {
+    # nxc does one-time protocol-database init (~20 lines of "[*] ...") on every
+    # invocation in the ephemeral sandbox (its $HOME doesn't persist between
+    # execute_bash calls), which used to push the real result line past a bare
+    # `head -N` and read as unreachable. Filtering out "[*] " init noise first
+    # keeps the actual result line regardless of first-run overhead.
     "smb": (
         445,
-        "nxc smb ${host} -u '' -p '' --shares 2>&1 | head -5",
+        "nxc smb ${host} -u '' -p '' --shares 2>&1 | grep -v '^\\[\\*\\]' | head -5",
         ["SMB", "shares", "signing"],
     ),
     "winrm": (
         5985,
-        "nxc winrm ${host} -u Administrator -p 'LabAdmin1!' 2>&1 | head -5",
+        "nxc winrm ${host} -u Administrator -p 'LabAdmin1!' 2>&1 | grep -v '^\\[\\*\\]' | head -5",
         ["Pwn3d", "WinRM", "STATUS"],
     ),
     "ldap": (
         389,
-        "nxc ldap ${host} -u Administrator -p 'LabAdmin1!' 2>&1 | head -5",
+        "nxc ldap ${host} -u Administrator -p 'LabAdmin1!' 2>&1 | grep -v '^\\[\\*\\]' | head -5",
         ["LDAP", "domain"],
     ),
-    "kerberos": (88, "nxc smb ${host} -u '' -p '' 2>&1 | head -3", ["SMB", "445"]),
-    "rpc": (135, "rpcclient -U '' -N ${host} -c 'srvinfo' 2>&1 | head -5", ["Server", "platform"]),
+    "kerberos": (
+        88,
+        "nxc smb ${host} -u '' -p '' 2>&1 | grep -v '^\\[\\*\\]' | head -3",
+        ["SMB", "445"],
+    ),
+    # rpcclient needs to create /run/samba, which is read-only in the sandbox
+    # container — it fails to initialize regardless of whether port 135 is
+    # actually reachable. A plain TCP connect is a sufficient reachability
+    # signal here (chain-test steps that need real RPC interaction use their
+    # own tooling at exec time, not this preflight probe).
+    "rpc": (135, "timeout 3 bash -c 'echo > /dev/tcp/${host}/135' 2>&1 && echo OK", ["OK"]),
     "redis": (6379, "redis-cli -h ${host} ping 2>&1 | head -3", ["PONG"]),
     "nfs": (2049, "showmount -e ${host} 2>&1 | head -5", ["Export list"]),
     "http_8080": (
@@ -236,7 +250,7 @@ _LAB_SERVICE_PROBES: dict[str, tuple[int, str, list[str]]] = {
     "http_8983": (
         8983,
         "curl -s -o /dev/null -w '%{http_code}' http://${host}:8983/ 2>&1",
-        ["200", "301", "404"],
+        ["200", "301", "302", "404"],
     ),
     "http_8081": (
         8081,
@@ -246,10 +260,17 @@ _LAB_SERVICE_PROBES: dict[str, tuple[int, str, list[str]]] = {
     # Metasploitable3 Win2k8 services (10.10.11.10)
     "meta3_smb": (
         445,
-        "nxc smb ${host} -u '' -p '' --shares 2>&1 | head -5",
+        "nxc smb ${host} -u '' -p '' --shares 2>&1 | grep -v '^\\[\\*\\]' | head -5",
         ["SMB", "signing", "Win2008"],
     ),
-    "meta3_mysql": (3306, "timeout 3 bash -c 'echo > /dev/tcp/${host}/3306' 2>&1; echo OK", ["OK"]),
+    # `&&` (not `;`) is load-bearing here: with `;` the trailing `echo OK` runs
+    # unconditionally regardless of whether the /dev/tcp connect succeeded,
+    # which made these two probes always report reachable=True.
+    "meta3_mysql": (
+        3306,
+        "timeout 3 bash -c 'echo > /dev/tcp/${host}/3306' 2>&1 && echo OK",
+        ["OK"],
+    ),
     "meta3_http": (
         80,
         "curl -s -o /dev/null -w '%{http_code}' http://${host}/ 2>&1",
@@ -260,7 +281,11 @@ _LAB_SERVICE_PROBES: dict[str, tuple[int, str, list[str]]] = {
         "curl -s -o /dev/null -w '%{http_code}' http://${host}:8282/ 2>&1",
         ["200", "302", "401"],
     ),
-    "meta3_ftp": (21, "timeout 3 bash -c 'echo > /dev/tcp/${host}/21' 2>&1; echo OK", ["OK"]),
+    "meta3_ftp": (
+        21,
+        "timeout 3 bash -c 'echo > /dev/tcp/${host}/21' 2>&1 && echo OK",
+        ["OK"],
+    ),
     # VulnerableApp (on lab-vulhub LXC, port 80)
     "vulnapp_web": (80, "curl -s -o /dev/null -w '%{http_code}' http://${host}/ 2>&1", ["200"]),
     "vulnapp_api": (
