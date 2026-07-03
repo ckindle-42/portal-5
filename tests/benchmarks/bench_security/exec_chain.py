@@ -555,6 +555,7 @@ SCENARIOS: dict[str, dict] = {
     },
     "mbptl_ctf_full_chain": {
         "name": "mbptl_ctf_full_chain",
+        "difficulty": "hard",
         "red_order": [
             "web_request",
             "web_request",
@@ -591,7 +592,7 @@ SCENARIOS: dict[str, dict] = {
             "(17) call exploit_binary_service against mbptl-internal:31337 with offset=136 and target_address=0x4006c6. "
             "Do not describe — call the tools."
         ),
-        "detect_ground_truth": [],
+        "detect_ground_truth": ["T1190", "T1059.004", "T1505.003", "T1203"],
         "persistence_technique": "",
     },
     "web_to_root": {

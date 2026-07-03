@@ -1669,10 +1669,57 @@ def check_coverage_expansion_integrity() -> tuple[str, str, list[dict]]:
     else:
         subs.append({"name": "total scenarios", "status": "PASS", "detail": f"{total}"})
 
+    # Check 6: Zero red-only scenarios (blue-scorable invariant)
+    try:
+        red_only = [k for k, v in SCENARIOS.items() if not v.get("detect_ground_truth")]
+        if red_only:
+            subs.append(
+                {
+                    "name": "blue-scorable invariant",
+                    "status": "FAIL",
+                    "detail": f"red-only: {red_only}",
+                }
+            )
+            return "FAIL", f"red-only scenarios: {red_only}", subs
+        subs.append({"name": "blue-scorable invariant", "status": "PASS", "detail": "0 red-only"})
+    except Exception as e:
+        subs.append({"name": "blue-scorable invariant", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"blue-scorable check failed: {e}", subs
+
+    # Check 7: All techniques have SPL or are recorded blue-gaps
+    try:
+        from tests.benchmarks.bench_security.siem.spl_detections import techniques_covered
+
+        blue_gaps = {"T1078.004", "T1537"}  # cloud telemetry not in lab
+        all_techniques: set[str] = set()
+        for v in SCENARIOS.values():
+            all_techniques.update(v.get("detect_ground_truth", []))
+        spl = set(techniques_covered())
+        undetected = sorted(all_techniques - spl - blue_gaps)
+        if undetected:
+            subs.append(
+                {
+                    "name": "technique detectability",
+                    "status": "WARN",
+                    "detail": f"no SPL: {undetected}",
+                }
+            )
+        else:
+            subs.append(
+                {
+                    "name": "technique detectability",
+                    "status": "PASS",
+                    "detail": f"{len(all_techniques)} techniques, all covered or gapped",
+                }
+            )
+    except Exception as e:
+        subs.append({"name": "technique detectability", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"detectability check failed: {e}", subs
+
     return (
         "PASS",
         f"{total} scenarios ({meta3_count} meta3, {vuln_count} vulhub); "
-        f"all blue-scorable; {len(new_techniques)} techniques tracked",
+        f"all blue-scorable; {len(all_techniques)} techniques tracked",
         subs,
     )
 

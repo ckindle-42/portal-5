@@ -106,3 +106,51 @@ T1550.002:
   description: "Pass-the-hash — NTLM hash authentication"
   spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4624 LogonType=3 AuthenticationPackageName=NTLM | stats count by Account, IpAddress'
   expected_signal: "NTLM hash-based network authentication"
+
+T1003.001:
+  description: "LSASS dump — credential dumping via lsass.exe memory access"
+  spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4688 (NewProcessName="*lsass*" OR NewProcessName="*procdump*" OR NewProcessName="*comsvcs*") OR EventCode=10 (TargetImage="*lsass*")) | stats count by NewProcessName, Account'
+  expected_signal: "Process access to lsass.exe for credential dumping"
+
+T1003.003:
+  description: "NTDS dump — ntdsutil/ntds.dit extraction for domain credential theft"
+  spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4688 (NewProcessName="*ntdsutil*") OR EventCode=4661 OR Message="*ntds.dit*") | stats count by Account, NewProcessName'
+  expected_signal: "NTDS.dit extraction via ntdsutil or Volume Shadow Copy"
+
+T1047:
+  description: "WMI execution — remote command execution via WMI/cimv2"
+  spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4688 (NewProcessName="*wmic*" OR NewProcessName="*WmiPrvSE*") OR EventCode=5861) | stats count by NewProcessName, Account'
+  expected_signal: "WMI process creation or permanent WMI event subscription"
+
+T1059.004:
+  description: "Unix shell — command execution via sh/bash/python on Linux targets"
+  spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="/bin/sh" OR exe="/bin/bash" OR exe="/usr/bin/python3" OR exe="/usr/bin/perl" OR exe="/usr/bin/php") | stats count by host, exe, a0'
+  expected_signal: "Shell/interpreter execve events from exploitation payloads"
+
+T1189:
+  description: "Drive-by compromise — reflected XSS and malicious redirect indicators"
+  spl: 'index=portal5_lab sourcetype="web:access" ("%3Cscript" OR "<script" OR "onerror=" OR "onload=" OR "javascript:" OR "redirect_url=" OR "Location:") | stats count by host, uri_path, _raw'
+  expected_signal: "XSS payloads or redirect parameters in HTTP requests"
+
+T1203:
+  description: "Exploitation for client execution — binary overflow and service exploitation"
+  spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="*overflow*" OR a0="*exploit*" OR a0="*payload*") | stats count by host, exe, a0'
+  expected_signal: "Exploit payload execution against client services"
+
+T1557.001:
+  description: "LLMNR/NBT-NS poisoning — Responder/capture events on Windows network"
+  spl: 'index=portal5_lab (sourcetype="windows:security" (EventCode=4697 OR Message="*LLMNR*" OR Message="*responder*") OR (sourcetype="linux:auditd" exe="*responder*")) | stats count by host, sourcetype'
+  expected_signal: "LLMNR/NBT-NS poison or Responder execution on network"
+
+T1552:
+  description: "Unsecured credentials — SSRF-to-metadata, .env/.git exposure, hardcoded creds"
+  spl: 'index=portal5_lab sourcetype="web:access" ("169.254.169.254" OR "/latest/meta-data" OR ".git/config" OR ".env" OR "credentials" OR "password=" OR "secret=") | stats count by host, uri_path, _raw'
+  expected_signal: "Metadata endpoint access or sensitive file exposure in HTTP traffic"
+
+# ── Honest blue-gaps: techniques with no in-lab telemetry source ─────────────
+# T1078.004 (Valid Accounts: Cloud Accounts) and T1537 (Transfer Data to Cloud
+# Account) require cloud-provider telemetry (AWS CloudTrail, Azure AD Sign-ins)
+# which is not ingested in the lab. These are recorded gaps, not fake detections.
+# BLUE_GAPS:
+#   T1078.004 — needs cloud identity telemetry (CloudTrail/Azure AD)
+#   T1537    — needs cloud storage access logs (S3/Azure Blob)
