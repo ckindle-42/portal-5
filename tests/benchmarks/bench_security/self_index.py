@@ -21,14 +21,29 @@ _RESULTS_DIR = _SELF_DIR / "results"
 _EXTRA_RESULTS_DIR = _PROJECT_ROOT / "tests" / "benchmarks" / "results"
 _JOURNAL_DIR = _SELF_DIR / "field_journal"
 
+# Matches sec_bench_*.json (the default baseline naming) AND sec_full_red_*/
+# sec_full_purple_*.json (EXEC_SEC_FULL_COVERAGE_V1.md's Step 1/2 output) plus
+# every other sec_<label>_<TS>.json variant already in results/ (sec_bench_
+# all8, _chain, _combined, _expanded_v3, etc — see results/ for the full set).
+# Everything actually written to this directory is "sec_"-prefixed; a glob
+# anchored to "sec_bench_" specifically silently excludes anything else,
+# which is what caused self-index to fall back to a stale baseline instead of
+# a same-night full-coverage run.
+_RESULT_GLOB = "sec_*.json"
+
 
 def _run_timestamp_key(p: Path) -> str:
-    """Sort key for sec_bench_<TS>.json: the run's own embedded UTC timestamp.
+    """Sort key for sec_*_<TS>.json: the run's own embedded UTC timestamp.
 
     Filesystem mtime gets scrambled by git checkout/clone and doesn't reflect
-    actual bench-run order; the filename timestamp is authoritative.
+    actual bench-run order; the filename timestamp is authoritative. Not
+    anchored to the "sec_bench_" prefix — EXEC_SEC_FULL_COVERAGE_V1.md's
+    Step 1/2 write sec_full_red_/sec_full_purple_ instead, and a prefix-
+    anchored regex silently returned "" (sorts last) for those, which made
+    _complete_result_files() below skip them entirely in favor of a stale
+    sec_bench_ baseline.
     """
-    m = re.search(r"sec_bench_(?:\w+_)*(\d{8}T\d{6}Z)", p.name)
+    m = re.search(r"(\d{8}T\d{6}Z)", p.name)
     return m.group(1) if m else ""
 
 
@@ -122,7 +137,7 @@ def _read_oracle_fidelity() -> dict:
 
     # Try to enrich with verified counts from the freshest result JSON
     result_files = sorted(
-        [p for p in _RESULTS_DIR.glob("sec_bench_*.json") if not p.name.endswith(".partial.json")],
+        [p for p in _RESULTS_DIR.glob(_RESULT_GLOB) if not p.name.endswith(".partial.json")],
         key=_run_timestamp_key,
         reverse=True,
     )
@@ -152,11 +167,11 @@ def _read_oracle_fidelity() -> dict:
 
 
 def _complete_result_files() -> list[Path]:
-    """All non-partial sec_bench_*.json result files across both result dirs, newest first."""
+    """All non-partial sec_*.json result files across both result dirs, newest first."""
     files = [
         p
         for results_dir in (_RESULTS_DIR, _EXTRA_RESULTS_DIR)
-        for p in results_dir.glob("sec_bench_*.json")
+        for p in results_dir.glob(_RESULT_GLOB)
         if not p.name.endswith(".partial.json")
     ]
     return sorted(files, key=_run_timestamp_key, reverse=True)
