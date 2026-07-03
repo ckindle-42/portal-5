@@ -251,6 +251,78 @@ Mistral Devstral Small 2 (~15GB). Agentic coding / software engineering model �
 
 BugTraceAI-CORE-Ultra-27B-Q6 (~22.1GB Q6_K, BugTraceAI, Apache 2.0, Qwen3.6 dense 27B). SFT on 2,541 real bug-bounty/CVE writeups. TOOLING model — emits runnable artifacts (Nuclei templates, CVE PoCs, JWT crackers, C exploits), not prose. Self-reported 5/5 tooling bench, 0% refusal. Exploit-GENERATION capability complements Portal's analysis-focused security lanes. supports_tools=false (per supergemma4 reasoning-loop precedent). bench-only, PROMOTE_POLICY=confirm. V11 candidate intake 2026-06-30.
 
+### Blue/red candidate batch evaluated 2026-07-03 — none promoted
+
+Eight candidates pulled and evaluated against the EXEC_SEC_FULL_COVERAGE_V1.md full-coverage run (which
+exposed a real detection gap: sylink/sylink:8b, the auto-blueteam incumbent, scored f1=0 on 69/70
+scenarios outside AD). PROMOTE_POLICY=confirm — comparison only, no fleet config touched. Raw result JSON
+files are committed under `tests/benchmarks/bench_security/results/` (fleet-validation
+`sec_full_red_20260703T081509Z.json` / `sec_full_purple_20260703T082741Z.json`) and
+`tests/benchmarks/bench_security/results/candidates/` (per-candidate blue/red runs) — this summary is a
+guide to that data, not a replacement for it. Ollama models removed post-eval (disk reclaim; none
+promoted, so none need to stay pulled). See git history (commits 9eb53c4..b763301, plus the
+candidate_eval.py path-sanitization fix) for the harness fixes this batch also surfaced and repaired
+(purple mode ignoring --all-scenarios, AD blue telemetry always synthetic, self-index/stage2 file
+discovery, candidate-eval --force for quality-over-speed evaluation, a result-file write bug that
+silently dropped RedTeamLab-redteam-v5's first run).
+
+### `hf.co/mradermacher/CyberOss-2.0-20B-GGUF:Q4_K_M` — DROPPED (evaluated, not adopted)
+
+Blue-defender candidate (cyber-pal-security/CyberOss-2.0-20B base, gpt-oss-20b lineage, mradermacher
+Q4_K_M quant). Preflight FAIL: blank output confirmed via raw `/api/generate` call (13 tokens generated,
+`response=""`) — same failure class as gpt-oss harmony-format compat issues. Not benched.
+
+### `hf.co/RedTeamLab/Qwen3.6-27B-blueteam-v1:Q3_K_S` — DROPPED (evaluated, not adopted)
+
+Blue-defender candidate (RedTeamLab, Qwen3.6-27B base; only Q3_K_S quant shipped by the source repo).
+Passed preflight + tool-call audit. Purple-benched vs sylink/sylink:8b incumbent on the 6-scenario
+candidate-eval gauntlet (fixed red=gemma-4-abliterated:E2b): f1=0.00 on all 6 scenarios — ties the
+incumbent's zero-detection result on the same set, no improvement.
+
+### `hf.co/Vegss/Titus-CybersecurityLLM-v1.0-Q4_K_M-No-MTP-GGUF:Q4_K_M` — DROPPED (evaluated, not adopted)
+
+Blue-defender candidate (AlicanKiraz0 lineage, Qwen3.6 35B, SOC/DFIR-tuned, No-MTP quant). Preflight
+passed (coherent kerberoasting/MITRE response). Disqualified on tool-call audit: Ollama returns "does not
+support tools" — the GGUF's embedded chat template has no tool-calling syntax. Hard model limitation, not
+benched.
+
+### `ravenx-cyberagent-35b:Q4_K_M` — DROPPED (evaluated, not adopted; local alias for RavenX-CyberAgent-35B)
+
+Red EXPLOIT-slot candidate (upstream `deadbydawn101/RavenX-CyberAgent-Qwen3.6-35B-A3B-Opus-4.7-
+OpenMythos-Pentester-BugHunter-RATH-GGUF`; Qwen3.6-35B-A3B MoE, Claude-4.7-Opus distill + abliteration +
+RATH-protocol LoRA). Ollama's hf.co puller rejects the upstream repo name outright (`400 Bad Request:
+invalid model name` — repo path >90 chars, fails with or without a quant tag); worked around via manual
+HF download + `ollama create` under a short local alias. TPS-probe 14.7 t/s, below the 20 t/s intake
+floor — evaluated anyway via `candidate-eval --force` (deliberate quality-over-speed override; a slower
+27B/35B model may out-detect a faster small one, and the floor exists for chain responsiveness, not
+capability). candidate-eval vs gemma-4-abliterated:E2b incumbent, EXPLOIT slot, 6-scenario gauntlet:
+aggregate +0.111 order-accuracy, +0.000 coverage/lab_success — NEUTRAL, slight edge on web_sqli_dump
+(depth 3/3 vs incumbent 1/3) but no decisive win.
+
+### `hf.co/mradermacher/GPT-OSS-Cybersecurity-20B-Merged-heretic-GGUF:Q4_K_M` — DROPPED (evaluated, not adopted)
+
+Red EXPLOIT-slot candidate (gpt-oss-20b + cybersecurity fine-tune + heretic decensoring). Disqualified on
+tool-call audit: "does not support tools." Not benched.
+
+### `hf.co/RedTeamLab/Qwen3.6-27B-redteam-v5:qwen3.6-27b-redteam-v5-Q4_K_M.gguf` — DROPPED (evaluated, not adopted)
+
+Red EXPLOIT-slot candidate (RedTeamLab, Qwen3.6-27B QLoRA, same lineage as their blueteam-v1 above). TPS-
+probe 10.4 t/s, below floor — evaluated via `--force`. First run's result JSON was silently lost to a
+path-sanitization bug (see git history for the fix) and rerun for a saved record: candidate-eval vs
+gemma-4-abliterated:E2b incumbent: aggregate -0.075 order-accuracy, +0.000 coverage/lab_success —
+NEUTRAL/slightly negative, worse than RavenX on web_sqli_dump (depth 1/3 vs the same incumbent baseline's
+3/3) and ctf_multi_service (depth 5/7 vs baseline 7/7).
+
+### `hf.co/dhomksa/Qwen3-4B-Cybersecurity-Heretic-16bit-Q4_K_M-GGUF:Q4_K_M` — DROPPED (evaluated, not adopted)
+
+Red EXPLOIT-slot candidate (Qwen3-4B, lightweight/fast option). Disqualified on tool-call audit: "does not
+support tools." Not benched.
+
+### `AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF` — DROPPED (blocked, never evaluated)
+
+Red EXPLOIT-slot candidate. Never pulled — gated HF repo (requires accepting terms to access files, no
+anonymous/token-based Ollama pull path available). Blocked, not evaluated.
+
 ## Reasoning group
 
 ### `deepseek-r1:32b-q4_k_m`

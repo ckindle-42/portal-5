@@ -406,7 +406,13 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
     # ── Write isolated results ───────────────────────────────────────────────
     ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
     CANDIDATES_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = CANDIDATES_DIR / f"cand_{candidate.replace(':', '_')}_{slot}_{ts}.json"
+    # candidate IDs are frequently hf.co/<org>/<repo>[:quant] — ':' alone isn't
+    # enough, the embedded '/' makes write_text() below try to create a
+    # subdirectory that doesn't exist and silently lose the result (confirmed
+    # live 2026-07-03: RedTeamLab-redteam-v5's candidate-eval printed its full
+    # verdict table to stdout but never wrote a results file).
+    safe_candidate = candidate.replace(":", "_").replace("/", "_")
+    out_path = CANDIDATES_DIR / f"cand_{safe_candidate}_{slot}_{ts}.json"
 
     output = {
         "mode": "candidate-eval",
