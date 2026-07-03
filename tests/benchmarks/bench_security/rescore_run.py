@@ -188,7 +188,10 @@ def main() -> None:
             )
             if alt.exists():
                 results_dir = alt
-        files = sorted(results_dir.glob("sec_bench_*.json"))
+        # sec_*.json, not just sec_bench_*.json — EXEC_SEC_FULL_COVERAGE_V1.md's
+        # Step 1/2 write sec_full_red_/sec_full_purple_ instead (same gap fixed
+        # in self_index.py's _RESULT_GLOB).
+        files = sorted(results_dir.glob("sec_*.json"))
         files = [f for f in files if "_rescored" not in f.name]
         if not files:
             print("No results files found. Pass a path as argument.", file=sys.stderr)

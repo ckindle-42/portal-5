@@ -90,9 +90,13 @@ def generate_proposal(oracle_id: str, oracle: Any) -> dict:
 
 
 def _complete_all_scenarios_files() -> list[Path]:
-    """Non-partial sec_bench_*.json files with all_scenarios: true, newest first."""
+    """Non-partial sec_*.json files with all_scenarios: true, newest first.
+
+    Not anchored to sec_bench_ — EXEC_SEC_FULL_COVERAGE_V1.md's Step 1 writes
+    sec_full_red_ instead (same gap fixed in self_index.py's _RESULT_GLOB).
+    """
     candidates = []
-    for p in _RESULTS_DIR.glob("sec_bench_*.json"):
+    for p in _RESULTS_DIR.glob("sec_*.json"):
         if p.name.endswith(".partial.json"):
             continue
         try:
