@@ -812,11 +812,17 @@ def run_purple_tests(
     Common usage pairs a model with itself (same model doing both roles) to grade a
     single model's full-spectrum capability; pass identical --chain-models and
     --blue-models for that.
+
+    The caller must set `cfg`'s scenario (via `_prepare_scenario`, which also runs the
+    target-readiness gate and $TARGET_HOST/$TARGET_PORT substitution) before calling
+    this — it no longer does its own `cfg.set_scenario` here (found live 2026-07-03:
+    that call was unconditionally overwriting the caller's substituted prompt with the
+    raw, unresolved template, so every vulhub/web purple scenario attacked a literal
+    "$TARGET_HOST" instead of a real IP).
     """
     from .chain import _run_chain_test  # lazy import to avoid circular dependency
 
     print(f"\n── Purple Tests scenario={scenario['name']} ──\n")
-    cfg.set_scenario(scenario["red_order"], scenario["red_prompt"])
 
     results: list[dict] = []
     red_cache: dict[str, dict] = {}
