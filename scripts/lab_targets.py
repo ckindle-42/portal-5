@@ -91,21 +91,57 @@ def _host_compose_path(path: str) -> str:
 def _published_port(compose_path: str) -> int | None:
     """Ask Docker for the actual published host port(s) — never guess from a hardcoded
     default. A raw vulhub path's real port can differ from any catalog assumption (e.g.
-    fastjson/1.2.47-rce publishes 8090, not the common 8080)."""
+    fastjson/1.2.47-rce publishes 8090, not the common 8080).
+
+    Robustness: tries `docker compose ps --format json` (Publishers key) first,
+    then falls back to `docker compose port <svc> tcp` for compose JSON shape drift.
+    """
     r = _host_exec(f"docker compose -f {compose_path} ps --format json", timeout=15)
-    if not r.get("ok"):
-        return None
-    for line in r["output"].splitlines():
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            entry = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        for pub in entry.get("Publishers") or []:
-            if pub.get("Protocol") == "tcp" and pub.get("PublishedPort"):
-                return int(pub["PublishedPort"])
+    if r.get("ok"):
+        for line in r["output"].splitlines():
+            line = line.strip()
+            if not line.startswith("{"):
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            # Try Publishers key (newer compose)
+            for pub in entry.get("Publishers") or []:
+                if pub.get("Protocol") == "tcp" and pub.get("PublishedPort"):
+                    return int(pub["PublishedPort"])
+            # Try Ports key (older compose JSON shape)
+            ports_str = entry.get("Ports", "")
+            if ports_str:
+                for part in str(ports_str).split(","):
+                    part = part.strip()
+                    if "->" in part:
+                        host_part = part.split("->")[0]
+                        if ":" in host_part:
+                            try:
+                                return int(host_part.rsplit(":", 1)[-1])
+                            except ValueError:
+                                pass
+
+    # Fallback: `docker compose port <first_service> tcp`
+    # Extract service name from compose file
+    svc_r = _host_exec(
+        f"docker compose -f {compose_path} config --services 2>/dev/null | head -1",
+        timeout=10,
+    )
+    if svc_r.get("ok") and svc_r.get("output", "").strip():
+        svc = svc_r["output"].strip()
+        port_r = _host_exec(
+            f"docker compose -f {compose_path} port {svc} tcp 2>/dev/null", timeout=10
+        )
+        if port_r.get("ok"):
+            # Output format: "0.0.0.0:8090" or ":::8090"
+            for tok in port_r.get("output", "").strip().split():
+                if ":" in tok:
+                    try:
+                        return int(tok.rsplit(":", 1)[-1])
+                    except ValueError:
+                        pass
     return None
 
 
@@ -277,6 +313,92 @@ def cmd_list() -> list[dict]:
         }
         for t in catalog.get("targets", [])
     ]
+
+
+def _resolve_live_port(host: str, env: str | None) -> int | None:
+    """Determine the live published port for a target.
+
+    For vulhub envs, uses _published_port on the compose file.
+    For non-vulhub targets, probes common ports.
+    """
+    if env:
+        compose_path = _host_compose_path(env)
+        return _published_port(compose_path)
+    # Non-vulhub: no port discovery available here; caller probes directly
+    return None
+
+
+def _vmid_for_host(host: str) -> str:
+    """Look up the Proxmox VMID for a given host IP from lab_targets.yaml."""
+    catalog = _load_catalog()
+    for t in catalog.get("targets", []):
+        if t.get("host") == host:
+            return str(t.get("vmid", ""))
+    return ""
+
+
+def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int = 2) -> dict:
+    """Verify a scenario's external target is up; heal via existing primitives if not.
+
+    Returns {ready, healed, host, port, reason} where port is the REAL published port
+    the scenario must attack (single source of truth — no hardcoded guessing).
+
+    Uses ONLY existing primitives: cmd_up, _published_port, _wait_reachable,
+    _lab_lxc_start, _lab_lxc_revert. No new lab-control code.
+    """
+    host = scenario.get("target_host")
+    env = scenario.get("vulhub_env")
+
+    # No external target (AD-only scenarios, etc.) — always "ready"
+    if not host:
+        return {
+            "ready": True,
+            "healed": False,
+            "host": None,
+            "port": None,
+            "reason": "no external target",
+        }
+
+    # VERIFY: is it up, and on WHAT port?
+    port = _resolve_live_port(host, env)
+    if port and _wait_reachable(host, port, timeout_s=5):
+        return {
+            "ready": True,
+            "healed": False,
+            "host": host,
+            "port": port,
+            "reason": "already up",
+        }
+
+    # HEAL (existing primitives)
+    for attempt in range(retries):
+        if env:
+            up = cmd_up(env, dry_run=dry_run)
+            port = up.get("port")
+        else:
+            vmid = _vmid_for_host(host)
+            if vmid:
+                from bench_lab_exec import _lab_lxc_start as _lxc_start
+
+                _lxc_start(vmid)
+            port = _resolve_live_port(host, env)
+
+        if port and _wait_reachable(host, port, timeout_s=60):
+            return {
+                "ready": True,
+                "healed": True,
+                "host": host,
+                "port": port,
+                "reason": f"healed@{attempt + 1}",
+            }
+
+    return {
+        "ready": False,
+        "healed": False,
+        "host": host,
+        "port": None,
+        "reason": "target-unrecoverable",
+    }
 
 
 def main() -> None:

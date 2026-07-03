@@ -53,6 +53,9 @@ try:
         DOMAIN as _LAB_DOMAIN,
     )
     from bench_lab_exec import (
+        LAB_META3 as _LAB_META3,
+    )
+    from bench_lab_exec import (
         SRV as _LAB_SRV,
     )
     from bench_lab_exec import (
@@ -75,6 +78,7 @@ except ImportError as _exc:
     _LAB_DC: str = "10.10.11.21"
     _LAB_SRV: str = "10.10.11.33"
     _LAB_WEB: str = "10.10.11.50"
+    _LAB_META3: str = "10.10.11.10"
     _LAB_DOMAIN: str = "portal.lab"
     _LAB_ADMIN_PASS: str = "LabAdmin1!"
     _LAB_SVC_PASS: str = "Backup123!"

@@ -17,6 +17,7 @@ class BenchConfig:
     # ── Scenario state (swapped per-scenario in the run loop) ──────────────
     chain_expected_order: list[str] = field(default_factory=list)
     chain_initial_prompt: str = ""
+    gate_result: dict | None = None  # readiness gate result for current scenario
 
     # ── Mode flags (set once from CLI args) ────────────────────────────────
     dynamic_cve_mode: bool = False
@@ -41,7 +42,23 @@ class BenchConfig:
     # ── Mutable tool list (appended to in dynamic-CVE mode) ────────────────
     chain_tools: list[dict] = field(default_factory=list)
 
-    def set_scenario(self, red_order: list[str], red_prompt: str) -> None:
-        """Swap scenario context — replaces global mutation."""
+    def set_scenario(
+        self,
+        red_order: list[str],
+        red_prompt: str,
+        runtime_env: dict | None = None,
+    ) -> None:
+        """Swap scenario context — replaces global mutation.
+
+        If runtime_env is provided (from ensure_target_ready), substitute
+        $TARGET_HOST and $TARGET_PORT in the prompt so the model attacks
+        the container's REAL published port.
+        """
         self.chain_expected_order = red_order
-        self.chain_initial_prompt = red_prompt
+        prompt = red_prompt
+        if runtime_env:
+            if runtime_env.get("TARGET_HOST"):
+                prompt = prompt.replace("$TARGET_HOST", str(runtime_env["TARGET_HOST"]))
+            if runtime_env.get("TARGET_PORT"):
+                prompt = prompt.replace("$TARGET_PORT", str(runtime_env["TARGET_PORT"]))
+        self.chain_initial_prompt = prompt

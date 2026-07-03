@@ -34,6 +34,7 @@ from .chain import (
     CHAIN_TOOLS_BASE,
     SCENARIOS,
     TPS_FLOOR,
+    _prepare_scenario,
     _run_multimodel_chain,
     _run_refusal_test,
     run_audit_tools,
@@ -816,8 +817,28 @@ def main() -> None:
         all_scenario_results: dict[str, list[dict]] = {}
 
         for sc in scenarios_to_run:
-            cfg.set_scenario(sc["red_order"], sc["red_prompt"])
             print(f"\n── Scenario: {sc['name']} ──")
+            # Phase 3: target readiness gate — verify→heal→re-verify
+            gate = _prepare_scenario(sc, cfg, dry_run=args.dry_run, lab_exec=args.lab_exec)
+            if not gate.get("ready"):
+                # Unrecoverable target → indeterminate, NEVER lab_success=False
+                print(f"  SKIP: {gate.get('reason', 'target-unrecoverable')}")
+                indeterminate_result = {
+                    "model": ",".join(args.chain_models) if args.chain_models else "unknown",
+                    "scenario": sc["name"],
+                    "chain_depth": 0,
+                    "outcome": "indeterminate",
+                    "gate_reason": gate.get("reason", "target-unrecoverable"),
+                    "lab_success": False,
+                    "lab_observations": {"open_ports": []},
+                }
+                chain_results.append(indeterminate_result)
+                all_scenario_results.setdefault(sc["name"], []).append(indeterminate_result)
+                continue
+            if gate.get("healed"):
+                print(
+                    f"  Target healed: {gate.get('reason')} → {gate.get('host')}:{gate.get('port')}"
+                )
             sc_results = run_chain_tests(
                 args.chain_models, cfg, dry_run=args.dry_run, lab_exec=args.lab_exec
             )

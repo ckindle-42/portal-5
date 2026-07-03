@@ -17,6 +17,7 @@ import yaml
 from ._data import RESULTS_DIR
 from .exec_chain import (
     SCENARIOS,
+    _prepare_scenario,
     _run_multimodel_chain,
 )
 from .intake import TPS_FLOOR, run_candidate_intake
@@ -306,7 +307,17 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
     # Run candidate
     candidate_results: list[dict] = []
     for sc in scenarios:
-        cfg.set_scenario(sc["red_order"], sc["red_prompt"])
+        gate = _prepare_scenario(sc, cfg, dry_run=args.dry_run, lab_exec=args.lab_exec)
+        if not gate.get("ready"):
+            print(f"  SKIP {sc['name']}: {gate.get('reason', 'target-unrecoverable')}")
+            candidate_results.append(
+                {
+                    "scenario": sc["name"],
+                    "outcome": "indeterminate",
+                    "gate_reason": gate.get("reason"),
+                }
+            )
+            continue
         print(f"\n  ── {sc['name']} (candidate) ──")
         if slot == "solo":
             # Solo: candidate runs all slots via _run_multimodel_chain
@@ -336,7 +347,10 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
     if not args.dry_run and incumbent:
         print(f"\n  [3b/4] Running incumbent baseline ({incumbent}) ...")
         for sc in scenarios:
-            cfg.set_scenario(sc["red_order"], sc["red_prompt"])
+            gate = _prepare_scenario(sc, cfg, dry_run=False, lab_exec=args.lab_exec)
+            if not gate.get("ready"):
+                print(f"  SKIP {sc['name']}: {gate.get('reason')}")
+                continue
             print(f"\n  ── {sc['name']} (incumbent) ──")
             result = _run_multimodel_chain(
                 step_models={"default": incumbent},

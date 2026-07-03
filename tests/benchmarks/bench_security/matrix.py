@@ -572,8 +572,12 @@ def _lab_env_vars() -> dict[str, str]:
         return {}
 
 
-def _resolve_env(hint: str) -> str:
+def _resolve_env(hint: str, runtime_env: dict | None = None) -> str:
     """Substitute known lab env vars ($LAB_TARGET_DC etc.) into a tool_hint.
+
+    Also substitutes $TARGET_HOST and $TARGET_PORT from runtime_env (the
+    readiness gate result) so the dispatched prompt attacks the container's
+    REAL published port — the single source of truth.
 
     Unset/unknown $NAME is left literal so the command visibly fails rather than
     silently mis-targeting (→ indeterminate, never a false verified).
@@ -582,6 +586,12 @@ def _resolve_env(hint: str) -> str:
     for name, value in _lab_env_vars().items():
         if value:
             resolved = resolved.replace(f"${name}", value)
+    # Inject target host/port from readiness gate (Phase 2: port single-source-of-truth)
+    if runtime_env:
+        if runtime_env.get("TARGET_HOST"):
+            resolved = resolved.replace("$TARGET_HOST", str(runtime_env["TARGET_HOST"]))
+        if runtime_env.get("TARGET_PORT"):
+            resolved = resolved.replace("$TARGET_PORT", str(runtime_env["TARGET_PORT"]))
     return resolved
 
 
