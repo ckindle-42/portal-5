@@ -76,7 +76,12 @@ class WinEventBackend:
             f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={ids}}} "
             f"-MaxEvents 50 | Format-List Id,TimeCreated,Message"
         )
-        code = f"nxc winrm {_LAB_DC} -u administrator -p '{_LAB_ADMIN_PASS}' -x \"{ps}\" 2>&1"
+        # -X (not -x) — nxc's -x runs the command via cmd.exe, which doesn't
+        # recognize PowerShell cmdlets like Get-WinEvent ("not recognized as an
+        # internal or external command"), so this always fell through to
+        # synthetic telemetry even when real WinEvent data was reachable and
+        # red had genuinely landed the attack. -X executes via PowerShell.
+        code = f"nxc winrm {_LAB_DC} -u administrator -p '{_LAB_ADMIN_PASS}' -X \"{ps}\" 2>&1"
         r = _lab_mcp_call(code, timeout=90)
         text = r.get("output", "")
         if text.strip() and ("EventID" in text or any(str(e) in text for e in fx["event_ids"])):
@@ -615,7 +620,9 @@ def _fetch_blue_telemetry(technique_ids: list[str], lab_exec: bool, dry_run: boo
                 f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={ids}}} "
                 f"-MaxEvents 50 | Format-List Id,TimeCreated,Message"
             )
-            code = f"nxc winrm {_LAB_DC} -u administrator -p '{_LAB_ADMIN_PASS}' -x \"{ps}\" 2>&1"
+            # -X (not -x, see WinEventBackend.query above) — cmd.exe doesn't
+            # know PowerShell cmdlets.
+            code = f"nxc winrm {_LAB_DC} -u administrator -p '{_LAB_ADMIN_PASS}' -X \"{ps}\" 2>&1"
             r = _lab_mcp_call(code, timeout=90, dry_run=dry_run)
             text = r.get("output", "")
             if text.strip() and "EventID" in text or any(str(e) in text for e in fx["event_ids"]):

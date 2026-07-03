@@ -893,19 +893,28 @@ def main() -> None:
             args.blue_models, scenario, dry_run=args.dry_run, lab_exec=args.lab_exec
         )
 
-    # Step 2c: purple interaction (red x blue on one scenario)
+    # Step 2c: purple interaction (red x blue on one scenario, or every scenario
+    # with --all-scenarios). Purple sits outside the _any_chain chain-dispatch
+    # path (see _any_chain above), so it needs its own --all-scenarios handling
+    # — without this it silently ran only the single default `scenario` even
+    # when --all-scenarios was passed (found live 2026-07-03: a "full-coverage"
+    # purple run produced results for 1/70 scenarios with no error or warning).
     if args.purple:
         if not args.chain_models or not args.blue_models:
             print("  ERROR: --purple requires both --chain-models and --blue-models")
         else:
-            purple_results = run_purple_tests(
-                args.chain_models,
-                args.blue_models,
-                scenario,
-                cfg,
-                dry_run=args.dry_run,
-                lab_exec=args.lab_exec,
-            )
+            _purple_scenarios = list(SCENARIOS.values()) if args.all_scenarios else [scenario]
+            for _p_sc in _purple_scenarios:
+                purple_results.extend(
+                    run_purple_tests(
+                        args.chain_models,
+                        args.blue_models,
+                        _p_sc,
+                        cfg,
+                        dry_run=args.dry_run,
+                        lab_exec=args.lab_exec,
+                    )
+                )
 
     # Step 2d: evasion loop (--evasion flag)
     if args.evasion:
