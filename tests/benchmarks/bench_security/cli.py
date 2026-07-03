@@ -847,6 +847,28 @@ def main() -> None:
             all_scenario_results[sc["name"]] = sc_results
             chain_results.extend(sc_results)
 
+            # Tear down ephemeral vulhub targets once their scenario is done —
+            # cmd_up/heal never stops them, so a full --all-scenarios run leaves
+            # every healed CVE container running for the rest of the run, and the
+            # vulhub LXC's memory climbs monotonically until later heals start
+            # timing out (found live 2026-07-03: 25/70 scenarios lost to this on a
+            # single run). Best-effort: a failed teardown just means the next
+            # scenario's `cmd_up` finds the container already there.
+            if sc.get("vulhub_env") and args.lab_exec and not args.dry_run:
+                from scripts.lab_targets import cmd_down
+
+                cmd_down(sc["vulhub_env"], dry_run=args.dry_run)
+
+            # Pace back-to-back scenarios — teardown/heal/exploitation lands right
+            # on top of each other otherwise, and repeated full/retry runs have
+            # crashed real lab infra under it (meta3 crashing mid-run, the vulhub
+            # LXC's docker daemon thrashing under concurrent network teardown +
+            # new-container-create). A short settle window between scenarios costs
+            # little against a ~30-45min run and lets Docker/Proxmox actually
+            # finish releasing a target's resources before the next one claims them.
+            if args.lab_exec and not args.dry_run:
+                time.sleep(5)
+
             # Multi-model chain for this scenario (if --step-models provided)
             if _step_models and args.chain_models:
                 print(f"\n── Multi-model chain: {sc['name']} ──")
@@ -926,6 +948,30 @@ def main() -> None:
         else:
             _purple_scenarios = list(SCENARIOS.values()) if args.all_scenarios else [scenario]
             for _p_sc in _purple_scenarios:
+                # Purple never ran the target-readiness gate at all (found live
+                # 2026-07-03, same day as the "1/70 scenarios" fix above): no
+                # verify/heal, and — since run_purple_tests used to call its own
+                # cfg.set_scenario with no runtime_env — no $TARGET_HOST/$TARGET_PORT
+                # substitution either. Every vulhub/web scenario attacked a literal
+                # unresolved template string. Reuse the exact same gate as the
+                # red-only path (_any_chain) instead of a second implementation.
+                gate = _prepare_scenario(_p_sc, cfg, dry_run=args.dry_run, lab_exec=args.lab_exec)
+                if not gate.get("ready"):
+                    print(f"  SKIP: {gate.get('reason', 'target-unrecoverable')}")
+                    purple_results.append(
+                        {
+                            "red_model": ",".join(args.chain_models),
+                            "blue_model": ",".join(args.blue_models),
+                            "scenario": _p_sc["name"],
+                            "outcome": "indeterminate",
+                            "gate_reason": gate.get("reason", "target-unrecoverable"),
+                        }
+                    )
+                    continue
+                if gate.get("healed"):
+                    print(
+                        f"  Target healed: {gate.get('reason')} → {gate.get('host')}:{gate.get('port')}"
+                    )
                 purple_results.extend(
                     run_purple_tests(
                         args.chain_models,
@@ -936,6 +982,12 @@ def main() -> None:
                         lab_exec=args.lab_exec,
                     )
                 )
+                if _p_sc.get("vulhub_env") and args.lab_exec and not args.dry_run:
+                    from scripts.lab_targets import cmd_down
+
+                    cmd_down(_p_sc["vulhub_env"], dry_run=args.dry_run)
+                if args.lab_exec and not args.dry_run:
+                    time.sleep(5)
 
     # Step 2d: evasion loop (--evasion flag)
     if args.evasion:
@@ -1320,14 +1372,17 @@ def main() -> None:
             adapt_str = f"{adapt['adapted']}/{adapt['checks']}" if adapt.get("checks") else "  n/a"
             unique = r.get("unique_steps_hit", [])
             unique_n = len(unique)
-            max_d = r["max_depth"]
+            # indeterminate/gated-skip entries (cli.py's SKIP: target-unrecoverable
+            # branch) never populate max_depth/order_accuracy — a real full-coverage
+            # run always has some of these, so this must not be a hard KeyError.
+            max_d = r.get("max_depth", 0)
             tier = classify_effort_tier(r)
             tier_counts[tier] = tier_counts.get(tier, 0) + 1
             print(
                 f"{r['model'][:48]:<48}"
                 f"  {r['chain_depth']}/{max_d}"
                 f"  {unique_n}/{max_d}"
-                f"  {r['order_accuracy']:>4.2f}"
+                f"  {r.get('order_accuracy', 0.0):>4.2f}"
                 f"  {adapt_str:>7}"
                 f"  {r.get('elapsed_s', 0):>4.0f}s"
                 f"  {'YES' if r.get('refused') else 'no':>8}  {tier}"
@@ -1473,7 +1528,8 @@ def main() -> None:
         lines.append("Chain tests:")
         for r in chain_results:
             lines.append(
-                f"  {r['model'][-28:]:<28}  depth={r['chain_depth']}/{r['max_depth']}  acc={r['order_accuracy']:.2f}"
+                f"  {r['model'][-28:]:<28}  depth={r['chain_depth']}/{r.get('max_depth', 0)}"
+                f"  acc={r.get('order_accuracy', 0.0):.2f}"
             )
     elapsed = time.monotonic() - t0_bench
     _send_bench_notification(

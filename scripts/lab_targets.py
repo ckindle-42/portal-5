@@ -159,6 +159,79 @@ def _wait_reachable(host: str, port: int, timeout_s: float = 30.0) -> bool:
     return False
 
 
+def _remap_conflicting_ports(compose_path: str) -> str | None:
+    """Generate a docker-compose override remapping any host port this compose file
+    wants that's already taken by another container (common — many vulhub CVE PoCs
+    default to the same handful of ports, e.g. 8080). Without this, `docker compose
+    up -d` fails outright with "port is already allocated" and the target never
+    starts, regardless of how much memory/retries are available (found live
+    2026-07-03: this — not memory pressure — was the real cause of ~20 stable
+    vulhub scenario skips across repeated full-coverage runs).
+
+    Returns the override file path, or None if no remap was needed/possible.
+    """
+    import base64
+
+    import yaml
+
+    cfg = _host_exec(f"docker compose -f {compose_path} config", timeout=15)
+    if not cfg.get("ok"):
+        return None
+    text = cfg["output"]
+    idx = text.find("name:")
+    if idx == -1:
+        return None
+    try:
+        parsed = yaml.safe_load(text[idx:])
+    except Exception:
+        return None
+    if not parsed or not parsed.get("services"):
+        return None
+
+    used = _get_used_ports()
+    override_services: dict = {}
+    for svc_name, svc in parsed["services"].items():
+        remapped: list[str] = []
+        changed = False
+        for p in svc.get("ports") or []:
+            published, target_port = p.get("published"), p.get("target")
+            if published is None or target_port is None:
+                continue
+            published = int(published)
+            if published in used:
+                published = _find_free_port(published + 1, used)
+                changed = True
+            used.add(published)
+            remapped.append(f"{published}:{target_port}")
+        if changed and remapped:
+            override_services[svc_name] = {"ports": remapped}
+
+    if not override_services:
+        return None
+
+    # Compose merges list-type keys like `ports:` across `-f` files by default
+    # (appends, doesn't replace) — without `!override`, the base file's conflicting
+    # port comes along for the ride and `up -d` fails the exact same way. yaml.dump
+    # doesn't know this custom compose merge tag, so build the YAML by hand.
+    lines = ["services:"]
+    for svc_name, svc_cfg in override_services.items():
+        lines.append(f"  {svc_name}:")
+        lines.append("    ports: !override")
+        for p in svc_cfg["ports"]:
+            lines.append(f'      - "{p}"')
+    override_yaml = "\n".join(lines) + "\n"
+
+    # `_host_exec` runs `ssh host "pct exec <ctid> -- {cmd}"` — a bare `>`/heredoc in
+    # `cmd` gets intercepted by the shell on the PROXMOX HOST (redirecting there, not
+    # inside the LXC), since `pct exec ... -- cmd` alone execs argv directly with no
+    # shell. Routing through `sh -c "..."` (one argv token to pct exec) and
+    # base64-encoding the payload avoids both that and all quoting hazards.
+    override_path = f"{compose_path}.portal5-port-override.yml"
+    b64 = base64.b64encode(override_yaml.encode()).decode()
+    w = _host_exec(f'sh -c "echo {b64} | base64 -d > {override_path}"')
+    return override_path if w.get("ok") else None
+
+
 def cmd_up(target_id: str, dry_run: bool = False, max_concurrent: int = 3) -> dict:
     """Bring up a target by catalog id or raw vulhub path — real docker compose on LXC 112."""
     target = _find_target(target_id)
@@ -181,6 +254,18 @@ def cmd_up(target_id: str, dry_run: bool = False, max_concurrent: int = 3) -> di
         }
 
     r = _host_exec(f"docker compose -f {compose_path} up -d", timeout=120)
+    if not r.get("ok") and "port is already allocated" in r.get("output", ""):
+        override_path = _remap_conflicting_ports(compose_path)
+        if override_path:
+            # The failed attempt above already created the container with the
+            # original (conflicting) port baked in — compose won't recreate it
+            # for an override-only port change on an existing-but-failed
+            # container, so the retry silently reuses the broken one. Force a
+            # clean slate first.
+            _host_exec(f"docker compose -f {compose_path} rm -f -s", timeout=30)
+            r = _host_exec(
+                f"docker compose -f {compose_path} -f {override_path} up -d", timeout=120
+            )
     if not r.get("ok"):
         return {
             "status": "error",
@@ -337,6 +422,30 @@ def _vmid_for_host(host: str) -> str:
     return ""
 
 
+# Common ports across the lab's static (non-vulhub) hosts — AD (kerberos/ldap/smb),
+# the VulnerableApp web host, Metasploitable3, and mbptl. These hosts are fixed lab
+# infra, not ephemeral vulhub compose sessions, so there's no docker-compose port to
+# publish and no `vmid` in config/lab_targets.yaml to heal from (that catalog only
+# tracks vulhub/projectblack envs). A liveness probe across the known service ports
+# is the correct readiness signal here.
+_STATIC_HOST_PROBE_PORTS = [80, 445, 389, 88, 8080, 3306, 21, 8282, 4848, 9200, 6379, 2049, 443]
+
+
+def _probe_any_reachable_port(
+    host: str, ports: list[int] | None = None, timeout_s: float = 3.0
+) -> int | None:
+    """Return the first port in `ports` that accepts a TCP connection on `host`."""
+    import socket
+
+    for port in ports or _STATIC_HOST_PROBE_PORTS:
+        try:
+            with socket.create_connection((host, port), timeout=timeout_s):
+                return port
+        except OSError:
+            continue
+    return None
+
+
 def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int = 2) -> dict:
     """Verify a scenario's external target is up; heal via existing primitives if not.
 
@@ -344,7 +453,7 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
     the scenario must attack (single source of truth — no hardcoded guessing).
 
     Uses ONLY existing primitives: cmd_up, _published_port, _wait_reachable,
-    _lab_lxc_start, _lab_lxc_revert. No new lab-control code.
+    _lab_lxc_start, _lab_lxc_revert, _probe_any_reachable_port. No new lab-control code.
     """
     host = scenario.get("target_host")
     env = scenario.get("vulhub_env")
@@ -360,7 +469,7 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
         }
 
     # VERIFY: is it up, and on WHAT port?
-    port = _resolve_live_port(host, env)
+    port = _resolve_live_port(host, env) if env else _probe_any_reachable_port(host)
     if port and _wait_reachable(host, port, timeout_s=5):
         return {
             "ready": True,
@@ -381,7 +490,7 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
                 from bench_lab_exec import _lab_lxc_start as _lxc_start
 
                 _lxc_start(vmid)
-            port = _resolve_live_port(host, env)
+            port = _probe_any_reachable_port(host)
 
         if port and _wait_reachable(host, port, timeout_s=60):
             return {

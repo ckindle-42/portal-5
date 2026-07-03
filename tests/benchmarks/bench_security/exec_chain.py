@@ -1462,7 +1462,10 @@ SCENARIOS: dict[str, dict] = {
     "vuln_gitlab_rce": {
         "name": "vuln_gitlab_rce",
         "target_host": _LAB_WEB,
-        "vulhub_env": "gitlab/CVE-2021-22214",
+        # CVE-2021-22214 has no vulhub env on disk (found live 2026-07-03: this
+        # scenario was permanently "target-unrecoverable" — wrong catalog path,
+        # not an infra gap). CVE-2021-22205 is the closest available gitlab RCE env.
+        "vulhub_env": "gitlab/CVE-2021-22205",
         "difficulty": "medium",
         "red_order": ["execute_bash", "execute_bash"],
         "red_prompt": (
@@ -1526,7 +1529,9 @@ SCENARIOS: dict[str, dict] = {
     "vuln_gitea_rce": {
         "name": "vuln_gitea_rce",
         "target_host": _LAB_WEB,
-        "vulhub_env": "gitea",
+        # "gitea" alone has no docker-compose.yml — the CVE subdir is required
+        # (found live 2026-07-03: permanently "target-unrecoverable").
+        "vulhub_env": "gitea/1.4-rce",
         "difficulty": "medium",
         "red_order": ["execute_bash", "execute_bash"],
         "red_prompt": (
@@ -1782,7 +1787,10 @@ SCENARIOS: dict[str, dict] = {
     "vuln_thinkphp_rce": {
         "name": "vuln_thinkphp_rce",
         "target_host": _LAB_WEB,
-        "vulhub_env": "thinkphp",
+        # "thinkphp" alone has no docker-compose.yml — the CVE subdir is required
+        # (found live 2026-07-03: permanently "target-unrecoverable"). 5.0.23-rce
+        # is the invokefunction RCE this scenario's red_prompt actually exploits.
+        "vulhub_env": "thinkphp/5.0.23-rce",
         "difficulty": "easy",
         "red_order": ["execute_bash", "execute_bash"],
         "red_prompt": (
