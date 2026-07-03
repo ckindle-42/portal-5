@@ -1,0 +1,31 @@
+# campaign.yaml — Campaign plan for the P40 conductor
+# The conductor reads this and executes each run in order, using the declared
+# success criterion and next-actions. Model autonomy is limited to reading
+# results and matching them to the declared transitions.
+#
+# Action tokens (the bounded menu — nothing else is valid):
+#   proceed / retry / next-quant / next-candidate / flag-for-human / halt-campaign
+
+campaign: red_exploit_candidates
+
+caps:
+  max_retries_per_step: 2
+  max_corrective_actions_total: 10
+  confidence_threshold: 0.7
+
+escalate_if: "any result unparseable OR confidence < caps.confidence_threshold OR caps exceeded"
+
+runs:
+  - id: ravenx
+    cmd: "candidate-eval --candidate ravenx --slot exploit --skip-pull"
+    success: "delta_unique_coverage > 0"
+    on_pass: proceed
+    on_fail: next-candidate
+    on_error: flag-for-human
+
+  - id: gptoss_cybersec_q4km
+    cmd: "candidate-eval --candidate gptoss-cybersec-Q4KM --slot exploit --skip-pull"
+    success: "delta_unique_coverage > 0"
+    on_pass: proceed
+    on_fail: next-candidate
+    on_error: flag-for-human

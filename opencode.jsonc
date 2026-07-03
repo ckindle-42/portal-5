@@ -140,6 +140,21 @@
           "reasoning": false
         }
       }
+    },
+
+    // ── P40 remote Ollama (out-of-band conductor brain) ──────────────────────
+    "p40": {
+      "name": "P40 (remote local Ollama)",
+      "api": "openai",
+      "options": {
+        "baseURL": "http://10.0.0.204:11434/v1"
+      },
+      "models": {
+        "ducquoc/gpt-oss-sonnet:latest": {
+          "name": "P40 · Conductor (gpt-oss-sonnet)",
+          "reasoning": true
+        }
+      }
     }
   },
 
