@@ -72,9 +72,15 @@ class WinEventBackend:
                 "backend": self.name,
             }
         ids = ",".join(str(e) for e in fx["event_ids"])
+        # -MaxEvents 10 (not 50) — Format-List dumps full event bodies (ticket
+        # hashes, session keys, MITRE background text); 50 events routinely
+        # produced 50KB+ blobs that blew past the blue model's context budget
+        # once accumulated across a multi-step tool-call loop with several
+        # techniques, causing intermittent 400s / timeouts. 10 is still
+        # representative for detection purposes.
         ps = (
             f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={ids}}} "
-            f"-MaxEvents 50 | Format-List Id,TimeCreated,Message"
+            f"-MaxEvents 10 | Format-List Id,TimeCreated,Message"
         )
         # -X (not -x) — nxc's -x runs the command via cmd.exe, which doesn't
         # recognize PowerShell cmdlets like Get-WinEvent ("not recognized as an
@@ -83,7 +89,16 @@ class WinEventBackend:
         # red had genuinely landed the attack. -X executes via PowerShell.
         code = f"nxc winrm {_LAB_DC} -u administrator -p '{_LAB_ADMIN_PASS}' -X \"{ps}\" 2>&1"
         r = _lab_mcp_call(code, timeout=90)
-        text = r.get("output", "")
+        raw = r.get("output", "")
+        # Strip nxc's one-time protocol-database init noise ("[*] Creating
+        # home directory structure" etc, ~20 lines) — same false-signal risk
+        # as the lab probes: it isn't the target's data and has confused the
+        # blue model into reporting on "unexpected directory creation" instead
+        # of the actual Security-log content. Also hard-cap the result as a
+        # last-resort context-budget guard beyond the -MaxEvents reduction.
+        text = "\n".join(line for line in raw.splitlines() if not line.lstrip().startswith("[*]"))[
+            :8000
+        ]
         if text.strip() and ("EventID" in text or any(str(e) in text for e in fx["event_ids"])):
             return {"telemetry": text, "source": "live", "backend": self.name}
         return {"telemetry": fx["synthetic"], "source": "synthetic-fallback", "backend": self.name}
@@ -685,7 +700,10 @@ def _run_blue_chain_test(
                             for k in [next((kk for kk, vv in telemetry.items() if vv is v), "")]
                         )
                     ) or "\n".join(v["telemetry"] for v in telemetry.values())
-                    result = blob or "No matching events."
+                    # Hard cap on top of each backend's own per-technique cap —
+                    # this joins across every technique in the scenario, which
+                    # can still stack past the model's context budget.
+                    result = blob[:12000] or "No matching events."
                 elif name == "report_detection":
                     reported.append(args)
                     result = f"Detection logged: {args.get('technique_id')}"
