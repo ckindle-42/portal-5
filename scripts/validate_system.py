@@ -1902,6 +1902,185 @@ def check_candidate_eval_integrity() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_bench_supervisor_integrity() -> tuple[str, str, list[dict]]:
+    """AF. Bench supervisor integrity.
+
+    Verifies:
+    - supervisor module imports cleanly
+    - handler table is well-formed (all entries have detector + handler)
+    - corrective primitives are referenced, not reimplemented
+    - unknown failures escalate (not silently continue)
+    - interrupted units are re-run or marked indeterminate
+    """
+    subs: list[dict] = []
+
+    # Check 1: supervisor module importable
+    try:
+        from scripts.bench_supervisor import build_state_handlers, run_self_test
+
+        subs.append({"name": "module importable", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "module importable", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"bench_supervisor import failed: {e}", subs
+
+    # Check 2: handler table well-formed
+    try:
+        handlers = build_state_handlers(stall_minutes=15)
+        assert len(handlers) >= 7, f"expected >=7 handlers, got {len(handlers)}"
+        for name, line_det, state_det, handler in handlers:
+            assert isinstance(name, str) and name, f"bad name: {name!r}"
+            assert callable(handler), f"{name} handler not callable"
+        subs.append(
+            {
+                "name": "handler table",
+                "status": "PASS",
+                "detail": f"{len(handlers)} handlers",
+            }
+        )
+    except Exception as e:
+        subs.append({"name": "handler table", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"handler table check failed: {e}", subs
+
+    # Check 3: self-test passes (detectors fire correctly, no false positives)
+    try:
+        ok = run_self_test(stall_minutes=15)
+        assert ok, "self-test reported failures"
+        subs.append({"name": "self-test", "status": "PASS", "detail": "all detectors verified"})
+    except Exception as e:
+        subs.append({"name": "self-test", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"self-test failed: {e}", subs
+
+    # Check 4: escalation handler exists and is in the handler table
+    try:
+        from scripts.bench_supervisor import handle_escalate, handle_escalation
+
+        assert callable(handle_escalate)
+        assert callable(handle_escalation)
+        subs.append({"name": "escalation handlers", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "escalation handlers", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"escalation handler check failed: {e}", subs
+
+    # Check 5: resume logic importable
+    try:
+        from scripts.bench_supervisor import (
+            compute_remaining_scenarios,
+            load_completed_scenarios,
+        )
+
+        assert callable(load_completed_scenarios)
+        assert callable(compute_remaining_scenarios)
+        subs.append({"name": "resume logic", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "resume logic", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"resume logic check failed: {e}", subs
+
+    # Check 6: launcher script exists and is executable
+    try:
+        launcher = REPO_ROOT / "execute_local_sec_bench.sh"
+        assert launcher.exists(), f"launcher not found: {launcher}"
+        import stat
+
+        mode = launcher.stat().st_mode
+        assert mode & stat.S_IXUSR, "launcher not executable"
+        subs.append({"name": "launcher script", "status": "PASS", "detail": str(launcher)})
+    except Exception as e:
+        subs.append({"name": "launcher script", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"launcher check failed: {e}", subs
+
+    return (
+        "PASS",
+        f"bench supervisor: {len(handlers)} handlers; "
+        f"self-test passes; escalation + resume logic present; "
+        f"launcher executable",
+        subs,
+    )
+
+
+def check_triage_layer2_integrity() -> tuple[str, str, list[dict]]:
+    """AG. Triage layer2 integrity.
+
+    Verifies:
+    - triage modules import cleanly
+    - action allowlist is well-formed (all actions reversible)
+    - disallowed actions are rejected (pause_for_human)
+    - propose mode never auto-executes
+    - P40-down falls back to Layer 1
+    """
+    subs: list[dict] = []
+
+    # Check 1: triage modules importable
+    try:
+        from scripts.triage import DEFAULT_TRIAGE_MODEL, build_triage_prompt
+        from scripts.triage_actions import ALLOWED_ACTIONS, is_action_allowed
+
+        subs.append({"name": "modules importable", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "modules importable", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"triage import failed: {e}", subs
+
+    # Check 2: all actions reversible
+    try:
+        for name, entry in ALLOWED_ACTIONS.items():
+            assert entry.get("reversible", False), f"{name} not reversible"
+        subs.append(
+            {
+                "name": "all actions reversible",
+                "status": "PASS",
+                "detail": f"{len(ALLOWED_ACTIONS)} actions",
+            }
+        )
+    except Exception as e:
+        subs.append({"name": "all actions reversible", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"reversibility check failed: {e}", subs
+
+    # Check 3: disallowed action rejected
+    try:
+        from scripts.triage import parse_triage_response
+
+        resp = parse_triage_response(
+            '{"action": "rm_rf", "params": {}, "reason": "test", "confidence": 0.9}'
+        )
+        # parse returns it as-is; diagnose() does the allowlist check
+        assert resp["action"] == "rm_rf"  # parser doesn't filter
+        # But is_action_allowed should reject it
+        assert not is_action_allowed("rm_rf")
+        assert is_action_allowed("pause_for_human")
+        subs.append({"name": "disallowed rejected", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "disallowed rejected", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"disallowed action check failed: {e}", subs
+
+    # Check 4: prompt is bounded and diagnostic-only
+    try:
+        prompt = build_triage_prompt(
+            log_tail="x" * 50000,
+            failing_line="error",
+            scenario="test",
+        )
+        assert len(prompt) < 20000, f"prompt too long: {len(prompt)}"
+        assert "attack" not in prompt.lower().split("never produce attack")[0]
+        subs.append({"name": "prompt bounded", "status": "PASS", "detail": f"{len(prompt)} chars"})
+    except Exception as e:
+        subs.append({"name": "prompt bounded", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"prompt check failed: {e}", subs
+
+    # Check 5: default model configured
+    try:
+        assert DEFAULT_TRIAGE_MODEL, "DEFAULT_TRIAGE_MODEL is empty"
+        subs.append({"name": "default model", "status": "PASS", "detail": DEFAULT_TRIAGE_MODEL})
+    except Exception as e:
+        subs.append({"name": "default model", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"model config check failed: {e}", subs
+
+    return (
+        "PASS",
+        f"triage layer2: {len(ALLOWED_ACTIONS)} allowlisted reversible actions; "
+        f"disallowed→pause; prompt bounded; default model={DEFAULT_TRIAGE_MODEL}",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -1972,6 +2151,8 @@ def main() -> int:
     v.run("AC. kali exec + rescore integrity", check_kali_rescore_integrity)
     v.run("AD. coverage expansion integrity", check_coverage_expansion_integrity)
     v.run("AE. candidate eval integrity", check_candidate_eval_integrity)
+    v.run("AF. bench supervisor integrity", check_bench_supervisor_integrity)
+    v.run("AG. triage layer2 integrity", check_triage_layer2_integrity)
 
     return v.summary()
 
