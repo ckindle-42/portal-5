@@ -87,10 +87,7 @@ class TestBlueScorableGuard:
     def test_no_red_only_scenarios_anywhere(self):
         """Comprehensive check: every scenario in SCENARIOS has detect_ground_truth."""
         bad = [k for k, v in SCENARIOS.items() if not v.get("detect_ground_truth")]
-        # mbptl_ctf_full_chain is allowed to have empty gt (legacy CTF)
-        allowed_empty = {"mbptl_ctf_full_chain"}
-        real_bad = [b for b in bad if b not in allowed_empty]
-        assert not real_bad, f"Red-only scenarios (no detect_ground_truth): {real_bad}"
+        assert not bad, f"Red-only scenarios (no detect_ground_truth): {bad}"
 
 
 # ── meta3 scenario structure ─────────────────────────────────────────────────
