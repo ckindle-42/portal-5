@@ -212,6 +212,19 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Use real lab dispatch (default = synthetic)",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Skip the intake TPS floor (still requires a successful pull + tool-call "
+            "check). The TPS floor exists to protect chain responsiveness across the "
+            "general fleet, but it disqualifies slower models before they're ever "
+            "scored on capability — for a deliberate quality-over-speed evaluation "
+            "(a 27B/35B model may out-detect a faster small model even at half the "
+            "floor's t/s), pass --force to see the real delta instead of an intake "
+            "rejection."
+        ),
+    )
     args = parser.parse_args(argv)
 
     candidate = args.candidate
@@ -240,19 +253,29 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
     print(f"{'=' * 60}\n")
 
     if not args.dry_run:
-        print("  [1/4] Intake gate (pull → TPS → tool-call) ...")
+        gate_label = (
+            "pull → tool-call (TPS floor forced off)" if args.force else "pull → TPS → tool-call"
+        )
+        print(f"  [1/4] Intake gate ({gate_label}) ...")
         intake = run_candidate_intake(
             [candidate],
             dry_run=False,
             skip_pull=args.skip_pull,
-            tps_floor=TPS_FLOOR,
+            tps_floor=0.0 if args.force else TPS_FLOOR,
         )
         if not intake or not intake[0].get("queued"):
             reason = intake[0].get("skip_reason", "unknown") if intake else "no result"
             print(f"  INTAKE FAILED: {reason}")
             print("  Candidate does not meet intake gates — not scoring.")
             return 1
-        print(f"  INTAKE PASSED: TPS={intake[0].get('tps', 0):.1f}, tool-call OK")
+        if args.force and intake[0].get("tps", 0) < TPS_FLOOR:
+            print(
+                f"  INTAKE PASSED (forced): TPS={intake[0].get('tps', 0):.1f} "
+                f"below the {TPS_FLOOR:.0f} t/s floor — scoring anyway, chain turns "
+                f"will run slower than the fleet norm."
+            )
+        else:
+            print(f"  INTAKE PASSED: TPS={intake[0].get('tps', 0):.1f}, tool-call OK")
     else:
         print("  [1/4] Intake gate — DRY-RUN (skipped)")
 
