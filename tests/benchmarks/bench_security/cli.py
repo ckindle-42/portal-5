@@ -490,6 +490,19 @@ def main() -> None:
             print(f"  {k:<22} red={'->'.join(sc['red_order'])}")
         return
 
+    # ── Standalone lab probe: `--probe-lab` with no chain/exec/purple work ────
+    # requested is a pure connectivity check (used as a Step 0 precondition
+    # gate). The auto-filter probe below only runs inside the chain-dispatch
+    # path (_any_chain), so without this, a bare --probe-lab invocation was a
+    # silent no-op.
+    if args.probe_lab and not (args.chain_models or args.exec_chain_models or args.purple):
+        if not _LAB_EXEC_AVAILABLE:
+            print("  WARNING: lab exec requested but bench_lab_exec.py not importable")
+            return
+        _probe = probe_lab_services(dry_run=args.dry_run)
+        print_lab_probe_report(_probe)
+        return
+
     # ── Rescore mode: re-derive scores from saved data ────────────────────
     if args.rescore:
         _rescore_file = Path(args.rescore)

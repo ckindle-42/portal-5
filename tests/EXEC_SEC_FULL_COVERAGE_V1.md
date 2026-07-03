@@ -23,12 +23,29 @@ stack. Red exploitation exists to generate the real telemetry blue must detect. 
 
 ## Step 0 — Preconditions: full lab up, blue/purple stack live
 
+**0a. Bring the lab up, then wait — don't probe a cold lab.** VMs/containers that were shut down
+(hygiene — see the end-of-run step) take real boot time (Windows Server VMs: minutes; LXCs: seconds
+to tens of seconds for their internal docker services to start). Probing immediately after start
+produces false-DOWN reads that look like real outages.
+
+```bash
+# AGENT: start every lab VM/LXC that isn't already running (via the proxmox MCP: proxmox_vm_start /
+# proxmox_container_start), THEN WAIT before probing:
+#   - LXCs (vulhub, mbptl, splunk): ~30-60s for internal docker services to come up
+#   - Windows VMs (DC, SRV, meta3-win2k8): 2-5 min for a cold boot
+sleep 180   # AGENT: adjust based on what was actually cold-started; skip if everything was already up
+```
+
+**0b. Probe — real, not `--dry-run`.** `--dry-run` makes every service report reachable=True
+unconditionally (it's a plumbing/plan check, not a connectivity check) — never use it to gate Step 1/2.
+
 ```bash
 cd ~/path/to/portal-5 && export PYTHONPATH=tests/benchmarks:.
-# lab reachable (the whole lab, not just AD):
+# lab reachable (the whole lab, not just AD) — standalone form works without --chain-models:
 python3 -m bench_security --probe-lab            # AGENT: confirm DC/SRV/WEB(LXC112)/meta3/mbptl reachable
-# coverage really expanded (meta3 no longer 0, vulhub broadened, all blue-scorable):
-python3 -m bench_security --matrix-coverage
+# coverage really expanded (meta3 no longer 0, vulhub broadened, all blue-scorable) — --dry-run here is
+# fine, this is a static resolution count, not a connectivity check:
+python3 -m bench_security --matrix-coverage --dry-run
 python3 -c "from bench_security.exec_chain import SCENARIOS; \
 bad=[k for k,v in SCENARIOS.items() if not v.get('detect_ground_truth')]; \
 print('scenarios:',len(SCENARIOS),'| red-only (must be empty):',bad)"
@@ -38,7 +55,11 @@ print('scenarios:',len(SCENARIOS),'| red-only (must be empty):',bad)"
 export SANDBOX_LAB_EXEC=true          # real lab dispatch (Kali via execute_bash + phases)
 ```
 **Gate:** all lab targets reachable, `scenarios` count reflects the expansion, zero red-only scenarios,
-Splunk reachable. If any fails, STOP — a partial-coverage or blue-blind run isn't the full proof.
+Splunk reachable. If any fails after the wait in 0a, treat it as a real per-service gap: record which
+scenarios it touches and whether they're skippable, rather than blocking the whole run on one dead
+service the available tooling can't reach to fix (no SSH/guest-agent access is a known infra gap — see
+`docs/LAB_REACHABILITY_DIAGNOSTIC_2026-06-30.md`-style notes). A full lab outage (AD or the whole
+subnet down) still STOPs the run — a handful of individual app-level services does not.
 
 ## Step 1 — Full-coverage RED run (generate real telemetry across the whole lab)
 
@@ -110,6 +131,13 @@ python3 -m bench_security stage2-propose | tee /tmp/stage2_fullcov.txt
 ```
 Now the weakness view reflects the whole lab, and Stage 2's oracles have real evidence to be proven
 against (the gap the earlier 0/46 exposed). Bring both artifacts to the review.
+
+## Step 4.5 — Lab hygiene: shut down what Step 0a brought up
+
+The lab VMs/LXCs are attack-lab infra, not always-on services — leaving them running burns host
+resources for no reason once the run is done. Shut down whatever Step 0a started (mirror it: LXCs first,
+then VMs), using the proxmox MCP (`proxmox_container_shutdown` / `proxmox_vm_shutdown`, graceful —
+not `_stop`). Leave anything that was already up before Step 0a in whatever state it was in.
 
 ## Step 5 — STOP at the review (do not auto-advance)
 

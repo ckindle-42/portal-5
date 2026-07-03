@@ -9,6 +9,8 @@ WORKDIR /app
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 
 # System deps for document generation and audio
+# openssh-client — needed by the proxmox MCP for host/LXC exec (proxmox_node_exec /
+# proxmox_container_exec shell out to `ssh`); harmless elsewhere in the shared image.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagic1 \
     ffmpeg \
@@ -19,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libosmesa6 \
     libgl1 \
     libglib2.0-0 \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Core deps
@@ -99,10 +102,13 @@ COPY portal_mcp/ ./portal_mcp/
 COPY portal_channels/ ./portal_channels/
 COPY scripts/mcp-entrypoint.sh /usr/local/bin/mcp-entrypoint.sh
 
-# Create non-root user; entrypoint fixes volume mount ownership at runtime then drops to this user
-RUN groupadd -r portal && useradd -r -g portal portal \
-    && mkdir -p /app/data/hf_cache /app/data/generated \
-    && chown -R portal:portal /app \
+# Create non-root user (with a home dir — needed so the entrypoint can stage a
+# private SSH key for the proxmox MCP at portal-owned, correctly-permissioned
+# paths); entrypoint fixes volume mount ownership at runtime then drops to this user
+RUN groupadd -r portal && useradd -r -m -g portal portal \
+    && mkdir -p /app/data/hf_cache /app/data/generated /home/portal/.ssh \
+    && chown -R portal:portal /app /home/portal \
+    && chmod 700 /home/portal/.ssh \
     && chmod +x /usr/local/bin/mcp-entrypoint.sh
 
 # No HEALTHCHECK here — defined per-service in docker-compose.yml
