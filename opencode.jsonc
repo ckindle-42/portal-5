@@ -247,6 +247,18 @@
     "portal-pipeline": {
       "type": "remote",
       "url": "http://localhost:8928/mcp"
+    },
+    "portal-mitre": {
+      "type": "remote",
+      "url": "http://localhost:8929/mcp"
+    },
+    "portal-detections": {
+      "type": "remote",
+      "url": "http://localhost:8930/mcp"
+    },
+    "portal-wiki": {
+      "type": "remote",
+      "url": "http://localhost:8931/mcp"
     }
   }
 }

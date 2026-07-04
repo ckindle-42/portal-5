@@ -198,6 +198,9 @@ Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (defau
 | 8925 | MCP Reranker (Qwen3-Reranker-0.6B-mxfp8, MLX-native, two-stage RAG) |
 | 8926 | MCP CAD Render (OpenSCAD / CadQuery 3D model generation) |
 | 8928 | Pipeline MCP (host-native; exposes explore_repository + stack introspection for Claude Code / opencode) |
+| 8929 | MCP MITRE ATT&CK (technique lookup, data sources, detections — deterministic, not RAG) |
+| 8930 | MCP Detections (SPL library search, validate_syntax, explain_detection) |
+| 8931 | MCP Wiki (canonical knowledge layer — search, get_unit, explain — cited answers) |
 | 8188 | ComfyUI |
 | 8088 | SearXNG |
 | 11434 | Ollama |

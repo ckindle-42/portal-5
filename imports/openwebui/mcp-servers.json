@@ -16,7 +16,10 @@
     { "name": "Portal Research",       "id": "portal_research",  "url": "http://host.docker.internal:8922/mcp", "api_key": "" },
     { "name": "Portal Browser",        "id": "portal_browser",   "url": "http://host.docker.internal:8923/mcp", "api_key": "" },
     { "name": "Portal Proxmox",        "id": "portal_proxmox",   "url": "http://host.docker.internal:8927/mcp", "api_key": "" },
-    { "name": "Portal Pipeline",       "id": "portal_pipeline",  "url": "http://host.docker.internal:8928/mcp", "api_key": "" }
+    { "name": "Portal Pipeline",       "id": "portal_pipeline",  "url": "http://host.docker.internal:8928/mcp", "api_key": "" },
+    { "name": "Portal MITRE ATT&CK",   "id": "portal_mitre",     "url": "http://host.docker.internal:8929/mcp", "api_key": "" },
+    { "name": "Portal Detections",     "id": "portal_detections", "url": "http://host.docker.internal:8930/mcp", "api_key": "" },
+    { "name": "Portal Wiki",           "id": "portal_wiki",      "url": "http://host.docker.internal:8931/mcp", "api_key": "" }
   ],
   "notes": {
     "macos": "host.docker.internal resolves automatically on macOS Docker Desktop",

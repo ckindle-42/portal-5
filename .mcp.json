@@ -89,6 +89,18 @@
     "portal-pipeline": {
       "type": "http",
       "url": "http://localhost:8928/mcp"
+    },
+    "portal-mitre": {
+      "type": "http",
+      "url": "http://localhost:8929/mcp"
+    },
+    "portal-detections": {
+      "type": "http",
+      "url": "http://localhost:8930/mcp"
+    },
+    "portal-wiki": {
+      "type": "http",
+      "url": "http://localhost:8931/mcp"
     }
   }
 }
