@@ -20,7 +20,9 @@ from enum import Enum
 class SourceAuthority(str, Enum):  # noqa: UP042
     """How trustworthy is the source itself?"""
 
-    AUTHORITATIVE_STRUCTURED = "authoritative_structured"  # ATT&CK STIX, NVD, git-committed detections
+    AUTHORITATIVE_STRUCTURED = (
+        "authoritative_structured"  # ATT&CK STIX, NVD, git-committed detections
+    )
     AUTHORITATIVE_LIVE = "authoritative_live"  # Splunk field query, AD LDAP read
     ANNOTATED = "annotated"  # analyst notes
     REFERENCE = "reference"  # long-form docs
@@ -131,7 +133,8 @@ class EvidenceStore:
     def for_hypothesis(self, hypothesis_id: str) -> list[EvidenceRecord]:
         """Find evidence that supports or contradicts a hypothesis."""
         return [
-            r for r in self._records.values()
+            r
+            for r in self._records.values()
             if hypothesis_id in r.supports or hypothesis_id in r.contradicts
         ]
 
