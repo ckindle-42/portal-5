@@ -147,8 +147,8 @@ class TestPurpleWebConvergence:
             "persistence_technique": "",
         }
         purple = _score_purple(red_result, blue_result, scenario)
-        assert "purple_composite" in purple
-        assert purple["purple_composite"] > 0.0
+        assert "model_competence_score" in purple
+        assert purple["model_competence_score"] > 0.0
 
     def test_purple_zero_when_blue_misses(self):
         """Purple composite drops when blue detects nothing."""

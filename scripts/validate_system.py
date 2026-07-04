@@ -2081,6 +2081,137 @@ def check_triage_layer2_integrity() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_rbp_evidence_grounding() -> tuple[str, str, list[dict]]:
+    """AH. RBP evidence grounding.
+
+    Every purple record carries an episode + deterministic capability_verdict;
+    synthetic telemetry never yields PROVEN; telemetry failure emits a reason
+    code, not silent pass; model_competence_score is separate from
+    capability_verdict.
+    """
+    subs: list[dict] = []
+
+    # Check 1: episode module imports cleanly
+    try:
+        from tests.benchmarks.bench_security.episode import (
+            Episode,
+            derive_verdict,
+        )
+
+        subs.append({"name": "episode module imports", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "episode module imports", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"episode import failed: {e}", subs
+
+    # Check 2: synthetic never yields PROVEN (deterministic)
+    try:
+        ep = Episode(
+            episode_id="validator-probe",
+            scenario="probe",
+            target_host=None,
+            started_at=0.0,
+            red_status="RED_LANDED",
+            telemetry_status="TELEMETRY_NOT_CONFIGURED",
+            detection_status="DETECTION_HIT_UNATTRIBUTED",
+            used_synthetic=True,
+        )
+        verdict = derive_verdict(ep)
+        assert verdict != "PROVEN", f"synthetic yielded {verdict}"
+        subs.append(
+            {"name": "synthetic never PROVEN", "status": "PASS", "detail": f"verdict={verdict}"}
+        )
+    except Exception as e:
+        subs.append({"name": "synthetic never PROVEN", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"synthetic PROVEN guard failed: {e}", subs
+
+    # Check 3: PROVEN requires real telemetry + red landed + detection confirmed
+    try:
+        ep = Episode(
+            episode_id="validator-probe-proven",
+            scenario="probe",
+            target_host="10.0.1.30",
+            started_at=0.0,
+            red_status="RED_LANDED",
+            telemetry_status="TELEMETRY_OBSERVED",
+            detection_status="DETECTION_CONFIRMED",
+            used_synthetic=False,
+        )
+        assert derive_verdict(ep) == "PROVEN"
+        subs.append({"name": "PROVEN path works", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "PROVEN path works", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"PROVEN path failed: {e}", subs
+
+    # Check 4: _score_purple produces episode + verdict + model_competence_score
+    try:
+        from tests.benchmarks.bench_security.blue import _score_purple
+
+        red_result = {
+            "model": "probe",
+            "mode": "lab-exec",
+            "lab_success": True,
+            "order_accuracy": 0.8,
+        }
+        blue_result = {
+            "model": "probe",
+            "score": {"f1": 0.7, "recall": 0.7, "precision": 0.7, "detected": ["T1190"]},
+            "containments": [],
+            "synthetic_fallback": False,
+            "telemetry_source": {"T1190": "live"},
+            "telemetry_raw": {},
+            "reported": ["T1190"],
+        }
+        scenario = {
+            "name": "validator_probe",
+            "detect_ground_truth": ["T1190"],
+            "persistence_technique": "",
+            "target_host": "10.0.1.30",
+        }
+        rec = _score_purple(red_result, blue_result, scenario)
+        assert "episode" in rec, "missing episode"
+        assert "capability_verdict" in rec, "missing capability_verdict"
+        assert "model_competence_score" in rec, "missing model_competence_score"
+        assert "purple_composite" not in rec, "old key still present"
+        assert rec["capability_verdict"] == "PROVEN"
+        subs.append(
+            {
+                "name": "_score_purple produces episode+verdict",
+                "status": "PASS",
+                "detail": f"verdict={rec['capability_verdict']}, "
+                f"competence={rec['model_competence_score']}",
+            }
+        )
+    except Exception as e:
+        subs.append(
+            {"name": "_score_purple produces episode+verdict", "status": "FAIL", "detail": str(e)}
+        )
+        return "FAIL", f"_score_purple integration failed: {e}", subs
+
+    # Check 5: silent telemetry pass is gone from matrix.py
+    try:
+        matrix_py = (
+            Path(__file__).resolve().parent.parent
+            / "tests"
+            / "benchmarks"
+            / "bench_security"
+            / "matrix.py"
+        )
+        content = matrix_py.read_text()
+        assert "pass  # telemetry collection never blocks scoring" not in content
+        subs.append({"name": "silent telemetry pass removed", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "silent telemetry pass removed", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"silent pass still present: {e}", subs
+
+    return (
+        "PASS",
+        "every purple record: episode + deterministic verdict; "
+        "synthetic→never PROVEN; telemetry failure→reason code; "
+        "model_competence_score separate from capability_verdict",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -2153,6 +2284,7 @@ def main() -> int:
     v.run("AE. candidate eval integrity", check_candidate_eval_integrity)
     v.run("AF. bench supervisor integrity", check_bench_supervisor_integrity)
     v.run("AG. triage layer2 integrity", check_triage_layer2_integrity)
+    v.run("AH. rbp evidence grounding", check_rbp_evidence_grounding)
 
     return v.summary()
 
