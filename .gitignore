@@ -84,3 +84,7 @@ tests/benchmarks/bench_security/results/*.json
 # audit trail, grows with every run/write-back; durable on disk, not source-
 # controlled (same pattern as metrics_state.json in portal_pipeline).
 portal_wiki/provenance_ledger.jsonl
+
+# Compliance/framework posture reports (bench_security/compliance_report.py) —
+# ephemeral, per-run, rendered fresh from grounded results; not source.
+/reports/

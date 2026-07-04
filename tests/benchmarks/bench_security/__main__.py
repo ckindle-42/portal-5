@@ -18,6 +18,10 @@ if __name__ == "__main__":
         from bench_security.candidate_eval import candidate_eval_main
 
         sys.exit(candidate_eval_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "compliance-report":
+        from bench_security.compliance_report import compliance_report_main
+
+        sys.exit(compliance_report_main(sys.argv[2:]))
     from bench_security import main
 
     main()
