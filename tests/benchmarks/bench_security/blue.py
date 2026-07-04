@@ -8,6 +8,7 @@ avoid circular imports.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -894,6 +895,15 @@ def run_purple_tests(
     for rm in red_models:
         if rm not in red_cache:
             red_cache[rm] = _run_chain_test(rm, cfg, dry_run=dry_run, lab_exec=lab_exec)
+            if lab_exec and not dry_run:
+                with contextlib.suppress(Exception):
+                    from .siem.capture_store import save_evidence
+
+                    # Full red transcript (tools called, args, lab_observations) —
+                    # a weak/incomplete attempt is itself evidence worth keeping,
+                    # so "what did red actually try" is answerable without
+                    # re-running the live exploit.
+                    save_evidence("red", scenario["name"], {"model": rm, **red_cache[rm]})
 
     # Non-AD targets (vulhub/mbptl web hosts) don't have a live-queryable
     # security log the way the DC does — red's real activity has to be
@@ -904,6 +914,9 @@ def run_purple_tests(
     # targets skip this — WinEventBackend already queries the DC's Security
     # log directly, live, no shipping needed.
     target_host = scenario.get("target_host")
+    capture_path: str | None = None
+    indexed_confirmed: bool | None = None
+    telemetry_error: str = ""
     if (
         target_host
         and lab_exec
@@ -911,11 +924,22 @@ def run_purple_tests(
         and target_host not in (_LAB_DC, _LAB_SRV, _LAB_META3)
     ):
         try:
+            from .siem.capture_store import save_capture
             from .siem.collect import collect_target
             from .siem.hec_ship import ship_batch
             from .siem.index_wait import wait_indexed
 
             tele = collect_target(target_host, "web", since_epoch=scenario_start, dry_run=dry_run)
+            # Persist the raw capture to disk BEFORE shipping — this is what makes it
+            # replayable later (re-shipped with a fresh timestamp, no red re-run needed)
+            # even after Splunk's own retention has rotated the live copy out.
+            capture_path = save_capture(
+                scenario=scenario["name"],
+                target_host=target_host,
+                kind="web",
+                since_epoch=scenario_start,
+                telemetry=tele,
+            )
             shipped = 0
             for sourcetype, lines in tele.items():
                 if lines:
@@ -924,11 +948,17 @@ def run_purple_tests(
                     )
                     shipped += len(lines)
             if shipped:
-                wait_indexed(
+                # Explicit confirmation, not fire-and-forget — recorded on every purple
+                # result below so "we shipped it" and "Splunk actually has it" are two
+                # separately verifiable facts, not an assumption.
+                indexed_confirmed = wait_indexed(
                     host=target_host, since_epoch=scenario_start, expect_min=1, timeout_s=30
                 )
-        except Exception:
-            pass  # telemetry collection never blocks scoring — blue just sees no evidence
+        except Exception as exc:
+            # Telemetry collection never blocks scoring (real value, kept) — but a bare
+            # `pass` here meant a genuine collection/shipping failure was indistinguishable
+            # from "nothing to collect." Recorded on every purple result below instead.
+            telemetry_error = f"TELEMETRY_COLLECTION_FAILED: {exc}"
 
     for bm in blue_models:
         blue = _run_blue_chain_test(
@@ -937,7 +967,30 @@ def run_purple_tests(
         for rm in red_models:
             if dry_run:
                 continue
-            results.append(_score_purple(red_cache[rm], blue, scenario))
+            rec = _score_purple(red_cache[rm], blue, scenario)
+            rec["telemetry_capture_path"] = capture_path
+            rec["telemetry_indexed_confirmed"] = indexed_confirmed
+            rec["telemetry_collection_error"] = telemetry_error
+            results.append(rec)
+
+    if lab_exec and not dry_run and results:
+        with contextlib.suppress(Exception):
+            from .siem.capture_store import save_evidence
+
+            # One bundled record per scenario tying red+blue+scoring together —
+            # the closest thing to an evidence episode this system has today.
+            # Lets a full scenario's outcome be reviewed/diffed without
+            # re-running red or re-querying Splunk.
+            save_evidence(
+                "purple",
+                scenario["name"],
+                {
+                    "scenario_start": scenario_start,
+                    "red_models": {rm: red_cache[rm] for rm in red_models},
+                    "purple_results": results,
+                },
+            )
+
     return results
 
 
