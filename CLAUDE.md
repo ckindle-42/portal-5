@@ -337,3 +337,19 @@ Before adding new tasks or filing issues, check `KNOWN_LIMITATIONS.md` — some 
 | Claude Code / opencode integration + FastContext explorer | `docs/MCP_DEV_TOOLING.md` |
 | Cluster scaling | `docs/CLUSTER_SCALE.md` |
 | Admin guide | `docs/ADMIN_GUIDE.md` |
+
+---
+
+## Portal Wiki — Canonical Knowledge Layer
+
+The project has a self-maintaining knowledge backbone (`portal_wiki/`) that agents can query for cited, grounded answers instead of re-reading source.
+
+**For agents:** use `wiki.search`, `wiki.get_unit`, `wiki.explain` (via `portal_wiki.mcp`) to look up architecture decisions, technique signatures, subsystem overviews, and design rationale. Every answer cites its source — never trust a wiki claim without its citation.
+
+**For operators:** `portal_wiki/canonical/` contains the source-of-truth knowledge units (markdown + frontmatter). Edit the canonical unit, not rendered views. Views are generated to `docs/generated/` and marked `<!-- GENERATED -->`.
+
+**What lives where:**
+- `portal_wiki/core/` — schema, store, maintenance, rendering (stack-agnostic, zero Portal imports)
+- `portal_wiki/adapters/` — Portal-specific wiring (Ollama inference, git source, security/intent/code seeders)
+- `portal_wiki/canonical/` — the knowledge units themselves (git-versioned markdown)
+- `portal_wiki/mcp.py` — agent-facing tools (search, get_unit, explain)
