@@ -8,12 +8,21 @@ principles — as WHY units, each citing its design-doc source.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from portal_wiki.core.schema import KnowledgeUnit, SourceRef
 from portal_wiki.core.store import save_unit
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def _sanitize_id(text: str) -> str:
+    """Make a string filesystem-safe for use as a unit ID."""
+    text = text.lower().strip()
+    text = re.sub(r"[^a-z0-9]+", "-", text)
+    text = text.strip("-")
+    return text[:50]
 
 
 def _read_file(rel_path: str) -> str:
@@ -39,7 +48,7 @@ def seed_intent(dry_run: bool = False) -> list[KnowledgeUnit]:
         for section_title, section_body in sections.items():
             if len(section_body.strip()) < 50:
                 continue
-            unit_id = f"unit-claude-{section_title.lower().replace(' ', '-')[:40]}"
+            unit_id = f"unit-claude-{_sanitize_id(section_title)}"
             try:
                 unit = KnowledgeUnit(
                     id=unit_id,
@@ -66,7 +75,7 @@ def seed_intent(dry_run: bool = False) -> list[KnowledgeUnit]:
         for section_title, section_body in sections.items():
             if len(section_body.strip()) < 50:
                 continue
-            unit_id = f"unit-{doc_path.stem}-{section_title.lower().replace(' ', '-')[:30]}"
+            unit_id = f"unit-{doc_path.stem}-{_sanitize_id(section_title)}"
             try:
                 unit = KnowledgeUnit(
                     id=unit_id,
