@@ -6,11 +6,25 @@ T1190:
   description: "Web exploit — access-log signatures (LFI/SQLi/Log4Shell/webshell markers)"
   spl: 'index=portal5_lab sourcetype="web:access" (passwd OR "../" OR "UNION SELECT" OR "${jndi:" OR ".php" OR "cmd=") | stats count by host, source, _raw'
   expected_signal: "HTTP requests with attack payloads in URI/body"
+  spl_variants:
+    - source: "web:access"
+      spl: 'index=portal5_lab sourcetype="web:access" (passwd OR "../" OR "UNION SELECT" OR "${jndi:" OR ".php" OR "cmd=") | stats count by host, source, _raw'
+      expected_signal: "HTTP requests with attack payloads in URI/body (vulhub/web targets)"
+    - source: "web:access:iis"
+      spl: 'index=portal5_lab sourcetype="web:access" (status>=400 OR status=500) (sc_status>=400 OR cs_method="PUT" OR cs_uri_stem="*.asp*" OR cs_uri_stem="*.jsp*" OR cs_uri_stem="*admin*" OR cs_uri_stem="*manager*" OR cs_uri_stem="*console*" OR cs_uri_stem="*jenkins*" OR cs_uri_stem="*glassfish*") | stats count by cs_uri_stem, cs_method, sc_status'
+      expected_signal: "IIS access log with exploit attempts (status 4xx/5xx, admin paths, PUT method)"
 
 T1059:
   description: "Command execution — auditd execve of shells/interpreters"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe=/bin/sh OR exe=/bin/bash OR exe=/usr/bin/python* OR exe=/usr/bin/perl) | stats count by host, exe, a0'
   expected_signal: "Shell/interpreter execve events from attack payloads"
+  spl_variants:
+    - source: "linux:auditd"
+      spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe=/bin/sh OR exe=/bin/bash OR exe=/usr/bin/python* OR exe=/usr/bin/perl) | stats count by host, exe, a0'
+      expected_signal: "Shell/interpreter execve events from attack payloads"
+    - source: "windows:security"
+      spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4688 (NewProcessName="*cmd.exe" OR NewProcessName="*powershell.exe" OR NewProcessName="*python*" OR NewProcessName="*wscript*" OR NewProcessName="*cscript*") | stats count by NewProcessName, Account, Process_Command_Line'
+      expected_signal: "Process creation (4688) for cmd/powershell/python/wscript"
 
 T1505.003:
   description: "Webshell — file-write + subsequent exec correlation"
@@ -61,21 +75,49 @@ T1210:
   description: "SMB/service exploitation — lateral movement via SMB"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="smbclient" OR a0="nxc" OR a0="crackmapexec") | stats count by host, a0'
   expected_signal: "SMB client execution from attack host"
+  spl_variants:
+    - source: "linux:auditd"
+      spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="smbclient" OR a0="nxc" OR a0="crackmapexec") | stats count by host, a0'
+      expected_signal: "SMB client execution from attack host"
+    - source: "windows:security"
+      spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4624 LogonType=3 (AuthenticationPackageName="NTLM" OR AuthenticationPackageName="Negotiate") | stats count by IpAddress, Account, Logon_Type'
+      expected_signal: "Network logon (4624) via NTLM — lateral movement indicator"
 
 T1021.002:
   description: "SMB/Windows Admin Shares — remote file copy via SMB"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="smbclient" OR a0="smbget") | stats count by host, a0'
   expected_signal: "SMB share access from attack host"
+  spl_variants:
+    - source: "linux:auditd"
+      spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="smbclient" OR a0="smbget") | stats count by host, a0'
+      expected_signal: "SMB share access from attack host"
+    - source: "windows:security"
+      spl: 'index=portal5_lab sourcetype="windows:security" EventCode=5140 ShareName="\\\\*" (Account!="ANONYMOUS LOGON" AND Account!="*$") | stats count by Account, IpAddress, ShareName'
+      expected_signal: "Network share access (5140) from non-system account"
 
 T1548.001:
   description: "SUID abuse — setuid binary execution for privilege escalation"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a1="*perm*4000*" OR exe="*/find" OR exe="*/bash" "-p") | stats count by host, exe'
   expected_signal: "SUID binary discovery or bash -p execution"
+  spl_variants:
+    - source: "linux:auditd"
+      spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a1="*perm*4000*" OR exe="*/find" OR exe="*/bash" "-p") | stats count by host, exe'
+      expected_signal: "SUID binary discovery or bash -p execution"
+    - source: "windows:security"
+      spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4688 (NewProcessName="*runas*" OR NewProcessName="*cmdkey*" OR TokenElevationType="%%1937") | stats count by NewProcessName, Account'
+      expected_signal: "Process creation with elevation (runas, cmdkey, full token elevation)"
 
 T1068:
   description: "Exploitation for privilege escalation — kernel/userspace privesc"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="*/exploit" OR exe="*/privesc" OR a1="*CVE*") | stats count by host, exe'
   expected_signal: "Exploit binary execution on target host"
+  spl_variants:
+    - source: "linux:auditd"
+      spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="*/exploit" OR exe="*/privesc" OR a1="*CVE*") | stats count by host, exe'
+      expected_signal: "Exploit binary execution on target host"
+    - source: "windows:security"
+      spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4688 (Process_Command_Line="*whoami*/priv*" OR Process_Command_LINE="*systeminfo*" OR Process_Command_Line="*CVE*") | stats count by NewProcessName, Account, Process_Command_Line'
+      expected_signal: "Privilege escalation recon commands (whoami /priv, systeminfo)"
 
 T1592:
   description: "Gather victim host info — service fingerprinting and enumeration"
