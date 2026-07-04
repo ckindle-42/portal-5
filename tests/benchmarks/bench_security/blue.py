@@ -910,21 +910,23 @@ def collect_and_ship_scenario_telemetry(
     had no way to be replayed or reproduced from stable captured data the way
     every other scenario type already could).
 
-    meta3 is neither of these and is explicitly excluded, not lumped into
-    "windows" — its scenarios' detect_ground_truth is entirely generic
-    Linux/web techniques (T1190, T1548.001, T1068, ...), never a Kerberos/AD
-    ID, so querying the DC's Security log for it would ship data with no
-    relationship to what meta3 actually did (found live 2026-07-04, caught
-    before ever running against the live lab: an earlier version of this
-    function grouped meta3 in with _LAB_DC/_LAB_SRV without checking this).
-    It also isn't reachable via the "web" _host_exec path either — that's
-    hardcoded to the vulhub LXC's container ID (scripts/lab_host.py's
-    LAB_LXC_ID), a different container than meta3's own VM. Shipping "web"
-    collection against meta3's target_host would silently collect the
-    vulhub LXC's docker logs and mislabel them as meta3's evidence — worse
-    than no capture at all. meta3 has no correct collection channel built
-    yet; excluding it here is honest about that gap rather than papering
-    over it with wrong data.
+    meta3 is neither of these — it's a standalone Metasploitable3-Windows
+    Vagrant box (not domain-joined, not the vulhub LXC), so it gets its own
+    kind="meta3": IIS's own W3C access log (ships as "web:access", directly
+    matching T1190's existing SPL), the vsftpd-backdoor-style FTP log (ships
+    as "ftp:access"), and Process Creation events (4688, ships as
+    "windows:security") IF that audit subcategory has been enabled on the box
+    (found live 2026-07-04: it's off by default on a stock Vagrant image —
+    with it off, none of meta3's actual exploitation techniques generate ANY
+    Windows Security Event Log evidence at all, since they're all third-party-
+    service exploits that never touch normal Windows auth). An earlier version
+    of this function lumped meta3 in with _LAB_DC/_LAB_SRV's "windows" kind
+    without checking any of this — caught before it ever shipped wrong data:
+    meta3's detect_ground_truth is entirely generic web/command-exec
+    techniques, never Kerberos/AD, so querying the DC's Security log for it
+    would have been meaningless; it's also unreachable via "web"'s
+    _host_exec path, which is hardcoded to the vulhub LXC's container ID
+    (scripts/lab_host.py's LAB_LXC_ID) — a different container entirely.
 
     Returns (capture_path, indexed_confirmed, telemetry_error).
     """
@@ -932,10 +934,15 @@ def collect_and_ship_scenario_telemetry(
     capture_path: str | None = None
     indexed_confirmed: bool | None = None
     telemetry_error: str = ""
-    if not (target_host and lab_exec and not dry_run) or target_host == _LAB_META3:
+    if not (target_host and lab_exec and not dry_run):
         return capture_path, indexed_confirmed, telemetry_error
 
-    kind = "windows" if target_host in (_LAB_DC, _LAB_SRV) else "web"
+    if target_host == _LAB_META3:
+        kind = "meta3"
+    elif target_host in (_LAB_DC, _LAB_SRV):
+        kind = "windows"
+    else:
+        kind = "web"
 
     try:
         from .siem.capture_store import save_capture
