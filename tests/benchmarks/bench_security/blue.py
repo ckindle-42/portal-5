@@ -13,7 +13,6 @@ import json
 import os
 import re
 import time
-from typing import Protocol, runtime_checkable
 
 import httpx
 
@@ -34,31 +33,17 @@ from ._data import (
 from .episode import Episode, derive_detection_status, derive_verdict, new_episode_id
 from .lab import dispatch_blue_response
 from .scoring import score_blue_detections as _score_blue_detections
+from .telemetry import (
+    TelemetryBackend,
+)
 
 # Ollama direct URL — used for blue/purple chain tests that bypass the pipeline.
 OLLAMA_URL = "http://localhost:11434"
 
 
-# ── TelemetryBackend adapter seam ────────────────────────────────────────────
-
-
-@runtime_checkable
-class TelemetryBackend(Protocol):
-    """Backend-agnostic telemetry query interface.
-
-    Implementations: WinEventBackend (AD), SplunkBackend (web/linux/container).
-    The protocol is the contract — blue.py calls .query() without knowing
-    which SIEM answers.
-    """
-
-    name: str
-
-    def query(self, technique_id: str, window: dict) -> dict:
-        """Query telemetry for a technique.
-
-        Returns {telemetry: str, source: 'live'|'synthetic-fallback', backend: name}.
-        """
-        ...
+# ── TelemetryBackend implementations ─────────────────────────────────────────
+# Conform to the canonical TelemetryBackend protocol from telemetry.py.
+# blue.py owns the concrete backends; the protocol lives in telemetry.py.
 
 
 class WinEventBackend:
@@ -166,12 +151,10 @@ _winrm_backend = WinEventBackend()
 _splunk_backend = SplunkBackend()
 
 
-def get_backend(target: str) -> TelemetryBackend:
-    """Return the appropriate telemetry backend for a target."""
-    target_lower = target.lower()
-    if any(ad in target_lower for ad in _AD_TARGETS):
-        return _winrm_backend
-    return _splunk_backend
+# NOTE: get_backend() was removed (Phase 2 canonical telemetry contracts).
+# It had zero callers — the live code dispatches by technique-ID via
+# _fetch_blue_telemetry, not by target-string matching.  Use
+# contract_for_technique() from telemetry.py for dispatch.
 
 
 # Re-export for sibling modules that may import these names from ``blue``.
@@ -190,7 +173,6 @@ __all__ = [
     "TelemetryBackend",
     "WinEventBackend",
     "SplunkBackend",
-    "get_backend",
 ]
 
 # ── Module-level constants ────────────────────────────────────────────────────

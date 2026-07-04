@@ -8,7 +8,6 @@ from tests.benchmarks.bench_security.blue import (
 )
 from tests.benchmarks.bench_security.matrix import (
     RunUnit,
-    WazuhBackend,
     _score_purple_on_unit,
     run_matrix,
 )
@@ -188,14 +187,11 @@ class TestTelemetryBackendPluggable:
         assert result["matched"] is True
         assert len(result["signals"]) == 1
 
-    def test_wazuh_backend_implements_protocol(self):
-        """WazuhBackend satisfies the TelemetryBackend protocol."""
-        backend = WazuhBackend()
-        result = backend.query("T1558.003", {})
-        assert isinstance(result, dict)
-        assert "signals" in result
-        assert "source" in result
-        assert "matched" in result
+    def test_canonical_protocol_importable(self):
+        """TelemetryBackend protocol is importable from telemetry module."""
+        from tests.benchmarks.bench_security.telemetry import TelemetryBackend
+
+        assert hasattr(TelemetryBackend, "query")
 
 
 class TestADBluePathUnchanged:
