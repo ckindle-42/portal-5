@@ -189,6 +189,18 @@ T1552:
   spl: 'index=portal5_lab sourcetype="web:access" ("169.254.169.254" OR "/latest/meta-data" OR ".git/config" OR ".env" OR "credentials" OR "password=" OR "secret=") | stats count by host, uri_path, _raw'
   expected_signal: "Metadata endpoint access or sensitive file exposure in HTTP traffic"
 
+T1046:
+  description: "Network service discovery — port scanning and SNMP enumeration"
+  spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="nmap" OR a0="masscan" OR a0="snmpwalk" OR a0="snmpbulkwalk") | stats count by host, a0'
+  expected_signal: "Network scanning tool execution (nmap, snmpwalk)"
+  spl_variants:
+    - source: "linux:auditd"
+      spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="nmap" OR a0="masscan" OR a0="snmpwalk" OR a0="snmpbulkwalk") | stats count by host, a0'
+      expected_signal: "Network scanning tool execution (nmap, snmpwalk)"
+    - source: "windows:security"
+      spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4688 (NewProcessName="*nmap*" OR NewProcessName="*snmpwalk*" OR NewProcessName="*snmp*" OR Process_Command_Line="*nmap*" OR Process_Command_Line="*snmpwalk*") | stats count by NewProcessName, Account, Process_Command_Line'
+      expected_signal: "Process creation (4688) for network discovery tools (nmap, snmpwalk)"
+
 # ── Honest blue-gaps: techniques with no in-lab telemetry source ─────────────
 # T1078.004 (Valid Accounts: Cloud Accounts) and T1537 (Transfer Data to Cloud
 # Account) require cloud-provider telemetry (AWS CloudTrail, Azure AD Sign-ins)
