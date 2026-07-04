@@ -11,13 +11,119 @@ nxc genuinely needs attacker-network reach to the DC over WinRM.
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import sys
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
+
+
+def unwrap_mcp_stdout(raw: str) -> str:
+    """Unwrap the sandbox MCP execute_bash tool's own JSON response envelope.
+
+    `_mcp_call` (bench_lab_exec.py) returns the execute_bash tool's raw text
+    result verbatim — which for that tool is itself a JSON object,
+    `{"success": bool, "stdout": "...", "stderr": "...", ...}`, not the plain
+    command output. Found live 2026-07-04: every nxc/Get-WinEvent call site
+    (WinEventBackend.query, _fetch_blue_telemetry's live fallback, and this
+    module's windows-event collector) was treating that JSON blob as if it
+    were the raw nxc output — `"EventID" in text` / regex field extraction
+    were matching against `{\\n  "success": true,\\n  "stdout": "...` with the
+    real content's newlines still JSON-escaped (`\\n` as two literal
+    characters, not a line break), so line-based parsing silently saw one
+    giant line instead of the actual per-event text. Best-effort: falls back
+    to the raw string unchanged if it isn't valid JSON or has no "stdout" key,
+    so a genuinely-plain-text caller isn't broken by this.
+    """
+    try:
+        obj = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return raw
+    if isinstance(obj, dict) and "stdout" in obj:
+        return obj["stdout"]
+    return raw
+
+
+# Field names each SPL detection (siem/spl_detections.yaml) actually filters on,
+# per EventCode. Get-WinEvent's raw `Message` text uses human-readable labels
+# ("Account Name:", "Ticket Encryption Type:") that never match those SPL
+# filters as-is — Splunk's default key=value auto-extraction only works if we
+# ship it already normalized to EventCode=/TicketEncryptionType=/etc.
+_WINDOWS_EVENT_FIELD_PATTERNS: dict[str, list[tuple[str, str]]] = {
+    "4769": [  # Kerberoasting (T1558.003)
+        ("TicketEncryptionType", r"Ticket Encryption Type:\s*(\S+)"),
+        ("ServiceName", r"Service Name:\s*(\S+)"),
+        ("Account", r"Account Name:\s*(\S+)"),
+    ],
+    "4768": [  # AS-REP roasting (T1558.004)
+        ("PreAuthType", r"Pre-Authentication Type:\s*(\S+)"),
+        ("Account", r"Account Name:\s*(\S+)"),
+    ],
+    "4662": [  # DCSync (T1003.006)
+        ("Properties", r"Properties:\s*(.+)"),
+        ("Account", r"Account Name:\s*(\S+)"),
+    ],
+    "4698": [  # Scheduled task persistence (T1053.005)
+        ("TaskName", r"Task Name:\s*(\S+)"),
+        ("Account", r"Account Name:\s*(\S+)"),
+    ],
+    "4625": [  # Failed logon (T1110.003, password spray)
+        ("IpAddress", r"Source Network Address:\s*(\S+)"),
+        ("Account", r"Account Name:\s*(\S+)"),
+    ],
+    "4771": [  # Kerberos pre-auth failed (T1110.003, password spray)
+        ("IpAddress", r"Client Address:\s*(\S+)"),
+        ("Account", r"Account Name:\s*(\S+)"),
+    ],
+}
+
+
+# nxc prefixes EVERY output line with its own fixed-width status columns —
+# "WINRM   10.10.11.21   5985   WIN-MVQO0PT39IO  <actual content>" — so "Id"
+# is never at true line-start the way Format-List normally produces it.
+_NXC_LINE_PREFIX = re.compile(r"^[A-Za-z0-9_-]+\s+[\d.]+\s+\d+\s+\S+\s{2,}", re.MULTILINE)
+
+
+def strip_nxc_line_prefix(text: str) -> str:
+    """Strip nxc's per-line status-column prefix, exposing the real PowerShell
+    output underneath. Shared with blue.py's WinEventBackend.query and
+    _fetch_blue_telemetry's live nxc fallback — both feed this text straight to
+    a model as "telemetry," and the unstripped prefix was real noise on every
+    single line, not just a formatting nuisance for this module's own parser.
+    """
+    return _NXC_LINE_PREFIX.sub("", text)
+
+
+def _normalize_windows_security_events(raw_text: str) -> list[str]:
+    """Turn Get-WinEvent's `Format-List Id,TimeCreated,Message` output into flat
+    EventCode=... key=value lines that match what siem/spl_detections.yaml's SPL
+    queries actually filter on.
+
+    Best-effort: an event whose EventCode we recognize but whose expected fields
+    don't match (Windows message text formatting drift, redacted fields, etc.)
+    still ships as `EventCode=<id>` alone rather than being dropped — a partial
+    match is still evidence the event fired, even if a specific SPL field filter
+    then can't match it.
+    """
+    raw_text = _NXC_LINE_PREFIX.sub("", raw_text)
+    blocks = re.split(r"(?=^\s*Id\s*:\s*\d+)", raw_text, flags=re.MULTILINE)
+    lines: list[str] = []
+    for block in blocks:
+        m = re.search(r"^\s*Id\s*:\s*(\d+)", block, re.MULTILINE)
+        if not m:
+            continue
+        event_code = m.group(1)
+        fields = [f"EventCode={event_code}"]
+        for name, pattern in _WINDOWS_EVENT_FIELD_PATTERNS.get(event_code, []):
+            fm = re.search(pattern, block)
+            if fm:
+                fields.append(f"{name}={fm.group(1)}")
+        lines.append(" ".join(fields))
+    return lines
 
 
 def _get_mcp_call():
@@ -101,8 +207,9 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
             code = f"nxc winrm {lab_dc} -u administrator -p '{lab_pass}' -X \"{ps}\" 2>&1"
             r = mcp_call(code, timeout=90)
             if r.get("ok") and r.get("output", "").strip():
-                out["windows:security"] = [
-                    line for line in r["output"].splitlines() if line.strip()
-                ]
+                stdout = unwrap_mcp_stdout(r["output"])
+                normalized = _normalize_windows_security_events(stdout)
+                if normalized:
+                    out["windows:security"] = normalized
 
     return out

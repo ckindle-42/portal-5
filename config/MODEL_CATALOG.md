@@ -337,18 +337,30 @@ stalled on handoff to the next step afterward. Tied on ctf_multi_service (depth 
 incumbent on web_ssrf (depth 2/2 vs 1/2). Net: real capability, no refusal wall, but a handoff-stability
 regression on the AD chain outweighs the wins elsewhere.
 
-### `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M` — DROPPED (blocked, never benched)
+### `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M` — DROPPED (tool-call blocker fixed 2026-07-04; detection quality inconclusive, not adopted)
 
 Blue-defender candidate (athena129/CyberSecQwen-4B, Qwen3-4B base, Apache-2.0, ~2.5GB; card claims it beats
 Cisco Foundation-Sec-8B, the current blue incumbent). The exact `athena129` repo ships no GGUF ("planned"
 per its card) — `mradermacher/CyberSecQwen-4B-GGUF` is a community quant of the same base, pulled and
 preflighted instead. Coherent, on-topic completion (correctly discusses Kerberoasting on request, though it
-cites the wrong technique ID — T1557.004 instead of the real T1558.003). Disqualified on tool-call audit:
-a direct `/api/chat` call with `report_detection` in the tools list returns a hard 400 — the GGUF's chat
-template has no tool-calling syntax at all. The entire purple protocol (`query_windows_events`/
-`report_detection`/`recommend_containment`) is tool-call driven, so this is a structural incompatibility,
-not a detection-quality result; running the purple bench anyway would have produced a fake all-zero score.
-Not benched. The 8B-beats-4B card claim remains untested.
+cites the wrong technique ID — T1557.004 instead of the real T1558.003). Originally disqualified on
+tool-call audit: a direct `/api/chat` call with `report_detection` in the tools list returned a hard 400.
+
+**2026-07-04 UPDATE — root cause was the shipped template, not the model.** Byte-inspected the GGUF's
+embedded `tokenizer.chat_template` directly: it exists, but is a bare ChatML loop with no `{% if tools %}`
+block and no `<tool_call>` rendering at all — this is what athena129 shipped, not an artifact of the
+mradermacher quant conversion. Since the base is Qwen3-4B (a tool-capable family) and `<tool_call>` is a
+registered special token in the tokenizer, hand-authored a standard Qwen3 Hermes-style `<tool_call>` XML
+Go template into a derived Modelfile (`FROM hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M`, local tag
+`cybersecqwen-4b-toolfix`) — same fix class as `TASK_TOOLCALL_FIX_LOCKIN_V1` (baronllm-abliterated), except
+there no pre-existing working template existed to borrow, so this one was authored from scratch. Verified
+directly against `/api/chat`: two independent probes (`run_nmap_scan` with a target arg; `query_windows_events`
+matching the actual purple-protocol tool) both returned clean, schema-conformant `tool_calls` — the
+fine-tune's underlying tool-calling capability was intact, only the exported template was missing it.
+Not yet run through the actual candidate-eval purple gauntlet (`--replay-captured-red`-eligible now, or a
+live run) — the 8B-beats-4B card claim, and whether real-scenario `blue_f1` improves over the Cisco
+Foundation-Sec-8B incumbent, both remain untested. Template lives only as a local `ollama create` tag today,
+not yet checked into the repo as a reusable Modelfile/fix script.
 
 ## Reasoning group
 
