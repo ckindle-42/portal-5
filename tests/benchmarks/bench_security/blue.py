@@ -898,17 +898,33 @@ def collect_and_ship_scenario_telemetry(
     capture replayed later carries its true timestamp instead of always
     looking like "now."
 
-    AD/DC/meta3 targets collect Windows Security event log data (kind="windows",
+    AD/DC targets collect Windows Security event log data (kind="windows",
     normalized to the EventCode=/TicketEncryptionType=/etc. fields
-    siem/spl_detections.yaml's SPL actually filters on); everything else
-    collects docker/auditd host logs (kind="web"). Both get shipped and
-    captured the same way — there is no longer a target type that skips this
-    (found live 2026-07-04: AD scenarios were excluded on the theory that
-    WinEventBackend's live DC query made shipping redundant, but that live
-    query ignores the scenario's actual time window entirely — `Get-WinEvent
-    -MaxEvents 50` right now, whenever purple happens to run, not "around when
-    red attacked" — so AD scenarios had no way to be replayed or reproduced
-    from stable captured data the way every other scenario type already could).
+    siem/spl_detections.yaml's SPL actually filters on); vulhub/web targets
+    collect docker/auditd host logs (kind="web") via _host_exec. Both get
+    shipped and captured the same way (found live 2026-07-04: AD scenarios
+    were excluded on the theory that WinEventBackend's live DC query made
+    shipping redundant, but that live query ignores the scenario's actual
+    time window entirely — `Get-WinEvent -MaxEvents 50` right now, whenever
+    purple happens to run, not "around when red attacked" — so AD scenarios
+    had no way to be replayed or reproduced from stable captured data the way
+    every other scenario type already could).
+
+    meta3 is neither of these and is explicitly excluded, not lumped into
+    "windows" — its scenarios' detect_ground_truth is entirely generic
+    Linux/web techniques (T1190, T1548.001, T1068, ...), never a Kerberos/AD
+    ID, so querying the DC's Security log for it would ship data with no
+    relationship to what meta3 actually did (found live 2026-07-04, caught
+    before ever running against the live lab: an earlier version of this
+    function grouped meta3 in with _LAB_DC/_LAB_SRV without checking this).
+    It also isn't reachable via the "web" _host_exec path either — that's
+    hardcoded to the vulhub LXC's container ID (scripts/lab_host.py's
+    LAB_LXC_ID), a different container than meta3's own VM. Shipping "web"
+    collection against meta3's target_host would silently collect the
+    vulhub LXC's docker logs and mislabel them as meta3's evidence — worse
+    than no capture at all. meta3 has no correct collection channel built
+    yet; excluding it here is honest about that gap rather than papering
+    over it with wrong data.
 
     Returns (capture_path, indexed_confirmed, telemetry_error).
     """
@@ -916,10 +932,10 @@ def collect_and_ship_scenario_telemetry(
     capture_path: str | None = None
     indexed_confirmed: bool | None = None
     telemetry_error: str = ""
-    if not (target_host and lab_exec and not dry_run):
+    if not (target_host and lab_exec and not dry_run) or target_host == _LAB_META3:
         return capture_path, indexed_confirmed, telemetry_error
 
-    kind = "windows" if target_host in (_LAB_DC, _LAB_SRV, _LAB_META3) else "web"
+    kind = "windows" if target_host in (_LAB_DC, _LAB_SRV) else "web"
 
     try:
         from .siem.capture_store import save_capture
@@ -1048,25 +1064,26 @@ def run_purple_tests(
                 # event_time intentionally omitted (defaults to time.time()) — a
                 # replay should land as fresh "current" telemetry so blue's query
                 # window is just "recent," not a precise historical range the
-                # caller has to reconstruct. This is the ship-based (non-AD) path;
-                # AD/DC/meta3 targets have no shippable capture (WinEventBackend
-                # queries the DC's live Security log directly) and are handled
-                # below.
+                # caller has to reconstruct. This now covers AD/DC scenarios too
+                # (collect_and_ship_scenario_telemetry ships Windows Security
+                # event data for them as of 2026-07-04) — this branch is reached
+                # by anything WITH a shippable capture, not just non-AD targets.
                 replay_result = replay_capture(capture_path_on_disk)
                 capture_path = replay_result.get("replayed_from")
                 indexed_confirmed = replay_result.get("indexed_confirmed")
                 telemetry_error = "" if replay_result.get("ok") else "REPLAY_SHIPPED_NOTHING"
             elif capture_path_on_disk is None:
-                # No shippable capture exists for this scenario (AD/DC/meta3 —
-                # real activity lives only in the DC's own Security event log,
-                # which we neither ship to Splunk nor can re-timestamp). The only
-                # way replay can find anything here is to search the log's real
-                # historical window instead of "now" — the one case where "as if
-                # it just happened" isn't achievable without also capturing and
-                # shipping Windows Event data through the SIEM (not built yet;
-                # flag this rather than silently returning an unfindable window).
+                # No shippable capture exists for this scenario. Two real cases:
+                # meta3 (excluded from collect_and_ship_scenario_telemetry
+                # entirely — no correct collection channel exists for it yet,
+                # see that function's docstring) — there is genuinely nothing to
+                # search here regardless of window, this just avoids pretending
+                # otherwise; or a target whose collection ran but found nothing
+                # to ship. Falling back to the cached red evidence's own
+                # timestamp is still the best-effort window for any live
+                # WinEventBackend/nxc fallback path blue might still take.
                 scenario_start = cached_red.get("captured_at", scenario_start)
-                telemetry_error = "AD_TARGET_NO_SHIPPABLE_CAPTURE_USING_HISTORICAL_WINDOW"
+                telemetry_error = "NO_SHIPPABLE_CAPTURE_USING_HISTORICAL_WINDOW"
     else:
         for rm in red_models:
             if rm not in red_cache:
