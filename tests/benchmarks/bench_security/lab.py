@@ -25,6 +25,7 @@ from ._data import (
     _LAB_SRV,
     _LAB_SRV_VMID,
     _LAB_SVC_PASS,
+    _LAB_VALID_VMIDS,
     _LAB_WEB,
     _STEALTH_EVENT_IDS,
     _STEALTH_QUERY_TIMEOUT,
@@ -740,6 +741,23 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
     srv = _LAB_SRV or "10.10.11.33"
 
     # ── Proxmox lifecycle tools ───────────────────────────────────────────────
+    # Some scenario red_prompts include fictional vmid flavor text (e.g. AD
+    # scenarios say "member server at 192.168.1.51 (vmid=102)") for realism — a
+    # red model can and does call these tools with those literal numbers. On a
+    # shared Proxmox host, small ids like 101/102/103 collide with real,
+    # unrelated VMs. Hard-reject anything outside the actual lab fleet before
+    # ever reaching the Proxmox API (found live 2026-07-03: repeated real
+    # qmstart/qmrollback calls against non-lab vmid 100-103, harmless only
+    # because those VMs didn't happen to have snapshots named "clean"/
+    # "baseline-ad" — that's luck, not a safeguard).
+    if fn_name in ("start_lab_target", "revert_lab_target"):
+        vmid = fn_args.get("vmid", 0)
+        if vmid and str(vmid) not in _LAB_VALID_VMIDS:
+            return (
+                f"Refused: vmid {vmid} is not part of this lab's VM fleet "
+                f"({sorted(_LAB_VALID_VMIDS)}) — not dispatched to Proxmox."
+            )
+
     if fn_name == "start_lab_target":
         vmid = fn_args.get("vmid", 0)
         if not vmid:

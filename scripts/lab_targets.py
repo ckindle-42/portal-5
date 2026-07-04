@@ -18,6 +18,29 @@ from pathlib import Path
 from scripts.lab_host import _host_exec
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _load_env() -> None:
+    """Load .env into os.environ (setdefault — never overrides a real env var).
+
+    This module reads LAB_* host/vmid config at import time (below, and in
+    _LAB_HOST_VMID_MAP). It's usually imported transitively through
+    bench_security._data, which loads .env itself first as an import side
+    effect — so this silently worked by import-order luck. But this module also
+    has its own standalone CLI entry point (`python3 scripts/lab_targets.py`),
+    and nothing guarantees import order for other callers, so load .env here too
+    rather than depend on another module having done it first.
+    """
+    env_file = REPO_ROOT / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip())
+
+
+_load_env()
 LAB_DIR = os.environ.get("LAB_DIR", os.path.expanduser("~/AI_Output/lab"))
 LAB_VULHUB_HOST_ROOT = os.environ.get("LAB_VULHUB_HOST_ROOT", "/opt/vulhub")
 LAB_VULHUB_HOST = os.environ.get("LAB_TARGET_WEB", "10.10.11.50")
@@ -413,13 +436,39 @@ def _resolve_live_port(host: str, env: str | None) -> int | None:
     return None
 
 
-def _vmid_for_host(host: str) -> str:
-    """Look up the Proxmox VMID for a given host IP from lab_targets.yaml."""
-    catalog = _load_catalog()
-    for t in catalog.get("targets", []):
-        if t.get("host") == host:
-            return str(t.get("vmid", ""))
-    return ""
+# Static (non-vulhub) lab hosts and the Proxmox vmid/kind that backs each — built
+# from the same env vars the lab already defines for these targets. Superseded
+# `_vmid_for_host`, which looked this up via a `vmid` field in
+# config/lab_targets.yaml that never existed there (that catalog only tracks
+# vulhub/projectblack CVE envs) — every static-host heal attempt was silently a
+# no-op before this.
+_LAB_HOST_VMID_MAP: dict[str, tuple[str, str]] = {}
+for _host_env, _vmid_env, _kind in [
+    ("LAB_TARGET_DC", "LAB_DC_VMID", "vm"),
+    ("LAB_TARGET_SRV", "LAB_SRV_VMID", "vm"),
+    ("LAB_TARGET_META3_WIN", "LAB_META3_WIN_VMID", "vm"),
+    ("LAB_MBPTL_HOST", "LAB_MBPTL_LXC_VMID", "lxc"),
+]:
+    _h, _v = os.environ.get(_host_env, ""), os.environ.get(_vmid_env, "")
+    if _h and _v:
+        _LAB_HOST_VMID_MAP[_h] = (_v, _kind)
+
+
+def _start_lab_host(host: str) -> bool:
+    """Start the Proxmox VM/LXC backing a known static lab host.
+
+    Returns True if a start command was actually issued (not whether it finished
+    booting — the caller still has to poll for reachability afterward).
+    """
+    from scripts.lab_host import _proxmox_exec
+
+    mapping = _LAB_HOST_VMID_MAP.get(host)
+    if not mapping:
+        return False
+    vmid, kind = mapping
+    cmd = f"qm start {vmid}" if kind == "vm" else f"pct start {vmid}"
+    r = _proxmox_exec(cmd, timeout=30)
+    return bool(r.get("ok"))
 
 
 # Common ports across the lab's static (non-vulhub) hosts — AD (kerberos/ldap/smb),
@@ -446,14 +495,33 @@ def _probe_any_reachable_port(
     return None
 
 
+def _poll_reachable_port(host: str, timeout_s: float, interval_s: float = 5.0) -> int | None:
+    """Poll _probe_any_reachable_port until something answers or timeout_s elapses.
+
+    A cold Windows VM (meta3, DC, SRV) takes minutes to boot — a single immediate
+    probe right after `qm start` will always see nothing listening yet. This is
+    what actually gives a just-started host time to come up, which the old
+    dead vmid-lookup heal path never did even when it "worked."
+    """
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        port = _probe_any_reachable_port(host)
+        if port:
+            return port
+        time.sleep(interval_s)
+    return None
+
+
 def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int = 2) -> dict:
     """Verify a scenario's external target is up; heal via existing primitives if not.
 
     Returns {ready, healed, host, port, reason} where port is the REAL published port
     the scenario must attack (single source of truth — no hardcoded guessing).
 
-    Uses ONLY existing primitives: cmd_up, _published_port, _wait_reachable,
-    _lab_lxc_start, _lab_lxc_revert, _probe_any_reachable_port. No new lab-control code.
+    Vulhub envs heal via cmd_up (docker compose). Static lab hosts (AD, meta3,
+    mbptl) heal via _start_lab_host (qm/pct start against the real Proxmox vmid)
+    + _poll_reachable_port, so a scenario landing on a genuinely-down VM brings
+    it back up instead of just detecting the outage and giving up.
     """
     host = scenario.get("target_host")
     env = scenario.get("vulhub_env")
@@ -479,27 +547,32 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
             "reason": "already up",
         }
 
-    # HEAL (existing primitives)
+    # HEAL
     for attempt in range(retries):
         if env:
             up = cmd_up(env, dry_run=dry_run)
             port = up.get("port")
+            if port and _wait_reachable(host, port, timeout_s=60):
+                return {
+                    "ready": True,
+                    "healed": True,
+                    "host": host,
+                    "port": port,
+                    "reason": f"healed@{attempt + 1}",
+                }
         else:
-            vmid = _vmid_for_host(host)
-            if vmid:
-                from bench_lab_exec import _lab_lxc_start as _lxc_start
-
-                _lxc_start(vmid)
-            port = _probe_any_reachable_port(host)
-
-        if port and _wait_reachable(host, port, timeout_s=60):
-            return {
-                "ready": True,
-                "healed": True,
-                "host": host,
-                "port": port,
-                "reason": f"healed@{attempt + 1}",
-            }
+            started = _start_lab_host(host) if not dry_run else False
+            # A just-started Windows VM needs minutes, not seconds — an LXC or an
+            # already-running host that just had a transient blip needs far less.
+            port = _poll_reachable_port(host, timeout_s=180 if started else 20)
+            if port:
+                return {
+                    "ready": True,
+                    "healed": True,
+                    "host": host,
+                    "port": port,
+                    "reason": f"healed@{attempt + 1}" + (" (vm-start)" if started else ""),
+                }
 
     return {
         "ready": False,

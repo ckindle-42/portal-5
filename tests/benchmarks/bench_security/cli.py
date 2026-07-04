@@ -1401,10 +1401,10 @@ def main() -> None:
         print(f"{'Model':<46} {'Recall':>7} {'Prec':>6} {'F1':>6}  Missed")
         print("-" * 80)
         for r in blue_results:
-            s = r["score"]
+            s = r.get("score", {})
             print(
-                f"{r['model'][:46]:<46} {s['recall']:>7.2f} {s['precision']:>6.2f}"
-                f" {s['f1']:>6.2f}  {s['missed']}"
+                f"{r['model'][:46]:<46} {s.get('recall', 0.0):>7.2f} {s.get('precision', 0.0):>6.2f}"
+                f" {s.get('f1', 0.0):>6.2f}  {s.get('missed', [])}"
             )
 
     if purple_results:
@@ -1412,9 +1412,16 @@ def main() -> None:
         print(f"{'Red':<24}{'Blue':<24}{'Cov':>5}{'BlueF1':>8}{'Purple':>8}")
         print("-" * 70)
         for r in purple_results:
+            # indeterminate/gated-skip purple entries (the readiness-gate SKIP
+            # branch added 2026-07-03) carry no scoring fields at all — same
+            # KeyError-on-indeterminate class already fixed twice today for
+            # chain_results, missed here the first time (found live: this crash
+            # lost an entire ~3hr Step 2 dual-dispatch run's results before they
+            # were ever written to disk).
             print(
-                f"{str(r['red_model'])[:24]:<24}{str(r['blue_model'])[:24]:<24}"
-                f"{r['detection_coverage']:>5.2f}{r['blue_f1']:>8.2f}{r['purple_composite']:>8.2f}"
+                f"{str(r.get('red_model', '?'))[:24]:<24}{str(r.get('blue_model', '?'))[:24]:<24}"
+                f"{r.get('detection_coverage', 0.0):>5.2f}"
+                f"{r.get('blue_f1', 0.0):>8.2f}{r.get('purple_composite', 0.0):>8.2f}"
             )
 
     if evasion_results:
