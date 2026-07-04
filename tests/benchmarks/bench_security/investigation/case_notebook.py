@@ -103,8 +103,15 @@ class CaseNotebook:
         self._conn.execute(
             "INSERT INTO notebook_entries (entry_id, case_id, agent_id, entry_type, content, created_at, superseded_by) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (entry.entry_id, entry.case_id, entry.agent_id, entry.entry_type,
-             json.dumps(entry.content), entry.created_at, entry.superseded_by),
+            (
+                entry.entry_id,
+                entry.case_id,
+                entry.agent_id,
+                entry.entry_type,
+                json.dumps(entry.content),
+                entry.created_at,
+                entry.superseded_by,
+            ),
         )
         self._conn.commit()
         return entry

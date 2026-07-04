@@ -52,7 +52,10 @@ class ResponsePlaybook:
 
 RESPONSE_PRIMITIVES = {
     "block_ip": {"action": "block_ip", "description": "Block an IP address at the firewall"},
-    "disable_account": {"action": "disable_account", "description": "Disable a compromised account"},
+    "disable_account": {
+        "action": "disable_account",
+        "description": "Disable a compromised account",
+    },
     "revoke_tgt": {"action": "revoke_tgt", "description": "Revoke Kerberos TGT tickets"},
     "isolate_host": {"action": "isolate_host", "description": "Isolate a host from the network"},
     "quarantine_file": {"action": "quarantine_file", "description": "Quarantine a malicious file"},
@@ -225,26 +228,26 @@ def map_threat_to_gaps(
 
     for tid in technique_ids:
         # Check if we have a detection
-        has_detection = any(
-            d.technique_id == tid for d in graph.detections.values()
-        )
+        has_detection = any(d.technique_id == tid for d in graph.detections.values())
         if not has_detection:
-            intake.gaps_identified.append({
-                "technique_id": tid,
-                "gap_type": "detection",
-                "current_status": "NO_RULE",
-            })
+            intake.gaps_identified.append(
+                {
+                    "technique_id": tid,
+                    "gap_type": "detection",
+                    "current_status": "NO_RULE",
+                }
+            )
 
         # Check if we have a scenario
-        has_scenario = any(
-            tid in p.technique_ids for p in graph.procedures.values()
-        )
+        has_scenario = any(tid in p.technique_ids for p in graph.procedures.values())
         if not has_scenario:
-            intake.gaps_identified.append({
-                "technique_id": tid,
-                "gap_type": "exercise",
-                "current_status": "NO_SCENARIO",
-            })
+            intake.gaps_identified.append(
+                {
+                    "technique_id": tid,
+                    "gap_type": "exercise",
+                    "current_status": "NO_SCENARIO",
+                }
+            )
 
     intake.summary = (
         f"Threat {threat_id} maps to {len(technique_ids)} techniques; "
@@ -299,9 +302,7 @@ def run_response_loop(graph: CapabilityGraph) -> ResponseLoopResult:
             and gap.axes.get("response") == "RESPONSE_NOT_TESTED"
         ):
             result.response_gaps_found += 1
-            playbook = propose_response_playbook(
-                gap.technique_id, gap.procedure_id, gap.gap_id
-            )
+            playbook = propose_response_playbook(gap.technique_id, gap.procedure_id, gap.gap_id)
             result.playbooks_proposed += 1
             result.playbooks.append(playbook)
 
