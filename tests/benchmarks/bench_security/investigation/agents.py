@@ -12,6 +12,9 @@ A4 Challenger — attempt to falsify A3's finding against evidence (MUST run)
 A5 Reporter — emit final structured report with provenance
 
 A4 (Challenger) is not optional.  No path bypasses A4.
+
+P6: Agents consult the wiki (wiki.explain) for technique signatures before
+reasoning — recall→lookup, the backbone payoff.
 """
 
 from __future__ import annotations
