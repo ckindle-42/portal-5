@@ -13,6 +13,7 @@ from __future__ import annotations
 import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 # ── Stable-ID entities ───────────────────────────────────────────────────────
@@ -385,8 +386,28 @@ def generate_coverage_json(graph: CapabilityGraph) -> dict:
     }
 
 
-def generate_navigator_layer(graph: CapabilityGraph) -> dict:
-    """Generate an ATT&CK Navigator layer JSON for visualization.
+_DOMAIN_TO_MATRIX = {"enterprise-attack": "enterprise", "ics-attack": "ics"}
+
+
+def _load_technique_matrix() -> dict[str, list[str]]:
+    """tid -> matrix list, from spl_detections.yaml's `matrix` dimension (Phase 4
+    of TASK-SEC-DESIGN-GAP-DELIVERY-V1). Back-compatible: a technique missing the
+    field (or missing from the detection library entirely — e.g. exercised-only,
+    no detection rule yet) is treated as `matrix: [enterprise]`, per the schema's
+    documented back-compat rule — never as ICS, which would be an unverified claim.
+    """
+    try:
+        import yaml
+
+        path = Path(__file__).resolve().parent / "siem" / "spl_detections.yaml"
+        raw = yaml.safe_load(path.read_text()) or {}
+    except Exception:
+        return {}
+    return {tid: v.get("matrix", ["enterprise"]) for tid, v in raw.items() if isinstance(v, dict)}
+
+
+def generate_navigator_layer(graph: CapabilityGraph, domain: str = "enterprise-attack") -> dict:
+    """Generate an ATT&CK Navigator layer JSON for visualization, for ONE domain.
 
     Color coding:
     - GREEN (#00FF00): COVERED
@@ -394,6 +415,12 @@ def generate_navigator_layer(graph: CapabilityGraph) -> dict:
     - BLUE (#0000FF): BLUE_ONLY
     - RED (#FF0000): NEITHER
     - GRAY (#CCCCCC): BLOCKED
+
+    `domain` selects which matrix's techniques populate the layer — was
+    hardcoded to "enterprise-attack" only; now filters by each technique's
+    `matrix` tag (Phase 4) so an "ics-attack" layer can also be generated.
+    A technique with no matrix tag is treated as enterprise-only (back-compat),
+    so it never silently appears in an ICS layer it was never verified against.
     """
     color_map = {
         "COVERED": "#00FF00",
@@ -402,8 +429,13 @@ def generate_navigator_layer(graph: CapabilityGraph) -> dict:
         "NEITHER": "#FF0000",
         "BLOCKED": "#CCCCCC",
     }
+    matrix_key = _DOMAIN_TO_MATRIX.get(domain, "enterprise")
+    technique_matrix = _load_technique_matrix()
 
     techniques = graph.techniques_exercised() | graph.techniques_detected()
+    techniques = {
+        tid for tid in techniques if matrix_key in technique_matrix.get(tid, ["enterprise"])
+    }
     scores: list[dict] = []
 
     for tid in sorted(techniques):
@@ -433,9 +465,25 @@ def generate_navigator_layer(graph: CapabilityGraph) -> dict:
     return {
         "name": "Portal 5 Capability Coverage",
         "versions": {"attack": "15", "navigator": "4.10.0"},
-        "domain": "enterprise-attack",
+        "domain": domain,
         "description": "Capability coverage map generated from R/B/P episodes",
         "techniques": scores,
+    }
+
+
+def generate_navigator_layers(graph: CapabilityGraph) -> dict[str, dict]:
+    """Generate BOTH domain layers — {"enterprise-attack": ..., "ics-attack": ...}.
+
+    The ICS layer is legitimately empty today (0/30 detections currently carry
+    matrix: ics — Phase 4 populated NIST/tactic/NERC-CIP mappings but did not
+    fabricate ATT&CK-for-ICS technique IDs without an authoritative offline
+    source; see TASK-SEC-DESIGN-GAP-DELIVERY-V1 report). An empty ICS layer is
+    the honest state, not a bug — the dimension exists and is wired, waiting
+    for real ICS-tagged techniques.
+    """
+    return {
+        "enterprise-attack": generate_navigator_layer(graph, domain="enterprise-attack"),
+        "ics-attack": generate_navigator_layer(graph, domain="ics-attack"),
     }
 
 
