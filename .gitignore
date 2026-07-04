@@ -74,3 +74,8 @@ tests/benchmarks/bench_security/results/candidates/
 # Raw red/blue/purple evidence captures (siem/capture_store.py) — voluminous,
 # ephemeral, locally-generated; replayable from Splunk or a fresh run, not source
 tests/benchmarks/bench_security/results/captures/
+
+# bench_security run outputs (sec_bench_*.json/.partial.json) — ephemeral,
+# locally-generated per-run artifacts, not source. Findings belong in
+# config/MODEL_CATALOG.md / KNOWN_LIMITATIONS.md, not as committed JSON blobs.
+tests/benchmarks/bench_security/results/*.json
