@@ -25,30 +25,31 @@ def wiki_search(query: str, top_k: int = 10) -> dict[str, Any]:
         dict with matching units and their citations.
     """
     units = load_all()
-    query_lower = query.lower()
+    query_words = query.lower().split()
     results = []
 
     for unit in units:
-        # Match against title, body, tags
         score = 0.0
-        if query_lower in unit.title.lower():
-            score += 2.0
-        if query_lower in unit.body.lower():
-            score += 1.0
-        if any(query_lower in tag.lower() for tag in unit.tags):
-            score += 1.5
+        title_lower = unit.title.lower()
+        body_lower = unit.body.lower()
+
+        for word in query_words:
+            if word in title_lower:
+                score += 2.0
+            if word in body_lower:
+                score += 1.0
+            if any(word in tag.lower() for tag in unit.tags):
+                score += 1.5
 
         if score > 0:
-            results.append(
-                {
-                    "unit_id": unit.id,
-                    "title": unit.title,
-                    "kind": unit.kind,
-                    "score": score,
-                    "sources": [s.to_dict() for s in unit.sources],
-                    "preview": unit.body[:200] + "..." if len(unit.body) > 200 else unit.body,
-                }
-            )
+            results.append({
+                "unit_id": unit.id,
+                "title": unit.title,
+                "kind": unit.kind,
+                "score": score,
+                "sources": [s.to_dict() for s in unit.sources],
+                "preview": unit.body[:200] + "..." if len(unit.body) > 200 else unit.body,
+            })
 
     results.sort(key=lambda r: r["score"], reverse=True)
     return {
@@ -100,7 +101,6 @@ def wiki_explain(query: str) -> dict[str, Any]:
             "sources": [],
         }
 
-    # Combine top results into an answer
     top = search_result["results"]
     answer_parts = []
     all_sources = []
