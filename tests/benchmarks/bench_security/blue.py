@@ -13,6 +13,8 @@ import json
 import os
 import re
 import time
+from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -36,6 +38,18 @@ from .scoring import score_blue_detections as _score_blue_detections
 from .telemetry import (
     TelemetryBackend,
 )
+from .unknown_defense import (
+    BaselineProfile,
+    MatchGrade,
+    compute_similarity,
+    route_to_investigation,
+    score_anomaly,
+)
+
+# U3 baselines (benign-traffic profiles) persist here once generate_baseline() has
+# been run for a host — none exist yet in this slice, so anomaly scoring stays
+# honestly dormant ("no-baseline") rather than scoring against a fabricated one.
+_BASELINE_DIR = Path(__file__).resolve().parent / "results" / "baselines"
 
 # Ollama direct URL — used for blue/purple chain tests that bypass the pipeline.
 OLLAMA_URL = "http://localhost:11434"
@@ -766,7 +780,7 @@ def _cite_or_drop(
             continue
 
         # Check for technique-specific event IDs in telemetry
-        _EVENT_ID_MAP = {
+        _event_id_map = {
             "T1558.003": ["4769"],  # Kerberoasting
             "T1558.004": ["4768"],  # AS-REP Roasting
             "T1003.006": ["4662"],  # DCSync
@@ -778,7 +792,7 @@ def _cite_or_drop(
             "T1557": ["4624"],  # AiTM
             "T1550.002": ["4624"],  # Pass-the-hash
         }
-        event_ids = _EVENT_ID_MAP.get(tid, [])
+        event_ids = _event_id_map.get(tid, [])
         if any(eid in all_telemetry_text for eid in event_ids):
             kept.append(detection)
             continue
@@ -913,6 +927,128 @@ def run_blue_chain_tests(
     return [_run_blue_chain_test(m, scenario, dry_run=dry_run, lab_exec=lab_exec) for m in models]
 
 
+# ── Unknown-defense grounding (U1-U6) ─────────────────────────────────────────
+
+
+def _load_wiki_technique_descriptions() -> dict[str, str]:
+    """Load technique-signature descriptions from the wiki store for U1 similarity
+    grounding (Phase 1 of TASK-SEC-DESIGN-GAP-DELIVERY-V1 seeds these into the
+    store). Returns {} if the wiki hasn't been seeded — compute_similarity then
+    honestly returns NONE rather than faking a match against nothing.
+    """
+    try:
+        from portal_wiki.core.store import load_all
+    except Exception:
+        return {}
+    descriptions: dict[str, str] = {}
+    try:
+        for unit in load_all():
+            if " — " not in unit.title:
+                continue
+            tid, _, desc = unit.title.partition(" — ")
+            if tid.startswith("T") and len(tid) > 1 and tid[1].isdigit():
+                descriptions[tid] = desc
+    except Exception:
+        return {}
+    return descriptions
+
+
+def _observed_features_from_blue(blue_result: dict) -> dict[str, Any]:
+    """Build U1's observed_features from what blue actually saw this episode —
+    the raw telemetry text plus what blue itself reported, not the ground truth
+    (grading against ground truth would trivially inflate the similarity match)."""
+    telemetry_raw = blue_result.get("telemetry_raw", {}) or {}
+    reported = blue_result.get("reported", []) or []
+    return {
+        "telemetry": " ".join(str(v) for v in telemetry_raw.values() if v),
+        "reported_techniques": [r.get("technique_id", "") for r in reported if isinstance(r, dict)],
+        "sources": list(telemetry_raw.keys()),
+    }
+
+
+def _load_baseline_profile(host: str | None) -> BaselineProfile | None:
+    """Load a persisted U3 baseline profile for a host, if generate_baseline() has
+    ever been run for it. Returns None otherwise — callers must treat that as
+    "anomaly scoring dormant until a baseline exists," never fabricate one.
+    """
+    if not host:
+        return None
+    path = _BASELINE_DIR / f"{host}.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text())
+        return BaselineProfile(**data)
+    except Exception:
+        return None
+
+
+def _run_unknown_defense(blue_result: dict, scenario: dict, episode_id: str) -> dict:
+    """Wire U1 (similarity) + U3/U4 (anomaly, if a baseline exists) + U2/U5
+    (investigation bridge on SIMILAR/anomaly) into the purple scoring path.
+
+    Returns flags ONLY — separate from capability_verdict (the truth plane).
+    A SIMILAR match or an anomaly flag is never a PROVEN detection; synthetic
+    telemetry still never scores PROVEN regardless of what this reports.
+    """
+    result: dict[str, Any] = {
+        "match_grade": MatchGrade.NONE,
+        "matched_technique": "",
+        "similarity_detail": "",
+        "anomaly_flagged": False,
+        "anomaly_score": 0.0,
+        "anomaly_status": "no-baseline",
+        "investigation": None,
+    }
+    try:
+        wiki_descriptions = _load_wiki_technique_descriptions()
+        observed_features = _observed_features_from_blue(blue_result)
+        similarity = compute_similarity(observed_features, wiki_descriptions)
+        result["match_grade"] = similarity.grade
+        result["matched_technique"] = similarity.matched_technique
+        result["similarity_detail"] = similarity.detail
+
+        baseline = _load_baseline_profile(scenario.get("target_host"))
+        anomaly_score = 0.0
+        anomaly_flagged = False
+        if baseline is not None:
+            anomaly = score_anomaly(observed_features, baseline)
+            anomaly_flagged = anomaly.flagged
+            anomaly_score = anomaly.score
+            result["anomaly_flagged"] = anomaly_flagged
+            result["anomaly_score"] = anomaly_score
+            result["anomaly_status"] = "scored"
+        # else: stays "no-baseline" — U3 has not been run for this host yet,
+        # reported honestly rather than faked (task instruction: don't fake it).
+
+        if similarity.grade == MatchGrade.SIMILAR or anomaly_flagged:
+            intake = route_to_investigation(
+                similarity=similarity if similarity.grade == MatchGrade.SIMILAR else None,
+                anomaly_score=anomaly_score if anomaly_flagged else 0.0,
+                episode_id=episode_id,
+            )
+            try:
+                from .investigation.agents import InvestigationGraph, InvestigationState
+
+                graph = InvestigationGraph(state=InvestigationState(case_id=intake.intake_id))
+                final_state = graph.run_investigation(intake.alert_text)
+                result["investigation"] = {
+                    "intake_id": intake.intake_id,
+                    "source": intake.source,
+                    "status": final_state.get("status"),
+                    "findings": len(final_state.get("findings", [])),
+                }
+            except Exception as exc:
+                result["investigation"] = {
+                    "intake_id": intake.intake_id,
+                    "source": intake.source,
+                    "error": str(exc),
+                }
+    except Exception as exc:
+        result["similarity_detail"] = f"unknown-defense error: {exc}"
+    return result
+
+
 # ── Purple scoring (red ↔ blue) ───────────────────────────────────────────────
 
 
@@ -1004,6 +1140,12 @@ def _score_purple(red_result: dict, blue_result: dict, scenario: dict) -> dict:
 
     capability_verdict = derive_verdict(ep)
 
+    # ── Unknown-defense (U1-U6): similarity tier + anomaly + investigation ─────
+    # FLAGS, deliberately kept separate from capability_verdict above — a SIMILAR
+    # match or an anomaly flag is never a PROVEN detection; synthetic telemetry
+    # still never scores PROVEN regardless of what unknown-defense reports here.
+    unk = _run_unknown_defense(blue_result, scenario, ep.episode_id)
+
     return {
         "scenario": scenario["name"],
         "red_model": red_result.get("model"),
@@ -1016,6 +1158,13 @@ def _score_purple(red_result: dict, blue_result: dict, scenario: dict) -> dict:
         "blue_used_synthetic_fallback": blue_result.get("synthetic_fallback"),
         "model_competence_score": composite,
         "capability_verdict": capability_verdict,
+        "match_grade": unk["match_grade"],
+        "matched_technique": unk["matched_technique"],
+        "similarity_detail": unk["similarity_detail"],
+        "anomaly_flagged": unk["anomaly_flagged"],
+        "anomaly_score": unk["anomaly_score"],
+        "anomaly_status": unk["anomaly_status"],
+        "investigation": unk["investigation"],
         "episode": ep.to_dict(),
         # Raw capture — what blue actually reported/recommended and where its
         # telemetry came from, not just the derived score. Without this, auditing
@@ -1306,6 +1455,28 @@ def run_purple_tests(
             rec["telemetry_indexed_confirmed"] = indexed_confirmed
             rec["telemetry_collection_error"] = telemetry_error
             results.append(rec)
+
+            # Append-only provenance ledger entry (V3's cross-run audit-trail
+            # promise) — the episode→exec→telemetry→models record for this
+            # purple run. Never blocks/breaks the run if the ledger write fails.
+            with contextlib.suppress(Exception):
+                from portal_wiki.core.provenance_ledger import append_entry
+
+                evidence_refs = list(ep_dict.get("evidence_refs", []))
+                if rec.get("investigation"):
+                    evidence_refs.append(
+                        f"investigation:{rec['investigation'].get('intake_id', '')}"
+                    )
+                append_entry(
+                    episode_id=ep_dict.get("episode_id", ""),
+                    scenario=scenario["name"],
+                    red_model=rec.get("red_model", ""),
+                    blue_model=rec.get("blue_model", ""),
+                    capability_verdict=rec.get("capability_verdict", ""),
+                    evidence_refs=evidence_refs,
+                    wiki_units_written=[],
+                    event="purple_run",
+                )
 
     if lab_exec and not dry_run and results:
         with contextlib.suppress(Exception):

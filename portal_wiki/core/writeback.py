@@ -12,6 +12,7 @@ opts a specific loop in).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import time
 from dataclasses import asdict, dataclass, field
@@ -179,6 +180,22 @@ def confirm_unit(proposed_id: str) -> ProposedUnit:
     # Update proposed status
     proposed.status = "confirmed"
     path.write_text(json.dumps(proposed.to_dict(), indent=2), encoding="utf-8")
+
+    # Append-only audit trail (V3's provenance-ledger promise) — distinct from
+    # the unit's own `sources` field: this records THAT and WHEN a write-back
+    # happened, not just what the unit cites. episode/scenario/model fields
+    # stay blank for a non-security write-back (e.g. seed_code/seed_intent
+    # confirmations) rather than fabricating values that don't apply here.
+    with contextlib.suppress(Exception):
+        from .provenance_ledger import append_entry
+
+        append_entry(
+            episode_id="",
+            scenario="",
+            evidence_refs=[s.path for s in sources],
+            wiki_units_written=[proposed.unit_id],
+            event="write_back",
+        )
 
     return proposed
 

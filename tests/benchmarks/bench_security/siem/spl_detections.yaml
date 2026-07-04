@@ -4,6 +4,18 @@
 
 T1190:
   description: "Web exploit — access-log signatures (LFI/SQLi/Log4Shell/webshell markers)"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "initial-access"
+      source: "portal-mitre-mcp:T1190"
+    - framework: nist-800-53
+      control: "SC-7"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-005-6 R1"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" (passwd OR "../" OR "UNION SELECT" OR "${jndi:" OR ".php" OR "cmd=") | stats count by host, source, _raw'
   expected_signal: "HTTP requests with attack payloads in URI/body"
   spl_variants:
@@ -16,6 +28,18 @@ T1190:
 
 T1059:
   description: "Command execution — auditd execve of shells/interpreters"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "execution"
+      source: "portal-mitre-mcp:T1059"
+    - framework: nist-800-53
+      control: "AU-12"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe=/bin/sh OR exe=/bin/bash OR exe=/usr/bin/python* OR exe=/usr/bin/perl) | stats count by host, exe, a0'
   expected_signal: "Shell/interpreter execve events from attack payloads"
   spl_variants:
@@ -28,51 +52,186 @@ T1059:
 
 T1505.003:
   description: "Webshell — file-write + subsequent exec correlation"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "persistence"
+      source: "portal-mitre-mcp:T1505.003"
+    - framework: nist-800-53
+      control: "CM-6"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" "uploads" ".php" | join host [search index=portal5_lab sourcetype="web:access" "cmd="] | stats count by host'
   expected_signal: "PHP file upload followed by command execution via webshell"
 
 T1610:
   description: "Container deploy — docker-daemon events"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "execution"
+      source: "portal-mitre-mcp:T1610"
+    - framework: nist-800-53
+      control: "AU-12"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="docker:daemon" (create OR start) | stats count by host, container_name'
   expected_signal: "Container creation/start events from attack activity"
 
 T1611:
   description: "Container escape — host auditd + docker events"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "privilege-escalation"
+      source: "portal-mitre-mcp:T1611"
+    - framework: nist-800-53
+      control: "AC-6"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab (sourcetype="linux:auditd" "nsenter" OR "mount" OR "/proc/1") OR (sourcetype="docker:daemon" "privileged") | stats count by host'
   expected_signal: "Container escape indicators (nsenter, privileged, /proc/1 access)"
 
 T1552.005:
   description: "Cloud-metadata SSRF — 169.254.169.254 access signal"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1552.005"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" "169.254.169.254" | stats count by host, _raw'
   expected_signal: "HTTP requests to cloud metadata endpoint"
 
 T1558.003:
   description: "Kerberoasting — Windows Security Event 4769 with RC4 encryption"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1558.003"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4769 TicketEncryptionType=0x17 | stats count by ServiceName, Account'
   expected_signal: "Kerberos service ticket requests with RC4 encryption"
 
 T1558.004:
   description: "AS-REP Roasting — Windows Security Event 4768 without pre-auth"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1558.004"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4768 PreAuthType=0 | stats count by Account'
   expected_signal: "Kerberos authentication without pre-authentication"
 
 T1003.006:
   description: "DCSync — Windows Security Event 4662 replication rights"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1003.006"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4662 Properties="*Replication*" | stats count by Account, Properties'
   expected_signal: "Directory replication requests from non-DC accounts"
 
 T1110.003:
   description: "Password spray — multiple 4625/4771 events from single source"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1110.003"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4625 OR EventCode=4771) | stats dc(Account) as distinct_accounts by IpAddress | where distinct_accounts > 3'
   expected_signal: "Multiple failed auth from single IP across many accounts"
 
 T1053.005:
   description: "Scheduled task persistence — Windows Security Event 4698"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "persistence"
+      source: "portal-mitre-mcp:T1053.005"
+    - framework: nist-800-53
+      control: "CM-6"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4698 | stats count by TaskName, Account'
   expected_signal: "New scheduled task creation events"
 
 T1210:
   description: "SMB/service exploitation — lateral movement via SMB"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "lateral-movement"
+      source: "portal-mitre-mcp:T1210"
+    - framework: nist-800-53
+      control: "AC-17"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="smbclient" OR a0="nxc" OR a0="crackmapexec") | stats count by host, a0'
   expected_signal: "SMB client execution from attack host"
   spl_variants:
@@ -85,6 +244,18 @@ T1210:
 
 T1021.002:
   description: "SMB/Windows Admin Shares — remote file copy via SMB"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "lateral-movement"
+      source: "portal-mitre-mcp:T1021.002"
+    - framework: nist-800-53
+      control: "AC-17"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="smbclient" OR a0="smbget") | stats count by host, a0'
   expected_signal: "SMB share access from attack host"
   spl_variants:
@@ -97,6 +268,18 @@ T1021.002:
 
 T1548.001:
   description: "SUID abuse — setuid binary execution for privilege escalation"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "privilege-escalation"
+      source: "portal-mitre-mcp:T1548.001"
+    - framework: nist-800-53
+      control: "AC-6"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a1="*perm*4000*" OR exe="*/find" OR exe="*/bash" "-p") | stats count by host, exe'
   expected_signal: "SUID binary discovery or bash -p execution"
   spl_variants:
@@ -109,6 +292,18 @@ T1548.001:
 
 T1068:
   description: "Exploitation for privilege escalation — kernel/userspace privesc"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "privilege-escalation"
+      source: "portal-mitre-mcp:T1068"
+    - framework: nist-800-53
+      control: "AC-6"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="*/exploit" OR exe="*/privesc" OR a1="*CVE*") | stats count by host, exe'
   expected_signal: "Exploit binary execution on target host"
   spl_variants:
@@ -121,76 +316,271 @@ T1068:
 
 T1592:
   description: "Gather victim host info — service fingerprinting and enumeration"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "reconnaissance"
+      source: "portal-mitre-mcp:T1592"
+    - framework: nist-800-53
+      control: "RA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-005-6 R1"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" (user_agent="-" OR user_agent="curl*" OR user_agent="nmap*") | stats count by host, uri_path'
   expected_signal: "Fingerprinting requests with scanner user-agents"
 
 T1595:
   description: "Active scanning — vulnerability scanning and directory brute-force"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "reconnaissance"
+      source: "portal-mitre-mcp:T1595"
+    - framework: nist-800-53
+      control: "RA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-005-6 R1"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" status=404 | stats count by host, uri_path | where count > 10'
   expected_signal: "High 404 rate from directory brute-force or vulnerability scanning"
 
 T1083:
   description: "File and directory discovery — path traversal and LFI"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "discovery"
+      source: "portal-mitre-mcp:T1083"
+    - framework: nist-800-53
+      control: "CA-7"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" ("../" OR "..%2f" OR "etc/passwd" OR "proc/self") | stats count by host, uri_path'
   expected_signal: "Path traversal sequences in HTTP requests"
 
 T1078:
   description: "Valid accounts — default/weak credential usage"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "persistence"
+      source: "portal-mitre-mcp:T1078"
+    - framework: nist-800-53
+      control: "CM-6"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" (status=200) | join host [search index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="curl" "-u" OR a0="mysql" "-u" OR a0="redis-cli")] | stats count by host'
   expected_signal: "Authenticated sessions using default/weak credentials"
 
 T1557:
   description: "Adversary-in-the-middle — NTLM relay and LLMNR/NBT-NS poisoning"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1557"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4624 LogonType=3) | stats count by IpAddress, Account | where count > 5'
   expected_signal: "Multiple network logons from relay attack source"
 
 T1550.002:
   description: "Pass-the-hash — NTLM hash authentication"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "lateral-movement"
+      source: "portal-mitre-mcp:T1550.002"
+    - framework: nist-800-53
+      control: "AC-17"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4624 LogonType=3 AuthenticationPackageName=NTLM | stats count by Account, IpAddress'
   expected_signal: "NTLM hash-based network authentication"
 
 T1003.001:
   description: "LSASS dump — credential dumping via lsass.exe memory access"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1003.001"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4688 (NewProcessName="*lsass*" OR NewProcessName="*procdump*" OR NewProcessName="*comsvcs*") OR EventCode=10 (TargetImage="*lsass*")) | stats count by NewProcessName, Account'
   expected_signal: "Process access to lsass.exe for credential dumping"
 
 T1003.003:
   description: "NTDS dump — ntdsutil/ntds.dit extraction for domain credential theft"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1003.003"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4688 (NewProcessName="*ntdsutil*") OR EventCode=4661 OR Message="*ntds.dit*") | stats count by Account, NewProcessName'
   expected_signal: "NTDS.dit extraction via ntdsutil or Volume Shadow Copy"
 
 T1047:
   description: "WMI execution — remote command execution via WMI/cimv2"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "execution"
+      source: "portal-mitre-mcp:T1047"
+    - framework: nist-800-53
+      control: "AU-12"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4688 (NewProcessName="*wmic*" OR NewProcessName="*WmiPrvSE*") OR EventCode=5861) | stats count by NewProcessName, Account'
   expected_signal: "WMI process creation or permanent WMI event subscription"
 
 T1059.004:
   description: "Unix shell — command execution via sh/bash/python on Linux targets"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "execution"
+      source: "portal-mitre-mcp:T1059.004"
+    - framework: nist-800-53
+      control: "AU-12"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="/bin/sh" OR exe="/bin/bash" OR exe="/usr/bin/python3" OR exe="/usr/bin/perl" OR exe="/usr/bin/php") | stats count by host, exe, a0'
   expected_signal: "Shell/interpreter execve events from exploitation payloads"
 
 T1189:
   description: "Drive-by compromise — reflected XSS and malicious redirect indicators"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "initial-access"
+      source: "portal-mitre-mcp:T1189"
+    - framework: nist-800-53
+      control: "SC-7"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-005-6 R1"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" ("%3Cscript" OR "<script" OR "onerror=" OR "onload=" OR "javascript:" OR "redirect_url=" OR "Location:") | stats count by host, uri_path, _raw'
   expected_signal: "XSS payloads or redirect parameters in HTTP requests"
 
 T1203:
   description: "Exploitation for client execution — binary overflow and service exploitation"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "execution"
+      source: "portal-mitre-mcp:T1203"
+    - framework: nist-800-53
+      control: "AU-12"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="*overflow*" OR a0="*exploit*" OR a0="*payload*") | stats count by host, exe, a0'
   expected_signal: "Exploit payload execution against client services"
 
 T1557.001:
   description: "LLMNR/NBT-NS poisoning — Responder/capture events on Windows network"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1557.001"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab (sourcetype="windows:security" (EventCode=4697 OR Message="*LLMNR*" OR Message="*responder*") OR (sourcetype="linux:auditd" exe="*responder*")) | stats count by host, sourcetype'
   expected_signal: "LLMNR/NBT-NS poison or Responder execution on network"
 
 T1552:
   description: "Unsecured credentials — SSRF-to-metadata, .env/.git exposure, hardcoded creds"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1552"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" ("169.254.169.254" OR "/latest/meta-data" OR ".git/config" OR ".env" OR "credentials" OR "password=" OR "secret=") | stats count by host, uri_path, _raw'
   expected_signal: "Metadata endpoint access or sensitive file exposure in HTTP traffic"
 
 T1046:
   description: "Network service discovery — port scanning and SNMP enumeration"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "discovery"
+      source: "portal-mitre-mcp:T1046"
+    - framework: nist-800-53
+      control: "CA-7"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="nmap" OR a0="masscan" OR a0="snmpwalk" OR a0="snmpbulkwalk") | stats count by host, a0'
   expected_signal: "Network scanning tool execution (nmap, snmpwalk)"
   spl_variants:
