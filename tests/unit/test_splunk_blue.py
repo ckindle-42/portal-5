@@ -269,6 +269,118 @@ class TestCollect:
         lines = _normalize_windows_security_events(raw)
         assert lines == ["EventCode=9999"]
 
+    def test_normalize_windows_security_events_process_creation(self):
+        from tests.benchmarks.bench_security.siem.collect import (
+            _normalize_windows_security_events,
+        )
+
+        raw = (
+            "Id          : 4688\n"
+            "TimeCreated : 7/4/2026 11:01:46 AM\n"
+            "Message     : A new process has been created.\n"
+            "Subject:\n"
+            "    Account Name:       vagrant\n"
+            "Process Information:\n"
+            "    New Process Name:   C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\n"
+            '    Process Command Line:   "powershell.exe" -NoProfile\n'
+        )
+        lines = _normalize_windows_security_events(raw)
+        assert len(lines) == 1
+        assert "EventCode=4688" in lines[0]
+        assert (
+            "NewProcessName=C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+            in lines[0]
+        )
+        assert "Account=vagrant" in lines[0]
+
+
+class TestMeta3Collect:
+    """collect.py's kind="meta3" branch — IIS/FTP log + process-creation collection."""
+
+    def _mock_mcp_call_factory(self, iis_text, ftp_text, winevent_text):
+        """Build a fake mcp_call that returns nxc-shaped, JSON-wrapped, prefixed
+        output depending on which PowerShell command was sent — matching the
+        real sandbox MCP + nxc output shape found live 2026-07-04."""
+
+        def _wrap(content: str) -> dict:
+            nxc_prefix = "WINRM                    10.10.11.10     5985   VAGRANT-2008R2  "
+            body = "\n".join(
+                f"{nxc_prefix}{line}" if line.strip() else line for line in content.splitlines()
+            )
+            noise = (
+                "[*] Initializing WINRM protocol database\n"
+                "[+] vagrant-2008R2\\vagrant:vagrant (Pwn3d!)\n"
+                "[+] Executed command (shell type: powershell)\n"
+            )
+            stdout = noise + body
+            return {"ok": True, "output": json.dumps({"success": True, "stdout": stdout})}
+
+        def _mcp_call(code: str, timeout: int = 90):
+            # The actual PowerShell script travels as a base64 -EncodedCommand
+            # blob (see _winrm_ps in collect.py) — decode it to dispatch by
+            # content instead of substring-matching the outer nxc command line.
+            import base64
+            import re
+
+            m = re.search(r"-EncodedCommand (\S+)", code)
+            ps_script = base64.b64decode(m.group(1)).decode("utf-16-le") if m else ""
+            if "FTPSVC2" in ps_script:
+                return _wrap(ftp_text)
+            if "W3SVC1" in ps_script:
+                return _wrap(iis_text)
+            if "4688" in ps_script:
+                return _wrap(winevent_text)
+            return {"ok": False, "output": ""}
+
+        return _mcp_call
+
+    def test_collect_meta3_returns_all_three_sourcetypes(self):
+        from tests.benchmarks.bench_security.siem import collect as collect_mod
+
+        iis_text = (
+            "#Software: Microsoft Internet Information Services 7.5\n"
+            "#Fields: date time cs-method\n"
+            "2026-07-04 15:06:00 POST /_search\n"
+        )
+        ftp_text = "#Fields: date time cs-method\n2026-07-04 15:05:08 user :)\n"
+        winevent_text = (
+            "Id          : 4688\n"
+            "Message     : A new process has been created.\n"
+            "    New Process Name:   C:\\Windows\\System32\\cmd.exe\n"
+            "    Account Name:       vagrant\n"
+        )
+        mock_mcp_call = self._mock_mcp_call_factory(iis_text, ftp_text, winevent_text)
+        with patch.object(collect_mod, "_get_mcp_call", return_value=mock_mcp_call):
+            result = collect_mod.collect_target(
+                "10.10.11.10", "meta3", since_epoch=0, dry_run=False
+            )
+        assert result["web:access"] == ["2026-07-04 15:06:00 POST /_search"]
+        assert result["ftp:access"] == ["2026-07-04 15:05:08 user :)"]
+        assert len(result["windows:security"]) == 1
+        assert "EventCode=4688" in result["windows:security"][0]
+        assert "NewProcessName=C:\\Windows\\System32\\cmd.exe" in result["windows:security"][0]
+
+    def test_collect_meta3_no_mcp_call_returns_empty(self):
+        from tests.benchmarks.bench_security.siem import collect as collect_mod
+
+        with patch.object(collect_mod, "_get_mcp_call", return_value=None):
+            result = collect_mod.collect_target(
+                "10.10.11.10", "meta3", since_epoch=0, dry_run=False
+            )
+        assert result == {}
+
+    def test_collect_meta3_empty_output_omits_sourcetype(self):
+        from tests.benchmarks.bench_security.siem import collect as collect_mod
+
+        def _mcp_call(code: str, timeout: int = 90):
+            return {"ok": True, "output": json.dumps({"success": True, "stdout": ""})}
+
+        with patch.object(collect_mod, "_get_mcp_call", return_value=_mcp_call):
+            result = collect_mod.collect_target(
+                "10.10.11.10", "meta3", since_epoch=0, dry_run=False
+            )
+        assert result == {}
+
 
 # ── Index wait ───────────────────────────────────────────────────────────────
 

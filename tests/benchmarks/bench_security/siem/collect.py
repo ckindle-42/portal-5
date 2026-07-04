@@ -79,6 +79,11 @@ _WINDOWS_EVENT_FIELD_PATTERNS: dict[str, list[tuple[str, str]]] = {
         ("IpAddress", r"Client Address:\s*(\S+)"),
         ("Account", r"Account Name:\s*(\S+)"),
     ],
+    "4688": [  # Process creation (T1059/T1059.004/T1548.001/T1068 command exec + privesc)
+        ("NewProcessName", r"New Process Name:\s*(\S+)"),
+        ("CommandLine", r"Process Command Line:\s*(.+)"),
+        ("Account", r"Account Name:\s*(\S+)"),
+    ],
 }
 
 
@@ -209,6 +214,91 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
             if r.get("ok") and r.get("output", "").strip():
                 stdout = unwrap_mcp_stdout(r["output"])
                 normalized = _normalize_windows_security_events(stdout)
+                if normalized:
+                    out["windows:security"] = normalized
+
+    # meta3 (Metasploitable3-Windows, standalone Vagrant box, not domain-joined —
+    # a separate case from windows/ad above, which targets the DC specifically).
+    # Its real detect_ground_truth techniques (T1190 web exploit, T1059/T1548.001/
+    # T1068 command-exec/privesc via vulnerable third-party services) never touch
+    # normal Windows auth, so evidence lives in: (1) IIS's own W3C access logs —
+    # already exactly "web:access" format, matching T1190's SPL directly; (2) the
+    # vsftpd-backdoor-style FTP service's own W3C-style log; (3) Process Creation
+    # events (4688, WITH command-line logging) IF that audit subcategory has been
+    # enabled (`auditpol /set /subcategory:"Process Creation" /success:enable` +
+    # the ProcessCreationIncludeCmdLine_Enabled registry value — off by default on
+    # a stock Vagrant image, found live 2026-07-04: with it off, none of meta3's
+    # actual exploitation techniques generate ANY Windows Security Event Log
+    # evidence at all, regardless of collection code).
+    if kind == "meta3":
+        mcp_call = _get_mcp_call()
+        if mcp_call:
+            import base64
+
+            meta3_user = os.environ.get("LAB_META3_USER", "vagrant")
+            meta3_pass = os.environ.get("LAB_META3_PASS", "vagrant")
+
+            def _winrm_ps(ps_script: str, timeout: int) -> str:
+                # -EncodedCommand sidesteps the same multi-layer-shell quoting
+                # trap as _host_exec_script above (Python f-string -> bash ->
+                # nxc -X "..." -> PowerShell) — a bare -X "<script>" mangled
+                # every '$'/quote-containing PowerShell one-liner tried here.
+                b64 = base64.b64encode(ps_script.encode("utf-16-le")).decode()
+                code = (
+                    f"nxc winrm {target_ip} -u {meta3_user} -p {meta3_pass} "
+                    f'-X "powershell -NoProfile -EncodedCommand {b64}" 2>&1'
+                )
+                r = mcp_call(code, timeout=timeout)
+                if not (r.get("ok") and r.get("output", "").strip()):
+                    return ""
+                return strip_nxc_line_prefix(unwrap_mcp_stdout(r["output"]))
+
+            def _real_log_lines(text: str) -> list[str]:
+                # W3C log format uses "#"-prefixed header/comment lines (#Fields,
+                # #Software, #Date); nxc prepends its own one-time protocol-init
+                # noise ("[*] Creating...") AND its own auth/exec status lines
+                # ("[+] user:pass (Pwn3d!)", "[+] Executed command...") ahead of
+                # the actual command output (same noise WinEventBackend.query
+                # already filters via "[*]" alone — this also needs "[+]").
+                # None of it is real log content.
+                return [
+                    ln
+                    for ln in text.splitlines()
+                    if ln.strip()
+                    and not ln.startswith("#")
+                    and not ln.lstrip().startswith(("[*]", "[+]", "[-]"))
+                ]
+
+            iis_out = _winrm_ps(
+                "Get-ChildItem C:\\inetpub\\logs\\LogFiles\\W3SVC1 -ErrorAction SilentlyContinue "
+                "| Sort LastWriteTime -Descending | Select -First 1 "
+                "| Get-Content -Tail 500",
+                90,
+            )
+            if iis_out:
+                lines = _real_log_lines(iis_out)
+                if lines:
+                    out["web:access"] = lines
+
+            ftp_out = _winrm_ps(
+                "Get-ChildItem C:\\inetpub\\logs\\LogFiles\\FTPSVC2 -ErrorAction SilentlyContinue "
+                "| Sort LastWriteTime -Descending | Select -First 1 "
+                "| Get-Content -Tail 500",
+                90,
+            )
+            if ftp_out:
+                lines = _real_log_lines(ftp_out)
+                if lines:
+                    out["ftp:access"] = lines
+
+            proc_out = _winrm_ps(
+                "Get-WinEvent -FilterHashtable @{LogName='Security';Id=4688} "
+                "-MaxEvents 50 -ErrorAction SilentlyContinue "
+                "| Format-List Id,TimeCreated,Message",
+                90,
+            )
+            if proc_out:
+                normalized = _normalize_windows_security_events(proc_out)
                 if normalized:
                     out["windows:security"] = normalized
 
