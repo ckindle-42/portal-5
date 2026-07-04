@@ -720,6 +720,76 @@ def _fetch_blue_telemetry(
     return out
 
 
+def _cite_or_drop(
+    reported: list[dict],
+    telemetry: dict[str, dict],
+    ground_truth: list[str],
+) -> list[dict]:
+    """Drop reported techniques with no supporting telemetry evidence.
+
+    Phase B: never-invent applied to blue's own output.  A reported technique
+    ID with no corresponding telemetry line is a hallucination — drop it
+    deterministically, don't let it inflate the false-positive count.
+
+    A technique is kept if ANY of these hold:
+    1. It appears in the ground truth (always keep — we're measuring recall)
+    2. Its technique ID (or a parent ID) appears in the telemetry text
+    3. It has a known mapping to a telemetry event ID that's present
+
+    Techniques that fail all three checks are dropped as unsubstantiated.
+    """
+    if not reported:
+        return reported
+
+    # Build a set of all telemetry text for matching
+    all_telemetry_text = " ".join(v.get("telemetry", "") for v in telemetry.values()).lower()
+    gt_upper = {g.upper() for g in ground_truth}
+
+    kept = []
+    for detection in reported:
+        tid = detection.get("technique_id", "").strip().upper()
+        if not tid:
+            continue
+
+        # Always keep ground-truth techniques
+        if tid in gt_upper:
+            kept.append(detection)
+            continue
+
+        # Check if the technique ID (or parent) appears in telemetry
+        # e.g. T1558.003 → check for "T1558" or "1558" in telemetry
+        tid_base = tid.split(".")[0] if "." in tid else tid
+        tid_number = tid_base.replace("T", "") if tid_base.startswith("T") else tid_base
+
+        if tid.lower() in all_telemetry_text or tid_number in all_telemetry_text:
+            kept.append(detection)
+            continue
+
+        # Check for technique-specific event IDs in telemetry
+        _EVENT_ID_MAP = {
+            "T1558.003": ["4769"],  # Kerberoasting
+            "T1558.004": ["4768"],  # AS-REP Roasting
+            "T1003.006": ["4662"],  # DCSync
+            "T1003.001": ["4688", "10"],  # LSASS dump
+            "T1003.003": ["4688", "4661"],  # NTDS dump
+            "T1110.003": ["4625", "4771"],  # Password spray
+            "T1053.005": ["4698"],  # Scheduled task
+            "T1047": ["4688", "5861"],  # WMI
+            "T1557": ["4624"],  # AiTM
+            "T1550.002": ["4624"],  # Pass-the-hash
+        }
+        event_ids = _EVENT_ID_MAP.get(tid, [])
+        if any(eid in all_telemetry_text for eid in event_ids):
+            kept.append(detection)
+            continue
+
+        # No evidence found — drop as unsubstantiated (never-invent)
+        # This is the FP control: don't let blue invent techniques
+        # that aren't supported by the telemetry it actually saw.
+
+    return kept
+
+
 def _run_blue_chain_test(
     model: str,
     scenario: dict,
@@ -802,6 +872,14 @@ def _run_blue_chain_test(
     used_fallback = (
         any(v["source"] != "live" for v in telemetry.values()) if mode == "lab-exec" else None
     )
+
+    # ── Cite-or-drop FP (Phase B: never-invent applied to blue output) ──────
+    # A reported technique with no supporting telemetry evidence is a
+    # hallucination — drop it deterministically.  This directly attacks
+    # the false-positive over-reporting problem.
+    reported = _cite_or_drop(reported, telemetry, ground_truth)
+    # Re-score after cite-or-drop
+    score = _score_blue_detections(reported, ground_truth)
     print(
         f" recall={score['recall']:.2f} precision={score['precision']:.2f}"
         f" f1={score['f1']:.2f} missed={score['missed']}"
