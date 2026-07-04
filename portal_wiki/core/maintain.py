@@ -10,11 +10,9 @@ Snapshot-diff (hash the canonical dir) so a no-change run produces no churn.
 from __future__ import annotations
 
 import hashlib
-import time
-from pathlib import Path
 
 from portal_wiki.core.schema import KnowledgeUnit
-from portal_wiki.core.store import load_all, save_unit
+from portal_wiki.core.store import load_all
 
 
 def canonical_snapshot_hash() -> str:
