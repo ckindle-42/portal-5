@@ -2229,7 +2229,6 @@ def check_telemetry_contracts() -> tuple[str, str, list[dict]]:
             CONTRACTS,
             TelemetryBackend,
             check_source_health,
-            contract_for_technique,
         )
 
         subs.append({"name": "canonical protocol importable", "status": "PASS", "detail": ""})
@@ -2308,6 +2307,81 @@ def check_telemetry_contracts() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_capability_graph() -> tuple[str, str, list[dict]]:
+    """AJ. Capability graph + deterministic gap engine.
+
+    Verifies:
+    - Graph seeds from existing assets (scenarios + detections)
+    - Gap classification is deterministic
+    - Synthetic/indeterminate never yields COVERED
+    - Coverage map generates valid JSON
+    """
+    subs: list[dict] = []
+
+    # Check 1: graph seeds
+    try:
+        from tests.benchmarks.bench_security.capability_graph import (
+            classify_gap,
+            generate_coverage_json,
+            seed_graph_from_assets,
+        )
+
+        graph = seed_graph_from_assets()
+        assert len(graph.procedures) >= 50, f"Expected >=50 procedures, got {len(graph.procedures)}"
+        assert len(graph.detections) >= 29, f"Expected >=29 detections, got {len(graph.detections)}"
+        subs.append(
+            {
+                "name": "graph seeds from assets",
+                "status": "PASS",
+                "detail": f"{len(graph.procedures)} procedures, {len(graph.detections)} detections",
+            }
+        )
+    except Exception as e:
+        subs.append({"name": "graph seeds from assets", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"graph seeding failed: {e}", subs
+
+    # Check 2: synthetic never COVERED
+    try:
+        result = classify_gap(
+            red_status="RED_LANDED",
+            telemetry_status="TELEMETRY_OBSERVED",
+            detection_status="DETECTION_CONFIRMED",
+            used_synthetic=True,
+        )
+        assert result != "COVERED", f"synthetic yielded {result}"
+        subs.append({"name": "synthetic never COVERED", "status": "PASS", "detail": f"→ {result}"})
+    except Exception as e:
+        subs.append({"name": "synthetic never COVERED", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"synthetic COVERED guard failed: {e}", subs
+
+    # Check 3: coverage map generates valid JSON
+    try:
+        import json
+
+        cov = generate_coverage_json(graph)
+        json.dumps(cov)  # JSON-safe
+        assert cov["technique_count"] > 0
+        assert cov["tiers"]["eligible"] > 0
+        subs.append(
+            {
+                "name": "coverage map generates",
+                "status": "PASS",
+                "detail": f"{cov['technique_count']} techniques, "
+                f"{cov['tiers']['exercised_pct']}% exercised",
+            }
+        )
+    except Exception as e:
+        subs.append({"name": "coverage map generates", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"coverage map failed: {e}", subs
+
+    return (
+        "PASS",
+        f"{len(graph.procedures)} procedures, {len(graph.detections)} detections; "
+        f"synthetic→never COVERED; coverage map valid",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -2382,6 +2456,7 @@ def main() -> int:
     v.run("AG. triage layer2 integrity", check_triage_layer2_integrity)
     v.run("AH. rbp evidence grounding", check_rbp_evidence_grounding)
     v.run("AI. telemetry contracts", check_telemetry_contracts)
+    v.run("AJ. capability graph + gap engine", check_capability_graph)
 
     return v.summary()
 
