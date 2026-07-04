@@ -93,7 +93,9 @@ class WinEventBackend:
         # red had genuinely landed the attack. -X executes via PowerShell.
         code = f"nxc winrm {_LAB_DC} -u administrator -p '{_LAB_ADMIN_PASS}' -X \"{ps}\" 2>&1"
         r = _lab_mcp_call(code, timeout=90)
-        raw = r.get("output", "")
+        from .siem.collect import strip_nxc_line_prefix, unwrap_mcp_stdout
+
+        raw = strip_nxc_line_prefix(unwrap_mcp_stdout(r.get("output", "")))
         # Strip nxc's one-time protocol-database init noise ("[*] Creating
         # home directory structure" etc, ~20 lines) — same false-signal risk
         # as the lab probes: it isn't the target's data and has confused the
@@ -624,16 +626,29 @@ def _fetch_blue_telemetry(
 ) -> dict:
     """Return {technique_id: telemetry_text} for the scenario's techniques.
 
-    Live mode: query real events via sandbox MCP -> nxc winrm -> Get-WinEvent for
-    AD/Kerberos techniques (the only ones _TELEMETRY_FIXTURES covers). Any other
-    technique — every web/RCE/webshell technique used by vulhub/meta3/mbptl
-    scenarios, the majority of the catalog — falls through to SplunkBackend +
-    the real SPL detection library (siem/spl_detections.yaml, 29 techniques),
-    which was already fully built but never wired in here (found live
-    2026-07-03: this meant ~58/70 scenarios got literally no telemetry at all,
-    not weak telemetry — `_TELEMETRY_FIXTURES.get(tid)` was None and the
-    function just `continue`d, so blue was told "No matching events"
-    regardless of what red actually did).
+    Live mode, for AD/Kerberos techniques (the ones _TELEMETRY_FIXTURES covers):
+    try SplunkBackend + siem/spl_detections.yaml FIRST, window-scoped — same
+    path as every other technique below. AD scenarios now ship their Windows
+    Security event log data through the same collect->ship->Splunk pipeline as
+    web/linux targets (collect_and_ship_scenario_telemetry, siem/collect.py's
+    windows-event normalizer), so this is genuinely real, replayable data, not
+    a fallback. Only if Splunk has nothing does this fall back to a direct
+    sandbox MCP -> nxc winrm -> Get-WinEvent live query (found live 2026-07-04:
+    that direct query ignores `window` entirely — always "whatever's in the
+    last 50 Security log events right now" — so a purple run more than a
+    moment after red actually attacked, or any --replay-captured-red run,
+    could never find it there; Splunk searching the real time window is what
+    makes AD scenarios reproducible from stable captured data like everything
+    else in the catalog).
+
+    Any other technique — every web/RCE/webshell technique used by vulhub/
+    meta3/mbptl scenarios, the majority of the catalog — goes straight to
+    SplunkBackend + the real SPL detection library (siem/spl_detections.yaml,
+    29 techniques), which was already fully built but never wired in here
+    (found live 2026-07-03: this meant ~58/70 scenarios got literally no
+    telemetry at all, not weak telemetry — `_TELEMETRY_FIXTURES.get(tid)` was
+    None and the function just `continue`d, so blue was told "No matching
+    events" regardless of what red actually did).
 
     `window` scopes the Splunk query to the scenario's actual run (the caller
     passes {earliest: <scenario start epoch>, latest: "now"}) — the same real,
@@ -654,6 +669,10 @@ def _fetch_blue_telemetry(
                 out[tid] = {"telemetry": r.get("telemetry", ""), "source": r.get("source", "")}
             continue
         if lab_exec and _LAB_EXEC_AVAILABLE and not dry_run:
+            splunk_r = _splunk_backend.query(tid, window or {})
+            if splunk_r.get("telemetry"):
+                out[tid] = {"telemetry": splunk_r["telemetry"], "source": splunk_r["source"]}
+                continue
             ids = ",".join(str(e) for e in fx["event_ids"])
             ps = (
                 f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={ids}}} "
@@ -663,7 +682,9 @@ def _fetch_blue_telemetry(
             # know PowerShell cmdlets.
             code = f"nxc winrm {_LAB_DC} -u administrator -p '{_LAB_ADMIN_PASS}' -X \"{ps}\" 2>&1"
             r = _lab_mcp_call(code, timeout=90, dry_run=dry_run)
-            text = r.get("output", "")
+            from .siem.collect import strip_nxc_line_prefix, unwrap_mcp_stdout
+
+            text = strip_nxc_line_prefix(unwrap_mcp_stdout(r.get("output", "")))
             # Operator-precedence bug (found live 2026-07-03): `and`/`or` without
             # parens meant this evaluated as (text.strip() and "EventID" in text)
             # or any(...) — a bare event-id digit like "4769" matching ANYWHERE in
@@ -877,19 +898,17 @@ def collect_and_ship_scenario_telemetry(
     capture replayed later carries its true timestamp instead of always
     looking like "now."
 
-    Non-AD targets (vulhub/mbptl web hosts) don't have a live-queryable security
-    log the way the DC does — red's real activity has to be collected off the
-    target and shipped to Splunk before SplunkBackend can find it (found live
-    2026-07-03: without this, ~58/70 scenarios' blue queries always came back
-    empty regardless of what red did, because nothing had ever told Splunk the
-    events existed). AD/meta3/DC-family targets skip this — WinEventBackend
-    already queries the DC's Security log directly, live, no shipping needed.
-
-    Shared by run_purple_tests() and the red-only chain-test loop (cli.py) —
-    getting red's raw activity into the SIEM does not require a blue model to
-    be running (found live 2026-07-04: red-only runs produced local capture
-    files but shipped nothing, so Step 1 alone could never be validated against
-    the SIEM even though that was the whole point of re-running it).
+    AD/DC/meta3 targets collect Windows Security event log data (kind="windows",
+    normalized to the EventCode=/TicketEncryptionType=/etc. fields
+    siem/spl_detections.yaml's SPL actually filters on); everything else
+    collects docker/auditd host logs (kind="web"). Both get shipped and
+    captured the same way — there is no longer a target type that skips this
+    (found live 2026-07-04: AD scenarios were excluded on the theory that
+    WinEventBackend's live DC query made shipping redundant, but that live
+    query ignores the scenario's actual time window entirely — `Get-WinEvent
+    -MaxEvents 50` right now, whenever purple happens to run, not "around when
+    red attacked" — so AD scenarios had no way to be replayed or reproduced
+    from stable captured data the way every other scenario type already could).
 
     Returns (capture_path, indexed_confirmed, telemetry_error).
     """
@@ -897,13 +916,10 @@ def collect_and_ship_scenario_telemetry(
     capture_path: str | None = None
     indexed_confirmed: bool | None = None
     telemetry_error: str = ""
-    if not (
-        target_host
-        and lab_exec
-        and not dry_run
-        and target_host not in (_LAB_DC, _LAB_SRV, _LAB_META3)
-    ):
+    if not (target_host and lab_exec and not dry_run):
         return capture_path, indexed_confirmed, telemetry_error
+
+    kind = "windows" if target_host in (_LAB_DC, _LAB_SRV, _LAB_META3) else "web"
 
     try:
         from .siem.capture_store import save_capture
@@ -911,14 +927,14 @@ def collect_and_ship_scenario_telemetry(
         from .siem.hec_ship import ship_batch
         from .siem.index_wait import wait_indexed
 
-        tele = collect_target(target_host, "web", since_epoch=scenario_start, dry_run=dry_run)
+        tele = collect_target(target_host, kind, since_epoch=scenario_start, dry_run=dry_run)
         # Persist the raw capture to disk BEFORE shipping — this is what makes it
         # replayable later (re-shipped with a fresh timestamp, no red re-run needed)
         # even after Splunk's own retention has rotated the live copy out.
         capture_path = save_capture(
             scenario=scenario["name"],
             target_host=target_host,
-            kind="web",
+            kind=kind,
             since_epoch=scenario_start,
             telemetry=tele,
         )
@@ -1029,12 +1045,28 @@ def run_purple_tests(
             if not dry_run and capture_path_on_disk:
                 from .siem.capture_store import replay_capture
 
-                replay_result = replay_capture(
-                    capture_path_on_disk, event_time=cached_red.get("captured_at")
-                )
+                # event_time intentionally omitted (defaults to time.time()) — a
+                # replay should land as fresh "current" telemetry so blue's query
+                # window is just "recent," not a precise historical range the
+                # caller has to reconstruct. This is the ship-based (non-AD) path;
+                # AD/DC/meta3 targets have no shippable capture (WinEventBackend
+                # queries the DC's live Security log directly) and are handled
+                # below.
+                replay_result = replay_capture(capture_path_on_disk)
                 capture_path = replay_result.get("replayed_from")
                 indexed_confirmed = replay_result.get("indexed_confirmed")
                 telemetry_error = "" if replay_result.get("ok") else "REPLAY_SHIPPED_NOTHING"
+            elif capture_path_on_disk is None:
+                # No shippable capture exists for this scenario (AD/DC/meta3 —
+                # real activity lives only in the DC's own Security event log,
+                # which we neither ship to Splunk nor can re-timestamp). The only
+                # way replay can find anything here is to search the log's real
+                # historical window instead of "now" — the one case where "as if
+                # it just happened" isn't achievable without also capturing and
+                # shipping Windows Event data through the SIEM (not built yet;
+                # flag this rather than silently returning an unfindable window).
+                scenario_start = cached_red.get("captured_at", scenario_start)
+                telemetry_error = "AD_TARGET_NO_SHIPPABLE_CAPTURE_USING_HISTORICAL_WINDOW"
     else:
         for rm in red_models:
             if rm not in red_cache:

@@ -198,6 +198,77 @@ class TestCollect:
         result = collect_target("10.10.11.21", "windows", since_epoch=0, dry_run=True)
         assert isinstance(result, dict)
 
+    def test_unwrap_mcp_stdout_extracts_stdout_field(self):
+        from tests.benchmarks.bench_security.siem.collect import unwrap_mcp_stdout
+
+        raw = json.dumps({"success": True, "stdout": "line1\nline2", "stderr": ""})
+        assert unwrap_mcp_stdout(raw) == "line1\nline2"
+
+    def test_unwrap_mcp_stdout_passes_through_plain_text(self):
+        from tests.benchmarks.bench_security.siem.collect import unwrap_mcp_stdout
+
+        assert unwrap_mcp_stdout("not json at all") == "not json at all"
+
+    def test_unwrap_mcp_stdout_passes_through_json_without_stdout_key(self):
+        from tests.benchmarks.bench_security.siem.collect import unwrap_mcp_stdout
+
+        raw = json.dumps({"foo": "bar"})
+        assert unwrap_mcp_stdout(raw) == raw
+
+    def test_strip_nxc_line_prefix(self):
+        from tests.benchmarks.bench_security.siem.collect import strip_nxc_line_prefix
+
+        raw = "WINRM                    10.10.11.21     5985   WIN-MVQO0PT39IO  Id          : 4769"
+        assert strip_nxc_line_prefix(raw) == "Id          : 4769"
+
+    def test_normalize_windows_security_events_kerberoasting(self):
+        from tests.benchmarks.bench_security.siem.collect import (
+            _normalize_windows_security_events,
+        )
+
+        raw = (
+            "Id          : 4769\n"
+            "TimeCreated : 7/4/2026 12:47:32 PM\n"
+            "Message     : A Kerberos service ticket was requested.\n\n"
+            "              Account Information:\n"
+            "                 Account Name:            arya.stark@PORTAL.LAB\n\n"
+            "              Service Information:\n"
+            "                 Service Name:            svc_mssql\n\n"
+            "              Additional Information:\n"
+            "                 Ticket Encryption Type:    0x17\n"
+        )
+        lines = _normalize_windows_security_events(raw)
+        assert len(lines) == 1
+        assert "EventCode=4769" in lines[0]
+        assert "TicketEncryptionType=0x17" in lines[0]
+        assert "ServiceName=svc_mssql" in lines[0]
+        assert "Account=arya.stark@PORTAL.LAB" in lines[0]
+
+    def test_normalize_windows_security_events_strips_nxc_prefix(self):
+        from tests.benchmarks.bench_security.siem.collect import (
+            _normalize_windows_security_events,
+        )
+
+        raw = (
+            "WINRM                    10.10.11.21     5985   WIN-MVQO0PT39IO  Id          : 4698\n"
+            "WINRM                    10.10.11.21     5985   WIN-MVQO0PT39IO                 "
+            "Task Name:            \\Backdoor\n"
+            "WINRM                    10.10.11.21     5985   WIN-MVQO0PT39IO                 "
+            "Account Name:            arya.stark\n"
+        )
+        lines = _normalize_windows_security_events(raw)
+        assert len(lines) == 1
+        assert lines[0] == "EventCode=4698 TaskName=\\Backdoor Account=arya.stark"
+
+    def test_normalize_windows_security_events_unknown_code_keeps_bare_eventcode(self):
+        from tests.benchmarks.bench_security.siem.collect import (
+            _normalize_windows_security_events,
+        )
+
+        raw = "Id          : 9999\nMessage     : Something unmapped.\n"
+        lines = _normalize_windows_security_events(raw)
+        assert lines == ["EventCode=9999"]
+
 
 # ── Index wait ───────────────────────────────────────────────────────────────
 
