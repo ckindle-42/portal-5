@@ -1,35 +1,35 @@
 ---
 id: unit-code-tests
 kind: what
-title: tests subsystem (307 files)
+title: tests subsystem (311 files)
 sources:
 - type: code
   path: tests/__init__.py
-  commit: ac23917cdbae
+  commit: 6cb5ccce0344
 - type: code
   path: tests/acceptance/_common.py
-  commit: ac23917cdbae
+  commit: 6cb5ccce0344
 - type: code
   path: tests/acceptance/cli.py
-  commit: ac23917cdbae
+  commit: 6cb5ccce0344
 - type: code
   path: tests/acceptance/results.py
-  commit: ac23917cdbae
+  commit: 6cb5ccce0344
 - type: code
   path: tests/acceptance/runner.py
-  commit: ac23917cdbae
+  commit: 6cb5ccce0344
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - tests
-created_at: 1783195007.764199
-updated_at: 1783195007.764199
+created_at: 1783197104.1271071
+updated_at: 1783197104.1271071
 ---
 
 # tests subsystem
 
-**Files:** 307
+**Files:** 311
 
 - `tests/__init__.py`
 - `tests/acceptance/_common.py`
@@ -51,4 +51,4 @@ updated_at: 1783195007.764199
 - `tests/acceptance/s12_web_search.py`
 - `tests/acceptance/s13_rag_embedding.py`
 - `tests/acceptance/s15_shared_workspace.py`
-- ... and 287 more
+- ... and 291 more
