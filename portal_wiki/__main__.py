@@ -49,7 +49,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         # Drift gate: render to temp dir, compare against committed
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            for name, renderer in views.items():
+            for _name, renderer in views.items():
                 renderer(tmp_path)
 
             # Compare
@@ -61,9 +61,7 @@ def cmd_render(args: argparse.Namespace) -> int:
             drifted = []
             for f in sorted(tmp_path.glob("*.md")):
                 committed = generated / f.name
-                if not committed.exists():
-                    drifted.append(f.name)
-                elif f.read_text() != committed.read_text():
+                if not committed.exists() or f.read_text() != committed.read_text():
                     drifted.append(f.name)
 
             if drifted:
