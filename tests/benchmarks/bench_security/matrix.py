@@ -12,7 +12,6 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
 
 from ._data import _LAB_EXEC_AVAILABLE, PROMPTS
 from .oracles import ORACLES, verify_finding
@@ -27,40 +26,6 @@ if str(_PROJECT_ROOT) not in sys.path:
 DISPATCH_NOT_RUN = "__DISPATCH_NOT_RUN__"
 
 LAB_VULHUB_HOST_ROOT = os.environ.get("LAB_VULHUB_HOST_ROOT", "/opt/vulhub")
-
-
-# ── Telemetry backend protocol (P2.2) ────────────────────────────────────────
-
-
-class TelemetryBackend(Protocol):
-    """Backend-agnostic telemetry query interface.
-
-    Implementations: WazuhBackend (now), SplunkBackend (future).
-    The protocol is the contract — blue.py calls .query() without knowing
-    which SIEM answers.
-    """
-
-    def query(self, technique_id: str, window: dict) -> dict:
-        """Query telemetry for a technique. Returns {signals, source, matched}."""
-        ...
-
-
-class WazuhBackend:
-    """Wazuh/OpenSearch telemetry backend (first adapter).
-
-    Reads LAB_OPENSEARCH_URL / wazuh-alerts-* as blue.py does today.
-    Falls back to synthetic-fallback when no real telemetry is available.
-    """
-
-    def __init__(self, opensearch_url: str = ""):
-        self.opensearch_url = opensearch_url or os.environ.get("LAB_OPENSEARCH_URL", "")
-
-    def query(self, technique_id: str, window: dict) -> dict:
-        """Query Wazuh alerts index for the technique's signals."""
-        if not self.opensearch_url:
-            return {"signals": [], "source": "synthetic-fallback", "matched": False}
-        # Live query would hit opensearch here — placeholder for the adapter seam
-        return {"signals": [], "source": "wazuh", "matched": False}
 
 
 # ── Data classes ──────────────────────────────────────────────────────────────

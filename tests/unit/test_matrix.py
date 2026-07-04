@@ -11,7 +11,6 @@ import pytest
 from tests.benchmarks.bench_security.matrix import (
     RunResult,
     RunUnit,
-    WazuhBackend,
     _classify_domain,
     _expand_vulhub_globs,
     _infer_target,
@@ -296,17 +295,17 @@ class TestCoverageReport:
 
 
 class TestTelemetryBackend:
-    def test_wazuh_backend_protocol(self):
-        """WazuhBackend implements TelemetryBackend protocol."""
-        backend = WazuhBackend()
-        result = backend.query("T1190", {})
-        assert "signals" in result
-        assert "source" in result
-        assert "matched" in result
+    def test_canonical_telemetry_protocol_importable(self):
+        """TelemetryBackend protocol is importable from canonical telemetry module."""
+        from tests.benchmarks.bench_security.telemetry import TelemetryBackend
 
-    def test_wazuh_synthetic_fallback(self):
-        """Without URL, WazuhBackend returns synthetic-fallback."""
-        backend = WazuhBackend(opensearch_url="")
-        result = backend.query("T1190", {})
-        assert result["source"] == "synthetic-fallback"
-        assert result["matched"] is False
+        assert hasattr(TelemetryBackend, "query")
+
+    def test_matrix_imports_canonical_protocol(self):
+        """matrix.py imports TelemetryBackend from telemetry module, not its own."""
+        import inspect
+
+        import tests.benchmarks.bench_security.matrix as matrix_mod
+
+        src = inspect.getsource(matrix_mod)
+        assert "class TelemetryBackend" not in src

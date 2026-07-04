@@ -23,28 +23,36 @@ class TestTelemetryBackendProtocol:
     """Prove the protocol is satisfied by all backends."""
 
     def test_winrm_backend_satisfies_protocol(self):
-        from tests.benchmarks.bench_security.blue import TelemetryBackend, WinEventBackend
+        from tests.benchmarks.bench_security.blue import WinEventBackend
+        from tests.benchmarks.bench_security.telemetry import TelemetryBackend
 
         assert isinstance(WinEventBackend(), TelemetryBackend)
 
     def test_splunk_backend_satisfies_protocol(self):
-        from tests.benchmarks.bench_security.blue import SplunkBackend, TelemetryBackend
+        from tests.benchmarks.bench_security.blue import SplunkBackend
+        from tests.benchmarks.bench_security.telemetry import TelemetryBackend
 
         assert isinstance(SplunkBackend(), TelemetryBackend)
 
-    def test_get_backend_returns_winrm_for_ad_targets(self):
-        from tests.benchmarks.bench_security.blue import WinEventBackend, get_backend
+    def test_contract_for_technique_returns_winevent_for_ad_targets(self):
+        from tests.benchmarks.bench_security.telemetry import (
+            CONTRACT_WINEVENT_AD,
+            contract_for_technique,
+        )
 
         for target in ["dc01", "srv01", "lab-dc01", "meta3"]:
-            backend = get_backend(target)
-            assert isinstance(backend, WinEventBackend), f"{target} should use WinEvent"
+            contract = contract_for_technique("T1558.003", target)
+            assert contract.id == CONTRACT_WINEVENT_AD.id, f"{target} should use winevent-ad"
 
-    def test_get_backend_returns_splunk_for_web_targets(self):
-        from tests.benchmarks.bench_security.blue import SplunkBackend, get_backend
+    def test_contract_for_technique_returns_splunk_for_web_targets(self):
+        from tests.benchmarks.bench_security.telemetry import (
+            CONTRACT_SPLUNK_WEB,
+            contract_for_technique,
+        )
 
         for target in ["vulhub", "10.10.11.50", "mbptl", "web-target"]:
-            backend = get_backend(target)
-            assert isinstance(backend, SplunkBackend), f"{target} should use Splunk"
+            contract = contract_for_technique("T1190", target)
+            assert contract.id == CONTRACT_SPLUNK_WEB.id, f"{target} should use splunk-web"
 
 
 class TestWinEventBackend:

@@ -2212,6 +2212,102 @@ def check_rbp_evidence_grounding() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_telemetry_contracts() -> tuple[str, str, list[dict]]:
+    """AI. Telemetry contracts — canonical protocol + health + reason-coded failure.
+
+    Verifies:
+    - TelemetryBackend protocol is importable from telemetry module
+    - Only one TelemetryBackend class definition exists (no duplicate protocols)
+    - TelemetryContract describes sources
+    - check_source_health returns correct reason codes for dead/healthy sources
+    """
+    subs: list[dict] = []
+
+    # Check 1: canonical protocol importable
+    try:
+        from tests.benchmarks.bench_security.telemetry import (
+            CONTRACTS,
+            TelemetryBackend,
+            check_source_health,
+            contract_for_technique,
+        )
+
+        subs.append({"name": "canonical protocol importable", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "canonical protocol importable", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"telemetry import failed: {e}", subs
+
+    # Check 2: only one TelemetryBackend definition
+    try:
+        import inspect
+
+        from tests.benchmarks.bench_security import telemetry
+
+        count = sum(
+            1
+            for name, _ in inspect.getmembers(telemetry, inspect.isclass)
+            if name == "TelemetryBackend"
+        )
+        assert count == 1, f"Expected 1 TelemetryBackend, found {count}"
+        subs.append({"name": "single protocol definition", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "single protocol definition", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"protocol count check failed: {e}", subs
+
+    # Check 3: contracts registered
+    try:
+        assert len(CONTRACTS) >= 3, f"Expected >=3 contracts, got {len(CONTRACTS)}"
+        subs.append(
+            {"name": "contracts registered", "status": "PASS", "detail": f"{len(CONTRACTS)} contracts"}
+        )
+    except Exception as e:
+        subs.append({"name": "contracts registered", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"contract registry check failed: {e}", subs
+
+    # Check 4: dead source → reason code
+    try:
+        from unittest.mock import MagicMock
+
+        dead_backend = MagicMock(spec=TelemetryBackend)
+        dead_backend.name = "test"
+        dead_backend.query.return_value = {"telemetry": "", "source": "synthetic-fallback", "backend": "test"}
+        result = check_source_health(CONTRACTS["splunk-web"], dead_backend)
+        assert not result.healthy
+        assert result.reason_code == "TELEMETRY_NOT_CONFIGURED"
+        subs.append(
+            {"name": "dead source → reason code", "status": "PASS", "detail": result.reason_code}
+        )
+    except Exception as e:
+        subs.append({"name": "dead source → reason code", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"dead source check failed: {e}", subs
+
+    # Check 5: healthy source → TELEMETRY_OBSERVED
+    try:
+        healthy_backend = MagicMock(spec=TelemetryBackend)
+        healthy_backend.name = "test"
+        healthy_backend.query.return_value = {
+            "telemetry": "EventCode=4769 data",
+            "source": "live",
+            "backend": "test",
+        }
+        result = check_source_health(CONTRACTS["splunk-web"], healthy_backend)
+        assert result.healthy
+        assert result.reason_code == "TELEMETRY_OBSERVED"
+        subs.append(
+            {"name": "healthy source → OBSERVED", "status": "PASS", "detail": result.reason_code}
+        )
+    except Exception as e:
+        subs.append({"name": "healthy source → OBSERVED", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"healthy source check failed: {e}", subs
+
+    return (
+        "PASS",
+        f"canonical TelemetryBackend protocol; {len(CONTRACTS)} contracts; "
+        "dead source → reason code; healthy source → TELEMETRY_OBSERVED",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -2285,6 +2381,7 @@ def main() -> int:
     v.run("AF. bench supervisor integrity", check_bench_supervisor_integrity)
     v.run("AG. triage layer2 integrity", check_triage_layer2_integrity)
     v.run("AH. rbp evidence grounding", check_rbp_evidence_grounding)
+    v.run("AI. telemetry contracts", check_telemetry_contracts)
 
     return v.summary()
 
