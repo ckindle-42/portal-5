@@ -178,6 +178,40 @@ class TestSplDetections:
         assert len(covered) >= 11
         assert "T1190" in covered
 
+    def test_technique_reference_returns_descriptions(self):
+        from tests.benchmarks.bench_security.siem.spl_detections import technique_reference
+
+        ref = technique_reference()
+        assert isinstance(ref, dict)
+        assert len(ref) >= 11
+        assert "T1558.003" in ref
+        assert "Kerberoasting" in ref["T1558.003"]
+
+
+class TestBlueInitialPrompt:
+    """blue.py's BLUE_INITIAL_PROMPT — includes the MITRE technique reference table
+    so the blue model matches evidence to a sub-technique ID instead of guessing
+    from general knowledge (found live 2026-07-04: sylink/sylink:8b and a
+    tool-fixed CyberSecQwen-4B both reported the wrong MITRE ID on correct,
+    live Kerberoasting/DCSync telemetry with no reference material in prompt)."""
+
+    def test_prompt_includes_technique_reference(self):
+        from tests.benchmarks.bench_security.blue import BLUE_INITIAL_PROMPT
+
+        assert "T1558.003" in BLUE_INITIAL_PROMPT
+        assert "Kerberoasting" in BLUE_INITIAL_PROMPT
+
+    def test_build_blue_initial_prompt_falls_back_without_reference(self):
+        from tests.benchmarks.bench_security.blue import _build_blue_initial_prompt
+
+        with patch(
+            "tests.benchmarks.bench_security.siem.spl_detections.technique_reference",
+            return_value={},
+        ):
+            prompt = _build_blue_initial_prompt()
+        assert "SOC analyst" in prompt
+        assert "MITRE technique reference" not in prompt
+
 
 # ── Collect ──────────────────────────────────────────────────────────────────
 
