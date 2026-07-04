@@ -35,12 +35,14 @@ def check_staleness(current_commit: str) -> list[dict]:
     stale = []
     for unit in units:
         if unit.last_generated_commit and unit.last_generated_commit != current_commit:
-            stale.append({
-                "unit_id": unit.id,
-                "kind": unit.kind,
-                "generated_commit": unit.last_generated_commit,
-                "current_commit": current_commit,
-            })
+            stale.append(
+                {
+                    "unit_id": unit.id,
+                    "kind": unit.kind,
+                    "generated_commit": unit.last_generated_commit,
+                    "current_commit": current_commit,
+                }
+            )
     return stale
 
 
@@ -50,12 +52,26 @@ def update_what_units(current_commit: str, dry_run: bool = False) -> list[Knowle
     Returns list of updated units.
     """
     from portal_wiki.adapters.seed_code import seed_code
+    from portal_wiki.adapters.seed_security import (
+        seed_dcsync_specifically,
+        seed_technique_signatures,
+    )
 
     # Take a snapshot before
     before_hash = canonical_snapshot_hash()
 
     # Re-run the code seeder
     updated = seed_code(dry_run=dry_run)
+
+    # Re-run the security technique-signature seeder (W2) — idempotent: save_unit()
+    # overwrites by unit.id, so re-seeding updates in place rather than duplicating.
+    # This was previously implemented but never invoked anywhere outside its own
+    # tests, so the 30 technique-signature units (29 techniques + enriched DCSync)
+    # never landed in the store that load_all()/similarity/blue-lookup reads.
+    updated += seed_technique_signatures(dry_run=dry_run)
+    dcsync_unit = seed_dcsync_specifically(dry_run=dry_run)
+    if dcsync_unit is not None:
+        updated.append(dcsync_unit)
 
     # Check if anything actually changed
     after_hash = canonical_snapshot_hash() if not dry_run else before_hash

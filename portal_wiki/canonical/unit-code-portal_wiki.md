@@ -5,26 +5,26 @@ title: portal_wiki subsystem (20 files)
 sources:
 - type: code
   path: portal_wiki/__init__.py
-  commit: 6cb5ccce0344
+  commit: f981d9f3dd3e
 - type: code
   path: portal_wiki/__main__.py
-  commit: 6cb5ccce0344
+  commit: f981d9f3dd3e
 - type: code
   path: portal_wiki/adapters/__init__.py
-  commit: 6cb5ccce0344
+  commit: f981d9f3dd3e
 - type: code
   path: portal_wiki/adapters/git_source.py
-  commit: 6cb5ccce0344
+  commit: f981d9f3dd3e
 - type: code
   path: portal_wiki/adapters/portal_inference.py
-  commit: 6cb5ccce0344
+  commit: f981d9f3dd3e
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - portal_wiki
-created_at: 1783197104.126147
-updated_at: 1783197104.126147
+created_at: 1783201357.629499
+updated_at: 1783201357.629499
 ---
 
 # portal_wiki subsystem

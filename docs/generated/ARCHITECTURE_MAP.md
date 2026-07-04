@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Generated: 2026-07-04 20:31 UTC*
+*Generated: 2026-07-04 21:42 UTC*
 
 ## Knowledge Layer
 
@@ -438,6 +438,36 @@
 | `unit-SECURITY_FLEET_REVIEW_2026-06-not-added-run-b-failed-candidate-eval-v1-gate` | why | 1 |
 | `unit-SECURITY_FLEET_REVIEW_2026-06-remove` | why | 1 |
 | `unit-SECURITY_FLEET_REVIEW_2026-06-security-fleet-review-june-2026` | why | 1 |
+| `unit-T1003.001-signature` | mixed | 3 |
+| `unit-T1003.003-signature` | mixed | 3 |
+| `unit-T1003.006-signature` | mixed | 3 |
+| `unit-T1021.002-signature` | mixed | 5 |
+| `unit-T1046-signature` | mixed | 3 |
+| `unit-T1047-signature` | mixed | 3 |
+| `unit-T1053.005-signature` | mixed | 4 |
+| `unit-T1059-signature` | mixed | 5 |
+| `unit-T1059.004-signature` | mixed | 5 |
+| `unit-T1068-signature` | mixed | 3 |
+| `unit-T1078-signature` | mixed | 5 |
+| `unit-T1083-signature` | mixed | 5 |
+| `unit-T1110.003-signature` | mixed | 5 |
+| `unit-T1189-signature` | mixed | 4 |
+| `unit-T1190-signature` | mixed | 5 |
+| `unit-T1203-signature` | mixed | 4 |
+| `unit-T1210-signature` | mixed | 3 |
+| `unit-T1505.003-signature` | mixed | 4 |
+| `unit-T1548.001-signature` | mixed | 5 |
+| `unit-T1550.002-signature` | mixed | 3 |
+| `unit-T1552-signature` | mixed | 5 |
+| `unit-T1552.005-signature` | mixed | 3 |
+| `unit-T1557-signature` | mixed | 2 |
+| `unit-T1557.001-signature` | mixed | 3 |
+| `unit-T1558.003-signature` | mixed | 4 |
+| `unit-T1558.004-signature` | mixed | 3 |
+| `unit-T1592-signature` | mixed | 5 |
+| `unit-T1595-signature` | mixed | 4 |
+| `unit-T1610-signature` | mixed | 2 |
+| `unit-T1611-signature` | mixed | 2 |
 | `unit-UAT_CALIBRATION-notes` | why | 1 |
 | `unit-UAT_CALIBRATION-step-1-capture-responses` | why | 1 |
 | `unit-UAT_CALIBRATION-step-2-review-and-tag` | why | 1 |
@@ -512,9 +542,12 @@
 | `unit-code-scripts` | what | 5 |
 | `unit-code-tests` | what | 5 |
 
-**Total:** 503 units
+**Total:** 533 units
 
 ## Source Distribution
 
 - **code**: 33 references
-- **design**: 496 references
+- **design**: 497 references
+- **mitre**: 30 references
+- **scenario**: 52 references
+- **spl**: 30 references
