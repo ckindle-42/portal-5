@@ -159,6 +159,20 @@ _LAB_SNAPSHOT_RESTORE = os.environ.get("LAB_SNAPSHOT_RESTORE", "").lower() == "t
 _LAB_DC_VMID = os.environ.get("LAB_DC_VMID", "")
 _LAB_SRV_VMID = os.environ.get("LAB_SRV_VMID", "")
 _LAB_WS_VMID = os.environ.get("LAB_WS_VMID", "")
+_LAB_META3_VMID = os.environ.get("LAB_META3_WIN_VMID", "")
+_LAB_MBPTL_VMID = os.environ.get("LAB_MBPTL_LXC_VMID", "")
+# Allowlist for start_lab_target/revert_lab_target — every real lab vmid, nothing
+# else. Some scenario red_prompts contain fictional vmid flavor text (e.g.
+# "vmid=101") for scenario realism; a red model can and does call these tools
+# with those literal numbers. On this shared Proxmox host, small integers like
+# 101/102/103 collide with real unrelated VMs — found live 2026-07-03 via
+# repeated qmstart/qmrollback tasks against vmid 100-103 in the Proxmox task
+# log, none of which are lab infra. The rollbacks failed harmlessly only because
+# those VMs don't happen to have snapshots named "clean"/"baseline-ad" — that's
+# luck, not a safeguard.
+_LAB_VALID_VMIDS = {
+    v for v in (_LAB_DC_VMID, _LAB_SRV_VMID, _LAB_WS_VMID, _LAB_META3_VMID, _LAB_MBPTL_VMID) if v
+}
 _LAB_CLEAN_SNAPSHOT = os.environ.get("LAB_CLEAN_SNAPSHOT", "baseline-ad")
 _LAB_PROBE_BEFORE = os.environ.get("LAB_PROBE_BEFORE", "").lower() == "true"
 
