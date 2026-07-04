@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from typing import Protocol, runtime_checkable
 
@@ -21,6 +22,8 @@ from ._data import (
     _LAB_ADMIN_PASS,
     _LAB_DC,
     _LAB_EXEC_AVAILABLE,
+    _LAB_META3,
+    _LAB_SRV,
     MITRE_PATTERN,
     PIPELINE_URL,
     PROMPTS,
@@ -615,10 +618,27 @@ def _run_blue_turn(
     }
 
 
-def _fetch_blue_telemetry(technique_ids: list[str], lab_exec: bool, dry_run: bool) -> dict:
+def _fetch_blue_telemetry(
+    technique_ids: list[str], lab_exec: bool, dry_run: bool, window: dict | None = None
+) -> dict:
     """Return {technique_id: telemetry_text} for the scenario's techniques.
 
-    Live mode: query real events via sandbox MCP -> nxc winrm -> Get-WinEvent.
+    Live mode: query real events via sandbox MCP -> nxc winrm -> Get-WinEvent for
+    AD/Kerberos techniques (the only ones _TELEMETRY_FIXTURES covers). Any other
+    technique — every web/RCE/webshell technique used by vulhub/meta3/mbptl
+    scenarios, the majority of the catalog — falls through to SplunkBackend +
+    the real SPL detection library (siem/spl_detections.yaml, 29 techniques),
+    which was already fully built but never wired in here (found live
+    2026-07-03: this meant ~58/70 scenarios got literally no telemetry at all,
+    not weak telemetry — `_TELEMETRY_FIXTURES.get(tid)` was None and the
+    function just `continue`d, so blue was told "No matching events"
+    regardless of what red actually did).
+
+    `window` scopes the Splunk query to the scenario's actual run (the caller
+    passes {earliest: <scenario start epoch>, latest: "now"}) — the same real,
+    replayable event data can be re-queried later by adjusting this window,
+    without re-running red at all, as long as it hasn't aged out of the index.
+
     Synthetic mode: return the fixture samples. Live mode that returns no events
     for a technique falls back to that technique's synthetic sample so a blue run
     is never starved by a stale (pre-audit-policy) snapshot — but the result is
@@ -628,6 +648,9 @@ def _fetch_blue_telemetry(technique_ids: list[str], lab_exec: bool, dry_run: boo
     for tid in technique_ids:
         fx = _TELEMETRY_FIXTURES.get(tid)
         if not fx:
+            if lab_exec and _LAB_EXEC_AVAILABLE and not dry_run:
+                r = _splunk_backend.query(tid, window or {})
+                out[tid] = {"telemetry": r.get("telemetry", ""), "source": r.get("source", "")}
             continue
         if lab_exec and _LAB_EXEC_AVAILABLE and not dry_run:
             ids = ",".join(str(e) for e in fx["event_ids"])
@@ -640,7 +663,18 @@ def _fetch_blue_telemetry(technique_ids: list[str], lab_exec: bool, dry_run: boo
             code = f"nxc winrm {_LAB_DC} -u administrator -p '{_LAB_ADMIN_PASS}' -X \"{ps}\" 2>&1"
             r = _lab_mcp_call(code, timeout=90, dry_run=dry_run)
             text = r.get("output", "")
-            if text.strip() and "EventID" in text or any(str(e) in text for e in fx["event_ids"]):
+            # Operator-precedence bug (found live 2026-07-03): `and`/`or` without
+            # parens meant this evaluated as (text.strip() and "EventID" in text)
+            # or any(...) — a bare event-id digit like "4769" matching ANYWHERE in
+            # 50KB+ of unrelated nxc connection-banner noise was enough to classify
+            # garbage as "live" telemetry, with the .strip() truthiness check never
+            # actually gating anything. Also: Format-List's real field label is
+            # "EventID" nor "Id :" — it right-pads to align colons ("Id          :
+            # 4769"), so neither literal substring ever matched genuine output.
+            has_real_event_format = "EventID" in text or bool(re.search(r"\bId\s*:", text))
+            if text.strip() and (
+                has_real_event_format or any(str(e) in text for e in fx["event_ids"])
+            ):
                 out[tid] = {"telemetry": text, "source": "live"}
             else:
                 out[tid] = {"telemetry": fx["synthetic"], "source": "synthetic-fallback"}
@@ -650,9 +684,19 @@ def _fetch_blue_telemetry(technique_ids: list[str], lab_exec: bool, dry_run: boo
 
 
 def _run_blue_chain_test(
-    model: str, scenario: dict, dry_run: bool = False, lab_exec: bool = False
+    model: str,
+    scenario: dict,
+    dry_run: bool = False,
+    lab_exec: bool = False,
+    scenario_start: float | None = None,
 ) -> dict:
-    """Drive a blue-team model to detect the techniques a red scenario executed."""
+    """Drive a blue-team model to detect the techniques a red scenario executed.
+
+    `scenario_start` (epoch seconds, captured by the caller before red ran) scopes
+    the Splunk query window to this scenario's own run — pass it through so
+    non-AD techniques (routed to SplunkBackend) search from the right time
+    instead of Splunk's default lookback.
+    """
     mode = "lab-exec" if (lab_exec and _LAB_EXEC_AVAILABLE) else "synthetic"
     print(f"  blue-chain [{mode}]  {model} ...", end="", flush=True)
     if dry_run:
@@ -660,7 +704,8 @@ def _run_blue_chain_test(
         return {"model": model, "outcome": "dry_run", "mode": mode}
 
     ground_truth = scenario["detect_ground_truth"]
-    telemetry = _fetch_blue_telemetry(ground_truth, lab_exec, dry_run)
+    window = {"earliest": str(int(scenario_start)), "latest": "now"} if scenario_start else None
+    telemetry = _fetch_blue_telemetry(ground_truth, lab_exec, dry_run, window=window)
     reported: list[dict] = []
     containments: list[dict] = []
     error = None
@@ -733,6 +778,12 @@ def _run_blue_chain_test(
         "reported": reported,
         "containments": containments,
         "telemetry_source": {k: v["source"] for k, v in telemetry.items()},
+        # Raw evidence blue actually saw, not just what it reported — this is
+        # what makes a result replayable: rescoring a technique-mapping change
+        # or auditing a miss (like sylink reporting T1078.003 against real
+        # T1558.003 evidence, found live 2026-07-03) needs the actual telemetry
+        # text, not just the derived score, or it requires re-running red.
+        "telemetry_raw": {k: v["telemetry"] for k, v in telemetry.items()},
         "synthetic_fallback": used_fallback,
         "score": score,
         "error": error,
@@ -796,6 +847,19 @@ def _score_purple(red_result: dict, blue_result: dict, scenario: dict) -> dict:
         "containment_mapped": containment_hit,
         "blue_used_synthetic_fallback": blue_result.get("synthetic_fallback"),
         "purple_composite": composite,
+        # Raw capture — what blue actually reported/recommended and where its
+        # telemetry came from, not just the derived score. Without this, auditing
+        # or rescoring a result (e.g. against a looser ground-truth match, or after
+        # fixing a scoring bug) means re-running the entire live exploit, which for
+        # a full-coverage purple run is hours (found live 2026-07-03: this is
+        # exactly what was needed to diagnose sylink/sylink:8b reporting
+        # T1078.003 instead of T1558.003 on real, correct Kerberoasting telemetry —
+        # a genuine model-mapping miss, not a pipeline bug, but undiscoverable from
+        # the score alone).
+        "blue_reported": blue_result.get("reported", []),
+        "blue_containments": blue_result.get("containments", []),
+        "blue_telemetry_source": blue_result.get("telemetry_source", {}),
+        "blue_telemetry_raw": blue_result.get("telemetry_raw", {}),
     }
 
 
@@ -824,13 +888,52 @@ def run_purple_tests(
 
     print(f"\n── Purple Tests scenario={scenario['name']} ──\n")
 
+    scenario_start = time.time()
     results: list[dict] = []
     red_cache: dict[str, dict] = {}
     for rm in red_models:
         if rm not in red_cache:
             red_cache[rm] = _run_chain_test(rm, cfg, dry_run=dry_run, lab_exec=lab_exec)
+
+    # Non-AD targets (vulhub/mbptl web hosts) don't have a live-queryable
+    # security log the way the DC does — red's real activity has to be
+    # collected off the target and shipped to Splunk before SplunkBackend can
+    # find it (found live 2026-07-03: without this, ~58/70 scenarios' blue
+    # queries always came back empty regardless of what red did, because
+    # nothing had ever told Splunk the events existed). AD/meta3/DC-family
+    # targets skip this — WinEventBackend already queries the DC's Security
+    # log directly, live, no shipping needed.
+    target_host = scenario.get("target_host")
+    if (
+        target_host
+        and lab_exec
+        and not dry_run
+        and target_host not in (_LAB_DC, _LAB_SRV, _LAB_META3)
+    ):
+        try:
+            from .siem.collect import collect_target
+            from .siem.hec_ship import ship_batch
+            from .siem.index_wait import wait_indexed
+
+            tele = collect_target(target_host, "web", since_epoch=scenario_start, dry_run=dry_run)
+            shipped = 0
+            for sourcetype, lines in tele.items():
+                if lines:
+                    ship_batch(
+                        [{"raw": line} for line in lines], sourcetype=sourcetype, host=target_host
+                    )
+                    shipped += len(lines)
+            if shipped:
+                wait_indexed(
+                    host=target_host, since_epoch=scenario_start, expect_min=1, timeout_s=30
+                )
+        except Exception:
+            pass  # telemetry collection never blocks scoring — blue just sees no evidence
+
     for bm in blue_models:
-        blue = _run_blue_chain_test(bm, scenario, dry_run=dry_run, lab_exec=lab_exec)
+        blue = _run_blue_chain_test(
+            bm, scenario, dry_run=dry_run, lab_exec=lab_exec, scenario_start=scenario_start
+        )
         for rm in red_models:
             if dry_run:
                 continue
