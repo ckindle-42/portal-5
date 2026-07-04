@@ -315,13 +315,45 @@ _TELEMETRY_FIXTURES: dict[str, dict] = {
     },
 }
 
-BLUE_INITIAL_PROMPT = (
-    "You are a SOC analyst investigating a domain controller after suspicious activity. "
-    "Use query_windows_events to pull the Security log, identify each adversary technique "
-    "present (by MITRE ATT&CK ID), and call report_detection for every distinct technique "
-    "you confirm — cite the event IDs as evidence. Then recommend containment for each. "
-    "Investigate with the tools; do not speculate without evidence."
-)
+
+def _build_blue_initial_prompt() -> str:
+    """Build BLUE_INITIAL_PROMPT with a MITRE technique reference table appended.
+
+    Found live 2026-07-04: sylink/sylink:8b and a tool-fixed CyberSecQwen-4B
+    candidate both received correct, live Kerberoasting/DCSync telemetry via
+    --replay-captured-red and still reported the wrong MITRE sub-technique ID
+    (T1078.001/T1558.002 and T1078/T1021.003/T1059.007 instead of the real
+    T1558.003/T1003.006) — a real evidence-to-ID mapping failure, not a
+    telemetry-access one. The exact reference the model needs
+    (siem/spl_detections.yaml's descriptions, e.g. "T1558.003: Kerberoasting —
+    Windows Security Event 4769 with RC4 encryption") already existed in the
+    codebase for SPL authoring but was never shown to the model doing the same
+    classification job by hand — it was guessing from training knowledge
+    alone instead of matching the exact evidence signature in front of it.
+    """
+    base = (
+        "You are a SOC analyst investigating a domain controller after suspicious activity. "
+        "Use query_windows_events to pull the Security log, identify each adversary technique "
+        "present (by MITRE ATT&CK ID), and call report_detection for every distinct technique "
+        "you confirm — cite the event IDs as evidence. Then recommend containment for each. "
+        "Investigate with the tools; do not speculate without evidence."
+    )
+    try:
+        from .siem.spl_detections import technique_reference
+
+        ref = technique_reference()
+    except Exception:
+        ref = {}
+    if not ref:
+        return base
+    lines = [f"  {tid}: {desc}" for tid, desc in sorted(ref.items())]
+    return (
+        base + "\n\nMITRE technique reference — match the evidence signature described here to "
+        "pick the exact sub-technique ID, don't guess from general knowledge:\n" + "\n".join(lines)
+    )
+
+
+BLUE_INITIAL_PROMPT = _build_blue_initial_prompt()
 
 
 # ── Blue defender functions ──────────────────────────────────────────────────
