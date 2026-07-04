@@ -864,6 +864,118 @@ def _score_purple(red_result: dict, blue_result: dict, scenario: dict) -> dict:
     }
 
 
+def collect_and_ship_scenario_telemetry(
+    scenario: dict,
+    scenario_start: float,
+    *,
+    lab_exec: bool = False,
+    dry_run: bool = False,
+) -> tuple[str | None, bool | None, str]:
+    """Collect a scenario's real target telemetry and ship it to Splunk, stamped
+    with `scenario_start` (the actual attack time) rather than ingestion time —
+    so the SIEM record lands "as if it was the attack at that time," and a
+    capture replayed later carries its true timestamp instead of always
+    looking like "now."
+
+    Non-AD targets (vulhub/mbptl web hosts) don't have a live-queryable security
+    log the way the DC does — red's real activity has to be collected off the
+    target and shipped to Splunk before SplunkBackend can find it (found live
+    2026-07-03: without this, ~58/70 scenarios' blue queries always came back
+    empty regardless of what red did, because nothing had ever told Splunk the
+    events existed). AD/meta3/DC-family targets skip this — WinEventBackend
+    already queries the DC's Security log directly, live, no shipping needed.
+
+    Shared by run_purple_tests() and the red-only chain-test loop (cli.py) —
+    getting red's raw activity into the SIEM does not require a blue model to
+    be running (found live 2026-07-04: red-only runs produced local capture
+    files but shipped nothing, so Step 1 alone could never be validated against
+    the SIEM even though that was the whole point of re-running it).
+
+    Returns (capture_path, indexed_confirmed, telemetry_error).
+    """
+    target_host = scenario.get("target_host")
+    capture_path: str | None = None
+    indexed_confirmed: bool | None = None
+    telemetry_error: str = ""
+    if not (
+        target_host
+        and lab_exec
+        and not dry_run
+        and target_host not in (_LAB_DC, _LAB_SRV, _LAB_META3)
+    ):
+        return capture_path, indexed_confirmed, telemetry_error
+
+    try:
+        from .siem.capture_store import save_capture
+        from .siem.collect import collect_target
+        from .siem.hec_ship import ship_batch
+        from .siem.index_wait import wait_indexed
+
+        tele = collect_target(target_host, "web", since_epoch=scenario_start, dry_run=dry_run)
+        # Persist the raw capture to disk BEFORE shipping — this is what makes it
+        # replayable later (re-shipped with a fresh timestamp, no red re-run needed)
+        # even after Splunk's own retention has rotated the live copy out.
+        capture_path = save_capture(
+            scenario=scenario["name"],
+            target_host=target_host,
+            kind="web",
+            since_epoch=scenario_start,
+            telemetry=tele,
+        )
+        shipped = 0
+        for sourcetype, lines in tele.items():
+            if lines:
+                ship_batch(
+                    [{"raw": line} for line in lines],
+                    sourcetype=sourcetype,
+                    host=target_host,
+                    event_time=scenario_start,
+                )
+                shipped += len(lines)
+        if shipped:
+            # Explicit confirmation, not fire-and-forget — recorded on every purple
+            # result below so "we shipped it" and "Splunk actually has it" are two
+            # separately verifiable facts, not an assumption.
+            indexed_confirmed = wait_indexed(
+                host=target_host, since_epoch=scenario_start, expect_min=1, timeout_s=30
+            )
+    except Exception as exc:
+        # Telemetry collection never blocks scoring (real value, kept) — but a bare
+        # `pass` here meant a genuine collection/shipping failure was indistinguishable
+        # from "nothing to collect." Recorded on every purple result below instead.
+        telemetry_error = f"TELEMETRY_COLLECTION_FAILED: {exc}"
+
+    return capture_path, indexed_confirmed, telemetry_error
+
+
+def load_latest_red_capture(scenario_name: str) -> tuple[dict | None, str | None]:
+    """Load the most recent red evidence + raw telemetry capture saved on disk for a scenario.
+
+    Lets blue/purple run as an independent stage against red's already-captured
+    activity — no live red execution needed — for exactly the case the red-only
+    run exists to serve: expensive live exploitation happens once, then blue/
+    purple stages are iterated against the same recorded attack (found live
+    2026-07-04: prior to this, re-scoring blue meant re-running the whole live
+    exploit chain again, hours of lab time, to get anything for blue to detect).
+
+    Returns (red_result_dict, capture_path) — either may be None if nothing was
+    ever captured for this scenario.
+    """
+    from .siem.capture_store import list_captures, list_evidence
+
+    red_result: dict | None = None
+    evidence_files = list_evidence("red", scenario_name)
+    if evidence_files:
+        red_result = json.loads(evidence_files[0].read_text())
+
+    capture_path: str | None = None
+    capture_files = list_captures(scenario_name)
+    if capture_files:
+        capture_path = str(capture_files[0])
+
+    return red_result, capture_path
+
+
 def run_purple_tests(
     red_models: list[str],
     blue_models: list[str],
@@ -871,12 +983,19 @@ def run_purple_tests(
     cfg: BenchConfig,
     dry_run: bool = False,
     lab_exec: bool = False,
+    replay_captured_red: bool = False,
 ) -> list[dict]:
     """Pair each red model with each blue model on one scenario; score the interaction.
 
     Common usage pairs a model with itself (same model doing both roles) to grade a
     single model's full-spectrum capability; pass identical --chain-models and
     --blue-models for that.
+
+    replay_captured_red=True skips live red execution entirely and instead uses
+    the most recent red evidence + telemetry capture already saved on disk for
+    this scenario (e.g. from a prior red-only run) — re-shipping the saved
+    telemetry to Splunk at its true original attack timestamp. --chain-models is
+    then optional; when omitted the red model name comes from the saved evidence.
 
     The caller must set `cfg`'s scenario (via `_prepare_scenario`, which also runs the
     target-readiness gate and $TARGET_HOST/$TARGET_PORT substitution) before calling
@@ -892,18 +1011,43 @@ def run_purple_tests(
     scenario_start = time.time()
     results: list[dict] = []
     red_cache: dict[str, dict] = {}
-    for rm in red_models:
-        if rm not in red_cache:
-            red_cache[rm] = _run_chain_test(rm, cfg, dry_run=dry_run, lab_exec=lab_exec)
-            if lab_exec and not dry_run:
-                with contextlib.suppress(Exception):
-                    from .siem.capture_store import save_evidence
+    capture_path: str | None = None
+    indexed_confirmed: bool | None = None
+    telemetry_error: str = ""
 
-                    # Full red transcript (tools called, args, lab_observations) —
-                    # a weak/incomplete attempt is itself evidence worth keeping,
-                    # so "what did red actually try" is answerable without
-                    # re-running the live exploit.
-                    save_evidence("red", scenario["name"], {"model": rm, **red_cache[rm]})
+    if replay_captured_red:
+        cached_red, capture_path_on_disk = load_latest_red_capture(scenario["name"])
+        if cached_red is None:
+            print(
+                f"  WARNING: --replay-captured-red but no saved red evidence for "
+                f"{scenario['name']} — no captured attack to replay"
+            )
+        else:
+            rm = cached_red.get("model", "captured-red")
+            red_cache[rm] = cached_red
+            red_models = [rm]
+            if not dry_run and capture_path_on_disk:
+                from .siem.capture_store import replay_capture
+
+                replay_result = replay_capture(
+                    capture_path_on_disk, event_time=cached_red.get("captured_at")
+                )
+                capture_path = replay_result.get("replayed_from")
+                indexed_confirmed = replay_result.get("indexed_confirmed")
+                telemetry_error = "" if replay_result.get("ok") else "REPLAY_SHIPPED_NOTHING"
+    else:
+        for rm in red_models:
+            if rm not in red_cache:
+                red_cache[rm] = _run_chain_test(rm, cfg, dry_run=dry_run, lab_exec=lab_exec)
+                if lab_exec and not dry_run:
+                    with contextlib.suppress(Exception):
+                        from .siem.capture_store import save_evidence
+
+                        # Full red transcript (tools called, args, lab_observations) —
+                        # a weak/incomplete attempt is itself evidence worth keeping,
+                        # so "what did red actually try" is answerable without
+                        # re-running the live exploit.
+                        save_evidence("red", scenario["name"], {"model": rm, **red_cache[rm]})
 
     # Non-AD targets (vulhub/mbptl web hosts) don't have a live-queryable
     # security log the way the DC does — red's real activity has to be
@@ -912,53 +1056,13 @@ def run_purple_tests(
     # queries always came back empty regardless of what red did, because
     # nothing had ever told Splunk the events existed). AD/meta3/DC-family
     # targets skip this — WinEventBackend already queries the DC's Security
-    # log directly, live, no shipping needed.
-    target_host = scenario.get("target_host")
-    capture_path: str | None = None
-    indexed_confirmed: bool | None = None
-    telemetry_error: str = ""
-    if (
-        target_host
-        and lab_exec
-        and not dry_run
-        and target_host not in (_LAB_DC, _LAB_SRV, _LAB_META3)
-    ):
-        try:
-            from .siem.capture_store import save_capture
-            from .siem.collect import collect_target
-            from .siem.hec_ship import ship_batch
-            from .siem.index_wait import wait_indexed
-
-            tele = collect_target(target_host, "web", since_epoch=scenario_start, dry_run=dry_run)
-            # Persist the raw capture to disk BEFORE shipping — this is what makes it
-            # replayable later (re-shipped with a fresh timestamp, no red re-run needed)
-            # even after Splunk's own retention has rotated the live copy out.
-            capture_path = save_capture(
-                scenario=scenario["name"],
-                target_host=target_host,
-                kind="web",
-                since_epoch=scenario_start,
-                telemetry=tele,
-            )
-            shipped = 0
-            for sourcetype, lines in tele.items():
-                if lines:
-                    ship_batch(
-                        [{"raw": line} for line in lines], sourcetype=sourcetype, host=target_host
-                    )
-                    shipped += len(lines)
-            if shipped:
-                # Explicit confirmation, not fire-and-forget — recorded on every purple
-                # result below so "we shipped it" and "Splunk actually has it" are two
-                # separately verifiable facts, not an assumption.
-                indexed_confirmed = wait_indexed(
-                    host=target_host, since_epoch=scenario_start, expect_min=1, timeout_s=30
-                )
-        except Exception as exc:
-            # Telemetry collection never blocks scoring (real value, kept) — but a bare
-            # `pass` here meant a genuine collection/shipping failure was indistinguishable
-            # from "nothing to collect." Recorded on every purple result below instead.
-            telemetry_error = f"TELEMETRY_COLLECTION_FAILED: {exc}"
+    # log directly, live, no shipping needed. Skipped entirely in
+    # replay_captured_red mode — the block above already replayed the saved
+    # capture instead of collecting a fresh one.
+    if not replay_captured_red:
+        capture_path, indexed_confirmed, telemetry_error = collect_and_ship_scenario_telemetry(
+            scenario, scenario_start, lab_exec=lab_exec, dry_run=dry_run
+        )
 
     for bm in blue_models:
         blue = _run_blue_chain_test(

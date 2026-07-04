@@ -79,10 +79,22 @@ def list_evidence(kind: str, scenario: str | None = None) -> list[Path]:
     return sorted(d.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
 
 
-def replay_capture(path: str | Path, *, dry_run: bool = False, timeout_s: int = 30) -> dict:
-    """Re-ship a saved capture to Splunk (fresh timestamp) and confirm it indexed.
+def replay_capture(
+    path: str | Path,
+    *,
+    dry_run: bool = False,
+    timeout_s: int = 30,
+    event_time: float | None = None,
+) -> dict:
+    """Re-ship a saved capture to Splunk and confirm it indexed.
 
-    This is the "reload with updated timestamps" mechanism — no red execution needed.
+    By default (event_time=None) this is the "reload with updated timestamps"
+    mechanism — no red execution needed, and the replayed data lands as fresh
+    "current" telemetry so it can drive a blue/purple retest against wall-clock-
+    relative queries. Pass event_time=<captured_at epoch> (or the capture's own
+    `captured_at` field) to instead force it into the SIEM at its true original
+    attack time.
+
     Returns {ok, shipped, indexed_confirmed, scenario, target_host}.
     """
     from .hec_ship import ship_batch
@@ -94,7 +106,7 @@ def replay_capture(path: str | Path, *, dry_run: bool = False, timeout_s: int = 
     target_host = data["target_host"]
     telemetry = data["telemetry"]
 
-    replay_start = time.time()
+    replay_start = event_time if event_time is not None else time.time()
     shipped = 0
     for sourcetype, lines in telemetry.items():
         if not lines:
@@ -104,6 +116,7 @@ def replay_capture(path: str | Path, *, dry_run: bool = False, timeout_s: int = 
             sourcetype=sourcetype,
             host=target_host,
             dry_run=dry_run,
+            event_time=event_time,
         )
         if r.get("ok"):
             shipped += len(lines)
