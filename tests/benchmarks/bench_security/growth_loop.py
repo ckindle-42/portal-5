@@ -253,10 +253,12 @@ def run_growth_loop(
     graph: CapabilityGraph,
     *,
     dry_run: bool = True,
+    write_back_to_wiki: bool = False,
 ) -> GrowthLoopResult:
     """Run the growth loop: RED_ONLY gaps → propose → prove → surface for confirm.
 
     PROMOTE_POLICY: confirm-only.  In dry_run mode, nothing is written.
+    If write_back_to_wiki=True, proven drafts are proposed as cited wiki units.
 
     Returns GrowthLoopResult with proposed/confirmed/rejected drafts.
     """
@@ -283,6 +285,10 @@ def run_growth_loop(
         if proof.all_passed():
             draft.status = "proven"
             result.drafts_proven += 1
+
+            # Write-back to wiki (P2): proven detection becomes a cited unit
+            if write_back_to_wiki and not dry_run:
+                _writeback_proven_detection(draft, gap)
         else:
             draft.status = "draft"
             result.validation = {
@@ -301,6 +307,36 @@ def run_growth_loop(
     )
 
     return result
+
+
+def _writeback_proven_detection(draft: DraftDetection, gap: Gap) -> None:
+    """Write a proven detection back to the wiki as a cited unit."""
+    try:
+        from portal_wiki.core.writeback import propose_unit
+
+        propose_unit(
+            {
+                "title": f"{draft.technique_id} — {draft.description}",
+                "kind": "mixed",
+                "sources": [
+                    {"type": "growth", "path": f"draft:{draft.draft_id}"},
+                    {"type": "spl", "path": f"siem/spl_detections.yaml#{draft.technique_id}"},
+                    {"type": "mitre", "path": f"ATT&CK:{draft.technique_id}"},
+                ],
+                "body": (
+                    f"# {draft.technique_id} — Growth Loop Proven Detection\n\n"
+                    f"**Description:** {draft.description}\n\n"
+                    f"**Expected signal:** {draft.expected_signal}\n\n"
+                    f"**Proven by:** growth loop draft `{draft.draft_id}`\n\n"
+                    f"**Gap closed:** {gap.gap_id}\n\n"
+                    f"**Status:** proven (awaiting operator confirm)\n"
+                ),
+                "tags": [draft.technique_id, "growth-loop", "proven-detection"],
+            },
+            proposed_by="growth-loop",
+        )
+    except Exception:
+        pass  # write-back failure doesn't block the growth loop
 
 
 def surface_for_confirm(draft: DraftDetection) -> dict:
