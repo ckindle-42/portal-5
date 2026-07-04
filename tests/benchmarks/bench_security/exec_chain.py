@@ -3019,6 +3019,10 @@ def _run_chain_test(
         "chain_depth": chain_depth,
         "max_depth": len(cfg.chain_expected_order),
         "tools_called": tools_called,
+        # The actual commands/arguments red issued — computed for cve_research
+        # scoring above but previously discarded before the return, so replaying
+        # or auditing what red actually ran required re-executing it live.
+        "tools_called_args": tools_called_args,
         "expected_order": cfg.chain_expected_order,
         "order_accuracy": round(accuracy, 3),
         "unique_steps_hit": unique_steps_hit,

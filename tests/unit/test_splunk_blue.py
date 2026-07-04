@@ -327,3 +327,101 @@ class TestMatrixTelemetryWiring:
             result = _execute_unit(unit, lab_exec=False, purple=True)
             # Should complete without error — telemetry collection is best-effort
             assert result.status in ("verified", "rejected", "indeterminate", "error")
+
+
+# ── Capture store (raw telemetry persistence + replay) ───────────────────────
+
+
+class TestCaptureStore:
+    """save_capture/replay_capture — durable raw evidence, independent of Splunk retention."""
+
+    def test_save_capture_writes_file(self, tmp_path, monkeypatch):
+        from tests.benchmarks.bench_security.siem import capture_store
+
+        monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
+        path = capture_store.save_capture(
+            scenario="web_sqli_dump",
+            target_host="10.10.11.50",
+            kind="web",
+            since_epoch=1000.0,
+            telemetry={"web:access": ["GET /?id=1 UNION SELECT 200"]},
+        )
+        assert path is not None
+        saved = json.loads(Path(path).read_text())
+        assert saved["scenario"] == "web_sqli_dump"
+        assert saved["telemetry"]["web:access"] == ["GET /?id=1 UNION SELECT 200"]
+
+    def test_save_capture_returns_none_for_empty_telemetry(self, tmp_path, monkeypatch):
+        from tests.benchmarks.bench_security.siem import capture_store
+
+        monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
+        path = capture_store.save_capture(
+            scenario="x", target_host="10.10.11.50", kind="web", since_epoch=0.0, telemetry={}
+        )
+        assert path is None
+
+    def test_list_captures_filters_by_scenario(self, tmp_path, monkeypatch):
+        from tests.benchmarks.bench_security.siem import capture_store
+
+        monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
+        capture_store.save_capture(
+            scenario="scenario_a",
+            target_host="h",
+            kind="web",
+            since_epoch=0.0,
+            telemetry={"web:access": ["x"]},
+        )
+        capture_store.save_capture(
+            scenario="scenario_b",
+            target_host="h",
+            kind="web",
+            since_epoch=0.0,
+            telemetry={"web:access": ["y"]},
+        )
+        assert len(capture_store.list_captures()) == 2
+        assert len(capture_store.list_captures(scenario="scenario_a")) == 1
+
+    def test_replay_capture_reships_and_confirms(self, tmp_path, monkeypatch):
+        from tests.benchmarks.bench_security.siem import capture_store
+
+        monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
+        path = capture_store.save_capture(
+            scenario="web_sqli_dump",
+            target_host="10.10.11.50",
+            kind="web",
+            since_epoch=1000.0,
+            telemetry={"web:access": ["GET /?id=1 UNION SELECT 200"]},
+        )
+        with (
+            patch(
+                "tests.benchmarks.bench_security.siem.hec_ship.ship_batch",
+                return_value={"ok": True, "code": 200, "count": 1},
+            ),
+            patch(
+                "tests.benchmarks.bench_security.siem.index_wait.wait_indexed",
+                return_value=True,
+            ),
+        ):
+            result = capture_store.replay_capture(path)
+        assert result["ok"] is True
+        assert result["shipped"] == 1
+        assert result["indexed_confirmed"] is True
+        assert result["scenario"] == "web_sqli_dump"
+
+    def test_replay_capture_dry_run_skips_indexed_check(self, tmp_path, monkeypatch):
+        from tests.benchmarks.bench_security.siem import capture_store
+
+        monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
+        path = capture_store.save_capture(
+            scenario="x",
+            target_host="h",
+            kind="web",
+            since_epoch=0.0,
+            telemetry={"web:access": ["line"]},
+        )
+        with patch(
+            "tests.benchmarks.bench_security.siem.hec_ship.ship_batch",
+            return_value={"ok": True, "dry_run": True, "count": 1},
+        ):
+            result = capture_store.replay_capture(path, dry_run=True)
+        assert result["indexed_confirmed"] is None

@@ -8,6 +8,7 @@ dispatcher and imports everything it needs from focused sub-modules.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 import time
@@ -673,6 +674,35 @@ def main() -> None:
     purple_results: list[dict] = []
     scenario_averages: list[dict] = []
 
+    def _write_checkpoint() -> None:
+        """Persist progress so far to .partial.json after each scenario.
+
+        checkpoint_path only ever threaded into run_bench() (the theory/
+        workspace-prompt path) — every --all-scenarios/--purple run passes
+        --skip-workspace-bench, so that path never ran and this checkpoint was
+        always dead for exactly the runs that take hours (found live
+        2026-07-03: multiple crashes this session lost an entire run's
+        already-computed results because the only write happens at the very
+        end). Best-effort — a checkpoint write failure must never crash the
+        run it's trying to protect.
+        """
+        if not checkpoint_path:
+            return
+        with contextlib.suppress(Exception):
+            checkpoint_path.write_text(
+                json.dumps(
+                    {
+                        "timestamp": ts,
+                        "in_progress": True,
+                        "chain_tests": chain_results,
+                        "blue_tests": blue_results,
+                        "purple_tests": purple_results,
+                    },
+                    indent=2,
+                    default=str,
+                )
+            )
+
     # Parse --step-models assignments (multi-model chain)
     _step_models: dict[str, str] = {}
     if args.step_models:
@@ -834,6 +864,7 @@ def main() -> None:
                 }
                 chain_results.append(indeterminate_result)
                 all_scenario_results.setdefault(sc["name"], []).append(indeterminate_result)
+                _write_checkpoint()
                 continue
             if gate.get("healed"):
                 print(
@@ -846,6 +877,7 @@ def main() -> None:
                 r["scenario"] = sc["name"]
             all_scenario_results[sc["name"]] = sc_results
             chain_results.extend(sc_results)
+            _write_checkpoint()
 
             # Tear down ephemeral vulhub targets once their scenario is done —
             # cmd_up/heal never stops them, so a full --all-scenarios run leaves
@@ -967,6 +999,7 @@ def main() -> None:
                             "gate_reason": gate.get("reason", "target-unrecoverable"),
                         }
                     )
+                    _write_checkpoint()
                     continue
                 if gate.get("healed"):
                     print(
@@ -982,6 +1015,7 @@ def main() -> None:
                         lab_exec=args.lab_exec,
                     )
                 )
+                _write_checkpoint()
                 if _p_sc.get("vulhub_env") and args.lab_exec and not args.dry_run:
                     from scripts.lab_targets import cmd_down
 
