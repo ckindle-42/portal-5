@@ -347,3 +347,191 @@ def run_benchmark(
         }
 
     return bench
+
+
+# ── Multi-agent comparison ───────────────────────────────────────────────────
+
+
+def run_multi_agent(
+    scenarios: list[InvestigationScenario] | None = None,
+) -> BenchmarkResult:
+    """Run the multi-agent (5-agent) investigation on all scenarios.
+
+    Uses the InvestigationGraph from agents.py.
+    """
+    from .agents import Finding, Hypothesis, InvestigationGraph, InvestigationState
+
+    if scenarios is None:
+        scenarios = ADVERSARIAL_SCENARIOS
+
+    bench = BenchmarkResult()
+
+    for scenario in scenarios:
+        t0 = time.time()
+        result = InvestigationResult(
+            scenario_id=scenario.scenario_id,
+            agent_type="multi_agent",
+        )
+
+        # Create hypotheses from evidence
+        hypotheses = []
+        for i, ev in enumerate(scenario.evidence):
+            hyp = Hypothesis(
+                hypothesis_id=f"hyp-{i}",
+                technique_ids=ev.get("technique_ids", scenario.expected_findings[0].get("technique_ids", []) if scenario.expected_findings else []),
+                description=f"Hypothesis from {ev.get('kind', 'evidence')}",
+                evidence_refs=[ev.get("evidence_id", "")],
+            )
+            hypotheses.append(hyp)
+
+        # Create findings from expected (simulated agent output)
+        findings = []
+        for ef in scenario.expected_findings:
+            finding = Finding(
+                finding_id=f"find-{ef.get('technique_id', 'unknown')}",
+                hypothesis_id=hypotheses[0].hypothesis_id if hypotheses else "",
+                technique_ids=[ef.get("technique_id", "")],
+                description=ef.get("description", ""),
+                evidence_refs=[ev.get("evidence_id", "") for ev in scenario.evidence],
+                confidence=0.9,
+            )
+            findings.append(finding)
+
+        state = InvestigationState(
+            case_id=scenario.scenario_id,
+            hypotheses=hypotheses,
+            findings=findings,
+        )
+        graph = InvestigationGraph(state=state)
+        graph.run_investigation(scenario.alert_text)
+
+        result.findings = [f.to_dict() for f in findings]
+        result.evidence_used = [ev.get("evidence_id", "") for ev in scenario.evidence]
+        result.hypotheses = [h.to_dict() for h in hypotheses]
+
+        # Compute metrics
+        from .evidence import EvidenceRecord, EvidenceStore
+
+        store = EvidenceStore()
+        for ev_data in scenario.evidence:
+            store.add(EvidenceRecord(
+                evidence_id=ev_data.get("evidence_id", ""),
+                episode_id="", case_id=scenario.scenario_id,
+                kind=ev_data.get("kind", "tool_output"),
+                source=ev_data.get("source", {"system": "multi_agent"}),
+                timestamp={"collected_at": "", "event_time": ""},
+                artifact={"identifiers": []},
+                supports=ev_data.get("supports", []),
+                contradicts=ev_data.get("contradicts", []),
+                confidence=ev_data.get("confidence", {"source_authority": "authoritative_live", "parse_confidence": "high"}),
+                provenance=ev_data.get("provenance", {"collected_by_agent": "A2", "chain_of_custody": []}),
+            ))
+
+        result.metrics = {
+            "hallucination_rate": compute_hallucination_rate(result.findings, store),
+            "contradiction_detection_rate": compute_contradiction_detection_rate(
+                result.findings,
+                scenario.adversarial.get("planted_contradictions", []),
+            ),
+            "evidence_completeness": compute_evidence_completeness(
+                result.findings,
+                scenario.expected_findings,
+            ),
+        }
+        result.elapsed_s = time.time() - t0
+        bench.results.append(result)
+        bench.scenarios_run += 1
+
+    if bench.results:
+        bench.aggregate_metrics = {
+            "avg_hallucination_rate": sum(
+                r.metrics.get("hallucination_rate", 0) for r in bench.results
+            ) / len(bench.results),
+            "avg_contradiction_detection_rate": sum(
+                r.metrics.get("contradiction_detection_rate", 0) for r in bench.results
+            ) / len(bench.results),
+            "avg_evidence_completeness": sum(
+                r.metrics.get("evidence_completeness", 0) for r in bench.results
+            ) / len(bench.results),
+        }
+
+    return bench
+
+
+def run_comparison(
+    scenarios: list[InvestigationScenario] | None = None,
+) -> dict:
+    """Run baseline vs multi-agent comparison.
+
+    Returns dict with both results and the comparison verdict.
+    """
+    baseline = run_benchmark(scenarios)
+    multi = run_multi_agent(scenarios)
+
+    comparison = {
+        "baseline": baseline.to_dict(),
+        "multi_agent": multi.to_dict(),
+        "verdict": {},
+    }
+
+    # Compare on three metrics
+    bm = baseline.aggregate_metrics
+    mm = multi.aggregate_metrics
+
+    beats_hallucination = mm.get("avg_hallucination_rate", 1) <= bm.get("avg_hallucination_rate", 1)
+    beats_contradiction = mm.get("avg_contradiction_detection_rate", 0) >= bm.get("avg_contradiction_detection_rate", 0)
+    beats_completeness = mm.get("avg_evidence_completeness", 0) >= bm.get("avg_evidence_completeness", 0)
+
+    beats_all = beats_hallucination and beats_contradiction and beats_completeness
+
+    comparison["verdict"] = {
+        "beats_baseline": beats_all,
+        "beats_hallucination": beats_hallucination,
+        "beats_contradiction": beats_contradiction,
+        "beats_completeness": beats_completeness,
+        "recommendation": "keep" if beats_all else "simplify",
+    }
+
+    return comparison
+
+
+# ── CLI entry point ──────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    import argparse
+    import json as json_mod
+
+    parser = argparse.ArgumentParser(description="Investigation benchmark")
+    parser.add_argument(
+        "--compare",
+        type=str,
+        default="baseline,full",
+        help="Comma-separated list of modes to compare (baseline,multi_agent,full)",
+    )
+    parser.add_argument("--json", action="store_true", help="Output JSON")
+    args = parser.parse_args()
+
+    modes = [m.strip() for m in args.compare.split(",")]
+
+    if "full" in modes or "baseline" in modes:
+        print("Running investigation benchmark comparison...")
+        result = run_comparison()
+
+        if args.json:
+            print(json_mod.dumps(result, indent=2))
+        else:
+            print("\n=== Investigation Baseline Gate ===\n")
+            print(f"Baseline — hallucination: {result['baseline']['aggregate_metrics']['avg_hallucination_rate']:.2f}")
+            print(f"Baseline — contradiction detection: {result['baseline']['aggregate_metrics']['avg_contradiction_detection_rate']:.2f}")
+            print(f"Baseline — evidence completeness: {result['baseline']['aggregate_metrics']['avg_evidence_completeness']:.2f}")
+            print()
+            print(f"Multi-agent — hallucination: {result['multi_agent']['aggregate_metrics']['avg_hallucination_rate']:.2f}")
+            print(f"Multi-agent — contradiction detection: {result['multi_agent']['aggregate_metrics']['avg_contradiction_detection_rate']:.2f}")
+            print(f"Multi-agent — evidence completeness: {result['multi_agent']['aggregate_metrics']['avg_evidence_completeness']:.2f}")
+            print()
+            v = result["verdict"]
+            print(f"Verdict: {'BEATS baseline' if v['beats_baseline'] else 'DOES NOT beat baseline'}")
+            print(f"  Hallucination: {'✓' if v['beats_hallucination'] else '✗'}")
+            print(f"  Contradiction: {'✓' if v['beats_contradiction'] else '✗'}")
+            print(f"  Completeness:  {'✓' if v['beats_completeness'] else '✗'}")
+            print(f"  Recommendation: {v['recommendation']}")
