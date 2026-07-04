@@ -229,6 +229,18 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--replay-captured-red",
+        action="store_true",
+        help=(
+            "With --purple: skip live red execution and replay the most recent "
+            "saved red evidence + telemetry capture on disk for each scenario "
+            "instead (re-shipped to Splunk at its true original attack time). "
+            "Makes --chain-models optional — the red model name is read from "
+            "the saved evidence. Use to iterate blue/purple against an "
+            "already-captured attack without re-running the live exploit."
+        ),
+    )
+    parser.add_argument(
         "--all-scenarios",
         action="store_true",
         help=(
@@ -870,6 +882,7 @@ def main() -> None:
                 print(
                     f"  Target healed: {gate.get('reason')} → {gate.get('host')}:{gate.get('port')}"
                 )
+            scenario_start = time.time()
             sc_results = run_chain_tests(
                 args.chain_models, cfg, dry_run=args.dry_run, lab_exec=args.lab_exec
             )
@@ -878,6 +891,35 @@ def main() -> None:
             all_scenario_results[sc["name"]] = sc_results
             chain_results.extend(sc_results)
             _write_checkpoint()
+
+            if args.lab_exec and not args.dry_run:
+                # Get red's raw host telemetry into the SIEM up front, at its true
+                # attack time — this is the whole point of re-running Step 1: a
+                # captured red run should be independently verifiable in Splunk,
+                # not just present as a local JSON summary. Non-AD/DC/meta3
+                # targets only (WinEventBackend queries the DC live, no shipping
+                # needed there); best-effort, never blocks red's own results.
+                from bench_security.blue import collect_and_ship_scenario_telemetry
+                from bench_security.siem.capture_store import save_evidence
+
+                cap_path, indexed, tele_err = None, None, ""
+                with contextlib.suppress(Exception):
+                    cap_path, indexed, tele_err = collect_and_ship_scenario_telemetry(
+                        sc, scenario_start, lab_exec=args.lab_exec, dry_run=args.dry_run
+                    )
+                with contextlib.suppress(Exception):
+                    for r in sc_results:
+                        save_evidence(
+                            "red",
+                            sc["name"],
+                            {
+                                "model": r.get("model"),
+                                "telemetry_capture_path": cap_path,
+                                "telemetry_indexed_confirmed": indexed,
+                                "telemetry_collection_error": tele_err,
+                                **r,
+                            },
+                        )
 
             # Tear down ephemeral vulhub targets once their scenario is done —
             # cmd_up/heal never stops them, so a full --all-scenarios run leaves
@@ -975,8 +1017,11 @@ def main() -> None:
     # when --all-scenarios was passed (found live 2026-07-03: a "full-coverage"
     # purple run produced results for 1/70 scenarios with no error or warning).
     if args.purple:
-        if not args.chain_models or not args.blue_models:
-            print("  ERROR: --purple requires both --chain-models and --blue-models")
+        if not args.blue_models or (not args.chain_models and not args.replay_captured_red):
+            print(
+                "  ERROR: --purple requires --blue-models, and either --chain-models "
+                "or --replay-captured-red"
+            )
         else:
             _purple_scenarios = list(SCENARIOS.values()) if args.all_scenarios else [scenario]
             for _p_sc in _purple_scenarios:
@@ -992,7 +1037,9 @@ def main() -> None:
                     print(f"  SKIP: {gate.get('reason', 'target-unrecoverable')}")
                     purple_results.append(
                         {
-                            "red_model": ",".join(args.chain_models),
+                            "red_model": (
+                                ",".join(args.chain_models) if args.chain_models else "captured-red"
+                            ),
                             "blue_model": ",".join(args.blue_models),
                             "scenario": _p_sc["name"],
                             "outcome": "indeterminate",
@@ -1013,6 +1060,7 @@ def main() -> None:
                         cfg,
                         dry_run=args.dry_run,
                         lab_exec=args.lab_exec,
+                        replay_captured_red=args.replay_captured_red,
                     )
                 )
                 _write_checkpoint()
