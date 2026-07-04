@@ -21,13 +21,47 @@ def _load() -> dict:
     return _cache
 
 
-def spl_for(technique_id: str) -> str | None:
-    """Return the SPL search string for a technique, or None if not covered."""
+def _invalidate_cache() -> None:
+    """Invalidate the YAML cache (for testing after edits)."""
+    global _cache
+    _cache = None
+
+
+def spl_for(technique_id: str, source: str = "") -> str | None:
+    """Return the SPL search string for a technique, or None if not covered.
+
+    Args:
+        technique_id: MITRE ATT&CK technique ID
+        source: optional telemetry source (e.g. "windows:security", "linux:auditd").
+               If provided and the technique has spl_variants, returns the variant
+               matching this source.  Falls back to the default spl field.
+    """
     data = _load()
     entry = data.get(technique_id)
-    if entry and isinstance(entry, dict):
-        return entry.get("spl", "")
-    return None
+    if not entry or not isinstance(entry, dict):
+        return None
+
+    # Try variant selection if source is specified
+    if source:
+        variants = entry.get("spl_variants", [])
+        for variant in variants:
+            if variant.get("source") == source:
+                return variant.get("spl", "")
+
+    return entry.get("spl", "")
+
+
+def spl_variants_for(technique_id: str) -> list[dict]:
+    """Return all SPL variants for a technique.
+
+    Returns list of {source, spl, expected_signal} dicts.
+    Empty list if no variants defined.
+    """
+    data = _load()
+    entry = data.get(technique_id)
+    if not entry or not isinstance(entry, dict):
+        return []
+    return entry.get("spl_variants", [])
 
 
 def techniques_covered() -> list[str]:
