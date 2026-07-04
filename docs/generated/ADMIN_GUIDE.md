@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Generated: 2026-07-04 20:31 UTC*
+*Generated: 2026-07-04 21:42 UTC*
 
 ## Architecture Overview
 
@@ -87,7 +87,7 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 - **portal_pipeline subsystem (46 files)**: 5 source(s)
 - **portal_wiki subsystem (20 files)**: 5 source(s)
 - **scripts subsystem (37 files)**: 5 source(s)
-- **tests subsystem (311 files)**: 5 source(s)
+- **tests subsystem (313 files)**: 5 source(s)
 
 ---
-*503 knowledge units referenced.*
+*533 knowledge units referenced.*

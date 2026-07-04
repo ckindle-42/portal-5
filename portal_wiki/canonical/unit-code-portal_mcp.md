@@ -5,26 +5,26 @@ title: portal_mcp subsystem (25 files)
 sources:
 - type: code
   path: portal_mcp/__init__.py
-  commit: 6cb5ccce0344
+  commit: f981d9f3dd3e
 - type: code
   path: portal_mcp/browser/__init__.py
-  commit: 6cb5ccce0344
+  commit: f981d9f3dd3e
 - type: code
   path: portal_mcp/browser/browser_mcp.py
-  commit: 6cb5ccce0344
+  commit: f981d9f3dd3e
 - type: code
   path: portal_mcp/core/__init__.py
-  commit: 6cb5ccce0344
+  commit: f981d9f3dd3e
 - type: code
   path: portal_mcp/core/workspace.py
-  commit: 6cb5ccce0344
+  commit: f981d9f3dd3e
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - portal_mcp
-created_at: 1783197104.1251771
-updated_at: 1783197104.1251771
+created_at: 1783201357.628563
+updated_at: 1783201357.628563
 ---
 
 # portal_mcp subsystem
