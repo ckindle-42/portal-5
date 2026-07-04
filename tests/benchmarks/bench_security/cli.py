@@ -1491,8 +1491,8 @@ def main() -> None:
 
     if purple_results:
         print("\n── Purple Interaction Summary ──")
-        print(f"{'Red':<24}{'Blue':<24}{'Cov':>5}{'BlueF1':>8}{'Purple':>8}")
-        print("-" * 70)
+        print(f"{'Red':<24}{'Blue':<24}{'Cov':>5}{'BlueF1':>8}{'MComp':>8} {'Verdict':<14}")
+        print("-" * 84)
         for r in purple_results:
             # indeterminate/gated-skip purple entries (the readiness-gate SKIP
             # branch added 2026-07-03) carry no scoring fields at all — same
@@ -1503,7 +1503,8 @@ def main() -> None:
             print(
                 f"{str(r.get('red_model', '?'))[:24]:<24}{str(r.get('blue_model', '?'))[:24]:<24}"
                 f"{r.get('detection_coverage', 0.0):>5.2f}"
-                f"{r.get('blue_f1', 0.0):>8.2f}{r.get('purple_composite', 0.0):>8.2f}"
+                f"{r.get('blue_f1', 0.0):>8.2f}{r.get('model_competence_score', 0.0):>8.2f}"
+                f" {r.get('capability_verdict', 'N/A'):<14}"
             )
 
     if evasion_results:

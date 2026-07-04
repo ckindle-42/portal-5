@@ -664,12 +664,14 @@ def _score_purple_on_unit(unit: RunUnit, blue_result: dict) -> dict:
     has_real = blue_result.get("has_real_telemetry", False)
     if not has_real:
         return {
-            "purple_composite": 0.0,
+            "model_competence_score": 0.0,
+            "capability_verdict": "INDETERMINATE",
             "source": "synthetic-fallback",
             "status": "indeterminate",
         }
     return {
-        "purple_composite": 0.5,  # placeholder — real scoring in blue.py
+        "model_competence_score": 0.5,  # placeholder — real scoring in blue.py
+        "capability_verdict": "INDETERMINATE",
         "source": "live",
         "status": "converged",
     }
