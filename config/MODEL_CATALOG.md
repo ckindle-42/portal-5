@@ -323,6 +323,33 @@ support tools." Not benched.
 Red EXPLOIT-slot candidate. Never pulled — gated HF repo (requires accepting terms to access files, no
 anonymous/token-based Ollama pull path available). Blocked, not evaluated.
 
+### `huihui_ai/baronllm-abliterated:latest` — DROPPED (evaluated, not adopted; supersedes the gated AlicanKiraz0 BaronLLM above)
+
+Red EXPLOIT-slot candidate — the properly-abliterated BaronLLM (Llama 3.1 8B lineage, huihui-ai
+abliteration, MIT), the working alternative to the gated original above. Preflight passed clean: non-blank,
+zero refusals, real tool-calls confirmed via direct API probe (correct `run_nmap_scan` arguments). candidate-eval
+vs `huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k` incumbent, EXPLOIT slot, 6-scenario gauntlet (1 scenario,
+meta3_full_chain, skipped as target-unrecoverable even in synthetic mode for both candidate and incumbent
+runs — pre-existing gauntlet issue, not a candidate defect): aggregate -0.083 unique_coverage, +0.000
+lab_success — WORSE, driven entirely by kerberoast_to_da (depth 4/8 vs incumbent-alone 8/8): the model
+correctly executed its assigned `exploit_service` step (tool-call clean, real arguments) but the chain
+stalled on handoff to the next step afterward. Tied on ctf_multi_service (depth 7/7 both) and beat the
+incumbent on web_ssrf (depth 2/2 vs 1/2). Net: real capability, no refusal wall, but a handoff-stability
+regression on the AD chain outweighs the wins elsewhere.
+
+### `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M` — DROPPED (blocked, never benched)
+
+Blue-defender candidate (athena129/CyberSecQwen-4B, Qwen3-4B base, Apache-2.0, ~2.5GB; card claims it beats
+Cisco Foundation-Sec-8B, the current blue incumbent). The exact `athena129` repo ships no GGUF ("planned"
+per its card) — `mradermacher/CyberSecQwen-4B-GGUF` is a community quant of the same base, pulled and
+preflighted instead. Coherent, on-topic completion (correctly discusses Kerberoasting on request, though it
+cites the wrong technique ID — T1557.004 instead of the real T1558.003). Disqualified on tool-call audit:
+a direct `/api/chat` call with `report_detection` in the tools list returns a hard 400 — the GGUF's chat
+template has no tool-calling syntax at all. The entire purple protocol (`query_windows_events`/
+`report_detection`/`recommend_containment`) is tool-call driven, so this is a structural incompatibility,
+not a detection-quality result; running the purple bench anyway would have produced a fake all-zero score.
+Not benched. The 8B-beats-4B card claim remains untested.
+
 ## Reasoning group
 
 ### `deepseek-r1:32b-q4_k_m`
