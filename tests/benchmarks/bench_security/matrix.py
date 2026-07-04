@@ -403,6 +403,7 @@ def _execute_unit(unit: RunUnit, *, lab_exec: bool, purple: bool) -> RunResult:
         lab_output = _run_against_target(unit, lab_exec=lab_exec)
 
         # 2b. Collect + ship telemetry to Splunk, then wait for it to be indexed
+        telemetry_error = ""
         if purple and unit.has_telemetry and unit.technique_ids:
             try:
                 from .siem.collect import collect_target
@@ -431,8 +432,14 @@ def _execute_unit(unit: RunUnit, *, lab_exec: bool, purple: bool) -> RunResult:
                         expect_min=1,
                         timeout_s=30,
                     )
-            except Exception:
-                pass  # telemetry collection never blocks scoring
+            except Exception as exc:
+                # Telemetry collection never blocks scoring (a real value this
+                # keeps) — but a silent `except: pass` here meant a genuine
+                # collection/shipping failure looked identical to "nothing to
+                # collect," indistinguishable from DETECTION_MISSING at the
+                # result level (flagged in coding_task/f1/DESIGN_SEC_UNIFIED_
+                # RBP_FRAMEWORK_V3.md as a verified defect). Record it instead.
+                telemetry_error = f"TELEMETRY_COLLECTION_FAILED: {exc}"
 
         # 3. Score with the named oracle
         oracle_verdict = None
@@ -489,6 +496,7 @@ def _execute_unit(unit: RunUnit, *, lab_exec: bool, purple: bool) -> RunResult:
             elapsed_s=time.monotonic() - t0,
             blue_result=blue_result,
             purple_result=purple_result,
+            error=telemetry_error,
         )
 
     except Exception as exc:

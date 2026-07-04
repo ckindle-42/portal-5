@@ -208,12 +208,22 @@ class TestIndexWait:
     def test_wait_indexed_timeout_returns_false(self):
         from tests.benchmarks.bench_security.siem.index_wait import wait_indexed
 
-        result = wait_indexed(
-            host="test-host",
-            since_epoch=0,
-            expect_min=1,
-            timeout_s=2,  # short timeout for test
-        )
+        # Must mock httpx — this previously "passed" only because .env lacked
+        # real Splunk credentials, so every request threw a connection error
+        # (caught, same as a real 0-count response). Once real credentials were
+        # restored (found live 2026-07-03), this started reaching live Splunk
+        # and returning True for any host with actual indexed data, which is
+        # correct behavior but broke this test's implicit "no network" assumption
+        # — a real mock is needed to deterministically exercise the timeout path.
+        mock_resp = MagicMock()
+        mock_resp.text = '{"result": {"count": "0"}}'
+        with patch("httpx.post", return_value=mock_resp):
+            result = wait_indexed(
+                host="test-host",
+                since_epoch=0,
+                expect_min=1,
+                timeout_s=2,  # short timeout for test
+            )
         assert result is False
 
 
