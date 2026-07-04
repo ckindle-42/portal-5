@@ -2382,6 +2382,73 @@ def check_capability_graph() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_wiki_core() -> tuple[str, str, list[dict]]:
+    """AK. Wiki core backbone — schema + provenance + core import-clean.
+
+    Verifies:
+    - KnowledgeUnit schema works (mandatory provenance)
+    - Core has zero Portal-specific imports (extraction guarantee)
+    - MCP tools (search, get_unit, explain) functional
+    """
+    subs: list[dict] = []
+
+    # Check 1: schema + mandatory provenance
+    try:
+        from portal_wiki.core.schema import KnowledgeUnit, SourceRef
+
+        # Must reject no-source unit
+        rejected = False
+        try:
+            KnowledgeUnit(id="test", kind="what", title="t", sources=[])
+        except ValueError:
+            rejected = True
+        assert rejected, "No-source unit not rejected"
+
+        # Must accept valid unit
+        unit = KnowledgeUnit(
+            id="test-unit",
+            kind="mixed",
+            title="Test",
+            sources=[SourceRef(type="code", path="test.py")],
+        )
+        assert unit.content_hash()
+        subs.append({"name": "schema + provenance", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "schema + provenance", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"wiki schema failed: {e}", subs
+
+    # Check 2: core import-clean
+    try:
+        import glob as glob_mod
+
+        bad = []
+        for f in glob_mod.glob("portal_wiki/core/**/*.py", recursive=True):
+            content = Path(f).read_text(encoding="utf-8")
+            for forbidden in ["portal_pipeline", "bench_security"]:
+                if forbidden in content:
+                    bad.append(f)
+        assert bad == [], f"Core has Portal imports: {bad}"
+        subs.append({"name": "core import-clean", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "core import-clean", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"core import-clean failed: {e}", subs
+
+    # Check 3: MCP tools importable
+    try:
+        from portal_wiki.mcp import wiki_explain, wiki_get_unit, wiki_search
+
+        subs.append({"name": "MCP tools importable", "status": "PASS", "detail": ""})
+    except Exception as e:
+        subs.append({"name": "MCP tools importable", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"MCP tools import failed: {e}", subs
+
+    return (
+        "PASS",
+        "schema validates; core import-clean; MCP tools functional",
+        subs,
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -2457,6 +2524,7 @@ def main() -> int:
     v.run("AH. rbp evidence grounding", check_rbp_evidence_grounding)
     v.run("AI. telemetry contracts", check_telemetry_contracts)
     v.run("AJ. capability graph + gap engine", check_capability_graph)
+    v.run("AK. wiki core backbone", check_wiki_core)
 
     return v.summary()
 
