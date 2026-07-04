@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Generated: 2026-07-04 19:56 UTC*
+*Generated: 2026-07-04 20:31 UTC*
 
 ## Knowledge Layer
 

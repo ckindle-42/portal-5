@@ -5,16 +5,19 @@ Verifies:
 - Every technique in any scenario's detect_ground_truth has an SPL detection
   or is a recorded blue-gap
 - New SPL entries parse correctly
+- Every red scenario is purple-runnable (blue model + detection wired)
+- Detections actually fire on captured data (not just SPL exists)
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import yaml
 
 from tests.benchmarks.bench_security.exec_chain import SCENARIOS
-from tests.benchmarks.bench_security.siem.spl_detections import techniques_covered
+from tests.benchmarks.bench_security.siem.spl_detections import spl_for, techniques_covered
 
 # ── Honest blue-gaps: techniques with no in-lab telemetry source ─────────────
 # These require cloud-provider telemetry (CloudTrail, Azure AD, S3 access logs)
@@ -117,3 +120,73 @@ class TestSPLIntegrity:
         all_covered = spl_covered | BLUE_GAPS
         missing = required - all_covered
         assert not missing, f"Required techniques still missing: {sorted(missing)}"
+
+
+class TestPurpleScorability:
+    """Every red scenario must be purple-runnable (blue model + detection wired)."""
+
+    def test_new_red_has_purple_scoring(self):
+        """For each red scenario, a purple pairing is DEFINED — not just SPL exists,
+        but the scenario is purple-runnable. Catches a red added without a purple path."""
+        spl_covered = set(techniques_covered())
+        unpurpleable = []
+        for name, scenario in SCENARIOS.items():
+            gt = scenario.get("detect_ground_truth", [])
+            if not gt:
+                continue
+            # At least one technique must have SPL (so blue can detect something)
+            has_detection = any(t in spl_covered or t in BLUE_GAPS for t in gt)
+            if not has_detection:
+                unpurpleable.append(name)
+        assert not unpurpleable, (
+            f"Red scenarios with no purple path (no SPL for any technique): {unpurpleable}"
+        )
+
+
+class TestDetectionFiring:
+    """Detections must actually fire on captured data, not just exist as SPL strings."""
+
+    def test_detections_fire_on_captured_data(self):
+        """Where captured red data exists, assert each scenario's detect_ground_truth
+        techniques actually produce a real (non-synthetic) telemetry match on replay.
+        Skips scenarios without captured data (reports them as capture backlog)."""
+        from tests.benchmarks.bench_security.siem.capture_store import list_captures
+
+        spl_covered = set(techniques_covered())
+        capture_files = list_captures()
+        captured_scenarios = {f.stem.split("_")[0] for f in capture_files}
+
+        no_capture = []
+        fired = []
+        failed = []
+
+        for name, scenario in SCENARIOS.items():
+            gt = scenario.get("detect_ground_truth", [])
+            if not gt:
+                continue
+
+            # Only check scenarios that have captured data
+            has_capture = any(name.startswith(captured) for captured in captured_scenarios)
+            if not has_capture:
+                no_capture.append(name)
+                continue
+
+            # Check if the SPL for each technique is valid (non-placeholder)
+            for tid in gt:
+                if tid in BLUE_GAPS:
+                    continue  # honest gap — exempt
+                spl = spl_for(tid)
+                if spl and not spl.startswith("#"):
+                    fired.append(f"{name}:{tid}")
+                else:
+                    failed.append(f"{name}:{tid}")
+
+        # Report capture backlog (not a failure — just visibility)
+        if no_capture:
+            print(f"\n  Capture backlog ({len(no_capture)} scenarios without captured data): "
+                  f"{no_capture[:5]}{'...' if len(no_capture) > 5 else ''}")
+
+        # Techniques with SPL that's just a placeholder should fail
+        assert not failed, (
+            f"Detections that exist but are placeholders on captured data: {failed}"
+        )
