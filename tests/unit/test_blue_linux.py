@@ -101,7 +101,7 @@ class TestSyntheticFallbackGate:
     def test_blue_synthetic_source_tagged(self):
         """Blue telemetry from non-live source is tagged as synthetic."""
         # _fetch_blue_telemetry in non-lab mode returns source=synthetic
-        telemetry = _fetch_blue_telemetry(["T1558.003"], lab_exec=False, dry_run=False)
+        telemetry = _fetch_blue_telemetry(["T1558.003"], query_live=False, dry_run=False)
         for _tid, data in telemetry.items():
             assert data["source"] in ("synthetic", "synthetic-fallback")
 
@@ -199,10 +199,96 @@ class TestADBluePathUnchanged:
 
     def test_fetch_blue_telemetry_ad_techniques(self):
         """AD technique IDs still return telemetry fixtures."""
-        telemetry = _fetch_blue_telemetry(["T1558.003", "T1003.006"], lab_exec=False, dry_run=False)
+        telemetry = _fetch_blue_telemetry(
+            ["T1558.003", "T1003.006"], query_live=False, dry_run=False
+        )
         assert "T1558.003" in telemetry
         assert "T1003.006" in telemetry
         # Each should have synthetic data
         for tid in ["T1558.003", "T1003.006"]:
             assert "telemetry" in telemetry[tid]
             assert "source" in telemetry[tid]
+
+
+class TestQueryLiveDecoupledFromLabExec:
+    """Found live 2026-07-05: _fetch_blue_telemetry's real-Splunk-query branch
+    was gated on lab_exec alone, so every --replay-captured-red run (lab_exec=
+    False, correctly — replay never re-runs live red) ALWAYS fell back to
+    synthetic fixtures even when real telemetry had just been shipped and
+    confirmed-indexed to Splunk moments earlier in the same run. query_live
+    decouples "should blue query the real backend" from "did red just run
+    live" so a replay can query genuinely-indexed data."""
+
+    def test_query_live_true_queries_splunk_backend(self, monkeypatch):
+        from tests.benchmarks.bench_security import blue as blue_mod
+
+        calls = []
+
+        class _FakeSplunk:
+            def query(self, tid, window):
+                calls.append((tid, window))
+                return {"telemetry": "EventCode=4769 TicketEncryptionType=0x17", "source": "live"}
+
+        monkeypatch.setattr(blue_mod, "_splunk_backend", _FakeSplunk())
+        monkeypatch.setattr(blue_mod, "_LAB_EXEC_AVAILABLE", True)
+
+        telemetry = _fetch_blue_telemetry(["T1558.003"], query_live=True, dry_run=False)
+        assert calls, "query_live=True must actually query the backend, not skip to synthetic"
+        assert telemetry["T1558.003"]["source"] == "live"
+
+    def test_query_live_false_never_queries_backend_even_if_lab_exec_available(self, monkeypatch):
+        from tests.benchmarks.bench_security import blue as blue_mod
+
+        calls = []
+
+        class _FakeSplunk:
+            def query(self, tid, window):
+                calls.append((tid, window))
+                return {"telemetry": "should not be reached", "source": "live"}
+
+        monkeypatch.setattr(blue_mod, "_splunk_backend", _FakeSplunk())
+        monkeypatch.setattr(blue_mod, "_LAB_EXEC_AVAILABLE", True)
+
+        telemetry = _fetch_blue_telemetry(["T1558.003"], query_live=False, dry_run=False)
+        assert not calls
+        assert telemetry["T1558.003"]["source"] == "synthetic"
+
+    def test_run_purple_tests_passes_query_live_true_on_replay(self, monkeypatch):
+        """run_purple_tests(replay_captured_red=True) must pass query_live=True
+        to _run_blue_chain_test even though lab_exec=False."""
+        from tests.benchmarks.bench_security import blue as blue_mod
+        from tests.benchmarks.bench_security._config import BenchConfig
+
+        captured_kwargs = {}
+
+        def _fake_run_blue_chain_test(model, scenario, **kwargs):
+            captured_kwargs.update(kwargs)
+            return {
+                "model": model,
+                "reported": [],
+                "containments": [],
+                "telemetry_source": {},
+                "telemetry_raw": {},
+                "synthetic_fallback": False,
+                "score": {"detected": [], "f1": 0.0},
+                "error": None,
+            }
+
+        monkeypatch.setattr(blue_mod, "_run_blue_chain_test", _fake_run_blue_chain_test)
+        monkeypatch.setattr(
+            blue_mod,
+            "load_latest_red_capture",
+            lambda name: ({"model": "red-m", "lab_success": True, "mode": "lab-exec"}, None),
+        )
+
+        scenario = {
+            "name": "kerberoast_to_da",
+            "detect_ground_truth": ["T1558.003"],
+            "persistence_technique": "",
+            "target_host": None,
+        }
+        cfg = BenchConfig()
+        blue_mod.run_purple_tests(
+            ["red-m"], ["blue-m"], scenario, cfg, lab_exec=False, replay_captured_red=True
+        )
+        assert captured_kwargs.get("query_live") is True
