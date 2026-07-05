@@ -862,15 +862,41 @@ def _run_blue_chain_test(
     error = None
 
     messages: list[dict] = [{"role": "user", "content": BLUE_INITIAL_PROMPT}]
+    _use_pipeline = "/" not in model and ":" not in model
+    _headers: dict[str, str] = {"Content-Type": "application/json"}
+    if PIPELINE_API_KEY:
+        _headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
     try:
         for _step in range(len(ground_truth) * 2 + 3):
-            resp = httpx.post(
-                f"{OLLAMA_URL}/api/chat",
-                json={"model": model, "messages": messages, "tools": BLUE_TOOLS, "stream": False},
-                timeout=120.0,
-            )
+            if _use_pipeline:
+                resp = httpx.post(
+                    f"{PIPELINE_URL}/v1/chat/completions",
+                    headers=_headers,
+                    json={
+                        "model": model,
+                        "messages": messages,
+                        "tools": BLUE_TOOLS,
+                        "stream": False,
+                    },
+                    timeout=120.0,
+                )
+            else:
+                resp = httpx.post(
+                    f"{OLLAMA_URL}/api/chat",
+                    json={
+                        "model": model,
+                        "messages": messages,
+                        "tools": BLUE_TOOLS,
+                        "stream": False,
+                    },
+                    timeout=120.0,
+                )
             resp.raise_for_status()
-            msg = resp.json().get("message", {})
+            _resp_json = resp.json()
+            if _use_pipeline:
+                msg = _resp_json.get("choices", [{}])[0].get("message", {})
+            else:
+                msg = _resp_json.get("message", {})
             messages.append(msg)
             tcs = msg.get("tool_calls") or []
             if not tcs:
