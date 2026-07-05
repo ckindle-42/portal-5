@@ -15,8 +15,8 @@ tags:
 - T1552.005
 - technique
 - signature
-created_at: 1783201357.6878772
-updated_at: 1783201357.6878772
+created_at: 1783280601.54369
+updated_at: 1783280601.54369
 ---
 
 # T1552.005 — Cloud-metadata SSRF — 169.254.169.254 access signal

@@ -88,3 +88,6 @@ portal_wiki/provenance_ledger.jsonl
 # Compliance/framework posture reports (bench_security/compliance_report.py) —
 # ephemeral, per-run, rendered fresh from grounded results; not source.
 /reports/
+
+# Runtime supervisor state — regenerates every run, not source.
+/supervisor_log.json
