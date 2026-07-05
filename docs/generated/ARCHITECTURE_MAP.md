@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Generated: 2026-07-05 19:43 UTC*
+*Generated: 2026-07-05 22:16 UTC*
 
 ## Knowledge Layer
 
@@ -439,6 +439,7 @@
 | `unit-SECURITY_FLEET_REVIEW_2026-06-remove` | why | 1 |
 | `unit-SECURITY_FLEET_REVIEW_2026-06-security-fleet-review-june-2026` | why | 1 |
 | `unit-SEC_BENCH-e2e-run-status-2026-07-05` | mixed | 4 |
+| `unit-SEC_BENCH-multiseat-v2-results-2026-07-05` | mixed | 4 |
 | `unit-T1003.001-signature` | mixed | 3 |
 | `unit-T1003.003-signature` | mixed | 3 |
 | `unit-T1003.006-signature` | mixed | 3 |
@@ -543,13 +544,13 @@
 | `unit-code-scripts` | what | 5 |
 | `unit-code-tests` | what | 5 |
 
-**Total:** 534 units
+**Total:** 535 units
 
 ## Source Distribution
 
-- **code**: 35 references
+- **code**: 38 references
 - **design**: 497 references
-- **doc**: 2 references
+- **doc**: 3 references
 - **mitre**: 30 references
 - **scenario**: 52 references
 - **spl**: 30 references
