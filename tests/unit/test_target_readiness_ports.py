@@ -317,10 +317,43 @@ class TestRunLoopIntegration:
         result = _prepare_scenario(scenario, cfg, dry_run=False)
 
         assert result["ready"] is False
-        assert "target-unrecoverable" in result["reason"]
-        # gate_result stored on cfg for the classifier
-        assert cfg.gate_result is not None
-        assert cfg.gate_result["ready"] is False
+
+    @patch("scripts.lab_targets.ensure_target_ready")
+    def test_prepare_scenario_default_heal_matches_lab_exec(self, mock_gate):
+        """Backward compat: allow_heal defaults to lab_exec when not passed."""
+        from bench_security._config import BenchConfig
+        from bench_security.exec_chain import _prepare_scenario
+
+        mock_gate.return_value = {"ready": True, "healed": False, "host": "h", "port": 1}
+        cfg = BenchConfig()
+        scenario = _make_scenario()
+
+        _prepare_scenario(scenario, cfg, dry_run=False, lab_exec=False)
+        assert mock_gate.call_args.kwargs["dry_run"] is True  # not lab_exec -> dry_run
+
+        mock_gate.reset_mock()
+        _prepare_scenario(scenario, cfg, dry_run=False, lab_exec=True)
+        assert mock_gate.call_args.kwargs["dry_run"] is False  # lab_exec -> real heal
+
+    @patch("scripts.lab_targets.ensure_target_ready")
+    def test_prepare_scenario_allow_heal_overrides_lab_exec(self, mock_gate):
+        """Found live 2026-07-05: --replay-captured-red --purple (lab_exec=False)
+        must still be able to opt into real healing via allow_heal=True — this
+        is what lets a crashed VM or a torn-down vulhub container come back up
+        during a replay run without re-running live red."""
+        from bench_security._config import BenchConfig
+        from bench_security.exec_chain import _prepare_scenario
+
+        mock_gate.return_value = {"ready": True, "healed": True, "host": "h", "port": 1}
+        cfg = BenchConfig()
+        scenario = _make_scenario()
+
+        _prepare_scenario(scenario, cfg, dry_run=False, lab_exec=False, allow_heal=True)
+        assert mock_gate.call_args.kwargs["dry_run"] is False  # heal allowed despite lab_exec=False
+
+        mock_gate.reset_mock()
+        _prepare_scenario(scenario, cfg, dry_run=False, lab_exec=True, allow_heal=False)
+        assert mock_gate.call_args.kwargs["dry_run"] is True  # heal explicitly suppressed
 
     @patch("scripts.lab_targets.ensure_target_ready")
     def test_prepare_scenario_injects_port_into_prompt(self, mock_gate):

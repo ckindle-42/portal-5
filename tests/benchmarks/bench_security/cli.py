@@ -1032,7 +1032,18 @@ def main() -> None:
                 # substitution either. Every vulhub/web scenario attacked a literal
                 # unresolved template string. Reuse the exact same gate as the
                 # red-only path (_any_chain) instead of a second implementation.
-                gate = _prepare_scenario(_p_sc, cfg, dry_run=args.dry_run, lab_exec=args.lab_exec)
+                gate = _prepare_scenario(
+                    _p_sc,
+                    cfg,
+                    dry_run=args.dry_run,
+                    lab_exec=args.lab_exec,
+                    # --replay-captured-red never re-runs live red, but the
+                    # gate should still be allowed to actually bring a target
+                    # back up (or restart a crashed VM) rather than passively
+                    # reporting target-unrecoverable — see _prepare_scenario's
+                    # allow_heal docstring (found live 2026-07-05).
+                    allow_heal=args.lab_exec or args.replay_captured_red,
+                )
                 if not gate.get("ready"):
                     print(f"  SKIP: {gate.get('reason', 'target-unrecoverable')}")
                     purple_results.append(
