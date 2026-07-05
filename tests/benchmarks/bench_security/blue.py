@@ -27,6 +27,7 @@ from ._data import (
     _LAB_META3,
     _LAB_SRV,
     MITRE_PATTERN,
+    PIPELINE_API_KEY,
     PIPELINE_URL,
     PROMPTS,
     REQUEST_TIMEOUT,
@@ -413,7 +414,9 @@ def _run_blue_defender(
             "steps_in_chain": [s["step"] for s in seq],
         }
 
-    ollama_url = PIPELINE_URL.replace(":9099", ":11434")
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if PIPELINE_API_KEY:
+        headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
     parts: list[str] = []
     t0 = time.monotonic()
 
@@ -421,7 +424,8 @@ def _run_blue_defender(
         with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as client:
             with client.stream(
                 "POST",
-                f"{ollama_url}/v1/chat/completions",
+                f"{PIPELINE_URL}/v1/chat/completions",
+                headers=headers,
                 json={
                     "model": blue_model,
                     "messages": [{"role": "user", "content": defender_prompt}],
@@ -553,11 +557,15 @@ def _run_blue_turn(
     }
     if include_blue_tools:
         request_json["tools"] = _BLUE_ACTIVE_TOOLS
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if PIPELINE_API_KEY:
+        headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
     try:
         with httpx.Client(timeout=httpx.Timeout(120.0, connect=5.0)) as client:
             with client.stream(
                 "POST",
-                f"{ollama_url}/v1/chat/completions",
+                f"{PIPELINE_URL}/v1/chat/completions",
+                headers=headers,
                 json=request_json,
             ) as resp:
                 resp.raise_for_status()
