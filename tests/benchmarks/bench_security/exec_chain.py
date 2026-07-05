@@ -3111,19 +3111,36 @@ def _run_chain_test(
     per_turn_timeout = cfg.step_timeout_s if cfg.judgment_mode else 120.0
 
     try:
+        _is_pipeline_mode = _is_workspace_slug(model)
+        _headers: dict[str, str] = {"Content-Type": "application/json"}
+        if PIPELINE_API_KEY:
+            _headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
         for _step in range(len(cfg.chain_expected_order) * 2):
             try:
-                resp = httpx.post(
-                    f"{cfg.ollama_url}/api/chat",
-                    json={
-                        "model": model,
-                        "messages": messages,
-                        "tools": cfg.chain_tools,
-                        "stream": False,
-                        "options": {"num_ctx": cfg.chain_num_ctx},
-                    },
-                    timeout=per_turn_timeout,
-                )
+                if _is_pipeline_mode:
+                    resp = httpx.post(
+                        f"{PIPELINE_URL}/v1/chat/completions",
+                        headers=_headers,
+                        json={
+                            "model": model,
+                            "messages": messages,
+                            "tools": cfg.chain_tools,
+                            "stream": False,
+                        },
+                        timeout=per_turn_timeout,
+                    )
+                else:
+                    resp = httpx.post(
+                        f"{cfg.ollama_url}/api/chat",
+                        json={
+                            "model": model,
+                            "messages": messages,
+                            "tools": cfg.chain_tools,
+                            "stream": False,
+                            "options": {"num_ctx": cfg.chain_num_ctx},
+                        },
+                        timeout=per_turn_timeout,
+                    )
                 resp.raise_for_status()
             except httpx.TimeoutException:
                 timeout_steps.append(_step)
@@ -3141,7 +3158,11 @@ def _run_chain_test(
                     break
                 continue
 
-            msg = resp.json().get("message", {})
+            _resp_json = resp.json()
+            if _is_pipeline_mode:
+                msg = _resp_json.get("choices", [{}])[0].get("message", {})
+            else:
+                msg = _resp_json.get("message", {})
             messages.append(msg)
 
             tool_calls = msg.get("tool_calls") or []
@@ -3361,19 +3382,36 @@ def _run_multimodel_chain(
     model_usage: dict[str, int] = {}
 
     try:
+        _headers: dict[str, str] = {"Content-Type": "application/json"}
+        if PIPELINE_API_KEY:
+            _headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
         for _step in range(len(cfg.chain_expected_order) * 2):
+            _use_pipeline = _is_workspace_slug(current_model)
             try:
-                resp = httpx.post(
-                    f"{cfg.ollama_url}/api/chat",
-                    json={
-                        "model": current_model,
-                        "messages": messages,
-                        "tools": cfg.chain_tools,
-                        "stream": False,
-                        "options": {"num_ctx": cfg.chain_num_ctx},
-                    },
-                    timeout=120.0,
-                )
+                if _use_pipeline:
+                    resp = httpx.post(
+                        f"{PIPELINE_URL}/v1/chat/completions",
+                        headers=_headers,
+                        json={
+                            "model": current_model,
+                            "messages": messages,
+                            "tools": cfg.chain_tools,
+                            "stream": False,
+                        },
+                        timeout=120.0,
+                    )
+                else:
+                    resp = httpx.post(
+                        f"{cfg.ollama_url}/api/chat",
+                        json={
+                            "model": current_model,
+                            "messages": messages,
+                            "tools": cfg.chain_tools,
+                            "stream": False,
+                            "options": {"num_ctx": cfg.chain_num_ctx},
+                        },
+                        timeout=120.0,
+                    )
                 resp.raise_for_status()
             except httpx.TimeoutException:
                 messages.append(
@@ -3388,7 +3426,11 @@ def _run_multimodel_chain(
                     break
                 continue
 
-            msg = resp.json().get("message", {})
+            _resp_json = resp.json()
+            if _use_pipeline:
+                msg = _resp_json.get("choices", [{}])[0].get("message", {})
+            else:
+                msg = _resp_json.get("message", {})
             messages.append(msg)
             tool_calls = msg.get("tool_calls") or []
 
