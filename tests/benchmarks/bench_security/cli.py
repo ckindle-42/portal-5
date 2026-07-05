@@ -603,6 +603,33 @@ def main() -> None:
                 if sr < 0.5:
                     _retry_failed_prompts.add(r.get("prompt_key", ""))
         _retry_failed_prompts.discard("")
+        # Find failed purple tests — red never landed (target was down, dispatch
+        # stub, etc.).  The E2E results store data in purple_tests, not
+        # chain_tests, so --retry-failed must check here too or it silently
+        # finds "no failures" and exits.  red_landed=False means no real
+        # execution happened — the scenario needs a live re-run.  Scenarios
+        # where red landed but blue_f1=0 are valid data (model capability
+        # floor), not infrastructure failures.
+        #
+        # Exclude scenarios that were explicitly gated as target-unrecoverable
+        # (no amount of retrying will help — the target doesn't exist) and
+        # web_* placeholders that reference non-existent endpoints.
+        _gated_scenarios: set[str] = set()
+        for pt in _retry_data.get("purple_tests", []):
+            if pt.get("gate_reason") == "target-unrecoverable":
+                _gated_scenarios.add(pt.get("scenario", ""))
+        for pt in _retry_data.get("purple_tests", []):
+            name = pt.get("scenario", "")
+            if not name:
+                continue
+            # Skip unrecoverable targets — retrying won't help
+            if name in _gated_scenarios:
+                continue
+            # Skip web_* placeholders — no real vulnerable app deployed
+            if name.startswith("web_"):
+                continue
+            if not pt.get("red_landed", False):
+                _retry_failed_scenarios.add(name)
 
     if args.retry_scenarios:
         forced = set(args.retry_scenarios) - _retry_failed_scenarios
@@ -1024,6 +1051,11 @@ def main() -> None:
             )
         else:
             _purple_scenarios = list(SCENARIOS.values()) if args.all_scenarios else [scenario]
+            if _retry_failed_scenarios:
+                _purple_scenarios = [
+                    sc for sc in _purple_scenarios if sc["name"] in _retry_failed_scenarios
+                ]
+                print(f"  Retry: purple filtered to {len(_purple_scenarios)} scenario(s)")
             for _p_sc in _purple_scenarios:
                 # Purple never ran the target-readiness gate at all (found live
                 # 2026-07-03, same day as the "1/70 scenarios" fix above): no
