@@ -1358,6 +1358,35 @@ def run_purple_tests(
                 f"  WARNING: --replay-captured-red but no saved red evidence for "
                 f"{scenario['name']} — no captured attack to replay"
             )
+            # Honest-BLOCKED, not a crash: previously this fell through to the
+            # scoring loop below with an empty red_cache, and `red_cache[rm]`
+            # (rm still the caller's --chain-models value, never reassigned)
+            # raised an unhandled KeyError — aborting the ENTIRE --all-scenarios
+            # run on the first scenario with no captured evidence (found live
+            # 2026-07-05: a target permanently unrecoverable in the lab, e.g.
+            # a vulhub CVE stack that was never deployable, means this
+            # scenario NEVER gets evidence no matter how many times replay
+            # runs — that must not take down every other scenario's results).
+            # Return one honest UNAVAILABLE record per requested blue model
+            # instead — capability_verdict UNAVAILABLE is the correct truth-
+            # plane value for "nothing to evaluate," never fabricated as
+            # PROVEN/FAILED.
+            return [
+                {
+                    "scenario": scenario["name"],
+                    "red_model": "captured-red",
+                    "blue_model": bm,
+                    "capability_verdict": "UNAVAILABLE",
+                    "match_grade": "NONE",
+                    "matched_technique": "",
+                    "anomaly_flagged": False,
+                    "anomaly_score": 0.0,
+                    "anomaly_status": "no-baseline",
+                    "investigation": None,
+                    "telemetry_collection_error": "NO_CAPTURED_RED_EVIDENCE",
+                }
+                for bm in blue_models
+            ]
         else:
             rm = cached_red.get("model", "captured-red")
             red_cache[rm] = cached_red
