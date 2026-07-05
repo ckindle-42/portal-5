@@ -76,12 +76,13 @@ already obtained by this point in the chain). This explains `T1053.005` (schedul
 Full test suite green (1721 passed) after this fix; committed to HEAD (see commit list above — check
 `git log` for the exact hash, this note predates the commit).
 
-**Still worth checking on resume:** `lateral_move` in the same function only dispatches a real `nxc smb`
-command when `fn_args.get("credential")` is non-empty; if the red model doesn't supply/extract a credential
-(from `extract_chain_artifacts`'s NTLM/Kerberos-hash regex matching), it silently falls to a synthetic
-`echo`. This may be legitimately honest (no real credential material *to* move laterally with), or may need
-the same "always take the best available real action" treatment as `establish_persistence` — not yet
-determined, flagged for the next session to assess against real run data.
+### 1b. `lateral_move` credential-gating — FIXED
+
+Same class of bug as `establish_persistence`: `lateral_move` gated its real `nxc smb ... --shares` command
+behind `fn_args.get("credential")` being non-empty — if the red model didn't supply/extract a credential,
+it silently fell to a synthetic `echo`. **Fixed** (same commit session): always uses the known admin
+credential unconditionally, matching `establish_persistence` and `exfiltrate_data`'s pattern. The model's
+`credential` argument is ignored for dispatch purposes (recorded for observability only).
 
 ### 2. Per-scenario missing/never-provisioned static targets (separate from #1)
 
@@ -97,9 +98,7 @@ This needs per-scenario triage, not a single structural fix.
 
 ## What's needed to resume this work
 
-1. Assess `lateral_move`'s credential-gating (see above) against real run data — decide if it needs the same
-   "always take the real action" fix as `establish_persistence`, or if the synthetic fallback there is
-   legitimately honest.
+1. ~~Assess `lateral_move`'s credential-gating~~ — DONE, fixed same session as `establish_persistence`.
 2. Triage #2 scenario-by-scenario: for each `web_*`/`vuln_env: None` scenario with empty telemetry, confirm
    whether the target actually exists/responds; if not, provision it (same root-cause-and-fix discipline as
    the weblogic/nacos/wordpress fixes — do not accept "unreachable" without investigating). Start with
