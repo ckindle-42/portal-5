@@ -2554,7 +2554,7 @@ def _run_model_turn(
                     "messages": msgs,
                     "stream": True,
                     "max_tokens": PROMPT_MAX_TOKENS,
-                    "tools": INLINE_TOOLS,
+                    "tools": CHAIN_TOOLS_BASE,
                 },
             ) as _resp,
         ):
@@ -2604,7 +2604,7 @@ def _run_model_turn(
                             "messages": msgs,
                             "stream": False,
                             "max_tokens": _fallback_max_tokens,
-                            "tools": INLINE_TOOLS,
+                            "tools": CHAIN_TOOLS_BASE,
                         },
                     )
                     _nr.raise_for_status()
