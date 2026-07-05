@@ -1,35 +1,35 @@
 ---
 id: unit-code-portal_wiki
 kind: what
-title: portal_wiki subsystem (20 files)
+title: portal_wiki subsystem (21 files)
 sources:
 - type: code
   path: portal_wiki/__init__.py
-  commit: f981d9f3dd3e
+  commit: dbe2d25b7514
 - type: code
   path: portal_wiki/__main__.py
-  commit: f981d9f3dd3e
+  commit: dbe2d25b7514
 - type: code
   path: portal_wiki/adapters/__init__.py
-  commit: f981d9f3dd3e
+  commit: dbe2d25b7514
 - type: code
   path: portal_wiki/adapters/git_source.py
-  commit: f981d9f3dd3e
+  commit: dbe2d25b7514
 - type: code
   path: portal_wiki/adapters/portal_inference.py
-  commit: f981d9f3dd3e
+  commit: dbe2d25b7514
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - portal_wiki
-created_at: 1783201357.629499
-updated_at: 1783201357.629499
+created_at: 1783280601.473526
+updated_at: 1783280601.473526
 ---
 
 # portal_wiki subsystem
 
-**Files:** 20
+**Files:** 21
 
 - `portal_wiki/__init__.py`
 - `portal_wiki/__main__.py`
@@ -45,9 +45,10 @@ updated_at: 1783201357.629499
 - `portal_wiki/core/__init__.py`
 - `portal_wiki/core/interfaces.py`
 - `portal_wiki/core/maintain.py`
+- `portal_wiki/core/provenance_ledger.py`
 - `portal_wiki/core/render.py`
 - `portal_wiki/core/schema.py`
 - `portal_wiki/core/store.py`
 - `portal_wiki/core/writeback.py`
 - `portal_wiki/mcp.py`
-- `portal_wiki/wiki_mcp.py`
+- ... and 1 more

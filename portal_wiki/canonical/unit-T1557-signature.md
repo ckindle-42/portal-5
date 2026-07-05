@@ -13,8 +13,8 @@ tags:
 - T1557
 - technique
 - signature
-created_at: 1783201357.6919749
-updated_at: 1783201357.6919749
+created_at: 1783280601.5485141
+updated_at: 1783280601.5485141
 ---
 
 # T1557 — Adversary-in-the-middle — NTLM relay and LLMNR/NBT-NS poisoning

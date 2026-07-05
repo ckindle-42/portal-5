@@ -15,8 +15,8 @@ tags:
 - T1210
 - technique
 - signature
-created_at: 1783201357.6896179
-updated_at: 1783201357.6896179
+created_at: 1783280601.5456572
+updated_at: 1783280601.5456572
 ---
 
 # T1210 — SMB/service exploitation — lateral movement via SMB
