@@ -651,7 +651,7 @@ def _run_blue_turn(
 
 
 def _fetch_blue_telemetry(
-    technique_ids: list[str], lab_exec: bool, dry_run: bool, window: dict | None = None
+    technique_ids: list[str], query_live: bool, dry_run: bool, window: dict | None = None
 ) -> dict:
     """Return {technique_id: telemetry_text} for the scenario's techniques.
 
@@ -688,16 +688,25 @@ def _fetch_blue_telemetry(
     for a technique falls back to that technique's synthetic sample so a blue run
     is never starved by a stale (pre-audit-policy) snapshot — but the result is
     tagged source=synthetic-fallback so purple scoring can flag it.
+
+    `query_live` (renamed from `lab_exec` 2026-07-05): whether blue should
+    actually query the real backend (Splunk / live WinRM) at all, as opposed
+    to going straight to synthetic fixtures. This is NOT the same question as
+    "did red just run live" — a --replay-captured-red run never re-runs red,
+    but replay_capture()/collect_and_ship_scenario_telemetry() may have JUST
+    shipped and confirmed-indexed real telemetry to Splunk moments earlier in
+    the same run, so blue querying it is exactly the right thing to do. The
+    caller (run_purple_tests) passes query_live=lab_exec or replay_captured_red.
     """
     out: dict[str, dict] = {}
     for tid in technique_ids:
         fx = _TELEMETRY_FIXTURES.get(tid)
         if not fx:
-            if lab_exec and _LAB_EXEC_AVAILABLE and not dry_run:
+            if query_live and _LAB_EXEC_AVAILABLE and not dry_run:
                 r = _splunk_backend.query(tid, window or {})
                 out[tid] = {"telemetry": r.get("telemetry", ""), "source": r.get("source", "")}
             continue
-        if lab_exec and _LAB_EXEC_AVAILABLE and not dry_run:
+        if query_live and _LAB_EXEC_AVAILABLE and not dry_run:
             splunk_r = _splunk_backend.query(tid, window or {})
             if splunk_r.get("telemetry"):
                 out[tid] = {"telemetry": splunk_r["telemetry"], "source": splunk_r["source"]}
@@ -810,6 +819,7 @@ def _run_blue_chain_test(
     dry_run: bool = False,
     lab_exec: bool = False,
     scenario_start: float | None = None,
+    query_live: bool | None = None,
 ) -> dict:
     """Drive a blue-team model to detect the techniques a red scenario executed.
 
@@ -817,8 +827,20 @@ def _run_blue_chain_test(
     the Splunk query window to this scenario's own run — pass it through so
     non-AD techniques (routed to SplunkBackend) search from the right time
     instead of Splunk's default lookback.
+
+    `query_live` decouples "did red just run live" (lab_exec) from "should blue
+    query the real backend (Splunk) for telemetry." Defaults to lab_exec for
+    backward compatibility. Found live 2026-07-05 (same class of bug as
+    _prepare_scenario's allow_heal): _fetch_blue_telemetry's real-Splunk-query
+    branch was gated on lab_exec alone, so every --replay-captured-red run
+    (lab_exec=False, correctly — replay must never re-run live red) ALWAYS fell
+    back to synthetic fixture telemetry, even on scenarios where
+    replay_capture()/collect_and_ship_scenario_telemetry() had already shipped
+    and confirmed-indexed real data to Splunk moments earlier in the same run.
+    A genuinely-indexed replay should be allowed to query it.
     """
-    mode = "lab-exec" if (lab_exec and _LAB_EXEC_AVAILABLE) else "synthetic"
+    effective_query_live = lab_exec if query_live is None else query_live
+    mode = "lab-exec" if (effective_query_live and _LAB_EXEC_AVAILABLE) else "synthetic"
     print(f"  blue-chain [{mode}]  {model} ...", end="", flush=True)
     if dry_run:
         print(" DRY-RUN")
@@ -826,7 +848,7 @@ def _run_blue_chain_test(
 
     ground_truth = scenario["detect_ground_truth"]
     window = {"earliest": str(int(scenario_start)), "latest": "now"} if scenario_start else None
-    telemetry = _fetch_blue_telemetry(ground_truth, lab_exec, dry_run, window=window)
+    telemetry = _fetch_blue_telemetry(ground_truth, effective_query_live, dry_run, window=window)
     reported: list[dict] = []
     containments: list[dict] = []
     error = None
@@ -1448,7 +1470,16 @@ def run_purple_tests(
 
     for bm in blue_models:
         blue = _run_blue_chain_test(
-            bm, scenario, dry_run=dry_run, lab_exec=lab_exec, scenario_start=scenario_start
+            bm,
+            scenario,
+            dry_run=dry_run,
+            lab_exec=lab_exec,
+            scenario_start=scenario_start,
+            # A replay never re-runs red, but real telemetry may have just been
+            # shipped+indexed to Splunk (replay_capture, above) — let blue
+            # actually query it rather than always falling back to synthetic
+            # fixtures (found live 2026-07-05; see _fetch_blue_telemetry).
+            query_live=lab_exec or replay_captured_red,
         )
         for rm in red_models:
             if dry_run:
