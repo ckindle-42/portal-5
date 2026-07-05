@@ -18,8 +18,8 @@ tags:
 - T1558.003
 - technique
 - signature
-created_at: 1783280601.543989
-updated_at: 1783280601.543989
+created_at: 1783289794.011696
+updated_at: 1783289794.011696
 ---
 
 # T1558.003 — Kerberoasting — Windows Security Event 4769 with RC4 encryption
