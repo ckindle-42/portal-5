@@ -99,7 +99,12 @@ This needs per-scenario triage, not a single structural fix.
 ## What's needed to resume this work
 
 1. ~~Assess `lateral_move`'s credential-gating~~ — DONE, fixed same session as `establish_persistence`.
-2. Triage #2 scenario-by-scenario: for each `web_*`/`vuln_env: None` scenario with empty telemetry, confirm
+2. ~~Triage #2 scenario-by-scenario~~ — DONE (2026-07-05 session). Root causes:
+   - **Meta3 (VMID 113) was stopped** — started it; all 18 meta3_* targets now reachable (port 80/445/21 open).
+   - **Vulhub containers crashed/stopped** — struts2 (port conflict), weblogic (port conflict), nacos, confluence were down. Restarted with port-remap overrides. 43 containers running on LXC 112.
+   - **Sandbox network verified** — sandbox (172.18.0.0/16) can reach all lab targets (10.10.11.0/24) via Docker bridge gateway. Earlier failures were from stopped containers, not network routing.
+   - **`web_*` placeholder scenarios** — these have `vulhub_env: None` and reference non-existent endpoints (e.g. `vuln.aspx`). They are synthetic placeholders, not real targets. Will not produce meaningful results without provisioning real vulnerable apps.
+3. Re-run `--all-scenarios` with live red execution (not replay) against the now-live targets. The existing captures contain failed actions from when targets were down — replaying them reproduces failures. Fresh red execution needed.
    whether the target actually exists/responds; if not, provision it (same root-cause-and-fix discipline as
    the weblogic/nacos/wordpress fixes — do not accept "unreachable" without investigating). Start with
    `web_sqli_dump` (confirmed missing target, see above).
