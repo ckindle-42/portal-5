@@ -9,6 +9,7 @@ regexes = [
   '''PIPELINE_API_KEY=mykey''',         # usage example in smoke_stream.sh
   '''CHANGEME''',                       # .env.example placeholder
   '''tomcat:tomcat''',                  # vulhub's own documented default Tomcat Manager weak creds (lab target, not a secret)
+  '''admin:admin''',                    # Jenkins' own documented default weak creds (lab target red-prompt example, not a secret)
 ]
 paths = [
   '''\.env\.example$''',
