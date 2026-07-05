@@ -16,7 +16,7 @@ updated_at: 1783195000.877404
 ---
 
 
-1. **Post-brew-upgrade script**: Add a script to `/scripts/` that copies missing mlx Python bindings after Homebrew upgrades.
+1. **Post-brew-upgrade script**: Add a script to `/scripts/` that copies missing mlx Python bindings after Homebrew upgrades. — *Verified 2026-07-05: `mlx.core` imports fine at 0.31.2; this is a preventive measure for future brew upgrades, not a current problem.*
 2. **Spec-decoding re-enable**: Monitor mlx_lm releases; re-enable `draft_models` when ArraysCache fix lands.
-3. **Streaming reasoning→content**: The new code at `router_pipe.py:3127` is a hotfix. Clean up when mlx_lm server is fixed upstream.
+3. ~~**Streaming reasoning→content**~~: The code at `router_pipe.py:3127` was refactored into `router/thinking.py` (non-streaming) and `router/streaming.py` (streaming SSE pass-through). Both are clean, well-structured modules — no longer a hotfix. *(Resolved by M6 decomposition.)*
 4. ~~**Thread stream crash**~~: Fixed via `scripts/patch-mlx-threads.py` (Issue #1 above).

