@@ -215,13 +215,15 @@ def collect_target(
     since_epoch: float,
     dry_run: bool = False,
     target_port: int | None = None,
+    lxc_id: str | None = None,
 ) -> dict:
     """Return {sourcetype: [lines]} scraped from the target/compose host since scenario start.
 
     kind: 'web' (vulhub/containers) | 'linux' (hosts) | 'windows' (AD).
     For ephemeral containers we read the compose host's captured logs (container may be gone).
-    target_port: if set, collect only from the container serving this port (avoids
-    mixing logs from unrelated containers on the same host).
+    target_port: if set, collect only from the container serving this port.
+    lxc_id: Proxmox LXC ID to collect from (default: vulhub LXC 112).
+        Set to '300' for MBPTL targets.
     """
     out: dict[str, list[str]] = {}
     if dry_run:
@@ -230,11 +232,17 @@ def collect_target(
     if kind in ("web", "container", "linux"):
         import base64
 
-        from scripts.lab_host import _host_exec
+        from scripts.lab_host import _host_exec_lxc
+
+        # Use the correct LXC for collection (default: vulhub 112, MBPTL: 300)
+        _target_lxc = lxc_id or "112"
+
+        def _exec_fn(cmd: str, timeout: int = 30) -> dict:
+            return _host_exec_lxc(cmd, lxc_id=_target_lxc, timeout=timeout)
 
         def _host_exec_script(script: str, timeout: int) -> dict:
             b64 = base64.b64encode(script.encode()).decode()
-            return _host_exec(f'sh -c "echo {b64} | base64 -d | sh"', timeout=timeout)
+            return _exec_fn(f'sh -c "echo {b64} | base64 -d | sh"', timeout=timeout)
 
         since = int(since_epoch)
         if kind in ("web", "container"):

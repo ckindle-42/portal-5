@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 import re
 import time
@@ -1430,15 +1431,33 @@ def collect_and_ship_scenario_telemetry(
     capture_path: str | None = None
     indexed_confirmed: bool | None = None
     telemetry_error: str = ""
-    if not (target_host and lab_exec and not dry_run):
+    if not (lab_exec and not dry_run):
         return capture_path, indexed_confirmed, telemetry_error
 
-    if target_host == _LAB_META3:
-        kind = "meta3"
-    elif target_host in (_LAB_DC, _LAB_SRV):
-        kind = "windows"
+    # Multi-target scenarios: collect from ALL relevant hosts.
+    # AD scenarios hit DC + workstation + file server — we need telemetry from each.
+    _mbptl_host = os.environ.get("LAB_MBPTL_HOST", "10.0.1.140")
+    target_hosts: list[tuple[str, str]] = []  # (host, kind)
+    if target_host:
+        if target_host == _LAB_META3:
+            target_hosts.append((target_host, "meta3"))
+        elif target_host in (_LAB_DC, _LAB_SRV):
+            target_hosts.append((target_host, "windows"))
+        elif target_host == _mbptl_host or target_host.startswith("10.0.1."):
+            target_hosts.append((target_host, "web"))
+        else:
+            target_hosts.append((target_host, "web"))
     else:
-        kind = "web"
+        # Multi-target (relay_to_shell, ad_full_compromise, etc.):
+        # collect from DC + SRV (windows events) and vulhub (web containers)
+        if _LAB_DC:
+            target_hosts.append((_LAB_DC, "windows"))
+        if _LAB_SRV:
+            target_hosts.append((_LAB_SRV, "windows"))
+        target_hosts.append(("10.10.11.50", "web"))
+
+    if not target_hosts:
+        return capture_path, indexed_confirmed, telemetry_error
 
     try:
         from .siem.capture_store import save_capture
@@ -1446,30 +1465,46 @@ def collect_and_ship_scenario_telemetry(
         from .siem.hec_ship import ship_batch
         from .siem.index_wait import wait_indexed
 
-        tele = collect_target(
-            target_host,
-            kind,
-            since_epoch=scenario_start,
-            dry_run=dry_run,
-            target_port=int(scenario.get("gate_port", 0) or 0) or None,
-        )
-        # Persist the raw capture to disk BEFORE shipping — this is what makes it
-        # replayable later (re-shipped with a fresh timestamp, no red re-run needed)
-        # even after Splunk's own retention has rotated the live copy out.
+        # Collect from ALL targets and merge telemetry
+        merged_tele: dict[str, list[str]] = {}
+        _mbptl_host = os.environ.get("LAB_MBPTL_HOST", "10.0.1.140")
+        for host, kind in target_hosts:
+            try:
+                # Determine which LXC to collect from based on target host
+                _lxc = None
+                if host == _mbptl_host or host.startswith("10.0.1."):
+                    _lxc = os.environ.get("LAB_MBPTL_LXC_VMID", "300")
+                tele = collect_target(
+                    host,
+                    kind,
+                    since_epoch=scenario_start,
+                    dry_run=dry_run,
+                    lxc_id=_lxc,
+                )
+                for st, lines in tele.items():
+                    merged_tele.setdefault(st, []).extend(lines)
+            except Exception as _host_exc:
+                logging.debug("collection from %s (%s) failed: %s", host, kind, _host_exc)
+
+        if not merged_tele:
+            return capture_path, indexed_confirmed, "no telemetry from any target"
+
+        primary_host = target_host or (_LAB_DC or target_hosts[0][0])
+        primary_kind = target_hosts[0][1]
         capture_path = save_capture(
             scenario=scenario["name"],
-            target_host=target_host,
-            kind=kind,
+            target_host=primary_host,
+            kind=primary_kind,
             since_epoch=scenario_start,
-            telemetry=tele,
+            telemetry=merged_tele,
         )
         shipped = 0
-        for sourcetype, lines in tele.items():
+        for sourcetype, lines in merged_tele.items():
             if lines:
                 ship_batch(
                     [{"raw": line} for line in lines],
                     sourcetype=sourcetype,
-                    host=target_host,
+                    host=primary_host,
                     event_time=scenario_start,
                 )
                 shipped += len(lines)
@@ -1478,7 +1513,7 @@ def collect_and_ship_scenario_telemetry(
             # result below so "we shipped it" and "Splunk actually has it" are two
             # separately verifiable facts, not an assumption.
             indexed_confirmed = wait_indexed(
-                host=target_host, since_epoch=scenario_start, expect_min=1, timeout_s=30
+                host=primary_host, since_epoch=scenario_start, expect_min=1, timeout_s=30
             )
     except Exception as exc:
         # Telemetry collection never blocks scoring (real value, kept) — but a bare
