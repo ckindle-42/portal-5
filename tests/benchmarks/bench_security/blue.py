@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import yaml
 
 from ._config import BenchConfig
 from ._data import (
@@ -420,6 +421,65 @@ def _build_blue_initial_prompt() -> str:
 
 BLUE_INITIAL_PROMPT = _build_blue_initial_prompt()
 
+_TOOL_CALL_TAG_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+
+
+def _extract_tool_calls_from_content(msg: dict) -> list[dict]:
+    """Fallback tool-call extraction for models whose Modelfile template emits
+    ``<tool_call>{...}</tool_call>`` as plain text content instead of Ollama's
+    structured ``message.tool_calls`` array (found 2026-07-05,
+    cybersecqwen-4b-toolfix — Ollama doesn't parse custom-template tag output
+    into tool_calls; the model's intent to call a tool is otherwise silently lost).
+
+    Returns OpenAI-shaped tool_calls (``function.name`` / ``function.arguments``)
+    so callers can treat them identically to native ``tool_calls``.
+    """
+    content = msg.get("content") or ""
+    if not content or "<tool_call>" not in content:
+        return []
+    out = []
+    for match in _TOOL_CALL_TAG_RE.finditer(content):
+        try:
+            call = json.loads(match.group(1))
+        except Exception:
+            continue
+        name = call.get("name")
+        if not name:
+            continue
+        out.append({"function": {"name": name, "arguments": call.get("arguments", {})}})
+    return out
+
+
+_PORTAL_YAML = Path(__file__).resolve().parent.parent.parent.parent / "config" / "portal.yaml"
+_MODEL_TO_BENCH_WORKSPACE: dict[str, str] | None = None
+
+
+def _resolve_pipeline_model(model: str) -> str:
+    """Map a raw Ollama model tag to its ``bench-*`` workspace slug, if one exists.
+
+    The pipeline's ``/v1/chat/completions`` treats the ``model`` field as a
+    workspace/persona id, not a literal model selector: an unrecognized value
+    silently falls back to the routing group's first model rather than erroring
+    (found 2026-07-05 — a raw bench model tag with no matching workspace was
+    silently served by an unrelated model, ~"harness advantage" unmeasurable).
+    Every bench candidate needs a ``bench-<slug>`` workspace entry in
+    ``config/portal.yaml`` with a matching ``model_hint`` for the pipeline to
+    serve the actual requested model. Already-known workspace/persona ids pass
+    through unchanged.
+    """
+    global _MODEL_TO_BENCH_WORKSPACE
+    if _MODEL_TO_BENCH_WORKSPACE is None:
+        _MODEL_TO_BENCH_WORKSPACE = {}
+        try:
+            data = yaml.safe_load(_PORTAL_YAML.read_text()) or {}
+            for ws_id, ws_cfg in (data.get("workspaces") or {}).items():
+                hint = ws_cfg.get("model_hint")
+                if hint:
+                    _MODEL_TO_BENCH_WORKSPACE.setdefault(hint, ws_id)
+        except Exception:
+            pass
+    return _MODEL_TO_BENCH_WORKSPACE.get(model, model)
+
 
 # ── Blue defender functions ──────────────────────────────────────────────────
 
@@ -631,14 +691,19 @@ def _run_blue_turn(
             resp = httpx.post(
                 f"{PIPELINE_URL}/v1/chat/completions",
                 headers=_headers,
-                json={"model": blue_model, "messages": messages, "tools": tools, "stream": False},
+                json={
+                    "model": _resolve_pipeline_model(blue_model),
+                    "messages": messages,
+                    "tools": tools,
+                    "stream": False,
+                },
                 timeout=120.0,
             )
             resp.raise_for_status()
             msg = resp.json().get("choices", [{}])[0].get("message", {})
             messages.append(msg)
 
-            tcs = msg.get("tool_calls") or []
+            tcs = msg.get("tool_calls") or _extract_tool_calls_from_content(msg)
             if not tcs:
                 break
 
@@ -928,7 +993,14 @@ def _run_blue_chain_test(
     containments: list[dict] = []
     error = None
 
-    messages: list[dict] = [{"role": "user", "content": BLUE_INITIAL_PROMPT}]
+    # A system message is required, not cosmetic: at least one bench model's
+    # Modelfile TEMPLATE only injects the {{ .Tools }} block inside
+    # {{- if .System }} — without it, tool defs never reach the model even
+    # though the API request carries them (found 2026-07-05, cybersecqwen-4b-toolfix).
+    messages: list[dict] = [
+        {"role": "system", "content": _BLUE_SYSTEM_PROMPT},
+        {"role": "user", "content": BLUE_INITIAL_PROMPT},
+    ]
     # Routing: pipeline is the real serving path (workspace slugs, persona
     # prompts, tool injection). Only bypass to direct Ollama when explicitly
     # requested via env — never by inspecting the model name string.
@@ -943,7 +1015,7 @@ def _run_blue_chain_test(
                     f"{PIPELINE_URL}/v1/chat/completions",
                     headers=_headers,
                     json={
-                        "model": model,
+                        "model": _resolve_pipeline_model(model),
                         "messages": messages,
                         "tools": BLUE_TOOLS,
                         "stream": False,
@@ -968,7 +1040,7 @@ def _run_blue_chain_test(
             else:
                 msg = _resp_json.get("message", {})
             messages.append(msg)
-            tcs = msg.get("tool_calls") or []
+            tcs = msg.get("tool_calls") or _extract_tool_calls_from_content(msg)
             if not tcs:
                 break
             for tc in tcs:
