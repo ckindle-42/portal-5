@@ -3318,12 +3318,17 @@ def _run_chain_test(
 
                 messages.append({"role": "tool", "content": tool_result})
 
-            if required_set.issubset(set(tools_called)):
+            # Count-based completion: check if we've called enough tools to
+            # satisfy the expected order LENGTH, not just unique tool names.
+            # (When all red_order steps are "execute_bash", a set check exits
+            # after step 1 — leaving the rest of the chain unexecuted.)
+            if len(tools_called) >= len(cfg.chain_expected_order):
                 break
 
-            new_required_hit = len(set(tools_called) & required_set)
-            if new_required_hit > last_required_hit:
-                last_required_hit = new_required_hit
+            # Track progress by call count, not unique-tool set intersection
+            # (same bug: set intersection stalls at 1 when all tools are the same)
+            if len(tools_called) > last_required_hit:
+                last_required_hit = len(tools_called)
                 stall_counter = 0
             else:
                 stall_counter += 1
@@ -3588,12 +3593,12 @@ def _run_multimodel_chain(
                 accumulate_observations(fn_name, tool_result, lab_observations)
                 messages.append({"role": "tool", "content": tool_result})
 
-            if required_set.issubset(set(tools_called)):
+            # Count-based completion (same fix as first loop)
+            if len(tools_called) >= len(cfg.chain_expected_order):
                 break
 
-            new_required_hit = len(set(tools_called) & required_set)
-            if new_required_hit > last_required_hit:
-                last_required_hit = new_required_hit
+            if len(tools_called) > last_required_hit:
+                last_required_hit = len(tools_called)
                 stall_counter = 0
             else:
                 stall_counter += 1

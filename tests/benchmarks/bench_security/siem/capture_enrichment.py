@@ -16,7 +16,7 @@ import json
 import time
 from pathlib import Path
 
-from .capture_store import CAPTURE_DIR, list_captures
+from .capture_store import CAPTURE_DIR
 
 # ── Expected signals per technique ───────────────────────────────────────────
 # Each technique maps to (sourcetype, [lines]) that SHOULD be present in the
@@ -69,9 +69,9 @@ EXPECTED_SIGNALS: dict[str, tuple[str, list[str]]] = {
     "T1190": (
         "web:access",
         [
-            '10.0.0.50 POST /login HTTP/1.1 200 "username=admin&password=\\' OR 1=1--"',
-            '10.0.0.50 GET /api/v1/users?id=1 UNION SELECT username,password FROM users-- HTTP/1.1 200',
-            '10.0.0.50 POST /upload HTTP/1.1 200 filename=shell.php Content-Type=application/x-php',
+            '10.0.0.50 POST /login HTTP/1.1 200 "username=admin&password=\' OR 1=1--"',
+            "10.0.0.50 GET /api/v1/users?id=1 UNION SELECT username,password FROM users-- HTTP/1.1 200",
+            "10.0.0.50 POST /upload HTTP/1.1 200 filename=shell.php Content-Type=application/x-php",
         ],
     ),
     # Execution — Command and Scripting Interpreter (Unix Shell)
@@ -143,8 +143,8 @@ EXPECTED_SIGNALS: dict[str, tuple[str, list[str]]] = {
     "T1505.003": (
         "web:access",
         [
-            '10.0.0.50 POST /uploads/shell.php HTTP/1.1 200 cmd=whoami',
-            '10.0.0.50 GET /uploads/shell.php?cmd=id HTTP/1.1 200',
+            "10.0.0.50 POST /uploads/shell.php HTTP/1.1 200 cmd=whoami",
+            "10.0.0.50 GET /uploads/shell.php?cmd=id HTTP/1.1 200",
         ],
     ),
     # Reconnaissance — Active Scanning
@@ -152,8 +152,8 @@ EXPECTED_SIGNALS: dict[str, tuple[str, list[str]]] = {
         "web:access",
         [
             '10.0.0.50 GET / HTTP/1.1 200 "Mozilla/5.0 (Nmap Scripting Engine)"',
-            '10.0.0.50 GET /.env HTTP/1.1 404',
-            '10.0.0.50 GET /admin HTTP/1.1 200',
+            "10.0.0.50 GET /.env HTTP/1.1 404",
+            "10.0.0.50 GET /admin HTTP/1.1 200",
         ],
     ),
     # Reconnaissance — Gather Victim Host Information
@@ -184,8 +184,8 @@ EXPECTED_SIGNALS: dict[str, tuple[str, list[str]]] = {
     "T1189": (
         "web:access",
         [
-            '10.0.0.50 GET /exploit-kit/landing.html HTTP/1.1 200',
-            '10.0.0.50 GET /payload.exe HTTP/1.1 200',
+            "10.0.0.50 GET /exploit-kit/landing.html HTTP/1.1 200",
+            "10.0.0.50 GET /payload.exe HTTP/1.1 200",
         ],
     ),
 }
@@ -212,9 +212,7 @@ def get_missing_signals(scenario: str, telemetry: dict[str, list[str]]) -> dict[
         return {}
 
     # Flatten all existing telemetry into one string for substring matching
-    all_existing = " ".join(
-        line for lines in telemetry.values() for line in lines
-    )
+    all_existing = " ".join(line for lines in telemetry.values() for line in lines)
 
     missing: dict[str, list[str]] = {}
     for technique in gt:
@@ -269,7 +267,7 @@ def enrich_capture(capture_path: Path, *, dry_run: bool = False) -> dict:
     for sourcetype, lines in missing.items():
         existing = telemetry.get(sourcetype, [])
         # Avoid duplicates
-        new_lines = [l for l in lines if l not in existing]
+        new_lines = [line for line in lines if line not in existing]
         if new_lines:
             telemetry.setdefault(sourcetype, []).extend(new_lines)
             added[sourcetype] = len(new_lines)
@@ -329,9 +327,7 @@ def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> 
     if not gt:
         return {"valid": False, "coverage": 0.0, "found": [], "missing": []}
 
-    all_existing = " ".join(
-        line for lines in telemetry.values() for line in lines
-    )
+    all_existing = " ".join(line for lines in telemetry.values() for line in lines)
 
     found = []
     missing_techniques = []

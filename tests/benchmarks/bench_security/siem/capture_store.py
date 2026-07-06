@@ -28,12 +28,36 @@ def save_capture(
     since_epoch: float,
     telemetry: dict[str, list[str]],
 ) -> str | None:
-    """Persist a collect_target() result to disk. Returns the file path, or None if empty."""
+    """Persist a collect_target() result to disk. Returns the file path, or None if empty.
+
+    Gate: validates the telemetry contains ground-truth attack signals for the
+    scenario's detect_ground_truth techniques.  Captures that lack their expected
+    signals are still saved (red evidence is always worth keeping) but are flagged
+    with ``validity`` metadata so downstream consumers can distinguish real
+    captures from hollow ones.
+    """
     if not any(telemetry.values()):
         return None
     CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
     ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     path = CAPTURE_DIR / f"{scenario}_{ts}.json"
+
+    # ── ground-truth gate ──────────────────────────────────────────────
+    validity = {"checked": False, "valid": False, "coverage": 0.0, "found": [], "missing": []}
+    try:
+        from .capture_enrichment import validate_capture_signals
+
+        result = validate_capture_signals(scenario, telemetry)
+        validity = {
+            "checked": True,
+            "valid": result["valid"],
+            "coverage": result["coverage"],
+            "found": result["found"],
+            "missing": result["missing"],
+        }
+    except Exception:
+        pass  # don't let validation errors block saving
+
     payload = {
         "scenario": scenario,
         "target_host": target_host,
@@ -41,8 +65,21 @@ def save_capture(
         "collected_since_epoch": since_epoch,
         "captured_at": time.time(),
         "telemetry": telemetry,
+        "validity": validity,
     }
     path.write_text(json.dumps(payload, indent=2))
+
+    if validity["checked"] and not validity["valid"]:
+        import logging
+
+        logging.warning(
+            "save_capture: %s capture saved but has NO ground-truth signals "
+            "(coverage=%.1f%%, missing=%s) — this capture is hollow",
+            scenario,
+            validity["coverage"] * 100,
+            validity["missing"],
+        )
+
     return str(path)
 
 
