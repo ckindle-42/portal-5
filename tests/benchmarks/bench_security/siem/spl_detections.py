@@ -81,4 +81,37 @@ def technique_reference() -> dict[str, str]:
     reference in their prompt, they were guessing from training knowledge
     alone instead of matching the exact evidence in front of them.
     """
-    return {tid: entry.get("description", "") for tid, entry in _load().items() if entry}
+    result = {}
+    for tid, entry in _load().items():
+        if not entry:
+            continue
+        desc = entry.get("description", "")
+        # M4: append distinguishing features for sub-technique precision
+        diff = entry.get("distinguishing_features", {})
+        if diff:
+            sibling = diff.get("sibling_diff", "")
+            key_ind = diff.get("key_indicator", "")
+            if sibling:
+                desc += f" [DISTINGUISH: {sibling}]"
+            if key_ind:
+                desc += f" [KEY: {key_ind}]"
+        result[tid] = desc
+    return result
+
+
+def technique_signature_full(technique_id: str) -> dict:
+    """Return full technique info including distinguishing features.
+
+    Returns dict with: description, expected_signal, spl, distinguishing_features.
+    Used by the harness grounding tools for sub-technique precision (M4).
+    """
+    data = _load()
+    entry = data.get(technique_id)
+    if not entry or not isinstance(entry, dict):
+        return {}
+    return {
+        "description": entry.get("description", ""),
+        "expected_signal": entry.get("expected_signal", ""),
+        "spl": entry.get("spl", ""),
+        "distinguishing_features": entry.get("distinguishing_features", {}),
+    }

@@ -140,6 +140,11 @@ T1558.003:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4769 TicketEncryptionType=0x17 | stats count by ServiceName, Account'
   expected_signal: "Kerberos service ticket requests with RC4 encryption"
+  distinguishing_features:
+    event_code: 4769
+    encryption: "RC4 (0x17)"
+    key_indicator: "TicketEncryptionType=0x17 in 4769 events"
+    sibling_diff: "T1558.003 uses EventCode=4769 (TGS-REQ) with RC4; T1558.004 uses EventCode=4768 (AS-REQ) with no preauth"
 
 T1558.004:
   description: "AS-REP Roasting — Windows Security Event 4768 without pre-auth"
@@ -160,6 +165,11 @@ T1558.004:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4768 PreAuthType=0 | stats count by Account'
   expected_signal: "Kerberos authentication without pre-authentication"
+  distinguishing_features:
+    event_code: 4768
+    preauth: "PreAuthType=0 (disabled)"
+    key_indicator: "PreAuthType=0 in 4768 events"
+    sibling_diff: "T1558.004 uses EventCode=4768 (AS-REQ) with PreAuthType=0; T1558.003 uses EventCode=4769 (TGS-REQ) with RC4"
 
 T1003.006:
   description: "DCSync — Windows Security Event 4662 replication rights"
@@ -180,6 +190,10 @@ T1003.006:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4662 Properties="*Replication*" | stats count by Account, Properties'
   expected_signal: "Directory replication requests from non-DC accounts"
+  distinguishing_features:
+    event_code: 4662
+    key_indicator: "Replication-Dir-Replication-Right GUID in Properties"
+    sibling_diff: "T1003.006 = remote AD replication (4662+replication rights); T1003.001 = local LSASS memory dump; T1003.003 = NTDS.dit file access"
 
 T1110.003:
   description: "Password spray — multiple 4625/4771 events from single source"
@@ -200,6 +214,10 @@ T1110.003:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4625 OR EventCode=4771) | stats dc(Account) as distinct_accounts by IpAddress | where distinct_accounts > 3'
   expected_signal: "Multiple failed auth from single IP across many accounts"
+  distinguishing_features:
+    event_codes: [4625, 4771]
+    key_indicator: "Many accounts, few attempts per account, single source IP"
+    sibling_diff: "T1110.003 = one password across many accounts; T1110.001 = many passwords against one account"
 
 T1053.005:
   description: "Scheduled task persistence — Windows Security Event 4698"
