@@ -3244,7 +3244,24 @@ def _run_chain_test(
             _headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
         for _step in range(len(cfg.chain_expected_order) * 2):
             try:
+                if _step == 0:
+                    # Show what tools the model sees
+                    _tool_names = [t.get("function", {}).get("name", "?") for t in cfg.chain_tools]
+                    print(f"    [debug] tools exposed to model: {_tool_names}", flush=True)
+                    print(f"    [debug] expected order: {cfg.chain_expected_order}", flush=True)
                 if _is_pipeline_mode:
+                    _n_tools = len(cfg.chain_tools)
+                    _n_msgs = len(messages)
+                    _msg_sizes = [len(json.dumps(m)) for m in messages]
+                    print(
+                        f"    [debug] step {_step}: → Pipeline ({model}) {_n_msgs} msgs, {_n_tools} tools, timeout={per_turn_timeout}s",
+                        flush=True,
+                    )
+                    print(f"    [debug]   msg sizes: {_msg_sizes}", flush=True)
+                    print(
+                        f"    [debug]   last msg role={messages[-1].get('role', '?')} len={_msg_sizes[-1]}",
+                        flush=True,
+                    )
                     resp = httpx.post(
                         f"{PIPELINE_URL}/v1/chat/completions",
                         headers=_headers,
@@ -3257,6 +3274,18 @@ def _run_chain_test(
                         timeout=per_turn_timeout,
                     )
                 else:
+                    _n_tools = len(cfg.chain_tools)
+                    _n_msgs = len(messages)
+                    _msg_sizes = [len(json.dumps(m)) for m in messages]
+                    print(
+                        f"    [debug] step {_step}: → Ollama ({model}) {_n_msgs} msgs, {_n_tools} tools, timeout={per_turn_timeout}s",
+                        flush=True,
+                    )
+                    print(f"    [debug]   msg sizes: {_msg_sizes}", flush=True)
+                    print(
+                        f"    [debug]   last msg role={messages[-1].get('role', '?')} len={_msg_sizes[-1]}",
+                        flush=True,
+                    )
                     resp = httpx.post(
                         f"{cfg.ollama_url}/api/chat",
                         json={
@@ -3271,6 +3300,10 @@ def _run_chain_test(
                 resp.raise_for_status()
             except httpx.TimeoutException:
                 timeout_steps.append(_step)
+                print(
+                    f"    [debug] step {_step}: TIMEOUT after {per_turn_timeout}s — model did not respond",
+                    flush=True,
+                )
                 timeout_msg = {
                     "role": "tool",
                     "content": (
@@ -3291,6 +3324,22 @@ def _run_chain_test(
             else:
                 msg = _resp_json.get("message", {})
             messages.append(msg)
+
+            # DEBUG: show what the model actually generated
+            tool_calls = msg.get("tool_calls") or []
+            _content = msg.get("content", "")
+            if tool_calls:
+                _tc_names = [tc.get("function", {}).get("name", "?") for tc in tool_calls]
+                _tc_args = [tc.get("function", {}).get("arguments", {}) for tc in tool_calls]
+                print(f"    [debug] step {_step}: ✓ tool_calls={_tc_names}", flush=True)
+                for _i, (_n, _a) in enumerate(zip(_tc_names, _tc_args, strict=False)):
+                    print(
+                        f"    [debug]   {_i}: {_n}({json.dumps(_a, default=str)[:200]})", flush=True
+                    )
+            elif _content:
+                print(f"    [debug] step {_step}: ✗ text (no tools) — {_content[:300]}", flush=True)
+            else:
+                print(f"    [debug] step {_step}: ✗ empty response", flush=True)
 
             tool_calls = msg.get("tool_calls") or []
             if not tool_calls:

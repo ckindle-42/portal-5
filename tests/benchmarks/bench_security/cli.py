@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import logging
 import sys
 import time
 from datetime import UTC, datetime
