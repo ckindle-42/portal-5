@@ -1,0 +1,25 @@
+{
+  "proposed_id": "proposed-SEC_BENCH-agentic-blue-deltas-20260706-1783350875",
+  "unit_id": "SEC_BENCH-agentic-blue-deltas-20260706",
+  "kind": "what",
+  "title": "Agentic Blue Arm Deltas: harness contribution (2026-07-06 15:14 UTC)",
+  "sources": [
+    {
+      "type": "bench-security",
+      "path": "/tmp/agentic_blue_sweep.json"
+    }
+  ],
+  "body": "# Agentic Blue Eval \u2014 Arm-vs-Arm Delta Report\n\n**Trials per cell:** 3  \n**Scenarios:** asrep_to_lateral, kerberoast_to_da, meta3_ftp_backdoor  \n**Sweep date:** 2026-07-06 15:14 UTC\n\n## Per-Model Arm Deltas (the harness-contribution number)\n\nThe three-arm design exists to answer: **does the harness beat raw, for the same model, and by how much?** The delta `harness\u2212raw` is the harness contribution.\n\n### `gpt-oss:20b`\n\n| Tier | raw | tools | harness | harness\u2212raw | harness\u2212tools |\n|------|-----|-------|---------|-------------|---------------|\n| exact | 0.037 | 0.037 | 0.037 | +0.000 | +0.000 |\n| parent | 0.185 | 0.093 | 0.130 | -0.055 RED-FLAG | +0.037 |\n| tactic | 0.370 | 0.185 | 0.167 | -0.203 RED-FLAG | -0.018 |\n\n### `granite4.1:8b-ctx8k`\n\n| Tier | raw | tools | harness | harness\u2212raw | harness\u2212tools |\n|------|-----|-------|---------|-------------|---------------|\n| exact | 0.130 | 0.000 | 0.074 | -0.056 RED-FLAG | +0.074 |\n| parent | 0.204 | 0.000 | 0.241 | +0.037 | +0.241 |\n| tactic | 0.241 | 0.000 | 0.241 | +0.000 | +0.241 |\n\n### `huihui_ai/qwen3.5-abliterated:9b`\n\n| Tier | raw | tools | harness | harness\u2212raw | harness\u2212tools |\n|------|-----|-------|---------|-------------|---------------|\n| exact | 0.000 | 0.000 | 0.056 | +0.056 | +0.056 |\n| parent | 0.000 | 0.000 | 0.111 | +0.111 | +0.111 |\n| tactic | 0.056 | 0.000 | 0.111 | +0.056 | +0.111 |\n\n## RED FLAGS (harness < raw)\n\nThese cells show the harness underperforming raw \u2014 possible arm-wiring bug or harness regression:\n\n- gpt-oss:20b/parent: harness=0.130 < raw=0.185\n- gpt-oss:20b/tactic: harness=0.167 < raw=0.370\n- granite4.1:8b-ctx8k/exact: harness=0.074 < raw=0.130\n\n## Recommended Seat Config\n\n**Model:** `granite4.1:8b-ctx8k`  \n**Arm:** harness (production config \u2014 raw/tools are ablations, never deployed)\n\n| Tier | harness recall | pass@3 |\n|------|---------------|---------|\n| exact | 0.074 | 2/9 |\n| parent | 0.241 | 6/9 |\n| tactic | 0.241 | 6/9 |\n",
+  "tags": [
+    "agentic-blue",
+    "maturation",
+    "arm-deltas",
+    "granite4.1-8b-ctx8k",
+    "gpt-oss-20b",
+    "huihui_ai/qwen3.5-abliterated-9b"
+  ],
+  "proposed_by": "sec-maturation-sweep",
+  "proposed_at": 1783350875.313371,
+  "status": "confirmed",
+  "auto_confirm": true
+}

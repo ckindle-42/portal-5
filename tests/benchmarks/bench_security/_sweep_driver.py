@@ -153,102 +153,222 @@ def _aggregate_trials(trial_results: list[dict]) -> dict:
     return aggregated
 
 
-def _write_back_winning_config(results: list[dict]) -> str | None:
-    """M5: Write the winning configuration as a cited wiki unit.
+def _compute_arm_deltas(results: list[dict]) -> dict[str, dict]:
+    """Compute per-model arm-vs-arm deltas across all scenarios.
 
-    Analyzes sweep results to find the best (model, arm) by tiered recall.
-    Proposes it as a wiki unit via portal_wiki writeback.
+    For each model, aggregates mean_recall per tier across scenarios,
+    then computes harness−raw and harness−tools deltas.
+
+    Returns {model: {tier: {raw, tools, harness, delta_raw, delta_tools}}}.
+    """
+    # Group results by model
+    by_model: dict[str, list[dict]] = {}
+    for r in results:
+        model = r.get("model", "")
+        by_model.setdefault(model, []).append(r)
+
+    deltas: dict[str, dict] = {}
+    for model, model_results in by_model.items():
+        # Average mean_recall across scenarios for each arm+tier
+        arm_tier_sums: dict[str, dict[str, list[float]]] = {}
+        for r in model_results:
+            for arm_name, arm_data in r.get("arms", {}).items():
+                ts = arm_data.get("tiered_summary", {})
+                arm_tier_sums.setdefault(arm_name, {})
+                for tier in ["exact", "parent", "tactic"]:
+                    arm_tier_sums[arm_name].setdefault(tier, [])
+                    arm_tier_sums[arm_name][tier].append(ts.get(tier, {}).get("mean_recall", 0.0))
+
+        # Compute averages
+        model_tiers: dict[str, dict] = {}
+        for tier in ["exact", "parent", "tactic"]:
+            raw_vals = arm_tier_sums.get("raw", {}).get(tier, [0.0])
+            tools_vals = arm_tier_sums.get("tools", {}).get(tier, [0.0])
+            harness_vals = arm_tier_sums.get("harness", {}).get(tier, [0.0])
+
+            raw_mr = sum(raw_vals) / len(raw_vals) if raw_vals else 0.0
+            tools_mr = sum(tools_vals) / len(tools_vals) if tools_vals else 0.0
+            harness_mr = sum(harness_vals) / len(harness_vals) if harness_vals else 0.0
+
+            model_tiers[tier] = {
+                "raw": round(raw_mr, 3),
+                "tools": round(tools_mr, 3),
+                "harness": round(harness_mr, 3),
+                "delta_raw": round(harness_mr - raw_mr, 3),
+                "delta_tools": round(harness_mr - tools_mr, 3),
+            }
+
+        deltas[model] = model_tiers
+
+    return deltas
+
+
+def _write_back_winning_config(results: list[dict]) -> str | None:
+    """M5: Write arm-vs-arm delta report as a cited wiki unit.
+
+    Reports per-model harness−raw / harness−tools deltas per tier.
+    Proposes seat config ONLY from the harness arm (production config).
+    Flags harness<raw as an explicit red flag.
 
     Returns the proposed unit ID, or None if writeback failed.
     """
     if not results:
         return None
 
-    # Find the best cell by overall mean recall across all scenarios
-    best_score = -1.0
-    best_model = ""
-    best_arm = ""
-    best_detail: dict = {}
-
-    for r in results:
-        model = r.get("model", "")
-        for arm_name, arm_data in r.get("arms", {}).items():
-            ts = arm_data.get("tiered_summary", {})
-            # Use parent-tier mean recall as the primary metric
-            # (reveals true capability beyond exact-match noise)
-            parent_mr = ts.get("parent", {}).get("mean_recall", 0.0)
-            exact_mr = ts.get("exact", {}).get("mean_recall", 0.0)
-            tactic_mr = ts.get("tactic", {}).get("mean_recall", 0.0)
-            # Weighted score: exact worth more, but parent/tactic reveal real capability
-            score = exact_mr * 2.0 + parent_mr * 1.5 + tactic_mr * 1.0
-            if score > best_score:
-                best_score = score
-                best_model = model
-                best_arm = arm_name
-                best_detail = ts
-
-    if not best_model:
-        return None
-
-    # Build the wiki unit content
     n_trials = results[0].get("_trials", 1)
     scenarios = sorted({r.get("scenario", "") for r in results})
+    sweep_date = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
+
+    deltas = _compute_arm_deltas(results)
+
+    # Find best harness-arm cell for seat config proposal
+    best_harness_score = -1.0
+    best_harness_model = ""
+
+    # Track red flags (harness < raw)
+    red_flags: list[str] = []
 
     body_lines = [
-        "# Agentic Blue Eval — Winning Configuration",
+        "# Agentic Blue Eval — Arm-vs-Arm Delta Report",
         "",
-        f"**Model:** `{best_model}`  ",
-        f"**Arm:** {best_arm}  ",
         f"**Trials per cell:** {n_trials}  ",
         f"**Scenarios:** {', '.join(scenarios)}  ",
-        f"**Sweep date:** {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}",
+        f"**Sweep date:** {sweep_date}",
         "",
-        "## Tiered Recall Summary",
+        "## Per-Model Arm Deltas (the harness-contribution number)",
         "",
-        f"| Tier | Mean Recall | Pass@{n_trials} | Classification |",
-        "|------|------------|---------|----------------|",
+        "The three-arm design exists to answer: **does the harness beat raw, for the same model, "
+        "and by how much?** The delta `harness−raw` is the harness contribution.",
+        "",
     ]
 
-    for tier in ["exact", "parent", "tactic"]:
-        t = best_detail.get(tier, {})
-        body_lines.append(
-            f"| {tier} | {t.get('mean_recall', 0):.3f} | "
-            f"{t.get('pass_at_k', 0)}/{n_trials} | "
-            f"{t.get('classification', '?')} |"
+    for model, model_tiers in sorted(deltas.items()):
+        body_lines.append(f"### `{model}`")
+        body_lines.append("")
+        body_lines.append("| Tier | raw | tools | harness | harness−raw | harness−tools |")
+        body_lines.append("|------|-----|-------|---------|-------------|---------------|")
+
+        for tier in ["exact", "parent", "tactic"]:
+            t = model_tiers[tier]
+            raw_s = f"{t['raw']:.3f}"
+            tools_s = f"{t['tools']:.3f}"
+            harness_s = f"{t['harness']:.3f}"
+
+            # Format deltas with sign and flag
+            dr = t["delta_raw"]
+            dt = t["delta_tools"]
+            delta_raw_s = f"+{dr:.3f}" if dr >= 0 else f"{dr:.3f}"
+            delta_tools_s = f"+{dt:.3f}" if dt >= 0 else f"{dt:.3f}"
+
+            if dr < 0:
+                delta_raw_s += " RED-FLAG"
+                red_flags.append(f"{model}/{tier}: harness={t['harness']:.3f} < raw={t['raw']:.3f}")
+
+            body_lines.append(
+                f"| {tier} | {raw_s} | {tools_s} | {harness_s} | {delta_raw_s} | {delta_tools_s} |"
+            )
+
+        body_lines.append("")
+
+        # Score this model's harness arm for seat config selection
+        h = model_tiers
+        harness_score = (
+            h["exact"]["harness"] * 2.0
+            + h["parent"]["harness"] * 1.5
+            + h["tactic"]["harness"] * 1.0
+        )
+        if harness_score > best_harness_score:
+            best_harness_score = harness_score
+            best_harness_model = model
+
+    # Red flags section
+    if red_flags:
+        body_lines.extend(
+            [
+                "## RED FLAGS (harness < raw)",
+                "",
+                "These cells show the harness underperforming raw — possible arm-wiring bug or harness regression:",
+                "",
+            ]
+        )
+        for rf in red_flags:
+            body_lines.append(f"- {rf}")
+        body_lines.append("")
+
+    # Recommended seat config (harness arm only)
+    if best_harness_model:
+        body_lines.extend(
+            [
+                "## Recommended Seat Config",
+                "",
+                f"**Model:** `{best_harness_model}`  ",
+                "**Arm:** harness (production config — raw/tools are ablations, never deployed)",
+                "",
+            ]
         )
 
-    body_lines.extend(
-        [
-            "",
-            f"## Per-Scenario Results (winning model: {best_model})",
-            "",
-        ]
-    )
+        body_lines.append(f"| Tier | harness recall | pass@{n_trials} |")
+        body_lines.append("|------|---------------|---------|")
+        for tier in ["exact", "parent", "tactic"]:
+            # Get per-scenario pass@k for this model's harness arm
+            harness_pass_k = []
+            harness_recalls = []
+            for r in results:
+                if r.get("model") != best_harness_model:
+                    continue
+                h_data = r.get("arms", {}).get("harness", {}).get("tiered_summary", {})
+                harness_pass_k.append(h_data.get(tier, {}).get("pass_at_k", 0))
+                harness_recalls.append(h_data.get(tier, {}).get("mean_recall", 0))
 
-    seen_scenarios: set[str] = set()
-    for r in results:
-        scenario = r.get("scenario", "?")
-        if scenario in seen_scenarios:
-            continue
-        seen_scenarios.add(scenario)
-        arm_data = r.get("arms", {}).get(best_arm, {})
-        ts = arm_data.get("tiered_summary", {})
-        body_lines.append(
-            f"- **{scenario}**: exact={ts.get('exact', {}).get('mean_recall', 0):.3f} "
-            f"parent={ts.get('parent', {}).get('mean_recall', 0):.3f} "
-            f"tactic={ts.get('tactic', {}).get('mean_recall', 0):.3f}"
-        )
+            avg_recall = sum(harness_recalls) / len(harness_recalls) if harness_recalls else 0
+            total_pass = sum(harness_pass_k)
+            total_possible = len(harness_pass_k) * n_trials
+            body_lines.append(f"| {tier} | {avg_recall:.3f} | {total_pass}/{total_possible} |")
+        body_lines.append("")
 
     body = "\n".join(body_lines)
 
+    # Print delta summary to stdout
+    print("\n" + "=" * 90)
+    print("ARM-VS-ARM DELTAS (harness contribution)")
+    print("=" * 90)
+    for model, model_tiers in sorted(deltas.items()):
+        print(f"\n{model}:")
+        print(
+            f"  {'Tier':8s} | {'raw':>6s} | {'tools':>6s} | {'harness':>7s} | {'h-raw':>7s} | {'h-tools':>7s}"
+        )
+        print(f"  {'-' * 8}-+-{'-' * 6}-+-{'-' * 6}-+-{'-' * 7}-+-{'-' * 7}-+-{'-' * 7}")
+        for tier in ["exact", "parent", "tactic"]:
+            t = model_tiers[tier]
+            dr = t["delta_raw"]
+            dt = t["delta_tools"]
+            flag = " RED-FLAG" if dr < 0 else ""
+            print(
+                f"  {tier:8s} | {t['raw']:>6.3f} | {t['tools']:>6.3f} | {t['harness']:>7.3f} | "
+                f"{dr:>+7.3f} | {dt:>+7.3f}{flag}"
+            )
+
+    if red_flags:
+        print("\nRED FLAGS:")
+        for rf in red_flags:
+            print(f"  ! {rf}")
+
+    if best_harness_model:
+        print(f"\nRecommended seat: {best_harness_model} (harness arm)")
+
+    # Write wiki unit
     try:
         from portal_wiki.core.writeback import propose_unit
 
-        unit_id = f"SEC_BENCH-agentic-blue-winning-{time.strftime('%Y%m%d', time.gmtime())}"
+        unit_id = f"SEC_BENCH-agentic-blue-deltas-{time.strftime('%Y%m%d', time.gmtime())}"
+        tags = ["agentic-blue", "maturation", "arm-deltas"]
+        for model in deltas:
+            tags.append(model.replace(":", "-"))
+
         proposed = propose_unit(
             {
                 "id": unit_id,
-                "title": f"Agentic Blue Winning Config: {best_model} ({best_arm})",
+                "title": f"Agentic Blue Arm Deltas: harness contribution ({sweep_date})",
                 "kind": "what",
                 "body": body,
                 "sources": [
@@ -258,18 +378,12 @@ def _write_back_winning_config(results: list[dict]) -> str | None:
                         "description": f"Agentic blue eval sweep ({n_trials} trials, {len(scenarios)} scenarios)",
                     }
                 ],
-                "tags": [
-                    "agentic-blue",
-                    "maturation",
-                    "winning-config",
-                    best_model.replace(":", "-"),
-                    best_arm,
-                ],
+                "tags": tags,
             },
             proposed_by="sec-maturation-sweep",
             auto_confirm=True,
         )
-        print(f"M5: Winning config written to wiki: {proposed.unit_id} (status={proposed.status})")
+        print(f"M5: Delta report written to wiki: {proposed.unit_id} (status={proposed.status})")
         return proposed.unit_id
     except Exception as exc:
         print(f"M5: Write-back failed (non-fatal): {exc}")

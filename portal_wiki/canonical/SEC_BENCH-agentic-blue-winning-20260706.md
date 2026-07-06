@@ -1,7 +1,7 @@
 ---
 id: SEC_BENCH-agentic-blue-winning-20260706
 kind: what
-title: 'Agentic Blue Winning Config: granite4.1:8b-ctx8k (raw)'
+title: 'CORRECTED — was misleading: "granite (raw)" was a selection artifact'
 sources:
 - type: bench-security
   path: /tmp/agentic_blue_sweep.json
@@ -10,31 +10,34 @@ confidence: high
 tags:
 - agentic-blue
 - maturation
-- winning-config
-- granite4.1-8b-ctx8k
-- raw
+- corrected
+- superseded
 created_at: 1783347779.178504
-updated_at: 1783347779.178504
+updated_at: 1783351200.0
 ---
 
-# Agentic Blue Eval — Winning Configuration
+# CORRECTED — Superseded by SEC_BENCH-agentic-blue-deltas-20260706
 
-**Model:** `granite4.1:8b-ctx8k`  
-**Arm:** raw  
-**Trials per cell:** 3  
-**Scenarios:** asrep_to_lateral, kerberoast_to_da, meta3_ftp_backdoor  
-**Sweep date:** 2026-07-06 14:22 UTC
+**This unit was misleading.** It reported "winning config: granite (raw)" by selecting the single
+best (model, arm) cell regardless of arm. This was a **selection artifact**, not a finding — raw/tools
+are ablations to measure harness contribution, never the deployed config. The three-arm design exists to
+answer "does harness beat raw, for the same model, by how much?" — this unit obscured that question.
 
-## Tiered Recall Summary
+**See: `SEC_BENCH-agentic-blue-deltas-20260706`** for the corrected arm-vs-arm delta report.
 
-| Tier | Mean Recall | Pass@3 | Classification |
-|------|------------|---------|----------------|
-| exact | 0.222 | 2/3 | unreliable |
-| parent | 0.333 | 3/3 | reliable |
-| tactic | 0.333 | 3/3 | reliable |
+## What the corrected data shows
 
-## Per-Scenario Results (winning model: granite4.1:8b-ctx8k)
+Per the delta report (averaged across 3 scenarios, 3 trials):
 
-- **kerberoast_to_da**: exact=0.222 parent=0.333 tactic=0.333
-- **asrep_to_lateral**: exact=0.000 parent=0.111 tactic=0.222
-- **meta3_ftp_backdoor**: exact=0.167 parent=0.167 tactic=0.167
+| Model | Tier | raw | harness | harness−raw |
+|-------|------|-----|---------|-------------|
+| granite | exact | 0.130 | 0.074 | −0.056 RED-FLAG |
+| granite | parent | 0.204 | 0.241 | +0.037 |
+| granite | tactic | 0.241 | 0.241 | +0.000 |
+| qwen3.5 | exact | 0.000 | 0.056 | +0.056 |
+| qwen3.5 | parent | 0.000 | 0.111 | +0.111 |
+
+- **Harness beats raw on granite at parent tier** (+0.037) — the tier that matters for sub-technique precision.
+- Granite exact shows RED-FLAG (harness < raw) — possible regression to investigate.
+- **qwen3.5 harness clearly beats raw** across all tiers — harness contribution positive.
+- The recommended seat config is granite (harness arm), not granite (raw).
