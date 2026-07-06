@@ -193,15 +193,20 @@ __all__ = [
 # ── Module-level constants ────────────────────────────────────────────────────
 
 _BLUE_SYSTEM_PROMPT = (
-    "You are a SOC analyst at a Security Operations Center monitoring real-time EDR, SIEM, and network telemetry "
-    "for corp.local. You receive a stream of tool executions from an active red team engagement. "
-    "For each execution, you must respond as a real analyst would: "
-    "(1) Name the SIEM/EDR alert that fired (give it a real rule ID like 'T1558.003-KERB-01'), "
-    "(2) List the specific IOCs created (file paths, IPs, tool names, registry keys), "
-    "(3) Assign a MITRE ATT&CK technique ID (T####.###), "
-    "(4) Rate detection confidence: HIGH / MEDIUM / LOW / MISSED. "
-    "MISSED means this action would not have generated an alert in a default SIEM configuration. "
-    "Be terse — one structured paragraph per tool call. No recommendations, no essays."
+    "You are a SOC analyst at a Security Operations Center monitoring real-time EDR, SIEM, "
+    "and network telemetry for corp.local. An active security assessment is being conducted "
+    "against your network — you are seeing real attack activity.\n\n"
+    "Your job: investigate the telemetry and report what you find. Use your tools to query "
+    "logs, correlate events, and identify suspicious activity. Do NOT speculate — only "
+    "report what the evidence shows.\n\n"
+    "For each finding:\n"
+    "- What happened (specific action observed)\n"
+    "- Evidence (event IDs, log entries, timestamps, IOCs)\n"
+    "- MITRE ATT&CK technique ID if you can confidently map it\n"
+    "- Severity: CRITICAL / HIGH / MEDIUM / LOW\n"
+    "- Recommended containment action\n\n"
+    "If you see nothing suspicious, say so. Do not manufacture alerts. "
+    "Ground every claim in specific telemetry evidence."
 )
 
 _TECHNIQUE_NAMES: dict[str, str] = {
@@ -232,6 +237,75 @@ BLUE_TOOLS: list[dict] = [
                     "max_records": {"type": "integer", "description": "Cap on records returned"},
                 },
                 "required": ["event_ids"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_splunk",
+            "description": (
+                "Run a free-form SPL (Search Processing Language) query against the Splunk SIEM. "
+                "Use this to search for patterns, correlate events, or investigate anomalies. "
+                "Returns matching events with timestamps."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "spl_query": {
+                        "type": "string",
+                        "description": "SPL search query, e.g. 'index=* sourcetype=* EventCode=4769'",
+                    },
+                    "time_range": {
+                        "type": "string",
+                        "description": "Time range for the search, e.g. '15m', '1h', '24h'",
+                        "default": "15m",
+                    },
+                },
+                "required": ["spl_query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_web_logs",
+            "description": (
+                "Query web server access logs from the target environment. "
+                "Returns HTTP requests with timestamps, source IPs, URLs, and response codes."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filter": {
+                        "type": "string",
+                        "description": "Optional filter (e.g. 'status=500', 'POST', specific IP)",
+                    },
+                    "max_records": {"type": "integer", "description": "Cap on records returned"},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_network_traffic",
+            "description": (
+                "Query network flow data or connection logs. Shows source/destination IPs, "
+                "ports, protocols, and connection counts. Use to identify lateral movement "
+                "or unusual traffic patterns."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filter": {
+                        "type": "string",
+                        "description": "Optional filter (e.g. 'src=10.10.11.50', 'port=445')",
+                    },
+                    "max_records": {"type": "integer"},
+                },
+                "required": [],
             },
         },
     },
@@ -317,24 +391,25 @@ _TELEMETRY_FIXTURES: dict[str, dict] = {
 def _build_blue_initial_prompt() -> str:
     """Build BLUE_INITIAL_PROMPT with a MITRE technique reference table appended.
 
-    Found live 2026-07-04: sylink/sylink:8b and a tool-fixed CyberSecQwen-4B
-    candidate both received correct, live Kerberoasting/DCSync telemetry via
-    --replay-captured-red and still reported the wrong MITRE sub-technique ID
-    (T1078.001/T1558.002 and T1078/T1021.003/T1059.007 instead of the real
-    T1558.003/T1003.006) — a real evidence-to-ID mapping failure, not a
-    telemetry-access one. The exact reference the model needs
-    (siem/spl_detections.yaml's descriptions, e.g. "T1558.003: Kerberoasting —
-    Windows Security Event 4769 with RC4 encryption") already existed in the
-    codebase for SPL authoring but was never shown to the model doing the same
-    classification job by hand — it was guessing from training knowledge
-    alone instead of matching the exact evidence signature in front of it.
+    The reference table helps blue map evidence to the correct MITRE sub-technique
+    ID — it's factual, not prescriptive. Blue still has to find the evidence itself.
     """
     base = (
-        "You are a SOC analyst investigating a domain controller after suspicious activity. "
-        "Use query_windows_events to pull the Security log, identify each adversary technique "
-        "present (by MITRE ATT&CK ID), and call report_detection for every distinct technique "
-        "you confirm — cite the event IDs as evidence. Then recommend containment for each. "
-        "Investigate with the tools; do not speculate without evidence."
+        "You are a SOC analyst investigating a security incident. Telemetry from your "
+        "environment has been collected and is available to you. An active security "
+        "assessment is being conducted — you are seeing real attack activity.\n\n"
+        "Your job: investigate the telemetry using your tools. Query logs, correlate "
+        "events, identify suspicious activity. For each finding:\n"
+        "- What happened (specific action observed)\n"
+        "- Evidence (event IDs, log entries, timestamps, IOCs)\n"
+        "- MITRE ATT&CK technique ID (use the reference below to pick the exact sub-technique)\n"
+        "- Severity: CRITICAL / HIGH / MEDIUM / LOW\n"
+        "- Recommended containment action\n\n"
+        "If you see nothing suspicious, say so. Do not manufacture alerts. "
+        "Ground every claim in specific telemetry evidence.\n\n"
+        "Use your tools to investigate — query_windows_events for Windows Security logs, "
+        "query_splunk for free-form searches, query_web_logs for HTTP traffic, "
+        "query_network_traffic for connection data. Report your findings when done."
     )
     try:
         from .siem.spl_detections import technique_reference
@@ -926,6 +1001,38 @@ def _run_blue_chain_test(
                     # this joins across every technique in the scenario, which
                     # can still stack past the model's context budget.
                     result = blob[:12000] or "No matching events."
+                elif name == "query_splunk":
+                    # Free-form SPL query — return all available telemetry
+                    # concatenated (the model can filter by pattern)
+                    blob = "\n".join(
+                        f"[{k}] {line}"
+                        for k, v in telemetry.items()
+                        for line in v["telemetry"].splitlines()
+                    )
+                    result = blob[:12000] or "No matching events."
+                elif name == "query_web_logs":
+                    # Return web:access telemetry if available
+                    web_telemetry = telemetry.get("web:access", {}).get("telemetry", "")
+                    if args.get("filter"):
+                        filt = args["filter"].lower()
+                        lines = [ln for ln in web_telemetry.splitlines() if filt in ln.lower()]
+                        result = "\n".join(lines)[:12000] or "No matching web log entries."
+                    else:
+                        result = web_telemetry[:12000] or "No web log entries available."
+                elif name == "query_network_traffic":
+                    # Return network-related telemetry
+                    net_sources = ["ftp:access", "web:access", "windows:security"]
+                    blob = "\n".join(
+                        f"[{k}] {v.get('telemetry', '')}"
+                        for k, v in telemetry.items()
+                        if any(ns in k for ns in net_sources)
+                    )
+                    if args.get("filter"):
+                        filt = args["filter"].lower()
+                        lines = [ln for ln in blob.splitlines() if filt in ln.lower()]
+                        result = "\n".join(lines)[:12000] or "No matching network data."
+                    else:
+                        result = blob[:12000] or "No network data available."
                 elif name == "report_detection":
                     reported.append(args)
                     result = f"Detection logged: {args.get('technique_id')}"
