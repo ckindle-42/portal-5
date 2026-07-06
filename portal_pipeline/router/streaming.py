@@ -566,6 +566,44 @@ async def _stream_with_tool_loop_impl(
                 yield b"data: [DONE]\n\n"
                 return
 
+            # Only auto-dispatch when every requested call belongs to the
+            # workspace's own whitelist. A client-injected tool (not in
+            # effective_tools) has no real MCP registry entry —
+            # _dispatch_tool_call would reject it and the loop would burn
+            # through hops on rejection errors instead of letting the caller
+            # handle it. Mirrors the non_streaming.py fix (2026-07-05): if
+            # any call isn't ours to dispatch, surface the tool_calls we'd
+            # been suppressing (pipeline "owns dispatch" only for its own
+            # tools) as the final response instead of auto-resolving them.
+            if not all(
+                (tc.get("function") or {}).get("name", "").strip() in effective_tools
+                for tc in all_tool_calls
+            ):
+                passthrough_chunk = {
+                    "id": request_id,
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": workspace_id,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {"tool_calls": all_tool_calls},
+                            "finish_reason": None,
+                        }
+                    ],
+                }
+                yield f"data: {json.dumps(passthrough_chunk)}\n\n".encode()
+                finish_chunk = {
+                    "id": request_id,
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": workspace_id,
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}],
+                }
+                yield f"data: {json.dumps(finish_chunk)}\n\n".encode()
+                yield b"data: [DONE]\n\n"
+                return
+
             # Dispatch all tool calls in parallel
             assistant_msg, dispatch_results = await _dispatch_hop_tool_calls(
                 all_tool_calls,
