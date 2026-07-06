@@ -42,14 +42,16 @@ def wiki_search(query: str, top_k: int = 10) -> dict[str, Any]:
                 score += 1.5
 
         if score > 0:
-            results.append({
-                "unit_id": unit.id,
-                "title": unit.title,
-                "kind": unit.kind,
-                "score": score,
-                "sources": [s.to_dict() for s in unit.sources],
-                "preview": unit.body[:200] + "..." if len(unit.body) > 200 else unit.body,
-            })
+            results.append(
+                {
+                    "unit_id": unit.id,
+                    "title": unit.title,
+                    "kind": unit.kind,
+                    "score": score,
+                    "sources": [s.to_dict() for s in unit.sources],
+                    "preview": unit.body[:200] + "..." if len(unit.body) > 200 else unit.body,
+                }
+            )
 
     results.sort(key=lambda r: r["score"], reverse=True)
     return {

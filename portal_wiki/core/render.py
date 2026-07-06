@@ -40,18 +40,22 @@ def render_admin_guide(output_dir: Path | None = None) -> Path:
         lines.append("")
 
     # Components from what-units
-    lines.extend([
-        "## Components",
-        "",
-    ])
+    lines.extend(
+        [
+            "## Components",
+            "",
+        ]
+    )
     for unit in sorted(what_units, key=lambda u: u.title)[:15]:
         lines.append(f"- **{unit.title}**: {len(unit.sources)} source(s)")
 
-    lines.extend([
-        "",
-        "---",
-        f"*{len(units)} knowledge units referenced.*",
-    ])
+    lines.extend(
+        [
+            "",
+            "---",
+            f"*{len(units)} knowledge units referenced.*",
+        ]
+    )
 
     content = "\n".join(lines)
     output_dir = output_dir or Path("docs/generated")
@@ -82,13 +86,15 @@ def render_architecture_map(output_dir: Path | None = None) -> Path:
         src_count = len(unit.sources)
         lines.append(f"| `{unit.id}` | {unit.kind} | {src_count} |")
 
-    lines.extend([
-        "",
-        f"**Total:** {len(units)} units",
-        "",
-        "## Source Distribution",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            f"**Total:** {len(units)} units",
+            "",
+            "## Source Distribution",
+            "",
+        ]
+    )
 
     # Count sources by type
     source_types: dict[str, int] = {}
