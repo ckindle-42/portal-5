@@ -178,9 +178,9 @@ backends:
   - id: huihui_ai/baronllm-abliterated:latest-ctx8k
     supports_tools: true
   - id: sylink/sylink:8b
-    supports_tools: false
+    supports_tools: true
   - id: sylink/sylink:8b-ctx8k
-    supports_tools: false
+    supports_tools: true
   - id: supergemma4-26b-uncensored:Q4_K_M
     # supports_tools=false: model is wired to driver-dispatched workspaces
   - id: supergemma4-26b-uncensored:Q4_K_M-ctx64k

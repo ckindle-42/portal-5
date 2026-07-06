@@ -193,20 +193,17 @@ __all__ = [
 # ── Module-level constants ────────────────────────────────────────────────────
 
 _BLUE_SYSTEM_PROMPT = (
-    "You are a SOC analyst at a Security Operations Center monitoring real-time EDR, SIEM, "
-    "and network telemetry for corp.local. An active security assessment is being conducted "
-    "against your network — you are seeing real attack activity.\n\n"
-    "Your job: investigate the telemetry and report what you find. Use your tools to query "
-    "logs, correlate events, and identify suspicious activity. Do NOT speculate — only "
-    "report what the evidence shows.\n\n"
-    "For each finding:\n"
-    "- What happened (specific action observed)\n"
-    "- Evidence (event IDs, log entries, timestamps, IOCs)\n"
-    "- MITRE ATT&CK technique ID if you can confidently map it\n"
-    "- Severity: CRITICAL / HIGH / MEDIUM / LOW\n"
-    "- Recommended containment action\n\n"
-    "If you see nothing suspicious, say so. Do not manufacture alerts. "
-    "Ground every claim in specific telemetry evidence."
+    "You are a SOC analyst at a Security Operations Center. An active security assessment "
+    "is being conducted against your network — you are seeing real attack activity.\n\n"
+    "INVESTIGATION PROTOCOL — you MUST follow these steps:\n"
+    "1. Call query_windows_events with event_ids [4769, 4662, 4688, 4625, 4771] to check "
+    "for Kerberoasting, DCSync, process creation, and password spray indicators.\n"
+    "2. Call query_web_logs to check for suspicious HTTP activity.\n"
+    "3. Call query_network_traffic to identify unusual connections.\n"
+    "4. For each finding, call report_detection with the MITRE technique ID and evidence.\n"
+    "5. For each detection, call recommend_containment with a specific action.\n\n"
+    "Do NOT speculate. Only report what the evidence shows. "
+    "Ground every claim in specific telemetry evidence from your tool calls."
 )
 
 _TECHNIQUE_NAMES: dict[str, str] = {
@@ -395,21 +392,13 @@ def _build_blue_initial_prompt() -> str:
     ID — it's factual, not prescriptive. Blue still has to find the evidence itself.
     """
     base = (
-        "You are a SOC analyst investigating a security incident. Telemetry from your "
-        "environment has been collected and is available to you. An active security "
-        "assessment is being conducted — you are seeing real attack activity.\n\n"
-        "Your job: investigate the telemetry using your tools. Query logs, correlate "
-        "events, identify suspicious activity. For each finding:\n"
-        "- What happened (specific action observed)\n"
-        "- Evidence (event IDs, log entries, timestamps, IOCs)\n"
-        "- MITRE ATT&CK technique ID (use the reference below to pick the exact sub-technique)\n"
-        "- Severity: CRITICAL / HIGH / MEDIUM / LOW\n"
-        "- Recommended containment action\n\n"
-        "If you see nothing suspicious, say so. Do not manufacture alerts. "
-        "Ground every claim in specific telemetry evidence.\n\n"
-        "Use your tools to investigate — query_windows_events for Windows Security logs, "
-        "query_splunk for free-form searches, query_web_logs for HTTP traffic, "
-        "query_network_traffic for connection data. Report your findings when done."
+        "An alert was triggered. Investigate immediately.\n\n"
+        "Step 1: Call query_windows_events with event_ids [4769, 4662, 4688, 4625, 4771].\n"
+        "Step 2: Call query_web_logs to check HTTP traffic.\n"
+        "Step 3: Call query_network_traffic to check connections.\n"
+        "Step 4: For each finding, call report_detection with technique_id and evidence.\n"
+        "Step 5: For each detection, call recommend_containment.\n\n"
+        "Report what you find. Do not speculate — only report evidence from your tools."
     )
     try:
         from .siem.spl_detections import technique_reference
