@@ -5,11 +5,19 @@ Classifies each cell: reliable (k/k), unreliable (partial), incapable (0/k).
 
 M5: auto-writes the winning (model, arm, config) as a cited wiki unit.
 
+Parallel: ThreadPoolExecutor at the cell level (scenario × model).
+Each cell's trials run serially (trials are dependent — same model/scenario).
+
 Run directly: python3 -m tests.benchmarks.bench_security._sweep_driver
 Env vars:
     TRIALS=N        number of trials per cell (default 3)
     SWEEP_SCENARIOS comma-separated scenario list (overrides defaults)
     SWEEP_MODELS    comma-separated model list (overrides defaults)
+    SWEEP_WORKERS=N parallel workers (default 4; tune to Ollama throughput)
+CLI flags:
+    --all-captured  run across all scenarios with local captures
+    --scenarios=X,Y run only specified scenarios
+    --arms=X,Y      run only specified arms (e.g. harness,raw for fast iteration)
 """
 
 from __future__ import annotations
@@ -17,8 +25,11 @@ from __future__ import annotations
 import json
 import math
 import os
+import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from threading import Lock
 
 from tests.benchmarks.bench_security.agentic_blue_eval import run_eval
 
@@ -28,10 +39,66 @@ ARMS = ["raw", "tools", "harness"]
 
 OUT_PATH = Path("/tmp/agentic_blue_sweep.json")
 
+# Lock for thread-safe writes to the results file
+_write_lock = Lock()
+
 
 def _get_trials() -> int:
     """Get trial count from env, default 3."""
     return int(os.environ.get("TRIALS", "3"))
+
+
+def _get_workers() -> int:
+    """Get parallel worker count from env, default 4."""
+    return int(os.environ.get("SWEEP_WORKERS", "4"))
+
+
+def _run_cell(scenario: str, model: str, arms: list[str], trials: int) -> dict:
+    """Run a single cell (scenario × model) with all its trials.
+
+    Each trial runs the eval with the specified arms. Trials are serial
+    within a cell (dependent — same model/scenario).
+
+    Returns the aggregated result record for this cell.
+    """
+    t0 = time.monotonic()
+    trial_results = []
+    for _trial_i in range(trials):
+        result = run_eval(scenario, model=model, arms=arms)
+        trial_results.append(result)
+
+    aggregated = _aggregate_trials(trial_results)
+    wall_s = round(time.monotonic() - t0, 1)
+
+    return {
+        "scenario": scenario,
+        "model": model,
+        "_trials": trials,
+        "_wall_s": wall_s,
+        "ground_truth": trial_results[0].get("ground_truth", []) if trial_results else [],
+        "arms": aggregated,
+    }
+
+
+def _checkpoint_result(record: dict, results: list[dict]) -> None:
+    """Write a single cell result to the checkpoint file (thread-safe).
+
+    Updates the in-memory results list AND writes to disk so interrupted
+    runs keep what finished.
+    """
+    with _write_lock:
+        # Remove any previous result for this (scenario, model) with fewer trials
+        key = (record.get("scenario"), record.get("model"))
+        existing = [
+            r
+            for r in results
+            if (r.get("scenario"), r.get("model")) == key
+            and r.get("_trials", 1) >= record.get("_trials", 1)
+        ]
+        if not existing:
+            results[:] = [r for r in results if (r.get("scenario"), r.get("model")) != key]
+            results.append(record)
+            OUT_PATH.write_text(json.dumps(results, indent=2))
 
 
 def _classify_cell(pass_count: int, total: int) -> str:
@@ -474,6 +541,12 @@ def _write_back_winning_config(results: list[dict]) -> str | None:
 
 def main() -> None:
     trials = _get_trials()
+    workers = _get_workers()
+
+    # Parse CLI flags
+    args = sys.argv[1:]
+    all_captured = "--all-captured" in args
+    arms = list(ARMS)  # default: all 3 arms
 
     # Allow env overrides for scenarios and models
     scenarios = SCENARIOS
@@ -483,10 +556,18 @@ def main() -> None:
     if os.environ.get("SWEEP_MODELS"):
         models = [m.strip() for m in os.environ["SWEEP_MODELS"].split(",")]
 
-    # Support --all-captured flag (M3: scale sweep)
-    import sys
+    # Parse --scenarios flag
+    for arg in args:
+        if arg.startswith("--scenarios="):
+            scenarios = [s.strip() for s in arg.split("=", 1)[1].split(",")]
 
-    if "--all-captured" in sys.argv:
+    # Parse --arms flag (iteration mode)
+    for arg in args:
+        if arg.startswith("--arms="):
+            arms = [a.strip() for a in arg.split("=", 1)[1].split(",")]
+
+    # --all-captured: discover scenarios with local captures
+    if all_captured:
         try:
             from tests.benchmarks.bench_security.exec_chain import SCENARIOS as ALL_SCENARIOS
             from tests.benchmarks.bench_security.siem.capture_store import list_captures
@@ -500,18 +581,15 @@ def main() -> None:
         except Exception as exc:
             print(f"--all-captured: failed to discover captures ({exc}), using defaults")
 
-    # Check for --scenarios flag
-    for arg in sys.argv:
-        if arg.startswith("--scenarios="):
-            scenarios = [s.strip() for s in arg.split("=", 1)[1].split(",")]
-
     print(f"Sweep config: {len(scenarios)} scenarios x {len(models)} models x {trials} trials")
-    print(f"Scenarios: {scenarios}")
+    print(f"Workers: {workers} (SWEEP_WORKERS={os.environ.get('SWEEP_WORKERS', '4')})")
+    print(f"Arms: {arms}")
+    print(f"Scenarios: {scenarios[:5]}{'...' if len(scenarios) > 5 else ''}")
     print(f"Models: {models}")
     print(f"Output: {OUT_PATH}")
     print()
 
-    # Load existing results (supports incremental runs)
+    # Load existing results (supports incremental runs + checkpointing)
     results: list[dict] = []
     if OUT_PATH.exists():
         results = json.loads(OUT_PATH.read_text())
@@ -524,70 +602,70 @@ def main() -> None:
         if trial_count >= trials:
             completed.add(key)
 
-    total = len(scenarios) * len(models)
-    i = 0
+    # Build work queue: (scenario, model) cells that need running
+    work_queue = []
     for scenario in scenarios:
         for model in models:
-            i += 1
-            if (scenario, model) in completed:
-                print(f"[{i}/{total}] SKIP (already done) {scenario} x {model}")
-                continue
+            if (scenario, model) not in completed:
+                work_queue.append((scenario, model))
 
-            print(
-                f"[{i}/{total}] RUNNING {scenario} x {model} ({trials} trials) ...",
-                flush=True,
-            )
-            t0 = time.monotonic()
+    total_cells = len(scenarios) * len(models)
+    skipped = total_cells - len(work_queue)
+    if skipped:
+        print(f"Skipping {skipped} already-completed cells")
+    print(f"Running {len(work_queue)} cells with {workers} workers...")
+    print()
 
-            trial_results = []
-            for trial_i in range(trials):
-                print(f"  trial {trial_i + 1}/{trials} ...", flush=True)
-                result = run_eval(scenario, model=model, arms=ARMS)
-                trial_results.append(result)
+    if not work_queue:
+        print("All cells already completed. Nothing to do.")
+    else:
+        # Parallel execution via ThreadPoolExecutor
+        t_sweep_start = time.monotonic()
+        completed_count = 0
 
-            # Aggregate across trials
-            aggregated = _aggregate_trials(trial_results)
-            wall_s = round(time.monotonic() - t0, 1)
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            # Submit all cells
+            future_to_key = {}
+            for scenario, model in work_queue:
+                future = executor.submit(_run_cell, scenario, model, arms, trials)
+                future_to_key[future] = (scenario, model)
 
-            # Build output record
-            record = {
-                "scenario": scenario,
-                "model": model,
-                "_trials": trials,
-                "_wall_s": wall_s,
-                "ground_truth": trial_results[0].get("ground_truth", []),
-                "arms": aggregated,
-            }
+            # Collect results as they complete
+            for future in as_completed(future_to_key):
+                scenario, model = future_to_key[future]
+                completed_count += 1
+                try:
+                    record = future.result()
+                    _checkpoint_result(record, results)
 
-            # Remove any previous result for this (scenario, model) with fewer trials
-            results = [
-                r
-                for r in results
-                if (r.get("scenario"), r.get("model")) != (scenario, model)
-                or r.get("_trials", 1) >= trials
-            ]
-            results.append(record)
-            OUT_PATH.write_text(json.dumps(results, indent=2))
+                    # Print summary for this cell
+                    wall_s = record.get("_wall_s", 0)
+                    aggregated = record.get("arms", {})
+                    print(
+                        f"[{completed_count}/{len(work_queue)}] DONE {scenario} x {model} in {wall_s}s",
+                        flush=True,
+                    )
+                    for arm_name, arm_data in aggregated.items():
+                        ts = arm_data.get("tiered_summary", {})
+                        exact_mr = ts.get("exact", {}).get("mean_recall", 0)
+                        parent_mr = ts.get("parent", {}).get("mean_recall", 0)
+                        tactic_mr = ts.get("tactic", {}).get("mean_recall", 0)
+                        exact_cls = ts.get("exact", {}).get("classification", "?")
+                        parent_cls = ts.get("parent", {}).get("classification", "?")
+                        tactic_cls = ts.get("tactic", {}).get("classification", "?")
+                        print(
+                            f"  {arm_name}: exact={exact_mr:.3f}({exact_cls}) "
+                            f"parent={parent_mr:.3f}({parent_cls}) "
+                            f"tactic={tactic_mr:.3f}({tactic_cls})"
+                        )
+                except Exception as exc:
+                    print(
+                        f"[{completed_count}/{len(work_queue)}] FAILED {scenario} x {model}: {exc}",
+                        flush=True,
+                    )
 
-            # Print summary
-            for arm_name, arm_data in aggregated.items():
-                ts = arm_data.get("tiered_summary", {})
-                exact_cls = ts.get("exact", {}).get("classification", "?")
-                parent_cls = ts.get("parent", {}).get("classification", "?")
-                tactic_cls = ts.get("tactic", {}).get("classification", "?")
-                exact_mr = ts.get("exact", {}).get("mean_recall", 0)
-                parent_mr = ts.get("parent", {}).get("mean_recall", 0)
-                tactic_mr = ts.get("tactic", {}).get("mean_recall", 0)
-                print(
-                    f"  {arm_name}: exact={exact_mr:.3f}({exact_cls}) "
-                    f"parent={parent_mr:.3f}({parent_cls}) "
-                    f"tactic={tactic_mr:.3f}({tactic_cls})"
-                )
-
-            print(
-                f"[{i}/{total}] DONE {scenario} x {model} in {wall_s}s",
-                flush=True,
-            )
+        sweep_wall = round(time.monotonic() - t_sweep_start, 1)
+        print(f"\nParallel sweep completed in {sweep_wall}s ({sweep_wall / 60:.1f}min)")
 
     # Final summary table
     print("\n" + "=" * 80)
