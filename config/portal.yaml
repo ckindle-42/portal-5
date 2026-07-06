@@ -2194,6 +2194,28 @@ workspaces:
     - recall
     expose_to_owui: false
     enable_web_search: false
+  bench-security-slm-1p5b:
+    name: "🧪 Bench · security-slm 1.5B"
+    description: |-
+      security-slm-unsloth-1.5b (~1.1GB, Nguuma, DeepSeek-R1-distill base finetuned on security corpora). Multi-seat V2 bench candidate (2026-07-05) — red+blue+CoT+mcp-security seats. tools: [] deliberately: audited directly against Ollama, Modelfile TEMPLATE has zero {{ .Tools }} handling, so tool defs never reach the model regardless of what's attached here — it can only be scored on prose/CoT, not tool dispatch.
+    model_hint: hf.co/Nguuma/security-slm-unsloth-1.5b:latest
+    max_concurrent: 1
+    keep_alive: 5m
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-cybersecqwen-4b-toolfix:
+    name: "🧪 Bench · CyberSecQwen-4B (toolfix)"
+    description: |-
+      cybersecqwen-4b-toolfix (~2.5GB, retemplated from mradermacher/CyberSecQwen-4B-GGUF Q4_K_M to add Qwen-style <tool_call> tag support — the base tag hard-errors "does not support tools" in Ollama). Multi-seat V2 bench candidate (2026-07-05) — blue seat. tools: [] deliberately: this workspace exists only so the pipeline resolves the exact model instead of falling back to the general group's first model; blue.py injects its own tool schemas per-request.
+    model_hint: cybersecqwen-4b-toolfix:latest
+    max_concurrent: 1
+    keep_alive: 5m
+    emits_reasoning: false
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
 
 # ── Model pull registry ────────────────────────────────────────────────────────
 # HuggingFace → Ollama pull metadata. Consumed by `portal models pull`.

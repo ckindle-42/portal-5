@@ -221,6 +221,25 @@ backends:
     # Scored on artifact CONTENT (CVE PoCs, Nuclei templates, JWT crackers),
     # not tool dispatch. Reference: UAT 20260627 + commit 7fee599.
     supports_tools: false
+  # Multi-seat V2 bench blue-seat candidates (2026-07-05) — bench-only, PROMOTE_POLICY=confirm
+  - id: hf.co/Nguuma/security-slm-unsloth-1.5b:latest
+    # supports_tools=false: audited directly against Ollama — Modelfile TEMPLATE
+    # is a bare DeepSeek-R1-style chat template with no {{ .Tools }} handling at
+    # all. Given tool defs it hallucinates freeform "as-if" tool usage in prose
+    # rather than emitting a real tool call. Not fixable via prompting alone.
+    supports_tools: false
+  - id: hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M
+    # supports_tools=false: Ollama itself hard-errors "does not support tools"
+    # for this tag — no tool-calling template at all. Use the
+    # cybersecqwen-4b-toolfix derivative instead.
+    supports_tools: false
+  - id: cybersecqwen-4b-toolfix:latest
+    # supports_tools=true: audited directly against Ollama — Modelfile TEMPLATE
+    # emits <tool_call>{...}</tool_call> correctly, but only when a system
+    # message is present (Tools block is nested inside {{- if .System }}) and
+    # only as plain content, not a structured tool_calls array — blue.py now
+    # sends a system message and falls back to parsing the tag from content.
+    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: reasoning
@@ -645,3 +664,7 @@ workspace_routing:
   - general
   bench-gemma4-12b-agentic:
   - general
+  bench-security-slm-1p5b:
+  - security
+  bench-cybersecqwen-4b-toolfix:
+  - security

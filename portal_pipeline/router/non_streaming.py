@@ -299,11 +299,24 @@ async def _try_non_streaming(
 
         await tool_registry.refresh()
         _tools_arr = tool_registry.get_openai_tools(_ns_tools)
+        # Merge client-injected tools with workspace tools — same logic as the
+        # streaming path (handlers.py). Without this, clients (e.g. bench
+        # blue/purple) that inject domain-specific tools via body["tools"]
+        # had them silently discarded and replaced with only the workspace's
+        # own registered tools (found 2026-07-05).
+        _client_tools = body.get("tools", [])
         if _tools_arr:
+            if _client_tools:
+                _seen_names = {t.get("function", {}).get("name") for t in _tools_arr}
+                for _ct in _client_tools:
+                    _ct_name = _ct.get("function", {}).get("name", "")
+                    if _ct_name and _ct_name not in _seen_names:
+                        _tools_arr.append(_ct)
+                        _seen_names.add(_ct_name)
             req_body["tools"] = _tools_arr
             req_body.setdefault("tool_choice", "auto")
             logger.info(
-                "Tool-call (non-stream): workspace=%s persona=%s model=%s exposed %d tools",
+                "Tool-call (non-stream): workspace=%s persona=%s model=%s exposed %d tools (merged)",
                 workspace_id,
                 persona or "(none)",
                 target_model,
@@ -327,7 +340,20 @@ async def _try_non_streaming(
             for _c in data.get("choices") or []:
                 _ns_tool_calls.extend((_c.get("message") or {}).get("tool_calls") or [])
 
-            if _ns_tool_calls and _ns_tools:
+            # Only auto-dispatch when every requested call belongs to the
+            # workspace's own whitelist. A client-injected tool (e.g. bench
+            # blue/purple's synthetic query_windows_events) has no real MCP
+            # registry entry — _dispatch_tool_call correctly rejects it, but
+            # that consumes the tool_calls and forces a synthesis reply
+            # instead of returning them to the caller to handle itself
+            # (found 2026-07-05: auto-blueteam's own tools mixed with
+            # client-injected ones caused every client tool call to be
+            # silently rejected and turned into a prose "unavailable" answer).
+            _ns_dispatchable = bool(_ns_tools) and all(
+                (tc.get("function") or {}).get("name", "").strip() in _ns_tools
+                for tc in _ns_tool_calls
+            )
+            if _ns_tool_calls and _ns_dispatchable:
                 _ns_dispatch = await asyncio.gather(
                     *[
                         _dispatch_tool_call(
