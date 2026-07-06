@@ -15,6 +15,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -141,6 +142,69 @@ def _get_mcp_call():
         return None
 
 
+def enable_meta3_audit_policies(target_ip: str) -> dict:
+    """Enable process creation auditing and command-line logging on Meta3.
+
+    Meta3 (Metasploitable3-Windows) has process creation auditing OFF by default.
+    Without it, exploitation techniques (T1059, T1059.004, T1548.001, T1068)
+    generate zero Windows Security Event Log evidence.
+
+    Enables:
+    1. Process Creation audit subcategory (EventCode 4688)
+    2. Command-line logging in process creation events (registry key)
+
+    Returns:
+        {ok: bool, audit_enabled: bool, cmdline_logging: bool, error: str}
+    """
+    mcp_call = _get_mcp_call()
+    if not mcp_call:
+        return {"ok": False, "error": "MCP call not available"}
+
+    import base64
+
+    meta3_user = os.environ.get("LAB_META3_USER", "vagrant")
+    meta3_pass = os.environ.get("LAB_META3_PASS", "vagrant")
+
+    def _winrm_ps(ps_script: str, timeout: int) -> str:
+        b64 = base64.b64encode(ps_script.encode("utf-16-le")).decode()
+        code = (
+            f"nxc winrm {target_ip} -u {meta3_user} -p {meta3_pass} "
+            f'-X "powershell -NoProfile -EncodedCommand {b64}" 2>&1'
+        )
+        r = mcp_call(code, timeout=timeout)
+        if not (r.get("ok") and r.get("output", "").strip()):
+            return ""
+        return strip_nxc_line_prefix(unwrap_mcp_stdout(r["output"]))
+
+    result = {"ok": False, "audit_enabled": False, "cmdline_logging": False, "error": ""}
+
+    # Enable Process Creation auditing
+    audit_out = _winrm_ps(
+        "auditpol /set /subcategory:'Process Creation' /success:enable 2>&1; "
+        "auditpol /get /subcategory:'Process Creation' 2>&1",
+        60,
+    )
+    result["audit_enabled"] = "enable" in audit_out.lower() or "process creation" in audit_out.lower()
+
+    # Enable command-line logging in process creation events
+    # Registry: HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit
+    # Value: ProcessCreationIncludeCmdLine_Enabled = 1
+    cmd_out = _winrm_ps(
+        "New-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit' "
+        "-Name 'ProcessCreationIncludeCmdLine_Enabled' -Value 1 -PropertyType DWord -Force 2>&1; "
+        "Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit' "
+        "-Name 'ProcessCreationIncludeCmdLine_Enabled' 2>&1",
+        60,
+    )
+    result["cmdline_logging"] = "1" in cmd_out or "ProcessCreationIncludeCmdLine" in cmd_out
+
+    result["ok"] = result["audit_enabled"] or result["cmdline_logging"]
+    if not result["ok"]:
+        result["error"] = f"Failed to enable audit policies. audit_out={audit_out[:200]}, cmd_out={cmd_out[:200]}"
+
+    return result
+
+
 def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bool = False) -> dict:
     """Return {sourcetype: [lines]} scraped from the target/compose host since scenario start.
 
@@ -157,27 +221,12 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
         from scripts.lab_host import _host_exec
 
         def _host_exec_script(script: str, timeout: int) -> dict:
-            # _host_exec runs `ssh host "pct exec <ctid> -- {cmd}"` — any bare
-            # pipe/redirect/quote in `cmd` gets parsed by the shell on the
-            # PROXMOX HOST (found live 2026-07-03, same issue as the port-remap
-            # override-file write earlier today), not inside the LXC, so a
-            # multi-stage pipeline like this silently runs its later stages on
-            # the host instead of the container host. base64 + `sh -c` sidesteps
-            # all of that regardless of what the script contains.
             b64 = base64.b64encode(script.encode()).decode()
             return _host_exec(f'sh -c "echo {b64} | base64 -d | sh"', timeout=timeout)
 
         since = int(since_epoch)
         if kind in ("web", "container"):
-            # `docker ps -q` (currently-running containers) piped through xargs,
-            # not a fixed `--filter ancestor=...` tag that never matched any real
-            # vulhub image name — `--since @<epoch>` scopes the LOG LINES, not
-            # which containers get checked, so this is correct regardless of
-            # which specific CVE container is up right now.
-            # `docker logs --since` doesn't accept `@<epoch>` (that's a `docker
-            # run`-ism) — it wants RFC3339 or a duration. A duration computed
-            # from `date +%s` ON THE REMOTE HOST at execution time avoids any
-            # clock-skew/timezone mismatch a precomputed RFC3339 string would risk.
+            # Collect docker container stdout (application output)
             r = _host_exec_script(
                 f"docker ps -q | xargs -r -I{{}} "
                 f"docker logs --since $(( $(date +%s) - {since} ))s {{}} 2>&1 | tail -500",
@@ -185,6 +234,27 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
             )
             if r.get("ok") and r.get("output", "").strip():
                 out["web:access"] = [line for line in r["output"].splitlines() if line.strip()]
+
+            # Also collect web server access logs from inside the container.
+            # docker logs captures application stdout/stderr, NOT the HTTP access
+            # log where attack payloads appear. Most vulhub containers run Apache/
+            # Nginx whose access logs are at /var/log/apache2/access.log or
+            # /var/log/nginx/access.log inside the container.
+            r2 = _host_exec_script(
+                "for cid in $(docker ps -q); do "
+                "docker exec $cid cat /var/log/apache2/access.log 2>/dev/null || "
+                "docker exec $cid cat /var/log/nginx/access.log 2>/dev/null || "
+                "docker exec $cid cat /var/log/httpd/access_log 2>/dev/null || true; "
+                f"done | tail -500",
+                timeout=30,
+            )
+            if r2.get("ok") and r2.get("output", "").strip():
+                access_lines = [
+                    line for line in r2["output"].splitlines()
+                    if line.strip() and not line.startswith("#")
+                ]
+                if access_lines:
+                    out.setdefault("web:access", []).extend(access_lines)
 
         if kind in ("linux", "web", "container"):
             r = _host_exec_script(
@@ -194,42 +264,85 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
             if r.get("ok") and r.get("output", "").strip():
                 out["linux:auditd"] = [line for line in r["output"].splitlines() if line.strip()]
 
-    # Windows AD events: WinEventBackend already reads these; collection forwards them to Splunk too.
-    # Sandbox MCP (portal5-attack, network-enabled) is the right channel here — nxc needs
-    # attacker-network reach to the DC over WinRM, unlike the docker/auditd host access above.
+    # Windows AD events — capture ALL Security events.
+    # In a real SOC, the analyst sees everything and must find the signal.
+    # Two-pass collection: (1) all events compact (Id+TimeCreated) for the full
+    # picture, (2) attack-relevant events with full Message detail for grounding.
     if kind in ("windows", "ad"):
         mcp_call = _get_mcp_call()
         if mcp_call:
-            ids = os.environ.get("LAB_WIN_EVENT_IDS", "4769,4768,4662,4698,4625,4771")
-            ps = (
-                f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={ids}}} "
-                f"-MaxEvents 50 | Format-List Id,TimeCreated,Message"
-            )
+            import base64
+
             lab_dc = os.environ.get("LAB_TARGET_DC", "10.10.11.21")
             lab_pass = os.environ.get("LAB_ADMIN_PASS", "LabAdmin1!")
-            # -X (not -x) — cmd.exe doesn't know PowerShell cmdlets (same fix as
-            # WinEventBackend.query in blue.py; this copy had drifted out of sync).
-            code = f"nxc winrm {lab_dc} -u administrator -p '{lab_pass}' -X \"{ps}\" 2>&1"
-            r = mcp_call(code, timeout=90)
-            if r.get("ok") and r.get("output", "").strip():
-                stdout = unwrap_mcp_stdout(r["output"])
-                normalized = _normalize_windows_security_events(stdout)
-                if normalized:
-                    out["windows:security"] = normalized
+            # Pre-initialize nxc (first call creates workspace dirs in ephemeral sandbox)
+            mcp_call(
+                f"nxc winrm {lab_dc} -u administrator -p '{lab_pass}' -X \"whoami\" 2>&1",
+                timeout=60,
+            )
 
-    # meta3 (Metasploitable3-Windows, standalone Vagrant box, not domain-joined —
-    # a separate case from windows/ad above, which targets the DC specifically).
-    # Its real detect_ground_truth techniques (T1190 web exploit, T1059/T1548.001/
-    # T1068 command-exec/privesc via vulnerable third-party services) never touch
-    # normal Windows auth, so evidence lives in: (1) IIS's own W3C access logs —
-    # already exactly "web:access" format, matching T1190's SPL directly; (2) the
-    # vsftpd-backdoor-style FTP service's own W3C-style log; (3) Process Creation
-    # events (4688, WITH command-line logging) IF that audit subcategory has been
-    # enabled (`auditpol /set /subcategory:"Process Creation" /success:enable` +
-    # the ProcessCreationIncludeCmdLine_Enabled registry value — off by default on
-    # a stock Vagrant image, found live 2026-07-04: with it off, none of meta3's
-    # actual exploitation techniques generate ANY Windows Security Event Log
-    # evidence at all, regardless of collection code).
+            # Pass 1: ALL events — compact format (Id + TimeCreated only).
+            # This gives the model the full event landscape including background
+            # noise (logon/logoff, privilege use, etc.) without blowing up output size.
+            ps_all = (
+                "Get-WinEvent -FilterHashtable @{LogName='Security'} -MaxEvents 500 "
+                "| ForEach-Object { $_.Id.ToString() + ' ' + $_.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss') }"
+            )
+            b64_all = base64.b64encode(ps_all.encode("utf-16-le")).decode()
+            code_all = (
+                f"nxc winrm {lab_dc} -u administrator -p '{lab_pass}' "
+                f'-X "powershell -NoProfile -EncodedCommand {b64_all}" 2>&1'
+            )
+            r_all = mcp_call(code_all, timeout=120)
+            all_events: list[str] = []
+            if r_all.get("ok") and r_all.get("output", "").strip():
+                stdout_all = unwrap_mcp_stdout(r_all["output"])
+                for line in stdout_all.splitlines():
+                    line = strip_nxc_line_prefix(line).strip()
+                    # Format: "4624 2026-07-06 10:30:45"
+                    parts = line.split(None, 1)
+                    if len(parts) == 2 and parts[0].isdigit():
+                        all_events.append(
+                            f"EventCode={parts[0]} TimeCreated={parts[1]}"
+                        )
+
+            # Pass 2: Attack-relevant events with full Message detail.
+            # These are the events the model needs to examine closely.
+            attack_ids = "4769,4768,4662,4698,4625,4771,4688,4702,4770,5140"
+            ps_detail = (
+                f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={attack_ids}}} "
+                "-MaxEvents 100 | Format-List Id,TimeCreated,Message"
+            )
+            b64_detail = base64.b64encode(ps_detail.encode("utf-16-le")).decode()
+            code_detail = (
+                f"nxc winrm {lab_dc} -u administrator -p '{lab_pass}' "
+                f'-X "powershell -NoProfile -EncodedCommand {b64_detail}" 2>&1'
+            )
+            r_detail = mcp_call(code_detail, timeout=120)
+            detailed_events: list[str] = []
+            if r_detail.get("ok") and r_detail.get("output", "").strip():
+                stdout_detail = unwrap_mcp_stdout(r_detail["output"])
+                detailed_events = _normalize_windows_security_events(stdout_detail)
+
+            # Merge: all compact events + detailed attack events (detailed takes precedence).
+            # The model sees the full landscape AND has the detail it needs for grounding.
+            merged = list(all_events)  # copy
+            detail_codes = set()
+            for de in detailed_events:
+                if "EventCode=" in de:
+                    detail_codes.add(de.split("EventCode=")[1].split()[0])
+            # Remove compact entries for event codes we have detailed versions of
+            merged = [e for e in merged if not any(
+                f"EventCode={c}" in e and e.startswith(f"EventCode={c}") and "Account=" not in e
+                for c in detail_codes
+            )]
+            merged.extend(detailed_events)
+
+            if merged:
+                out["windows:security"] = merged
+
+    # meta3 (Metasploitable3-Windows, standalone Vagrant box, not domain-joined).
+    # Capture ALL Security events + IIS/FTP logs — model must find the signal.
     if kind == "meta3":
         mcp_call = _get_mcp_call()
         if mcp_call:
@@ -238,11 +351,14 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
             meta3_user = os.environ.get("LAB_META3_USER", "vagrant")
             meta3_pass = os.environ.get("LAB_META3_PASS", "vagrant")
 
+            # Pre-initialize nxc (first call creates workspace dirs — output is
+            # just init noise, not command output). Second call gets real results.
+            mcp_call(
+                f"nxc winrm {target_ip} -u {meta3_user} -p {meta3_pass} -X \"whoami\" 2>&1",
+                timeout=60,
+            )
+
             def _winrm_ps(ps_script: str, timeout: int) -> str:
-                # -EncodedCommand sidesteps the same multi-layer-shell quoting
-                # trap as _host_exec_script above (Python f-string -> bash ->
-                # nxc -X "..." -> PowerShell) — a bare -X "<script>" mangled
-                # every '$'/quote-containing PowerShell one-liner tried here.
                 b64 = base64.b64encode(ps_script.encode("utf-16-le")).decode()
                 code = (
                     f"nxc winrm {target_ip} -u {meta3_user} -p {meta3_pass} "
@@ -254,13 +370,6 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
                 return strip_nxc_line_prefix(unwrap_mcp_stdout(r["output"]))
 
             def _real_log_lines(text: str) -> list[str]:
-                # W3C log format uses "#"-prefixed header/comment lines (#Fields,
-                # #Software, #Date); nxc prepends its own one-time protocol-init
-                # noise ("[*] Creating...") AND its own auth/exec status lines
-                # ("[+] user:pass (Pwn3d!)", "[+] Executed command...") ahead of
-                # the actual command output (same noise WinEventBackend.query
-                # already filters via "[*]" alone — this also needs "[+]").
-                # None of it is real log content.
                 return [
                     ln
                     for ln in text.splitlines()
@@ -269,6 +378,7 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
                     and not ln.lstrip().startswith(("[*]", "[+]", "[-]"))
                 ]
 
+            # IIS access logs (T1190 — web exploit evidence)
             iis_out = _winrm_ps(
                 "Get-ChildItem C:\\inetpub\\logs\\LogFiles\\W3SVC1 -ErrorAction SilentlyContinue "
                 "| Sort LastWriteTime -Descending | Select -First 1 "
@@ -280,6 +390,7 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
                 if lines:
                     out["web:access"] = lines
 
+            # FTP service logs
             ftp_out = _winrm_ps(
                 "Get-ChildItem C:\\inetpub\\logs\\LogFiles\\FTPSVC2 -ErrorAction SilentlyContinue "
                 "| Sort LastWriteTime -Descending | Select -First 1 "
@@ -291,11 +402,13 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
                 if lines:
                     out["ftp:access"] = lines
 
+            # ALL Windows Security events — not just specific IDs.
+            # In a real SOC, the analyst sees everything.
             proc_out = _winrm_ps(
-                "Get-WinEvent -FilterHashtable @{LogName='Security';Id=4688} "
-                "-MaxEvents 50 -ErrorAction SilentlyContinue "
+                "Get-WinEvent -FilterHashtable @{LogName='Security'} "
+                "-MaxEvents 200 -ErrorAction SilentlyContinue "
                 "| Format-List Id,TimeCreated,Message",
-                90,
+                120,
             )
             if proc_out:
                 normalized = _normalize_windows_security_events(proc_out)

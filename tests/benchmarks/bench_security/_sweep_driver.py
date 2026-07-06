@@ -159,7 +159,9 @@ def _compute_arm_deltas(results: list[dict]) -> dict[str, dict]:
     For each model, aggregates mean_recall per tier across scenarios,
     then computes harness−raw and harness−tools deltas.
 
-    Returns {model: {tier: {raw, tools, harness, delta_raw, delta_tools}}}.
+    Returns {model: {tier: {raw, tools, harness, delta_raw, delta_tools,
+    raw_vals, harness_vals, tools_vals}}} where *_vals are per-scenario
+    recall lists (for bootstrap CI).
     """
     # Group results by model
     by_model: dict[str, list[dict]] = {}
@@ -169,26 +171,29 @@ def _compute_arm_deltas(results: list[dict]) -> dict[str, dict]:
 
     deltas: dict[str, dict] = {}
     for model, model_results in by_model.items():
-        # Average mean_recall across scenarios for each arm+tier
-        arm_tier_sums: dict[str, dict[str, list[float]]] = {}
+        # Collect per-scenario mean_recall for each arm+tier
+        arm_tier_vals: dict[str, dict[str, list[float]]] = {}
         for r in model_results:
             for arm_name, arm_data in r.get("arms", {}).items():
                 ts = arm_data.get("tiered_summary", {})
-                arm_tier_sums.setdefault(arm_name, {})
+                arm_tier_vals.setdefault(arm_name, {})
                 for tier in ["exact", "parent", "tactic"]:
-                    arm_tier_sums[arm_name].setdefault(tier, [])
-                    arm_tier_sums[arm_name][tier].append(ts.get(tier, {}).get("mean_recall", 0.0))
+                    arm_tier_vals[arm_name].setdefault(tier, [])
+                    arm_tier_vals[arm_name][tier].append(ts.get(tier, {}).get("mean_recall", 0.0))
 
         # Compute averages
         model_tiers: dict[str, dict] = {}
         for tier in ["exact", "parent", "tactic"]:
-            raw_vals = arm_tier_sums.get("raw", {}).get(tier, [0.0])
-            tools_vals = arm_tier_sums.get("tools", {}).get(tier, [0.0])
-            harness_vals = arm_tier_sums.get("harness", {}).get(tier, [0.0])
+            raw_vals = arm_tier_vals.get("raw", {}).get(tier, [0.0])
+            tools_vals = arm_tier_vals.get("tools", {}).get(tier, [0.0])
+            harness_vals = arm_tier_vals.get("harness", {}).get(tier, [0.0])
 
             raw_mr = sum(raw_vals) / len(raw_vals) if raw_vals else 0.0
             tools_mr = sum(tools_vals) / len(tools_vals) if tools_vals else 0.0
             harness_mr = sum(harness_vals) / len(harness_vals) if harness_vals else 0.0
+
+            # Compute paired deltas for bootstrap CI
+            paired_deltas = [h - r for h, r in zip(harness_vals, raw_vals, strict=False)]
 
             model_tiers[tier] = {
                 "raw": round(raw_mr, 3),
@@ -196,6 +201,10 @@ def _compute_arm_deltas(results: list[dict]) -> dict[str, dict]:
                 "harness": round(harness_mr, 3),
                 "delta_raw": round(harness_mr - raw_mr, 3),
                 "delta_tools": round(harness_mr - tools_mr, 3),
+                "raw_vals": raw_vals,
+                "harness_vals": harness_vals,
+                "tools_vals": tools_vals,
+                "paired_deltas": paired_deltas,
             }
 
         deltas[model] = model_tiers
@@ -203,12 +212,61 @@ def _compute_arm_deltas(results: list[dict]) -> dict[str, dict]:
     return deltas
 
 
-def _write_back_winning_config(results: list[dict]) -> str | None:
-    """M5: Write arm-vs-arm delta report as a cited wiki unit.
+def _bootstrap_ci(
+    paired_deltas: list[float], confidence: float = 0.95, n_boot: int = 10000
+) -> tuple[float, float]:
+    """Compute bootstrap confidence interval for the mean of paired deltas.
 
-    Reports per-model harness−raw / harness−tools deltas per tier.
+    Args:
+        paired_deltas: list of (harness_recall - raw_recall) per scenario
+        confidence: CI level (default 0.95 = 95%)
+        n_boot: number of bootstrap resamples
+
+    Returns:
+        (lower, upper) bounds of the CI.
+    """
+    import random
+
+    if len(paired_deltas) < 2:
+        mean = sum(paired_deltas) / len(paired_deltas) if paired_deltas else 0.0
+        return (round(mean, 4), round(mean, 4))
+
+    n = len(paired_deltas)
+    boot_means: list[float] = []
+    for _ in range(n_boot):
+        sample = random.choices(paired_deltas, k=n)
+        boot_means.append(sum(sample) / len(sample))
+
+    boot_means.sort()
+    alpha = 1.0 - confidence
+    lower_idx = int(n_boot * (alpha / 2))
+    upper_idx = int(n_boot * (1.0 - alpha / 2))
+    lower_idx = max(0, min(lower_idx, n_boot - 1))
+    upper_idx = max(0, min(upper_idx, n_boot - 1))
+
+    return (round(boot_means[lower_idx], 4), round(boot_means[upper_idx], 4))
+
+
+def _verdict_from_ci(ci_lower: float, ci_upper: float) -> str:
+    """Determine verdict from confidence interval of harness−raw delta.
+
+    - CI entirely above 0 → SIGNIFICANT-WIN
+    - CI entirely below 0 → SIGNIFICANT-REGRESSION
+    - CI crosses 0 → INCONCLUSIVE
+    """
+    if ci_lower > 0:
+        return "SIGNIFICANT-WIN"
+    if ci_upper < 0:
+        return "SIGNIFICANT-REGRESSION"
+    return "INCONCLUSIVE"
+
+
+def _write_back_winning_config(results: list[dict]) -> str | None:
+    """M5: Write arm-vs-arm delta report with confidence intervals as a cited wiki unit.
+
+    Reports per-model harness−raw / harness−tools deltas per tier with 95% bootstrap CI.
+    Labels each delta: SIGNIFICANT-WIN / SIGNIFICANT-REGRESSION / INCONCLUSIVE.
     Proposes seat config ONLY from the harness arm (production config).
-    Flags harness<raw as an explicit red flag.
 
     Returns the proposed unit ID, or None if writeback failed.
     """
@@ -225,47 +283,50 @@ def _write_back_winning_config(results: list[dict]) -> str | None:
     best_harness_score = -1.0
     best_harness_model = ""
 
-    # Track red flags (harness < raw)
-    red_flags: list[str] = []
+    # Track verdicts
+    verdicts: dict[str, dict[str, dict]] = {}
 
     body_lines = [
-        "# Agentic Blue Eval — Arm-vs-Arm Delta Report",
+        "# Agentic Blue Eval — Arm-vs-Arm Delta Report (with Confidence Intervals)",
         "",
         f"**Trials per cell:** {n_trials}  ",
-        f"**Scenarios:** {', '.join(scenarios)}  ",
+        f"**Scenarios:** {len(scenarios)}  ",
         f"**Sweep date:** {sweep_date}",
         "",
-        "## Per-Model Arm Deltas (the harness-contribution number)",
+        "## Per-Model Arm Deltas with 95% Bootstrap CI",
         "",
         "The three-arm design exists to answer: **does the harness beat raw, for the same model, "
-        "and by how much?** The delta `harness−raw` is the harness contribution.",
+        "and by how much?** Each delta is reported with a 95% bootstrap confidence interval. "
+        "A delta is only a WIN if its CI excludes 0 on the positive side; a REGRESSION only if "
+        "the CI excludes 0 on the negative side; otherwise it is INCONCLUSIVE (within noise).",
         "",
     ]
 
     for model, model_tiers in sorted(deltas.items()):
         body_lines.append(f"### `{model}`")
         body_lines.append("")
-        body_lines.append("| Tier | raw | tools | harness | harness−raw | harness−tools |")
-        body_lines.append("|------|-----|-------|---------|-------------|---------------|")
+        body_lines.append("| Tier | raw | harness | delta | 95% CI | verdict |")
+        body_lines.append("|------|-----|---------|-------|--------|---------|")
 
+        verdicts[model] = {}
         for tier in ["exact", "parent", "tactic"]:
             t = model_tiers[tier]
-            raw_s = f"{t['raw']:.3f}"
-            tools_s = f"{t['tools']:.3f}"
-            harness_s = f"{t['harness']:.3f}"
+            paired = t.get("paired_deltas", [])
+            ci_lo, ci_hi = _bootstrap_ci(paired)
+            verdict = _verdict_from_ci(ci_lo, ci_hi)
+            verdicts[model][tier] = {
+                "delta": t["delta_raw"],
+                "ci_lower": ci_lo,
+                "ci_upper": ci_hi,
+                "verdict": verdict,
+            }
 
-            # Format deltas with sign and flag
             dr = t["delta_raw"]
-            dt = t["delta_tools"]
-            delta_raw_s = f"+{dr:.3f}" if dr >= 0 else f"{dr:.3f}"
-            delta_tools_s = f"+{dt:.3f}" if dt >= 0 else f"{dt:.3f}"
-
-            if dr < 0:
-                delta_raw_s += " RED-FLAG"
-                red_flags.append(f"{model}/{tier}: harness={t['harness']:.3f} < raw={t['raw']:.3f}")
+            delta_s = f"+{dr:.3f}" if dr >= 0 else f"{dr:.3f}"
+            ci_s = f"[{ci_lo:+.3f}, {ci_hi:+.3f}]"
 
             body_lines.append(
-                f"| {tier} | {raw_s} | {tools_s} | {harness_s} | {delta_raw_s} | {delta_tools_s} |"
+                f"| {tier} | {t['raw']:.3f} | {t['harness']:.3f} | {delta_s} | {ci_s} | {verdict} |"
             )
 
         body_lines.append("")
@@ -281,19 +342,44 @@ def _write_back_winning_config(results: list[dict]) -> str | None:
             best_harness_score = harness_score
             best_harness_model = model
 
-    # Red flags section
-    if red_flags:
-        body_lines.extend(
-            [
-                "## RED FLAGS (harness < raw)",
-                "",
-                "These cells show the harness underperforming raw — possible arm-wiring bug or harness regression:",
-                "",
-            ]
+    # Verdict summary
+    body_lines.extend(
+        [
+            "## Verdict Summary",
+            "",
+        ]
+    )
+
+    any_win = False
+    any_regression = False
+    for model, model_verdicts in sorted(verdicts.items()):
+        for tier, v in sorted(model_verdicts.items()):
+            if v["verdict"] == "SIGNIFICANT-WIN":
+                any_win = True
+                body_lines.append(
+                    f"- **{model}/{tier}: SIGNIFICANT-WIN** — "
+                    f"delta={v['delta']:+.3f}, CI=[{v['ci_lower']:+.3f}, {v['ci_upper']:+.3f}]"
+                )
+            elif v["verdict"] == "SIGNIFICANT-REGRESSION":
+                any_regression = True
+                body_lines.append(
+                    f"- **{model}/{tier}: SIGNIFICANT-REGRESSION** — "
+                    f"delta={v['delta']:+.3f}, CI=[{v['ci_lower']:+.3f}, {v['ci_upper']:+.3f}]"
+                )
+
+    if not any_win and not any_regression:
+        body_lines.append(
+            "- All deltas are INCONCLUSIVE — harness effect within noise at current power."
         )
-        for rf in red_flags:
-            body_lines.append(f"- {rf}")
-        body_lines.append("")
+
+    inconclusive_count = sum(
+        1 for mv in verdicts.values() for v in mv.values() if v["verdict"] == "INCONCLUSIVE"
+    )
+    body_lines.append("")
+    body_lines.append(
+        f"**Inconclusive cells:** {inconclusive_count} — these cannot be declared wins or regressions."
+    )
+    body_lines.append("")
 
     # Recommended seat config (harness arm only)
     if best_harness_model:
@@ -307,10 +393,9 @@ def _write_back_winning_config(results: list[dict]) -> str | None:
             ]
         )
 
-        body_lines.append(f"| Tier | harness recall | pass@{n_trials} |")
-        body_lines.append("|------|---------------|---------|")
+        body_lines.append(f"| Tier | harness recall | pass@{n_trials} | verdict |")
+        body_lines.append("|------|---------------|---------|---------|")
         for tier in ["exact", "parent", "tactic"]:
-            # Get per-scenario pass@k for this model's harness arm
             harness_pass_k = []
             harness_recalls = []
             for r in results:
@@ -323,35 +408,32 @@ def _write_back_winning_config(results: list[dict]) -> str | None:
             avg_recall = sum(harness_recalls) / len(harness_recalls) if harness_recalls else 0
             total_pass = sum(harness_pass_k)
             total_possible = len(harness_pass_k) * n_trials
-            body_lines.append(f"| {tier} | {avg_recall:.3f} | {total_pass}/{total_possible} |")
+            v = verdicts.get(best_harness_model, {}).get(tier, {}).get("verdict", "?")
+            body_lines.append(
+                f"| {tier} | {avg_recall:.3f} | {total_pass}/{total_possible} | {v} |"
+            )
         body_lines.append("")
 
     body = "\n".join(body_lines)
 
     # Print delta summary to stdout
-    print("\n" + "=" * 90)
-    print("ARM-VS-ARM DELTAS (harness contribution)")
-    print("=" * 90)
+    print("\n" + "=" * 100)
+    print("ARM-VS-ARM DELTAS WITH 95% BOOTSTRAP CI (harness contribution)")
+    print("=" * 100)
     for model, model_tiers in sorted(deltas.items()):
         print(f"\n{model}:")
         print(
-            f"  {'Tier':8s} | {'raw':>6s} | {'tools':>6s} | {'harness':>7s} | {'h-raw':>7s} | {'h-tools':>7s}"
+            f"  {'Tier':8s} | {'raw':>6s} | {'harness':>7s} | {'delta':>7s} | {'95% CI':>18s} | {'verdict':>20s}"
         )
-        print(f"  {'-' * 8}-+-{'-' * 6}-+-{'-' * 6}-+-{'-' * 7}-+-{'-' * 7}-+-{'-' * 7}")
+        print(f"  {'-' * 8}-+-{'-' * 6}-+-{'-' * 7}-+-{'-' * 7}-+-{'-' * 18}-+-{'-' * 20}")
         for tier in ["exact", "parent", "tactic"]:
-            t = model_tiers[tier]
-            dr = t["delta_raw"]
-            dt = t["delta_tools"]
-            flag = " RED-FLAG" if dr < 0 else ""
+            v = verdicts[model][tier]
+            ci_s = f"[{v['ci_lower']:+.4f}, {v['ci_upper']:+.4f}]"
             print(
-                f"  {tier:8s} | {t['raw']:>6.3f} | {t['tools']:>6.3f} | {t['harness']:>7.3f} | "
-                f"{dr:>+7.3f} | {dt:>+7.3f}{flag}"
+                f"  {tier:8s} | {model_tiers[tier]['raw']:>6.3f} | "
+                f"{model_tiers[tier]['harness']:>7.3f} | "
+                f"{v['delta']:>+7.3f} | {ci_s:>18s} | {v['verdict']:>20s}"
             )
-
-    if red_flags:
-        print("\nRED FLAGS:")
-        for rf in red_flags:
-            print(f"  ! {rf}")
 
     if best_harness_model:
         print(f"\nRecommended seat: {best_harness_model} (harness arm)")
@@ -361,14 +443,14 @@ def _write_back_winning_config(results: list[dict]) -> str | None:
         from portal_wiki.core.writeback import propose_unit
 
         unit_id = f"SEC_BENCH-agentic-blue-deltas-{time.strftime('%Y%m%d', time.gmtime())}"
-        tags = ["agentic-blue", "maturation", "arm-deltas"]
+        tags = ["agentic-blue", "maturation", "arm-deltas", "confidence-interval"]
         for model in deltas:
             tags.append(model.replace(":", "-"))
 
         proposed = propose_unit(
             {
                 "id": unit_id,
-                "title": f"Agentic Blue Arm Deltas: harness contribution ({sweep_date})",
+                "title": f"Agentic Blue Arm Deltas (with CI): harness contribution ({sweep_date})",
                 "kind": "what",
                 "body": body,
                 "sources": [
