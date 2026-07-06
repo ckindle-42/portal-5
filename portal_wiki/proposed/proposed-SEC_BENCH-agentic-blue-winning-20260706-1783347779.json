@@ -1,0 +1,24 @@
+{
+  "proposed_id": "proposed-SEC_BENCH-agentic-blue-winning-20260706-1783347779",
+  "unit_id": "SEC_BENCH-agentic-blue-winning-20260706",
+  "kind": "what",
+  "title": "Agentic Blue Winning Config: granite4.1:8b-ctx8k (raw)",
+  "sources": [
+    {
+      "type": "bench-security",
+      "path": "/tmp/agentic_blue_sweep.json"
+    }
+  ],
+  "body": "# Agentic Blue Eval \u2014 Winning Configuration\n\n**Model:** `granite4.1:8b-ctx8k`  \n**Arm:** raw  \n**Trials per cell:** 3  \n**Scenarios:** asrep_to_lateral, kerberoast_to_da, meta3_ftp_backdoor  \n**Sweep date:** 2026-07-06 14:22 UTC\n\n## Tiered Recall Summary\n\n| Tier | Mean Recall | Pass@3 | Classification |\n|------|------------|---------|----------------|\n| exact | 0.222 | 2/3 | unreliable |\n| parent | 0.333 | 3/3 | reliable |\n| tactic | 0.333 | 3/3 | reliable |\n\n## Per-Scenario Results (winning model: granite4.1:8b-ctx8k)\n\n- **kerberoast_to_da**: exact=0.222 parent=0.333 tactic=0.333\n- **asrep_to_lateral**: exact=0.000 parent=0.111 tactic=0.222\n- **meta3_ftp_backdoor**: exact=0.167 parent=0.167 tactic=0.167",
+  "tags": [
+    "agentic-blue",
+    "maturation",
+    "winning-config",
+    "granite4.1-8b-ctx8k",
+    "raw"
+  ],
+  "proposed_by": "sec-maturation-sweep",
+  "proposed_at": 1783347779.1781728,
+  "status": "confirmed",
+  "auto_confirm": true
+}

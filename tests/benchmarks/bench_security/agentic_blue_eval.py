@@ -23,7 +23,7 @@ from pathlib import Path
 import httpx
 
 from ._data import resolve_pipeline_model
-from .siem.spl_detections import technique_reference
+from .siem.spl_detections import technique_reference, technique_signature_full
 from .unknown_defense import MatchGrade, compute_similarity
 
 _CAPTURE_DIR = Path(__file__).resolve().parent / "results" / "captures"
@@ -160,6 +160,201 @@ def _extract_techniques(text: str) -> list[str]:
 
     pattern = re.compile(r"T\d{4}(?:\.\d{3})?")
     return sorted(set(pattern.findall(text)))
+
+
+# ── M1: Three-tier scoring helpers ──────────────────────────────────────────
+
+
+def _parent_technique(technique_id: str) -> str:
+    """Strip sub-technique suffix: T1558.003 -> T1558."""
+    return technique_id.split(".")[0]
+
+
+_tactic_cache: dict[str, str] | None = None
+
+
+def _load_tactic_map() -> dict[str, str]:
+    """Build technique->tactic map from spl_detections.yaml compliance_mapping.
+
+    Returns {technique_id: tactic} for every technique that has a
+    mitre-attack compliance entry with a tactic field.
+    """
+    global _tactic_cache
+    if _tactic_cache is not None:
+        return _tactic_cache
+
+    import yaml
+
+    yaml_path = Path(__file__).resolve().parent / "siem" / "spl_detections.yaml"
+    tactic_map: dict[str, str] = {}
+    if yaml_path.exists():
+        data = yaml.safe_load(yaml_path.read_text()) or {}
+        for tid, entry in data.items():
+            if not isinstance(entry, dict):
+                continue
+            for mapping in entry.get("compliance_mapping", []):
+                if (
+                    isinstance(mapping, dict)
+                    and mapping.get("framework") == "mitre-attack"
+                    and mapping.get("tactic")
+                ):
+                    tactic_map[tid] = mapping["tactic"]
+                    break
+
+    # Supplement with embedded mitre_mcp data for techniques not in YAML
+    embedded_tactics = {
+        "T1190": "initial-access",
+        "T1059": "execution",
+        "T1059.004": "execution",
+        "T1505.003": "persistence",
+        "T1003": "credential-access",
+        "T1003.001": "credential-access",
+        "T1003.003": "credential-access",
+        "T1003.006": "credential-access",
+        "T1558.003": "credential-access",
+        "T1558.004": "credential-access",
+        "T1078": "persistence",
+        "T1078.004": "persistence",
+        "T1557": "credential-access",
+        "T1557.001": "credential-access",
+        "T1550.002": "lateral-movement",
+        "T1021.002": "lateral-movement",
+        "T1210": "lateral-movement",
+        "T1053.005": "persistence",
+        "T1548.001": "privilege-escalation",
+        "T1068": "privilege-escalation",
+        "T1047": "execution",
+        "T1552": "credential-access",
+        "T1552.005": "credential-access",
+        "T1537": "exfiltration",
+        "T1110": "credential-access",
+        "T1110.003": "credential-access",
+        "T1083": "discovery",
+        "T1189": "initial-access",
+        "T1203": "execution",
+        "T1592": "reconnaissance",
+        "T1595": "reconnaissance",
+        "T1610": "execution",
+        "T1611": "privilege-escalation",
+    }
+    for tid, tactic in embedded_tactics.items():
+        tactic_map.setdefault(tid, tactic)
+
+    # Also derive parent tactic from sub-technique mappings
+    for tid in list(tactic_map.keys()):
+        parent = _parent_technique(tid)
+        if parent not in tactic_map:
+            tactic_map[parent] = tactic_map[tid]
+
+    _tactic_cache = tactic_map
+    return tactic_map
+
+
+def _tactic_for(technique_id: str) -> str:
+    """Look up the MITRE tactic for a technique ID. Returns '' if unknown."""
+    return _load_tactic_map().get(technique_id, "")
+
+
+def score_findings_tiered(detected: set[str], ground_truth: set[str]) -> dict[str, dict]:
+    """Score findings at three tiers: exact, parent, tactic.
+
+    A finding credits the HIGHEST tier it satisfies:
+    - exact:  full sub-technique ID matches (T1558.003 == T1558.003)
+    - parent: technique family matches (T1558.003 -> T1558 == T1558)
+    - tactic: MITRE tactic matches (both map to same tactic, e.g. credential-access)
+
+    Returns dict with keys 'exact', 'parent', 'tactic', each containing
+    recall, precision, true_positives, false_positives, false_negatives.
+    """
+    tactic_map = _load_tactic_map()
+
+    # Classify each detected finding at the highest tier it achieves
+    exact_tps: set[str] = set()
+    parent_tps: set[str] = set()
+    tactic_tps: set[str] = set()
+
+    # Track which ground-truth items are covered at each tier
+    gt_covered_exact: set[str] = set()
+    gt_covered_parent: set[str] = set()
+    gt_covered_tactic: set[str] = set()
+
+    for det in detected:
+        if det in ground_truth:
+            exact_tps.add(det)
+            gt_covered_exact.add(det)
+        elif _parent_technique(det) in {_parent_technique(gt) for gt in ground_truth}:
+            parent_tps.add(det)
+            # Find which ground truth this parent-matches
+            for gt in ground_truth:
+                if _parent_technique(det) == _parent_technique(gt):
+                    gt_covered_parent.add(gt)
+                    break
+        else:
+            det_tactic = tactic_map.get(det, "")
+            if det_tactic:
+                gt_tactics = {gt: tactic_map.get(gt, "") for gt in ground_truth}
+                matched_gt = None
+                for gt, gt_tac in gt_tactics.items():
+                    if (
+                        gt_tac == det_tactic
+                        and gt not in gt_covered_exact
+                        and gt not in gt_covered_parent
+                    ):
+                        matched_gt = gt
+                        break
+                if matched_gt:
+                    tactic_tps.add(det)
+                    gt_covered_tactic.add(matched_gt)
+
+    # Union of all TPs across tiers (for overall recall)
+    all_tps = exact_tps | parent_tps | tactic_tps
+    all_gt_covered = gt_covered_exact | gt_covered_parent | gt_covered_tactic
+
+    def _tier_scores(tps: set[str], gt_covered: set[str], tier_name: str) -> dict:
+        fps = detected - all_tps if tier_name == "tactic" else set()
+        if tier_name == "exact":
+            fps = detected - exact_tps - parent_tps - tactic_tps
+        fn = ground_truth - all_gt_covered
+        recall = len(gt_covered) / len(ground_truth) if ground_truth else 0.0
+        # Precision: of all detected, how many were TPs at this tier or above
+        precision = len(tps) / len(detected) if detected else 0.0
+        return {
+            "recall": round(recall, 3),
+            "precision": round(precision, 3),
+            "true_positives": sorted(tps),
+            "false_positives": sorted(fps),
+            "false_negatives": sorted(fn),
+        }
+
+    # Build per-tier results
+    # For parent tier: parent recall includes exact matches too
+    parent_recall_gt = gt_covered_exact | gt_covered_parent
+    tactic_recall_gt = gt_covered_exact | gt_covered_parent | gt_covered_tactic
+
+    return {
+        "exact": {
+            "recall": round(len(gt_covered_exact) / len(ground_truth), 3) if ground_truth else 0.0,
+            "true_positives": sorted(exact_tps),
+            "gt_covered": sorted(gt_covered_exact),
+        },
+        "parent": {
+            "recall": round(len(parent_recall_gt) / len(ground_truth), 3) if ground_truth else 0.0,
+            "true_positives": sorted(exact_tps | parent_tps),
+            "gt_covered": sorted(parent_recall_gt),
+        },
+        "tactic": {
+            "recall": round(len(tactic_recall_gt) / len(ground_truth), 3) if ground_truth else 0.0,
+            "true_positives": sorted(all_tps),
+            "gt_covered": sorted(tactic_recall_gt),
+        },
+        "overall": {
+            "recall": round(len(all_gt_covered) / len(ground_truth), 3) if ground_truth else 0.0,
+            "precision": round(len(all_tps) / len(detected), 3) if detected else 0.0,
+            "true_positives": sorted(all_tps),
+            "false_positives": sorted(detected - all_tps),
+            "false_negatives": sorted(ground_truth - all_gt_covered),
+        },
+    }
 
 
 # ── Search tools (always available to blue) ─────────────────────────────────
@@ -314,7 +509,17 @@ def _dispatch_grounding_tool(name: str, args: dict) -> str | None:
         tid = args.get("technique_id", "").strip()
         desc = ref.get(tid)
         if desc:
-            return f"{tid}: {desc}"
+            # M4: also return full signature with distinguishing features
+            full = technique_signature_full(tid)
+            diff = full.get("distinguishing_features", {})
+            result = f"{tid}: {desc}"
+            if diff.get("sibling_diff"):
+                result += f"\nSibling distinction: {diff['sibling_diff']}"
+            if diff.get("key_indicator"):
+                result += f"\nKey indicator: {diff['key_indicator']}"
+            if full.get("expected_signal"):
+                result += f"\nExpected signal: {full['expected_signal']}"
+            return result
         return (
             f"No signature on file for '{tid}'. Known techniques: {', '.join(sorted(ref.keys()))}"
         )
@@ -566,7 +771,7 @@ def run_eval(
         if fn:
             results[arm_name] = fn(model, episode)
 
-    # Score per-tactic recall
+    # Score per-tactic recall (M1: three-tier scoring — exact/parent/tactic)
     ground_truth = set(episode.techniques)
     scores: dict[str, dict] = {}
     for arm_name, arm_result in results.items():
@@ -578,6 +783,9 @@ def run_eval(
         recall = len(true_positives) / len(ground_truth) if ground_truth else 0.0
         precision = len(true_positives) / len(detected) if detected else 0.0
 
+        # M1: tiered scoring — reveals hidden capability at parent/tactic levels
+        tiered = score_findings_tiered(detected, ground_truth)
+
         scores[arm_name] = {
             "recall": round(recall, 3),
             "precision": round(precision, 3),
@@ -588,6 +796,7 @@ def run_eval(
             "iterations": arm_result.iterations,
             "elapsed_s": arm_result.elapsed_s,
             "error": arm_result.error,
+            "tiered": tiered,
         }
 
     return {

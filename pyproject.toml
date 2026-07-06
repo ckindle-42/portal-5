@@ -107,7 +107,7 @@ portal-pipeline = "portal_pipeline.__main__:main"
 portal = "portal_pipeline.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["portal_pipeline", "portal_channels", "portal_mcp"]
+packages = ["portal_pipeline", "portal_channels", "portal_mcp", "portal", "portal_wiki"]
 
 [tool.ruff]
 target-version = "py312"
