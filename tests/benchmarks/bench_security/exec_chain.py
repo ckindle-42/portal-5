@@ -3025,6 +3025,11 @@ def _prepare_scenario(
     if gate.get("port"):
         runtime_env["TARGET_PORT"] = str(gate["port"])
 
+    # Store gate port on scenario dict so collect_and_ship_scenario_telemetry
+    # can target the right container (not all containers on the host).
+    if gate.get("port"):
+        scenario["gate_port"] = gate["port"]
+
     cfg.set_scenario(
         scenario["red_order"],
         scenario["red_prompt"],

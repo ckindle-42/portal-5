@@ -1446,7 +1446,13 @@ def collect_and_ship_scenario_telemetry(
         from .siem.hec_ship import ship_batch
         from .siem.index_wait import wait_indexed
 
-        tele = collect_target(target_host, kind, since_epoch=scenario_start, dry_run=dry_run)
+        tele = collect_target(
+            target_host,
+            kind,
+            since_epoch=scenario_start,
+            dry_run=dry_run,
+            target_port=int(scenario.get("gate_port", 0) or 0) or None,
+        )
         # Persist the raw capture to disk BEFORE shipping — this is what makes it
         # replayable later (re-shipped with a fresh timestamp, no red re-run needed)
         # even after Splunk's own retention has rotated the live copy out.
