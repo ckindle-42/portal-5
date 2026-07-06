@@ -2431,9 +2431,15 @@ def _assign_steps(
 # ── A3: module-level pipeline helpers ────────────────────────────────────────
 
 
-def _is_workspace_slug(m: str) -> bool:
-    """True when *m* is a workspace slug (routes through pipeline), not a model ID."""
-    return "/" not in m and ":" not in m
+def _is_pipeline_model(m: str) -> bool:
+    """Route through the pipeline by default — the real serving path.
+
+    Only bypass to direct Ollama when CHAIN_DIRECT_OLLAMA=true env is set
+    (rare debugging escape hatch). The model-name string MUST NOT decide
+    routing — that was the old heuristic that caused GGUF refs
+    (hf.co/...:Q4_K_M) to silently bypass the pipeline.
+    """
+    return os.environ.get("CHAIN_DIRECT_OLLAMA", "").lower() != "true"
 
 
 def _call_via_pipeline(
@@ -2762,7 +2768,7 @@ def _run_model_turn(
 
     try:
         # ── Dispatch: pipeline (workspace slug) or direct Ollama ──────
-        _is_pipeline_mode = _is_workspace_slug(model)
+        _is_pipeline_mode = _is_pipeline_model(model)
         pipeline_lab_outputs: list[dict] = []
 
         if _is_pipeline_mode:
@@ -3227,7 +3233,7 @@ def _run_chain_test(
     per_turn_timeout = cfg.step_timeout_s if cfg.judgment_mode else 120.0
 
     try:
-        _is_pipeline_mode = _is_workspace_slug(model)
+        _is_pipeline_mode = _is_pipeline_model(model)
         _headers: dict[str, str] = {"Content-Type": "application/json"}
         if PIPELINE_API_KEY:
             _headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
@@ -3502,7 +3508,7 @@ def _run_multimodel_chain(
         if PIPELINE_API_KEY:
             _headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
         for _step in range(len(cfg.chain_expected_order) * 2):
-            _use_pipeline = _is_workspace_slug(current_model)
+            _use_pipeline = _is_pipeline_model(current_model)
             try:
                 if _use_pipeline:
                     resp = httpx.post(
