@@ -15,6 +15,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -208,11 +209,20 @@ def enable_meta3_audit_policies(target_ip: str) -> dict:
     return result
 
 
-def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bool = False) -> dict:
+def collect_target(
+    target_ip: str,
+    kind: str,
+    *,
+    since_epoch: float,
+    dry_run: bool = False,
+    target_port: int | None = None,
+) -> dict:
     """Return {sourcetype: [lines]} scraped from the target/compose host since scenario start.
 
     kind: 'web' (vulhub/containers) | 'linux' (hosts) | 'windows' (AD).
     For ephemeral containers we read the compose host's captured logs (container may be gone).
+    target_port: if set, collect only from the container serving this port (avoids
+    mixing logs from unrelated containers on the same host).
     """
     out: dict[str, list[str]] = {}
     if dry_run:
@@ -229,24 +239,34 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
 
         since = int(since_epoch)
         if kind in ("web", "container"):
-            # Collect HTTP request lines from docker container logs.
-            # Filter for actual HTTP requests (GET/POST/PUT/DELETE/HEAD/OPTIONS
-            # plus HTTP status codes) — exclude application startup noise.
+            # Find the target container — either by port (if specified) or all running.
+            # By-port avoids mixing logs from unrelated containers on the same host.
+            if target_port:
+                cid_script = (
+                    f"docker ps -q --filter 'publish={target_port}' 2>/dev/null || "
+                    f"docker ps -q | head -1"
+                )
+            else:
+                cid_script = "docker ps -q"
+
+            # Collect ALL docker container logs (background noise + attack output).
+            # This is the haystack — the model must find the attack signal in it.
             r = _host_exec_script(
-                f"docker ps -q | xargs -r -I{{}} "
-                f"docker logs --since $(( $(date +%s) - {since} ))s {{}} 2>&1 "
-                "| grep -iE '(GET|POST|PUT|DELETE|HEAD|PATCH|OPTIONS|HTTP/[0-9]|\" [0-9]{{3}} )' "
-                "| tail -500",
+                f"for cid in $({cid_script}); do "
+                f"docker logs --since $(( $(date +%s) - {since} ))s $cid 2>&1; "
+                "done | tail -500",
                 timeout=30,
             )
             if r.get("ok") and r.get("output", "").strip():
                 out["web:access"] = [line for line in r["output"].splitlines() if line.strip()]
 
-            # Also collect web server access logs from inside each container.
+            # Also collect web server access logs from inside the container.
             # Log locations vary by image — search dynamically instead of
             # hardcoding paths. Include ALL files that look like access logs.
+            # Filter by scenario time window to exclude old entries.
+            since_date = time.strftime("%Y-%m-%d", time.gmtime(since_epoch))
             r2 = _host_exec_script(
-                "for cid in $(docker ps -q); do "
+                f"for cid in $({cid_script}); do "
                 # Search common access log locations
                 "docker exec $cid sh -c '"
                 "find /var/log /usr/local/tomcat/logs /usr/local/nginx/logs "
@@ -256,8 +276,10 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
                 '\\( -name "*access*" -o -name "*request*" \\) '
                 '\\( -name "*.log" -o -name "*.txt" -o -name "*.log.*" \\) '
                 "-type f 2>/dev/null"
-                "' 2>/dev/null | while read logfile; do "
-                'docker exec $cid cat "$logfile" 2>/dev/null; '
+                f"' 2>/dev/null | while read logfile; do "
+                # Filter to entries from the scenario date or later
+                f'docker exec $cid cat "$logfile" 2>/dev/null '
+                f"| grep -E '{since_date}|$(date -u +%Y-%m-%d)'; "
                 "done; "
                 "done | tail -500",
                 timeout=60,
