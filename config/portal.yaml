@@ -991,8 +991,8 @@ workspaces:
   auto-blueteam:
     name: 🔵 Portal Blue Team
     description: |-
-      Defensive security, SOC triage, threat hunting, incident response. SYLink 8B (Qwen3-8B base — purpose-built for SOC triage, threat intel, MITRE ATT&CK mapping, and incident response). Fleet bench 2026-06-20: 1.00/1.00 both scenarios, chain depth 12 (deepest 8B in fleet), security quality 0.83. Foundation-Sec-8B-Reasoning available via reasoning group for deep analytical tasks.
-    model_hint: sylink/sylink:8b-ctx8k
+      Defensive security, SOC triage, threat hunting, incident response. Granite 4.1 8B (IBM, supports tool calls, good at structured analysis). Previous model sylink/sylink:8b is a reasoning model that does not call tools — switched to granite for autonomous investigation capability.
+    model_hint: granite4.1:8b-ctx8k
     context_limit: 8192
     temperature: 0.3
     top_p: 0.9
