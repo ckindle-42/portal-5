@@ -15,7 +15,6 @@ import json
 import os
 import re
 import sys
-import time
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -239,47 +238,33 @@ def collect_target(
 
         since = int(since_epoch)
         if kind in ("web", "container"):
-            # Find the target container — either by port (if specified) or all running.
-            # By-port avoids mixing logs from unrelated containers on the same host.
-            if target_port:
-                cid_script = (
-                    f"docker ps -q --filter 'publish={target_port}' 2>/dev/null || "
-                    f"docker ps -q | head -1"
-                )
-            else:
-                cid_script = "docker ps -q"
-
-            # Collect ALL docker container logs (background noise + attack output).
-            # This is the haystack — the model must find the attack signal in it.
+            # FULL HAYSTACK: collect ALL docker container logs from the host.
+            # A SOC analyst sees everything — all containers, all services —
+            # and must find the attack signal in that noise.
             r = _host_exec_script(
-                f"for cid in $({cid_script}); do "
-                f"docker logs --since $(( $(date +%s) - {since} ))s $cid 2>&1; "
-                "done | tail -500",
-                timeout=30,
+                "for name in $(docker ps --format '{{.Names}}'); do "
+                'echo "--- container: $name ---"; '
+                f'docker logs --since $(( $(date +%s) - {since} ))s "$name" 2>&1; '
+                "done | tail -1000",
+                timeout=60,
             )
             if r.get("ok") and r.get("output", "").strip():
                 out["web:access"] = [line for line in r["output"].splitlines() if line.strip()]
 
-            # Also collect web server access logs from inside the container.
-            # Log locations vary by image — search dynamically instead of
-            # hardcoding paths. Include ALL files that look like access logs.
-            # Filter by scenario time window to exclude old entries.
-            since_date = time.strftime("%Y-%m-%d", time.gmtime(since_epoch))
+            # Also collect web server access/error/auth logs from inside ALL containers.
             r2 = _host_exec_script(
-                f"for cid in $({cid_script}); do "
-                # Search common access log locations
+                "for cid in $(docker ps -q); do "
                 "docker exec $cid sh -c '"
                 "find /var/log /usr/local/tomcat/logs /usr/local/nginx/logs "
                 "/var/log/apache2 /var/log/nginx /var/log/httpd /var/log/lighttpd "
                 "/var/log/caddy /tmp /opt/*/logs /usr/local/*/logs "
                 "-maxdepth 3 "
-                '\\( -name "*access*" -o -name "*request*" \\) '
+                '\\( -name "*access*" -o -name "*request*" -o -name "*error*" '
+                '-o -name "*auth*" -o -name "*syslog*" -o -name "*messages*" \\) '
                 '\\( -name "*.log" -o -name "*.txt" -o -name "*.log.*" \\) '
                 "-type f 2>/dev/null"
-                f"' 2>/dev/null | while read logfile; do "
-                # Filter to entries from the scenario date or later
-                f'docker exec $cid cat "$logfile" 2>/dev/null '
-                f"| grep -E '{since_date}|$(date -u +%Y-%m-%d)'; "
+                "' 2>/dev/null | while read logfile; do "
+                'docker exec $cid cat "$logfile" 2>/dev/null; '
                 "done; "
                 "done | tail -500",
                 timeout=60,
@@ -292,6 +277,18 @@ def collect_target(
                 ]
                 if access_lines:
                     out.setdefault("web:access", []).extend(access_lines)
+
+            # System-level logs from the host (auth, syslog, audit)
+            r3 = _host_exec_script(
+                f"cat /var/log/auth.log 2>/dev/null | tail -100; "
+                f"cat /var/log/syslog 2>/dev/null | tail -100; "
+                f"journalctl --since @{since} -n 100 --no-pager 2>/dev/null || true",
+                timeout=30,
+            )
+            if r3.get("ok") and r3.get("output", "").strip():
+                sys_lines = [line for line in r3["output"].splitlines() if line.strip()]
+                if sys_lines:
+                    out.setdefault("linux:syslog", []).extend(sys_lines)
 
         if kind in ("linux", "web", "container"):
             r = _host_exec_script(
