@@ -1,0 +1,24 @@
+{
+  "proposed_id": "proposed-SEC_BENCH-agentic-blue-deltas-20260706-1783356604",
+  "unit_id": "SEC_BENCH-agentic-blue-deltas-20260706",
+  "kind": "what",
+  "title": "Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-06 16:50 UTC)",
+  "sources": [
+    {
+      "type": "bench-security",
+      "path": "/tmp/agentic_blue_sweep.json"
+    }
+  ],
+  "body": "# Agentic Blue Eval \u2014 Arm-vs-Arm Delta Report (with Confidence Intervals)\n\n**Trials per cell:** 1  \n**Scenarios:** 2  \n**Sweep date:** 2026-07-06 16:50 UTC\n\n## Per-Model Arm Deltas with 95% Bootstrap CI\n\nThe three-arm design exists to answer: **does the harness beat raw, for the same model, and by how much?** Each delta is reported with a 95% bootstrap confidence interval. A delta is only a WIN if its CI excludes 0 on the positive side; a REGRESSION only if the CI excludes 0 on the negative side; otherwise it is INCONCLUSIVE (within noise).\n\n### `granite4.1:8b-ctx8k`\n\n| Tier | raw | harness | delta | 95% CI | verdict |\n|------|-----|---------|-------|--------|---------|\n| exact | 0.000 | 0.000 | +0.000 | [+0.000, +0.000] | INCONCLUSIVE |\n| parent | 0.000 | 0.000 | +0.000 | [+0.000, +0.000] | INCONCLUSIVE |\n| tactic | 0.167 | 0.167 | +0.000 | [+0.000, +0.000] | INCONCLUSIVE |\n\n## Verdict Summary\n\n- All deltas are INCONCLUSIVE \u2014 harness effect within noise at current power.\n\n**Inconclusive cells:** 3 \u2014 these cannot be declared wins or regressions.\n\n## Recommended Seat Config\n\n**Model:** `granite4.1:8b-ctx8k`  \n**Arm:** harness (production config \u2014 raw/tools are ablations, never deployed)\n\n| Tier | harness recall | pass@1 | verdict |\n|------|---------------|---------|---------|\n| exact | 0.000 | 0/2 | INCONCLUSIVE |\n| parent | 0.000 | 0/2 | INCONCLUSIVE |\n| tactic | 0.167 | 1/2 | INCONCLUSIVE |\n",
+  "tags": [
+    "agentic-blue",
+    "maturation",
+    "arm-deltas",
+    "confidence-interval",
+    "granite4.1-8b-ctx8k"
+  ],
+  "proposed_by": "sec-maturation-sweep",
+  "proposed_at": 1783356604.385453,
+  "status": "confirmed",
+  "auto_confirm": true
+}
