@@ -930,10 +930,12 @@ def main() -> None:
                 from bench_security.siem.capture_store import save_evidence
 
                 cap_path, indexed, tele_err = None, None, ""
-                with contextlib.suppress(Exception):
+                try:
                     cap_path, indexed, tele_err = collect_and_ship_scenario_telemetry(
                         sc, scenario_start, lab_exec=args.lab_exec, dry_run=args.dry_run
                     )
+                except Exception as _cap_exc:
+                    logging.warning("capture failed for %s: %s", sc["name"], _cap_exc)
                 with contextlib.suppress(Exception):
                     for r in sc_results:
                         save_evidence(
