@@ -791,11 +791,11 @@ async def chat_completions(
 
             await tool_registry.refresh()
             tools_array = tool_registry.get_openai_tools(effective_tools)
+            # Merge client-injected tools with workspace tools — clients
+            # (e.g. bench blue/purple) may inject domain-specific tools
+            # that complement the workspace tools, not replace them.
+            client_tools = backend_body.get("tools", [])
             if tools_array:
-                # Merge client-injected tools with workspace tools — clients
-                # (e.g. bench blue/purple) may inject domain-specific tools
-                # that complement the workspace tools, not replace them.
-                client_tools = backend_body.get("tools", [])
                 if client_tools:
                     seen_names = {t.get("function", {}).get("name") for t in tools_array}
                     for ct in client_tools:
@@ -806,7 +806,7 @@ async def chat_completions(
                 backend_body["tools"] = tools_array
                 backend_body["tool_choice"] = backend_body.get("tool_choice", "auto")
                 logger.info(
-                    "Tool-call: workspace=%s persona=%s exposed %d tools",
+                    "Tool-call: workspace=%s persona=%s exposed %d tools (merged)",
                     workspace_id,
                     persona,
                     len(tools_array),
