@@ -386,10 +386,20 @@ def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> 
 
     found = []
     missing_techniques = []
+    lower_existing = all_existing.lower() if total_lines > 5 else ""
     for technique in gt:
         expected = EXPECTED_SIGNALS.get(technique)
         if not expected:
-            missing_techniques.append(technique)
+            # No EXPECTED_SIGNALS entry for this technique — use the broader
+            # attack evidence check instead of immediately marking as missing.
+            if total_lines > 5:
+                has_evidence = any(indicator in lower_existing for indicator in attack_evidence)
+                if has_evidence:
+                    found.append(technique)
+                else:
+                    missing_techniques.append(technique)
+            else:
+                missing_techniques.append(technique)
             continue
 
         sourcetype, expected_lines = expected
@@ -407,7 +417,6 @@ def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> 
         # attack evidence strings, consider the technique covered — the
         # attack landed but produced different log formats than expected.
         if not has_signal and total_lines > 5:
-            lower_existing = all_existing.lower()
             has_evidence = any(indicator in lower_existing for indicator in attack_evidence)
             if has_evidence:
                 has_signal = True

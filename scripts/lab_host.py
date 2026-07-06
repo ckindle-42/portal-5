@@ -19,6 +19,12 @@ _SSH_KEY = os.path.expanduser(os.environ.get("LAB_SSH_KEY", "~/.ssh/portal-lab_i
 def _host_exec(cmd: str, timeout: int = 30) -> dict:
     """Run `cmd` inside LXC 112 on the Proxmox host via ssh -> pct exec. Read-only by convention
     unless the caller's cmd itself mutates host state. Returns {ok, output}."""
+    return _host_exec_lxc(cmd, lxc_id=LAB_LXC_ID, timeout=timeout)
+
+
+def _host_exec_lxc(cmd: str, lxc_id: str = LAB_LXC_ID, timeout: int = 30) -> dict:
+    """Run `cmd` inside any LXC on the Proxmox host via ssh -> pct exec.
+    Returns {ok, output}."""
     try:
         r = subprocess.run(
             [
@@ -28,7 +34,7 @@ def _host_exec(cmd: str, timeout: int = 30) -> dict:
                 "-o",
                 "StrictHostKeyChecking=no",
                 f"root@{PROXMOX_HOST}",
-                f"pct exec {LAB_LXC_ID} -- {cmd}",
+                f"pct exec {lxc_id} -- {cmd}",
             ],
             capture_output=True,
             text=True,
