@@ -3,8 +3,9 @@
 Three arms, same captured data, to isolate what the harness contributes:
 
 A. model-raw   : blue model + raw telemetry, NO harness (the Simbian condition)
-B. model+tools : blue model + search tools, but NO grounding library
-C. model+harness: blue model + tools + SPL library + wiki signatures + similarity tier
+B. model+tools : blue model + search tools with real data, but NO grounding library
+C. model+harness: blue model + tools + SPL detection library + similarity-tier
+                  retrieval (lookup_technique_signature, search_similar_techniques)
 
 Headline metric: does C beat A by a large margin? If yes, the harness is proven
 to carry capability (Portal's thesis, measured).
@@ -20,6 +21,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
+
+from ._data import resolve_pipeline_model
+from .siem.spl_detections import technique_reference
+from .unknown_defense import MatchGrade, compute_similarity
 
 _CAPTURE_DIR = Path(__file__).resolve().parent / "results" / "captures"
 _PIPELINE_URL = "http://localhost:9099"
@@ -131,7 +136,7 @@ def _call_model(
         headers["Authorization"] = f"Bearer {api_key}"
 
     body: dict = {
-        "model": model,
+        "model": resolve_pipeline_model(model),
         "messages": messages,
         "stream": False,
         "max_tokens": max_tokens,
@@ -239,6 +244,100 @@ _SEARCH_TOOLS: list[dict] = [
     },
 ]
 
+# ── Grounding tools (arm C only — the actual harness) ────────────────────────
+#
+# This is what was missing from arm C until now: real search tools (above)
+# plus retrieval against Portal's own grounding library, so the model can
+# check a hypothesis or search by evidence instead of relying on training
+# knowledge alone. Backed by the same SPL detection library (siem/spl_detections.yaml)
+# and similarity-tier heuristic (unknown_defense.compute_similarity) blue.py's
+# real chain-test path already uses — this eval just wasn't wired to them.
+
+_GROUNDING_TOOLS: list[dict] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "lookup_technique_signature",
+            "description": (
+                "Look up the known evidence signature for a specific MITRE ATT&CK "
+                "technique ID from the detection library, to confirm or refute a "
+                "hypothesis before calling report_detection."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "technique_id": {
+                        "type": "string",
+                        "description": "MITRE technique ID, e.g. T1558.003",
+                    },
+                },
+                "required": ["technique_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_similar_techniques",
+            "description": (
+                "Search the detection library for the technique whose known evidence "
+                "signature best matches a free-text description of what you observed. "
+                "Use this when you see suspicious activity but are not sure of the "
+                "exact sub-technique ID — do not guess from memory."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "evidence_description": {
+                        "type": "string",
+                        "description": (
+                            "Free-text description of observed evidence (process "
+                            "names, event IDs, ports, behaviors)"
+                        ),
+                    },
+                },
+                "required": ["evidence_description"],
+            },
+        },
+    },
+]
+
+
+def _dispatch_grounding_tool(name: str, args: dict) -> str | None:
+    """Answer a grounding-tool call from Portal's own detection library.
+
+    Returns None if ``name`` isn't a grounding tool, so callers can fall
+    through to the search-tool dispatch.
+    """
+    ref = technique_reference()
+    if name == "lookup_technique_signature":
+        tid = args.get("technique_id", "").strip()
+        desc = ref.get(tid)
+        if desc:
+            return f"{tid}: {desc}"
+        return (
+            f"No signature on file for '{tid}'. Known techniques: {', '.join(sorted(ref.keys()))}"
+        )
+    if name == "search_similar_techniques":
+        import re
+
+        evidence = args.get("evidence_description", "")
+        # compute_similarity expects pre-tokenized keywords, not a raw string —
+        # split on non-alphanumerics so "EventCode=4769" yields "eventcode"/"4769"
+        # instead of one unmatchable token (verified against test_unknown_defense.py's
+        # calling convention).
+        keywords = [w for w in re.split(r"[^a-zA-Z0-9]+", evidence.lower()) if w]
+        result = compute_similarity({"keywords": keywords}, ref)
+        if result.grade == MatchGrade.NONE:
+            return f"No similar technique found. {result.detail}"
+        return (
+            f"Best match: {result.matched_technique} (grade={result.grade}, "
+            f"confidence={result.confidence:.2f}). Overlapping terms: "
+            f"{', '.join(result.overlapping_features)}. "
+            f"Signature: {ref.get(result.matched_technique, '')}"
+        )
+    return None
+
 
 def _format_telemetry_raw(episode: Episode) -> str:
     """Format telemetry as raw log dump (arm A condition)."""
@@ -286,101 +385,93 @@ def _run_arm_raw(model: str, episode: Episode) -> ArmResult:
     return result
 
 
-def _run_arm_tools(model: str, episode: Episode) -> ArmResult:
-    """Arm B: model+tools — blue gets search tools, NO grounding library."""
-    result = ArmResult(arm="tools", model=model)
+def _query_real_telemetry(name: str, episode: Episode) -> str:
+    """Answer a search-tool call with the episode's actual captured telemetry.
+
+    Shared by arms B and C — "search tools" only means something if the tools
+    return real data. Arm B (found 2026-07-05) previously answered every call
+    with a canned "No data available in this context" regardless of what was
+    asked, making the model's tool calls pointless and any recall it scored
+    attributable to guessing from training knowledge, not investigation. The
+    documented arm B/C distinction is the grounding *library* (SPL detection
+    library, wiki signatures, similarity tier) layered on top of real search —
+    not whether search returns anything at all.
+    """
+    if name == "query_splunk":
+        all_lines = [f"[{st}] {ev}" for st, events in episode.telemetry.items() for ev in events]
+        return "\n".join(all_lines)[:12000] or "No matching events."
+    if name == "query_windows_events":
+        win_events = episode.telemetry.get("windows:security", [])
+        return "\n".join(win_events)[:12000] or "No Windows events available."
+    if name == "query_web_logs":
+        web_events = episode.telemetry.get("web:access", [])
+        return "\n".join(web_events)[:12000] or "No web log entries."
+    if name == "query_network_traffic":
+        net_events = []
+        for st in ["ftp:access", "web:access", "windows:security"]:
+            net_events.extend(episode.telemetry.get(st, []))
+        return "\n".join(net_events)[:12000] or "No network data."
+    return f"Tool '{name}' executed."
+
+
+def _run_tool_driven_arm(
+    arm_name: str,
+    model: str,
+    episode: Episode,
+    telemetry_preview_chars: int,
+    grounded: bool,
+) -> ArmResult:
+    """Shared driver for arm B (tools) and arm C (harness): tool loop + real telemetry.
+
+    Findings only come from an explicit ``report_detection`` call with a
+    technique_id and evidence — this is the honesty-contract enforcement the
+    design doc requires ("synthetic never counts"). There is deliberately no
+    fallback that scrapes MITRE IDs out of the model's free-text response: a
+    model that mentions "T1558.003" in passing without ever calling
+    report_detection has not investigated anything, and crediting that text
+    as a finding let ungrounded guessing masquerade as hunting capability
+    (found 2026-07-05 — a model scored nonzero recall in arm B despite every
+    tool call in that run returning zero real data).
+
+    When ``grounded`` is True (arm C only), the model also gets
+    ``lookup_technique_signature``/``search_similar_techniques`` — retrieval
+    against Portal's own detection library — so it can check a hypothesis
+    against a known evidence signature instead of guessing the exact
+    sub-technique from training knowledge alone.
+    """
+    result = ArmResult(arm=arm_name, model=model)
     t0 = time.monotonic()
+    tools = _SEARCH_TOOLS + _GROUNDING_TOOLS if grounded else _SEARCH_TOOLS
 
     try:
         raw_telemetry = _format_telemetry_raw(episode)
         prompt = (
             f"An alert was triggered. Investigate using your tools.\n\n"
-            f"Available telemetry preview:\n{raw_telemetry[:3000]}"
-        )
-
-        messages = [
-            {
-                "role": "system",
-                "content": "You are a SOC analyst. Use your tools to investigate. Report findings with MITRE ATT&CK technique IDs.",
-            },
-            {"role": "user", "content": prompt},
-        ]
-
-        for _step in range(5):
-            msg = _call_model(model, messages, tools=_SEARCH_TOOLS)
-            messages.append(msg)
-            result.iterations += 1
-
-            tcs = msg.get("tool_calls") or []
-            if not tcs:
-                break
-
-            result.tool_calls += len(tcs)
-            for tc in tcs:
-                fn = tc.get("function", {})
-                name = fn.get("name", "")
-                if name == "report_detection":
-                    args = json.loads(fn.get("arguments", "{}"))
-                    result.findings.append(
-                        Finding(
-                            technique_id=args.get("technique_id", ""),
-                            evidence=args.get("evidence", ""),
-                            source="tools",
-                        )
-                    )
-                # Feed tool result back
-                messages.append(
-                    {
-                        "role": "tool",
-                        "content": f"Tool '{name}' executed. No data available in this context.",
-                    }
-                )
-
-        # Extract techniques from final response
-        for msg in reversed(messages):
-            if msg.get("role") == "assistant" and msg.get("content"):
-                for tid in _extract_techniques(msg["content"]):
-                    if tid not in {f.technique_id for f in result.findings}:
-                        result.findings.append(
-                            Finding(technique_id=tid, evidence=msg["content"][:200], source="tools")
-                        )
-                break
-
-    except Exception as exc:
-        result.error = str(exc)
-
-    result.elapsed_s = round(time.monotonic() - t0, 1)
-    return result
-
-
-def _run_arm_harness(model: str, episode: Episode) -> ArmResult:
-    """Arm C: model+harness — blue gets tools + telemetry context (full Portal system)."""
-    result = ArmResult(arm="harness", model=model)
-    t0 = time.monotonic()
-
-    try:
-        raw_telemetry = _format_telemetry_raw(episode)
-        prompt = (
-            f"An alert was triggered. Investigate using your tools.\n\n"
-            f"Telemetry from your environment:\n{raw_telemetry[:6000]}\n\n"
+            f"Telemetry from your environment:\n{raw_telemetry[:telemetry_preview_chars]}\n\n"
             f"Use report_detection for each technique you confirm."
         )
 
+        system_content = (
+            "You are a SOC analyst at a Security Operations Center. "
+            "An active security assessment is being conducted against your network. "
+            "Investigate the telemetry using your tools. "
+            "For each finding, call report_detection with the MITRE technique ID and evidence."
+        )
+        if grounded:
+            system_content += (
+                " Before reporting, use lookup_technique_signature or "
+                "search_similar_techniques to confirm the exact sub-technique ID "
+                "against its known evidence signature — do not guess the sub-technique "
+                "from memory alone."
+            )
+
         messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a SOC analyst at a Security Operations Center. "
-                    "An active security assessment is being conducted against your network. "
-                    "Investigate the telemetry using your tools. "
-                    "For each finding, call report_detection with the MITRE technique ID and evidence."
-                ),
-            },
+            {"role": "system", "content": system_content},
             {"role": "user", "content": prompt},
         ]
 
         for _step in range(5):
-            msg = _call_model(model, messages, tools=_SEARCH_TOOLS)
+            msg = _call_model(model, messages, tools=tools)
             messages.append(msg)
             result.iterations += 1
 
@@ -398,52 +489,47 @@ def _run_arm_harness(model: str, episode: Episode) -> ArmResult:
                         Finding(
                             technique_id=args.get("technique_id", ""),
                             evidence=args.get("evidence", ""),
-                            source="harness",
+                            source=arm_name,
                         )
                     )
-                elif name == "query_splunk":
-                    # Return actual telemetry from the episode
-                    args = json.loads(fn.get("arguments", "{}"))
-                    all_lines = []
-                    for st, events in episode.telemetry.items():
-                        for ev in events:
-                            all_lines.append(f"[{st}] {ev}")
-                    result_str = "\n".join(all_lines)[:12000] or "No matching events."
-                    messages.append({"role": "tool", "content": result_str})
-                elif name == "query_windows_events":
-                    win_events = episode.telemetry.get("windows:security", [])
-                    result_str = "\n".join(win_events)[:12000] or "No Windows events available."
-                    messages.append({"role": "tool", "content": result_str})
-                elif name == "query_web_logs":
-                    web_events = episode.telemetry.get("web:access", [])
-                    result_str = "\n".join(web_events)[:12000] or "No web log entries."
-                    messages.append({"role": "tool", "content": result_str})
-                elif name == "query_network_traffic":
-                    net_events = []
-                    for st in ["ftp:access", "web:access", "windows:security"]:
-                        net_events.extend(episode.telemetry.get(st, []))
-                    result_str = "\n".join(net_events)[:12000] or "No network data."
-                    messages.append({"role": "tool", "content": result_str})
+                    messages.append({"role": "tool", "content": "Detection logged."})
+                    continue
+                try:
+                    tool_args = json.loads(fn.get("arguments", "{}") or "{}")
+                except json.JSONDecodeError:
+                    tool_args = {}
+                grounding_result = _dispatch_grounding_tool(name, tool_args) if grounded else None
+                if grounding_result is not None:
+                    messages.append({"role": "tool", "content": grounding_result})
                 else:
-                    messages.append({"role": "tool", "content": f"Tool '{name}' executed."})
-
-        # Extract techniques from final response
-        for msg in reversed(messages):
-            if msg.get("role") == "assistant" and msg.get("content"):
-                for tid in _extract_techniques(msg["content"]):
-                    if tid not in {f.technique_id for f in result.findings}:
-                        result.findings.append(
-                            Finding(
-                                technique_id=tid, evidence=msg["content"][:200], source="harness"
-                            )
-                        )
-                break
+                    messages.append(
+                        {"role": "tool", "content": _query_real_telemetry(name, episode)}
+                    )
 
     except Exception as exc:
         result.error = str(exc)
 
     result.elapsed_s = round(time.monotonic() - t0, 1)
     return result
+
+
+def _run_arm_tools(model: str, episode: Episode) -> ArmResult:
+    """Arm B: model+tools — blue gets search tools with real data, NO grounding library."""
+    return _run_tool_driven_arm(
+        "tools", model, episode, telemetry_preview_chars=3000, grounded=False
+    )
+
+
+def _run_arm_harness(model: str, episode: Episode) -> ArmResult:
+    """Arm C: model+harness — blue gets tools + real telemetry + the detection-library
+    grounding tools (lookup_technique_signature, search_similar_techniques). This is
+    what makes arm C an actual test of "does the harness carry capability" rather
+    than a relabeled arm B — the model can check its hypothesis against a known
+    evidence signature instead of guessing the exact sub-technique from memory.
+    """
+    return _run_tool_driven_arm(
+        "harness", model, episode, telemetry_preview_chars=6000, grounded=True
+    )
 
 
 def run_eval(
