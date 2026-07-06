@@ -152,6 +152,8 @@ VALID_WORKSPACES = frozenset(
         "bench-superqwen-agentworld-ablit",
         "bench-bugtrace-ultra-27b",
         "bench-gemma4-12b-agentic",
+        "bench-security-slm-1p5b",
+        "bench-cybersecqwen-4b-toolfix",
     }
 )
 

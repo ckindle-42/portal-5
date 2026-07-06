@@ -251,6 +251,14 @@ Mistral Devstral Small 2 (~15GB). Agentic coding / software engineering model �
 
 BugTraceAI-CORE-Ultra-27B-Q6 (~22.1GB Q6_K, BugTraceAI, Apache 2.0, Qwen3.6 dense 27B). SFT on 2,541 real bug-bounty/CVE writeups. TOOLING model — emits runnable artifacts (Nuclei templates, CVE PoCs, JWT crackers, C exploits), not prose. Self-reported 5/5 tooling bench, 0% refusal. Exploit-GENERATION capability complements Portal's analysis-focused security lanes. supports_tools=false (per supergemma4 reasoning-loop precedent). bench-only, PROMOTE_POLICY=confirm. V11 candidate intake 2026-06-30.
 
+### `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
+
+security-slm-unsloth-1.5b (~1.1GB, Nguuma, DeepSeek-R1-distill base finetuned on security corpora). Multi-seat V2 bench candidate (2026-07-05) — red+blue+CoT+mcp-security seats. supports_tools=false: audited directly against Ollama, Modelfile TEMPLATE is a bare DeepSeek-R1-style chat template with zero `{{ .Tools }}` handling — given tool defs it hallucinates freeform "as-if" tool usage in prose rather than emitting a real tool call. Scored on prose/CoT only, not tool dispatch. bench-only, PROMOTE_POLICY=confirm.
+
+### `cybersecqwen-4b-toolfix:latest`
+
+cybersecqwen-4b-toolfix (~2.5GB, retemplated from mradermacher/CyberSecQwen-4B-GGUF Q4_K_M to add Qwen-style `<tool_call>` tag support — the base tag hard-errors "does not support tools" in Ollama). Multi-seat V2 bench candidate (2026-07-05) — blue seat. supports_tools=true: verified it emits well-formed `<tool_call>` blocks, but only when a system message is present (Modelfile gates the `{{ .Tools }}` block on `{{- if .System }}`) and as plain content rather than a structured tool_calls array (blue.py works around this — see blue.py's `_extract_tool_calls_from_content`). bench-only, PROMOTE_POLICY=confirm.
+
 ### Blue/red candidate batch evaluated 2026-07-03 — none promoted
 
 Eight candidates pulled and evaluated against the EXEC_SEC_FULL_COVERAGE_V1.md full-coverage run (which

@@ -336,11 +336,12 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is 99 (42 production + 57 bench-*) after V11 candidate intake."""
+        """Total workspace count is 101 (44 production + 57 bench-*) after the
+        multi-seat V2 bench intake (bench-security-slm-1p5b, bench-cybersecqwen-4b-toolfix)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 99, (
-            f"Expected 99 workspaces (42 production + 57 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 101, (
+            f"Expected 101 workspaces (44 production + 57 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -441,8 +442,9 @@ class TestR18ModelCompleteness:
         assert "vulnllm-r-7b" in WORKSPACES["auto-security"]["model_hint"].lower(), (
             "auto-security should use VulnLLM-R-7B (UCSB SURFI, AppSec/CVE/CWE specialist, promoted 2026-06-20)"
         )
-        assert "sylink" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
-            "auto-blueteam should use SYLink 8B (SOC triage, ATT&CK, DFIR — promoted SECURITY_FLEET_REVIEW_2026-06)"
+        assert "granite4.1" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
+            "auto-blueteam should use Granite 4.1 8B (sylink is a reasoning model that "
+            "doesn't call tools — switched for autonomous investigation capability)"
         )
         assert "deepseek-r1-0528" in WORKSPACES["auto-reasoning"]["model_hint"].lower(), (
             "auto-reasoning should use DeepSeek-R1-0528-Qwen3-8B (V8 primary; Qwopus pull fails as of 2026-06-09)"
@@ -741,11 +743,12 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 99 (42 production + 57 bench-*) after V11 candidate intake."""
+        """Total workspace count must be 101 (44 production + 57 bench-*) after the
+        multi-seat V2 bench intake (bench-security-slm-1p5b, bench-cybersecqwen-4b-toolfix)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 99, (
-            f"Expected 99 workspaces (42 production + 57 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 101, (
+            f"Expected 101 workspaces (44 production + 57 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 

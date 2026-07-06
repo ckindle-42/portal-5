@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-import yaml
 
 from ._config import BenchConfig
 from ._data import (
@@ -33,6 +32,7 @@ from ._data import (
     PROMPTS,
     REQUEST_TIMEOUT,
     _lab_mcp_call,
+    resolve_pipeline_model,
 )
 from .episode import Episode, derive_detection_status, derive_verdict, new_episode_id
 from .lab import dispatch_blue_response
@@ -450,37 +450,6 @@ def _extract_tool_calls_from_content(msg: dict) -> list[dict]:
     return out
 
 
-_PORTAL_YAML = Path(__file__).resolve().parent.parent.parent.parent / "config" / "portal.yaml"
-_MODEL_TO_BENCH_WORKSPACE: dict[str, str] | None = None
-
-
-def _resolve_pipeline_model(model: str) -> str:
-    """Map a raw Ollama model tag to its ``bench-*`` workspace slug, if one exists.
-
-    The pipeline's ``/v1/chat/completions`` treats the ``model`` field as a
-    workspace/persona id, not a literal model selector: an unrecognized value
-    silently falls back to the routing group's first model rather than erroring
-    (found 2026-07-05 — a raw bench model tag with no matching workspace was
-    silently served by an unrelated model, ~"harness advantage" unmeasurable).
-    Every bench candidate needs a ``bench-<slug>`` workspace entry in
-    ``config/portal.yaml`` with a matching ``model_hint`` for the pipeline to
-    serve the actual requested model. Already-known workspace/persona ids pass
-    through unchanged.
-    """
-    global _MODEL_TO_BENCH_WORKSPACE
-    if _MODEL_TO_BENCH_WORKSPACE is None:
-        _MODEL_TO_BENCH_WORKSPACE = {}
-        try:
-            data = yaml.safe_load(_PORTAL_YAML.read_text()) or {}
-            for ws_id, ws_cfg in (data.get("workspaces") or {}).items():
-                hint = ws_cfg.get("model_hint")
-                if hint:
-                    _MODEL_TO_BENCH_WORKSPACE.setdefault(hint, ws_id)
-        except Exception:
-            pass
-    return _MODEL_TO_BENCH_WORKSPACE.get(model, model)
-
-
 # ── Blue defender functions ──────────────────────────────────────────────────
 
 
@@ -692,7 +661,7 @@ def _run_blue_turn(
                 f"{PIPELINE_URL}/v1/chat/completions",
                 headers=_headers,
                 json={
-                    "model": _resolve_pipeline_model(blue_model),
+                    "model": resolve_pipeline_model(blue_model),
                     "messages": messages,
                     "tools": tools,
                     "stream": False,
@@ -1015,7 +984,7 @@ def _run_blue_chain_test(
                     f"{PIPELINE_URL}/v1/chat/completions",
                     headers=_headers,
                     json={
-                        "model": _resolve_pipeline_model(model),
+                        "model": resolve_pipeline_model(model),
                         "messages": messages,
                         "tools": BLUE_TOOLS,
                         "stream": False,

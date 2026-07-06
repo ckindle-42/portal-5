@@ -122,6 +122,38 @@ PIPELINE_URL = "http://localhost:9099"
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
 REQUEST_TIMEOUT = 600.0  # per-chunk httpx read ceiling — event-driven (fires on absent data)
 
+_PORTAL_YAML = Path(__file__).resolve().parent.parent.parent.parent / "config" / "portal.yaml"
+_MODEL_TO_BENCH_WORKSPACE: dict[str, str] | None = None
+
+
+def resolve_pipeline_model(model: str) -> str:
+    """Map a raw Ollama model tag to its ``bench-*``/production workspace slug, if one exists.
+
+    The pipeline's ``/v1/chat/completions`` treats the ``model`` field as a
+    workspace/persona id, not a literal model selector: an unrecognized value
+    silently falls back to the routing group's first model rather than erroring
+    (found 2026-07-05 — a raw model tag with no matching workspace was silently
+    served by an unrelated model, making every bench result attributable to the
+    wrong model). Every model callers want to address directly needs a workspace
+    entry in ``config/portal.yaml`` with a matching ``model_hint``. Already-known
+    workspace/persona ids pass through unchanged.
+    """
+    global _MODEL_TO_BENCH_WORKSPACE
+    if _MODEL_TO_BENCH_WORKSPACE is None:
+        _MODEL_TO_BENCH_WORKSPACE = {}
+        try:
+            import yaml
+
+            data = yaml.safe_load(_PORTAL_YAML.read_text()) or {}
+            for ws_id, ws_cfg in (data.get("workspaces") or {}).items():
+                hint = ws_cfg.get("model_hint")
+                if hint:
+                    _MODEL_TO_BENCH_WORKSPACE.setdefault(hint, ws_id)
+        except Exception:
+            pass
+    return _MODEL_TO_BENCH_WORKSPACE.get(model, model)
+
+
 # Per-workspace request-timeout overrides (seconds).
 # Reasoning workspaces and slow research models get extended caps so
 # they don't get killed by the default REQUEST_TIMEOUT.

@@ -217,7 +217,7 @@ class TestBlueInitialPrompt:
             return_value={},
         ):
             prompt = _build_blue_initial_prompt()
-        assert "SOC analyst" in prompt
+        assert "An alert was triggered" in prompt
         assert "MITRE technique reference" not in prompt
 
 
