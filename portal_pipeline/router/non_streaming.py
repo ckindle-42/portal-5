@@ -326,11 +326,39 @@ async def _try_non_streaming(
     async def _run_request() -> JSONResponse | None:
         """POST → tool loop → normalise → return. None on any failure."""
         try:
+            _req_tools = len(req_body.get("tools", []))
+            _req_msgs = len(req_body.get("messages", []))
+            _req_model = req_body.get("model", "?")
+            logger.info(
+                "NON-STREAM POST → %s | model=%s %d msgs, %d tools | timeout=%s",
+                backend.chat_url,
+                _req_model,
+                _req_msgs,
+                _req_tools,
+                _timeout_obj,
+            )
+            # Log tool names so we can see what's exposed
+            _tool_names = [
+                t.get("function", {}).get("name", "?") for t in req_body.get("tools", [])
+            ]
+            logger.info("NON-STREAM tools: %s", _tool_names)
             resp = await _http_client.post(  # type: ignore[union-attr]
                 backend.chat_url, json=req_body, timeout=_timeout_obj
             )
             resp.raise_for_status()
             data = resp.json()
+            _resp_tc = []
+            for _c in data.get("choices") or []:
+                _resp_tc.extend((_c.get("message") or {}).get("tool_calls") or [])
+            _resp_content = ""
+            for _c in data.get("choices") or []:
+                _resp_content = (_c.get("message") or {}).get("content", "")[:200]
+            logger.info(
+                "NON-STREAM ← %s | %d tool_calls, content=%r",
+                backend.chat_url,
+                len(_resp_tc),
+                _resp_content[:100],
+            )
 
             # Non-streaming tool loop: if the model returned tool_calls, dispatch them
             # and call the model once more for synthesis. This handles OWUI's second
