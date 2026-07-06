@@ -605,7 +605,7 @@ workspaces:
     description: |-
       Two-hop purple team chain — one seamless response:
       1. 🔴 RED — Qwen3.5-abliterated: attack vectors, exploitation, persistence
-      2. 🔵 BLUE — Foundation-Sec-8B-Reasoning: detection, IOCs, mitigations
+      2. 🔵 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, mitigations
   
       Use for threat modeling and attack/detect alignment. For full detection artifacts + IR playbook, use auto-purpleteam-deep.
     model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx8k
@@ -638,8 +638,8 @@ workspaces:
       Foothold mechanism and location. STOP HERE.
     tools: []
     chain:
-    - model: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
-      label: 🔵 **BLUE TEAM ANALYSIS** *(Foundation-Sec-8B-Reasoning)*
+    - model: granite4.1:8b-ctx8k
+      label: 🔵 **BLUE TEAM ANALYSIS** *(Granite 4.1 8B — tool-capable)*
       system: |-
         You are a defensive security analyst. A red team operator has described an attack technique or scenario. Provide blue team analysis covering:
         - Detection opportunities and log sources to monitor
@@ -658,7 +658,7 @@ workspaces:
     description: |-
       Four-hop purple team chain — one seamless response:
       1. 🔴 RED — Qwen3.5-abliterated: attack vectors, exploitation, persistence
-      2. 🔵 BLUE — Foundation-Sec-8B-Reasoning: detection, IOCs, D3FEND mitigations
+      2. 🔵 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, D3FEND mitigations
       3. 🛡️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries, atomic tests
       4. 📋 IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery
   
@@ -694,8 +694,8 @@ workspaces:
       Foothold mechanism, registry key or path, and eviction resistance. STOP HERE.
     tools: []
     chain:
-    - model: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
-      label: 🔵 **BLUE TEAM ANALYSIS** *(Foundation-Sec-8B-Reasoning)*
+    - model: granite4.1:8b-ctx8k
+      label: 🔵 **BLUE TEAM ANALYSIS** *(Granite 4.1 8B — tool-capable)*
       system: |-
         You are a defensive security analyst. A red team operator has described an attack technique or scenario. Provide blue team analysis covering:
         - Detection opportunities and log sources to monitor
@@ -774,7 +774,7 @@ workspaces:
     description: |-
       Four-hop execution-mode purple team chain — attack planning + live execution + detection + IR:
       1. 🔴 RED (exec) — SuperGemma4-26B: attack plan with execute_bash/execute_python/web_search for live PoC
-      2. 🔵 BLUE — Foundation-Sec-8B-Reasoning: detection analysis on actual execution output
+      2. 🔵 BLUE — Granite 4.1 8B — tool-capable: detection analysis on actual execution output
       3. 🛡️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries from real artifacts
       4. 📋 IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery
   
@@ -830,8 +830,8 @@ workspaces:
     - execute_python
     - web_search
     chain:
-    - model: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
-      label: 🔵 **BLUE TEAM ANALYSIS** *(Foundation-Sec-8B-Reasoning)*
+    - model: granite4.1:8b-ctx8k
+      label: 🔵 **BLUE TEAM ANALYSIS** *(Granite 4.1 8B — tool-capable)*
       system: |-
         You are a defensive security analyst. A red team operator has executed an attack technique and produced execution output. Provide blue team analysis covering:
         - Detection opportunities and log sources to monitor (reference actual artifacts from execution)
