@@ -15,7 +15,6 @@ import json
 import os
 import re
 import sys
-import time
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -184,7 +183,9 @@ def enable_meta3_audit_policies(target_ip: str) -> dict:
         "auditpol /get /subcategory:'Process Creation' 2>&1",
         60,
     )
-    result["audit_enabled"] = "enable" in audit_out.lower() or "process creation" in audit_out.lower()
+    result["audit_enabled"] = (
+        "enable" in audit_out.lower() or "process creation" in audit_out.lower()
+    )
 
     # Enable command-line logging in process creation events
     # Registry: HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit
@@ -200,7 +201,9 @@ def enable_meta3_audit_policies(target_ip: str) -> dict:
 
     result["ok"] = result["audit_enabled"] or result["cmdline_logging"]
     if not result["ok"]:
-        result["error"] = f"Failed to enable audit policies. audit_out={audit_out[:200]}, cmd_out={cmd_out[:200]}"
+        result["error"] = (
+            f"Failed to enable audit policies. audit_out={audit_out[:200]}, cmd_out={cmd_out[:200]}"
+        )
 
     return result
 
@@ -226,31 +229,43 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
 
         since = int(since_epoch)
         if kind in ("web", "container"):
-            # Collect docker container stdout (application output)
+            # Collect HTTP request lines from docker container logs.
+            # Filter for actual HTTP requests (GET/POST/PUT/DELETE/HEAD/OPTIONS
+            # plus HTTP status codes) — exclude application startup noise.
             r = _host_exec_script(
                 f"docker ps -q | xargs -r -I{{}} "
-                f"docker logs --since $(( $(date +%s) - {since} ))s {{}} 2>&1 | tail -500",
+                f"docker logs --since $(( $(date +%s) - {since} ))s {{}} 2>&1 "
+                "| grep -iE '(GET|POST|PUT|DELETE|HEAD|PATCH|OPTIONS|HTTP/[0-9]|\" [0-9]{{3}} )' "
+                "| tail -500",
                 timeout=30,
             )
             if r.get("ok") and r.get("output", "").strip():
                 out["web:access"] = [line for line in r["output"].splitlines() if line.strip()]
 
-            # Also collect web server access logs from inside the container.
-            # docker logs captures application stdout/stderr, NOT the HTTP access
-            # log where attack payloads appear. Most vulhub containers run Apache/
-            # Nginx whose access logs are at /var/log/apache2/access.log or
-            # /var/log/nginx/access.log inside the container.
+            # Also collect web server access logs from inside each container.
+            # Log locations vary by image — search dynamically instead of
+            # hardcoding paths. Include ALL files that look like access logs.
             r2 = _host_exec_script(
                 "for cid in $(docker ps -q); do "
-                "docker exec $cid cat /var/log/apache2/access.log 2>/dev/null || "
-                "docker exec $cid cat /var/log/nginx/access.log 2>/dev/null || "
-                "docker exec $cid cat /var/log/httpd/access_log 2>/dev/null || true; "
-                f"done | tail -500",
-                timeout=30,
+                # Search common access log locations
+                "docker exec $cid sh -c '"
+                "find /var/log /usr/local/tomcat/logs /usr/local/nginx/logs "
+                "/var/log/apache2 /var/log/nginx /var/log/httpd /var/log/lighttpd "
+                "/var/log/caddy /tmp /opt/*/logs /usr/local/*/logs "
+                "-maxdepth 3 "
+                '\\( -name "*access*" -o -name "*request*" \\) '
+                '\\( -name "*.log" -o -name "*.txt" -o -name "*.log.*" \\) '
+                "-type f 2>/dev/null"
+                "' 2>/dev/null | while read logfile; do "
+                'docker exec $cid cat "$logfile" 2>/dev/null; '
+                "done; "
+                "done | tail -500",
+                timeout=60,
             )
             if r2.get("ok") and r2.get("output", "").strip():
                 access_lines = [
-                    line for line in r2["output"].splitlines()
+                    line
+                    for line in r2["output"].splitlines()
                     if line.strip() and not line.startswith("#")
                 ]
                 if access_lines:
@@ -302,9 +317,7 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
                     # Format: "4624 2026-07-06 10:30:45"
                     parts = line.split(None, 1)
                     if len(parts) == 2 and parts[0].isdigit():
-                        all_events.append(
-                            f"EventCode={parts[0]} TimeCreated={parts[1]}"
-                        )
+                        all_events.append(f"EventCode={parts[0]} TimeCreated={parts[1]}")
 
             # Pass 2: Attack-relevant events with full Message detail.
             # These are the events the model needs to examine closely.
@@ -332,10 +345,14 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
                 if "EventCode=" in de:
                     detail_codes.add(de.split("EventCode=")[1].split()[0])
             # Remove compact entries for event codes we have detailed versions of
-            merged = [e for e in merged if not any(
-                f"EventCode={c}" in e and e.startswith(f"EventCode={c}") and "Account=" not in e
-                for c in detail_codes
-            )]
+            merged = [
+                e
+                for e in merged
+                if not any(
+                    f"EventCode={c}" in e and e.startswith(f"EventCode={c}") and "Account=" not in e
+                    for c in detail_codes
+                )
+            ]
             merged.extend(detailed_events)
 
             if merged:
@@ -354,7 +371,7 @@ def collect_target(target_ip: str, kind: str, *, since_epoch: float, dry_run: bo
             # Pre-initialize nxc (first call creates workspace dirs — output is
             # just init noise, not command output). Second call gets real results.
             mcp_call(
-                f"nxc winrm {target_ip} -u {meta3_user} -p {meta3_pass} -X \"whoami\" 2>&1",
+                f'nxc winrm {target_ip} -u {meta3_user} -p {meta3_pass} -X "whoami" 2>&1',
                 timeout=60,
             )
 
