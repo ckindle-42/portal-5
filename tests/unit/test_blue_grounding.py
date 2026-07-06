@@ -52,7 +52,9 @@ class TestCiteOrDrop:
     def test_keeps_technique_with_event_id_match(self):
         """Technique with matching event ID in telemetry is kept."""
         reported = [{"technique_id": "T1558.003"}]
-        telemetry = {"T1558.003": {"telemetry": "EventCode=4769 some Kerberos data", "source": "live"}}
+        telemetry = {
+            "T1558.003": {"telemetry": "EventCode=4769 some Kerberos data", "source": "live"}
+        }
         ground_truth = ["T1558.003"]
         result = _cite_or_drop(reported, telemetry, ground_truth)
         assert len(result) == 1
@@ -86,7 +88,9 @@ class TestCiteOrDrop:
     def test_dcsync_event_id_match(self):
         """DCSync (T1003.006) kept when 4662 event present in telemetry."""
         reported = [{"technique_id": "T1003.006"}]
-        telemetry = {"T1003.006": {"telemetry": "EventCode=4662 Properties=*Replication*", "source": "live"}}
+        telemetry = {
+            "T1003.006": {"telemetry": "EventCode=4662 Properties=*Replication*", "source": "live"}
+        }
         ground_truth = ["T1003.006"]
         result = _cite_or_drop(reported, telemetry, ground_truth)
         assert len(result) == 1

@@ -28,7 +28,7 @@ env -i HOME="$HOME" PATH="$VENV/bin:$PATH" VIRTUAL_ENV="$VENV" bash -c '
   uv pip install -e ".[dev]" -q
   ruff check .
   ruff format --check .
-  pytest tests/unit -x --tb=short -q
+  pytest tests/unit -n auto -x --tb=short -q
 ' _ "$(pwd)"
 
 rm -rf "$VENV"

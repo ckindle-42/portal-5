@@ -16,7 +16,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
 from portal_wiki.core.store import load_all, reset_canonical_dir, set_canonical_dir
-from portal_wiki.core.writeback import confirm_unit, list_proposed, propose_unit, reset_proposed_dir, set_proposed_dir
+from portal_wiki.core.writeback import (
+    confirm_unit,
+    list_proposed,
+    reset_proposed_dir,
+    set_proposed_dir,
+)
 
 
 class TestSelfImprovingCycle:
@@ -24,8 +29,17 @@ class TestSelfImprovingCycle:
 
     def test_full_cycle(self, tmp_path):
         """Full self-improving cycle end-to-end."""
-        from bench_security.capability_graph import CoverageSummary, CapabilityGraph, Procedure, build_gap
-        from bench_security.growth_loop import DraftDetection, propose_draft, prove_draft, _writeback_proven_detection
+        from bench_security.capability_graph import (
+            CapabilityGraph,
+            CoverageSummary,
+            Procedure,
+            build_gap,
+        )
+        from bench_security.growth_loop import (
+            _writeback_proven_detection,
+            propose_draft,
+            prove_draft,
+        )
 
         proposed_dir = tmp_path / "proposed"
         canonical_dir = tmp_path / "canonical"
@@ -39,18 +53,24 @@ class TestSelfImprovingCycle:
             graph = CapabilityGraph()
             proc = Procedure("proc-test", "test_scenario", frozenset({"T9999"}))
             graph.add_procedure(proc)
-            gap = build_gap(proc, "T9999", {
-                "red_status": "RED_LANDED",
-                "telemetry_status": "TELEMETRY_OBSERVED",
-                "detection_status": "DETECTION_MISSING",
-                "response_status": "RESPONSE_NOT_TESTED",
-                "used_synthetic": False,
-            })
+            gap = build_gap(
+                proc,
+                "T9999",
+                {
+                    "red_status": "RED_LANDED",
+                    "telemetry_status": "TELEMETRY_OBSERVED",
+                    "detection_status": "DETECTION_MISSING",
+                    "response_status": "RESPONSE_NOT_TESTED",
+                    "used_synthetic": False,
+                },
+            )
             gap.summary = CoverageSummary.RED_ONLY.value
             graph.add_gap(gap)
 
             # Step 3: Growth loop proposes + proves a draft
-            draft = propose_draft(gap, existing_spl='index=portal5_lab sourcetype="web:access" test')
+            draft = propose_draft(
+                gap, existing_spl='index=portal5_lab sourcetype="web:access" test'
+            )
             proof = prove_draft(draft)
 
             if proof.all_passed():
@@ -80,8 +100,12 @@ class TestSelfImprovingCycle:
 
             # Step 8: Core stays import-clean
             import glob as glob_mod
-            bad = [f for f in glob_mod.glob("portal_wiki/core/**/*.py", recursive=True)
-                   if any(x in open(f).read() for x in ["portal_pipeline", "bench_security"])]
+
+            bad = [
+                f
+                for f in glob_mod.glob("portal_wiki/core/**/*.py", recursive=True)
+                if any(x in open(f).read() for x in ["portal_pipeline", "bench_security"])
+            ]
             assert bad == [], f"Core has Portal imports: {bad}"
 
         finally:
@@ -94,28 +118,57 @@ class TestSelfImprovingCycle:
         set_canonical_dir(tmp_path / "c")
         try:
             # Growth (P2)
-            from bench_security.growth_loop import _writeback_proven_detection, propose_draft, prove_draft, DraftDetection
-            from bench_security.capability_graph import Procedure, build_gap, CoverageSummary
+            from bench_security.capability_graph import CoverageSummary, Procedure, build_gap
+            from bench_security.growth_loop import (
+                _writeback_proven_detection,
+                propose_draft,
+                prove_draft,
+            )
 
             proc = Procedure("p", "s", frozenset({"T9999"}))
-            gap = build_gap(proc, "T9999", {"red_status": "RED_LANDED", "telemetry_status": "TELEMETRY_OBSERVED", "detection_status": "DETECTION_MISSING", "response_status": "RESPONSE_NOT_TESTED", "used_synthetic": False})
+            gap = build_gap(
+                proc,
+                "T9999",
+                {
+                    "red_status": "RED_LANDED",
+                    "telemetry_status": "TELEMETRY_OBSERVED",
+                    "detection_status": "DETECTION_MISSING",
+                    "response_status": "RESPONSE_NOT_TESTED",
+                    "used_synthetic": False,
+                },
+            )
             gap.summary = CoverageSummary.RED_ONLY.value
-            draft = propose_draft(gap, existing_spl='index=portal5_lab test')
+            draft = propose_draft(gap, existing_spl="index=portal5_lab test")
             proof = prove_draft(draft)
             if proof.all_passed():
                 draft.status = "proven"
                 _writeback_proven_detection(draft, gap)
 
             # Investigation (P3)
-            from portal_wiki.adapters.writeback_investigation import writeback_investigation_findings
-            writeback_investigation_findings("case-test", [{"technique_ids": ["T1190"], "description": "test", "evidence_refs": ["ev-001"], "confidence": 0.9}])
+            from portal_wiki.adapters.writeback_investigation import (
+                writeback_investigation_findings,
+            )
+
+            writeback_investigation_findings(
+                "case-test",
+                [
+                    {
+                        "technique_ids": ["T1190"],
+                        "description": "test",
+                        "evidence_refs": ["ev-001"],
+                        "confidence": 0.9,
+                    }
+                ],
+            )
 
             # Bench (P4)
             from portal_wiki.adapters.writeback_bench import writeback_bench_result
+
             writeback_bench_result("test-model", "exploit", "keep")
 
             # Gap (P5)
             from portal_wiki.adapters.writeback_gap import writeback_gap_resolution
+
             writeback_gap_resolution("T1190", "COVERED")
 
             # All proposed units have provenance

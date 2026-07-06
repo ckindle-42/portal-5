@@ -60,7 +60,10 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "unit_id": {"type": "string", "description": "The unit ID (e.g. 'unit-T1190-signature')"},
+                "unit_id": {
+                    "type": "string",
+                    "description": "The unit ID (e.g. 'unit-T1190-signature')",
+                },
             },
             "required": ["unit_id"],
         },
@@ -71,7 +74,10 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "What to explain (e.g. 'T1003.006 windows telemetry signature')"},
+                "query": {
+                    "type": "string",
+                    "description": "What to explain (e.g. 'T1003.006 windows telemetry signature')",
+                },
             },
             "required": ["query"],
         },

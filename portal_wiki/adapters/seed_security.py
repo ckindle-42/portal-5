@@ -55,37 +55,46 @@ def seed_technique_signatures(dry_run: bool = False) -> list[KnowledgeUnit]:
         ]
 
         if spl:
-            body_parts.extend([
-                "### SPL Detection (siem/spl_detections.yaml)",
-                "```spl",
-                spl,
-                "```",
-                "",
-            ])
+            body_parts.extend(
+                [
+                    "### SPL Detection (siem/spl_detections.yaml)",
+                    "```spl",
+                    spl,
+                    "```",
+                    "",
+                ]
+            )
 
         # Add scenario context
         if scenarios:
-            body_parts.extend([
-                "## Exercised By Scenarios",
-                "",
-            ])
+            body_parts.extend(
+                [
+                    "## Exercised By Scenarios",
+                    "",
+                ]
+            )
             for sc_name in scenarios[:5]:
                 sc = SCENARIOS.get(sc_name, {})
                 body_parts.append(f"- `{sc_name}` — target: {sc.get('target_host', 'N/A')}")
             body_parts.append("")
 
         # Add OS/source-specific signatures
-        body_parts.extend([
-            "## Per-Source Expected Signatures",
-            "",
-            "| Source | Expected Signal |",
-            "|--------|----------------|",
-        ])
+        body_parts.extend(
+            [
+                "## Per-Source Expected Signatures",
+                "",
+                "| Source | Expected Signal |",
+                "|--------|----------------|",
+            ]
+        )
 
         # Map technique to expected signals per source
         signal_map = {
             "T1190": [
-                ("web:access", "HTTP requests with attack payloads in URI/body (LFI/SQLi/Log4Shell markers)"),
+                (
+                    "web:access",
+                    "HTTP requests with attack payloads in URI/body (LFI/SQLi/Log4Shell markers)",
+                ),
                 ("windows:security", "Process creation (4688) from web server process"),
             ],
             "T1059": [
@@ -105,13 +114,22 @@ def seed_technique_signatures(dry_run: bool = False) -> list[KnowledgeUnit]:
                 ("windows:security", "File access to NTDS.dit or Volume Shadow Copy"),
             ],
             "T1003.006": [
-                ("windows:security", "Event 4662 with replication access GUIDs (DS-Replication-Get-Changes, DS-Replication-Get-Changes-All)"),
+                (
+                    "windows:security",
+                    "Event 4662 with replication access GUIDs (DS-Replication-Get-Changes, DS-Replication-Get-Changes-All)",
+                ),
             ],
             "T1558.003": [
-                ("windows:security", "Event 4769 with TicketEncryptionType=0x17 (RC4) — Kerberoasting indicator"),
+                (
+                    "windows:security",
+                    "Event 4769 with TicketEncryptionType=0x17 (RC4) — Kerberoasting indicator",
+                ),
             ],
             "T1558.004": [
-                ("windows:security", "Event 4768 without pre-authentication required (AS-REP Roasting)"),
+                (
+                    "windows:security",
+                    "Event 4768 without pre-authentication required (AS-REP Roasting)",
+                ),
             ],
             "T1078": [
                 ("windows:security", "Successful logon (4624) with unusual source or time"),
@@ -120,7 +138,10 @@ def seed_technique_signatures(dry_run: bool = False) -> list[KnowledgeUnit]:
                 ("cloud:audit", "Cloud account authentication from unusual source"),
             ],
             "T1110.003": [
-                ("windows:security", "Multiple 4625/4771 events from single source in short window"),
+                (
+                    "windows:security",
+                    "Multiple 4625/4771 events from single source in short window",
+                ),
             ],
         }
 
@@ -131,7 +152,9 @@ def seed_technique_signatures(dry_run: bool = False) -> list[KnowledgeUnit]:
         else:
             body_parts.append(f"| (generic) | Activity consistent with {tid} |")
 
-        body_parts.extend(["", "---", "*Unit auto-generated from spl_detections.yaml + SCENARIOS.*"])
+        body_parts.extend(
+            ["", "---", "*Unit auto-generated from spl_detections.yaml + SCENARIOS.*"]
+        )
 
         # Build sources list
         sources = [

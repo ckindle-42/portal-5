@@ -53,7 +53,12 @@ class TestEntities:
             gap_id="gap-test",
             procedure_id="proc-test",
             technique_id="T1190",
-            axes={"red": "RED_LANDED", "telemetry": "TELEMETRY_OBSERVED", "detection": "DETECTION_NO_HIT", "response": "RESPONSE_NOT_TESTED"},
+            axes={
+                "red": "RED_LANDED",
+                "telemetry": "TELEMETRY_OBSERVED",
+                "detection": "DETECTION_NO_HIT",
+                "response": "RESPONSE_NOT_TESTED",
+            },
             summary="RED_ONLY",
             reason_codes=["RED_LANDED", "TELEMETRY_OBSERVED"],
         )
@@ -69,75 +74,105 @@ class TestGapClassification:
     """Gap classification is pure code over reason codes."""
 
     def test_covered_when_red_landed_and_detected(self):
-        assert classify_gap(
-            red_status="RED_LANDED",
-            telemetry_status="TELEMETRY_OBSERVED",
-            detection_status="DETECTION_CONFIRMED",
-        ) == "COVERED"
+        assert (
+            classify_gap(
+                red_status="RED_LANDED",
+                telemetry_status="TELEMETRY_OBSERVED",
+                detection_status="DETECTION_CONFIRMED",
+            )
+            == "COVERED"
+        )
 
     def test_red_only_when_landed_no_detection(self):
-        assert classify_gap(
-            red_status="RED_LANDED",
-            telemetry_status="TELEMETRY_OBSERVED",
-            detection_status="DETECTION_NO_HIT",
-        ) == "RED_ONLY"
+        assert (
+            classify_gap(
+                red_status="RED_LANDED",
+                telemetry_status="TELEMETRY_OBSERVED",
+                detection_status="DETECTION_NO_HIT",
+            )
+            == "RED_ONLY"
+        )
 
     def test_red_only_when_detection_missing(self):
-        assert classify_gap(
-            red_status="RED_LANDED",
-            telemetry_status="TELEMETRY_OBSERVED",
-            detection_status="DETECTION_MISSING",
-        ) == "RED_ONLY"
+        assert (
+            classify_gap(
+                red_status="RED_LANDED",
+                telemetry_status="TELEMETRY_OBSERVED",
+                detection_status="DETECTION_MISSING",
+            )
+            == "RED_ONLY"
+        )
 
     def test_blue_only_when_detection_exists_but_not_exercised(self):
-        assert classify_gap(
-            red_status="RED_NOT_RUN",
-            telemetry_status="TELEMETRY_NOT_REQUIRED",
-            detection_status="DETECTION_NO_HIT",
-        ) == "BLUE_ONLY"
+        assert (
+            classify_gap(
+                red_status="RED_NOT_RUN",
+                telemetry_status="TELEMETRY_NOT_REQUIRED",
+                detection_status="DETECTION_NO_HIT",
+            )
+            == "BLUE_ONLY"
+        )
 
     def test_neither_when_no_red_no_detection(self):
-        assert classify_gap(
-            red_status="RED_NOT_RUN",
-            telemetry_status="TELEMETRY_NOT_REQUIRED",
-            detection_status="DETECTION_NOT_RUN",
-        ) == "NEITHER"
+        assert (
+            classify_gap(
+                red_status="RED_NOT_RUN",
+                telemetry_status="TELEMETRY_NOT_REQUIRED",
+                detection_status="DETECTION_NOT_RUN",
+            )
+            == "NEITHER"
+        )
 
     def test_blocked_when_telemetry_failed(self):
-        assert classify_gap(
-            red_status="RED_LANDED",
-            telemetry_status="TELEMETRY_COLLECTION_FAILED",
-            detection_status="DETECTION_NO_HIT",
-        ) == "BLOCKED"
+        assert (
+            classify_gap(
+                red_status="RED_LANDED",
+                telemetry_status="TELEMETRY_COLLECTION_FAILED",
+                detection_status="DETECTION_NO_HIT",
+            )
+            == "BLOCKED"
+        )
 
     def test_blocked_when_telemetry_not_indexed(self):
-        assert classify_gap(
-            red_status="RED_LANDED",
-            telemetry_status="TELEMETRY_NOT_INDEXED",
-            detection_status="DETECTION_NO_HIT",
-        ) == "BLOCKED"
+        assert (
+            classify_gap(
+                red_status="RED_LANDED",
+                telemetry_status="TELEMETRY_NOT_INDEXED",
+                detection_status="DETECTION_NO_HIT",
+            )
+            == "BLOCKED"
+        )
 
     def test_blocked_when_telemetry_not_configured(self):
-        assert classify_gap(
-            red_status="RED_LANDED",
-            telemetry_status="TELEMETRY_NOT_CONFIGURED",
-            detection_status="DETECTION_NO_HIT",
-        ) == "BLOCKED"
+        assert (
+            classify_gap(
+                red_status="RED_LANDED",
+                telemetry_status="TELEMETRY_NOT_CONFIGURED",
+                detection_status="DETECTION_NO_HIT",
+            )
+            == "BLOCKED"
+        )
 
     def test_blocked_when_synthetic(self):
-        assert classify_gap(
-            red_status="RED_LANDED",
-            telemetry_status="TELEMETRY_OBSERVED",
-            detection_status="DETECTION_HIT_UNATTRIBUTED",
-            used_synthetic=True,
-        ) == "BLOCKED"
+        assert (
+            classify_gap(
+                red_status="RED_LANDED",
+                telemetry_status="TELEMETRY_OBSERVED",
+                detection_status="DETECTION_HIT_UNATTRIBUTED",
+                used_synthetic=True,
+            )
+            == "BLOCKED"
+        )
 
     def test_neither_when_red_failed(self):
-        assert classify_gap(
-            red_status="RED_EXECUTION_FAILED",
-            telemetry_status="TELEMETRY_OBSERVED",
-            detection_status="DETECTION_NO_HIT",
-        ) == "NEITHER"
+        assert (
+            classify_gap(
+                red_status="RED_EXECUTION_FAILED",
+                telemetry_status="TELEMETRY_OBSERVED",
+                detection_status="DETECTION_NO_HIT",
+            )
+            == "NEITHER"
+        )
 
     def test_synthetic_never_covered(self):
         """HEADLINE: synthetic telemetry NEVER yields COVERED."""

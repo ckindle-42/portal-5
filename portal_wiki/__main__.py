@@ -119,7 +119,9 @@ def main() -> int:
     # render
     render_p = sub.add_parser("render", help="Regenerate wiki views")
     render_p.add_argument("--all", action="store_true", help="Regenerate all views")
-    render_p.add_argument("--check", action="store_true", help="Drift gate (exit non-zero if drifted)")
+    render_p.add_argument(
+        "--check", action="store_true", help="Drift gate (exit non-zero if drifted)"
+    )
     render_p.add_argument("--dry-run", action="store_true", help="Dry run (no writes)")
 
     # status

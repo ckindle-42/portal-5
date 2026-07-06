@@ -2257,7 +2257,11 @@ def check_telemetry_contracts() -> tuple[str, str, list[dict]]:
     try:
         assert len(CONTRACTS) >= 3, f"Expected >=3 contracts, got {len(CONTRACTS)}"
         subs.append(
-            {"name": "contracts registered", "status": "PASS", "detail": f"{len(CONTRACTS)} contracts"}
+            {
+                "name": "contracts registered",
+                "status": "PASS",
+                "detail": f"{len(CONTRACTS)} contracts",
+            }
         )
     except Exception as e:
         subs.append({"name": "contracts registered", "status": "FAIL", "detail": str(e)})
@@ -2269,7 +2273,11 @@ def check_telemetry_contracts() -> tuple[str, str, list[dict]]:
 
         dead_backend = MagicMock(spec=TelemetryBackend)
         dead_backend.name = "test"
-        dead_backend.query.return_value = {"telemetry": "", "source": "synthetic-fallback", "backend": "test"}
+        dead_backend.query.return_value = {
+            "telemetry": "",
+            "source": "synthetic-fallback",
+            "backend": "test",
+        }
         result = check_source_health(CONTRACTS["splunk-web"], dead_backend)
         assert not result.healthy
         assert result.reason_code == "TELEMETRY_NOT_CONFIGURED"
@@ -2435,7 +2443,7 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
 
     # Check 3: MCP tools importable
     try:
-        from portal_wiki.mcp import wiki_explain, wiki_get_unit, wiki_search
+        from portal_wiki.mcp import wiki_explain, wiki_get_unit, wiki_search  # noqa: F401
 
         subs.append({"name": "MCP tools importable", "status": "PASS", "detail": ""})
     except Exception as e:

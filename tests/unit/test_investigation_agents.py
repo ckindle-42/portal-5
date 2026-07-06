@@ -123,8 +123,10 @@ class TestInvestigationGraph:
 
     def test_reporter_flags_unsubstantiated(self):
         f = Finding(
-            finding_id="f-001", hypothesis_id="h-001",
-            technique_ids=["T1190"], description="test",
+            finding_id="f-001",
+            hypothesis_id="h-001",
+            technique_ids=["T1190"],
+            description="test",
             evidence_refs=[],  # no evidence — unsubstantiated
             confidence=0.5,
         )
@@ -148,7 +150,9 @@ class TestFullPipeline:
                 Hypothesis("hyp-001", ["T1558.003"], "Kerberoasting"),
             ],
             findings=[
-                Finding("f-001", "hyp-001", ["T1558.003"], "Kerberoasting detected", ["ev-001"], 0.9),
+                Finding(
+                    "f-001", "hyp-001", ["T1558.003"], "Kerberoasting detected", ["ev-001"], 0.9
+                ),
             ],
         )
         graph = InvestigationGraph(state=state)
@@ -167,9 +171,7 @@ class TestFullPipeline:
     def test_budget_decrements(self):
         state = InvestigationState(
             case_id="case-001",
-            hypotheses=[
-                Hypothesis(f"hyp-{i}", ["T1190"], f"test {i}") for i in range(5)
-            ],
+            hypotheses=[Hypothesis(f"hyp-{i}", ["T1190"], f"test {i}") for i in range(5)],
             budget_remaining=3,
         )
         graph = InvestigationGraph(state=state)

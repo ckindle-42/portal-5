@@ -43,7 +43,15 @@ class TestSimilarityTier:
         observed = {
             "tactic": "credential-access",
             "event_codes": ["4769"],
-            "keywords": ["RC4", "Kerberoasting", "Windows", "Security", "Event", "encryption", "ticket"],
+            "keywords": [
+                "RC4",
+                "Kerberoasting",
+                "Windows",
+                "Security",
+                "Event",
+                "encryption",
+                "ticket",
+            ],
         }
         result = compute_similarity(observed, wiki)
         assert result.grade in (MatchGrade.EXACT, MatchGrade.SIMILAR)
@@ -54,7 +62,11 @@ class TestSimilarityTier:
         wiki = {"T1558.003": "Kerberoasting Windows Security Event 4769 RC4 encryption"}
         observed = {"keywords": ["Kerberos", "Windows", "Security", "encryption", "ticket"]}
         result = compute_similarity(observed, wiki)
-        assert result.grade in (MatchGrade.SIMILAR, MatchGrade.EXACT, MatchGrade.NONE)  # heuristic — may vary
+        assert result.grade in (
+            MatchGrade.SIMILAR,
+            MatchGrade.EXACT,
+            MatchGrade.NONE,
+        )  # heuristic — may vary
 
     def test_no_match(self):
         wiki = {"T1558.003": "Kerberoasting Windows Security Event 4769 RC4 encryption"}
@@ -195,7 +207,9 @@ class TestResolveUnknown:
 
     def test_benign_resolution(self):
         intake = route_to_investigation(anomaly_score=0.5, episode_id="ep-002")
-        findings = [{"description": "No technique match found", "technique_ids": []}]  # no technique match
+        findings = [
+            {"description": "No technique match found", "technique_ids": []}
+        ]  # no technique match
         outcome = resolve_unknown(intake, findings)
         assert outcome.classification == "benign"
         assert outcome.baseline_update is True

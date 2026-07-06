@@ -11,7 +11,6 @@ Verifies:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import yaml
@@ -152,7 +151,6 @@ class TestDetectionFiring:
         Skips scenarios without captured data (reports them as capture backlog)."""
         from tests.benchmarks.bench_security.siem.capture_store import list_captures
 
-        spl_covered = set(techniques_covered())
         capture_files = list_captures()
         captured_scenarios = {f.stem.split("_")[0] for f in capture_files}
 
@@ -183,10 +181,10 @@ class TestDetectionFiring:
 
         # Report capture backlog (not a failure — just visibility)
         if no_capture:
-            print(f"\n  Capture backlog ({len(no_capture)} scenarios without captured data): "
-                  f"{no_capture[:5]}{'...' if len(no_capture) > 5 else ''}")
+            print(
+                f"\n  Capture backlog ({len(no_capture)} scenarios without captured data): "
+                f"{no_capture[:5]}{'...' if len(no_capture) > 5 else ''}"
+            )
 
         # Techniques with SPL that's just a placeholder should fail
-        assert not failed, (
-            f"Detections that exist but are placeholders on captured data: {failed}"
-        )
+        assert not failed, f"Detections that exist but are placeholders on captured data: {failed}"

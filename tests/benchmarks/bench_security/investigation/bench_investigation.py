@@ -378,7 +378,12 @@ def run_multi_agent(
         for i, ev in enumerate(scenario.evidence):
             hyp = Hypothesis(
                 hypothesis_id=f"hyp-{i}",
-                technique_ids=ev.get("technique_ids", scenario.expected_findings[0].get("technique_ids", []) if scenario.expected_findings else []),
+                technique_ids=ev.get(
+                    "technique_ids",
+                    scenario.expected_findings[0].get("technique_ids", [])
+                    if scenario.expected_findings
+                    else [],
+                ),
                 description=f"Hypothesis from {ev.get('kind', 'evidence')}",
                 evidence_refs=[ev.get("evidence_id", "")],
             )
@@ -414,18 +419,26 @@ def run_multi_agent(
 
         store = EvidenceStore()
         for ev_data in scenario.evidence:
-            store.add(EvidenceRecord(
-                evidence_id=ev_data.get("evidence_id", ""),
-                episode_id="", case_id=scenario.scenario_id,
-                kind=ev_data.get("kind", "tool_output"),
-                source=ev_data.get("source", {"system": "multi_agent"}),
-                timestamp={"collected_at": "", "event_time": ""},
-                artifact={"identifiers": []},
-                supports=ev_data.get("supports", []),
-                contradicts=ev_data.get("contradicts", []),
-                confidence=ev_data.get("confidence", {"source_authority": "authoritative_live", "parse_confidence": "high"}),
-                provenance=ev_data.get("provenance", {"collected_by_agent": "A2", "chain_of_custody": []}),
-            ))
+            store.add(
+                EvidenceRecord(
+                    evidence_id=ev_data.get("evidence_id", ""),
+                    episode_id="",
+                    case_id=scenario.scenario_id,
+                    kind=ev_data.get("kind", "tool_output"),
+                    source=ev_data.get("source", {"system": "multi_agent"}),
+                    timestamp={"collected_at": "", "event_time": ""},
+                    artifact={"identifiers": []},
+                    supports=ev_data.get("supports", []),
+                    contradicts=ev_data.get("contradicts", []),
+                    confidence=ev_data.get(
+                        "confidence",
+                        {"source_authority": "authoritative_live", "parse_confidence": "high"},
+                    ),
+                    provenance=ev_data.get(
+                        "provenance", {"collected_by_agent": "A2", "chain_of_custody": []}
+                    ),
+                )
+            )
 
         result.metrics = {
             "hallucination_rate": compute_hallucination_rate(result.findings, store),
@@ -446,13 +459,16 @@ def run_multi_agent(
         bench.aggregate_metrics = {
             "avg_hallucination_rate": sum(
                 r.metrics.get("hallucination_rate", 0) for r in bench.results
-            ) / len(bench.results),
+            )
+            / len(bench.results),
             "avg_contradiction_detection_rate": sum(
                 r.metrics.get("contradiction_detection_rate", 0) for r in bench.results
-            ) / len(bench.results),
+            )
+            / len(bench.results),
             "avg_evidence_completeness": sum(
                 r.metrics.get("evidence_completeness", 0) for r in bench.results
-            ) / len(bench.results),
+            )
+            / len(bench.results),
         }
 
     return bench
@@ -479,8 +495,12 @@ def run_comparison(
     mm = multi.aggregate_metrics
 
     beats_hallucination = mm.get("avg_hallucination_rate", 1) <= bm.get("avg_hallucination_rate", 1)
-    beats_contradiction = mm.get("avg_contradiction_detection_rate", 0) >= bm.get("avg_contradiction_detection_rate", 0)
-    beats_completeness = mm.get("avg_evidence_completeness", 0) >= bm.get("avg_evidence_completeness", 0)
+    beats_contradiction = mm.get("avg_contradiction_detection_rate", 0) >= bm.get(
+        "avg_contradiction_detection_rate", 0
+    )
+    beats_completeness = mm.get("avg_evidence_completeness", 0) >= bm.get(
+        "avg_evidence_completeness", 0
+    )
 
     beats_all = beats_hallucination and beats_contradiction and beats_completeness
 
@@ -521,16 +541,30 @@ if __name__ == "__main__":
             print(json_mod.dumps(result, indent=2))
         else:
             print("\n=== Investigation Baseline Gate ===\n")
-            print(f"Baseline — hallucination: {result['baseline']['aggregate_metrics']['avg_hallucination_rate']:.2f}")
-            print(f"Baseline — contradiction detection: {result['baseline']['aggregate_metrics']['avg_contradiction_detection_rate']:.2f}")
-            print(f"Baseline — evidence completeness: {result['baseline']['aggregate_metrics']['avg_evidence_completeness']:.2f}")
+            print(
+                f"Baseline — hallucination: {result['baseline']['aggregate_metrics']['avg_hallucination_rate']:.2f}"
+            )
+            print(
+                f"Baseline — contradiction detection: {result['baseline']['aggregate_metrics']['avg_contradiction_detection_rate']:.2f}"
+            )
+            print(
+                f"Baseline — evidence completeness: {result['baseline']['aggregate_metrics']['avg_evidence_completeness']:.2f}"
+            )
             print()
-            print(f"Multi-agent — hallucination: {result['multi_agent']['aggregate_metrics']['avg_hallucination_rate']:.2f}")
-            print(f"Multi-agent — contradiction detection: {result['multi_agent']['aggregate_metrics']['avg_contradiction_detection_rate']:.2f}")
-            print(f"Multi-agent — evidence completeness: {result['multi_agent']['aggregate_metrics']['avg_evidence_completeness']:.2f}")
+            print(
+                f"Multi-agent — hallucination: {result['multi_agent']['aggregate_metrics']['avg_hallucination_rate']:.2f}"
+            )
+            print(
+                f"Multi-agent — contradiction detection: {result['multi_agent']['aggregate_metrics']['avg_contradiction_detection_rate']:.2f}"
+            )
+            print(
+                f"Multi-agent — evidence completeness: {result['multi_agent']['aggregate_metrics']['avg_evidence_completeness']:.2f}"
+            )
             print()
             v = result["verdict"]
-            print(f"Verdict: {'BEATS baseline' if v['beats_baseline'] else 'DOES NOT beat baseline'}")
+            print(
+                f"Verdict: {'BEATS baseline' if v['beats_baseline'] else 'DOES NOT beat baseline'}"
+            )
             print(f"  Hallucination: {'✓' if v['beats_hallucination'] else '✗'}")
             print(f"  Contradiction: {'✓' if v['beats_contradiction'] else '✗'}")
             print(f"  Completeness:  {'✓' if v['beats_completeness'] else '✗'}")

@@ -59,13 +59,14 @@ repos:
         always_run: true
         stages: [pre-commit]
 
-      # Guard: unit-test suite passes before commit. Fast (~10s on a warm
-      # pytest cache); blocks commits that break the test suite. Opt-in via
+      # Guard: unit-test suite passes before commit. ~4-5min parallelized
+      # (pytest-xdist, -n auto) on a 14-core M-series Mac vs ~8min serial;
+      # blocks commits that break the test suite. Opt-in via
       # `pre-commit install`. Uses the developer's existing venv.
       - id: pytest-unit
         name: pytest unit suite
         language: system
-        entry: pytest tests/unit -x --tb=short -q
+        entry: pytest tests/unit -n auto -x --tb=short -q
         pass_filenames: false
         always_run: true
         stages: [pre-commit]

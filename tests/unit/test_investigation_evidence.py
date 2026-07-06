@@ -44,12 +44,26 @@ class TestEvidenceRecord:
             episode_id="ep-test-001",
             case_id="case-001",
             kind=EvidenceKind.SIEM_HIT.value,
-            source={"system": "splunk", "tool_invocation": {"tool": "spl_search", "arguments": {}, "trace_id": "trace-001"}},
-            timestamp={"collected_at": "2026-07-04T12:00:00Z", "event_time": "2026-07-04T11:55:00Z"},
-            artifact={"identifiers": ["host:dc01"], "content_ref": "", "content_hash": "", "parse_schema_version": 1},
+            source={
+                "system": "splunk",
+                "tool_invocation": {"tool": "spl_search", "arguments": {}, "trace_id": "trace-001"},
+            },
+            timestamp={
+                "collected_at": "2026-07-04T12:00:00Z",
+                "event_time": "2026-07-04T11:55:00Z",
+            },
+            artifact={
+                "identifiers": ["host:dc01"],
+                "content_ref": "",
+                "content_hash": "",
+                "parse_schema_version": 1,
+            },
             supports=["hyp-001"],
             contradicts=[],
-            confidence={"source_authority": SourceAuthority.AUTHORITATIVE_LIVE.value, "parse_confidence": "high"},
+            confidence={
+                "source_authority": SourceAuthority.AUTHORITATIVE_LIVE.value,
+                "parse_confidence": "high",
+            },
             provenance={"collected_by_agent": "A2", "chain_of_custody": ["trace-001"]},
         )
         assert record.evidence_id == "ev-test-001"
@@ -62,7 +76,10 @@ class TestEvidenceRecord:
             case_id="case-001",
             kind=EvidenceKind.TOOL_OUTPUT.value,
             source={"system": "mitre"},
-            timestamp={"collected_at": "2026-07-04T12:00:00Z", "event_time": "2026-07-04T12:00:00Z"},
+            timestamp={
+                "collected_at": "2026-07-04T12:00:00Z",
+                "event_time": "2026-07-04T12:00:00Z",
+            },
             artifact={"identifiers": []},
             supports=[],
             contradicts=[],
@@ -88,11 +105,15 @@ class TestEvidenceStore:
     def test_add_and_get(self):
         store = EvidenceStore()
         record = EvidenceRecord(
-            evidence_id="ev-001", episode_id="ep-001", case_id="c-001",
-            kind="siem_hit", source={"system": "splunk"},
+            evidence_id="ev-001",
+            episode_id="ep-001",
+            case_id="c-001",
+            kind="siem_hit",
+            source={"system": "splunk"},
             timestamp={"collected_at": "", "event_time": ""},
             artifact={"identifiers": []},
-            supports=["hyp-001"], contradicts=[],
+            supports=["hyp-001"],
+            contradicts=[],
             confidence={"source_authority": "authoritative_live", "parse_confidence": "high"},
             provenance={"collected_by_agent": "A2", "chain_of_custody": []},
         )
@@ -103,38 +124,60 @@ class TestEvidenceStore:
     def test_for_hypothesis(self):
         store = EvidenceStore()
         for i in range(3):
-            store.add(EvidenceRecord(
-                evidence_id=f"ev-{i}", episode_id="ep-001", case_id="c-001",
-                kind="siem_hit", source={"system": "splunk"},
-                timestamp={"collected_at": "", "event_time": ""},
-                artifact={"identifiers": []},
-                supports=["hyp-001"] if i < 2 else ["hyp-002"],
-                contradicts=[],
-                confidence={"source_authority": "authoritative_live", "parse_confidence": "high"},
-                provenance={"collected_by_agent": "A2", "chain_of_custody": []},
-            ))
+            store.add(
+                EvidenceRecord(
+                    evidence_id=f"ev-{i}",
+                    episode_id="ep-001",
+                    case_id="c-001",
+                    kind="siem_hit",
+                    source={"system": "splunk"},
+                    timestamp={"collected_at": "", "event_time": ""},
+                    artifact={"identifiers": []},
+                    supports=["hyp-001"] if i < 2 else ["hyp-002"],
+                    contradicts=[],
+                    confidence={
+                        "source_authority": "authoritative_live",
+                        "parse_confidence": "high",
+                    },
+                    provenance={"collected_by_agent": "A2", "chain_of_custody": []},
+                )
+            )
         assert len(store.for_hypothesis("hyp-001")) == 2
         assert len(store.supporting("hyp-001")) == 2
         assert len(store.contradicting("hyp-001")) == 0
 
     def test_by_kind(self):
         store = EvidenceStore()
-        store.add(EvidenceRecord(
-            evidence_id="ev-001", episode_id="ep-001", case_id="c-001",
-            kind="siem_hit", source={"system": "splunk"},
-            timestamp={"collected_at": "", "event_time": ""},
-            artifact={"identifiers": []}, supports=[], contradicts=[],
-            confidence={"source_authority": "authoritative_live", "parse_confidence": "high"},
-            provenance={"collected_by_agent": "A2", "chain_of_custody": []},
-        ))
-        store.add(EvidenceRecord(
-            evidence_id="ev-002", episode_id="ep-001", case_id="c-001",
-            kind="analyst_note", source={"system": "analyst"},
-            timestamp={"collected_at": "", "event_time": ""},
-            artifact={"identifiers": []}, supports=[], contradicts=[],
-            confidence={"source_authority": "annotated", "parse_confidence": "high"},
-            provenance={"collected_by_agent": "analyst", "chain_of_custody": []},
-        ))
+        store.add(
+            EvidenceRecord(
+                evidence_id="ev-001",
+                episode_id="ep-001",
+                case_id="c-001",
+                kind="siem_hit",
+                source={"system": "splunk"},
+                timestamp={"collected_at": "", "event_time": ""},
+                artifact={"identifiers": []},
+                supports=[],
+                contradicts=[],
+                confidence={"source_authority": "authoritative_live", "parse_confidence": "high"},
+                provenance={"collected_by_agent": "A2", "chain_of_custody": []},
+            )
+        )
+        store.add(
+            EvidenceRecord(
+                evidence_id="ev-002",
+                episode_id="ep-001",
+                case_id="c-001",
+                kind="analyst_note",
+                source={"system": "analyst"},
+                timestamp={"collected_at": "", "event_time": ""},
+                artifact={"identifiers": []},
+                supports=[],
+                contradicts=[],
+                confidence={"source_authority": "annotated", "parse_confidence": "high"},
+                provenance={"collected_by_agent": "analyst", "chain_of_custody": []},
+            )
+        )
         assert len(store.by_kind("siem_hit")) == 1
         assert len(store.by_kind("analyst_note")) == 1
 
@@ -198,14 +241,24 @@ class TestMemoryKindSeparation:
         """Evidence (kind 3) is separate from case notebook (kind 2)."""
         store = EvidenceStore()
         with CaseNotebook(":memory:") as nb:
-            store.add(EvidenceRecord(
-                evidence_id="ev-001", episode_id="ep-001", case_id="c-001",
-                kind="siem_hit", source={"system": "splunk"},
-                timestamp={"collected_at": "", "event_time": ""},
-                artifact={"identifiers": []}, supports=[], contradicts=[],
-                confidence={"source_authority": "authoritative_live", "parse_confidence": "high"},
-                provenance={"collected_by_agent": "A2", "chain_of_custody": []},
-            ))
+            store.add(
+                EvidenceRecord(
+                    evidence_id="ev-001",
+                    episode_id="ep-001",
+                    case_id="c-001",
+                    kind="siem_hit",
+                    source={"system": "splunk"},
+                    timestamp={"collected_at": "", "event_time": ""},
+                    artifact={"identifiers": []},
+                    supports=[],
+                    contradicts=[],
+                    confidence={
+                        "source_authority": "authoritative_live",
+                        "parse_confidence": "high",
+                    },
+                    provenance={"collected_by_agent": "A2", "chain_of_custody": []},
+                )
+            )
             nb.write("c-001", "A3", "hypothesis", {"text": "test"})
 
             # They don't interfere
