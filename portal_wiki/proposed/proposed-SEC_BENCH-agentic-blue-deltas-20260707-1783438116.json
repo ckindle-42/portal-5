@@ -1,0 +1,24 @@
+{
+  "proposed_id": "proposed-SEC_BENCH-agentic-blue-deltas-20260707-1783438116",
+  "unit_id": "SEC_BENCH-agentic-blue-deltas-20260707",
+  "kind": "what",
+  "title": "Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-07 15:28 UTC)",
+  "sources": [
+    {
+      "type": "bench-security",
+      "path": "/tmp/agentic_blue_sweep.json"
+    }
+  ],
+  "body": "# Agentic Blue Eval \u2014 Arm-vs-Arm Delta Report (with Confidence Intervals)\n\n**Trials per cell:** 3  \n**Scenarios:** 4  \n**Sweep date:** 2026-07-07 15:28 UTC\n\n## Per-Model Arm Deltas with 95% Bootstrap CI\n\nThe three-arm design exists to answer: **does the harness beat raw, for the same model, and by how much?** Each delta is reported with a 95% bootstrap confidence interval. A delta is only a WIN if its CI excludes 0 on the positive side; a REGRESSION only if the CI excludes 0 on the negative side; otherwise it is INCONCLUSIVE (within noise).\n\n### `granite4.1:8b-ctx8k`\n\n| Tier | raw | harness | delta | 95% CI | verdict |\n|------|-----|---------|-------|--------|---------|\n| exact | 0.333 | 0.000 | -0.333 | [+0.000, +0.000] | INCONCLUSIVE |\n| parent | 0.583 | 0.000 | -0.583 | [-0.222, -0.222] | SIGNIFICANT-REGRESSION |\n| tactic | 0.667 | 0.000 | -0.667 | [-0.556, -0.556] | SIGNIFICANT-REGRESSION |\n\n## Verdict Summary\n\n- **granite4.1:8b-ctx8k/parent: SIGNIFICANT-REGRESSION** \u2014 delta=-0.583, CI=[-0.222, -0.222]\n- **granite4.1:8b-ctx8k/tactic: SIGNIFICANT-REGRESSION** \u2014 delta=-0.667, CI=[-0.556, -0.556]\n\n**Inconclusive cells:** 1 \u2014 these cannot be declared wins or regressions.\n\n## Recommended Seat Config\n\n**Model:** `granite4.1:8b-ctx8k`  \n**Arm:** harness (production config \u2014 raw/tools are ablations, never deployed)\n\n| Tier | harness recall | pass@3 | verdict |\n|------|---------------|---------|---------|\n| exact | 0.000 | 0/12 | INCONCLUSIVE |\n| parent | 0.000 | 0/12 | SIGNIFICANT-REGRESSION |\n| tactic | 0.000 | 0/12 | SIGNIFICANT-REGRESSION |\n",
+  "tags": [
+    "agentic-blue",
+    "maturation",
+    "arm-deltas",
+    "confidence-interval",
+    "granite4.1-8b-ctx8k"
+  ],
+  "proposed_by": "sec-maturation-sweep",
+  "proposed_at": 1783438116.7126558,
+  "status": "confirmed",
+  "auto_confirm": true
+}

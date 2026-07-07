@@ -1,7 +1,7 @@
 ---
 id: SEC_BENCH-agentic-blue-deltas-20260707
 kind: what
-title: 'Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-07 14:51
+title: 'Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-07 15:36
   UTC)'
 sources:
 - type: bench-security
@@ -14,15 +14,15 @@ tags:
 - arm-deltas
 - confidence-interval
 - granite4.1-8b-ctx8k
-created_at: 1783435909.6864178
-updated_at: 1783435909.6864178
+created_at: 1783438581.206892
+updated_at: 1783438581.206892
 ---
 
 # Agentic Blue Eval — Arm-vs-Arm Delta Report (with Confidence Intervals)
 
-**Trials per cell:** 10  
-**Scenarios:** 88  
-**Sweep date:** 2026-07-07 14:51 UTC
+**Trials per cell:** 1  
+**Scenarios:** 4  
+**Sweep date:** 2026-07-07 15:36 UTC
 
 ## Per-Model Arm Deltas with 95% Bootstrap CI
 
@@ -32,15 +32,15 @@ The three-arm design exists to answer: **does the harness beat raw, for the same
 
 | Tier | raw | harness | delta | 95% CI | verdict |
 |------|-----|---------|-------|--------|---------|
-| exact | 0.221 | 0.126 | -0.094 | [-0.124, -0.066] | SIGNIFICANT-REGRESSION |
-| parent | 0.263 | 0.139 | -0.124 | [-0.154, -0.095] | SIGNIFICANT-REGRESSION |
-| tactic | 0.325 | 0.157 | -0.169 | [-0.205, -0.134] | SIGNIFICANT-REGRESSION |
+| exact | 0.000 | 0.083 | +0.083 | [+0.333, +0.333] | SIGNIFICANT-WIN |
+| parent | 0.000 | 0.167 | +0.167 | [+0.333, +0.333] | SIGNIFICANT-WIN |
+| tactic | 0.000 | 0.167 | +0.167 | [+0.333, +0.333] | SIGNIFICANT-WIN |
 
 ## Verdict Summary
 
-- **granite4.1:8b-ctx8k/exact: SIGNIFICANT-REGRESSION** — delta=-0.094, CI=[-0.124, -0.066]
-- **granite4.1:8b-ctx8k/parent: SIGNIFICANT-REGRESSION** — delta=-0.124, CI=[-0.154, -0.095]
-- **granite4.1:8b-ctx8k/tactic: SIGNIFICANT-REGRESSION** — delta=-0.169, CI=[-0.205, -0.134]
+- **granite4.1:8b-ctx8k/exact: SIGNIFICANT-WIN** — delta=+0.083, CI=[+0.333, +0.333]
+- **granite4.1:8b-ctx8k/parent: SIGNIFICANT-WIN** — delta=+0.167, CI=[+0.333, +0.333]
+- **granite4.1:8b-ctx8k/tactic: SIGNIFICANT-WIN** — delta=+0.167, CI=[+0.333, +0.333]
 
 **Inconclusive cells:** 0 — these cannot be declared wins or regressions.
 
@@ -49,8 +49,8 @@ The three-arm design exists to answer: **does the harness beat raw, for the same
 **Model:** `granite4.1:8b-ctx8k`  
 **Arm:** harness (production config — raw/tools are ablations, never deployed)
 
-| Tier | harness recall | pass@10 | verdict |
+| Tier | harness recall | pass@1 | verdict |
 |------|---------------|---------|---------|
-| exact | 0.126 | 187/880 | SIGNIFICANT-REGRESSION |
-| parent | 0.139 | 217/880 | SIGNIFICANT-REGRESSION |
-| tactic | 0.157 | 248/880 | SIGNIFICANT-REGRESSION |
+| exact | 0.083 | 1/4 | SIGNIFICANT-WIN |
+| parent | 0.167 | 2/4 | SIGNIFICANT-WIN |
+| tactic | 0.167 | 2/4 | SIGNIFICANT-WIN |
