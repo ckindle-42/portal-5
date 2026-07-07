@@ -611,7 +611,7 @@ def _run_arm_raw(model: str, episode: Episode) -> ArmResult:
     return result
 
 
-def _query_real_telemetry(name: str, episode: Episode) -> str:
+def _query_real_telemetry(name: str, episode: Episode, query_args: dict | None = None) -> str:
     """Answer a search-tool call with the episode's actual captured telemetry.
 
     Shared by arms B and C — "search tools" only means something if the tools
@@ -622,21 +622,61 @@ def _query_real_telemetry(name: str, episode: Episode) -> str:
     documented arm B/C distinction is the grounding *library* (SPL detection
     library, wiki signatures, similarity tier) layered on top of real search —
     not whether search returns anything at all.
+
+    When query_args are provided, extract keywords and filter telemetry to
+    matching lines — so the model actually finds what it's looking for.
     """
+
+    def _filter_lines(lines: list[str], keywords: list[str]) -> list[str]:
+        if not keywords:
+            return lines
+        return [line for line in lines if any(kw.lower() in line.lower() for kw in keywords)]
+
+    # Extract filter keywords from query args
+    keywords: list[str] = []
+    if query_args:
+        for v in query_args.values():
+            if isinstance(v, str):
+                # Extract EventCode=N, technique IDs, etc.
+                import re
+
+                keywords.extend(re.findall(r"EventCode[= ]\d+", v))
+                keywords.extend(re.findall(r"T\d{4}(?:\.\d{3})?", v))
+                # Also extract raw numbers that might be event IDs
+                for m in re.findall(r"\b(\d{4})\b", v):
+                    if int(m) >= 4000:  # Windows event IDs are 4000+
+                        keywords.append(f"EventCode={m}")
+
     if name == "query_splunk":
         all_lines = [f"[{st}] {ev}" for st, events in episode.telemetry.items() for ev in events]
-        return "\n".join(all_lines)[:12000] or "No matching events."
+        filtered = _filter_lines(all_lines, keywords) if keywords else all_lines
+        return (
+            "\n".join(filtered)[:12000]
+            or f"No matching events for query. Available: {len(all_lines)} total events."
+        )
     if name == "query_windows_events":
         win_events = episode.telemetry.get("windows:security", [])
-        return "\n".join(win_events)[:12000] or "No Windows events available."
+        filtered = _filter_lines(win_events, keywords) if keywords else win_events
+        return (
+            "\n".join(filtered)[:12000]
+            or f"No matching Windows events. Available: {len(win_events)} total events."
+        )
     if name == "query_web_logs":
         web_events = episode.telemetry.get("web:access", [])
-        return "\n".join(web_events)[:12000] or "No web log entries."
+        filtered = _filter_lines(web_events, keywords) if keywords else web_events
+        return (
+            "\n".join(filtered)[:12000]
+            or f"No matching web log entries. Available: {len(web_events)} total entries."
+        )
     if name == "query_network_traffic":
         net_events = []
         for st in ["ftp:access", "web:access", "windows:security"]:
             net_events.extend(episode.telemetry.get(st, []))
-        return "\n".join(net_events)[:12000] or "No network data."
+        filtered = _filter_lines(net_events, keywords) if keywords else net_events
+        return (
+            "\n".join(filtered)[:12000]
+            or f"No matching network data. Available: {len(net_events)} total events."
+        )
     return f"Tool '{name}' executed."
 
 
@@ -710,8 +750,16 @@ def _run_tool_driven_arm(
                 fn = tc.get("function", {})
                 name = fn.get("name", "")
                 tc_id = tc.get("id", "")
+                raw_args = fn.get("arguments", "{}")
+                # Ollama returns arguments as dict, OpenAI as JSON string
+                if isinstance(raw_args, dict):
+                    args = raw_args
+                else:
+                    try:
+                        args = json.loads(raw_args or "{}")
+                    except json.JSONDecodeError:
+                        args = {}
                 if name == "report_detection":
-                    args = json.loads(fn.get("arguments", "{}"))
                     result.findings.append(
                         Finding(
                             technique_id=args.get("technique_id", ""),
@@ -723,10 +771,7 @@ def _run_tool_driven_arm(
                         {"role": "tool", "tool_call_id": tc_id, "content": "Detection logged."}
                     )
                     continue
-                try:
-                    tool_args = json.loads(fn.get("arguments", "{}") or "{}")
-                except json.JSONDecodeError:
-                    tool_args = {}
+                tool_args = args
                 grounding_result = _dispatch_grounding_tool(name, tool_args) if grounded else None
                 if grounding_result is not None:
                     messages.append(
@@ -737,7 +782,7 @@ def _run_tool_driven_arm(
                         {
                             "role": "tool",
                             "tool_call_id": tc_id,
-                            "content": _query_real_telemetry(name, episode),
+                            "content": _query_real_telemetry(name, episode, tool_args),
                         }
                     )
 
