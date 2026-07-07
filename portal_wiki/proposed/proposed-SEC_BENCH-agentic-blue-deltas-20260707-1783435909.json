@@ -1,0 +1,24 @@
+{
+  "proposed_id": "proposed-SEC_BENCH-agentic-blue-deltas-20260707-1783435909",
+  "unit_id": "SEC_BENCH-agentic-blue-deltas-20260707",
+  "kind": "what",
+  "title": "Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-07 14:51 UTC)",
+  "sources": [
+    {
+      "type": "bench-security",
+      "path": "/tmp/agentic_blue_sweep.json"
+    }
+  ],
+  "body": "# Agentic Blue Eval \u2014 Arm-vs-Arm Delta Report (with Confidence Intervals)\n\n**Trials per cell:** 10  \n**Scenarios:** 88  \n**Sweep date:** 2026-07-07 14:51 UTC\n\n## Per-Model Arm Deltas with 95% Bootstrap CI\n\nThe three-arm design exists to answer: **does the harness beat raw, for the same model, and by how much?** Each delta is reported with a 95% bootstrap confidence interval. A delta is only a WIN if its CI excludes 0 on the positive side; a REGRESSION only if the CI excludes 0 on the negative side; otherwise it is INCONCLUSIVE (within noise).\n\n### `granite4.1:8b-ctx8k`\n\n| Tier | raw | harness | delta | 95% CI | verdict |\n|------|-----|---------|-------|--------|---------|\n| exact | 0.221 | 0.126 | -0.094 | [-0.124, -0.066] | SIGNIFICANT-REGRESSION |\n| parent | 0.263 | 0.139 | -0.124 | [-0.154, -0.095] | SIGNIFICANT-REGRESSION |\n| tactic | 0.325 | 0.157 | -0.169 | [-0.205, -0.134] | SIGNIFICANT-REGRESSION |\n\n## Verdict Summary\n\n- **granite4.1:8b-ctx8k/exact: SIGNIFICANT-REGRESSION** \u2014 delta=-0.094, CI=[-0.124, -0.066]\n- **granite4.1:8b-ctx8k/parent: SIGNIFICANT-REGRESSION** \u2014 delta=-0.124, CI=[-0.154, -0.095]\n- **granite4.1:8b-ctx8k/tactic: SIGNIFICANT-REGRESSION** \u2014 delta=-0.169, CI=[-0.205, -0.134]\n\n**Inconclusive cells:** 0 \u2014 these cannot be declared wins or regressions.\n\n## Recommended Seat Config\n\n**Model:** `granite4.1:8b-ctx8k`  \n**Arm:** harness (production config \u2014 raw/tools are ablations, never deployed)\n\n| Tier | harness recall | pass@10 | verdict |\n|------|---------------|---------|---------|\n| exact | 0.126 | 187/880 | SIGNIFICANT-REGRESSION |\n| parent | 0.139 | 217/880 | SIGNIFICANT-REGRESSION |\n| tactic | 0.157 | 248/880 | SIGNIFICANT-REGRESSION |\n",
+  "tags": [
+    "agentic-blue",
+    "maturation",
+    "arm-deltas",
+    "confidence-interval",
+    "granite4.1-8b-ctx8k"
+  ],
+  "proposed_by": "sec-maturation-sweep",
+  "proposed_at": 1783435909.685837,
+  "status": "confirmed",
+  "auto_confirm": true
+}
