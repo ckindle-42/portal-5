@@ -576,6 +576,20 @@ def main() -> None:
         os.environ["DIAG_TRACE"] = "true"
         print("DIAG: harness/tools arms will log query trace")
 
+    # --sample=N: random representative subset for iteration runs
+    sample_n = None
+    for arg in args:
+        if arg.startswith("--sample="):
+            sample_n = int(arg.split("=", 1)[1])
+
+    # --step-cap=N: limit tool loop iterations (default 5, can reduce to 3)
+    step_cap = None
+    for arg in args:
+        if arg.startswith("--step-cap="):
+            step_cap = int(arg.split("=", 1)[1])
+            os.environ["SWEEP_STEP_CAP"] = str(step_cap)
+            print(f"STEP CAP: tool loop limited to {step_cap} iterations")
+
     # --all-captured: discover scenarios with local captures
     if all_captured:
         try:
@@ -590,6 +604,14 @@ def main() -> None:
                 print("--all-captured: no captures found, using defaults")
         except Exception as exc:
             print(f"--all-captured: failed to discover captures ({exc}), using defaults")
+
+    # --sample=N: random representative subset for fast iteration
+    if sample_n and sample_n < len(scenarios):
+        import random
+
+        random.seed(42)  # deterministic for reproducibility
+        scenarios = sorted(random.sample(scenarios, sample_n))
+        print(f"--sample={sample_n}: selected {len(scenarios)} scenarios for iteration")
 
     print(f"Sweep config: {len(scenarios)} scenarios x {len(models)} models x {trials} trials")
     print(f"Workers: {workers} (SWEEP_WORKERS={os.environ.get('SWEEP_WORKERS', '4')})")
