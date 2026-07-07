@@ -611,73 +611,116 @@ def _run_arm_raw(model: str, episode: Episode) -> ArmResult:
     return result
 
 
+def _summarize_telemetry(episode: Episode) -> str:
+    """Return a compact summary of the full telemetry haystack.
+
+    Mirrors real SOC tooling: broad queries return counts/facets, not raw logs.
+    Nudges the model to query narrowly for actual records.
+    """
+    parts = []
+    total = 0
+    for st, events in episode.telemetry.items():
+        count = len(events)
+        total += count
+        # Count distinct EventCodes for windows:security
+        if st == "windows:security":
+            codes: dict[str, int] = {}
+            for ev in events:
+                if "EventCode=" in ev:
+                    code = ev.split("EventCode=")[1].split()[0]
+                    codes[code] = codes.get(code, 0) + 1
+            top = sorted(codes.items(), key=lambda x: -x[1])[:8]
+            code_str = ", ".join(f"{c}×{n}" for c, n in top)
+            parts.append(f"{st} {count} ({code_str})")
+        else:
+            parts.append(f"{st} {count}")
+    return f"{total} events: " + "; ".join(parts)
+
+
 def _query_real_telemetry(name: str, episode: Episode, query_args: dict | None = None) -> str:
     """Answer a search-tool call with the episode's actual captured telemetry.
 
-    Shared by arms B and C — "search tools" only means something if the tools
-    return real data. Arm B (found 2026-07-05) previously answered every call
-    with a canned "No data available in this context" regardless of what was
-    asked, making the model's tool calls pointless and any recall it scored
-    attributable to guessing from training knowledge, not investigation. The
-    documented arm B/C distinction is the grounding *library* (SPL detection
-    library, wiki signatures, similarity tier) layered on top of real search —
-    not whether search returns anything at all.
+    Broad queries (no/weak keywords) return a SUMMARY — counts and facets,
+    not raw dumps. This mirrors real SOC tooling and prevents context bloat
+    from accumulating 12k-char dumps on every tool step.
 
-    When query_args are provided, extract keywords and filter telemetry to
-    matching lines — so the model actually finds what it's looking for.
+    Narrow queries (specific EventCode, technique ID, keywords) return
+    filtered records capped at ~2500 chars — enough for relevant events
+    without dumping the haystack.
     """
 
     def _filter_lines(lines: list[str], keywords: list[str]) -> list[str]:
-        if not keywords:
-            return lines
         return [line for line in lines if any(kw.lower() in line.lower() for kw in keywords)]
 
     # Extract filter keywords from query args
     keywords: list[str] = []
     if query_args:
+        import re as _re
+
         for v in query_args.values():
             if isinstance(v, str):
-                # Extract EventCode=N, technique IDs, etc.
-                import re
-
-                keywords.extend(re.findall(r"EventCode[= ]\d+", v))
-                keywords.extend(re.findall(r"T\d{4}(?:\.\d{3})?", v))
-                # Also extract raw numbers that might be event IDs
-                for m in re.findall(r"\b(\d{4})\b", v):
-                    if int(m) >= 4000:  # Windows event IDs are 4000+
+                keywords.extend(_re.findall(r"EventCode[= ]\d+", v))
+                keywords.extend(_re.findall(r"T\d{4}(?:\.\d{3})?", v))
+                for m in _re.findall(r"\b(\d{4})\b", v):
+                    if int(m) >= 4000:
                         keywords.append(f"EventCode={m}")
+
+    cap = 2500  # tight cap for narrow queries
+
+    def _result(lines: list[str], label: str) -> str:
+        if not keywords:
+            # Broad query → summary, not raw dump
+            return _summarize_telemetry(episode)
+        filtered = _filter_lines(lines, keywords)
+        if not filtered:
+            return (
+                f"No matching {label}. {len(lines)} total {label} available. Try a broader query."
+            )
+        return "\n".join(filtered)[:cap]
 
     if name == "query_splunk":
         all_lines = [f"[{st}] {ev}" for st, events in episode.telemetry.items() for ev in events]
-        filtered = _filter_lines(all_lines, keywords) if keywords else all_lines
-        return (
-            "\n".join(filtered)[:12000]
-            or f"No matching events for query. Available: {len(all_lines)} total events."
-        )
+        return _result(all_lines, "events")
     if name == "query_windows_events":
-        win_events = episode.telemetry.get("windows:security", [])
-        filtered = _filter_lines(win_events, keywords) if keywords else win_events
-        return (
-            "\n".join(filtered)[:12000]
-            or f"No matching Windows events. Available: {len(win_events)} total events."
-        )
+        return _result(episode.telemetry.get("windows:security", []), "Windows events")
     if name == "query_web_logs":
-        web_events = episode.telemetry.get("web:access", [])
-        filtered = _filter_lines(web_events, keywords) if keywords else web_events
-        return (
-            "\n".join(filtered)[:12000]
-            or f"No matching web log entries. Available: {len(web_events)} total entries."
-        )
+        return _result(episode.telemetry.get("web:access", []), "web log entries")
     if name == "query_network_traffic":
         net_events = []
         for st in ["ftp:access", "web:access", "windows:security"]:
             net_events.extend(episode.telemetry.get(st, []))
-        filtered = _filter_lines(net_events, keywords) if keywords else net_events
-        return (
-            "\n".join(filtered)[:12000]
-            or f"No matching network data. Available: {len(net_events)} total events."
-        )
+        return _result(net_events, "network events")
     return f"Tool '{name}' executed."
+
+
+def _compact_old_tool_results(messages: list[dict], keep_recent: int = 2) -> None:
+    """Replace older tool results with short references to prevent context bloat.
+
+    Keeps the most recent `keep_recent` tool results in full. Older ones are
+    replaced with a short reference so the model keeps its reasoning trace
+    but doesn't re-ingest raw logs from earlier steps.
+    """
+    # Find all tool result message indices
+    tool_indices = [
+        i for i, m in enumerate(messages) if m.get("role") == "tool" and "tool_call_id" in m
+    ]
+    if len(tool_indices) <= keep_recent:
+        return
+
+    # Compact all but the most recent N
+    to_compact = tool_indices[:-keep_recent]
+    for idx in to_compact:
+        msg = messages[idx]
+        content = msg.get("content", "")
+        if len(content) > 200:  # only compact if it's a real dump
+            tc_id = msg.get("tool_call_id", "")
+            # Find the corresponding tool call to get the tool name
+            tool_name = "tool"
+            for prev in messages[:idx]:
+                for tc in prev.get("tool_calls", []):
+                    if tc.get("id") == tc_id:
+                        tool_name = tc.get("function", {}).get("name", "tool")
+            msg["content"] = f"[{tool_name} result: {len(content)} chars, shown above]"
 
 
 def _run_tool_driven_arm(
@@ -744,6 +787,12 @@ def _run_tool_driven_arm(
             tcs = msg.get("tool_calls") or []
             if not tcs:
                 break
+
+            # Compact older tool results to prevent context accumulation.
+            # Keep the most recent 2 tool results in full; compact older ones
+            # to short references so the model keeps its reasoning trace but
+            # doesn't re-ingest raw logs from earlier steps.
+            _compact_old_tool_results(messages, keep_recent=2)
 
             result.tool_calls += len(tcs)
             for tc in tcs:
