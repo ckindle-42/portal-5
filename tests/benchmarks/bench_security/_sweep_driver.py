@@ -566,6 +566,16 @@ def main() -> None:
         if arg.startswith("--arms="):
             arms = [a.strip() for a in arg.split("=", 1)[1].split(",")]
 
+    # Diagnostic flags
+    diag_raw_full = "--diag-raw-full-haystack" in args
+    diag_trace = "--diag-trace" in args
+    if diag_raw_full:
+        os.environ["DIAG_RAW_FULL_HAYSTACK"] = "true"
+        print("DIAG: raw arm will use FULL haystack (not truncated to 12k)")
+    if diag_trace:
+        os.environ["DIAG_TRACE"] = "true"
+        print("DIAG: harness/tools arms will log query trace")
+
     # --all-captured: discover scenarios with local captures
     if all_captured:
         try:
