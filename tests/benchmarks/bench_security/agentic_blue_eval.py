@@ -77,6 +77,19 @@ class Finding:
 
 
 @dataclass
+class QueryTraceEntry:
+    """One step in a harness/tool arm's query trace (diagnostic only)."""
+
+    step: int
+    tool_name: str
+    query_args: dict
+    broad: bool  # True if query got summary (no/weak keywords), False if got records
+    result_chars: int
+    saw_attack_events: bool  # True if result contained any ground-truth technique keywords
+    concluded_with_report: bool  # True if report_detection was called this step
+
+
+@dataclass
 class ArmResult:
     """Result from one eval arm."""
 
@@ -87,6 +100,8 @@ class ArmResult:
     iterations: int = 0
     elapsed_s: float = 0.0
     error: str = ""
+    query_trace: list[QueryTraceEntry] = field(default_factory=list)
+    full_haystack_mode: bool = False  # True if raw arm used full haystack (diagnostic)
 
     @property
     def detected_techniques(self) -> set[str]:
@@ -579,14 +594,30 @@ def _run_arm_raw(model: str, episode: Episode) -> ArmResult:
     result = ArmResult(arm="raw", model=model)
     t0 = time.monotonic()
 
+    # Diagnostic: --diag-raw-full-haystack gives raw the FULL haystack
+    # instead of truncating to 12k chars. Tests whether raw's advantage
+    # is from spoon-fed evidence (attack guaranteed in window).
+    full_haystack = os.environ.get("DIAG_RAW_FULL_HAYSTACK", "").lower() == "true"
+    result.full_haystack_mode = full_haystack
+
     try:
         raw_telemetry = _format_telemetry_raw(episode)
-        prompt = (
-            f"You are a SOC analyst. Below is raw telemetry from your environment.\n"
-            f"Analyze it and identify any malicious activity. For each finding, "
-            f"report the MITRE ATT&CK technique ID and your evidence.\n\n"
-            f"TELEMETRY:\n{raw_telemetry[:12000]}"
-        )
+        if full_haystack:
+            # Full haystack — same challenge the harness faces
+            prompt = (
+                f"You are a SOC analyst. Below is the FULL telemetry from your environment.\n"
+                f"This is a large dataset — analyze it carefully and identify any malicious activity. "
+                f"For each finding, report the MITRE ATT&CK technique ID and your evidence.\n\n"
+                f"TELEMETRY ({len(raw_telemetry)} chars):\n{raw_telemetry}"
+            )
+        else:
+            # Spoon-fed: first 12k chars (attack events may or may not be included)
+            prompt = (
+                f"You are a SOC analyst. Below is raw telemetry from your environment.\n"
+                f"Analyze it and identify any malicious activity. For each finding, "
+                f"report the MITRE ATT&CK technique ID and your evidence.\n\n"
+                f"TELEMETRY:\n{raw_telemetry[:12000]}"
+            )
 
         messages = [
             {
@@ -609,6 +640,21 @@ def _run_arm_raw(model: str, episode: Episode) -> ArmResult:
 
     result.elapsed_s = round(time.monotonic() - t0, 1)
     return result
+
+
+def _extract_query_keywords(query_args: dict) -> list[str]:
+    """Extract filter keywords from tool query args (same logic as _query_real_telemetry)."""
+    import re
+
+    keywords: list[str] = []
+    for v in query_args.values():
+        if isinstance(v, str):
+            keywords.extend(re.findall(r"EventCode[= ]\d+", v))
+            keywords.extend(re.findall(r"T\d{4}(?:\.\d{3})?", v))
+            for m in re.findall(r"\b(\d{4})\b", v):
+                if int(m) >= 4000:
+                    keywords.append(f"EventCode={m}")
+    return keywords
 
 
 def _summarize_telemetry(episode: Episode) -> str:
@@ -819,20 +865,50 @@ def _run_tool_driven_arm(
                     messages.append(
                         {"role": "tool", "tool_call_id": tc_id, "content": "Detection logged."}
                     )
+                    # Diagnostic trace: mark conclusion
+                    if os.environ.get("DIAG_TRACE", "").lower() == "true":
+                        result.query_trace.append(
+                            QueryTraceEntry(
+                                step=_step,
+                                tool_name="report_detection",
+                                query_args=args,
+                                broad=False,
+                                result_chars=0,
+                                saw_attack_events=True,
+                                concluded_with_report=True,
+                            )
+                        )
                     continue
                 tool_args = args
                 grounding_result = _dispatch_grounding_tool(name, tool_args) if grounded else None
                 if grounding_result is not None:
-                    messages.append(
-                        {"role": "tool", "tool_call_id": tc_id, "content": grounding_result}
-                    )
+                    result_content = grounding_result
                 else:
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tc_id,
-                            "content": _query_real_telemetry(name, episode, tool_args),
-                        }
+                    result_content = _query_real_telemetry(name, episode, tool_args)
+                messages.append({"role": "tool", "tool_call_id": tc_id, "content": result_content})
+
+                # Diagnostic trace: log query behavior
+                if os.environ.get("DIAG_TRACE", "").lower() == "true":
+                    # Determine if query was broad (summary) or narrow (records)
+                    keywords = _extract_query_keywords(tool_args)
+                    is_broad = len(keywords) == 0
+                    # Check if result contains any ground-truth technique keywords
+                    gt_keywords = set(episode.techniques)
+                    saw_attack = (
+                        any(kw.lower() in result_content.lower() for kw in gt_keywords)
+                        if gt_keywords
+                        else False
+                    )
+                    result.query_trace.append(
+                        QueryTraceEntry(
+                            step=_step,
+                            tool_name=name,
+                            query_args=tool_args,
+                            broad=is_broad,
+                            result_chars=len(result_content),
+                            saw_attack_events=saw_attack,
+                            concluded_with_report=False,
+                        )
                     )
 
     except Exception as exc:
@@ -921,7 +997,22 @@ def run_eval(
             "elapsed_s": arm_result.elapsed_s,
             "error": arm_result.error,
             "tiered": tiered,
+            "full_haystack_mode": arm_result.full_haystack_mode,
         }
+        # Include query trace if diagnostic mode is active
+        if arm_result.query_trace:
+            scores[arm_name]["query_trace"] = [
+                {
+                    "step": e.step,
+                    "tool": e.tool_name,
+                    "args": e.query_args,
+                    "broad": e.broad,
+                    "chars": e.result_chars,
+                    "saw_attack": e.saw_attack_events,
+                    "concluded": e.concluded_with_report,
+                }
+                for e in arm_result.query_trace
+            ]
 
     return {
         "scenario": scenario,
