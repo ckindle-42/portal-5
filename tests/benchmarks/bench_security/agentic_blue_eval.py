@@ -16,6 +16,7 @@ Based on: Simbian AI Cyber Defense Benchmark (arXiv 2604.19533, Apr 2026)
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,6 +29,8 @@ from .unknown_defense import MatchGrade, compute_similarity
 
 _CAPTURE_DIR = Path(__file__).resolve().parent / "results" / "captures"
 _PIPELINE_URL = "http://localhost:9099"
+_OLLAMA_URL = "http://localhost:11434"
+_DIRECT_OLLAMA = os.environ.get("CHAIN_DIRECT_OLLAMA", "").lower() == "true"
 _PIPELINE_API_KEY = ""
 
 
@@ -129,29 +132,47 @@ def _call_model(
     tools: list[dict] | None = None,
     max_tokens: int = 2000,
 ) -> dict:
-    """Call a model through the pipeline and return the response message."""
+    """Call a model through the pipeline (or direct Ollama if CHAIN_DIRECT_OLLAMA=true)."""
     api_key = _load_api_key()
-    headers = {"Content-Type": "application/json"}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
 
-    body: dict = {
-        "model": resolve_pipeline_model(model),
-        "messages": messages,
-        "stream": False,
-        "max_tokens": max_tokens,
-    }
-    if tools:
-        body["tools"] = tools
+    if _DIRECT_OLLAMA:
+        # Direct Ollama — bypass pipeline routing
+        body: dict = {
+            "model": model,
+            "messages": messages,
+            "stream": False,
+        }
+        if tools:
+            body["tools"] = tools
+        resp = httpx.post(
+            f"{_OLLAMA_URL}/api/chat",
+            json=body,
+            timeout=300.0,
+        )
+        resp.raise_for_status()
+        return resp.json().get("message", {})
+    else:
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
 
-    resp = httpx.post(
-        f"{_PIPELINE_URL}/v1/chat/completions",
-        headers=headers,
-        json=body,
-        timeout=300.0,
-    )
-    resp.raise_for_status()
-    return resp.json().get("choices", [{}])[0].get("message", {})
+        body = {
+            "model": resolve_pipeline_model(model),
+            "messages": messages,
+            "stream": False,
+            "max_tokens": max_tokens,
+        }
+        if tools:
+            body["tools"] = tools
+
+        resp = httpx.post(
+            f"{_PIPELINE_URL}/v1/chat/completions",
+            headers=headers,
+            json=body,
+            timeout=300.0,
+        )
+        resp.raise_for_status()
+        return resp.json().get("choices", [{}])[0].get("message", {})
 
 
 def _extract_techniques(text: str) -> list[str]:
@@ -688,6 +709,7 @@ def _run_tool_driven_arm(
             for tc in tcs:
                 fn = tc.get("function", {})
                 name = fn.get("name", "")
+                tc_id = tc.get("id", "")
                 if name == "report_detection":
                     args = json.loads(fn.get("arguments", "{}"))
                     result.findings.append(
@@ -697,7 +719,9 @@ def _run_tool_driven_arm(
                             source=arm_name,
                         )
                     )
-                    messages.append({"role": "tool", "content": "Detection logged."})
+                    messages.append(
+                        {"role": "tool", "tool_call_id": tc_id, "content": "Detection logged."}
+                    )
                     continue
                 try:
                     tool_args = json.loads(fn.get("arguments", "{}") or "{}")
@@ -705,10 +729,16 @@ def _run_tool_driven_arm(
                     tool_args = {}
                 grounding_result = _dispatch_grounding_tool(name, tool_args) if grounded else None
                 if grounding_result is not None:
-                    messages.append({"role": "tool", "content": grounding_result})
+                    messages.append(
+                        {"role": "tool", "tool_call_id": tc_id, "content": grounding_result}
+                    )
                 else:
                     messages.append(
-                        {"role": "tool", "content": _query_real_telemetry(name, episode)}
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc_id,
+                            "content": _query_real_telemetry(name, episode),
+                        }
                     )
 
     except Exception as exc:
