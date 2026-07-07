@@ -839,7 +839,11 @@ def _run_tool_driven_arm(
             {"role": "user", "content": prompt},
         ]
 
-        for _step in range(5):
+        # Step cap: limit tool loop iterations for faster iteration runs.
+        # Default 5, can reduce to 3 via SWEEP_STEP_CAP env var.
+        max_steps = int(os.environ.get("SWEEP_STEP_CAP", "5"))
+
+        for _step in range(max_steps):
             msg = _call_model(model, messages, tools=tools)
             messages.append(msg)
             result.iterations += 1
