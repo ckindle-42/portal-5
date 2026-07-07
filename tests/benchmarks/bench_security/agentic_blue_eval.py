@@ -611,12 +611,26 @@ def _run_arm_raw(model: str, episode: Episode) -> ArmResult:
                 f"TELEMETRY ({len(raw_telemetry)} chars):\n{raw_telemetry}"
             )
         else:
-            # Spoon-fed: first 12k chars (attack events may or may not be included)
+            # Fair baseline: raw gets a representative slice of the haystack,
+            # NOT the first 12k where attack events conveniently sit.
+            # If haystack fits in context, give it all. Otherwise, take a
+            # slice from the middle — attack may or may not be included,
+            # which is the honest no-tools baseline.
+            max_chars = 12000
+            if len(raw_telemetry) <= max_chars:
+                telemetry_slice = raw_telemetry
+            else:
+                # Start from the middle — not the beginning (spoon-feed)
+                # and not the end (where little happens). The attack events
+                # may or may not fall in this window.
+                mid = len(raw_telemetry) // 2
+                start = max(0, mid - max_chars // 2)
+                telemetry_slice = raw_telemetry[start : start + max_chars]
             prompt = (
-                f"You are a SOC analyst. Below is raw telemetry from your environment.\n"
+                f"You are a SOC analyst. Below is a sample of telemetry from your environment.\n"
                 f"Analyze it and identify any malicious activity. For each finding, "
                 f"report the MITRE ATT&CK technique ID and your evidence.\n\n"
-                f"TELEMETRY:\n{raw_telemetry[:12000]}"
+                f"TELEMETRY ({len(telemetry_slice)} chars):\n{telemetry_slice}"
             )
 
         messages = [
