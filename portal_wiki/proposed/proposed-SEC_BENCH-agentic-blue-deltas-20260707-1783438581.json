@@ -1,0 +1,24 @@
+{
+  "proposed_id": "proposed-SEC_BENCH-agentic-blue-deltas-20260707-1783438581",
+  "unit_id": "SEC_BENCH-agentic-blue-deltas-20260707",
+  "kind": "what",
+  "title": "Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-07 15:36 UTC)",
+  "sources": [
+    {
+      "type": "bench-security",
+      "path": "/tmp/agentic_blue_sweep.json"
+    }
+  ],
+  "body": "# Agentic Blue Eval \u2014 Arm-vs-Arm Delta Report (with Confidence Intervals)\n\n**Trials per cell:** 1  \n**Scenarios:** 4  \n**Sweep date:** 2026-07-07 15:36 UTC\n\n## Per-Model Arm Deltas with 95% Bootstrap CI\n\nThe three-arm design exists to answer: **does the harness beat raw, for the same model, and by how much?** Each delta is reported with a 95% bootstrap confidence interval. A delta is only a WIN if its CI excludes 0 on the positive side; a REGRESSION only if the CI excludes 0 on the negative side; otherwise it is INCONCLUSIVE (within noise).\n\n### `granite4.1:8b-ctx8k`\n\n| Tier | raw | harness | delta | 95% CI | verdict |\n|------|-----|---------|-------|--------|---------|\n| exact | 0.000 | 0.083 | +0.083 | [+0.333, +0.333] | SIGNIFICANT-WIN |\n| parent | 0.000 | 0.167 | +0.167 | [+0.333, +0.333] | SIGNIFICANT-WIN |\n| tactic | 0.000 | 0.167 | +0.167 | [+0.333, +0.333] | SIGNIFICANT-WIN |\n\n## Verdict Summary\n\n- **granite4.1:8b-ctx8k/exact: SIGNIFICANT-WIN** \u2014 delta=+0.083, CI=[+0.333, +0.333]\n- **granite4.1:8b-ctx8k/parent: SIGNIFICANT-WIN** \u2014 delta=+0.167, CI=[+0.333, +0.333]\n- **granite4.1:8b-ctx8k/tactic: SIGNIFICANT-WIN** \u2014 delta=+0.167, CI=[+0.333, +0.333]\n\n**Inconclusive cells:** 0 \u2014 these cannot be declared wins or regressions.\n\n## Recommended Seat Config\n\n**Model:** `granite4.1:8b-ctx8k`  \n**Arm:** harness (production config \u2014 raw/tools are ablations, never deployed)\n\n| Tier | harness recall | pass@1 | verdict |\n|------|---------------|---------|---------|\n| exact | 0.083 | 1/4 | SIGNIFICANT-WIN |\n| parent | 0.167 | 2/4 | SIGNIFICANT-WIN |\n| tactic | 0.167 | 2/4 | SIGNIFICANT-WIN |\n",
+  "tags": [
+    "agentic-blue",
+    "maturation",
+    "arm-deltas",
+    "confidence-interval",
+    "granite4.1-8b-ctx8k"
+  ],
+  "proposed_by": "sec-maturation-sweep",
+  "proposed_at": 1783438581.206521,
+  "status": "confirmed",
+  "auto_confirm": true
+}
