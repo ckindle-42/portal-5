@@ -370,7 +370,7 @@ class TestMeta3Collect:
                 return _wrap(ftp_text)
             if "W3SVC1" in ps_script:
                 return _wrap(iis_text)
-            if "4688" in ps_script:
+            if "4688" in ps_script or "MaxEvents 200" in ps_script:
                 return _wrap(winevent_text)
             return {"ok": False, "output": ""}
 

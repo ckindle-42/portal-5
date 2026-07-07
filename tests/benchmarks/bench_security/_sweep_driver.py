@@ -8,12 +8,30 @@ M5: auto-writes the winning (model, arm, config) as a cited wiki unit.
 Parallel: ThreadPoolExecutor at the cell level (scenario × model).
 Each cell's trials run serially (trials are dependent — same model/scenario).
 
+CAVEAT (verified 2026-07-07): OLLAMA_NUM_PARALLEL=4 gives real concurrent
+throughput for short/decode-bound prompts (confirmed 2-3.8x on trivial
+prompts), but this bench's payloads (system prompt + telemetry preview,
+~7-8k tokens per initial turn) are prefill-dominated — a single raw call
+profiled at prompt_eval_duration=25.8s vs eval_duration=3.7s (87% prefill).
+Prefill is compute-bound on one Metal GPU: concurrent cells with DIFFERENT
+scenarios (different telemetry, no shared prefix) measured at ~1x wall-clock
+per worker (fully additive, not overlapped) — e.g. 2 concurrent unique
+7500-token calls took wall=63.6s vs 31.9s solo. SWEEP_WORKERS>1 does NOT
+give proportional speedup on the full/decision sweep; treat call-count
+reduction (TRIALS, --arms, --sample, --step-cap below) as the primary lever,
+not worker count. Ollama DOES automatically cache the repeated initial
+prefix within a cell (trial 0 cold ~12s -> trials 1+ ~2.5s, same
+scenario+model) — free, no code change needed, but it only covers the first
+turn; tool-loop turns after that diverge per trial (sampling) and are never
+cacheable.
+
 Run directly: python3 -m tests.benchmarks.bench_security._sweep_driver
 Env vars:
     TRIALS=N        number of trials per cell (default 3)
     SWEEP_SCENARIOS comma-separated scenario list (overrides defaults)
     SWEEP_MODELS    comma-separated model list (overrides defaults)
-    SWEEP_WORKERS=N parallel workers (default 4; tune to Ollama throughput)
+    SWEEP_WORKERS=N parallel workers (default 4; real gain is limited — see
+                    CAVEAT above; helps most when cells are short/raw-arm-only)
 CLI flags:
     --all-captured  run across all scenarios with local captures
     --scenarios=X,Y run only specified scenarios
