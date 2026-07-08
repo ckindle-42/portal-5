@@ -297,6 +297,11 @@ def run_bench(
             "elapsed_s": round(theory_elapsed, 2),
             "scores": theory_scores,
             "error": error,
+            "_calls": {
+                "theory": 1 if theory_content else 0,
+                "exec": 1 if exec_scores else 0,
+                "chain": 0,
+            },
         }
         if exec_scores:
             row["exec_scores"] = exec_scores
