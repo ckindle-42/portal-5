@@ -652,10 +652,15 @@ def main() -> None:
         if trial_count >= trials:
             completed.add(key)
 
-    # Build work queue: (scenario, model) cells that need running
+    # Build work queue: (scenario, model) cells that need running.
+    # Model outer / scenario inner — with SWEEP_WORKERS=1 this means every
+    # model loads once and runs all its scenarios before the next model
+    # loads, instead of swapping models on nearly every cell (scenario-outer
+    # order forces up to len(scenarios) x len(models) model loads instead of
+    # len(models)). Cell contents and results are unaffected by ordering.
     work_queue = []
-    for scenario in scenarios:
-        for model in models:
+    for model in models:
+        for scenario in scenarios:
             if (scenario, model) not in completed:
                 work_queue.append((scenario, model))
 
