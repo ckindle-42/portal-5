@@ -96,6 +96,72 @@ class Episode:
         return asdict(self)
 
 
+# ── DetectionCorrelation (Phase 2 — per-technique correlation) ───────────────
+
+
+@dataclass
+class DetectionCorrelation:
+    """One record per ground-truth technique (and any reported technique).
+
+    Built by the telemetry fetch path. Consumed by _score_purple to derive
+    per-technique detection status.  Serialisable via asdict() for evidence.
+    """
+
+    technique_id: str
+    # Rule availability (SEC-003 fix — no longer bool(gt))
+    has_detection_rule: bool  # spl_for(technique_id) is not None
+    spl_variant_ids: list[str] = field(default_factory=list)
+    # Hit outcome
+    has_spl_hit: bool = False
+    row_count: int = 0
+    used_synthetic: bool = False
+    source: str = ""  # "live" | "synthetic-fallback" | "synthetic"
+    # Correlation (SEC-002 fix — no longer hardcoded True)
+    within_window: bool = False
+    target_match: bool = False
+    # Provenance
+    query_id: str = ""
+    time_bounds: dict = field(default_factory=dict)
+    evidence_refs: list[str] = field(default_factory=list)
+    # Human-readable rationale for the reason code
+    reason: str = ""
+
+
+def _aggregate_detection_status(per_technique: dict[str, str], gt: set[str]) -> str:
+    """Aggregate per-technique detection statuses into a single episode status.
+
+    Conservative aggregation rule:
+    1. If any GT technique is DETECTION_CONFIRMED and NONE are
+       DETECTION_HIT_UNATTRIBUTED → DETECTION_CONFIRMED
+    2. If any GT technique is DETECTION_HIT_UNATTRIBUTED → downgrade
+       to DETECTION_HIT_UNATTRIBUTED (never CONFIRMED)
+    3. If all GT statuses are DETECTION_MISSING → DETECTION_MISSING
+    4. Otherwise → DETECTION_NO_HIT
+    """
+    gt_statuses = [per_technique.get(tid, "DETECTION_NO_HIT") for tid in gt]
+
+    if not gt_statuses:
+        return "DETECTION_NO_HIT"
+
+    has_confirmed = any(s == "DETECTION_CONFIRMED" for s in gt_statuses)
+    has_unattributed = any(s == "DETECTION_HIT_UNATTRIBUTED" for s in gt_statuses)
+    all_missing = all(s == "DETECTION_MISSING" for s in gt_statuses)
+
+    if all_missing:
+        return "DETECTION_MISSING"
+
+    if has_confirmed and not has_unattributed:
+        return "DETECTION_CONFIRMED"
+
+    if has_unattributed:
+        return "DETECTION_HIT_UNATTRIBUTED"
+
+    if has_confirmed:
+        return "DETECTION_CONFIRMED"
+
+    return "DETECTION_NO_HIT"
+
+
 # ── Deterministic verdict derivation (V3 Edit E2) ────────────────────────────
 
 
