@@ -380,10 +380,17 @@ SEED_CANDIDATES = [
     },
     {
         "requested": "migtissera/Tess-4-27B",
-        "resolved_id": "bartowski/migtissera_Tess-4-27B-GGUF",
-        "resolved_file": "migtissera_Tess-4-27B-Q4_K_M.gguf",
+        "resolved_id": "migtissera/Tess-4-27B-GGUF",
+        "resolved_file": "Tess-4-27B-Q4_K_M.gguf",
         "size_b": 27,
-        "note": "Requested repo is safetensors-only; bartowski publishes a GGUF quant (trusted).",
+        "note": (
+            "Requested repo is safetensors-only. bartowski/migtissera_Tess-4-27B-GGUF "
+            "also has a Q4_K_M quant (trusted quantizer) but its 31-file repo "
+            "manifest consistently timed out via `ollama pull` (context deadline "
+            "exceeded, reproduced 3x, blob fully downloaded each time). Verified: "
+            "the author's own smaller 8-file GGUF repo (migtissera/Tess-4-27B-GGUF) "
+            "pulls cleanly — used that instead."
+        ),
     },
     {
         "requested": "TrevorS/gemma-4-abliteration (thinking family)",
