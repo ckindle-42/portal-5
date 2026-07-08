@@ -445,14 +445,24 @@ SEED_CANDIDATES = [
     {
         "requested": "DavidAU/Qwen3.6-40B-...-Thinking-NEO-CODE-...-GGUF",
         "resolved_id": "DavidAU/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF",
-        "resolved_file": "Qwen3.6-40B-Deck-Opus-NEO-CODE-HERE-2T-OT-Q4_K_M.gguf",
+        "resolved_file": None,
         "size_b": 40,
         "note": (
-            "GGUF exists (24GB Q4_K_M). DavidAU is prolific but single-user "
-            "(task explicit caution). Size 40B is ABOVE the 7-35B sweet spot "
-            "— OOM/eviction risk on this rig (see Llama-4-Scout precedent: "
-            "57GB model caused Metal OOM machine crash). Preflight + a small "
-            "smoke load before any real bench."
+            "GGUF exists on HF (24GB Q4_K_M, verified via model_info), but "
+            "`ollama pull` rejects it client-side with '400 Bad Request: "
+            "invalid model name' — reproduced twice, with and without the "
+            "quant-file tag. Root cause isolated: the repo id itself is 100 "
+            "characters; a shorter DavidAU repo id (40 chars) parses fine "
+            "and fails later for an unrelated reason (not-GGUF-compatible). "
+            "This is an Ollama client-side name-length limit against an "
+            "HF repo name we don't control — honest-BLOCKED, not "
+            "OOM-related as first assumed. DavidAU is prolific but "
+            "single-user (task explicit caution) and size 40B is ABOVE the "
+            "7-35B sweet spot — OOM/eviction risk on this rig (see "
+            "Llama-4-Scout precedent: 57GB model caused Metal OOM machine "
+            "crash) — even if the name-length block were worked around, "
+            "this candidate would still need extra caution. Dropped from "
+            "the pull queue; not benchable as-is."
         ),
     },
     {
@@ -476,23 +486,34 @@ def resolve_seed_candidates() -> list[dict]:
         else:
             org = c["resolved_id"].split("/")[0]
             c["trust"] = "trusted" if org in TRUSTED_QUANTIZERS else "single-user"
-            c["ollama_tag"] = f"hf.co/{c['resolved_id']}:{c['resolved_file']}"
+            c["ollama_tag"] = (
+                f"hf.co/{c['resolved_id']}:{c['resolved_file']}" if c["resolved_file"] else None
+            )
         out.append(c)
     return out
 
 
 def print_seed_survey(resolved: list[dict]) -> None:
-    found = [c for c in resolved if c["resolved_id"]]
+    pullable = [c for c in resolved if c["ollama_tag"]]
+    blocked = [c for c in resolved if c["resolved_id"] and not c["ollama_tag"]]
     dropped = [c for c in resolved if not c["resolved_id"]]
     print(
-        f"Seed candidates: {len(resolved)} operator-named, {len(found)} resolved to GGUF, {len(dropped)} dropped (honest)"
+        f"Seed candidates: {len(resolved)} operator-named, {len(pullable)} pullable, "
+        f"{len(blocked)} identified-but-blocked, {len(dropped)} dropped (all honest, none fabricated)"
     )
     print()
     for c in resolved:
-        status = "DROPPED" if not c["resolved_id"] else f"trust={c['trust']}"
+        if not c["resolved_id"]:
+            status = "DROPPED"
+        elif not c["ollama_tag"]:
+            status = "BLOCKED"
+        else:
+            status = f"trust={c['trust']}"
         print(f"  [{status}] requested={c['requested']}")
-        if c["resolved_id"]:
+        if c["ollama_tag"]:
             print(f"      -> {c['ollama_tag']}")
+        elif c["resolved_id"]:
+            print(f"      (HF repo found: {c['resolved_id']}, but not pullable — see note)")
         print(f"      note: {c['note']}")
 
 
