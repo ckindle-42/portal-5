@@ -297,6 +297,55 @@ _ensure_native_services() {
         echo $! > "$PIPELINE_MCP_PID_FILE"
         echo "[portal-5]   ✅ Pipeline MCP started on :${PIPELINE_MCP_PORT:-8928}"
     fi
+
+    # ── MITRE ATT&CK MCP (host-native, :8929) ────────────────────────────────
+    # Reads tests/benchmarks/bench_security/siem/spl_detections.py via a
+    # repo-relative sys.path hack — not packaged into Dockerfile.mcp, so this
+    # must run against the host checkout rather than as a container.
+    local MITRE_MCP_PID_FILE="/tmp/portal-mitre-mcp.pid"
+    if [ -f "$MITRE_MCP_PID_FILE" ] && kill -0 "$(cat "$MITRE_MCP_PID_FILE")" 2>/dev/null; then
+        echo "[portal-5]   ✅ MITRE MCP: running (PID $(cat "$MITRE_MCP_PID_FILE"))"
+    else
+        echo "[portal-5]   MITRE MCP not running — starting..."
+        mkdir -p "$HOME/.portal5/logs"
+        MITRE_MCP_PORT="${MITRE_MCP_PORT:-8929}" \
+        nohup python3 -m portal_mcp.security.mitre_mcp \
+            >> "$HOME/.portal5/logs/mitre-mcp.log" 2>&1 &
+        echo $! > "$MITRE_MCP_PID_FILE"
+        echo "[portal-5]   ✅ MITRE MCP started on :${MITRE_MCP_PORT:-8929}"
+    fi
+
+    # ── Detections MCP (host-native, :8932) ──────────────────────────────────
+    # Same tests/benchmarks/ dependency as MITRE MCP above.
+    local DETECTIONS_MCP_PID_FILE="/tmp/portal-detections-mcp.pid"
+    if [ -f "$DETECTIONS_MCP_PID_FILE" ] && kill -0 "$(cat "$DETECTIONS_MCP_PID_FILE")" 2>/dev/null; then
+        echo "[portal-5]   ✅ Detections MCP: running (PID $(cat "$DETECTIONS_MCP_PID_FILE"))"
+    else
+        echo "[portal-5]   Detections MCP not running — starting..."
+        mkdir -p "$HOME/.portal5/logs"
+        DETECTIONS_MCP_PORT="${DETECTIONS_MCP_PORT:-8932}" \
+        nohup python3 -m portal_mcp.security.detections_mcp \
+            >> "$HOME/.portal5/logs/detections-mcp.log" 2>&1 &
+        echo $! > "$DETECTIONS_MCP_PID_FILE"
+        echo "[portal-5]   ✅ Detections MCP started on :${DETECTIONS_MCP_PORT:-8932}"
+    fi
+
+    # ── Wiki MCP (host-native, :8931) ─────────────────────────────────────────
+    # Reads portal_wiki/canonical/ via a repo-relative path and calls Ollama
+    # directly for wiki_explain — not packaged into Dockerfile.mcp.
+    local WIKI_MCP_PID_FILE="/tmp/portal-wiki-mcp.pid"
+    if [ -f "$WIKI_MCP_PID_FILE" ] && kill -0 "$(cat "$WIKI_MCP_PID_FILE")" 2>/dev/null; then
+        echo "[portal-5]   ✅ Wiki MCP: running (PID $(cat "$WIKI_MCP_PID_FILE"))"
+    else
+        echo "[portal-5]   Wiki MCP not running — starting..."
+        mkdir -p "$HOME/.portal5/logs"
+        OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}" \
+        WIKI_MCP_PORT="${WIKI_MCP_PORT:-8931}" \
+        nohup python3 -m portal_wiki.wiki_mcp \
+            >> "$HOME/.portal5/logs/wiki-mcp.log" 2>&1 &
+        echo $! > "$WIKI_MCP_PID_FILE"
+        echo "[portal-5]   ✅ Wiki MCP started on :${WIKI_MCP_PORT:-8931}"
+    fi
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -361,6 +410,33 @@ _do_down() {
             echo "[portal-5] Pipeline MCP stopped."
         else
             echo "[portal-5] Pipeline MCP: not running (nothing to stop)."
+        fi
+
+        # MITRE MCP (:8929)
+        if [ -f /tmp/portal-mitre-mcp.pid ] && kill -0 "$(cat /tmp/portal-mitre-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-mitre-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-mitre-mcp.pid
+            echo "[portal-5] MITRE MCP stopped."
+        else
+            echo "[portal-5] MITRE MCP: not running (nothing to stop)."
+        fi
+
+        # Detections MCP (:8932)
+        if [ -f /tmp/portal-detections-mcp.pid ] && kill -0 "$(cat /tmp/portal-detections-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-detections-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-detections-mcp.pid
+            echo "[portal-5] Detections MCP stopped."
+        else
+            echo "[portal-5] Detections MCP: not running (nothing to stop)."
+        fi
+
+        # Wiki MCP (:8931)
+        if [ -f /tmp/portal-wiki-mcp.pid ] && kill -0 "$(cat /tmp/portal-wiki-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-wiki-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-wiki-mcp.pid
+            echo "[portal-5] Wiki MCP stopped."
+        else
+            echo "[portal-5] Wiki MCP: not running (nothing to stop)."
         fi
 
         # ARM64 embedding server (:8917)
