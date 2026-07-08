@@ -353,10 +353,204 @@ def print_hf_survey(candidates: list[dict], limit: int | None = 20) -> None:
         )
 
 
+# ── Seed candidates (operator-named, 2026-07-08) ────────────────────────
+#
+# The operator named 7 candidates by label/repo, not verified HF ids. Some
+# are safetensors-only (no Ollama-runnable GGUF at that exact repo); some
+# have a differently-named GGUF quantization. Each entry below is the result
+# of a manual HF resolution pass (api.model_info / api.list_models search):
+# resolved_id is the actual GGUF repo to pull, or None if nothing was found
+# (honest-BLOCKED, not faked). trust is bartowski/mradermacher/unsloth/
+# huihui-ai (task-named trusted quantizers) vs "single-user" (works, but
+# unverified quant quality — bench don't assume, but don't blindly trust
+# either).
+TRUSTED_QUANTIZERS = {"bartowski", "mradermacher", "unsloth", "huihui-ai", "huihui_ai"}
+
+SEED_CANDIDATES = [
+    {
+        "requested": "josefprusa/ThinkingCap-Qwen3.6-27B-int4-AutoRound-v1",
+        "resolved_id": "Abiray/ThinkingCap-Qwen3.6-27B-Q4_K_M-GGUF",
+        "resolved_file": "ThinkingCap-Qwen3.6-27B-Q4_K_M.gguf",
+        "size_b": 27,
+        "note": (
+            "Requested repo is AutoRound int4 safetensors, NOT GGUF — "
+            "not Ollama-runnable as named. Resolved to Abiray's GGUF requant "
+            "of the same base model (Abiray already appears in our catalog)."
+        ),
+    },
+    {
+        "requested": "migtissera/Tess-4-27B",
+        "resolved_id": "bartowski/migtissera_Tess-4-27B-GGUF",
+        "resolved_file": "migtissera_Tess-4-27B-Q4_K_M.gguf",
+        "size_b": 27,
+        "note": "Requested repo is safetensors-only; bartowski publishes a GGUF quant (trusted).",
+    },
+    {
+        "requested": "TrevorS/gemma-4-abliteration (thinking family)",
+        "resolved_id": None,
+        "resolved_file": None,
+        "size_b": None,
+        "note": (
+            "No HF author 'TrevorS' found, and no matching search results for "
+            "'gemma-4-abliteration thinking'. Honest-BLOCKED: this candidate "
+            "does not resolve to an HF GGUF — dropped, not fabricated."
+        ),
+    },
+    {
+        "requested": "MaralGPT/MaralGPT-Mythos-9B-2606-GGUF",
+        "resolved_id": "MaralGPT/MaralGPT-Mythos-9B-2606-GGUF",
+        "resolved_file": "MaralGPT-Mythos-9B-2606-Q4_K_M.gguf",
+        "size_b": 9,
+        "note": "GGUF exists as named. Quantizer is MaralGPT itself (single-user, not in trust list).",
+    },
+    {
+        "requested": "huihui-ai/Huihui-Ornith-1.0-9B-abliterated-MTP-GGUF",
+        "resolved_id": "huihui-ai/Huihui-Ornith-1.0-9B-abliterated-MTP-GGUF",
+        "resolved_file": "ornith-9b-mtp-kl-Q4_K_M.gguf",
+        "size_b": 9,
+        "note": (
+            "GGUF exists as named, huihui-ai is a trusted quantizer. CAUTION: "
+            "this is an MTP (multi-token-prediction) build — llama.cpp/Ollama "
+            "MTP support is unverified on this stack; preflight must confirm "
+            "it loads and emits tool_calls at all before it's benchable."
+        ),
+    },
+    {
+        "requested": "DavidAU/Qwen3.6-40B-...-Thinking-NEO-CODE-...-GGUF",
+        "resolved_id": "DavidAU/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF",
+        "resolved_file": "Qwen3.6-40B-Deck-Opus-NEO-CODE-HERE-2T-OT-Q4_K_M.gguf",
+        "size_b": 40,
+        "note": (
+            "GGUF exists (24GB Q4_K_M). DavidAU is prolific but single-user "
+            "(task explicit caution). Size 40B is ABOVE the 7-35B sweet spot "
+            "— OOM/eviction risk on this rig (see Llama-4-Scout precedent: "
+            "57GB model caused Metal OOM machine crash). Preflight + a small "
+            "smoke load before any real bench."
+        ),
+    },
+    {
+        "requested": "HauhauCS/Gemma4-12B-QAT-Uncensored-...-GGUF",
+        "resolved_id": "HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced",
+        "resolved_file": "Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-Q4_K_M.gguf",
+        "size_b": 12,
+        "note": "Actual repo id has no '-GGUF' suffix but ships a GGUF quant. Quantizer is HauhauCS (single-user).",
+    },
+]
+
+
+def resolve_seed_candidates() -> list[dict]:
+    """Attach trust classification + a pull-ready ollama tag to each seed candidate."""
+    out = []
+    for c in SEED_CANDIDATES:
+        c = dict(c)
+        if c["resolved_id"] is None:
+            c["trust"] = "n/a"
+            c["ollama_tag"] = None
+        else:
+            org = c["resolved_id"].split("/")[0]
+            c["trust"] = "trusted" if org in TRUSTED_QUANTIZERS else "single-user"
+            c["ollama_tag"] = f"hf.co/{c['resolved_id']}:{c['resolved_file']}"
+        out.append(c)
+    return out
+
+
+def print_seed_survey(resolved: list[dict]) -> None:
+    found = [c for c in resolved if c["resolved_id"]]
+    dropped = [c for c in resolved if not c["resolved_id"]]
+    print(
+        f"Seed candidates: {len(resolved)} operator-named, {len(found)} resolved to GGUF, {len(dropped)} dropped (honest)"
+    )
+    print()
+    for c in resolved:
+        status = "DROPPED" if not c["resolved_id"] else f"trust={c['trust']}"
+        print(f"  [{status}] requested={c['requested']}")
+        if c["resolved_id"]:
+            print(f"      -> {c['ollama_tag']}")
+        print(f"      note: {c['note']}")
+
+
+# ── Discovery writeback (Phase 4) ────────────────────────────────────────
+
+
+def write_discovery_wiki_unit(
+    ranking: list[dict],
+    devstral_bar: float = 0.421,
+    sweep_path: str = "/tmp/agentic_blue_sweep.json",
+) -> str | None:
+    """Write the raw-reasoner ranking as a cited wiki survey/discovery unit.
+
+    `ranking` is a list of {model, tactic_recall, source} dicts, sorted
+    descending by tactic_recall. `source` records where the candidate came
+    from (catalog-gap / hf-search / seed) so the survey stays traceable.
+    Makes model discovery a durable, repeatable capability (TASK-SEC-MODEL-
+    DISCOVERY-V1) instead of a one-off hand list.
+    """
+    import time
+
+    from portal_wiki.core.writeback import propose_unit
+
+    date = time.strftime("%Y-%m-%d", time.gmtime())
+    lines = [
+        "# Model Discovery Survey — Raw-Reasoner Ranking (Blue)",
+        "",
+        f"**Date:** {date}  ",
+        f"**Devstral raw/tactic bar:** {devstral_bar:.3f}  ",
+        "**Scope:** discovers + ranks candidates by RAW blue reasoning ability. "
+        "Does not build purple evaluation or multi-seat testing (separate work).",
+        "",
+        "## Ranking (raw arm, tactic-tier recall)",
+        "",
+        "| Model | Source | Tactic Recall | vs devstral bar |",
+        "|-------|--------|---------------|------------------|",
+    ]
+    for r in ranking:
+        delta = r["tactic_recall"] - devstral_bar
+        delta_s = f"{delta:+.3f}"
+        lines.append(f"| `{r['model']}` | {r['source']} | {r['tactic_recall']:.3f} | {delta_s} |")
+
+    lines.extend(
+        [
+            "",
+            "## No label filtering",
+            "",
+            "Seat fitness is measured, never assumed from a model's name. "
+            "Red/abliterated/uncensored candidates were included in this blue "
+            "ranking on equal footing with everything else.",
+        ]
+    )
+    body = "\n".join(lines)
+
+    tags = ["model-discovery", "survey", "reasoning-first", "agentic-blue"]
+    for r in ranking:
+        tags.append(r["model"].replace(":", "-").replace("/", "-"))
+
+    proposed = propose_unit(
+        {
+            "id": f"SEC_BENCH-model-discovery-survey-{date.replace('-', '')}",
+            "title": f"Model Discovery Survey — Raw-Reasoner Ranking ({date})",
+            "kind": "what",
+            "body": body,
+            "sources": [
+                {
+                    "type": "bench-security",
+                    "path": sweep_path,
+                    "description": "Raw-arm sweep across catalog-gap + HF-search + seed candidates",
+                }
+            ],
+            "tags": tags,
+        },
+        proposed_by="model-discovery-v1",
+        auto_confirm=True,
+    )
+    print(f"Discovery survey written to wiki: {proposed.unit_id} (status={proposed.status})")
+    return proposed.unit_id
+
+
 def _parse_args(argv: list[str]) -> dict:
     opts = {
         "catalog": "--catalog" in argv,
         "hf_search": "--hf-search" in argv,
+        "seed": "--seed" in argv,
         "gguf": "--gguf" in argv,
         "tags": DEFAULT_HF_TAGS,
         "limit": None,
@@ -372,12 +566,16 @@ def _parse_args(argv: list[str]) -> dict:
 def main() -> None:
     opts = _parse_args(sys.argv[1:])
 
-    if not opts["catalog"] and not opts["hf_search"]:
+    if not opts["catalog"] and not opts["hf_search"] and not opts["seed"]:
         opts["catalog"] = True  # default action
 
     if opts["catalog"]:
         scored = survey_catalog()
         print_catalog_survey(scored, limit=opts["limit"])
+        print()
+
+    if opts["seed"]:
+        print_seed_survey(resolve_seed_candidates())
         print()
 
     if opts["hf_search"]:
