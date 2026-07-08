@@ -3,7 +3,7 @@
 Queryable tool surface for the SPL detection library, field mappings,
 and detection validation.  Turns passive metadata into active tools.
 
-Port: 8930 (configurable via DETECTIONS_MCP_PORT env var)
+Port: 8932 (configurable via DETECTIONS_MCP_PORT env var; bumped from 8930 to resolve Incalmo collision)
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from starlette.responses import JSONResponse
 logger = logging.getLogger(__name__)
 
 # ── MCP Server Setup ─────────────────────────────────────────────────────────
-_port = int(os.environ.get("DETECTIONS_MCP_PORT") or os.environ.get("MCP_PORT", "8930"))
+_port = int(os.environ.get("DETECTIONS_MCP_PORT") or os.environ.get("MCP_PORT", "8932"))
 
 mcp = FastMCP(
     "Portal SPL Detection Tools",
