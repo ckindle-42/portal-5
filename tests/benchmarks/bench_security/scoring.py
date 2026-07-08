@@ -575,6 +575,73 @@ def score_blue_detections(reported: list[dict], ground_truth: list[str]) -> dict
     }
 
 
+def _parent_of(tid: str) -> str | None:
+    """Return the parent technique ID (strip sub-technique suffix).
+    T1078.003 -> T1078. T1078 -> None.
+    """
+    if "." in tid:
+        return tid.split(".")[0]
+    return None
+
+
+def score_blue_detections_diagnostic(reported: list[dict], ground_truth: list[str]) -> dict:
+    """Diagnostic buckets alongside strict F1.  NEVER feeds promotion gates.
+
+    Buckets:
+      exact:          reported ID == ground-truth ID
+      parent_match:   reported ID is the parent of a ground-truth subtechnique
+      child_match:    reported subtechnique's parent is in ground truth
+      related_partial: reported ID shares tactic (requires MITRE metadata)
+      wrong:          reported ID not related to any ground truth
+      missed:         ground-truth ID with no reported match at any bucket
+    """
+    gt_upper = {g.upper() for g in ground_truth}
+    reported_ids = {d.get("technique_id", "").strip().upper() for d in reported}
+    reported_ids.discard("")
+
+    exact = set()
+    parent_match = set()
+    child_match = set()
+    wrong = set()
+
+    matched_gt = set()
+
+    for rid in reported_ids:
+        if rid in gt_upper:
+            exact.add(rid)
+            matched_gt.add(rid)
+            continue
+
+        rid_parent = _parent_of(rid)
+        if rid_parent and rid_parent in gt_upper:
+            parent_match.add(rid)
+            matched_gt.add(rid_parent)
+            continue
+
+        is_child = False
+        for gt_id in gt_upper:
+            gt_parent = _parent_of(gt_id)
+            if gt_parent and gt_parent == rid:
+                child_match.add(rid)
+                matched_gt.add(gt_id)
+                is_child = True
+                break
+
+        if not is_child:
+            wrong.add(rid)
+
+    missed = gt_upper - matched_gt
+
+    return {
+        "exact": sorted(exact),
+        "parent_match": sorted(parent_match),
+        "child_match": sorted(child_match),
+        "related_partial": [],  # requires MITRE metadata — empty until adapter wired
+        "wrong": sorted(wrong),
+        "missed": sorted(missed),
+    }
+
+
 # ── Argument adaptation ──────────────────────────────────────────────────────
 
 REFUSAL_PATTERNS = (
