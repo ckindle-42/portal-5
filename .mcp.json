@@ -96,7 +96,7 @@
     },
     "portal-detections": {
       "type": "http",
-      "url": "http://localhost:8930/mcp"
+      "url": "http://localhost:8932/mcp"
     },
     "portal-wiki": {
       "type": "http",
