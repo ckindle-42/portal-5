@@ -445,24 +445,26 @@ SEED_CANDIDATES = [
     {
         "requested": "DavidAU/Qwen3.6-40B-...-Thinking-NEO-CODE-...-GGUF",
         "resolved_id": "DavidAU/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF",
-        "resolved_file": None,
+        "resolved_file": "Qwen3.6-40B-Deck-Opus-NEO-CODE-HERE-2T-OT-Q4_K_M.gguf",
+        "local_ollama_name": "davidau-qwen36-40b-neocode",
         "size_b": 40,
         "note": (
-            "GGUF exists on HF (24GB Q4_K_M, verified via model_info), but "
-            "`ollama pull` rejects it client-side with '400 Bad Request: "
-            "invalid model name' — reproduced twice, with and without the "
-            "quant-file tag. Root cause isolated: the repo id itself is 100 "
-            "characters; a shorter DavidAU repo id (40 chars) parses fine "
-            "and fails later for an unrelated reason (not-GGUF-compatible). "
-            "This is an Ollama client-side name-length limit against an "
-            "HF repo name we don't control — honest-BLOCKED, not "
-            "OOM-related as first assumed. DavidAU is prolific but "
-            "single-user (task explicit caution) and size 40B is ABOVE the "
-            "7-35B sweet spot — OOM/eviction risk on this rig (see "
-            "Llama-4-Scout precedent: 57GB model caused Metal OOM machine "
-            "crash) — even if the name-length block were worked around, "
-            "this candidate would still need extra caution. Dropped from "
-            "the pull queue; not benchable as-is."
+            "GGUF exists on HF (24GB Q4_K_M, verified via model_info). "
+            "`ollama pull hf.co/<repo>:<file>` rejects it client-side with "
+            "'400 Bad Request: invalid model name' — reproduced twice. "
+            "Isolated cause: the repo id is 100 characters; a shorter "
+            "DavidAU repo (40 chars) parses fine and fails later for an "
+            "unrelated reason (not-GGUF-compatible) — confirms it's a "
+            "length limit in the `hf.co` resolver path specifically, not a "
+            "download or GGUF-validity problem. WORKAROUND VERIFIED: "
+            "downloaded the file directly with `huggingface_hub."
+            "hf_hub_download` (bypasses that resolver entirely), then "
+            "`ollama create davidau-qwen36-40b-neocode -f Modelfile` with "
+            "`FROM <local-path>` — this local-registration path has no "
+            "repo-name length check. Result: 'success', tool-calling "
+            "preflight PASSED. Still bench with caution: 40B is above the "
+            "7-35B OOM-safe sweet spot (Llama-4-Scout precedent: 57GB model "
+            "crashed the machine) — load solo, watch Metal memory."
         ),
     },
     {
@@ -480,15 +482,22 @@ def resolve_seed_candidates() -> list[dict]:
     out = []
     for c in SEED_CANDIDATES:
         c = dict(c)
+        local_name = c.get("local_ollama_name")
         if c["resolved_id"] is None:
             c["trust"] = "n/a"
             c["ollama_tag"] = None
         else:
             org = c["resolved_id"].split("/")[0]
             c["trust"] = "trusted" if org in TRUSTED_QUANTIZERS else "single-user"
-            c["ollama_tag"] = (
-                f"hf.co/{c['resolved_id']}:{c['resolved_file']}" if c["resolved_file"] else None
-            )
+            if local_name:
+                # `ollama pull hf.co/<repo>` rejects this one client-side (repo
+                # id too long for that resolver) — registered instead via
+                # hf_hub_download + `ollama create <local_name> -f Modelfile`.
+                c["ollama_tag"] = local_name
+            else:
+                c["ollama_tag"] = (
+                    f"hf.co/{c['resolved_id']}:{c['resolved_file']}" if c["resolved_file"] else None
+                )
         out.append(c)
     return out
 
