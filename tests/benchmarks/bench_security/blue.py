@@ -38,6 +38,7 @@ from ._data import (
 from .episode import Episode, derive_detection_status, derive_verdict, new_episode_id
 from .lab import dispatch_blue_response
 from .scoring import score_blue_detections as _score_blue_detections
+from .siem.spl_backend import SplunkBackend
 from .telemetry import (
     TelemetryBackend,
 )
@@ -114,55 +115,6 @@ class WinEventBackend:
         if text.strip() and ("EventID" in text or any(str(e) in text for e in fx["event_ids"])):
             return {"telemetry": text, "source": "live", "backend": self.name}
         return {"telemetry": fx["synthetic"], "source": "synthetic-fallback", "backend": self.name}
-
-
-class SplunkBackend:
-    """Splunk telemetry backend — real SPL via REST export endpoint."""
-
-    name = "splunk"
-
-    def __init__(self):
-        self.url = os.environ.get("LAB_SPLUNK_URL", "https://10.0.1.30:8089")
-        self.user = os.environ.get("LAB_SPLUNK_USER", "admin")
-        self.pw = os.environ.get("LAB_SPLUNK_PASSWORD", "Portal5Lab1!")
-
-    def query(self, technique_id: str, window: dict) -> dict:
-        from .siem.spl_detections import spl_for
-
-        spl = spl_for(technique_id)
-        if not spl:
-            return {"telemetry": "", "source": "synthetic-fallback", "backend": self.name}
-        earliest = window.get("earliest", "-15m")
-        latest = window.get("latest", "now")
-        search = (
-            spl if spl.strip().startswith("search") or "|" in spl.split()[0:1] else f"search {spl}"
-        )
-        try:
-            r = httpx.post(
-                f"{self.url.rstrip('/')}/services/search/jobs/export",
-                auth=(self.user, self.pw),
-                verify=False,
-                timeout=90.0,
-                data={
-                    "search": search,
-                    "exec_mode": "oneshot",
-                    "earliest_time": earliest,
-                    "latest_time": latest,
-                    "output_mode": "json",
-                },
-            )
-            hits = [
-                ln for ln in r.text.splitlines() if ln.strip().startswith("{") and '"result"' in ln
-            ]
-            if hits:
-                return {"telemetry": "\n".join(hits), "source": "live", "backend": self.name}
-            return {"telemetry": "", "source": "synthetic-fallback", "backend": self.name}
-        except Exception as e:
-            return {
-                "telemetry": f"[splunk error: {e}]",
-                "source": "synthetic-fallback",
-                "backend": self.name,
-            }
 
 
 # Per-target backend selection.  AD targets -> WinEvent; web/linux/container -> Splunk.
