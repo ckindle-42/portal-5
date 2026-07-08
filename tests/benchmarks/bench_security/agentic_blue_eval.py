@@ -156,6 +156,7 @@ def _call_model(
             "model": model,
             "messages": messages,
             "stream": False,
+            "options": {"num_predict": max_tokens},
         }
         if tools:
             body["tools"] = tools
@@ -641,7 +642,7 @@ def _run_arm_raw(model: str, episode: Episode) -> ArmResult:
             {"role": "user", "content": prompt},
         ]
 
-        msg = _call_model(model, messages, max_tokens=2000)
+        msg = _call_model(model, messages, max_tokens=4000)
         content = msg.get("content", "")
 
         for tid in _extract_techniques(content):
