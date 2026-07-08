@@ -394,13 +394,15 @@ SEED_CANDIDATES = [
     },
     {
         "requested": "TrevorS/gemma-4-abliteration (thinking family)",
-        "resolved_id": None,
-        "resolved_file": None,
-        "size_b": None,
+        "resolved_id": "TrevorJS/gemma-4-31B-it-uncensored-GGUF",
+        "resolved_file": "gemma-4-31B-it-uncensored-Q4_K_M.gguf",
+        "size_b": 31,
         "note": (
-            "No HF author 'TrevorS' found, and no matching search results for "
-            "'gemma-4-abliteration thinking'. Honest-BLOCKED: this candidate "
-            "does not resolve to an HF GGUF — dropped, not fabricated."
+            "Corrected author: no HF author 'TrevorS' exists — this is "
+            "TrevorJS (operator-confirmed, HF collection "
+            "TrevorJS/gemma-4-uncensored). That collection ships GGUF "
+            "abliterations at E2B/E4B/12B/26B-A4B/31B; picked the largest "
+            "in-band size (31B). Quantizer is TrevorJS itself (single-user)."
         ),
     },
     {
