@@ -393,7 +393,7 @@ SEED_CANDIDATES = [
         ),
     },
     {
-        "requested": "TrevorS/gemma-4-abliteration (thinking family)",
+        "requested": "TrevorS/gemma-4-abliteration (thinking family) [31B]",
         "resolved_id": "TrevorJS/gemma-4-31B-it-uncensored-GGUF",
         "resolved_file": "gemma-4-31B-it-uncensored-Q4_K_M.gguf",
         "size_b": 31,
@@ -401,9 +401,27 @@ SEED_CANDIDATES = [
             "Corrected author: no HF author 'TrevorS' exists — this is "
             "TrevorJS (operator-confirmed, HF collection "
             "TrevorJS/gemma-4-uncensored). That collection ships GGUF "
-            "abliterations at E2B/E4B/12B/26B-A4B/31B; picked the largest "
-            "in-band size (31B). Quantizer is TrevorJS itself (single-user)."
+            "abliterations at E2B/E4B/12B/26B-A4B/31B. Bigger isn't "
+            "necessarily better (bench-don't-assume applies to size within "
+            "a family, not just seat-by-label) — all 3 in-band sizes "
+            "(12B/26B-A4B/31B) are queued as separate candidates below so "
+            "the sweep measures which size actually wins, rather than "
+            "assuming the largest does. Quantizer is TrevorJS (single-user)."
         ),
+    },
+    {
+        "requested": "TrevorS/gemma-4-abliteration (thinking family) [26B-A4B]",
+        "resolved_id": "TrevorJS/gemma-4-26B-A4B-it-uncensored-GGUF",
+        "resolved_file": "gemma-4-26B-A4B-it-uncensored-Q4_K_M.gguf",
+        "size_b": 26,
+        "note": "Same family/author as the 31B entry — mid-size in-band variant, queued for a fair size comparison.",
+    },
+    {
+        "requested": "TrevorS/gemma-4-abliteration (thinking family) [12B]",
+        "resolved_id": "TrevorJS/gemma-4-12B-it-uncensored-GGUF",
+        "resolved_file": "gemma-4-12B-it-uncensored-Q4_K_M.gguf",
+        "size_b": 12,
+        "note": "Same family/author as the 31B entry — smallest in-band variant, queued for a fair size comparison.",
     },
     {
         "requested": "MaralGPT/MaralGPT-Mythos-9B-2606-GGUF",
