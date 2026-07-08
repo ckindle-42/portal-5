@@ -50,13 +50,14 @@ mcp = FastMCP(
 )
 
 # Pre-warm the VLAI model at startup so the first tool call doesn't stall.
-# RoBERTa-base is ~500MB; loading on first request causes a 30-60s lag that
-# exceeds the UAT driver's tool timeout. Eager load on container start avoids this.
-try:
-    _ensure_model()
-    logger.info("VLAI model pre-warm complete")
-except Exception as e:
-    logger.warning("VLAI model pre-warm failed (will retry on first call): %s", e)
+# Gate behind SECURITY_MCP_PREWARM (default "1" — production behavior unchanged).
+# Set to "0" for faster dev startup; first call will load on demand.
+if os.environ.get("SECURITY_MCP_PREWARM", "1") == "1":
+    try:
+        _ensure_model()
+        logger.info("VLAI model pre-warm complete")
+    except Exception as e:
+        logger.warning("VLAI model pre-warm failed (will retry on first call): %s", e)
 
 
 TOOLS_MANIFEST = [
@@ -79,6 +80,18 @@ TOOLS_MANIFEST = [
         },
     }
 ]
+
+
+# ── Readiness endpoint ───────────────────────────────────────────────────────
+@mcp.custom_route("/ready", methods=["GET"])
+async def ready(request):
+    return JSONResponse(
+        {
+            "model_loaded": _model is not None,
+            "port": _port,
+            "prewarm_enabled": os.environ.get("SECURITY_MCP_PREWARM", "1") == "1",
+        }
+    )
 
 
 @mcp.custom_route("/health", methods=["GET"])
