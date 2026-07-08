@@ -135,7 +135,7 @@ mcp_fleet:
     expose_to_ide: true
   - id: detections
     name: portal-detections
-    port: 8930
+    port: 8932
     expose_to_pipeline: true
     expose_to_ide: true
   - id: wiki
