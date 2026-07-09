@@ -643,14 +643,14 @@ def _run_arm_raw(model: str, episode: Episode) -> ArmResult:
         ]
 
         msg = _call_model(model, messages, max_tokens=4000)
-        # Ollama's thinking-model API returns reasoning in a separate
-        # "thinking" field, not "content". A model that spends its whole
-        # token budget mid-thought (done_reason="length") returns empty
-        # content with all its reasoning stranded in "thinking" -- fall
-        # back to it (or scan both) so technique IDs mentioned mid-reasoning
-        # still count. Mirrors the pipeline's own reasoning->content
-        # promotion in portal_pipeline/router/thinking.py.
-        content = msg.get("content", "") or msg.get("thinking", "")
+        # Score the delivered answer, not the scratchpad. Ollama's
+        # thinking-model API returns reasoning in a separate "thinking"
+        # field; a model that exhausts its budget mid-thought
+        # (done_reason="length") returns empty content. That is a genuine
+        # failure to reach a conclusion, not a scoring gap to paper over —
+        # falling back to "thinking" would credit techniques the model
+        # merely considered while reasoning, not ones it concluded on.
+        content = msg.get("content", "")
 
         for tid in _extract_techniques(content):
             result.findings.append(Finding(technique_id=tid, evidence=content[:200], source="raw"))
