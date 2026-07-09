@@ -852,7 +852,12 @@ def _run_tool_driven_arm(
         max_steps = int(os.environ.get("SWEEP_STEP_CAP", "5"))
 
         for _step in range(max_steps):
-            msg = _call_model(model, messages, tools=tools)
+            # Same budget as the raw arm (operator call: thinking models need
+            # real room to reach a structured tool_call, not just prose).
+            # A model that exhausts a too-tight budget mid-thought never
+            # emits a tool_call at all -- indistinguishable from "didn't
+            # investigate" even though it may have been trying to.
+            msg = _call_model(model, messages, tools=tools, max_tokens=4000)
             messages.append(msg)
             result.iterations += 1
 
