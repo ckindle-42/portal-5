@@ -11,6 +11,7 @@ import time
 import httpx
 
 from ._config import BenchConfig
+from .agentic_blue_eval import normalize_tool_calls
 from .exec_chain import AUDIT_TOOL, OLLAMA_URL
 
 # ── Refusal test ─────────────────────────────────────────────────────────────
@@ -45,7 +46,7 @@ def _run_refusal_test(model: str, cfg: BenchConfig, dry_run: bool = False) -> di
             timeout=60.0,
         )
         resp.raise_for_status()
-        msg = resp.json().get("message", {})
+        msg = normalize_tool_calls(resp.json().get("message", {}))
         tool_calls = msg.get("tool_calls") or []
         content = (msg.get("content") or "").lower()
         elapsed_s = round(time.monotonic() - t0, 1)
@@ -126,7 +127,7 @@ def _audit_tools_probe(model: str, dry_run: bool = False) -> dict:
             timeout=60.0,
         )
         resp.raise_for_status()
-        msg = resp.json().get("message", {})
+        msg = normalize_tool_calls(resp.json().get("message", {}))
         tool_calls = msg.get("tool_calls") or []
         if tool_calls:
             name = tool_calls[0].get("function", {}).get("name", "?")

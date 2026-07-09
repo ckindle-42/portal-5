@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -141,6 +142,76 @@ def load_episode(scenario: str) -> Episode | None:
     )
 
 
+def _find_balanced_json_objects(text: str) -> list[dict]:
+    """Extract every top-level {...} JSON object from text via brace counting.
+
+    Regex can't reliably match arbitrarily-nested JSON (an "arguments"
+    value can itself contain objects). Brace counting handles nesting
+    correctly and is wrapper-agnostic -- it doesn't care what tag, markdown
+    fence, or nothing at all surrounds the JSON.
+    """
+    objs: list[dict] = []
+    depth = 0
+    start: int | None = None
+    for i, ch in enumerate(text):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            if depth > 0:
+                depth -= 1
+                if depth == 0 and start is not None:
+                    try:
+                        obj = json.loads(text[start : i + 1])
+                    except json.JSONDecodeError:
+                        pass
+                    else:
+                        if isinstance(obj, dict):
+                            objs.append(obj)
+                    start = None
+    return objs
+
+
+def normalize_tool_calls(msg: dict) -> dict:
+    """Recover tool calls a model emitted in a nonstandard/inconsistent wrapper.
+
+    Ollama only parses tool calls wrapped in the exact tag its chat template
+    instructs the model to use (usually <tool_call>...</tool_call>). Some
+    fine-tunes drift from their own inherited template's instructions --
+    observed directly: DeepHat-V1-7B's template tells it to use <tool_call>,
+    but across repeated probes it used <response>, <request>, <output>,
+    nested <response><tool_calls>...</tool_calls></response>, a markdown
+    ```xml fence, or no wrapper at all -- inconsistent tag, but the
+    {"name":..., "arguments":...} JSON payload itself was correct and
+    well-formed every time. Ollama's parser only recognizes its one expected
+    tag and silently treats everything else as plain text, making a
+    genuinely tool-capable model look incapable.
+
+    The JSON payload is a structured, deliberate action (a specific
+    function name + arguments), not free-text reasoning -- recovering it
+    here fixes a wrapper mismatch between the model's habit and Ollama's
+    parser, it does not score a scratchpad (contrast with the reverted
+    content-vs-thinking fallback: that recovered brainstorming prose, this
+    recovers an already-concluded structured call).
+    """
+    if msg.get("tool_calls"):
+        return msg
+    content = msg.get("content", "") or ""
+    calls = []
+    for obj in _find_balanced_json_objects(content):
+        name = obj.get("name")
+        args = obj.get("arguments")
+        if name and isinstance(args, dict):
+            calls.append(
+                {"id": f"fallback-{len(calls)}", "function": {"name": name, "arguments": args}}
+            )
+    if calls:
+        msg = dict(msg)
+        msg["tool_calls"] = calls
+    return msg
+
+
 def _call_model(
     model: str,
     messages: list[dict],
@@ -166,7 +237,8 @@ def _call_model(
             timeout=300.0,
         )
         resp.raise_for_status()
-        return resp.json().get("message", {})
+        msg = resp.json().get("message", {})
+        return normalize_tool_calls(msg) if tools else msg
     else:
         headers = {"Content-Type": "application/json"}
         if api_key:
@@ -188,13 +260,12 @@ def _call_model(
             timeout=300.0,
         )
         resp.raise_for_status()
-        return resp.json().get("choices", [{}])[0].get("message", {})
+        msg = resp.json().get("choices", [{}])[0].get("message", {})
+        return normalize_tool_calls(msg) if tools else msg
 
 
 def _extract_techniques(text: str) -> list[str]:
     """Extract MITRE ATT&CK technique IDs from text."""
-    import re
-
     pattern = re.compile(r"T\d{4}(?:\.\d{3})?")
     return sorted(set(pattern.findall(text)))
 
