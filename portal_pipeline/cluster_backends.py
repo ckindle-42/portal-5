@@ -584,7 +584,10 @@ class BackendRegistry:
         try:
             from portal_pipeline.router.monitor import memory_pct as _mp
 
-            _mem = _mp()
+            # Offload the vm_stat subprocess to a thread so it does not block the
+            # event loop during the health cycle (memory_pct is ~10-50 ms on
+            # Apple Silicon; a slower future probe would stall serving).
+            _mem = await asyncio.get_running_loop().run_in_executor(None, _mp)
             self._last_memory_pct = _mem
             if _mem >= 90.0:
                 logger.error("System memory critical: %.0f%% — OOM risk, backends may fail", _mem)
