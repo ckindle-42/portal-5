@@ -13,6 +13,7 @@ import logging
 import os
 from datetime import UTC, datetime
 
+from portal_pipeline.router.metrics import _router_layer_total
 from portal_pipeline.router.routing import _detect_workspace, _route_with_llm
 from portal_pipeline.router.workspaces import _PERSONA_MAP, WORKSPACES
 
@@ -46,6 +47,7 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict]) -> str:
     detected = await _route_with_llm(messages)
     if detected:
         logger.info("Auto-routing (LLM): detected workspace '%s' from message content", detected)
+        _router_layer_total.labels(layer="llm", workspace=detected).inc()
         return detected
     # Keyword fallback — deterministic, zero-latency
     detected = _detect_workspace(messages)
@@ -54,7 +56,9 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict]) -> str:
             "Auto-routing (keywords): detected workspace '%s' from message content",
             detected,
         )
+        _router_layer_total.labels(layer="keywords", workspace=detected).inc()
         return detected
+    _router_layer_total.labels(layer="fallback_auto", workspace=workspace_id).inc()
     return workspace_id
 
 
