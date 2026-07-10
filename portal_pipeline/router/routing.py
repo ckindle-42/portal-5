@@ -15,11 +15,13 @@ import asyncio
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any
 
 import httpx
 
+from portal_pipeline.router.metrics import _router_latency_seconds
 from portal_pipeline.router.workspaces import WORKSPACES
 
 logger = logging.getLogger(__name__)
@@ -758,11 +760,14 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
         Workspace id (e.g. ``"auto-coding"``) on confident
         classification, ``None`` on any failure or low confidence.
     """
+    _t0 = time.monotonic()
     if not _LLM_ROUTER_ENABLED:
+        _router_latency_seconds.labels(outcome="disabled").observe(0.0)
         return None
 
     last_user_content = _last_user_text(messages, 500)
     if not last_user_content:
+        _router_latency_seconds.labels(outcome="disabled").observe(0.0)
         return None
 
     prompt = _build_router_prompt(last_user_content)
@@ -775,6 +780,7 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
         # creating a new client just for the shorter LLM router timeout.
         if _http_client is None:
             logger.debug("LLM router skipped: HTTP client not ready")
+            _router_latency_seconds.labels(outcome="disabled").observe(0.0)
             return None
         payload = {
             "model": _LLM_ROUTER_MODEL,
@@ -810,10 +816,16 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
                 "LLM router returned unknown workspace '%s' — falling back to keywords",
                 workspace,
             )
+            _router_latency_seconds.labels(outcome="invalid_workspace").observe(
+                time.monotonic() - _t0
+            )
             return None
 
         # Don't return 'auto' — it's the default, no routing gain
         if workspace == "auto":
+            _router_latency_seconds.labels(outcome="invalid_workspace").observe(
+                time.monotonic() - _t0
+            )
             return None
 
         if confidence < _LLM_ROUTER_CONFIDENCE_THRESHOLD:
@@ -822,6 +834,7 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
                 confidence,
                 workspace,
             )
+            _router_latency_seconds.labels(outcome="low_confidence").observe(time.monotonic() - _t0)
             return None
 
         logger.info(
@@ -830,6 +843,7 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
             workspace,
             confidence,
         )
+        _router_latency_seconds.labels(outcome="confident").observe(time.monotonic() - _t0)
         return workspace
 
     except (TimeoutError, httpx.TimeoutException):
@@ -837,9 +851,11 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
             "LLM router timed out after %dms — falling back to keywords",
             _LLM_ROUTER_TIMEOUT_MS,
         )
+        _router_latency_seconds.labels(outcome="timeout").observe(time.monotonic() - _t0)
         return None
     except Exception as e:
         logger.debug("LLM router error (non-fatal): %s — falling back to keywords", e)
+        _router_latency_seconds.labels(outcome="error").observe(time.monotonic() - _t0)
         return None
 
 
