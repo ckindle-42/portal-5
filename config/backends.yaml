@@ -169,6 +169,15 @@ backends:
     supports_tools: true
   - id: hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M
     supports_tools: true
+  # V13 candidate intake (2026-07-08) — bench-only, PROMOTE_POLICY=confirm
+  - id: huihui_ai/qwen3-abliterated:14b-v2
+    # Qwen3-14B huihui-ai abliteration v2 (v1 explicitly retired for garbled-output bugs).
+    # Fills the 9B <-> 27B/35B tier gap. Same huihui_ai native-tag convention as E2b-qat.
+    # supports_tools value below is from Step 1B preflight (direct /api/chat probe):
+    # clean, well-formed tool_calls confirmed. Note: native <think> opening tag was
+    # MISSING in the probe (soft warning per task spec, does not block intake) —
+    # see MODEL_CATALOG.md entry.
+    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: security
@@ -677,3 +686,6 @@ workspace_routing:
   - security
   bench-mistral7b-uncensored:
   - general
+  bench-qwen3-14b-abliterated:
+  - general
+  - coding

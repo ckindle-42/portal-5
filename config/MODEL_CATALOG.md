@@ -33,6 +33,10 @@ IBM Granite 4.1 8B Q4_K_M (~5.3GB, 128K ctx, dense, no-think) — verified tools
 
 Mistral-7B Uncensored Q4_K_M (~4.4GB, Andycurrent GGUF of luvGPT base, Mistral-7B lineage). V13-A candidate intake — LINEAGE-DIVERSITY play for the Nano/Micro tier (currently Qwen/Gemma-dominant). supports_tools=false: direct /api/chat probe returned "does not support tools" — model template lacks .Tools declaration. bench-mistral7b-uncensored target (tools: []). Mistral base is not otherwise represented in the fleet — same diversity rationale class as lfm2.5:8b. PROMOTE_POLICY=confirm.
 
+### `huihui_ai/qwen3-abliterated:14b-v2`
+
+huihui-ai Qwen3-14B-abliterated v2 (Qwen3-14B base, huihui_ai native Ollama tag). V13-B candidate intake — TIER-GAP fill for the 9B <-> 27B/35B space, no 14B representation currently. v1 explicitly retired by huihui-ai for garbled-output bugs; task pulls only v2. Same trusted lineage class as E2b-qat, gemma-4-abliterated, baronllm-abliterated. supports_tools=true (clean, well-formed tool_calls in direct /api/chat probe). Native <think> emission: MISSING from probe (opening tag absent; abliteration sometimes disrupts native reasoning emission) — soft warning, does not block intake per task policy. bench-qwen3-14b-abliterated target. PROMOTE_POLICY=confirm.
+
 ### `gemma4:26b-a4b-it-q4_K_M`
 
 Gemma 4 26B A4B MoE VLM Q4 (~17GB, Apache 2.0, thinking+vision). Retained as fallback; QAT variant promoted to auto-daily primary.

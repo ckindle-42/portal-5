@@ -336,12 +336,12 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is 102 (44 production + 58 bench-*) after the
+        """Total workspace count is 103 (44 production + 59 bench-*) after the
         multi-seat V2 bench intake (bench-security-slm-1p5b, bench-cybersecqwen-4b-toolfix)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 102, (
-            f"Expected 102 workspaces (44 production + 58 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 103, (
+            f"Expected 103 workspaces (44 production + 59 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -743,12 +743,12 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 102 (44 production + 58 bench-*) after the
+        """Total workspace count must be 103 (44 production + 59 bench-*) after the
         multi-seat V2 bench intake (bench-security-slm-1p5b, bench-cybersecqwen-4b-toolfix)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 102, (
-            f"Expected 102 workspaces (44 production + 58 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 103, (
+            f"Expected 103 workspaces (44 production + 59 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
