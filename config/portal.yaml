@@ -2216,6 +2216,22 @@ workspaces:
     tools: []
     expose_to_owui: false
     enable_web_search: false
+  bench-mistral7b-uncensored:
+    name: "🧪 Bench · Mistral-7B Uncensored"
+    description: |-
+      Mistral-7B Uncensored (~4.4GB Q4_K_M, Andycurrent GGUF of luvGPT base, Mistral-7B lineage). LINEAGE-DIVERSITY candidate for the Nano/Micro tier, currently Qwen/Gemma-dominant. Mistral is a distinct base architecture not otherwise represented in the fleet — same diversity rationale class as lfm2.5:8b's non-transformer slot. NOT a capability upgrade over existing Nano/Micro models; scored on lineage-diversity value if bench parity holds. Refusal rate is not the target metric — Portal's abliterated fleet clears that gate already; this is about architectural coverage. Preflight (direct /api/chat probe): Ollama returns "does not support tools" — model template lacks .Tools declaration; tools: [] set accordingly. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.7
+    top_p: 0.9
+    top_k: 40
+    repeat_penalty: 1.1
+    emits_reasoning: false
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
 
 # ── Model pull registry ────────────────────────────────────────────────────────
 # HuggingFace → Ollama pull metadata. Consumed by `portal models pull`.

@@ -77,6 +77,13 @@ backends:
     supports_tools: false
   - id: hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M
     supports_tools: true
+  # V13 candidate intake (2026-07-08) — bench-only, PROMOTE_POLICY=confirm
+  - id: hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M
+    # Mistral-7B lineage-diversity candidate for the Nano/Micro tier
+    # (currently Qwen/Gemma-dominant). ~4.4GB Q4_K_M, low VRAM.
+    # supports_tools value below is from Step 1A preflight (direct /api/chat probe):
+    # Ollama returns "does not support tools" — model template lacks .Tools.
+    supports_tools: false
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: coding
@@ -668,3 +675,5 @@ workspace_routing:
   - security
   bench-cybersecqwen-4b-toolfix:
   - security
+  bench-mistral7b-uncensored:
+  - general
