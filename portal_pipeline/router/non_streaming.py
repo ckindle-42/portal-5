@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 from fastapi.responses import JSONResponse
 
+from portal_pipeline.router.metrics import _hint_fallback_total
 from portal_pipeline.router.power import _record_usage
 from portal_pipeline.router.tools import _dispatch_tool_call
 from portal_pipeline.router.validation import _inject_ollama_options, _model_supports_tools
@@ -267,6 +268,12 @@ async def _try_non_streaming(
                 target_model,
                 backend.id,
             )
+            _hint_fallback_total.labels(
+                workspace=workspace_id,
+                hinted=model_hint,
+                served=target_model,
+                path="non_streaming",
+            ).inc()
 
     if enforce_hint:
         logger.info(
