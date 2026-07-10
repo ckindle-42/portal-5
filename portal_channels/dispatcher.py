@@ -156,6 +156,8 @@ VALID_WORKSPACES = frozenset(
         "bench-cybersecqwen-4b-toolfix",
         # V13-A candidate intake 2026-07-08 — bench-only, PROMOTE_POLICY=confirm
         "bench-mistral7b-uncensored",
+        # V13-B candidate intake 2026-07-08 — bench-only, PROMOTE_POLICY=confirm
+        "bench-qwen3-14b-abliterated",
     }
 )
 

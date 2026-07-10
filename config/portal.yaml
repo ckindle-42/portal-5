@@ -2232,6 +2232,26 @@ workspaces:
     tools: []
     expose_to_owui: false
     enable_web_search: false
+  bench-qwen3-14b-abliterated:
+    name: "🧪 Bench · Qwen3-14B Abliterated v2 (huihui-ai)"
+    description: |-
+      huihui-ai Qwen3-14B-abliterated v2 (Qwen3-14B base, huihui-ai native Ollama tag, uncensored). Fills the 9B (qwen35-9b-heretic-vision) to 27B/35B (Ornith/AgentWorld/qwen36) tier gap — no 14B model exists in Portal's fleet today. Same trusted lineage as E2b-qat (huihui_ai native tag). v2 is the current author-supported version — v1 explicitly retired by huihui-ai for garbled-output bugs; do not fall back. Emits <think> reasoning natively (Qwen3 base) in principle, but preflight (direct /api/chat probe) found the opening <think> tag MISSING from the response (abliteration sometimes disrupts native reasoning emission) — soft warning per intake policy, does not block intake since tool_calls were clean and well-formed. PROMOTE_POLICY=confirm.
+    model_hint: huihui_ai/qwen3-abliterated:14b-v2
+    predict_limit: 16384
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    repeat_penalty: 1.05
+    emits_reasoning: true
+    tools:
+    - report_detection
+    - query_windows_events
+    - query_splunk
+    - execute_python
+    expose_to_owui: false
+    enable_web_search: false
 
 # ── Model pull registry ────────────────────────────────────────────────────────
 # HuggingFace → Ollama pull metadata. Consumed by `portal models pull`.
