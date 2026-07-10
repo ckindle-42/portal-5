@@ -154,6 +154,8 @@ VALID_WORKSPACES = frozenset(
         "bench-gemma4-12b-agentic",
         "bench-security-slm-1p5b",
         "bench-cybersecqwen-4b-toolfix",
+        # V13-A candidate intake 2026-07-08 — bench-only, PROMOTE_POLICY=confirm
+        "bench-mistral7b-uncensored",
     }
 )
 

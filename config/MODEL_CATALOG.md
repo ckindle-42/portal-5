@@ -29,6 +29,10 @@ Ultra-fast 3B abliterated fallback. Stock Llama-3.2-3B template doesn't declare 
 
 IBM Granite 4.1 8B Q4_K_M (~5.3GB, 128K ctx, dense, no-think) — verified tools tag, BFCL V3 68.27, IFEval 87.1. Apache 2.0, ISO-certified. Used as auto-video primary (de96984).
 
+### `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M`
+
+Mistral-7B Uncensored Q4_K_M (~4.4GB, Andycurrent GGUF of luvGPT base, Mistral-7B lineage). V13-A candidate intake — LINEAGE-DIVERSITY play for the Nano/Micro tier (currently Qwen/Gemma-dominant). supports_tools=false: direct /api/chat probe returned "does not support tools" — model template lacks .Tools declaration. bench-mistral7b-uncensored target (tools: []). Mistral base is not otherwise represented in the fleet — same diversity rationale class as lfm2.5:8b. PROMOTE_POLICY=confirm.
+
 ### `gemma4:26b-a4b-it-q4_K_M`
 
 Gemma 4 26B A4B MoE VLM Q4 (~17GB, Apache 2.0, thinking+vision). Retained as fallback; QAT variant promoted to auto-daily primary.
