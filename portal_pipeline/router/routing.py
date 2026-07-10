@@ -925,6 +925,12 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     # Redteam takes priority over security when both exceed threshold
     # (same model family, but redteam is more permissive)
     if "auto-redteam" in scores and "auto-security" in scores and scores["auto-redteam"] >= 5:
+        logger.info(
+            "Auto-routing tiebreak: redteam=%d wins over security=%d "
+            "(same model family; redteam variant is more permissive).",
+            scores["auto-redteam"],
+            scores["auto-security"],
+        )
         return "auto-redteam"
 
     return max(scores, key=lambda k: scores[k])
