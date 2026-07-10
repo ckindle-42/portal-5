@@ -833,10 +833,6 @@ async def _stream_from_backend_guarded(
                             _usage_recorded = True
                         except Exception:
                             logger.debug("Could not parse OpenAI usage chunk from stream")
-                # OpenAI SSE: "data: [DONE]" — TPS already recorded from usage chunk above
-                if line.startswith("data: [DONE]"):
-                    pass
-
                 # ── C-1 measurement probe (no behavior change) ──────────
                 # Observe reasoning-bearing deltas so the promotion-path
                 # divergence can be decided from real traffic. Broad match is
