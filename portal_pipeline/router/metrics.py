@@ -55,7 +55,8 @@ _response_time_seconds = Histogram(
     "portal_response_time_seconds",
     "End-to-end response time (request received to last byte) per model and workspace",
     ["model", "workspace"],
-    buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
+    # Widened to resolve reasoning-workspace P50s (5-20s); old 10-30s gap was flat.
+    buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 30.0, 45.0, 60.0, 120.0],
     registry=_REGISTRY,
 )
 
@@ -117,6 +118,47 @@ _tool_loop_hops = Histogram(
     "Number of hops in the multi-turn tool loop per request",
     ["workspace"],
     buckets=[1, 2, 3, 5, 8, 10, 15, 20],
+    registry=_REGISTRY,
+)
+
+# ── Baseline observability metrics (PIPELINE_REVIEW_V2.md Phase 0) ──────────
+_router_layer_total = Counter(
+    "portal5_router_layer_total",
+    "Auto-routing decisions by which layer produced the answer",
+    ["layer", "workspace"],  # layer: llm | keywords | fallback_auto
+    registry=_REGISTRY,
+)
+_router_latency_seconds = Histogram(
+    "portal5_router_latency_seconds",
+    "Latency of _route_with_llm() end-to-end, by outcome",
+    ["outcome"],  # confident|low_confidence|invalid_workspace|timeout|error|disabled
+    buckets=[0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 2.0, 5.0],
+    registry=_REGISTRY,
+)
+_hint_fallback_total = Counter(
+    "portal5_hint_fallback_total",
+    "Requests where model_hint did not resolve; a fallback model was served",
+    ["workspace", "hinted", "served", "path"],  # path: streaming | non_streaming
+    registry=_REGISTRY,
+)
+_stream_content_yielded_total = Counter(
+    "portal5_stream_content_yielded_total",
+    "Streaming requests that yielded >=1 content chunk (declared for future H-2)",
+    ["workspace", "path"],
+    registry=_REGISTRY,
+)
+# reasoning_promotion_total: measures the C-1 promotion-path divergence on the
+# no-tools (guarded) streaming path WITHOUT changing any promotion behavior.
+#   key       — reasoning key present: 'reasoning' | 'reasoning_content' | 'thinking'
+#   gate_hit  — whether the current narrow gate ('"reasoning"') would fire: 'yes'|'no'
+#   empty_ct  — whether delta.content was empty (promotion-eligible): 'yes'|'no'
+# Lets us see how often a reasoning delta arrives on the no-tools path with a key
+# the current gate misses — the data needed to decide whether to make the guarded
+# path thinking-aware. See PIPELINE_REVIEW_V2 finding C-1.
+_reasoning_promotion_total = Counter(
+    "portal5_reasoning_promotion_total",
+    "Reasoning-bearing deltas observed on the no-tools streaming path",
+    ["key", "gate_hit", "empty_ct"],
     registry=_REGISTRY,
 )
 
