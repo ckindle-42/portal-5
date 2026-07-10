@@ -37,6 +37,7 @@ from portal_pipeline.router.lifespan import (
 )
 from portal_pipeline.router.metrics import (
     _REGISTRY,
+    _hint_fallback_total,
     _record_response_time,
     _requests_total,
 )
@@ -726,6 +727,12 @@ async def chat_completions(
                     backend.id,
                     target_model,
                 )
+                _hint_fallback_total.labels(
+                    workspace=workspace_id,
+                    hinted=model_hint,
+                    served=target_model,
+                    path="streaming",
+                ).inc()
         else:
             if not backend.models:
                 logger.warning(
