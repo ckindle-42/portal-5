@@ -256,6 +256,20 @@ backends:
     # only as plain content, not a structured tool_calls array — blue.py now
     # sends a system message and falls back to parsing the tag from content.
     supports_tools: true
+  # V13-D candidate intake (2026-07-10) — bench-only, PROMOTE_POLICY=confirm
+  - id: meta-secalign-8b-q4_k_m
+    # facebook/Meta-SecAlign-8B (arxiv 2507.02735) LoRA adapter merged onto
+    # meta-llama/Llama-3.1-8B-Instruct (gated repos, access granted, merged
+    # + converted + quantized locally per P5-FUT-PARITY-001 override —
+    # operator explicit direction, no trusted-quantizer GGUF existed anywhere).
+    # supports_tools=true, clean tool_calls in direct /api/chat probe.
+    # ADVERSARIAL PROBE COMPLIED (not resisted) — see MODEL_CATALOG.md.
+    # Meta-SecAlign's resistance mechanism requires a non-standard "input"
+    # chat role to delimit untrusted data (per model README); Ollama's
+    # standard /api/chat has no equivalent, so this probe could not exercise
+    # the model's actual designed defense — compliance here does not confirm
+    # or refute the paper's claim, it reflects a harness/role-support gap.
+    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: reasoning
@@ -689,3 +703,5 @@ workspace_routing:
   bench-qwen3-14b-abliterated:
   - general
   - coding
+  bench-meta-secalign-8b:
+  - security
