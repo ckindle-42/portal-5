@@ -36,7 +36,11 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from portal_pipeline.router.metrics import _record_response_time, _tool_loop_hops
+from portal_pipeline.router.metrics import (
+    _reasoning_promotion_total,
+    _record_response_time,
+    _tool_loop_hops,
+)
 from portal_pipeline.router.state import _record_error
 from portal_pipeline.router.thinking import extract_think_inner, strip_think
 from portal_pipeline.router.tools import _dispatch_tool_call
@@ -832,6 +836,29 @@ async def _stream_from_backend_guarded(
                 # OpenAI SSE: "data: [DONE]" — TPS already recorded from usage chunk above
                 if line.startswith("data: [DONE]"):
                     pass
+
+                # ── C-1 measurement probe (no behavior change) ──────────
+                # Observe reasoning-bearing deltas so the promotion-path
+                # divergence can be decided from real traffic. Broad match is
+                # measurement-only; the promotion gate below is unchanged.
+                # See PIPELINE_REVIEW_V2 finding C-1.
+                if '"reasoning' in line or '"thinking"' in line:
+                    try:
+                        _probe_payload = line[5:].strip() if line.startswith("data:") else ""
+                        if _probe_payload and _probe_payload != "[DONE]":
+                            _probe_obj = json.loads(_probe_payload)
+                            for _pc in _probe_obj.get("choices", []):
+                                _pd = _pc.get("delta", {})
+                                for _k in ("reasoning", "reasoning_content", "thinking"):
+                                    if _pd.get(_k):
+                                        _reasoning_promotion_total.labels(
+                                            key=_k,
+                                            gate_hit=("yes" if '"reasoning"' in line else "no"),
+                                            empty_ct=("yes" if not _pd.get("content") else "no"),
+                                        ).inc()
+                                        break
+                    except Exception:
+                        pass  # measurement must never affect the stream
 
                 # Reasoning-model deltas under Ollama /v1: keep the behaviour,
                 # fix the attribution — promote reasoning → content.
