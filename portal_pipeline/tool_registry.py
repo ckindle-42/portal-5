@@ -201,11 +201,11 @@ class ToolRegistry:
         Behaviour beyond the bare description:
 
         * **Rate-limited**: refreshes are no-ops if the last one was less than
-          ``TOOL_REGISTRY_REFRESH_S`` ago (default 1h). The lock-then-check
-          pattern means concurrent callers inside the TTL window all see the
-          bail-out and return the current count; only the first call does
-          work. ``force=True`` bypasses the TTL (used by
-          ``POST /admin/refresh-tools``).
+          ``TOOL_REGISTRY_REFRESH_S`` ago (default 1h). A lockless fast-path
+          checks the TTL before acquiring ``_refresh_lock``; callers inside the
+          window return immediately without contending. A second check under the
+          lock ensures only the first of any concurrent expiries does work.
+          ``force=True`` bypasses the TTL (used by ``POST /admin/refresh-tools``).
         * **Parallel discovery**: all MCPs are probed concurrently via
           ``asyncio.gather(..., return_exceptions=True)``. One MCP being
           down does not block discovery of others.
@@ -226,7 +226,16 @@ class ToolRegistry:
         Returns:
             Number of tools currently registered after the refresh.
         """
+        # Lockless fast path — TTL check without acquiring _refresh_lock.
+        # Under CPython the GIL guarantees a coherent read of _last_refresh
+        # and _tools; both are only mutated together at successful-refresh
+        # finish under the lock, so a stale-but-consistent read is safe.
+        if not force and time.time() - self._last_refresh < TOOL_REGISTRY_REFRESH_S:
+            return len(self._tools)
+
         async with self._refresh_lock:
+            # Re-check under the lock: concurrent callers can both pass the
+            # lockless check; only the first should do the work.
             now = time.time()
             if not force and now - self._last_refresh < TOOL_REGISTRY_REFRESH_S:
                 return len(self._tools)
