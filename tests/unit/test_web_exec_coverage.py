@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import pytest
 
-from tests.benchmarks.bench_security.exec_chain import (
+from portal.modules.security.core.exec_chain import (
     _BASH_TECHNIQUE_SIGNALS,
     CHAIN_TOOLS_BASE,
     INLINE_TOOLS,
     SCENARIOS,
 )
-from tests.benchmarks.bench_security.scoring import accumulate_observations
+from portal.modules.security.core.scoring import accumulate_observations
 
 # ── Web scenario structure ────────────────────────────────────────────────────
 

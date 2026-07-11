@@ -1,5 +1,7 @@
-"""siem — Splunk SIEM integration for Portal 5 security bench.
+"""SHIM — moved to portal.modules.security.core.siem. Removed in the final cleanup slice."""
 
-Provides: HEC ingestion, SplunkBackend query, telemetry collection,
-SPL detection library, blue-triage loop, and index-wait gate.
-"""
+import sys
+
+import portal.modules.security.core.siem as _real
+
+sys.modules[__name__] = _real

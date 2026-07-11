@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.benchmarks.bench_security._sweep_driver import _compute_arm_deltas
+from portal.modules.security.core._sweep_driver import _compute_arm_deltas
 
 
 def _make_result(

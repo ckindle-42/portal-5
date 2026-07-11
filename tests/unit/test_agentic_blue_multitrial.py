@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.benchmarks.bench_security._sweep_driver import (
+from portal.modules.security.core._sweep_driver import (
     _aggregate_trials,
     _classify_cell,
     _mean_stdev,

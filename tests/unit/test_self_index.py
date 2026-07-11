@@ -96,7 +96,7 @@ class TestBuildSelfIndex:
     def test_reads_validator_health(self, sample_validator_json, monkeypatch, tmp_path):
         """Validator health returns structured view with checks."""
         monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _fake_run(sample_validator_json))
-        from tests.benchmarks.bench_security.self_index import _read_validator_health
+        from portal.modules.security.core.self_index import _read_validator_health
 
         health = _read_validator_health()
         assert health["status"] == "present"
@@ -107,7 +107,7 @@ class TestBuildSelfIndex:
 
     def test_reads_oracle_fidelity_registry(self, monkeypatch):
         """Oracle fidelity reads the ORACLES registry directly — always present."""
-        from tests.benchmarks.bench_security.self_index import _read_oracle_fidelity
+        from portal.modules.security.core.self_index import _read_oracle_fidelity
 
         fidelity = _read_oracle_fidelity()
         assert fidelity["status"] == "present"
@@ -120,24 +120,24 @@ class TestBuildSelfIndex:
 
     def test_coverage_stale_when_no_results(self, monkeypatch, tmp_path):
         """Coverage reports stale when no recent bench results exist."""
-        from tests.benchmarks.bench_security.self_index import _read_coverage
+        from portal.modules.security.core.self_index import _read_coverage
 
         empty_results_dir = tmp_path / "empty_results"
         empty_results_dir.mkdir()
         empty_extra_dir = tmp_path / "empty_extra_results"
         empty_extra_dir.mkdir()
         monkeypatch.setattr(
-            "tests.benchmarks.bench_security.self_index._RESULTS_DIR", empty_results_dir
+            "portal.modules.security.core.self_index._RESULTS_DIR", empty_results_dir
         )
         monkeypatch.setattr(
-            "tests.benchmarks.bench_security.self_index._EXTRA_RESULTS_DIR", empty_extra_dir
+            "portal.modules.security.core.self_index._EXTRA_RESULTS_DIR", empty_extra_dir
         )
         coverage = _read_coverage()
         assert coverage["status"] in ("stale", "absent")
 
     def test_discipline_breadth_present(self):
         """Discipline breadth reads from PROMPTS — always present."""
-        from tests.benchmarks.bench_security.self_index import _read_discipline_breadth
+        from portal.modules.security.core.self_index import _read_discipline_breadth
 
         disc = _read_discipline_breadth()
         assert disc["status"] == "present"
@@ -148,23 +148,21 @@ class TestBuildSelfIndex:
 
     def test_journal_absent_when_no_entries(self, monkeypatch, tmp_path):
         """Journal returns absent when no entries exist."""
-        from tests.benchmarks.bench_security.self_index import _read_journal_summary
+        from portal.modules.security.core.self_index import _read_journal_summary
 
         empty_journal = tmp_path / "empty_journal"
         empty_journal.mkdir()
-        monkeypatch.setattr(
-            "tests.benchmarks.bench_security.self_index._JOURNAL_DIR", empty_journal
-        )
+        monkeypatch.setattr("portal.modules.security.core.self_index._JOURNAL_DIR", empty_journal)
         journal = _read_journal_summary()
         assert journal["status"] == "absent"
         assert journal["total_entries"] == 0
 
     def test_journal_reads_index(self, sample_journal_entries, monkeypatch):
         """Journal summary reads from _index.json when present."""
-        from tests.benchmarks.bench_security.self_index import _read_journal_summary
+        from portal.modules.security.core.self_index import _read_journal_summary
 
         monkeypatch.setattr(
-            "tests.benchmarks.bench_security.self_index._JOURNAL_DIR", sample_journal_entries
+            "portal.modules.security.core.self_index._JOURNAL_DIR", sample_journal_entries
         )
         journal = _read_journal_summary()
         assert journal["status"] == "present"
@@ -173,12 +171,12 @@ class TestBuildSelfIndex:
 
     def test_journal_reads_entries_without_index(self, sample_journal_entries, monkeypatch):
         """Journal summary reads raw entries when _index.json is missing."""
-        from tests.benchmarks.bench_security.self_index import _read_journal_summary
+        from portal.modules.security.core.self_index import _read_journal_summary
 
         # Remove the index file
         (sample_journal_entries / "_index.json").unlink()
         monkeypatch.setattr(
-            "tests.benchmarks.bench_security.self_index._JOURNAL_DIR", sample_journal_entries
+            "portal.modules.security.core.self_index._JOURNAL_DIR", sample_journal_entries
         )
         journal = _read_journal_summary()
         assert journal["status"] == "stale"
@@ -186,7 +184,7 @@ class TestBuildSelfIndex:
 
     def test_build_self_index_structure(self):
         """Full build_self_index returns all five top-level keys."""
-        from tests.benchmarks.bench_security.self_index import build_self_index
+        from portal.modules.security.core.self_index import build_self_index
 
         index = build_self_index()
         assert set(index.keys()) == {
@@ -202,7 +200,7 @@ class TestBuildSelfIndex:
 
     def test_read_only_no_writes_outside_report(self, monkeypatch, tmp_path):
         """build_self_index performs no filesystem writes (read-only guarantee)."""
-        from tests.benchmarks.bench_security.self_index import (
+        from portal.modules.security.core.self_index import (
             _SELF_DIR,
             build_self_index,
         )
@@ -210,8 +208,8 @@ class TestBuildSelfIndex:
         # Point all directories to empty tmp_paths
         empty = tmp_path / "empty_no_writes"
         empty.mkdir()
-        monkeypatch.setattr("tests.benchmarks.bench_security.self_index._RESULTS_DIR", empty)
-        monkeypatch.setattr("tests.benchmarks.bench_security.self_index._JOURNAL_DIR", empty)
+        monkeypatch.setattr("portal.modules.security.core.self_index._RESULTS_DIR", empty)
+        monkeypatch.setattr("portal.modules.security.core.self_index._JOURNAL_DIR", empty)
         # Also patch the validator subprocess to avoid real execution
         monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _fake_run_validator())
 
@@ -341,7 +339,7 @@ class TestRankWeaknesses:
         }
 
     def test_ranking_includes_failing_checks(self, sample_index):
-        from tests.benchmarks.bench_security.self_index import rank_weaknesses
+        from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
         failing = [w for w in weaknesses if w["kind"] == "failing_check"]
@@ -349,7 +347,7 @@ class TestRankWeaknesses:
         assert failing[0]["score"] == 30
 
     def test_ranking_includes_heuristic_oracles(self, sample_index):
-        from tests.benchmarks.bench_security.self_index import rank_weaknesses
+        from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
         heuristic_oracles = [w for w in weaknesses if w["kind"].startswith("oracle_tier_")]
@@ -363,7 +361,7 @@ class TestRankWeaknesses:
         assert exp[0]["score"] == 10  # oracle_experimental
 
     def test_ranking_includes_zero_verified_classes(self, sample_index):
-        from tests.benchmarks.bench_security.self_index import rank_weaknesses
+        from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
         zero_verified = [w for w in weaknesses if w["kind"] == "class_zero_verified"]
@@ -372,7 +370,7 @@ class TestRankWeaknesses:
         assert zero_verified[0]["score"] == 25
 
     def test_ranking_includes_red_machines(self, sample_index):
-        from tests.benchmarks.bench_security.self_index import rank_weaknesses
+        from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
         red_machines = [w for w in weaknesses if w["kind"] == "machine_red_coverage"]
@@ -381,7 +379,7 @@ class TestRankWeaknesses:
         assert red_machines[0]["score"] == 25
 
     def test_ranking_includes_discipline_gaps(self, sample_index):
-        from tests.benchmarks.bench_security.self_index import rank_weaknesses
+        from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
         red_only = [w for w in weaknesses if w["kind"] == "discipline_red_only"]
@@ -392,7 +390,7 @@ class TestRankWeaknesses:
         assert absent[0]["area"] == "discipline:cloud"
 
     def test_ranking_includes_recurring_journal_failures(self, sample_index):
-        from tests.benchmarks.bench_security.self_index import rank_weaknesses
+        from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
         journal_weak = [w for w in weaknesses if w["kind"] == "journal_recurring_failure"]
@@ -401,7 +399,7 @@ class TestRankWeaknesses:
         assert "network timeout" in journal_weak[0]["evidence"]
 
     def test_ranking_includes_heuristic_only_scenarios(self, sample_index):
-        from tests.benchmarks.bench_security.self_index import rank_weaknesses
+        from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
         heuristic_scenarios = [w for w in weaknesses if w["kind"] == "scenario_heuristic_only"]
@@ -410,14 +408,14 @@ class TestRankWeaknesses:
         assert heuristic_scenarios[0]["score"] == 15
 
     def test_ranking_deterministic_ordering(self, sample_index):
-        from tests.benchmarks.bench_security.self_index import rank_weaknesses
+        from portal.modules.security.core.self_index import rank_weaknesses
 
         w1 = rank_weaknesses(sample_index)
         w2 = rank_weaknesses(sample_index)
         assert w1 == w2
 
     def test_ranking_score_formula_inspectable(self, sample_index):
-        from tests.benchmarks.bench_security.self_index import rank_weaknesses
+        from portal.modules.security.core.self_index import rank_weaknesses
 
         weaknesses = rank_weaknesses(sample_index)
         for w in weaknesses:
@@ -431,7 +429,7 @@ class TestRankWeaknesses:
 
     def test_absent_signals_marked_not_fabricated(self, monkeypatch, tmp_path):
         """When signals are absent, they are marked as such — no invented counts."""
-        from tests.benchmarks.bench_security.self_index import build_self_index, rank_weaknesses
+        from portal.modules.security.core.self_index import build_self_index, rank_weaknesses
 
         # Mock subprocess to avoid running real validator
         monkeypatch.setattr(
@@ -454,8 +452,8 @@ class TestRankWeaknesses:
         # Point results/journal dirs to empty tmp dirs
         empty = tmp_path / "empty_no_data"
         empty.mkdir()
-        monkeypatch.setattr("tests.benchmarks.bench_security.self_index._RESULTS_DIR", empty)
-        monkeypatch.setattr("tests.benchmarks.bench_security.self_index._JOURNAL_DIR", empty)
+        monkeypatch.setattr("portal.modules.security.core.self_index._RESULTS_DIR", empty)
+        monkeypatch.setattr("portal.modules.security.core.self_index._JOURNAL_DIR", empty)
 
         index = build_self_index()
         # coverage may be stale/absent if no recent results — no fabricated VERIFIED counts

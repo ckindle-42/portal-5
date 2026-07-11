@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tests.benchmarks.bench_security.playbooks import (
+from portal.modules.security.core.playbooks import (
     list_playbooks,
     load_playbook,
     resolve_phases,

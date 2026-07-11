@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Portal 5 — Security Model Benchmark (refactored package).
 
-All implementation lives in the bench_security/ package.
-This module is a thin re-export shim for backward compatibility.
+All implementation now lives in portal/modules/security/core/ (relocated
+intact per BUILD-SPEC-PORTAL-MODULES-V1 Slice 3). This module is a thin
+re-export shim for backward compatibility.
 
 Usage:
     python3 -m tests.benchmarks.bench_security [args...]
 """
 
-from bench_security import (  # noqa: F401
+from portal.modules.security.core import (  # noqa: F401
     CHAIN_INHERITANCE,
     DEFAULT_WORKSPACES,
     DISCLAIMER_PATTERNS,

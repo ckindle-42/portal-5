@@ -1,20 +1,7 @@
-"""Investigation layer — agents, evidence, case notebook.
+"""SHIM — moved to portal.modules.security.core.investigation. Removed in the final cleanup slice."""
 
-Phase 6 of BUILD_PROGRAM_SEC_RBP_V1.
-"""
+import sys
 
-from .case_notebook import CaseNotebook
-from .evidence import (
-    EvidenceRecord,
-    EvidenceStore,
-    SourceAuthority,
-    new_evidence_id,
-)
+import portal.modules.security.core.investigation as _real
 
-__all__ = [
-    "CaseNotebook",
-    "EvidenceRecord",
-    "EvidenceStore",
-    "SourceAuthority",
-    "new_evidence_id",
-]
+sys.modules[__name__] = _real

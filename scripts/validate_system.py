@@ -365,8 +365,8 @@ def check_unit_tests(*, skip_env_only: bool = True) -> tuple[str, str, list[dict
 def check_bench_security_catalog() -> tuple[str, str, list[dict]]:
     """J. bench_security catalog covers every live security workspace."""
     try:
+        from portal.modules.security.core import DEFAULT_WORKSPACES
         from portal.platform.inference.config import load_portal_config
-        from tests.benchmarks.bench_security import DEFAULT_WORKSPACES
     except ImportError as e:
         return "SKIP", f"import: {e}", []
 
@@ -551,7 +551,7 @@ def check_bench_parallel_dispatch_safety() -> tuple[str, str, list[dict]]:
     place. A refactor that reverts to serial-only or drops the lock without
     documentation will fail this check.
     """
-    target = REPO_ROOT / "tests" / "benchmarks" / "bench_security" / "commands" / "run.py"
+    target = REPO_ROOT / "portal" / "modules" / "security" / "core" / "commands" / "run.py"
     if not target.exists():
         return "FAIL", f"missing {target}", []
     src = target.read_text()
@@ -579,11 +579,11 @@ def check_oracle_registry_consistency() -> tuple[str, str, list[dict]]:
     """P. Every exec scenario with an 'oracle' field names a registered oracle."""
     subs: list[dict] = []
     try:
-        from tests.benchmarks.bench_security.oracles import ORACLES
+        from portal.modules.security.core.oracles import ORACLES
     except ImportError:
         return "SKIP", "oracles module not found", []
 
-    from tests.benchmarks.bench_security._data import EXEC_SEQUENCES, PROMPTS
+    from portal.modules.security.core._data import EXEC_SEQUENCES, PROMPTS
 
     missing = []
     scenario_count = 0
@@ -644,7 +644,7 @@ def check_playbook_validation() -> tuple[str, str, list[dict]]:
         return "SKIP", "playbooks/security/ not found", []
 
     try:
-        from tests.benchmarks.bench_security.playbooks import load_playbook, validate_playbook
+        from portal.modules.security.core.playbooks import load_playbook, validate_playbook
     except ImportError:
         return "SKIP", "playbooks module not found", []
 
@@ -716,7 +716,7 @@ def check_loop_dry_run() -> tuple[str, str, list[dict]]:
     subs: list[dict] = []
     playbook_dir = REPO_ROOT / "playbooks" / "security"
     try:
-        from tests.benchmarks.bench_security.loop import run_engagement
+        from portal.modules.security.core.loop import run_engagement
     except ImportError:
         return "SKIP", "loop module not found", []
 
@@ -779,11 +779,11 @@ def check_ability_port() -> tuple[str, str, list[dict]]:
     """W. ability_port defines real detect functions (not description strings)."""
     subs: list[dict] = []
     try:
-        from tests.benchmarks.bench_security.ability_port import (
+        from portal.modules.security.core.ability_port import (
             PROBE_DEFS,
             register_ported_oracles,
         )
-        from tests.benchmarks.bench_security.oracles import ORACLES
+        from portal.modules.security.core.oracles import ORACLES
 
         register_ported_oracles()
         ptai = [k for k in ORACLES if k.startswith("ptai_")]
@@ -803,7 +803,7 @@ def check_ability_port() -> tuple[str, str, list[dict]]:
     try:
         import ast
 
-        with open("tests/benchmarks/bench_security/ability_port.py") as f:
+        with open("portal/modules/security/core/ability_port.py") as f:
             src = f.read()
         assert "detect_sig" not in src, "detect_sig stubs present"
         t = ast.parse(src)
@@ -869,7 +869,7 @@ def check_labexec_coverage() -> tuple[str, str, list[dict]]:
 
     # Check: no scenario that names a live target IP falls back to synthetic by default
     try:
-        from bench_security.lab import _lab_dispatch_inner
+        from portal.modules.security.core.lab import _lab_dispatch_inner
 
         for fn_name in [
             "web_request",
@@ -911,8 +911,8 @@ def check_scenario_oracle_matrix() -> tuple[str, str, list[dict]]:
     problems: list[str] = []
 
     try:
-        from tests.benchmarks.bench_security._data import PROMPTS
-        from tests.benchmarks.bench_security.oracles import ORACLES
+        from portal.modules.security.core._data import PROMPTS
+        from portal.modules.security.core.oracles import ORACLES
     except ImportError as e:
         return "SKIP", f"import: {e}", []
 
@@ -990,7 +990,7 @@ def check_self_index_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 1: self_index module imports cleanly
     try:
-        from tests.benchmarks.bench_security.self_index import (
+        from portal.modules.security.core.self_index import (
             _SCORE_RULES,
             build_self_index,
             rank_weaknesses,
@@ -1230,7 +1230,7 @@ def check_live_exec_integrity() -> tuple[str, str, list[dict]]:
     subs: list[dict] = []
 
     try:
-        from tests.benchmarks.bench_security.matrix import (
+        from portal.modules.security.core.matrix import (
             _PHASE_MAP,
             RunUnit,
             _execute_unit,
@@ -1273,7 +1273,7 @@ def check_live_exec_integrity() -> tuple[str, str, list[dict]]:
     # Check 3: dispatcher no longer stubbed (return "").
     import inspect
 
-    from tests.benchmarks.bench_security.matrix import _run_against_target
+    from portal.modules.security.core.matrix import _run_against_target
 
     dispatch_src = inspect.getsource(_run_against_target)
     not_stubbed = "return DISPATCH_NOT_RUN" in dispatch_src and 'return ""' not in dispatch_src
@@ -1329,8 +1329,8 @@ def check_stage2_propose_integrity() -> tuple[str, str, list[dict]]:
     subs: list[dict] = []
 
     try:
-        from tests.benchmarks.bench_security.oracles import ORACLES
-        from tests.benchmarks.bench_security.stage2_propose import (
+        from portal.modules.security.core.oracles import ORACLES
+        from portal.modules.security.core.stage2_propose import (
             apply_batch,
             goal_eval,
             run_stage2,
@@ -1379,7 +1379,7 @@ def check_stage2_propose_integrity() -> tuple[str, str, list[dict]]:
     subs.append({"name": "false-promotion guard", "status": "PASS"})
 
     # Check 3: running propose without --apply writes nothing to oracle source files
-    import tests.benchmarks.bench_security.stage2_propose as s2
+    import portal.modules.security.core.stage2_propose as s2
 
     oracles_before = s2._ORACLES_PY.read_text()
     ability_before = s2._ABILITY_PORT_PY.read_text()
@@ -1444,7 +1444,7 @@ def check_kali_rescore_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 1: CHAIN_TOOLS_BASE exposes execute_bash/execute_python
     try:
-        from tests.benchmarks.bench_security.exec_chain import CHAIN_TOOLS_BASE
+        from portal.modules.security.core.exec_chain import CHAIN_TOOLS_BASE
 
         names = {t.get("function", {}).get("name") for t in CHAIN_TOOLS_BASE}
         if "execute_bash" not in names:
@@ -1463,7 +1463,7 @@ def check_kali_rescore_integrity() -> tuple[str, str, list[dict]]:
     try:
         import inspect
 
-        from tests.benchmarks.bench_security.lab import _lab_dispatch_inner
+        from portal.modules.security.core.lab import _lab_dispatch_inner
 
         src = inspect.getsource(_lab_dispatch_inner)
         if 'fn_name == "execute_bash"' not in src:
@@ -1482,7 +1482,7 @@ def check_kali_rescore_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 3: Honesty guard — no credit without real output
     try:
-        from tests.benchmarks.bench_security.scoring import accumulate_observations
+        from portal.modules.security.core.scoring import accumulate_observations
 
         obs: dict = {}
         accumulate_observations("execute_bash", "", obs)
@@ -1500,7 +1500,7 @@ def check_kali_rescore_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 4: Web scenarios use execute_bash and target LXC 112
     try:
-        from tests.benchmarks.bench_security.exec_chain import SCENARIOS
+        from portal.modules.security.core.exec_chain import SCENARIOS
 
         web_scenarios = [
             "web_sqli_dump",
@@ -1556,7 +1556,7 @@ def check_coverage_expansion_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 1: Every scenario has detect_ground_truth (blue-scorable)
     try:
-        from tests.benchmarks.bench_security.exec_chain import SCENARIOS
+        from portal.modules.security.core.exec_chain import SCENARIOS
 
         allowed_empty = {"mbptl_ctf_full_chain"}
         red_only = [
@@ -1632,7 +1632,7 @@ def check_coverage_expansion_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 4: New techniques have SPL detections
     try:
-        from tests.benchmarks.bench_security.siem.spl_detections import techniques_covered
+        from portal.modules.security.core.siem.spl_detections import techniques_covered
 
         new_techniques: set[str] = set()
         for name in SCENARIOS:
@@ -1688,7 +1688,7 @@ def check_coverage_expansion_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 7: All techniques have SPL or are recorded blue-gaps
     try:
-        from tests.benchmarks.bench_security.siem.spl_detections import techniques_covered
+        from portal.modules.security.core.siem.spl_detections import techniques_covered
 
         blue_gaps = {"T1078.004", "T1537"}  # cloud telemetry not in lab
         all_techniques: set[str] = set()
@@ -1737,7 +1737,7 @@ def check_candidate_eval_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 1: candidate_eval module exists and is importable
     try:
-        from tests.benchmarks.bench_security.candidate_eval import (
+        from portal.modules.security.core.candidate_eval import (
             CANDIDATE_EVAL_SCENARIOS,
             CANDIDATES_DIR,
             _build_step_models,
@@ -1750,7 +1750,7 @@ def check_candidate_eval_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 2: CANDIDATE_EVAL_SCENARIOS are valid
     try:
-        from tests.benchmarks.bench_security.exec_chain import SCENARIOS
+        from portal.modules.security.core.exec_chain import SCENARIOS
 
         for name in CANDIDATE_EVAL_SCENARIOS:
             if name not in SCENARIOS:
@@ -1830,7 +1830,7 @@ def check_candidate_eval_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 6: self-index does not pick up candidate files
     try:
-        from tests.benchmarks.bench_security.self_index import _complete_result_files
+        from portal.modules.security.core.self_index import _complete_result_files
 
         files = _complete_result_files()
         candidate_leaks = [str(f) for f in files if "candidates/" in str(f)]
@@ -1850,7 +1850,7 @@ def check_candidate_eval_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 7: incumbent resolves to a real fleet model
     try:
-        from tests.benchmarks.bench_security.candidate_eval import _get_incumbent_model
+        from portal.modules.security.core.candidate_eval import _get_incumbent_model
 
         for slot in ("recon", "exploit", "post"):
             model = _get_incumbent_model(slot)
@@ -1872,7 +1872,7 @@ def check_candidate_eval_integrity() -> tuple[str, str, list[dict]]:
 
     # Check 8: step_models never contains empty string
     try:
-        from tests.benchmarks.bench_security.candidate_eval import _get_incumbent_model
+        from portal.modules.security.core.candidate_eval import _get_incumbent_model
 
         for slot in ("recon", "exploit", "post"):
             inc = _get_incumbent_model(slot)
@@ -2093,7 +2093,7 @@ def check_rbp_evidence_grounding() -> tuple[str, str, list[dict]]:
 
     # Check 1: episode module imports cleanly
     try:
-        from tests.benchmarks.bench_security.episode import (
+        from portal.modules.security.core.episode import (
             Episode,
             derive_verdict,
         )
@@ -2144,7 +2144,7 @@ def check_rbp_evidence_grounding() -> tuple[str, str, list[dict]]:
 
     # Check 4: _score_purple produces episode + verdict + model_competence_score
     try:
-        from tests.benchmarks.bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         red_result = {
             "model": "probe",
@@ -2191,9 +2191,10 @@ def check_rbp_evidence_grounding() -> tuple[str, str, list[dict]]:
     try:
         matrix_py = (
             Path(__file__).resolve().parent.parent
-            / "tests"
-            / "benchmarks"
-            / "bench_security"
+            / "portal"
+            / "modules"
+            / "security"
+            / "core"
             / "matrix.py"
         )
         content = matrix_py.read_text()
@@ -2225,7 +2226,7 @@ def check_telemetry_contracts() -> tuple[str, str, list[dict]]:
 
     # Check 1: canonical protocol importable
     try:
-        from tests.benchmarks.bench_security.telemetry import (
+        from portal.modules.security.core.telemetry import (
             CONTRACTS,
             TelemetryBackend,
             check_source_health,
@@ -2240,7 +2241,7 @@ def check_telemetry_contracts() -> tuple[str, str, list[dict]]:
     try:
         import inspect
 
-        from tests.benchmarks.bench_security import telemetry
+        from portal.modules.security.core import telemetry
 
         count = sum(
             1
@@ -2328,7 +2329,7 @@ def check_capability_graph() -> tuple[str, str, list[dict]]:
 
     # Check 1: graph seeds
     try:
-        from tests.benchmarks.bench_security.capability_graph import (
+        from portal.modules.security.core.capability_graph import (
             classify_gap,
             generate_coverage_json,
             seed_graph_from_assets,

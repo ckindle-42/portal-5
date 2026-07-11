@@ -30,8 +30,8 @@ def seed_technique_signatures(dry_run: bool = False) -> list[KnowledgeUnit]:
     Returns list of units created.
     """
     _ensure_bench_path()
-    from bench_security.exec_chain import SCENARIOS
-    from bench_security.siem.spl_detections import spl_for, technique_reference
+    from portal.modules.security.core.exec_chain import SCENARIOS
+    from portal.modules.security.core.siem.spl_detections import spl_for, technique_reference
 
     ref = technique_reference()
     units: list[KnowledgeUnit] = []
@@ -186,7 +186,7 @@ def seed_dcsync_specifically(dry_run: bool = False) -> KnowledgeUnit | None:
     This directly addresses P5-SEC-BLUE-MITRE-001 (DCSync never identified).
     """
     _ensure_bench_path()
-    from bench_security.siem.spl_detections import spl_for
+    from portal.modules.security.core.siem.spl_detections import spl_for
 
     spl = spl_for("T1003.006")
     if not spl:

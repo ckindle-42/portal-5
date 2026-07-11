@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tests.benchmarks.bench_security.validation import validate_usecase
+from portal.modules.security.core.validation import validate_usecase
 
 
 class TestValidateUsecase:
@@ -20,6 +20,6 @@ class TestValidateUsecase:
         assert result["usecase"] == "test-usecase"
 
     def test_no_lab_exec_indeterminate(self, monkeypatch):
-        monkeypatch.setattr("tests.benchmarks.bench_security.validation._LAB_EXEC_AVAILABLE", False)
+        monkeypatch.setattr("portal.modules.security.core.validation._LAB_EXEC_AVAILABLE", False)
         result = validate_usecase({"name": "test"})
         assert result["status"] == "indeterminate"

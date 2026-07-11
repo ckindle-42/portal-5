@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security.blue import _cite_or_drop
+from portal.modules.security.core.blue import _cite_or_drop
 
 
 class TestCiteOrDrop:

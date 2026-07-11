@@ -23,19 +23,19 @@ class TestTelemetryBackendProtocol:
     """Prove the protocol is satisfied by all backends."""
 
     def test_winrm_backend_satisfies_protocol(self):
-        from tests.benchmarks.bench_security.blue import WinEventBackend
-        from tests.benchmarks.bench_security.telemetry import TelemetryBackend
+        from portal.modules.security.core.blue import WinEventBackend
+        from portal.modules.security.core.telemetry import TelemetryBackend
 
         assert isinstance(WinEventBackend(), TelemetryBackend)
 
     def test_splunk_backend_satisfies_protocol(self):
-        from tests.benchmarks.bench_security.blue import SplunkBackend
-        from tests.benchmarks.bench_security.telemetry import TelemetryBackend
+        from portal.modules.security.core.blue import SplunkBackend
+        from portal.modules.security.core.telemetry import TelemetryBackend
 
         assert isinstance(SplunkBackend(), TelemetryBackend)
 
     def test_contract_for_technique_returns_winevent_for_ad_targets(self):
-        from tests.benchmarks.bench_security.telemetry import (
+        from portal.modules.security.core.telemetry import (
             CONTRACT_WINEVENT_AD,
             contract_for_technique,
         )
@@ -45,7 +45,7 @@ class TestTelemetryBackendProtocol:
             assert contract.id == CONTRACT_WINEVENT_AD.id, f"{target} should use winevent-ad"
 
     def test_contract_for_technique_returns_splunk_for_web_targets(self):
-        from tests.benchmarks.bench_security.telemetry import (
+        from portal.modules.security.core.telemetry import (
             CONTRACT_SPLUNK_WEB,
             contract_for_technique,
         )
@@ -59,7 +59,7 @@ class TestWinEventBackend:
     """WinEventBackend behavior — synthetic fallback when no lab."""
 
     def test_synthetic_fallback_without_lab(self):
-        from tests.benchmarks.bench_security.blue import WinEventBackend
+        from portal.modules.security.core.blue import WinEventBackend
 
         backend = WinEventBackend()
         result = backend.query("T1558.003", {})
@@ -68,7 +68,7 @@ class TestWinEventBackend:
         assert "telemetry" in result
 
     def test_unknown_technique_returns_empty(self):
-        from tests.benchmarks.bench_security.blue import WinEventBackend
+        from portal.modules.security.core.blue import WinEventBackend
 
         backend = WinEventBackend()
         result = backend.query("T9999.999", {})
@@ -80,7 +80,7 @@ class TestSplunkBackend:
     """SplunkBackend — synthetic-fallback when Splunk unreachable."""
 
     def test_synthetic_fallback_when_no_splunk(self):
-        from tests.benchmarks.bench_security.blue import SplunkBackend
+        from portal.modules.security.core.blue import SplunkBackend
 
         backend = SplunkBackend()
         backend.url = "https://127.0.0.1:1"  # unreachable
@@ -89,7 +89,7 @@ class TestSplunkBackend:
         assert result["backend"] == "splunk"
 
     def test_unknown_technique_returns_synthetic_fallback(self):
-        from tests.benchmarks.bench_security.blue import SplunkBackend
+        from portal.modules.security.core.blue import SplunkBackend
 
         backend = SplunkBackend()
         result = backend.query("T9999.999", {})
@@ -103,7 +103,7 @@ class TestHecShip:
     """hec_ship.py — dry-run envelope construction, no network."""
 
     def test_ship_dry_run(self):
-        from tests.benchmarks.bench_security.siem.hec_ship import ship
+        from portal.modules.security.core.siem.hec_ship import ship
 
         result = ship(
             {"msg": "test", "status": 200},
@@ -119,7 +119,7 @@ class TestHecShip:
         assert result["envelope"]["index"] == "portal5_lab"
 
     def test_ship_batch_dry_run(self):
-        from tests.benchmarks.bench_security.siem.hec_ship import ship_batch
+        from portal.modules.security.core.siem.hec_ship import ship_batch
 
         events = [{"raw": "line1"}, {"raw": "line2"}, {"raw": "line3"}]
         result = ship_batch(events, sourcetype="linux:auditd", host="dc01", dry_run=True)
@@ -127,7 +127,7 @@ class TestHecShip:
         assert result["count"] == 3
 
     def test_ship_builds_valid_envelope(self):
-        from tests.benchmarks.bench_security.siem.hec_ship import ship
+        from portal.modules.security.core.siem.hec_ship import ship
 
         result = ship(
             "raw log line",
@@ -151,14 +151,14 @@ class TestSplDetections:
     """spl_detections.yaml — parses and covers matrix techniques."""
 
     def test_yaml_parses(self):
-        from tests.benchmarks.bench_security.siem.spl_detections import _load
+        from portal.modules.security.core.siem.spl_detections import _load
 
         data = _load()
         assert isinstance(data, dict)
         assert len(data) > 0
 
     def test_every_technique_has_spl(self):
-        from tests.benchmarks.bench_security.siem.spl_detections import spl_for
+        from portal.modules.security.core.siem.spl_detections import spl_for
 
         required = [
             "T1190",
@@ -180,14 +180,14 @@ class TestSplDetections:
             assert len(spl) > 10
 
     def test_techniques_covered(self):
-        from tests.benchmarks.bench_security.siem.spl_detections import techniques_covered
+        from portal.modules.security.core.siem.spl_detections import techniques_covered
 
         covered = techniques_covered()
         assert len(covered) >= 11
         assert "T1190" in covered
 
     def test_technique_reference_returns_descriptions(self):
-        from tests.benchmarks.bench_security.siem.spl_detections import technique_reference
+        from portal.modules.security.core.siem.spl_detections import technique_reference
 
         ref = technique_reference()
         assert isinstance(ref, dict)
@@ -204,16 +204,16 @@ class TestBlueInitialPrompt:
     live Kerberoasting/DCSync telemetry with no reference material in prompt)."""
 
     def test_prompt_includes_technique_reference(self):
-        from tests.benchmarks.bench_security.blue import BLUE_INITIAL_PROMPT
+        from portal.modules.security.core.blue import BLUE_INITIAL_PROMPT
 
         assert "T1558.003" in BLUE_INITIAL_PROMPT
         assert "Kerberoasting" in BLUE_INITIAL_PROMPT
 
     def test_build_blue_initial_prompt_falls_back_without_reference(self):
-        from tests.benchmarks.bench_security.blue import _build_blue_initial_prompt
+        from portal.modules.security.core.blue import _build_blue_initial_prompt
 
         with patch(
-            "tests.benchmarks.bench_security.siem.spl_detections.technique_reference",
+            "portal.modules.security.core.siem.spl_detections.technique_reference",
             return_value={},
         ):
             prompt = _build_blue_initial_prompt()
@@ -228,43 +228,43 @@ class TestCollect:
     """collect.py — dry-run returns expected structure."""
 
     def test_collect_dry_run(self):
-        from tests.benchmarks.bench_security.siem.collect import collect_target
+        from portal.modules.security.core.siem.collect import collect_target
 
         result = collect_target("10.10.11.50", "web", since_epoch=0, dry_run=True)
         assert "web:access" in result
         assert len(result["web:access"]) > 0
 
     def test_collect_returns_dict(self):
-        from tests.benchmarks.bench_security.siem.collect import collect_target
+        from portal.modules.security.core.siem.collect import collect_target
 
         result = collect_target("10.10.11.21", "windows", since_epoch=0, dry_run=True)
         assert isinstance(result, dict)
 
     def test_unwrap_mcp_stdout_extracts_stdout_field(self):
-        from tests.benchmarks.bench_security.siem.collect import unwrap_mcp_stdout
+        from portal.modules.security.core.siem.collect import unwrap_mcp_stdout
 
         raw = json.dumps({"success": True, "stdout": "line1\nline2", "stderr": ""})
         assert unwrap_mcp_stdout(raw) == "line1\nline2"
 
     def test_unwrap_mcp_stdout_passes_through_plain_text(self):
-        from tests.benchmarks.bench_security.siem.collect import unwrap_mcp_stdout
+        from portal.modules.security.core.siem.collect import unwrap_mcp_stdout
 
         assert unwrap_mcp_stdout("not json at all") == "not json at all"
 
     def test_unwrap_mcp_stdout_passes_through_json_without_stdout_key(self):
-        from tests.benchmarks.bench_security.siem.collect import unwrap_mcp_stdout
+        from portal.modules.security.core.siem.collect import unwrap_mcp_stdout
 
         raw = json.dumps({"foo": "bar"})
         assert unwrap_mcp_stdout(raw) == raw
 
     def test_strip_nxc_line_prefix(self):
-        from tests.benchmarks.bench_security.siem.collect import strip_nxc_line_prefix
+        from portal.modules.security.core.siem.collect import strip_nxc_line_prefix
 
         raw = "WINRM                    10.10.11.21     5985   WIN-MVQO0PT39IO  Id          : 4769"
         assert strip_nxc_line_prefix(raw) == "Id          : 4769"
 
     def test_normalize_windows_security_events_kerberoasting(self):
-        from tests.benchmarks.bench_security.siem.collect import (
+        from portal.modules.security.core.siem.collect import (
             _normalize_windows_security_events,
         )
 
@@ -287,7 +287,7 @@ class TestCollect:
         assert "Account=arya.stark@PORTAL.LAB" in lines[0]
 
     def test_normalize_windows_security_events_strips_nxc_prefix(self):
-        from tests.benchmarks.bench_security.siem.collect import (
+        from portal.modules.security.core.siem.collect import (
             _normalize_windows_security_events,
         )
 
@@ -303,7 +303,7 @@ class TestCollect:
         assert lines[0] == "EventCode=4698 TaskName=\\Backdoor Account=arya.stark"
 
     def test_normalize_windows_security_events_unknown_code_keeps_bare_eventcode(self):
-        from tests.benchmarks.bench_security.siem.collect import (
+        from portal.modules.security.core.siem.collect import (
             _normalize_windows_security_events,
         )
 
@@ -312,7 +312,7 @@ class TestCollect:
         assert lines == ["EventCode=9999"]
 
     def test_normalize_windows_security_events_process_creation(self):
-        from tests.benchmarks.bench_security.siem.collect import (
+        from portal.modules.security.core.siem.collect import (
             _normalize_windows_security_events,
         )
 
@@ -377,7 +377,7 @@ class TestMeta3Collect:
         return _mcp_call
 
     def test_collect_meta3_returns_all_three_sourcetypes(self):
-        from tests.benchmarks.bench_security.siem import collect as collect_mod
+        from portal.modules.security.core.siem import collect as collect_mod
 
         iis_text = (
             "#Software: Microsoft Internet Information Services 7.5\n"
@@ -403,7 +403,7 @@ class TestMeta3Collect:
         assert "NewProcessName=C:\\Windows\\System32\\cmd.exe" in result["windows:security"][0]
 
     def test_collect_meta3_no_mcp_call_returns_empty(self):
-        from tests.benchmarks.bench_security.siem import collect as collect_mod
+        from portal.modules.security.core.siem import collect as collect_mod
 
         with patch.object(collect_mod, "_get_mcp_call", return_value=None):
             result = collect_mod.collect_target(
@@ -412,7 +412,7 @@ class TestMeta3Collect:
         assert result == {}
 
     def test_collect_meta3_empty_output_omits_sourcetype(self):
-        from tests.benchmarks.bench_security.siem import collect as collect_mod
+        from portal.modules.security.core.siem import collect as collect_mod
 
         def _mcp_call(code: str, timeout: int = 90):
             return {"ok": True, "output": json.dumps({"success": True, "stdout": ""})}
@@ -431,7 +431,7 @@ class TestIndexWait:
     """index_wait.py — timeout returns False (honest, never false PASS)."""
 
     def test_wait_indexed_timeout_returns_false(self):
-        from tests.benchmarks.bench_security.siem.index_wait import wait_indexed
+        from portal.modules.security.core.siem.index_wait import wait_indexed
 
         # Must mock httpx — this previously "passed" only because .env lacked
         # real Splunk credentials, so every request threw a connection error
@@ -459,14 +459,14 @@ class TestBlueTriage:
     """blue_triage.py — dry-run one synthetic alert end-to-end."""
 
     def test_poll_alerts_returns_list(self):
-        from tests.benchmarks.bench_security.siem.blue_triage import poll_alerts
+        from portal.modules.security.core.siem.blue_triage import poll_alerts
 
         # With unreachable Splunk, should return empty list
         result = poll_alerts(max_alerts=1, since_minutes=1)
         assert isinstance(result, list)
 
     def test_report_triage_writes_file(self, tmp_path):
-        from tests.benchmarks.bench_security.siem.blue_triage import report_triage
+        from portal.modules.security.core.siem.blue_triage import report_triage
 
         results = [{"alert": {"test": True}, "triage": "P4", "enriched": True}]
         path = report_triage(results, output_dir=tmp_path)
@@ -475,7 +475,7 @@ class TestBlueTriage:
         assert len(data) == 1
 
     def test_enrich_alert_handles_unreachable_pipeline(self):
-        from tests.benchmarks.bench_security.siem.blue_triage import enrich_alert
+        from portal.modules.security.core.siem.blue_triage import enrich_alert
 
         result = enrich_alert({"EventCode": 4769, "host": "dc01"})
         assert "alert" in result
@@ -518,7 +518,7 @@ class TestMatrixTelemetryWiring:
 
     def test_execute_unit_calls_telemetry_collection(self):
         """When purple=True and unit has telemetry, collect_target should be called."""
-        from tests.benchmarks.bench_security.matrix import RunUnit, _execute_unit
+        from portal.modules.security.core.matrix import RunUnit, _execute_unit
 
         unit = RunUnit(
             id="test-001",
@@ -533,10 +533,10 @@ class TestMatrixTelemetryWiring:
         )
         # Mock all the heavy functions
         with (
-            patch("tests.benchmarks.bench_security.matrix._run_against_target", return_value=""),
-            patch("tests.benchmarks.bench_security.matrix.verify_finding") as mock_verify,
-            patch("tests.benchmarks.bench_security.matrix._run_blue_on_unit") as mock_blue,
-            patch("tests.benchmarks.bench_security.matrix._score_purple_on_unit") as mock_purple,
+            patch("portal.modules.security.core.matrix._run_against_target", return_value=""),
+            patch("portal.modules.security.core.matrix.verify_finding") as mock_verify,
+            patch("portal.modules.security.core.matrix._run_blue_on_unit") as mock_blue,
+            patch("portal.modules.security.core.matrix._score_purple_on_unit") as mock_purple,
         ):
             mock_verify.return_value = MagicMock(
                 oracle="test_oracle",
@@ -561,7 +561,7 @@ class TestCaptureStore:
     """save_capture/replay_capture — durable raw evidence, independent of Splunk retention."""
 
     def test_save_capture_writes_file(self, tmp_path, monkeypatch):
-        from tests.benchmarks.bench_security.siem import capture_store
+        from portal.modules.security.core.siem import capture_store
 
         monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
         path = capture_store.save_capture(
@@ -577,7 +577,7 @@ class TestCaptureStore:
         assert saved["telemetry"]["web:access"] == ["GET /?id=1 UNION SELECT 200"]
 
     def test_save_capture_returns_none_for_empty_telemetry(self, tmp_path, monkeypatch):
-        from tests.benchmarks.bench_security.siem import capture_store
+        from portal.modules.security.core.siem import capture_store
 
         monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
         path = capture_store.save_capture(
@@ -586,7 +586,7 @@ class TestCaptureStore:
         assert path is None
 
     def test_list_captures_filters_by_scenario(self, tmp_path, monkeypatch):
-        from tests.benchmarks.bench_security.siem import capture_store
+        from portal.modules.security.core.siem import capture_store
 
         monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
         capture_store.save_capture(
@@ -607,7 +607,7 @@ class TestCaptureStore:
         assert len(capture_store.list_captures(scenario="scenario_a")) == 1
 
     def test_replay_capture_reships_and_confirms(self, tmp_path, monkeypatch):
-        from tests.benchmarks.bench_security.siem import capture_store
+        from portal.modules.security.core.siem import capture_store
 
         monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
         path = capture_store.save_capture(
@@ -619,11 +619,11 @@ class TestCaptureStore:
         )
         with (
             patch(
-                "tests.benchmarks.bench_security.siem.hec_ship.ship_batch",
+                "portal.modules.security.core.siem.hec_ship.ship_batch",
                 return_value={"ok": True, "code": 200, "count": 1},
             ),
             patch(
-                "tests.benchmarks.bench_security.siem.index_wait.wait_indexed",
+                "portal.modules.security.core.siem.index_wait.wait_indexed",
                 return_value=True,
             ),
         ):
@@ -634,7 +634,7 @@ class TestCaptureStore:
         assert result["scenario"] == "web_sqli_dump"
 
     def test_replay_capture_dry_run_skips_indexed_check(self, tmp_path, monkeypatch):
-        from tests.benchmarks.bench_security.siem import capture_store
+        from portal.modules.security.core.siem import capture_store
 
         monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
         path = capture_store.save_capture(
@@ -645,7 +645,7 @@ class TestCaptureStore:
             telemetry={"web:access": ["line"]},
         )
         with patch(
-            "tests.benchmarks.bench_security.siem.hec_ship.ship_batch",
+            "portal.modules.security.core.siem.hec_ship.ship_batch",
             return_value={"ok": True, "dry_run": True, "count": 1},
         ):
             result = capture_store.replay_capture(path, dry_run=True)

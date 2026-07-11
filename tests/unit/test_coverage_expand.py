@@ -13,8 +13,8 @@ from __future__ import annotations
 import pytest
 import yaml
 
-from tests.benchmarks.bench_security.exec_chain import SCENARIOS
-from tests.benchmarks.bench_security.siem.spl_detections import (
+from portal.modules.security.core.exec_chain import SCENARIOS
+from portal.modules.security.core.siem.spl_detections import (
     techniques_covered,
 )
 
@@ -210,8 +210,9 @@ class TestSPLDetectionCoverage:
         """spl_detections.yaml must be valid YAML with required fields."""
         from pathlib import Path
 
-        yaml_path = Path(__file__).resolve().parent.parent / (
-            "benchmarks/bench_security/siem/spl_detections.yaml"
+        yaml_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "portal/modules/security/core/siem/spl_detections.yaml"
         )
         data = yaml.safe_load(yaml_path.read_text())
         assert isinstance(data, dict), "spl_detections.yaml is not a dict"

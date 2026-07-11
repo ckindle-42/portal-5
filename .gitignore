@@ -57,7 +57,7 @@ tests/benchmarks/results/
 tests/fixtures/audio/
 
 # Stage 2 propose/prove staged diffs + report — working dir, not source
-tests/benchmarks/bench_security/stage2_proposals/
+portal/modules/security/core/stage2_proposals/
 
 # Test fixtures generated locally
 tests/fixtures/sample.wav
@@ -69,16 +69,16 @@ config/proxmox_ca.pem
 
 # lab_discover.py output — live host state snapshot, not source
 /lab_discovery.json
-tests/benchmarks/bench_security/results/candidates/
+portal/modules/security/core/results/candidates/
 
 # Raw red/blue/purple evidence captures (siem/capture_store.py) — voluminous,
 # ephemeral, locally-generated; replayable from Splunk or a fresh run, not source
-tests/benchmarks/bench_security/results/captures/
+portal/modules/security/core/results/captures/
 
 # bench_security run outputs (sec_bench_*.json/.partial.json) — ephemeral,
 # locally-generated per-run artifacts, not source. Findings belong in
 # config/MODEL_CATALOG.md / KNOWN_LIMITATIONS.md, not as committed JSON blobs.
-tests/benchmarks/bench_security/results/*.json
+portal/modules/security/core/results/*.json
 
 # Provenance ledger (portal_wiki/core/provenance_ledger.py) — append-only local
 # audit trail, grows with every run/write-back; durable on disk, not source-

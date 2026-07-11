@@ -16,11 +16,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security.capability_graph import (
+from portal.modules.security.core.capability_graph import (
     CoverageSummary,
     seed_graph_from_assets,
 )
-from bench_security.response_loop import (
+from portal.modules.security.core.response_loop import (
     RESPONSE_PRIMITIVES,
     check_response_effectiveness,
     map_threat_to_gaps,

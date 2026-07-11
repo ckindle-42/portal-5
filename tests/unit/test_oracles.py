@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.benchmarks.bench_security.oracles import (
+from portal.modules.security.core.oracles import (
     ORACLES,
     Oracle,
     register_oracle,

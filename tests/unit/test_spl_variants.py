@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security.siem.spl_detections import (
+from portal.modules.security.core.siem.spl_detections import (
     _invalidate_cache,
     spl_for,
     spl_variants_for,

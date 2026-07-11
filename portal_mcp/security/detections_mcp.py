@@ -131,7 +131,7 @@ def spl_search_library(query: str, top_k: int = 10) -> dict:
         dict with matching detections.
     """
     _ensure_bench_path()
-    from bench_security.siem.spl_detections import spl_for, technique_reference
+    from portal.modules.security.core.siem.spl_detections import spl_for, technique_reference
 
     ref = technique_reference()
     query_upper = query.strip().upper()
@@ -220,7 +220,7 @@ def spl_explain_detection(technique_id: str) -> dict:
         dict with detection explanation.
     """
     _ensure_bench_path()
-    from bench_security.siem.spl_detections import spl_for, technique_reference
+    from portal.modules.security.core.siem.spl_detections import spl_for, technique_reference
 
     ref = technique_reference()
     tid = technique_id.strip().upper()
@@ -246,7 +246,7 @@ def spl_techniques_covered() -> dict:
         dict with list of covered technique IDs.
     """
     _ensure_bench_path()
-    from bench_security.siem.spl_detections import techniques_covered
+    from portal.modules.security.core.siem.spl_detections import techniques_covered
 
     covered = techniques_covered()
     return {
@@ -269,7 +269,7 @@ def spl_diff_hypothesis(technique_id: str, observed_signal: str) -> dict:
         dict with diff results.
     """
     _ensure_bench_path()
-    from bench_security.siem.spl_detections import spl_for, technique_reference
+    from portal.modules.security.core.siem.spl_detections import spl_for, technique_reference
 
     ref = technique_reference()
     tid = technique_id.strip().upper()

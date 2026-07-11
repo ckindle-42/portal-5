@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
 from unittest.mock import MagicMock
 
-from bench_security.telemetry import (
+from portal.modules.security.core.telemetry import (
     CONTRACT_SPLUNK_WEB,
     CONTRACT_WAZUH,
     CONTRACT_WINEVENT_AD,
@@ -39,7 +39,7 @@ class TestProtocolUnification:
         assert hasattr(TelemetryBackend, "query")
 
     def test_blue_backends_satisfy_protocol(self):
-        from bench_security.blue import SplunkBackend, WinEventBackend
+        from portal.modules.security.core.blue import SplunkBackend, WinEventBackend
 
         assert isinstance(WinEventBackend(), TelemetryBackend)
         assert isinstance(SplunkBackend(), TelemetryBackend)
@@ -73,7 +73,7 @@ class TestProtocolUnification:
         import inspect
 
         # Check the telemetry module directly
-        from bench_security import telemetry
+        from portal.modules.security.core import telemetry
 
         count = 0
         for name, _obj in inspect.getmembers(telemetry, inspect.isclass):

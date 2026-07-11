@@ -29,13 +29,13 @@ class TestSelfImprovingCycle:
 
     def test_full_cycle(self, tmp_path):
         """Full self-improving cycle end-to-end."""
-        from bench_security.capability_graph import (
+        from portal.modules.security.core.capability_graph import (
             CapabilityGraph,
             CoverageSummary,
             Procedure,
             build_gap,
         )
-        from bench_security.growth_loop import (
+        from portal.modules.security.core.growth_loop import (
             _writeback_proven_detection,
             propose_draft,
             prove_draft,
@@ -121,8 +121,12 @@ class TestSelfImprovingCycle:
         set_canonical_dir(tmp_path / "c")
         try:
             # Growth (P2)
-            from bench_security.capability_graph import CoverageSummary, Procedure, build_gap
-            from bench_security.growth_loop import (
+            from portal.modules.security.core.capability_graph import (
+                CoverageSummary,
+                Procedure,
+                build_gap,
+            )
+            from portal.modules.security.core.growth_loop import (
                 _writeback_proven_detection,
                 propose_draft,
                 prove_draft,

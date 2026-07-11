@@ -13,8 +13,8 @@ from __future__ import annotations
 import json
 import subprocess
 
-from tests.benchmarks.bench_security.scoring import classify_effort_tier
-from tests.benchmarks.bench_security.self_index import (
+from portal.modules.security.core.scoring import classify_effort_tier
+from portal.modules.security.core.self_index import (
     _SELF_DIR,
     _coverage_from_chain,
     _coverage_from_matrix,
@@ -104,10 +104,8 @@ class TestReadCoverageSelection:
         extra_dir = tmp_path / "extra_results"
         results_dir.mkdir()
         extra_dir.mkdir()
-        monkeypatch.setattr("tests.benchmarks.bench_security.self_index._RESULTS_DIR", results_dir)
-        monkeypatch.setattr(
-            "tests.benchmarks.bench_security.self_index._EXTRA_RESULTS_DIR", extra_dir
-        )
+        monkeypatch.setattr("portal.modules.security.core.self_index._RESULTS_DIR", results_dir)
+        monkeypatch.setattr("portal.modules.security.core.self_index._EXTRA_RESULTS_DIR", extra_dir)
 
         # Older matrix file with zero coverage in results_dir.
         old = results_dir / "sec_bench_20260101T000000Z.json"
@@ -136,10 +134,8 @@ class TestReadCoverageSelection:
         extra_dir = tmp_path / "extra_results"
         results_dir.mkdir()
         extra_dir.mkdir()
-        monkeypatch.setattr("tests.benchmarks.bench_security.self_index._RESULTS_DIR", results_dir)
-        monkeypatch.setattr(
-            "tests.benchmarks.bench_security.self_index._EXTRA_RESULTS_DIR", extra_dir
-        )
+        monkeypatch.setattr("portal.modules.security.core.self_index._RESULTS_DIR", results_dir)
+        monkeypatch.setattr("portal.modules.security.core.self_index._EXTRA_RESULTS_DIR", extra_dir)
         empty = results_dir / "sec_bench_20260101T000000Z.json"
         empty.write_text(json.dumps({"matrix_results": {}, "chain_tests": []}))
 
@@ -210,9 +206,9 @@ class TestReadOnlyGuarantee:
     def test_no_writes_outside_report(self, monkeypatch, tmp_path):
         empty = tmp_path / "empty_no_writes"
         empty.mkdir()
-        monkeypatch.setattr("tests.benchmarks.bench_security.self_index._RESULTS_DIR", empty)
-        monkeypatch.setattr("tests.benchmarks.bench_security.self_index._EXTRA_RESULTS_DIR", empty)
-        monkeypatch.setattr("tests.benchmarks.bench_security.self_index._JOURNAL_DIR", empty)
+        monkeypatch.setattr("portal.modules.security.core.self_index._RESULTS_DIR", empty)
+        monkeypatch.setattr("portal.modules.security.core.self_index._EXTRA_RESULTS_DIR", empty)
+        monkeypatch.setattr("portal.modules.security.core.self_index._JOURNAL_DIR", empty)
         monkeypatch.setattr(
             subprocess,
             "run",

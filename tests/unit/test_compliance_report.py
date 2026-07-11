@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security.compliance_report import (
+from portal.modules.security.core.compliance_report import (
     _is_really_detected,
     build_report_data,
     generate_report,

@@ -37,7 +37,7 @@ class TestCiParity:
 
         # The import itself: verify the module resolves (pytest's pythonpath injection
         # puts tests/benchmarks on sys.path at collection time, so this works in CI too)
-        from bench_security import matrix  # noqa: F401
+        from portal.modules.security.core import matrix  # noqa: F401
 
         assert matrix is not None
 

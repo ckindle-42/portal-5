@@ -7,7 +7,7 @@ functions are actually defined) rather than the chain re-export shim.
 
 
 def test_run_candidate_intake_dry_run():
-    from tests.benchmarks.bench_security.chain import run_candidate_intake
+    from portal.modules.security.core.chain import run_candidate_intake
 
     results = run_candidate_intake(["fake/model-a", "fake/model-b"], dry_run=True)
     assert len(results) == 2
@@ -16,8 +16,8 @@ def test_run_candidate_intake_dry_run():
 
 
 def test_run_candidate_intake_pull_fail(monkeypatch):
-    from tests.benchmarks.bench_security import intake as _intake
-    from tests.benchmarks.bench_security.chain import run_candidate_intake
+    from portal.modules.security.core import intake as _intake
+    from portal.modules.security.core.chain import run_candidate_intake
 
     monkeypatch.setattr(
         _intake, "_pull_model", lambda m, **kw: {"model": m, "pulled": False, "error": "404"}
@@ -28,8 +28,8 @@ def test_run_candidate_intake_pull_fail(monkeypatch):
 
 
 def test_run_candidate_intake_tps_below_floor(monkeypatch):
-    from tests.benchmarks.bench_security import intake as _intake
-    from tests.benchmarks.bench_security.chain import run_candidate_intake
+    from portal.modules.security.core import intake as _intake
+    from portal.modules.security.core.chain import run_candidate_intake
 
     monkeypatch.setattr(
         _intake, "_pull_model", lambda m, **kw: {"model": m, "pulled": True, "error": None}
@@ -52,8 +52,8 @@ def test_run_candidate_intake_tps_below_floor(monkeypatch):
 
 
 def test_run_candidate_intake_tool_fail(monkeypatch):
-    from tests.benchmarks.bench_security import intake as _intake
-    from tests.benchmarks.bench_security.chain import run_candidate_intake
+    from portal.modules.security.core import intake as _intake
+    from portal.modules.security.core.chain import run_candidate_intake
 
     monkeypatch.setattr(
         _intake, "_pull_model", lambda m, **kw: {"model": m, "pulled": True, "error": None}
@@ -81,8 +81,8 @@ def test_run_candidate_intake_tool_fail(monkeypatch):
 
 
 def test_run_candidate_intake_all_pass(monkeypatch):
-    from tests.benchmarks.bench_security import intake as _intake
-    from tests.benchmarks.bench_security.chain import run_candidate_intake
+    from portal.modules.security.core import intake as _intake
+    from portal.modules.security.core.chain import run_candidate_intake
 
     monkeypatch.setattr(
         _intake, "_pull_model", lambda m, **kw: {"model": m, "pulled": True, "error": None}
@@ -110,12 +110,12 @@ def test_run_candidate_intake_all_pass(monkeypatch):
 
 
 def test_tps_floor_constant():
-    from tests.benchmarks.bench_security.chain import TPS_FLOOR
+    from portal.modules.security.core.chain import TPS_FLOOR
 
     assert TPS_FLOOR == 20.0
 
 
 def test_pull_timeout_constant():
-    from tests.benchmarks.bench_security.chain import PULL_TIMEOUT_S
+    from portal.modules.security.core.chain import PULL_TIMEOUT_S
 
     assert PULL_TIMEOUT_S == 900.0

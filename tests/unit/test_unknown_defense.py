@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security.unknown_defense import (
+from portal.modules.security.core.unknown_defense import (
     AnomalyResult,
     BaselineProfile,
     ExpandedPurpleResult,

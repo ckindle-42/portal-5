@@ -22,7 +22,7 @@ class TestGrowthWriteback:
     """Growth loop writes proven detections back as cited units."""
 
     def test_growth_loop_writes_back_proven(self, tmp_path):
-        from bench_security.capability_graph import (
+        from portal.modules.security.core.capability_graph import (
             CapabilityGraph,
             CoverageSummary,
             Procedure,
@@ -53,12 +53,15 @@ class TestGrowthWriteback:
 
             # Run with write_back — but the draft SPL is a placeholder so it won't prove
             # Instead, directly test the write-back by creating a proven draft
-            from bench_security.growth_loop import _writeback_proven_detection, propose_draft
+            from portal.modules.security.core.growth_loop import (
+                _writeback_proven_detection,
+                propose_draft,
+            )
 
             draft = propose_draft(
                 gap, existing_spl='index=portal5_lab sourcetype="web:access" test'
             )
-            from bench_security.growth_loop import prove_draft
+            from portal.modules.security.core.growth_loop import prove_draft
 
             proof = prove_draft(draft)
             if proof.all_passed():
@@ -74,8 +77,11 @@ class TestGrowthWriteback:
             reset_canonical_dir()
 
     def test_growth_loop_dry_run_no_writeback(self, tmp_path):
-        from bench_security.capability_graph import CoverageSummary, seed_graph_from_assets
-        from bench_security.growth_loop import run_growth_loop
+        from portal.modules.security.core.capability_graph import (
+            CoverageSummary,
+            seed_graph_from_assets,
+        )
+        from portal.modules.security.core.growth_loop import run_growth_loop
 
         set_proposed_dir(tmp_path / "proposed")
         set_canonical_dir(tmp_path / "canonical")

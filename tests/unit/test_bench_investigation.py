@@ -14,8 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security.investigation import EvidenceStore
-from bench_security.investigation.bench_investigation import (
+from portal.modules.security.core.investigation import EvidenceStore
+from portal.modules.security.core.investigation.bench_investigation import (
     ADVERSARIAL_SCENARIOS,
     compute_contradiction_detection_rate,
     compute_evidence_completeness,
@@ -23,7 +23,7 @@ from bench_security.investigation.bench_investigation import (
     run_benchmark,
     run_single_agent_baseline,
 )
-from bench_security.investigation.evidence import EvidenceRecord
+from portal.modules.security.core.investigation.evidence import EvidenceRecord
 
 # ── Adversarial scenarios ────────────────────────────────────────────────────
 

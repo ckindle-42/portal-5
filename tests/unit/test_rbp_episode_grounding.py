@@ -19,7 +19,7 @@ from pathlib import Path
 # Ensure bench_security is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security.episode import (
+from portal.modules.security.core.episode import (
     CAPABILITY_VERDICTS,
     REASON_CODES,
     Episode,
@@ -417,7 +417,7 @@ class TestScorePurpleEpisode:
         }
 
     def test_purple_record_has_episode_and_verdict(self):
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
             self._make_red_result(),
@@ -434,7 +434,7 @@ class TestScorePurpleEpisode:
 
     def test_synthetic_never_proven_in_score_purple(self):
         """HEADLINE: _score_purple with synthetic fallback never yields PROVEN."""
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
             self._make_red_result(lab_success=True),
@@ -451,7 +451,7 @@ class TestScorePurpleEpisode:
         assert rec["episode"]["used_synthetic"] is True
 
     def test_real_hit_red_landed_is_proven(self):
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
             self._make_red_result(lab_success=True),
@@ -467,7 +467,7 @@ class TestScorePurpleEpisode:
         assert rec["episode"]["telemetry_status"] == "TELEMETRY_OBSERVED"
 
     def test_red_landed_no_detection_is_failed(self):
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
             self._make_red_result(lab_success=True),
@@ -482,7 +482,7 @@ class TestScorePurpleEpisode:
         assert rec["episode"]["detection_status"] == "DETECTION_NO_HIT"
 
     def test_red_failed_is_indeterminate(self):
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
             self._make_red_result(lab_success=False),
@@ -493,7 +493,7 @@ class TestScorePurpleEpisode:
         assert rec["episode"]["red_status"] == "RED_EXECUTION_FAILED"
 
     def test_red_not_run_is_unavailable(self):
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
             self._make_red_result(mode="theory", lab_success=None),
@@ -505,7 +505,7 @@ class TestScorePurpleEpisode:
 
     def test_model_competence_score_preserves_old_formula(self):
         """model_competence_score is the same composite formula, just renamed."""
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
             self._make_red_result(order_accuracy=1.0),
@@ -522,7 +522,7 @@ class TestScorePurpleEpisode:
     def test_truth_competence_independence(self):
         """A record can have high competence AND UNAVAILABLE verdict,
         or low competence AND PROVEN verdict — they are independent planes."""
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         # Red not run → UNAVAILABLE, but composite is still computed
         rec = _score_purple(
@@ -536,7 +536,7 @@ class TestScorePurpleEpisode:
 
     def test_purple_composite_key_removed(self):
         """The old purple_composite key no longer appears in new records."""
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
             self._make_red_result(),
@@ -547,7 +547,7 @@ class TestScorePurpleEpisode:
 
     def test_detection_missing_when_no_ground_truth(self):
         """No detection rule for the scenario → DETECTION_MISSING."""
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
             self._make_red_result(lab_success=True),
@@ -567,7 +567,7 @@ class TestTelemetryFailureReasonCode:
     def test_telemetry_error_sets_collection_failed(self):
         """When collect_and_ship_scenario_telemetry returns an error string,
         the episode's telemetry_status should be TELEMETRY_COLLECTION_FAILED."""
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
             self._make_red_result(lab_success=True),
@@ -589,7 +589,7 @@ class TestTelemetryFailureReasonCode:
         assert rec["capability_verdict"] == "INDETERMINATE"
 
     def test_telemetry_not_indexed_sets_correct_code(self):
-        from bench_security.blue import _score_purple
+        from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
             self._make_red_result(lab_success=True),
@@ -615,7 +615,12 @@ class TestTelemetryFailureReasonCode:
         Verify the old pattern is gone.
         """
         matrix_py = (
-            Path(__file__).resolve().parent.parent / "benchmarks" / "bench_security" / "matrix.py"
+            Path(__file__).resolve().parent.parent.parent
+            / "portal"
+            / "modules"
+            / "security"
+            / "core"
+            / "matrix.py"
         )
         content = matrix_py.read_text()
         assert "pass  # telemetry collection never blocks scoring" not in content, (

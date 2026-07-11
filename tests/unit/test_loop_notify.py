@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from tests.benchmarks.bench_security.loop import (
+from portal.modules.security.core.loop import (
     EngagementState,
     _write_checkpoint,
     resume_engagement,
@@ -23,7 +23,7 @@ class TestLoopNotifyEvents:
 
 class TestCheckpointResume:
     def test_checkpoint_writes_and_roundtrips(self, monkeypatch, tmp_path):
-        monkeypatch.setattr("tests.benchmarks.bench_security.loop.CHECKPOINT_DIR", tmp_path)
+        monkeypatch.setattr("portal.modules.security.core.loop.CHECKPOINT_DIR", tmp_path)
         state = EngagementState(
             engagement_id="test-eng-001",
             playbook_name="test-playbook",

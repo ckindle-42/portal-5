@@ -15,8 +15,8 @@ from pathlib import Path
 
 import yaml
 
-from tests.benchmarks.bench_security.exec_chain import SCENARIOS
-from tests.benchmarks.bench_security.siem.spl_detections import spl_for, techniques_covered
+from portal.modules.security.core.exec_chain import SCENARIOS
+from portal.modules.security.core.siem.spl_detections import spl_for, techniques_covered
 
 # ── Honest blue-gaps: techniques with no in-lab telemetry source ─────────────
 # These require cloud-provider telemetry (CloudTrail, Azure AD, S3 access logs)
@@ -26,8 +26,9 @@ BLUE_GAPS: set[str] = {
     "T1537",  # Transfer Data to Cloud Account — needs cloud storage access logs
 }
 
-_SPL_YAML = Path(__file__).resolve().parent.parent / (
-    "benchmarks/bench_security/siem/spl_detections.yaml"
+_SPL_YAML = (
+    Path(__file__).resolve().parent.parent.parent
+    / "portal/modules/security/core/siem/spl_detections.yaml"
 )
 
 
@@ -149,7 +150,7 @@ class TestDetectionFiring:
         """Where captured red data exists, assert each scenario's detect_ground_truth
         techniques actually produce a real (non-synthetic) telemetry match on replay.
         Skips scenarios without captured data (reports them as capture backlog)."""
-        from tests.benchmarks.bench_security.siem.capture_store import list_captures
+        from portal.modules.security.core.siem.capture_store import list_captures
 
         capture_files = list_captures()
         captured_scenarios = {f.stem.split("_")[0] for f in capture_files}

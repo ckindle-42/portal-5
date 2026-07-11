@@ -33,7 +33,7 @@ from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _BENCH_DIR = _REPO_ROOT / "tests" / "benchmarks"
-_RESULTS_DIR = _BENCH_DIR / "bench_security" / "results"
+_RESULTS_DIR = _REPO_ROOT / "portal" / "modules" / "security" / "core" / "results"
 
 # Ensure imports work regardless of cwd
 if str(_BENCH_DIR) not in sys.path:

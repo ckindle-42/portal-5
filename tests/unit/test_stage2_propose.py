@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import copy
 
-from tests.benchmarks.bench_security.stage2_propose import (
+from portal.modules.security.core.stage2_propose import (
     Proof,
     apply_batch,
     classify_outcome,
@@ -177,8 +177,8 @@ class TestDeterminism:
     def test_fitness_delta_uses_real_rank_weaknesses(self):
         """The fitness-delta recompute must call the real self_index.rank_weaknesses,
         not an assumed/hardcoded value."""
-        from tests.benchmarks.bench_security.self_index import rank_weaknesses
-        from tests.benchmarks.bench_security.stage2_propose import _fitness_delta_if_promoted
+        from portal.modules.security.core.self_index import rank_weaknesses
+        from portal.modules.security.core.stage2_propose import _fitness_delta_if_promoted
 
         index = _sample_index(tier="experimental")
         weaknesses_before = rank_weaknesses(index)
@@ -197,7 +197,7 @@ class TestDeterminism:
 class TestWeakOracleIds:
     def test_weak_oracle_ids_matches_stage1_weakness_view(self):
         """The live ORACLES registry has exactly 41 experimental + 5 differential = 46 weak."""
-        from tests.benchmarks.bench_security.oracles import ORACLES
+        from portal.modules.security.core.oracles import ORACLES
 
         weak = weak_oracle_ids(ORACLES)
         assert len(weak) == 46
@@ -213,7 +213,7 @@ class TestWeakOracleIds:
 class TestGateHolds:
     def test_propose_without_apply_writes_nothing_to_oracle_source(self, tmp_path, monkeypatch):
         """Running propose (no --apply) must never touch oracles.py or ability_port.py."""
-        from tests.benchmarks.bench_security import stage2_propose as s2
+        from portal.modules.security.core import stage2_propose as s2
 
         oracles_before = s2._ORACLES_PY.read_text()
         ability_before = s2._ABILITY_PORT_PY.read_text()
@@ -231,7 +231,7 @@ class TestGateHolds:
         only stage2_propose_main(apply=True) (i.e. an explicit operator --apply) may call it."""
         import inspect
 
-        from tests.benchmarks.bench_security import stage2_propose as s2
+        from portal.modules.security.core import stage2_propose as s2
 
         run_stage2_src = inspect.getsource(s2.run_stage2)
         write_report_src = inspect.getsource(s2.write_report)
@@ -240,7 +240,7 @@ class TestGateHolds:
 
     def test_apply_batch_applies_only_when_promotable_and_diff_staged(self, tmp_path):
         """Sanity check of apply_batch mechanics against a scratch copy — not the real source."""
-        from tests.benchmarks.bench_security.stage2_propose import Stage2Report
+        from portal.modules.security.core.stage2_propose import Stage2Report
 
         fake_dir = tmp_path / "stage2_proposals"
         fake_dir.mkdir()
