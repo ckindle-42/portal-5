@@ -6,8 +6,8 @@ stack: workspace catalog, backend health, loaded models, and request metrics.
 Port: 8928 (configurable via PIPELINE_MCP_PORT env var)
 
 All data is read by calling the pipeline's own HTTP endpoints — this server has
-zero imports from portal_pipeline/. It is registered in .mcp.json so Claude Code
-and opencode pick it up automatically when opening the portal-5 project.
+zero imports from portal/platform/inference/. It is registered in .mcp.json so
+Claude Code and opencode pick it up automatically when opening the portal-5 project.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ _FASTCONTEXT_TOOLS = [
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Glob pattern, e.g. '**/*.py' or 'portal_pipeline/**'",
+                        "description": "Glob pattern, e.g. '**/*.py' or 'portal/platform/inference/**'",
                     },
                 },
                 "required": ["pattern"],
@@ -115,7 +115,7 @@ async def health_check(request: Any) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "pipeline-mcp", "port": PORT})
 
 
-# ── REST discovery manifest (consumed by portal_pipeline ToolRegistry) ────────
+# ── REST discovery manifest (consumed by portal.platform.inference ToolRegistry) ────────
 # The pipeline discovers tools via GET /tools and dispatches via
 # POST /tools/{name} with body {"arguments": {...}, "request_id": "..."}.
 # This manifest MUST stay in sync with the @mcp.tool() functions below and the
@@ -754,7 +754,7 @@ async def read_text_file(
     """Read a file from the host filesystem with optional line range.
 
     Accepts absolute paths (e.g. /Users/chris/projects/portal-5/foo.py)
-    or repo-relative paths (e.g. portal_pipeline/router/streaming.py).
+    or repo-relative paths (e.g. portal/platform/inference/router/streaming.py).
     Returns line-numbered content. Use this — not execute_bash cat — to read
     project files; execute_bash runs in an isolated container with no host access.
 
@@ -989,7 +989,7 @@ def _parse_fastcontext_citations(content: str) -> list[dict[str, Any]]:
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        # e.g. "portal_pipeline/router/streaming.py:45-120 — SSE loop"
+        # e.g. "portal/platform/inference/router/streaming.py:45-120 — SSE loop"
         m = re.match(
             r"([^\s:]+\.(?:py|yaml|json|sh|md|txt|js|ts))(?::(\d+)(?:-(\d+))?)?(?:\s+[—-]\s+(.*))?",
             line,

@@ -159,7 +159,6 @@ class Validator:
 def check_imports() -> tuple[str, str, list[dict]]:
     """A. Every public package imports cleanly."""
     modules = [
-        "portal_pipeline",
         "portal.platform.inference.router_pipe",
         "portal.platform.inference.router.app",
         "portal.platform.inference.router.lifespan",

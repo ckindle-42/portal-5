@@ -48,7 +48,7 @@ class TestProtocolUnification:
         """blue.py should import TelemetryBackend from telemetry, not define its own."""
         import inspect
 
-        import bench_security.blue as blue_mod
+        import portal.modules.security.core.blue as blue_mod
 
         src = inspect.getsource(blue_mod)
         # Should NOT have "class TelemetryBackend(Protocol):" in blue.py
@@ -60,7 +60,7 @@ class TestProtocolUnification:
         """matrix.py should import TelemetryBackend from telemetry, not define its own."""
         import inspect
 
-        import bench_security.matrix as matrix_mod
+        import portal.modules.security.core.matrix as matrix_mod
 
         src = inspect.getsource(matrix_mod)
         assert "class TelemetryBackend" not in src, (

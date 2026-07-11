@@ -18,7 +18,7 @@ REPO = Path(__file__).resolve().parent.parent.parent
 
 def _run_sync_config() -> str:
     result = subprocess.run(
-        [sys.executable, "-m", "portal_pipeline.sync_config"],
+        [sys.executable, "-m", "portal.platform.inference.sync_config"],
         capture_output=True,
         text=True,
         cwd=str(REPO),
