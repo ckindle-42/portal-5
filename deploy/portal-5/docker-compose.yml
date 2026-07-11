@@ -536,7 +536,7 @@ services:
       - SECURITY_MCP_PORT=8919
       - MCP_PORT=8919
       - HF_HOME=/app/data/hf_cache
-    command: ["python", "-m", "portal_mcp.security.security_mcp"]
+    command: ["python", "-m", "portal.modules.security.tools.security_mcp"]
     volumes:
       - security-hf-cache:/app/data/hf_cache
     healthcheck:

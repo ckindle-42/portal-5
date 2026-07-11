@@ -155,7 +155,7 @@ if "transformers" not in sys.modules:
 
 # Guard: skip if portal_mcp.security is not importable
 pytest.importorskip(
-    "portal_mcp.security.security_mcp",
+    "portal.modules.security.tools.security_mcp",
     reason="portal_mcp.security not importable — run: pip install -e '.[dev,mcp]'",
 )
 
@@ -166,7 +166,7 @@ def get_security_app():
     streamable_http_app() can only be called once per mcp instance, so we
     create it once and reuse across all tests in this module.
     """
-    from portal_mcp.security.security_mcp import mcp
+    from portal.modules.security.tools.security_mcp import mcp
 
     return mcp.streamable_http_app()
 
@@ -205,7 +205,7 @@ class TestClassifyVulnerability:
 
     def test_returns_severity_label(self):
         """classify_vulnerability must return a severity label."""
-        from portal_mcp.security.security_mcp import classify_vulnerability
+        from portal.modules.security.tools.security_mcp import classify_vulnerability
 
         result = classify_vulnerability(
             "Remote code execution via crafted HTTP request in Apache 2.4.x"
@@ -215,7 +215,7 @@ class TestClassifyVulnerability:
 
     def test_returns_confidence_score(self):
         """classify_vulnerability must return a confidence score between 0 and 1."""
-        from portal_mcp.security.security_mcp import classify_vulnerability
+        from portal.modules.security.tools.security_mcp import classify_vulnerability
 
         result = classify_vulnerability(
             "Buffer overflow in OpenSSL allows remote attackers to execute arbitrary code"
@@ -225,7 +225,7 @@ class TestClassifyVulnerability:
 
     def test_returns_all_probabilities(self):
         """classify_vulnerability must return probabilities for all 4 severity levels."""
-        from portal_mcp.security.security_mcp import classify_vulnerability
+        from portal.modules.security.tools.security_mcp import classify_vulnerability
 
         result = classify_vulnerability("Cross-site scripting vulnerability in login form")
         assert "probabilities" in result
@@ -236,7 +236,7 @@ class TestClassifyVulnerability:
 
     def test_returns_model_name(self):
         """classify_vulnerability must return the model name used."""
-        from portal_mcp.security.security_mcp import classify_vulnerability
+        from portal.modules.security.tools.security_mcp import classify_vulnerability
 
         result = classify_vulnerability("CVE-2024-1234: denial of service")
         assert "model" in result
@@ -244,7 +244,7 @@ class TestClassifyVulnerability:
 
     def test_empty_description_handled(self):
         """Empty input should not crash — returns a result dict."""
-        from portal_mcp.security.security_mcp import classify_vulnerability
+        from portal.modules.security.tools.security_mcp import classify_vulnerability
 
         result = classify_vulnerability("")
         assert isinstance(result, dict)
@@ -252,7 +252,7 @@ class TestClassifyVulnerability:
 
     def test_long_description_truncated(self):
         """Descriptions exceeding 512 tokens should be truncated, not crash."""
-        from portal_mcp.security.security_mcp import classify_vulnerability
+        from portal.modules.security.tools.security_mcp import classify_vulnerability
 
         long_desc = "vulnerability " * 500  # Way over 512 tokens
         result = classify_vulnerability(long_desc)
@@ -265,13 +265,13 @@ class TestEnsureModel:
 
     def test_ensure_model_is_callable(self):
         """_ensure_model should be a callable function."""
-        from portal_mcp.security.security_mcp import _ensure_model
+        from portal.modules.security.tools.security_mcp import _ensure_model
 
         assert callable(_ensure_model)
 
     def test_ensure_model_loads_only_once(self):
         """Calling _ensure_model twice should not reload the model."""
-        from portal_mcp.security import security_mcp
+        from portal.modules.security.tools import security_mcp
 
         # Reset state
         security_mcp._model = None
