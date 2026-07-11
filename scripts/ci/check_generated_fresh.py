@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """CI guard: generated artifacts must be fresh (sync-config is idempotent).
 
-Runs portal_pipeline.sync_config and checks git diff on the three generated
-files. Fails if any file changed — meaning a human edited a generated artifact
-instead of editing portal.yaml and re-running sync-config.
+Runs portal.platform.inference.sync_config and checks git diff on the three
+generated files. Fails if any file changed — meaning a human edited a
+generated artifact instead of editing portal.yaml and re-running sync-config.
 
 Does NOT run if portal.yaml or config/ has no tracked changes (fast-path skip).
 """
@@ -21,7 +21,7 @@ GENERATED = ["config/backends.yaml", ".mcp.json", "opencode.jsonc"]
 def main() -> int:
     # Run sync-config
     result = subprocess.run(
-        [sys.executable, "-m", "portal_pipeline.sync_config"],
+        [sys.executable, "-m", "portal.platform.inference.sync_config"],
         cwd=REPO,
         capture_output=True,
         text=True,

@@ -10,7 +10,6 @@ on:
   pull_request:
     paths:
       - "portal/**"
-      - "portal_pipeline/**"
       - "portal_mcp/**"
       - "portal_channels/**"
       - "tests/unit/**"

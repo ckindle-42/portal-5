@@ -776,7 +776,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--run-args",
         required=True,
-        help="Arguments to pass to python3 -m bench_security (quoted string)",
+        help="Arguments to pass to python3 -m portal.modules.security.core (quoted string)",
     )
     parser.add_argument(
         "--stall-minutes",
@@ -889,7 +889,7 @@ def main() -> int:
             print(f"  [resume] completed scenarios: {sorted(completed)}")
 
     # Build the command
-    bench_cmd = [sys.executable, "-m", "bench_security"] + run_args_list
+    bench_cmd = [sys.executable, "-m", "portal.modules.security.core"] + run_args_list
 
     restarts = 0
     overall_outcome = "completed"

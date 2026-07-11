@@ -412,9 +412,9 @@ workspaces:
       - Never modify Open WebUI source — use extension points only
       - Never commit .env or add cloud dependencies
       - Run pytest before declaring a fix complete
-      - Keep portal_pipeline lean — no ML framework imports
+      - Keep portal.platform.inference lean — no ML framework imports
       - Changes to workspace routing must pass the Rule 6 consistency check:
-        python3 -c "from portal_pipeline.router_pipe import WORKSPACES; import yaml; cfg=yaml.safe_load(open('config/backends.yaml')); assert set(WORKSPACES)==set(cfg['workspace_routing']), 'mismatch'"
+        python3 -c "from portal.platform.inference.router_pipe import WORKSPACES; import yaml; cfg=yaml.safe_load(open('config/backends.yaml')); assert set(WORKSPACES)==set(cfg['workspace_routing']), 'mismatch'"
     tools:
     - explore_repository
     - read_text_file
