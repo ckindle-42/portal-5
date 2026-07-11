@@ -16,7 +16,12 @@ RUN pip install --no-cache-dir \
     "APScheduler>=3.10.0"
 
 # Copy application code
+# portal_pipeline/ is now a compat shim re-exporting from portal/platform/inference/
+# (BUILD-SPEC-PORTAL-MODULES-V1 Slice 2) — both must be present until shims are removed.
+# Only portal/platform/ (not portal/modules/) is needed here — keeps the image lean.
 COPY portal_pipeline/ ./portal_pipeline/
+COPY portal/__init__.py ./portal/__init__.py
+COPY portal/platform/ ./portal/platform/
 COPY config/ ./config/
 COPY scripts/pipeline-entrypoint.sh /app/scripts/pipeline-entrypoint.sh
 RUN chmod +x /app/scripts/pipeline-entrypoint.sh

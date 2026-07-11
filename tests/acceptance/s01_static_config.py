@@ -203,8 +203,8 @@ async def run() -> None:
         if not _prom or not os.path.isdir(_prom):
             _mp = _tf.mkdtemp(prefix="portal5_acceptance_metrics_")
             os.environ["PROMETHEUS_MULTIPROC_DIR"] = _mp
-        from portal_pipeline.cluster_backends import BackendRegistry
-        from portal_pipeline.router_pipe import _validate_workspace_hints
+        from portal.platform.inference.cluster_backends import BackendRegistry
+        from portal.platform.inference.router_pipe import _validate_workspace_hints
 
         reg = BackendRegistry()
         errors = _validate_workspace_hints(reg)

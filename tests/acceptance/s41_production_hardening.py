@@ -43,7 +43,10 @@ async def run() -> None:
     # S41-02: Workspace concurrency config (bench-* should be 1)
     t0 = time.time()
     try:
-        from portal_pipeline.router_pipe import WORKSPACES, _get_workspace_concurrency_limit
+        from portal.platform.inference.router_pipe import (
+            WORKSPACES,
+            _get_workspace_concurrency_limit,
+        )
 
         bench_ok = True
         for wsid in sorted(WORKSPACES.keys()):
@@ -141,7 +144,7 @@ async def run() -> None:
     try:
         import yaml
 
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         cfg = yaml.safe_load(open(ROOT / "config" / "backends.yaml"))
         yaml_ids = set(cfg.get("workspace_routing", {}).keys())

@@ -554,7 +554,7 @@ def run_conditions_bench(
     try:
         _repo_root = Path(__file__).resolve().parent.parent.parent
         sys.path.insert(0, str(_repo_root))
-        from portal_pipeline.router.workspaces import WORKSPACES  # type: ignore[import]
+        from portal.platform.inference.router.workspaces import WORKSPACES  # type: ignore[import]
 
         valid_ids = frozenset(k for k in WORKSPACES if not k.startswith("bench-"))
     except ImportError:

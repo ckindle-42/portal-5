@@ -1,4 +1,4 @@
-"""Tests for portal_pipeline.config schema validation.
+"""Tests for portal.platform.inference.config schema validation.
 
 Verifies that deliberately broken portal.yaml inputs raise at load time with
 precise messages rather than silently delivering invalid state.
@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from portal_pipeline.config import Model, PortalConfig, load_portal_config
+from portal.platform.inference.config import Model, PortalConfig, load_portal_config
 
 REPO = Path(__file__).resolve().parent.parent.parent
 

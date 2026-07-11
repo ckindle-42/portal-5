@@ -72,7 +72,7 @@ def test_get_tools_manifest_route_present():
 
 
 def test_registered_in_pipeline_mcp_servers():
-    from portal_pipeline.tool_registry import MCP_SERVERS
+    from portal.platform.inference.tool_registry import MCP_SERVERS
 
     assert "pipeline" in MCP_SERVERS
     assert "8928" in MCP_SERVERS["pipeline"]

@@ -1,4 +1,4 @@
-"""Tests for portal_pipeline.notifications — no network required."""
+"""Tests for portal.platform.inference.notifications — no network required."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ class TestAlertEvent:
     """AlertEvent format methods."""
 
     def test_format_slack(self):
-        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal.platform.inference.notifications.events import AlertEvent, EventType
 
         event = AlertEvent(
             type=EventType.BACKEND_DOWN,
@@ -30,7 +30,7 @@ class TestAlertEvent:
         assert "ollama-1" in formatted
 
     def test_format_telegram(self):
-        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal.platform.inference.notifications.events import AlertEvent, EventType
 
         event = AlertEvent(
             type=EventType.ALL_BACKENDS_DOWN,
@@ -41,7 +41,7 @@ class TestAlertEvent:
         assert "all backends down" in formatted  # type value
 
     def test_format_pushover_truncates(self):
-        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal.platform.inference.notifications.events import AlertEvent, EventType
 
         event = AlertEvent(
             type=EventType.BACKEND_DOWN,
@@ -52,7 +52,7 @@ class TestAlertEvent:
         assert len(formatted) <= 512
 
     def test_format_email(self):
-        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal.platform.inference.notifications.events import AlertEvent, EventType
 
         event = AlertEvent(
             type=EventType.CONFIG_ERROR,
@@ -67,7 +67,7 @@ class TestSummaryEvent:
     """SummaryEvent format methods."""
 
     def test_format_slack(self):
-        from portal_pipeline.notifications.events import EventType, SummaryEvent
+        from portal.platform.inference.notifications.events import EventType, SummaryEvent
 
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
@@ -95,7 +95,7 @@ class TestSummaryEvent:
         assert "50,000 in" in formatted  # input tokens
 
     def test_format_telegram(self):
-        from portal_pipeline.notifications.events import EventType, SummaryEvent
+        from portal.platform.inference.notifications.events import EventType, SummaryEvent
 
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
@@ -115,7 +115,7 @@ class TestSummaryEvent:
         assert "30.0" in formatted  # avg TPS
 
     def test_format_pushover(self):
-        from portal_pipeline.notifications.events import EventType, SummaryEvent
+        from portal.platform.inference.notifications.events import EventType, SummaryEvent
 
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
@@ -135,7 +135,7 @@ class TestSummaryEvent:
 
     def test_format_slack_top_models(self):
         """Verify top models section appears in Slack format."""
-        from portal_pipeline.notifications.events import EventType, SummaryEvent
+        from portal.platform.inference.notifications.events import EventType, SummaryEvent
 
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
@@ -164,8 +164,8 @@ class TestSlackChannel:
 
     @pytest.mark.asyncio
     async def test_send_alert_skips_when_not_configured(self):
-        from portal_pipeline.notifications.channels.slack import SlackChannel
-        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal.platform.inference.notifications.channels.slack import SlackChannel
+        from portal.platform.inference.notifications.events import AlertEvent, EventType
 
         channel = SlackChannel()
         event = AlertEvent(type=EventType.BACKEND_DOWN, message="test")
@@ -174,8 +174,8 @@ class TestSlackChannel:
 
     @pytest.mark.asyncio
     async def test_send_alert_success(self):
-        from portal_pipeline.notifications.channels.slack import SlackChannel
-        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal.platform.inference.notifications.channels.slack import SlackChannel
+        from portal.platform.inference.notifications.events import AlertEvent, EventType
 
         with patch.dict(os.environ, {"SLACK_ALERT_WEBHOOK_URL": "https://hooks.slack.com/test"}):
             channel = SlackChannel()
@@ -196,8 +196,8 @@ class TestTelegramChannel:
 
     @pytest.mark.asyncio
     async def test_send_alert_skips_when_not_configured(self):
-        from portal_pipeline.notifications.channels.telegram import TelegramChannel
-        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal.platform.inference.notifications.channels.telegram import TelegramChannel
+        from portal.platform.inference.notifications.events import AlertEvent, EventType
 
         channel = TelegramChannel()
         event = AlertEvent(type=EventType.BACKEND_DOWN, message="test")
@@ -209,8 +209,8 @@ class TestEmailChannel:
 
     @pytest.mark.asyncio
     async def test_send_alert_skips_when_not_configured(self):
-        from portal_pipeline.notifications.channels.email import EmailChannel
-        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal.platform.inference.notifications.channels.email import EmailChannel
+        from portal.platform.inference.notifications.events import AlertEvent, EventType
 
         channel = EmailChannel()
         event = AlertEvent(type=EventType.BACKEND_DOWN, message="test")
@@ -222,8 +222,8 @@ class TestPushoverChannel:
 
     @pytest.mark.asyncio
     async def test_send_alert_skips_when_not_configured(self):
-        from portal_pipeline.notifications.channels.pushover import PushoverChannel
-        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal.platform.inference.notifications.channels.pushover import PushoverChannel
+        from portal.platform.inference.notifications.events import AlertEvent, EventType
 
         channel = PushoverChannel()
         event = AlertEvent(type=EventType.BACKEND_DOWN, message="test")
@@ -238,10 +238,10 @@ class TestNotificationDispatcher:
             # Re-import to pick up patched env
             import importlib
 
-            import portal_pipeline.notifications.dispatcher as disp_mod
+            import portal.platform.inference.notifications.dispatcher as disp_mod
 
             importlib.reload(disp_mod)
-            from portal_pipeline.notifications.dispatcher import (
+            from portal.platform.inference.notifications.dispatcher import (
                 NotificationDispatcher,
             )
 
@@ -257,10 +257,10 @@ class TestNotificationDispatcher:
         ):
             import importlib
 
-            import portal_pipeline.notifications.dispatcher as disp_mod
+            import portal.platform.inference.notifications.dispatcher as disp_mod
 
             importlib.reload(disp_mod)
-            from portal_pipeline.notifications.dispatcher import (
+            from portal.platform.inference.notifications.dispatcher import (
                 NotificationDispatcher,
             )
 
@@ -289,13 +289,13 @@ class TestNotificationDispatcher:
         ):
             import importlib
 
-            import portal_pipeline.notifications.dispatcher as disp_mod
+            import portal.platform.inference.notifications.dispatcher as disp_mod
 
             importlib.reload(disp_mod)
-            from portal_pipeline.notifications.dispatcher import (
+            from portal.platform.inference.notifications.dispatcher import (
                 NotificationDispatcher,
             )
-            from portal_pipeline.notifications.events import EventType
+            from portal.platform.inference.notifications.events import EventType
 
             disp = NotificationDispatcher()
             mock_backend = MagicMock()
@@ -322,13 +322,13 @@ class TestNotificationDispatcher:
         with patch.dict(os.environ, {"NOTIFICATIONS_ENABLED": "true"}):
             import importlib
 
-            import portal_pipeline.notifications.dispatcher as disp_mod
+            import portal.platform.inference.notifications.dispatcher as disp_mod
 
             importlib.reload(disp_mod)
-            from portal_pipeline.notifications.dispatcher import (
+            from portal.platform.inference.notifications.dispatcher import (
                 NotificationDispatcher,
             )
-            from portal_pipeline.notifications.events import EventType
+            from portal.platform.inference.notifications.events import EventType
 
             disp = NotificationDispatcher()
 
@@ -369,10 +369,10 @@ class TestNotificationDispatcher:
         with patch.dict(os.environ, {"NOTIFICATIONS_ENABLED": "true"}):
             import importlib
 
-            import portal_pipeline.notifications.dispatcher as disp_mod
+            import portal.platform.inference.notifications.dispatcher as disp_mod
 
             importlib.reload(disp_mod)
-            from portal_pipeline.notifications.dispatcher import (
+            from portal.platform.inference.notifications.dispatcher import (
                 NotificationDispatcher,
             )
 
@@ -400,11 +400,11 @@ class TestNotificationScheduler:
         """Verify _send_daily_summary reads aggregated state and builds a complete SummaryEvent."""
         import importlib
 
-        import portal_pipeline.notifications.dispatcher as disp_mod
+        import portal.platform.inference.notifications.dispatcher as disp_mod
 
         importlib.reload(disp_mod)
-        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
-        from portal_pipeline.notifications.scheduler import NotificationScheduler
+        from portal.platform.inference.notifications.dispatcher import NotificationDispatcher
+        from portal.platform.inference.notifications.scheduler import NotificationScheduler
 
         disp = NotificationDispatcher()
 
@@ -419,14 +419,14 @@ class TestNotificationScheduler:
 
         with patch.dict(os.environ, {"ALERT_SUMMARY_ENABLED": "true"}, clear=False):
             scheduler = NotificationScheduler(disp)
-            from portal_pipeline.notifications import scheduler as sched_module
+            from portal.platform.inference.notifications import scheduler as sched_module
 
             sched_module._attach_to_pipeline(
                 disp, fake_request_count, fake_startup, mock_registry_instance
             )
 
             with patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch:
-                from portal_pipeline.notifications import scheduler as sched_module
+                from portal.platform.inference.notifications import scheduler as sched_module
 
                 # Mock cooldown file so test doesn't skip due to existing lockfile
                 cooldown_file_mock = MagicMock()
@@ -486,12 +486,12 @@ class TestSchedulerSettings:
         """When APScheduler is not installed the scheduler should not start."""
         import importlib
 
-        import portal_pipeline.notifications.dispatcher as disp_mod
+        import portal.platform.inference.notifications.dispatcher as disp_mod
 
         importlib.reload(disp_mod)
         # Explicitly disable regardless of earlier env mutations from other tests
         with patch.dict(os.environ, {"NOTIFICATIONS_ENABLED": "false"}):
-            from portal_pipeline.notifications.dispatcher import NotificationDispatcher
+            from portal.platform.inference.notifications.dispatcher import NotificationDispatcher
 
             disp = NotificationDispatcher()
         mock_channel = MagicMock()
@@ -506,8 +506,8 @@ class TestWebhookSummaryExtendedMetrics:
 
     @pytest.mark.asyncio
     async def test_webhook_send_summary_includes_extended_metrics(self):
-        from portal_pipeline.notifications.channels.webhook import WebhookChannel
-        from portal_pipeline.notifications.events import EventType, SummaryEvent
+        from portal.platform.inference.notifications.channels.webhook import WebhookChannel
+        from portal.platform.inference.notifications.events import EventType, SummaryEvent
 
         with patch.dict(os.environ, {"WEBHOOK_URL": "https://example.com/webhook"}):
             channel = WebhookChannel()
@@ -547,8 +547,8 @@ class TestPushoverSummaryPriority:
 
     @pytest.mark.asyncio
     async def test_pushover_summary_uses_normal_priority(self):
-        from portal_pipeline.notifications.channels.pushover import PushoverChannel
-        from portal_pipeline.notifications.events import EventType, SummaryEvent
+        from portal.platform.inference.notifications.channels.pushover import PushoverChannel
+        from portal.platform.inference.notifications.events import EventType, SummaryEvent
 
         with patch.dict(
             os.environ,
@@ -594,11 +594,11 @@ class TestDailySummaryDeltaComputation:
         import importlib
         import json
 
-        import portal_pipeline.notifications.dispatcher as disp_mod
+        import portal.platform.inference.notifications.dispatcher as disp_mod
 
         importlib.reload(disp_mod)
-        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
-        from portal_pipeline.notifications.scheduler import NotificationScheduler
+        from portal.platform.inference.notifications.dispatcher import NotificationDispatcher
+        from portal.platform.inference.notifications.scheduler import NotificationScheduler
 
         disp = NotificationDispatcher()
 
@@ -642,7 +642,7 @@ class TestDailySummaryDeltaComputation:
             "persona_usage_raw": {},
         }
 
-        from portal_pipeline.notifications import scheduler as sched_module
+        from portal.platform.inference.notifications import scheduler as sched_module
 
         with patch.dict(os.environ, {"ALERT_SUMMARY_ENABLED": "true"}, clear=False):
             scheduler = NotificationScheduler(disp)
@@ -701,11 +701,11 @@ class TestDailySummaryDeltaComputation:
         import importlib
         import json
 
-        import portal_pipeline.notifications.dispatcher as disp_mod
+        import portal.platform.inference.notifications.dispatcher as disp_mod
 
         importlib.reload(disp_mod)
-        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
-        from portal_pipeline.notifications.scheduler import NotificationScheduler
+        from portal.platform.inference.notifications.dispatcher import NotificationDispatcher
+        from portal.platform.inference.notifications.scheduler import NotificationScheduler
 
         disp = NotificationDispatcher()
 
@@ -737,7 +737,7 @@ class TestDailySummaryDeltaComputation:
             "persona_usage_raw": {},
         }
 
-        from portal_pipeline.notifications import scheduler as sched_module
+        from portal.platform.inference.notifications import scheduler as sched_module
 
         with patch.dict(os.environ, {"ALERT_SUMMARY_ENABLED": "true"}, clear=False):
             scheduler = NotificationScheduler(disp)
@@ -783,7 +783,7 @@ class TestNotificationChannelInterface:
     """Base class interface — channels must implement send_alert/send_summary."""
 
     def test_channel_has_name_property(self):
-        from portal_pipeline.notifications.channels import NotificationChannel
+        from portal.platform.inference.notifications.channels import NotificationChannel
 
         assert hasattr(NotificationChannel, "name")
         assert hasattr(NotificationChannel, "send_alert")
@@ -791,8 +791,8 @@ class TestNotificationChannelInterface:
 
     def test_all_channels_registered(self):
         """Verify all available channels can be instantiated."""
-        from portal_pipeline.notifications.channels.slack import SlackChannel
-        from portal_pipeline.notifications.channels.telegram import TelegramChannel
+        from portal.platform.inference.notifications.channels.slack import SlackChannel
+        from portal.platform.inference.notifications.channels.telegram import TelegramChannel
 
         channels = [
             SlackChannel(),

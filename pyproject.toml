@@ -162,8 +162,8 @@ ignore = ["E501"]
 "tests/benchmarks/bench_security.py" = ["SIM117", "SIM105"]
 # streaming.py: pre-existing patterns — SIM102 nested-if (deliberate guard),
 # B905 zip strict= (Python 3.10 compat), N806 uppercase constants in function.
-"portal_pipeline/router/streaming.py" = ["SIM102", "B905", "N806"]
-"portal_pipeline/router_pipe.py" = ["N806", "SIM117"]
+"portal/platform/inference/router/streaming.py" = ["SIM102", "B905", "N806"]
+"portal/platform/inference/router_pipe.py" = ["N806", "SIM117"]
 # scripts/ — standalone operator scripts, pre-existing patterns (not package code)
 "scripts/**/*.py" = ["E402", "F841", "B007", "B904", "C408", "SIM105", "SIM102"]
 # portal_mcp — FastMCP imports after logging setup (E402 is intentional guard ordering)

@@ -213,7 +213,7 @@ case "${1:-up}" in
     echo "  Prometheus:  http://localhost:9090"
     ;;
    test)
-    exec python3 -m portal_pipeline.cli test "${@:2}"
+    exec python3 -m portal.platform.inference.cli test "${@:2}"
     ;;
 
   promptfoo)
@@ -396,7 +396,7 @@ case "${1:-up}" in
     ;;
 
   update)
-    exec python3 -m portal_pipeline.cli update "${@:2}"
+    exec python3 -m portal.platform.inference.cli update "${@:2}"
     ;;
 
   clean)
@@ -500,11 +500,11 @@ PYEOF
     ;;
 
   pull-models)
-    exec python3 -m portal_pipeline.cli models pull "${@:2}"
+    exec python3 -m portal.platform.inference.cli models pull "${@:2}"
     ;;
 
   refresh-models)
-    exec python3 -m portal_pipeline.cli models refresh "${@:2}"
+    exec python3 -m portal.platform.inference.cli models refresh "${@:2}"
     ;;
 
   add-user)
@@ -560,15 +560,15 @@ PYEOF
     ;;
 
   workspace-init)
-    exec python3 -m portal_pipeline.cli workspace init "${@:2}"
+    exec python3 -m portal.platform.inference.cli workspace init "${@:2}"
     ;;
 
   workspace-status)
-    exec python3 -m portal_pipeline.cli workspace status "${@:2}"
+    exec python3 -m portal.platform.inference.cli workspace status "${@:2}"
     ;;
 
   workspace-show)
-    exec python3 -m portal_pipeline.cli workspace show "${@:2}"
+    exec python3 -m portal.platform.inference.cli workspace show "${@:2}"
     ;;
 
   start-transcribe)
@@ -580,11 +580,11 @@ PYEOF
     ;;
 
   apply-model-params)
-    exec python3 -m portal_pipeline.cli models apply-params "${@:2}"
+    exec python3 -m portal.platform.inference.cli models apply-params "${@:2}"
     ;;
 
   import-gguf)
-    exec python3 -m portal_pipeline.cli models import-gguf "${@:2}"
+    exec python3 -m portal.platform.inference.cli models import-gguf "${@:2}"
     ;;
 
   download-comfyui-models)
@@ -592,11 +592,11 @@ PYEOF
     ;;
 
   apply-mtp-drafts)
-    exec python3 -m portal_pipeline.cli models apply-mtp-drafts "${@:2}"
+    exec python3 -m portal.platform.inference.cli models apply-mtp-drafts "${@:2}"
     ;;
 
   sync-config)
-    exec python3 -m portal_pipeline.cli sync-config "${@:2}"
+    exec python3 -m portal.platform.inference.cli sync-config "${@:2}"
     ;;
 
 

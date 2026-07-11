@@ -296,8 +296,8 @@ class TestSlackAdapter:
         import sys
 
         sys.path.insert(0, ".")
+        from portal.platform.inference.router_pipe import WORKSPACES
         from portal_channels.slack.bot import CHANNEL_WORKSPACE_MAP
-        from portal_pipeline.router_pipe import WORKSPACES
 
         for channel_keyword, workspace_id in CHANNEL_WORKSPACE_MAP.items():
             assert workspace_id in WORKSPACES, (
@@ -585,8 +585,8 @@ class TestDispatcher:
         import sys
 
         sys.path.insert(0, ".")
+        from portal.platform.inference.router_pipe import WORKSPACES
         from portal_channels.dispatcher import VALID_WORKSPACES
-        from portal_pipeline.router_pipe import WORKSPACES
 
         pipeline_ids = set(WORKSPACES.keys())
         dispatcher_ids = set(VALID_WORKSPACES)

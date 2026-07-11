@@ -1,9 +1,9 @@
-"""Re-export shim — monitoring primitives live in portal_pipeline.router.monitor.
+"""Re-export shim — monitoring primitives live in portal.platform.inference.router.monitor.
 
 All callers that imported from tests.memory_guard continue to work unchanged.
 """
 
-from portal_pipeline.router.monitor import (  # noqa: F401
+from portal.platform.inference.router.monitor import (  # noqa: F401
     DEFAULT_OLLAMA_URL,
     DEFAULT_POLL_S,
     DEFAULT_RETRIES,

@@ -103,8 +103,11 @@ class TestSelfImprovingCycle:
 
             bad = [
                 f
-                for f in glob_mod.glob("portal_wiki/core/**/*.py", recursive=True)
-                if any(x in open(f).read() for x in ["portal_pipeline", "bench_security"])
+                for f in glob_mod.glob("portal/platform/wiki/*.py")
+                if any(
+                    x in open(f).read()
+                    for x in ["portal_pipeline", "portal.platform.inference", "bench_security"]
+                )
             ]
             assert bad == [], f"Core has Portal imports: {bad}"
 

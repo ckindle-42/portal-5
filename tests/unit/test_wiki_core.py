@@ -244,13 +244,19 @@ class TestCoreImportClean:
     """The extraction guarantee: core/ has ZERO Portal-specific imports."""
 
     def test_core_no_portal_imports(self):
-        """Verify portal_wiki/core/ imports nothing from portal_pipeline or bench_security."""
+        """Verify portal/platform/wiki/ (the wiki engine, excluding adapters/) imports
+        nothing from portal_pipeline, portal.platform.inference, or bench_security."""
         import glob as glob_mod
 
         bad = []
-        for f in glob_mod.glob("portal_wiki/core/**/*.py", recursive=True):
+        for f in glob_mod.glob("portal/platform/wiki/*.py"):
             content = Path(f).read_text(encoding="utf-8")
-            for forbidden in ["portal_pipeline", "bench_security", "import portal."]:
+            for forbidden in [
+                "portal_pipeline",
+                "portal.platform.inference",
+                "bench_security",
+                "import portal.modules",
+            ]:
                 if forbidden in content:
                     bad.append(f"{f}: contains '{forbidden}'")
         assert bad == [], f"Core has Portal imports: {bad}"

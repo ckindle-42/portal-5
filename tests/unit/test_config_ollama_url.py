@@ -1,4 +1,4 @@
-"""Tests for Ollama URL canonicalization in portal_pipeline.config.
+"""Tests for Ollama URL canonicalization in portal.platform.inference.config.
 
 Verifies:
   - OLLAMA_URL env wins over yaml value
@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from portal_pipeline.config import load_portal_config, ollama_url
+from portal.platform.inference.config import load_portal_config, ollama_url
 
 REPO = Path(__file__).resolve().parent.parent.parent
 
@@ -78,7 +78,7 @@ def test_ollama_base_url_deprecated_alias(
     p = _write_yaml(tmp_path)
     monkeypatch.delenv("OLLAMA_URL", raising=False)
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://legacy-host:11434")
-    with caplog.at_level(logging.WARNING, logger="portal_pipeline.config"):
+    with caplog.at_level(logging.WARNING, logger="portal.platform.inference.config"):
         cfg = load_portal_config(path=p, _force_reload=True)
     assert cfg.ollama_url == "http://legacy-host:11434"
     assert any(

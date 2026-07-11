@@ -15,14 +15,18 @@ from pathlib import Path
 import pytest
 import yaml
 
-from portal_pipeline.config import (
+from portal.platform.inference.config import (
     PersonaSpec,
     load_persona_map,
     load_portal_config,
     resolve_preset_tools,
     validate_persona_parents,
 )
-from portal_pipeline.router.workspaces import _PERSONA_MAP, WORKSPACES, _resolve_persona_tools
+from portal.platform.inference.router.workspaces import (
+    _PERSONA_MAP,
+    WORKSPACES,
+    _resolve_persona_tools,
+)
 
 REPO = Path(__file__).resolve().parent.parent.parent
 SNAPSHOT = REPO / "tests" / "fixtures" / "preset_resolution_snapshot.json"

@@ -12,7 +12,7 @@ os.environ.setdefault("PIPELINE_API_KEY", "portal-pipeline")
 sys.path.insert(0, ".")
 from fastapi.testclient import TestClient
 
-from portal_pipeline.router_pipe import PIPELINE_API_KEY, app
+from portal.platform.inference.router_pipe import PIPELINE_API_KEY, app
 
 HEADERS = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
 
@@ -22,8 +22,8 @@ def client():
     """Create a test client with proper lifespan + fake registry."""
     from unittest.mock import MagicMock
 
-    import portal_pipeline.router.handlers as handlers_mod
-    from portal_pipeline.cluster_backends import BackendRegistry
+    import portal.platform.inference.router.handlers as handlers_mod
+    from portal.platform.inference.cluster_backends import BackendRegistry
 
     reg = MagicMock(spec=BackendRegistry)
     be = MagicMock()
@@ -44,17 +44,17 @@ class TestSemaphoreExhaustion:
         """Semaphore is initialized during app lifespan."""
         import sys
 
-        import portal_pipeline.router.concurrency as _concurrency
+        import portal.platform.inference.router.concurrency as _concurrency
 
         # A4 recurrence guard: the concurrency module must be the canonical
         # sys.modules entry. If a facade re-export shadowed it, writes to
         # _concurrency._request_semaphore would not reach RequestSlot.
-        assert sys.modules["portal_pipeline.router.concurrency"] is _concurrency
+        assert sys.modules["portal.platform.inference.router.concurrency"] is _concurrency
         assert _concurrency._request_semaphore is not None
 
     def test_semaphore_limit_in_env(self, client):
         """MAX_CONCURRENT_REQUESTS env var is read."""
-        from portal_pipeline import router_pipe
+        from portal.platform.inference import router_pipe
 
         assert router_pipe._MAX_CONCURRENT >= 1
 
@@ -76,7 +76,7 @@ class TestSemaphoreExhaustion:
 
     def test_semaphore_max_concurrent_configurable(self):
         """Semaphore limit reads from MAX_CONCURRENT_REQUESTS env var."""
-        from portal_pipeline import router_pipe
+        from portal.platform.inference import router_pipe
 
         # We set MAX_CONCURRENT_REQUESTS=2 at module top — verify it was read
         # (may be 2 or the default 20 depending on env at import time)

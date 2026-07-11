@@ -18,7 +18,7 @@ CONFIG_DIR = Path("config/promptfoo")
 
 @pytest.fixture(scope="module")
 def known_models():
-    from portal_pipeline.router.workspaces import WORKSPACES
+    from portal.platform.inference.router.workspaces import WORKSPACES
 
     return {info["model_hint"] for info in WORKSPACES.values() if info.get("model_hint")}
 

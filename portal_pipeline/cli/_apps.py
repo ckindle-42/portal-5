@@ -1,9 +1,3 @@
-"""Shared typer app instances — no circular imports."""
+"""SHIM — moved to portal.platform.inference.cli._apps. Removed in the final cleanup slice."""
 
-from __future__ import annotations
-
-import typer
-
-config_app = typer.Typer(help="Config introspection commands.")
-workspace_app = typer.Typer(help="Workspace operations.")
-models_app = typer.Typer(help="Model registry operations.")
+from portal.platform.inference.cli._apps import *  # noqa: F401,F403

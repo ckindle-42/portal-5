@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from portal_pipeline.cli._common import cross_reference_workspaces_and_models
-from portal_pipeline.config import load_portal_config
+from portal.platform.inference.cli._common import cross_reference_workspaces_and_models
+from portal.platform.inference.config import load_portal_config
 
 
 def test_no_orphan_workspace_hints() -> None:

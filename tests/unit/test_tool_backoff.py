@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from portal_pipeline.tool_registry import ToolDefinition, ToolRegistry, _backoff_seconds
+from portal.platform.inference.tool_registry import ToolDefinition, ToolRegistry, _backoff_seconds
 
 # ── _backoff_seconds schedule ────────────────────────────────────────────────
 

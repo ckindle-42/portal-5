@@ -69,6 +69,7 @@ def _check_image_freshness() -> list[str]:
             "portal-5-portal-pipeline",
             [
                 "portal_pipeline/",
+                "portal/platform/inference/",
                 "config/backends.yaml",
                 "config/personas/",
                 "Dockerfile.pipeline",

@@ -18,7 +18,7 @@ async def run() -> None:
     # S60-01: Tool registry module exists
     t0 = time.time()
     try:
-        from portal_pipeline.tool_registry import tool_registry
+        from portal.platform.inference.tool_registry import tool_registry
 
         names = tool_registry.list_tool_names()
         record(
@@ -35,7 +35,7 @@ async def run() -> None:
     # S60-02: WORKSPACES have tools arrays
     t0 = time.time()
     try:
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         with_tools = {k: v.get("tools", []) for k, v in WORKSPACES.items() if v.get("tools")}
         record(
@@ -52,7 +52,7 @@ async def run() -> None:
     # S60-03: _resolve_persona_tools function exists
     t0 = time.time()
     try:
-        from portal_pipeline.router_pipe import _resolve_persona_tools
+        from portal.platform.inference.router_pipe import _resolve_persona_tools
 
         result = _resolve_persona_tools({"tools_allow": ["execute_python"]}, "auto-coding")
         assert "execute_python" in result
@@ -77,7 +77,7 @@ async def run() -> None:
     # S60-05: MAX_TOOL_HOPS configurable
     t0 = time.time()
     try:
-        from portal_pipeline.router_pipe import MAX_TOOL_HOPS
+        from portal.platform.inference.router_pipe import MAX_TOOL_HOPS
 
         assert isinstance(MAX_TOOL_HOPS, int) and MAX_TOOL_HOPS > 0
         record(sec, "S60-05", "MAX_TOOL_HOPS", "PASS", f"value={MAX_TOOL_HOPS}", t0=t0)
