@@ -2402,7 +2402,7 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
 
     # Check 1: schema + mandatory provenance
     try:
-        from portal_wiki.core.schema import KnowledgeUnit, SourceRef
+        from portal.platform.wiki.schema import KnowledgeUnit, SourceRef
 
         # Must reject no-source unit
         rejected = False

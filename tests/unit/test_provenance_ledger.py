@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from portal_wiki.core.provenance_ledger import (
+from portal.platform.wiki.provenance_ledger import (
     append_entry,
     read_ledger,
     reset_ledger_path,
@@ -86,8 +86,8 @@ class TestProvenanceLedger:
             reset_ledger_path()
 
     def test_confirm_unit_appends_ledger_entry(self, tmp_path):
-        from portal_wiki.core.store import reset_canonical_dir, set_canonical_dir
-        from portal_wiki.core.writeback import (
+        from portal.platform.wiki.store import reset_canonical_dir, set_canonical_dir
+        from portal.platform.wiki.writeback import (
             confirm_unit,
             propose_unit,
             reset_proposed_dir,

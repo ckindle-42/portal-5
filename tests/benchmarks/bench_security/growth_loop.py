@@ -312,7 +312,7 @@ def run_growth_loop(
 def _writeback_proven_detection(draft: DraftDetection, gap: Gap) -> None:
     """Write a proven detection back to the wiki as a cited unit."""
     try:
-        from portal_wiki.core.writeback import propose_unit
+        from portal.platform.wiki.writeback import propose_unit
 
         propose_unit(
             {

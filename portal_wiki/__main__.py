@@ -27,10 +27,10 @@ def _hash_dir(d: Path) -> str:
 
 def cmd_render(args: argparse.Namespace) -> int:
     """Render wiki views."""
-    from portal_wiki.adapters.git_source import GitSourceConnector
-    from portal_wiki.core.maintain import update_what_units
-    from portal_wiki.core.render import render_admin_guide, render_architecture_map
-    from portal_wiki.core.store import set_canonical_dir
+    from portal.platform.wiki.adapters.git_source import GitSourceConnector
+    from portal.platform.wiki.maintain import update_what_units
+    from portal.platform.wiki.render import render_admin_guide, render_architecture_map
+    from portal.platform.wiki.store import set_canonical_dir
 
     repo_root = Path(__file__).resolve().parent.parent
     canonical = repo_root / "portal_wiki" / "canonical"
@@ -95,9 +95,9 @@ def cmd_render(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     """Wiki status report."""
-    from portal_wiki.adapters.git_source import GitSourceConnector
-    from portal_wiki.core.maintain import wiki_status
-    from portal_wiki.core.store import set_canonical_dir
+    from portal.platform.wiki.adapters.git_source import GitSourceConnector
+    from portal.platform.wiki.maintain import wiki_status
+    from portal.platform.wiki.store import set_canonical_dir
 
     repo_root = Path(__file__).resolve().parent.parent
     set_canonical_dir(repo_root / "portal_wiki" / "canonical")
