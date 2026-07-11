@@ -1,19 +1,3 @@
-"""Portal 5 MCP shared core utilities.
+"""SHIM — moved to portal.platform.mcp_host. Removed in the final cleanup slice."""
 
-Provides cross-MCP helpers like workspace path resolution. New MCPs should
-prefer these helpers over re-implementing path logic. See workspace.py.
-"""
-
-from portal_mcp.core.workspace import (
-    get_generated_dir,
-    get_uploads_dir,
-    get_workspace_root,
-    resolve_upload_path,
-)
-
-__all__ = [
-    "get_generated_dir",
-    "get_uploads_dir",
-    "get_workspace_root",
-    "resolve_upload_path",
-]
+from portal.platform.mcp_host import *  # noqa: F401,F403

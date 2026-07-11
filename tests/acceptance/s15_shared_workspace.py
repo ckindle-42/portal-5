@@ -91,7 +91,7 @@ async def run() -> None:
     # S15-04: Helper module imports cleanly
     t0 = time.time()
     try:
-        from portal_mcp.core.workspace import get_generated_dir, get_workspace_root
+        from portal.platform.mcp_host.workspace import get_generated_dir, get_workspace_root
 
         root = get_workspace_root()
         get_generated_dir("transcripts")

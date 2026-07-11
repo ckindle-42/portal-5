@@ -1,4 +1,4 @@
-"""Unit tests for portal_mcp.core.workspace (TASK-WORKSPACE-001)."""
+"""Unit tests for portal.platform.mcp_host.workspace (TASK-WORKSPACE-001)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from portal_mcp.core.workspace import (
+from portal.platform.mcp_host.workspace import (
     _VALID_CATEGORIES,
     get_generated_dir,
     get_uploads_dir,

@@ -90,7 +90,7 @@ async def run() -> None:
 
     # ── S17-03: render_mesh — STL → PNG with correct bounding box ────────────
     # Write a fresh test STL into the shared workspace so the container can see it.
-    from portal_mcp.core.workspace import (
+    from portal.platform.mcp_host.workspace import (
         get_generated_dir,  # noqa: PLC0415 — lazy import, avoids import at module level
     )
 

@@ -201,7 +201,7 @@ async def transcribe_audio(file_path: str | None = None, language: str | None = 
         dict with 'text' (full transcript) and 'segments' (timestamped segments)
     """
     if file_path is None:
-        from portal_mcp.core.workspace import get_uploads_dir
+        from portal.platform.mcp_host.workspace import get_uploads_dir
 
         uploads = get_uploads_dir()
         audio_exts = [".wav", ".mp3", ".m4a", ".ogg", ".flac", ".webm"]
@@ -254,10 +254,10 @@ import json as _json
 import time as _time
 import uuid as _uuid
 
-from portal_mcp.core.workspace import (
+from portal.platform.mcp_host.workspace import (
     get_generated_dir as _get_generated_dir,
 )
-from portal_mcp.core.workspace import (
+from portal.platform.mcp_host.workspace import (
     resolve_upload_path as _resolve_upload_path,
 )
 
