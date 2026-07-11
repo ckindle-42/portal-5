@@ -271,6 +271,15 @@ If any portal image predates a relevant commit (pipeline: `portal_pipeline/`, `c
 
 The UAT driver, acceptance test v6, and bench_tps all print a freshness warning automatically at startup — if you see that warning, stop and rebuild before proceeding. Do not explain away stale-image failures as model or routing issues.
 
+### Checkpoint Backup Discipline — Non-Negotiable
+
+**Multi-hour bench/sweep checkpoint files (e.g. `/tmp/agentic_blue_sweep.json`) must be backed up before they are ever cleared, deleted, or overwritten — no exceptions, not even "I already reported the numbers in chat."** A `cp checkpoint.json checkpoint_$(date +%Y%m%dT%H%M%S).json.bak` costs nothing; re-running a 20-scenario × 3-trial sweep across several models costs hours. This applies whenever you are about to:
+- `rm`/overwrite a checkpoint to seed a fresh run
+- Launch a new sweep that reuses the same output path as a just-completed one
+- Any point where the next command could destroy data from a run that took more than a few minutes to produce
+
+The failure mode this guards against: backing up *some* runs and not others out of momentum or urgency, then losing exactly the run you didn't back up. Treat the backup step as part of the launch sequence itself (write it into the same command block that clears the old checkpoint), not a separate judgment call to remember. If you skip it and then need to clear the checkpoint, back it up in that same moment before proceeding — never clear first and back up "after."
+
 ---
 
 ## Adding New Capabilities
