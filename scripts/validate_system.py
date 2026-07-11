@@ -1188,7 +1188,7 @@ def check_ci_parity() -> tuple[str, str, list[dict]]:
                 "python3",
                 "-m",
                 "pytest",
-                "tests/unit/test_ci_parity.py::TestCiParity::test_bench_imports_without_pythonpath",
+                "portal/modules/security/tests/test_ci_parity.py::TestCiParity::test_bench_imports_without_pythonpath",
                 "--tb=line",
                 "-q",
             ],

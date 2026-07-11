@@ -211,7 +211,7 @@ class TestSPLDetectionCoverage:
         from pathlib import Path
 
         yaml_path = (
-            Path(__file__).resolve().parent.parent.parent
+            Path(__file__).resolve().parents[4]
             / "portal/modules/security/core/siem/spl_detections.yaml"
         )
         data = yaml.safe_load(yaml_path.read_text())

@@ -168,7 +168,7 @@ class TestClassOracleBinding:
         """Every oracle referenced by challenge_classes.yaml is in ORACLES."""
         import yaml
 
-        cc_path = Path(__file__).resolve().parents[3] / "config" / "challenge_classes.yaml"
+        cc_path = Path(__file__).resolve().parents[4] / "config" / "challenge_classes.yaml"
         if not cc_path.exists():
             pytest.skip("challenge_classes.yaml not found")
         cc = yaml.safe_load(cc_path.read_text())

@@ -27,8 +27,7 @@ BLUE_GAPS: set[str] = {
 }
 
 _SPL_YAML = (
-    Path(__file__).resolve().parent.parent.parent
-    / "portal/modules/security/core/siem/spl_detections.yaml"
+    Path(__file__).resolve().parents[4] / "portal/modules/security/core/siem/spl_detections.yaml"
 )
 
 
