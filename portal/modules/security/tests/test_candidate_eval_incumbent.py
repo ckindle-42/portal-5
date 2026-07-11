@@ -83,7 +83,7 @@ class TestGetIncumbentModel:
 
     def test_not_hardcoded(self):
         """The returned model should match what's actually in portal.yaml."""
-        portal_yaml = Path(__file__).resolve().parent.parent.parent / "config" / "portal.yaml"
+        portal_yaml = Path(__file__).resolve().parents[4] / "config" / "portal.yaml"
         data = yaml.safe_load(portal_yaml.read_text())
         workspace = _SLOT_TO_WORKSPACE.get("exploit", "")
         expected = data.get("workspaces", {}).get(workspace, {}).get("model_hint", "")

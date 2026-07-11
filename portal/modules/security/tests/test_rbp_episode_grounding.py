@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 # Ensure bench_security is importable
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks"))
 
 from portal.modules.security.core.episode import (
     CAPABILITY_VERDICTS,
@@ -615,7 +615,7 @@ class TestTelemetryFailureReasonCode:
         Verify the old pattern is gone.
         """
         matrix_py = (
-            Path(__file__).resolve().parent.parent.parent
+            Path(__file__).resolve().parents[4]
             / "portal"
             / "modules"
             / "security"

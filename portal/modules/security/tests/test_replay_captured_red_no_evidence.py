@@ -16,8 +16,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks"))
 
 from portal.modules.security.core._config import BenchConfig
 from portal.modules.security.core.blue import run_purple_tests

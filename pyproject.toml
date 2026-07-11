@@ -120,6 +120,7 @@ ignore = ["E501"]
 [tool.ruff.lint.per-file-ignores]
 # SIM115: context-manager-for-open — file handles in tests are cleaned up by process
 "tests/**/*.py" = ["SIM115"]
+"portal/modules/security/tests/**/*.py" = ["SIM115"]
 # Acceptance/UAT scripts use uppercase section names (C0, C1…) as a deliberate design
 # convention matching their CLI identifiers.  N802/N806/E741/F821/F841/SIM117 are
 # pre-existing patterns in these standalone scripts.
@@ -178,7 +179,7 @@ warn_return_any = true
 warn_unused_ignores = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "portal/modules/security/tests"]
 pythonpath = ["tests/benchmarks", "."]
 asyncio_mode = "auto"
 # -v: show each test name + PASSED/FAILED/ERROR as it runs (no dots)

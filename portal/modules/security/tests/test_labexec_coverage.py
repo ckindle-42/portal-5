@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-_BENCH_DIR = str(Path(__file__).resolve().parent.parent / "benchmarks")
+_BENCH_DIR = str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks")
 if _BENCH_DIR not in sys.path:
     sys.path.insert(0, _BENCH_DIR)
 

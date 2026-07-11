@@ -18,13 +18,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks"))
 
 import yaml
 
 _YAML_PATH = (
-    Path(__file__).resolve().parent.parent.parent
+    Path(__file__).resolve().parents[4]
     / "portal"
     / "modules"
     / "security"
@@ -90,7 +90,7 @@ class TestComplianceMappingSchema:
 
 class TestNavigatorDomains:
     def test_navigator_layer_defaults_enterprise_backcompat(self):
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
+        sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks"))
         from portal.modules.security.core.capability_graph import (
             generate_navigator_layer,
             seed_graph_from_assets,
