@@ -34,7 +34,7 @@ _CANONICAL_DIR = Path(__file__).resolve().parent.parent / "portal_wiki" / "canon
 
 
 def _ensure_canonical():
-    from portal_wiki.core.store import set_canonical_dir
+    from portal.platform.wiki.store import set_canonical_dir
 
     set_canonical_dir(_CANONICAL_DIR)
 

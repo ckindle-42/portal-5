@@ -14,8 +14,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from portal_wiki.core.store import reset_canonical_dir, set_canonical_dir
-from portal_wiki.core.writeback import list_proposed, reset_proposed_dir, set_proposed_dir
+from portal.platform.wiki.store import reset_canonical_dir, set_canonical_dir
+from portal.platform.wiki.writeback import list_proposed, reset_proposed_dir, set_proposed_dir
 
 
 class TestGrowthWriteback:

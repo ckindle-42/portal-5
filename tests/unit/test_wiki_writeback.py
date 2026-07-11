@@ -15,8 +15,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from portal_wiki.core.store import load_unit, reset_canonical_dir, set_canonical_dir
-from portal_wiki.core.writeback import (
+from portal.platform.wiki.store import load_unit, reset_canonical_dir, set_canonical_dir
+from portal.platform.wiki.writeback import (
     confirm_unit,
     list_proposed,
     propose_unit,

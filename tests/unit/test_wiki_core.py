@@ -19,8 +19,8 @@ import pytest
 # Add repo root to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from portal_wiki.core.schema import KnowledgeUnit, SourceRef
-from portal_wiki.core.store import (
+from portal.platform.wiki.schema import KnowledgeUnit, SourceRef
+from portal.platform.wiki.store import (
     delete_unit,
     list_ids,
     load_all,

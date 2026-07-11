@@ -525,7 +525,7 @@ def _write_back_winning_config(results: list[dict]) -> str | None:
 
     # Write wiki unit
     try:
-        from portal_wiki.core.writeback import propose_unit
+        from portal.platform.wiki.writeback import propose_unit
 
         unit_id = f"SEC_BENCH-agentic-blue-deltas-{time.strftime('%Y%m%d', time.gmtime())}"
         tags = ["agentic-blue", "maturation", "arm-deltas", "confidence-interval"]

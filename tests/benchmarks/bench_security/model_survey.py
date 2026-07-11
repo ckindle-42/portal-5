@@ -139,7 +139,7 @@ def _already_benched_models() -> set[str]:
             pass
 
     try:
-        from portal_wiki.core.store import load_all
+        from portal.platform.wiki.store import load_all
 
         for unit in load_all():
             if "agentic-blue" not in (unit.tags or []):
@@ -544,7 +544,7 @@ def write_discovery_wiki_unit(
     """
     import time
 
-    from portal_wiki.core.writeback import propose_unit
+    from portal.platform.wiki.writeback import propose_unit
 
     date = time.strftime("%Y-%m-%d", time.gmtime())
     lines = [

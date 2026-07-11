@@ -15,8 +15,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from portal_wiki.core.store import load_all, reset_canonical_dir, set_canonical_dir
-from portal_wiki.core.writeback import (
+from portal.platform.wiki.store import load_all, reset_canonical_dir, set_canonical_dir
+from portal.platform.wiki.writeback import (
     confirm_unit,
     list_proposed,
     reset_proposed_dir,
@@ -145,7 +145,7 @@ class TestSelfImprovingCycle:
                 _writeback_proven_detection(draft, gap)
 
             # Investigation (P3)
-            from portal_wiki.adapters.writeback_investigation import (
+            from portal.platform.wiki.adapters.writeback_investigation import (
                 writeback_investigation_findings,
             )
 
@@ -162,12 +162,12 @@ class TestSelfImprovingCycle:
             )
 
             # Bench (P4)
-            from portal_wiki.adapters.writeback_bench import writeback_bench_result
+            from portal.platform.wiki.adapters.writeback_bench import writeback_bench_result
 
             writeback_bench_result("test-model", "exploit", "keep")
 
             # Gap (P5)
-            from portal_wiki.adapters.writeback_gap import writeback_gap_resolution
+            from portal.platform.wiki.adapters.writeback_gap import writeback_gap_resolution
 
             writeback_gap_resolution("T1190", "COVERED")
 

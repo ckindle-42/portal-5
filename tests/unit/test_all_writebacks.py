@@ -14,15 +14,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from portal_wiki.core.store import reset_canonical_dir, set_canonical_dir
-from portal_wiki.core.writeback import reset_proposed_dir, set_proposed_dir
+from portal.platform.wiki.store import reset_canonical_dir, set_canonical_dir
+from portal.platform.wiki.writeback import reset_proposed_dir, set_proposed_dir
 
 
 class TestInvestigationWriteback:
     """P3: Closed investigation findings write back."""
 
     def test_findings_write_back(self, tmp_path):
-        from portal_wiki.adapters.writeback_investigation import writeback_investigation_findings
+        from portal.platform.wiki.adapters.writeback_investigation import (
+            writeback_investigation_findings,
+        )
 
         set_proposed_dir(tmp_path / "p")
         set_canonical_dir(tmp_path / "c")
@@ -45,7 +47,9 @@ class TestInvestigationWriteback:
             reset_canonical_dir()
 
     def test_empty_findings_noop(self, tmp_path):
-        from portal_wiki.adapters.writeback_investigation import writeback_investigation_findings
+        from portal.platform.wiki.adapters.writeback_investigation import (
+            writeback_investigation_findings,
+        )
 
         set_proposed_dir(tmp_path / "p")
         try:
@@ -59,7 +63,7 @@ class TestBenchWriteback:
     """P4: Bench results write back as model-knowledge units."""
 
     def test_bench_result_write_back(self, tmp_path):
-        from portal_wiki.adapters.writeback_bench import writeback_bench_result
+        from portal.platform.wiki.adapters.writeback_bench import writeback_bench_result
 
         set_proposed_dir(tmp_path / "p")
         set_canonical_dir(tmp_path / "c")
@@ -78,7 +82,7 @@ class TestGapWriteback:
     """P5: Gap resolutions write back as coverage status units."""
 
     def test_gap_resolution_write_back(self, tmp_path):
-        from portal_wiki.adapters.writeback_gap import writeback_gap_resolution
+        from portal.platform.wiki.adapters.writeback_gap import writeback_gap_resolution
 
         set_proposed_dir(tmp_path / "p")
         set_canonical_dir(tmp_path / "c")

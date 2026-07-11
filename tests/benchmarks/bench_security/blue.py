@@ -1089,7 +1089,7 @@ def _load_wiki_technique_descriptions() -> dict[str, str]:
     honestly returns NONE rather than faking a match against nothing.
     """
     try:
-        from portal_wiki.core.store import load_all
+        from portal.platform.wiki.store import load_all
     except Exception:
         return {}
     descriptions: dict[str, str] = {}
@@ -1690,7 +1690,7 @@ def run_purple_tests(
             # promise) — the episode→exec→telemetry→models record for this
             # purple run. Never blocks/breaks the run if the ledger write fails.
             with contextlib.suppress(Exception):
-                from portal_wiki.core.provenance_ledger import append_entry
+                from portal.platform.wiki.provenance_ledger import append_entry
 
                 evidence_refs = list(ep_dict.get("evidence_refs", []))
                 if rec.get("investigation"):
