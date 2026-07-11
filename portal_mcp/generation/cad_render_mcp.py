@@ -25,7 +25,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 from starlette.responses import FileResponse, JSONResponse
 
-from portal_mcp.core.workspace import get_generated_dir
+from portal.platform.mcp_host.workspace import get_generated_dir
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ def _resolve_input(path_str: str) -> Path:
     Only bare filenames are accepted — no absolute paths, no directory components.
     The resolved path must live under the workspace root (realpath check).
     """
-    from portal_mcp.core.workspace import get_uploads_dir, get_workspace_root
+    from portal.platform.mcp_host.workspace import get_uploads_dir, get_workspace_root
 
     # Strip any directory component the caller may have supplied and reject traversal.
     name = Path(path_str).name

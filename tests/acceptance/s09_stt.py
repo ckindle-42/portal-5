@@ -131,7 +131,7 @@ async def run() -> None:
         if not fixture.exists():
             record(sec, "S9-05", "Workspace upload resolution", "INFO", "fixture missing", t0=t0)
         else:
-            from portal_mcp.core.workspace import get_uploads_dir
+            from portal.platform.mcp_host.workspace import get_uploads_dir
 
             uploads = get_uploads_dir()
             test_id = f"test_{uuid.uuid4().hex[:8]}"
