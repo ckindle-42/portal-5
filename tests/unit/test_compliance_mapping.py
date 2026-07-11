@@ -24,9 +24,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 import yaml
 
 _YAML_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "benchmarks"
-    / "bench_security"
+    Path(__file__).resolve().parent.parent.parent
+    / "portal"
+    / "modules"
+    / "security"
+    / "core"
     / "siem"
     / "spl_detections.yaml"
 )
@@ -89,7 +91,10 @@ class TestComplianceMappingSchema:
 class TestNavigatorDomains:
     def test_navigator_layer_defaults_enterprise_backcompat(self):
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
-        from bench_security.capability_graph import generate_navigator_layer, seed_graph_from_assets
+        from portal.modules.security.core.capability_graph import (
+            generate_navigator_layer,
+            seed_graph_from_assets,
+        )
 
         graph = seed_graph_from_assets()
         layer = generate_navigator_layer(graph)
@@ -97,7 +102,7 @@ class TestNavigatorDomains:
         assert len(layer["techniques"]) > 0
 
     def test_navigator_layers_emits_both_domains(self):
-        from bench_security.capability_graph import (
+        from portal.modules.security.core.capability_graph import (
             generate_navigator_layers,
             seed_graph_from_assets,
         )
@@ -118,7 +123,7 @@ class TestNavigatorDomains:
         """Back-compat: a technique absent from spl_detections.yaml entirely
         (e.g. exercised-only, no detection rule) must default to enterprise,
         never silently appear in the ICS layer."""
-        from bench_security.capability_graph import (
+        from portal.modules.security.core.capability_graph import (
             CapabilityGraph,
             Procedure,
             generate_navigator_layers,

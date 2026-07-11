@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.benchmarks.bench_security._sweep_driver import (
+from portal.modules.security.core._sweep_driver import (
     _aggregate_trials,
     _classify_cell,
     _get_workers,
@@ -114,7 +114,7 @@ class TestIterationMode:
 
     def test_default_arms(self):
         """Default arms are all three."""
-        from tests.benchmarks.bench_security._sweep_driver import ARMS
+        from portal.modules.security.core._sweep_driver import ARMS
 
         assert ARMS == ["raw", "tools", "harness"]
 

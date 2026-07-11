@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from tests.benchmarks.bench_security.blue import (
+from portal.modules.security.core.blue import (
     _fetch_blue_telemetry,
     _score_purple,
 )
-from tests.benchmarks.bench_security.matrix import (
+from portal.modules.security.core.matrix import (
     RunUnit,
     _score_purple_on_unit,
     run_matrix,
 )
-from tests.benchmarks.bench_security.oracles import ORACLES
+from portal.modules.security.core.oracles import ORACLES
 
 
 class TestLinuxWebTelemetry:
@@ -78,7 +78,7 @@ class TestSyntheticFallbackGate:
 
     def test_synthetic_fallback_never_pass(self, monkeypatch):
         """A synthetic-sourced result MUST score indeterminate, never PASS."""
-        monkeypatch.setattr("tests.benchmarks.bench_security.matrix._LAB_EXEC_AVAILABLE", False)
+        monkeypatch.setattr("portal.modules.security.core.matrix._LAB_EXEC_AVAILABLE", False)
         units = [
             RunUnit(
                 id="test-synth",
@@ -189,7 +189,7 @@ class TestTelemetryBackendPluggable:
 
     def test_canonical_protocol_importable(self):
         """TelemetryBackend protocol is importable from telemetry module."""
-        from tests.benchmarks.bench_security.telemetry import TelemetryBackend
+        from portal.modules.security.core.telemetry import TelemetryBackend
 
         assert hasattr(TelemetryBackend, "query")
 
@@ -220,7 +220,7 @@ class TestQueryLiveDecoupledFromLabExec:
     live" so a replay can query genuinely-indexed data."""
 
     def test_query_live_true_queries_splunk_backend(self, monkeypatch):
-        from tests.benchmarks.bench_security import blue as blue_mod
+        from portal.modules.security.core import blue as blue_mod
 
         calls = []
 
@@ -237,7 +237,7 @@ class TestQueryLiveDecoupledFromLabExec:
         assert telemetry["T1558.003"]["source"] == "live"
 
     def test_query_live_false_never_queries_backend_even_if_lab_exec_available(self, monkeypatch):
-        from tests.benchmarks.bench_security import blue as blue_mod
+        from portal.modules.security.core import blue as blue_mod
 
         calls = []
 
@@ -256,8 +256,8 @@ class TestQueryLiveDecoupledFromLabExec:
     def test_run_purple_tests_passes_query_live_true_on_replay(self, monkeypatch):
         """run_purple_tests(replay_captured_red=True) must pass query_live=True
         to _run_blue_chain_test even though lab_exec=False."""
-        from tests.benchmarks.bench_security import blue as blue_mod
-        from tests.benchmarks.bench_security._config import BenchConfig
+        from portal.modules.security.core import blue as blue_mod
+        from portal.modules.security.core._config import BenchConfig
 
         captured_kwargs = {}
 

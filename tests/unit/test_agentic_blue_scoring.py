@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.benchmarks.bench_security.agentic_blue_eval import (
+from portal.modules.security.core.agentic_blue_eval import (
     _parent_technique,
     _tactic_for,
     score_findings_tiered,
@@ -17,8 +17,8 @@ from tests.benchmarks.bench_security.agentic_blue_eval import (
 @pytest.fixture(autouse=True)
 def _reset_tactic_cache():
     """Reset the tactic cache before each test to avoid stale data."""
-    import tests.benchmarks.bench_security.agentic_blue_eval as _mod
-    import tests.benchmarks.bench_security.siem.spl_detections as _spl
+    import portal.modules.security.core.agentic_blue_eval as _mod
+    import portal.modules.security.core.siem.spl_detections as _spl
 
     _mod._tactic_cache = None
     _spl._cache = None

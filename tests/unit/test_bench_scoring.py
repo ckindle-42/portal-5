@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.benchmarks.bench_security.scoring import (
+from portal.modules.security.core.scoring import (
     _lis_length,
     accumulate_observations,
     classify_nontool_turn,

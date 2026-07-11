@@ -16,8 +16,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security.capability_graph import seed_graph_from_assets
-from bench_security.continuous_eval import (
+from portal.modules.security.core.capability_graph import seed_graph_from_assets
+from portal.modules.security.core.continuous_eval import (
     AnalystFeedback,
     AnalystFeedbackStore,
     ContentGap,

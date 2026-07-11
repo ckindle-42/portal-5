@@ -10,11 +10,12 @@ regexes = [
   '''CHANGEME''',                       # .env.example placeholder
   '''tomcat:tomcat''',                  # vulhub's own documented default Tomcat Manager weak creds (lab target, not a secret)
   '''admin:admin''',                    # Jenkins' own documented default weak creds (lab target red-prompt example, not a secret)
+  '''axis2:axis2''',                    # Apache Axis2's own documented default admin weak creds (lab target red-prompt example, not a secret)
 ]
 paths = [
   '''\.env\.example$''',
   '''config/searxng/settings\.yml\.new$''',  # vendored upstream example config
-  '''tests/benchmarks/bench_security/results/.*\.json$''',   # generated bench output; prompt_key values (e.g. eternalblue_ms17010) trip generic-api-key on entropy
-  '''tests/benchmarks/bench_security/field_journal/.*\.json$''',  # same prompt_key field, journal copy
+  '''portal/modules/security/core/results/.*\.json$''',   # generated bench output; prompt_key values (e.g. eternalblue_ms17010) trip generic-api-key on entropy
+  '''portal/modules/security/core/field_journal/.*\.json$''',  # same prompt_key field, journal copy
   '''tests/benchmarks/bench_lab_exec\.py$''',  # lab-target-only constants (ADMIN_PASS, tomcat:tomcat weak creds) — live pentest lab, not real secrets
 ]

@@ -12,12 +12,12 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from tests.benchmarks.bench_security.exec_chain import (
+from portal.modules.security.core.exec_chain import (
     _BASH_TECHNIQUE_SIGNALS,
     CHAIN_TOOLS_BASE,
     INLINE_TOOLS,
 )
-from tests.benchmarks.bench_security.scoring import accumulate_observations
+from portal.modules.security.core.scoring import accumulate_observations
 
 # ── Phase 1: CHAIN_TOOLS_BASE exposes execute_bash/execute_python ─────────────
 
@@ -95,10 +95,10 @@ class TestLabDispatchRouting:
 
     def test_execute_bash_dispatches_to_mcp(self):
         with patch(
-            "tests.benchmarks.bench_security.lab._lab_mcp_call",
+            "portal.modules.security.core.lab._lab_mcp_call",
             return_value={"ok": True, "output": "uid=0(root)", "elapsed_s": 0.5},
         ) as mock_call:
-            from tests.benchmarks.bench_security.lab import lab_dispatch
+            from portal.modules.security.core.lab import lab_dispatch
 
             result = lab_dispatch("execute_bash", {"cmd": "id"}, dry_run=False)
             mock_call.assert_called_once()
@@ -106,23 +106,23 @@ class TestLabDispatchRouting:
 
     def test_execute_python_dispatches_to_mcp(self):
         with patch(
-            "tests.benchmarks.bench_security.lab._lab_mcp_call",
+            "portal.modules.security.core.lab._lab_mcp_call",
             return_value={"ok": True, "output": "42", "elapsed_s": 0.3},
         ) as mock_call:
-            from tests.benchmarks.bench_security.lab import lab_dispatch
+            from portal.modules.security.core.lab import lab_dispatch
 
             result = lab_dispatch("execute_python", {"code": "print(6*7)"}, dry_run=False)
             mock_call.assert_called_once()
             assert "42" in result
 
     def test_execute_bash_dry_run(self):
-        from tests.benchmarks.bench_security.lab import lab_dispatch
+        from portal.modules.security.core.lab import lab_dispatch
 
         result = lab_dispatch("execute_bash", {"cmd": "nmap -sV 10.10.11.50"}, dry_run=True)
         assert "[DRY-RUN]" in result
 
     def test_execute_python_dry_run(self):
-        from tests.benchmarks.bench_security.lab import lab_dispatch
+        from portal.modules.security.core.lab import lab_dispatch
 
         result = lab_dispatch(
             "execute_python", {"code": "import os; os.system('id')"}, dry_run=True
@@ -130,13 +130,13 @@ class TestLabDispatchRouting:
         assert "[DRY-RUN]" in result
 
     def test_execute_bash_empty_cmd(self):
-        from tests.benchmarks.bench_security.lab import lab_dispatch
+        from portal.modules.security.core.lab import lab_dispatch
 
         result = lab_dispatch("execute_bash", {"cmd": ""}, dry_run=False)
         assert "empty" in result.lower()
 
     def test_execute_python_empty_code(self):
-        from tests.benchmarks.bench_security.lab import lab_dispatch
+        from portal.modules.security.core.lab import lab_dispatch
 
         result = lab_dispatch("execute_python", {"code": ""}, dry_run=False)
         assert "empty" in result.lower()

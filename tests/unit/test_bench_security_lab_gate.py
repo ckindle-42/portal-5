@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from tests.benchmarks.bench_security import lab as lab_mod
+from portal.modules.security.core import lab as lab_mod
 
 
 def test_gate_skips_when_lab_exec_unavailable(monkeypatch):

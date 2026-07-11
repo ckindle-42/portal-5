@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 import yaml
 
-from tests.benchmarks.bench_security.candidate_eval import (
+from portal.modules.security.core.candidate_eval import (
     _SLOT_TO_WORKSPACE,
     _build_step_models,
     _get_incumbent_model,
@@ -56,7 +56,7 @@ class TestGetIncumbentModel:
             }
         }
         with patch(
-            "tests.benchmarks.bench_security.candidate_eval.yaml.safe_load",
+            "portal.modules.security.core.candidate_eval.yaml.safe_load",
             return_value=mock_data,
         ):
             model = _get_incumbent_model("exploit")
@@ -65,7 +65,7 @@ class TestGetIncumbentModel:
     def test_returns_empty_on_missing_yaml(self):
         """Returns empty when portal.yaml can't be read."""
         with patch(
-            "tests.benchmarks.bench_security.candidate_eval._PORTAL_YAML",
+            "portal.modules.security.core.candidate_eval._PORTAL_YAML",
             Path("/nonexistent/portal.yaml"),
         ):
             model = _get_incumbent_model("exploit")
@@ -75,7 +75,7 @@ class TestGetIncumbentModel:
         """Returns empty when workspace not in portal.yaml."""
         mock_data = {"workspaces": {}}
         with patch(
-            "tests.benchmarks.bench_security.candidate_eval.yaml.safe_load",
+            "portal.modules.security.core.candidate_eval.yaml.safe_load",
             return_value=mock_data,
         ):
             model = _get_incumbent_model("exploit")
@@ -132,10 +132,10 @@ class TestFailLoudGuard:
 
     def test_fail_loud_on_unresolvable(self):
         """candidate_eval_main should exit 1 when incumbent unresolvable."""
-        from tests.benchmarks.bench_security.candidate_eval import candidate_eval_main
+        from portal.modules.security.core.candidate_eval import candidate_eval_main
 
         with patch(
-            "tests.benchmarks.bench_security.candidate_eval._get_incumbent_model",
+            "portal.modules.security.core.candidate_eval._get_incumbent_model",
             return_value="",
         ):
             rc = candidate_eval_main(
@@ -151,10 +151,10 @@ class TestFailLoudGuard:
 
     def test_override_bypasses_resolution(self):
         """--incumbent override should work even when resolution returns empty."""
-        from tests.benchmarks.bench_security.candidate_eval import candidate_eval_main
+        from portal.modules.security.core.candidate_eval import candidate_eval_main
 
         with patch(
-            "tests.benchmarks.bench_security.candidate_eval._get_incumbent_model",
+            "portal.modules.security.core.candidate_eval._get_incumbent_model",
             return_value="",
         ):
             rc = candidate_eval_main(
@@ -172,7 +172,7 @@ class TestFailLoudGuard:
 
     def test_solo_needs_no_incumbent(self):
         """solo mode should work without any incumbent resolution."""
-        from tests.benchmarks.bench_security.candidate_eval import candidate_eval_main
+        from portal.modules.security.core.candidate_eval import candidate_eval_main
 
         rc = candidate_eval_main(
             [

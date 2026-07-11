@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.benchmarks.bench_security.matrix import (
+from portal.modules.security.core.matrix import (
     RunResult,
     RunUnit,
     _classify_domain,
@@ -18,7 +18,7 @@ from tests.benchmarks.bench_security.matrix import (
     build_run_matrix,
     run_matrix,
 )
-from tests.benchmarks.bench_security.oracles import ORACLES
+from portal.modules.security.core.oracles import ORACLES
 
 
 def _fake_host_exec_factory(local_root: Path):
@@ -58,7 +58,7 @@ class TestBuildRunMatrix:
         """Scenarios mode produces one unit per scenario."""
         units = build_run_matrix(scenarios=True, classes=False, vulhub_root=tmp_path)
         # Should have one unit per PROMPTS entry
-        from tests.benchmarks.bench_security._data import PROMPTS
+        from portal.modules.security.core._data import PROMPTS
 
         assert len(units) == len(PROMPTS)
         assert all(u.kind == "scenario" for u in units)
@@ -102,7 +102,7 @@ class TestBuildRunMatrix:
 
     def test_every_scenario_has_oracle_or_explicit_null(self):
         """Every scenario resolves to a bound oracle or explicit oracle: None."""
-        from tests.benchmarks.bench_security._data import PROMPTS
+        from portal.modules.security.core._data import PROMPTS
 
         for key, prompt in PROMPTS.items():
             assert "oracle" in prompt, f"scenario {key} missing 'oracle' field"
@@ -116,7 +116,7 @@ class TestBuildRunMatrix:
         """Every scenario produces at least one run unit."""
         units = build_run_matrix(scenarios=True, classes=False)
         scenario_keys = {u.scenario_key for u in units}
-        from tests.benchmarks.bench_security._data import PROMPTS
+        from portal.modules.security.core._data import PROMPTS
 
         for key in PROMPTS:
             assert key in scenario_keys, f"scenario {key} not in matrix"
@@ -147,7 +147,7 @@ class TestRunMatrix:
 
     def test_lab_exec_unavailable_indeterminate(self, tmp_path, monkeypatch):
         """When _LAB_EXEC_AVAILABLE is False, verdicts are indeterminate."""
-        monkeypatch.setattr("tests.benchmarks.bench_security.matrix._LAB_EXEC_AVAILABLE", False)
+        monkeypatch.setattr("portal.modules.security.core.matrix._LAB_EXEC_AVAILABLE", False)
         units = build_run_matrix(scenarios=True, classes=False, vulhub_root=tmp_path)
         result = run_matrix(units, dry_run=False)
         assert result["indeterminate"] == len(units)
@@ -297,7 +297,7 @@ class TestCoverageReport:
 class TestTelemetryBackend:
     def test_canonical_telemetry_protocol_importable(self):
         """TelemetryBackend protocol is importable from canonical telemetry module."""
-        from tests.benchmarks.bench_security.telemetry import TelemetryBackend
+        from portal.modules.security.core.telemetry import TelemetryBackend
 
         assert hasattr(TelemetryBackend, "query")
 
@@ -305,7 +305,7 @@ class TestTelemetryBackend:
         """matrix.py imports TelemetryBackend from telemetry module, not its own."""
         import inspect
 
-        import tests.benchmarks.bench_security.matrix as matrix_mod
+        import portal.modules.security.core.matrix as matrix_mod
 
         src = inspect.getsource(matrix_mod)
         assert "class TelemetryBackend" not in src

@@ -52,7 +52,7 @@ def _ensure_loaded() -> None:
         bench_path = str(Path(__file__).resolve().parent.parent.parent / "tests" / "benchmarks")
         if bench_path not in sys.path:
             sys.path.insert(0, bench_path)
-        from bench_security.siem.spl_detections import spl_for, technique_reference
+        from portal.modules.security.core.siem.spl_detections import spl_for, technique_reference
 
         ref = technique_reference()
         for tid, desc in ref.items():

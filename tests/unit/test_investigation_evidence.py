@@ -14,14 +14,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security.investigation import (
+from portal.modules.security.core.investigation import (
     CaseNotebook,
     EvidenceRecord,
     EvidenceStore,
     SourceAuthority,
     new_evidence_id,
 )
-from bench_security.investigation.evidence import (
+from portal.modules.security.core.investigation.evidence import (
     EvidenceKind,
     classify_source_authority,
 )

@@ -19,8 +19,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security._config import BenchConfig
-from bench_security.blue import run_purple_tests
+from portal.modules.security.core._config import BenchConfig
+from portal.modules.security.core.blue import run_purple_tests
 
 
 class TestReplayCapturedRedNoEvidence:

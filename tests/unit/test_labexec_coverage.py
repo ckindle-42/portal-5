@@ -181,12 +181,12 @@ class TestLabDispatchMbptl:
     """Phase 5 — lab dispatch handles mbptl chain tools live when env is set."""
 
     def test_lab_dispatch_imports(self):
-        from bench_security.lab import _lab_dispatch_inner
+        from portal.modules.security.core.lab import _lab_dispatch_inner
 
         assert callable(_lab_dispatch_inner)
 
     def test_mbptl_tool_names_handled(self):
-        from bench_security.lab import _lab_dispatch_inner
+        from portal.modules.security.core.lab import _lab_dispatch_inner
 
         for fn_name in [
             "web_request",
@@ -200,7 +200,7 @@ class TestLabDispatchMbptl:
 
     def test_mbptl_synthetic_fallback_when_lab_not_reachable(self):
         """When LAB_MBPTL_HOST is set but lab exec is not available, returns synthetic."""
-        from bench_security.lab import _lab_dispatch_inner
+        from portal.modules.security.core.lab import _lab_dispatch_inner
 
         # The synthetic path is reached when _LAB_EXEC_AVAILABLE is False
         # (set at module import time from SANDBOX_LAB_EXEC + bench_lab_exec import)
@@ -210,7 +210,7 @@ class TestLabDispatchMbptl:
         assert "[DRY-RUN]" in result or "synthetic" in result, f"unexpected result: {result[:100]}"
 
     def test_mbptl_tool_dispatch_handles_unknown_tool(self):
-        from bench_security.lab import _lab_dispatch_inner
+        from portal.modules.security.core.lab import _lab_dispatch_inner
 
         result = _lab_dispatch_inner("nonexistent_tool", {}, dry_run=True)
         assert "synthetic" in result.lower() or "not" in result.lower()

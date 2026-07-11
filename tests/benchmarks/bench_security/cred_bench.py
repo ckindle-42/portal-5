@@ -1,11 +1,7 @@
-"""Credential attack scenarios + persona skill (Gap 10).
+"""SHIM — moved to portal.modules.security.core.cred_bench. Removed in the final cleanup slice."""
 
-Folded into pentest/redteam as scenarios: spray, stuff, MFA-bypass.
-"""
+import sys
 
+import portal.modules.security.core.cred_bench as _real
 
-def bench_cred_spray(target: str, userlist: list[str], *, dry_run: bool = False) -> dict:
-    """Run a password spray simulation."""
-    if dry_run:
-        return {"status": "dry_run", "target": target, "users": len(userlist)}
-    return {"status": "placeholder", "reason": "cred spray target required"}
+sys.modules[__name__] = _real

@@ -1,6 +1,6 @@
 """Public surface for security scoring."""
 
-from tests.benchmarks.bench_security.scoring import (
+from portal.modules.security.core.scoring import (
     score_blue_detections,
     score_blue_detections_diagnostic,
 )

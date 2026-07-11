@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.benchmarks.bench_security.matrix import (
+from portal.modules.security.core.matrix import (
     _PHASE_MAP,
     DISPATCH_NOT_RUN,
     RunUnit,
@@ -56,7 +56,7 @@ class TestFalseVerifiedGuard:
 
     def test_dispatch_not_run_never_verified_for_every_registered_oracle(self):
         """Sweep every oracle id — DISPATCH_NOT_RUN must never slip through as verified for any of them."""
-        from tests.benchmarks.bench_security.oracles import ORACLES
+        from portal.modules.security.core.oracles import ORACLES
 
         for oracle_id in ORACLES:
             unit = _unit(scenario_key="totally_unknown_scenario_key", oracle=oracle_id)
@@ -256,7 +256,7 @@ class TestNoHostEnvIndeterminate:
         monkeypatch.setattr(
             "scripts.lab_host._host_exec", lambda cmd, timeout=20: {"ok": True, "output": ""}
         )
-        from tests.benchmarks.bench_security.matrix import _resolve_challenge_class
+        from portal.modules.security.core.matrix import _resolve_challenge_class
 
         paths = _resolve_challenge_class({"vulhub": ["nonexistent_category/*"]}, "/opt/vulhub")
         assert paths == []

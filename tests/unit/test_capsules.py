@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from tests.benchmarks.bench_security.capsules import (
+from portal.modules.security.core.capsules import (
     build_capsule,
     list_capsules,
     replay_capsule,
 )
-from tests.benchmarks.bench_security.oracles import OracleVerdict
+from portal.modules.security.core.oracles import OracleVerdict
 
 
 class TestCapsuleBuild:

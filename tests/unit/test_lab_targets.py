@@ -48,7 +48,7 @@ class TestChallengeClasses:
             assert "source" in c, f"class {c['id']} missing provenance source"
 
     def test_ability_port_imports(self):
-        from tests.benchmarks.bench_security.ability_port import ability_coverage
+        from portal.modules.security.core.ability_port import ability_coverage
 
         cov = ability_coverage()
         assert cov["challenge_classes"] >= 40

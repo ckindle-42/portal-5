@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import pytest
 
-from tests.benchmarks.bench_security.candidate_eval import (
+from portal.modules.security.core.candidate_eval import (
     CANDIDATE_EVAL_SCENARIOS,
     CANDIDATES_DIR,
     _build_step_models,
     _compute_delta,
 )
-from tests.benchmarks.bench_security.exec_chain import _STEP_GROUPS, SCENARIOS
+from portal.modules.security.core.exec_chain import _STEP_GROUPS, SCENARIOS
 
 # ── Fixed candidate-eval scenario set ─────────────────────────────────────────
 
@@ -190,7 +190,7 @@ class TestIsolation:
 
     def test_self_index_does_not_recurse(self):
         """self_index._complete_result_files uses non-recursive glob — safe."""
-        from tests.benchmarks.bench_security.self_index import _complete_result_files
+        from portal.modules.security.core.self_index import _complete_result_files
 
         # Even if candidates/ exists with files, self-index won't pick them up
         # because it globs only the top-level sec_bench_*.json
@@ -209,7 +209,7 @@ class TestNoAutoPromote:
         """candidate_eval.py should not import any config-writing functions."""
         import inspect
 
-        import tests.benchmarks.bench_security.candidate_eval as mod
+        import portal.modules.security.core.candidate_eval as mod
 
         src = inspect.getsource(mod)
         # Should not have code that writes to backends.yaml or portal.yaml

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.benchmarks.bench_security.loop import (
+from portal.modules.security.core.loop import (
     EngagementState,
     _check_budget,
     _check_escalate,

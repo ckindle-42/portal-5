@@ -1,11 +1,7 @@
-"""Cloud / Container / K8s security lane (Gap 8).
+"""SHIM — moved to portal.modules.security.core.cloud_bench. Removed in the final cleanup slice."""
 
-Portal has no cloud lane — yet cloud is where most real environments live.
-"""
+import sys
 
+import portal.modules.security.core.cloud_bench as _real
 
-def bench_cloud_scan(target: str, *, dry_run: bool = False) -> dict:
-    """Run a cloud security scan against a target."""
-    if dry_run:
-        return {"status": "dry_run", "target": target, "tools": ["awscli", "kubectl", "trivy"]}
-    return {"status": "placeholder", "reason": "cloud emulator target required"}
+sys.modules[__name__] = _real

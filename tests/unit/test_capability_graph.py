@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security.capability_graph import (
+from portal.modules.security.core.capability_graph import (
     CapabilityGraph,
     Detection,
     Gap,

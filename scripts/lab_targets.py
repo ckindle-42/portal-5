@@ -47,7 +47,7 @@ LAB_VULHUB_HOST = os.environ.get("LAB_TARGET_WEB", "10.10.11.50")
 
 # Track port mappings for ephemeral sessions
 _PORT_MAP_FILE = (
-    REPO_ROOT / "tests" / "benchmarks" / "bench_security" / "results" / ".port_map.json"
+    REPO_ROOT / "portal" / "modules" / "security" / "core" / "results" / ".port_map.json"
 )
 
 

@@ -6,7 +6,7 @@ that help the harness differentiate sibling sub-techniques.
 
 from __future__ import annotations
 
-from tests.benchmarks.bench_security.siem.spl_detections import (
+from portal.modules.security.core.siem.spl_detections import (
     technique_reference,
     technique_signature_full,
 )

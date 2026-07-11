@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "benchmarks"))
 
-from bench_security.investigation.agents import (
+from portal.modules.security.core.investigation.agents import (
     AgentResult,
     Finding,
     Hypothesis,

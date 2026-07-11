@@ -1,0 +1,23 @@
+{
+  "timestamp": "20260701T233800Z",
+  "scenario": "kerberoast_to_da",
+  "all_scenarios": false,
+  "results": [],
+  "audit_tools": [],
+  "chain_tests": [],
+  "scenario_averages": [],
+  "blue_tests": [],
+  "purple_tests": [],
+  "evasion_tests": [],
+  "refusal_tests": [],
+  "false_positive_tests": [],
+  "defense_efficacy_tests": [],
+  "expansion_steps": {},
+  "matrix_results": {
+    "total_units": 83,
+    "verified": 0,
+    "rejected": 44,
+    "indeterminate": 10,
+    "pass_rate": 0.0
+  }
+}
