@@ -5,7 +5,9 @@ Three arms, same captured data, to isolate what the harness contributes:
 A. model-raw   : blue model + raw telemetry, NO harness (the Simbian condition)
 B. model+tools : blue model + search tools with real data, but NO grounding library
 C. model+harness: blue model + tools + SPL detection library + similarity-tier
-                  retrieval (lookup_technique_signature, search_similar_techniques)
+                  retrieval (lookup_technique_signature, search_similar_techniques),
+                  used as reasoning-support (optional confirm) — not a required
+                  match-the-signature step
 
 Headline metric: does C beat A by a large margin? If yes, the harness is proven
 to carry capability (Portal's thesis, measured).
@@ -907,10 +909,15 @@ def _run_tool_driven_arm(
         )
         if grounded:
             system_content += (
-                " Before reporting, use lookup_technique_signature or "
-                "search_similar_techniques to confirm the exact sub-technique ID "
-                "against its known evidence signature — do not guess the sub-technique "
-                "from memory alone."
+                " Reason over the telemetry yourself: form a hypothesis about what "
+                "technique or tactic the evidence points to before you touch a "
+                "grounding tool. lookup_technique_signature and "
+                "search_similar_techniques are there to sharpen or confirm a "
+                "hypothesis you already have — known evidence signatures, what "
+                "distinguishes sibling sub-techniques, and expected signal per "
+                "source — not to hand you the answer. Using them is optional: call "
+                "one only if it would help you pin down the exact sub-technique ID "
+                "or check your reasoning, not as a required first step."
             )
 
         messages = [
@@ -1031,8 +1038,11 @@ def _run_arm_harness(model: str, episode: Episode) -> ArmResult:
     """Arm C: model+harness — blue gets tools + real telemetry + the detection-library
     grounding tools (lookup_technique_signature, search_similar_techniques). This is
     what makes arm C an actual test of "does the harness carry capability" rather
-    than a relabeled arm B — the model can check its hypothesis against a known
-    evidence signature instead of guessing the exact sub-technique from memory.
+    than a relabeled arm B — the model reasons over the telemetry to a hypothesis
+    first, then may optionally check that hypothesis against a known evidence
+    signature (reasoning-support, not signature-match: see DESIGN-SEC-REASONING-FIRST-V1
+    — a forced-confirm-before-report instruction suppressed strong reasoners like
+    devstral instead of amplifying them).
     """
     return _run_tool_driven_arm(
         "harness", model, episode, telemetry_preview_chars=6000, grounded=True
