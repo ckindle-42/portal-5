@@ -98,8 +98,14 @@ RUN pip install --no-cache-dir \
     "slack-bolt>=1.18.0"
 
 # Copy application
+# portal_mcp/core and portal_mcp/security are now compat shims re-exporting
+# from portal/platform/mcp_host and portal/modules/security/tools
+# (BUILD-SPEC-PORTAL-MODULES-V1) — both must be present until shims removed.
 COPY portal_mcp/ ./portal_mcp/
 COPY portal_channels/ ./portal_channels/
+COPY portal/__init__.py ./portal/__init__.py
+COPY portal/platform/ ./portal/platform/
+COPY portal/modules/ ./portal/modules/
 COPY scripts/mcp-entrypoint.sh /usr/local/bin/mcp-entrypoint.sh
 
 # Create non-root user (with a home dir — needed so the entrypoint can stage a

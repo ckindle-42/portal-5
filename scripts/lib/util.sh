@@ -309,7 +309,7 @@ _ensure_native_services() {
         echo "[portal-5]   MITRE MCP not running — starting..."
         mkdir -p "$HOME/.portal5/logs"
         MITRE_MCP_PORT="${MITRE_MCP_PORT:-8929}" \
-        nohup python3 -m portal_mcp.security.mitre_mcp \
+        nohup python3 -m portal.modules.security.tools.mitre_mcp \
             >> "$HOME/.portal5/logs/mitre-mcp.log" 2>&1 &
         echo $! > "$MITRE_MCP_PID_FILE"
         echo "[portal-5]   ✅ MITRE MCP started on :${MITRE_MCP_PORT:-8929}"
@@ -324,7 +324,7 @@ _ensure_native_services() {
         echo "[portal-5]   Detections MCP not running — starting..."
         mkdir -p "$HOME/.portal5/logs"
         DETECTIONS_MCP_PORT="${DETECTIONS_MCP_PORT:-8932}" \
-        nohup python3 -m portal_mcp.security.detections_mcp \
+        nohup python3 -m portal.modules.security.tools.detections_mcp \
             >> "$HOME/.portal5/logs/detections-mcp.log" 2>&1 &
         echo $! > "$DETECTIONS_MCP_PID_FILE"
         echo "[portal-5]   ✅ Detections MCP started on :${DETECTIONS_MCP_PORT:-8932}"
