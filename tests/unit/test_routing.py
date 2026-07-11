@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from portal_pipeline.router_pipe import (
+from portal.platform.inference.router_pipe import (
     _VALID_WORKSPACE_IDS,
     _build_router_prompt,
     _detect_workspace,
@@ -64,7 +64,7 @@ class TestRouteWithLLM:
     async def test_returns_workspace_on_high_confidence(self):
         mock_resp = _mock_llm_response("auto-coding", 0.95)
         with patch(
-            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
+            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -75,7 +75,7 @@ class TestRouteWithLLM:
     async def test_returns_none_on_low_confidence(self):
         mock_resp = _mock_llm_response("auto-coding", 0.3)
         with patch(
-            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
+            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -86,7 +86,7 @@ class TestRouteWithLLM:
     async def test_returns_none_on_unknown_workspace(self):
         mock_resp = _mock_llm_response("auto-notaworkspace", 0.95)
         with patch(
-            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
+            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -98,7 +98,7 @@ class TestRouteWithLLM:
         import httpx
 
         with patch(
-            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
+            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
 
@@ -110,7 +110,7 @@ class TestRouteWithLLM:
         import httpx
 
         with patch(
-            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
+            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
 
@@ -122,7 +122,7 @@ class TestRouteWithLLM:
         """'auto' is the default — returning it provides no routing value."""
         mock_resp = _mock_llm_response("auto", 0.99)
         with patch(
-            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
+            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -132,7 +132,7 @@ class TestRouteWithLLM:
     @pytest.mark.asyncio
     async def test_returns_none_when_disabled(self):
         """When LLM_ROUTER_ENABLED=false, must skip LLM call entirely."""
-        with patch("portal_pipeline.router_pipe._LLM_ROUTER_ENABLED", False):
+        with patch("portal.platform.inference.router_pipe._LLM_ROUTER_ENABLED", False):
             result = await _route_with_llm(_user_messages("write a Python function"))
         assert result is None
 
@@ -142,7 +142,7 @@ class TestRouteWithLLM:
         mock_resp.json.return_value = {"response": "not json {{{"}
         mock_resp.raise_for_status = MagicMock()
         with patch(
-            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
+            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -159,7 +159,7 @@ class TestRouteWithLLM:
         """Verify SPL workspace is returned and is a valid workspace ID."""
         mock_resp = _mock_llm_response("auto-spl", 0.98)
         with patch(
-            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
+            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -173,7 +173,7 @@ class TestRouteWithLLM:
     async def test_security_routing_via_llm(self):
         mock_resp = _mock_llm_response("auto-security", 0.93)
         with patch(
-            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
+            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -204,7 +204,7 @@ class TestRouteWithLLM:
         from the LLM intent classifier allowlist (_VALID_WORKSPACE_IDS /
         _ROUTER_JSON_SCHEMA) so the auto-router never routes to them.
         """
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         production_ids = frozenset(k for k in WORKSPACES if not k.startswith("bench-"))
         bench_ids = frozenset(k for k in WORKSPACES if k.startswith("bench-"))
@@ -224,7 +224,7 @@ class TestRouteWithLLM:
         String '-1' was changed to int -1 in commit 3f20d51 (warmup keep_alive fix)."""
         mock_resp = _mock_llm_response("auto-coding", 0.95)
         with patch(
-            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
+            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
             await _route_with_llm(_user_messages("write a Python function"))
@@ -240,13 +240,13 @@ class TestLastUserText:
     """_last_user_text() extracts and truncates the last user message."""
 
     def test_string_content_truncation(self):
-        from portal_pipeline.router.routing import _last_user_text
+        from portal.platform.inference.router.routing import _last_user_text
 
         result = _last_user_text([{"role": "user", "content": "hello world"}], 5)
         assert result == "hello"
 
     def test_list_content_extraction(self):
-        from portal_pipeline.router.routing import _last_user_text
+        from portal.platform.inference.router.routing import _last_user_text
 
         messages = [
             {
@@ -262,14 +262,14 @@ class TestLastUserText:
         assert result == "first part second part"
 
     def test_list_content_truncation(self):
-        from portal_pipeline.router.routing import _last_user_text
+        from portal.platform.inference.router.routing import _last_user_text
 
         messages = [{"role": "user", "content": [{"type": "text", "text": "abcdefghij"}]}]
         result = _last_user_text(messages, 5)
         assert result == "abcde"
 
     def test_finds_last_user_message(self):
-        from portal_pipeline.router.routing import _last_user_text
+        from portal.platform.inference.router.routing import _last_user_text
 
         messages = [
             {"role": "user", "content": "first question"},
@@ -280,7 +280,7 @@ class TestLastUserText:
         assert result == "second question"
 
     def test_returns_empty_for_no_user(self):
-        from portal_pipeline.router.routing import _last_user_text
+        from portal.platform.inference.router.routing import _last_user_text
 
         result = _last_user_text([{"role": "assistant", "content": "hello"}], 100)
         assert result == ""
@@ -290,27 +290,27 @@ class TestResolvePersonaTools:
     """_resolve_persona_tools semantics: absent, null, explicit list, empty list, deny."""
 
     def test_absent_tools_allow_uses_workspace_default(self):
-        from portal_pipeline.router.workspaces import _resolve_persona_tools
+        from portal.platform.inference.router.workspaces import _resolve_persona_tools
 
         result = _resolve_persona_tools({}, "auto-coding")
         assert "execute_python" in result
         assert len(result) > 0
 
     def test_null_tools_allow_uses_workspace_default(self):
-        from portal_pipeline.router.workspaces import _resolve_persona_tools
+        from portal.platform.inference.router.workspaces import _resolve_persona_tools
 
         result = _resolve_persona_tools({"tools_allow": None}, "auto-coding")
         assert "execute_python" in result
         assert len(result) > 0
 
     def test_empty_tools_allow_means_no_tools(self):
-        from portal_pipeline.router.workspaces import _resolve_persona_tools
+        from portal.platform.inference.router.workspaces import _resolve_persona_tools
 
         result = _resolve_persona_tools({"tools_allow": []}, "auto-coding")
         assert result == []
 
     def test_nonempty_tools_allow_replaces_workspace_default(self):
-        from portal_pipeline.router.workspaces import _resolve_persona_tools
+        from portal.platform.inference.router.workspaces import _resolve_persona_tools
 
         result = _resolve_persona_tools(
             {"tools_allow": ["execute_bash", "remember"]}, "auto-coding"
@@ -318,7 +318,7 @@ class TestResolvePersonaTools:
         assert set(result) == {"execute_bash", "remember"}
 
     def test_deny_still_subtracts(self):
-        from portal_pipeline.router.workspaces import _resolve_persona_tools
+        from portal.platform.inference.router.workspaces import _resolve_persona_tools
 
         result = _resolve_persona_tools(
             {
@@ -330,7 +330,7 @@ class TestResolvePersonaTools:
         assert set(result) == {"execute_python", "remember"}
 
     def test_deny_works_on_workspace_default(self):
-        from portal_pipeline.router.workspaces import _resolve_persona_tools
+        from portal.platform.inference.router.workspaces import _resolve_persona_tools
 
         result = _resolve_persona_tools({"tools_deny": ["execute_python"]}, "auto-coding")
         assert "execute_python" not in result

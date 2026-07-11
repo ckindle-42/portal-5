@@ -1,6 +1,6 @@
 """Expected-model resolution for routing validation across all three test suites.
 
-Single source of truth: portal_pipeline.router.workspaces.WORKSPACES and
+Single source of truth: portal.platform.inference.router.workspaces.WORKSPACES and
 the per-persona YAML files. This module never modifies them; it only reads
 the canonical config and returns "what model should have served this
 request" given a workspace ID or a persona slug.
@@ -26,7 +26,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 try:
-    from portal_pipeline.router.workspaces import (  # noqa: PLC0415
+    from portal.platform.inference.router.workspaces import (  # noqa: PLC0415
         _PERSONA_MAP,
         WORKSPACES,
     )

@@ -1,7 +1,7 @@
 """Tests for health hysteresis, workspace_routes property, candidate-cache
 clamping, and tool-support map in BackendRegistry."""
 
-from portal_pipeline.cluster_backends import Backend, BackendRegistry
+from portal.platform.inference.cluster_backends import Backend, BackendRegistry
 
 
 class TestHealthHysteresis:
@@ -94,7 +94,7 @@ defaults: {}
         be.healthy = True
 
         # Cross threshold -> unhealthy at WARNING
-        from portal_pipeline.cluster_backends import logger as cb_logger
+        from portal.platform.inference.cluster_backends import logger as cb_logger
 
         with caplog.at_level(logging.WARNING, logger=cb_logger.name):
             if be.consecutive_failures >= reg._health_failure_threshold:
@@ -130,7 +130,7 @@ defaults: {}
         reg = BackendRegistry(config_path=str(cfg))
         reg._last_healthy_count = -1
 
-        from portal_pipeline.cluster_backends import logger as cb_logger
+        from portal.platform.inference.cluster_backends import logger as cb_logger
 
         # First cycle — count changes from -1 to 0 → INFO
         reg._cached_healthy = []

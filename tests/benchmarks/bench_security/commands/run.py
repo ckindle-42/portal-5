@@ -267,7 +267,7 @@ def run_bench(
                 )
 
             if strip_think:
-                from portal_pipeline.router.thinking import strip_think as _strip_think
+                from portal.platform.inference.router.thinking import strip_think as _strip_think
 
                 theory_content = _strip_think(theory_content)
             theory_scores = score_response(theory_content, meta, ws_cat)

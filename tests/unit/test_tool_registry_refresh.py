@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from portal_pipeline.tool_registry import (
+from portal.platform.inference.tool_registry import (
     MCP_SERVERS,
     ToolDefinition,
     ToolRegistry,

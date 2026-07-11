@@ -118,7 +118,7 @@ async def run() -> None:
     # S70-07: web_search in auto-research workspace tools
     t0 = time.time()
     try:
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         research_tools = WORKSPACES.get("auto-research", {}).get("tools", [])
         has_search = "web_search" in research_tools

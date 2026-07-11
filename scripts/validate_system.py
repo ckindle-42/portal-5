@@ -160,27 +160,27 @@ def check_imports() -> tuple[str, str, list[dict]]:
     """A. Every public package imports cleanly."""
     modules = [
         "portal_pipeline",
-        "portal_pipeline.router_pipe",
-        "portal_pipeline.router.app",
-        "portal_pipeline.router.lifespan",
-        "portal_pipeline.router.handlers",
-        "portal_pipeline.router.routing",
-        "portal_pipeline.router.streaming",
-        "portal_pipeline.router.workspaces",
-        "portal_pipeline.router.auth",
-        "portal_pipeline.router.validation",
-        "portal_pipeline.router.preinject",
-        "portal_pipeline.router.non_streaming",
-        "portal_pipeline.config",
-        "portal_pipeline.cli",
-        "portal_pipeline.cli.models",
-        "portal_pipeline.cli.workspace",
-        "portal_pipeline.cli.config",
-        "portal_pipeline.cli.sync",
-        "portal_pipeline.cli.smoke",
-        "portal_pipeline.cli.update",
-        "portal_pipeline.cluster_backends",
-        "portal_pipeline.tool_registry",
+        "portal.platform.inference.router_pipe",
+        "portal.platform.inference.router.app",
+        "portal.platform.inference.router.lifespan",
+        "portal.platform.inference.router.handlers",
+        "portal.platform.inference.router.routing",
+        "portal.platform.inference.router.streaming",
+        "portal.platform.inference.router.workspaces",
+        "portal.platform.inference.router.auth",
+        "portal.platform.inference.router.validation",
+        "portal.platform.inference.router.preinject",
+        "portal.platform.inference.router.non_streaming",
+        "portal.platform.inference.config",
+        "portal.platform.inference.cli",
+        "portal.platform.inference.cli.models",
+        "portal.platform.inference.cli.workspace",
+        "portal.platform.inference.cli.config",
+        "portal.platform.inference.cli.sync",
+        "portal.platform.inference.cli.smoke",
+        "portal.platform.inference.cli.update",
+        "portal.platform.inference.cluster_backends",
+        "portal.platform.inference.tool_registry",
     ]
     subs = []
     failed = 0
@@ -198,7 +198,7 @@ def check_imports() -> tuple[str, str, list[dict]]:
 
 def check_pipeline_assembles() -> tuple[str, str, list[dict]]:
     """B. FastAPI app instantiates with all expected routes."""
-    from portal_pipeline.router_pipe import app
+    from portal.platform.inference.router_pipe import app
 
     expected_routes = {
         ("/health", "GET"),
@@ -226,7 +226,7 @@ def check_pipeline_assembles() -> tuple[str, str, list[dict]]:
 
 def check_config_loads() -> tuple[str, str, list[dict]]:
     """C. portal.yaml loads via PortalConfig."""
-    from portal_pipeline.config import load_portal_config
+    from portal.platform.inference.config import load_portal_config
 
     cfg = load_portal_config()
     n_ws = len(cfg.workspaces)
@@ -243,8 +243,8 @@ def check_rule_6() -> tuple[str, str, list[dict]]:
     """D. portal.yaml workspaces ↔ backends.yaml workspace_routing ↔ WORKSPACES."""
     import yaml
 
-    from portal_pipeline.config import load_portal_config
-    from portal_pipeline.router.workspaces import WORKSPACES
+    from portal.platform.inference.config import load_portal_config
+    from portal.platform.inference.router.workspaces import WORKSPACES
 
     cfg = load_portal_config()
     ws_yaml = set(cfg.workspaces.keys())
@@ -271,8 +271,8 @@ def check_rule_6() -> tuple[str, str, list[dict]]:
 def check_hint_validator() -> tuple[str, str, list[dict]]:
     """E. _validate_workspace_hints returns 0 errors."""
     try:
-        from portal_pipeline.cluster_backends import BackendRegistry
-        from portal_pipeline.router.validation import _validate_workspace_hints
+        from portal.platform.inference.cluster_backends import BackendRegistry
+        from portal.platform.inference.router.validation import _validate_workspace_hints
     except ImportError as e:
         return "FAIL", f"import: {e}", []
 
@@ -288,7 +288,7 @@ def check_hint_validator() -> tuple[str, str, list[dict]]:
 
 def check_lifespan() -> tuple[str, str, list[dict]]:
     """F. FastAPI lifespan starts and stops cleanly."""
-    from portal_pipeline.router_pipe import app, lifespan
+    from portal.platform.inference.router_pipe import app, lifespan
 
     async def _run():
         try:
@@ -316,7 +316,7 @@ def check_cli_introspection() -> tuple[str, str, list[dict]]:
     ]
     for cmd in commands:
         result = subprocess.run(
-            [sys.executable, "-m", "portal_pipeline.cli", *cmd],
+            [sys.executable, "-m", "portal.platform.inference.cli", *cmd],
             capture_output=True,
             text=True,
             timeout=15,
@@ -365,7 +365,7 @@ def check_unit_tests(*, skip_env_only: bool = True) -> tuple[str, str, list[dict
 def check_bench_security_catalog() -> tuple[str, str, list[dict]]:
     """J. bench_security catalog covers every live security workspace."""
     try:
-        from portal_pipeline.config import load_portal_config
+        from portal.platform.inference.config import load_portal_config
         from tests.benchmarks.bench_security import DEFAULT_WORKSPACES
     except ImportError as e:
         return "SKIP", f"import: {e}", []
@@ -397,8 +397,8 @@ def check_valid_workspaces_resolve() -> tuple[str, str, list[dict]]:
     Same shape as J/K — catalog drift detection.
     """
     try:
+        from portal.platform.inference.config import load_portal_config
         from portal_channels.dispatcher import VALID_WORKSPACES
-        from portal_pipeline.config import load_portal_config
     except ImportError as e:
         return "SKIP", f"import: {e}", []
     live = set(load_portal_config().workspaces.keys())
@@ -444,7 +444,7 @@ def check_persona_workspace_resolution() -> tuple[str, str, list[dict]]:
 
         import yaml
 
-        from portal_pipeline.config import load_portal_config
+        from portal.platform.inference.config import load_portal_config
     except ImportError as e:
         return "SKIP", f"import: {e}", []
     cfg = load_portal_config()
@@ -480,7 +480,7 @@ def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
         import re
 
         import tests.uat_catalog as cat
-        from portal_pipeline.config import load_portal_config
+        from portal.platform.inference.config import load_portal_config
     except ImportError as e:
         return "SKIP", f"import: {e}", []
 
@@ -503,7 +503,7 @@ def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
 
 def check_shim_contract() -> tuple[str, str, list[dict]]:
     """I. Historical symbols imported through router_pipe still resolve."""
-    from portal_pipeline import router_pipe
+    from portal.platform.inference import router_pipe
 
     historical = [
         "app",
@@ -2430,9 +2430,9 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
         import glob as glob_mod
 
         bad = []
-        for f in glob_mod.glob("portal_wiki/core/**/*.py", recursive=True):
+        for f in glob_mod.glob("portal/platform/wiki/*.py"):
             content = Path(f).read_text(encoding="utf-8")
-            for forbidden in ["portal_pipeline", "bench_security"]:
+            for forbidden in ["portal_pipeline", "portal.platform.inference", "bench_security"]:
                 if forbidden in content:
                     bad.append(f)
         assert bad == [], f"Core has Portal imports: {bad}"

@@ -608,9 +608,9 @@ async def _memory_cleanup(phase: str) -> None:
 
 
 def _load_workspaces() -> tuple[list[str], dict[str, str]]:
-    """Load workspace definitions from portal_pipeline.router.workspaces."""
+    """Load workspace definitions from portal.platform.inference.router.workspaces."""
     sys.path.insert(0, str(ROOT))
-    from portal_pipeline.router.workspaces import WORKSPACES  # noqa: PLC0415
+    from portal.platform.inference.router.workspaces import WORKSPACES  # noqa: PLC0415
 
     ids = sorted(
         k for k in WORKSPACES if k.startswith(("auto", "bench")) or k == "tools-specialist"
@@ -668,6 +668,7 @@ def _check_image_freshness() -> None:
             "portal-5-portal-pipeline",
             [
                 "portal_pipeline/",
+                "portal/platform/inference/",
                 "config/backends.yaml",
                 "config/personas/",
                 "Dockerfile.pipeline",

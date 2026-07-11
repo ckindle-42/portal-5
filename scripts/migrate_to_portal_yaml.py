@@ -28,7 +28,7 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from portal_pipeline.router.workspaces import WORKSPACES
+from portal.platform.inference.router.workspaces import WORKSPACES
 
 # ── Gather OWUI preset metadata ───────────────────────────────────────────────
 

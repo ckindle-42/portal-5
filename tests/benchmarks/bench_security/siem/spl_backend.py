@@ -123,18 +123,16 @@ class SplunkBackend:
                     break
 
             # Fields = everything except _time and host aliases
-            fields = {
-                k: v
-                for k, v in result.items()
-                if k != "_time" and k not in _HOST_FIELDS
-            }
+            fields = {k: v for k, v in result.items() if k != "_time" and k not in _HOST_FIELDS}
 
-            rows.append({
-                "_time": _time,
-                "host": host,
-                "raw": line,
-                "fields": fields,
-            })
+            rows.append(
+                {
+                    "_time": _time,
+                    "host": host,
+                    "raw": line,
+                    "fields": fields,
+                }
+            )
 
         source = "live" if rows else "synthetic-fallback"
         telemetry = "\n".join(r["raw"] for r in rows)

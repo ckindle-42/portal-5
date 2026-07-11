@@ -167,7 +167,13 @@ def _check_image_freshness() -> None:
         (
             "portal-pipeline",
             "portal-5-portal-pipeline",
-            ["portal_pipeline/", "config/backends.yaml", "Dockerfile.pipeline", "pyproject.toml"],
+            [
+                "portal_pipeline/",
+                "portal/platform/inference/",
+                "config/backends.yaml",
+                "Dockerfile.pipeline",
+                "pyproject.toml",
+            ],
         ),
         (
             "mcp-services",

@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from portal_pipeline.cluster_backends import BackendRegistry
-from portal_pipeline.router_pipe import WORKSPACES, app
+from portal.platform.inference.cluster_backends import BackendRegistry
+from portal.platform.inference.router_pipe import WORKSPACES, app
 
 _COMFYUI_DOWNLOAD_SCRIPT = Path("scripts/download_comfyui_models.py")
 _comfyui_enabled = pytest.mark.skipif(
@@ -33,7 +33,7 @@ def _make_fake_backend():
 @pytest.fixture
 def client():
     """Create a test client with proper lifespan + fake registry."""
-    import portal_pipeline.router.handlers as handlers_mod
+    import portal.platform.inference.router.handlers as handlers_mod
 
     handlers_mod.registry = _make_fake_backend()
     with TestClient(app) as test_client:
@@ -224,7 +224,7 @@ class TestPipelineAPI:
 
     def test_chat_no_backends_returns_503_or_502(self, client):
         # Pipeline has no backends in test env — should return 503 or 502
-        import portal_pipeline.router.handlers as handlers_mod
+        import portal.platform.inference.router.handlers as handlers_mod
 
         old_reg = handlers_mod.registry
         handlers_mod.registry = None  # Simulate no backends
@@ -292,7 +292,7 @@ class TestComplianceWorkspace:
     """Verify auto-compliance workspace is correctly wired."""
 
     def test_compliance_workspace_exists_in_router(self):
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         assert "auto-compliance" in WORKSPACES, (
             "auto-compliance workspace missing from WORKSPACES dict in router_pipe.py"
@@ -338,7 +338,7 @@ class TestComplianceWorkspace:
     def test_workspace_count_is_14(self):
         """Total workspace count is 104 (44 production + 60 bench-*) after the
         multi-seat V2 bench intake (bench-security-slm-1p5b, bench-cybersecqwen-4b-toolfix)."""
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         assert len(WORKSPACES) == 104, (
             f"Expected 104 workspaces (44 production + 60 bench-*), got {len(WORKSPACES)}. "
@@ -544,12 +544,12 @@ class TestR20NativeOllama:
         """pull-models delegates to portal CLI which detects native Ollama.
 
         Post-M5-S2: the bash pull-models branch delegates to
-        ``python3 -m portal_pipeline.cli models pull``. Native Ollama detection
+        ``python3 -m portal.platform.inference.cli models pull``. Native Ollama detection
         lives in ``portal_pipeline/cli/_common.py:_detect_ollama_cmd``.
         This test verifies the delegation shim rather than the moved logic.
         """
         content = open("launch.sh").read()
-        assert "exec python3 -m portal_pipeline.cli models pull" in content, (
+        assert "exec python3 -m portal.platform.inference.cli models pull" in content, (
             "pull-models must delegate to portal CLI (post-M5-S2)"
         )
 
@@ -622,7 +622,7 @@ class TestR22CodingModelUpdates:
         """pull-models delegates to portal CLI; model list lives in portal.yaml."""
         content = open("launch.sh").read()
         # Post-M5-S2: pull-models delegates to portal CLI
-        assert "portal_pipeline.cli models pull" in content, (
+        assert "portal.platform.inference.cli models pull" in content, (
             "launch.sh pull-models must delegate to portal CLI (post-M5-S2)"
         )
 
@@ -632,7 +632,7 @@ class TestRecordUsageMetrics:
 
     def test_record_usage_full_response(self):
         """Standard Ollama response with all usage fields."""
-        from portal_pipeline.router_pipe import _record_usage
+        from portal.platform.inference.router_pipe import _record_usage
 
         # Should not raise
         _record_usage(
@@ -647,7 +647,7 @@ class TestRecordUsageMetrics:
 
     def test_record_usage_missing_fields(self):
         """Incomplete response dict — should not raise."""
-        from portal_pipeline.router_pipe import _record_usage
+        from portal.platform.inference.router_pipe import _record_usage
 
         _record_usage(model="test-model", workspace="auto", data={})
         _record_usage(model="test-model", workspace="auto", data={"eval_count": 0})
@@ -655,7 +655,7 @@ class TestRecordUsageMetrics:
 
     def test_record_usage_none_values(self):
         """None values in response fields — should not raise."""
-        from portal_pipeline.router_pipe import _record_usage
+        from portal.platform.inference.router_pipe import _record_usage
 
         _record_usage(
             model="test-model",
@@ -674,7 +674,7 @@ class TestRecordUsageMetrics:
 
             pytest.skip("TPS introspection requires single-process prometheus mode")
 
-        from portal_pipeline import router_pipe
+        from portal.platform.inference import router_pipe
 
         # Capture histogram before
         before = router_pipe._tokens_per_second.labels(
@@ -697,7 +697,7 @@ class TestRecordUsageMetrics:
 
     def test_metrics_endpoint_contains_prometheus_output(self, client):
         """After a _record_usage call, /metrics includes prometheus_client output."""
-        from portal_pipeline import router_pipe
+        from portal.platform.inference import router_pipe
 
         # Trigger a metric emission
         router_pipe._record_usage(
@@ -719,7 +719,7 @@ class TestSPLWorkspace:
 
     def test_auto_spl_in_workspaces_dict(self):
         """auto-spl must exist in WORKSPACES dict in router_pipe.py."""
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         assert "auto-spl" in WORKSPACES, (
             "auto-spl missing from WORKSPACES in router_pipe.py — add it with model_hint"
@@ -727,7 +727,7 @@ class TestSPLWorkspace:
 
     def test_auto_spl_uses_qwen3_coder_model_hint(self):
         """auto-spl model_hint must be qwen3-coder (Ollama GGUF)."""
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-spl"]["model_hint"]
         assert "qwen3-coder" in hint.lower(), (
@@ -745,7 +745,7 @@ class TestSPLWorkspace:
     def test_workspace_count_is_16(self):
         """Total workspace count must be 104 (44 production + 60 bench-*) after the
         multi-seat V2 bench intake (bench-security-slm-1p5b, bench-cybersecqwen-4b-toolfix)."""
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         assert len(WORKSPACES) == 104, (
             f"Expected 104 workspaces (44 production + 60 bench-*), got {len(WORKSPACES)}. "
@@ -809,7 +809,7 @@ class TestSPLWorkspace:
 
     def test_splunk_not_in_coding_keywords(self):
         """'splunk' must be removed from _CODING_KEYWORDS — SPL workspace owns it now."""
-        from portal_pipeline.router_pipe import _CODING_KEYWORDS
+        from portal.platform.inference.router_pipe import _CODING_KEYWORDS
 
         assert "splunk" not in _CODING_KEYWORDS, (
             "'splunk' must be removed from _CODING_KEYWORDS after adding _SPL_KEYWORDS. "
@@ -818,7 +818,7 @@ class TestSPLWorkspace:
 
     def test_spl_query_not_in_coding_keywords(self):
         """'spl query' must be removed from _CODING_KEYWORDS — SPL workspace owns it now."""
-        from portal_pipeline.router_pipe import _CODING_KEYWORDS
+        from portal.platform.inference.router_pipe import _CODING_KEYWORDS
 
         assert "spl query" not in _CODING_KEYWORDS, (
             "'spl query' must be removed from _CODING_KEYWORDS after adding _SPL_KEYWORDS."
@@ -826,7 +826,7 @@ class TestSPLWorkspace:
 
     def test_spl_keywords_weighted_dict_exists(self):
         """_SPL_KEYWORDS must be a weighted dict in router_pipe."""
-        from portal_pipeline.router_pipe import _SPL_KEYWORDS
+        from portal.platform.inference.router_pipe import _SPL_KEYWORDS
 
         assert isinstance(_SPL_KEYWORDS, dict), (
             "_SPL_KEYWORDS must be a dict[str, int] in router_pipe.py"
@@ -839,7 +839,7 @@ class TestSPLWorkspace:
 
     def test_spl_detect_workspace_routes_splunk_query(self):
         """_detect_workspace must return 'auto-spl' for an SPL-flavored message."""
-        from portal_pipeline.router_pipe import _detect_workspace
+        from portal.platform.inference.router_pipe import _detect_workspace
 
         messages = [
             {"role": "user", "content": "Write a splunk query to count failed logins by host"}
@@ -851,7 +851,7 @@ class TestSPLWorkspace:
 
     def test_spl_detect_workspace_routes_tstats_query(self):
         """_detect_workspace must return 'auto-spl' when user asks about tstats."""
-        from portal_pipeline.router_pipe import _detect_workspace
+        from portal.platform.inference.router_pipe import _detect_workspace
 
         messages = [
             {"role": "user", "content": "How do I use tstats with a data model acceleration?"}
@@ -863,7 +863,7 @@ class TestSPLWorkspace:
 
     def test_spl_does_not_route_generic_coding(self):
         """Generic Python/code requests must NOT route to auto-spl."""
-        from portal_pipeline.router_pipe import _detect_workspace
+        from portal.platform.inference.router_pipe import _detect_workspace
 
         messages = [{"role": "user", "content": "Write a Python function to parse JSON logs"}]
         result = _detect_workspace(messages)
@@ -875,7 +875,7 @@ class TestSPLWorkspace:
         """auto-spl key must exist in both WORKSPACES and backends.yaml workspace_routing."""
         import yaml
 
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
         pipe_ids = set(WORKSPACES.keys())
@@ -894,7 +894,7 @@ class TestAgenticWorkspace:
 
     def test_agentic_workspace_exists(self):
         """auto-agentic must be registered in WORKSPACES."""
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         assert "auto-agentic" in WORKSPACES, (
             "auto-agentic workspace missing from WORKSPACES in router_pipe.py"
@@ -913,9 +913,9 @@ class TestAgenticWorkspace:
         needs real room for both the accumulated tool-call history and reasoning — hence
         the derived -ctx64k tag and context_limit=65536, not None. Enforced now via a
         derived Ollama model tag, since Ollama's /v1/chat/completions ignores request-time
-        options.num_ctx (see portal_pipeline.cli.models apply-params).
+        options.num_ctx (see portal.platform.inference.cli.models apply-params).
         """
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-agentic"].get("model_hint")
         assert hint is not None and "qwen3-coder-next" in hint, (
@@ -928,7 +928,7 @@ class TestAgenticWorkspace:
 
     def test_agentic_workspace_has_model_hint(self):
         """auto-agentic must have an Ollama model_hint as fallback."""
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-agentic"].get("model_hint", "")
         assert hint, "auto-agentic workspace missing model_hint — routing will fail on Ollama path"
@@ -954,7 +954,7 @@ class TestAgenticWorkspace:
 
     def test_agentic_detect_workspace_routes_agentic_query(self):
         """_detect_workspace must return 'auto-agentic' for agentic-flagged messages."""
-        from portal_pipeline.router_pipe import _detect_workspace
+        from portal.platform.inference.router_pipe import _detect_workspace
 
         messages = [
             {"role": "user", "content": "Use an agentic workflow to refactor the full codebase"}
@@ -966,7 +966,7 @@ class TestAgenticWorkspace:
 
     def test_agentic_detect_workspace_routes_swe_agent_query(self):
         """_detect_workspace must return 'auto-agentic' for SWE-agent-style queries."""
-        from portal_pipeline.router_pipe import _detect_workspace
+        from portal.platform.inference.router_pipe import _detect_workspace
 
         messages = [
             {"role": "user", "content": "Run a swe-agent workflow to fix the failing tests"}
@@ -978,7 +978,7 @@ class TestAgenticWorkspace:
 
     def test_agentic_does_not_route_simple_code(self):
         """Simple coding requests must NOT route to auto-agentic (route to auto-coding instead)."""
-        from portal_pipeline.router_pipe import _detect_workspace
+        from portal.platform.inference.router_pipe import _detect_workspace
 
         messages = [{"role": "user", "content": "Write a Python function to parse JSON"}]
         result = _detect_workspace(messages)
@@ -990,7 +990,7 @@ class TestAgenticWorkspace:
         """auto-agentic must exist in both WORKSPACES and backends.yaml workspace_routing."""
         import yaml
 
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
         pipe_ids = set(WORKSPACES.keys())
@@ -1013,15 +1013,17 @@ class TestCodeHygiene:
         """Verify insecure default API key was removed (P5-SEC-001)."""
         from pathlib import Path
 
-        router_path = Path("portal_pipeline/router_pipe.py")
+        router_path = Path("portal/platform/inference/router_pipe.py")
         if not router_path.exists():
-            router_path = Path(__file__).parent.parent.parent / "portal_pipeline/router_pipe.py"
+            router_path = (
+                Path(__file__).parent.parent.parent / "portal/platform/inference/router_pipe.py"
+            )
         content = router_path.read_text()
         assert '_raw_api_key = "portal-pipeline"' not in content
 
     def test_no_unreferenced_complete_from_backend(self):
         """Verify _complete_from_backend was removed (P5-MAINT-001)."""
-        from portal_pipeline import router_pipe
+        from portal.platform.inference import router_pipe
 
         assert not hasattr(router_pipe, "_complete_from_backend")
 
@@ -1029,10 +1031,11 @@ class TestCodeHygiene:
         """Verify _MLX_PROXY_HEALTH_URL was fully removed (MLX proxy retired 3a0c58e)."""
         from pathlib import Path
 
-        dispatcher_path = Path("portal_pipeline/notifications/dispatcher.py")
+        dispatcher_path = Path("portal/platform/inference/notifications/dispatcher.py")
         if not dispatcher_path.exists():
             dispatcher_path = (
-                Path(__file__).parent.parent.parent / "portal_pipeline/notifications/dispatcher.py"
+                Path(__file__).parent.parent.parent
+                / "portal/platform/inference/notifications/dispatcher.py"
             )
         content = dispatcher_path.read_text()
         count = content.count("_MLX_PROXY_HEALTH_URL =")
@@ -1104,7 +1107,7 @@ class TestToolRegistry:
 
     def test_tool_definition_to_openai(self):
         """ToolDefinition serialises to OpenAI tools format."""
-        from portal_pipeline.tool_registry import ToolDefinition
+        from portal.platform.inference.tool_registry import ToolDefinition
 
         td = ToolDefinition(
             name="execute_python",
@@ -1121,7 +1124,7 @@ class TestToolRegistry:
 
     def test_tool_registry_list_names(self):
         """Registry lists tool names sorted."""
-        from portal_pipeline.tool_registry import ToolRegistry
+        from portal.platform.inference.tool_registry import ToolRegistry
 
         reg = ToolRegistry()
         assert reg.list_tool_names() == []
@@ -1131,7 +1134,7 @@ class TestToolRegistry:
         """get_openai_tools filters by name list and health/backoff."""
         import time
 
-        from portal_pipeline.tool_registry import ToolDefinition, ToolRegistry
+        from portal.platform.inference.tool_registry import ToolDefinition, ToolRegistry
 
         reg = ToolRegistry()
         reg._tools = {
@@ -1160,28 +1163,28 @@ class TestPersonaToolResolution:
     """Tests for _resolve_persona_tools."""
 
     def test_workspace_defaults(self):
-        from portal_pipeline.router_pipe import _resolve_persona_tools
+        from portal.platform.inference.router_pipe import _resolve_persona_tools
 
         persona = {}
         tools = _resolve_persona_tools(persona, "auto-coding")
         assert "execute_python" in tools
 
     def test_persona_deny_strips_tool(self):
-        from portal_pipeline.router_pipe import _resolve_persona_tools
+        from portal.platform.inference.router_pipe import _resolve_persona_tools
 
         persona = {"tools_deny": ["execute_python"]}
         tools = _resolve_persona_tools(persona, "auto-coding")
         assert "execute_python" not in tools
 
     def test_persona_allow_overrides_workspace(self):
-        from portal_pipeline.router_pipe import _resolve_persona_tools
+        from portal.platform.inference.router_pipe import _resolve_persona_tools
 
         persona = {"tools_allow": ["generate_image"]}
         tools = _resolve_persona_tools(persona, "auto-coding")
         assert "generate_image" in tools
 
     def test_persona_deny_overrides_allow(self):
-        from portal_pipeline.router_pipe import _resolve_persona_tools
+        from portal.platform.inference.router_pipe import _resolve_persona_tools
 
         persona = {
             "tools_allow": ["execute_python", "execute_bash"],
@@ -1192,14 +1195,14 @@ class TestPersonaToolResolution:
         assert "execute_python" not in tools
 
     def test_empty_workspace_no_tools(self):
-        from portal_pipeline.router_pipe import _resolve_persona_tools
+        from portal.platform.inference.router_pipe import _resolve_persona_tools
 
         persona = {}
         tools = _resolve_persona_tools(persona, "auto-creative")
         assert tools == []
 
     def test_workspace_tools_helper(self):
-        from portal_pipeline.router_pipe import _workspace_tools
+        from portal.platform.inference.router_pipe import _workspace_tools
 
         tools = _workspace_tools("auto-agentic")
         assert "execute_python" in tools
@@ -1233,7 +1236,7 @@ class TestDispatchToolCall:
 
     @pytest.mark.asyncio
     async def test_invalid_json_arguments(self):
-        from portal_pipeline.router_pipe import _dispatch_tool_call
+        from portal.platform.inference.router_pipe import _dispatch_tool_call
 
         tc = {
             "id": "call_1",
@@ -1245,7 +1248,7 @@ class TestDispatchToolCall:
 
     @pytest.mark.asyncio
     async def test_tool_not_in_whitelist(self):
-        from portal_pipeline.router_pipe import _dispatch_tool_call
+        from portal.platform.inference.router_pipe import _dispatch_tool_call
 
         tc = {
             "id": "call_2",
@@ -1260,7 +1263,7 @@ class TestPersonasHaveToolFields:
     """Verify M2+M3 persona YAMLs have correct tool fields."""
 
     def test_agentorchestrator_has_tools(self):
-        from portal_pipeline.router_pipe import _PERSONA_MAP
+        from portal.platform.inference.router_pipe import _PERSONA_MAP
 
         p = _PERSONA_MAP.get("agentorchestrator")
         assert p is not None
@@ -1268,7 +1271,7 @@ class TestPersonasHaveToolFields:
         assert "execute_python" in p.tools_allow
 
     def test_webresearcher_has_web_tools(self):
-        from portal_pipeline.router_pipe import _PERSONA_MAP
+        from portal.platform.inference.router_pipe import _PERSONA_MAP
 
         p = _PERSONA_MAP.get("webresearcher")
         assert p is not None
@@ -1277,7 +1280,7 @@ class TestPersonasHaveToolFields:
         assert "web_fetch" in p.tools_allow
 
     def test_personalassistant_has_memory_tools(self):
-        from portal_pipeline.router_pipe import _PERSONA_MAP
+        from portal.platform.inference.router_pipe import _PERSONA_MAP
 
         p = _PERSONA_MAP.get("personalassistant")
         assert p is not None
@@ -1286,7 +1289,7 @@ class TestPersonasHaveToolFields:
         assert "recall" in p.tools_allow
 
     def test_kbnavigator_has_rag_tools(self):
-        from portal_pipeline.router_pipe import _PERSONA_MAP
+        from portal.platform.inference.router_pipe import _PERSONA_MAP
 
         p = _PERSONA_MAP.get("kbnavigator")
         assert p is not None
@@ -1305,7 +1308,7 @@ class TestModelSupportsToolsRealBackend:
     """
 
     def test_real_backend_tool_lookup_does_not_raise(self, monkeypatch):
-        import portal_pipeline.router.validation as _vm
+        import portal.platform.inference.router.validation as _vm
 
         class _Reg:
             def model_supports_tools(self, model_id):
@@ -1318,7 +1321,7 @@ class TestModelSupportsToolsRealBackend:
         assert _vm._model_supports_tools("") is False
 
     def test_backend_has_no_mlx_metadata_field(self):
-        import portal_pipeline.cluster_backends as cb
+        import portal.platform.inference.cluster_backends as cb
 
         be = cb.Backend(id="b", type="ollama", url="http://x", group="general", models=["m"])
         assert not hasattr(be, "mlx_metadata")
@@ -1330,8 +1333,8 @@ class TestInjectOllamaOptions:
 
     def test_bench_workspace_uses_5m_keep_alive(self):
         """Bench workspaces should emit keep_alive=5m, not the global -1."""
-        from portal_pipeline.router.workspaces import WORKSPACES
-        from portal_pipeline.router_pipe import _inject_ollama_options
+        from portal.platform.inference.router.workspaces import WORKSPACES
+        from portal.platform.inference.router_pipe import _inject_ollama_options
 
         bench_ws = next(k for k in WORKSPACES if k.startswith("bench-"))
         body = _inject_ollama_options({}, bench_ws)
@@ -1342,7 +1345,7 @@ class TestInjectOllamaOptions:
 
     def test_quality_lane_uses_10m_keep_alive(self):
         """auto-data and auto-mistral (big q8 lanes) should use keep_alive=10m."""
-        from portal_pipeline.router_pipe import _inject_ollama_options
+        from portal.platform.inference.router_pipe import _inject_ollama_options
 
         for ws_id in ("auto-data", "auto-mistral"):
             body = _inject_ollama_options({}, ws_id)
@@ -1353,7 +1356,7 @@ class TestInjectOllamaOptions:
 
     def test_caller_supplied_keep_alive_wins(self):
         """A caller-supplied keep_alive in the request body must not be overridden."""
-        from portal_pipeline.router_pipe import _inject_ollama_options
+        from portal.platform.inference.router_pipe import _inject_ollama_options
 
         body = _inject_ollama_options({"keep_alive": "30m"}, "bench-devstral")
         assert body["keep_alive"] == "30m", (

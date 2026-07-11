@@ -717,7 +717,9 @@ async def main() -> int:
     # Validate persona workspace_model values before creating presets
     if PERSONAS_DIR.exists():
         try:
-            from portal_pipeline.router_pipe import WORKSPACES as _WORKSPACES  # noqa: PLC0415
+            from portal.platform.inference.router_pipe import (
+                WORKSPACES as _WORKSPACES,  # noqa: PLC0415
+            )
 
             valid_ws = set(_WORKSPACES.keys())
         except Exception:

@@ -1,3 +1,4 @@
-"""Portal 5 v7.2.1 Pipeline — Intelligent OpenAI-compatible router."""
+"""SHIM — moved to portal.platform.inference. Removed in the final cleanup slice."""
 
-__version__ = "7.2.1"
+from portal.platform.inference import *  # noqa: F401,F403
+from portal.platform.inference import __version__  # noqa: F401

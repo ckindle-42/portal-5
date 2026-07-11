@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from portal_pipeline.config import get_pipeline_mcp_servers, load_portal_config
-from portal_pipeline.tool_registry import MCP_SERVERS
+from portal.platform.inference.config import get_pipeline_mcp_servers, load_portal_config
+from portal.platform.inference.tool_registry import MCP_SERVERS
 
 REPO = Path(__file__).resolve().parent.parent.parent
 

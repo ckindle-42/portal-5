@@ -154,7 +154,7 @@ class TestBackendModelHintRouting:
 
         import yaml
 
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         cfg = yaml.safe_load(Path("config/backends.yaml").read_text())
         routing = cfg.get("workspace_routing", {})
@@ -166,7 +166,7 @@ class TestBackendModelHintRouting:
 
     def test_all_workspaces_have_model_hint(self):
         """Every workspace must specify model_hint."""
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         for ws_id, cfg in WORKSPACES.items():
             has_hint = bool(cfg.get("model_hint"))
@@ -197,7 +197,7 @@ class TestBackendModelHintRouting:
 
     def test_exec_workspaces_have_execute_bash_tool(self):
         """auto-purpleteam-exec and auto-pentest must declare execute_bash in their tool list."""
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         for ws_id in ["auto-purpleteam-exec", "auto-pentest"]:
             tools = WORKSPACES[ws_id].get("tools", [])
@@ -207,7 +207,7 @@ class TestBackendModelHintRouting:
 
     def test_purpleteam_exec_has_chain_hops(self):
         """auto-purpleteam-exec must define at least 3 follow-on chain hops."""
-        from portal_pipeline.router_pipe import WORKSPACES
+        from portal.platform.inference.router_pipe import WORKSPACES
 
         chain = WORKSPACES["auto-purpleteam-exec"].get("chain", [])
         assert len(chain) >= 3, (
@@ -216,7 +216,7 @@ class TestBackendModelHintRouting:
 
     def test_backend_registry_loads_all_groups(self):
         """All core backend groups (general, coding, security, etc.) must load."""
-        from portal_pipeline.cluster_backends import BackendRegistry
+        from portal.platform.inference.cluster_backends import BackendRegistry
 
         reg = BackendRegistry(config_path="config/backends.yaml")
         groups = {b.group for b in reg.list_backends()}

@@ -36,13 +36,13 @@ async def _send_notification(event_type: str, message: str, metadata: dict | Non
     if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() not in ("true", "1", "yes"):
         return
     try:
-        from portal_pipeline.notifications.channels.email import EmailChannel
-        from portal_pipeline.notifications.channels.pushover import PushoverChannel
-        from portal_pipeline.notifications.channels.slack import SlackChannel
-        from portal_pipeline.notifications.channels.telegram import TelegramChannel
-        from portal_pipeline.notifications.channels.webhook import WebhookChannel
-        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
-        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal.platform.inference.notifications.channels.email import EmailChannel
+        from portal.platform.inference.notifications.channels.pushover import PushoverChannel
+        from portal.platform.inference.notifications.channels.slack import SlackChannel
+        from portal.platform.inference.notifications.channels.telegram import TelegramChannel
+        from portal.platform.inference.notifications.channels.webhook import WebhookChannel
+        from portal.platform.inference.notifications.dispatcher import NotificationDispatcher
+        from portal.platform.inference.notifications.events import AlertEvent, EventType
 
         dispatcher = NotificationDispatcher()
         for ch in [SlackChannel, TelegramChannel, EmailChannel, PushoverChannel, WebhookChannel]:

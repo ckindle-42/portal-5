@@ -12,8 +12,8 @@ import asyncio
 
 import pytest
 
-import portal_pipeline.router.concurrency as _concurrency
-from portal_pipeline.router.concurrency import RequestSlot
+import portal.platform.inference.router.concurrency as _concurrency
+from portal.platform.inference.router.concurrency import RequestSlot
 
 
 @pytest.fixture(autouse=True)
@@ -85,7 +85,7 @@ async def test_global_timeout_raises_503_and_does_not_hold():
 @pytest.mark.anyio
 async def test_mark_active_and_release_nets_gauge_to_zero():
     """mark_active increments the gauge; release decrements it back to zero."""
-    import portal_pipeline.router.metrics as _metrics
+    import portal.platform.inference.router.metrics as _metrics
 
     before = int(_metrics._concurrent_requests._value.get())
     slot = RequestSlot()
@@ -99,7 +99,7 @@ async def test_mark_active_and_release_nets_gauge_to_zero():
 @pytest.mark.anyio
 async def test_release_is_idempotent():
     """Double-calling release() does not double-decrement or raise."""
-    import portal_pipeline.router.metrics as _metrics
+    import portal.platform.inference.router.metrics as _metrics
 
     before = int(_metrics._concurrent_requests._value.get())
     sem_before = _concurrency._request_semaphore._value  # type: ignore[union-attr]
@@ -117,7 +117,7 @@ async def test_release_is_idempotent():
 @pytest.mark.anyio
 async def test_detach_makes_release_if_attached_noop():
     """After detach(), release_if_attached() does nothing; release() still works."""
-    import portal_pipeline.router.metrics as _metrics
+    import portal.platform.inference.router.metrics as _metrics
 
     before = int(_metrics._concurrent_requests._value.get())
     sem_before = _concurrency._request_semaphore._value  # type: ignore[union-attr]
@@ -170,7 +170,7 @@ async def test_disconnect_mid_stream_nets_gauge_to_zero():
     generator's finally or by GC. Here we call release() directly to model
     the generator's finally block and assert invariants hold.
     """
-    import portal_pipeline.router.metrics as _metrics
+    import portal.platform.inference.router.metrics as _metrics
 
     gauge_before = int(_metrics._concurrent_requests._value.get())
     sem_before = _concurrency._request_semaphore._value  # type: ignore[union-attr]

@@ -623,7 +623,7 @@ def run_bench(
     # Build valid_ids from production workspaces (bench-* excluded)
     try:
         sys.path.insert(0, str(_REPO_ROOT))
-        from portal_pipeline.router.workspaces import WORKSPACES  # type: ignore[import]
+        from portal.platform.inference.router.workspaces import WORKSPACES  # type: ignore[import]
 
         valid_ids = frozenset(k for k in WORKSPACES if not k.startswith("bench-"))
     except ImportError:

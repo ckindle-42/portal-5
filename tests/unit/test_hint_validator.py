@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from portal_pipeline.router_pipe import WORKSPACES, _validate_workspace_hints
+from portal.platform.inference.router_pipe import WORKSPACES, _validate_workspace_hints
 
 
 def _mock_registry(backends: list[tuple[str, str, list[str]]], routes: dict[str, list[str]]):
@@ -73,7 +73,7 @@ def test_validator_catches_missing_hint():
 )
 def test_validator_catches_real_workspaces_dict():
     """Smoke test against the actual WORKSPACES dict and backends.yaml."""
-    from portal_pipeline.cluster_backends import BackendRegistry
+    from portal.platform.inference.cluster_backends import BackendRegistry
 
     reg = BackendRegistry()
     errors = _validate_workspace_hints(reg)
