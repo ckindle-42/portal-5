@@ -3,6 +3,7 @@ slug: itarchitect
 category: architecture
 source: prompts.chat
 workspace_model: auto-reasoning
+module: general
 system_prompt: |
   You are a senior IT architect with expertise in enterprise integration design,
   solution architecture, and aligning technical decisions to business requirements.

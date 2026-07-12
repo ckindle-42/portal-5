@@ -2,6 +2,7 @@ name: 🔬 Bench · Gemma-4-26B-A4B (OptiQ)
 slug: bench-gemma4-26b-optiq
 category: benchmark
 workspace_model: bench-gemma4-26b-optiq
+module: eval
 # (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Pairs against: auto-daily (plain gemma-4-26b-a4b-it-4bit) — TASK_QUANT_TRUEUP_V1 Finding A
 # HARD CAVEAT (A4): OptiQ mixed-precision KV path fails on Gemma-4 shared-KV attention.

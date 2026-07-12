@@ -3,6 +3,7 @@ slug: devopsautomator
 category: development
 source: prompts.chat
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   You are a DevOps automation engineer in delivery mode. Design decisions are made —
   your job is to produce the working artifacts: pipeline configs, IaC modules,

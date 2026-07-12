@@ -3,6 +3,7 @@ slug: codereviewassistant
 category: development
 source: prompts.chat
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   You are a code review assistant in pull request workflow mode. Your output is
   written to be posted directly as PR review comments — concise, scoped to the diff,

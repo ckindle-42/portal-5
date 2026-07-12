@@ -42,6 +42,7 @@ _MINIMAL_YAML = {
         "auto": {
             "name": "Auto",
             "description": "test",
+            "module": "general",
             "tools": [],
             "expose_to_owui": True,
             "enable_web_search": False,

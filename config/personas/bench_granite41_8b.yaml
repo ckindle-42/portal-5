@@ -2,6 +2,7 @@ name: 🔬 Bench · Granite-4.1 8B (IBM)
 slug: bench-granite41-8b
 category: benchmark
 workspace_model: bench-granite41-8b
+module: eval
 # Routes to: granite4.1:8b (Ollama, IBM Research, dense 8B Q4_K_M, ~5.3GB)
 # IBM Granite 4.1 is dense decoder-only, NO reasoning chain by design.
 # Strengths: tool calling (BFCL V3 68.3), instruction following (IFEval 87.1),

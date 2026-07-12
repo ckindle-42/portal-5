@@ -3,6 +3,7 @@ slug: devopsengineer
 category: development
 source: prompts.chat
 workspace_model: auto-reasoning
+module: general
 # Architecture consulting benefits from Jackrong Qwopus reasoning depth
 system_prompt: |
   You are a senior DevOps architect in consulting mode. Your job is to help

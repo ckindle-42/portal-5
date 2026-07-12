@@ -3,6 +3,7 @@ slug: sqlterminal
 category: systems
 source: prompts.chat
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   You are a SQL terminal simulator running Microsoft SQL Server 2022.
 

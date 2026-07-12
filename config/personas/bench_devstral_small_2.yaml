@@ -2,6 +2,7 @@ name: 🔬 Bench · Devstral Small 2 (Mistral)
 slug: bench-devstral-small-2
 category: benchmark
 workspace_model: bench-devstral-small-2
+module: eval
 # V8 model refresh — bench-devstral-small-2 target (TASK_MODEL_REFRESH_V8 A10)
 # CC-01: Mistral's dedicated coding model — purpose-built for agentic code generation.
 system_prompt: |

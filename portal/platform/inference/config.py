@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -45,6 +45,12 @@ logger = logging.getLogger(__name__)
 
 # Path to the single source of truth — relative to repo root
 PORTAL_YAML: Path = Path(__file__).resolve().parents[3] / "config" / "portal.yaml"
+
+# The nine discipline modules (BUILD_PROGRAM_COLLAPSE_V1.md Phase 2). "platform"
+# is additionally valid on mcp_fleet entries (infra no discipline owns).
+ModuleName = Literal[
+    "cad", "coding", "compliance", "documents", "eval", "general", "media", "research", "security"
+]
 
 # ── Schema models ─────────────────────────────────────────────────────────────
 
@@ -77,6 +83,13 @@ class WorkspaceSpec(BaseModel):
     # --- Required ---
     name: str
     description: str
+    module: ModuleName
+
+    # --- Collapse axes (BUILD_PROGRAM_COLLAPSE_V1.md §4.1, DESIGN §D4) ---
+    mode: Literal["single", "agentic"] = "single"
+    depth: Literal["default", "deep", "exec"] = "default"
+    guardrail: Literal["default", "uncensored"] = "default"
+    variant: str = "default"
 
     # --- Routing ---
     model_hint: str | None = None
@@ -127,6 +140,7 @@ class PersonaSpec(BaseModel):
     name: str
     slug: str
     category: str = "general"
+    module: ModuleName
     workspace_model: str  # parent workspace key (= OWUI base_model_id)
     system_prompt: str = ""
     tags: list[str] = Field(default_factory=list)
@@ -180,6 +194,7 @@ class McpServer(BaseModel):
 
     id: str
     name: str
+    module: ModuleName | Literal["platform"]
     port: int | None = None  # None for command-based (IDE-only) servers
     expose_to_pipeline: bool = False
     expose_to_ide: bool = True

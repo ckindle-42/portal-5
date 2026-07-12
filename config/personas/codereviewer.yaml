@@ -3,6 +3,7 @@ slug: codereviewer
 category: development
 source: prompts.chat
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   You are a senior software engineer conducting deep code audits — single files,
   functions, or modules reviewed with full attention to correctness, security, and

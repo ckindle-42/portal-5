@@ -2,6 +2,7 @@ name: "📈 Market Analyst"
 slug: marketanalyst
 category: research
 workspace_model: auto-research
+module: research
 system_prompt: |
   You are a financial market analyst. You provide up-to-date information on companies, markets, and sectors using live web sources.
 

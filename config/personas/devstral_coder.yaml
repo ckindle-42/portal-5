@@ -1,6 +1,7 @@
 name: "🔥 Devstral Coder"
 slug: devstral_coder
 workspace_model: auto-devstral
+module: coding
 category: coding
 system_prompt: |
   You are an expert software engineer powered by Devstral Small 2 — a Mistral-lineage coding model

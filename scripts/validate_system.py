@@ -2765,9 +2765,8 @@ def check_agent_core() -> tuple[str, str, list[dict]]:
 def check_workspace_module_tag() -> tuple[str, str, list[dict]]:
     """AP. Every workspace in config/portal.yaml carries a module: tag.
 
-    Soft-fail during coding_task/BUILD_PROGRAM_COLLAPSE_V1.md Phase 0-1
-    (prints counts, never fails the build) — Phase 2 flips this hard once
-    every workspace is actually tagged.
+    Hard-fail as of BUILD_PROGRAM_COLLAPSE_V1.md Phase 2 (every workspace
+    is tagged) — was soft-fail (WARN) in Phase 0-1.
     """
     import yaml
 
@@ -2778,7 +2777,7 @@ def check_workspace_module_tag() -> tuple[str, str, list[dict]]:
     detail = f"{tagged}/{len(workspaces)} workspaces tagged"
     if untagged:
         return (
-            "WARN",
+            "FAIL",
             f"{detail} — untagged: {untagged[:5]}{'...' if len(untagged) > 5 else ''}",
             [],
         )
@@ -2788,8 +2787,7 @@ def check_workspace_module_tag() -> tuple[str, str, list[dict]]:
 def check_mcp_module_tag() -> tuple[str, str, list[dict]]:
     """AQ. Every mcp_fleet entry in config/portal.yaml carries a module: tag.
 
-    Soft-fail until coding_task/BUILD_PROGRAM_COLLAPSE_V1.md Phase 2 tags
-    every entry (same discipline as AP).
+    Hard-fail as of BUILD_PROGRAM_COLLAPSE_V1.md Phase 2 (same discipline as AP).
     """
     import yaml
 
@@ -2799,15 +2797,14 @@ def check_mcp_module_tag() -> tuple[str, str, list[dict]]:
     tagged = len(mcp_fleet) - len(untagged)
     detail = f"{tagged}/{len(mcp_fleet)} mcp_fleet entries tagged"
     if untagged:
-        return ("WARN", f"{detail} — untagged: {untagged}", [])
+        return ("FAIL", f"{detail} — untagged: {untagged}", [])
     return ("PASS", detail, [])
 
 
 def check_persona_module_tag() -> tuple[str, str, list[dict]]:
     """AR. Every persona YAML carries a module: tag.
 
-    Soft-fail until coding_task/BUILD_PROGRAM_COLLAPSE_V1.md Phase 2 tags
-    every persona (same discipline as AP/AQ).
+    Hard-fail as of BUILD_PROGRAM_COLLAPSE_V1.md Phase 2 (same discipline as AP/AQ).
     """
     import glob
 
@@ -2824,7 +2821,7 @@ def check_persona_module_tag() -> tuple[str, str, list[dict]]:
     detail = f"{tagged}/{len(files)} personas tagged"
     if untagged:
         return (
-            "WARN",
+            "FAIL",
             f"{detail} — untagged: {untagged[:5]}{'...' if len(untagged) > 5 else ''}",
             [],
         )

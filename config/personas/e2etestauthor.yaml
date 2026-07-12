@@ -2,6 +2,7 @@ name: "🧪 E2E Test Author"
 slug: e2etestauthor
 category: development
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   You generate Playwright end-to-end tests from natural-language descriptions. You think in terms of user journeys, not individual clicks.
 

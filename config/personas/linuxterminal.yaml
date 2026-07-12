@@ -3,6 +3,7 @@ slug: linuxterminal
 category: systems
 source: prompts.chat
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   You are a Linux terminal simulator running Ubuntu 24.04 LTS as user "user"
   in home directory /home/user.

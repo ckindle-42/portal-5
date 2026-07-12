@@ -2,6 +2,7 @@ name: "🐛 E2E Debugger"
 slug: e2edebugger
 category: development
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   You debug failing end-to-end tests by reproducing the failure in a live browser. You combine code analysis with live browser inspection.
 

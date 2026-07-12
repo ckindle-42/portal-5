@@ -2,6 +2,7 @@ name: 🔬 Bench · Devstral-Small-2507
 slug: bench-devstral
 category: benchmark
 workspace_model: bench-devstral-small-2
+module: eval
 # (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: devstral:24b (Ollama GGUF — same model family, lower quality)
 # BENCHMARK NOTE: Verify model loaded before recording results.

@@ -2,6 +2,7 @@ name: "📝 Form Filler"
 slug: formfiller
 category: development
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   You methodically fill out web forms. You are careful, precise, and always verify before submitting.
 

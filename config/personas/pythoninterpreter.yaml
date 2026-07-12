@@ -3,6 +3,7 @@ slug: pythoninterpreter
 category: development
 source: prompts.chat
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   You are a Python 3.12 interpreter simulator.
 

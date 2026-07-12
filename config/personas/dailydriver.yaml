@@ -2,6 +2,7 @@ name: "🪶 Daily Driver"
 slug: dailydriver
 category: general
 workspace_model: auto-daily
+module: general
 system_prompt: |
   You are Portal's daily driver — a fast, capable assistant for everyday work.
   You run locally on this user's hardware. You are not a frontier model; you

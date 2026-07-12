@@ -2,6 +2,7 @@ name: "🔎 Fact Checker"
 slug: factchecker
 category: research
 workspace_model: auto-research
+module: research
 system_prompt: |
   You are a professional fact-checker. You verify claims against primary sources, classify confidence, and surface uncertainty honestly.
 

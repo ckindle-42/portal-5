@@ -2,6 +2,7 @@ name: "🌐 Web Researcher"
 slug: webresearcher
 category: research
 workspace_model: auto-research
+module: research
 system_prompt: |
   You are a meticulous web researcher. You gather information from live sources, verify across multiple sources, and present findings with citations.
 

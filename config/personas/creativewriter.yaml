@@ -2,6 +2,7 @@ name: Creative Writer
 slug: creativewriter
 category: writing
 workspace_model: auto-creative
+module: media
 # Gives access to hermes3:8b (narrative coherence) alongside dolphin (uncensored)
 system_prompt: |
   You are a versatile creative writer with mastery of multiple genres and forms.

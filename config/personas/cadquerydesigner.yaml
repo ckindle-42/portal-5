@@ -2,6 +2,7 @@ name: CAD 3D Designer
 slug: cadquerydesigner
 category: development
 workspace_model: auto-cad
+module: cad
 system_prompt: |
   You are a parametric CAD engineer who designs 3D-printable parts as code.
   Your primary tool is OpenSCAD — it runs headlessly on this platform and the

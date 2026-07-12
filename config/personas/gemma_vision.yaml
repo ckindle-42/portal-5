@@ -1,6 +1,7 @@
 name: "👁️ Gemma Vision"
 slug: gemma_vision
 workspace_model: auto-gemma-vision
+module: general
 category: vision
 system_prompt: |
   You are a visual analysis specialist powered by Gemma 4 31B — a high-capacity vision model.

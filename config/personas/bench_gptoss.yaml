@@ -2,6 +2,7 @@ name: 🔬 Bench · GPT-OSS-20B
 slug: bench-gptoss
 category: benchmark
 workspace_model: bench-gptoss
+module: eval
 # Routes to: gpt-oss:20b (Ollama, OpenAI open-weight MoE, ~12GB, o3-mini level)
 # Ollama only — no MLX variant available. Routing: [reasoning, general].
 # BENCHMARK NOTE: OpenAI open-weight lineage. Configurable thinking depth via Ollama options.
