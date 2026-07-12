@@ -1,0 +1,1311 @@
+{
+  "tool_count": 61,
+  "tools": [
+    {
+      "name": "classify_vulnerability",
+      "server_id": "security",
+      "description": "Classify a vulnerability description into severity level (low/medium/high/critical) using CIRCL's VLAI RoBERTa model. Returns severity label, confidence score, and all class probabilities."
+    },
+    {
+      "name": "clear_memories",
+      "server_id": "memory",
+      "description": "Admin: delete all memories. Requires confirm_token='YES_DELETE_ALL'. Cannot be undone."
+    },
+    {
+      "name": "clone_voice",
+      "server_id": "tts",
+      "description": "Clone a voice from reference audio and speak text with it. Requires fish-speech to be installed."
+    },
+    {
+      "name": "convert_cad",
+      "server_id": "cad_render",
+      "description": "Convert between CAD/mesh formats (STL/3MF/OBJ/PLY; STEP read is best-effort if build123d/OCP is present). Returns the output path/URL."
+    },
+    {
+      "name": "convert_document",
+      "server_id": "documents",
+      "description": "Convert between document formats using pandoc"
+    },
+    {
+      "name": "create_excel",
+      "server_id": "documents",
+      "description": "Create an Excel spreadsheet"
+    },
+    {
+      "name": "create_powerpoint",
+      "server_id": "documents",
+      "description": "Create a PowerPoint presentation"
+    },
+    {
+      "name": "create_word_document",
+      "server_id": "documents",
+      "description": "Create a Word document"
+    },
+    {
+      "name": "execute_bash",
+      "server_id": "execution",
+      "description": "Execute Bash commands in an isolated Docker container"
+    },
+    {
+      "name": "execute_nodejs",
+      "server_id": "execution",
+      "description": "Execute Node.js code in an isolated Docker container"
+    },
+    {
+      "name": "execute_powershell",
+      "server_id": "execution",
+      "description": "Execute a PowerShell script in an isolated Docker container (pwsh on Alpine)"
+    },
+    {
+      "name": "execute_python",
+      "server_id": "execution",
+      "description": "Execute Python code in an isolated Docker container"
+    },
+    {
+      "name": "explore_repository",
+      "server_id": "pipeline",
+      "description": "Locate relevant code via the FastContext-4B explorer subagent. Returns file+line citations. Call before editing."
+    },
+    {
+      "name": "forget",
+      "server_id": "memory",
+      "description": "Delete a specific memory by ID. Use when recall returns a stale or incorrect memory."
+    },
+    {
+      "name": "get_loaded_models",
+      "server_id": "pipeline",
+      "description": "Return which Ollama models are currently loaded in VRAM/RAM with size and expiry."
+    },
+    {
+      "name": "get_metrics_summary",
+      "server_id": "pipeline",
+      "description": "Return key Portal 5 operational metrics from Prometheus (requests, tool calls, errors, TPS)."
+    },
+    {
+      "name": "get_pipeline_status",
+      "server_id": "pipeline",
+      "description": "Return Portal 5 pipeline health: backend count, workspace count, version."
+    },
+    {
+      "name": "get_workspace_recommendation",
+      "server_id": "pipeline",
+      "description": "Suggest the best Portal 5 workspace for a plain-English task description."
+    },
+    {
+      "name": "kb_ingest",
+      "server_id": "rag",
+      "description": "Admin: ingest files from a directory into a knowledge base. Reads .md, .txt, .pdf, .docx, .pptx, .xlsx, .html, .htm, .epub files (Docling-first extraction with pypdf/python-docx fallback). Run via curl or as setup; not typically called from chat."
+    },
+    {
+      "name": "kb_list",
+      "server_id": "rag",
+      "description": "List all available knowledge bases (KBs) and their document counts."
+    },
+    {
+      "name": "kb_optimize",
+      "server_id": "rag",
+      "description": "Admin: build an IVF_PQ vector index on a KB for faster search. Skipped automatically for KBs under 256 chunks (brute-force is already fast). Run after large ingests."
+    },
+    {
+      "name": "kb_restore",
+      "server_id": "rag",
+      "description": "Admin: restore a KB to an earlier LanceDB version (see kb_versions). The restore itself is a new version, so it can be undone."
+    },
+    {
+      "name": "kb_search",
+      "server_id": "rag",
+      "description": "Search a specific knowledge base. Returns top relevant chunks with source file and similarity score. Use kb_list first to find available KB IDs. query_type: vector (semantic, default), fts (BM25 keyword \u2014 exact terms/IDs), hybrid (both, RRF-fused). fts/hybrid require the KB to be ingested with fts=true."
+    },
+    {
+      "name": "kb_search_all",
+      "server_id": "rag",
+      "description": "Search across all knowledge bases simultaneously. Useful when the user's question may match multiple KBs. query_type: vector (default), fts, hybrid; KBs without an FTS index transparently fall back to vector."
+    },
+    {
+      "name": "kb_versions",
+      "server_id": "rag",
+      "description": "List a KB's LanceDB version history and named tags (e.g. automatic pre-rebuild tags). Use with kb_restore to roll back."
+    },
+    {
+      "name": "list_directory",
+      "server_id": "pipeline",
+      "description": "List files and directories at the given path. Returns [FILE]/[DIR] prefixed entries."
+    },
+    {
+      "name": "list_generated_files",
+      "server_id": "documents",
+      "description": "List recently generated documents in the output directory. Use this to find files created by other tools."
+    },
+    {
+      "name": "list_memories",
+      "server_id": "memory",
+      "description": "List stored memories, optionally filtered by category or tag. For inventory and management."
+    },
+    {
+      "name": "list_voices",
+      "server_id": "tts",
+      "description": "List available voices for text-to-speech."
+    },
+    {
+      "name": "list_workspaces",
+      "server_id": "pipeline",
+      "description": "List all Portal 5 workspaces (AI models) with routing metadata. Optional substring filter."
+    },
+    {
+      "name": "mitre_data_sources_for_technique",
+      "server_id": "mitre",
+      "description": "List data sources needed to detect a technique."
+    },
+    {
+      "name": "mitre_detections_for_technique",
+      "server_id": "mitre",
+      "description": "List local SPL detections for a technique (joins ATT&CK to our detection library)."
+    },
+    {
+      "name": "mitre_technique_lookup",
+      "server_id": "mitre",
+      "description": "Look up a MITRE ATT&CK technique by ID. Returns name, tactic, platforms, detection info."
+    },
+    {
+      "name": "mitre_techniques_list",
+      "server_id": "mitre",
+      "description": "List all known ATT&CK techniques with their metadata."
+    },
+    {
+      "name": "news_search",
+      "server_id": "research",
+      "description": "Search recent news articles. Biased toward news sources and recent results."
+    },
+    {
+      "name": "read_excel",
+      "server_id": "documents",
+      "description": "Extract data from an existing Excel (.xlsx) spreadsheet. Returns sheet names and row data for each sheet."
+    },
+    {
+      "name": "read_pdf",
+      "server_id": "documents",
+      "description": "Extract text content from an existing PDF file page by page. Also extracts tables when present. Requires pdfplumber."
+    },
+    {
+      "name": "read_powerpoint",
+      "server_id": "documents",
+      "description": "Extract text and speaker notes from an existing PowerPoint (.pptx) file. Returns slide titles, content, and notes."
+    },
+    {
+      "name": "read_text_file",
+      "server_id": "pipeline",
+      "description": "Read a file from the host filesystem. Accepts absolute paths or repo-relative paths. Returns line-numbered content."
+    },
+    {
+      "name": "read_word_document",
+      "server_id": "documents",
+      "description": "Extract text content and structure from an existing Word (.docx) file. Returns headings, paragraphs, and table data."
+    },
+    {
+      "name": "recall",
+      "server_id": "memory",
+      "description": "Retrieve memories relevant to a query. Returns top matches by semantic similarity with recency boost. Use at the start of a conversation to prime context."
+    },
+    {
+      "name": "remember",
+      "server_id": "memory",
+      "description": "Store a memory for future recall. Use for: user preferences, persistent facts about the user's projects/work, important conclusions to keep across conversations. Each memory should be self-contained \u2014 no pronouns referring to the current chat context."
+    },
+    {
+      "name": "render_mesh",
+      "server_id": "cad_render",
+      "description": "Render a 3D mesh file (STL/3MF/OBJ/PLY) to a PNG image. Headless, no GUI. Returns the PNG path/URL and the mesh bounding-box dimensions in model units."
+    },
+    {
+      "name": "render_openscad",
+      "server_id": "cad_render",
+      "description": "Render OpenSCAD source code to a PNG using the openscad binary in headless --render mode."
+    },
+    {
+      "name": "sandbox_status",
+      "server_id": "execution",
+      "description": "Check if the code sandbox (Docker/DinD) is available"
+    },
+    {
+      "name": "search_files",
+      "server_id": "pipeline",
+      "description": "Search for a regex pattern across project files. Returns file:line matches."
+    },
+    {
+      "name": "speak",
+      "server_id": "tts",
+      "description": "Convert text to speech. Returns path to generated audio file."
+    },
+    {
+      "name": "spl_diff_hypothesis",
+      "server_id": "detections",
+      "description": "Compare an SPL result against an expected signal to find matches, misses, and unexpected findings."
+    },
+    {
+      "name": "spl_explain_detection",
+      "server_id": "detections",
+      "description": "Explain a detection: logic, mappings, expected signal."
+    },
+    {
+      "name": "spl_search_library",
+      "server_id": "detections",
+      "description": "Search the SPL detection library by keyword or technique ID."
+    },
+    {
+      "name": "spl_techniques_covered",
+      "server_id": "detections",
+      "description": "List all technique IDs with SPL detections."
+    },
+    {
+      "name": "spl_validate_syntax",
+      "server_id": "detections",
+      "description": "Validate SPL syntax locally (no live Splunk call needed)."
+    },
+    {
+      "name": "transcribe_audio",
+      "server_id": "whisper",
+      "description": "Transcribe audio using faster-whisper. If the user uploaded an audio file, omit audio_path and the tool will auto-detect the most recently uploaded file from the workspace."
+    },
+    {
+      "name": "transcribe_with_speakers",
+      "server_id": "whisper",
+      "description": "Transcribe an audio file with speaker diarization (Docker fallback path). On Apple Silicon, prefer the host-native MLX path on port 8924 (mlx-whisper + pyannote on MPS, ~5x faster). This Docker path is the cross-platform fallback for Linux/CUDA nodes."
+    },
+    {
+      "name": "trigger_backend_warmup",
+      "server_id": "pipeline",
+      "description": "Pre-load a workspace model into VRAM before a long session."
+    },
+    {
+      "name": "web_fetch",
+      "server_id": "research",
+      "description": "Fetch the text content of a URL (HTML stripped, max 2MB). Refuses localhost and private addresses."
+    },
+    {
+      "name": "web_search",
+      "server_id": "research",
+      "description": "Search the web. Returns title, URL, snippet for top N results. Use for current events or factual lookups beyond training data."
+    },
+    {
+      "name": "wiki_explain",
+      "server_id": "wiki",
+      "description": "Explain something by searching the canonical layer and returning a cited answer."
+    },
+    {
+      "name": "wiki_get_unit",
+      "server_id": "wiki",
+      "description": "Get a specific knowledge unit by ID with full content and citations."
+    },
+    {
+      "name": "wiki_search",
+      "server_id": "wiki",
+      "description": "Search the canonical knowledge layer by keyword. Returns matching units with citations."
+    },
+    {
+      "name": "write_file",
+      "server_id": "pipeline",
+      "description": "Write or overwrite a file on the host filesystem. Constrained to the repo root and /tmp."
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "P_convert_cad",
+      "user_turn": "Convert this STL file to 3MF format for my slicer.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "convert_cad"
+      ],
+      "category": "positive",
+      "target_tool": "convert_cad"
+    },
+    {
+      "id": "P_render_mesh",
+      "user_turn": "Render this 3D mesh file to a PNG image so I can preview it.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "render_mesh"
+      ],
+      "category": "positive",
+      "target_tool": "render_mesh"
+    },
+    {
+      "id": "P_render_openscad",
+      "user_turn": "Render this OpenSCAD code to a PNG image of the resulting 3D model.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "render_openscad"
+      ],
+      "category": "positive",
+      "target_tool": "render_openscad"
+    },
+    {
+      "id": "P_spl_diff_hypothesis",
+      "user_turn": "Compare this Splunk query result against the expected signal for T1003.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "spl_diff_hypothesis"
+      ],
+      "category": "positive",
+      "target_tool": "spl_diff_hypothesis"
+    },
+    {
+      "id": "P_spl_explain_detection",
+      "user_turn": "Explain the logic behind our credential-dumping detection rule.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "spl_explain_detection"
+      ],
+      "category": "positive",
+      "target_tool": "spl_explain_detection"
+    },
+    {
+      "id": "P_spl_search_library",
+      "user_turn": "Find all SPL detections that cover Kerberoasting.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "spl_search_library"
+      ],
+      "category": "positive",
+      "target_tool": "spl_search_library"
+    },
+    {
+      "id": "P_spl_techniques_covered",
+      "user_turn": "Which technique IDs have SPL detections in our library?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "spl_techniques_covered"
+      ],
+      "category": "positive",
+      "target_tool": "spl_techniques_covered"
+    },
+    {
+      "id": "P_spl_validate_syntax",
+      "user_turn": "Check if this SPL query has any syntax errors before I run it.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "spl_validate_syntax"
+      ],
+      "category": "positive",
+      "target_tool": "spl_validate_syntax"
+    },
+    {
+      "id": "P_convert_document",
+      "user_turn": "Convert this markdown file to a PDF document.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "convert_document"
+      ],
+      "category": "positive",
+      "target_tool": "convert_document"
+    },
+    {
+      "id": "P_create_excel",
+      "user_turn": "Create a spreadsheet with the quarterly revenue numbers for each department.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "create_excel"
+      ],
+      "category": "positive",
+      "target_tool": "create_excel"
+    },
+    {
+      "id": "P_create_powerpoint",
+      "user_turn": "Build a presentation summarizing the key findings from our security audit.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "create_powerpoint"
+      ],
+      "category": "positive",
+      "target_tool": "create_powerpoint"
+    },
+    {
+      "id": "P_create_word_document",
+      "user_turn": "Generate a Word document with the meeting notes from today's standup.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "create_word_document"
+      ],
+      "category": "positive",
+      "target_tool": "create_word_document"
+    },
+    {
+      "id": "P_list_generated_files",
+      "user_turn": "What documents have been generated recently in the output directory?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "list_generated_files"
+      ],
+      "category": "positive",
+      "target_tool": "list_generated_files"
+    },
+    {
+      "id": "P_read_excel",
+      "user_turn": "Extract the data from this Excel spreadsheet so I can analyze it.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "read_excel"
+      ],
+      "category": "positive",
+      "target_tool": "read_excel"
+    },
+    {
+      "id": "P_read_pdf",
+      "user_turn": "Read the contents of this PDF report and extract the key tables.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "read_pdf"
+      ],
+      "category": "positive",
+      "target_tool": "read_pdf"
+    },
+    {
+      "id": "P_read_powerpoint",
+      "user_turn": "Pull the text and speaker notes from this PowerPoint presentation.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "read_powerpoint"
+      ],
+      "category": "positive",
+      "target_tool": "read_powerpoint"
+    },
+    {
+      "id": "P_read_word_document",
+      "user_turn": "Extract the text content from this Word document.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "read_word_document"
+      ],
+      "category": "positive",
+      "target_tool": "read_word_document"
+    },
+    {
+      "id": "P_execute_bash",
+      "user_turn": "Run a shell command to check the disk usage on this machine.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "execute_bash"
+      ],
+      "category": "positive",
+      "target_tool": "execute_bash"
+    },
+    {
+      "id": "P_execute_nodejs",
+      "user_turn": "Execute a quick JavaScript snippet to parse some JSON data.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "execute_nodejs"
+      ],
+      "category": "positive",
+      "target_tool": "execute_nodejs"
+    },
+    {
+      "id": "P_execute_powershell",
+      "user_turn": "Run a PowerShell command to list running processes on this system.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "execute_powershell"
+      ],
+      "category": "positive",
+      "target_tool": "execute_powershell"
+    },
+    {
+      "id": "P_execute_python",
+      "user_turn": "Run a Python one-liner to calculate the factorial of 20.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "execute_python"
+      ],
+      "category": "positive",
+      "target_tool": "execute_python"
+    },
+    {
+      "id": "P_sandbox_status",
+      "user_turn": "Is the code sandbox Docker environment available and healthy?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "sandbox_status"
+      ],
+      "category": "positive",
+      "target_tool": "sandbox_status"
+    },
+    {
+      "id": "P_clear_memories",
+      "user_turn": "Delete all stored memories \u2014 I want a fresh start.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "clear_memories"
+      ],
+      "category": "positive",
+      "target_tool": "clear_memories"
+    },
+    {
+      "id": "P_forget",
+      "user_turn": "Remove the memory about my old SSH key configuration.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "forget"
+      ],
+      "category": "positive",
+      "target_tool": "forget"
+    },
+    {
+      "id": "P_list_memories",
+      "user_turn": "Show me everything stored in memory right now.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "list_memories"
+      ],
+      "category": "positive",
+      "target_tool": "list_memories"
+    },
+    {
+      "id": "P_recall",
+      "user_turn": "What do you remember about my preferred coding style?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "recall"
+      ],
+      "category": "positive",
+      "target_tool": "recall"
+    },
+    {
+      "id": "P_remember",
+      "user_turn": "Save that I prefer dark mode and tabs over spaces for indentation.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "remember"
+      ],
+      "category": "positive",
+      "target_tool": "remember"
+    },
+    {
+      "id": "P_mitre_data_sources_for_technique",
+      "user_turn": "What data sources do I need to detect pass-the-hash attacks?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "mitre_data_sources_for_technique"
+      ],
+      "category": "positive",
+      "target_tool": "mitre_data_sources_for_technique"
+    },
+    {
+      "id": "P_mitre_detections_for_technique",
+      "user_turn": "Show me our local SPL detections for credential dumping.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "mitre_detections_for_technique"
+      ],
+      "category": "positive",
+      "target_tool": "mitre_detections_for_technique"
+    },
+    {
+      "id": "P_mitre_technique_lookup",
+      "user_turn": "Look up technique T1190 in the ATT&CK framework.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "mitre_technique_lookup"
+      ],
+      "category": "positive",
+      "target_tool": "mitre_technique_lookup"
+    },
+    {
+      "id": "P_mitre_techniques_list",
+      "user_turn": "List all ATT&CK techniques in the initial-access tactic.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "mitre_techniques_list"
+      ],
+      "category": "positive",
+      "target_tool": "mitre_techniques_list"
+    },
+    {
+      "id": "P_explore_repository",
+      "user_turn": "Where is the LLM router's workspace detection logic in this codebase?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "explore_repository"
+      ],
+      "category": "positive",
+      "target_tool": "explore_repository"
+    },
+    {
+      "id": "P_get_loaded_models",
+      "user_turn": "Which Ollama models are currently loaded in memory right now?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "get_loaded_models"
+      ],
+      "category": "positive",
+      "target_tool": "get_loaded_models"
+    },
+    {
+      "id": "P_get_metrics_summary",
+      "user_turn": "Show me the current request counts and error rates from Prometheus.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "get_metrics_summary"
+      ],
+      "category": "positive",
+      "target_tool": "get_metrics_summary"
+    },
+    {
+      "id": "P_get_pipeline_status",
+      "user_turn": "Is the pipeline healthy? How many backends and workspaces are configured?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "get_pipeline_status"
+      ],
+      "category": "positive",
+      "target_tool": "get_pipeline_status"
+    },
+    {
+      "id": "P_get_workspace_recommendation",
+      "user_turn": "I need to analyze a CVE and write a detection \u2014 which workspace should I use?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "get_workspace_recommendation"
+      ],
+      "category": "positive",
+      "target_tool": "get_workspace_recommendation"
+    },
+    {
+      "id": "P_list_directory",
+      "user_turn": "What files are in the portal/platform/inference/router/ directory?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "list_directory"
+      ],
+      "category": "positive",
+      "target_tool": "list_directory"
+    },
+    {
+      "id": "P_list_workspaces",
+      "user_turn": "Show me all available workspaces, especially any related to security.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "list_workspaces"
+      ],
+      "category": "positive",
+      "target_tool": "list_workspaces"
+    },
+    {
+      "id": "P_read_text_file",
+      "user_turn": "Read the contents of config/portal.yaml so I can review the workspace definitions.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "read_text_file"
+      ],
+      "category": "positive",
+      "target_tool": "read_text_file"
+    },
+    {
+      "id": "P_search_files",
+      "user_turn": "Find all Python files that reference the ToolRegistry class.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "search_files"
+      ],
+      "category": "positive",
+      "target_tool": "search_files"
+    },
+    {
+      "id": "P_trigger_backend_warmup",
+      "user_turn": "Pre-load the coding workspace model before I start a long session.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "trigger_backend_warmup"
+      ],
+      "category": "positive",
+      "target_tool": "trigger_backend_warmup"
+    },
+    {
+      "id": "P_write_file",
+      "user_turn": "Create a new file at /tmp/test_output.txt with the text 'hello world'.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "write_file"
+      ],
+      "category": "positive",
+      "target_tool": "write_file"
+    },
+    {
+      "id": "P_kb_ingest",
+      "user_turn": "Ingest these markdown files into the security knowledge base.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "kb_ingest"
+      ],
+      "category": "positive",
+      "target_tool": "kb_ingest"
+    },
+    {
+      "id": "P_kb_list",
+      "user_turn": "What knowledge bases are available and how many documents does each have?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "kb_list"
+      ],
+      "category": "positive",
+      "target_tool": "kb_list"
+    },
+    {
+      "id": "P_kb_optimize",
+      "user_turn": "Build a vector index on the detection library KB for faster search.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "kb_optimize"
+      ],
+      "category": "positive",
+      "target_tool": "kb_optimize"
+    },
+    {
+      "id": "P_kb_restore",
+      "user_turn": "Restore the security KB to the version from before the last bad ingest.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "kb_restore"
+      ],
+      "category": "positive",
+      "target_tool": "kb_restore"
+    },
+    {
+      "id": "P_kb_search",
+      "user_turn": "Search the security KB for information about lateral movement techniques.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "kb_search"
+      ],
+      "category": "positive",
+      "target_tool": "kb_search"
+    },
+    {
+      "id": "P_kb_search_all",
+      "user_turn": "Search across all knowledge bases for anything related to Cobalt Strike.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "kb_search_all"
+      ],
+      "category": "positive",
+      "target_tool": "kb_search_all"
+    },
+    {
+      "id": "P_kb_versions",
+      "user_turn": "Show me the version history of the detection library knowledge base.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "kb_versions"
+      ],
+      "category": "positive",
+      "target_tool": "kb_versions"
+    },
+    {
+      "id": "P_news_search",
+      "user_turn": "Find recent news articles about vulnerabilities in OpenSSH.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "news_search"
+      ],
+      "category": "positive",
+      "target_tool": "news_search"
+    },
+    {
+      "id": "P_web_fetch",
+      "user_turn": "Fetch the content of this URL and extract the main text.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "web_fetch"
+      ],
+      "category": "positive",
+      "target_tool": "web_fetch"
+    },
+    {
+      "id": "P_web_search",
+      "user_turn": "Search the web for the latest Ollama release notes.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "web_search"
+      ],
+      "category": "positive",
+      "target_tool": "web_search"
+    },
+    {
+      "id": "P_classify_vulnerability",
+      "user_turn": "Classify this CVE description to determine its severity level.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "classify_vulnerability"
+      ],
+      "category": "positive",
+      "target_tool": "classify_vulnerability"
+    },
+    {
+      "id": "P_clone_voice",
+      "user_turn": "Clone this voice sample and speak the announcement text with it.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "clone_voice"
+      ],
+      "category": "positive",
+      "target_tool": "clone_voice"
+    },
+    {
+      "id": "P_list_voices",
+      "user_turn": "What voices are available for text-to-speech right now?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "list_voices"
+      ],
+      "category": "positive",
+      "target_tool": "list_voices"
+    },
+    {
+      "id": "P_speak",
+      "user_turn": "Read this paragraph aloud using a female voice.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "speak"
+      ],
+      "category": "positive",
+      "target_tool": "speak"
+    },
+    {
+      "id": "P_transcribe_audio",
+      "user_turn": "Transcribe this audio recording to text.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "transcribe_audio"
+      ],
+      "category": "positive",
+      "target_tool": "transcribe_audio"
+    },
+    {
+      "id": "P_transcribe_with_speakers",
+      "user_turn": "Transcribe this meeting recording and label each speaker.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "transcribe_with_speakers"
+      ],
+      "category": "positive",
+      "target_tool": "transcribe_with_speakers"
+    },
+    {
+      "id": "P_wiki_explain",
+      "user_turn": "Explain how the tool preselector works in Portal 5.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "wiki_explain"
+      ],
+      "category": "positive",
+      "target_tool": "wiki_explain"
+    },
+    {
+      "id": "P_wiki_get_unit",
+      "user_turn": "Get the knowledge unit about the RBP benchmark engine.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "wiki_get_unit"
+      ],
+      "category": "positive",
+      "target_tool": "wiki_get_unit"
+    },
+    {
+      "id": "P_wiki_search",
+      "user_turn": "Search the wiki for information about the MCP tool fleet.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "wiki_search"
+      ],
+      "category": "positive",
+      "target_tool": "wiki_search"
+    },
+    {
+      "id": "D_execute_bash",
+      "user_turn": "I need to run a Python script in an isolated container.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "execute_python"
+      ],
+      "category": "decoy",
+      "target_tool": "execute_python",
+      "decoy_tool": "execute_bash"
+    },
+    {
+      "id": "D_web_search",
+      "user_turn": "Fetch the full text content of this specific URL.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "web_fetch"
+      ],
+      "category": "decoy",
+      "target_tool": "web_fetch",
+      "decoy_tool": "web_search"
+    },
+    {
+      "id": "D_create_word_document",
+      "user_turn": "Generate a spreadsheet with the quarterly revenue numbers.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "create_excel"
+      ],
+      "category": "decoy",
+      "target_tool": "create_excel",
+      "decoy_tool": "create_word_document"
+    },
+    {
+      "id": "D_kb_search",
+      "user_turn": "Search across all knowledge bases for Cobalt Strike indicators.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "kb_search_all"
+      ],
+      "category": "decoy",
+      "target_tool": "kb_search_all",
+      "decoy_tool": "kb_search"
+    },
+    {
+      "id": "D_read_pdf",
+      "user_turn": "Extract text from this Word document.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "read_word_document"
+      ],
+      "category": "decoy",
+      "target_tool": "read_word_document",
+      "decoy_tool": "read_pdf"
+    },
+    {
+      "id": "D_recall",
+      "user_turn": "Store this fact about my preferences for later.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "remember"
+      ],
+      "category": "decoy",
+      "target_tool": "remember",
+      "decoy_tool": "recall"
+    },
+    {
+      "id": "D_render_openscad",
+      "user_turn": "Render this existing STL mesh file to a PNG image.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "render_mesh"
+      ],
+      "category": "decoy",
+      "target_tool": "render_mesh",
+      "decoy_tool": "render_openscad"
+    },
+    {
+      "id": "D_wiki_search",
+      "user_turn": "Explain how the tool preselector works in Portal 5.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "wiki_explain"
+      ],
+      "category": "decoy",
+      "target_tool": "wiki_explain",
+      "decoy_tool": "wiki_search"
+    },
+    {
+      "id": "D_mitre_technique_lookup",
+      "user_turn": "List all ATT&CK techniques in the initial-access tactic.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "mitre_techniques_list"
+      ],
+      "category": "decoy",
+      "target_tool": "mitre_techniques_list",
+      "decoy_tool": "mitre_technique_lookup"
+    },
+    {
+      "id": "D_spl_search_library",
+      "user_turn": "Check if this SPL query has syntax errors.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "spl_validate_syntax"
+      ],
+      "category": "decoy",
+      "target_tool": "spl_validate_syntax",
+      "decoy_tool": "spl_search_library"
+    },
+    {
+      "id": "D_news_search",
+      "user_turn": "Search the web for the latest Ollama release notes.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "web_search"
+      ],
+      "category": "decoy",
+      "target_tool": "web_search",
+      "decoy_tool": "news_search"
+    },
+    {
+      "id": "D_transcribe_audio",
+      "user_turn": "Transcribe this meeting recording and label each speaker.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "transcribe_with_speakers"
+      ],
+      "category": "decoy",
+      "target_tool": "transcribe_with_speakers",
+      "decoy_tool": "transcribe_audio"
+    },
+    {
+      "id": "C1",
+      "user_turn": "I found a suspicious binary on a host \u2014 analyze the CVE it might exploit and write up a report.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "classify_vulnerability",
+        "create_word_document",
+        "web_search",
+        "mitre_technique_lookup"
+      ],
+      "category": "compound"
+    },
+    {
+      "id": "C2",
+      "user_turn": "Search for Kerberoasting detections, validate the SPL syntax, then run it in the sandbox.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "spl_search_library",
+        "spl_validate_syntax",
+        "execute_bash",
+        "execute_python"
+      ],
+      "category": "compound"
+    },
+    {
+      "id": "C3",
+      "user_turn": "Read this PDF report, extract the key findings, and save them to a Word document.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "read_pdf",
+        "create_word_document",
+        "read_text_file"
+      ],
+      "category": "compound"
+    },
+    {
+      "id": "C4",
+      "user_turn": "What models are loaded, and can you pre-load the coding model before I start?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "get_loaded_models",
+        "trigger_backend_warmup"
+      ],
+      "category": "compound"
+    },
+    {
+      "id": "C5",
+      "user_turn": "Search the web for recent proxy shell exploits, then look up the relevant ATT&CK technique.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "web_search",
+        "mitre_technique_lookup",
+        "news_search"
+      ],
+      "category": "compound"
+    },
+    {
+      "id": "C6",
+      "user_turn": "Transcribe this audio file and store the key points in memory for later.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "transcribe_audio",
+        "transcribe_with_speakers",
+        "remember"
+      ],
+      "category": "compound"
+    },
+    {
+      "id": "C7",
+      "user_turn": "Find all Python files referencing ToolRegistry, read the main module, and explain it.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "search_files",
+        "read_text_file",
+        "explore_repository",
+        "wiki_explain"
+      ],
+      "category": "compound"
+    },
+    {
+      "id": "C8",
+      "user_turn": "Create a presentation about our detection coverage \u2014 pull stats from the SPL library and format it as slides.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "spl_techniques_covered",
+        "create_powerpoint",
+        "spl_search_library"
+      ],
+      "category": "compound"
+    },
+    {
+      "id": "C9",
+      "user_turn": "Ingest these documents into the KB, build a vector index, then search for lateral movement.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "kb_ingest",
+        "kb_optimize",
+        "kb_search"
+      ],
+      "category": "compound"
+    },
+    {
+      "id": "C10",
+      "user_turn": "Check pipeline health, list all workspaces, and tell me which one is best for a security analysis task.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [
+        "get_pipeline_status",
+        "list_workspaces",
+        "get_workspace_recommendation"
+      ],
+      "category": "compound"
+    },
+    {
+      "id": "R_P_convert_cad",
+      "user_turn": "Convert this STL file to 3MF format for my slicer.",
+      "tool_list_order": "reversed",
+      "acceptable_tools": [
+        "convert_cad"
+      ],
+      "category": "reorder",
+      "target_tool": "convert_cad",
+      "original_id": "P_convert_cad"
+    },
+    {
+      "id": "R_P_spl_diff_hypothesis",
+      "user_turn": "Compare this Splunk query result against the expected signal for T1003.",
+      "tool_list_order": "reversed",
+      "acceptable_tools": [
+        "spl_diff_hypothesis"
+      ],
+      "category": "reorder",
+      "target_tool": "spl_diff_hypothesis",
+      "original_id": "P_spl_diff_hypothesis"
+    },
+    {
+      "id": "R_P_convert_document",
+      "user_turn": "Convert this markdown file to a PDF document.",
+      "tool_list_order": "reversed",
+      "acceptable_tools": [
+        "convert_document"
+      ],
+      "category": "reorder",
+      "target_tool": "convert_document",
+      "original_id": "P_convert_document"
+    },
+    {
+      "id": "R_P_execute_bash",
+      "user_turn": "Run a shell command to check the disk usage on this machine.",
+      "tool_list_order": "reversed",
+      "acceptable_tools": [
+        "execute_bash"
+      ],
+      "category": "reorder",
+      "target_tool": "execute_bash",
+      "original_id": "P_execute_bash"
+    },
+    {
+      "id": "R_P_clear_memories",
+      "user_turn": "Delete all stored memories \u2014 I want a fresh start.",
+      "tool_list_order": "reversed",
+      "acceptable_tools": [
+        "clear_memories"
+      ],
+      "category": "reorder",
+      "target_tool": "clear_memories",
+      "original_id": "P_clear_memories"
+    },
+    {
+      "id": "R_P_mitre_data_sources_for_technique",
+      "user_turn": "What data sources do I need to detect pass-the-hash attacks?",
+      "tool_list_order": "reversed",
+      "acceptable_tools": [
+        "mitre_data_sources_for_technique"
+      ],
+      "category": "reorder",
+      "target_tool": "mitre_data_sources_for_technique",
+      "original_id": "P_mitre_data_sources_for_technique"
+    },
+    {
+      "id": "R_P_explore_repository",
+      "user_turn": "Where is the LLM router's workspace detection logic in this codebase?",
+      "tool_list_order": "reversed",
+      "acceptable_tools": [
+        "explore_repository"
+      ],
+      "category": "reorder",
+      "target_tool": "explore_repository",
+      "original_id": "P_explore_repository"
+    },
+    {
+      "id": "R_P_kb_ingest",
+      "user_turn": "Ingest these markdown files into the security knowledge base.",
+      "tool_list_order": "reversed",
+      "acceptable_tools": [
+        "kb_ingest"
+      ],
+      "category": "reorder",
+      "target_tool": "kb_ingest",
+      "original_id": "P_kb_ingest"
+    },
+    {
+      "id": "R_P_news_search",
+      "user_turn": "Find recent news articles about vulnerabilities in OpenSSH.",
+      "tool_list_order": "reversed",
+      "acceptable_tools": [
+        "news_search"
+      ],
+      "category": "reorder",
+      "target_tool": "news_search",
+      "original_id": "P_news_search"
+    },
+    {
+      "id": "R_P_classify_vulnerability",
+      "user_turn": "Classify this CVE description to determine its severity level.",
+      "tool_list_order": "reversed",
+      "acceptable_tools": [
+        "classify_vulnerability"
+      ],
+      "category": "reorder",
+      "target_tool": "classify_vulnerability",
+      "original_id": "P_classify_vulnerability"
+    },
+    {
+      "id": "NGF1",
+      "user_turn": "What's your opinion on the best programming language for AI?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [],
+      "category": "no_good_fit"
+    },
+    {
+      "id": "NGF2",
+      "user_turn": "Tell me a joke about computers.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [],
+      "category": "no_good_fit"
+    },
+    {
+      "id": "NGF3",
+      "user_turn": "How are you feeling today?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [],
+      "category": "no_good_fit"
+    },
+    {
+      "id": "NGF4",
+      "user_turn": "What did you have for breakfast?",
+      "tool_list_order": "normal",
+      "acceptable_tools": [],
+      "category": "no_good_fit"
+    },
+    {
+      "id": "NGF5",
+      "user_turn": "Summarize the meaning of life.",
+      "tool_list_order": "normal",
+      "acceptable_tools": [],
+      "category": "no_good_fit"
+    }
+  ]
+}
