@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -21,6 +23,8 @@ from pathlib import Path
 from . import field_journal as journal
 from . import oracles as oracle_mod
 from .playbooks import load_playbook, resolve_phases, validate_playbook
+
+logger = logging.getLogger(__name__)
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -136,7 +140,9 @@ def _check_escalate(state: EngagementState, pb: dict) -> str | None:
     escalate = pb.get("escalate_when", [])
     for trigger in escalate:
         if isinstance(trigger, str):
-            if trigger == "out_of_scope_action" and "out_of_scope_action" in state.escalations:
+            if trigger == "out_of_scope_action" and any(
+                e.startswith("out_of_scope_action") for e in state.escalations
+            ):
                 return "out_of_scope_action"
         elif isinstance(trigger, dict):
             if "repeated_failure" in trigger:
@@ -176,6 +182,7 @@ def run_engagement(
     lab_exec: bool = False,
     workspace: str | None = None,
     auto_continue_safe: bool = False,
+    notify_on_success: bool = False,
 ) -> dict:
     """Run a playbook to a stop condition. Returns an engagement report."""
     pb = load_playbook(playbook_path)
@@ -208,7 +215,89 @@ def run_engagement(
     if dry_run:
         return _dry_run_report(pb, state, prior)
 
-    return _run_loop(pb, state, prior, lab_exec, workspace, auto_continue_safe)
+    return _run_loop(pb, state, prior, lab_exec, workspace, auto_continue_safe, notify_on_success)
+
+
+# ── Notifications (TASK_SEC_LOOP_NOTIFY_V1) ────────────────────────────────────
+# Reuses the EXISTING notification subsystem (portal.platform.inference.notifications)
+# rather than building a new one — the loop just fires AlertEvents through the
+# shared dispatcher. Non-fatal by construction: a notify failure must never
+# abort or fail the engagement.
+
+_shared_dispatcher = None  # built once per process
+
+
+def _loop_notify_enabled() -> bool:
+    return os.environ.get("LOOP_NOTIFY_ENABLED", "true").lower() in ("true", "1", "yes")
+
+
+def _get_shared_dispatcher():
+    global _shared_dispatcher
+    if _shared_dispatcher is not None:
+        return _shared_dispatcher
+
+    from portal.platform.inference.notifications import NotificationDispatcher
+    from portal.platform.inference.notifications.channels import (
+        EmailChannel,
+        PushoverChannel,
+        SlackChannel,
+        TelegramChannel,
+        WebhookChannel,
+    )
+
+    disp = NotificationDispatcher()
+    # add_channel() is itself a no-op when NOTIFICATIONS_ENABLED is false, so
+    # this is safe to build unconditionally.
+    disp.add_channel(SlackChannel())
+    disp.add_channel(TelegramChannel())
+    disp.add_channel(EmailChannel())
+    disp.add_channel(PushoverChannel())
+    disp.add_channel(WebhookChannel())
+    _shared_dispatcher = disp
+    return disp
+
+
+def _resume_cmd(engagement_id: str) -> str:
+    return f"python3 -m portal.modules.security.core loop resume {engagement_id}"
+
+
+def _notify(
+    event_type_name: str,
+    message: str,
+    *,
+    engagement_id: str,
+    stop_reason: str | None = None,
+    detail: str | None = None,
+    resume_cmd: str | None = None,
+) -> None:
+    """Fire an AlertEvent through the shared NotificationDispatcher.
+    Fire-and-forget, non-fatal — a notify failure is logged and swallowed,
+    never propagated to the caller. A no-op when LOOP_NOTIFY_ENABLED is false
+    (the global NOTIFICATIONS_ENABLED gate is enforced by the dispatcher/
+    channels themselves — both must be on for anything to actually send)."""
+    if not _loop_notify_enabled():
+        return
+    try:
+        from portal.platform.inference.notifications import AlertEvent, EventType
+
+        event_type = getattr(EventType, event_type_name)
+        disp = _get_shared_dispatcher()
+        disp._schedule(
+            disp.dispatch(
+                AlertEvent(
+                    type=event_type,
+                    message=message,
+                    metadata={
+                        "engagement_id": engagement_id,
+                        "stop_reason": stop_reason,
+                        "detail": detail,
+                        "resume_cmd": resume_cmd,
+                    },
+                )
+            )
+        )
+    except Exception as exc:
+        logger.warning("loop notify failed (non-fatal): %s", exc)
 
 
 def _run_loop(
@@ -218,6 +307,7 @@ def _run_loop(
     lab_exec: bool,
     workspace: str | None,
     auto_continue_safe: bool,
+    notify_on_success: bool = False,
 ) -> dict:
     """Execute the engagement loop (real execution)."""
     while True:
@@ -225,11 +315,28 @@ def _run_loop(
         budget_stop = _check_budget(state, pb)
         if budget_stop:
             _write_checkpoint(state, budget_stop)
+            _notify(
+                "ENGAGEMENT_STUCK",
+                f"Engagement '{state.engagement_id}' hit {budget_stop} after "
+                f"{state.iterations} iteration(s), {len(state.completed_phases)} phase(s) complete.",
+                engagement_id=state.engagement_id,
+                stop_reason=budget_stop,
+                detail=f"last_phase={state.completed_phases[-1] if state.completed_phases else 'none'}",
+                resume_cmd=_resume_cmd(state.engagement_id),
+            )
             return _build_report(state, pb, prior, budget_stop)
 
         # Stop condition check
         if _check_stop(pb, state.observations):
             _write_checkpoint(state, "goal_met")
+            if notify_on_success:
+                _notify(
+                    "ENGAGEMENT_COMPLETE",
+                    f"Engagement '{state.engagement_id}' completed — goal met after "
+                    f"{state.iterations} iteration(s).",
+                    engagement_id=state.engagement_id,
+                    stop_reason="goal_met",
+                )
             return _build_report(state, pb, prior, "goal_met")
 
         # Escalation check
@@ -237,12 +344,28 @@ def _run_loop(
         if escalation and (escalation == "out_of_scope_action" or not auto_continue_safe):
             state.escalations.append(escalation)
             _write_checkpoint(state, f"escalated:{escalation}")
+            _notify(
+                "ENGAGEMENT_ESCALATED",
+                f"Engagement '{state.engagement_id}' escalated: {escalation}. Needs an operator decision.",
+                engagement_id=state.engagement_id,
+                stop_reason=f"escalated:{escalation}",
+                detail=escalation,
+                resume_cmd=_resume_cmd(state.engagement_id),
+            )
             return _build_report(state, pb, prior, f"escalated:{escalation}")
 
         # Resolve runnable phases
         ready = resolve_phases(pb, state.observations)
         if not ready:
             _write_checkpoint(state, "no_runnable_phase")
+            _notify(
+                "ENGAGEMENT_STUCK",
+                f"Engagement '{state.engagement_id}' has no runnable phase — dead end "
+                f"after {len(state.completed_phases)} phase(s) complete.",
+                engagement_id=state.engagement_id,
+                stop_reason="no_runnable_phase",
+                resume_cmd=_resume_cmd(state.engagement_id),
+            )
             return _build_report(state, pb, prior, "no_runnable_phase")
 
         # Execute the first ready phase (simplified — real version loops all ready phases)
@@ -252,6 +375,14 @@ def _run_loop(
         if phase.get("manual"):
             state.escalations.append(f"manual_phase:{pid}")
             _write_checkpoint(state, f"escalated:manual_phase:{pid}")
+            _notify(
+                "ENGAGEMENT_ESCALATED",
+                f"Engagement '{state.engagement_id}' needs a manual phase: {pid}.",
+                engagement_id=state.engagement_id,
+                stop_reason=f"escalated:manual_phase:{pid}",
+                detail=pid,
+                resume_cmd=_resume_cmd(state.engagement_id),
+            )
             return _build_report(state, pb, prior, f"escalated:manual_phase:{pid}")
 
         # Execute phase steps
@@ -524,8 +655,17 @@ def resume_engagement(
     *,
     lab_exec: bool = False,
     dry_run: bool = False,
+    notify_on_success: bool = False,
 ) -> dict:
-    """Load a checkpoint and continue the engagement from where it stopped."""
+    """Load a checkpoint and continue the engagement from where it stopped.
+
+    Resume does NOT reset budget/hard-cap accounting (state.iterations,
+    state.lab_actions, and state.started_at all round-trip through the
+    checkpoint) and does NOT re-authorize an out-of-scope escalation — the
+    same enforce_scope/_check_escalate calls run again on the next iteration,
+    so a resumed engagement that still targets an out-of-scope action
+    escalates again rather than proceeding.
+    """
     cp_path = CHECKPOINT_DIR / f"{engagement_id}.json"
     if not cp_path.exists():
         return {"status": "error", "reason": f"checkpoint not found: {engagement_id}"}
@@ -542,4 +682,4 @@ def resume_engagement(
     if dry_run:
         return _dry_run_report(pb, state, prior)
 
-    return _run_loop(pb, state, prior, lab_exec, None, False)
+    return _run_loop(pb, state, prior, lab_exec, None, False, notify_on_success)

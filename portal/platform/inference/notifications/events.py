@@ -45,6 +45,10 @@ class AlertEvent:
             EventType.TEST_START: ":rocket:",
             EventType.TEST_END: ":flag_checkered:",
             EventType.TEST_SUMMARY: ":clipboard:",
+            EventType.ENGAGEMENT_ESCALATED: ":raising_hand:",
+            EventType.ENGAGEMENT_STUCK: ":construction:",
+            EventType.ENGAGEMENT_COMPLETE: ":checkered_flag:",
+            EventType.VALIDATION_ALERT: ":rotating_light:",
         }.get(self.type, ":bell:")
 
         lines = [f"{emoji} *Portal 5 Alert — {self.type.value.replace('_', ' ')}*"]
@@ -55,7 +59,7 @@ class AlertEvent:
             lines.append(f"`workspace`: {self.workspace}")
         if self.metadata:
             lines.append("")
-            lines.append("*MLX Context:*")
+            lines.append("*Context:*")
             for k, v in self.metadata.items():
                 key = k.replace("mlx_", "")
                 lines.append(f"  `{key}`: {v}")
@@ -72,6 +76,10 @@ class AlertEvent:
             EventType.TEST_START: "[TEST START]",
             EventType.TEST_END: "[TEST END]",
             EventType.TEST_SUMMARY: "[TEST SUMMARY]",
+            EventType.ENGAGEMENT_ESCALATED: "[ESCALATED]",
+            EventType.ENGAGEMENT_STUCK: "[STUCK]",
+            EventType.ENGAGEMENT_COMPLETE: "[COMPLETE]",
+            EventType.VALIDATION_ALERT: "[VALIDATION ALERT]",
         }.get(self.type, "[ALERT]")
 
         lines = [f"{prefix} — Portal 5 — {self.type.value.replace('_', ' ')}", "", self.message]
@@ -81,7 +89,7 @@ class AlertEvent:
             lines.append(f"Workspace: {self.workspace}")
         if self.metadata:
             lines.append("")
-            lines.append("MLX Context:")
+            lines.append("Context:")
             for k, v in self.metadata.items():
                 key = k.replace("mlx_", "").replace("_", " ")
                 if isinstance(v, list):
@@ -117,6 +125,10 @@ class AlertEvent:
             EventType.TEST_START: "[TEST]",
             EventType.TEST_END: "[DONE]",
             EventType.TEST_SUMMARY: "[SUMMARY]",
+            EventType.ENGAGEMENT_ESCALATED: "[ESCALATED]",
+            EventType.ENGAGEMENT_STUCK: "[STUCK]",
+            EventType.ENGAGEMENT_COMPLETE: "[DONE]",
+            EventType.VALIDATION_ALERT: "[ALERT]",
         }.get(self.type, "[ALERT]")
         msg = f"{prefix} {self.message}"
         if self.backend_id:
