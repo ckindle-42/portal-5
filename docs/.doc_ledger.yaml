@@ -15,7 +15,7 @@ docs:
     - launch.sh
     - portal/modules/
     - portal_mcp/
-    last_reconciled_commit: bb7c592e136f14130ea26359f6f471af791c704b
+    last_reconciled_commit: 4048b7f9966b479b9aa6f08bb483c67e177c2aad
   CLAUDE.md:
     sources:
     - config/portal.yaml
@@ -29,14 +29,14 @@ docs:
     - portal_mcp/
     - .env.example
     - portal_wiki/canonical/
-    last_reconciled_commit: bb7c592e136f14130ea26359f6f471af791c704b
+    last_reconciled_commit: 4048b7f9966b479b9aa6f08bb483c67e177c2aad
   KNOWN_LIMITATIONS.md:
     sources:
     - portal/platform/inference/
     - config/backends.yaml
     - portal/modules/
     - portal_mcp/
-    last_reconciled_commit: bb7c592e136f14130ea26359f6f471af791c704b
+    last_reconciled_commit: 4048b7f9966b479b9aa6f08bb483c67e177c2aad
   P5_ROADMAP.md:
     sources:
     - config/backends.yaml
@@ -67,7 +67,7 @@ docs:
     - portal_mcp/
     - scripts/mlx-speech.py
     - scripts/mlx-transcribe.py
-    last_reconciled_commit: bb7c592e136f14130ea26359f6f471af791c704b
+    last_reconciled_commit: 4048b7f9966b479b9aa6f08bb483c67e177c2aad
   docs/CLUSTER_SCALE.md:
     sources:
     - config/backends.yaml
@@ -88,7 +88,7 @@ docs:
     - portal_mcp/
     - .mcp.json
     - portal/platform/inference/tool_registry.py
-    last_reconciled_commit: bb7c592e136f14130ea26359f6f471af791c704b
+    last_reconciled_commit: 4048b7f9966b479b9aa6f08bb483c67e177c2aad
   docs/COMFYUI_SETUP.md:
     sources:
     - portal/modules/media/tools/
