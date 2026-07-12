@@ -1,6 +1,6 @@
 name: "⚡ Gemma Fast"
 slug: gemma_fast
-workspace_model: auto-gemma-fast
+workspace_model: auto-daily
 module: general
 category: general
 system_prompt: |

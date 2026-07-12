@@ -1,6 +1,6 @@
 name: "🔥 Devstral Coder"
 slug: devstral_coder
-workspace_model: auto-devstral
+workspace_model: auto-coding
 module: coding
 category: coding
 system_prompt: |

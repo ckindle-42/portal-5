@@ -31,12 +31,6 @@ VALID_WORKSPACES = frozenset(
     {
         "auto",
         "auto-coding",
-        "auto-glm",
-        "auto-glm-thinking",
-        "auto-gemma-fast",
-        "auto-gemma-e4b",
-        "auto-devstral",
-        "auto-gemma-vision",
         "auto-daily",
         "auto-spl",
         "auto-security",
@@ -49,9 +43,7 @@ VALID_WORKSPACES = frozenset(
         "auto-vision",
         "auto-data",
         "auto-compliance",
-        "auto-mistral",
         "auto-math",
-        "auto-phi4",
         "auto-audio",
         # Coding capability benchmark workspaces (user-selected only)
         "bench-qwen3-coder-next",

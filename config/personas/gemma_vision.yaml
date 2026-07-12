@@ -1,6 +1,6 @@
 name: "👁️ Gemma Vision"
 slug: gemma_vision
-workspace_model: auto-gemma-vision
+workspace_model: auto-vision
 module: general
 category: vision
 system_prompt: |

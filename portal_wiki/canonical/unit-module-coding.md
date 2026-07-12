@@ -35,7 +35,10 @@ portal.modules.coding.tools.code_sandbox_mcp — isolated code execution (:8914)
   - `heavy` (was auto-agentic) — Qwen3-Coder-Next, agentic
   - `lite` (was auto-agentic-lite) — Qwen-AgentWorld-35B-A3B, agentic
   - `ornith` (was auto-agentic-ornith) — Ornith-1.0-35B, agentic
-- auto-devstral (still separate — model-tied workspace deletion is Phase 7)
+
+(auto-devstral, auto-glm, auto-glm-thinking, auto-mistral deleted outright
+in Phase 7 — model-tied workspaces, no distinguishing behavior beyond
+model_hint; their personas moved to `workspace_model: auto-coding`.)
 
 Also uses the general module's filesystem/git base tools for repo work.
 

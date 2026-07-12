@@ -897,21 +897,6 @@ workspaces:
       For CIP-003-9: Note that the standard became enforceable April 1, 2026. Flag any R1 Part 1.2.6 gaps (vendor electronic remote access for Low Impact BES) as Priority-1.
   
       Always end your analysis with a summary count: X requirements analyzed, Y Full, Z Partial, W None, V Ambiguous.
-  auto-mistral:
-    module: coding
-    name: 🧪 Portal Mistral Reasoner
-    description: |-
-      Magistral-Small-2509 (GGUF q8_0) — Mistral training lineage, [THINK] mode, distinct failure profile from Qwen/DeepSeek reasoning models.
-    model_hint: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k
-    context_limit: 65536
-    predict_limit: 16384
-    keep_alive: 10m
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a rigorous structured reasoner using the Magistral reasoning model. Think through problems step by step using [THINK] mode. Make all assumptions explicit. Quantify uncertainty. State what additional information would change your recommendation.
   auto-math:
     module: general
     name: 🧮 Portal Math Reasoner
@@ -926,103 +911,6 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a precise mathematical reasoning assistant. Show your work step by step. Use proper notation. Verify answers by substitution or alternative methods. For proofs, clearly state axioms and theorems used. For applied problems, state assumptions and check dimensional consistency.
-  auto-phi4:
-    module: general
-    name: 🧮 Portal STEM Analyst
-    description: |-
-      STEM analysis, scientific reasoning, mathematical derivations, structured problem-solving. Phi-4-reasoning-plus (V8: RL-trained 14B, ~11GB, MIT — produces chain-of-thought traces before answers; ideal for stepwise STEM work).
-    model_hint: phi4-reasoning:plus-ctx32k
-    context_limit: 32768
-    predict_limit: 32768
-    keep_alive: 10m
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-  auto-glm:
-    module: coding
-    name: ⚡ Portal GLM Coder
-    description: |-
-      Coding and long-context tasks via GLM-4.7-Flash REAP UD-Q4_K_XL (ZhipuAI / Z.AI, MIT). 31B MoE, 4 experts/token (~3B active), 128K context. Non-Meta/Qwen lineage — distinct training data and architecture from fleet majority. REAP (Refined Expert Activation Pruning) + Unsloth Dynamic imatrix: quality 1.00 in bench 2026-06-21. Use for: coding tasks where Qwen/DeepSeek answers feel similar, 128K context jobs, second-opinion analysis. 12.3 t/s pipeline. supports_tools=true: audit-tools 2026-06-21 confirmed.
-    model_hint: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k
-    context_limit: 65536
-    predict_limit: 16384
-    tools:
-    - execute_python
-    - execute_nodejs
-    - execute_bash
-    - sandbox_status
-    - read_word_document
-    - read_pdf
-    - remember
-    - recall
-    expose_to_owui: true
-    enable_web_search: false
-  auto-glm-thinking:
-    module: coding
-    name: 🧠 Portal GLM Deep Reasoner
-    description: |-
-      Deep reasoning and analysis via GLM-Z1-Rumination-32B (THUDM/ZhipuAI, April 2026, MIT). 32B dense, multi-step chain-of-thought, ZhipuAI thinking variant. Distinct reasoning lineage from DeepSeek-R1 and Magistral — different failure profile. Quality 1.00, 12.1 t/s in bench 2026-06-21. Use for: complex analysis, extended reasoning chains, second-opinion on hard problems. Emits reasoning traces before final answer.
-    model_hint: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
-    context_limit: 65536
-    predict_limit: 16384
-    keep_alive: 10m
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-  auto-gemma-fast:
-    module: general
-    name: ⚡ Portal Gemma Fast
-    description: |-
-      Speed-optimised multimodal assistant. Gemma 4 E2B QAT (~3GB, Google DeepMind, Apache 2.0). 76.3 t/s, quality 1.00 on bench 2026-06-21. Encoder-free audio+image+video+text, 128K ctx. Use when response speed matters: quick Q&A, rapid iteration, conversational tasks, live audio or image analysis. Fastest quality-passing production model in fleet.
-    model_hint: gemma4:e2b-it-qat-ctx8k
-    context_limit: 8192
-    predict_limit: 8192
-    tools:
-    - transcribe_audio
-    expose_to_owui: true
-    enable_web_search: false
-  auto-gemma-e4b:
-    module: general
-    name: 🎯 Portal Gemma E4B
-    description: |-
-      Compact multimodal model. Gemma 4 E4B QAT (~5GB, Google DeepMind, Apache 2.0). 48.6 t/s, quality 1.00 on bench 2026-06-21. Encoder-free audio+image+video+text, 128K ctx. Second-tier audio/multimodal option alongside auto-audio (12B) — prefer this when throughput matters more than depth. Good for audio+image tasks where E2B is too thin and 12B is overkill.
-    model_hint: gemma4:e4b-it-qat-ctx8k
-    context_limit: 8192
-    predict_limit: 8192
-    tools:
-    - transcribe_audio
-    expose_to_owui: true
-    enable_web_search: false
-  auto-devstral:
-    module: coding
-    name: 🔥 Portal Devstral
-    description: |-
-      Mistral-lineage coding assistant. Devstral Small 2 (~14GB, Mistral AI + All Hands AI, Apache 2.0). 24B, 256K ctx, vision added V2. 14.6 t/s, quality 0.83 on bench 2026-06-21. Distinct training lineage from Qwen-Coder — different strengths in repo navigation and agentic coding. Use when Qwen-Coder misses or for Mistral-architecture diversity.
-    model_hint: devstral-small-2:latest-ctx8k
-    context_limit: 8192
-    predict_limit: 16384
-    tools:
-    - execute_python
-    - execute_nodejs
-    - execute_bash
-    - sandbox_status
-    - read_word_document
-    - read_pdf
-    expose_to_owui: true
-    enable_web_search: false
-  auto-gemma-vision:
-    module: general
-    name: 👁️ Portal Gemma Vision
-    description: |-
-      Heavy vision analysis. Gemma 4 31B Dense QAT (~18GB, Google DeepMind, Apache 2.0). 11.4 t/s, quality 1.00 on bench 2026-06-21. 256K ctx, vision+text. Gemma-architecture alternative to auto-vision (qwen3-vl:32b) — different model family, complementary failure profile. Use for detailed image analysis where Qwen3-VL underperforms.
-    model_hint: gemma4:31b-it-qat-ctx8k
-    context_limit: 8192
-    predict_limit: 16384
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
   auto-audio:
     module: media
     name: 🎙️  Portal Audio Analyst

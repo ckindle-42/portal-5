@@ -136,18 +136,6 @@
       "system": "You are a data analyst. Help with data analysis, statistics, visualization design, and interpretation. Show your calculations. Explain statistical concepts clearly."
     }
   },
-  "auto-devstral": {
-    "id": "auto-devstral",
-    "meta": {
-      "description": "🔥 Portal Devstral",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🔥 Portal Devstral",
-    "params": {
-      "model": "auto-devstral"
-    }
-  },
   "auto-documents": {
     "id": "auto-documents",
     "meta": {
@@ -176,42 +164,6 @@
       "model": "auto-extract-uncensored"
     }
   },
-  "auto-gemma-e4b": {
-    "id": "auto-gemma-e4b",
-    "meta": {
-      "description": "🎯 Portal Gemma E4B",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🎯 Portal Gemma E4B",
-    "params": {
-      "model": "auto-gemma-e4b"
-    }
-  },
-  "auto-gemma-fast": {
-    "id": "auto-gemma-fast",
-    "meta": {
-      "description": "⚡ Portal Gemma Fast",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "⚡ Portal Gemma Fast",
-    "params": {
-      "model": "auto-gemma-fast"
-    }
-  },
-  "auto-gemma-vision": {
-    "id": "auto-gemma-vision",
-    "meta": {
-      "description": "👁️ Portal Gemma Vision",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "👁️ Portal Gemma Vision",
-    "params": {
-      "model": "auto-gemma-vision"
-    }
-  },
   "auto-general-uncensored": {
     "id": "auto-general-uncensored",
     "meta": {
@@ -222,30 +174,6 @@
     "name": "🔓 Portal General (Uncensored)",
     "params": {
       "model": "auto-general-uncensored"
-    }
-  },
-  "auto-glm": {
-    "id": "auto-glm",
-    "meta": {
-      "description": "⚡ Portal GLM Coder",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "⚡ Portal GLM Coder",
-    "params": {
-      "model": "auto-glm"
-    }
-  },
-  "auto-glm-thinking": {
-    "id": "auto-glm-thinking",
-    "meta": {
-      "description": "🧠 Portal GLM Deep Reasoner",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🧠 Portal GLM Deep Reasoner",
-    "params": {
-      "model": "auto-glm-thinking"
     }
   },
   "auto-math": {
@@ -259,21 +187,6 @@
     "params": {
       "model": "auto-math",
       "system": "You are a precise mathematical reasoning assistant. Show your work step by step. Use proper notation. Verify answers by substitution or alternative methods. For proofs, clearly state axioms and theorems used. For applied problems, state assumptions and check dimensional consistency."
-    }
-  },
-  "auto-mistral": {
-    "id": "auto-mistral",
-    "meta": {
-      "description": "🧪 Portal Mistral Reasoner",
-      "profile_image_url": "",
-      "toolIds": [
-        "server:mcp:portal_research"
-      ]
-    },
-    "name": "🧪 Portal Mistral Reasoner",
-    "params": {
-      "model": "auto-mistral",
-      "system": "You are a rigorous structured reasoner using the Magistral reasoning model. Think through problems step by step using [THINK] mode. Make all assumptions explicit. Quantify uncertainty. State what additional information would change your recommendation."
     }
   },
   "auto-music": {
@@ -290,18 +203,6 @@
     "params": {
       "model": "auto-music",
       "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified. After generating audio, include the download_url from the tool result as a clickable link so the user can download the file."
-    }
-  },
-  "auto-phi4": {
-    "id": "auto-phi4",
-    "meta": {
-      "description": "🧮 Portal STEM Analyst",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🧮 Portal STEM Analyst",
-    "params": {
-      "model": "auto-phi4"
     }
   },
   "auto-reasoning": {
