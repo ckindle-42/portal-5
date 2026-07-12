@@ -36,6 +36,9 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from portal.platform.inference.router.correlation import (
+    get_correlation_id as _corr_id,
+)
 from portal.platform.inference.router.metrics import (
     _reasoning_promotion_total,
     _record_response_time,
@@ -339,7 +342,7 @@ async def _stream_with_tool_loop_impl(
         every other delta type is forwarded after applicable
         rewriting.
     """
-    request_id = f"chatcmpl-p5-{int(time.time())}"
+    request_id = _corr_id() or f"chatcmpl-p5-{int(time.time())}"
     hop = 0
     current_body = dict(body)
     _exec_audit: bool = bool(body.get("exec_audit"))

@@ -20,6 +20,16 @@ except importlib.metadata.PackageNotFoundError:
 
 app = FastAPI(title="Portal Pipeline", version=_PKG_VERSION, lifespan=lifespan)
 
+# Per-request correlation id: mint/accept at entry, bind to a contextvar for
+# uniform log stamping, echo back in the response header. See router.correlation.
+from portal.platform.inference.router.correlation import (  # noqa: E402
+    CorrelationIdMiddleware,
+    install_log_filter,
+)
+
+app.add_middleware(CorrelationIdMiddleware)
+install_log_filter()
+
 app.get("/health")(handlers.health)
 app.get("/health/all")(handlers.health_all)
 app.post("/admin/refresh-tools")(handlers.admin_refresh_tools)
