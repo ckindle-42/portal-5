@@ -595,6 +595,18 @@ async def chat_completions(
         # no image_url is present in the request.
         workspace_id, body = _resolve_vision_fallback(workspace_id, body)
 
+        # Gate 4 (M7 toggle layer): reject requests to a workspace whose owning
+        # module is currently disabled. Checked after all workspace_id-mutating
+        # phases (persona resolution, auto-routing, vision fallback) so this
+        # sees the final resolved workspace, not an intermediate alias.
+        from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+        if is_workspace_disabled(workspace_id):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Workspace '{workspace_id}' is disabled (module not enabled).",
+            )
+
         # Phase 5: Temporal context injection — give web-tool-enabled workspaces today's
         # date plus a search-first nudge so local models don't answer time-sensitive
         # questions from a frozen training cutoff.
