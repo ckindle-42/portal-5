@@ -58,6 +58,19 @@ class ChainHop(BaseModel):
     user_template: str
 
 
+class ToolPreselectSpec(BaseModel):
+    """Per-workspace opt-in for query-level tool-schema preselection.
+
+    See portal/platform/inference/tool_preselect/README.md. Absence of
+    this whole block on a workspace means the feature is bypassed for
+    it even when PORTAL5_TOOL_PRESELECT=1 globally.
+    """
+
+    enabled: bool = False
+    k: int | None = None
+    confidence_floor: float = 0.5
+
+
 class WorkspaceSpec(BaseModel):
     """One workspace entry from portal.yaml workspaces: block."""
 
@@ -92,6 +105,9 @@ class WorkspaceSpec(BaseModel):
 
     # --- Multi-model chain ---
     chain: list[ChainHop] = Field(default_factory=list)
+
+    # --- Tool preselection opt-in (P5-FUT-TOOL-PRESELECT) ---
+    tool_preselect: ToolPreselectSpec | None = None
 
     # --- Open WebUI projection (portal.yaml-only fields, not in WORKSPACES dict) ---
     expose_to_owui: bool = True
