@@ -19,8 +19,8 @@ tags:
 - T1083
 - technique
 - signature
-created_at: 1783828011.523021
-updated_at: 1783828011.523021
+created_at: 1783896250.5224068
+updated_at: 1783896250.5224068
 ---
 
 # T1083 — File and directory discovery — path traversal and LFI

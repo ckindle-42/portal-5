@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Generated: 2026-07-12 22:25 UTC*
+*Generated: 2026-07-12 22:44 UTC*
 
 ## Knowledge Layer
 
@@ -556,7 +556,7 @@
 | `unit-module-documents` | mixed | 2 |
 | `unit-module-eval` | mixed | 2 |
 | `unit-module-general` | mixed | 2 |
-| `unit-module-media` | mixed | 2 |
+| `unit-module-media` | mixed | 4 |
 | `unit-module-research` | mixed | 2 |
 | `unit-module-security` | mixed | 2 |
 
@@ -565,7 +565,7 @@
 ## Source Distribution
 
 - **bench-security**: 4 references
-- **code**: 56 references
+- **code**: 58 references
 - **design**: 505 references
 - **doc**: 5 references
 - **mitre**: 30 references

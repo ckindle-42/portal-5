@@ -241,6 +241,12 @@ hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
 
 ## Quick-Start: All Three Tiers
 
+> Since BUILD_PROGRAM_COLLAPSE_V1.md Phase 6, `auto-redteam`/`auto-redteam-deep`/`auto-blueteam`/
+> `auto-pentest`/`auto-purpleteam-exec` are folded into `auto-security` `?variant=` params —
+> these pre-collapse ids still resolve unchanged via a legacy-alias shim
+> (`_resolve_legacy_workspace_alias` in `portal/platform/inference/router/preinject.py`), so the
+> commands below are unaffected.
+
 ### Tier 1 — Theory (prose quality, all workspaces × all prompts)
 
 Runs every prompt against every security workspace with tools disabled. Measures structure adherence, disclaimer density, MITRE coverage. No lab needed.

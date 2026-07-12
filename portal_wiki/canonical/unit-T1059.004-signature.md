@@ -20,8 +20,8 @@ tags:
 - T1059.004
 - technique
 - signature
-created_at: 1783828011.525085
-updated_at: 1783828011.525085
+created_at: 1783896250.5244439
+updated_at: 1783896250.5244439
 ---
 
 # T1059.004 — Unix shell — command execution via sh/bash/python on Linux targets
