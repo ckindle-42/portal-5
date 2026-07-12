@@ -74,7 +74,7 @@ portal-5/
 │       │   └── tool_preselect/      # Query-level tool-schema preselection (P5-FUT-TOOL-PRESELECT, flag-off by default)
 │       ├── wiki/                    # Wiki engine (schema, store, writeback, render, maintain)
 │       │   └── adapters/            # Portal-specific wiki wiring (module toggle resolver, growth writeback)
-│       ├── agent/                    # Discipline-agnostic agent loop core (goal/decide/rank/loop/writeback); security is the first consumer
+│       ├── agent/                    # Discipline-agnostic agent loop core (goal/decide/rank/loop/writeback) — see docs/AGENT_LOOP.md; security is the first consumer
 │       ├── mcp_host/                 # Pipeline MCP (:8928) + shared MCP workspace helpers (workspace.py: resolve_upload_path, get_generated_dir, _VALID_CATEGORIES)
 │       └── memory/                   # Cross-session memory store MCP (:8920)
 ├── portal_mcp/                   # Externally-vendored MCP servers only (never moved)
