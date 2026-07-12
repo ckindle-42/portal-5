@@ -105,7 +105,41 @@ _load_persona_map()
 # regenerate all derived artifacts (workspace_routing, .mcp.json, OWUI presets).
 # Satisfies CLAUDE.md "Do NOT hardcode model names in Python" (model_hint is
 # now in portal.yaml, not in this file).
-WORKSPACES: dict[str, dict[str, Any]] = get_workspace_dict(load_portal_config())
+
+
+class _WorkspaceCatalog(dict):
+    """dict that hides synthetic ``"<base>::<variant>"`` entries from
+    iteration/len/keys/items/values.
+
+    resolve_workspace_variant() (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6)
+    lazily caches merged variant configs directly into this dict under a
+    synthetic key so every existing ``WORKSPACES.get(workspace_id, {})``
+    call site picks them up transparently. But code that *iterates* all of
+    WORKSPACES (lifespan hint validation, the /metrics workspace count, the
+    keyword-classifier id list, Rule 6 cross-checks) must only ever see the
+    real portal.yaml catalog — a synthetic entry isn't a real workspace and
+    was never meant to be validated/counted/routed-to as one. Direct
+    lookup (``.get()``, ``[]``, ``in``) is unaffected — only the
+    iteration-shaped views below are filtered.
+    """
+
+    def __iter__(self):
+        return (k for k in super().__iter__() if "::" not in k)
+
+    def keys(self):  # noqa: D102
+        return (k for k in super().keys() if "::" not in k)  # noqa: SIM118
+
+    def items(self):  # noqa: D102
+        return ((k, v) for k, v in super().items() if "::" not in k)
+
+    def values(self):  # noqa: D102
+        return (v for k, v in self.items())
+
+    def __len__(self):
+        return sum(1 for _ in self.__iter__())
+
+
+WORKSPACES: dict[str, dict[str, Any]] = _WorkspaceCatalog(get_workspace_dict(load_portal_config()))
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────
 

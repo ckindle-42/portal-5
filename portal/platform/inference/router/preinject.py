@@ -34,6 +34,81 @@ def _resolve_persona_workspace(workspace_id: str) -> str:
     return workspace_id
 
 
+# Legacy workspace ids folded into auto-coding's variants (BUILD_PROGRAM_COLLAPSE_V1.md
+# Phase 5). routing.py's keyword classifier (_WORKSPACE_ROUTING) still emits
+# "auto-agentic" and "auto-coding-agentic" as detected targets — that's
+# scoring-axis content, explicitly off-limits to edit (DESIGN §9). Aliasing the
+# now-deleted id to (base workspace, variant) here, post-classification, keeps
+# the classifier's output meaningful without touching its keywords/thresholds.
+_LEGACY_WORKSPACE_ALIASES: dict[str, tuple[str, str]] = {
+    "auto-coding-agentic": ("auto-coding", "laguna"),
+    "auto-coding-northmini": ("auto-coding", "northmini"),
+    "auto-coding-uncensored": ("auto-coding", "uncensored"),
+    "auto-coding-uncensored-agentic": ("auto-coding", "uncensored-agentic"),
+    "auto-agentic": ("auto-coding", "heavy"),
+    "auto-agentic-lite": ("auto-coding", "lite"),
+    "auto-agentic-ornith": ("auto-coding", "ornith"),
+}
+
+
+def _resolve_legacy_workspace_alias(workspace_id: str) -> tuple[str, str | None]:
+    """Map a pre-collapse workspace id to (current base id, implied variant).
+
+    Returns ``(workspace_id, None)`` unchanged for anything not in the alias
+    map — including every workspace that was never renamed.
+    """
+    alias = _LEGACY_WORKSPACE_ALIASES.get(workspace_id)
+    if alias is None:
+        return workspace_id, None
+    return alias
+
+
+def _resolve_workspace_variant(
+    original_model_id: str, workspace_id: str, variant_param: str | None
+) -> str:
+    """Apply a named variant override onto a factored workspace (e.g.
+    ``auto-coding`` folding the old auto-coding-agentic/auto-agentic/…
+    siblings — BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6).
+
+    Variant selection, in priority order: an explicit ``?variant=`` query
+    param on the request, else the persona's own declared ``variant``
+    field (when ``original_model_id`` names a persona). No variant
+    resolved, or the workspace declares no ``variants`` block, or the name
+    doesn't match one of its variants -> ``workspace_id`` unchanged
+    (a typo'd/unknown variant is a silent no-op, not an error, so a bad
+    query param never breaks a request).
+
+    Merging is idempotent and allocation-free after the first call for a
+    given (workspace_id, variant) pair: the merged config is cached in the
+    live ``WORKSPACES`` dict under a synthetic ``f"{workspace_id}::{variant}"``
+    key. This is safe under concurrent requests — the key space is the
+    small, fixed set of declared variant names (not per-request/unbounded),
+    and a dict `__setitem__` with the same key/value from two concurrent
+    requests is a harmless race, not a corruption.
+    """
+    variant_name = variant_param
+    if not variant_name:
+        persona = _PERSONA_MAP.get(original_model_id)
+        if persona is not None:
+            variant_name = persona.variant
+    if not variant_name:
+        return workspace_id
+
+    from portal.platform.inference.config import load_portal_config
+
+    spec = load_portal_config().workspaces.get(workspace_id)
+    if spec is None or variant_name not in spec.variants:
+        return workspace_id
+
+    synthetic_id = f"{workspace_id}::{variant_name}"
+    if synthetic_id not in WORKSPACES:
+        WORKSPACES[synthetic_id] = {
+            **WORKSPACES.get(workspace_id, {}),
+            **spec.variants[variant_name],
+        }
+    return synthetic_id
+
+
 async def _resolve_auto_routing(workspace_id: str, messages: list[dict]) -> str:
     """Run LLM-based and keyword-based auto-routing when workspace_id is 'auto'.
 

@@ -83,7 +83,7 @@ Everything runs with a single command. No manual configuration.
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
-Portal 5 includes **44 functional workspaces** (plus 60 benchmark workspaces for performance comparison, 104 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
+Portal 5 includes **37 functional workspaces** (plus 60 benchmark workspaces for performance comparison, gated off by default behind the `eval` module — see `coding_task/BUILD_PROGRAM_COLLAPSE_V1.md`; 97 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
 
 ### Functional Workspaces
 
@@ -91,14 +91,7 @@ Portal 5 includes **44 functional workspaces** (plus 60 benchmark workspaces for
 |---|---|---|
 | `auto` | General — routes to best model for each task | — |
 | `auto-daily` | Fast everyday assistant — chat, writing, summarization, planning | web_search, memory, documents |
-| `auto-coding` | One-shot code generation and review (Qwen3-Coder-30B MoE) | Code sandbox |
-| `auto-coding-agentic` | Agentic coding for Portal 5 self-improvement — Laguna-XS.2 33B-A3B with FastContext explorer | execute_bash, explore_repository |
-| `auto-coding-uncensored` | Uncensored agentic code generation | Code sandbox |
-| `auto-coding-uncensored-agentic` | Uncensored long-horizon agentic coding | Code sandbox, full tool suite |
-| `auto-agentic` | Long-horizon multi-file agentic coding — Qwen3-Coder-Next 80B MoE | Code sandbox, full tool suite |
-| `auto-agentic-lite` | Lightweight agentic coding — AgentWorld 35B (45 t/s) | Code sandbox |
-| `auto-agentic-ornith` | Agentic coding — Ornith-1.0 35B | Code sandbox |
-| `auto-coding-northmini` | Code generation — North-Mini-Code 1.0 QAD | Code sandbox |
+| `auto-coding` | One-shot code generation and review (Qwen3-Coder-30B MoE). 7 former sibling workspaces (auto-coding-agentic, auto-coding-uncensored(-agentic), auto-agentic(-lite/-ornith), auto-coding-northmini) are now `?variant=` query params or a persona's `variant:` field — `laguna` (Laguna-XS.2, self-improvement agentic), `uncensored`, `uncensored-agentic`, `heavy` (Qwen3-Coder-Next 80B, long-horizon), `lite` (AgentWorld 35B), `ornith` (Ornith-1.0 35B), `northmini` (North-Mini-Code) | Code sandbox |
 | `auto-reasoning` | Extended reasoning, complex analysis | — |
 | `auto-research` | Web research and synthesis | web_search, web_fetch |
 | `auto-vision` | Image understanding, visual Q&A (Qwen3-VL 32B) | — |

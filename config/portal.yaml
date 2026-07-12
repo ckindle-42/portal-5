@@ -295,10 +295,7 @@ workspaces:
     top_k: 40
     min_p: 0.05
     repeat_penalty: 1.05
-    system_prompt_append: |2-
-  
-  
-      CRITICAL OUTPUT RULE: This is a SINGLE-TURN response — deliver everything now. Do NOT promise, plan, or say 'I will'. IMMEDIATELY produce your complete output. For code: wrap in fenced code blocks (```language). For terminal output: emit the exact shell output, nothing else. Your response must be complete and self-contained — the user cannot follow up.
+    system_prompt_append: "\n\nCRITICAL OUTPUT RULE: This is a SINGLE-TURN response — deliver everything now. Do NOT promise, plan, or say 'I will'. IMMEDIATELY produce your complete output. For code: wrap in fenced code blocks (```language). For terminal output: emit the exact shell output, nothing else. Your response must be complete and self-contained — the user cannot follow up."
     tools:
     - execute_python
     - execute_nodejs
@@ -310,255 +307,185 @@ workspaces:
     - recall
     expose_to_owui: true
     enable_web_search: false
-    owui_system_prompt: |-
-      You are an expert programmer. Generate clean, well-documented, production-ready code. Prefer idiomatic solutions. Always include error handling. When asked to run or execute code, always invoke the code execution tool — never predict or simulate output.
-  
-      HARD CONSTRAINT — YOUR RESPONSE IS INCOMPLETE until it contains a fenced code block with the complete implementation for every piece of code requested. Write the code directly in your response. Do not stop after the introduction or the plan — deliver the full, working code immediately.
-  auto-coding-northmini:
-    module: coding
-    name: 💻 Portal Code Expert (North-Mini)
-    description: |-
-      Additional code generation option for model diversity — North-Mini-Code-1.0-QAD (Cohere Labs, Apache 2.0, ~19.3GB NVFP4 W4A16, cohere2moe arch, 256K ctx, 64K out, 30B-A3B MoE 128 experts top-8). Agentic-coding RL with verifiable rewards; QAD claims >99% accuracy recovery vs unquantized. PROMOTED 2026-06-30 from bench-north-mini-code (V10 candidate eval): 4/5 tool-chain + 4/5 SWE-handoff markers, cohere2moe smoke-loaded cleanly on this Ollama build. This is an *option*, not a replacement for auto-coding (Qwen3-Coder-30B remains primary) — pick this lane when you specifically want lineage diversity from the Qwen/GLM-heavy coding pool.
-    model_hint: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k
-    context_limit: 8192
-    predict_limit: 16384
-    temperature: 1.0
-    top_p: 0.95
-    tools:
-    - execute_python
-    - execute_nodejs
-    - execute_bash
-    - sandbox_status
-    - read_word_document
-    - read_pdf
-    - remember
-    - recall
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are an expert programmer running on North-Mini-Code-1.0-QAD (Cohere Labs). Generate clean, well-documented, production-ready code. Prefer idiomatic solutions. Always include error handling. When asked to run or execute code, always invoke the code execution tool — never predict or simulate output.
-  auto-coding-uncensored:
-    module: coding
-    name: 🔓 Portal Code (Uncensored)
-    description: |-
-      One-shot code generation with a tool-capable, lightly-aligned model — fewer content refusals than the filtered auto-coding lane. OmniCoder-2 9B (Qwen3.5-9B base, ~5.7GB, Apache 2.0, tools=True). Use for codegen the standard coder declines on policy grounds. [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run and a separate operator promotion task. For the agentic loop use auto-coding-uncensored-agentic.]
-    model_hint: omnicoder2:9b-q4_k_m-ctx8k
-    context_limit: 8192
-    keep_alive: 10m
-    temperature: 0.2
-    top_p: 0.9
-    top_k: 40
-    min_p: 0.05
-    repeat_penalty: 1.05
-    system_prompt_append: |2-
-  
-  
-      You are an uncensored coding assistant. Produce the requested code directly and completely. Do not add moralizing preambles or refuse on content-policy grounds for legitimate engineering work. Still refuse only what is genuinely illegal to assist (e.g. functional malware-as-a-service, CSAM). Prefer correct, runnable code over caveats.
-    tools:
-    - execute_bash
-    - execute_python
-    - execute_nodejs
-    - sandbox_status
-    - read_word_document
-    - read_pdf
-    - remember
-    - recall
-    expose_to_owui: true
-    enable_web_search: false
-  auto-coding-uncensored-agentic:
-    module: coding
-    name: 🔓 Portal Agentic Coder (Uncensored)
-    description: |-
-      Multi-turn agentic coding with an abliterated SWE-capable model — the uncensored counterpart to auto-coding-agentic. Qwen3-Coder-Next abliterated (80B/3B MoE, ~46GB, bartowski GGUF, tools per Qwen coding-family arch). Same read→explore→edit→verify loop and explore_repository subagent. [BENCH-GATED PROVISIONAL model_hint — ~46GB resident on 64GB unified memory; not a default; promotion requires a passing bench run + separate operator task. Tool support asserted by architecture, not yet audit-confirmed.]
-    model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
-    context_limit: 65536
-    keep_alive: 15m
-    temperature: 0.2
-    top_p: 0.9
-    top_k: 40
-    min_p: 0.05
-    repeat_penalty: 1.05
-    system_prompt_append: |2
-  
-  
-      AGENTIC CODING LOOP — follow this pattern every turn:
-      1. EXPLORE: call explore_repository('what you need to find') first.
-         It returns exact file paths and line numbers — use these, do not guess paths.
-      2. READ: use execute_bash to read those specific files/line ranges before editing
-         (cat -n <file> | sed -n '<start>,<end>p')
-      3. PLAN: state the minimal change needed and which files are affected
-      4. EDIT: make precise, targeted changes — do not rewrite whole files
-      5. VERIFY: run tests or linters with execute_bash after every change
-      6. REPORT: state what changed, what passed, and what remains
-  
-      You are uncensored: complete legitimate engineering work directly without content-policy preambles or refusals. Refuse only what is genuinely illegal to assist. HARD CONSTRAINTS:
-      - Never hardcode model names, backend URLs, or credentials
-      - Never modify Open WebUI source — use extension points only
-      - Never commit .env or add cloud dependencies
-      - Run pytest before declaring a fix complete
-    tools:
-    - explore_repository
-    - execute_bash
-    - execute_python
-    - execute_nodejs
-    - sandbox_status
-    - read_word_document
-    - read_pdf
-    - remember
-    - recall
-    expose_to_owui: true
-    enable_web_search: false
-  auto-coding-agentic:
-    module: coding
-    name: 🔄 Portal IDE / Agentic Coder
-    description: |-
-      Multi-turn agentic coding workspace — the default model for opencode and Claude Code in this repo. Laguna-XS.2 (Poolside AI, 33B-A3B MoE, ~19GB, 68.2% SWE-bench Verified, interleaved reasoning, 2/2 security chain). Tuned for the read → understand → edit → verify loop: inspects files via explore_repository + execute_bash, makes targeted changes, runs tests, iterates. Devstral-small-2 (V2, 256K ctx, vision) is the first fallback in the coding pool. For one-shot code generation, use auto-coding instead.
-    model_hint: laguna-xs.2:Q4_K_M-ctx64k
-    context_limit: 65536
-    keep_alive: 15m
-    temperature: 0.2
-    top_p: 0.9
-    top_k: 40
-    min_p: 0.05
-    repeat_penalty: 1.05
-    system_prompt_append: |2-
-  
-  
-      AGENTIC CODING LOOP — follow this pattern every turn:
-      1. EXPLORE: call explore_repository('what you need to find') first.
-         It returns exact file paths and line numbers — use these, do not guess paths.
-      2. READ: call read_text_file(path=...) to read those specific files before editing.
-         NEVER use execute_bash cat/head/tail to read project files —
-         execute_bash runs inside an isolated Docker container with NO access to the
-         host filesystem. read_text_file/list_directory/search_files are the only way
-         to read project files.
-      3. PLAN: state the minimal change needed and which files are affected
-      4. EDIT: call write_file(path=..., content=...) — do not rewrite whole files
-      5. VERIFY: run tests or linters with execute_bash after every change
-         (pytest tests/unit/ -q; ruff check <file>)
-      6. REPORT: state what changed, what passed, and what remains
-  
-      TOOL ROUTING:
-      - read_text_file, write_file, search_files, list_directory:
-        host-native pipeline tools — call these directly by name for ALL file I/O
-      - execute_bash / execute_python / execute_nodejs:
-        isolated sandbox container — use ONLY for running code, tests, and linters
-  
-      HARD CONSTRAINTS:
-      - Never hardcode model names, backend URLs, or credentials
-      - Never modify Open WebUI source — use extension points only
-      - Never commit .env or add cloud dependencies
-      - Run pytest before declaring a fix complete
-      - Keep portal.platform.inference lean — no ML framework imports
-      - Changes to workspace routing must pass the Rule 6 consistency check:
-        python3 -c "from portal.platform.inference.router_pipe import WORKSPACES; import yaml; cfg=yaml.safe_load(open('config/backends.yaml')); assert set(WORKSPACES)==set(cfg['workspace_routing']), 'mismatch'"
-    tools:
-    - explore_repository
-    - read_text_file
-    - list_directory
-    - search_files
-    - write_file
-    - execute_bash
-    - execute_python
-    - execute_nodejs
-    - sandbox_status
-    - read_word_document
-    - read_pdf
-    - remember
-    - recall
-    expose_to_owui: true
-    enable_web_search: false
-  auto-agentic:
-    module: coding
-    name: ⚡ Portal Agentic Coder (Heavy)
-    description: |-
-      Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3-Coder-Next 80B/3B MoE (V8: agentic RL training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline). Fallback 1: Qwen-AgentWorld-35B-A3B (~21GB, 45 t/s, MoE 3B active, 262K ctx) — language world model trained on MCP/Terminal/SWE/Web/OS env-simulation; strong tool-call coherence, available in general+coding pools. Fallback 2: gpt-oss:20b (~12GB, o3-mini level, MoE, purpose-built for agent/tool use, 2/2 security chain at 45s) — available in the coding pool when the primary is not loaded.
-    model_hint: qwen3-coder-next:latest-ctx64k
-    context_limit: 65536
-    tools:
-    - execute_python
-    - execute_bash
-    - execute_nodejs
-    - sandbox_status
-    - read_word_document
-    - read_excel
-    - read_powerpoint
-    - read_pdf
-    - classify_vulnerability
-    - web_search
-    - web_fetch
-    - remember
-    - recall
-    - kb_search
-    - kb_list
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are an elite agentic software engineer powered by Qwen3-Coder-Next, an 80B MoE model (3B active) purpose-built for long-horizon coding tasks. You excel at multi-file refactors, complex codebase navigation, tool-use chains, and recovery from execution failures. You operate at the highest quality ceiling available locally. Context is limited to 32K tokens in this configuration — be concise in your reasoning, prioritize code over prose.
-  auto-agentic-lite:
-    module: coding
-    name: ⚡ Portal Agentic Coder (Lite)
-    description: |-
-      Agentic coding workspace for tool-calling, MCP, SWE, and env-simulation tasks where the full 80B is unnecessary or too slow to load. Qwen-AgentWorld-35B-A3B (Alibaba/Qwen, Apache 2.0, MoE 3B active, 262K ctx, ~21GB, 45 t/s) — trained on MCP/Terminal/SWE/Web/Android/OS/Search env-simulation trajectories; strong tool-call coherence and long-horizon task planning. Use this when you want AgentWorld directly: lighter memory footprint, faster cold start, higher throughput than the heavy 80B workspace.
-    model_hint: hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k
-    context_limit: 65536
-    max_concurrent: 1
-    keep_alive: 15m
-    temperature: 0.6
-    top_p: 0.95
-    top_k: 20
-    min_p: 0.0
-    emits_reasoning: true
-    tools:
-    - execute_python
-    - execute_bash
-    - execute_nodejs
-    - sandbox_status
-    - read_word_document
-    - read_excel
-    - read_powerpoint
-    - read_pdf
-    - classify_vulnerability
-    - web_search
-    - web_fetch
-    - remember
-    - recall
-    - kb_search
-    - kb_list
-    expose_to_owui: true
-    enable_web_search: false
-  auto-agentic-ornith:
-    module: coding
-    name: ⚡ Portal Agentic Coder (Ornith)
-    description: |-
-      Agentic coding workspace direct to Ornith-1.0-35B (DeepReinforce, MIT, ~21GB Q4_K_M, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Self-improving RL training jointly optimizes solution rollout + scaffold — Terminal-Bench/SWE-Bench/NL2Repo/OpenClaw agentic coding. PROMOTED 2026-06-30 from bench-ornith-35b (V10 candidate eval): strong tool-chain coverage (4/5 markers) and SWE handoff (4/5 markers) in TASK_MODEL_EVAL_V10_CANDIDATES probes. Use this for an architecturally-different agentic option alongside auto-agentic (Qwen3-Coder-Next) and auto-agentic-lite (AgentWorld) — not a replacement for either.
-    model_hint: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k
-    context_limit: 65536
-    max_concurrent: 1
-    keep_alive: 15m
-    temperature: 0.6
-    top_p: 0.95
-    top_k: 20
-    repeat_penalty: 1.05
-    emits_reasoning: true
-    tools:
-    - execute_python
-    - execute_bash
-    - execute_nodejs
-    - sandbox_status
-    - read_word_document
-    - read_excel
-    - read_powerpoint
-    - read_pdf
-    - classify_vulnerability
-    - web_search
-    - web_fetch
-    - remember
-    - recall
-    - kb_search
-    - kb_list
-    expose_to_owui: true
-    enable_web_search: false
+    owui_system_prompt: "You are an expert programmer. Generate clean, well-documented, production-ready code. Prefer idiomatic solutions. Always include error handling. When asked to run or execute code, always invoke the code execution tool — never predict or simulate output.\n\nHARD CONSTRAINT — YOUR RESPONSE IS INCOMPLETE until it contains a fenced code block with the complete implementation for every piece of code requested. Write the code directly in your response. Do not stop after the introduction or the plan — deliver the full, working code immediately."
+    variants:
+      laguna:
+        name: 🔄 Portal IDE / Agentic Coder
+        description: 'Multi-turn agentic coding workspace — the default model for opencode and Claude Code in this repo. Laguna-XS.2 (Poolside AI, 33B-A3B MoE, ~19GB, 68.2% SWE-bench Verified, interleaved reasoning, 2/2 security chain). Tuned for the read → understand → edit → verify loop: inspects files via explore_repository + execute_bash, makes targeted changes, runs tests, iterates. Devstral-small-2 (V2, 256K ctx, vision) is the first fallback in the coding pool. For one-shot code generation, use auto-coding instead.'
+        model_hint: laguna-xs.2:Q4_K_M-ctx64k
+        context_limit: 65536
+        keep_alive: 15m
+        temperature: 0.2
+        top_p: 0.9
+        top_k: 40
+        min_p: 0.05
+        repeat_penalty: 1.05
+        system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: call read_text_file(path=...) to read those specific files before editing.\n   NEVER use execute_bash cat/head/tail to read project files —\n   execute_bash runs inside an isolated Docker container with NO access to the\n   host filesystem. read_text_file/list_directory/search_files are the only way\n   to read project files.\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: call write_file(path=..., content=...) — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n   (pytest tests/unit/ -q; ruff check <file>)\n6. REPORT: state what changed, what passed, and what remains\n\nTOOL ROUTING:\n- read_text_file, write_file, search_files, list_directory:\n  host-native pipeline tools — call these directly by name for ALL file I/O\n- execute_bash / execute_python / execute_nodejs:\n  isolated sandbox container — use ONLY for running code, tests, and linters\n\nHARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n- Keep portal.platform.inference lean — no ML framework imports\n- Changes to workspace routing must pass the Rule 6 consistency check:\n  python3 -c \"from portal.platform.inference.router_pipe import WORKSPACES; import yaml; cfg=yaml.safe_load(open('config/backends.yaml')); assert set(WORKSPACES)==set(cfg['workspace_routing']), 'mismatch'\""
+        tools:
+        - explore_repository
+        - read_text_file
+        - list_directory
+        - search_files
+        - write_file
+        - execute_bash
+        - execute_python
+        - execute_nodejs
+        - sandbox_status
+        - read_word_document
+        - read_pdf
+        - remember
+        - recall
+        mode: agentic
+        guardrail: default
+      northmini:
+        name: 💻 Portal Code Expert (North-Mini)
+        description: 'Additional code generation option for model diversity — North-Mini-Code-1.0-QAD (Cohere Labs, Apache 2.0, ~19.3GB NVFP4 W4A16, cohere2moe arch, 256K ctx, 64K out, 30B-A3B MoE 128 experts top-8). Agentic-coding RL with verifiable rewards; QAD claims >99% accuracy recovery vs unquantized. PROMOTED 2026-06-30 from bench-north-mini-code (V10 candidate eval): 4/5 tool-chain + 4/5 SWE-handoff markers, cohere2moe smoke-loaded cleanly on this Ollama build. This is an *option*, not a replacement for auto-coding (Qwen3-Coder-30B remains primary) — pick this lane when you specifically want lineage diversity from the Qwen/GLM-heavy coding pool.'
+        model_hint: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k
+        context_limit: 8192
+        predict_limit: 16384
+        temperature: 1.0
+        top_p: 0.95
+        tools:
+        - execute_python
+        - execute_nodejs
+        - execute_bash
+        - sandbox_status
+        - read_word_document
+        - read_pdf
+        - remember
+        - recall
+        mode: single
+        guardrail: default
+      uncensored:
+        name: 🔓 Portal Code (Uncensored)
+        description: One-shot code generation with a tool-capable, lightly-aligned model — fewer content refusals than the filtered auto-coding lane. OmniCoder-2 9B (Qwen3.5-9B base, ~5.7GB, Apache 2.0, tools=True). Use for codegen the standard coder declines on policy grounds. [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run and a separate operator promotion task. For the agentic loop use auto-coding-uncensored-agentic.]
+        model_hint: omnicoder2:9b-q4_k_m-ctx8k
+        context_limit: 8192
+        keep_alive: 10m
+        temperature: 0.2
+        top_p: 0.9
+        top_k: 40
+        min_p: 0.05
+        repeat_penalty: 1.05
+        system_prompt_append: "\n\nYou are an uncensored coding assistant. Produce the requested code directly and completely. Do not add moralizing preambles or refuse on content-policy grounds for legitimate engineering work. Still refuse only what is genuinely illegal to assist (e.g. functional malware-as-a-service, CSAM). Prefer correct, runnable code over caveats."
+        tools:
+        - execute_bash
+        - execute_python
+        - execute_nodejs
+        - sandbox_status
+        - read_word_document
+        - read_pdf
+        - remember
+        - recall
+        mode: single
+        guardrail: uncensored
+      uncensored-agentic:
+        name: 🔓 Portal Agentic Coder (Uncensored)
+        description: Multi-turn agentic coding with an abliterated SWE-capable model — the uncensored counterpart to auto-coding-agentic. Qwen3-Coder-Next abliterated (80B/3B MoE, ~46GB, bartowski GGUF, tools per Qwen coding-family arch). Same read→explore→edit→verify loop and explore_repository subagent. [BENCH-GATED PROVISIONAL model_hint — ~46GB resident on 64GB unified memory; not a default; promotion requires a passing bench run + separate operator task. Tool support asserted by architecture, not yet audit-confirmed.]
+        model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
+        context_limit: 65536
+        keep_alive: 15m
+        temperature: 0.2
+        top_p: 0.9
+        top_k: 40
+        min_p: 0.05
+        repeat_penalty: 1.05
+        system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: use execute_bash to read those specific files/line ranges before editing\n   (cat -n <file> | sed -n '<start>,<end>p')\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: make precise, targeted changes — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n6. REPORT: state what changed, what passed, and what remains\n\nYou are uncensored: complete legitimate engineering work directly without content-policy preambles or refusals. Refuse only what is genuinely illegal to assist. HARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n"
+        tools:
+        - explore_repository
+        - execute_bash
+        - execute_python
+        - execute_nodejs
+        - sandbox_status
+        - read_word_document
+        - read_pdf
+        - remember
+        - recall
+        mode: agentic
+        guardrail: uncensored
+      heavy:
+        name: ⚡ Portal Agentic Coder (Heavy)
+        description: 'Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3-Coder-Next 80B/3B MoE (V8: agentic RL training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline). Fallback 1: Qwen-AgentWorld-35B-A3B (~21GB, 45 t/s, MoE 3B active, 262K ctx) — language world model trained on MCP/Terminal/SWE/Web/OS env-simulation; strong tool-call coherence, available in general+coding pools. Fallback 2: gpt-oss:20b (~12GB, o3-mini level, MoE, purpose-built for agent/tool use, 2/2 security chain at 45s) — available in the coding pool when the primary is not loaded.'
+        model_hint: qwen3-coder-next:latest-ctx64k
+        context_limit: 65536
+        tools:
+        - execute_python
+        - execute_bash
+        - execute_nodejs
+        - sandbox_status
+        - read_word_document
+        - read_excel
+        - read_powerpoint
+        - read_pdf
+        - classify_vulnerability
+        - web_search
+        - web_fetch
+        - remember
+        - recall
+        - kb_search
+        - kb_list
+        mode: agentic
+        guardrail: default
+      lite:
+        name: ⚡ Portal Agentic Coder (Lite)
+        description: 'Agentic coding workspace for tool-calling, MCP, SWE, and env-simulation tasks where the full 80B is unnecessary or too slow to load. Qwen-AgentWorld-35B-A3B (Alibaba/Qwen, Apache 2.0, MoE 3B active, 262K ctx, ~21GB, 45 t/s) — trained on MCP/Terminal/SWE/Web/Android/OS/Search env-simulation trajectories; strong tool-call coherence and long-horizon task planning. Use this when you want AgentWorld directly: lighter memory footprint, faster cold start, higher throughput than the heavy 80B workspace.'
+        model_hint: hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k
+        context_limit: 65536
+        max_concurrent: 1
+        keep_alive: 15m
+        temperature: 0.6
+        top_p: 0.95
+        top_k: 20
+        min_p: 0.0
+        emits_reasoning: true
+        tools:
+        - execute_python
+        - execute_bash
+        - execute_nodejs
+        - sandbox_status
+        - read_word_document
+        - read_excel
+        - read_powerpoint
+        - read_pdf
+        - classify_vulnerability
+        - web_search
+        - web_fetch
+        - remember
+        - recall
+        - kb_search
+        - kb_list
+        mode: agentic
+        guardrail: default
+      ornith:
+        name: ⚡ Portal Agentic Coder (Ornith)
+        description: 'Agentic coding workspace direct to Ornith-1.0-35B (DeepReinforce, MIT, ~21GB Q4_K_M, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Self-improving RL training jointly optimizes solution rollout + scaffold — Terminal-Bench/SWE-Bench/NL2Repo/OpenClaw agentic coding. PROMOTED 2026-06-30 from bench-ornith-35b (V10 candidate eval): strong tool-chain coverage (4/5 markers) and SWE handoff (4/5 markers) in TASK_MODEL_EVAL_V10_CANDIDATES probes. Use this for an architecturally-different agentic option alongside auto-agentic (Qwen3-Coder-Next) and auto-agentic-lite (AgentWorld) — not a replacement for either.'
+        model_hint: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k
+        context_limit: 65536
+        max_concurrent: 1
+        keep_alive: 15m
+        temperature: 0.6
+        top_p: 0.95
+        top_k: 20
+        repeat_penalty: 1.05
+        emits_reasoning: true
+        tools:
+        - execute_python
+        - execute_bash
+        - execute_nodejs
+        - sandbox_status
+        - read_word_document
+        - read_excel
+        - read_powerpoint
+        - read_pdf
+        - classify_vulnerability
+        - web_search
+        - web_fetch
+        - remember
+        - recall
+        - kb_search
+        - kb_list
+        mode: agentic
+        guardrail: default
   auto-spl:
     module: general
     name: 🔍 Portal SPL Engineer

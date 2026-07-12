@@ -428,27 +428,6 @@ workspace_routing:
   auto-coding:
   - coding
   - general
-  auto-coding-northmini:
-  - coding
-  - general
-  auto-coding-uncensored:
-  - coding
-  - general
-  auto-coding-uncensored-agentic:
-  - coding
-  - general
-  auto-coding-agentic:
-  - coding
-  - general
-  auto-agentic:
-  - coding
-  - general
-  auto-agentic-lite:
-  - general
-  - coding
-  auto-agentic-ornith:
-  - coding
-  - general
   auto-spl:
   - coding
   - general
