@@ -9,15 +9,11 @@ extracted, Portal-agnostic wiki engine) may never import.
 Enabled/disabled state lives in each unit-module-<name> wiki unit's
 fenced yaml config block (`enabled: true|false`) — the wiki is the
 source of truth, same as everything else in this system. This module
-reads that state and cross-references it against the two static maps
-below (module -> workspace ids, module -> mcp_fleet ids) to answer the
-three resolver questions the four gates need.
-
-The static maps exist because config/portal.yaml has no per-workspace or
-per-mcp-fleet-entry "module" tag yet (a real gap, not fabricated data —
-verified during M1-M6). Adding that tagging is future work; until then,
-this is the single place that encodes the module boundary, derived from
-the M0-M6 relocation work itself.
+reads that state and cross-references it against the module -> workspace
+ids / module -> mcp_fleet ids maps (BUILD_PROGRAM_COLLAPSE_V1.md Phase 3:
+derived from each entry's `module:` tag in config/portal.yaml, not
+hand-maintained) to answer the three resolver questions the four gates
+need.
 """
 
 from __future__ import annotations
@@ -32,52 +28,32 @@ DEFAULT_DISABLED_MODULES: frozenset[str] = frozenset({"eval"})
 
 ALL_MODULES: frozenset[str] = DEFAULT_ENABLED_MODULES | DEFAULT_DISABLED_MODULES
 
-# module -> workspace ids (config/portal.yaml `workspaces:`), verified during M1-M6.
-MODULE_WORKSPACE_IDS: dict[str, tuple[str, ...]] = {
-    "general": ("auto-daily", "auto-general-uncensored"),
-    "coding": (
-        "auto-agentic",
-        "auto-agentic-lite",
-        "auto-agentic-ornith",
-        "auto-coding",
-        "auto-coding-agentic",
-        "auto-coding-northmini",
-        "auto-coding-uncensored",
-        "auto-coding-uncensored-agentic",
-        "auto-devstral",
-    ),
-    "media": ("auto-audio", "auto-creative", "auto-music"),
-    "cad": ("auto-cad",),
-    "documents": ("auto-documents", "auto-extract-uncensored"),
-    "research": ("auto-research", "auto-data"),
-    "compliance": ("auto-compliance",),
-    # security and eval intentionally omitted: security's workspace set is
-    # large and RBP-internal (auto-*sec*/pentest/redteam/blueteam/purpleteam
-    # naming, not a fixed list worth hand-duplicating here); eval has none.
-}
-
-# module -> mcp_fleet ids (config/portal.yaml `mcp_fleet:`), verified during M0-M6.
-MODULE_MCP_IDS: dict[str, tuple[str, ...]] = {
-    "security": ("security", "mitre", "detections", "proxmox"),
-    "general": ("filesystem", "fetch", "git", "docker"),
-    "coding": ("execution",),
-    "media": ("comfyui", "video", "music", "tts", "whisper"),
-    "cad": ("cad_render",),
-    "documents": ("documents",),
-    "research": ("research", "rag", "reranker", "browser"),
-    # compliance and eval: no dedicated mcp_fleet entries.
-}
-
-# mcp_fleet ids with no module mapping above (memory, mlx_transcribe, pipeline,
-# wiki — verified against config/portal.yaml's mcp_fleet list) are platform-level
-# infra, not owned by any single discipline module. launched_mcp_ids() must
-# always include them regardless of which modules are enabled/disabled —
-# otherwise Gate 2 (.mcp.json filtering) would silently drop them.
-_MODULE_MAPPED_MCP_IDS: frozenset[str] = frozenset(
-    id_ for ids in MODULE_MCP_IDS.values() for id_ in ids
-)
-
 _ENABLED_RE = re.compile(r"^\s*enabled:\s*(true|false)\s*$", re.MULTILINE | re.IGNORECASE)
+
+
+def module_workspace_ids() -> dict[str, tuple[str, ...]]:
+    """module -> workspace ids, derived from each workspace's `module:` tag
+    in config/portal.yaml (BUILD_PROGRAM_COLLAPSE_V1.md Phase 3)."""
+    from portal.platform.inference.config import load_portal_config
+
+    out: dict[str, list[str]] = {m: [] for m in ALL_MODULES}
+    for wid, ws in load_portal_config().workspaces.items():
+        out.setdefault(ws.module, []).append(wid)
+    return {k: tuple(sorted(v)) for k, v in out.items()}
+
+
+def module_mcp_ids() -> dict[str, tuple[str, ...]]:
+    """module -> mcp_fleet ids, derived from each entry's `module:` tag in
+    config/portal.yaml. "platform" entries (memory, mlx_transcribe,
+    pipeline, wiki — infra no discipline owns) are kept under the
+    "platform" key rather than folded into a discipline module."""
+    from portal.platform.inference.config import load_portal_config
+
+    out: dict[str, list[str]] = {m: [] for m in ALL_MODULES}
+    platform: list[str] = []
+    for m in load_portal_config().mcp_fleet:
+        (platform if m.module == "platform" else out.setdefault(m.module, [])).append(m.id)
+    return {"platform": tuple(sorted(platform)), **{k: tuple(sorted(v)) for k, v in out.items()}}
 
 
 def _unit_enabled_state(module: str) -> bool | None:
@@ -113,43 +89,38 @@ def launched_mcp_ids(mods: list[str] | None = None) -> list[str]:
 
     general's base tools (filesystem/fetch/git/docker) are always on
     regardless of `mods`, per the spec's "general's base tools always on".
-    Platform-level ids with no module mapping (memory, mlx_transcribe,
-    pipeline, wiki) are also always on — they aren't owned by any single
-    discipline module, so no module being disabled should ever drop them.
+    Platform-tagged ids (memory, mlx_transcribe, pipeline, wiki) are also
+    always on — they aren't owned by any single discipline module, so no
+    module being disabled should ever drop them.
     """
-    from portal.platform.inference.config import load_portal_config
-
     mods = enabled_modules() if mods is None else mods
-    all_ids = {s.id for s in load_portal_config().mcp_fleet}
-    platform_ids = all_ids - _MODULE_MAPPED_MCP_IDS
+    mcp_ids = module_mcp_ids()
 
-    ids: set[str] = set(MODULE_MCP_IDS.get("general", ())) | platform_ids
+    ids: set[str] = set(mcp_ids.get("general", ())) | set(mcp_ids.get("platform", ()))
     for mod in mods:
-        ids.update(MODULE_MCP_IDS.get(mod, ()))
+        ids.update(mcp_ids.get(mod, ()))
     return sorted(ids)
 
 
 def owui_workspaces(mods: list[str] | None = None) -> list[str] | None:
     """Workspace ids that should be OWUI-exposed, given the enabled module
-    set. Returns None to mean "no restriction" when every mapped module is
-    enabled (the common case) — callers should treat None as "don't filter"
-    rather than "expose nothing", since unmapped workspaces (security, and
-    anything not yet assigned a module) are never in this list and must not
-    be silently hidden."""
+    set. Returns None to mean "no restriction" when every module is enabled
+    (the common case) — callers should treat None as "don't filter" rather
+    than "expose nothing"."""
     mods = enabled_modules() if mods is None else mods
     disabled = ALL_MODULES - set(mods)
     if not disabled:
         return None
+    ws_ids = module_workspace_ids()
     hidden: set[str] = set()
     for mod in disabled:
-        hidden.update(MODULE_WORKSPACE_IDS.get(mod, ()))
+        hidden.update(ws_ids.get(mod, ()))
     return sorted(hidden)  # caller subtracts this from the full workspace set
 
 
 def is_workspace_disabled(workspace_id: str, mods: list[str] | None = None) -> bool:
-    """True if workspace_id belongs to a currently-disabled module.
-    Workspaces with no module mapping (security, unmapped) are never
-    considered disabled by this function."""
+    """True if workspace_id belongs to a currently-disabled module."""
     mods = enabled_modules() if mods is None else mods
     disabled = ALL_MODULES - set(mods)
-    return any(workspace_id in MODULE_WORKSPACE_IDS.get(mod, ()) for mod in disabled)
+    ws_ids = module_workspace_ids()
+    return any(workspace_id in ws_ids.get(mod, ()) for mod in disabled)
