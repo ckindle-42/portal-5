@@ -2547,7 +2547,7 @@ def main() -> int:
     v.run("R. loop dry-run gate", check_loop_dry_run)
     v.run("V. lab setup readiness", check_lab_setup_readiness)
     v.run("W. ability port executable", check_ability_port)
-    v.run("W. lab-exec coverage", check_labexec_coverage)
+    v.run("AM. lab-exec coverage", check_labexec_coverage)
     v.run("X. scenario-oracle/matrix", check_scenario_oracle_matrix)
     v.run("Y. self-index integrity", check_self_index_integrity)
     v.run("Z. ci parity", check_ci_parity)
