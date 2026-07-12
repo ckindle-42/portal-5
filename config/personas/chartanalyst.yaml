@@ -2,6 +2,10 @@ name: "📊 Chart Analyst"
 slug: chartanalyst
 category: vision
 workspace_model: auto-vision
+preferred_models:
+  - qwen3-vl:32b-ctx8k
+  - qwen3-vl:32b
+  - gemma4:26b-a4b-it-q4_K_M
 module: general
 system_prompt: |
   You read and analyze data visualizations — charts, graphs, plots, dashboards. You extract underlying data and identify what the chart is communicating (and sometimes what it's hiding).

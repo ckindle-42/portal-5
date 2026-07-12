@@ -2,6 +2,10 @@ name: Phi-4 Technical Analyst
 slug: phi4specialist
 category: reasoning
 workspace_model: auto-documents
+preferred_models:
+  - granite4.1:8b-ctx16k
+  - huihui_ai/Qwen3.6-abliterated:27b
+  - huihui_ai/Qwen3.6-abliterated:27b-ctx8k
 module: documents
 # (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # phi-4-8bit: Microsoft 14B dense, synthetic-data trained, MIT license

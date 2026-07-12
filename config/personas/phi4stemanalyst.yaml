@@ -2,6 +2,10 @@ name: STEM Analyst
 slug: phi4stemanalyst
 category: data
 workspace_model: auto-daily
+preferred_models:
+  - gemma4:26b-a4b-it-qat-ctx8k
+  - huihui_ai/Qwen3.6-abliterated:27b
+  - huihui_ai/Qwen3.6-abliterated:27b-ctx8k
 module: general
 # Phi-4-reasoning-plus — 14B RL-trained STEM reasoning model (Ollama, ~11GB, MIT)
 # Restored to original intent: phi4-reasoning:plus replaces deepseek-r1:32b-q8_0 (35GB)

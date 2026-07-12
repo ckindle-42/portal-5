@@ -3,6 +3,10 @@ slug: blueteamdefender
 category: security
 workspace_model: auto-security
 variant: blueteam
+preferred_models:
+  - granite4.1:8b-ctx8k
+  - huihui_ai/qwen3.5-abliterated:9b
+  - huihui_ai/qwen3.5-abliterated:9b-ctx64k
 module: security
 # lily-cybersecurity:7b-q4_k_m is the auto-blueteam model_hint
 system_prompt: |

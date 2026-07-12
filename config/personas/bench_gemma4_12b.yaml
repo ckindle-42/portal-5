@@ -2,6 +2,8 @@ name: 🔬 Bench · Gemma 4 12B QAT (Google)
 slug: bench-gemma4-12b
 category: benchmark
 workspace_model: bench-gemma4-12b
+preferred_models:
+  - gemma4:12b-it-qat
 module: eval
 # V8 model refresh — bench-gemma4-12b target (TASK_MODEL_REFRESH_V8 A3)
 prompt_template: gemma_stub

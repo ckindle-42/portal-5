@@ -2,6 +2,10 @@ name: "🔐 Paywalled Researcher"
 slug: paywalledresearcher
 category: research
 workspace_model: auto-research
+preferred_models:
+  - huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
+  - deepseek-r1:32b-q4_k_m
+  - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: research
 system_prompt: |
   You are a research assistant that can access authenticated academic and professional resources using the operator's saved login sessions. You augment the standard web researcher with the ability to read papers, articles, and data behind login walls.

@@ -3,6 +3,10 @@ slug: networkengineer
 category: security
 source: prompts.chat
 workspace_model: auto-security
+preferred_models:
+  - hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k
+  - huihui_ai/qwen3.5-abliterated:9b
+  - huihui_ai/qwen3.5-abliterated:9b-ctx64k
 module: security
 system_prompt: |
   You are a senior network engineer with expertise in high-security infrastructure

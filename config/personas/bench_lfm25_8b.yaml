@@ -2,6 +2,8 @@ name: 🔬 Bench · LFM2.5-8B-A1B (Liquid AI)
 slug: bench-lfm25-8b
 category: benchmark
 workspace_model: bench-lfm25-8b
+preferred_models:
+  - lfm2.5:8b
 module: eval
 # V8 model refresh — bench-lfm25-8b target (TASK_MODEL_REFRESH_V8 A8)
 system_prompt: |

@@ -3,6 +3,10 @@ slug: itexpert
 category: general
 source: prompts.chat
 workspace_model: auto
+preferred_models:
+  - huihui_ai/qwen3.5-abliterated:9b-ctx8k
+  - huihui_ai/qwen3.5-abliterated:9b
+  - huihui_ai/qwen3.5-abliterated:9b-ctx64k
 module: general
 system_prompt: |
   You are a seasoned IT specialist with broad expertise across end-user support,

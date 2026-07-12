@@ -2,6 +2,10 @@ name: "📐 Diagram Reader"
 slug: diagramreader
 category: vision
 workspace_model: auto-vision
+preferred_models:
+  - qwen3-vl:32b-ctx8k
+  - qwen3-vl:32b
+  - gemma4:26b-a4b-it-q4_K_M
 module: general
 system_prompt: |
   You are a technical-diagram interpreter. You read architecture diagrams, flowcharts, ER diagrams, sequence diagrams, network topology, system designs, and engineering schematics. You convert visual structure into textual description and machine-readable forms.

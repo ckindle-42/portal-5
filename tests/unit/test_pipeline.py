@@ -1304,6 +1304,29 @@ class TestResolvePersonaWorkspace:
         )
 
 
+class TestResolveModelOverride:
+    """?model=<hint> query param override (BUILD_PROGRAM_COLLAPSE_V1.md
+    Phase 8, DESIGN_COLLAPSE_V1.md §D5)."""
+
+    def test_known_model_overrides_hint(self):
+        from portal.platform.inference.router.preinject import _resolve_model_override
+        from portal.platform.inference.router.workspaces import WORKSPACES
+
+        resolved = _resolve_model_override("auto-daily", "granite4.1:8b")
+        assert resolved == "auto-daily::model=granite4.1:8b"
+        assert WORKSPACES[resolved]["model_hint"] == "granite4.1:8b"
+
+    def test_unknown_model_is_silent_noop(self):
+        from portal.platform.inference.router.preinject import _resolve_model_override
+
+        assert _resolve_model_override("auto-daily", "not-a-real-model") == "auto-daily"
+
+    def test_no_param_is_noop(self):
+        from portal.platform.inference.router.preinject import _resolve_model_override
+
+        assert _resolve_model_override("auto-daily", None) == "auto-daily"
+
+
 class TestWorkspaceToolsConsistency:
     """Tests for workspace tool field integrity."""
 

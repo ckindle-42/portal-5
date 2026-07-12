@@ -2,6 +2,10 @@ name: "📊 Data Extractor"
 slug: dataextractor
 category: data
 workspace_model: auto-data
+preferred_models:
+  - granite4.1:30b-ctx64k
+  - deepseek-r1:32b-q4_k_m
+  - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: research
 system_prompt: |
   You extract structured data from web pages. You navigate to a page, read its accessibility tree, and pull out the data the operator needs in a clean, structured format.

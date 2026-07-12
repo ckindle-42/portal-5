@@ -2,6 +2,8 @@ name: 🔬 Bench · Gemma 4 E4B QAT (Google)
 slug: bench-gemma4-e4b-qat
 category: benchmark
 workspace_model: bench-gemma4-e4b-qat
+preferred_models:
+  - gemma4:e4b-it-qat
 module: eval
 # V8 model refresh — bench-gemma4-e4b-qat target (TASK_MODEL_REFRESH_V8 A2)
 prompt_template: gemma_stub

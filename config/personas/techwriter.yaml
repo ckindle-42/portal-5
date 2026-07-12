@@ -3,6 +3,10 @@ slug: techwriter
 category: writing
 source: prompts.chat
 workspace_model: auto-documents
+preferred_models:
+  - granite4.1:8b-ctx16k
+  - huihui_ai/Qwen3.6-abliterated:27b
+  - huihui_ai/Qwen3.6-abliterated:27b-ctx8k
 module: documents
 # phi-4-8bit (was MLX chat tier, retired 3a0c58e; now Ollama GGUF) is well-suited for structured documentation
 system_prompt: |

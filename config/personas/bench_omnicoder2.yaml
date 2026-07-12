@@ -2,6 +2,8 @@ name: 🔬 Bench · OmniCoder-2-9B (Tesslate)
 slug: bench-omnicoder2
 category: benchmark
 workspace_model: bench-omnicoder2
+preferred_models:
+  - omnicoder2:9b-q4_k_m
 module: eval
 # Routes to: hf.co/Tesslate/OmniCoder-2-9B-GGUF:Q4_K_M (Ollama, Qwen3.5-9B base, ~5.7GB)
 # Ollama only — MLX chat tier retired 3a0c58e.

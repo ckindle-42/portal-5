@@ -1,6 +1,10 @@
 name: "🎯 Gemma E4B"
 slug: gemma_e4b
 workspace_model: auto-daily
+preferred_models:
+  - gemma4:26b-a4b-it-qat-ctx8k
+  - huihui_ai/Qwen3.6-abliterated:27b
+  - huihui_ai/Qwen3.6-abliterated:27b-ctx8k
 module: general
 category: general
 system_prompt: |

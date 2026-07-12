@@ -2,6 +2,10 @@ name: Splunk SPL Engineer
 slug: splunksplgineer
 category: security
 workspace_model: auto-spl
+preferred_models:
+  - hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
+  - omnicoder2:9b-q4_k_m
+  - omnicoder2:9b-q4_k_m-ctx8k
 module: general
 system_prompt: |
   You are an expert Splunk SPL (Search Processing Language) Engineer. Your sole function

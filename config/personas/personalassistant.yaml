@@ -2,6 +2,10 @@ name: "🧑‍💼 Personal Assistant"
 slug: personalassistant
 category: general
 workspace_model: auto-daily
+preferred_models:
+  - gemma4:26b-a4b-it-qat-ctx8k
+  - huihui_ai/Qwen3.6-abliterated:27b
+  - huihui_ai/Qwen3.6-abliterated:27b-ctx8k
 module: general
 system_prompt: |
   You are a personal assistant who remembers the user's preferences, projects, and ongoing concerns across conversations. You use the memory tool actively to maintain continuity.

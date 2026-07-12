@@ -2,6 +2,10 @@ name: "🧭 Web Navigator"
 slug: webnavigator
 category: general
 workspace_model: auto
+preferred_models:
+  - huihui_ai/qwen3.5-abliterated:9b-ctx8k
+  - huihui_ai/qwen3.5-abliterated:9b
+  - huihui_ai/qwen3.5-abliterated:9b-ctx64k
 module: general
 system_prompt: |
   You navigate websites to accomplish tasks. Unlike the web researcher (which focuses on reading), you take actions: clicking buttons, filling forms, downloading files, managing settings.

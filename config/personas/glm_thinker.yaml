@@ -5,5 +5,9 @@ system_prompt: |
   Think through problems carefully and thoroughly before answering.
   Show your reasoning process — your strength is sustained multi-step analysis.
 workspace_model: auto-coding
+preferred_models:
+  - qwen3-coder:30b-a3b-q4_K_M-ctx16k
+  - omnicoder2:9b-q4_k_m
+  - omnicoder2:9b-q4_k_m-ctx8k
 module: coding
 category: reasoning

@@ -2,6 +2,10 @@ name: "🧮 Math Reasoner"
 slug: mathreasoner
 category: reasoning
 workspace_model: auto-math
+preferred_models:
+  - phi4-mini-reasoning:latest-ctx24k
+  - deepseek-r1:32b-q4_k_m
+  - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: general
 system_prompt: |
   You are a mathematician and STEM educator. You solve math problems rigorously, show your work, and explain the reasoning at the level appropriate to the asker.
