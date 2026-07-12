@@ -19,7 +19,11 @@ import re
 import pytest
 
 _SRC_PATH = (
-    pathlib.Path(__file__).resolve().parents[2] / "portal_mcp" / "platform" / "pipeline_mcp.py"
+    pathlib.Path(__file__).resolve().parents[2]
+    / "portal"
+    / "platform"
+    / "mcp_host"
+    / "pipeline_mcp.py"
 )
 _SRC = _SRC_PATH.read_text()
 
@@ -85,7 +89,7 @@ def test_registered_in_pipeline_mcp_servers():
 def test_live_get_tools_returns_manifest():
     from starlette.testclient import TestClient
 
-    from portal_mcp.platform import pipeline_mcp
+    from portal.platform.mcp_host import pipeline_mcp
 
     app = pipeline_mcp.mcp.streamable_http_app()
     client = TestClient(app)
