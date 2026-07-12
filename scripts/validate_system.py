@@ -2486,6 +2486,44 @@ def check_doc_currency() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_capability_index() -> tuple[str, str, list[dict]]:
+    """S — every capability's tools/oracle references resolve to a real
+    tool_catalog entry / registered oracle (TASK_SEC_CAPABILITY_INDEX_V1).
+
+    build_index() already raises on an orphan reference, so a raised
+    exception here is itself a FAIL — this check exists to surface *which*
+    capability is broken rather than just crashing validate_system.py.
+    """
+    try:
+        from portal.modules.security.core.capability.index import build_index
+        from portal.modules.security.core.capability.tool_inventory import load_tool_catalog
+        from portal.modules.security.core.oracles import ORACLES
+    except ImportError:
+        return "SKIP", "capability index module not found", []
+
+    try:
+        caps = build_index()
+    except ValueError as exc:
+        return "FAIL", f"build_index() raised: {exc}", []
+
+    catalog_names = {t["name"] for t in load_tool_catalog()}
+    subs: list[dict] = []
+    missing = []
+    for cap in caps:
+        orphan_tools = [t for t in cap.tools if t not in catalog_names]
+        orphan_oracle = cap.oracle is not None and cap.oracle not in ORACLES
+        ok = not orphan_tools and not orphan_oracle
+        subs.append({"name": cap.id, "status": "PASS" if ok else "FAIL"})
+        if orphan_tools:
+            missing.append(f"{cap.id} orphan tools={orphan_tools}")
+        if orphan_oracle:
+            missing.append(f"{cap.id} orphan oracle={cap.oracle}")
+
+    if missing:
+        return "FAIL", f"{len(missing)} orphan reference(s): {missing[:5]}", subs
+    return "PASS", f"{len(caps)} capabilities, 0 orphan tool/oracle refs", subs
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -2563,6 +2601,7 @@ def main() -> int:
     v.run("AJ. capability graph + gap engine", check_capability_graph)
     v.run("AK. wiki core backbone", check_wiki_core)
     v.run("AL. doc currency", check_doc_currency)
+    v.run("S. capability index consistency", check_capability_index)
 
     return v.summary()
 

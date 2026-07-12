@@ -113,6 +113,13 @@ docs:
     - deploy/
     - tests/
     last_reconciled_commit: 45677ff1a7bcefe58ca4fb85d796d5a8e3a05605
+  docs/SECURITY_BENCH_EXEC.md:
+    sources:
+    - portal/modules/security/core/
+    - config/tool_catalog.yaml
+    - config/challenge_classes.yaml
+    - config/lab_targets.yaml
+    last_reconciled_commit: 8458c07f4b273f8d86abd709ad5d585f68e91d2d
   docs/PERSONA_MATRIX_CI.md:
     sources:
     - portal/modules/eval/persona_matrix/

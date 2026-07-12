@@ -22,6 +22,10 @@ if __name__ == "__main__":
         from portal.modules.security.core.compliance_report import compliance_report_main
 
         sys.exit(compliance_report_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "capability":
+        from portal.modules.security.core.capability.cli import capability_main
+
+        sys.exit(capability_main(sys.argv[2:]))
     from portal.modules.security.core import main
 
     main()
