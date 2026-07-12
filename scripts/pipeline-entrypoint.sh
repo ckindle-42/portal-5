@@ -6,4 +6,4 @@ fi
 if [ -d /app/data ]; then
     chown portal:portal /app/data
 fi
-exec python -m portal_pipeline "$@"
+exec python -m portal.platform.inference "$@"

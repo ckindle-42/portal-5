@@ -1,14 +1,14 @@
 # Security Bench Real-Execution Runbook
 
 **Document type**: Operator runbook + coding-agent re-entry guide  
-**Scope**: `bench_security/` package — real lab-exec mode, portal5-attack container, AD + web lab  
-**Status**: Operational as of 2026-06-24 (refactored to package + BenchConfig)
+**Scope**: `portal/modules/security/core/` package — real lab-exec mode, portal5-attack container, AD + web lab  
+**Status**: Operational as of 2026-06-24 (refactored to package + BenchConfig); relocated from `tests/benchmarks/bench_security/` to `portal/modules/security/core/` by BUILD-SPEC-PORTAL-MODULES-V1 Slice 3 (the old package directory is gone — `tests/benchmarks/bench_security.py` is now a thin backward-compat re-export shim over the new location, not the implementation)
 
 ---
 
 ## What This Is
 
-`bench_security` is a **package** (`tests/benchmarks/bench_security/`) decomposed into 8 modules:
+`bench_security` is a **package** (`portal/modules/security/core/`), originally decomposed into the 8 modules below. The package has grown substantially since (chain execution, scoring, and lab-exec logic were further split — see `ls portal/modules/security/core/` for the current file list; this table is not exhaustive and was not re-verified module-by-module as part of the path-migration pass that produced this revision):
 
 | Module | Purpose |
 |--------|---------|
@@ -22,7 +22,7 @@
 | `matrix.py` | Scenario × container matrix: `build_run_matrix`, `run_matrix`, `TelemetryBackend` protocol, `WazuhBackend`, coverage reports |
 | `__init__.py` | Thin facade: pipeline I/O (`call_pipeline`, `call_pipeline_exec`) + re-exports |
 
-`bench_security.py` at the package root is a backward-compat re-export shim.
+`tests/benchmarks/bench_security.py` is a backward-compat re-export shim over `portal.modules.security.core` — it re-exports names for import compatibility but has no `__main__` entry point. Run the bench via `python3 -m portal.modules.security.core ...` (below), not `python3 -m tests.benchmarks.bench_security` — the latter silently does nothing (no CLI wiring at that path).
 
 ### BenchConfig — Replacing Mutable Globals
 
@@ -198,7 +198,7 @@ hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
 Runs every prompt against every security workspace with tools disabled. Measures structure adherence, disclaimer density, MITRE coverage. No lab needed.
 
 ```bash
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
   --workspaces \
     auto-security auto-redteam auto-redteam-deep auto-pentest \
     auto-blueteam auto-purpleteam-exec \
@@ -210,7 +210,7 @@ python3 -m tests.benchmarks.bench_security \
 Same prompts but with tools enabled on execution-capable workspaces. Scores tool call sequences against `exec_sequence` definitions. No lab dispatch — models generate tool calls, bench scores keywords.
 
 ```bash
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
   --workspaces auto-pentest auto-purpleteam-exec \
   --exec-eval \
   2>&1 | tee /tmp/secbench_exec.log
@@ -221,7 +221,7 @@ python3 -m tests.benchmarks.bench_security \
 Multi-model chain with real sandbox execution, blue defender, snapshot lifecycle, and lab probe. Copy-paste ready — single command exercises all lab-backed prompts against all targets.
 
 ```bash
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
   --skip-workspace-bench \
   --exec-chain-models \
     "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M" \
@@ -278,17 +278,17 @@ Target coverage of the Tier 3 command:
 
 ```bash
 # Tier 1: Theory (fast, no lab needed)
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
   --workspaces auto-security auto-redteam auto-redteam-deep auto-pentest auto-blueteam auto-purpleteam-exec \
   2>&1 | tee /tmp/secbench_theory.log
 
 # Tier 2: Execution (tool-call scoring, no lab dispatch)
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
   --workspaces auto-pentest auto-purpleteam-exec --exec-eval \
   2>&1 | tee /tmp/secbench_exec.log
 
 # Tier 3: Lab-Exec (real dispatch, all targets, snapshot lifecycle)
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
   --skip-workspace-bench \
   --exec-chain-models \
     "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M" \
@@ -310,7 +310,7 @@ python3 -m tests.benchmarks.bench_security \
 ### Single prompt, lab-exec (for debugging one chain)
 
 ```bash
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
   --skip-workspace-bench \
   --exec-chain-models \
     "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M" \
@@ -325,7 +325,7 @@ python3 -m tests.benchmarks.bench_security \
 ### Single prompt against Metasploitable3
 
 ```bash
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
   --skip-workspace-bench \
   --exec-chain-models "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M" \
   --prompt eternalblue_ms17010 \
@@ -336,7 +336,7 @@ python3 -m tests.benchmarks.bench_security \
 ### Single prompt against VulnerableApp
 
 ```bash
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
   --skip-workspace-bench \
   --exec-chain-models "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M" \
   --prompt sqli_manual \
@@ -347,7 +347,7 @@ python3 -m tests.benchmarks.bench_security \
 ### Probe lab services only
 
 ```bash
-python3 -m tests.benchmarks.bench_security --probe-lab --dry-run 2>&1
+python3 -m portal.modules.security.core --probe-lab --dry-run 2>&1
 ```
 
 ---
@@ -434,7 +434,7 @@ In synthetic mode (no lab output), all hits count as "proven" (legacy behavior).
 Sends benign traffic (normal nmap scans, HTTP requests, DNS lookups, SMB share listings, LDAP queries) to the blue defender and measures false positive rate. Reports `false_positive_rate` per blue model and per-traffic verdicts.
 
 ```bash
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
   --blue-models "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0" \
   --false-positive-test --lab-exec
 ```
@@ -443,7 +443,7 @@ python3 -m tests.benchmarks.bench_security \
 After blue deploys countermeasures (block_ip, disable_account), re-runs red's attack to verify the defense actually prevented it. Reports `defense_effective` (bool) and `depth_reduction` (how many fewer steps red achieved after defense).
 
 ```bash
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
   --chain-models "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M" \
   --blue-models "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0" \
   --defense-efficacy --lab-exec
@@ -462,7 +462,7 @@ After blue calls defensive tools (`block_ip`, `disable_account`, `revoke_tgt`), 
 Reads a previous result JSON and re-derives scoring metrics from saved tool calls and lab observations without re-executing. Useful for tuning scoring parameters or validating results after code changes.
 
 ```bash
-python3 -m tests.benchmarks.bench_security --rescore results/sec_bench_20260624.json
+python3 -m portal.modules.security.core --rescore results/sec_bench_20260624.json
 ```
 
 ### 18. Retry Failed (`--retry-failed FILE`, `--retry-prompts PROMPT`)
@@ -470,10 +470,10 @@ Reads a previous result JSON, identifies failures (chain depth < max, success_ra
 
 ```bash
 # Re-run only what failed
-python3 -m tests.benchmarks.bench_security --retry-failed results/sec_bench_20260624.json --chain-models ...
+python3 -m portal.modules.security.core --retry-failed results/sec_bench_20260624.json --chain-models ...
 
 # Re-run specific prompts
-python3 -m tests.benchmarks.bench_security --retry-prompts kerberoasting pass_the_hash --chain-models ...
+python3 -m portal.modules.security.core --retry-prompts kerberoasting pass_the_hash --chain-models ...
 ```
 
 ### 19. Full Output Capture
@@ -504,18 +504,18 @@ Each unit is scored by a **named oracle** (`verify_finding` N/N), not text-match
 
 ```bash
 # Plan (no Docker needed):
-python3 -m tests.benchmarks.bench_security --matrix-all --dry-run
+python3 -m portal.modules.security.core --matrix-all --dry-run
 
 # Coverage report:
-python3 -m tests.benchmarks.bench_security --matrix-coverage
+python3 -m portal.modules.security.core --matrix-coverage
 
 # Run specific classes (lab must be up):
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
     --matrix-classes deserialization,sqli-auth-bypass,lfi-path-traversal \
     --lab-exec --max-concurrent 2
 
 # Blue + purple on web classes:
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
     --matrix-classes lfi-path-traversal --purple --dry-run
 ```
 
@@ -652,7 +652,7 @@ Look for `[EXEC OK]` / `[EXEC ERR]` lines in the log.
 If you only see `[RED R1 ... ] execute_bash(...)` with no `[EXEC]` lines, verify lab exec availability:
 ```python
 python3 -c "
-from bench_security._data import _LAB_EXEC_AVAILABLE
+from portal.modules.security.core._data import _LAB_EXEC_AVAILABLE
 print(_LAB_EXEC_AVAILABLE)
 "
 ```
@@ -689,7 +689,7 @@ grep "Inherited artifacts" /tmp/secbench_full.log
 ### 6. Lab probe report
 
 ```bash
-python3 -m tests.benchmarks.bench_security --probe-lab --dry-run 2>&1
+python3 -m portal.modules.security.core --probe-lab --dry-run 2>&1
 ```
 
 ---
@@ -742,20 +742,31 @@ NET_RAW cap added for lab-exec containers. If failing, restart MCP sandbox.
 
 ## Coding-Agent Re-Entry Notes
 
-### File locations after refactor (commit 0dbe1c1)
+### File locations after refactor (commit 0dbe1c1; relocated again by BUILD-SPEC-PORTAL-MODULES-V1 Slice 3)
 
 ```
-tests/benchmarks/bench_security/
+portal/modules/security/core/
 ├── _data.py        ← Add new prompts, EXEC_SEQUENCES, CHAIN_INHERITANCE here
-├── __init__.py     ← Add new logic/functions here
+├── __init__.py     ← Package facade (pipeline I/O, re-exports)
 ├── __main__.py     ← CLI entry (do not modify)
+├── exec_chain.py   ← _run_exec_chain() now lives here, not __init__.py
+├── lab.py          ← _lab_mcp_call, _proxmox_mcp_call
+├── blue.py, chain.py, cli.py, matrix.py, scoring.py, ... (~30 more modules)
 ```
 
 ### Key paths
-- `_run_exec_chain()` in `__init__.py` — multi-model chain orchestrator
-- `_dispatch_lab_tool()` → `_lab_mcp_call(cmd)` → MCP sandbox :8914 → portal5-attack container
-- Proxmox lifecycle: `_snapshot_lab_vms()` / `_restore_lab_vms()` via `_proxmox_mcp_call()` → MCP :8927
-- Blue active response: `_dispatch_blue_response()` dispatches countermeasures to sandbox
+- `_run_exec_chain()` in `exec_chain.py` (moved out of `__init__.py`) — multi-model chain orchestrator
+- `_lab_mcp_call(cmd)` in `lab.py`/`blue.py` → MCP sandbox :8914 → portal5-attack container
+- `_proxmox_mcp_call()` in `lab.py` → MCP :8927 for VM lifecycle
+- The specific dispatch/snapshot/restore/blue-response helper names described in earlier
+  revisions of this doc (`_dispatch_lab_tool`, `_snapshot_lab_vms`, `_restore_lab_vms`,
+  `_dispatch_blue_response`) were **not found under those names** anywhere in
+  `portal/modules/security/core/` as of this pass — the internal API was restructured
+  beyond a path rename (likely during the security-module maturation work, independent
+  of the directory migration). **Flagged for operator verification**: re-derive the
+  current equivalents from `lab.py`/`blue.py` before relying on this section for a
+  coding-agent re-entry task; this pass only fixed the mechanical package-path staleness,
+  not the internal-API drift.
 
 ### Architecture invariant
 The bench NEVER modifies Open WebUI or the pipeline. It communicates directly with:
