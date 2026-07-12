@@ -2,7 +2,9 @@
 id: unit-T1558.004-signature
 kind: mixed
 title: "T1558.004 \u2014 AS-REP Roasting \u2014 Windows Security Event 4768 without\
-  \ pre-auth"
+  \ pre-auth [DISTINGUISH: T1558.004 uses EventCode=4768 (AS-REQ) with PreAuthType=0;\
+  \ T1558.003 uses EventCode=4769 (TGS-REQ) with RC4] [KEY: PreAuthType=0 in 4768\
+  \ events]"
 sources:
 - type: spl
   path: siem/spl_detections.yaml#T1558.004
@@ -16,11 +18,11 @@ tags:
 - T1558.004
 - technique
 - signature
-created_at: 1783289794.0120242
-updated_at: 1783289794.0120242
+created_at: 1783828011.519466
+updated_at: 1783828011.519466
 ---
 
-# T1558.004 — AS-REP Roasting — Windows Security Event 4768 without pre-auth
+# T1558.004 — AS-REP Roasting — Windows Security Event 4768 without pre-auth [DISTINGUISH: T1558.004 uses EventCode=4768 (AS-REQ) with PreAuthType=0; T1558.003 uses EventCode=4769 (TGS-REQ) with RC4] [KEY: PreAuthType=0 in 4768 events]
 
 ## Telemetry Signatures
 

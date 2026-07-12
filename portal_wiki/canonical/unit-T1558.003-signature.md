@@ -2,7 +2,9 @@
 id: unit-T1558.003-signature
 kind: mixed
 title: "T1558.003 \u2014 Kerberoasting \u2014 Windows Security Event 4769 with RC4\
-  \ encryption"
+  \ encryption [DISTINGUISH: T1558.003 uses EventCode=4769 (TGS-REQ) with RC4; T1558.004\
+  \ uses EventCode=4768 (AS-REQ) with no preauth] [KEY: TicketEncryptionType=0x17\
+  \ in 4769 events]"
 sources:
 - type: spl
   path: siem/spl_detections.yaml#T1558.003
@@ -12,17 +14,19 @@ sources:
   path: exec_chain.py#kerberoast_to_da
 - type: scenario
   path: exec_chain.py#ad_full_compromise
+- type: scenario
+  path: exec_chain.py#mission_ad_enumerate_exploit
 last_generated_commit: ''
 confidence: high
 tags:
 - T1558.003
 - technique
 - signature
-created_at: 1783289794.011696
-updated_at: 1783289794.011696
+created_at: 1783828011.519062
+updated_at: 1783828011.519062
 ---
 
-# T1558.003 — Kerberoasting — Windows Security Event 4769 with RC4 encryption
+# T1558.003 — Kerberoasting — Windows Security Event 4769 with RC4 encryption [DISTINGUISH: T1558.003 uses EventCode=4769 (TGS-REQ) with RC4; T1558.004 uses EventCode=4768 (AS-REQ) with no preauth] [KEY: TicketEncryptionType=0x17 in 4769 events]
 
 ## Telemetry Signatures
 
@@ -35,6 +39,7 @@ index=portal5_lab sourcetype="windows:security" EventCode=4769 TicketEncryptionT
 
 - `kerberoast_to_da` — target: 10.10.11.21
 - `ad_full_compromise` — target: None
+- `mission_ad_enumerate_exploit` — target: 10.10.11.21
 
 ## Per-Source Expected Signatures
 

@@ -1,4 +1,4 @@
-# Portal 6.0.7 — Admin Guide
+# Portal 7.6.0 — Admin Guide
 
 ## First Login
 
@@ -124,8 +124,8 @@ curl -s http://localhost:9099/health/all | jq .
 
 The pipeline routes every `auto` workspace request through a **two-layer intent classifier**:
 
-- **Layer 1 — LLM router** (`portal_pipeline/router/routing.py`): A small model classifies intent via Ollama `/api/generate` with grammar-enforced JSON output. Result: `{"workspace": "<id>", "confidence": 0.0–1.0}`. Fast, accurate.
-- **Layer 2 — Keyword scoring** (`portal_pipeline/router/routing.py`): Weighted keyword match. Fires when LLM router times out, returns low confidence, or errors.
+- **Layer 1 — LLM router** (`portal/platform/inference/router/routing.py`): A small model classifies intent via Ollama `/api/generate` with grammar-enforced JSON output. Result: `{"workspace": "<id>", "confidence": 0.0–1.0}`. Fast, accurate.
+- **Layer 2 — Keyword scoring** (`portal/platform/inference/router/routing.py`): Weighted keyword match. Fires when LLM router times out, returns low confidence, or errors.
 
 ### Three-Tier Router Models
 
@@ -147,7 +147,7 @@ The Ollama slot count is set to **3** (not 2) for two reasons:
 
 **Cold-load times** (after eviction): PRIMARY 4.2s · STANDBY 2.4s · FALLBACK 1.6s. All exceed the production `LLM_ROUTER_TIMEOUT_MS` limit, so the first post-eviction request always goes to Layer 2 — exactly one fallback, then the router reloads and stays warm.
 
-**2. Security multi-chain operations.** The purple team and security exec-chain workspaces (`auto-purpleteam`, `auto-purpleteam-deep`, `auto-purpleteam-exec`) run multi-hop model chains where two inference models need to be simultaneously warm: the attack model and the defender/blue-team model. The bench exec-chain driver (`tests/benchmarks/bench_security/cli.py`) explicitly relies on `MAX_LOADED=3` to pre-warm all chain models before any chain prompt runs — it evicts non-chain inference models first, then fills all 3 slots with chain models so no mid-chain eviction occurs.
+**2. Security multi-chain operations.** The purple team and security exec-chain workspaces (`auto-purpleteam`, `auto-purpleteam-deep`, `auto-purpleteam-exec`) run multi-hop model chains where two inference models need to be simultaneously warm: the attack model and the defender/blue-team model. The bench exec-chain driver (`portal/modules/security/core/commands/run.py`) explicitly relies on `MAX_LOADED=3` to pre-warm all chain models before any chain prompt runs — it evicts non-chain inference models first, then fills all 3 slots with chain models so no mid-chain eviction occurs.
 
 In production, the purple team chain steps execute sequentially (not concurrently), but having both models loaded avoids a cold-load stall between hops. With `MAX_LOADED=2`, the second chain model evicts the first, causing a cold-load on every hop reversal.
 

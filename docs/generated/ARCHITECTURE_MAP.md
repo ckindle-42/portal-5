@@ -2,12 +2,16 @@
 
 # Portal 5 Architecture Map
 
-*Generated: 2026-07-05 22:16 UTC*
+*Generated: 2026-07-12 03:46 UTC*
 
 ## Knowledge Layer
 
 | Unit ID | Kind | Sources |
 |---------|------|---------|
+| `SEC_BENCH-agentic-blue-deltas-20260706` | what | 1 |
+| `SEC_BENCH-agentic-blue-deltas-20260707` | what | 1 |
+| `SEC_BENCH-agentic-blue-deltas-20260708` | what | 1 |
+| `SEC_BENCH-agentic-blue-winning-20260706` | what | 1 |
 | `unit-ADMIN_GUIDE-accuracy-across-36-query-golden-set` | why | 1 |
 | `unit-ADMIN_GUIDE-add-a-cluster-node` | why | 1 |
 | `unit-ADMIN_GUIDE-alternative-lan-reverse-proxy-caddy-nginx` | why | 1 |
@@ -438,13 +442,15 @@
 | `unit-SECURITY_FLEET_REVIEW_2026-06-not-added-run-b-failed-candidate-eval-v1-gate` | why | 1 |
 | `unit-SECURITY_FLEET_REVIEW_2026-06-remove` | why | 1 |
 | `unit-SECURITY_FLEET_REVIEW_2026-06-security-fleet-review-june-2026` | why | 1 |
+| `unit-SEC_BENCH-agentic-blue-eval-v1-results-2026-07-05` | mixed | 3 |
+| `unit-SEC_BENCH-agentic-blue-tools-arm-ranking-2026-07-11` | mixed | 3 |
 | `unit-SEC_BENCH-e2e-run-status-2026-07-05` | mixed | 4 |
 | `unit-SEC_BENCH-multiseat-v2-results-2026-07-05` | mixed | 4 |
 | `unit-T1003.001-signature` | mixed | 3 |
 | `unit-T1003.003-signature` | mixed | 3 |
 | `unit-T1003.006-signature` | mixed | 3 |
 | `unit-T1021.002-signature` | mixed | 5 |
-| `unit-T1046-signature` | mixed | 3 |
+| `unit-T1046-signature` | mixed | 5 |
 | `unit-T1047-signature` | mixed | 3 |
 | `unit-T1053.005-signature` | mixed | 4 |
 | `unit-T1059-signature` | mixed | 5 |
@@ -457,14 +463,14 @@
 | `unit-T1190-signature` | mixed | 5 |
 | `unit-T1203-signature` | mixed | 4 |
 | `unit-T1210-signature` | mixed | 3 |
-| `unit-T1505.003-signature` | mixed | 4 |
+| `unit-T1505.003-signature` | mixed | 5 |
 | `unit-T1548.001-signature` | mixed | 5 |
 | `unit-T1550.002-signature` | mixed | 3 |
 | `unit-T1552-signature` | mixed | 5 |
 | `unit-T1552.005-signature` | mixed | 3 |
 | `unit-T1557-signature` | mixed | 2 |
 | `unit-T1557.001-signature` | mixed | 3 |
-| `unit-T1558.003-signature` | mixed | 4 |
+| `unit-T1558.003-signature` | mixed | 5 |
 | `unit-T1558.004-signature` | mixed | 3 |
 | `unit-T1592-signature` | mixed | 5 |
 | `unit-T1595-signature` | mixed | 4 |
@@ -537,20 +543,30 @@
 | `unit-claude-what-portal-5-is-not` | why | 1 |
 | `unit-claude-zero-setup-requirements` | why | 1 |
 | `unit-code-coding_task` | what | 4 |
+| `unit-code-portal` | what | 5 |
 | `unit-code-portal_channels` | what | 4 |
 | `unit-code-portal_mcp` | what | 5 |
 | `unit-code-portal_pipeline` | what | 5 |
-| `unit-code-portal_wiki` | what | 5 |
+| `unit-code-portal_wiki` | what | 4 |
 | `unit-code-scripts` | what | 5 |
 | `unit-code-tests` | what | 5 |
+| `unit-module-cad` | mixed | 2 |
+| `unit-module-coding` | mixed | 2 |
+| `unit-module-compliance` | mixed | 2 |
+| `unit-module-documents` | mixed | 2 |
+| `unit-module-eval` | mixed | 2 |
+| `unit-module-general` | mixed | 2 |
+| `unit-module-media` | mixed | 2 |
+| `unit-module-research` | mixed | 2 |
 
-**Total:** 535 units
+**Total:** 550 units
 
 ## Source Distribution
 
-- **code**: 38 references
-- **design**: 497 references
-- **doc**: 3 references
+- **bench-security**: 4 references
+- **code**: 55 references
+- **design**: 504 references
+- **doc**: 5 references
 - **mitre**: 30 references
-- **scenario**: 52 references
+- **scenario**: 56 references
 - **spl**: 30 references

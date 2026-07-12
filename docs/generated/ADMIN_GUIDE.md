@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Generated: 2026-07-05 22:16 UTC*
+*Generated: 2026-07-12 03:46 UTC*
 
 ## Architecture Overview
 
@@ -81,13 +81,18 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 
 ## Components
 
+- **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-06 16:52 UTC)**: 1 source(s)
+- **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-07 21:58 UTC)**: 1 source(s)
+- **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-08 11:56 UTC)**: 1 source(s)
+- **CORRECTED — was misleading: "granite (raw)" was a selection artifact**: 1 source(s)
 - **coding_task subsystem (4 files)**: 4 source(s)
+- **portal subsystem (218 files)**: 5 source(s)
 - **portal_channels subsystem (4 files)**: 4 source(s)
 - **portal_mcp subsystem (25 files)**: 5 source(s)
 - **portal_pipeline subsystem (46 files)**: 5 source(s)
-- **portal_wiki subsystem (21 files)**: 5 source(s)
-- **scripts subsystem (37 files)**: 5 source(s)
-- **tests subsystem (318 files)**: 5 source(s)
+- **portal_wiki subsystem (4 files)**: 4 source(s)
+- **scripts subsystem (38 files)**: 5 source(s)
+- **tests subsystem (211 files)**: 5 source(s)
 
 ---
-*535 knowledge units referenced.*
+*550 knowledge units referenced.*

@@ -31,6 +31,7 @@ It validates:
     AA. Live exec integrity — vulhub->host dispatch, DISPATCH_NOT_RUN guard
     AB. Stage 2 propose integrity — bounded proposals, proof-gated promotion,
         no hollow flag-flip, no writes without operator --apply
+    AL. Doc currency — every ledgered doc is fresh vs HEAD (docs/.doc_ledger.yaml)
 
 Designed to run in under 60 seconds on the M4 Pro Mac Mini. Use this as
 the gate before kicking off the full long-running suites:
@@ -2457,6 +2458,34 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
     )
 
 
+def check_doc_currency() -> tuple[str, str, list[dict]]:
+    """AL — every doc bound in docs/.doc_ledger.yaml is fresh vs HEAD.
+
+    Delegates to scripts/doc_ledger.py (subprocess, JSON) so the ledger logic
+    lives in one place. FAIL lists the stale docs; run the doc-audit agent to
+    clear it, then `python3 scripts/doc_ledger.py stamp-all`.
+    """
+    script = REPO_ROOT / "scripts" / "doc_ledger.py"
+    if not script.exists():
+        return ("SKIP", "scripts/doc_ledger.py not present", [])
+    proc = subprocess.run(
+        [sys.executable, str(script), "check", "--json"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    try:
+        payload = json.loads(proc.stdout.strip() or "{}")
+    except json.JSONDecodeError:
+        return ("FAIL", f"doc_ledger check unparseable: {proc.stdout[:200]}", [])
+    return (
+        payload.get("status", "FAIL"),
+        payload.get("detail", ""),
+        payload.get("findings", []),
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -2533,6 +2562,7 @@ def main() -> int:
     v.run("AI. telemetry contracts", check_telemetry_contracts)
     v.run("AJ. capability graph + gap engine", check_capability_graph)
     v.run("AK. wiki core backbone", check_wiki_core)
+    v.run("AL. doc currency", check_doc_currency)
 
     return v.summary()
 

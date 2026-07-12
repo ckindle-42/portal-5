@@ -40,7 +40,7 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 # Workspace helpers — TASK-WORKSPACE-001
-# Add the repo root to sys.path so this host-native script can import portal_mcp.core
+# Add the repo root to sys.path so this host-native script can import portal.platform.mcp_host
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))

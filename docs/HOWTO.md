@@ -782,7 +782,7 @@ WebUI's built-in RAG above.
 | Multi-column layout | Reading order scrambled | Correct reading order |
 | Supported formats | .md, .txt, .pdf, .docx | + .pptx, .xlsx, .html, .htm, .epub |
 
-`_read_file()` in `portal_mcp/rag/rag_mcp.py` tries Docling first for
+`_read_file()` in `portal/modules/research/tools/rag_mcp.py` tries Docling first for
 PDF/DOCX/PPTX/XLSX/HTML/EPUB (in a worker thread, with a cached converter).
 If Docling is unavailable, fails, or returns no usable text, it falls back to
 pypdf (PDF) or python-docx (DOCX) — no loss of existing functionality. Docling
@@ -1068,7 +1068,7 @@ docker compose -f deploy/portal-5/docker-compose.yml restart portal-pipeline
 
 **Use from MCP code (new modules):**
 ```python
-from portal_mcp.core import get_uploads_dir, get_generated_dir, resolve_upload_path
+from portal.platform.mcp_host import get_uploads_dir, get_generated_dir, resolve_upload_path
 
 # Read a file dropped by the user in OWUI chat
 audio_path = resolve_upload_path(file_id_from_chat)

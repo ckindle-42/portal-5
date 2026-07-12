@@ -34,46 +34,57 @@ Do not add these — they are explicitly out of scope:
 
 ## Project Layout
 
+As of `BUILD_PROGRAM_MODULARIZATION_ALL_V1` (M0-M8), the codebase is organized by discipline module under `portal/modules/`, with cross-cutting infrastructure under `portal/platform/`. `portal_mcp/` now holds only externally-vendored MCP servers that were never moved (`filesystem/`, `scrapling/`). `portal_wiki/` is the wiki's git-versioned data home (`canonical/`) plus its CLI/MCP-tool entrypoints; the wiki engine itself lives at `portal/platform/wiki/`.
+
 ```
 portal-5/
-├── portal_pipeline/              # FastAPI Pipeline server (:9099)
-│   ├── cluster_backends.py       # BackendRegistry — Ollama (+ vLLM-compatible), health-aware
-│   ├── router_pipe.py            # FastAPI app, @app routes, lifespan, auth, option injection
-│   ├── __main__.py               # Uvicorn entrypoint (multi-worker)
-│   ├── router/                   # Decomposed pipeline modules (facade-exported by router_pipe.py)
-│   │   ├── anthropic_compat.py  # /v1/messages ↔ OpenAI format bridge (Claude Code local mode)
-│   │   ├── concurrency.py        # 3 semaphores + RequestSlot (single-owner lifecycle)
-│   │   ├── metrics.py            # CollectorRegistry + all Prometheus collectors
-│   │   ├── monitor.py            # Metal GPU memory + Ollama model state primitives
-│   │   ├── power.py              # powermetrics polling, energy/cost, usage recording
-│   │   ├── routing.py            # LLM router + keyword workspace detection
-│   │   ├── state.py              # State persistence + per-event recorders
-│   │   ├── streaming.py          # SSE streaming: _stream_from_backend_guarded, tool loop, preamble
-│   │   ├── thinking.py           # Shared <think>…</think> strip + reasoning passthrough
-│   │   ├── tools.py              # MCP tool dispatch (_dispatch_tool_call)
-│   │   └── workspaces.py         # WORKSPACES dict, persona map, workspace tool helpers
-│   ├── cli.py                    # Typed operator CLI (portal config show, …) — entry: portal
-│   ├── tool_registry.py          # Tool discovery (polls MCP /tools), advertisement, dispatch
-│   └── notifications/            # Operational alerts + daily summaries
-│       ├── dispatcher.py         # Event bus: fans out to all configured channels
-│       ├── events.py             # AlertEvent / SummaryEvent / EventType
-│       ├── scheduler.py          # APScheduler daily summary
-│       └── channels/             # Slack, Telegram, Email, Pushover, Webhook
-├── portal_mcp/                   # MCP Tool Servers (registered in Open WebUI)
-│   ├── documents/                # Word, PowerPoint, Excel generation (:8913)
-│   ├── generation/               # Music (:8912 host-native), TTS (:8916), Video (:8911), Whisper (:8915), ComfyUI (:8910), CAD render (:8926)
-│   ├── execution/                # Code sandbox (:8914)
-│   ├── security/                 # Vulnerability classification (:8919)
-│   ├── memory/                   # Cross-session memory store (:8920)
-│   ├── rag/                      # LanceDB RAG + reranker (:8921, :8925)
-│   ├── research/                 # Web search + SearXNG (:8922)
-│   ├── browser/                  # Playwright browser automation (:8923)
-│   ├── proxmox/                  # Lab VM control via Proxmox API (:8927)
-│   ├── platform/                 # Pipeline MCP — stack introspection + FastContext (:8928)
-│   └── core/                     # Shared MCP utilities (workspace helpers, path resolution)
+├── portal/
+│   ├── modules/                  # One dir per discipline — code + tools + tests together
+│   │   ├── security/             # RBP (Red/Blue/Purple) bench engine — largest module
+│   │   │   ├── core/             # RBP engine, capability graph, growth loop, intake
+│   │   │   ├── tools/            # security_mcp.py, proxmox_mcp.py (MCP servers)
+│   │   │   ├── knowledge/        # SPL library, scenario facades
+│   │   │   ├── config/           # Security-specific config
+│   │   │   ├── cli/              # `portal security ...` subcommands
+│   │   │   ├── adapters/         # Wiki write-back adapters
+│   │   │   ├── eval/             # Security-specific eval harness
+│   │   │   └── tests/            # Mirrors this module's tree
+│   │   ├── coding/tools/         # code_sandbox_mcp.py (:8914)
+│   │   ├── media/tools/          # comfyui_mcp, video_mcp, music_mcp, tts_mcp, whisper_mcp
+│   │   ├── cad/tools/            # cad_render_mcp.py (:8926)
+│   │   ├── documents/tools/      # document_mcp.py (:8913)
+│   │   ├── research/tools/       # web_search_mcp, rag_mcp, reranker_mcp, browser_mcp
+│   │   ├── compliance/config/    # Config-only module (compliance personas + routing)
+│   │   ├── general/               # Config-only module (vendored filesystem/fetch/git/docker)
+│   │   └── eval/persona_matrix/  # Cross-cutting persona coverage sweep — off by default
+│   └── platform/                  # Cross-cutting infra, not owned by any one discipline
+│       ├── inference/             # FastAPI Pipeline server (:9099) — formerly portal_pipeline/
+│       │   ├── cluster_backends.py  # BackendRegistry — Ollama (+ vLLM-compatible), health-aware
+│       │   ├── router_pipe.py       # Backwards-compat facade — re-exports router/app.py's `app`
+│       │   ├── sync_config.py       # Generates backends.yaml/.mcp.json/OWUI presets/modules manifest from portal.yaml
+│       │   ├── tool_registry.py     # Tool discovery (polls MCP /tools), advertisement, dispatch
+│       │   ├── router/              # Decomposed pipeline modules
+│       │   │   ├── app.py           # FastAPI app + route decorators
+│       │   │   ├── handlers.py      # Route handler bodies (incl. Gate 4 module-disabled 404)
+│       │   │   ├── routing.py       # LLM router + keyword workspace detection
+│       │   │   ├── streaming.py     # SSE streaming: tool loop, preamble
+│       │   │   └── workspaces.py    # WORKSPACES dict, persona map, workspace tool helpers
+│       │   ├── cli/                 # Typed operator CLI (portal config show, …) — entry: portal
+│       │   └── notifications/       # Operational alerts + daily summaries
+│       ├── wiki/                    # Wiki engine (schema, store, writeback, render, maintain)
+│       │   └── adapters/            # Portal-specific wiki wiring (module toggle resolver, growth writeback)
+│       ├── mcp_host/                 # Pipeline MCP (:8928) + shared MCP workspace helpers (workspace.py: resolve_upload_path, get_generated_dir, _VALID_CATEGORIES)
+│       └── memory/                   # Cross-session memory store MCP (:8920)
+├── portal_mcp/                   # Externally-vendored MCP servers only (never moved)
+│   ├── filesystem/                # Vendored filesystem MCP server
+│   └── scrapling/                 # Vendored scraping MCP server
+├── portal_wiki/                  # Wiki data + CLI/MCP entrypoints (engine is portal/platform/wiki/)
+│   └── canonical/                 # Git-versioned knowledge unit markdown files
 ├── config/
 │   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
-│   ├── personas/                 # 130 persona YAML files → Open WebUI model presets
+│   ├── portal.yaml               # Single source of truth for workspaces + mcp_fleet
+│   ├── modules.generated.yaml    # Module enable/disable snapshot (generated by sync-config)
+│   ├── personas/                 # Persona YAML files → Open WebUI model presets (see Rule 5)
 │   ├── routing_descriptions.json # LLM router workspace descriptions
 │   └── routing_examples.json     # LLM router few-shot examples
 ├── deploy/portal-5/
@@ -90,6 +101,7 @@ portal-5/
 │   │   ├── check_generated_fresh.py       # Fail if sync-config produces a diff
 │   │   ├── check_no_identical_sources.py  # Warn on deploy/↔portal_mcp/ duplicates
 │   │   └── check_pyproject_no_dup.py      # Fail on duplicate dep pins
+│   ├── doc_ledger.py              # Doc-currency ledger CLI (status/check/stamp) — see Rule 12
 │   ├── openwebui_init.py         # Auto-seeds Open WebUI on first fresh volume
 │   ├── mlx-speech.py             # Host-native MLX speech server (TTS + ASR, port :8918)
 │   ├── embedding-server.py       # Host-native ARM64 embedding server (fallback)
@@ -102,7 +114,7 @@ portal-5/
 │   ├── uat/                      # UAT driver modules (runner/cli/browser/grading/results)
 │   └── benchmarks/               # Inference benchmarks (Ollama TPS, positional recall, coding shootout)
 ├── Dockerfile.pipeline           # Lean image for portal-pipeline service
-├── Dockerfile.mcp                # Image for all portal_mcp services
+├── Dockerfile.mcp                # Image for portal/modules/*/tools + portal_mcp services
 ├── launch.sh                     # Thin dispatcher — sources scripts/lib/*.sh, delegates to portal CLI
 └── .env.example                  # All configurable values with defaults
 ```
@@ -117,12 +129,12 @@ portal-5/
 | **Install** | `uv pip install -e ".[dev]"` | Installs all extras + dev deps |
 | **Linter** | `ruff check . --fix` | Ruff handles lint AND format |
 | **Formatter** | `ruff format .` | NOT Black |
-| **Type check** | `mypy portal_pipeline/ portal_mcp/` | strict=true currently |
+| **Type check** | `mypy portal/` | strict=true currently |
 | **Tests** | `pytest tests/ -v --tb=short` | Must pass before any commit |
 | **Python** | 3.10+ required | pyproject.toml requires-python >= 3.10 |
 | **Framework** | FastAPI + Pydantic v2 | Async throughout |
 | **Launch** | `./launch.sh up` | Never `docker compose up` directly |
-| **Operator CLI** | `portal config show` | Typed CLI; `portal_pipeline/cli.py`; installed via `[project.scripts]` |
+| **Operator CLI** | `portal config show` | Typed CLI; `portal/platform/inference/cli/`; installed via `[project.scripts]` |
 
 ---
 
@@ -143,17 +155,17 @@ If something seems to require modifying Open WebUI internals, find the extension
 
 ### 3 — MCP Servers Are Independent Services
 
-Each `portal_mcp/` server is a standalone FastAPI+FastMCP app. They have zero imports from `portal_pipeline/` or `portal_channels/`. They are registered in Open WebUI as Tool Servers. They do not know about each other.
+Each MCP server (`portal/modules/*/tools/*_mcp.py`, `portal/platform/{mcp_host,memory}/`, or a vendored server in `portal_mcp/{filesystem,scrapling}/`) is a standalone FastAPI+FastMCP app. They have zero imports from `portal.platform.inference` or `portal_channels/`. They are registered in Open WebUI as Tool Servers. They do not know about each other.
 
 ### 4 — The Pipeline Is Stateless (with metrics persistence)
 
-`portal_pipeline/router_pipe.py` is stateless for conversation routing — no database, no session state, no memory. Conversation history lives in Open WebUI's database. Cross-session memory uses Open WebUI's native memory feature.
+`portal/platform/inference/router_pipe.py` (facade for `portal/platform/inference/router/app.py`'s `app`) is stateless for conversation routing — no database, no session state, no memory. Conversation history lives in Open WebUI's database. Cross-session memory uses Open WebUI's native memory feature.
 
 The pipeline does persist operational metrics (request counts, TPS, errors) to `/app/data/metrics_state.json` for telemetry only — it does not affect routing decisions.
 
 ### 5 — Personas Live in config/personas/
 
-Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (130 personas).
+Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog — currently 130 files (`ls config/personas/*.yaml | wc -l`).
 
 ### 6 — config/portal.yaml Is the Single Source of Truth for Workspaces and MCP Fleet
 
@@ -166,12 +178,12 @@ After any change to `config/portal.yaml`, regenerate all derived files:
 ```bash
 ./launch.sh sync-config
 # or directly:
-python3 -m portal_pipeline.sync_config
+python3 -m portal.platform.inference.sync_config
 ```
 
-`sync-config` is idempotent — running it twice produces no diff. The test suite (`tests/unit/test_generated_artifacts_fresh.py`) verifies this.
+`sync-config` is idempotent — running it twice produces no diff. The test suite (`tests/unit/test_generated_artifacts_fresh.py`) verifies this. `sync-config` also regenerates `config/modules.generated.yaml`, a rendered snapshot of module enable/disable state (see Rule 12's sibling discipline for the module toggle layer — resolver at `portal/platform/wiki/adapters/modules.py`).
 
-The `WORKSPACES` dict in `portal_pipeline/router/workspaces.py` is loaded at import time from `portal.yaml` via `portal_pipeline.config.get_workspace_dict()`. The `MCP_SERVERS` dict in `portal_pipeline/tool_registry.py` is similarly derived from the fleet table via `get_pipeline_mcp_servers()`.
+The `WORKSPACES` dict in `portal/platform/inference/router/workspaces.py` is loaded at import time from `portal.yaml` via `portal.platform.inference.config.get_workspace_dict()`. The `MCP_SERVERS` dict in `portal/platform/inference/tool_registry.py` is similarly derived from the fleet table via `get_pipeline_mcp_servers()`.
 
 After any workspace change, verify consistency:
 ```bash
@@ -199,7 +211,7 @@ Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (defau
 | 8926 | MCP CAD Render (OpenSCAD / CadQuery 3D model generation) |
 | 8928 | Pipeline MCP (host-native; exposes explore_repository + stack introspection for Claude Code / opencode) |
 | 8929 | MCP MITRE ATT&CK (technique lookup, data sources, detections — deterministic, not RAG) |
-| 8930 | MCP Detections (SPL library search, validate_syntax, explain_detection) |
+| 8932 | MCP Detections (SPL library search, validate_syntax, explain_detection — bumped from 8930 to avoid an INCALMO_PORT collision, see `.env.example`) |
 | 8931 | MCP Wiki (canonical knowledge layer — search, get_unit, explain — cited answers) |
 | 8188 | ComfyUI |
 | 8088 | SearXNG |
@@ -217,7 +229,7 @@ The MLX inference proxy (formerly :8081/:18081/:18082) was retired in commit `3a
 
 **MLX is NOT gone from the project — only from chat inference.** It still serves: speech/TTS+ASR (`scripts/mlx-speech.py`, :8918), diarized transcription (`scripts/mlx-transcribe.py`, :8924), embeddings (:8917), and the RAG reranker (:8925, `mlx-community/Qwen3-Reranker-0.6B-mxfp8`). Do not remove those when "cleaning up MLX."
 
-Never add `transformers` or `torch` to `portal_pipeline/` — it runs lean. Full model catalog with memory budgets is in `config/backends.yaml`.
+Never add `transformers` or `torch` to `portal/platform/inference/` — it runs lean. Full model catalog with memory budgets is in `config/backends.yaml`.
 
 ### 9 — The Dockerfile Split Is Intentional
 
@@ -234,11 +246,27 @@ Commit directly to `main` during stabilization. Run tests before every push: `py
 
 User-uploaded files and cross-MCP artifacts live at `${AI_OUTPUT_DIR}` (default `~/AI_Output/`), mounted into containers at `/workspace`. Never write user-facing artifacts to a container-local volume that other services cannot see.
 
-- Reads of user uploads: `portal_mcp.core.resolve_upload_path(file_id)` or `/workspace/uploads/<id>`.
-- Writes of generated artifacts: `portal_mcp.core.get_generated_dir(category)` or `/workspace/generated/<category>/`.
-- Categories: `transcripts`, `documents`, `images`, `videos`, `music`, `speech`. Add a new category by editing `_VALID_CATEGORIES` in `portal_mcp/core/workspace.py` (this is the source of truth — `launch.sh workspace-init` and the docker-compose mounts derive from this list).
+- Reads of user uploads: `portal.platform.mcp_host.resolve_upload_path(file_id)` or `/workspace/uploads/<id>`.
+- Writes of generated artifacts: `portal.platform.mcp_host.get_generated_dir(category)` or `/workspace/generated/<category>/`.
+- Categories: `transcripts`, `documents`, `images`, `videos`, `music`, `speech`. Add a new category by editing `_VALID_CATEGORIES` in `portal/platform/mcp_host/workspace.py` (this is the source of truth — `launch.sh workspace-init` and the docker-compose mounts derive from this list).
 - New Docker MCPs that touch user files: add `${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace` to the volumes block and `WORKSPACE_DIR=/workspace` to the environment block.
 - `AUDIO_STT_ENGINE` is intentionally empty in the OWUI config — auto-transcription is disabled so audio uploads remain accessible to personas. Do not re-enable it without a migration plan for affected workflows.
+
+### 12 — Docs Travel With The Work
+
+Documentation is coupled to code the same way Rule 6 couples workspaces to `portal.yaml`: **mechanically, and CI-gated.** Every living doc is bound in `docs/.doc_ledger.yaml` to the source paths that determine its correctness, plus the commit it was last reconciled against. A doc is *stale* the moment a bound source changes past that commit.
+
+**The rule:** when your change touches a subsystem, reconcile the docs bound to it **in the same task**, then re-stamp. Do not defer doc updates to "later" — later is how the docs rotted in the first place.
+
+```bash
+python3 scripts/doc_ledger.py status              # what drifted
+# ...reconcile the stale docs against live code...
+python3 scripts/doc_ledger.py stamp <doc>         # or stamp-all after a full pass
+```
+
+Enforcement: `scripts/validate_system.py` check **`AL. doc currency`** fails when any bound source changed since a doc's stamp. `bash scripts/ci_local.sh` will be red until docs are reconciled. The re-runnable remediation is `TASK_DOC_AUDIT_AGENT_V*.md` — the doc-side analogue of the validate/test harness.
+
+**Never hardcode counts/ports/check-letters as prose** (persona counts, workspace counts, port tables, validate check letters). Derive them from an extractor at reconcile time; a hardcoded "130 personas" is drift waiting to happen.
 
 ---
 
@@ -252,7 +280,7 @@ User-uploaded files and cross-MCP artifacts live at `${AI_OUTPUT_DIR}` (default 
 - **The final verify step of any task is `bash scripts/ci_local.sh`**, not a narrow per-file pytest. This mirrors CI's `.github/workflows/unit-tests.yml` exactly (clean env, editable install, same pytest invocation) — it catches the "works locally, fails CI" gap before the push. A task isn't done until the ci-parity gate is green.
 - Pre-commit hooks (`.pre-commit-config.yaml`) enforce: ruff lint+format, generated-artifact freshness (`sync-config` idempotent), no duplicate dep pins, **pytest unit suite**. Install once: `pip install pre-commit && pre-commit install`.
 - Unit tests also run on every PR and push to `main` via `.github/workflows/unit-tests.yml`.
-- **Any change touching `portal_pipeline/router/streaming.py` or the streaming paths of `router_pipe.py` MUST run `./scripts/smoke_stream.sh` against the live stack before commit** — unit mocks cannot detect dependency-contract mismatches (FX1, `34be1eb`). Also runs as part of `./launch.sh test`.
+- **Any change touching `portal/platform/inference/router/streaming.py` or the streaming paths of `router_pipe.py` MUST run `./scripts/smoke_stream.sh` against the live stack before commit** — unit mocks cannot detect dependency-contract mismatches (FX1, `34be1eb`). Also runs as part of `./launch.sh test`.
 
 ### Pre-Testing: Always Verify Code Freshness
 
@@ -264,7 +292,7 @@ docker images --format "table {{.Repository}}\t{{.CreatedAt}}" | grep portal
 git log --oneline --format="%h %ai %s" -5
 ```
 
-If any portal image predates a relevant commit (pipeline: `portal_pipeline/`, `config/`; MCP: `portal_mcp/`), rebuild first:
+If any portal image predates a relevant commit (pipeline: `portal/platform/`, `config/`; MCP: `portal/modules/*/tools/`, `portal_mcp/`), rebuild first:
 ```bash
 ./launch.sh rebuild    # rebuilds pipeline + all MCP containers
 ```
@@ -285,28 +313,32 @@ The failure mode this guards against: backing up *some* runs and not others out 
 ## Adding New Capabilities
 
 ### New MCP Tool Server
-1. Create `portal_mcp/<category>/<name>_mcp.py`
+1. Create `portal/modules/<discipline>/tools/<name>_mcp.py` (or `portal/platform/<area>/` for a cross-cutting server — see Rule 6)
 2. Add service to `deploy/portal-5/docker-compose.yml` on an unused port (Rule 7)
 3. Add the server to `config/portal.yaml` under `mcp_fleet:` with the canonical `id`, `name`, `port`, and flags
 4. Run `./launch.sh sync-config` — regenerates `.mcp.json` and OWUI tool preset stubs
 5. Add tool JSON to `imports/openwebui/tools/portal_<name>.json`
 6. `openwebui_init.py` picks up new tool servers automatically from the fleet
+7. Reconcile bound docs and re-stamp: `python3 scripts/doc_ledger.py status` → fix → stamp
 
 ### New Persona
 1. Create `config/personas/<slug>.yaml` with: `name`, `slug`, `system_prompt`, `workspace_model`, `category`
 2. `openwebui_init.py` creates the Open WebUI model preset on next seed
 3. No other changes needed
+4. Reconcile bound docs and re-stamp: `python3 scripts/doc_ledger.py status` → fix → stamp
 
 ### New Workspace Routing Tier
 1. Add the workspace entry to `config/portal.yaml` under `workspaces:`
 2. Run `./launch.sh sync-config` — regenerates `backends.yaml workspace_routing`, OWUI preset JSON, and `.mcp.json`
 3. Verify: `python3 -m pytest tests/unit/test_generated_artifacts_fresh.py -q`
 4. Do NOT hand-edit `backends.yaml workspace_routing` or `imports/openwebui/workspaces/` — those are generated
+5. Reconcile bound docs and re-stamp: `python3 scripts/doc_ledger.py status` → fix → stamp
 
 ### New Cluster Node
 1. Edit `config/backends.yaml` — add backend entry, assign to group
 2. `docker compose restart portal-pipeline`
 3. Done. No code changes.
+4. Reconcile bound docs and re-stamp: `python3 scripts/doc_ledger.py status` → fix → stamp
 
 ---
 
@@ -319,7 +351,7 @@ Every feature must work from `./launch.sh up` without manual steps. Dependencies
 ## Do Not
 
 - Do NOT add `OLLAMA_BASE_URL` directly to Open WebUI's env — everything must go through `portal-pipeline`
-- Do NOT import `portal_pipeline` from `portal_mcp` or vice versa — they are independent
+- Do NOT import `portal.platform.inference` from an MCP module (`portal/modules/*/tools/`, `portal_mcp/`) or vice versa — they are independent
 - Do NOT store conversation state in the Pipeline — Open WebUI owns that
 - Do NOT add system Python packages to `Dockerfile.pipeline` — keep it lean
 - Do NOT hardcode model names in Python — they come from `backends.yaml` or persona YAMLs
@@ -340,7 +372,7 @@ Before adding new tasks or filing issues, check `KNOWN_LIMITATIONS.md` — some 
 | Topic | Location |
 |---|---|
 | Model catalog + memory budgets | `config/backends.yaml` (annotated YAML comments) |
-| Persona catalog (130 personas) | `config/personas/*.yaml` |
+| Persona catalog (currently 130 — `ls config/personas/*.yaml \| wc -l`) | `config/personas/*.yaml` |
 | Notification system setup | `docs/ALERTS.md` |
 | ComfyUI image/video setup | `docs/COMFYUI_SETUP.md` |
 | Speech pipeline (Kokoro + Qwen3-TTS/ASR) | `docs/HOWTO.md` (§ MLX Speech) |
@@ -361,7 +393,7 @@ The project has a self-maintaining knowledge backbone (`portal_wiki/`) that agen
 **For operators:** `portal_wiki/canonical/` contains the source-of-truth knowledge units (markdown + frontmatter). Edit the canonical unit, not rendered views. Views are generated to `docs/generated/` and marked `<!-- GENERATED -->`.
 
 **What lives where:**
-- `portal_wiki/core/` — schema, store, maintenance, rendering (stack-agnostic, zero Portal imports)
-- `portal_wiki/adapters/` — Portal-specific wiring (Ollama inference, git source, security/intent/code seeders)
-- `portal_wiki/canonical/` — the knowledge units themselves (git-versioned markdown)
+- `portal/platform/wiki/` — engine: schema, store, maintenance, rendering (top-level files are stack-agnostic, zero Portal imports — this is the extraction-guarantee boundary CI enforces via `AK. wiki core backbone`)
+- `portal/platform/wiki/adapters/` — Portal-specific wiring (Ollama inference, git source, security/intent/code seeders, module toggle resolver)
+- `portal_wiki/canonical/` — the knowledge units themselves (git-versioned markdown, still at the repo-root data path — never moved)
 - `portal_wiki/mcp.py` — agent-facing tools (search, get_unit, explain)

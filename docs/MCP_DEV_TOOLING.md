@@ -54,7 +54,7 @@ tools live introspection of the running Portal 5 stack and an AI-powered code ex
 | Tool | What it does |
 |---|---|
 | `get_pipeline_status` | Pipeline health, workspace count, version |
-| `list_workspaces` | All 94 workspaces with names/descriptions; accepts optional filter string |
+| `list_workspaces` | All workspaces (currently 104) with names/descriptions; accepts optional filter string |
 | `get_loaded_models` | Which Ollama models are in VRAM, their sizes, expiry times |
 | `get_metrics_summary` | Request totals, tool call counts, error rates, TPS from Prometheus |
 | `get_workspace_recommendation` | Given a task description, returns the best workspace ID with reasoning |
@@ -87,12 +87,12 @@ Devstral reads 3 targeted file ranges instead of exploring blindly.
 {
   "citations": [
     {
-      "path": "portal_pipeline/router/streaming.py",
+      "path": "portal/platform/inference/router/streaming.py",
       "start_line": 45, "end_line": 120,
       "note": "SSE streaming loop, tool call dispatch, preamble injection"
     },
     {
-      "path": "portal_pipeline/router_pipe.py",
+      "path": "portal/platform/inference/router_pipe.py",
       "start_line": 230, "end_line": 280,
       "note": "lifespan, route registration, stream endpoint"
     }
@@ -119,10 +119,12 @@ repo root tells it to use Portal 5 as its AI backend instead of any cloud API.
 
 - **Fully local inference** — all completions go through portal-pipeline (:9099) to Ollama
   on your hardware. No tokens leave the machine.
-- **94 workspaces as models** — `opencode models` lists every Portal 5 workspace. Default:
-  `portal/auto-coding-agentic` (Laguna-XS.2 33B-A3B with FastContext explore loop).
-- **All 19 MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
-  filesystem, git, docker, sandbox, pipeline, and all 15 portal-* tool servers.
+- **All workspaces as models** — `opencode models` lists every Portal 5 workspace, currently
+  104 (`python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
+  Default: `portal/auto-coding-agentic` (Laguna-XS.2 33B-A3B with FastContext explore loop).
+- **All MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
+  filesystem, git, docker, sandbox, pipeline, and every other portal-* tool server — currently
+  22 total (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`).
 - **Cloud providers disabled** — `anthropic`, `openai`, `google`, `bedrock`, `vertex` are
   all disabled to prevent accidental cloud use.
 
@@ -156,7 +158,7 @@ opencode . --model portal/auto-data                 # data science, SQL, analysi
 opencode . --model portal/auto-research             # web-augmented research and summarization
 ```
 
-Run `opencode models` to list all 94 available workspaces.
+Run `opencode models` to list all available workspaces (currently 104).
 
 ### Dual mode: Portal vs stock (no file renaming)
 
@@ -309,7 +311,7 @@ You: "Add a new auto-lab-report workspace for generating pentest reports"
 opencode (Laguna-XS.2 33B-A3B via portal/auto-coding-agentic):
   explore_repository("how workspaces are defined, backends.yaml routing pattern")
   → citations: router/workspaces.py, config/backends.yaml, router/routing.py
-  execute_bash "sed -n '205,250p' portal_pipeline/router/workspaces.py"
+  execute_bash "sed -n '205,250p' portal/platform/inference/router/workspaces.py"
   [writes workspace definition matching the pattern]
   execute_bash "pytest tests/unit/ -q && python3 -c 'workspace consistency check'"
   [reports complete with passing tests]

@@ -2,7 +2,9 @@
 id: unit-T1110.003-signature
 kind: mixed
 title: "T1110.003 \u2014 Password spray \u2014 multiple 4625/4771 events from single\
-  \ source"
+  \ source [DISTINGUISH: T1110.003 = one password across many accounts; T1110.001\
+  \ = many passwords against one account] [KEY: Many accounts, few attempts per account,\
+  \ single source IP]"
 sources:
 - type: spl
   path: siem/spl_detections.yaml#T1110.003
@@ -20,11 +22,11 @@ tags:
 - T1110.003
 - technique
 - signature
-created_at: 1783289794.012804
-updated_at: 1783289794.012804
+created_at: 1783828011.520389
+updated_at: 1783828011.520389
 ---
 
-# T1110.003 — Password spray — multiple 4625/4771 events from single source
+# T1110.003 — Password spray — multiple 4625/4771 events from single source [DISTINGUISH: T1110.003 = one password across many accounts; T1110.001 = many passwords against one account] [KEY: Many accounts, few attempts per account, single source IP]
 
 ## Telemetry Signatures
 
