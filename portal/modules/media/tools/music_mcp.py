@@ -8,7 +8,7 @@ works on aarch64 Linux (Docker on Apple Silicon), macOS MPS, and CUDA.
 AudioCraft is NOT used: its torchtext/xformers dependencies have no aarch64 wheels.
 
 Models are downloaded automatically on first use from HuggingFace (via HF_HOME).
-Start with: python -m portal_mcp.generation.music_mcp
+Start with: python -m portal.modules.media.tools.music_mcp
 """
 
 import asyncio

@@ -98,9 +98,9 @@ RUN pip install --no-cache-dir \
     "slack-bolt>=1.18.0"
 
 # Copy application
-# portal_mcp/core and portal_mcp/security are now compat shims re-exporting
-# from portal/platform/mcp_host and portal/modules/security/tools
-# (BUILD-SPEC-PORTAL-MODULES-V1) — both must be present until shims removed.
+# portal_mcp/ now holds only externally-vendored MCP servers that were never
+# moved (core, filesystem, scrapling) — every discipline server lives under
+# portal/modules/*/tools/ or portal/platform/ (BUILD_PROGRAM_MODULARIZATION_ALL_V1).
 COPY portal_mcp/ ./portal_mcp/
 COPY portal_channels/ ./portal_channels/
 COPY portal/__init__.py ./portal/__init__.py
@@ -120,4 +120,4 @@ RUN groupadd -r portal && useradd -r -m -g portal portal \
 # No HEALTHCHECK here — defined per-service in docker-compose.yml
 
 ENTRYPOINT ["/usr/local/bin/mcp-entrypoint.sh"]
-CMD ["python", "-m", "portal_mcp.documents.document_mcp"]
+CMD ["python", "-m", "portal.modules.documents.tools.document_mcp"]

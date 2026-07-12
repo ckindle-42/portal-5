@@ -59,7 +59,7 @@ def rerank(query: str, documents: list[str], top_n: int | None = None) -> list[d
     if not documents:
         return []
 
-    import portal_mcp.rag.reranker_mcp as _self  # noqa: PLC0415 — allows test patching
+    import portal.modules.research.tools.reranker_mcp as _self  # noqa: PLC0415 — allows test patching
 
     model, processor = _ensure_loaded()
 
