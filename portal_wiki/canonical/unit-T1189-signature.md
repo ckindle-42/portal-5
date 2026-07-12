@@ -18,8 +18,8 @@ tags:
 - T1189
 - technique
 - signature
-created_at: 1783828011.525416
-updated_at: 1783828011.525416
+created_at: 1783896250.5247738
+updated_at: 1783896250.5247738
 ---
 
 # T1189 — Drive-by compromise — reflected XSS and malicious redirect indicators

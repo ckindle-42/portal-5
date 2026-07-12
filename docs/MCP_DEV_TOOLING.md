@@ -119,9 +119,13 @@ repo root tells it to use Portal 5 as its AI backend instead of any cloud API.
 
 - **Fully local inference** — all completions go through portal-pipeline (:9099) to Ollama
   on your hardware. No tokens leave the machine.
-- **All workspaces as models** — `opencode models` lists every Portal 5 workspace, currently
-  104 (`python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
-  Default: `portal/auto-coding-agentic` (Laguna-XS.2 33B-A3B with FastContext explore loop).
+- **All workspaces as models** — `opencode models` lists every Portal 5 workspace
+  (`python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`
+  for the current total — 21 functional + 60 `bench-*` as of BUILD_PROGRAM_COLLAPSE_V1.md).
+  Default: `portal/auto-coding-agentic` — this and the other `auto-agentic*`/`auto-pentest`/
+  `auto-purpleteam-exec` names below are pre-collapse workspace ids folded into `auto-coding`/
+  `auto-security` `?variant=` params; they still resolve unchanged via a legacy-alias shim
+  (`_resolve_legacy_workspace_alias` in `portal/platform/inference/router/preinject.py`).
 - **All MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
   filesystem, git, docker, sandbox, pipeline, and every other portal-* tool server — currently
   22 total (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`).

@@ -67,26 +67,36 @@ curl -s http://localhost:11434/api/ps | jq '.models[] | {name, size_vram}'
 
 **How:** Select a workspace from the model dropdown in the top bar.
 
+Since BUILD_PROGRAM_COLLAPSE_V1.md, Portal 5 ships **21 functional workspaces** (plus 60
+`bench-*` workspaces for model comparison, gated off by default behind the `eval` module —
+`portal module enable eval` to expose them). Several former sibling workspaces were folded
+into one base workspace's `?variant=` query param (or a persona's `variant:` field) instead
+of a separate workspace each — e.g. `auto-security`'s `redteam`/`blueteam`/`purpleteam`/
+`pentest`/`uncensored` variants, `auto-coding`'s `laguna`/`heavy`/`lite`/`uncensored` variants.
+
 | Workspace | Select this when... | Routes to |
 |-----------|---------------------|-----------|
-| Portal Auto Router | You're unsure | LLM router classifies intent → best-fit workspace (Ollama) |
-| Portal Daily Driver | Everyday chat, writing, summarization, planning (snappy) | Gemma-4-26B-A4B-IT (Ollama) |
-| Portal Code Expert | Writing or reviewing code | Qwen3-Coder-30B MoE (Ollama) |
-| Portal Security Analyst | Security questions | Qwen3.6-27B (Ollama) · BaronLLM (Ollama) |
-| Portal Red Team | Offensive security | Qwen3.6-27B (Ollama) · BaronLLM (Ollama) |
-| Portal Blue Team | Incident response | sylink:8b (Ollama) — SOC triage, DFIR, ATT&CK |
-| Portal Creative Writer | Stories, scripts | Gemma-4-heretic (Ollama) · Dolphin (Ollama) |
-| Portal Deep Reasoner | Complex analysis | Qwen3.6-27B (Ollama) · DeepSeek-R1 (Ollama) |
-| Portal Document Builder | Word/Excel/PPT files | Granite-4.1-8B (Ollama) + Documents MCP |
-| Portal Video Creator | Text-to-video | Granite-4.1-8B (Ollama) + Video MCP |
-| Portal Music Producer | Generate music | Qwen3.5-abliterated (Ollama) + Music MCP |
-| Portal Research Assistant | Web research | Gemma-4-26B-A4B-IT (Ollama) · Tongyi-DeepResearch (Ollama) |
-| Portal Vision | Image analysis | Gemma-4-26B-A4B-IT (Ollama) · Qwen3-VL (Ollama) |
-| Portal Data Analyst | Statistics, analysis | Granite-4.1-30B (Ollama) |
-| Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Granite-4.1-30B (Ollama) · DeepSeek-R1 (Ollama) |
-| Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small (Ollama) |
-| Portal SPL Engineer | Writing or debugging Splunk SPL queries | Qwen3-Coder-Next-abliterated 80B (Ollama) |
-| Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding tasks | Qwen3-Coder-Next 80B (Ollama) |
+| Portal Auto Router (`auto`) | You're unsure | LLM router classifies intent → best-fit workspace (Ollama) |
+| Portal Daily Driver (`auto-daily`) | Everyday chat, writing, summarization, planning (snappy) | Gemma-4-26B-A4B-IT (Ollama) |
+| Portal Code Expert (`auto-coding`) | Writing or reviewing code | Qwen3-Coder-30B MoE (Ollama) — `?variant=laguna/heavy/lite/uncensored(-agentic)/northmini/ornith` for the folded siblings |
+| Portal Security Analyst (`auto-security`) | Security questions | VulnLLM-R-7B (Ollama) — `?variant=redteam(-deep)/blueteam/purpleteam(-deep/-exec)/pentest/uncensored` for the folded siblings |
+| Portal Creative Writer (`auto-creative`) | Stories, scripts | Qwen3.6-35B-A3B-Uncensored (Ollama) |
+| Portal Deep Reasoner (`auto-reasoning`) | Complex analysis | DeepSeek-R1-0528-Qwen3-8B (Ollama) |
+| Portal Document Builder (`auto-documents`) | Word/Excel/PPT files | Granite-4.1-8B (Ollama) + Documents MCP |
+| Portal Video Creator (`auto-video`) | Text-to-video | Granite-4.1-8B (Ollama) + Video MCP |
+| Portal Music Producer (`auto-music`) | Generate music | LFM2.5-8B (Ollama) + Music MCP |
+| Portal Audio Analyst (`auto-audio`) | Audio transcription, speech understanding | Gemma-4-12B (Ollama) |
+| Portal Research Assistant (`auto-research`) | Web research | Tongyi-DeepResearch (Ollama) |
+| Portal Vision (`auto-vision`) | Image analysis | Qwen3-VL-32B (Ollama) |
+| Portal Data Analyst (`auto-data`) | Statistics, analysis | Granite-4.1-30B (Ollama) |
+| Portal Compliance Analyst (`auto-compliance`) | NERC CIP/HIPAA/GDPR/PCI-DSS/SOC2 gap analysis | Granite-4.1-8B (Ollama) |
+| Portal Math Reasoner (`auto-math`) | Proofs, calculus, algebra, statistics | Phi-4-mini-reasoning (Ollama) |
+| Portal SPL Engineer (`auto-spl`) | Splunk SPL queries, YARA rules, detection authoring | Qwen3-Coder-Next-abliterated 80B (Ollama) |
+| Portal BigFix Analyst (`auto-bigfix`) | HCL BigFix endpoint mgmt / patch compliance | Qwen3-Coder-30B (Ollama) |
+| Portal CAD / 3D-Print Designer (`auto-cad`) | Parametric 3D-model generation | Qwen3-Coder-30B (Ollama) + CAD Render MCP |
+| Portal General (Uncensored) (`auto-general-uncensored`) | Uncensored generalist + reasoning | Qwen3.6-abliterated 27B (Ollama) |
+| Portal Extract (Uncensored) (`auto-extract-uncensored`) | Uncensored text extraction/summarization | LFM2.5-8B-A1B-Uncensored (Ollama) |
+| Portal Tool Composer (`tools-specialist`) | Structured function/API calling | Granite-4.1-8B (Ollama) |
 
 **Example — coding:**
 1. Select `Portal Code Expert`
@@ -99,7 +109,8 @@ curl -s http://localhost:11434/api/ps | jq '.models[] | {name, size_vram}'
 curl -s http://localhost:9099/v1/models \
   -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
   | python3 -m json.tool | grep '"id"'
-# Expected: 90 workspace IDs total (42 auto-/tools-specialist + 48 bench-*)
+# Expected: 21 functional workspace IDs (plus 60 bench-* if the eval module is enabled) —
+# python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; print(len(WORKSPACES))"
 ```
 
 ---
@@ -110,27 +121,23 @@ curl -s http://localhost:9099/v1/models \
 
 **How:** Select a persona from the model dropdown (alongside workspaces).
 
-**Available personas (96 production + 54 benchmark = 150 total):**
-
-| Category | Count | Personas |
-|----------|-------|----------|
-| Development | 24 | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, Codebase WIKI Documentation, Creative Coder, DevOps Automator, DevOps Engineer, E2E Debugger, E2E Test Author, Ethereum Developer, Form Filler, Fullstack Developer, GitHub Expert, Go Engineer, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Rust Engineer, Senior Frontend Dev, Senior Software Engineer, Software QA Tester, TypeScript Engineer, UX/UI Developer |
-| Data | 10 | Dashboard Architect, Data Analyst, Data Extractor, Data Scientist, Database Architect, Excel Sheet, Machine Learning Engineer, Phi-4 STEM Analyst, Research Analyst, Statistician |
-| General | 9 | Agent Orchestrator, Business Analyst, Daily Driver, Interview Coach, IT Expert, Personal Assistant, Product Manager, Tech Reviewer, Web Navigator |
-| Research | 7 | Fact Checker, Gemma Research Analyst, Knowledge Base Navigator, Market Analyst, Paywalled Researcher, SuperGemma4 Uncensored Researcher, Web Researcher |
-| Security | 7 | Blue Team Defender, Cyber Security Specialist, Network Engineer, Penetration Tester, Red Team Operator, Splunk Detection Author, Splunk SPL Engineer |
-| Vision | 7 | Chart Analyst, Code Screenshot Reader, Diagram Reader, Gemma 4 Edge Vision, Gemma 4 JANG Unfiltered Vision, OCR Specialist, Whiteboard Converter |
-| Compliance | 7 | CIP Policy Writer, Compliance Analyst (Multi-Framework), GDPR DPO, HIPAA Privacy Officer, NERC CIP Compliance Analyst, PCI-DSS Assessor, SOC 2 Auditor |
-| Writing | 6 | Creative Writer, Documentation Architect, Hermes Narrative Writer, Proofreader, Tech Writer, Transcript Analyst |
-| Reasoning | 4 | GPT-OSS Analyst, Magistral Strategist, Math Reasoner, Phi-4 Technical Analyst |
-| Systems | 3 | Linux Terminal, SQL Terminal, Terraform Writer |
-| Architecture | 1 | IT Architect |
-| Benchmark | 54 | bench-agentworld, bench-devstral, bench-devstral-small-2, bench-glm, bench-glm-reap, bench-glm-z1-rumination, bench-gptoss, bench-granite41-8b, bench-granite41-30b, bench-laguna, bench-lfm25-8b, bench-nex-n2-mini, bench-omnicoder2, bench-qwable-35b, bench-qwen35-abliterated, bench-qwen36-27b, bench-qwen36-35b-a3b, bench-qwen36-35b-a3b-ud, bench-qwen3-coder-30b, bench-qwen3-coder-next, bench-sylink, bench-vulnllm-r7b, and others (see WORKSPACES for full list) |
+**Available personas:** currently `ls config/personas/*.yaml | wc -l` (130 as of the
+BUILD_PROGRAM_COLLAPSE_V1.md collapse). Per Rule 12 this count and its per-module breakdown
+are derived, not hardcoded prose — get the live breakdown with:
+```bash
+python3 -m portal.platform.inference.cli module list
+```
+Of the 130, 27 CC-01 Asteroids benchmark personas share one of three deduped
+`prompt_template` files (`portal/modules/eval/persona_matrix/prompts/`) instead of each
+carrying its own copy of an identical creative-coder system prompt — see
+`config/personas/*.yaml`'s `prompt_template:`/`preferred_models:` fields and
+`KNOWN_LIMITATIONS.md`'s CC-01 entry. Each persona's `module:` field ties it to one of the
+9 discipline modules (`portal module status <name>` lists a module's persona roster).
 
 **Example — red team:**
 1. Select `Red Team Operator` from the model dropdown
 2. Type: `Analyze the attack surface of a typical REST API with JWT authentication`
-3. Gets routed to `auto-redteam` workspace — SuperGemma4-26B uncensored or Qwen3.5-abliterated (simulation only, no tool execution)
+3. Its `workspace_model: auto-security` + `variant: redteam` route it to SuperGemma4-26B uncensored or Qwen3.5-abliterated (simulation only, no tool execution)
 
 **Verify personas seeded:**
 ```bash
@@ -215,68 +222,76 @@ curl -s http://localhost:8914/health
 
 ## 6. Security Analysis
 
-**What:** Nine security-focused workspaces across three tiers — simulation, research, and execution.
+**What:** One base workspace (`auto-security`) covering research/simulation/execution tiers.
+Since BUILD_PROGRAM_COLLAPSE_V1.md Phase 6, the former nine sibling workspaces (redteam,
+blueteam, pentest, purpleteam×3, uncensored) are `?variant=` query params on `auto-security`
+(or a persona's `variant:` field) instead of separate workspaces — same models, same tool
+grants, just resolved via `_resolve_workspace_variant()` instead of a distinct workspace id.
 
-| Workspace | Tier | Model | Tools |
+| Variant | Tier | Model | Tools |
 |---|---|---|---|
-| `auto-security` | Research | VulnLLM-R-7B (AppSec/CVE specialist) | web_search, web_fetch, classify_vulnerability, execute_python, execute_bash, kb_search |
-| `auto-security-uncensored` | Research | VulnLLM-R-7B (no guardrails) | web_search, kb_search |
-| `auto-redteam` | Simulation | Qwen3.5-abliterated 9B | none |
-| `auto-redteam-deep` | Simulation | SuperGemma4-26B uncensored (0.915 bench) | none |
-| `auto-blueteam` | Research | sylink:8b (SOC triage, DFIR, ATT&CK) | web_search, web_fetch, classify_vulnerability, kb_search |
-| `auto-pentest` | Execution | Gemma4-E2B-QAT abliterated (~3GB, thinking model) | execute_bash, execute_python, web_search |
-| `auto-purpleteam` | Simulation | Qwen3.5-abliterated → Foundation-Sec-8B | none |
-| `auto-purpleteam-deep` | Simulation | 4-hop chain (red→blue→detect→IR) | none |
-| `auto-purpleteam-exec` | Execution | 4-hop chain, primary has live execution | execute_bash, execute_python, web_search |
+| *(base — no variant)* | Research | VulnLLM-R-7B (AppSec/CVE specialist) | web_search, web_fetch, classify_vulnerability, execute_python, execute_bash, kb_search |
+| `uncensored` | Research | BaronLLM abliterated (no guardrails) | execute_bash, execute_python, remember, recall |
+| `redteam` | Simulation | Qwen3.5-abliterated 9B | none |
+| `redteam-deep` | Simulation | SuperGemma4-26B uncensored (deep) | none |
+| `blueteam` | Research | Granite-4.1-8B (SOC triage, DFIR, ATT&CK) | web_search, web_fetch, classify_vulnerability, kb_search |
+| `pentest` | Execution | Gemma-4-E2B-QAT abliterated | execute_bash, execute_python, web_search |
+| `purpleteam` | Simulation, 2-hop | Qwen3.5-abliterated → Granite-4.1-8B | none |
+| `purpleteam-deep` | Simulation, 4-hop | Qwen3.5-abliterated → Granite-4.1-8B → Qwen3-Coder-30B → Qwen3.6-27B | none |
+| `purpleteam-exec` | Execution, 4-hop | SuperGemma4-26B (live exec) → same 3-hop detection/IR chain | execute_bash, execute_python, web_search |
 
-### Defensive Security (auto-security)
+### Defensive Security (auto-security, base)
 
 1. Select `Portal Security Analyst`
 2. Type: `Review this nginx config for security misconfigurations: [paste config]`
-3. Routes to BaronLLM with web_search and kb_search for current CVE lookup
+3. Routes to VulnLLM-R-7B with web_search and kb_search for current CVE lookup
 
-### Offensive Security — Simulation (auto-redteam / auto-redteam-deep)
+### Offensive Security — Simulation (`?variant=redteam` / `redteam-deep`)
 
-Red team workspaces generate structured ATT&CK content. **No tools** — simulation only.
+Red team variants generate structured ATT&CK content. **No tools** — simulation only.
 
-1. Select `Portal Red Team` (fast, 9B) or `Portal Red Team · Deep` (SuperGemma4-26B, denser ATT&CK coverage)
+1. Select `Portal Security Analyst`, add `?variant=redteam` (fast, 9B) or `?variant=redteam-deep` (SuperGemma4-26B, denser ATT&CK coverage)
 2. Type: `Enumerate attack vectors against an Active Directory environment with Kerberos`
 3. Output structured with `## ATTACK VECTORS`, `## EXPLOITATION`, `## PERSISTENCE`, `## DEFENDER CUE`
 
-LLM-based intent classifier auto-routes offensive prompts to `auto-redteam`; keyword scoring provides fallback (signals like "exploit", "payload", "shellcode" trigger routing).
+LLM-based intent classifier auto-routes offensive prompts to `auto-security` (the legacy-alias
+resolver maps old keyword-classifier targets like `auto-redteam` onto `(auto-security, redteam)`);
+keyword scoring provides fallback (signals like "exploit", "payload", "shellcode" trigger routing).
 
-### Penetration Testing with Execution (auto-pentest)
+### Penetration Testing with Execution (`?variant=pentest`)
 
-For **authorized** penetration tests only. JANG-CRACK 31B uses `execute_bash` and `execute_python` to validate commands live against real targets.
+For **authorized** penetration tests only. Uses `execute_bash` and `execute_python` to validate
+commands live against real targets.
 
-1. Select `Portal Pentest Assistant`
+1. Select `Portal Security Analyst`, add `?variant=pentest`
 2. Type: `The target runs Apache 2.4.49. Identify the CVE, confirm the vulnerability, and attempt path traversal to /etc/passwd`
 3. Model plans the attack, executes curl/exploit commands via tools, reports real output
 
-### Purple Team Chains
+### Purple Team Chains (`?variant=purpleteam` / `purpleteam-deep` / `purpleteam-exec`)
 
-Purple team workspaces run multi-hop chains — red team output feeds directly into blue team analysis.
+Purple team variants run multi-hop chains — red team output feeds directly into blue team analysis.
 
-**`auto-purpleteam`** (2-hop, ~3 min):
+**`purpleteam`** (2-hop, ~3 min):
 ```
 Attack scenario: AWS S3 bucket misconfiguration allowing public read access
 ```
 1. Hop 1 — Qwen3.5-abliterated: attack vectors, exploitation, persistence
-2. Hop 2 — Foundation-Sec-8B-Reasoning: detection, IOCs, mitigations
+2. Hop 2 — Granite-4.1-8B: detection, IOCs, mitigations
 
-**`auto-purpleteam-deep`** (4-hop, ~10-15 min):
+**`purpleteam-deep`** (4-hop, ~10-15 min):
 Same as above plus:
-3. Hop 3 — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries
+3. Hop 3 — Qwen3-Coder-30B: Sigma rules, Wazuh XML, hunting queries
 4. Hop 4 — Qwen3.6-27B: full IR playbook (triage → containment → recovery)
 
-**`auto-purpleteam-exec`** (4-hop with live execution, authorized targets only):
-Primary hop has `execute_bash`/`execute_python` — actually runs enumeration and PoC commands, passes real output through the detection/IR chain.
+**`purpleteam-exec`** (4-hop with live execution, authorized targets only):
+Primary hop (SuperGemma4-26B) has `execute_bash`/`execute_python` — actually runs enumeration
+and PoC commands, passes real output through the same detection/IR chain as `purpleteam-deep`.
 
-### Blue Team (auto-blueteam)
+### Blue Team (`?variant=blueteam`)
 
-1. Select `Portal Blue Team`
+1. Select `Portal Security Analyst`, add `?variant=blueteam`
 2. Type: `Analyze these firewall logs for indicators of compromise: [paste logs]`
-3. Routes to Foundation-Sec-8B-Reasoning (Cisco cybersec-trained, native `<think>` reasoning)
+3. Routes to Granite-4.1-8B with web_search, kb_search for SOC triage / DFIR / ATT&CK mapping
 
 **Verify security routing:**
 ```bash
@@ -285,7 +300,7 @@ curl -s http://localhost:9099/v1/chat/completions \
   -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
   -H "Content-Type: application/json" \
   -d '{"model": "auto", "messages": [{"role": "user", "content": "exploit vulnerability payload injection"}], "stream": false}'
-# Check logs for: Routing workspace=auto-redteam
+# Check logs for: Routing workspace=auto-security variant=redteam
 ```
 
 ---
