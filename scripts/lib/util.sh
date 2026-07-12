@@ -281,7 +281,7 @@ _ensure_native_services() {
     # explore_repository (FastContext subagent), and get_metrics_summary
     # to coding tools (Claude Code, opencode) via .mcp.json.
     local PIPELINE_MCP_PID_FILE="/tmp/portal-pipeline-mcp.pid"
-    local PIPELINE_MCP_MODULE="portal_mcp.platform.pipeline_mcp"
+    local PIPELINE_MCP_MODULE="portal.platform.mcp_host.pipeline_mcp"
     if [ -f "$PIPELINE_MCP_PID_FILE" ] && kill -0 "$(cat "$PIPELINE_MCP_PID_FILE")" 2>/dev/null; then
         echo "[portal-5]   ✅ Pipeline MCP: running (PID $(cat "$PIPELINE_MCP_PID_FILE"))"
     else
