@@ -266,14 +266,23 @@ def main(argv: list[str] | None = None) -> int:
             by_cat.setdefault(r["category"], []).append(r)
         print(f"\n{model}:", file=sys.stderr)
         for cat, cat_results in sorted(by_cat.items()):
-            hits = sum(1 for r in cat_results if r["hit_top_k"])
-            total = len(cat_results)
+            scored = [r for r in cat_results if r["hit_top_k"] is not None]
+            hits = sum(1 for r in scored if r["hit_top_k"])
+            total = len(scored)
             pct = (hits / total * 100) if total else 0
-            print(f"  {cat:15s}: {hits:3d}/{total:3d} ({pct:.1f}%)", file=sys.stderr)
-        all_hits = sum(1 for r in results if r["hit_top_k"])
-        all_total = len(results)
+            unscored = len(cat_results) - total
+            unscored_note = f" (+{unscored} unscored)" if unscored else ""
+            print(f"  {cat:15s}: {hits:3d}/{total:3d} ({pct:.1f}%){unscored_note}", file=sys.stderr)
+        all_scored = [r for r in results if r["hit_top_k"] is not None]
+        all_hits = sum(1 for r in all_scored if r["hit_top_k"])
+        all_total = len(all_scored)
         all_pct = (all_hits / all_total * 100) if all_total else 0
-        print(f"  {'OVERALL':15s}: {all_hits:3d}/{all_total:3d} ({all_pct:.1f}%)", file=sys.stderr)
+        all_unscored = len(results) - all_total
+        all_unscored_note = f" (+{all_unscored} unscored)" if all_unscored else ""
+        print(
+            f"  {'OVERALL':15s}: {all_hits:3d}/{all_total:3d} ({all_pct:.1f}%){all_unscored_note}",
+            file=sys.stderr,
+        )
 
     return 0
 
