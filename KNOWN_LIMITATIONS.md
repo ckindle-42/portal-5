@@ -178,10 +178,10 @@ workspaces to general-purpose GGUF substitutes:
 
 | Workspace(s) | Original (MLX) | Now served (Ollama GGUF) | Gap |
 |---|---|---|---|
-| `auto-blueteam`, `bench-foundation-sec` | Foundation-Sec-8B-Reasoning (Cisco, purpose-trained defender cybersec: CVE→CWE, MITRE ATT&CK, SOC triage) | Foundation-Sec-8B-Reasoning Q8_0 GGUF (Cisco fdtn-ai, first-party, ~8.5GB) | RESTORED (P5-FUT-PARITY-001) |
+| `auto-security` (blueteam variant), `bench-foundation-sec` | Foundation-Sec-8B-Reasoning (Cisco, purpose-trained defender cybersec: CVE→CWE, MITRE ATT&CK, SOC triage) | Foundation-Sec-8B-Reasoning Q8_0 GGUF (Cisco fdtn-ai, first-party, ~8.5GB) | RESTORED (P5-FUT-PARITY-001) |
 | `tools-specialist`, `bench-toolace25` | ToolACE-2.5-Llama-3.1-8B (Team-ACE, BFCL-topping tool-caller) | granite4.1:8b (general tool-tagged, BFCL V3 68.27, first-party IBM) | ACCEPTED — granite4.1:8b adopted; ToolACE-2.5 dropped (P5-FUT-PARITY-001 closed) |
 
-**Status — Foundation-Sec:** RESTORED to the auto-blueteam production primary
+**Status — Foundation-Sec:** RESTORED to auto-security's 'blueteam' variant production primary
 via the first-party Cisco GGUF `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`
 (TASK_PARITY_FOUNDATION_SEC_V1, direct swap, no bench gate — consistent with how
 the original MLX→Ollama migration set models by assumption; this restores the
@@ -297,9 +297,9 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
   pain point, consider promoting this pattern into `scripts/`.
 
 ### P5-MLX-EVAL-005 — Two security-tier fine-tunes have no working MLX conversion
-- **Description**: `supergemma4-26b-uncensored` (auto-purpleteam-exec,
-  auto-redteam-deep) and `huihui_ai/gemma-4-abliterated:E2b-qat`
-  (auto-pentest) were searched across multiple HF uploaders (mlx-community,
+- **Description**: `supergemma4-26b-uncensored` (auto-security's
+  `purpleteam-exec`/`redteam-deep` variants) and `huihui_ai/gemma-4-abliterated:E2b-qat`
+  (auto-security's `pentest` variant) were searched across multiple HF uploaders (mlx-community,
   Jiunsong, aa221241, EZCon). Every MLX conversion found for these specific
   fine-tunes is a multimodal/vision-language checkpoint (`language_model.*`
   prefixed weights) that crashes on plain text-only `mlx_lm` load with

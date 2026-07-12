@@ -34,12 +34,13 @@ def _resolve_persona_workspace(workspace_id: str) -> str:
     return workspace_id
 
 
-# Legacy workspace ids folded into auto-coding's variants (BUILD_PROGRAM_COLLAPSE_V1.md
-# Phase 5). routing.py's keyword classifier (_WORKSPACE_ROUTING) still emits
-# "auto-agentic" and "auto-coding-agentic" as detected targets — that's
-# scoring-axis content, explicitly off-limits to edit (DESIGN §9). Aliasing the
-# now-deleted id to (base workspace, variant) here, post-classification, keeps
-# the classifier's output meaningful without touching its keywords/thresholds.
+# Legacy workspace ids folded into auto-coding's / auto-security's variants
+# (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6). routing.py's keyword classifier
+# (_WORKSPACE_ROUTING) still emits "auto-agentic", "auto-coding-agentic", and
+# "auto-redteam" as detected targets — that's scoring-axis content, explicitly
+# off-limits to edit (DESIGN §9). Aliasing the now-deleted id to (base
+# workspace, variant) here, post-classification, keeps the classifier's
+# output meaningful without touching its keywords/thresholds.
 _LEGACY_WORKSPACE_ALIASES: dict[str, tuple[str, str]] = {
     "auto-coding-agentic": ("auto-coding", "laguna"),
     "auto-coding-northmini": ("auto-coding", "northmini"),
@@ -48,6 +49,14 @@ _LEGACY_WORKSPACE_ALIASES: dict[str, tuple[str, str]] = {
     "auto-agentic": ("auto-coding", "heavy"),
     "auto-agentic-lite": ("auto-coding", "lite"),
     "auto-agentic-ornith": ("auto-coding", "ornith"),
+    "auto-security-uncensored": ("auto-security", "uncensored"),
+    "auto-pentest": ("auto-security", "pentest"),
+    "auto-blueteam": ("auto-security", "blueteam"),
+    "auto-redteam": ("auto-security", "redteam"),
+    "auto-redteam-deep": ("auto-security", "redteam-deep"),
+    "auto-purpleteam": ("auto-security", "purpleteam"),
+    "auto-purpleteam-deep": ("auto-security", "purpleteam-deep"),
+    "auto-purpleteam-exec": ("auto-security", "purpleteam-exec"),
 }
 
 

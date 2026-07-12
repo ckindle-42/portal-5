@@ -83,7 +83,7 @@ Everything runs with a single command. No manual configuration.
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
-Portal 5 includes **37 functional workspaces** (plus 60 benchmark workspaces for performance comparison, gated off by default behind the `eval` module — see `coding_task/BUILD_PROGRAM_COLLAPSE_V1.md`; 97 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
+Portal 5 includes **29 functional workspaces** (plus 60 benchmark workspaces for performance comparison, gated off by default behind the `eval` module — see `coding_task/BUILD_PROGRAM_COLLAPSE_V1.md`; 89 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
 
 ### Functional Workspaces
 
@@ -114,17 +114,9 @@ Portal 5 includes **37 functional workspaces** (plus 60 benchmark workspaces for
 | `auto-devstral` | Devstral-Small-2 agentic coding lane | execute_bash |
 | `auto-glm` | GLM-4.7-Flash REAP — non-Meta/Qwen lineage diversity | — |
 | `auto-glm-thinking` | GLM-Z1-Rumination 32B extended reasoning | — |
-| `auto-security` | Security analysis, CVE triage, hardening | web_search, kb_search |
-| `auto-security-uncensored` | Uncensored security analysis, no refusal guardrails | web_search, kb_search |
+| `auto-security` | Security analysis, CVE triage, hardening. 8 former sibling workspaces (auto-security-uncensored, auto-pentest, auto-blueteam, auto-redteam(-deep), auto-purpleteam(-deep/-exec)) are now `?variant=` query params or a persona's `variant:` field — `uncensored`, `pentest` (JANG-CRACK 31B, live execution), `blueteam` (sylink:8b, threat hunting), `redteam`/`redteam-deep` (SuperGemma4-26B), `purpleteam`/`purpleteam-deep`/`purpleteam-exec` (2/4-hop red→blue chains, exec = live attack + detection + IR playbook) | web_search, kb_search (exec/pentest variants add execute_bash, execute_python) |
 | `auto-general-uncensored` | General uncensored assistant | — |
 | `auto-extract-uncensored` | Uncensored information extraction | — |
-| `auto-redteam` | Offensive security — structured ATT&CK output, simulation only | — |
-| `auto-redteam-deep` | High-fidelity red team — SuperGemma4-26B (0.915 bench) | — |
-| `auto-blueteam` | Defensive security, incident response, threat hunting — sylink:8b primary | — |
-| `auto-pentest` | Authorized pentest assistant with live execution — JANG-CRACK 31B | execute_bash, execute_python, web_search |
-| `auto-purpleteam` | Two-hop purple team chain — red → blue | — |
-| `auto-purpleteam-deep` | Four-hop purple team — red → blue → Sigma/Wazuh → IR playbook | — |
-| `auto-purpleteam-exec` | Execution-mode purple team — live attack + detection + IR playbook | execute_bash, execute_python, web_search |
 | `tools-specialist` | Tool-use specialist — structured output, function calling (Granite 4.1 8B) | — |
 
 ### Benchmark Workspaces (user-selected only)

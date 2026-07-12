@@ -175,7 +175,9 @@ class TestBackendModelHintRouting:
             )
 
     def test_security_workspaces_use_security_models(self):
-        """Security-focused workspaces must route to security-group backends."""
+        """Security-focused workspace (post-collapse: auto-security, all
+        role/depth variants folded in as of BUILD_PROGRAM_COLLAPSE_V1.md
+        Phase 6) must route to security-group backends."""
         from pathlib import Path
 
         import yaml
@@ -183,33 +185,41 @@ class TestBackendModelHintRouting:
         cfg = yaml.safe_load(Path("config/backends.yaml").read_text())
         routing = cfg.get("workspace_routing", {})
 
-        for ws_id in [
-            "auto-security",
-            "auto-redteam",
-            "auto-blueteam",
-            "auto-purpleteam-exec",
-            "auto-pentest",
-        ]:
-            groups = routing.get(ws_id, [])
-            assert "security" in groups, (
-                f"Workspace '{ws_id}' should prefer security group, got: {groups}"
-            )
+        groups = routing.get("auto-security", [])
+        assert "security" in groups, (
+            f"Workspace 'auto-security' should prefer security group, got: {groups}"
+        )
 
     def test_exec_workspaces_have_execute_bash_tool(self):
-        """auto-purpleteam-exec and auto-pentest must declare execute_bash in their tool list."""
+        """auto-security's purpleteam-exec/pentest variants must declare
+        execute_bash in their tool list (BUILD_PROGRAM_COLLAPSE_V1.md Phase 6
+        folded auto-purpleteam-exec/auto-pentest into these variants)."""
+        from portal.platform.inference.router.preinject import (
+            _resolve_legacy_workspace_alias,
+            _resolve_workspace_variant,
+        )
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        for ws_id in ["auto-purpleteam-exec", "auto-pentest"]:
-            tools = WORKSPACES[ws_id].get("tools", [])
+        for legacy_id in ["auto-purpleteam-exec", "auto-pentest"]:
+            base, variant = _resolve_legacy_workspace_alias(legacy_id)
+            resolved_id = _resolve_workspace_variant(legacy_id, base, variant)
+            tools = WORKSPACES[resolved_id].get("tools", [])
             assert "execute_bash" in tools, (
-                f"Exec workspace '{ws_id}' must include execute_bash in tools list"
+                f"Exec workspace '{legacy_id}' must include execute_bash in tools list"
             )
 
     def test_purpleteam_exec_has_chain_hops(self):
-        """auto-purpleteam-exec must define at least 3 follow-on chain hops."""
+        """auto-security's purpleteam-exec variant must define at least 3
+        follow-on chain hops (was auto-purpleteam-exec, Phase 6)."""
+        from portal.platform.inference.router.preinject import (
+            _resolve_legacy_workspace_alias,
+            _resolve_workspace_variant,
+        )
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        chain = WORKSPACES["auto-purpleteam-exec"].get("chain", [])
+        base, variant = _resolve_legacy_workspace_alias("auto-purpleteam-exec")
+        resolved_id = _resolve_workspace_variant("auto-purpleteam-exec", base, variant)
+        chain = WORKSPACES[resolved_id].get("chain", [])
         assert len(chain) >= 3, (
             f"auto-purpleteam-exec chain must have ≥3 hops (blue/detect/IR), got {len(chain)}"
         )

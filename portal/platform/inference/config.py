@@ -90,6 +90,8 @@ class WorkspaceSpec(BaseModel):
     depth: Literal["default", "deep", "exec"] = "default"
     guardrail: Literal["default", "uncensored"] = "default"
     variant: str = "default"
+    # security-specific axis (Phase 6): red/blue/purple/pentest engagement role
+    role: Literal["red", "blue", "purple", "pentest"] = "purple"
 
     # --- Named variant overrides (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6) ---
     # variant name -> partial field overrides, applied on top of this workspace's
