@@ -27,3 +27,9 @@ portal.modules.media.tools: comfyui_mcp (:8910, image), video_mcp (:8911), music
 - auto-audio
 - auto-creative
 - auto-music
+
+## Module State
+
+```yaml
+enabled: true
+```

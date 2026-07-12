@@ -29,6 +29,7 @@ externally vendored MCP servers.
 
 ```yaml
 module: general
+enabled: true
 tools:
   - filesystem
   - fetch

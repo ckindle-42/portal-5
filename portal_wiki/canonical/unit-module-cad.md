@@ -25,3 +25,9 @@ portal.modules.cad.tools.cad_render_mcp (:8926)
 ## Workspaces
 
 - auto-cad
+
+## Module State
+
+```yaml
+enabled: true
+```

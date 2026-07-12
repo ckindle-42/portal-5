@@ -27,3 +27,9 @@ No dedicated MCP server; uses security's compliance_report.py
 - auto-compliance
 
 Config-only module, same pattern as general — no Portal-owned tool code to relocate.
+
+## Module State
+
+```yaml
+enabled: true
+```

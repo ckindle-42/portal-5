@@ -35,3 +35,9 @@ portal.modules.coding.tools.code_sandbox_mcp — isolated code execution (:8914)
 - auto-devstral
 
 Also uses the general module's filesystem/git base tools for repo work.
+
+## Module State
+
+```yaml
+enabled: true
+```
