@@ -426,6 +426,14 @@ async def _try_non_streaming(
                     len(_ns_tool_calls),
                 )
 
+            # Salient memory write-back (fire-and-forget; once per OWUI turn).
+            # Persists only salient USER statements; no-op unless the workspace
+            # sets memory_writeback. Never blocks or fails the response.
+            from portal.platform.inference.router.context_inject import schedule_writeback
+            from portal.platform.inference.router.correlation import get_correlation_id
+
+            schedule_writeback(workspace_id, body.get("messages", []), get_correlation_id())
+
             return _apply_non_stream_response(data, backend, workspace_id, target_model, start_time)
         except httpx.TimeoutException:
             raise  # propagate so outer handler can check /api/ps

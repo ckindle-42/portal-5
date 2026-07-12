@@ -3,10 +3,6 @@ import asyncio
 import portal.platform.inference.router.context_inject as ci
 
 
-def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
-
-
 def test_extract_snippets_shapes():
     assert ci._extract_snippets({"error": "x"}) == []
     assert ci._extract_snippets({"results": [{"text": "a"}, "b"]}) == ["a", "b"]
@@ -55,3 +51,20 @@ def test_salience_explicit_marker():
 def test_salience_skips_ordinary_question():
     msgs = [{"role": "user", "content": "what is the capital of France?"}]
     assert ci._salient_user_text(msgs, "ws") is None
+
+
+def test_writeback_noop_when_not_opted_in(monkeypatch):
+    monkeypatch.setattr(ci, "_AUTO_MEMORY_WRITEBACK_ENABLED", True)
+    before = len(ci._writeback_tasks)
+    ci.schedule_writeback(
+        "ws-without-flag", [{"role": "user", "content": "remember that x"}], "cid"
+    )
+    assert len(ci._writeback_tasks) == before
+
+
+def test_writeback_all_captures_everything(monkeypatch):
+    from portal.platform.inference.router.workspaces import WORKSPACES
+
+    monkeypatch.setitem(WORKSPACES, "ws-aggr", {"memory_writeback_all": True})
+    msgs = [{"role": "user", "content": "the capital of France is Paris"}]
+    assert ci._salient_user_text(msgs, "ws-aggr") is not None
