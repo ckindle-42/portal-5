@@ -59,9 +59,20 @@ def _warmup(client: httpx.Client, model: str) -> bool:
 
 
 def _run_one(client: httpx.Client, model: str, prompt: str, run_num: int) -> dict:
+    """Run one streaming trial.
+
+    Reasoning-model note (mirrors bench/measure.py): a "thinking" model
+    (gemma4's Capabilities list includes ``thinking``) emits most or all
+    of a response through ``delta.reasoning``, not ``delta.content`` —
+    counting only content silently reports "empty response" for models
+    that are actually generating plenty of tokens, and undercounts TPS
+    for any model that reasons before answering. Reasoning tokens are
+    real generation work and count toward TPS here, same as bench_tps.
+    """
     t0 = time.perf_counter()
     completion_tokens = 0
     response_text = ""
+    reasoning_text = ""
     try:
         with client.stream(
             "POST",
@@ -87,6 +98,7 @@ def _run_one(client: httpx.Client, model: str, prompt: str, run_num: int) -> dic
                 choices = obj.get("choices") or []
                 delta = choices[0].get("delta", {}) if choices else {}
                 response_text += delta.get("content") or ""
+                reasoning_text += delta.get("reasoning") or ""
                 usage = obj.get("usage") or {}
                 if usage.get("completion_tokens"):
                     completion_tokens = usage["completion_tokens"]
@@ -94,8 +106,9 @@ def _run_one(client: httpx.Client, model: str, prompt: str, run_num: int) -> dic
         return {"run": run_num, "error": str(e)[:150]}
 
     elapsed = time.perf_counter() - t0
-    if completion_tokens == 0 and response_text.strip():
-        completion_tokens = max(1, len(response_text.split()))
+    combined_text = response_text + (" " + reasoning_text if reasoning_text else "")
+    if completion_tokens == 0 and combined_text.strip():
+        completion_tokens = max(1, len(combined_text.split()))
     if completion_tokens == 0:
         return {"run": run_num, "error": "empty response"}
     tps = completion_tokens / elapsed if elapsed > 0 else 0.0

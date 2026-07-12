@@ -46,7 +46,7 @@ docs:
     sources:
     - portal/platform/inference/
     - tests/
-    last_reconciled_commit: a2dce8c
+    last_reconciled_commit: 1a3a91ebed1aee824ec6963897cd4be9e863d407
   docs/USER_GUIDE.md:
     sources:
     - config/personas/
@@ -81,7 +81,7 @@ docs:
     sources:
     - config/backends.yaml
     - tests/benchmarks/
-    last_reconciled_commit: a2dce8c
+    last_reconciled_commit: 1a3a91ebed1aee824ec6963897cd4be9e863d407
   docs/MCP_DEV_TOOLING.md:
     sources:
     - portal/modules/
@@ -112,7 +112,7 @@ docs:
     sources:
     - deploy/
     - tests/
-    last_reconciled_commit: a2dce8c
+    last_reconciled_commit: 1a3a91ebed1aee824ec6963897cd4be9e863d407
   docs/PERSONA_MATRIX_CI.md:
     sources:
     - portal/modules/eval/persona_matrix/
