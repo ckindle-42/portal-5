@@ -138,6 +138,15 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 - **Description**: The CC-01 Asteroids bench (`bench-*` workspaces) intentionally surfaces raw model differences on a fixed task. All bench personas share an identical creative-coder system prompt — score variance reflects model capability, not a test harness defect.
 - **Operator action**: Use bench scores as model-selection signal. A model scoring ≤3/5 on CC-01 is not a candidate for `auto-coding` HTML generation tasks.
 
+### Tool Preselection — Candidate 1B Models Cannot Rank Tools
+- **ID**: P5-TOOLPRESELECT-001
+- **Status**: BUILT NOT DEPLOYED (halted at TASK_BUILD_TOOL_PRESELECT_V1 Phase 2 gate, 2026-07-12)
+- **Description**: `portal/platform/inference/tool_preselect/` implements query-level tool-schema preselection — a small fast model ranks a workspace's tools by relevance to the user's turn so only the top-K schemas are sent to the primary model. The module, config surface, parser, and metrics are built and unit-tested (54 tests, 90% coverage), shipped feature-flagged off (`PORTAL5_TOOL_PRESELECT=0`, default).
+- **Evidence**: Both candidate preselector models were bench-tested via `cli_probe.py` and direct Ollama calls: `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M` (base) and `hf.co/ewinregirgojr/MiniCPM5-1B-Agentic-Tooluse-GGUF:Q4_K_M` (tool-tuned fine-tune). Under the designed natural-language ranking prompt, both models spent their entire token budget on unrequested reasoning and never emitted a ranking. Under Ollama grammar-constrained JSON output (the same technique the production LLM workspace router uses successfully — see `router/routing.py::_route_with_llm`), both models produced syntactically valid but semantically nonsensical rankings (sequential counting, out-of-range indices) — ruling out prompt formatting as the cause.
+- **Impact**: None on production — the feature has never been enabled on any workspace and the fallback invariant (`preselected == effective_tools` on any failure) means even a hypothetical accidental enable would degrade to a no-op, not a broken tool call.
+- **Resolution path**: Revisit with a larger or purpose-built sub-2B tool-ranking model. The built Phase 1+2 code (config, prompt builder, resilient parser, Ollama-call integration, metrics, self-healing auto-disable state) is reusable as-is — only `PORTAL5_TOOL_PRESELECT_MODEL` needs to point at a model that actually passes the ranking task.
+- **Do not** re-attempt promotion without first re-running `cli_probe.py` against the new candidate and confirming a plausible top-K ranking (e.g. `web_search` ranking above `execute_bash` for an information-lookup query).
+
 ---
 
 ## MLX Inference Proxy — RETIRED (commit 3a0c58e)
