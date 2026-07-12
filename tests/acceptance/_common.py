@@ -42,7 +42,7 @@ if _env_file.exists():
 # ── Prometheus multiprocess guard ────────────────────────────────────────────
 # .env sets PROMETHEUS_MULTIPROC_DIR=/dev/shm/portal_metrics (Linux-only path).
 # On macOS test hosts where /dev/shm is absent, redirect to a writable temp dir
-# BEFORE any portal_pipeline import — prometheus_client reads the env var at
+# BEFORE any portal.platform.inference import — prometheus_client reads the env var at
 # metric-instantiation time, so this must be set before the first import.
 _prom_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR", "")
 if _prom_dir and not os.path.isdir(_prom_dir):
@@ -667,7 +667,6 @@ def _check_image_freshness() -> None:
             "portal-pipeline",
             "portal-5-portal-pipeline",
             [
-                "portal_pipeline/",
                 "portal/platform/inference/",
                 "config/backends.yaml",
                 "config/personas/",
@@ -678,7 +677,15 @@ def _check_image_freshness() -> None:
         (
             "mcp-services",
             "portal-5-mcp-documents",
-            ["portal_mcp/", "portal_channels/", "Dockerfile.mcp", "pyproject.toml"],
+            [
+                "portal/modules/",
+                "portal/platform/mcp_host/",
+                "portal/platform/memory/",
+                "portal_mcp/",
+                "portal_channels/",
+                "Dockerfile.mcp",
+                "pyproject.toml",
+            ],
         ),
     ]
     stale = []

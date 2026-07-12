@@ -68,7 +68,6 @@ def _check_image_freshness() -> list[str]:
             "portal-pipeline",
             "portal-5-portal-pipeline",
             [
-                "portal_pipeline/",
                 "portal/platform/inference/",
                 "config/backends.yaml",
                 "config/personas/",
@@ -80,7 +79,15 @@ def _check_image_freshness() -> list[str]:
         (
             "mcp-services",
             "portal-5-mcp-documents",
-            ["portal_mcp/", "portal_channels/", "Dockerfile.mcp", "pyproject.toml"],
+            [
+                "portal/modules/",
+                "portal/platform/mcp_host/",
+                "portal/platform/memory/",
+                "portal_mcp/",
+                "portal_channels/",
+                "Dockerfile.mcp",
+                "pyproject.toml",
+            ],
         ),
     ]
 
