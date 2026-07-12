@@ -410,6 +410,7 @@ See [MCP Dev Tooling](docs/MCP_DEV_TOOLING.md) for the full guide, workflow exam
 | [ComfyUI Setup](docs/COMFYUI_SETUP.md) | Advanced image/video model configuration |
 | [Fish Speech Setup](docs/FISH_SPEECH_SETUP.md) | Optional voice cloning TTS backend |
 | [Cluster Scaling](docs/CLUSTER_SCALE.md) | Running multiple Ollama instances |
+| [Agent Loop](docs/AGENT_LOOP.md) | Platform-core bounded agent loop (`portal/platform/agent/`) — contracts, discipline, `portal agent` CLI |
 | [Backup & Restore](docs/BACKUP_RESTORE.md) | Data backup procedures |
 | [Known Issues](KNOWN_ISSUES.md) | Current limitations and workarounds |
 
