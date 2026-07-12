@@ -22,6 +22,19 @@ logger = logging.getLogger(__name__)
 # global state when running with multiple uvicorn workers.
 _REGISTRY = CollectorRegistry(auto_describe=True)
 
+_auto_context_inject_total = Counter(
+    "portal5_auto_context_inject_total",
+    "Proactive context injection / write-back by source and outcome",
+    ["source", "outcome"],
+    registry=_REGISTRY,
+)
+_auto_context_latency_seconds = Histogram(
+    "portal5_auto_context_latency_seconds",
+    "Latency of proactive context injection dispatch",
+    ["source"],
+    registry=_REGISTRY,
+)
+
 _tokens_per_second = Histogram(
     "portal_tokens_per_second",
     "Tokens generated per second by model and workspace",
