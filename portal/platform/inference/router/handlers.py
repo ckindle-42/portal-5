@@ -32,6 +32,11 @@ from portal.platform.inference.router.auth import _verify_admin_key, _verify_key
 from portal.platform.inference.router.concurrency import (
     RequestSlot,
 )
+from portal.platform.inference.router.context_inject import (
+    inject_recalled_memory,
+    inject_retrieved_context,
+)
+from portal.platform.inference.router.correlation import get_correlation_id
 from portal.platform.inference.router.lifespan import (
     _startup_time,
 )
@@ -620,6 +625,14 @@ async def chat_completions(
         # but does not include them in the messages array. Inject a note into the last
         # user message so the model can reference audio/document file IDs in tool calls.
         body = _inject_attached_files(body)
+
+        # Phase 8: Auto-context injection — proactively recall cross-session
+        # memory and knowledge-base hits for opted-in workspaces, so grounding
+        # does not depend on the model volunteering a recall/kb_search call.
+        # Both no-op unless the workspace sets inject_memory / auto_rag.
+        _cid = get_correlation_id()
+        body = await inject_recalled_memory(workspace_id, body, _cid)
+        body = await inject_retrieved_context(workspace_id, body, _cid)
 
         # Per-workspace semaphore + gauge (M6-T05)
         await slot.acquire_workspace(workspace_id)

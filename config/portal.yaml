@@ -229,6 +229,7 @@ workspaces:
     description: |-
       Fast everyday assistant: chat, writing, editing, summarization, planning, light technical help. gemma4:26b-a4b-it-qat primary (Ollama, MoE 4B active, VLM, Apache 2.0, QAT near-BF16). Upgraded from q4_K_M → QAT (V8: +23% TPS, same ~15GB footprint). Daily-driver lane — escalates to specialist workspaces when needed.
     model_hint: gemma4:26b-a4b-it-qat-ctx8k
+    inject_memory: true
     context_limit: 8192
     predict_limit: 4096
     tools:
