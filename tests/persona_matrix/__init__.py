@@ -1,4 +1,7 @@
-"""Portal 5 — per-(persona, model) coverage matrix harness.
+"""SHIM — moved to portal.modules.eval.persona_matrix. Removed in the final cleanup slice."""
 
-extracted by TASK_DECOMPOSE_PERSONA_MATRIX_V1.
-"""
+import sys
+
+import portal.modules.eval.persona_matrix as _real
+
+sys.modules[__name__] = _real
