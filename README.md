@@ -66,6 +66,9 @@ Everything runs with a single command. No manual configuration.
 | ComfyUI | Image and video generation (host-native) | http://localhost:8188 |
 | MCP Servers (14) | ComfyUI (:8910), Video (:8911), Music (:8912), Documents (:8913), Code sandbox (:8914), Whisper (:8915), TTS (:8916), Security (:8919), Memory (:8920), RAG (:8921), Research (:8922), Browser (:8923), CAD render (:8926), Proxmox (:8927) | (internal) |
 | Pipeline MCP | Stack introspection + FastContext code explorer for Claude Code / opencode | :8928 (host-native) |
+| MITRE ATT&CK MCP | Technique lookup, data sources, detections — deterministic, not RAG | :8929 (internal) |
+| Detections MCP | SPL library search, validate_syntax, explain_detection | :8932 (internal) |
+| Wiki MCP | Canonical knowledge layer — search, get_unit, explain, cited answers | :8931 (internal) |
 | MLX Transcribe | Diarized transcription — mlx-whisper + pyannote (Apple Silicon) | :8924 (host-native) |
 | MLX Speech | Kokoro TTS + Qwen3-TTS/ASR (Apple Silicon) | :8918 (host-native) |
 | Embedding | Harrier-0.6B text embeddings for RAG | :8917 (host-native) |
@@ -80,7 +83,7 @@ Everything runs with a single command. No manual configuration.
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
-Portal 5 includes **42 functional workspaces** (plus 48 benchmark workspaces for performance comparison, 90 total).
+Portal 5 includes **44 functional workspaces** (plus 60 benchmark workspaces for performance comparison, 104 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
 
 ### Functional Workspaces
 
@@ -94,6 +97,8 @@ Portal 5 includes **42 functional workspaces** (plus 48 benchmark workspaces for
 | `auto-coding-uncensored-agentic` | Uncensored long-horizon agentic coding | Code sandbox, full tool suite |
 | `auto-agentic` | Long-horizon multi-file agentic coding — Qwen3-Coder-Next 80B MoE | Code sandbox, full tool suite |
 | `auto-agentic-lite` | Lightweight agentic coding — AgentWorld 35B (45 t/s) | Code sandbox |
+| `auto-agentic-ornith` | Agentic coding — Ornith-1.0 35B | Code sandbox |
+| `auto-coding-northmini` | Code generation — North-Mini-Code 1.0 QAD | Code sandbox |
 | `auto-reasoning` | Extended reasoning, complex analysis | — |
 | `auto-research` | Web research and synthesis | web_search, web_fetch |
 | `auto-vision` | Image understanding, visual Q&A (Qwen3-VL 32B) | — |
@@ -132,7 +137,7 @@ Portal 5 includes **42 functional workspaces** (plus 48 benchmark workspaces for
 ### Benchmark Workspaces (user-selected only)
 
 These pin a specific model for direct performance comparison. Not intended for daily use.
-Run `python3 -c "from portal_pipeline.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"` for the current full list (48 workspaces).
+Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"` for the current full list (currently 60 workspaces).
 
 | Workspace | Pinned model |
 |---|---|
@@ -364,10 +369,10 @@ By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allo
 Portal 5 ships first-class support for AI coding assistants. Two config files at the repo root
 activate automatically when either tool opens this project:
 
-- **`.mcp.json`** — 19 MCP servers: filesystem, git, docker, fetch, portal-sandbox (execute_bash),
-  portal-pipeline (FastContext code explorer + stack introspection), plus all 14 portal-* tool servers
+- **`.mcp.json`** — currently 22 MCP servers (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`): filesystem, git, docker, fetch, portal-sandbox (execute_bash),
+  portal-pipeline (FastContext code explorer + stack introspection), plus the other portal-* tool servers
 - **`opencode.jsonc`** — points opencode at portal-pipeline (:9099) as a fully local AI backend;
-  all 90 workspaces available as models; cloud providers disabled
+  all 104 workspaces available as models; cloud providers disabled
 
 **Claude Code** (uses Anthropic AI, Portal 5 as tool provider):
 ```bash

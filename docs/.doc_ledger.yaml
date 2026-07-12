@@ -1,0 +1,128 @@
+# Doc-currency ledger — see scripts/doc_ledger.py.
+# Each doc binds to the source paths that determine its correctness.
+# last_reconciled_commit = the commit the doc was last verified against.
+# A doc is STALE when a bound source changed in <commit>..HEAD.
+# Re-stamp after reconciling: python3 scripts/doc_ledger.py stamp <doc>
+# Never list a doc or this ledger as its own source.
+version: 1
+docs:
+  README.md:
+    sources:
+    - portal/platform/inference/
+    - config/portal.yaml
+    - config/backends.yaml
+    - config/personas/
+    - launch.sh
+    - portal/modules/
+    - portal_mcp/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  CLAUDE.md:
+    sources:
+    - config/portal.yaml
+    - config/backends.yaml
+    - portal/platform/inference/router/
+    - portal/platform/inference/tool_registry.py
+    - scripts/validate_system.py
+    - launch.sh
+    - portal/modules/
+    - portal/platform/
+    - portal_mcp/
+    - .env.example
+    - portal_wiki/canonical/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  KNOWN_LIMITATIONS.md:
+    sources:
+    - portal/platform/inference/
+    - config/backends.yaml
+    - portal/modules/
+    - portal_mcp/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  P5_ROADMAP.md:
+    sources:
+    - config/backends.yaml
+    - portal/platform/inference/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  KNOWN_ISSUES.md:
+    sources:
+    - portal/platform/inference/
+    - tests/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/USER_GUIDE.md:
+    sources:
+    - config/personas/
+    - config/portal.yaml
+    - portal/platform/inference/router/workspaces.py
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/ADMIN_GUIDE.md:
+    sources:
+    - launch.sh
+    - config/portal.yaml
+    - deploy/
+    - .env.example
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/HOWTO.md:
+    sources:
+    - launch.sh
+    - portal/modules/
+    - portal_mcp/
+    - scripts/mlx-speech.py
+    - scripts/mlx-transcribe.py
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/CLUSTER_SCALE.md:
+    sources:
+    - config/backends.yaml
+    - portal/platform/inference/cluster_backends.py
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/ALERTS.md:
+    sources:
+    - portal/platform/inference/notifications/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/PERFORMANCE.md:
+    sources:
+    - config/backends.yaml
+    - tests/benchmarks/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/MCP_DEV_TOOLING.md:
+    sources:
+    - portal/modules/
+    - portal_mcp/
+    - .mcp.json
+    - portal/platform/inference/tool_registry.py
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/COMFYUI_SETUP.md:
+    sources:
+    - portal/modules/media/tools/
+    - deploy/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/FISH_SPEECH_SETUP.md:
+    sources:
+    - scripts/mlx-speech.py
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/COMPLIANCE_FALLBACK_POLICY.md:
+    sources:
+    - config/backends.yaml
+    - config/personas/
+    - portal/platform/inference/router/routing.py
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/BACKUP_RESTORE.md:
+    sources:
+    - launch.sh
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/LAB_SETUP.md:
+    sources:
+    - deploy/
+    - tests/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/PERSONA_MATRIX_CI.md:
+    sources:
+    - portal/modules/eval/persona_matrix/
+    - .github/workflows/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/generated/ADMIN_GUIDE.md:
+    sources:
+    - portal_wiki/canonical/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8
+  docs/generated/ARCHITECTURE_MAP.md:
+    sources:
+    - portal_wiki/canonical/
+    last_reconciled_commit: 68a4db1ee6c10720e37350f4b7c0e1421a36a3c8

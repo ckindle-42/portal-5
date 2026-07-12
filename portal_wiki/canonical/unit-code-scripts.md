@@ -1,35 +1,35 @@
 ---
 id: unit-code-scripts
 kind: what
-title: scripts subsystem (37 files)
+title: scripts subsystem (38 files)
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: 3c7d4825cce8
+  commit: 68a4db1ee6c1
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py
-  commit: 3c7d4825cce8
+  commit: 68a4db1ee6c1
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
-  commit: 3c7d4825cce8
+  commit: 68a4db1ee6c1
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-readiness.py
-  commit: 3c7d4825cce8
+  commit: 68a4db1ee6c1
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-switch-benchmark.py
-  commit: 3c7d4825cce8
+  commit: 68a4db1ee6c1
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1783289793.935349
-updated_at: 1783289793.935349
+created_at: 1783828011.443041
+updated_at: 1783828011.443041
 ---
 
 # scripts subsystem
 
-**Files:** 37
+**Files:** 38
 
 - `scripts/_archive/analyze_bench_v5.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py`
@@ -47,8 +47,8 @@ updated_at: 1783289793.935349
 - `scripts/ci/check_generated_fresh.py`
 - `scripts/ci/check_no_identical_sources.py`
 - `scripts/ci/check_pyproject_no_dup.py`
+- `scripts/doc_ledger.py`
 - `scripts/embedding-server.py`
 - `scripts/gen-image.py`
 - `scripts/gen-video.py`
-- `scripts/lab_discover.py`
-- ... and 17 more
+- ... and 18 more

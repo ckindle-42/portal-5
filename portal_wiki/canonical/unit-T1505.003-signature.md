@@ -11,14 +11,16 @@ sources:
   path: exec_chain.py#mbptl_ctf_full_chain
 - type: scenario
   path: exec_chain.py#meta3_webdav_upload
+- type: scenario
+  path: exec_chain.py#mission_vulhub_multi_target
 last_generated_commit: ''
 confidence: high
 tags:
 - T1505.003
 - technique
 - signature
-created_at: 1783289794.010526
-updated_at: 1783289794.010526
+created_at: 1783828011.5178869
+updated_at: 1783828011.5178869
 ---
 
 # T1505.003 — Webshell — file-write + subsequent exec correlation
@@ -34,6 +36,7 @@ index=portal5_lab sourcetype="web:access" "uploads" ".php" | join host [search i
 
 - `mbptl_ctf_full_chain` — target: 10.0.1.140
 - `meta3_webdav_upload` — target: 10.10.11.10
+- `mission_vulhub_multi_target` — target: 10.10.11.50
 
 ## Per-Source Expected Signatures
 

@@ -69,12 +69,12 @@ huggingface-cli download Wan-AI/Wan2.2-TI2V-5B \
 
 ### Step 2 — Export ComfyUI workflow templates
 
-The Wan 2.2 workflow dicts in `portal_mcp/generation/video_mcp.py` are stubs until exported. For each variant:
+The Wan 2.2 workflow dicts in `portal/modules/media/tools/video_mcp.py` are stubs until exported. For each variant:
 
 1. Open ComfyUI → Workflow → Browse Templates → Video
 2. Load the template ("Wan2.2 14B T2V", "Wan2.2 5B TI2V", "Wan2.2-Animate-14B", "Wan2.2-S2V-14B")
 3. Verify the model loads and runs a test prompt
-4. Export as JSON and use the node graph to populate the corresponding `_WAN22_*_WORKFLOW` dict in `portal_mcp/generation/video_mcp.py`
+4. Export as JSON and use the node graph to populate the corresponding `_WAN22_*_WORKFLOW` dict in `portal/modules/media/tools/video_mcp.py`
 
 Until step 2 is completed, calling a `wan22-*` model preset will raise a `RuntimeError` with instructions.
 
