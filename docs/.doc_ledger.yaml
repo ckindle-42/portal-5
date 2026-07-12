@@ -29,7 +29,7 @@ docs:
     - portal_mcp/
     - .env.example
     - portal_wiki/canonical/
-    last_reconciled_commit: ea59f8a91bfc33f50e08fa76a4119c705ff015e6
+    last_reconciled_commit: 09a4e4a332ba8a0aa1e45af411bfb95c9144040a
   KNOWN_LIMITATIONS.md:
     sources:
     - portal/platform/inference/
