@@ -2,6 +2,10 @@ name: Compliance Analyst (Multi-Framework)
 slug: complianceanalyst
 category: compliance
 workspace_model: auto-compliance
+preferred_models:
+  - granite4.1:8b-ctx16k
+  - deepseek-r1:32b-q4_k_m
+  - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: compliance
 description: >
   Framework-agnostic compliance analysis: gap analysis, policy review, evidence

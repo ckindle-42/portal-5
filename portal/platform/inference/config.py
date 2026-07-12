@@ -155,6 +155,19 @@ class PersonaSpec(BaseModel):
     # variant: laguna to get the agentic Laguna-XS.2 lane instead of the
     # base single-turn Qwen3-Coder-30B. Resolved by resolve_workspace_variant().
     variant: str | None = None
+    # Ordered model fallback chain (BUILD_PROGRAM_COLLAPSE_V1.md Phase 8,
+    # DESIGN_COLLAPSE_V1.md §D6). First entry is the persona's current
+    # effective model (its resolved workspace/variant model_hint); later
+    # entries are same-discipline-group alternates from config/backends.yaml.
+    # Advisory metadata for now: ?model=<hint> (see resolve_model_override()
+    # in preinject.py) lets a caller explicitly select any entry in the
+    # chain; workspace_model/variant still determine which workspace serves
+    # the request (retiring workspace_model in favor of deriving the
+    # workspace from module alone was considered and deferred — several
+    # modules, e.g. general/media, still map to multiple distinct
+    # workspaces, which would need real disambiguation logic, not a config
+    # migration, to do safely).
+    preferred_models: list[str] = Field(default_factory=list)
     system_prompt: str = ""
     # Named reference to a shared prompt body under
     # portal/modules/eval/persona_matrix/prompts/<name>.txt

@@ -2,6 +2,8 @@ name: 🔬 Bench · Qwen3.6-27B Abliterated (huihui-ai)
 slug: bench-qwen36-abl-27b
 category: benchmark
 workspace_model: bench-huihui-qwen36-27b
+preferred_models:
+  - huihui_ai/Qwen3.6-abliterated:27b
 module: eval
 # huihui_ai/Qwen3.6-abliterated:27b (~17GB Q4, dense 27B, Apache 2.0)
 # Creative/music lane candidate — TASK_MODEL_FLEET_REFRESH_V2 Phase 4.

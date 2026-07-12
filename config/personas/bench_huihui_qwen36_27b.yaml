@@ -2,6 +2,8 @@ name: 🔬 Bench · Huihui-Qwen3.6-27B (Abliterated)
 slug: bench-huihui-qwen36-27b
 category: benchmark
 workspace_model: bench-huihui-qwen36-27b
+preferred_models:
+  - huihui_ai/Qwen3.6-abliterated:27b
 module: eval
 # Routes to: nabi-chan/Huihui-Qwen3.6-27B-abliterated-MLX-4bit (dense 27B abliterated, ~16GB)
 # Pairs against: auto (Huihui-Qwen3.5-9B-abliterated-mlx-4bit) — TASK_QUANT_TRUEUP_V1 Finding B

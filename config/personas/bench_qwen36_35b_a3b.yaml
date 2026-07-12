@@ -2,6 +2,8 @@ name: 🔬 Bench · Qwen3.6-35B-A3B (Alibaba MoE)
 slug: bench-qwen36-35b-a3b
 category: benchmark
 workspace_model: bench-qwen36-35b-a3b
+preferred_models:
+  - qwen3.6:35b-a3b-q4_K_M
 module: eval
 # (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: huihui_ai/Qwen3.6-abliterated (Ollama — same Qwen3.6-35B-A3B base, abliterated variant)

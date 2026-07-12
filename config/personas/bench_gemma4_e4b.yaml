@@ -2,6 +2,8 @@ name: 🔬 Bench · Gemma 4 E4B (MoE 4B active)
 slug: bench-gemma4-e4b
 category: benchmark
 workspace_model: bench-gemma4-e4b
+preferred_models:
+  - gemma4:e4b-it-q4_K_M
 module: eval
 # Daily-driver candidate bench
 prompt_template: gemma_stub

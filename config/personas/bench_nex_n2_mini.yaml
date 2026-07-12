@@ -2,6 +2,8 @@ name: 🔬 Bench · Nex-N2-mini (Nex AGI)
 slug: bench-nex-n2-mini
 category: benchmark
 workspace_model: bench-nex-n2-mini
+preferred_models:
+  - hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
 module: eval
 # V8 model refresh — bench-nex-n2-mini target (TASK_MODEL_REFRESH_V8 A16)
 # CC-01: Nex-N2-mini — compact agentic coder with extended context reasoning.

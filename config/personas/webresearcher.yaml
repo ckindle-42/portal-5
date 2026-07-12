@@ -2,6 +2,10 @@ name: "🌐 Web Researcher"
 slug: webresearcher
 category: research
 workspace_model: auto-research
+preferred_models:
+  - huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
+  - deepseek-r1:32b-q4_k_m
+  - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: research
 system_prompt: |
   You are a meticulous web researcher. You gather information from live sources, verify across multiple sources, and present findings with citations.

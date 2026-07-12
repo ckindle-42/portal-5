@@ -2,6 +2,8 @@ name: 🔬 Bench · Granite-4.1 30B (IBM)
 slug: bench-granite41-30b
 category: benchmark
 workspace_model: bench-granite41-30b
+preferred_models:
+  - granite4.1:30b
 module: eval
 # Routes to: granite4.1:30b (Ollama, IBM Research, dense 30B Q4_K_M, ~17GB)
 # IBM Granite 4.1 is dense decoder-only, NO reasoning chain by design.

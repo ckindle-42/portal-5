@@ -3,6 +3,10 @@ slug: devopsengineer
 category: development
 source: prompts.chat
 workspace_model: auto-reasoning
+preferred_models:
+  - hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+  - deepseek-r1:32b-q4_k_m
+  - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: general
 # Architecture consulting benefits from Jackrong Qwopus reasoning depth
 system_prompt: |

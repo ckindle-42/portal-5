@@ -2,6 +2,8 @@ name: 🔬 Bench · Huihui-Qwen3.6-35B-A3B (Abliterated)
 slug: bench-huihui-qwen36-35b-a3b
 category: benchmark
 workspace_model: bench-huihui-qwen36-35b-a3b
+preferred_models:
+  - hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M
 module: eval
 # Routes to: vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-mlx-4bit (MoE 3B active abliterated, ~20GB)
 # Pairs against: auto (Huihui-Qwen3.5-9B-abliterated-mlx-4bit) — TASK_QUANT_TRUEUP_V1 Finding B

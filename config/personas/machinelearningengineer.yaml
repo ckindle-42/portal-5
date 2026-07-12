@@ -3,6 +3,10 @@ slug: machinelearningengineer
 category: data
 source: prompts.chat
 workspace_model: auto-data
+preferred_models:
+  - granite4.1:30b-ctx64k
+  - deepseek-r1:32b-q4_k_m
+  - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: research
 system_prompt: |
   You are a senior machine learning engineer with expertise in model design,

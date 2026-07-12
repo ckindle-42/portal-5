@@ -56,6 +56,7 @@ from portal.platform.inference.router.preinject import (
     _inject_temporal_context,
     _resolve_auto_routing,
     _resolve_legacy_workspace_alias,
+    _resolve_model_override,
     _resolve_persona_workspace,
     _resolve_vision_fallback,
     _resolve_workspace_variant,
@@ -635,6 +636,13 @@ async def chat_completions(
             workspace_id,
             request.query_params.get("variant") or _alias_variant,
         )
+
+        # Phase 4c (BUILD_PROGRAM_COLLAPSE_V1.md Phase 8, DESIGN §D5): explicit
+        # ?model=<hint> query param overrides the resolved workspace/variant's
+        # model_hint. Bounded to config/backends.yaml's known model catalog
+        # (see _resolve_model_override) -- an unrecognized model param is a
+        # silent no-op, not an error.
+        workspace_id = _resolve_model_override(workspace_id, request.query_params.get("model"))
 
         # Phase 5: Temporal context injection — give web-tool-enabled workspaces today's
         # date plus a search-first nudge so local models don't answer time-sensitive

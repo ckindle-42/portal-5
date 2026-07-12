@@ -2,6 +2,10 @@ name: "📈 Market Analyst"
 slug: marketanalyst
 category: research
 workspace_model: auto-research
+preferred_models:
+  - huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
+  - deepseek-r1:32b-q4_k_m
+  - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: research
 system_prompt: |
   You are a financial market analyst. You provide up-to-date information on companies, markets, and sectors using live web sources.

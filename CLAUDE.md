@@ -167,7 +167,7 @@ The pipeline does persist operational metrics (request counts, TPS, errors) to `
 
 ### 5 — Personas Live in config/personas/
 
-Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog — currently 130 files (`ls config/personas/*.yaml | wc -l`).
+Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `module`, `workspace_model`, `category`, and either `system_prompt` (inline) or `prompt_template` (a shared body under `portal/modules/eval/persona_matrix/prompts/<name>.txt` — exactly one of the two is required, see BUILD_PROGRAM_COLLAPSE_V1.md Phase 8). Optional `variant` selects a named override on a factored workspace (e.g. `auto-coding` + `variant: laguna`); optional `preferred_models` is an ordered model-fallback chain, advisory metadata a caller can select from via `?model=<hint>` (bounded to `config/backends.yaml`'s known model catalog). The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog — currently 130 files (`ls config/personas/*.yaml | wc -l`).
 
 ### 6 — config/portal.yaml Is the Single Source of Truth for Workspaces and MCP Fleet
 
@@ -325,7 +325,7 @@ The failure mode this guards against: backing up *some* runs and not others out 
 7. Reconcile bound docs and re-stamp: `python3 scripts/doc_ledger.py status` → fix → stamp
 
 ### New Persona
-1. Create `config/personas/<slug>.yaml` with: `name`, `slug`, `system_prompt`, `workspace_model`, `category`
+1. Create `config/personas/<slug>.yaml` with: `name`, `slug`, `module`, `workspace_model`, `category`, and one of `system_prompt`/`prompt_template`
 2. `openwebui_init.py` creates the Open WebUI model preset on next seed
 3. No other changes needed
 4. Reconcile bound docs and re-stamp: `python3 scripts/doc_ledger.py status` → fix → stamp

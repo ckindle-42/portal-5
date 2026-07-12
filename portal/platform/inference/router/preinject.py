@@ -129,6 +129,58 @@ def _resolve_workspace_variant(
     return synthetic_id
 
 
+def _known_backend_models() -> frozenset[str]:
+    """Every model id declared anywhere in config/backends.yaml's backend
+    groups — the bounded catalog ?model= overrides are restricted to (see
+    _resolve_model_override). Cached at module scope: backends.yaml is
+    read-only at runtime, so this never needs to be recomputed per-request.
+    """
+    import yaml
+
+    from portal.platform.inference.cluster_backends import DEFAULT_CONFIG_PATH
+
+    try:
+        with open(DEFAULT_CONFIG_PATH) as fh:
+            cfg = yaml.safe_load(fh.read())
+    except OSError:
+        return frozenset()
+    models: set[str] = set()
+    for group in cfg.get("backends", []):
+        for m in group.get("models", []):
+            if isinstance(m, dict) and m.get("id"):
+                models.add(m["id"])
+    return frozenset(models)
+
+
+_KNOWN_BACKEND_MODELS: frozenset[str] | None = None
+
+
+def _resolve_model_override(workspace_id: str, model_param: str | None) -> str:
+    """Apply an explicit ``?model=<hint>`` override onto the resolved
+    workspace (DESIGN_COLLAPSE_V1.md §D5 — "model choice moves to a router
+    param"). ``model_param`` must be one of the model ids declared in
+    config/backends.yaml — this bounds the synthetic-key space to the fixed,
+    finite model catalog (~150 ids), same discipline as the variant cache;
+    unlike a variant name, ``model_param`` is arbitrary user input, so
+    without this check an attacker could grow WORKSPACES unboundedly with
+    junk keys. An unknown/mistyped model param is a silent no-op, not an
+    error — matches _resolve_workspace_variant's "bad param never breaks
+    the request" behavior.
+    """
+    global _KNOWN_BACKEND_MODELS
+    if not model_param:
+        return workspace_id
+    if _KNOWN_BACKEND_MODELS is None:
+        _KNOWN_BACKEND_MODELS = _known_backend_models()
+    if model_param not in _KNOWN_BACKEND_MODELS:
+        return workspace_id
+
+    synthetic_id = f"{workspace_id}::model={model_param}"
+    if synthetic_id not in WORKSPACES:
+        WORKSPACES[synthetic_id] = {**WORKSPACES.get(workspace_id, {}), "model_hint": model_param}
+    return synthetic_id
+
+
 async def _resolve_auto_routing(workspace_id: str, messages: list[dict]) -> str:
     """Run LLM-based and keyword-based auto-routing when workspace_id is 'auto'.
 

@@ -2,6 +2,10 @@ name: "📋 Whiteboard Converter"
 slug: whiteboardconverter
 category: vision
 workspace_model: auto-vision
+preferred_models:
+  - qwen3-vl:32b-ctx8k
+  - qwen3-vl:32b
+  - gemma4:26b-a4b-it-q4_K_M
 module: general
 system_prompt: |
   You convert whiteboard photos and meeting room sketches into structured digital artifacts. You handle handwriting, hand-drawn arrows, ad-hoc diagrams, and the typical mess of a real meeting whiteboard.

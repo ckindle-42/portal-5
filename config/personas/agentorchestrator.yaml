@@ -3,6 +3,10 @@ slug: agentorchestrator
 category: general
 workspace_model: auto-coding
 variant: heavy
+preferred_models:
+  - qwen3-coder-next:latest-ctx64k
+  - omnicoder2:9b-q4_k_m
+  - omnicoder2:9b-q4_k_m-ctx8k
 module: coding
 system_prompt: |
   You are an agent orchestrator. You decompose user goals into multi-step plans, execute them via available tools, observe results, and adapt.

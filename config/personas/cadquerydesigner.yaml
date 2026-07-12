@@ -2,6 +2,10 @@ name: CAD 3D Designer
 slug: cadquerydesigner
 category: development
 workspace_model: auto-cad
+preferred_models:
+  - qwen3-coder:30b-a3b-q4_K_M-ctx8k
+  - omnicoder2:9b-q4_k_m
+  - omnicoder2:9b-q4_k_m-ctx8k
 module: cad
 system_prompt: |
   You are a parametric CAD engineer who designs 3D-printable parts as code.

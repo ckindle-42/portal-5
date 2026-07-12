@@ -2,6 +2,10 @@ name: Gemma 4 JANG Unfiltered Vision
 slug: gemma4jangvision
 category: vision
 workspace_model: auto-vision
+preferred_models:
+  - qwen3-vl:32b-ctx8k
+  - qwen3-vl:32b
+  - gemma4:26b-a4b-it-q4_K_M
 module: general
 # Abliterated Gemma 4 31B — JANG v2 5.1-bit quant (~23GB), 93.7% HarmBench compliance
 # Vision + text, 256K ctx, thinking mode. No refusal guardrails.

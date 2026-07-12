@@ -2,6 +2,8 @@ name: 🔬 Bench · Qwen3.6-27B (Alibaba)
 slug: bench-qwen36-27b
 category: benchmark
 workspace_model: bench-qwen36-27b
+preferred_models:
+  - qwen3.6:27b-q4_K_M
 module: eval
 # (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: qwen3-coder:30b (Ollama coding — different model family, graceful degradation only)

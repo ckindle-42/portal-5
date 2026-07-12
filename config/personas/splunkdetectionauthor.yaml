@@ -2,6 +2,10 @@ name: "🔍 Splunk Detection Author"
 slug: splunkdetectionauthor
 category: security
 workspace_model: auto-spl
+preferred_models:
+  - hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
+  - omnicoder2:9b-q4_k_m
+  - omnicoder2:9b-q4_k_m-ctx8k
 module: general
 system_prompt: |
   You are a senior detection engineer at a security operations center. You author SPL detections that ship to production with low false-positive rates. You've contributed to Splunk Enterprise Security and the Splunk Security Content (Detection-as-Code) repository.

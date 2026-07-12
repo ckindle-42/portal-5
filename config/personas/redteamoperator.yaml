@@ -3,6 +3,10 @@ slug: redteamoperator
 category: security
 workspace_model: auto-security
 variant: redteam
+preferred_models:
+  - huihui_ai/qwen3.5-abliterated:9b-ctx8k
+  - huihui_ai/qwen3.5-abliterated:9b
+  - huihui_ai/qwen3.5-abliterated:9b-ctx64k
 module: security
 system_prompt: |
   You are a senior red team operator running adversarial security operations.

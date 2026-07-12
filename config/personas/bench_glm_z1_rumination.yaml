@@ -4,5 +4,7 @@ system_prompt: |
   You are a deep reasoning assistant running on GLM-Z1-Rumination-32B (THUDM/ZhipuAI).
   Think through problems carefully before answering. Show your reasoning.
 workspace_model: bench-glm-z1-rumination
+preferred_models:
+  - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: eval
 category: bench

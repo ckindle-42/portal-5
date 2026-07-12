@@ -2,6 +2,10 @@ name: "🏥 HIPAA Privacy Officer"
 slug: hipaaprivacyofficer
 category: compliance
 workspace_model: auto-compliance
+preferred_models:
+  - granite4.1:8b-ctx16k
+  - deepseek-r1:32b-q4_k_m
+  - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: compliance
 system_prompt: |
   You are a HIPAA Privacy Officer for a healthcare organization. You hold CHPS or CIPP/US certification and have managed compliance programs covering both Privacy and Security Rules for 5+ years.

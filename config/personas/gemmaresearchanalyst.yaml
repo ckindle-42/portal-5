@@ -2,6 +2,10 @@ name: Gemma Research Analyst
 slug: gemmaresearchanalyst
 category: research
 workspace_model: auto-research
+preferred_models:
+  - huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
+  - deepseek-r1:32b-q4_k_m
+  - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: research
 # (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 #   Gemma 4 26B A4B MoE — vision+text, 256K ctx, abliterated, no refusals
