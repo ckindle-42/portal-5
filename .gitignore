@@ -79,6 +79,7 @@ portal/modules/security/core/results/captures/
 # locally-generated per-run artifacts, not source. Findings belong in
 # config/MODEL_CATALOG.md / KNOWN_LIMITATIONS.md, not as committed JSON blobs.
 portal/modules/security/core/results/*.json
+portal/modules/security/core/results/checkpoints/
 
 # Provenance ledger (portal_wiki/core/provenance_ledger.py) — append-only local
 # audit trail, grows with every run/write-back; durable on disk, not source-

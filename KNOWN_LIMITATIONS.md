@@ -114,6 +114,12 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 - **Impact**: Voice cloning unavailable; TTS works via the included `kokoro-onnx` engine.
 - **Mitigation**: `kokoro-onnx` provides TTS out of the box. See `docs/FISH_SPEECH_SETUP.md` for fish-speech.
 
+### `pytest portal` Leaves Real Write-Through Test Artifacts
+- **Description**: Some `portal/modules/security/tests/` tests write through the real goal/playbook journal path (`portal/modules/security/core/field_journal/`) and checkpoint path (`portal/modules/security/core/results/checkpoints/`) instead of a `tmp_path`-redirected one, violating the `tmp_path` testing rule (`CLAUDE.md` Testing Rules).
+- **Impact**: Running `pytest portal` locally dirties the working tree — new dated entries under `field_journal/` and a modified `field_journal/_index.json`, plus files under `results/checkpoints/`.
+- **Mitigation**: `results/checkpoints/` is gitignored. `field_journal/` holds real committed history so it is intentionally *not* gitignored — run `git status` after `pytest portal` and `git checkout -- portal/modules/security/core/field_journal/_index.json` (plus `git clean` any new dated entries) before staging a commit. See `CLAUDE.md` Testing Rules.
+- **Fix (open)**: Route the journal writer through a fixture-injected path in the offending tests so `pytest portal` is side-effect-free like `pytest tests/unit`.
+
 ---
 
 ## Models
