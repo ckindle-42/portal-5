@@ -185,7 +185,9 @@ python3 -m portal.platform.inference.sync_config
 
 `sync-config` is idempotent — running it twice produces no diff. The test suite (`tests/unit/test_generated_artifacts_fresh.py`) verifies this. `sync-config` also regenerates `config/modules.generated.yaml`, a rendered snapshot of module enable/disable state (see Rule 12's sibling discipline for the module toggle layer — resolver at `portal/platform/wiki/adapters/modules.py`).
 
-The `WORKSPACES` dict in `portal/platform/inference/router/workspaces.py` is loaded at import time from `portal.yaml` via `portal.platform.inference.config.get_workspace_dict()`. The `MCP_SERVERS` dict in `portal/platform/inference/tool_registry.py` is similarly derived from the fleet table via `get_pipeline_mcp_servers()`.
+The `WORKSPACES` dict in `portal/platform/inference/router/workspaces.py` is loaded at import time from `portal.yaml` via `portal.platform.inference.config.get_workspace_dict()`, which excludes every workspace whose `module:` is currently disabled (per `portal.platform.wiki.adapters.modules.enabled_modules()`) — the `eval` module additionally honors the `PORTAL_ENABLE_EVAL=1` bench-harness opt-in. The `MCP_SERVERS` dict in `portal/platform/inference/tool_registry.py` is similarly derived from the fleet table via `get_pipeline_mcp_servers()` (not module-gated — MCP servers are independent services per Rule 3; disabling a module hides its workspaces/routing, not its container).
+
+Toggle a module's enabled state with `python3 -m portal.platform.inference.cli module {list,status,enable,disable}` — confirm-gated by default (writes a `proposed` wiki unit under `portal_wiki/proposed/`), pass `--yes` to apply immediately. A confirmed change re-runs `sync-config` automatically.
 
 After any workspace change, verify consistency:
 ```bash
