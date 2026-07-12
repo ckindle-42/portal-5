@@ -36,12 +36,12 @@ docs:
     - config/backends.yaml
     - portal/modules/
     - portal_mcp/
-    last_reconciled_commit: 4048b7f9966b479b9aa6f08bb483c67e177c2aad
+    last_reconciled_commit: 89112420a629e17fea403e97211ab740a3f6e589
   P5_ROADMAP.md:
     sources:
     - config/backends.yaml
     - portal/platform/inference/
-    last_reconciled_commit: 2ccd2f4d28f1a22dd007521f115bbc34f4e9b407
+    last_reconciled_commit: 89112420a629e17fea403e97211ab740a3f6e589
   KNOWN_ISSUES.md:
     sources:
     - portal/platform/inference/
