@@ -35,6 +35,7 @@ def _load_minimal(tmp_path: Path, overrides: dict) -> dict:
             {
                 "id": "documents",
                 "name": "portal-documents",
+                "module": "documents",
                 "port": 8913,
                 "expose_to_pipeline": True,
                 "expose_to_ide": True,
@@ -44,6 +45,7 @@ def _load_minimal(tmp_path: Path, overrides: dict) -> dict:
             "auto": {
                 "name": "Auto",
                 "description": "Auto router",
+                "module": "general",
                 "tools": [],
                 "expose_to_owui": True,
                 "enable_web_search": False,
@@ -71,6 +73,7 @@ def test_duplicate_port_raises(tmp_path: Path) -> None:
                 {
                     "id": "a",
                     "name": "svc-a",
+                    "module": "general",
                     "port": 9000,
                     "expose_to_pipeline": True,
                     "expose_to_ide": True,
@@ -78,6 +81,7 @@ def test_duplicate_port_raises(tmp_path: Path) -> None:
                 {
                     "id": "b",
                     "name": "svc-b",
+                    "module": "general",
                     "port": 9000,
                     "expose_to_pipeline": True,
                     "expose_to_ide": True,
@@ -98,6 +102,7 @@ def test_duplicate_id_raises(tmp_path: Path) -> None:
                 {
                     "id": "dup",
                     "name": "svc-a",
+                    "module": "general",
                     "port": 9001,
                     "expose_to_pipeline": True,
                     "expose_to_ide": True,
@@ -105,6 +110,7 @@ def test_duplicate_id_raises(tmp_path: Path) -> None:
                 {
                     "id": "dup",
                     "name": "svc-b",
+                    "module": "general",
                     "port": 9002,
                     "expose_to_pipeline": True,
                     "expose_to_ide": True,
@@ -169,6 +175,7 @@ def test_load_portal_config_schema_error_raises(tmp_path: Path) -> None:
             {
                 "id": "a",
                 "name": "svc-a",
+                "module": "general",
                 "port": 9000,
                 "expose_to_pipeline": True,
                 "expose_to_ide": True,
@@ -176,6 +183,7 @@ def test_load_portal_config_schema_error_raises(tmp_path: Path) -> None:
             {
                 "id": "b",
                 "name": "svc-b",
+                "module": "general",
                 "port": 9000,
                 "expose_to_pipeline": True,
                 "expose_to_ide": True,
@@ -185,6 +193,7 @@ def test_load_portal_config_schema_error_raises(tmp_path: Path) -> None:
             "auto": {
                 "name": "Auto",
                 "description": "x",
+                "module": "general",
                 "tools": [],
                 "expose_to_owui": True,
                 "enable_web_search": False,
@@ -206,6 +215,7 @@ def test_ollama_url_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
             "auto": {
                 "name": "Auto",
                 "description": "x",
+                "module": "general",
                 "tools": [],
                 "expose_to_owui": True,
                 "enable_web_search": False,
@@ -282,6 +292,7 @@ def test_portal_config_models_default_empty_list() -> None:
                 "auto": {
                     "name": "Auto",
                     "description": "x",
+                    "module": "general",
                     "tools": [],
                     "expose_to_owui": True,
                     "enable_web_search": False,

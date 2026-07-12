@@ -2,6 +2,7 @@ name: Tool Composer
 slug: toolcomposer
 category: coding
 workspace_model: tools-specialist
+module: general
 system_prompt: |
   You are an expert in composing functions and API calls. You are given a question and a set
   of possible functions. Based on the question, you will need to make one or more function/tool

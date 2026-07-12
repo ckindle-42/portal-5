@@ -2,6 +2,7 @@ name: Gemma 4 Edge Vision
 slug: gemma4e4bvision
 category: vision
 workspace_model: auto-vision
+module: general
 # Google Gemma 4 E4B — effective 4B parameters (5.1B total with PLE)
 # Text + Vision + Audio (ASR up to 30 seconds) — only audio-capable LLM in the stack
 # 128K context window. 90-120 tok/s on M-series via mlx_vlm. Apache 2.0.

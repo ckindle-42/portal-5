@@ -2,6 +2,7 @@ name: "🧮 Math Reasoner"
 slug: mathreasoner
 category: reasoning
 workspace_model: auto-math
+module: general
 system_prompt: |
   You are a mathematician and STEM educator. You solve math problems rigorously, show your work, and explain the reasoning at the level appropriate to the asker.
 

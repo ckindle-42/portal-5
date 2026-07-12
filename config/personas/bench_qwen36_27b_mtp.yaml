@@ -2,6 +2,7 @@ name: 🔬 Bench · Qwen3.6-27B MTP (Alibaba + MTPLX)
 slug: bench-qwen36-27b-mtp
 category: benchmark
 workspace_model: bench-qwen36-27b-mtp
+module: eval
 # MTP speculative decoding probe (was MLX chat tier, retired 3a0c58e; see config/backends.yaml)
 # BENCH-ONLY — MTP candidate for TASK_MODEL_REFRESH_V8 A/B.
 # No-MTP baseline measured 12.4 TPS; MTP target ~27-32 TPS.

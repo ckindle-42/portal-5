@@ -2,6 +2,7 @@ name: 🔬 Bench · Qwen3.6-27B Unsloth UD (Alibaba)
 slug: bench-qwen36-27b-ud
 category: benchmark
 workspace_model: bench-qwen36-27b-ud
+module: eval
 # (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: qwen3-coder:30b (Ollama coding — different model family, graceful degradation only)
 # BENCHMARK NOTE: Verify model loaded before recording results.

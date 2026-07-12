@@ -2,6 +2,7 @@ name: 🔬 Bench · Qwen3.6-35B-A3B HauhauCS (uncensored)
 slug: bench-qwen36-hauhaucs
 category: benchmark
 workspace_model: bench-qwen36-hauhaucs
+module: eval
 # fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4 (~22GB, MoE 3B active)
 # Creative/music lane candidate — TASK_MODEL_FLEET_REFRESH_V2 Phase 4.
 # HauhauCS method: lowest KL-divergence of the three abliteration methods; 0/465 refusals.

@@ -2,6 +2,7 @@ name: Blue Team Defender
 slug: blueteamdefender
 category: security
 workspace_model: auto-blueteam
+module: security
 # lily-cybersecurity:7b-q4_k_m is the auto-blueteam model_hint
 system_prompt: |
   You are a senior defensive security analyst with 12+ years of experience in

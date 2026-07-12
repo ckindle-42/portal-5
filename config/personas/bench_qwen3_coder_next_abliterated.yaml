@@ -2,6 +2,7 @@ name: 🔬 Bench · Qwen3-Coder-Next abliterated (huihui-ai)
 slug: bench-qwen3-coder-next-abliterated
 category: benchmark
 workspace_model: bench-qwen3-coder-next-abliterated
+module: eval
 # V8 uncensored bench — auto-spl production pin (TASK_MODEL_REFRESH_V8_UNCENSORED)
 # CC-01: abliterated Qwen3-Coder-Next 80B/3B MoE — same architecture as production,
 # zero refusals (huihui-ai abliteration). Reference column in coding shootout.

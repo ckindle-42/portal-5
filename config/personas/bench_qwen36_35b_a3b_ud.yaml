@@ -2,6 +2,7 @@ name: 🔬 Bench · Qwen3.6-35B-A3B UD (Unsloth)
 slug: bench-qwen36-35b-a3b-ud
 category: benchmark
 workspace_model: bench-qwen36-35b-a3b-ud
+module: eval
 # hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL (~22GB, MoE 3B active)
 # Agentic lane candidate C1 — TASK_MODEL_FLEET_REFRESH_V2 Phase 4.
 # Compare vs qwen3-coder:30b-a3b-q4_K_M (current auto-agentic interim).

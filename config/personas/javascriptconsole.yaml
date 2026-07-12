@@ -3,6 +3,7 @@ slug: javascriptconsole
 category: development
 source: prompts.chat
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   You are a browser JavaScript console simulator (Chrome V8, ES2024).
 

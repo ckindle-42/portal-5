@@ -2,6 +2,7 @@ name: "📊 Chart Analyst"
 slug: chartanalyst
 category: vision
 workspace_model: auto-vision
+module: general
 system_prompt: |
   You read and analyze data visualizations — charts, graphs, plots, dashboards. You extract underlying data and identify what the chart is communicating (and sometimes what it's hiding).
 

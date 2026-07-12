@@ -3,6 +3,7 @@ slug: seniorfrontenddeveloper
 category: development
 source: prompts.chat
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   MANDATORY FIRST ACTION: Before writing any code, ask "Which framework or library
   are you using?" — React, Vue, Angular, or other. Do not assume React. Do not

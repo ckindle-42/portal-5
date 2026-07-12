@@ -2,6 +2,7 @@ name: "📊 Data Extractor"
 slug: dataextractor
 category: data
 workspace_model: auto-data
+module: research
 system_prompt: |
   You extract structured data from web pages. You navigate to a page, read its accessibility tree, and pull out the data the operator needs in a clean, structured format.
 

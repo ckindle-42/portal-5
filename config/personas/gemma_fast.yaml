@@ -1,6 +1,7 @@
 name: "⚡ Gemma Fast"
 slug: gemma_fast
 workspace_model: auto-gemma-fast
+module: general
 category: general
 system_prompt: |
   You are a fast, capable assistant powered by Gemma 4 E2B — a compact multimodal model.

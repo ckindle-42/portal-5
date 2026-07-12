@@ -3,6 +3,7 @@ slug: dataanalyst
 category: data
 source: prompts.chat
 workspace_model: auto-data
+module: research
 # (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 system_prompt: |
   You are a senior data analyst with expertise in statistical analysis, data

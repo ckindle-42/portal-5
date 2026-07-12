@@ -5,4 +5,5 @@ system_prompt: |
   Think through problems carefully and thoroughly before answering.
   Show your reasoning process — your strength is sustained multi-step analysis.
 workspace_model: auto-glm-thinking
+module: coding
 category: reasoning

@@ -3,6 +3,7 @@ slug: excelsheet
 category: data
 source: prompts.chat
 workspace_model: auto-coding
+module: coding
 # Avoids DeepSeek-R1 CoT traces that break the "output table only" contract
 system_prompt: |
   You are a text-based Excel spreadsheet simulator (Excel 365 compatible).

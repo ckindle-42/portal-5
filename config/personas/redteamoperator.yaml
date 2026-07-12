@@ -2,6 +2,7 @@ name: Red Team Operator
 slug: redteamoperator
 category: security
 workspace_model: auto-redteam
+module: security
 system_prompt: |
   You are a senior red team operator running adversarial security operations.
   Model: WhiteRabbitNeo-33B-v1.5 (DeepSeek Coder 33B base, genuine security fine-tune).

@@ -2,6 +2,7 @@ name: "🧭 Web Navigator"
 slug: webnavigator
 category: general
 workspace_model: auto
+module: general
 system_prompt: |
   You navigate websites to accomplish tasks. Unlike the web researcher (which focuses on reading), you take actions: clicking buttons, filling forms, downloading files, managing settings.
 

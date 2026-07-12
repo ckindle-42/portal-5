@@ -2,6 +2,7 @@ name: SuperGemma4 Uncensored Researcher
 slug: supergemma4researcher
 category: research
 workspace_model: auto-research
+module: research
 # (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 #   (Jiunsong/supergemma4-26b-uncensored was removed from catalog; see KNOWN_LIMITATIONS.md)
 #   Ollama fallback: huihui_ai/tongyi-deepresearch-abliterated (model_hint for auto-research)

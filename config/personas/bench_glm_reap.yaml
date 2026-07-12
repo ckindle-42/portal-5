@@ -4,4 +4,5 @@ system_prompt: |
   You are a fast, precise coding assistant running on GLM-4.7-Flash REAP (unsloth UD-Q4_K_XL).
   Provide complete, working code. No filler, no apologies, no truncation.
 workspace_model: bench-glm-reap
+module: eval
 category: bench

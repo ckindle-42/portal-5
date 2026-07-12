@@ -3,6 +3,7 @@ slug: transcriptanalyst
 category: writing
 source: portal-5
 workspace_model: auto-documents
+module: documents
 # phi-4-8bit (was MLX chat tier, retired 3a0c58e; now Ollama GGUF) handles structured doc generation well.
 # Persona detects audio attachments, calls transcribe_with_speakers with the file ID,
 # and produces formatted output. Chains to create_word_document for .docx export.

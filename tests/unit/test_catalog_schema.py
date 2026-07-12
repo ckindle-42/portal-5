@@ -45,7 +45,10 @@ def _restore_config_cache():
 def test_persona_with_unknown_workspace_raises(tmp_path: Path) -> None:
     """validate_persona_parents raises when a persona's workspace_model is unknown."""
     p = tmp_path / "orphan.yaml"
-    p.write_text("name: Orphan\nslug: orphan\ncategory: test\nworkspace_model: does-not-exist\n")
+    p.write_text(
+        "name: Orphan\nslug: orphan\ncategory: test\nmodule: general\n"
+        "workspace_model: does-not-exist\n"
+    )
     personas = load_persona_map(personas_dir=tmp_path)
     with pytest.raises(ValueError, match="does-not-exist"):
         validate_persona_parents(personas)
@@ -113,6 +116,7 @@ def test_resolve_preset_tools_typed_path() -> None:
         name="Test",
         slug="test",
         category="general",
+        module="general",
         workspace_model="auto",
         tools_allow=["memory", "rag"],
     )
@@ -126,6 +130,7 @@ def test_resolve_preset_tools_deny() -> None:
         name="Test",
         slug="test",
         category="general",
+        module="general",
         workspace_model="auto",
         tools_deny=["research"],
     )

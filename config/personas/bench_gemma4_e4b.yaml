@@ -2,6 +2,7 @@ name: 🔬 Bench · Gemma 4 E4B (MoE 4B active)
 slug: bench-gemma4-e4b
 category: benchmark
 workspace_model: bench-gemma4-e4b
+module: eval
 # Daily-driver candidate bench
 system_prompt: |
   You are a fast, capable everyday assistant. Be helpful, concise, and accurate.

@@ -2,6 +2,7 @@ name: 🔬 Bench · Qwen3-Coder-Next 80B (Alibaba)
 slug: bench-qwen3-coder-next
 category: benchmark
 workspace_model: bench-qwen3-coder-next
+module: eval
 # V8 model refresh — bench-qwen3-coder-next target (TASK_MODEL_REFRESH_V8 A17)
 # CC-01: Qwen3-Coder-Next 80B/3B MoE — strongest coder in fleet (auto-agentic primary).
 system_prompt: |

@@ -2,6 +2,7 @@ name: Gemma Research Analyst
 slug: gemmaresearchanalyst
 category: research
 workspace_model: auto-research
+module: research
 # (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 #   Gemma 4 26B A4B MoE — vision+text, 256K ctx, abliterated, no refusals
 #   Ollama fallback: huihui_ai/tongyi-deepresearch-abliterated (Qwen-lineage)

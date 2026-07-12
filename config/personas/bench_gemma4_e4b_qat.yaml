@@ -2,6 +2,7 @@ name: 🔬 Bench · Gemma 4 E4B QAT (Google)
 slug: bench-gemma4-e4b-qat
 category: benchmark
 workspace_model: bench-gemma4-e4b-qat
+module: eval
 # V8 model refresh — bench-gemma4-e4b-qat target (TASK_MODEL_REFRESH_V8 A2)
 system_prompt: |
   You are a fast, capable everyday assistant. Be helpful, concise, and accurate.

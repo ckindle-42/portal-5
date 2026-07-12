@@ -3,6 +3,7 @@ slug: codebasewikidocumentationskill
 category: development
 source: prompts.chat
 workspace_model: auto-agentic
+module: coding
 # Qwen3-Coder-Next-4bit (80B MoE, 256K ctx) — was MLX chat tier, retired 3a0c58e; now Ollama GGUF
 # LSP analysis + full-repo wiki generation benefits from maximum context
 system_prompt: |

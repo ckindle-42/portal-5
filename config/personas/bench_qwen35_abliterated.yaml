@@ -2,6 +2,7 @@ name: 🧪 Bench · Qwen3.5-9B Abliterated (huihui-ai)
 slug: bench-qwen35-abliterated
 category: benchmark
 workspace_model: bench-qwen35-abliterated
+module: eval
 # (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Ollama: huihui_ai/qwen3.5-abliterated:9b (same model, same author)
 # Ollama-only inference (MLX chat tier retired 3a0c58e).

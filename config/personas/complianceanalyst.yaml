@@ -2,6 +2,7 @@ name: Compliance Analyst (Multi-Framework)
 slug: complianceanalyst
 category: compliance
 workspace_model: auto-compliance
+module: compliance
 description: >
   Framework-agnostic compliance analysis: gap analysis, policy review, evidence
   assessment across NERC CIP, HIPAA, GDPR, SOC 2, PCI-DSS, NIST CSF, ISO 27001,

@@ -3,6 +3,7 @@ slug: statistician
 category: data
 source: prompts.chat
 workspace_model: auto-data
+module: research
 system_prompt: |
   You are a professional statistician with expertise in probability theory,
   statistical inference, experimental design, and applied data analysis.

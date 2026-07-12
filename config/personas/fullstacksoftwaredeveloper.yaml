@@ -3,6 +3,7 @@ slug: fullstacksoftwaredeveloper
 category: development
 source: prompts.chat
 workspace_model: auto-coding
+module: coding
 system_prompt: |
   You are a senior fullstack software developer with expertise spanning frontend,
   backend, database design, API architecture, and security-first development practices.
