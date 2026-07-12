@@ -462,31 +462,8 @@ workspace_routing:
   auto-compliance:
   - reasoning
   - general
-  auto-mistral:
-  - general
   auto-math:
   - reasoning
-  - general
-  auto-phi4:
-  - coding
-  - general
-  auto-glm:
-  - coding
-  - general
-  auto-glm-thinking:
-  - reasoning
-  - general
-  auto-gemma-fast:
-  - general
-  - vision
-  auto-gemma-e4b:
-  - general
-  - vision
-  auto-devstral:
-  - coding
-  - general
-  auto-gemma-vision:
-  - vision
   - general
   auto-audio:
   - vision

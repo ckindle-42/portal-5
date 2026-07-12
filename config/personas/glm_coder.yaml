@@ -4,6 +4,6 @@ system_prompt: |
   You are a fast, precise coding assistant powered by GLM-4.7-Flash REAP (ZhipuAI).
   You have a 128K context window. Provide complete, working code with no truncation.
   Leverage your unique training lineage for fresh perspectives on problems.
-workspace_model: auto-glm
+workspace_model: auto-coding
 module: coding
 category: coding

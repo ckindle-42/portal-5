@@ -83,7 +83,7 @@ Everything runs with a single command. No manual configuration.
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
-Portal 5 includes **29 functional workspaces** (plus 60 benchmark workspaces for performance comparison, gated off by default behind the `eval` module — see `coding_task/BUILD_PROGRAM_COLLAPSE_V1.md`; 89 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
+Portal 5 includes **21 functional workspaces** (plus 60 benchmark workspaces for performance comparison, gated off by default behind the `eval` module — see `coding_task/BUILD_PROGRAM_COLLAPSE_V1.md`; 81 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
 
 ### Functional Workspaces
 
@@ -95,9 +95,6 @@ Portal 5 includes **29 functional workspaces** (plus 60 benchmark workspaces for
 | `auto-reasoning` | Extended reasoning, complex analysis | — |
 | `auto-research` | Web research and synthesis | web_search, web_fetch |
 | `auto-vision` | Image understanding, visual Q&A (Qwen3-VL 32B) | — |
-| `auto-gemma-vision` | Heavy vision analysis — Gemma 4 31B Dense QAT | — |
-| `auto-gemma-fast` | Fast Gemma 4 E2B/E4B responses | — |
-| `auto-gemma-e4b` | Gemma 4 E4B specialist (audio + vision + text) | — |
 | `auto-creative` | Creative writing with voice output | TTS |
 | `auto-documents` | Create Word, Excel, PowerPoint | Documents + Code |
 | `auto-data` | Data analysis, statistics, charting (Granite 4.1 30B) | Code + Documents |
@@ -108,12 +105,7 @@ Portal 5 includes **29 functional workspaces** (plus 60 benchmark workspaces for
 | `auto-cad` | 3D CAD model generation — OpenSCAD, CadQuery | CAD render |
 | `auto-spl` | Splunk SPL queries, YARA rules, detection search | — |
 | `auto-compliance` | NERC CIP gap analysis, policy review, audit prep (Granite 4.1 30B) | — |
-| `auto-mistral` | Strategic analysis, business reasoning — Magistral 24B | — |
-| `auto-phi4` | Phi-4 specialist — math, science, structured reasoning | — |
 | `auto-bigfix` | IBM BigFix relevance scripting | — |
-| `auto-devstral` | Devstral-Small-2 agentic coding lane | execute_bash |
-| `auto-glm` | GLM-4.7-Flash REAP — non-Meta/Qwen lineage diversity | — |
-| `auto-glm-thinking` | GLM-Z1-Rumination 32B extended reasoning | — |
 | `auto-security` | Security analysis, CVE triage, hardening. 8 former sibling workspaces (auto-security-uncensored, auto-pentest, auto-blueteam, auto-redteam(-deep), auto-purpleteam(-deep/-exec)) are now `?variant=` query params or a persona's `variant:` field — `uncensored`, `pentest` (JANG-CRACK 31B, live execution), `blueteam` (sylink:8b, threat hunting), `redteam`/`redteam-deep` (SuperGemma4-26B), `purpleteam`/`purpleteam-deep`/`purpleteam-exec` (2/4-hop red→blue chains, exec = live attack + detection + IR playbook) | web_search, kb_search (exec/pentest variants add execute_bash, execute_python) |
 | `auto-general-uncensored` | General uncensored assistant | — |
 | `auto-extract-uncensored` | Uncensored information extraction | — |

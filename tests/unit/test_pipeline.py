@@ -345,8 +345,8 @@ class TestComplianceWorkspace:
         workspaces into auto-security's variants)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 29, (
-            f"Expected 29 workspaces (module: eval's 60 bench-* gated off by default), "
+        assert len(WORKSPACES) == 21, (
+            f"Expected 21 workspaces (module: eval's 60 bench-* gated off by default), "
             f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
@@ -359,7 +359,7 @@ class TestComplianceWorkspace:
 
         monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
         ws = get_workspace_dict(load_portal_config())
-        assert len(ws) == 89, f"Expected 89 workspaces with eval enabled, got {len(ws)}"
+        assert len(ws) == 81, f"Expected 81 workspaces with eval enabled, got {len(ws)}"
 
 
 class TestR17bModelExpansion:
@@ -775,8 +775,8 @@ class TestSPLWorkspace:
         for the PORTAL_ENABLE_EVAL=1 path)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 29, (
-            f"Expected 29 workspaces (module: eval's 60 bench-* gated off by default), "
+        assert len(WORKSPACES) == 21, (
+            f"Expected 21 workspaces (module: eval's 60 bench-* gated off by default), "
             f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
@@ -1453,15 +1453,18 @@ class TestInjectOllamaOptions:
         )
 
     def test_quality_lane_uses_10m_keep_alive(self):
-        """auto-data and auto-mistral (big q8 lanes) should use keep_alive=10m."""
+        """auto-data (big q8 lane) should use keep_alive=10m.
+
+        auto-mistral was deleted outright in BUILD_PROGRAM_COLLAPSE_V1.md
+        Phase 7 (model-tied workspace, no preserved variant) -- its
+        keep_alive tuning went with it."""
         from portal.platform.inference.router_pipe import _inject_ollama_options
 
-        for ws_id in ("auto-data", "auto-mistral"):
-            body = _inject_ollama_options({}, ws_id)
-            assert body["keep_alive"] == "10m", (
-                f"quality lane {ws_id!r} should have keep_alive=10m — "
-                "long enough for back-to-back queries, short enough not to evict fleet"
-            )
+        body = _inject_ollama_options({}, "auto-data")
+        assert body["keep_alive"] == "10m", (
+            "quality lane 'auto-data' should have keep_alive=10m — "
+            "long enough for back-to-back queries, short enough not to evict fleet"
+        )
 
     def test_caller_supplied_keep_alive_wins(self):
         """A caller-supplied keep_alive in the request body must not be overridden."""

@@ -1,12 +1,10 @@
-description: "Portal 5 — Strategic workspaces quality evaluation (auto-mistral, auto-research)"
+description: "Portal 5 — Strategic workspaces quality evaluation (auto-research)"
 prompts:
   - file://prompts/strategic.txt
 providers:
-  - id: ollama:chat:hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k
-    label: auto-mistral
-    config:
-      temperature: 0
-      num_predict: 1024
+  # auto-mistral provider removed (BUILD_PROGRAM_COLLAPSE_V1.md Phase 7 —
+  # auto-mistral was a model-tied workspace deleted outright, folded into
+  # auto-coding with no preserved variant slot to quality-test separately).
   - id: ollama:chat:huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
     label: auto-research
     config:

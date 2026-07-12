@@ -34,14 +34,17 @@ def _resolve_persona_workspace(workspace_id: str) -> str:
     return workspace_id
 
 
-# Legacy workspace ids folded into auto-coding's / auto-security's variants
-# (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6). routing.py's keyword classifier
-# (_WORKSPACE_ROUTING) still emits "auto-agentic", "auto-coding-agentic", and
-# "auto-redteam" as detected targets — that's scoring-axis content, explicitly
-# off-limits to edit (DESIGN §9). Aliasing the now-deleted id to (base
-# workspace, variant) here, post-classification, keeps the classifier's
-# output meaningful without touching its keywords/thresholds.
-_LEGACY_WORKSPACE_ALIASES: dict[str, tuple[str, str]] = {
+# Legacy workspace ids folded into auto-coding's / auto-security's variants,
+# or deleted outright with no variant (BUILD_PROGRAM_COLLAPSE_V1.md
+# Phase 5/6/7). routing.py's keyword classifier (_WORKSPACE_ROUTING) still
+# emits "auto-agentic", "auto-coding-agentic", "auto-redteam", and
+# "auto-mistral" as detected targets — that's scoring-axis content,
+# explicitly off-limits to edit (DESIGN §9). Aliasing the now-deleted id to
+# (base workspace, variant) here, post-classification, keeps the
+# classifier's output meaningful without touching its keywords/thresholds.
+# A None variant (Phase 7's model-tied deletions) means "just the base
+# workspace" — the old model choice has no preserved variant slot.
+_LEGACY_WORKSPACE_ALIASES: dict[str, tuple[str, str | None]] = {
     "auto-coding-agentic": ("auto-coding", "laguna"),
     "auto-coding-northmini": ("auto-coding", "northmini"),
     "auto-coding-uncensored": ("auto-coding", "uncensored"),
@@ -57,6 +60,14 @@ _LEGACY_WORKSPACE_ALIASES: dict[str, tuple[str, str]] = {
     "auto-purpleteam": ("auto-security", "purpleteam"),
     "auto-purpleteam-deep": ("auto-security", "purpleteam-deep"),
     "auto-purpleteam-exec": ("auto-security", "purpleteam-exec"),
+    "auto-devstral": ("auto-coding", None),
+    "auto-glm": ("auto-coding", None),
+    "auto-glm-thinking": ("auto-coding", None),
+    "auto-mistral": ("auto-coding", None),
+    "auto-phi4": ("auto-daily", None),
+    "auto-gemma-e4b": ("auto-daily", None),
+    "auto-gemma-fast": ("auto-daily", None),
+    "auto-gemma-vision": ("auto-vision", None),
 }
 
 

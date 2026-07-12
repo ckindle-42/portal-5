@@ -160,7 +160,7 @@ curl -s http://localhost:9099/v1/models \
 **Example — Phi-4 STEM Analyst:**
 1. Select `Phi-4 STEM Analyst` from the model dropdown
 2. Type: `Given a Poisson process with rate λ=3 events/hour, what is the probability of exactly 5 events in 2 hours?`
-3. Routes to `auto-phi4` workspace → `phi4-reasoning:plus` (Ollama) — RL-trained reasoning, competition-level mathematics
+3. Routes to `auto-daily` workspace (`auto-phi4` was a model-tied workspace deleted outright in BUILD_PROGRAM_COLLAPSE_V1.md Phase 7) → `phi4-reasoning:plus` (Ollama) — RL-trained reasoning, competition-level mathematics
 
 **Example — GPT-OSS Analyst:**
 1. Select `GPT-OSS Analyst` from the model dropdown
@@ -170,7 +170,7 @@ curl -s http://localhost:9099/v1/models \
 **Example — Gemma 4 Edge Vision (image + audio):**
 1. Select `Gemma 4 Edge Vision` from the model dropdown
 2. Attach an image or audio clip (up to 30 seconds) and type: `Describe what you see/hear and identify any anomalies`
-3. Routes to `auto-gemma-e4b` workspace — Gemma 4 E4B (Ollama) — native audio+image+text input, 256K ctx
+3. Routes to `auto-daily` workspace (`auto-gemma-e4b` was a model-tied workspace deleted outright in BUILD_PROGRAM_COLLAPSE_V1.md Phase 7) — Gemma 4 E4B (Ollama) — native audio+image+text input, 256K ctx
 
 **Example — Gemma 4 JANG Unfiltered Vision:**
 1. Select `Gemma 4 JANG Unfiltered Vision` from the model dropdown
@@ -899,7 +899,7 @@ restores are undoable.
 Write me a Python web scraper   — normal chat (uses current workspace)
 ```
 
-**Available workspaces:** `auto`, `auto-agentic`, `auto-agentic-lite`, `auto-audio`, `auto-bigfix`, `auto-blueteam`, `auto-cad`, `auto-coding`, `auto-coding-agentic`, `auto-coding-uncensored`, `auto-coding-uncensored-agentic`, `auto-compliance`, `auto-creative`, `auto-daily`, `auto-data`, `auto-devstral`, `auto-documents`, `auto-extract-uncensored`, `auto-gemma-e4b`, `auto-gemma-fast`, `auto-gemma-vision`, `auto-general-uncensored`, `auto-glm`, `auto-glm-thinking`, `auto-math`, `auto-mistral`, `auto-music`, `auto-pentest`, `auto-phi4`, `auto-purpleteam`, `auto-purpleteam-deep`, `auto-purpleteam-exec`, `auto-reasoning`, `auto-redteam`, `auto-redteam-deep`, `auto-research`, `auto-security`, `auto-security-uncensored`, `auto-spl`, `auto-video`, `auto-vision`, `tools-specialist`
+**Available workspaces** (21 functional; `auto-coding`/`auto-security` each fold several former sibling workspaces into `?variant=` query params or a persona's `variant:` field — see `coding_task/BUILD_PROGRAM_COLLAPSE_V1.md` Phases 5-7; derive live via `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(sorted(w for w in d['workspaces'] if not w.startswith('bench-')))"`)**: `auto`, `auto-audio`, `auto-bigfix`, `auto-cad`, `auto-coding`, `auto-compliance`, `auto-creative`, `auto-daily`, `auto-data`, `auto-documents`, `auto-extract-uncensored`, `auto-general-uncensored`, `auto-math`, `auto-music`, `auto-reasoning`, `auto-research`, `auto-security`, `auto-spl`, `auto-video`, `auto-vision`, `tools-specialist`
 
 ### Verify
 

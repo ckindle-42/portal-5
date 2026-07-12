@@ -1,4 +1,4 @@
-description: "Portal 5 — Reasoning workspaces quality evaluation (auto-reasoning, auto-math, auto-data, auto-phi4)"
+description: "Portal 5 — Reasoning workspaces quality evaluation (auto-reasoning, auto-math, auto-data)"
 prompts:
   - file://prompts/reasoning.txt
 providers:
@@ -17,11 +17,9 @@ providers:
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:phi4-reasoning:plus-ctx32k
-    label: auto-phi4
-    config:
-      temperature: 0
-      num_predict: 2048
+# auto-phi4 provider removed (BUILD_PROGRAM_COLLAPSE_V1.md Phase 7 —
+# auto-phi4 was a model-tied workspace deleted outright, folded into
+# auto-daily with no preserved variant slot to quality-test separately).
 defaultTest:
   options:
     provider: ollama:chat:gemma4:26b-a4b-it-qat
