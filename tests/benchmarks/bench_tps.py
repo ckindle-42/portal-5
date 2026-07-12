@@ -28,9 +28,15 @@ import sys
 from pathlib import Path
 
 # Make `tests.*` imports work when invoked as a script from anywhere.
+# Unconditional insert, not "insert if absent": on a machine where another
+# unrelated project's `portal` package is also installed editable (a real
+# import-name collision, not hypothetical), this repo's root can already be
+# present in sys.path but in the WRONG position (behind the other project's
+# path) — an "if not in sys.path" guard would skip fixing that position and
+# `import portal` would silently resolve to the wrong package. Always force
+# this repo's root to index 0 so it wins regardless of where else it appears.
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
+sys.path.insert(0, str(_PROJECT_ROOT))
 
 from tests.benchmarks.bench.cli import main  # noqa: E402
 from tests.benchmarks.bench.config import (  # noqa: E402, F401
