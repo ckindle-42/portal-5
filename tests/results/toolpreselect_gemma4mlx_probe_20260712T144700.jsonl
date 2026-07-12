@@ -1,0 +1,202 @@
+{
+  "model": "gemma4:e2b-mlx",
+  "user_turn": "please look up when the last stock market crash was",
+  "k": 3,
+  "think_enabled": false,
+  "ranked_tools": [
+    "web_search"
+  ],
+  "raw_ranked_all": [
+    "web_search"
+  ],
+  "latency_ms": 2093,
+  "eval_count": 1,
+  "eval_duration_ns": 42416125,
+  "thinking_leaked": false,
+  "thinking_raw": "",
+  "raw_response": "3"
+}
+{
+  "model": "gemma4:e2b-mlx",
+  "user_turn": "save this summary to a file called notes.txt",
+  "k": 3,
+  "think_enabled": false,
+  "ranked_tools": [
+    "write_file",
+    "execute_python"
+  ],
+  "raw_ranked_all": [
+    "write_file",
+    "execute_python"
+  ],
+  "latency_ms": 200,
+  "eval_count": 3,
+  "eval_duration_ns": 55730875,
+  "thinking_leaked": false,
+  "thinking_raw": "",
+  "raw_response": "5\n2"
+}
+{
+  "model": "gemma4:e2b-mlx",
+  "user_turn": "what did I tell you my dog's name was last week?",
+  "k": 3,
+  "think_enabled": false,
+  "ranked_tools": [
+    "remember",
+    "recall"
+  ],
+  "raw_ranked_all": [
+    "remember",
+    "recall"
+  ],
+  "latency_ms": 173,
+  "eval_count": 3,
+  "eval_duration_ns": 37758708,
+  "thinking_leaked": false,
+  "thinking_raw": "",
+  "raw_response": "6\n7"
+}
+{
+  "model": "gemma4:e2b-mlx",
+  "user_turn": "write up a report on this Kerberoasting detection and check the SPL syntax",
+  "k": 3,
+  "think_enabled": false,
+  "ranked_tools": [
+    "query_splunk",
+    "create_word_document",
+    "read_text_file"
+  ],
+  "raw_ranked_all": [
+    "query_splunk",
+    "create_word_document",
+    "read_text_file",
+    "write_file",
+    "execute_bash",
+    "execute_python"
+  ],
+  "latency_ms": 349,
+  "eval_count": 11,
+  "eval_duration_ns": 209848333,
+  "thinking_leaked": false,
+  "thinking_raw": "",
+  "raw_response": "8\n9\n4\n5\n1\n2"
+}
+{
+  "model": "gemma4:e2b-mlx",
+  "user_turn": "please look up when the last stock market crash was",
+  "k": 3,
+  "think_enabled": false,
+  "ranked_tools": [
+    "web_search"
+  ],
+  "raw_ranked_all": [
+    "web_search"
+  ],
+  "latency_ms": 269,
+  "eval_count": 1,
+  "eval_duration_ns": 125561625,
+  "thinking_leaked": false,
+  "thinking_raw": "",
+  "raw_response": "7"
+}
+{
+  "model": "gemma4:e4b-mlx",
+  "user_turn": "please look up when the last stock market crash was",
+  "k": 3,
+  "think_enabled": false,
+  "ranked_tools": [
+    "web_search"
+  ],
+  "raw_ranked_all": [
+    "web_search"
+  ],
+  "latency_ms": 3836,
+  "eval_count": 1,
+  "eval_duration_ns": 109964166,
+  "thinking_leaked": false,
+  "thinking_raw": "",
+  "raw_response": "3"
+}
+{
+  "model": "gemma4:e4b-mlx",
+  "user_turn": "save this summary to a file called notes.txt",
+  "k": 3,
+  "think_enabled": false,
+  "ranked_tools": [
+    "write_file",
+    "execute_python"
+  ],
+  "raw_ranked_all": [
+    "write_file",
+    "execute_python"
+  ],
+  "latency_ms": 362,
+  "eval_count": 3,
+  "eval_duration_ns": 88597792,
+  "thinking_leaked": false,
+  "thinking_raw": "",
+  "raw_response": "5\n2"
+}
+{
+  "model": "gemma4:e4b-mlx",
+  "user_turn": "what did I tell you my dog's name was last week?",
+  "k": 3,
+  "think_enabled": false,
+  "ranked_tools": [
+    "recall",
+    "query_splunk"
+  ],
+  "raw_ranked_all": [
+    "recall",
+    "query_splunk"
+  ],
+  "latency_ms": 344,
+  "eval_count": 3,
+  "eval_duration_ns": 65202417,
+  "thinking_leaked": false,
+  "thinking_raw": "",
+  "raw_response": "7\n8"
+}
+{
+  "model": "gemma4:e4b-mlx",
+  "user_turn": "write up a report on this Kerberoasting detection and check the SPL syntax",
+  "k": 3,
+  "think_enabled": false,
+  "ranked_tools": [
+    "query_splunk",
+    "create_word_document",
+    "execute_python"
+  ],
+  "raw_ranked_all": [
+    "query_splunk",
+    "create_word_document",
+    "execute_python",
+    "read_text_file",
+    "execute_bash",
+    "web_search"
+  ],
+  "latency_ms": 583,
+  "eval_count": 11,
+  "eval_duration_ns": 308955709,
+  "thinking_leaked": false,
+  "thinking_raw": "",
+  "raw_response": "8\n9\n2\n4\n1\n3"
+}
+{
+  "model": "gemma4:e4b-mlx",
+  "user_turn": "please look up when the last stock market crash was",
+  "k": 3,
+  "think_enabled": false,
+  "ranked_tools": [
+    "web_search"
+  ],
+  "raw_ranked_all": [
+    "web_search"
+  ],
+  "latency_ms": 420,
+  "eval_count": 1,
+  "eval_duration_ns": 168158875,
+  "thinking_leaked": false,
+  "thinking_raw": "",
+  "raw_response": "7"
+}
