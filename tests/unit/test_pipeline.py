@@ -336,14 +336,27 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is 104 (44 production + 60 bench-*) after the
-        multi-seat V2 bench intake (bench-security-slm-1p5b, bench-cybersecqwen-4b-toolfix)."""
+        """Total loaded workspace count is 44 (module: eval's 60 bench-*
+        workspaces are gated off by default at boot as of
+        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4; the full 104 (44 + 60) still
+        loads with PORTAL_ENABLE_EVAL=1, see test_eval_gate_loads_all_104)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 104, (
-            f"Expected 104 workspaces (44 production + 60 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 44, (
+            f"Expected 44 workspaces (module: eval's 60 bench-* gated off by default), "
+            f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
+
+    def test_eval_gate_loads_all_104(self, monkeypatch):
+        """PORTAL_ENABLE_EVAL=1 re-admits the 60 module: eval workspaces —
+        get_workspace_dict is called fresh here (not the module-level
+        WORKSPACES constant, which is computed once at import time)."""
+        from portal.platform.inference.config import get_workspace_dict, load_portal_config
+
+        monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
+        ws = get_workspace_dict(load_portal_config())
+        assert len(ws) == 104, f"Expected 104 workspaces with eval enabled, got {len(ws)}"
 
 
 class TestR17bModelExpansion:
@@ -743,12 +756,16 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 104 (44 production + 60 bench-*) after the
-        multi-seat V2 bench intake (bench-security-slm-1p5b, bench-cybersecqwen-4b-toolfix)."""
+        """Total loaded workspace count is 44 (module: eval's 60 bench-*
+        workspaces are gated off by default at boot as of
+        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4; see
+        TestComplianceWorkspace.test_eval_gate_loads_all_104 for the
+        PORTAL_ENABLE_EVAL=1 path)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 104, (
-            f"Expected 104 workspaces (44 production + 60 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 44, (
+            f"Expected 44 workspaces (module: eval's 60 bench-* gated off by default), "
+            f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -1331,12 +1348,25 @@ class TestModelSupportsToolsRealBackend:
 class TestInjectOllamaOptions:
     """Tests for per-workspace keep_alive override in _inject_ollama_options."""
 
-    def test_bench_workspace_uses_5m_keep_alive(self):
-        """Bench workspaces should emit keep_alive=5m, not the global -1."""
+    def test_bench_workspace_uses_5m_keep_alive(self, monkeypatch):
+        """Bench workspaces should emit keep_alive=5m, not the global -1.
+
+        module: eval workspaces are gated off the module-level WORKSPACES
+        dict by default (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4), so this
+        looks the real config up via get_workspace_dict(eval enabled) and
+        monkeypatch.setitem's it into the live dict for the duration of
+        the test — WORKSPACES/validation.WORKSPACES alias the same dict
+        object, so the injection is visible through either import path.
+        """
+        from portal.platform.inference.config import get_workspace_dict, load_portal_config
         from portal.platform.inference.router.workspaces import WORKSPACES
         from portal.platform.inference.router_pipe import _inject_ollama_options
 
-        bench_ws = next(k for k in WORKSPACES if k.startswith("bench-"))
+        monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
+        all_ws = get_workspace_dict(load_portal_config())
+        bench_ws = next(k for k in all_ws if k.startswith("bench-"))
+        monkeypatch.setitem(WORKSPACES, bench_ws, all_ws[bench_ws])
+
         body = _inject_ollama_options({}, bench_ws)
         assert body["keep_alive"] == "5m", (
             f"bench workspace {bench_ws!r} should have keep_alive=5m to avoid "

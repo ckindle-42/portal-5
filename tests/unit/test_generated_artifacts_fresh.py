@@ -44,14 +44,24 @@ def test_sync_config_is_idempotent() -> None:
 
 
 def test_backends_yaml_workspace_routing_matches_catalog() -> None:
-    """Every workspace in portal.yaml must appear in backends.yaml workspace_routing."""
+    """Every non-eval-gated workspace in portal.yaml must appear in
+    backends.yaml workspace_routing (Gate 3, BUILD_PROGRAM_COLLAPSE_V1.md
+    Phase 4 — module: eval workspaces are intentionally excluded, same
+    discipline as Gate 1/Gate 2)."""
+    from portal.platform.inference.config import _eval_enabled
+
     portal_yaml_path = REPO / "config" / "portal.yaml"
     backends_path = REPO / "config" / "backends.yaml"
 
     portal_raw = yaml.safe_load(portal_yaml_path.read_text()) or {}
     backends_raw = yaml.safe_load(backends_path.read_text()) or {}
 
-    portal_ws = set(portal_raw.get("workspaces", {}).keys())
+    eval_on = _eval_enabled()
+    portal_ws = {
+        ws_id
+        for ws_id, spec in portal_raw.get("workspaces", {}).items()
+        if eval_on or spec.get("module") != "eval"
+    }
     backends_routing = set(backends_raw.get("workspace_routing", {}).keys())
 
     missing = portal_ws - backends_routing

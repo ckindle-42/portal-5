@@ -240,14 +240,21 @@ def check_config_loads() -> tuple[str, str, list[dict]]:
 
 
 def check_rule_6() -> tuple[str, str, list[dict]]:
-    """D. portal.yaml workspaces ↔ backends.yaml workspace_routing ↔ WORKSPACES."""
+    """D. portal.yaml workspaces ↔ backends.yaml workspace_routing ↔ WORKSPACES.
+
+    module: eval workspaces (bench-*) are gated off WORKSPACES and
+    workspace_routing by default (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4), so
+    the 3-way comparison is against portal.yaml's non-eval-gated subset,
+    not its full set — that subset is what actually loads by default.
+    """
     import yaml
 
-    from portal.platform.inference.config import load_portal_config
+    from portal.platform.inference.config import _eval_enabled, load_portal_config
     from portal.platform.inference.router.workspaces import WORKSPACES
 
     cfg = load_portal_config()
-    ws_yaml = set(cfg.workspaces.keys())
+    eval_on = _eval_enabled()
+    ws_yaml = {wid for wid, spec in cfg.workspaces.items() if eval_on or spec.module != "eval"}
     ws_router = set(WORKSPACES.keys())
 
     backends_path = REPO_ROOT / "config" / "backends.yaml"

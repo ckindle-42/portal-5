@@ -81,8 +81,22 @@ def test_no_persona_has_browser_policy() -> None:
 # ── Resolution invariant ──────────────────────────────────────────────────────
 
 
-def test_persona_tool_resolution_matches_snapshot() -> None:
-    """resolve_preset_tools output must match the M3 oracle for all 150 personas."""
+def test_persona_tool_resolution_matches_snapshot(monkeypatch) -> None:
+    """resolve_preset_tools output must match the M3 oracle for all 150 personas.
+
+    module: eval workspaces (bench-*) are gated off the module-level
+    WORKSPACES dict by default (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4), so
+    bench personas' workspace_model lookups would otherwise resolve to no
+    tools. Fill in the full (eval-enabled) set for the duration of this
+    test — WORKSPACES aliases the same dict object every importer sees.
+    """
+    from portal.platform.inference.config import get_workspace_dict, load_portal_config
+
+    monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
+    all_ws = get_workspace_dict(load_portal_config())
+    for ws_id, ws_cfg in all_ws.items():
+        monkeypatch.setitem(WORKSPACES, ws_id, ws_cfg)
+
     snap = json.loads(SNAPSHOT.read_text())
     failures = []
     for slug, spec in _PERSONA_MAP.items():

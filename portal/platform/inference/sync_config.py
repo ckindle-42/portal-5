@@ -99,17 +99,21 @@ def _owui_preset(ws_id: str, spec: Any) -> dict[str, Any]:
 
 
 def emit_workspace_routing(config: Any) -> bool:
-    """Rewrite workspace_routing block in config/backends.yaml. Returns True if changed."""
+    """Rewrite workspace_routing block in config/backends.yaml. Returns True if changed.
+
+    Gate 3 (M7 toggle layer, BUILD_PROGRAM_COLLAPSE_V1.md Phase 4): workspaces
+    belonging to a disabled module (eval, off by default) are skipped, same
+    discipline as Gate 1 (OWUI presets) and Gate 2 (.mcp.json).
+    """
+    from portal.platform.inference.config import _eval_enabled
+
     backends_path = REPO / "config" / "backends.yaml"
     original = backends_path.read_text(encoding="utf-8")
 
-    # Build new workspace_routing block
-    routing_lines: list[str] = ["workspace_routing:"]
-    for ws_id, _spec in config.workspaces.items():
-        routing_lines.append(f"  {ws_id}:")
-        # Look up backend groups from current backends.yaml (preserve existing routing)
-        # We need the routing groups from the current file; this is a round-trip.
-        pass
+    eval_on = _eval_enabled()
+    live_workspaces = {
+        ws_id: spec for ws_id, spec in config.workspaces.items() if eval_on or spec.module != "eval"
+    }
 
     # Parse existing routing to preserve backend groups
     raw = yaml.safe_load(original) or {}
@@ -117,7 +121,7 @@ def emit_workspace_routing(config: Any) -> bool:
 
     new_routing: dict[str, list[str]] = {}
     missing: list[str] = []
-    for ws_id in config.workspaces:
+    for ws_id in live_workspaces:
         if ws_id in existing_routing:
             new_routing[ws_id] = existing_routing[ws_id]
         else:
