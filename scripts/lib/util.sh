@@ -287,6 +287,7 @@ _ensure_native_services() {
     else
         echo "[portal-5]   Pipeline MCP not running — starting..."
         mkdir -p "$HOME/.portal5/logs"
+        PYTHONPATH="$PORTAL_ROOT" \
         PIPELINE_API_KEY="${PIPELINE_API_KEY:-}" \
         PIPELINE_URL="${PIPELINE_URL:-http://localhost:9099}" \
         OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}" \
@@ -308,6 +309,7 @@ _ensure_native_services() {
     else
         echo "[portal-5]   MITRE MCP not running — starting..."
         mkdir -p "$HOME/.portal5/logs"
+        PYTHONPATH="$PORTAL_ROOT" \
         MITRE_MCP_PORT="${MITRE_MCP_PORT:-8929}" \
         nohup python3 -m portal.modules.security.tools.mitre_mcp \
             >> "$HOME/.portal5/logs/mitre-mcp.log" 2>&1 &
@@ -323,6 +325,7 @@ _ensure_native_services() {
     else
         echo "[portal-5]   Detections MCP not running — starting..."
         mkdir -p "$HOME/.portal5/logs"
+        PYTHONPATH="$PORTAL_ROOT" \
         DETECTIONS_MCP_PORT="${DETECTIONS_MCP_PORT:-8932}" \
         nohup python3 -m portal.modules.security.tools.detections_mcp \
             >> "$HOME/.portal5/logs/detections-mcp.log" 2>&1 &
@@ -339,6 +342,7 @@ _ensure_native_services() {
     else
         echo "[portal-5]   Wiki MCP not running — starting..."
         mkdir -p "$HOME/.portal5/logs"
+        PYTHONPATH="$PORTAL_ROOT" \
         OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}" \
         WIKI_MCP_PORT="${WIKI_MCP_PORT:-8931}" \
         nohup python3 -m portal_wiki.wiki_mcp \
