@@ -557,7 +557,49 @@ def _write_back_winning_config(results: list[dict]) -> str | None:
         return None
 
 
+def _backup_existing_checkpoint(path: Path) -> Path | None:
+    """Unconditionally copy an existing checkpoint to a timestamped .bak
+    before this run's first write.
+
+    Checkpoint-backup discipline was documented as an operator/agent
+    responsibility (CLAUDE.md "Checkpoint Backup Discipline") but the
+    same file has still been lost more than once to a later, unrelated
+    sweep reusing the same default OUT_PATH and clobbering it. This
+    makes the backup structural instead of a remembered step — it
+    can't be skipped under time pressure because it isn't a separate
+    action to remember.
+    """
+    if not path.exists():
+        return None
+    import shutil
+    from datetime import UTC, datetime
+
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    bak_path = path.with_name(f"{path.stem}_{stamp}{path.suffix}.bak")
+    shutil.copy2(path, bak_path)
+    print(f"Checkpoint backup: {path} -> {bak_path}")
+    return bak_path
+
+
+def _warn_if_unrelated_checkpoint(existing_results: list[dict], models: list[str]) -> None:
+    """Loud warning if an existing checkpoint's models share nothing with
+    this run's models — the strongest available signal that OUT_PATH is
+    about to mix two unrelated sweeps (the exact failure mode that lost
+    the original devstral raw-vs-harness gate data on 2026-07-11)."""
+    if not existing_results:
+        return
+    existing_models = {r.get("model") for r in existing_results}
+    if existing_models and not (existing_models & set(models)):
+        print(
+            "WARNING: existing checkpoint has ZERO model overlap with this run "
+            f"({sorted(existing_models)} vs {sorted(models)}). This looks like a "
+            "DIFFERENT sweep sharing the same output path. A backup was just "
+            "written — verify with --out=<dedicated path> if this isn't intentional."
+        )
+
+
 def main() -> None:
+    global OUT_PATH
     trials = _get_trials()
     workers = _get_workers()
 
@@ -565,6 +607,16 @@ def main() -> None:
     args = sys.argv[1:]
     all_captured = "--all-captured" in args
     arms = list(ARMS)  # default: all 3 arms
+
+    # --out=<path>: dedicated checkpoint path (also SWEEP_OUT_PATH env var).
+    # Prefer this over the shared default for any run whose (models, arms,
+    # scenarios) config differs from a prior run — see _warn_if_unrelated_checkpoint.
+    out_override = os.environ.get("SWEEP_OUT_PATH")
+    for arg in args:
+        if arg.startswith("--out="):
+            out_override = arg.split("=", 1)[1]
+    if out_override:
+        OUT_PATH = Path(out_override)
 
     # Allow env overrides for scenarios and models
     scenarios = SCENARIOS
@@ -639,10 +691,14 @@ def main() -> None:
     print(f"Output: {OUT_PATH}")
     print()
 
+    # Unconditional backup-before-write — see _backup_existing_checkpoint docstring.
+    _backup_existing_checkpoint(OUT_PATH)
+
     # Load existing results (supports incremental runs + checkpointing)
     results: list[dict] = []
     if OUT_PATH.exists():
         results = json.loads(OUT_PATH.read_text())
+    _warn_if_unrelated_checkpoint(results, models)
 
     # Build set of already-completed (scenario, model) pairs with enough trials
     completed = set()
