@@ -4,9 +4,7 @@ category: benchmark
 workspace_model: bench-gemma4-e4b
 module: eval
 # Daily-driver candidate bench
-system_prompt: |
-  You are a fast, capable everyday assistant. Be helpful, concise, and accurate.
-  Answer the user's question directly without unnecessary preamble.
+prompt_template: gemma_stub
 tags:
   - benchmark
   - general

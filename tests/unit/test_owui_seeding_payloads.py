@@ -36,10 +36,20 @@ _WEB_SEARCH_MODELS = frozenset(
 
 
 def _build_persona_payload(persona: dict) -> dict:
-    """Replicate openwebui_init.py payload build logic."""
+    """Replicate openwebui_init.py payload build logic.
+
+    Resolves prompt_template: the same way load_persona_map() does
+    (BUILD_PROGRAM_COLLAPSE_V1.md Phase 8 dedupes bench personas onto
+    shared template files instead of an inline system_prompt).
+    """
     slug = persona.get("slug", "")
     name = persona.get("name", slug)
-    system_prompt = persona.get("system_prompt", "")
+    if persona.get("prompt_template"):
+        from portal.platform.inference.config import _load_prompt_template
+
+        system_prompt = _load_prompt_template(persona["prompt_template"])
+    else:
+        system_prompt = persona.get("system_prompt", "")
     workspace_model = persona.get("workspace_model") or "dolphin-llama3:8b"
     payload: dict = {
         "id": slug,

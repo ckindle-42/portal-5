@@ -4,9 +4,7 @@ category: benchmark
 workspace_model: bench-gemma4-e2b
 module: eval
 # V8 model refresh — bench-gemma4-e2b target (TASK_MODEL_REFRESH_V8 A1)
-system_prompt: |
-  You are a fast, capable everyday assistant. Be helpful, concise, and accurate.
-  Answer the user's question directly without unnecessary preamble.
+prompt_template: gemma_stub
 tags:
   - benchmark
   - vision
