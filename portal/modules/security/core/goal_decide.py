@@ -1,76 +1,36 @@
-"""Goal-driven decide turn — reason over the Stage-1 capability index instead
-of walking a playbook DAG (TASK_SEC_GOAL_DECIDE_V1, Stage 2 Phase 2).
+"""Goal-driven decide turn (security).
 
-Grounded: the model (or the deterministic fallback) chooses only from
-capability.query()'s retrieved, real candidates — never free-form. It may
-decline all candidates (-> no_applicable_capability), a clean stop, not a
-flail. Explainable: every choice carries reason + confidence +
-alternatives_considered.
+The grounded decide-turn now lives in portal.platform.agent.decide
+(TASK_AGENT_LOOP_PLATFORM_V1). This module supplies security's grounding: a
+CapabilityProvider wrapping capability.query, and the (quality-only) model turn
+that renders security capabilities and calls the pipeline. Public signature is
+unchanged: decide_next_action(goal, observations, history, *, workspace=None).
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from . import decision_engine
+from portal.platform.agent.decide import decide_next_action as _platform_decide
+
 from .capability.index import Capability, query
 from .goal import EngagementGoal
 
-_NO_APPLICABLE = {
-    "action": None,
-    "tool": None,
-    "args": {},
-    "reason": "no capability in the index matched current observations/goal",
-    "confidence": 0.0,
-    "expected_oracle": None,
-    "expected_observation_delta": {},
-    "alternatives_considered": [],
-    "outcome": "no_applicable_capability",
-}
 
+class _SecurityCapabilityProvider:
+    """Adapts security's capability.query to the platform CapabilityProvider."""
 
-def _pick_capability_for_tool(tool: str, candidates: list[Capability]) -> Capability:
-    for cap in candidates:
-        if tool in cap.tools:
-            return cap
-    return candidates[0]
-
-
-def decide_next_action(
-    goal: EngagementGoal,
-    observations: dict[str, Any],
-    history: list[dict],
-    *,
-    workspace: str | None = None,
-) -> dict:
-    """One decide step. Retrieves candidates via capability.query grounded in
-    the goal's domain_hint + intent, then chooses one next action.
-
-    The model turn (workspace given) is the primary path; when no workspace
-    is available — or the model call fails — decision_engine.select_tools
-    ranks the retrieved candidates' tools deterministically, so this step
-    always yields a ranked choice and stays hermetic for tests.
-    """
-    # goal.intent is often free-text prose ("poke this machine"), while
-    # query()'s `goal` param is a hard substring filter over id/technique —
-    # try it as a bonus narrowing filter first (it helps when intent names a
-    # real technique, e.g. "kerberoast this"), then fall back to
-    # observations+domain alone so generic intents don't dead-end on a
-    # grounded, observation-matched candidate.
-    candidates = query(observations, domain=goal.domain_hint, goal=goal.intent, limit=8)
-    if not candidates:
-        candidates = query(observations, domain=goal.domain_hint, limit=8)
-    if not candidates:
-        return dict(_NO_APPLICABLE)
-
-    decision = None
-    if workspace is not None:
-        decision = _decide_via_model(goal, observations, history, candidates, workspace)
-
-    if decision is None:
-        decision = _decide_via_deterministic_fallback(observations, candidates)
-
-    return decision
+    def query(
+        self,
+        observations: dict[str, Any],
+        *,
+        domain: str | None = None,
+        goal: str | None = None,
+        limit: int = 8,
+    ) -> list[Capability]:
+        if goal is not None:
+            return query(observations, domain=domain, goal=goal, limit=limit)
+        return query(observations, domain=domain, limit=limit)
 
 
 def _decide_via_model(
@@ -80,10 +40,9 @@ def _decide_via_model(
     candidates: list[Capability],
     workspace: str,
 ) -> dict | None:
-    """Best-effort model decide turn. Any failure (no pipeline reachable,
-    malformed response, etc.) returns None so the caller falls back to the
-    deterministic ranker — the model path is never load-bearing for
-    correctness, only for quality."""
+    """Best-effort model decide turn. Any failure returns None so the caller
+    falls back to the deterministic ranker — never load-bearing for correctness.
+    """
     try:
         from .capability.render import render_capabilities, render_tool_arsenal
 
@@ -103,44 +62,31 @@ def _decide_via_model(
         raw_text, _elapsed = call_pipeline(workspace, prompt)
         if not raw_text:
             return None
-        # A structured model response is not guaranteed shape-stable across
-        # workspaces/models; fall back rather than trust a loose parse.
+        # Loose parse is not shape-stable across models; fall back rather than trust it.
         return None
     except Exception:
         return None
 
 
-def _decide_via_deterministic_fallback(
-    observations: dict[str, Any], candidates: list[Capability]
+def decide_next_action(
+    goal: EngagementGoal,
+    observations: dict[str, Any],
+    history: list[dict],
+    *,
+    workspace: str | None = None,
 ) -> dict:
-    available_tools = sorted({t for c in candidates for t in c.tools})
-    if not available_tools:
-        top = candidates[0]
-        return {
-            "action": top.id,
-            "tool": top.id,
-            "args": {},
-            "reason": "top-ranked capability match (no declared tools)",
-            "confidence": 0.5,
-            "expected_oracle": top.oracle,
-            "expected_observation_delta": {"technique_attempted": top.id},
-            "alternatives_considered": [c.id for c in candidates[1:4]],
-            "outcome": "proposed",
-        }
+    """One decide step, grounded in security's capability index. Delegates the
+    control flow to the platform decide-turn; supplies the security provider and
+    (when a workspace is available) the security model turn.
+    """
+    model_turn = None
+    if workspace is not None:
+        model_turn = lambda g, o, h, c: _decide_via_model(g, o, h, c, workspace)  # noqa: E731
 
-    ranked = decision_engine.select_tools(observations, available_tools)
-    chosen = ranked[0] if ranked else None
-    chosen_tool = chosen.name if chosen else available_tools[0]
-    top = _pick_capability_for_tool(chosen_tool, candidates)
-
-    return {
-        "action": top.id,
-        "tool": chosen_tool,
-        "args": {},
-        "reason": f"deterministic fallback: {chosen.reason if chosen else 'top-ranked capability match'}",
-        "confidence": chosen.score if chosen else 0.5,
-        "expected_oracle": top.oracle,
-        "expected_observation_delta": {"technique_attempted": top.id},
-        "alternatives_considered": [c.id for c in candidates if c.id != top.id][:3],
-        "outcome": "proposed",
-    }
+    return _platform_decide(
+        goal,
+        observations,
+        history,
+        provider=_SecurityCapabilityProvider(),
+        model_turn=model_turn,
+    )

@@ -1,46 +1,32 @@
-"""EngagementGoal — the bounded, open-ended alternative to a playbook path
-(TASK_SEC_GOAL_DECIDE_V1, Stage 2 Phase 1).
-
-Same bounds a playbook must have (scope, budget, stop) — open-ended does not
-mean unbounded — but no phase graph. `role` selects which capability slice
-a decide step draws from: red = exploitation/recon, blue = detection/analysis,
-purple = both (red acts, blue observes).
+"""EngagementGoal — security's bounded goal, now a thin specialization of the
+platform Goal (TASK_AGENT_LOOP_PLATFORM_V1). Adds `role` (red/blue/purple) and
+`targets`; bound-checking is delegated to the platform, role-checked here.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from portal.platform.agent.goal import Goal
+from portal.platform.agent.goal import validate_goal as _platform_validate_goal
+
 VALID_ROLES = ("red", "blue", "purple")
 
 
 @dataclass
-class EngagementGoal:
-    intent: str
-    role: str
+class EngagementGoal(Goal):
+    role: str = "purple"
     targets: list[str] = field(default_factory=list)
-    scope: dict = field(default_factory=dict)
-    budget: dict = field(default_factory=dict)
-    stop_when: list[dict] | None = None
-    domain_hint: str | None = None
 
 
 def validate_goal(goal: EngagementGoal) -> list[str]:
-    """Mirror playbooks.validate_playbook: reject a goal with no scope or no
-    budget. Nothing runs open-ended without bounds."""
+    """Mirror playbooks.validate_playbook: role + scope + budget bounds.
+
+    Role is checked first (security-specific), then the platform scope/budget
+    bounds — preserving the historical problem ordering.
+    """
     problems: list[str] = []
-
-    if goal.role not in VALID_ROLES:
+    if getattr(goal, "role", None) not in VALID_ROLES:
         problems.append(f"invalid role: {goal.role!r} (must be one of {VALID_ROLES})")
-
-    if not goal.scope or not goal.scope.get("targets"):
-        problems.append("scope.targets is empty or missing")
-
-    if not goal.budget:
-        problems.append("missing budget")
-    else:
-        for bk in ("max_iterations", "max_wall_clock_sec", "max_lab_actions"):
-            if bk not in goal.budget:
-                problems.append(f"budget.{bk} is missing")
-
+    problems.extend(_platform_validate_goal(goal))
     return problems
