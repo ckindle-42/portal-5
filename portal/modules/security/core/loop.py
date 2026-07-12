@@ -385,6 +385,140 @@ def _write_checkpoint(state: EngagementState, reason: str) -> Path:
     return out
 
 
+# ── Goal-driven open-ended mode (Stage 2 — proposal + dry-run only) ───────────
+
+
+def run_goal_engagement(
+    goal,
+    *,
+    dry_run: bool = True,
+    workspace: str | None = None,
+    max_steps: int | None = None,
+) -> dict:
+    """Open-ended loop: perceive -> capability.query -> decide_next_action ->
+    (DRY-RUN: record proposed action, simulate its expected_observation_delta)
+    -> repeat until a stop condition / budget / hard cap / escalation /
+    no_applicable_capability.
+
+    dry_run defaults True. Live actuation is not implemented in this task —
+    a non-dry-run call raises NotImplementedError('live actuation is Stage 3').
+    This keeps the Stage-2/Stage-3 boundary explicit in code, not just in docs.
+    """
+    from .goal import validate_goal
+    from .goal_decide import decide_next_action
+
+    problems = validate_goal(goal)
+    if problems:
+        return {
+            "status": "rejected",
+            "reason": f"goal validation failed: {', '.join(problems)}",
+            "plan": [],
+            "stop_reason": "invalid_goal",
+        }
+
+    if not dry_run:
+        raise NotImplementedError("live actuation is Stage 3")
+
+    budget = goal.budget
+    max_iterations = min(budget.get("max_iterations", HARD_MAX_ITERATIONS), HARD_MAX_ITERATIONS)
+    if max_steps is not None:
+        max_iterations = min(max_iterations, max_steps)
+    max_wall_clock = min(
+        budget.get("max_wall_clock_sec", HARD_MAX_WALL_CLOCK_SEC), HARD_MAX_WALL_CLOCK_SEC
+    )
+    max_lab_actions = min(budget.get("max_lab_actions", HARD_MAX_LAB_ACTIONS), HARD_MAX_LAB_ACTIONS)
+
+    started_at = time.monotonic()
+    observations: dict = {}
+    history: list[dict] = []
+    plan: list[dict] = []
+    escalations: list[str] = []
+    iterations = 0
+    lab_actions = 0
+    stop_reason = "no_runnable_phase"
+
+    while True:
+        if iterations >= max_iterations:
+            stop_reason = (
+                "hard_cap"
+                if budget.get("max_iterations", 0) >= HARD_MAX_ITERATIONS
+                else "budget_exhausted"
+            )
+            break
+        if time.monotonic() - started_at >= max_wall_clock:
+            stop_reason = (
+                "hard_cap"
+                if budget.get("max_wall_clock_sec", 0) >= HARD_MAX_WALL_CLOCK_SEC
+                else "budget_exhausted"
+            )
+            break
+        if lab_actions >= max_lab_actions:
+            stop_reason = (
+                "hard_cap"
+                if budget.get("max_lab_actions", 0) >= HARD_MAX_LAB_ACTIONS
+                else "budget_exhausted"
+            )
+            break
+        if goal.stop_when and _check_goal_stop(goal.stop_when, observations):
+            stop_reason = "goal_met"
+            break
+
+        decision = decide_next_action(goal, observations, history, workspace=workspace)
+        if decision.get("outcome") == "no_applicable_capability":
+            stop_reason = "no_applicable_capability"
+            break
+
+        target = goal.targets[0] if goal.targets else ""
+        if target and not enforce_scope(target, goal.scope):
+            escalations.append(f"out_of_scope_action:{target}")
+            stop_reason = "escalated:out_of_scope_action"
+            break
+
+        plan.append(decision)
+        history.append(decision)
+        observations = {**observations, **decision.get("expected_observation_delta", {})}
+        lab_actions += 1
+        iterations += 1
+
+    report = {
+        "status": "completed",
+        "mode": "goal_dryrun",
+        "goal_intent": goal.intent,
+        "goal_role": goal.role,
+        "plan": plan,
+        "stop_reason": stop_reason,
+        "iterations": iterations,
+        "lab_actions": lab_actions,
+        "escalations": escalations,
+        "observations": observations,
+    }
+
+    with contextlib.suppress(Exception):
+        journal.record_engagement(
+            chain_result={
+                "chain_depth": len(plan),
+                "tools_called": [
+                    {"tool": p.get("tool"), "arguments": p.get("args", {})} for p in plan
+                ],
+                "verified": False,
+                "compromise_confirmed": False,
+            },
+            scenario={"category": f"goal:{goal.role}", "goal": goal.intent, "mode": "goal_dryrun"},
+            engagement_id=f"goal-{goal.role}-{int(started_at)}",
+        )
+
+    return report
+
+
+def _check_goal_stop(stop_when: list[dict], observations: dict) -> bool:
+    for cond in stop_when:
+        field_name = cond.get("field", "")
+        expected = cond.get("equals")
+        if field_name in observations and observations[field_name] == expected:
+            return True
+    return False
+
+
 def resume_engagement(
     engagement_id: str,
     *,
