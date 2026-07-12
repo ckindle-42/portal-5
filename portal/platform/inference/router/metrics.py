@@ -203,6 +203,50 @@ _workspace_semaphore_busy_total_metric = Counter(
 )
 _workspace_semaphore_busy_total = _workspace_semaphore_busy_total_metric
 
+# ── Tool preselect metrics (portal.platform.inference.tool_preselect) ────────────────
+# Declared here per this module's sole-ownership rule; re-exported (not
+# redeclared) by tool_preselect/metrics.py, which owns the public
+# record_* helper functions the rest of that package calls.
+toolpreselect_calls_total = Counter(
+    "portal5_toolpreselect_calls_total",
+    "Tool preselector calls by outcome",
+    ["workspace", "outcome"],
+    registry=_REGISTRY,
+)
+toolpreselect_duration_seconds = Histogram(
+    "portal5_toolpreselect_duration_seconds",
+    "Tool preselector call latency",
+    ["workspace"],
+    buckets=[0.05, 0.1, 0.2, 0.3, 0.5, 1.0, 2.0],
+    registry=_REGISTRY,
+)
+toolpreselect_tools_selected = Histogram(
+    "portal5_toolpreselect_tools_selected",
+    "Number of tools returned by the preselector",
+    ["workspace"],
+    buckets=[1, 2, 3, 5, 8, 10, 15, 20],
+    registry=_REGISTRY,
+)
+toolpreselect_tools_available = Histogram(
+    "portal5_toolpreselect_tools_available",
+    "Number of tools offered to the preselector (savings-ratio denominator)",
+    ["workspace"],
+    buckets=[1, 2, 3, 5, 8, 10, 15, 20, 30],
+    registry=_REGISTRY,
+)
+toolpreselect_miss_total = Counter(
+    "portal5_toolpreselect_miss_total",
+    "Primary model requested a tool the preselector had filtered out",
+    ["workspace"],
+    registry=_REGISTRY,
+)
+toolpreselect_auto_disabled_total = Counter(
+    "portal5_toolpreselect_auto_disabled_total",
+    "Self-healing auto-disable events (workspace miss rate exceeded threshold)",
+    ["workspace"],
+    registry=_REGISTRY,
+)
+
 # Accumulator for daily summary (updated by _record_response_time, reset by _save_state)
 _total_response_time_ms: float = 0.0
 

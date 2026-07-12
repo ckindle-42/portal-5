@@ -70,7 +70,8 @@ portal-5/
 │       │   │   ├── streaming.py     # SSE streaming: tool loop, preamble
 │       │   │   └── workspaces.py    # WORKSPACES dict, persona map, workspace tool helpers
 │       │   ├── cli/                 # Typed operator CLI (portal config show, …) — entry: portal
-│       │   └── notifications/       # Operational alerts + daily summaries
+│       │   ├── notifications/       # Operational alerts + daily summaries
+│       │   └── tool_preselect/      # Query-level tool-schema preselection (P5-FUT-TOOL-PRESELECT, flag-off by default)
 │       ├── wiki/                    # Wiki engine (schema, store, writeback, render, maintain)
 │       │   └── adapters/            # Portal-specific wiki wiring (module toggle resolver, growth writeback)
 │       ├── mcp_host/                 # Pipeline MCP (:8928) + shared MCP workspace helpers (workspace.py: resolve_upload_path, get_generated_dir, _VALID_CATEGORIES)
