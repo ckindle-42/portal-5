@@ -38,11 +38,18 @@ import sys
 from pathlib import Path
 
 # Make `tests.*` imports work when invoked as a script from anywhere.
+# Unconditional insert, not "insert if absent": on machines where another
+# unrelated project's `portal` package is also installed editable (import
+# name collision — genuinely happens; not hypothetical, see the commit that
+# introduced this comment), this repo's root can already be present in
+# sys.path but in the WRONG position (behind the other project's path). An
+# "if not in sys.path" guard would skip fixing that position and `import
+# portal` would silently resolve to the wrong package. Always force this
+# repo's root to index 0 so it wins regardless of where else it appears.
 _TESTS_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _TESTS_DIR.parent
-for _p in (str(_PROJECT_ROOT), str(_TESTS_DIR)):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+sys.path.insert(0, str(_TESTS_DIR))
+sys.path.insert(0, str(_PROJECT_ROOT))
 
 from tests.memory_guard import (  # noqa: E402, F401
     memory_pct as _get_memory_pct,
