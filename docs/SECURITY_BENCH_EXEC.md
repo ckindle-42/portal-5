@@ -21,6 +21,7 @@
 | `cli.py` | CLI entry point: argparse, `run_bench()`, summary printing |
 | `matrix.py` | Scenario × container matrix: `build_run_matrix`, `run_matrix`, `TelemetryBackend` protocol, `WazuhBackend`, coverage reports |
 | `capability/` | Capability index (TASK_SEC_CAPABILITY_INDEX_V1) — unifies `_LAB_SERVICE_PROBES`, `challenge_classes.yaml`, and `lab_targets.yaml` into one queryable `Capability` list. See § Capability Index below. |
+| `goal.py`, `goal_decide.py`, `goal_eval.py`, `goal_cli.py` | Goal-driven decide (TASK_SEC_GOAL_DECIDE_V1, Stage 2) — reasons over the capability index instead of a playbook DAG. Dry-run/proposal only. See § Goal-Driven Decide below. |
 | `__init__.py` | Thin facade: pipeline I/O (`call_pipeline`, `call_pipeline_exec`) + re-exports |
 
 ### Capability Index
@@ -33,6 +34,16 @@
 - CLI: `python3 -m portal.modules.security.core capability {list,query,tools,arsenal}` (also reachable as `portal security capability ...` via the Slice-6 argv pass-through). `--json` on `list`/`query`/`tools` for machine consumption.
 
 As of 2026-07-12: 104 capabilities indexed (17 from service probes, 80 from challenge classes, 7 from lab targets). This is Stage 1 of the SEC chain; `TASK_SEC_GOAL_DECIDE_V1` (goal-driven decide) is the first real consumer of `query()`.
+
+### Goal-Driven Decide (Stage 2 — dry-run/proposal only)
+
+Upgrades the loop's decide step from *lookup* (`playbooks.resolve_phases` walking a phase graph) to *reasoning*: given a bounded goal + current observations, choose the next action from the capability index instead of a pre-authored DAG. **Deliberately stops at proposal + dry-run** — no live actuation exists yet (Stage 3).
+
+- `goal.py` — `EngagementGoal` (`intent`, `role: red|blue|purple`, `targets`, `scope`, `budget`, `stop_when`, `domain_hint`) and `validate_goal()` (mirrors `playbooks.validate_playbook`: rejects any goal with no scope or no budget — open-ended never means unbounded).
+- `goal_decide.py` — `decide_next_action(goal, observations, history, *, workspace=None)`: retrieves candidates via `capability.query()` (narrowed by `domain_hint`, then by `goal.intent` as a bonus technique-name filter, falling back to the unnarrowed set so generic prose intents like "poke this machine" don't dead-end), then picks one via `decision_engine.select_tools` (the deterministic floor; a model-turn path exists via `call_pipeline` but any failure — no workspace, no reachable pipeline, unparseable response — silently falls back, keeping this hermetic for tests). Returns `{action, tool, args, reason, confidence, expected_oracle, expected_observation_delta, alternatives_considered, outcome}`; `outcome="no_applicable_capability"` is a clean decline, not a flail.
+- `loop.py::run_goal_engagement(goal, *, dry_run=True, workspace=None, max_steps=None)` — the open-ended loop: perceive → `capability.query` → `decide_next_action` → (dry-run: record the proposal, advance simulated observations by the capability's `expected_observation_delta`) → repeat until budget/hard-cap/`stop_when`/escalation/`no_applicable_capability`. Reuses `enforce_scope` from the playbook path — a proposal against an out-of-scope target is refused and escalated *in dry-run*, proving the guardrail holds on the open-ended path before any Stage-3 grant of live actuation. **`dry_run=False` raises `NotImplementedError('live actuation is Stage 3')`** — the Stage-2/Stage-3 boundary is enforced in code, not just documented, and locked by validator check T.
+- `goal_eval.py::eval_proposals()` — the Stage-3 go/no-go evidence: runs a single decide step against ~11 real lab targets spanning domains (derived live from the capability index, never invented) and scores relevance/grounding/non-flailing/coverage. As of 2026-07-12: 100% relevance/grounding/non-flailing, 36.4% coverage (the shortfall is a legitimate recon-before-exploit bias — a generic service probe on the same port often outranks a target's specific CVE capability in the single-step deterministic ranker, not a flaw in retrieval).
+- CLI: `portal security goal plan --intent "..." --role red --target <ip> --scope-net <ip> --budget-iters N` (writes `docs/GOAL_PLAN_<target>_<ts>.md`), `goal eval --role red`, `goal replay <plan.json>`. **Deliberately no `--lab-exec`** — the absence is the safety property.
 
 `tests/benchmarks/bench_security.py` is a backward-compat re-export shim over `portal.modules.security.core` — it re-exports names for import compatibility but has no `__main__` entry point. Run the bench via `python3 -m portal.modules.security.core ...` (below), not `python3 -m tests.benchmarks.bench_security` — the latter silently does nothing (no CLI wiring at that path).
 

@@ -26,6 +26,10 @@ if __name__ == "__main__":
         from portal.modules.security.core.capability.cli import capability_main
 
         sys.exit(capability_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "goal":
+        from portal.modules.security.core.goal_cli import goal_main
+
+        sys.exit(goal_main(sys.argv[2:]))
     from portal.modules.security.core import main
 
     main()

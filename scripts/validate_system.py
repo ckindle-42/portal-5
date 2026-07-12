@@ -2524,6 +2524,48 @@ def check_capability_index() -> tuple[str, str, list[dict]]:
     return "PASS", f"{len(caps)} capabilities, 0 orphan tool/oracle refs", subs
 
 
+def check_goal_decide_dryrun() -> tuple[str, str, list[dict]]:
+    """T — run_goal_engagement imports, a goal with no bounds is rejected, and
+    a non-dry-run call raises NotImplementedError (TASK_SEC_GOAL_DECIDE_V1).
+
+    Locks the Stage-2/Stage-3 boundary in code — a later edit can't
+    accidentally grant live actuation without deliberately removing this
+    guard (and this check).
+    """
+    try:
+        from portal.modules.security.core.goal import EngagementGoal
+        from portal.modules.security.core.loop import run_goal_engagement
+    except ImportError as exc:
+        return "SKIP", f"goal-decide module not found: {exc}", []
+
+    subs: list[dict] = []
+
+    unbounded = EngagementGoal(intent="poke it", role="red")
+    rejected = run_goal_engagement(unbounded, dry_run=True)
+    ok1 = rejected.get("status") == "rejected"
+    subs.append({"name": "unbounded goal rejected", "status": "PASS" if ok1 else "FAIL"})
+
+    bounded = EngagementGoal(
+        intent="poke it",
+        role="red",
+        targets=["10.10.11.50"],
+        scope={"targets": ["10.10.11.50"]},
+        budget={"max_iterations": 1, "max_wall_clock_sec": 60, "max_lab_actions": 1},
+    )
+    ok2 = False
+    try:
+        run_goal_engagement(bounded, dry_run=False)
+    except NotImplementedError:
+        ok2 = True
+    subs.append(
+        {"name": "live actuation raises NotImplementedError", "status": "PASS" if ok2 else "FAIL"}
+    )
+
+    if ok1 and ok2:
+        return "PASS", "dry-run boundary enforced", subs
+    return "FAIL", "dry-run boundary NOT enforced", subs
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -2602,6 +2644,7 @@ def main() -> int:
     v.run("AK. wiki core backbone", check_wiki_core)
     v.run("AL. doc currency", check_doc_currency)
     v.run("S. capability index consistency", check_capability_index)
+    v.run("T. goal-decide dry-run", check_goal_decide_dryrun)
 
     return v.summary()
 
