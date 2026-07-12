@@ -63,6 +63,12 @@ repos:
       # (pytest-xdist, -n auto) on a 14-core M-series Mac vs ~8min serial;
       # blocks commits that break the test suite. Opt-in via
       # `pre-commit install`. Uses the developer's existing venv.
+      - id: portal-config-validate
+        name: validate config/portal.yaml
+        language: system
+        entry: python3 -m portal.platform.inference.cli config validate
+        files: ^config/portal\.yaml$
+        pass_filenames: false
       - id: pytest-unit
         name: pytest unit suite
         language: system

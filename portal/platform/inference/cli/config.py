@@ -12,6 +12,19 @@ from portal.platform.inference.config import load_portal_config
 from ._apps import config_app
 
 
+@config_app.command("validate")
+def config_validate() -> None:
+    """Validate config/portal.yaml; exit non-zero on any error."""
+    from portal.platform.inference.config_validate import validate_config
+
+    errs = validate_config()
+    if errs:
+        for e in errs:
+            typer.echo(f"ERROR: {e}")
+        raise typer.Exit(code=1)
+    typer.echo("config OK")
+
+
 @config_app.command("show")
 def config_show(
     raw: Annotated[

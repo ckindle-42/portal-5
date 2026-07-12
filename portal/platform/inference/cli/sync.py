@@ -29,6 +29,17 @@ def sync_config(
 
     Idempotent — safe to run after every edit to portal.yaml.
     """
+    from portal.platform.inference.config_validate import validate_config
+
+    _cfg_errors = validate_config()
+    if _cfg_errors:
+        import typer as _t
+
+        _t.echo("config validation FAILED — refusing to regenerate artifacts:")
+        for _e in _cfg_errors:
+            _t.echo(f"  - {_e}")
+        raise _t.Exit(code=1)
+
     from portal.platform.inference.sync_config import main as _sync_main
 
     if dry_run:
