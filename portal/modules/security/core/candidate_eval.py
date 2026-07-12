@@ -45,12 +45,15 @@ _SLOT_TO_GROUPS: dict[str, list[str]] = {
 }
 
 # ── Slot → portal.yaml workspace (incumbent resolution) ──────────────────────
-# Maps each slot to the workspace whose model_hint is the current fleet incumbent
-# for that slot.  Reads live from portal.yaml — not hardcoded model names.
-_SLOT_TO_WORKSPACE: dict[str, str] = {
-    "recon": "auto-security",
-    "exploit": "auto-pentest",
-    "post": "auto-purpleteam-exec",
+# Maps each slot to (workspace, variant) whose model_hint is the current fleet
+# incumbent for that slot. Reads live from portal.yaml — not hardcoded model
+# names. variant is None for a plain top-level workspace; a name selects a
+# `variants:` sub-block on auto-security (BUILD_PROGRAM_COLLAPSE_V1.md Phase 6
+# folded auto-pentest/auto-purpleteam-exec into auto-security's variants).
+_SLOT_TO_WORKSPACE: dict[str, tuple[str, str | None]] = {
+    "recon": ("auto-security", None),
+    "exploit": ("auto-security", "pentest"),
+    "post": ("auto-security", "purpleteam-exec"),
 }
 
 _PORTAL_YAML = (
@@ -64,20 +67,22 @@ CANDIDATES_DIR = RESULTS_DIR / "candidates"
 def _get_incumbent_model(slot: str) -> str:
     """Resolve the real incumbent model for a slot from portal.yaml.
 
-    Reads the model_hint from the workspace mapped by _SLOT_TO_WORKSPACE.
-    Returns "" if the slot has no mapping, the YAML can't be read, or the
-    workspace/model_hint is missing.
+    Reads the model_hint from the workspace (or workspace variant) mapped by
+    _SLOT_TO_WORKSPACE. Returns "" if the slot has no mapping, the YAML can't
+    be read, or the workspace/variant/model_hint is missing.
     """
-    workspace = _SLOT_TO_WORKSPACE.get(slot)
-    if not workspace:
+    mapping = _SLOT_TO_WORKSPACE.get(slot)
+    if not mapping:
         return ""
+    workspace, variant = mapping
     try:
         data = yaml.safe_load(_PORTAL_YAML.read_text()) or {}
     except Exception:
         return ""
-    workspaces = data.get("workspaces", {})
-    ws_cfg = workspaces.get(workspace, {})
-    return ws_cfg.get("model_hint", "")
+    ws_cfg = data.get("workspaces", {}).get(workspace, {})
+    if variant is None:
+        return ws_cfg.get("model_hint", "")
+    return ws_cfg.get("variants", {}).get(variant, {}).get("model_hint", "")
 
 
 def _build_step_models(slot: str, candidate: str, incumbent: str) -> dict[str, str]:

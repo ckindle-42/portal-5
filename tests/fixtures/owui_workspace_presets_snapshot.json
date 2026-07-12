@@ -42,23 +42,6 @@
       "model": "auto-bigfix"
     }
   },
-  "auto-blueteam": {
-    "id": "auto-blueteam",
-    "meta": {
-      "description": "🔵 Portal Blue Team",
-      "profile_image_url": "",
-      "toolIds": [
-        "server:mcp:portal_research",
-        "server:mcp:portal_code"
-      ]
-    },
-    "name": "🔵 Portal Blue Team",
-    "params": {
-      "enable_web_search": true,
-      "model": "auto-blueteam",
-      "system": "You are a defensive security analyst. Focus on threat detection, incident response, log analysis, and security hardening. Provide detection rules and SIEM queries where applicable."
-    }
-  },
   "auto-cad": {
     "id": "auto-cad",
     "meta": {
@@ -309,18 +292,6 @@
       "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified. After generating audio, include the download_url from the tool result as a clickable link so the user can download the file."
     }
   },
-  "auto-pentest": {
-    "id": "auto-pentest",
-    "meta": {
-      "description": "🖊️ Portal Pentest Assistant",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🖊️ Portal Pentest Assistant",
-    "params": {
-      "model": "auto-pentest"
-    }
-  },
   "auto-phi4": {
     "id": "auto-phi4",
     "meta": {
@@ -331,42 +302,6 @@
     "name": "🧮 Portal STEM Analyst",
     "params": {
       "model": "auto-phi4"
-    }
-  },
-  "auto-purpleteam": {
-    "id": "auto-purpleteam",
-    "meta": {
-      "description": "🟣 Portal Purple Team",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🟣 Portal Purple Team",
-    "params": {
-      "model": "auto-purpleteam"
-    }
-  },
-  "auto-purpleteam-deep": {
-    "id": "auto-purpleteam-deep",
-    "meta": {
-      "description": "🟣 Portal Purple Team · Deep",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🟣 Portal Purple Team · Deep",
-    "params": {
-      "model": "auto-purpleteam-deep"
-    }
-  },
-  "auto-purpleteam-exec": {
-    "id": "auto-purpleteam-exec",
-    "meta": {
-      "description": "🟣 Portal Purple Team · Execute",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🟣 Portal Purple Team · Execute",
-    "params": {
-      "model": "auto-purpleteam-exec"
     }
   },
   "auto-reasoning": {
@@ -383,35 +318,6 @@
       "enable_web_search": true,
       "model": "auto-reasoning",
       "system": "You are a deep reasoning AI. Break down complex problems step-by-step. Show your work. Acknowledge uncertainty. Distinguish between facts and inferences."
-    }
-  },
-  "auto-redteam": {
-    "id": "auto-redteam",
-    "meta": {
-      "description": "🔴 Portal Red Team",
-      "profile_image_url": "",
-      "toolIds": [
-        "server:mcp:portal_research",
-        "server:mcp:portal_code"
-      ]
-    },
-    "name": "🔴 Portal Red Team",
-    "params": {
-      "enable_web_search": true,
-      "model": "auto-redteam",
-      "system": "You are an expert offensive security operator. Provide detailed, technically accurate red team guidance for authorized engagements. Cover attack techniques, tools, and TTPs mapped to MITRE ATT&CK."
-    }
-  },
-  "auto-redteam-deep": {
-    "id": "auto-redteam-deep",
-    "meta": {
-      "description": "🔴 Portal Red Team · Deep",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🔴 Portal Red Team · Deep",
-    "params": {
-      "model": "auto-redteam-deep"
     }
   },
   "auto-research": {
@@ -446,18 +352,6 @@
       "enable_web_search": true,
       "model": "auto-security",
       "system": "You are a security expert. Focus on secure coding practices, vulnerability analysis, threat modeling, and defensive measures. Cite CVEs and security frameworks when relevant. For any web lookups, CVE searches, or current threat intelligence, always use the web_search tool — never write code to fetch data from APIs."
-    }
-  },
-  "auto-security-uncensored": {
-    "id": "auto-security-uncensored",
-    "meta": {
-      "description": "🔓 Portal Security (Uncensored)",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🔓 Portal Security (Uncensored)",
-    "params": {
-      "model": "auto-security-uncensored"
     }
   },
   "auto-spl": {

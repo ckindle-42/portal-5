@@ -40,12 +40,6 @@ VALID_WORKSPACES = frozenset(
         "auto-daily",
         "auto-spl",
         "auto-security",
-        "auto-redteam",
-        "auto-purpleteam",
-        "auto-purpleteam-deep",
-        "auto-purpleteam-exec",
-        "auto-pentest",
-        "auto-blueteam",
         "auto-creative",
         "auto-reasoning",
         "auto-documents",
@@ -114,12 +108,9 @@ VALID_WORKSPACES = frozenset(
         "bench-supergemma4-sec",
         # June 2026 security candidate round 2
         "bench-sylink",
-        # June 2026 new production security workspaces
-        "auto-redteam-deep",
         # June 2026 uncensored coding + stranded-model lanes (TASK_CODING_UNCENSORED_LANES_V1)
         "auto-extract-uncensored",
         "auto-general-uncensored",
-        "auto-security-uncensored",
         # June 2026 AppSec bench candidate
         "bench-vulnllm-r7b",
         # June 2026 diffusion research bench

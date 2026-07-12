@@ -26,15 +26,18 @@ decide, drift gate, capability graph (:8919); portal.modules.security.tools.prox
 
 ## Workspaces
 
-- auto-security
-- auto-security-uncensored
-- auto-pentest
-- auto-blueteam
-- auto-redteam
-- auto-redteam-deep
-- auto-purpleteam
-- auto-purpleteam-deep
-- auto-purpleteam-exec
+- auto-security (BUILD_PROGRAM_COLLAPSE_V1.md Phase 6 folded the 8 sibling
+  security workspaces into this one, selected via a `variant:` query param
+  or a persona's own `variant:` field — resolved by
+  `resolve_workspace_variant()` in `portal/platform/inference/router/preinject.py`):
+  - `uncensored` (was auto-security-uncensored) — role=purple, guardrail=uncensored
+  - `pentest` (was auto-pentest) — role=pentest
+  - `blueteam` (was auto-blueteam) — role=blue
+  - `redteam` (was auto-redteam) — role=red, depth=default
+  - `redteam-deep` (was auto-redteam-deep) — role=red, depth=deep
+  - `purpleteam` (was auto-purpleteam) — role=purple, depth=default
+  - `purpleteam-deep` (was auto-purpleteam-deep) — role=purple, depth=deep
+  - `purpleteam-exec` (was auto-purpleteam-exec) — role=purple, depth=exec
 
 This is the largest structural module — the only one with core/, adapters/,
 cli/, config/, eval/, knowledge/, tests/, tools/ all populated (see

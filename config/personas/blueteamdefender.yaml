@@ -1,7 +1,8 @@
 name: Blue Team Defender
 slug: blueteamdefender
 category: security
-workspace_model: auto-blueteam
+workspace_model: auto-security
+variant: blueteam
 module: security
 # lily-cybersecurity:7b-q4_k_m is the auto-blueteam model_hint
 system_prompt: |

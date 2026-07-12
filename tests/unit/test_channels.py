@@ -604,8 +604,6 @@ class TestDispatcher:
             "auto",
             "auto-coding",
             "auto-security",
-            "auto-redteam",
-            "auto-blueteam",
             "auto-creative",
             "auto-reasoning",
             "auto-documents",

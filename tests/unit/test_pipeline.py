@@ -336,16 +336,17 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total loaded workspace count is 37 (module: eval's 60 bench-*
+        """Total loaded workspace count is 29 (module: eval's 60 bench-*
         workspaces are gated off by default at boot as of
-        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4; the full 97 (37 + 60) still
+        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4; the full 89 (29 + 60) still
         loads with PORTAL_ENABLE_EVAL=1, see test_eval_gate_loads_all_104.
         44 -> 37 after Phase 5 folded 8 coding/agentic workspaces into
-        auto-coding's variants)."""
+        auto-coding's variants; 37 -> 29 after Phase 6 folded 8 security
+        workspaces into auto-security's variants)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 37, (
-            f"Expected 37 workspaces (module: eval's 60 bench-* gated off by default), "
+        assert len(WORKSPACES) == 29, (
+            f"Expected 29 workspaces (module: eval's 60 bench-* gated off by default), "
             f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
@@ -358,7 +359,7 @@ class TestComplianceWorkspace:
 
         monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
         ws = get_workspace_dict(load_portal_config())
-        assert len(ws) == 97, f"Expected 97 workspaces with eval enabled, got {len(ws)}"
+        assert len(ws) == 89, f"Expected 89 workspaces with eval enabled, got {len(ws)}"
 
 
 class TestR17bModelExpansion:
@@ -457,9 +458,17 @@ class TestR18ModelCompleteness:
         assert "vulnllm-r-7b" in WORKSPACES["auto-security"]["model_hint"].lower(), (
             "auto-security should use VulnLLM-R-7B (UCSB SURFI, AppSec/CVE/CWE specialist, promoted 2026-06-20)"
         )
-        assert "granite4.1" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
-            "auto-blueteam should use Granite 4.1 8B (sylink is a reasoning model that "
-            "doesn't call tools — switched for autonomous investigation capability)"
+        from portal.platform.inference.router.preinject import (
+            _resolve_legacy_workspace_alias,
+            _resolve_workspace_variant,
+        )
+
+        base, variant = _resolve_legacy_workspace_alias("auto-blueteam")
+        blueteam_id = _resolve_workspace_variant("auto-blueteam", base, variant)
+        assert "granite4.1" in WORKSPACES[blueteam_id]["model_hint"].lower(), (
+            "auto-blueteam (now auto-security's 'blueteam' variant, Phase 6) should use "
+            "Granite 4.1 8B (sylink is a reasoning model that doesn't call tools — "
+            "switched for autonomous investigation capability)"
         )
         assert "deepseek-r1-0528" in WORKSPACES["auto-reasoning"]["model_hint"].lower(), (
             "auto-reasoning should use DeepSeek-R1-0528-Qwen3-8B (V8 primary; Qwopus pull fails as of 2026-06-09)"
@@ -758,16 +767,16 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total loaded workspace count is 37 (module: eval's 60 bench-*
+        """Total loaded workspace count is 29 (module: eval's 60 bench-*
         workspaces are gated off by default at boot as of
-        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4, and 44 -> 37 after Phase 5
-        folded 8 coding/agentic workspaces into auto-coding's variants; see
-        TestComplianceWorkspace.test_eval_gate_loads_all_104 for the
-        PORTAL_ENABLE_EVAL=1 path)."""
+        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4, 44 -> 37 after Phase 5 folded 8
+        coding/agentic workspaces, 37 -> 29 after Phase 6 folded 8 security
+        workspaces; see TestComplianceWorkspace.test_eval_gate_loads_all_104
+        for the PORTAL_ENABLE_EVAL=1 path)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 37, (
-            f"Expected 37 workspaces (module: eval's 60 bench-* gated off by default), "
+        assert len(WORKSPACES) == 29, (
+            f"Expected 29 workspaces (module: eval's 60 bench-* gated off by default), "
             f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )

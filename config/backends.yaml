@@ -420,9 +420,6 @@ workspace_routing:
   - creative
   auto-general-uncensored:
   - general
-  auto-security-uncensored:
-  - security
-  - general
   auto-daily:
   - general
   auto-coding:
@@ -432,29 +429,6 @@ workspace_routing:
   - coding
   - general
   auto-security:
-  - security
-  - general
-  auto-redteam:
-  - security
-  - general
-  auto-purpleteam:
-  - security
-  - general
-  auto-purpleteam-deep:
-  - security
-  - coding
-  - general
-  auto-purpleteam-exec:
-  - security
-  - coding
-  - general
-  auto-redteam-deep:
-  - security
-  - general
-  auto-pentest:
-  - security
-  auto-blueteam:
-  - reasoning
   - security
   - general
   auto-bigfix:
