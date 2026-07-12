@@ -83,14 +83,24 @@ def test_mcp_json_matches_fleet() -> None:
 
 
 def test_owui_presets_cover_all_exposed_workspaces() -> None:
-    """Every expose_to_owui=true workspace must have a workspace_*.json preset file."""
+    """Every expose_to_owui=true workspace in an enabled module must have a
+    workspace_*.json preset file (Gate 1: disabled-module workspaces are
+    correctly excluded, same as any other expose_to_owui=False workspace —
+    see sync_config.emit_owui_presets)."""
+    from portal.platform.wiki.adapters.modules import owui_workspaces
+
     portal_yaml_path = REPO / "config" / "portal.yaml"
     ws_dir = REPO / "imports" / "openwebui" / "workspaces"
 
     portal_raw = yaml.safe_load(portal_yaml_path.read_text()) or {}
     workspaces = portal_raw.get("workspaces", {})
 
-    exposed = {ws_id for ws_id, spec in workspaces.items() if spec.get("expose_to_owui", True)}
+    hidden_by_module = set(owui_workspaces() or ())
+    exposed = {
+        ws_id
+        for ws_id, spec in workspaces.items()
+        if spec.get("expose_to_owui", True) and ws_id not in hidden_by_module
+    }
     preset_ids = {
         json.loads(f.read_text()).get("id", "") for f in sorted(ws_dir.glob("workspace_*.json"))
     }
