@@ -20,7 +20,19 @@
 | `chain.py` | Chain execution: multi-turn tool-call chains, synthetic results, scenarios, refusal tests |
 | `cli.py` | CLI entry point: argparse, `run_bench()`, summary printing |
 | `matrix.py` | Scenario × container matrix: `build_run_matrix`, `run_matrix`, `TelemetryBackend` protocol, `WazuhBackend`, coverage reports |
+| `capability/` | Capability index (TASK_SEC_CAPABILITY_INDEX_V1) — unifies `_LAB_SERVICE_PROBES`, `challenge_classes.yaml`, and `lab_targets.yaml` into one queryable `Capability` list. See § Capability Index below. |
 | `__init__.py` | Thin facade: pipeline I/O (`call_pipeline`, `call_pipeline_exec`) + re-exports |
+
+### Capability Index
+
+`portal.modules.security.core.capability` makes the scattered security library legible to a decide step: "given what I've observed, what's worth trying?" It is read-only — it indexes what already exists and changes nothing about how engagements execute.
+
+- `tool_inventory.py` — the declared Kali tool arsenal, seeded from `config/tool_catalog.yaml` (34 tools: name, category, phase, `targets_services`, typical args, notes). `verify_tools_present(dry_run=True)` (default) never touches the lab; pass `dry_run=False` for a batched live `which` check.
+- `index.py` — `Capability` dataclass (`id`, `phase`, `domain`, `applies_when`, `tools`, `technique`, `oracle`, `mitre`, `source`) plus `build_index()` (ingests `_LAB_SERVICE_PROBES`, `challenge_classes.yaml`, `lab_targets.yaml`; raises `ValueError` on any tool/oracle reference that doesn't resolve to a real catalog/registry entry — no orphans, ever) and `query(observations, *, phase=None, domain=None, goal=None, limit=12)` (ranks by applicability × journal-prior × tool-availability × phase-fit, using `scoring.evaluate_condition` for the `applies_when` predicate and `field_journal.recall` for the journal prior).
+- `render.py` — `render_capabilities()` / `render_tool_arsenal()` human-readable views.
+- CLI: `python3 -m portal.modules.security.core capability {list,query,tools,arsenal}` (also reachable as `portal security capability ...` via the Slice-6 argv pass-through). `--json` on `list`/`query`/`tools` for machine consumption.
+
+As of 2026-07-12: 104 capabilities indexed (17 from service probes, 80 from challenge classes, 7 from lab targets). This is Stage 1 of the SEC chain; `TASK_SEC_GOAL_DECIDE_V1` (goal-driven decide) is the first real consumer of `query()`.
 
 `tests/benchmarks/bench_security.py` is a backward-compat re-export shim over `portal.modules.security.core` — it re-exports names for import compatibility but has no `__main__` entry point. Run the bench via `python3 -m portal.modules.security.core ...` (below), not `python3 -m tests.benchmarks.bench_security` — the latter silently does nothing (no CLI wiring at that path).
 

@@ -1,0 +1,216 @@
+# Declared Kali attack-container tool arsenal — capability index Phase 1
+# (TASK_SEC_CAPABILITY_INDEX_V1). Seeded from the lane system_prompt_append
+# toolchains in config/portal.yaml (redteam/pentest/purpleteam workspaces)
+# and the commands embedded in portal.modules.security.core._data's
+# _LAB_SERVICE_PROBES. Declared, not verified — verify_tools_present() does
+# the live batched `which` check when a lab is reachable; until then this
+# file is authoritative.
+#
+# Each entry: name, category, phase (recon|enum|exploit|privesc|lateral|
+# exfil|persist|detect), targets_services (service keys from
+# _LAB_SERVICE_PROBES this tool applies to), typical_args, notes.
+tools:
+  - name: nmap
+    category: scanner
+    phase: recon
+    targets_services: [smb, winrm, ldap, http, https, ssh, ftp, mysql, redis]
+    typical_args: "-sV -p- --open"
+    notes: Port/service discovery, the standard first move.
+  - name: nxc
+    category: ad
+    phase: enum
+    targets_services: [smb, winrm, ldap]
+    typical_args: "smb <host> -u '' -p '' --shares"
+    notes: "NetExec (formerly crackmapexec) — SMB/WinRM/LDAP enumeration and spray."
+  - name: enum4linux-ng
+    category: ad
+    phase: enum
+    targets_services: [smb]
+    typical_args: "-A <host>"
+    notes: SMB/AD enumeration, share and user listing.
+  - name: impacket-GetUserSPNs
+    category: ad
+    phase: exploit
+    targets_services: [kerberos, ldap]
+    typical_args: "<domain>/<user>:<pass> -dc-ip <ip> -request"
+    notes: Kerberoasting — request service tickets for offline cracking.
+  - name: impacket-GetNPUsers
+    category: ad
+    phase: exploit
+    targets_services: [kerberos, ldap]
+    typical_args: "<domain>/ -usersfile users.txt -dc-ip <ip> -no-pass"
+    notes: AS-REP roasting for accounts without pre-auth.
+  - name: impacket-secretsdump
+    category: ad
+    phase: lateral
+    targets_services: [smb, winrm]
+    typical_args: "<domain>/<user>:<pass>@<host>"
+    notes: Dump SAM/LSA/NTDS credentials post-compromise.
+  - name: impacket-psexec
+    category: ad
+    phase: lateral
+    targets_services: [smb]
+    typical_args: "<domain>/<user>:<pass>@<host>"
+    notes: Remote command execution via SMB admin shares.
+  - name: impacket-wmiexec
+    category: ad
+    phase: lateral
+    targets_services: [winrm, smb]
+    typical_args: "<domain>/<user>:<pass>@<host>"
+    notes: Remote command execution via WMI.
+  - name: impacket-dacledit
+    category: ad
+    phase: privesc
+    targets_services: [ldap]
+    typical_args: "-action write -rights FullControl -target <user> <domain>/<user>:<pass>"
+    notes: ACL abuse for AD privilege escalation.
+  - name: certipy-ad
+    category: ad
+    phase: privesc
+    targets_services: [ldap]
+    typical_args: "find -u <user>@<domain> -p <pass> -dc-ip <ip> -vulnerable"
+    notes: AD CS (certificate services) template abuse — ESC1-ESC8.
+  - name: bloodhound-ce-python
+    category: ad
+    phase: enum
+    targets_services: [ldap, smb]
+    typical_args: "-u <user> -p <pass> -d <domain> -ns <dc_ip> -c All"
+    notes: AD attack-path graph collection.
+  - name: responder
+    category: ad
+    phase: enum
+    targets_services: [smb, ldap]
+    typical_args: "-I eth0 -wrf"
+    notes: LLMNR/NBT-NS/mDNS poisoning for credential capture.
+  - name: hashcat
+    category: cracker
+    phase: exploit
+    targets_services: [kerberos]
+    typical_args: "-m 13100 hashes.txt wordlist.txt"
+    notes: GPU-accelerated hash cracking (Kerberoast, NTLM, etc.).
+  - name: john
+    category: cracker
+    phase: exploit
+    targets_services: [kerberos, ssh]
+    typical_args: "--wordlist=wordlist.txt hashes.txt"
+    notes: CPU hash/password cracking.
+  - name: hydra
+    category: cracker
+    phase: exploit
+    targets_services: [ssh, ftp, http, mysql]
+    typical_args: "-l admin -P wordlist.txt <host> ssh"
+    notes: Online password spraying/brute force.
+  - name: sqlmap
+    category: web
+    phase: exploit
+    targets_services: [http, https, mysql]
+    typical_args: "-u <url> --batch --dbs"
+    notes: Automated SQL injection detection and exploitation.
+  - name: ffuf
+    category: web
+    phase: recon
+    targets_services: [http, https]
+    typical_args: "-u <url>/FUZZ -w wordlist.txt"
+    notes: Directory/parameter fuzzing.
+  - name: gobuster
+    category: web
+    phase: recon
+    targets_services: [http, https]
+    typical_args: "dir -u <url> -w wordlist.txt"
+    notes: Directory/DNS/vhost brute forcing.
+  - name: nikto
+    category: web
+    phase: recon
+    targets_services: [http, https]
+    typical_args: "-h <url>"
+    notes: Web server misconfiguration/vuln scanner.
+  - name: metasploit
+    category: exploit-framework
+    phase: exploit
+    targets_services: [smb, http, ftp]
+    typical_args: "-x 'use <module>; set RHOSTS <host>; run'"
+    notes: Exploit framework — msfconsole for scripted exploitation chains.
+  - name: binwalk
+    category: firmware
+    phase: recon
+    targets_services: []
+    typical_args: "-e firmware.bin"
+    notes: Firmware image extraction and analysis.
+  - name: radare2
+    category: reverse-engineering
+    phase: exploit
+    targets_services: []
+    typical_args: "-A -q -c 'afl' binary"
+    notes: Binary disassembly/analysis.
+  - name: ghidra-headless
+    category: reverse-engineering
+    phase: exploit
+    targets_services: []
+    typical_args: "project_dir project_name -import binary -analyzeAll"
+    notes: Headless decompilation for RE lane.
+  - name: jadx
+    category: reverse-engineering
+    phase: recon
+    targets_services: []
+    typical_args: "-d out app.apk"
+    notes: Android APK decompilation.
+  - name: apktool
+    category: reverse-engineering
+    phase: recon
+    targets_services: []
+    typical_args: "d app.apk -o out"
+    notes: Android APK disassembly/repackaging.
+  - name: pwntools
+    category: exploit-dev
+    phase: exploit
+    targets_services: []
+    typical_args: "(Python library — used in exploit scripts, not CLI-invoked directly)"
+    notes: Binary exploitation scripting framework.
+  - name: kubectl
+    category: cloud
+    phase: enum
+    targets_services: []
+    typical_args: "get pods --all-namespaces"
+    notes: Kubernetes cluster interaction.
+  - name: kube-hunter
+    category: cloud
+    phase: recon
+    targets_services: []
+    typical_args: "--remote <host>"
+    notes: Kubernetes attack surface scanner.
+  - name: trivy
+    category: cloud
+    phase: recon
+    targets_services: []
+    typical_args: "image <image_name>"
+    notes: Container/image vulnerability scanner.
+  - name: awscli
+    category: cloud
+    phase: enum
+    targets_services: []
+    typical_args: "sts get-caller-identity"
+    notes: AWS API interaction — credential/permission enumeration.
+  - name: curl
+    category: generic
+    phase: recon
+    targets_services: [http, https, redis]
+    typical_args: "-s <url>"
+    notes: Generic HTTP/protocol probing.
+  - name: redis-cli
+    category: generic
+    phase: enum
+    targets_services: [redis]
+    typical_args: "-h <host> ping"
+    notes: Redis protocol interaction — unauth access checks.
+  - name: mysql
+    category: generic
+    phase: enum
+    targets_services: [mysql]
+    typical_args: "-h <host> -u root -p"
+    notes: MySQL client for direct DB access checks.
+  - name: ldap3
+    category: ad
+    phase: enum
+    targets_services: [ldap]
+    typical_args: "(Python library — used in enumeration scripts)"
+    notes: Python LDAP client for custom AD enumeration.
