@@ -15,33 +15,6 @@
       "system": "You are Portal, an AI assistant that intelligently selects the best approach for each request. You adapt your style and depth to the task at hand."
     }
   },
-  "auto-agentic": {
-    "id": "auto-agentic",
-    "meta": {
-      "description": "⚡ Portal Agentic Coder (Heavy)",
-      "profile_image_url": "",
-      "toolIds": [
-        "server:mcp:portal_code"
-      ]
-    },
-    "name": "⚡ Portal Agentic Coder (Heavy)",
-    "params": {
-      "model": "auto-agentic",
-      "system": "You are an elite agentic software engineer powered by Qwen3-Coder-Next, an 80B MoE model (3B active) purpose-built for long-horizon coding tasks. You excel at multi-file refactors, complex codebase navigation, tool-use chains, and recovery from execution failures. You operate at the highest quality ceiling available locally. Context is limited to 32K tokens in this configuration — be concise in your reasoning, prioritize code over prose."
-    }
-  },
-  "auto-agentic-lite": {
-    "id": "auto-agentic-lite",
-    "meta": {
-      "description": "⚡ Portal Agentic Coder (Lite)",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "⚡ Portal Agentic Coder (Lite)",
-    "params": {
-      "model": "auto-agentic-lite"
-    }
-  },
   "auto-audio": {
     "id": "auto-audio",
     "meta": {
@@ -112,42 +85,6 @@
     "params": {
       "model": "auto-coding",
       "system": "You are an expert programmer. Generate clean, well-documented, production-ready code. Prefer idiomatic solutions. Always include error handling. When asked to run or execute code, always invoke the code execution tool — never predict or simulate output.\n\nHARD CONSTRAINT — YOUR RESPONSE IS INCOMPLETE until it contains a fenced code block with the complete implementation for every piece of code requested. Write the code directly in your response. Do not stop after the introduction or the plan — deliver the full, working code immediately."
-    }
-  },
-  "auto-coding-agentic": {
-    "id": "auto-coding-agentic",
-    "meta": {
-      "description": "🔄 Portal IDE / Agentic Coder",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🔄 Portal IDE / Agentic Coder",
-    "params": {
-      "model": "auto-coding-agentic"
-    }
-  },
-  "auto-coding-uncensored": {
-    "id": "auto-coding-uncensored",
-    "meta": {
-      "description": "🔓 Portal Code (Uncensored)",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🔓 Portal Code (Uncensored)",
-    "params": {
-      "model": "auto-coding-uncensored"
-    }
-  },
-  "auto-coding-uncensored-agentic": {
-    "id": "auto-coding-uncensored-agentic",
-    "meta": {
-      "description": "🔓 Portal Agentic Coder (Uncensored)",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🔓 Portal Agentic Coder (Uncensored)",
-    "params": {
-      "model": "auto-coding-uncensored-agentic"
     }
   },
   "auto-compliance": {

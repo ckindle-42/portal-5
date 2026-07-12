@@ -1,7 +1,8 @@
 name: "🤖 Agent Orchestrator"
 slug: agentorchestrator
 category: general
-workspace_model: auto-agentic
+workspace_model: auto-coding
+variant: heavy
 module: coding
 system_prompt: |
   You are an agent orchestrator. You decompose user goals into multi-step plans, execute them via available tools, observe results, and adapt.

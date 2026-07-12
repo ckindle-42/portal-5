@@ -30,9 +30,7 @@ PIPELINE_RETRY_BASE = float(os.environ.get("PIPELINE_RETRY_BASE", "1.0"))
 VALID_WORKSPACES = frozenset(
     {
         "auto",
-        "auto-agentic",
         "auto-coding",
-        "auto-coding-agentic",
         "auto-glm",
         "auto-glm-thinking",
         "auto-gemma-fast",
@@ -119,8 +117,6 @@ VALID_WORKSPACES = frozenset(
         # June 2026 new production security workspaces
         "auto-redteam-deep",
         # June 2026 uncensored coding + stranded-model lanes (TASK_CODING_UNCENSORED_LANES_V1)
-        "auto-coding-uncensored",
-        "auto-coding-uncensored-agentic",
         "auto-extract-uncensored",
         "auto-general-uncensored",
         "auto-security-uncensored",
@@ -142,10 +138,6 @@ VALID_WORKSPACES = frozenset(
         # bench-glm47f-claude-distill dropped 2026-06-30 (operator verdict: Drop)
         "bench-ornith-35b",
         "bench-north-mini-code",
-        "auto-agentic-lite",
-        # Promoted 2026-06-30 from V10 candidate eval
-        "auto-agentic-ornith",
-        "auto-coding-northmini",
         # Bench candidates 2026-06-30 (intake V11) — bench-only, PROMOTE_POLICY=confirm
         "bench-qwen35-9b-heretic-vision",
         "bench-agents-a1",

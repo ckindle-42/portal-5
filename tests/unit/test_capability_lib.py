@@ -229,9 +229,13 @@ class TestNumericAnswerMatches:
 
 class TestReasoningAwareMaxTokens:
     def test_emits_reasoning_workspace_returns_8192(self):
+        """auto-agentic-lite was folded into auto-coding's 'lite' variant
+        (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5) — this helper reads raw
+        top-level portal.yaml workspace keys, not variant sub-blocks, so
+        it needs a workspace that still has emits_reasoning: true directly."""
         from tests.benchmarks.capability_lib import reasoning_aware_max_tokens
 
-        result = reasoning_aware_max_tokens("auto-agentic-lite")
+        result = reasoning_aware_max_tokens("auto-reasoning")
         assert result == 8192
 
     def test_unknown_workspace_returns_4096(self):

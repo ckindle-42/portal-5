@@ -91,6 +91,12 @@ class WorkspaceSpec(BaseModel):
     guardrail: Literal["default", "uncensored"] = "default"
     variant: str = "default"
 
+    # --- Named variant overrides (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6) ---
+    # variant name -> partial field overrides, applied on top of this workspace's
+    # own fields by resolve_workspace_variant(). Internal-only: never appears in
+    # the runtime WORKSPACES dict (see get_workspace_dict's _INTERNAL_ONLY_FIELDS).
+    variants: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
     # --- Routing ---
     model_hint: str | None = None
 
@@ -142,6 +148,11 @@ class PersonaSpec(BaseModel):
     category: str = "general"
     module: ModuleName
     workspace_model: str  # parent workspace key (= OWUI base_model_id)
+    # Optional named variant of workspace_model (BUILD_PROGRAM_COLLAPSE_V1.md
+    # Phase 5/6) — e.g. a coding persona pointing at auto-coding with
+    # variant: laguna to get the agentic Laguna-XS.2 lane instead of the
+    # base single-turn Qwen3-Coder-30B. Resolved by resolve_workspace_variant().
+    variant: str | None = None
     system_prompt: str = ""
     tags: list[str] = Field(default_factory=list)
 
@@ -284,6 +295,10 @@ def load_portal_config(
 # WORKSPACES dict that the rest of the pipeline imports.
 _OWUI_ONLY_FIELDS = frozenset({"expose_to_owui", "enable_web_search", "owui_system_prompt"})
 
+# Schema-only fields consulted by resolve_workspace_variant() via
+# load_portal_config() directly — never surfaced in the runtime dict itself.
+_INTERNAL_ONLY_FIELDS = frozenset({"variants"})
+
 
 def _eval_enabled() -> bool:
     """Whether the eval module's workspaces/mcp entries should be loaded.
@@ -317,7 +332,7 @@ def get_workspace_dict(config: PortalConfig) -> dict[str, dict[str, Any]]:
             continue
         # model_dump excludes None fields; this mirrors the original literal
         # where absent fields were simply not present (not None).
-        raw = spec.model_dump(exclude_none=True, exclude=_OWUI_ONLY_FIELDS)
+        raw = spec.model_dump(exclude_none=True, exclude=_OWUI_ONLY_FIELDS | _INTERNAL_ONLY_FIELDS)
         # Ensure tools is always present (original literal always had it)
         if "tools" not in raw:
             raw["tools"] = []

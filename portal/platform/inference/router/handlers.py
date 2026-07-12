@@ -55,8 +55,10 @@ from portal.platform.inference.router.preinject import (
     _inject_system_prompt_append,
     _inject_temporal_context,
     _resolve_auto_routing,
+    _resolve_legacy_workspace_alias,
     _resolve_persona_workspace,
     _resolve_vision_fallback,
+    _resolve_workspace_variant,
 )
 from portal.platform.inference.router.state import (
     _record_error,
@@ -587,6 +589,7 @@ async def chat_completions(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid JSON body") from None
         workspace_id = body.get("model") or "auto"
+        _original_model_id = workspace_id
         # Phase 2: Resolve persona slug → workspace_model (e.g. "dailydriver" → "auto-daily")
         workspace_id = _resolve_persona_workspace(workspace_id)
         stream = body.get("stream", False)
@@ -600,10 +603,18 @@ async def chat_completions(
         # no image_url is present in the request.
         workspace_id, body = _resolve_vision_fallback(workspace_id, body)
 
+        # Phase 4a (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6): pre-collapse workspace
+        # ids (e.g. "auto-agentic") that the keyword classifier still emits —
+        # its scoring keywords/thresholds are off-limits to edit — resolve to
+        # their current (base workspace, implied variant) before Gate 4, so the
+        # gate checks the real workspace's module state, not a deleted alias.
+        workspace_id, _alias_variant = _resolve_legacy_workspace_alias(workspace_id)
+
         # Gate 4 (M7 toggle layer): reject requests to a workspace whose owning
         # module is currently disabled. Checked after all workspace_id-mutating
-        # phases (persona resolution, auto-routing, vision fallback) so this
-        # sees the final resolved workspace, not an intermediate alias.
+        # phases (persona resolution, auto-routing, vision fallback, legacy
+        # alias) so this sees the final resolved workspace, not an intermediate
+        # alias.
         from portal.platform.wiki.adapters.modules import is_workspace_disabled
 
         if is_workspace_disabled(workspace_id):
@@ -611,6 +622,19 @@ async def chat_completions(
                 status_code=404,
                 detail=f"Workspace '{workspace_id}' is disabled (module not enabled).",
             )
+
+        # Phase 4b (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6): apply a named
+        # variant override onto a factored workspace. Priority: explicit
+        # ?variant= query param, else the legacy alias's implied variant
+        # (e.g. "auto-agentic" implies variant=heavy), else the persona's own
+        # declared variant. Checked against the already-disabled-gated base
+        # workspace_id — a variant can only narrow behavior within an
+        # already-permitted workspace, never grant access to a disabled one.
+        workspace_id = _resolve_workspace_variant(
+            _original_model_id,
+            workspace_id,
+            request.query_params.get("variant") or _alias_variant,
+        )
 
         # Phase 5: Temporal context injection — give web-tool-enabled workspaces today's
         # date plus a search-first nudge so local models don't answer time-sensitive

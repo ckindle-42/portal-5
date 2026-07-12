@@ -336,14 +336,16 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total loaded workspace count is 44 (module: eval's 60 bench-*
+        """Total loaded workspace count is 37 (module: eval's 60 bench-*
         workspaces are gated off by default at boot as of
-        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4; the full 104 (44 + 60) still
-        loads with PORTAL_ENABLE_EVAL=1, see test_eval_gate_loads_all_104)."""
+        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4; the full 97 (37 + 60) still
+        loads with PORTAL_ENABLE_EVAL=1, see test_eval_gate_loads_all_104.
+        44 -> 37 after Phase 5 folded 8 coding/agentic workspaces into
+        auto-coding's variants)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 44, (
-            f"Expected 44 workspaces (module: eval's 60 bench-* gated off by default), "
+        assert len(WORKSPACES) == 37, (
+            f"Expected 37 workspaces (module: eval's 60 bench-* gated off by default), "
             f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
@@ -356,7 +358,7 @@ class TestComplianceWorkspace:
 
         monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
         ws = get_workspace_dict(load_portal_config())
-        assert len(ws) == 104, f"Expected 104 workspaces with eval enabled, got {len(ws)}"
+        assert len(ws) == 97, f"Expected 97 workspaces with eval enabled, got {len(ws)}"
 
 
 class TestR17bModelExpansion:
@@ -756,15 +758,16 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total loaded workspace count is 44 (module: eval's 60 bench-*
+        """Total loaded workspace count is 37 (module: eval's 60 bench-*
         workspaces are gated off by default at boot as of
-        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4; see
+        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4, and 44 -> 37 after Phase 5
+        folded 8 coding/agentic workspaces into auto-coding's variants; see
         TestComplianceWorkspace.test_eval_gate_loads_all_104 for the
         PORTAL_ENABLE_EVAL=1 path)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 44, (
-            f"Expected 44 workspaces (module: eval's 60 bench-* gated off by default), "
+        assert len(WORKSPACES) == 37, (
+            f"Expected 37 workspaces (module: eval's 60 bench-* gated off by default), "
             f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
@@ -907,18 +910,28 @@ class TestSPLWorkspace:
 
 
 class TestAgenticWorkspace:
-    """Verify auto-agentic workspace (P5-BIG-001) — big-model mode entry point."""
+    """Verify auto-agentic (P5-BIG-001, big-model mode entry point) resolves
+    correctly post-collapse. BUILD_PROGRAM_COLLAPSE_V1.md Phase 5 folded
+    auto-agentic into auto-coding's "heavy" variant — it's no longer a
+    top-level WORKSPACES key, but the keyword classifier
+    (_WORKSPACE_ROUTING in routing.py) still emits "auto-agentic" as a
+    detected target (that's scoring-axis content, off-limits to edit), so
+    _resolve_legacy_workspace_alias() + _resolve_workspace_variant() must
+    still resolve it to the right merged config."""
 
-    def test_agentic_workspace_exists(self):
-        """auto-agentic must be registered in WORKSPACES."""
+    def test_agentic_workspace_resolves_via_legacy_alias(self):
+        """auto-agentic is no longer a WORKSPACES key directly."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        assert "auto-agentic" in WORKSPACES, (
-            "auto-agentic workspace missing from WORKSPACES in router_pipe.py"
+        assert "auto-agentic" not in WORKSPACES, (
+            "auto-agentic should be folded into auto-coding's 'heavy' variant "
+            "(BUILD_PROGRAM_COLLAPSE_V1.md Phase 5) — if this now passes, the "
+            "workspace was reintroduced as a top-level id; update this test "
+            "and TestAgenticWorkspace's docstring."
         )
 
     def test_agentic_workspace_interim_hint(self):
-        """auto-agentic should use the 30B interim hint while 480B is dead-by-decision.
+        """auto-agentic's 'heavy' variant should use the 30B interim hint while 480B is dead-by-decision.
 
         The 480B workspace (bench-qwen3-coder-next) was removed in TASK_MODEL_FLEET_REFRESH_V2
         Phase 3, and the 480B-specific KV-suppression context_limit was dropped with it.
@@ -932,42 +945,46 @@ class TestAgenticWorkspace:
         derived Ollama model tag, since Ollama's /v1/chat/completions ignores request-time
         options.num_ctx (see portal.platform.inference.cli.models apply-params).
         """
+        from portal.platform.inference.router.preinject import (
+            _resolve_legacy_workspace_alias,
+            _resolve_workspace_variant,
+        )
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        hint = WORKSPACES["auto-agentic"].get("model_hint")
+        base, variant = _resolve_legacy_workspace_alias("auto-agentic")
+        resolved_id = _resolve_workspace_variant("auto-agentic", base, variant)
+        merged = WORKSPACES[resolved_id]
+
+        hint = merged.get("model_hint")
         assert hint is not None and "qwen3-coder-next" in hint, (
             f"auto-agentic hint should be qwen3-coder-next:latest (V8 promotion), got: {hint}"
         )
-        ctx = WORKSPACES["auto-agentic"].get("context_limit")
+        ctx = merged.get("context_limit")
         assert ctx == 65536, (
             f"auto-agentic context_limit should be 65536 (agentic long-horizon tuning), got: {ctx}"
         )
 
     def test_agentic_workspace_has_model_hint(self):
-        """auto-agentic must have an Ollama model_hint as fallback."""
+        """auto-agentic's resolved variant must have an Ollama model_hint as fallback."""
+        from portal.platform.inference.router.preinject import (
+            _resolve_legacy_workspace_alias,
+            _resolve_workspace_variant,
+        )
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        hint = WORKSPACES["auto-agentic"].get("model_hint", "")
+        base, variant = _resolve_legacy_workspace_alias("auto-agentic")
+        resolved_id = _resolve_workspace_variant("auto-agentic", base, variant)
+        hint = WORKSPACES[resolved_id].get("model_hint", "")
         assert hint, "auto-agentic workspace missing model_hint — routing will fail on Ollama path"
 
-    def test_agentic_workspace_json_exists(self):
-        """Workspace JSON for GUI import must exist."""
+    def test_auto_coding_workspace_json_exists(self):
+        """Workspace JSON for GUI import must exist for the base auto-coding
+        workspace (variants are query-param/persona-selected, not separate
+        OWUI presets — see BUILD_PROGRAM_COLLAPSE_V1.md Phase 5)."""
         from pathlib import Path
 
-        ws_path = Path("imports/openwebui/workspaces/workspace_auto_agentic.json")
+        ws_path = Path("imports/openwebui/workspaces/workspace_auto_coding.json")
         assert ws_path.exists(), f"Workspace JSON not found at {ws_path}"
-
-    def test_agentic_workspace_json_has_correct_id(self):
-        """Workspace JSON id field must be 'auto-agentic'."""
-        import json
-        from pathlib import Path
-
-        data = json.loads(
-            Path("imports/openwebui/workspaces/workspace_auto_agentic.json").read_text()
-        )
-        assert data.get("id") == "auto-agentic", (
-            f"workspace_auto_agentic.json id should be 'auto-agentic', got: {data.get('id')}"
-        )
 
     def test_agentic_detect_workspace_routes_agentic_query(self):
         """_detect_workspace must return 'auto-agentic' for agentic-flagged messages."""
@@ -1004,19 +1021,30 @@ class TestAgenticWorkspace:
         )
 
     def test_agentic_routing_consistent_across_files(self):
-        """auto-agentic must exist in both WORKSPACES and backends.yaml workspace_routing."""
+        """auto-agentic's resolved base (auto-coding) must exist in both
+        WORKSPACES and backends.yaml workspace_routing (module: eval
+        workspaces are gated off both by default — BUILD_PROGRAM_COLLAPSE_V1.md
+        Phase 4 — so this compares against the loaded, non-eval-gated set)."""
         import yaml
 
+        from portal.platform.inference.config import _eval_enabled, load_portal_config
+        from portal.platform.inference.router.preinject import _resolve_legacy_workspace_alias
         from portal.platform.inference.router_pipe import WORKSPACES
 
+        base, _variant = _resolve_legacy_workspace_alias("auto-agentic")
+
         cfg = yaml.safe_load(open("config/backends.yaml"))
+        eval_on = _eval_enabled()
         pipe_ids = set(WORKSPACES.keys())
         yaml_ids = set(cfg["workspace_routing"].keys())
-        assert "auto-agentic" in pipe_ids, "auto-agentic missing from WORKSPACES in router_pipe.py"
-        assert "auto-agentic" in yaml_ids, (
-            "auto-agentic missing from workspace_routing in backends.yaml"
-        )
-        assert pipe_ids == yaml_ids, (
+        expected_ids = {
+            wid
+            for wid, spec in load_portal_config().workspaces.items()
+            if eval_on or spec.module != "eval"
+        }
+        assert base in pipe_ids, f"{base} missing from WORKSPACES in router_pipe.py"
+        assert base in yaml_ids, f"{base} missing from workspace_routing in backends.yaml"
+        assert pipe_ids == expected_ids == yaml_ids, (
             f"WORKSPACES / workspace_routing mismatch. "
             f"In pipe but not yaml: {pipe_ids - yaml_ids}. "
             f"In yaml but not pipe: {yaml_ids - pipe_ids}."
@@ -1219,9 +1247,17 @@ class TestPersonaToolResolution:
         assert tools == []
 
     def test_workspace_tools_helper(self):
+        from portal.platform.inference.router.preinject import (
+            _resolve_legacy_workspace_alias,
+            _resolve_workspace_variant,
+        )
         from portal.platform.inference.router_pipe import _workspace_tools
 
-        tools = _workspace_tools("auto-agentic")
+        # auto-agentic is now auto-coding's "heavy" variant (Phase 5) — _workspace_tools
+        # is a raw WORKSPACES lookup, not alias-aware, so resolve first.
+        base, variant = _resolve_legacy_workspace_alias("auto-agentic")
+        resolved_id = _resolve_workspace_variant("auto-agentic", base, variant)
+        tools = _workspace_tools(resolved_id)
         assert "execute_python" in tools
         assert "web_search" in tools
 
@@ -1269,8 +1305,15 @@ class TestWorkspaceToolsConsistency:
             assert isinstance(ws["tools"], list), f"Workspace '{ws_id}' tools must be a list"
 
     def test_auto_agentic_has_comprehensive_tools(self):
-        """auto-agentic should have the broadest tool set."""
-        tools = set(WORKSPACES["auto-agentic"]["tools"])
+        """auto-agentic's resolved 'heavy' variant should have the broadest tool set."""
+        from portal.platform.inference.router.preinject import (
+            _resolve_legacy_workspace_alias,
+            _resolve_workspace_variant,
+        )
+
+        base, variant = _resolve_legacy_workspace_alias("auto-agentic")
+        resolved_id = _resolve_workspace_variant("auto-agentic", base, variant)
+        tools = set(WORKSPACES[resolved_id]["tools"])
         for expected in ["execute_python", "execute_bash", "web_search", "remember", "kb_search"]:
             assert expected in tools, f"auto-agentic missing tool: {expected}"
 
