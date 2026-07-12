@@ -48,6 +48,10 @@ IMPORTS_DIR = Path("/imports/openwebui")
 MCP_FILE = IMPORTS_DIR / "mcp-servers.json"
 WORKSPACES_DIR = IMPORTS_DIR / "workspaces"
 PERSONAS_DIR = Path("/personas")
+# Shared bench-persona prompt bodies (BUILD_PROGRAM_COLLAPSE_V1.md Phase 8) —
+# personas with `prompt_template:` instead of an inline system_prompt read
+# their body from here.
+PERSONA_PROMPTS_DIR = Path("/persona_prompts")
 
 MAX_WAIT_SECONDS = 120
 POLL_INTERVAL = 5
@@ -427,7 +431,17 @@ async def create_persona_presets_async(
             continue
         slug = persona.get("slug", f.stem)
         name = persona.get("name", slug)
-        system_prompt = persona.get("system_prompt", "")
+        if persona.get("prompt_template"):
+            template_path = PERSONA_PROMPTS_DIR / f"{persona['prompt_template']}.txt"
+            try:
+                system_prompt = template_path.read_text()
+            except OSError as e:
+                print(
+                    f"  Skip {f.name}: prompt_template {persona['prompt_template']!r} unreadable — {e}"
+                )
+                continue
+        else:
+            system_prompt = persona.get("system_prompt", "")
         workspace_model = persona.get("workspace_model") or "dolphin-llama3:8b"
         persona_payloads.append(
             (

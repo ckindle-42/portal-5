@@ -47,7 +47,7 @@ def test_persona_with_unknown_workspace_raises(tmp_path: Path) -> None:
     p = tmp_path / "orphan.yaml"
     p.write_text(
         "name: Orphan\nslug: orphan\ncategory: test\nmodule: general\n"
-        "workspace_model: does-not-exist\n"
+        "workspace_model: does-not-exist\nsystem_prompt: test prompt\n"
     )
     personas = load_persona_map(personas_dir=tmp_path)
     with pytest.raises(ValueError, match="does-not-exist"):

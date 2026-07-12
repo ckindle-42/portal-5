@@ -290,6 +290,7 @@ services:
       - ../../scripts:/scripts:ro
       - ../../imports:/imports:ro
       - ../../config/personas:/personas:ro
+      - ../../portal/modules/eval/persona_matrix/prompts:/persona_prompts:ro
     command: >
       sh -c "pip install httpx pyyaml --quiet && python /scripts/openwebui_init.py"
 

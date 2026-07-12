@@ -156,6 +156,14 @@ class PersonaSpec(BaseModel):
     # base single-turn Qwen3-Coder-30B. Resolved by resolve_workspace_variant().
     variant: str | None = None
     system_prompt: str = ""
+    # Named reference to a shared prompt body under
+    # portal/modules/eval/persona_matrix/prompts/<name>.txt
+    # (BUILD_PROGRAM_COLLAPSE_V1.md Phase 8) — dedupes the bench-matrix
+    # personas that previously each carried a byte-identical inline
+    # system_prompt. Resolved by load_persona_map(); exactly one of
+    # system_prompt/prompt_template may be set (enforced there, not here,
+    # since resolution needs filesystem access this schema layer avoids).
+    prompt_template: str | None = None
     tags: list[str] = Field(default_factory=list)
 
     # Tool overrides — None means inherit workspace default
@@ -395,10 +403,39 @@ def load_persona_map(
             slug = raw.get("slug", yf.stem)
             raw.setdefault("slug", slug)
             spec = PersonaSpec.model_validate(raw)
+            if spec.prompt_template:
+                if spec.system_prompt:
+                    raise ValueError(
+                        f"persona {spec.slug!r} has both system_prompt and prompt_template — "
+                        "exactly one is required"
+                    )
+                spec = spec.model_copy(
+                    update={"system_prompt": _load_prompt_template(spec.prompt_template)}
+                )
+            elif not spec.system_prompt:
+                raise ValueError(
+                    f"persona {spec.slug!r} has neither system_prompt nor prompt_template — "
+                    "exactly one is required"
+                )
             result[spec.slug] = spec
         except Exception as exc:
             logger.debug("Failed to load persona %s: %s", yf.name, exc)
     return result
+
+
+_PROMPT_TEMPLATES_DIR = (
+    Path(__file__).resolve().parents[2] / "modules" / "eval" / "persona_matrix" / "prompts"
+)
+
+
+def _load_prompt_template(name: str) -> str:
+    """Read a shared bench-persona prompt body (BUILD_PROGRAM_COLLAPSE_V1.md
+    Phase 8) — dedupes personas that previously carried a byte-identical
+    inline system_prompt. Raises if the template file doesn't exist (a
+    dangling prompt_template: reference is a config error, not a silent
+    empty prompt)."""
+    path = _PROMPT_TEMPLATES_DIR / f"{name}.txt"
+    return path.read_text()
 
 
 def validate_persona_parents(

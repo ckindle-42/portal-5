@@ -2838,11 +2838,11 @@ def check_persona_module_tag() -> tuple[str, str, list[dict]]:
 def check_persona_prompt_uniqueness() -> tuple[str, str, list[dict]]:
     """AS. No two personas share a byte-identical system_prompt.
 
-    Soft-fail until coding_task/BUILD_PROGRAM_COLLAPSE_V1.md Phase 8 dedupes
-    the bench-matrix personas onto shared prompt_template references.
-    Personas that already use `prompt_template:` (post-Phase-8 shape) are
-    excluded — a shared template referenced by many personas is the fix,
-    not a new collision.
+    Hard-fail as of BUILD_PROGRAM_COLLAPSE_V1.md Phase 8 (the 27
+    bench-matrix personas that shared 3 byte-identical prompts now
+    reference them via prompt_template: instead). Personas using
+    `prompt_template:` are excluded from the hash comparison — a shared
+    template referenced by many personas is the fix, not a new collision.
     """
     import glob
     import hashlib
@@ -2865,7 +2865,7 @@ def check_persona_prompt_uniqueness() -> tuple[str, str, list[dict]]:
     if dups:
         sample = next(iter(dups.values()))
         return (
-            "WARN",
+            "FAIL",
             f"{len(dups)} duplicate-prompt group(s), e.g. {sample[:3]}{'...' if len(sample) > 3 else ''}",
             [],
         )
