@@ -892,4 +892,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    import os
+
+    # Bench harness opts into the eval module surface (module: eval workspaces
+    # are gated off by default at boot — BUILD_PROGRAM_COLLAPSE_V1.md Phase 4).
+    os.environ.setdefault("PORTAL_ENABLE_EVAL", "1")
     main()

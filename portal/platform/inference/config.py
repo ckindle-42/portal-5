@@ -285,14 +285,36 @@ def load_portal_config(
 _OWUI_ONLY_FIELDS = frozenset({"expose_to_owui", "enable_web_search", "owui_system_prompt"})
 
 
+def _eval_enabled() -> bool:
+    """Whether the eval module's workspaces/mcp entries should be loaded.
+
+    BUILD_PROGRAM_COLLAPSE_V1.md Phase 4. Bench/eval harnesses set
+    ``PORTAL_ENABLE_EVAL=1`` before importing portal.platform.inference; a
+    ``portal module enable eval`` wiki toggle persists it across a session.
+    Neither of these is control flow — they're the two ways an operator or
+    harness opts into the bench surface that's off by default.
+    """
+    if os.environ.get("PORTAL_ENABLE_EVAL") == "1":
+        return True
+    from portal.platform.wiki.adapters.modules import enabled_modules
+
+    return "eval" in enabled_modules()
+
+
 def get_workspace_dict(config: PortalConfig) -> dict[str, dict[str, Any]]:
     """Return the runtime ``WORKSPACES``-compatible plain dict.
 
     Strips portal.yaml-only fields so the dict deep-equals the original
     Python literal that was captured in ``tests/fixtures/workspaces_snapshot.json``.
+    Excludes ``module: eval`` workspaces unless the eval module is enabled
+    (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4 — the eval-disabled-by-default
+    toggle finally has teeth at boot, not just in the OWUI-preset gate).
     """
+    eval_on = _eval_enabled()
     result: dict[str, dict[str, Any]] = {}
     for ws_id, spec in config.workspaces.items():
+        if spec.module == "eval" and not eval_on:
+            continue
         # model_dump excludes None fields; this mirrors the original literal
         # where absent fields were simply not present (not None).
         raw = spec.model_dump(exclude_none=True, exclude=_OWUI_ONLY_FIELDS)

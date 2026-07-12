@@ -18,9 +18,24 @@ CONFIG_DIR = Path("config/promptfoo")
 
 @pytest.fixture(scope="module")
 def known_models():
-    from portal.platform.inference.router.workspaces import WORKSPACES
+    # module: eval workspaces (bench-*) are gated off the module-level
+    # WORKSPACES dict by default (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4);
+    # promptfoo quality configs legitimately reference bench model_hints,
+    # so resolve against the full (eval-enabled) set instead.
+    import os
 
-    return {info["model_hint"] for info in WORKSPACES.values() if info.get("model_hint")}
+    from portal.platform.inference.config import get_workspace_dict, load_portal_config
+
+    prev = os.environ.get("PORTAL_ENABLE_EVAL")
+    os.environ["PORTAL_ENABLE_EVAL"] = "1"
+    try:
+        all_ws = get_workspace_dict(load_portal_config())
+    finally:
+        if prev is None:
+            os.environ.pop("PORTAL_ENABLE_EVAL", None)
+        else:
+            os.environ["PORTAL_ENABLE_EVAL"] = prev
+    return {info["model_hint"] for info in all_ws.values() if info.get("model_hint")}
 
 
 def _extract_model_refs(config_path):
