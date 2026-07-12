@@ -15,7 +15,7 @@ docs:
     - launch.sh
     - portal/modules/
     - portal_mcp/
-    last_reconciled_commit: 0e633e2
+    last_reconciled_commit: aad19ee0537762ed018bf6ad9aaacd15985e1bd8
   CLAUDE.md:
     sources:
     - config/portal.yaml
@@ -29,24 +29,24 @@ docs:
     - portal_mcp/
     - .env.example
     - portal_wiki/canonical/
-    last_reconciled_commit: b475377e4a2ff5ed15b471247be55259fbc76f1a
+    last_reconciled_commit: aad19ee0537762ed018bf6ad9aaacd15985e1bd8
   KNOWN_LIMITATIONS.md:
     sources:
     - portal/platform/inference/
     - config/backends.yaml
     - portal/modules/
     - portal_mcp/
-    last_reconciled_commit: 0e633e2
+    last_reconciled_commit: aad19ee0537762ed018bf6ad9aaacd15985e1bd8
   P5_ROADMAP.md:
     sources:
     - config/backends.yaml
     - portal/platform/inference/
-    last_reconciled_commit: 0e633e2
+    last_reconciled_commit: aad19ee0537762ed018bf6ad9aaacd15985e1bd8
   KNOWN_ISSUES.md:
     sources:
     - portal/platform/inference/
     - tests/
-    last_reconciled_commit: 0e633e2
+    last_reconciled_commit: aad19ee0537762ed018bf6ad9aaacd15985e1bd8
   docs/USER_GUIDE.md:
     sources:
     - config/personas/
