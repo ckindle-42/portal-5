@@ -22,6 +22,7 @@
 | `matrix.py` | Scenario × container matrix: `build_run_matrix`, `run_matrix`, `TelemetryBackend` protocol, `WazuhBackend`, coverage reports |
 | `capability/` | Capability index (TASK_SEC_CAPABILITY_INDEX_V1) — unifies `_LAB_SERVICE_PROBES`, `challenge_classes.yaml`, and `lab_targets.yaml` into one queryable `Capability` list. See § Capability Index below. |
 | `goal.py`, `goal_decide.py`, `goal_eval.py`, `goal_cli.py` | Goal-driven decide (TASK_SEC_GOAL_DECIDE_V1, Stage 2) — reasons over the capability index instead of a playbook DAG. Dry-run/proposal only. See § Goal-Driven Decide below. |
+| `drift_gate.py`, `drift_cli.py` | Drift-detection gate (TASK_SEC_DRIFT_GATE_V1) — rolling-baseline regression + model-behavior canary, additive over existing results. See § Drift-Detection Gate below. |
 | `__init__.py` | Thin facade: pipeline I/O (`call_pipeline`, `call_pipeline_exec`) + re-exports |
 
 ### Capability Index
@@ -46,6 +47,17 @@ Upgrades the loop's decide step from *lookup* (`playbooks.resolve_phases` walkin
 - CLI: `portal security goal plan --intent "..." --role red --target <ip> --scope-net <ip> --budget-iters N` (writes `docs/GOAL_PLAN_<target>_<ts>.md`), `goal eval --role red`, `goal replay <plan.json>`. **Deliberately no `--lab-exec`** — the absence is the safety property.
 
 `tests/benchmarks/bench_security.py` is a backward-compat re-export shim over `portal.modules.security.core` — it re-exports names for import compatibility but has no `__main__` entry point. Run the bench via `python3 -m portal.modules.security.core ...` (below), not `python3 -m tests.benchmarks.bench_security` — the latter silently does nothing (no CLI wiring at that path).
+
+### Drift-Detection Gate
+
+Portal's existing gates are ABSOLUTE (does this result pass the bar?) and don't catch **gradual drift** — a metric degrading run-over-run but never crossing the hard floor, so everything stays green while quality quietly rots (KNOWN_LIMITATIONS records a 5-11% GGUF slowdown after an Ollama 0.31.1 upgrade that no absolute gate flagged). This is additive analysis over existing results — it changes no scoring, promotes nothing, and is a FLAG only: it never mutates `capability_verdict` and never auto-fails a run.
+
+- `drift_gate.py::drift_check(window=7)` — for every `(scenario, blue_model)` pair seen across `results/sec_*.json`, compares the most recent run against a trailing baseline window (reusing `self_index._complete_result_files()`'s discovery/sort). Per tracked metric (`blue_f1`, `detection_coverage`, `purple_composite`, `red_order_accuracy`, all confirmed field names on `purple_tests` entries) it flags `DRIFT-REGRESSION` only when direction is worse AND the drop exceeds a noise floor (default 0.03) AND the difference is statistically significant (Welch's t-test via `scipy.stats.ttest_ind` when enough samples exist on both sides; else a 2×stdev band). Reported **per-metric, not aggregate** — a `blue_f1` regression never gets absorbed into a stable `purple_composite`. Fewer than 3 prior runs for a pair → honest `INSUFFICIENT-BASELINE`, never a fabricated baseline.
+- `drift_gate.py::run_canary_probe(model)` / `check_model_canary(model)` — a fixed 12-probe deterministic suite (temperature=0, MITRE-ID/CVE-ID/OWASP-category structural checks) that detects the *model itself* changed independent of any scenario — this is what would have caught the Ollama 0.31.1 regression. `save_canary_baseline(model)` snapshots to `results/canary_baselines/<model>.json`; re-running diffs against it and reports `NO-BASELINE|NONE|LOW|MEDIUM|HIGH` by count of flipped probes.
+- CLI: `portal security drift-check [--window N] [--strict] [--propose-writeback]` (exit non-zero only with `--strict` — opt-in, never silently blocks a run) and `portal security model-canary --model <ref> [--save-baseline]`. Neither runs automatically as part of any bench — operator/CI invoked only.
+- `--propose-writeback`: a confirmed `DRIFT-REGRESSION` can `propose_unit` a cited wiki note via `portal.platform.wiki.writeback` (propose-only, `auto_confirm=False` — PROMOTE_POLICY confirm-only, same discipline as `growth_loop.py`'s proven-detection write-back).
+- Validator check AN (`check_drift_gate`) locks the invariant that the metric math distinguishes synthetic regression from synthetic noise and that `drift_check()` never emits a status outside the known set.
+- **First readout** (2026-07-12, `--window 7`, all 86 `(scenario, blue_model)` pairs currently on disk): 344/344 metric checks report `INSUFFICIENT-BASELINE` — every pair has fewer than 3 prior purple-test runs to baseline against. This is the expected, honest state for a gate that just landed; it will start producing real `OK`/`DRIFT-WARN`/`DRIFT-REGRESSION` signal once the purple-test result series accumulates depth per pair.
 
 ### BenchConfig — Replacing Mutable Globals
 

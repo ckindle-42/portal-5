@@ -2566,6 +2566,54 @@ def check_goal_decide_dryrun() -> tuple[str, str, list[dict]]:
     return "FAIL", "dry-run boundary NOT enforced", subs
 
 
+def check_drift_gate() -> tuple[str, str, list[dict]]:
+    """AN — drift_gate.py imports, produces only known-set statuses over the
+    real results/ series, and the metric math distinguishes a synthetic
+    regression from synthetic noise (TASK_SEC_DRIFT_GATE_V1).
+
+    Drift is additive analysis, never a verdict — this check just proves the
+    module is wired and its core statistic isn't degenerate (always-OK or
+    always-REGRESSION), not that any particular run has drifted.
+    """
+    try:
+        from portal.modules.security.core.drift_gate import _metric_drift, drift_check
+    except ImportError as exc:
+        return "SKIP", f"drift_gate module not found: {exc}", []
+
+    subs: list[dict] = []
+
+    report = drift_check(window=5)
+    valid_statuses = {"OK", "DRIFT-WARN", "DRIFT-REGRESSION", "INSUFFICIENT-BASELINE"}
+    all_valid = all(
+        m["status"] in valid_statuses for pair in report["pairs"] for m in pair["metrics"]
+    )
+    subs.append(
+        {
+            "name": "known-status invariant over real results",
+            "status": "PASS" if all_valid else "FAIL",
+        }
+    )
+
+    regression = _metric_drift("blue_f1", [0.5, 0.48], [[0.80, 0.82], [0.79, 0.81], [0.78, 0.80]])
+    ok_regression = regression.status == "DRIFT-REGRESSION"
+    subs.append(
+        {"name": "synthetic regression detected", "status": "PASS" if ok_regression else "FAIL"}
+    )
+
+    noise = _metric_drift("blue_f1", [0.795, 0.80], [[0.80, 0.805], [0.798, 0.80], [0.80, 0.802]])
+    ok_noise = noise.status != "DRIFT-REGRESSION"
+    subs.append(
+        {
+            "name": "synthetic noise not flagged as regression",
+            "status": "PASS" if ok_noise else "FAIL",
+        }
+    )
+
+    if all_valid and ok_regression and ok_noise:
+        return "PASS", f"{len(report['pairs'])} pair(s) checked, metric math sound", subs
+    return "FAIL", "drift gate invariant violated", subs
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -2645,6 +2693,7 @@ def main() -> int:
     v.run("AL. doc currency", check_doc_currency)
     v.run("S. capability index consistency", check_capability_index)
     v.run("T. goal-decide dry-run", check_goal_decide_dryrun)
+    v.run("AN. drift gate", check_drift_gate)
 
     return v.summary()
 

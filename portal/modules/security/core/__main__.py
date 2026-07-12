@@ -30,6 +30,14 @@ if __name__ == "__main__":
         from portal.modules.security.core.goal_cli import goal_main
 
         sys.exit(goal_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "drift-check":
+        from portal.modules.security.core.drift_cli import drift_check_main
+
+        sys.exit(drift_check_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "model-canary":
+        from portal.modules.security.core.drift_cli import model_canary_main
+
+        sys.exit(model_canary_main(sys.argv[2:]))
     from portal.modules.security.core import main
 
     main()
