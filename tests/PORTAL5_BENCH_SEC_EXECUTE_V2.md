@@ -49,11 +49,11 @@ response on structure, MITRE ATT&CK density, disclaimer rate, and completeness.
 ~13h for all 504 prompts across all 9 workspaces.
 
 ```bash
-python3 -m tests.benchmarks.bench_security
+python3 -m portal.modules.security.core
 # or filter to one workspace:
-python3 -m tests.benchmarks.bench_security --workspaces auto-pentest
+python3 -m portal.modules.security.core --workspaces auto-pentest
 # dry run to see what would execute:
-python3 -m tests.benchmarks.bench_security --dry-run
+python3 -m portal.modules.security.core --dry-run
 ```
 
 ### 2. Standard: Chain test for a candidate model
@@ -65,12 +65,12 @@ completion without refusal. The gold standard for security model qualification.
 
 ```bash
 # Single model, single scenario (default: kerberoast_to_da):
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
     --skip-workspace-bench \
     --chain-models hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
 
 # Multiple models, all 8 scenarios:
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
     --skip-workspace-bench \
     --all-scenarios \
     --chain-models hf.co/model1:tag hf.co/model2:tag
@@ -90,16 +90,16 @@ are reachable.
 **Phase 1 — Workspace scoring (run first, ~13h):**
 ```bash
 TS=$(date -u +%Y%m%dT%H%M%SZ)
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
     --lab-snapshot \
-    --output tests/benchmarks/bench_security/results/sec_bench_${TS}.json \
+    --output portal/modules/security/core/results/sec_bench_${TS}.json \
     > sec_bench_${TS}.log 2>&1 &
 ```
 
 **Phase 2 — Exec chain with real lab execution (after Phase 1 completes):**
 ```bash
 TS=$(date -u +%Y%m%dT%H%M%SZ)
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
     --skip-workspace-bench \
     --all-scenarios \
     --chain-models hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M \
@@ -108,7 +108,7 @@ python3 -m tests.benchmarks.bench_security \
     --blue-defender-model hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0 \
     --lab-exec \
     --lab-snapshot \
-    --output tests/benchmarks/bench_security/results/sec_bench_chain_${TS}.json \
+    --output portal/modules/security/core/results/sec_bench_chain_${TS}.json \
     > sec_bench_chain_${TS}.log 2>&1 &
 ```
 
@@ -124,12 +124,12 @@ Runs workspace scoring + chain tests + the entire expansion suite. This is the
 
 ```bash
 # Dry-run first to enumerate available steps:
-python3 -m tests.benchmarks.bench_security --full-expanded --dry-run
+python3 -m portal.modules.security.core --full-expanded --dry-run
 
 # Real run:
 ./launch.sh sec-bench-full
 # or equivalently:
-python3 -m tests.benchmarks.bench_security --full-expanded --lab-exec
+python3 -m portal.modules.security.core --full-expanded --lab-exec
 ```
 
 **What `--full-expanded` enables** (each step no-ops if its module is absent):
@@ -144,8 +144,8 @@ python3 -m tests.benchmarks.bench_security --full-expanded --lab-exec
 
 Use individual flags to run specific steps without the full sweep:
 ```bash
-python3 -m tests.benchmarks.bench_security --ctf --verify-findings --dry-run
-python3 -m tests.benchmarks.bench_security --validate-suite --journal --dry-run
+python3 -m portal.modules.security.core --ctf --verify-findings --dry-run
+python3 -m portal.modules.security.core --validate-suite --journal --dry-run
 ```
 
 ---
@@ -157,7 +157,7 @@ The autonomous engagement loop runs a playbook to completion without per-step op
 ```bash
 # Dry-run a playbook (prints phases, scope, budget — no actuation):
 ./launch.sh sec-loop run playbooks/security/internal-ad-pentest.yaml --dry-run
-python3 -m tests.benchmarks.bench_security loop run playbooks/security/web-app-assessment.yaml --dry-run
+python3 -m portal.modules.security.core loop run playbooks/security/web-app-assessment.yaml --dry-run
 
 # Real run (requires lab-exec):
 ./launch.sh sec-loop run playbooks/security/internal-ad-pentest.yaml --lab-exec
@@ -171,7 +171,7 @@ The validation suite proves red/blue/purple do their jobs against real lab data 
 ./launch.sh sec-validate --dry-run
 
 # Real run:
-python3 -m tests.benchmarks.bench_security --validate-suite --lab-exec
+python3 -m portal.modules.security.core --validate-suite --lab-exec
 ```
 
 **Validation pass condition:** A use-case PASSES only if the finding lands on the vulnerable
@@ -209,18 +209,18 @@ The matrix mode crosses **every scenario and every challenge class** with **ever
 
 ```bash
 # Plan the full matrix (no Docker needed):
-python3 -m tests.benchmarks.bench_security --matrix-all --dry-run
+python3 -m portal.modules.security.core --matrix-all --dry-run
 
 # Coverage report (how much of the library are we testing?):
-python3 -m tests.benchmarks.bench_security --matrix-coverage
+python3 -m portal.modules.security.core --matrix-coverage
 
 # Run a specific class against its containers (lab must be up):
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
     --matrix-classes deserialization,sqli-auth-bypass,lfi-path-traversal \
     --lab-exec --max-concurrent 2
 
 # Blue + purple on web classes:
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
     --matrix-classes lfi-path-traversal --purple --dry-run
 ```
 
@@ -413,7 +413,7 @@ mapped if the desired port is in use:
 
 # Ephemeral: spin up, run bench, tear down — self-cleaning:
 ./launch.sh lab-targets ephemeral vulhub-log4shell-solr -- \
-    python3 -m tests.benchmarks.bench_security --chain-models VulnLLM-R-7B --lab-exec
+    python3 -m portal.modules.security.core --chain-models VulnLLM-R-7B --lab-exec
 
 # Lane-specific targets:
 ./launch.sh lab-web-up     # SPA target for browser/OAST probes
@@ -439,7 +439,7 @@ It sends a single tool-call request and verifies the model returns a valid
 JSON tool-call response.
 
 ```bash
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
     --audit-tools \
     --chain-models hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
 ```
@@ -489,21 +489,21 @@ If `lab-ready` is RED, do not proceed — fix the failing components first.
 
 ```bash
 # Quick candidate evaluation — 2 scenarios, no lab:
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
     --skip-workspace-bench \
     --scenario kerberoast_to_da \
     --chain-models <model_id> \
-    --output tests/benchmarks/bench_security/results/sec_bench_$(date -u +%Y%m%dT%H%M%SZ).json
+    --output portal/modules/security/core/results/sec_bench_$(date -u +%Y%m%dT%H%M%SZ).json
 
 # Full qualification — all 8 scenarios, with real lab execution:
-python3 -m tests.benchmarks.bench_security \
+python3 -m portal.modules.security.core \
     --skip-workspace-bench \
     --all-scenarios \
     --chain-models <model_id> \
     --blue-defender-model hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0 \
     --lab-exec \
     --lab-snapshot \
-    --output tests/benchmarks/bench_security/results/sec_bench_chain_$(date -u +%Y%m%dT%H%M%SZ).json
+    --output portal/modules/security/core/results/sec_bench_chain_$(date -u +%Y%m%dT%H%M%SZ).json
 ```
 
 ---
@@ -606,12 +606,12 @@ Authoritative: `portal_pipeline/router/workspaces.py`
 ## Output and Results
 
 Results write to `--output` path (default: `/tmp/sec_bench_<ts>.json`).
-Commit significant runs to `tests/benchmarks/bench_security/results/`.
+Commit significant runs to `portal/modules/security/core/results/`.
 Single-candidate quick evals don't need to be committed.
 
 ```bash
 # After a significant multi-model or fleet-wide run:
-git add tests/benchmarks/bench_security/results/sec_bench_*.json
+git add portal/modules/security/core/results/sec_bench_*.json
 git commit -m "bench(security): <description> $(date -u +%Y-%m-%d)"
 git push origin main
 ```
