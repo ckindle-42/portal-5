@@ -38,6 +38,10 @@ if __name__ == "__main__":
         from portal.modules.security.core.drift_cli import model_canary_main
 
         sys.exit(model_canary_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "loop":
+        from portal.modules.security.core.loop_cli import loop_main
+
+        sys.exit(loop_main(sys.argv[2:]))
     from portal.modules.security.core import main
 
     main()
