@@ -1,4 +1,4 @@
-"""Unit tests for portal_mcp.rag.rag_mcp — Docling-enhanced _read_file + LanceDB tools.
+"""Unit tests for portal.modules.research.tools.rag_mcp — Docling-enhanced _read_file + LanceDB tools.
 
 All tests mock external deps (Docling, pypdf, python-docx). No network, no real
 LanceDB database, and no docling install required: tests patch
@@ -17,7 +17,7 @@ import pytest
 sys.path.insert(0, ".")
 
 rag_mcp = pytest.importorskip(
-    "portal_mcp.rag.rag_mcp",
+    "portal.modules.research.tools.rag_mcp",
     reason="lancedb/pyarrow/httpx not importable — run: pip install lancedb pyarrow httpx",
 )
 

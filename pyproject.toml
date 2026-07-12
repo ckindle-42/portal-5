@@ -169,6 +169,10 @@ ignore = ["E501"]
 "scripts/**/*.py" = ["E402", "F841", "B007", "B904", "C408", "SIM105", "SIM102"]
 # portal_mcp — FastMCP imports after logging setup (E402 is intentional guard ordering)
 "portal_mcp/**/*.py" = ["E402", "SIM105"]
+# MCP tool servers relocated into modules (BUILD_PROGRAM_MODULARIZATION_ALL_V1) —
+# same FastMCP import-after-logging-setup pattern as portal_mcp/ above.
+"portal/modules/*/tools/**/*.py" = ["E402", "SIM105"]
+"portal/platform/memory/**/*.py" = ["E402", "SIM105"]
 # deploy/ standalone scripts — same patterns as scripts/
 "deploy/**/*.py" = ["E402", "F841", "B007", "SIM102", "SIM105", "SIM110", "SIM108"]
 

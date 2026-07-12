@@ -21,7 +21,7 @@ sys.path.insert(0, ".")
 
 # Guard: skip entire module if portal_mcp.documents is not importable.
 pytest.importorskip(
-    "portal_mcp.documents.document_mcp",
+    "portal.modules.documents.tools.document_mcp",
     reason="portal_mcp.documents not importable — run: pip install -e '.[dev,mcp]'",
 )
 
@@ -30,7 +30,7 @@ class TestToolsManifest:
     """TOOLS_MANIFEST must include all four new read tools."""
 
     def test_manifest_includes_read_word_document(self):
-        from portal_mcp.documents.document_mcp import TOOLS_MANIFEST
+        from portal.modules.documents.tools.document_mcp import TOOLS_MANIFEST
 
         names = [t["name"] for t in TOOLS_MANIFEST]
         assert "read_word_document" in names, (
@@ -38,26 +38,26 @@ class TestToolsManifest:
         )
 
     def test_manifest_includes_read_excel(self):
-        from portal_mcp.documents.document_mcp import TOOLS_MANIFEST
+        from portal.modules.documents.tools.document_mcp import TOOLS_MANIFEST
 
         names = [t["name"] for t in TOOLS_MANIFEST]
         assert "read_excel" in names, "TOOLS_MANIFEST missing 'read_excel'"
 
     def test_manifest_includes_read_powerpoint(self):
-        from portal_mcp.documents.document_mcp import TOOLS_MANIFEST
+        from portal.modules.documents.tools.document_mcp import TOOLS_MANIFEST
 
         names = [t["name"] for t in TOOLS_MANIFEST]
         assert "read_powerpoint" in names, "TOOLS_MANIFEST missing 'read_powerpoint'"
 
     def test_manifest_includes_read_pdf(self):
-        from portal_mcp.documents.document_mcp import TOOLS_MANIFEST
+        from portal.modules.documents.tools.document_mcp import TOOLS_MANIFEST
 
         names = [t["name"] for t in TOOLS_MANIFEST]
         assert "read_pdf" in names, "TOOLS_MANIFEST missing 'read_pdf'"
 
     def test_manifest_total_count(self):
         """Manifest must have at least 9 tools (5 original + 4 read tools)."""
-        from portal_mcp.documents.document_mcp import TOOLS_MANIFEST
+        from portal.modules.documents.tools.document_mcp import TOOLS_MANIFEST
 
         assert len(TOOLS_MANIFEST) >= 9, (
             f"Expected at least 9 tools in TOOLS_MANIFEST, got {len(TOOLS_MANIFEST)}"
@@ -65,7 +65,7 @@ class TestToolsManifest:
 
     def test_read_tools_have_file_path_parameter(self):
         """All read tools must declare file_path as a required parameter."""
-        from portal_mcp.documents.document_mcp import TOOLS_MANIFEST
+        from portal.modules.documents.tools.document_mcp import TOOLS_MANIFEST
 
         read_tools = [t for t in TOOLS_MANIFEST if t["name"].startswith("read_")]
         assert len(read_tools) == 4, f"Expected 4 read_ tools, got {len(read_tools)}"
@@ -78,14 +78,14 @@ class TestReadWordDocument:
     """Tests for read_word_document function."""
 
     def test_missing_file_returns_error(self, tmp_path):
-        from portal_mcp.documents.document_mcp import read_word_document
+        from portal.modules.documents.tools.document_mcp import read_word_document
 
         result = read_word_document(str(tmp_path / "nonexistent.docx"))
         assert result["success"] is False
         assert "error" in result
 
     def test_wrong_extension_returns_error(self, tmp_path):
-        from portal_mcp.documents.document_mcp import read_word_document
+        from portal.modules.documents.tools.document_mcp import read_word_document
 
         f = tmp_path / "doc.txt"
         f.write_text("hello")
@@ -100,7 +100,7 @@ class TestReadWordDocument:
         except ImportError:
             pytest.skip("python-docx not installed")
 
-        from portal_mcp.documents.document_mcp import read_word_document
+        from portal.modules.documents.tools.document_mcp import read_word_document
 
         doc = Document()
         doc.add_paragraph("Hello Portal 5")
@@ -130,7 +130,7 @@ class TestReadWordDocument:
         f = tmp_path / "doc.docx"
         f.touch()
 
-        from portal_mcp.documents import document_mcp
+        from portal.modules.documents.tools import document_mcp
 
         # Call the raw function to bypass any module-level caching
         result = document_mcp.read_word_document(str(f))
@@ -142,14 +142,14 @@ class TestReadExcel:
     """Tests for read_excel function."""
 
     def test_missing_file_returns_error(self, tmp_path):
-        from portal_mcp.documents.document_mcp import read_excel
+        from portal.modules.documents.tools.document_mcp import read_excel
 
         result = read_excel(str(tmp_path / "nonexistent.xlsx"))
         assert result["success"] is False
         assert "error" in result
 
     def test_wrong_extension_returns_error(self, tmp_path):
-        from portal_mcp.documents.document_mcp import read_excel
+        from portal.modules.documents.tools.document_mcp import read_excel
 
         f = tmp_path / "file.csv"
         f.write_text("a,b,c")
@@ -163,7 +163,7 @@ class TestReadExcel:
         except ImportError:
             pytest.skip("openpyxl not installed")
 
-        from portal_mcp.documents.document_mcp import read_excel
+        from portal.modules.documents.tools.document_mcp import read_excel
 
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -185,7 +185,7 @@ class TestReadExcel:
         except ImportError:
             pytest.skip("openpyxl not installed")
 
-        from portal_mcp.documents.document_mcp import read_excel
+        from portal.modules.documents.tools.document_mcp import read_excel
 
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -205,14 +205,14 @@ class TestReadPowerPoint:
     """Tests for read_powerpoint function."""
 
     def test_missing_file_returns_error(self, tmp_path):
-        from portal_mcp.documents.document_mcp import read_powerpoint
+        from portal.modules.documents.tools.document_mcp import read_powerpoint
 
         result = read_powerpoint(str(tmp_path / "nonexistent.pptx"))
         assert result["success"] is False
         assert "error" in result
 
     def test_wrong_extension_returns_error(self, tmp_path):
-        from portal_mcp.documents.document_mcp import read_powerpoint
+        from portal.modules.documents.tools.document_mcp import read_powerpoint
 
         f = tmp_path / "slides.pdf"
         f.touch()
@@ -226,7 +226,7 @@ class TestReadPowerPoint:
         except ImportError:
             pytest.skip("python-pptx not installed")
 
-        from portal_mcp.documents.document_mcp import read_powerpoint
+        from portal.modules.documents.tools.document_mcp import read_powerpoint
 
         prs = Presentation()
         slide_layout = prs.slide_layouts[0]
@@ -246,14 +246,14 @@ class TestReadPDF:
     """Tests for read_pdf function."""
 
     def test_missing_file_returns_error(self, tmp_path):
-        from portal_mcp.documents.document_mcp import read_pdf
+        from portal.modules.documents.tools.document_mcp import read_pdf
 
         result = read_pdf(str(tmp_path / "nonexistent.pdf"))
         assert result["success"] is False
         assert "error" in result
 
     def test_wrong_extension_returns_error(self, tmp_path):
-        from portal_mcp.documents.document_mcp import read_pdf
+        from portal.modules.documents.tools.document_mcp import read_pdf
 
         f = tmp_path / "doc.docx"
         f.touch()
@@ -277,7 +277,7 @@ class TestReadPDF:
 
         import unittest.mock as mock
 
-        import portal_mcp.documents.document_mcp as doc_mcp
+        import portal.modules.documents.tools.document_mcp as doc_mcp
 
         with mock.patch.dict("sys.modules", {"pdfplumber": None}):
             result = doc_mcp.read_pdf(str(f))
@@ -297,7 +297,7 @@ class TestReadPDF:
         except ImportError:
             pytest.skip("reportlab not installed (needed to create test PDF)")
 
-        from portal_mcp.documents.document_mcp import read_pdf
+        from portal.modules.documents.tools.document_mcp import read_pdf
 
         path = tmp_path / "test.pdf"
         c = rl_canvas.Canvas(str(path))

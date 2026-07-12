@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib
 import sys
 
-MOD = "portal_mcp.execution.code_sandbox_mcp"
+MOD = "portal.modules.coding.tools.code_sandbox_mcp"
 
 
 def _reload(monkeypatch, **env):

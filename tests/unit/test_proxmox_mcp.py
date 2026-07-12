@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-MOD = "portal_mcp.proxmox.proxmox_mcp"
+MOD = "portal.modules.security.tools.proxmox_mcp"
 
 
 def _reload(monkeypatch, **env):

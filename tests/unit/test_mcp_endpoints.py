@@ -17,25 +17,25 @@ sys.path.insert(0, ".")
 
 # Guard: skip tests gracefully if portal_mcp generation deps are missing.
 # Previously these imports fired inside fixtures, causing ERROR instead of SKIP.
-# Note: we guard on portal_mcp.generation.tts_mcp (the actual server module),
+# Note: we guard on portal.modules.media.tools.tts_mcp (the actual server module),
 # NOT the external fastmcp pip wheel.
 # Imports go through the upstream mcp.server.fastmcp package (M4 de-vendor).
 portal_mcp_gen = pytest.importorskip(
-    "portal_mcp.generation.tts_mcp",
+    "portal.modules.media.tools.tts_mcp",
     reason="portal_mcp.generation not importable — run: pip install -e '.[dev,mcp]'",
 )
 
 
 def get_tts_app():
     """Get the TTS MCP server's Starlette ASGI app."""
-    from portal_mcp.generation.tts_mcp import mcp
+    from portal.modules.media.tools.tts_mcp import mcp
 
     return mcp.streamable_http_app()
 
 
 def get_whisper_app():
     """Get the Whisper MCP server's Starlette ASGI app."""
-    from portal_mcp.generation.whisper_mcp import mcp
+    from portal.modules.media.tools.whisper_mcp import mcp
 
     return mcp.streamable_http_app()
 

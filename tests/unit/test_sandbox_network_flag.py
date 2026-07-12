@@ -5,7 +5,7 @@ Asserts the source wiring without launching Docker (CI-safe).
 
 from pathlib import Path
 
-SRC = Path("portal_mcp/execution/code_sandbox_mcp.py").read_text()
+SRC = Path("portal/modules/coding/tools/code_sandbox_mcp.py").read_text()
 
 
 def test_flag_defined_default_off():
