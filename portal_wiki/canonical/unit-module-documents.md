@@ -26,3 +26,9 @@ portal.modules.documents.tools.document_mcp (:8913)
 
 - auto-documents
 - auto-extract-uncensored
+
+## Module State
+
+```yaml
+enabled: true
+```

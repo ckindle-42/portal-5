@@ -28,3 +28,9 @@ portal.modules.research.tools: web_search_mcp (:8922, SearXNG), rag_mcp (:8921),
 - auto-data
 
 browser_mcp assigned here (not its own module) — web automation supports research, per operator best-fit direction.
+
+## Module State
+
+```yaml
+enabled: true
+```

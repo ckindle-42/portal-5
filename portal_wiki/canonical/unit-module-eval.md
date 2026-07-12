@@ -40,3 +40,9 @@ several have real interdependencies (e.g. bench_lab_exec.py is a live
 dependency of security core/_data.py) that need individual verification,
 not a batch move. persona_matrix was the cleanly self-contained,
 explicitly-named cross-cutting harness in the spec.
+
+## Module State
+
+```yaml
+enabled: false
+```
