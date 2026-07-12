@@ -1,0 +1,11 @@
+tier,variant,arch_name,param_count,quant,ctx_len,vision_ok,audio_ok,tools_ok,tps_median,tps_stdev,quality_score_delta,pull_size_gb
+e2b,mlx,gemma4,5.2B,nvfp4,131072,false,false,true,72.1,4.1,0.0,6.5
+e2b,it-qat,gemma4,4.6B,Q4_0,131072,true,true,true,42.9,0.93,0.0,4.3
+e4b,mlx,gemma4,8.1B,nvfp4,131072,false,false,true,49.1,1.45,0.0,8.8
+e4b,it-qat,gemma4,7.5B,Q4_0,131072,true,true,true,25.2,2.19,0.0,6.1
+12b,mlx,gemma4_unified,12.4B,nvfp4,262144,false,false,true,18.5,0.8,-0.1,7.7
+12b,it-qat,gemma4,11.9B,Q4_0,262144,true,true,true,13.1,0.94,0.0,7.2
+26b,mlx,gemma4,26.2B,nvfp4,262144,false,false,true,30.0,1.38,0.0,17
+26b-a4b,it-qat,gemma4,25.2B,Q4_0,262144,true,false,true,29.3,2.48,0.0,15
+31b,mlx,gemma4,31.7B,nvfp4,262144,false,false,true,9.0,0.89,0.0,18
+31b,it-qat,gemma4,30.7B,Q4_0,262144,true,false,true,6.0,0.33,0.0,18
