@@ -119,7 +119,7 @@ docs:
     - config/tool_catalog.yaml
     - config/challenge_classes.yaml
     - config/lab_targets.yaml
-    last_reconciled_commit: 5d640b3c49aac8efd2971d5dd62d5e9d4b849b17
+    last_reconciled_commit: 6b50346d31d0c4b4d6f96ba6c74fd06c0b02d8c7
   docs/PERSONA_MATRIX_CI.md:
     sources:
     - portal/modules/eval/persona_matrix/
