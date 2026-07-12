@@ -11,11 +11,18 @@ from unittest.mock import MagicMock, patch
 from tests.benchmarks.bench.adhoc_probe import _run_one, _warmup, probe_models
 
 
-def _mock_stream_response(chunks: list[str], completion_tokens: int | None = None):
+def _mock_stream_response(
+    chunks: list[str],
+    completion_tokens: int | None = None,
+    reasoning_chunks: list[str] | None = None,
+):
     """Build a mock httpx streaming response yielding SSE-style lines."""
     lines = []
     for c in chunks:
         payload = json.dumps({"choices": [{"delta": {"content": c}}]})
+        lines.append(f"data: {payload}")
+    for r in reasoning_chunks or []:
+        payload = json.dumps({"choices": [{"delta": {"reasoning": r}}]})
         lines.append(f"data: {payload}")
     if completion_tokens is not None:
         payload = json.dumps({"choices": [], "usage": {"completion_tokens": completion_tokens}})
@@ -78,6 +85,24 @@ class TestRunOne:
         client.stream.side_effect = Exception("timeout")
         result = _run_one(client, "some:model", "test prompt", run_num=0)
         assert "error" in result
+
+    def test_thinking_model_reasoning_only_counts_as_generation(self):
+        """Regression test: a 'thinking' model (gemma4's Capabilities list
+        includes "thinking") can emit its entire response through
+        delta.reasoning with an empty delta.content. Before the fix, this
+        was misreported as "empty response" despite genuine generation —
+        discovered live during TASK_EVAL_GEMMA4_MLX_TAGS_V1 (gemma4:e2b-mlx
+        returned "empty response" on every trial of a real TPS probe)."""
+        client = MagicMock()
+        client.stream.return_value = _mock_stream_response(
+            chunks=[],
+            completion_tokens=None,
+            reasoning_chunks=["Thinking about", " the OSI model", " layers..."],
+        )
+        result = _run_one(client, "gemma4:e2b-mlx", "test prompt", run_num=0)
+        assert "error" not in result
+        assert result["completion_tokens"] > 0
+        assert result["tps"] > 0
 
 
 class TestProbeModels:
