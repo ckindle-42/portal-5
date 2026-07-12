@@ -40,13 +40,18 @@ sleep 180   # AGENT: adjust based on what was actually cold-started; skip if eve
 unconditionally (it's a plumbing/plan check, not a connectivity check) — never use it to gate Step 1/2.
 
 ```bash
-cd ~/path/to/portal-5 && export PYTHONPATH=tests/benchmarks:.
+cd ~/path/to/portal-5
+# NOTE: run via `python3 -m portal.modules.security.core` (the package's real
+# location post BUILD-SPEC-PORTAL-MODULES-V1) — no PYTHONPATH export needed.
+# `python3 -m bench_security` (with PYTHONPATH=tests/benchmarks) or
+# `tests.benchmarks.bench_security` are dead: that shim has no __main__ entry
+# point and silently no-ops instead of running the bench.
 # lab reachable (the whole lab, not just AD) — standalone form works without --chain-models:
-python3 -m bench_security --probe-lab            # AGENT: confirm DC/SRV/WEB(LXC112)/meta3/mbptl reachable
+python3 -m portal.modules.security.core --probe-lab            # AGENT: confirm DC/SRV/WEB(LXC112)/meta3/mbptl reachable
 # coverage really expanded (meta3 no longer 0, vulhub broadened, all blue-scorable) — --dry-run here is
 # fine, this is a static resolution count, not a connectivity check:
-python3 -m bench_security --matrix-coverage --dry-run
-python3 -c "from bench_security.exec_chain import SCENARIOS; \
+python3 -m portal.modules.security.core --matrix-coverage --dry-run
+python3 -c "from portal.modules.security.core.exec_chain import SCENARIOS; \
 bad=[k for k,v in SCENARIOS.items() if not v.get('detect_ground_truth')]; \
 print('scenarios:',len(SCENARIOS),'| red-only (must be empty):',bad)"
 # Splunk up + HEC reachable (blue telemetry sink):
@@ -66,7 +71,7 @@ subnet down) still STOPs the run — a handful of individual app-level services 
 Red drives every scenario against real targets via Kali. This is the data-generation pass.
 
 ```bash
-python3 -m bench_security \
+python3 -m portal.modules.security.core \
   --skip-workspace-bench \          # theory prompts are NOT the driver
   --lab-exec \                      # real execution against the live lab
   --all-scenarios \                 # AD + web + meta3 + broadened vulhub (all 27+)
@@ -82,7 +87,7 @@ Expect: real exploitation across disciplines, `lab_success` where the chain trul
 ```bash
 # Blue: detect the techniques red executed, from real telemetry (Splunk SPL / WinEvent).
 # Purple: red x blue interaction scoring — did blue catch what red did?
-python3 -m bench_security \
+python3 -m portal.modules.security.core \
   --skip-workspace-bench \
   --lab-exec \
   --all-scenarios \
@@ -103,11 +108,11 @@ telemetry matching real SPL — never synthetic.
 # system health:
 python3 scripts/validate_system.py
 # coverage: every discipline+target exercised, none silently empty:
-python3 -m bench_security --matrix-coverage
+python3 -m portal.modules.security.core --matrix-coverage
 # integrity: blue detections came from REAL telemetry, not synthetic-fallback:
 python3 - <<'PY'
 import json, glob, os
-f = max((x for x in glob.glob("tests/benchmarks/bench_security/results/sec_bench_*.json")
+f = max((x for x in glob.glob("portal/modules/security/core/results/sec_bench_*.json")
          if ".partial." not in x), key=os.path.getmtime)
 d = json.load(open(f)); ct = d.get("chain_tests", [])
 red_ok = sum(1 for e in ct if e.get("lab_success"))
@@ -124,10 +129,10 @@ synthetic telemetry, is NOT trustworthy — record what's dirty; don't feed it t
 
 ```bash
 # Stage 1 self-index over the full-coverage run:
-python3 -m bench_security self-index | tee /tmp/self_index_fullcov.txt
-python3 -m bench_security self-index --json > /tmp/self_index_fullcov.json
+python3 -m portal.modules.security.core self-index | tee /tmp/self_index_fullcov.txt
+python3 -m portal.modules.security.core self-index --json > /tmp/self_index_fullcov.json
 # Stage 2: web/linux/meta3 oracles now have REAL data — promotions can be earned:
-python3 -m bench_security stage2-propose | tee /tmp/stage2_fullcov.txt
+python3 -m portal.modules.security.core stage2-propose | tee /tmp/stage2_fullcov.txt
 ```
 Now the weakness view reflects the whole lab, and Stage 2's oracles have real evidence to be proven
 against (the gap the earlier 0/46 exposed). Bring both artifacts to the review.

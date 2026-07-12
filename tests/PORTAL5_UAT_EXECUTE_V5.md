@@ -50,8 +50,8 @@ media-heavy (ComfyUI image/video) last with its own GPU-reclaim handling.
 You are the **UAT execution agent**. You run the driver phase by phase
 against a live stack, classify each result (PASS/WARN/FAIL/BLOCKED), diagnose
 failures using the taxonomy below, retry intelligently, and produce a final
-report. You do NOT modify product code (`portal_pipeline/**`,
-`portal_mcp/**` are protected).
+report. You do NOT modify product code (`portal/platform/**`,
+`portal/modules/**` are protected).
 
 ---
 
@@ -86,15 +86,20 @@ ScheduleWakeup(
 
 ### Inter-phase gate (run after every phase)
 ```bash
-python3 tests/portal5_uat_driver.py --section inter_phase_gate
+bash tests/inter_phase_gate.sh <phase_num> <phase_test_count> [--keep-comfyui]
 ```
-Gate exits 1 if unrecoverable (memory, service down). Fix before proceeding.
+Standalone shell script (not a driver `--section`) — `tests/inter_phase_gate.sh`, Ollama-only
+memory/service gate. Exits 1 if unrecoverable (memory, service down). Fix before proceeding.
 
 ### Final completion steps (after Phase 7 / last phase)
 ```bash
-# Archive UAT chats into dated folder (driver does this on clean exit;
-# run manually if the driver was interrupted):
-python3 tests/portal5_uat_driver.py --archive-only
+# Chats are archived into UAT/<run_date> automatically at end-of-run and on
+# SIGINT (tests/uat/owui_api.py::_archive_run_chats, wired into cli.py's
+# normal exit path and its SIGINT handler) — there is no standalone
+# "--archive-only" flag. If the driver was killed hard (SIGKILL / crash, not
+# SIGINT) and chats were left in the root UAT folder, use --migrate to move
+# any loose root-level UAT chats into the UAT folder instead:
+python3 tests/portal5_uat_driver.py --migrate
 # Commit results
 git add tests/UAT_RESULTS.md && git commit -m "results(uat): <run date> — P/W/F summary"
 ```
@@ -208,7 +213,7 @@ boundaries. The phase composition above is deliberate.
 ### What you must NOT do
 - Do NOT run everything in one invocation (defeats checkpointing).
 - Do NOT send concurrent requests.
-- Do NOT modify `portal_pipeline/**` or `portal_mcp/**`.
+- Do NOT modify `portal/platform/**` or `portal/modules/**`.
 
 ---
 
@@ -341,7 +346,7 @@ for m in json.load(sys.stdin).get('models',[]):
 ---
 
 ## Constraints (Non-Negotiable)
-- **NEVER modify** `portal_pipeline/**`, `portal_mcp/**`, `config/`,
+- **NEVER modify** `portal/platform/**`, `portal/modules/**`, `config/`,
   `deploy/`, `docs/HOWTO.md`.
 - **NEVER** send concurrent inference requests.
 - **DO NOT** run all sections in one invocation.

@@ -15,7 +15,7 @@ docs:
     - launch.sh
     - portal/modules/
     - portal_mcp/
-    last_reconciled_commit: 2ccd2f4d28f1a22dd007521f115bbc34f4e9b407
+    last_reconciled_commit: bb7c592e136f14130ea26359f6f471af791c704b
   CLAUDE.md:
     sources:
     - config/portal.yaml
@@ -29,14 +29,14 @@ docs:
     - portal_mcp/
     - .env.example
     - portal_wiki/canonical/
-    last_reconciled_commit: 2ccd2f4d28f1a22dd007521f115bbc34f4e9b407
+    last_reconciled_commit: bb7c592e136f14130ea26359f6f471af791c704b
   KNOWN_LIMITATIONS.md:
     sources:
     - portal/platform/inference/
     - config/backends.yaml
     - portal/modules/
     - portal_mcp/
-    last_reconciled_commit: 2ccd2f4d28f1a22dd007521f115bbc34f4e9b407
+    last_reconciled_commit: bb7c592e136f14130ea26359f6f471af791c704b
   P5_ROADMAP.md:
     sources:
     - config/backends.yaml
@@ -46,7 +46,7 @@ docs:
     sources:
     - portal/platform/inference/
     - tests/
-    last_reconciled_commit: 2ccd2f4d28f1a22dd007521f115bbc34f4e9b407
+    last_reconciled_commit: a2dce8c
   docs/USER_GUIDE.md:
     sources:
     - config/personas/
@@ -67,7 +67,7 @@ docs:
     - portal_mcp/
     - scripts/mlx-speech.py
     - scripts/mlx-transcribe.py
-    last_reconciled_commit: 0e633e2
+    last_reconciled_commit: bb7c592e136f14130ea26359f6f471af791c704b
   docs/CLUSTER_SCALE.md:
     sources:
     - config/backends.yaml
@@ -81,14 +81,14 @@ docs:
     sources:
     - config/backends.yaml
     - tests/benchmarks/
-    last_reconciled_commit: 0e633e2
+    last_reconciled_commit: a2dce8c
   docs/MCP_DEV_TOOLING.md:
     sources:
     - portal/modules/
     - portal_mcp/
     - .mcp.json
     - portal/platform/inference/tool_registry.py
-    last_reconciled_commit: 0e633e2
+    last_reconciled_commit: bb7c592e136f14130ea26359f6f471af791c704b
   docs/COMFYUI_SETUP.md:
     sources:
     - portal/modules/media/tools/
@@ -112,7 +112,7 @@ docs:
     sources:
     - deploy/
     - tests/
-    last_reconciled_commit: 0e633e2
+    last_reconciled_commit: a2dce8c
   docs/PERSONA_MATRIX_CI.md:
     sources:
     - portal/modules/eval/persona_matrix/

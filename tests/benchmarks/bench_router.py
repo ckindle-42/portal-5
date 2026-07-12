@@ -1,7 +1,7 @@
 """Router model benchmark — evaluates LLM intent classifier candidates.
 
 Tests accuracy, latency, and abstention quality for the Layer-1 LLM router
-(see portal_pipeline/router/routing.py :: _route_with_llm).
+(see portal/platform/inference/router/routing.py :: _route_with_llm).
 
 Usage:
     # Compare specific candidates

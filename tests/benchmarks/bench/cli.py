@@ -168,7 +168,6 @@ def _check_image_freshness() -> None:
             "portal-pipeline",
             "portal-5-portal-pipeline",
             [
-                "portal_pipeline/",
                 "portal/platform/inference/",
                 "config/backends.yaml",
                 "Dockerfile.pipeline",
@@ -178,7 +177,14 @@ def _check_image_freshness() -> None:
         (
             "mcp-services",
             "portal-5-mcp-documents",
-            ["portal_mcp/", "Dockerfile.mcp", "pyproject.toml"],
+            [
+                "portal/modules/",
+                "portal/platform/mcp_host/",
+                "portal/platform/memory/",
+                "portal_mcp/",
+                "Dockerfile.mcp",
+                "pyproject.toml",
+            ],
         ),
     ]
     stale = []
