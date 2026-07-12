@@ -64,6 +64,7 @@ async def _run(args: argparse.Namespace) -> int:
         "model": args.model,
         "prompt": prompt,
         "stream": False,
+        "think": args.think,
         "keep_alive": "5m",
         "options": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "num_predict": 200},
     }
@@ -73,7 +74,9 @@ async def _run(args: argparse.Namespace) -> int:
         resp = await client.post(f"{args.ollama_url}/api/generate", json=payload)
     latency_ms = int((time.monotonic() - t0) * 1000)
     resp.raise_for_status()
-    raw = resp.json().get("response", "")
+    resp_json = resp.json()
+    raw = resp_json.get("response", "")
+    thinking_raw = resp_json.get("thinking", "") or resp_json.get("reasoning", "")
 
     indices = parse_ranked_indices(raw, valid_max=len(tool_names))
     ranked = indices_to_tool_names(indices, tool_names)
@@ -82,9 +85,14 @@ async def _run(args: argparse.Namespace) -> int:
         "model": args.model,
         "user_turn": args.user_turn,
         "k": args.k,
+        "think_enabled": args.think,
         "ranked_tools": ranked[: args.k],
         "raw_ranked_all": ranked,
         "latency_ms": latency_ms,
+        "eval_count": resp_json.get("eval_count"),
+        "eval_duration_ns": resp_json.get("eval_duration"),
+        "thinking_leaked": bool(thinking_raw),
+        "thinking_raw": thinking_raw[:500] if thinking_raw else "",
         "raw_response": raw,
     }
     print(json.dumps(result, indent=2))
@@ -97,6 +105,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tools", required=True, help="Comma-separated tool names")
     p.add_argument("--user-turn", required=True, help="Simulated user turn text")
     p.add_argument("--k", type=int, default=3, help="Top-K to report")
+    p.add_argument(
+        "--think",
+        action="store_true",
+        default=False,
+        help="Allow the model's native thinking mode (default: suppressed)",
+    )
     p.add_argument("--ollama-url", default="http://localhost:11434", help="Ollama base URL")
     args = p.parse_args(argv)
     return asyncio.run(_run(args))
