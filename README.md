@@ -349,7 +349,7 @@ activate automatically when either tool opens this project:
 - **`.mcp.json`** — currently 22 MCP servers (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`): filesystem, git, docker, fetch, portal-sandbox (execute_bash),
   portal-pipeline (FastContext code explorer + stack introspection), plus the other portal-* tool servers
 - **`opencode.jsonc`** — points opencode at portal-pipeline (:9099) as a fully local AI backend;
-  all 104 workspaces available as models; cloud providers disabled
+  all functional workspaces available as models (`?variant=`/persona `variant:` cover the folded siblings — see line above); cloud providers disabled
 
 **Claude Code** (uses Anthropic AI, Portal 5 as tool provider):
 ```bash

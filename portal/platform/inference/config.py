@@ -344,14 +344,22 @@ def get_workspace_dict(config: PortalConfig) -> dict[str, dict[str, Any]]:
 
     Strips portal.yaml-only fields so the dict deep-equals the original
     Python literal that was captured in ``tests/fixtures/workspaces_snapshot.json``.
-    Excludes ``module: eval`` workspaces unless the eval module is enabled
-    (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4 — the eval-disabled-by-default
-    toggle finally has teeth at boot, not just in the OWUI-preset gate).
+    Excludes workspaces belonging to any disabled module (M7 toggle layer,
+    ``portal module disable <name>``) — the eval module additionally honors
+    ``PORTAL_ENABLE_EVAL=1`` as a bench-harness opt-in that doesn't require a
+    persisted wiki toggle (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4/9 — the
+    disabled-by-default toggle finally has teeth at boot, not just in the
+    OWUI-preset gate).
     """
+    from portal.platform.wiki.adapters.modules import enabled_modules
+
+    enabled = set(enabled_modules())
     eval_on = _eval_enabled()
     result: dict[str, dict[str, Any]] = {}
     for ws_id, spec in config.workspaces.items():
         if spec.module == "eval" and not eval_on:
+            continue
+        if spec.module != "eval" and spec.module not in enabled:
             continue
         # model_dump excludes None fields; this mirrors the original literal
         # where absent fields were simply not present (not None).

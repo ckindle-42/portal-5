@@ -7,13 +7,17 @@ sources:
   path: portal/modules/media/
 - type: design
   path: coding_task/BUILD_PROGRAM_MODULARIZATION_ALL_V1.md
+- type: code
+  path: module-state-change:media:cli
+- type: code
+  path: module-state-change:media:cli
 last_generated_commit: ''
 confidence: high
 tags:
 - module
 - media
-created_at: 1783821386.789549
-updated_at: 1783821386.789549
+created_at: 1783895633.381192
+updated_at: 1783895633.381192
 ---
 
 # Media Module — image/video/audio/speech generation

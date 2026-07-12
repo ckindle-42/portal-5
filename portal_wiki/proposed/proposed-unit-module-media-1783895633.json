@@ -1,0 +1,33 @@
+{
+  "proposed_id": "proposed-unit-module-media-1783895633",
+  "unit_id": "unit-module-media",
+  "kind": "mixed",
+  "title": "Media Module \u2014 image/video/audio/speech generation",
+  "sources": [
+    {
+      "type": "code",
+      "path": "portal/modules/media/"
+    },
+    {
+      "type": "design",
+      "path": "coding_task/BUILD_PROGRAM_MODULARIZATION_ALL_V1.md"
+    },
+    {
+      "type": "code",
+      "path": "module-state-change:media:cli"
+    },
+    {
+      "type": "code",
+      "path": "module-state-change:media:cli"
+    }
+  ],
+  "body": "# Media Module \u2014 image/video/audio/speech generation\n\n## Tools\n\nportal.modules.media.tools: comfyui_mcp (:8910, image), video_mcp (:8911), music_mcp (:8912, host-native), tts_mcp (:8916), whisper_mcp (:8915, STT)\n\n## Workspaces\n\n- auto-audio\n- auto-creative\n- auto-music\n\n## Module State\n\n```yaml\nenabled: true\n```",
+  "tags": [
+    "module",
+    "media"
+  ],
+  "proposed_by": "cli",
+  "proposed_at": 1783895633.38063,
+  "status": "confirmed",
+  "auto_confirm": true
+}
