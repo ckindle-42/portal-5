@@ -28,9 +28,9 @@ def _resolve_persona_workspace(workspace_id: str) -> str:
     if it resolves to a known workspace. Falls back to the original workspace_id.
     """
     if workspace_id not in WORKSPACES:
-        _persona_ws = _PERSONA_MAP.get(workspace_id, {}).get("workspace_model")
-        if _persona_ws and _persona_ws in WORKSPACES:
-            return _persona_ws
+        persona = _PERSONA_MAP.get(workspace_id)
+        if persona is not None and persona.workspace_model in WORKSPACES:
+            return persona.workspace_model
     return workspace_id
 
 

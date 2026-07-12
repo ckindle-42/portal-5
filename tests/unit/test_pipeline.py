@@ -1232,6 +1232,33 @@ class TestPersonaToolResolution:
         assert tools_missing == []
 
 
+class TestResolvePersonaWorkspace:
+    """Regression test: _resolve_persona_workspace crashed on every real
+    persona invocation (AttributeError: 'PersonaSpec' object has no
+    attribute 'get' -- it called dict-style .get() on a typed PersonaSpec
+    instance). Found live during BUILD_PROGRAM_COLLAPSE_V1.md Phase 5 work
+    -- POST /v1/chat/completions with model="<any persona slug>" returned
+    500 Internal Server Error on the running pipeline. Fixed by reading
+    persona.workspace_model as an attribute."""
+
+    def test_resolves_real_persona_slug_to_its_workspace(self):
+        from portal.platform.inference.router.preinject import _resolve_persona_workspace
+
+        assert _resolve_persona_workspace("adversarysimulator") == "auto-security"
+
+    def test_passes_through_known_workspace_id_unchanged(self):
+        from portal.platform.inference.router.preinject import _resolve_persona_workspace
+
+        assert _resolve_persona_workspace("auto-coding") == "auto-coding"
+
+    def test_passes_through_unknown_id_unchanged(self):
+        from portal.platform.inference.router.preinject import _resolve_persona_workspace
+
+        assert _resolve_persona_workspace("not-a-real-persona-or-workspace") == (
+            "not-a-real-persona-or-workspace"
+        )
+
+
 class TestWorkspaceToolsConsistency:
     """Tests for workspace tool field integrity."""
 
