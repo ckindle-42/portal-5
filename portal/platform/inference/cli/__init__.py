@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import typer
 
-from ._apps import config_app, models_app, workspace_app
+from ._apps import config_app, models_app, module_app, workspace_app
 
 app = typer.Typer(
     name="portal",
@@ -19,8 +19,9 @@ app = typer.Typer(
 app.add_typer(config_app, name="config")
 app.add_typer(workspace_app, name="workspace")
 app.add_typer(models_app, name="models")
+app.add_typer(module_app, name="module")
 
-from . import config, models, workspace  # noqa: E402, F401
+from . import config, models, module, workspace  # noqa: E402, F401
 from . import smoke as _smoke  # noqa: E402
 from . import sync as _sync  # noqa: E402
 from . import update as _update  # noqa: E402
