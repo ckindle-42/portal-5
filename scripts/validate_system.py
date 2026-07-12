@@ -836,7 +836,7 @@ def check_ability_port() -> tuple[str, str, list[dict]]:
 
 
 def check_labexec_coverage() -> tuple[str, str, list[dict]]:
-    """W. Every lab machine with an env entry has a registered live phase with an oracle."""
+    """AM. Every lab machine with an env entry has a registered live phase with an oracle."""
     subs: list[dict] = []
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tests" / "benchmarks"))
@@ -2695,6 +2695,10 @@ def main() -> int:
     v.run("T. goal-decide dry-run", check_goal_decide_dryrun)
     v.run("AN. drift gate", check_drift_gate)
     v.run("AO. agent core", check_agent_core)
+    v.run("AP. workspace module tag", check_workspace_module_tag)
+    v.run("AQ. mcp module tag", check_mcp_module_tag)
+    v.run("AR. persona module tag", check_persona_module_tag)
+    v.run("AS. persona prompt uniqueness", check_persona_prompt_uniqueness)
 
     return v.summary()
 
@@ -2756,6 +2760,112 @@ def check_agent_core() -> tuple[str, str, list[dict]]:
         return ("FAIL", f"security shim symbols broken: {e}", subs)
 
     return ("PASS", "agent core inverted; security consumes it", subs)
+
+
+def check_workspace_module_tag() -> tuple[str, str, list[dict]]:
+    """AP. Every workspace in config/portal.yaml carries a module: tag.
+
+    Soft-fail during coding_task/BUILD_PROGRAM_COLLAPSE_V1.md Phase 0-1
+    (prints counts, never fails the build) — Phase 2 flips this hard once
+    every workspace is actually tagged.
+    """
+    import yaml
+
+    cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    workspaces = cfg.get("workspaces", {}) or {}
+    untagged = sorted(k for k, v in workspaces.items() if not v.get("module"))
+    tagged = len(workspaces) - len(untagged)
+    detail = f"{tagged}/{len(workspaces)} workspaces tagged"
+    if untagged:
+        return (
+            "WARN",
+            f"{detail} — untagged: {untagged[:5]}{'...' if len(untagged) > 5 else ''}",
+            [],
+        )
+    return ("PASS", detail, [])
+
+
+def check_mcp_module_tag() -> tuple[str, str, list[dict]]:
+    """AQ. Every mcp_fleet entry in config/portal.yaml carries a module: tag.
+
+    Soft-fail until coding_task/BUILD_PROGRAM_COLLAPSE_V1.md Phase 2 tags
+    every entry (same discipline as AP).
+    """
+    import yaml
+
+    cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    mcp_fleet = cfg.get("mcp_fleet", []) or []
+    untagged = sorted(m["id"] for m in mcp_fleet if not m.get("module"))
+    tagged = len(mcp_fleet) - len(untagged)
+    detail = f"{tagged}/{len(mcp_fleet)} mcp_fleet entries tagged"
+    if untagged:
+        return ("WARN", f"{detail} — untagged: {untagged}", [])
+    return ("PASS", detail, [])
+
+
+def check_persona_module_tag() -> tuple[str, str, list[dict]]:
+    """AR. Every persona YAML carries a module: tag.
+
+    Soft-fail until coding_task/BUILD_PROGRAM_COLLAPSE_V1.md Phase 2 tags
+    every persona (same discipline as AP/AQ).
+    """
+    import glob
+
+    import yaml
+
+    persona_dir = REPO_ROOT / "config" / "personas"
+    files = sorted(glob.glob(str(persona_dir / "*.yaml")))
+    untagged = []
+    for f in files:
+        d = yaml.safe_load(open(f)) or {}  # noqa: SIM115
+        if not d.get("module"):
+            untagged.append(Path(f).name)
+    tagged = len(files) - len(untagged)
+    detail = f"{tagged}/{len(files)} personas tagged"
+    if untagged:
+        return (
+            "WARN",
+            f"{detail} — untagged: {untagged[:5]}{'...' if len(untagged) > 5 else ''}",
+            [],
+        )
+    return ("PASS", detail, [])
+
+
+def check_persona_prompt_uniqueness() -> tuple[str, str, list[dict]]:
+    """AS. No two personas share a byte-identical system_prompt.
+
+    Soft-fail until coding_task/BUILD_PROGRAM_COLLAPSE_V1.md Phase 8 dedupes
+    the bench-matrix personas onto shared prompt_template references.
+    Personas that already use `prompt_template:` (post-Phase-8 shape) are
+    excluded — a shared template referenced by many personas is the fix,
+    not a new collision.
+    """
+    import glob
+    import hashlib
+    from collections import defaultdict
+
+    import yaml
+
+    persona_dir = REPO_ROOT / "config" / "personas"
+    by_hash: dict[str, list[str]] = defaultdict(list)
+    for f in sorted(glob.glob(str(persona_dir / "*.yaml"))):
+        d = yaml.safe_load(open(f)) or {}  # noqa: SIM115
+        if d.get("prompt_template"):
+            continue
+        sp = (d.get("system_prompt") or "").strip()
+        if not sp:
+            continue
+        h = hashlib.md5(sp.encode()).hexdigest()  # noqa: S324
+        by_hash[h].append(d.get("slug", Path(f).name))
+    dups = {h: slugs for h, slugs in by_hash.items() if len(slugs) > 1}
+    if dups:
+        sample = next(iter(dups.values()))
+        return (
+            "WARN",
+            f"{len(dups)} duplicate-prompt group(s), e.g. {sample[:3]}{'...' if len(sample) > 3 else ''}",
+            [],
+        )
+    return ("PASS", "no duplicate persona prompts", [])
 
 
 if __name__ == "__main__":
