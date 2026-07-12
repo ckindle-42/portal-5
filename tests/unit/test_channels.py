@@ -384,7 +384,7 @@ class TestDocumentMCPTools:
         import sys
 
         sys.path.insert(0, ".")
-        from portal_mcp.documents.document_mcp import TOOLS_MANIFEST, mcp
+        from portal.modules.documents.tools.document_mcp import TOOLS_MANIFEST, mcp
 
         registered = set(mcp._tool_manager._tools.keys())
         manifest = {t["name"] for t in TOOLS_MANIFEST}
@@ -402,7 +402,7 @@ class TestDocumentMCPTools:
         monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
         # Reload to pick up new OUTPUT_DIR
 
-        import portal_mcp.documents.document_mcp as doc_mod
+        import portal.modules.documents.tools.document_mcp as doc_mod
 
         importlib.reload(doc_mod)
 
@@ -427,7 +427,7 @@ class TestDocumentMCPTools:
         sys.path.insert(0, ".")
         monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
 
-        import portal_mcp.documents.document_mcp as doc_mod
+        import portal.modules.documents.tools.document_mcp as doc_mod
 
         importlib.reload(doc_mod)
 
@@ -449,7 +449,7 @@ class TestDocumentMCPTools:
         sys.path.insert(0, ".")
         monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
 
-        import portal_mcp.documents.document_mcp as doc_mod
+        import portal.modules.documents.tools.document_mcp as doc_mod
 
         importlib.reload(doc_mod)
 
@@ -471,7 +471,7 @@ class TestSandboxMCPTools:
         import sys
 
         sys.path.insert(0, ".")
-        from portal_mcp.execution.code_sandbox_mcp import TOOLS_MANIFEST, mcp
+        from portal.modules.coding.tools.code_sandbox_mcp import TOOLS_MANIFEST, mcp
 
         registered = set(mcp._tool_manager._tools.keys())
         manifest = {t["name"] for t in TOOLS_MANIFEST}
@@ -482,7 +482,7 @@ class TestSandboxMCPTools:
         import sys
 
         sys.path.insert(0, ".")
-        from portal_mcp.execution.code_sandbox_mcp import mcp
+        from portal.modules.coding.tools.code_sandbox_mcp import mcp
 
         assert "execute_python" in mcp._tool_manager._tools
 
@@ -490,7 +490,7 @@ class TestSandboxMCPTools:
         import sys
 
         sys.path.insert(0, ".")
-        from portal_mcp.execution.code_sandbox_mcp import mcp
+        from portal.modules.coding.tools.code_sandbox_mcp import mcp
 
         assert "execute_bash" in mcp._tool_manager._tools
 
@@ -508,13 +508,13 @@ class TestAllMCPServerToolAlignment:
     @pytest.mark.parametrize(
         "module_path",
         [
-            "portal_mcp.documents.document_mcp",
-            "portal_mcp.generation.music_mcp",
-            "portal_mcp.generation.tts_mcp",
-            "portal_mcp.generation.whisper_mcp",
-            "portal_mcp.generation.comfyui_mcp",
-            "portal_mcp.generation.video_mcp",
-            "portal_mcp.execution.code_sandbox_mcp",
+            "portal.modules.documents.tools.document_mcp",
+            "portal.modules.media.tools.music_mcp",
+            "portal.modules.media.tools.tts_mcp",
+            "portal.modules.media.tools.whisper_mcp",
+            "portal.modules.media.tools.comfyui_mcp",
+            "portal.modules.media.tools.video_mcp",
+            "portal.modules.coding.tools.code_sandbox_mcp",
         ],
     )
     def test_manifest_and_registered_are_in_sync(self, module_path):

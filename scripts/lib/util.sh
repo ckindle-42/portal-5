@@ -230,7 +230,7 @@ _ensure_native_services() {
                     TRANSFORMERS_CACHE="${HF_HOME:-$HOME/.portal5/music/hf_cache}" \
                     OUTPUT_DIR="${AI_OUTPUT_DIR:-$HOME/AI_Output}" \
                     MUSIC_MCP_PORT="${MUSIC_HOST_PORT:-8912}" \
-                    nohup "$MUSIC_VENV/bin/python" -m portal_mcp.generation.music_mcp \
+                    nohup "$MUSIC_VENV/bin/python" -m portal.modules.media.tools.music_mcp \
                         > "$HOME/.portal5/logs/music-mcp.log" 2>&1 &
                     echo $! > /tmp/music-mcp.pid
                 fi

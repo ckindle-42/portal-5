@@ -306,7 +306,7 @@ services:
       - DOCUMENTS_MCP_PORT=8913
       - MCP_PORT=8913
       - OUTPUT_DIR=/app/data/generated
-    command: ["python", "-m", "portal_mcp.documents.document_mcp"]
+    command: ["python", "-m", "portal.modules.documents.tools.document_mcp"]
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
     healthcheck:
@@ -340,7 +340,7 @@ services:
       - OUTPUT_DIR=/app/data/generated
       - HF_HOME=/app/data/hf_cache
       - HF_TOKEN=${HF_TOKEN:-}
-    command: ["python", "-m", "portal_mcp.generation.tts_mcp"]
+    command: ["python", "-m", "portal.modules.media.tools.tts_mcp"]
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
       - portal5-hf-cache:/app/data/hf_cache
@@ -366,7 +366,7 @@ services:
       - HF_HOME=/app/data/hf_cache
       - HF_TOKEN=${HF_TOKEN:-}
       - WORKSPACE_DIR=/workspace
-    command: ["python", "-m", "portal_mcp.generation.whisper_mcp"]
+    command: ["python", "-m", "portal.modules.media.tools.whisper_mcp"]
     volumes:
       - portal5-hf-cache:/app/data/hf_cache
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
@@ -471,7 +471,7 @@ services:
       - LAB_TARGET_SRV=${LAB_TARGET_SRV:-}
     # Run as root to chown shared volume on startup, then drop to portal
     user: root
-    entrypoint: ["sh", "-c", "chown portal:portal /app/data/sandbox 2>/dev/null; exec su portal -c 'python -m portal_mcp.execution.code_sandbox_mcp'"]
+    entrypoint: ["sh", "-c", "chown portal:portal /app/data/sandbox 2>/dev/null; exec su portal -c 'python -m portal.modules.coding.tools.code_sandbox_mcp'"]
     depends_on:
       dind:
         condition: service_healthy
@@ -515,7 +515,7 @@ services:
     volumes:
       - ${PROXMOX_SSH_KEY:-~/.ssh/portal-lab_id_ed25519}:/run/secrets/proxmox_ssh_key:ro
       - ${HOME}/.ssh/known_hosts:/run/secrets/proxmox_known_hosts:ro
-    command: ["python", "-m", "portal_mcp.proxmox.proxmox_mcp"]
+    command: ["python", "-m", "portal.modules.security.tools.proxmox_mcp"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8927/health"]
       interval: 30s
@@ -570,7 +570,7 @@ services:
       - FLUX_CLIP_T5_FILE=${FLUX_CLIP_T5_FILE:-text_encoder_2/model-00001-of-00002.safetensors}
       - FLUX_VAE_FILE=${FLUX_VAE_FILE:-ae.safetensors}
       - COMFYUI_TIMEOUT=${COMFYUI_TIMEOUT:-1200}
-    command: ["python", "-m", "portal_mcp.generation.comfyui_mcp"]
+    command: ["python", "-m", "portal.modules.media.tools.comfyui_mcp"]
     depends_on: []
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8910/health"]
@@ -611,7 +611,7 @@ services:
       - VIDEO_MAX_WIDTH=${VIDEO_MAX_WIDTH:-1280}
       - VIDEO_MAX_HEIGHT=${VIDEO_MAX_HEIGHT:-720}
       - WORKSPACE_DIR=/workspace
-    command: ["python", "-m", "portal_mcp.generation.video_mcp"]
+    command: ["python", "-m", "portal.modules.media.tools.video_mcp"]
     depends_on: []
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
@@ -756,7 +756,7 @@ services:
       - MCP_PORT=8922
       - SEARXNG_URL=http://searxng:8080
       - BRAVE_API_KEY=${BRAVE_API_KEY:-}
-    command: ["python", "-m", "portal_mcp.research.web_search_mcp"]
+    command: ["python", "-m", "portal.modules.research.tools.web_search_mcp"]
     depends_on:
       searxng:
         condition: service_healthy
@@ -781,7 +781,7 @@ services:
       - MCP_PORT=8920
       - PORTAL5_LANCE_DIR=/app/data/portal5_lance
       - MLX_EMBEDDING_URL=http://host.docker.internal:8917/v1/embeddings
-    command: ["python", "-m", "portal_mcp.memory.memory_mcp"]
+    command: ["python", "-m", "portal.platform.memory.memory_mcp"]
     volumes:
       - portal5-lance:/app/data/portal5_lance
     depends_on: []
@@ -810,7 +810,7 @@ services:
       - RERANKER_URL=http://host.docker.internal:8925
       - RAG_RERANK_ENABLED=${RAG_RERANK_ENABLED:-true}
       - RAG_CANDIDATE_POOL_SIZE=${RAG_CANDIDATE_POOL_SIZE:-20}
-    command: ["python", "-m", "portal_mcp.rag.rag_mcp"]
+    command: ["python", "-m", "portal.modules.research.tools.rag_mcp"]
     volumes:
       - portal5-lance:/app/data/portal5_lance
       - portal5-kb-sources:/app/data/portal5_kb_sources
@@ -835,7 +835,7 @@ services:
       - RERANKER_MCP_PORT=8925
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
-    command: ["python", "-m", "portal_mcp.rag.reranker_mcp"]
+    command: ["python", "-m", "portal.modules.research.tools.reranker_mcp"]
     depends_on: []
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8925/health"]
@@ -861,7 +861,7 @@ services:
       - CAD_RENDER_REVIEW_MODEL=${CAD_RENDER_REVIEW_MODEL:-qwen3-vl:32b}
       - PORTAL_PIPELINE_URL=http://portal5-pipeline:9099
       - WORKSPACE_DIR=/workspace
-    command: ["python", "-m", "portal_mcp.generation.cad_render_mcp"]
+    command: ["python", "-m", "portal.modules.cad.tools.cad_render_mcp"]
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
     healthcheck:
