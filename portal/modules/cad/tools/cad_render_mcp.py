@@ -11,7 +11,7 @@ is rendered via the openscad binary in headless --render mode. STEP read is best
 (build123d/OCP if importable). This server deliberately avoids OCP+VTK offscreen.
 
 Artifacts are written to the shared workspace generated/models3d directory.
-Start with: python -m portal_mcp.generation.cad_render_mcp
+Start with: python -m portal.modules.cad.tools.cad_render_mcp
 """
 
 import base64

@@ -257,7 +257,7 @@ export TRANSFORMERS_CACHE="${HF_CACHE}"
 export OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
 export MUSIC_MCP_PORT="${MUSIC_PORT}"
 mkdir -p "\$OUTPUT_DIR"
-exec "$MUSIC_VENV/bin/python" -m portal_mcp.generation.music_mcp
+exec "$MUSIC_VENV/bin/python" -m portal.modules.media.tools.music_mcp
 MUSIC_START
     chmod +x "$MUSIC_DIR/start.sh"
     echo "  ✅ Start script: $MUSIC_DIR/start.sh"

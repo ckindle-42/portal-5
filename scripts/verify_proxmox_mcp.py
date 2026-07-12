@@ -30,7 +30,7 @@ if os.path.exists(_ENV_FILE):
 
 sys.path.insert(0, _REPO_ROOT)
 
-from portal_mcp.proxmox.proxmox_mcp import (
+from portal.modules.security.tools.proxmox_mcp import (
     PROXMOX_TOKEN_ID,
     PROXMOX_TOKEN_SECRET,
     PROXMOX_URL,
