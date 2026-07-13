@@ -41,7 +41,7 @@ docs:
     sources:
     - config/backends.yaml
     - portal/platform/inference/
-    last_reconciled_commit: 212e5ac6b52f394ad2e215daa90242c68fa51cc0
+    last_reconciled_commit: 265817b76280394ae19595924e9584176fc91190
   KNOWN_ISSUES.md:
     sources:
     - portal/platform/inference/
