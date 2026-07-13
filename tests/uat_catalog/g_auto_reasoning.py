@@ -214,8 +214,19 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-34",
         "name": "GLM Thinking — Multi-Step Reasoning Problem",
-        "section": "auto-glm-thinking",
-        "model_slug": "auto-glm-thinking",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-glm-thinking" retired
+        # (model-tied) — folds to auto-coding base + ?model= hint, per the live
+        # alias map. Model id: GLM-Z1-Rumination (the fleet's "thinking" GLM
+        # variant — distinct from plain glm-4.7-flash used by "auto-glm").
+        "section": "auto-coding (?model=glm-z1-rumination)",
+        "model_slug": "auto-coding",
+        "route_params": {
+            "model": (
+                "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:"
+                "THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf"
+            )
+        },
+        "via_dispatcher": True,
         "timeout": 240,
         "workspace_tier": "ollama",
         "prompt": (

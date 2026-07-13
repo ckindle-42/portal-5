@@ -12,8 +12,17 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-PHI4-01",
         "name": "Phi-4 STEM — Eigenvalue Derivation",
-        "section": "auto-phi4",
-        "model_slug": "auto-phi4",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-phi4" retired
+        # (model-tied) — folds to auto-daily base + ?model= hint per the live
+        # alias map AND config/personas/phi4stemanalyst.yaml's own comment
+        # ("Route via: auto-daily (formerly the auto-phi4 alias)"). NOTE:
+        # TASK_UAT_CATALOG_RECONCILE_V1.md's table suggested auto-reasoning
+        # for this eigenvalue test — superseded here by the live ground truth
+        # (alias map + persona comment both say auto-daily).
+        "section": "auto-daily (?model=phi4-reasoning:plus)",
+        "model_slug": "auto-daily",
+        "route_params": {"model": "phi4-reasoning:plus"},
+        "via_dispatcher": True,
         "timeout": 240,
         "workspace_tier": "ollama",
         "prompt": (
@@ -62,8 +71,17 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-PHI4-02",
         "name": "Phi-4 STEM — Physics Derivation",
-        "section": "auto-phi4",
-        "model_slug": "auto-phi4",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-phi4" retired
+        # (model-tied) — folds to auto-daily base + ?model= hint per the live
+        # alias map AND config/personas/phi4stemanalyst.yaml's own comment
+        # ("Route via: auto-daily (formerly the auto-phi4 alias)"). NOTE:
+        # TASK_UAT_CATALOG_RECONCILE_V1.md's table suggested auto-reasoning
+        # for this eigenvalue test — superseded here by the live ground truth
+        # (alias map + persona comment both say auto-daily).
+        "section": "auto-daily (?model=phi4-reasoning:plus)",
+        "model_slug": "auto-daily",
+        "route_params": {"model": "phi4-reasoning:plus"},
+        "via_dispatcher": True,
         "timeout": 240,
         "workspace_tier": "ollama",
         "prompt": (

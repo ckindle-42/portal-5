@@ -35,7 +35,7 @@ def _get_backend_from_pipeline_logs(slug: str) -> str:
 
     Log line patterns (pipeline emits both; we prefer the succeeded line):
       Backend ollama-general succeeded for workspace=auto-documents model=phi4:14b-q8_0
-      Backend ollama-coding succeeded for workspace=auto-agentic model=qwen3-coder:30b
+      Backend ollama-coding succeeded for workspace=auto-coding model=qwen3-coder:30b
     """
     import re
     import subprocess

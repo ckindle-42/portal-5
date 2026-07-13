@@ -1189,8 +1189,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-23",
         "name": "Uncensored Coder — Python Argparse CLI",
-        "section": "auto-coding-uncensored",
-        "model_slug": "auto-coding-uncensored",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-coding-uncensored"
+        # retired, folded into auto-coding's "uncensored" variant.
+        "section": "auto-coding (uncensored)",
+        "model_slug": "auto-coding",
+        "route_params": {"variant": "uncensored"},
+        "via_dispatcher": True,
         "timeout": 120,
         "workspace_tier": "ollama",
         "prompt": (
@@ -1215,8 +1219,13 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-24",
         "name": "Devstral — Async Generator Pattern",
-        "section": "auto-devstral",
-        "model_slug": "auto-devstral",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-devstral" retired
+        # (model-tied, no preserved variant slot) — folds to auto-coding
+        # base + explicit ?model= hint (config/backends.yaml "coding" group).
+        "section": "auto-coding (?model=devstral:24b)",
+        "model_slug": "auto-coding",
+        "route_params": {"model": "devstral:24b"},
+        "via_dispatcher": True,
         "timeout": 120,
         "workspace_tier": "ollama",
         "prompt": (
@@ -1240,8 +1249,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-25",
         "name": "GLM — Dataclass with Validation",
-        "section": "auto-glm",
-        "model_slug": "auto-glm",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-glm" retired
+        # (model-tied) — folds to auto-coding base + ?model= hint.
+        "section": "auto-coding (?model=glm-4.7-flash)",
+        "model_slug": "auto-coding",
+        "route_params": {"model": "glm-4.7-flash:Q4_K_M"},
+        "via_dispatcher": True,
         "timeout": 120,
         "workspace_tier": "ollama",
         "prompt": (

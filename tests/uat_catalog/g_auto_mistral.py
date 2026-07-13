@@ -12,8 +12,14 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-17",
         "name": "Mistral Reasoner — Multi-Stakeholder OT Problem",
-        "section": "auto-mistral",
-        "model_slug": "auto-mistral",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-mistral" retired
+        # (model-tied) — folds to auto-coding base + ?model= hint. Model id
+        # per config/personas/magistralstrategist.yaml ("Route via: auto-coding
+        # (formerly the auto-mistral alias)") + config/backends.yaml general group.
+        "section": "auto-coding (?model=magistral)",
+        "model_slug": "auto-coding",
+        "route_params": {"model": "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0"},
+        "via_dispatcher": True,
         "timeout": 240,
         "workspace_tier": "ollama",
         "prompt": (
@@ -95,7 +101,10 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "P-R01",
         "name": "Magistral Strategist — Reasoning Before Conclusion",
-        "section": "auto-mistral",
+        # model_slug is a persona (Cat B, unaffected by alias retirement — its
+        # `variant:`/workspace_model resolve server-side); section relabeled
+        # since "auto-mistral" is now a retired alias id.
+        "section": "auto-coding (magistral persona)",
         "model_slug": "magistralstrategist",
         "timeout": 240,
         "workspace_tier": "ollama",
@@ -150,8 +159,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "TV-04",
         "name": "Tool Validation — execute_python proof (auto-mistral/Magistral)",
-        "section": "auto-mistral",
-        "model_slug": "auto-mistral",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-mistral" retired
+        # (model-tied) — folds to auto-coding base + ?model= hint.
+        "section": "auto-coding (?model=magistral)",
+        "model_slug": "auto-coding",
+        "route_params": {"model": "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0"},
+        "via_dispatcher": True,
         "timeout": 120,
         "workspace_tier": "ollama",
         "force_unload_before": True,

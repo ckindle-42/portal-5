@@ -86,19 +86,21 @@ PROMPTS: dict[str, str] = {
 WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "auto": "general",
     "auto-coding": "coding",
-    # auto-agentic has tools enabled (execute_python etc.) — the coding prompt's
-    # "Return only the function" instruction causes empty synthesis after tool execution
-    # (model considers task done via tool, outputs nothing in hop-2).  Use reasoning
-    # prompt instead: ER bottleneck analysis is qualitative and doesn't trigger tool calls.
-    "auto-agentic": "reasoning",
+    # NOTE (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 4): "auto-agentic" (heavy tool
+    # use — needed the "reasoning" prompt, not "coding", because the coding
+    # prompt's "Return only the function" instruction causes empty synthesis
+    # after tool execution) and "auto-mistral" (needed "reasoning" for Magistral's
+    # dedicated reasoning traces) both retired into auto-coding's variant/?model=
+    # surface. This dict is keyed by workspace id only — it has no variant/model
+    # axis — so the variant-specific prompt-category override these two aliases
+    # carried is lost; they now fall through to auto-coding's base "coding"
+    # entry below. Flagged, not silently dropped: a real fix needs
+    # WORKSPACE_PROMPT_MAP to key on (workspace_id, variant|model) or a
+    # per-variant override table, which is a larger refactor than this task —
+    # filed as a follow-on (same class of gap as PER_WORKSPACE_TIMEOUT's
+    # apply-to-base compromise in bench/config.py).
     "auto-spl": "coding",
     "auto-security": "security",
-    "auto-redteam": "security",
-    "auto-redteam-deep": "security",
-    "auto-blueteam": "security",
-    "auto-pentest": "security",
-    "auto-purpleteam-deep": "security",
-    "auto-purpleteam-exec": "security",
     "auto-creative": "creative",
     "auto-reasoning": "reasoning",
     "auto-documents": "coding",
@@ -108,8 +110,9 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "auto-vision": "vision",
     "auto-data": "reasoning",
     "auto-compliance": "reasoning",
-    "auto-mistral": "reasoning",
     "auto-math": "reasoning",
+    "auto-extract-uncensored": "general",  # documents module — structured extraction, no dedicated category
+    "auto-general-uncensored": "general",
     # Benchmark workspaces — prompt matches the model's primary capability
     "bench-qwen3-coder-next": "coding",
     "bench-qwen3-coder-30b": "coding",
@@ -135,8 +138,11 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # V7 bench workspaces — OCR, MoE creative, security reasoning, tools
     # Auto workspaces added after TC-6 audit — fall back to "general" without these
     "auto-daily": "general",  # gemma4:26b-a4b-it-qat daily driver
+    # NOTE: "auto-phi4" (phi4-reasoning:plus, formerly its own workspace mapped
+    # "reasoning") retired into auto-daily's ?model= surface — same
+    # variant/model-granularity gap as auto-mistral/auto-agentic above; falls
+    # through to auto-daily's "general" entry. Flagged, not silently dropped.
     "auto-audio": "general",  # gemma4:12b-it-qat audio analyst
-    "auto-phi4": "reasoning",  # phi4-reasoning:plus — STEM/chain-of-thought specialist
     "auto-bigfix": "coding",  # IBM BigFix endpoint management — coding prompt (API scripting)
     # auto-cad uses the coding prompt: OpenSCAD code generation is pure text output;
     # the CAD render MCP (:8926) is optional and does not affect TPS measurement.
@@ -187,16 +193,48 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # - bench-granite-speech (ASR with keyword biasing — text harness cannot exercise)
     # These get probed by TASK_SPEECH_SHOOTOUT_V1 (deferred).
     # ── Drift backfill (pre-existing gap) ───────────────────────────────
-    # tools-specialist (granite4.1:8b) — same tool-call issue as auto-agentic with
-    # coding prompt; use general (OSI layers) which is pure knowledge recall, safe.
+    # tools-specialist (granite4.1:8b) — same tool-call issue as the auto-coding
+    # "heavy" (agentic) variant with the coding prompt; use general (OSI layers)
+    # which is pure knowledge recall, safe.
     "tools-specialist": "general",  # granite4.1:8b tool-calling specialist
     # ── TASK_MODEL_EVAL_V10_CANDIDATES — coding & reasoning candidates ───────
     "bench-agentworld": "coding",  # env-sim language world model; coding is the closest fit
-    "bench-ornith-9b": "coding",  # Qwen3.5-9B agentic coder (DeepReinforce)
     "bench-ornith-35b": "coding",  # Qwen3.5-35B-A3B agentic coder
     "bench-north-mini-code": "coding",  # Cohere cohere2moe 30B-A3B agentic coder
-    "bench-qwythos-9b": "reasoning",  # Claude-Mythos reasoning + 1M ctx; primary lane is reasoning
-    "bench-glm47f-claude-distill": "reasoning",  # GLM-4.7-Flash Opus-4.5 reasoning distill
+    # bench-ornith-9b/bench-qwythos-9b/bench-glm47f-claude-distill removed
+    # (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 4) — these ids never existed as
+    # live workspaces (not in config/portal.yaml, confirmed via
+    # portal.platform.inference.router.workspaces.WORKSPACES with
+    # PORTAL_ENABLE_EVAL=1); dead entries, never hit.
+    #
+    # ── Coverage backfill (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 4 /
+    # TASK_BENCH_CONFIG_RECONCILE_V1) — 24 live bench-* workspaces that had no
+    # prompt mapping (categorized from each workspace's config/portal.yaml
+    # name/description) ──────────────────────────────────────────────────
+    "bench-agents-a1": "coding",  # Agents-A1 35B-A3B (InternScience) — agentic coder
+    "bench-bugtrace-ultra-27b": "coding",  # BugTraceAI-CORE-Ultra — bug tracing/analysis
+    "bench-cybersecqwen-4b-toolfix": "security",
+    "bench-devstral": "coding",  # Devstral 24B (Mistral) — coding specialist
+    "bench-e2b-pentest": "security",  # Gemma4-E2B vs auto-pentest (baronllm)
+    "bench-exec-exploit": "security",  # Bench Exec · Exploitation (BaronLLM-abliterated)
+    "bench-exec-reasoning": "reasoning",  # Bench Exec · Reasoning (Gemma4-E2B abliterated)
+    "bench-exec-recon": "security",  # Bench Exec · Recon (VulnLLM-R-7B)
+    "bench-gemma4-12b-agentic": "coding",  # Gemma-4 12B Agentic (yuxinlu1)
+    "bench-glm-reap": "coding",  # GLM-4.7-Flash REAP — same lane as bench-glm
+    "bench-glm-z1-rumination": "reasoning",  # GLM-Z1-Rumination — dedicated thinking variant
+    "bench-lfm-micro-1p2b": "general",  # LFM2.5-1.2B — general small tier
+    "bench-lfm-micro-230m": "general",  # LFM2.5-230M — general small tier
+    "bench-lfm-micro-350m": "general",  # LFM2.5-350M — general small tier
+    "bench-meta-secalign-8b": "security",  # Meta-SecAlign 8B (Blue Defender)
+    "bench-mistral7b-uncensored": "general",  # Mistral-7B lineage-diversity candidate
+    "bench-qwable-35b": "coding",  # Qwable-3.6-35B — coding-group model
+    "bench-qwen3-14b-abliterated": "general",  # tier-gap filler, general uncensored
+    "bench-qwen35-9b-heretic-vision": "vision",  # Qwen3.5-9B HERETIC Vision (DavidAU)
+    "bench-security-slm-1p5b": "security",
+    "bench-supergemma4-sec": "security",  # SuperGemma4 26B Uncensored (promoted -> auto-security uncensored/redteam-deep)
+    "bench-superqwen-agentworld-ablit": "coding",  # AgentWorld Abliterated — agentic coder
+    "bench-sylink": "security",  # SYLink 8B (promoted -> auto-security blueteam)
+    "bench-vulnllm-r7b": "security",  # VulnLLM-R-7B (AppSec specialist)
 }
 
 # Map Ollama backend group → prompt category

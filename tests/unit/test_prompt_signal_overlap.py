@@ -35,7 +35,11 @@ def _overlaps(prompt: str, signals: list[str]) -> list[str]:
 
 def test_workspace_signals_dont_overlap_prompts():
     violations: list[str] = []
-    for ws, (prompt, signals) in v6.WORKSPACE_PROMPTS.items():
+    for ws, entry in v6.WORKSPACE_PROMPTS.items():
+        # Entry is (prompt, signals) or, for a canonicalized former-alias
+        # entry (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3), (prompt, signals,
+        # route_params) — route_params isn't relevant to this overlap check.
+        prompt, signals = entry[0], entry[1]
         for s in _overlaps(prompt, signals):
             if (ws, s.lower()) in WAIVERS:
                 continue

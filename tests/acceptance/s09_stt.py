@@ -172,9 +172,10 @@ async def run() -> None:
 
 
 OLLAMA_WORKSPACES = {
+    # "auto-redteam"/"auto-blueteam" retired (BUILD_PROGRAM_ALIAS_RETIRE_V1.md
+    # Phase 3) — folded into auto-security's redteam/blueteam variants, already
+    # covered by the base "auto-security" entry below.
     "auto-security",
-    "auto-redteam",
-    "auto-blueteam",
     "auto-video",
     "auto-music",
 }

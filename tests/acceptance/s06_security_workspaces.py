@@ -43,17 +43,19 @@ async def run() -> None:
         t0=t0,
     )
 
-    # S6-02: auto-redteam routing
+    # S6-02: auto-security (redteam variant) routing — BUILD_PROGRAM_ALIAS_RETIRE_V1.md
+    # Phase 3: "auto-redteam" retired, folded into auto-security's "redteam" variant.
     t0 = time.time()
     code, response, model, _route = await _chat_with_model(
-        "auto-redteam",
+        "auto-security",
         "Explain common web application penetration testing methodology.",
         max_tokens=300,
         timeout=180,
+        route_params={"variant": "redteam"},
     )
     signals = ["recon", "scan", "exploit", "pentest", "OWASP", "vulnerability"]
     found = [s for s in signals if s.lower() in response.lower()]
-    route_status, route_detail = await _assert_routing(sec, "S6-02", "auto-redteam", model)
+    route_status, route_detail = await _assert_routing(sec, "S6-02", "auto-security", model)
     if found and code == 200 and route_status in ("match", "no_expectation", "no_actual"):
         status = "PASS"
     elif found and code == 200 and route_status == "mismatch":
@@ -69,17 +71,19 @@ async def run() -> None:
         t0=t0,
     )
 
-    # S6-03: auto-blueteam routing
+    # S6-03: auto-security (blueteam variant) routing — "auto-blueteam" retired,
+    # folded into auto-security's "blueteam" variant.
     t0 = time.time()
     code, response, model, _route = await _chat_with_model(
-        "auto-blueteam",
+        "auto-security",
         "How do you respond to a ransomware incident?",
         max_tokens=300,
         timeout=180,
+        route_params={"variant": "blueteam"},
     )
     signals = ["isolate", "contain", "backup", "incident", "response", "recover"]
     found = [s for s in signals if s.lower() in response.lower()]
-    route_status, route_detail = await _assert_routing(sec, "S6-03", "auto-blueteam", model)
+    route_status, route_detail = await _assert_routing(sec, "S6-03", "auto-security", model)
     if found and code == 200 and route_status in ("match", "no_expectation", "no_actual"):
         status = "PASS"
     elif found and code == 200 and route_status == "mismatch":
@@ -114,17 +118,19 @@ async def run() -> None:
         t0=t0,
     )
 
-    # S6-05: auto-redteam-deep routing (deep simulation mode)
+    # S6-05: auto-security (redteam-deep variant) routing (deep simulation mode) —
+    # "auto-redteam-deep" retired, folded into auto-security's "redteam-deep" variant.
     t0 = time.time()
     code, response, model, _route = await _chat_with_model(
-        "auto-redteam-deep",
+        "auto-security",
         "Explain Kerberoasting — what is it, how does it work, and what tools are used?",
         max_tokens=400,
         timeout=240,
+        route_params={"variant": "redteam-deep"},
     )
     signals = ["kerberoast", "spn", "service principal", "tgs", "hashcat", "rubeus", "impacket"]
     found = [s for s in signals if s.lower() in response.lower()]
-    route_status, route_detail = await _assert_routing(sec, "S6-05", "auto-redteam-deep", model)
+    route_status, route_detail = await _assert_routing(sec, "S6-05", "auto-security", model)
     if len(found) >= 2 and code == 200 and route_status in ("match", "no_expectation", "no_actual"):
         status = "PASS"
     elif len(found) >= 2 and code == 200:
@@ -140,17 +146,19 @@ async def run() -> None:
         t0=t0,
     )
 
-    # S6-06: auto-pentest routing (execution mode, JANG-CRACK)
+    # S6-06: auto-security (pentest variant) routing (execution mode, JANG-CRACK) —
+    # "auto-pentest" retired, folded into auto-security's "pentest" variant.
     t0 = time.time()
     code, response, model, _route = await _chat_with_model(
-        "auto-pentest",
+        "auto-security",
         "Authorized engagement. Enumerate Kerberoastable accounts and provide the Impacket command.",
         max_tokens=400,
         timeout=300,
+        route_params={"variant": "pentest"},
     )
     signals = ["impacket", "getuserspns", "rubeus", "kerberoast", "spn", "hashcat", "-m 13100"]
     found = [s for s in signals if s.lower() in response.lower()]
-    route_status, route_detail = await _assert_routing(sec, "S6-06", "auto-pentest", model)
+    route_status, route_detail = await _assert_routing(sec, "S6-06", "auto-security", model)
     if found and code == 200 and route_status in ("match", "no_expectation", "no_actual"):
         status = "PASS"
     elif found and code == 200:
@@ -188,9 +196,11 @@ async def run() -> None:
     except Exception:
         pass
 
+    # S6-07: "auto-purpleteam-exec" retired, folded into auto-security's
+    # "purpleteam-exec" variant.
     t0 = time.time()
     code, response, model, _route = await _chat_with_model(
-        "auto-purpleteam-exec",
+        "auto-security",
         # Use $LAB_TARGET_DC (the env var the workspace declares) so the model
         # has a concrete target from its system prompt context.
         "Authorized purple team exercise. Call execute_bash right now to check which "
@@ -198,10 +208,11 @@ async def run() -> None:
         "call execute_bash immediately and show only the raw output.",
         max_tokens=800,
         timeout=600,
+        route_params={"variant": "purpleteam-exec"},
     )
     signals = ["nmap", "scan", "open", "port", "execute_bash", "tcp", "88", "445", "389"]
     found = [s for s in signals if s.lower() in response.lower()]
-    route_status, route_detail = await _assert_routing(sec, "S6-07", "auto-purpleteam-exec", model)
+    route_status, route_detail = await _assert_routing(sec, "S6-07", "auto-security", model)
 
     # Check if a tool call was dispatched by comparing the metric counter.
     tool_called = False

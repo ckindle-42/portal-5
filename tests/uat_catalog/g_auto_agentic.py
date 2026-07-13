@@ -12,8 +12,14 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-03",
         "name": "Agentic Coder Heavy — Flask Migration Plan",
-        "section": "auto-agentic",
-        "model_slug": "auto-agentic",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-agentic" retired,
+        # folded into auto-coding's "heavy" variant (_LEGACY_WORKSPACE_ALIASES).
+        # OWUI mediates the browser test path and cannot carry ?variant=, so
+        # this is routed via_dispatcher (direct-to-pipeline) instead.
+        "section": "auto-coding (agentic/heavy)",
+        "model_slug": "auto-coding",
+        "route_params": {"variant": "heavy"},
+        "via_dispatcher": True,
         "timeout": 360,
         "workspace_tier": "ollama",
         "prompt": (

@@ -194,8 +194,9 @@ def bench_tps(
                     delta = choices_list[0].get("delta", {}) if choices_list else {}
                     chunk_text = delta.get("content") or ""
                     reasoning_chunk = delta.get("reasoning") or ""
-                    # Capture tool_calls delta: workspaces with tools (auto-agentic,
-                    # tools-specialist) may respond with function invocations instead of
+                    # Capture tool_calls delta: workspaces with tools (auto-coding's
+                    # "heavy" agentic variant, tools-specialist) may respond with
+                    # function invocations instead of
                     # text content.  Accumulate function name + argument fragments into
                     # response_text so quality scoring sees the code and runs_success
                     # isn't falsely zeroed by an "empty response (0 tokens)" error.

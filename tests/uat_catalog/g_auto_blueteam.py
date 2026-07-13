@@ -12,8 +12,13 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-07",
         "name": "Blue Team — Multi-Stage Incident Triage",
-        "section": "auto-blueteam",
-        "model_slug": "auto-blueteam",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-blueteam" retired,
+        # folded into auto-security's "blueteam" variant. via_dispatcher since
+        # OWUI can't carry ?variant= on the browser test path.
+        "section": "auto-security (blueteam)",
+        "model_slug": "auto-security",
+        "route_params": {"variant": "blueteam"},
+        "via_dispatcher": True,
         "timeout": 180,
         "workspace_tier": "ollama",
         "prompt": (

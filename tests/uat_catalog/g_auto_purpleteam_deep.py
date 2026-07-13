@@ -12,8 +12,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-PP-D01",
         "name": "Purple Team Deep — Four-Hop Chain: Phishing to IR Playbook",
-        "section": "auto-purpleteam-deep",
-        "model_slug": "auto-purpleteam-deep",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-purpleteam-deep"
+        # retired, folded into auto-security's "purpleteam-deep" variant.
+        "section": "auto-security (purpleteam-deep)",
+        "model_slug": "auto-security",
+        "route_params": {"variant": "purpleteam-deep"},
+        "via_dispatcher": True,
         "timeout": 600,
         "workspace_tier": "ollama",
         "prompt": (

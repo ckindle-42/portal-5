@@ -11,8 +11,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-PT01",
         "name": "Purple Team Deep — Ransomware Chain Analysis",
-        "section": "auto-purpleteam",
-        "model_slug": "auto-purpleteam-deep",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-purpleteam-deep"
+        # retired, folded into auto-security's "purpleteam-deep" variant.
+        "section": "auto-security (purpleteam-deep)",
+        "model_slug": "auto-security",
+        "route_params": {"variant": "purpleteam-deep"},
+        "via_dispatcher": True,
         "timeout": 600,
         "workspace_tier": "ollama",
         "prompt": (
@@ -75,8 +79,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-PT02",
         "name": "Purple Team Deep — Cloud Privilege Escalation",
-        "section": "auto-purpleteam",
-        "model_slug": "auto-purpleteam-deep",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-purpleteam-deep"
+        # retired, folded into auto-security's "purpleteam-deep" variant.
+        "section": "auto-security (purpleteam-deep)",
+        "model_slug": "auto-security",
+        "route_params": {"variant": "purpleteam-deep"},
+        "via_dispatcher": True,
         "timeout": 600,
         "max_wait_no_progress": 1500,  # qwen3.5-abliterated runs 1293s on this deep analysis prompt
         "workspace_tier": "ollama",
@@ -136,8 +144,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-PE01",
         "name": "Purple Team Exec — Network Recon with Tool Use",
-        "section": "auto-purpleteam-exec",
-        "model_slug": "auto-purpleteam-exec",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-purpleteam-exec"
+        # retired, folded into auto-security's "purpleteam-exec" variant.
+        "section": "auto-security (purpleteam-exec)",
+        "model_slug": "auto-security",
+        "route_params": {"variant": "purpleteam-exec"},
+        "via_dispatcher": True,
         "timeout": 600,
         "workspace_tier": "ollama",
         "prompt": (
@@ -177,8 +189,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-PE02",
         "name": "Purple Team Exec — Live Kerberoast via execute_bash",
-        "section": "auto-purpleteam-exec",
-        "model_slug": "auto-purpleteam-exec",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-purpleteam-exec"
+        # retired, folded into auto-security's "purpleteam-exec" variant.
+        "section": "auto-security (purpleteam-exec)",
+        "model_slug": "auto-security",
+        "route_params": {"variant": "purpleteam-exec"},
+        "via_dispatcher": True,
         "timeout": 600,
         "max_wait_no_progress": 900,  # cap thinking loop; model spent 1240s in reasoning without tool call
         "workspace_tier": "ollama",
@@ -217,8 +233,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-PE03",
         "name": "Purple Team Exec — WinRM Shell Execution via execute_bash",
-        "section": "auto-purpleteam-exec",
-        "model_slug": "auto-purpleteam-exec",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-purpleteam-exec"
+        # retired, folded into auto-security's "purpleteam-exec" variant.
+        "section": "auto-security (purpleteam-exec)",
+        "model_slug": "auto-security",
+        "route_params": {"variant": "purpleteam-exec"},
+        "via_dispatcher": True,
         "timeout": 600,
         "max_wait_no_progress": 900,  # match PE02 cap; model enters long reasoning loop without tool call
         "workspace_tier": "ollama",

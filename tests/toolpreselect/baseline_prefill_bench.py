@@ -28,13 +28,18 @@ REPS = 5
 NUM_PREDICT = 20
 TIMEOUT_S = 60.0
 
-# Workspace configurations: model + fixed user turn
+# Workspace configurations: model + fixed user turn. This bench hits Ollama
+# directly (OLLAMA_URL) with an explicit model tag per entry — the dict key
+# is a display/grouping label only, never a pipeline model_slug. "auto-agentic"/
+# "auto-agentic-lite" keys renamed to "auto-coding+heavy"/"auto-coding+lite"
+# (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3) to match the workspace+variant
+# those aliases fold into, for legibility.
 WORKSPACE_CONFIGS: dict[str, dict] = {
     "auto-coding": {
         "model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
         "user_turn": "Run this Python snippet and tell me the output: print(sum(range(100)))",
     },
-    "auto-agentic": {
+    "auto-coding+heavy": {
         "model": "qwen3-coder-next:latest-ctx64k",
         "user_turn": "Search the web for today's date and tell me what day of the week it is.",
     },
@@ -42,7 +47,7 @@ WORKSPACE_CONFIGS: dict[str, dict] = {
         "model": "gemma4:26b-a4b-it-qat-ctx8k",
         "user_turn": "Read my calendar summary document and tell me what meetings I have today.",
     },
-    "auto-agentic-lite": {
+    "auto-coding+lite": {
         "model": "hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k",
         "user_turn": "Search the web for today's date and tell me what day of the week it is.",
     },
@@ -60,7 +65,7 @@ WORKSPACE_TOOL_NAMES: dict[str, list[str]] = {
         "remember",
         "recall",
     ],
-    "auto-agentic": [
+    "auto-coding+heavy": [
         "execute_python",
         "execute_bash",
         "execute_nodejs",
@@ -94,7 +99,7 @@ WORKSPACE_TOOL_NAMES: dict[str, list[str]] = {
         "generate_music",
         "transcribe_audio",
     ],
-    "auto-agentic-lite": [
+    "auto-coding+lite": [
         "execute_python",
         "execute_bash",
         "execute_nodejs",
