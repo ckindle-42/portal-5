@@ -148,6 +148,17 @@ _router_latency_seconds = Histogram(
     buckets=[0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 2.0, 5.0],
     registry=_REGISTRY,
 )
+# Deprecation trip (coding_task/cleanup/BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 0):
+# counts every legacy workspace-alias resolution. Only incremented when
+# PORTAL_ALIAS_TRIP=1 is set — the alias-retirement Phase 6 gate runs the full
+# suite with the trip armed; zero increments proves every live caller has
+# migrated to canonical addressing before the shim is removed.
+_alias_resolved_total = Counter(
+    "portal5_alias_resolved_total",
+    "Legacy workspace-alias resolutions (deprecation trip; only active under PORTAL_ALIAS_TRIP=1)",
+    ["alias"],
+    registry=_REGISTRY,
+)
 _hint_fallback_total = Counter(
     "portal5_hint_fallback_total",
     "Requests where model_hint did not resolve; a fallback model was served",
