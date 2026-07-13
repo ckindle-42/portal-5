@@ -330,6 +330,12 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 - **If revisited**: any future speculative-decoding / MTP work targets Ollama's native path (llama.cpp b9180+), not MLX. The bench-only MTP GGUF candidates remain in the catalog as bench entries; there is no production MLX serving path to enable.
 - **P5-FUT**: evaluate `/api/chat` as `chat_url` — `/api/chat` would allow full `options` passthrough but requires changing payload/response shapes.
 
+### phi4-reasoning:plus crashes Ollama's llama-server on this host
+- **ID**: P5-MODEL-PHI4REASONING-001
+- **Description**: Both `phi4-reasoning:plus` and `phi4-reasoning:plus-ctx32k` fail on direct `POST /api/generate` with `{"error":"llama-server process has terminated: signal: abort trap"}` — a local Ollama/model-file issue, not a routing or pipeline bug. Discovered during `DESIGN_PERSONA_INTENT_REMEDIATION_V1.md`'s live verification of the `phi4stemanalyst` persona's `model_pin`: the pipeline correctly resolved and requested `phi4-reasoning:plus-ctx32k` (confirmed in logs — `wanted phi4-reasoning:plus-ctx32k`), the registry's existing backend-failover mechanism correctly caught the crash and fell back to another reasoning-pool model, and honestly logged `model_hint mismatch ... response may be from wrong model` rather than silently misreporting. The routing/pin mechanism is proven correct by the other 4 personas (`magistralstrategist`, `devstral_coder`, `glm-coder`, `glm-thinker`) succeeding cleanly end-to-end.
+- **Impact**: `phi4stemanalyst` currently falls back to whatever `auto-reasoning`'s pool serves instead of Phi-4-reasoning-plus, until the model file is fixed locally.
+- **Mitigation**: `ollama rm phi4-reasoning:plus-ctx32k phi4-reasoning:plus && ollama pull ...` (re-pull; likely a corrupted download or an Ollama-version/GGUF incompatibility) — not attempted here since it requires a multi-GB re-download and is outside Stage P's scope (persona/routing correctness, not model-file integrity).
+
 ### 70B Dense Models Unusable for Daily Routing on M4 Pro 64GB
 - **ID**: P5-SPEED-001
 - **Description**: Llama-3.3-70B-Instruct-4bit and DeepSeek-R1-Distill-Llama-70B-4bit measure ~3.5 TPS warm — too slow for interactive use. 3-bit quantization (~28GB) is theoretically viable at ~9.7 TPS but not yet bench-validated.

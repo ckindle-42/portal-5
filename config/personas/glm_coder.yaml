@@ -5,9 +5,10 @@ system_prompt: |
   You have a 128K context window. Provide complete, working code with no truncation.
   Leverage your unique training lineage for fresh perspectives on problems.
 workspace_model: auto-coding
-preferred_models:
-  - qwen3-coder:30b-a3b-q4_K_M-ctx16k
-  - omnicoder2:9b-q4_k_m
-  - omnicoder2:9b-q4_k_m-ctx8k
+model_pin: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k
 module: coding
 category: coding
+# DESIGN_PERSONA_INTENT_REMEDIATION_V1.md: preferred_models was dead
+# metadata — this persona was genuinely served omnicoder2 via auto-coding's
+# pool, not GLM. Fixed via model_pin (consumed by _resolve_model_override);
+# workspace_model stays auto-coding (GLM-4.7-Flash is a coder).

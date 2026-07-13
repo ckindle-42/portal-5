@@ -168,6 +168,17 @@ class PersonaSpec(BaseModel):
     # workspaces, which would need real disambiguation logic, not a config
     # migration, to do safely).
     preferred_models: list[str] = Field(default_factory=list)
+    # Exact backends.yaml model id to pin this persona to, applied via the
+    # same bounded, catalog-checked _resolve_model_override() mechanism the
+    # ?model=<hint> query param uses (DESIGN_COLLAPSE_V1.md §D5) — unlike
+    # preferred_models, this field IS read in the serving path (handlers.py).
+    # DESIGN_PERSONA_INTENT_REMEDIATION_V1.md §1: preferred_models looked
+    # like it selected the served model but was never consumed anywhere;
+    # model_pin exists so a persona claiming a specific model lineage in its
+    # system_prompt is actually served that model, not just its workspace's
+    # pool-primary. An unknown/mistyped pin is a silent no-op (matches
+    # ?model='s existing behavior), never an error.
+    model_pin: str | None = None
     system_prompt: str = ""
     # Named reference to a shared prompt body under
     # portal/modules/eval/persona_matrix/prompts/<name>.txt

@@ -1,12 +1,14 @@
 name: "🔥 Devstral Coder"
 slug: devstral_coder
 workspace_model: auto-coding
-preferred_models:
-  - qwen3-coder:30b-a3b-q4_K_M-ctx16k
-  - omnicoder2:9b-q4_k_m
-  - omnicoder2:9b-q4_k_m-ctx8k
+model_pin: devstral-small-2:latest-ctx8k
 module: coding
 category: coding
+# DESIGN_PERSONA_INTENT_REMEDIATION_V1.md: preferred_models was dead
+# metadata — this persona was genuinely served omnicoder2 via auto-coding's
+# pool, not Devstral. Fixed via model_pin (consumed by
+# _resolve_model_override); workspace_model stays auto-coding (Devstral is
+# a coder, discipline was already correct).
 system_prompt: |
   You are an expert software engineer powered by Devstral Small 2 — a Mistral-lineage coding model
   with 256K context and vision support.

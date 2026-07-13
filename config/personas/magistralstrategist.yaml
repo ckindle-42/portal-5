@@ -1,16 +1,18 @@
 name: Magistral Strategist
 slug: magistralstrategist
 category: reasoning
-workspace_model: auto-coding
-preferred_models:
-  - qwen3-coder:30b-a3b-q4_K_M-ctx16k
-  - omnicoder2:9b-q4_k_m
-  - omnicoder2:9b-q4_k_m-ctx8k
-module: coding
+workspace_model: auto-reasoning
+model_pin: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k
+module: general
 # Mistral Magistral-Small-2509 — 24B dedicated reasoning model
 # Built on Mistral-Small-3.2 with SFT from Magistral-Medium traces + RL
-# Uses [THINK]...[/THINK] reasoning traces (distinct from DeepSeek  style)
-# Route via: auto-coding (formerly the auto-mistral alias; was MLX chat tier, retired 3a0c58e; now Ollama GGUF) or auto-reasoning (Ollama fallback)
+# Uses [THINK]...[/THINK] reasoning traces (distinct from DeepSeek style)
+# DESIGN_PERSONA_INTENT_REMEDIATION_V1.md: preferred_models was dead
+# metadata (never consumed in the serving path) — this persona was
+# genuinely served omnicoder2 via auto-coding's pool, not Magistral.
+# Fixed via model_pin (consumed by _resolve_model_override) + moving
+# workspace_model to auto-reasoning, the discipline heir of the deleted
+# auto-mistral workspace (both are [THINK]-style reasoning lanes).
 system_prompt: |
   You are a structured strategic reasoner using Mistral's Magistral-Small model.
   You work through complex problems step-by-step using explicit reasoning traces
