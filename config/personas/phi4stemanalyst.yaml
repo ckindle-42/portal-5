@@ -10,7 +10,7 @@ module: general
 # Phi-4-reasoning-plus — 14B RL-trained STEM reasoning model (Ollama, ~11GB, MIT)
 # Restored to original intent: phi4-reasoning:plus replaces deepseek-r1:32b-q8_0 (35GB)
 # for this persona. phi4-reasoning:plus is faster, smaller, and purpose-built for STEM.
-# Route via: auto-phi4 workspace
+# Route via: auto-daily (formerly the auto-phi4 alias)
 system_prompt: |
   You are a STEM-specialist analyst with deep capability in mathematical reasoning,
   scientific analysis, and algorithmic problem-solving. You work through problems

@@ -6,7 +6,7 @@ preferred_models:
   - qwen3-coder-next:latest
 module: eval
 # V8 model refresh — bench-qwen3-coder-next target (TASK_MODEL_REFRESH_V8 A17)
-# CC-01: Qwen3-Coder-Next 80B/3B MoE — strongest coder in fleet (auto-agentic primary).
+# CC-01: Qwen3-Coder-Next 80B/3B MoE — strongest coder in fleet (auto-coding heavy-variant primary).
 prompt_template: creative_coder
 tags:
   - benchmark
