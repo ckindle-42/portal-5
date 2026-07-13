@@ -35,7 +35,7 @@ tier-1 = proven `_phase_*` functions in `bench_lab_exec.py` (`kerberoasting, asr
 log4shell_rce, redis_to_rce, tomcat_manager, htb_lfi_log_poison`); tier-2 = generic dispatch of
 the real `EXEC_SEQUENCES` steps via `_mcp_call`, halting on the first required-step failure;
 tier-3 = `DISPATCH_NOT_RUN` sentinel when neither exists for a scenario_key. The governing rule —
-enforced in `tests/unit/test_live_exec.py` and validator check `AA. live exec integrity` — is
+enforced in `tests/unit/test_live_exec.py` and validator check `Z. live exec integrity` — is
 that DISPATCH_NOT_RUN and any dry-run/halted evidence always score `indeterminate`, never
 `verified`.
 
