@@ -349,7 +349,9 @@ activate automatically when either tool opens this project:
 - **`.mcp.json`** — currently 22 MCP servers (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`): filesystem, git, docker, fetch, portal-sandbox (execute_bash),
   portal-pipeline (FastContext code explorer + stack introspection), plus the other portal-* tool servers
 - **`opencode.jsonc`** — points opencode at portal-pipeline (:9099) as a fully local AI backend;
-  all functional workspaces available as models (`?variant=`/persona `variant:` cover the folded siblings — see line above); cloud providers disabled
+  a curated 20-entry picker (9 bare base-workspace ids + 11 persona slugs — variant-carrying entries
+  are addressed by persona, e.g. `codingagentic` = `auto-coding` + `variant: laguna`, not a raw
+  `?variant=` query string, since opencode's picker is a human-facing menu); cloud providers disabled
 
 **Claude Code** (uses Anthropic AI, Portal 5 as tool provider):
 ```bash
@@ -359,7 +361,7 @@ claude .    # .mcp.json picked up automatically — portal-sandbox + pipeline to
 **opencode** (uses Portal 5 models locally, zero cloud):
 ```bash
 export $(grep PIPELINE_API_KEY .env | xargs)
-opencode .  # default model: portal/auto-coding?variant=laguna (Laguna-XS.2 33B-A3B)
+opencode .  # default model: portal/codingagentic (Laguna-XS.2 33B-A3B, auto-coding + laguna variant)
 ```
 
 The `auto-coding` workspace's `laguna` variant uses **FastContext-4B** as an exploration subagent — it finds
