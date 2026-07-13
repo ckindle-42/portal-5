@@ -216,7 +216,24 @@ class TestPipelineAPI:
         assert "auto" in ids
         assert "auto-coding" in ids
         assert "auto-security" in ids
-        assert len(ids) == len(WORKSPACES)
+        # DESIGN_OPENCODE_ADDRESSING_V1.md §3.2: /v1/models also advertises
+        # IDE-curated (ide_expose: true) personas alongside base workspaces,
+        # so it agrees with opencode.jsonc's picker instead of diverging
+        # from it. One entry per WORKSPACES key + one per ide_expose persona.
+        from portal.platform.inference.router.workspaces import _PERSONA_MAP
+
+        ide_persona_count = sum(1 for p in _PERSONA_MAP.values() if p.ide_expose)
+        assert ide_persona_count > 0, "expected at least one ide_expose persona"
+        assert len(ids) == len(WORKSPACES) + ide_persona_count
+
+    def test_models_includes_ide_curated_personas(self, client):
+        resp = client.get("/v1/models", headers=HEADERS)
+        assert resp.status_code == 200
+        data = resp.json()
+        by_id = {m["id"]: m for m in data["data"]}
+        assert "codingagentic" in by_id
+        assert by_id["codingagentic"]["is_persona"] is True
+        assert by_id["auto-coding"].get("is_persona") in (None, False)
 
     def test_chat_requires_auth(self, client):
         resp = client.post("/v1/chat/completions", json={})

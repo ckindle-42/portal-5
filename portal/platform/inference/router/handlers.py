@@ -388,27 +388,40 @@ async def metrics() -> PlainTextResponse:
 async def list_models(authorization: str | None = Header(None)) -> dict:
     """GET /v1/models — OpenAI-compatible model catalogue.
 
-    Returns one entry per ``WORKSPACES`` key. Per CLAUDE.md, Portal
-    5 is Open WebUI's sole model source — OWUI sees workspaces as
-    models, never the underlying Ollama models. The user
-    picks a workspace in the OWUI model picker; that selection
-    becomes the ``model`` field on the chat-completions request
-    and is what ``chat_completions`` routes on.
+    Returns one entry per ``WORKSPACES`` key, plus one entry per
+    IDE-curated persona (``ide_expose: true`` — DESIGN_OPENCODE_
+    ADDRESSING_V1.md §3.2). Per CLAUDE.md, Portal 5 is Open WebUI's
+    sole model source — OWUI sees workspaces as models, never the
+    underlying Ollama models. The user picks a workspace (or, for
+    opencode/Claude Code, a persona) in the model picker; that
+    selection becomes the ``model`` field on the chat-completions
+    request and is what ``chat_completions`` routes on.
+
+    The persona entries exist so this endpoint agrees with
+    ``opencode.jsonc``'s curated picker (previously they diverged —
+    opencode's variant-carrying picker entries existed only in the
+    hand-maintained jsonc, invisible to ``/v1/models`` discovery).
+    Only ``ide_expose: true`` personas are included — this does NOT
+    expose the full ~138-persona catalogue, only the same curated
+    subset opencode's picker already shows.
 
     Per-entry fields:
 
-    * ``id`` — workspace key (e.g. ``"auto-coding"``).
-    * ``name`` — human display name from ``WORKSPACES``.
+    * ``id`` — workspace key (e.g. ``"auto-coding"``) or persona slug
+      (e.g. ``"codingagentic"``).
+    * ``name`` — human display name.
     * ``category`` — OWUI grouping. Derived from the workspace id
       (``bench-*`` → ``"benchmark"``; ``auto-X`` → ``"X"``; else
       the id itself), or explicitly overridden by ``category:`` in
-      the workspace's ``WORKSPACES`` entry.
+      the workspace's ``WORKSPACES`` entry (or the persona's).
     * ``tags`` — non-standard OWUI extension; defaults to
-      ``[category]`` if not set in ``WORKSPACES``.
+      ``[category]`` if not set.
     * ``tools`` — the workspace's default tool whitelist (the
       pipeline applies persona-level overrides at request time).
     * ``is_benchmark`` — convenience flag for OWUI UI; ``True``
-      for ``bench-*`` workspaces.
+      for ``bench-*`` workspaces (always ``False`` for personas).
+    * ``is_persona`` — ``True`` for IDE-curated persona entries,
+      absent/``False`` for base workspace entries.
 
     Authenticated via ``_verify_key`` because the response leaks
     the full workspace catalogue, which reveals operational config.
@@ -444,6 +457,24 @@ async def list_models(authorization: str | None = Header(None)) -> dict:
                 "tags": ws_cfg.get("tags", [category]),
                 "tools": ws_cfg.get("tools", []),
                 "is_benchmark": is_benchmark,
+            }
+        )
+    for slug, persona in _PERSONA_MAP.items():
+        if not getattr(persona, "ide_expose", False):
+            continue
+        models.append(
+            {
+                "id": slug,
+                "object": "model",
+                "created": ts,
+                "owned_by": "portal-5",
+                "name": persona.name,
+                "description": f"Portal persona: {persona.name}",
+                "category": persona.category,
+                "tags": persona.tags or [persona.category],
+                "tools": [],
+                "is_benchmark": False,
+                "is_persona": True,
             }
         )
     return {"object": "list", "data": models}
