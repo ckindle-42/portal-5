@@ -379,7 +379,8 @@ def main() -> None:
         "--exec-eval",
         action="store_true",
         help=(
-            "Enable the execution pass for auto-pentest / auto-purpleteam-exec workspaces. "
+            "Enable the execution pass for auto-security::pentest / "
+            "auto-security::purpleteam-exec workspaces. "
             "Runs prompts WITH tools enabled against the lab, captures tool call sequences, "
             "and scores against exec_sequence (step_coverage, sequence_adherence). "
             "Theory pass (tool_choice=none) always runs regardless of this flag."
@@ -1357,7 +1358,7 @@ def main() -> None:
                 "cve": "CVE-2021-44228",
                 "target_vulnerable": "vulhub Log4Shell Solr (10.10.11.50:8983)",
                 "target_hardened": "vulhub Solr without Log4Shell (patched)",
-                "models": {"red": "auto-redteam", "blue": "auto-blueteam"},
+                "models": {"red": "auto-security::redteam", "blue": "auto-security::blueteam"},
                 "red_prompt": (
                     "You are conducting an authorized pentest. Target: 10.10.11.50:8983 (Apache Solr). "
                     "Check if CVE-2021-44228 (Log4Shell) is present. Test the /solr/admin/cores endpoint "
