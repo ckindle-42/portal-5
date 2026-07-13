@@ -16,16 +16,20 @@ updated_at: 1783195000.841096
 ---
 
 
-**What:** Nine security-focused workspaces across three tiers — simulation, research, and execution.
+**What:** One base workspace (`auto-security`) covering research/simulation/execution tiers.
+Since BUILD_PROGRAM_COLLAPSE_V1.md Phase 6, the former nine sibling workspaces (redteam,
+blueteam, pentest, purpleteam×3, uncensored) are `?variant=` query params on `auto-security`
+(or a persona's `variant:` field) instead of separate workspaces — same models, same tool
+grants, just resolved via `_resolve_workspace_variant()` instead of a distinct workspace id.
 
-| Workspace | Tier | Model | Tools |
+| Variant | Tier | Model | Tools |
 |---|---|---|---|
-| `auto-security` | Research | VulnLLM-R-7B (AppSec/CVE specialist) | web_search, web_fetch, classify_vulnerability, execute_python, execute_bash, kb_search |
-| `auto-security-uncensored` | Research | VulnLLM-R-7B (no guardrails) | web_search, kb_search |
-| `auto-redteam` | Simulation | Qwen3.5-abliterated 9B | none |
-| `auto-redteam-deep` | Simulation | SuperGemma4-26B uncensored (0.915 bench) | none |
-| `auto-blueteam` | Research | sylink:8b (SOC triage, DFIR, ATT&CK) | web_search, web_fetch, classify_vulnerability, kb_search |
-| `auto-pentest` | Execution | Gemma4-E2B-QAT abliterated (~3GB, thinking model) | execute_bash, execute_python, web_search |
-| `auto-purpleteam` | Simulation | Qwen3.5-abliterated → Foundation-Sec-8B | none |
-| `auto-purpleteam-deep` | Simulation | 4-hop chain (red→blue→detect→IR) | none |
-| `auto-purpleteam-exec` | Execution | 4-hop chain, primary has live execution | execute_bash, execute_python, web_search |
+| *(base — no variant)* | Research | VulnLLM-R-7B (AppSec/CVE specialist) | web_search, web_fetch, classify_vulnerability, execute_python, execute_bash, kb_search |
+| `uncensored` | Research | BaronLLM abliterated (no guardrails) | execute_bash, execute_python, remember, recall |
+| `redteam` | Simulation | Qwen3.5-abliterated 9B | none |
+| `redteam-deep` | Simulation | SuperGemma4-26B uncensored (deep) | none |
+| `blueteam` | Research | Granite-4.1-8B (SOC triage, DFIR, ATT&CK) | web_search, web_fetch, classify_vulnerability, kb_search |
+| `pentest` | Execution | Gemma-4-E2B-QAT abliterated | execute_bash, execute_python, web_search |
+| `purpleteam` | Simulation, 2-hop | Qwen3.5-abliterated → Granite-4.1-8B | none |
+| `purpleteam-deep` | Simulation, 4-hop | Qwen3.5-abliterated → Granite-4.1-8B → Qwen3-Coder-30B → Qwen3.6-27B | none |
+| `purpleteam-exec` | Execution, 4-hop | SuperGemma4-26B (live exec) → same 3-hop detection/IR chain | execute_bash, execute_python, web_search |

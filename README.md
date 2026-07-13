@@ -91,7 +91,7 @@ Portal 5 includes **21 functional workspaces** (plus 60 benchmark workspaces for
 |---|---|---|
 | `auto` | General — routes to best model for each task | — |
 | `auto-daily` | Fast everyday assistant — chat, writing, summarization, planning | web_search, memory, documents |
-| `auto-coding` | One-shot code generation and review (Qwen3-Coder-30B MoE). 7 former sibling workspaces (auto-coding-agentic, auto-coding-uncensored(-agentic), auto-agentic(-lite/-ornith), auto-coding-northmini) are now `?variant=` query params or a persona's `variant:` field — `laguna` (Laguna-XS.2, self-improvement agentic), `uncensored`, `uncensored-agentic`, `heavy` (Qwen3-Coder-Next 80B, long-horizon), `lite` (AgentWorld 35B), `ornith` (Ornith-1.0 35B), `northmini` (North-Mini-Code) | Code sandbox |
+| `auto-coding` | One-shot code generation and review (Qwen3-Coder-30B MoE). 7 former sibling workspaces are now `?variant=` query params or a persona's `variant:` field on this base workspace — `laguna` (Laguna-XS.2, self-improvement agentic), `uncensored`, `uncensored-agentic`, `heavy` (Qwen3-Coder-Next 80B, long-horizon), `lite` (AgentWorld 35B), `ornith` (Ornith-1.0 35B), `northmini` (North-Mini-Code) | Code sandbox |
 | `auto-reasoning` | Extended reasoning, complex analysis | — |
 | `auto-research` | Web research and synthesis | web_search, web_fetch |
 | `auto-vision` | Image understanding, visual Q&A (Qwen3-VL 32B) | — |
@@ -106,7 +106,7 @@ Portal 5 includes **21 functional workspaces** (plus 60 benchmark workspaces for
 | `auto-spl` | Splunk SPL queries, YARA rules, detection search | — |
 | `auto-compliance` | NERC CIP gap analysis, policy review, audit prep (Granite 4.1 30B) | — |
 | `auto-bigfix` | IBM BigFix relevance scripting | — |
-| `auto-security` | Security analysis, CVE triage, hardening. 8 former sibling workspaces (auto-security-uncensored, auto-pentest, auto-blueteam, auto-redteam(-deep), auto-purpleteam(-deep/-exec)) are now `?variant=` query params or a persona's `variant:` field — `uncensored`, `pentest` (JANG-CRACK 31B, live execution), `blueteam` (sylink:8b, threat hunting), `redteam`/`redteam-deep` (SuperGemma4-26B), `purpleteam`/`purpleteam-deep`/`purpleteam-exec` (2/4-hop red→blue chains, exec = live attack + detection + IR playbook) | web_search, kb_search (exec/pentest variants add execute_bash, execute_python) |
+| `auto-security` | Security analysis, CVE triage, hardening. 8 former sibling workspaces are now `?variant=` query params or a persona's `variant:` field on this base workspace — `uncensored`, `pentest` (JANG-CRACK 31B, live execution), `blueteam` (sylink:8b, threat hunting), `redteam`/`redteam-deep` (SuperGemma4-26B), `purpleteam`/`purpleteam-deep`/`purpleteam-exec` (2/4-hop red→blue chains, exec = live attack + detection + IR playbook) | web_search, kb_search (exec/pentest variants add execute_bash, execute_python) |
 | `auto-general-uncensored` | General uncensored assistant | — |
 | `auto-extract-uncensored` | Uncensored information extraction | — |
 | `tools-specialist` | Tool-use specialist — structured output, function calling (Granite 4.1 8B) | — |
@@ -245,9 +245,9 @@ Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPA
 
 ### Specialized models (pulled with `./launch.sh pull-models`, ~60–100 GB total)
 - **Security:** JANG-CRACK 31B (pentest), SuperGemma4-26B (red team), BaronLLM-9B (security analyst), sylink:8b (blue team primary — SOC triage, DFIR, ATT&CK); Foundation-Sec-8B in reasoning group for analytical blue-team work
-- **Coding:** Qwen3-Coder-30B MoE, Laguna-XS.2 33B-A3B (auto-coding-agentic), Devstral-Small-2, GLM-4.7-Flash REAP, DeepSeek-Coder-V2
+- **Coding:** Qwen3-Coder-30B MoE, Laguna-XS.2 33B-A3B (auto-coding `?variant=laguna`), Devstral-Small-2, GLM-4.7-Flash REAP, DeepSeek-Coder-V2
 - **Reasoning:** DeepSeek-R1-0528-Qwen3-8B (auto-reasoning), GLM-Z1-Rumination-32B, GPT-OSS 20B, Tongyi-DeepResearch-abliterated
-- **Vision:** Qwen3-VL 32B (auto-vision), Gemma4-31B dense QAT (auto-gemma-vision), Gemma4-E4B (auto-gemma-e4b)
+- **Vision:** Qwen3-VL 32B (auto-vision), Gemma4-31B dense QAT (auto-vision `?model=gemma-vision`), Gemma4-E4B (auto-daily `?model=gemma-e4b`)
 
 ### MLX models (Apple Silicon, retained for audio/embedding/reranker only — chat inference is Ollama-only)
 - **Speech:** MLX speech server (:8918) — Kokoro + Qwen3-TTS/ASR, host-native
@@ -359,10 +359,10 @@ claude .    # .mcp.json picked up automatically — portal-sandbox + pipeline to
 **opencode** (uses Portal 5 models locally, zero cloud):
 ```bash
 export $(grep PIPELINE_API_KEY .env | xargs)
-opencode .  # default model: portal/auto-coding-agentic (Laguna-XS.2 33B-A3B)
+opencode .  # default model: portal/auto-coding?variant=laguna (Laguna-XS.2 33B-A3B)
 ```
 
-The `auto-coding-agentic` workspace uses **FastContext-4B** as an exploration subagent — it finds
+The `auto-coding` workspace's `laguna` variant uses **FastContext-4B** as an exploration subagent — it finds
 exact file paths and line ranges before Devstral edits anything, reducing wasted token budget by
 ~50-60% compared to unguided file scanning.
 
