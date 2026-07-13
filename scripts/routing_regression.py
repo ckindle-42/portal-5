@@ -24,6 +24,18 @@ Corpus sources (per DESIGN_ROUTER_CANONICALIZATION_V1.md §6):
 Usage:
     python3 scripts/routing_regression.py --layer=keywords --mock-llm
     python3 scripts/routing_regression.py --layer=llm --labeled-corpus
+    python3 scripts/routing_regression.py --assert-baseline
+
+``--assert-baseline`` is the permanent served-model regression gate
+(BUILD_PROGRAM_ROUTING_INTEGRITY_V1.md Phase R3): it runs the versioned
+corpus (``tests/routing/corpus.json``) through the current keyword layer and
+asserts the full ``(base, variant, served_model)`` tuple per prompt against
+``tests/routing/baseline.json`` — not just ``(base, variant)``, since the
+persona finding proved id-only comparison is insufficient. Hard-fails
+(non-zero exit) on any drift. Use ``--rebless`` to regenerate
+``tests/routing/baseline.json`` from the current resolution when a change is
+*intended* — the diff it prints must be recorded in the commit message that
+follows; re-blessing is never silent.
 """
 
 from __future__ import annotations
@@ -222,12 +234,116 @@ async def _run_llm(corpus: list[dict]) -> dict:
             await routing._http_client.aclose()
 
 
+def _resolve_served_model(base: str | None, variant: str | None) -> str | None:
+    """Resolve the served model_hint for (base, variant) from config/portal.yaml."""
+    if base is None:
+        return None
+    import yaml
+
+    portal_yaml = REPO_ROOT / "config" / "portal.yaml"
+    d = yaml.safe_load(portal_yaml.read_text())
+    entry = d.get("workspaces", {}).get(base)
+    if entry is None:
+        return None
+    if variant:
+        return entry.get("variants", {}).get(variant, {}).get("model_hint")
+    return entry.get("model_hint")
+
+
+def _run_baseline_corpus() -> dict[str, dict]:
+    """Run tests/routing/corpus.json through the current keyword layer,
+    resolving (base, variant, served_model) per prompt — the same shape as
+    tests/routing/baseline.json."""
+    from portal.platform.inference.router.routing import _detect_workspace
+
+    corpus_path = REPO_ROOT / "tests" / "routing" / "corpus.json"
+    corpus = json.loads(corpus_path.read_text())
+
+    results: dict[str, dict] = {}
+    for item in corpus:
+        raw = _detect_workspace([{"role": "user", "content": item["message"]}])
+        if raw is None:
+            results[item["id"]] = {"base": None, "variant": None, "served_model": None}
+            continue
+        base, variant = _resolve(raw)
+        results[item["id"]] = {
+            "base": base,
+            "variant": variant,
+            "served_model": _resolve_served_model(base, variant),
+        }
+    return results
+
+
+def _assert_baseline(rebless: bool) -> int:
+    baseline_path = REPO_ROOT / "tests" / "routing" / "baseline.json"
+    current = _run_baseline_corpus()
+
+    if rebless:
+        old = json.loads(baseline_path.read_text()) if baseline_path.exists() else {}
+        diffs = {
+            pid: {"old": old.get(pid), "new": current[pid]}
+            for pid in current
+            if old.get(pid) != current[pid]
+        }
+        baseline_path.write_text(json.dumps(current, indent=2, sort_keys=True) + "\n")
+        print(f"Re-blessed {baseline_path} — {len(diffs)} prompt(s) changed:")
+        print(json.dumps(diffs, indent=2, sort_keys=True))
+        print("\nRECORD THIS DIFF IN THE COMMIT MESSAGE — re-blessing must never be silent.")
+        return 0
+
+    if not baseline_path.exists():
+        print(f"FAIL: {baseline_path} does not exist — run with --rebless first.")
+        return 1
+
+    baseline = json.loads(baseline_path.read_text())
+    mismatches = []
+    for pid, expected in baseline.items():
+        actual = current.get(pid)
+        if actual is None:
+            mismatches.append((pid, expected, "MISSING FROM CORPUS"))
+        elif actual != expected:
+            mismatches.append((pid, expected, actual))
+
+    if mismatches:
+        print(f"FAIL: {len(mismatches)} routing-regression mismatch(es) vs baseline:")
+        for pid, expected, actual in mismatches:
+            print(f"  {pid}:")
+            print(f"    baseline: {expected}")
+            print(f"    current:  {actual}")
+        print(
+            "\nIf this drift is intended, document why, then re-run with "
+            "--rebless and record the diff in the commit message."
+        )
+        return 1
+
+    print(f"PASS: {len(baseline)} corpus prompts match tests/routing/baseline.json.")
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--layer", choices=["keywords", "llm"], required=True)
+    parser.add_argument("--layer", choices=["keywords", "llm"])
     parser.add_argument("--mock-llm", action="store_true")
     parser.add_argument("--labeled-corpus", action="store_true")
+    parser.add_argument(
+        "--assert-baseline",
+        action="store_true",
+        help="Assert (base, variant, served_model) per corpus prompt against "
+        "tests/routing/baseline.json. The permanent routing-integrity gate.",
+    )
+    parser.add_argument(
+        "--rebless",
+        action="store_true",
+        help="Regenerate tests/routing/baseline.json from the current "
+        "resolution. Prints the diff — must be recorded in the commit.",
+    )
     args = parser.parse_args()
+
+    if args.assert_baseline or args.rebless:
+        sys.exit(_assert_baseline(rebless=args.rebless))
+
+    if not args.layer:
+        parser.error("--layer is required unless --assert-baseline/--rebless is given")
 
     corpus = _build_corpus()
 
