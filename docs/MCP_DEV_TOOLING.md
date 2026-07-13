@@ -119,16 +119,15 @@ repo root tells it to use Portal 5 as its AI backend instead of any cloud API.
 
 - **Fully local inference** — all completions go through portal-pipeline (:9099) to Ollama
   on your hardware. No tokens leave the machine.
-- **All workspaces as models** — `opencode models` lists every Portal 5 workspace
+- **All workspaces + curated personas as models** — `GET /v1/models` (and `opencode models`)
+  lists every base workspace plus every `ide_expose: true` persona
   (`python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`
-  for the current total — 21 functional + 60 `bench-*` as of BUILD_PROGRAM_COLLAPSE_V1.md).
-  Default: `portal/auto-coding-agentic` — this and the other `auto-agentic*`/`auto-pentest`/
-  `auto-purpleteam-exec` names below are `opencode.jsonc`'s declared model entries for what
-  are now `auto-coding`/`auto-security` `?variant=` params on canonical base workspaces.
-  They resolve today through a transitional legacy-alias shim
-  (`_resolve_legacy_workspace_alias` in `portal/platform/inference/router/preinject.py`) and
-  are pending a config migration to canonical `?variant=` model entries
-  (`BUILD_PROGRAM_ALIAS_RETIRE_V1.md` Phase 5) once the shim is retired.
+  for the current workspace total). `opencode.jsonc`'s curated picker is a fixed 20-entry
+  subset: 9 bare base-workspace ids + 11 persona slugs. Default: `portal/codingagentic`
+  (persona binding `auto-coding` + `variant: laguna`) — a persona is the friendly named
+  binding of (workspace + variant); see `CLOSEOUT_ALIAS_REMOVAL.md` /
+  `DESIGN_OPENCODE_ADDRESSING_V1.md` for why variants are addressed by persona slug rather
+  than a `base::variant` string in this human-facing picker.
 - **All MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
   filesystem, git, docker, sandbox, pipeline, and every other portal-* tool server — currently
   22 total (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`).
@@ -151,21 +150,45 @@ opencode .
 ### Workspace selection
 
 ```bash
-opencode .                                          # default: portal/auto-coding-agentic (Laguna-XS.2 33B)
-opencode . --model portal/auto-agentic              # heavy 80B MoE for complex multi-file refactors
-opencode . --model portal/auto-agentic-lite         # AgentWorld 35B direct (lighter load, 45 t/s)
-opencode . --model portal/auto-agentic-ornith       # Ornith-1.0-35B direct — agentic option, not a replacement
+opencode .                                          # default: portal/codingagentic (Laguna-XS.2 33B)
+opencode . --model portal/agenticheavy              # heavy 80B MoE for complex multi-file refactors
+opencode . --model portal/agenticlite               # AgentWorld 35B direct (lighter load, 45 t/s)
 opencode . --model portal/auto-coding               # one-shot code generation (Qwen3-Coder 30B)
-opencode . --model portal/auto-coding-northmini     # North-Mini-Code 30B-A3B — coding diversity option
 opencode . --model portal/auto-reasoning            # deep reasoning for architectural decisions
 opencode . --model portal/auto-security             # defensive security code review
-opencode . --model portal/auto-pentest              # authorized penetration testing assistance
-opencode . --model portal/auto-purpleteam-exec      # tool-calling security with live lab access
+opencode . --model portal/pentestlead               # authorized penetration testing assistance
+opencode . --model portal/purpleteamexec            # tool-calling security with live lab access
 opencode . --model portal/auto-data                 # data science, SQL, analysis
 opencode . --model portal/auto-research             # web-augmented research and summarization
 ```
 
-Run `opencode models` to list all available workspaces (currently 104).
+**Migration table** (old alias picker key -> new picker key, `CLOSEOUT_ALIAS_REMOVAL.md`):
+
+| Old (retired) | New |
+|---|---|
+| `auto-coding-agentic` | `codingagentic` (opencode default) |
+| `auto-agentic` | `agenticheavy` |
+| `auto-agentic-lite` | `agenticlite` |
+| `auto-coding-uncensored` | `codinguncensored` |
+| `auto-coding-uncensored-agentic` | `codinguncensoredagentic` |
+| `auto-pentest` | `pentestlead` |
+| `auto-redteam` | `pentester` |
+| `auto-blueteam` | `blueteamdefender` |
+| `auto-purpleteam` | `purpleteamlead` |
+| `auto-purpleteam-exec` | `purpleteamexec` |
+| `auto-security-uncensored` | `securityuncensored` |
+
+`opencode . --model portal/auto-agentic-ornith` and `--model portal/auto-coding-northmini`
+were never functional through opencode's `--model` flag (opencode rejects any model key not
+declared in `opencode.jsonc`'s `provider.portal.models` block client-side, before the request
+ever reaches the pipeline — verified live, `err: UnknownError`) — neither was ever one of the
+20 curated picker entries. Ornith/North-Mini are reachable as `auto-coding` variants via
+direct API (`?variant=ornith` / `?variant=northmini`) or OWUI, just not through opencode's
+picker.
+
+Run `opencode models` to list all available workspaces + curated personas (discovery is
+driven by `GET /v1/models`, which now agrees with `opencode.jsonc` — see
+`DESIGN_OPENCODE_ADDRESSING_V1.md` §3.2).
 
 ### Dual mode: Portal vs stock (no file renaming)
 
@@ -315,7 +338,7 @@ Claude Code:
 ```
 You: "Add a new auto-lab-report workspace for generating pentest reports"
 
-opencode (Laguna-XS.2 33B-A3B via portal/auto-coding-agentic):
+opencode (Laguna-XS.2 33B-A3B via portal/codingagentic):
   explore_repository("how workspaces are defined, backends.yaml routing pattern")
   → citations: router/workspaces.py, config/backends.yaml, router/routing.py
   execute_bash "sed -n '205,250p' portal/platform/inference/router/workspaces.py"

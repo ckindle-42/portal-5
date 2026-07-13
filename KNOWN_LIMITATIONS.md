@@ -312,6 +312,27 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 
 ## Inference Performance
 
+### POST /v1/messages (Anthropic-compat endpoint) returns HTTP 200 with a `null` body
+- **ID**: P5-ANTHROPIC-COMPAT-001
+- **Description**: `handlers.anthropic_messages` (`portal/platform/inference/router/handlers.py:1159`,
+  the endpoint `scripts/cc-local.sh` / Claude Code's `ANTHROPIC_BASE_URL` integration
+  depends on) returns `200 OK` with a literal `null` JSON body for a plain
+  non-streaming request, reproduced with both a base workspace id
+  (`auto-coding`) and a persona slug (`agenticheavy`) — so it's unrelated to
+  the alias-closeout/persona work in this pass, and pre-existing (zero unit
+  test coverage exists for this endpoint; `/v1/chat/completions` itself
+  works correctly for the same model ids, confirmed live). No server-side
+  error is logged.
+- **Impact**: Claude Code via `scripts/cc-local.sh` likely cannot get a real
+  response today — the SDK would receive `null` where it expects an
+  Anthropic Messages response object.
+- **Discovered**: 2026-07-13, live-verifying `DESIGN_OPENCODE_ADDRESSING_V1.md`'s
+  Step 3e CLI-contract migration (`cc-local.sh`'s default model rename).
+- **Not fixed here**: root-causing `anthropic_to_openai_body`/the ASGI-loopback
+  dispatch/`openai_response_to_anthropic` translation chain is a distinct
+  bug outside Stage A's scope (alias/persona addressing, not the Anthropic
+  wire-format translation layer). Needs its own investigation + unit tests.
+
 ### devstral:24b Runtime VRAM Footprint (25.7 GB)
 - **ID**: P5-VRAM-DEVSTRAL-001
 - **Description**: devstral:24b file size is 14.3 GB but runtime Ollama resident size is ~25.7 GB due to large default context window and KV cache allocation (q8_0). This is nearly 2× the file size and can cause memory-pressure eviction of other loaded models; on M4 Pro 64 GB hardware this is non-critical (graceful CPU offload), but relevant on tighter budgets.

@@ -5,13 +5,17 @@
 # instead of Anthropic cloud. All tokens stay on this machine.
 #
 # Usage:
-#   scripts/cc-local.sh                                    # default: auto-agentic
-#   scripts/cc-local.sh --model auto-coding-agentic        # Laguna-XS.2 33B agentic
-#   scripts/cc-local.sh --model auto-agentic               # Qwen3-Coder-Next 80B / AgentWorld 35B fallback
-#   scripts/cc-local.sh --model auto-agentic-lite          # AgentWorld 35B direct (lighter, 45 t/s)
+#   scripts/cc-local.sh                                    # default: agenticheavy
+#   scripts/cc-local.sh --model codingagentic              # Laguna-XS.2 33B agentic
+#   scripts/cc-local.sh --model agenticheavy               # Qwen3-Coder-Next 80B / AgentWorld 35B fallback
+#   scripts/cc-local.sh --model agenticlite                # AgentWorld 35B direct (lighter, 45 t/s)
 #   scripts/cc-local.sh --model auto-coding                # Qwen3-Coder 30B one-shot
 #   scripts/cc-local.sh --model auto-reasoning             # DeepSeek-R1 reasoning
 #   scripts/cc-local.sh --model auto-security              # VulnLLM-R-7B security
+#
+# Migration (CLOSEOUT_ALIAS_REMOVAL.md): auto-agentic -> agenticheavy,
+# auto-coding-agentic -> codingagentic, auto-agentic-lite -> agenticlite
+# (persona slugs — same models, retired alias ids no longer resolve).
 #
 # Any extra args pass through to claude (e.g. --no-git, --dangerously-skip-permissions).
 #
@@ -50,10 +54,11 @@ fi
 export ANTHROPIC_BASE_URL="http://localhost:9099"
 export ANTHROPIC_API_KEY="$PIPELINE_API_KEY"
 
-# Default: heavy agentic workspace (Qwen3-Coder-Next 80B / AgentWorld 35B fallback).
-# AgentWorld's env-simulation training (MCP/Terminal/SWE/Web trajectories) maps
-# directly to Claude Code's agentic loop — ideal when the primary 80B isn't warm.
-DEFAULT_MODEL="${CC_LOCAL_MODEL:-auto-agentic}"
+# Default: heavy agentic persona (Qwen3-Coder-Next 80B / AgentWorld 35B fallback,
+# auto-coding + variant: heavy). AgentWorld's env-simulation training (MCP/
+# Terminal/SWE/Web trajectories) maps directly to Claude Code's agentic loop —
+# ideal when the primary 80B isn't warm.
+DEFAULT_MODEL="${CC_LOCAL_MODEL:-agenticheavy}"
 
 # If --model is already in args, use it; otherwise inject the default.
 HAS_MODEL=0
