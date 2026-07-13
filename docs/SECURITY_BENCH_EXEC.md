@@ -242,10 +242,12 @@ hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
 ## Quick-Start: All Three Tiers
 
 > Since BUILD_PROGRAM_COLLAPSE_V1.md Phase 6, `auto-redteam`/`auto-redteam-deep`/`auto-blueteam`/
-> `auto-pentest`/`auto-purpleteam-exec` are folded into `auto-security` `?variant=` params —
-> these pre-collapse ids still resolve unchanged via a legacy-alias shim
-> (`_resolve_legacy_workspace_alias` in `portal/platform/inference/router/preinject.py`), so the
-> commands below are unaffected.
+> `auto-pentest`/`auto-purpleteam-exec` are `auto-security` `?variant=` params on a canonical
+> base workspace, not separate workspaces. The bench CLI below (`portal.modules.security.core`)
+> still takes these pre-collapse ids as its `--workspaces` vocabulary — that reparameterization
+> to canonical `auto-security?variant=<role>` form is tracked as Phase 4 of
+> `BUILD_PROGRAM_ALIAS_RETIRE_V1.md` (bench config), not yet landed — so the commands below use
+> the CLI's current vocabulary and are unaffected by this doc pass.
 
 ### Tier 1 — Theory (prose quality, all workspaces × all prompts)
 

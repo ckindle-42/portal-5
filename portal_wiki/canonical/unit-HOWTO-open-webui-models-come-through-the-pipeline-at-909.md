@@ -40,7 +40,7 @@ curl -s http://localhost:9099/v1/models \
 **Example — Phi-4 STEM Analyst:**
 1. Select `Phi-4 STEM Analyst` from the model dropdown
 2. Type: `Given a Poisson process with rate λ=3 events/hour, what is the probability of exactly 5 events in 2 hours?`
-3. Routes to `auto-phi4` workspace → `phi4-reasoning:plus` (Ollama) — RL-trained reasoning, competition-level mathematics
+3. Routes to `auto-daily` workspace (this model previously had its own dedicated `auto-*` alias workspace, folded away in BUILD_PROGRAM_COLLAPSE_V1.md Phase 7) → `phi4-reasoning:plus` (Ollama) — RL-trained reasoning, competition-level mathematics
 
 **Example — GPT-OSS Analyst:**
 1. Select `GPT-OSS Analyst` from the model dropdown
@@ -50,7 +50,7 @@ curl -s http://localhost:9099/v1/models \
 **Example — Gemma 4 Edge Vision (image + audio):**
 1. Select `Gemma 4 Edge Vision` from the model dropdown
 2. Attach an image or audio clip (up to 30 seconds) and type: `Describe what you see/hear and identify any anomalies`
-3. Routes to `auto-gemma-e4b` workspace — Gemma 4 E4B (Ollama) — native audio+image+text input, 256K ctx
+3. Routes to `auto-daily` workspace (this model previously had its own dedicated `auto-*` alias workspace, folded away in BUILD_PROGRAM_COLLAPSE_V1.md Phase 7) — Gemma 4 E4B (Ollama) — native audio+image+text input, 256K ctx
 
 **Example — Gemma 4 JANG Unfiltered Vision:**
 1. Select `Gemma 4 JANG Unfiltered Vision` from the mo
