@@ -88,8 +88,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-29",
         "name": "Gemma Vision Heavy — Architecture Diagram Description",
-        "section": "auto-gemma-vision",
-        "model_slug": "auto-gemma-vision",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-gemma-vision"
+        # retired (model-tied) — folds to auto-vision base + ?model= hint.
+        "section": "auto-vision (?model=gemma4-e4b)",
+        "model_slug": "auto-vision",
+        "route_params": {"model": "gemma4:e4b-it-q4_K_M"},
+        "via_dispatcher": True,
         "timeout": 120,
         "workspace_tier": "ollama",
         "prompt": (
@@ -124,8 +128,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-30",
         "name": "Gemma E4B — Quick Multimodal Reasoning",
-        "section": "auto-gemma-e4b",
-        "model_slug": "auto-gemma-e4b",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-gemma-e4b" retired
+        # (model-tied) — folds to auto-daily base + ?model= hint.
+        "section": "auto-daily (?model=gemma4-e4b)",
+        "model_slug": "auto-daily",
+        "route_params": {"model": "gemma4:e4b-it-q4_K_M"},
+        "via_dispatcher": True,
         "timeout": 90,
         "workspace_tier": "ollama",
         "prompt": (
@@ -149,8 +157,14 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-31",
         "name": "Gemma Fast — Concise QA",
-        "section": "auto-gemma-fast",
-        "model_slug": "auto-gemma-fast",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-gemma-fast" retired
+        # (model-tied) — folds to auto-daily base + ?model= hint. gemma4:e2b-it-qat
+        # is documented in config/portal.yaml (bench-gemma4-e2b) as "Fastest TPS
+        # candidate in fleet" — matches "gemma-fast" naming.
+        "section": "auto-daily (?model=gemma4-e2b)",
+        "model_slug": "auto-daily",
+        "route_params": {"model": "gemma4:e2b-it-qat"},
+        "via_dispatcher": True,
         "timeout": 60,
         "workspace_tier": "ollama",
         "prompt": "In two sentences, explain what a Python context manager is and when to use one.",

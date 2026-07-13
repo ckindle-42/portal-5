@@ -12,8 +12,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-06",
         "name": "Red Team — Active Directory Pivot",
-        "section": "auto-redteam",
-        "model_slug": "auto-redteam",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-redteam" retired,
+        # folded into auto-security's "redteam" variant.
+        "section": "auto-security (redteam)",
+        "model_slug": "auto-security",
+        "route_params": {"variant": "redteam"},
+        "via_dispatcher": True,
         "timeout": 150,
         "workspace_tier": "ollama",
         "prompt": (

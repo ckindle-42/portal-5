@@ -43,10 +43,20 @@ REQUEST_TIMEOUT = 180.0
 # they don't get killed by the default REQUEST_TIMEOUT.
 # Reference: UAT 20260627 — phi4-reasoning ran 67min on P-DA05;
 # tongyi-deepresearch 901s on P-R05; qwen3.5-abliterated 1293s on WS-PT02.
+#
+# BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 4: re-keyed from retired aliases to
+# their live successor base workspaces (config/portal.yaml no longer declares
+# auto-phi4/auto-purpleteam-deep as their own workspace — see
+# _LEGACY_WORKSPACE_ALIASES in portal/platform/inference/router/preinject.py).
+# auto-daily and auto-security are multi-model workspaces now, so the cap
+# applies to the base per "apply the max to the base" (TASK_BENCH_CONFIG_
+# RECONCILE_V1.md) — safe: a longer allowance doesn't break faster models
+# sharing the base, it only prevents this specific slow variant from being
+# killed mid-response, which is exactly what the entry exists to prevent.
 PER_WORKSPACE_TIMEOUT: dict[str, float] = {
-    "auto-phi4": 1500.0,  # phi4-reasoning:plus
+    "auto-daily": 1500.0,  # phi4-reasoning:plus (?model= override; formerly auto-phi4)
     "auto-research": 1200.0,  # tongyi-deepresearch-abliterated
-    "auto-purpleteam-deep": 1500.0,  # qwen3.5-abliterated
+    "auto-security": 1500.0,  # qwen3.5-abliterated (purpleteam-deep variant; formerly auto-purpleteam-deep)
     "auto-spl": 600.0,  # huihui-ai_qwen3-coder-next
     # auto-purpleteam-exec NOT capped here — Phase 2 sets supports_tools=false
     # on supergemma4 which removes the underlying cause of long runtime.
@@ -62,19 +72,30 @@ REASONING_MAX_TOKENS = 512
 # step-by-step work across 3 problems, and even non-reasoning models need ~600+
 # tokens to complete the full problem set.
 MATH_MAX_TOKENS = 1024
+#
+# BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 4: re-keyed from retired aliases.
+# "auto-blueteam"/"auto-redteam" dropped — folded into auto-security, already
+# listed below (AEON Qwen3.6-27B applies workspace-wide regardless of role
+# variant). "auto-phi4"/"auto-mistral" folded into auto-daily/auto-coding
+# (model-tied, no dedicated workspace post-collapse) — kept as workspace-wide
+# entries rather than dropped: _is_reasoning_model() in pipeline mode is
+# called with `model` = the requested workspace id (the backend model isn't
+# known pre-response), so a model-substring fallback can't catch these the
+# way it does in direct-Ollama mode. Erring toward the larger token budget
+# for the rest of these multi-model workspaces is the safe direction — it
+# costs a modest overhead, not a truncated/empty response, which is the
+# failure this table exists to prevent.
 REASONING_WORKSPACES: frozenset[str] = frozenset(
     {
         "bench-laguna",
         "bench-nex-n2-mini",  # Nex-N2-mini (Qwen3.5-35B-A3B MoE) — emits_reasoning
-        "auto-blueteam",  # Foundation-Sec-8B-Reasoning — same model as bench-foundation-sec
         "auto-data",  # deepseek-r1:32b-q8_0 — R1 chain-of-thought
-        "auto-phi4",  # phi4-reasoning:plus — RL-trained 14B STEM reasoner
+        "auto-daily",  # phi4-reasoning:plus (?model= override; formerly auto-phi4)
         "auto-research",  # tongyi-deepresearch-abliterated — deep research CoT
-        "auto-mistral",
+        "auto-coding",  # Magistral-Small-2509 (?model= override; formerly auto-mistral)
         "auto-reasoning",
         "auto-math",  # phi4-mini-reasoning production workspace
-        "auto-security",  # AEON Qwen3.6-27B is a thinking model
-        "auto-redteam",  # same — needs 512-token budget to avoid empty responses
+        "auto-security",  # AEON Qwen3.6-27B is a thinking model; applies to all role variants
         "auto-vision",  # routes to auto-reasoning for text-only; deepseek-r1 emits reasoning_text
     }
 )

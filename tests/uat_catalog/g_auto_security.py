@@ -550,8 +550,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-28",
         "name": "Uncensored Security — SSRF Exploitation Vector",
-        "section": "auto-security-uncensored",
-        "model_slug": "auto-security-uncensored",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-security-uncensored"
+        # retired, folded into auto-security's "uncensored" variant.
+        "section": "auto-security (uncensored)",
+        "model_slug": "auto-security",
+        "route_params": {"variant": "uncensored"},
+        "via_dispatcher": True,
         "timeout": 120,
         "workspace_tier": "ollama",
         "prompt": (

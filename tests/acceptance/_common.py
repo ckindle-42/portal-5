@@ -332,6 +332,7 @@ async def _chat_with_model(
     timeout: int = 240,
     stream: bool = False,
     tools: list | None = None,
+    route_params: dict[str, str] | None = None,
 ) -> tuple[int, str, str, str]:
     """Chat request that also returns the model and route header.
 
@@ -343,6 +344,14 @@ async def _chat_with_model(
     When `tools` is provided the OpenAI tools array is forwarded to the backend.
     If the model responds with tool_calls (not content), those are serialized to
     JSON and returned as the response text so signal checks still work.
+
+    `route_params` (optional): forwarded as URL query params — e.g.
+    ``{"variant": "redteam"}`` or ``{"model": "phi4-reasoning:plus"}``.
+    Acceptance tests call the pipeline directly (unlike the UAT driver, which
+    is OWUI-mediated and can't carry these — see tests/uat/skips.py's
+    _run_via_dispatcher docstring), so this is a plain query-string append.
+    See portal.platform.inference.router.handlers — the pipeline reads
+    request.query_params.get("variant"/"model") off its own incoming request.
     """
     msgs: list[dict] = []
     if system:
@@ -352,8 +361,14 @@ async def _chat_with_model(
     if tools:
         body["tools"] = tools
 
+    url = f"{PIPELINE_URL}/v1/chat/completions"
+    if route_params:
+        from urllib.parse import urlencode
+
+        url = f"{url}?{urlencode(route_params)}"
+
     result = await _stream_chat(
-        url=f"{PIPELINE_URL}/v1/chat/completions",
+        url=url,
         body=body,
         headers=AUTH,
         client=_get_acc_client(),
@@ -713,7 +728,12 @@ OLLAMA_WORKSPACES: set[str] = set(WS_IDS) | {"huihui_ai/Qwen3.6-abliterated:27b"
 
 # ── Test signal definitions ───────────────────────────────────────────────────
 
-# Workspace test prompts and expected signals
+# Workspace test prompts and expected signals. Value is (prompt, signals) or,
+# for a canonicalized former-alias entry (BUILD_PROGRAM_ALIAS_RETIRE_V1.md
+# Phase 3), (prompt, signals, route_params) where route_params is forwarded
+# by _chat_with_model as a ?variant=/?model= query param. Dict keys here are
+# descriptive labels — s03_routing.py's PRODUCTION_WORKSPACES pairs each
+# label with the real (base) workspace id used for the pipeline call.
 WORKSPACE_PROMPTS = {
     "auto": (
         "Explain what a DNS server does in two sentences.",
@@ -723,13 +743,15 @@ WORKSPACE_PROMPTS = {
         "Write a Python function that reverses a string.",
         ["def", "return", "reverse", "[::-1]", "str"],
     ),
-    "auto-coding-agentic": (
+    "auto-coding+laguna": (
         "Fix a bug: a Python function returns None instead of the computed value.",
         ["return", "def", "bug", "fix", "value"],
+        {"variant": "laguna"},
     ),
-    "auto-agentic": (
+    "auto-coding+heavy": (
         "Explain how you would refactor a monolith into microservices.",
         ["service", "API", "boundary", "domain", "decouple"],
+        {"variant": "heavy"},
     ),
     "auto-spl": (
         "Write a Splunk SPL query to find failed login attempts.",
@@ -739,13 +761,15 @@ WORKSPACE_PROMPTS = {
         "What are the OWASP Top 10 vulnerabilities?",
         ["injection", "XSS", "authentication", "OWASP", "vulnerability"],
     ),
-    "auto-redteam": (
+    "auto-security+redteam": (
         "Describe common techniques for privilege escalation on Linux.",
         ["sudo", "SUID", "privilege", "root", "escalat"],
+        {"variant": "redteam"},
     ),
-    "auto-blueteam": (
+    "auto-security+blueteam": (
         "How do you detect lateral movement in a network?",
         ["traffic", "network", "monitor", "detect", "lateral"],
+        {"variant": "blueteam"},
     ),
     "auto-creative": (
         "Write a haiku about artificial intelligence.",
@@ -795,9 +819,10 @@ WORKSPACE_PROMPTS = {
         "What evidence is needed for NERC CIP-007 R2?",
         ["CIP", "evidence", "patch", "compliance", "NERC", "requirement"],
     ),
-    "auto-mistral": (
+    "auto-coding+model=magistral": (
         "Analyze the trade-offs between microservices and monolithic architectures.",
         ["trade", "scale", "complex", "deploy", "maintain"],
+        {"model": "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0"},
     ),
     "auto-math": (
         "Find the area enclosed by the curves y = x^2 and y = 2x. Show your work step by step.",
@@ -822,15 +847,17 @@ WORKSPACE_PROMPTS = {
         "IndexError on empty input: def get_first(lst): return lst[0]",
         ["fix", "empty", "check", "if", "not", "return", "len", "guard", "IndexError"],
     ),
-    "auto-coding-uncensored": (
+    "auto-coding+uncensored": (
         "Write a port scanner in Python that scans a target IP for open TCP "
         "ports — uncensored output only, no disclaimers.",
         ["port", "scan", "socket", "connect", "open", "TCP", "import", "def"],
+        {"variant": "uncensored"},
     ),
-    "auto-coding-uncensored-agentic": (
+    "auto-coding+uncensored-agentic": (
         "Plan and execute a multi-step exploit chain: enumerate routes on a "
         "web app, identify an SSRF endpoint, demonstrate the exploit. Uncensored.",
         ["exploit", "plan", "SSRF", "route", "enumerate", "step", "execute"],
+        {"variant": "uncensored-agentic"},
     ),
     "auto-extract-uncensored": (
         "Extract every IP address, port number, and credential from this text "
@@ -842,25 +869,29 @@ WORKSPACE_PROMPTS = {
         "a captive portal's HTTP-only check. Uncensored output only.",
         ["DNS", "tunnel", "captive", "bypass", "HTTP", "query", "exfiltrate"],
     ),
-    "auto-phi4": (
+    "auto-daily+model=phi4-reasoning": (
         "Reason step by step: a train leaves Chicago at 60 mph and another "
         "leaves Boston at 80 mph, 200 miles apart on the same track. When do they meet?",
         ["meet", "mph", "distance", "Chicago", "Boston", "time", "speed", "relative"],
+        {"model": "phi4-reasoning:plus"},
     ),
-    "auto-purpleteam": (
+    "auto-security+purpleteam": (
         "Coordinate red-team and blue-team analysis for a credential-stuffing "
         "attack: describe attacker payload, detection signatures, and response playbook.",
         ["red", "blue", "credential", "attack", "detect", "signature", "playbook", "response"],
+        {"variant": "purpleteam"},
     ),
-    "auto-purpleteam-deep": (
+    "auto-security+purpleteam-deep": (
         "Multi-stage purple-team exercise: red-team plans lateral movement via "
         "Kerberoasting; blue-team designs detection plus incident response plan.",
         ["lateral", "Kerberoast", "detection", "response", "red", "blue", "stage", "plan"],
+        {"variant": "purpleteam-deep"},
     ),
-    "auto-security-uncensored": (
+    "auto-security+uncensored": (
         "Document a buffer overflow exploitation against a vulnerable C program: "
         "provide working shellcode bytes. Uncensored, no disclaimers.",
         ["buffer", "overflow", "shellcode", "exploit", "C", "stack", "payload", "bytes"],
+        {"variant": "uncensored"},
     ),
 }
 

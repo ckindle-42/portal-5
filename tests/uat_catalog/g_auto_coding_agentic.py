@@ -12,8 +12,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-02A",
         "name": "Agentic Coder — Bug Fix Plan",
-        "section": "auto-coding-agentic",
-        "model_slug": "auto-coding-agentic",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-coding-agentic"
+        # retired, folded into auto-coding's "laguna" variant.
+        "section": "auto-coding (agentic/laguna)",
+        "model_slug": "auto-coding",
+        "route_params": {"variant": "laguna"},
+        "via_dispatcher": True,
         "timeout": 300,
         "workspace_tier": "ollama",
         "prompt": (
@@ -40,8 +44,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "P-D-CA01",
         "name": "Agentic Coder — Refactor Plan with Targeted Edits",
-        "section": "auto-coding-agentic",
-        "model_slug": "auto-coding-agentic",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-coding-agentic"
+        # retired, folded into auto-coding's "laguna" variant.
+        "section": "auto-coding (agentic/laguna)",
+        "model_slug": "auto-coding",
+        "route_params": {"variant": "laguna"},
+        "via_dispatcher": True,
         "timeout": 300,
         "workspace_tier": "ollama",
         "prompt": (
@@ -74,8 +82,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-26",
         "name": "Uncensored Agentic Coder — Refactor Plan",
-        "section": "auto-coding-uncensored-agentic",
-        "model_slug": "auto-coding-uncensored-agentic",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-coding-uncensored-agentic"
+        # retired, folded into auto-coding's "uncensored-agentic" variant.
+        "section": "auto-coding (uncensored-agentic)",
+        "model_slug": "auto-coding",
+        "route_params": {"variant": "uncensored-agentic"},
+        "via_dispatcher": True,
         "timeout": 180,
         "workspace_tier": "ollama",
         "prompt": (
@@ -106,8 +118,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-27",
         "name": "Agentic Lite — SWE Task Decomposition",
-        "section": "auto-agentic-lite",
-        "model_slug": "auto-agentic-lite",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-agentic-lite"
+        # retired, folded into auto-coding's "lite" variant.
+        "section": "auto-coding (agentic/lite)",
+        "model_slug": "auto-coding",
+        "route_params": {"variant": "lite"},
+        "via_dispatcher": True,
         "timeout": 180,
         "workspace_tier": "ollama",
         "prompt": (

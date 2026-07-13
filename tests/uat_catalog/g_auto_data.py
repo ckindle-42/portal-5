@@ -368,7 +368,8 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "section": "auto-data",
         "model_slug": "phi4stemanalyst",
         "timeout": 180,
-        # ROUTING NOTE: phi4stemanalyst → auto-phi4 → model_hint: phi4-reasoning:plus
+        # ROUTING NOTE: phi4stemanalyst → auto-daily (formerly the auto-phi4
+        # alias, retired BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3) → model_hint: phi4-reasoning:plus
         # When :plus is missing from Ollama, falls back to bare phi4-reasoning (slow, ~1352s/attempt)
         # or dolphin-llama3:8b (fast but fails content assertions). Run `ollama pull phi4-reasoning:plus`
         # to stabilize. Until then expect 3x retry loops hitting 4068s+ elapsed.

@@ -436,6 +436,35 @@ async def run_test(
         counts["SKIP"] = counts.get("SKIP", 0) + 1
         return
 
+    # Bench-workspace eval gate (TASK_UAT_CATALOG_RECONCILE_V1 / BUILD_PROGRAM_
+    # ALIAS_RETIRE_V1.md Phase 3): "bench-*" workspaces only load when
+    # PORTAL_ENABLE_EVAL=1 (portal.platform.inference.config.get_workspace_dict's
+    # eval-module opt-in). Off by default, matching the collapse's default-off
+    # eval posture — a bench UAT test with eval off SKIPs (documented), not FAILs.
+    if model.startswith("bench-") and os.environ.get("PORTAL_ENABLE_EVAL") != "1":
+        chat_id, chat_url = owui_create_chat(token, model, f"[SKIP] UAT: {test_id} {name}")
+        owui_rename_chat(token, chat_id, f"[SKIP] UAT: {test_id} {name} — eval_disabled")
+        if folder_id:
+            owui_assign_chat_folder(token, chat_id, folder_id)
+        record_result(
+            n,
+            "SKIP",
+            test_id,
+            name,
+            model,
+            [
+                (
+                    "eval_disabled",
+                    False,
+                    "PORTAL_ENABLE_EVAL not set — bench-* workspace unavailable",
+                )
+            ],
+            0.0,
+            chat_url,
+        )
+        counts["SKIP"] = counts.get("SKIP", 0) + 1
+        return
+
     # Manual test
     if test.get("is_manual"):
         chat_id, chat_url = owui_create_chat(token, model, title_pending)
@@ -484,6 +513,7 @@ async def run_test(
                 workspace=model,
                 prompt=test["prompt"],
                 timeout=test.get("timeout", 120),
+                route_params=test.get("route_params"),
             )
         except Exception as exc:
             elapsed = time.time() - t0_disp

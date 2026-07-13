@@ -12,8 +12,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-RT-D01",
         "name": "Red Team Deep — High-Fidelity ATT&CK Analysis",
-        "section": "auto-redteam-deep",
-        "model_slug": "auto-redteam-deep",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-redteam-deep"
+        # retired, folded into auto-security's "redteam-deep" variant.
+        "section": "auto-security (redteam-deep)",
+        "model_slug": "auto-security",
+        "route_params": {"variant": "redteam-deep"},
+        "via_dispatcher": True,
         "timeout": 300,
         "workspace_tier": "ollama",
         "prompt": (
@@ -61,8 +65,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-RT-D02",
         "name": "Red Team Deep — NERC CIP Threat Simulation",
-        "section": "auto-redteam-deep",
-        "model_slug": "auto-redteam-deep",
+        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-redteam-deep"
+        # retired, folded into auto-security's "redteam-deep" variant.
+        "section": "auto-security (redteam-deep)",
+        "model_slug": "auto-security",
+        "route_params": {"variant": "redteam-deep"},
+        "via_dispatcher": True,
         "timeout": 300,
         "workspace_tier": "ollama",
         "prompt": (

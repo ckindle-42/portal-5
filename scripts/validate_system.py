@@ -480,19 +480,36 @@ def check_persona_workspace_resolution() -> tuple[str, str, list[dict]]:
 def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
     """K. UAT catalog has no stale workspace references.
 
-    Soft: stale (in-catalog but not-live) references warn but don't fail.
-    Live-but-uncovered is operator triage, not a hard error here.
+    Hard-fail (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3 / TASK_UAT_CATALOG_
+    RECONCILE_V1): every test's ``model_slug`` must resolve to a live
+    workspace or a live persona. Promoted from the original soft-WARN once
+    the catalog was reconciled to canonical addressing (base workspace id +
+    ``route_params``) — a stale ``model_slug`` means the test would 404/500
+    against the live pipeline.
+
+    Scans ``model_slug`` values specifically (not every quoted ``auto-*``/
+    ``bench-*`` string in the file body) — the original file-body regex
+    caught false positives in ``section`` labels and comments that describe
+    routing without being a routable value (e.g. a section label like
+    "auto-security (redteam-deep)" mentions a retired alias's old name for
+    legibility without being a live route). Live-but-uncovered is operator
+    triage, not a hard error here.
     """
     try:
         import re
 
         import tests.uat_catalog as cat
-        from portal.platform.inference.config import load_portal_config
+        from portal.platform.inference.config import load_persona_map, load_portal_config
     except ImportError as e:
         return "SKIP", f"import: {e}", []
 
     cfg = load_portal_config()
-    ws_mentioned = set()
+    live_ws = set(cfg.workspaces.keys())
+    live_personas = set(load_persona_map().keys())
+    live = live_ws | live_personas
+
+    slug_re = re.compile(r'"model_slug"\s*:\s*"([^"]+)"')
+    bad: list[tuple[str, str]] = []
     for attr in dir(cat):
         if not attr.startswith("g_"):
             continue
@@ -500,12 +517,14 @@ def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
         if hasattr(mod, "__file__"):
             with open(mod.__file__) as _f:
                 src = _f.read()
-            for m in re.finditer(r'["\']((auto|bench)-[a-z0-9_-]+)["\']', src):
-                ws_mentioned.add(m.group(1))
-    stale = ws_mentioned - set(cfg.workspaces.keys())
-    if stale:
-        return "WARN", f"{len(stale)} stale workspace ref(s) in UAT catalog", []
-    return "PASS", "UAT catalog refs all resolve to live workspaces", []
+            for m in slug_re.finditer(src):
+                slug = m.group(1)
+                if slug and slug not in live and not slug.startswith("bench-"):
+                    bad.append((attr, slug))
+    if bad:
+        stale = sorted({slug for _, slug in bad})
+        return "FAIL", f"{len(stale)} stale model_slug ref(s) in UAT catalog: {stale[:10]}", []
+    return "PASS", "UAT catalog model_slug refs all resolve to live workspaces/personas", []
 
 
 def check_shim_contract() -> tuple[str, str, list[dict]]:

@@ -93,7 +93,12 @@ def _bot_container_running(container_name: str) -> tuple[bool, str]:
         return False, f"inspect error: {exc}"
 
 
-async def _run_via_dispatcher(workspace: str, prompt: str, timeout: int) -> str:
+async def _run_via_dispatcher(
+    workspace: str,
+    prompt: str,
+    timeout: int,
+    route_params: dict[str, str] | None = None,
+) -> str:
     """Drive a chat completion through the Pipeline as a Telegram/Slack bot would.
 
     Bypasses Open WebUI to exercise the exact code path
@@ -101,6 +106,19 @@ async def _run_via_dispatcher(workspace: str, prompt: str, timeout: int) -> str:
     message: a single POST to ``:9099/v1/chat/completions`` with
     ``Authorization: Bearer ${PIPELINE_API_KEY}``. Returns the assistant content
     string. Raises on transport error or non-2xx response — caller handles.
+
+    ``route_params`` (optional): forwarded as URL query params on the POST —
+    e.g. ``{"variant": "redteam"}`` or ``{"model": "phi4-reasoning:plus"}``.
+    This is the *only* dispatch path that can carry them: Open WebUI mediates
+    the browser-driven test path (``owui_create_chat`` addresses a model by
+    slug, and OWUI — not the test — makes the actual pipeline POST), so a
+    ``?variant=``/``?model=`` query param never reaches the pipeline for a
+    browser-driven test. Retired-alias UAT tests that need a specific
+    workspace variant/model (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3) are
+    routed through this dispatcher path instead so the param can ride along.
+    See ``portal.platform.inference.router.handlers`` — the pipeline reads
+    ``request.query_params.get("variant"/"model")`` directly off its own
+    incoming request.
     """
     api_key = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
     pipeline_url = os.environ.get("PIPELINE_URL", "http://localhost:9099")
@@ -118,6 +136,7 @@ async def _run_via_dispatcher(workspace: str, prompt: str, timeout: int) -> str:
             f"{pipeline_url}/v1/chat/completions",
             json=payload,
             headers=headers,
+            params=route_params or None,
         )
         resp.raise_for_status()
         data = resp.json()
