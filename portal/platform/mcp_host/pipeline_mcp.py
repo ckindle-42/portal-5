@@ -176,7 +176,7 @@ TOOLS_MANIFEST: list[dict[str, Any]] = [
             "properties": {
                 "workspace": {
                     "type": "string",
-                    "description": "Workspace id (default auto-coding-agentic)",
+                    "description": "Workspace id (default codingagentic)",
                 }
             },
             "required": [],
@@ -667,7 +667,7 @@ async def explore_repository_endpoint(request: Any) -> JSONResponse:
     return JSONResponse(await _impl_explore_repository(query, max_turns))
 
 
-async def _impl_trigger_backend_warmup(workspace: str = "auto-coding-agentic") -> dict[str, Any]:
+async def _impl_trigger_backend_warmup(workspace: str = "codingagentic") -> dict[str, Any]:
     warmup_payload = {
         "model": workspace,
         "messages": [{"role": "user", "content": "warmup"}],
@@ -691,14 +691,14 @@ async def _impl_trigger_backend_warmup(workspace: str = "auto-coding-agentic") -
 
 
 @mcp.tool()
-async def trigger_backend_warmup(workspace: str = "auto-coding-agentic") -> dict[str, Any]:
+async def trigger_backend_warmup(workspace: str = "codingagentic") -> dict[str, Any]:
     """Trigger a warmup request for the specified workspace to pre-load its model.
 
     Call this before starting a long coding session so the model is already
     loaded in VRAM when you send your first real request.
 
     Args:
-        workspace: The workspace ID to warm up (default: auto-coding-agentic)
+        workspace: The workspace ID to warm up (default: codingagentic)
     """
     return await _impl_trigger_backend_warmup(workspace)
 
@@ -707,9 +707,7 @@ async def trigger_backend_warmup(workspace: str = "auto-coding-agentic") -> dict
 async def trigger_backend_warmup_endpoint(request: Any) -> JSONResponse:
     body = await request.json()
     args = body.get("arguments", {})
-    return JSONResponse(
-        await _impl_trigger_backend_warmup(args.get("workspace", "auto-coding-agentic"))
-    )
+    return JSONResponse(await _impl_trigger_backend_warmup(args.get("workspace", "codingagentic")))
 
 
 # ── Filesystem tools (host-native; used by auto-coding-agentic via pipeline) ──

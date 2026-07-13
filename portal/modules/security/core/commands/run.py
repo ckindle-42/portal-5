@@ -75,7 +75,7 @@ def _emit_parallel_preflight(parallel_workspaces: int) -> None:
             print(
                 f"  [parallel] WARNING: OLLAMA_MAX_LOADED_MODELS={_max_loaded} "
                 f"is below the recommended 4 for chained workspaces under "
-                f"parallel dispatch. auto-purpleteam-deep loads 4 chain "
+                f"parallel dispatch. auto-security::purpleteam-deep loads 4 chain "
                 f"models — at <4 slots Ollama will evict/reload between hops. "
                 f"Recommended: 5 (router + 4 chain models)."
             )

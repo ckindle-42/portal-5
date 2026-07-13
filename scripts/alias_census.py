@@ -2,14 +2,19 @@
 """Census of legacy workspace-alias references across the live (non-frozen) tree.
 
 Walks ``git ls-files``, excludes frozen historical artifacts and archived
-docs, and counts references to each of the 23 ids in
-``_LEGACY_WORKSPACE_ALIASES`` (the single source of truth for the alias
-list — read live, never hardcoded here).
+docs, and counts references to each of the 23 pre-collapse alias ids in
+``_RETIRED_ALIAS_IDS`` below.
 
-Used by the alias-retirement build program (coding_task/cleanup/
-BUILD_PROGRAM_ALIAS_RETIRE_V1.md) as the before/after measurement: the
-program's goal is to drive the "live" total to zero while leaving frozen
-artifacts untouched.
+Until CLOSEOUT_ALIAS_REMOVAL.md's shim removal, this list was read live
+from ``preinject.py``'s ``_LEGACY_WORKSPACE_ALIASES`` (the resolution
+table doubled as the source of truth for "what counts as a legacy alias").
+That dict no longer exists — the shim was removed once every live caller
+was proven migrated (BUILD_PROGRAM_ALIAS_FINISH_V1.md Phase 4's zero-trip
+gate). This is now a frozen historical vocabulary: the fixed set of ids
+that were ever aliases, kept here so validate_system.py check AT can still
+assert zero *new* live references to them (an id appearing is either a
+regression — someone reintroduced a bare alias — or a legitimate
+historical/exempted reference).
 
 Usage:
     python3 scripts/alias_census.py            # human + JSON to stdout
@@ -66,12 +71,106 @@ def _is_frozen(path: str) -> bool:
     return bool(_FROZEN_RE.search(path))
 
 
-def _load_alias_ids() -> list[str]:
-    """Read the authoritative alias list live from preinject.py — never hardcoded."""
-    sys.path.insert(0, str(REPO_ROOT))
-    from portal.platform.inference.router.preinject import _LEGACY_WORKSPACE_ALIASES
+# Categories where a bare alias id appearing as *live, dispatched code*
+# (not a comment/docstring explaining history) would be a real regression —
+# a default argument, a dict key/value sent as `model=`, a CLI example that
+# no longer resolves. Restricted to .py/.sh serving-path files
+# (shim/integration/personas — all Python), where "comment vs code" is a
+# meaningful, checkable distinction. "config" (mostly narrative JSON/YAML
+# prose — MODEL_CATALOG.md, routing_descriptions.json's _note, portal.yaml
+# description fields — manually verified clean at the live-value level
+# during CLOSEOUT_ALIAS_REMOVAL.md) and "docs"/"tests"/"other" (markdown/
+# narrative-heavy by nature) are reported but not hard-gated — see
+# BUILD_PROGRAM_ALIAS_FINISH_V1.md Phase 6.
+_CODE_RISK_CATEGORIES = frozenset({"shim", "integration", "personas"})
 
-    return sorted(_LEGACY_WORKSPACE_ALIASES.keys())
+_COMMENT_MARKERS = ("#", "//")
+
+
+def _classify_hit_lines(text: str, alias_pattern: re.Pattern) -> tuple[int, int]:
+    """Return (code_hits, comment_hits) for all matches in ``text``.
+
+    A match is a "comment" hit if a comment marker appears anywhere before
+    it on the same line, OR the line falls inside a Python triple-quoted
+    (``\"\"\"``/``'''``) docstring/comment block. Everything else counts as
+    "code". Not a full parser (a `#`/`//` inside a string literal would
+    still be treated as a comment marker), but sufficient for this
+    classifier's purpose: distinguishing "someone hardcoded a retired id as
+    a live default" from "a comment/docstring mentions history" in the
+    Python files this runs against.
+    """
+    code = 0
+    comment = 0
+    in_docstring = False
+    docstring_marker = None
+    for line in text.splitlines():
+        # Track triple-quoted block state (naive: doesn't handle a
+        # triple-quote appearing inside a string on the same line as code,
+        # which doesn't occur in this repo's style).
+        stripped = line.strip()
+        line_starts_in_docstring = in_docstring
+        for marker in ('"""', "'''"):
+            if marker in stripped:
+                count = stripped.count(marker)
+                if not in_docstring:
+                    in_docstring = True
+                    docstring_marker = marker
+                    if count % 2 == 0:
+                        in_docstring = False
+                elif marker == docstring_marker and count % 2 == 1:
+                    in_docstring = False
+
+        if line_starts_in_docstring or (in_docstring and not line_starts_in_docstring):
+            for _m in alias_pattern.finditer(line):
+                comment += 1
+            continue
+
+        marker_pos = min(
+            (line.find(m) for m in _COMMENT_MARKERS if m in line),
+            default=-1,
+        )
+        for m in alias_pattern.finditer(line):
+            if marker_pos != -1 and m.start() > marker_pos:
+                comment += 1
+            else:
+                code += 1
+    return code, comment
+
+
+# Frozen historical vocabulary — the 23 pre-collapse bare workspace ids that
+# used to be aliases in preinject.py's now-removed _LEGACY_WORKSPACE_ALIASES.
+# Do not add to this list for new workspace changes; it exists only to keep
+# the zero-live-alias assertion (validate_system.py check AT) meaningful.
+_RETIRED_ALIAS_IDS: tuple[str, ...] = (
+    "auto-coding-agentic",
+    "auto-coding-northmini",
+    "auto-coding-uncensored",
+    "auto-coding-uncensored-agentic",
+    "auto-agentic",
+    "auto-agentic-lite",
+    "auto-agentic-ornith",
+    "auto-security-uncensored",
+    "auto-pentest",
+    "auto-blueteam",
+    "auto-redteam",
+    "auto-redteam-deep",
+    "auto-purpleteam",
+    "auto-purpleteam-deep",
+    "auto-purpleteam-exec",
+    "auto-devstral",
+    "auto-glm",
+    "auto-glm-thinking",
+    "auto-mistral",
+    "auto-phi4",
+    "auto-gemma-e4b",
+    "auto-gemma-fast",
+    "auto-gemma-vision",
+)
+
+
+def _load_alias_ids() -> list[str]:
+    """The frozen historical alias vocabulary (see _RETIRED_ALIAS_IDS)."""
+    return sorted(_RETIRED_ALIAS_IDS)
 
 
 def _tracked_files() -> list[str]:
@@ -81,14 +180,7 @@ def _tracked_files() -> list[str]:
     return [
         line
         for line in out.stdout.splitlines()
-        if line
-        and not line.startswith(".claude/worktrees/")
-        # Self-referential: the ratchet baseline's own JSON keys are alias-
-        # laden filenames (e.g. "...-auto-blueteam.md"), which would
-        # otherwise register as false-positive "live" alias refs in itself
-        # every time it's regenerated — same exclusion pattern as
-        # doc_ledger.py never listing itself as a bound source.
-        and line != "config/.alias_retire_baseline.json"
+        if line and not line.startswith(".claude/worktrees/")
     ]
 
 
@@ -100,8 +192,10 @@ def run_census() -> dict:
     by_file: dict[str, dict[str, int]] = {}
     by_category: dict[str, int] = {}
     by_alias: dict[str, int] = {}
+    code_hits_by_file: dict[str, int] = {}
     frozen_total = 0
     total = 0
+    code_risk_total = 0
 
     for rel_path in files:
         frozen = _is_frozen(rel_path)
@@ -126,6 +220,12 @@ def run_census() -> dict:
         category = _categorize(rel_path)
         by_category[category] = by_category.get(category, 0) + count
 
+        if category in _CODE_RISK_CATEGORIES:
+            code_hits, _comment_hits = _classify_hit_lines(text, alias_pattern)
+            if code_hits:
+                code_hits_by_file[rel_path] = code_hits
+                code_risk_total += code_hits
+
     return {
         "total": total,
         "frozen_total": frozen_total,
@@ -134,6 +234,11 @@ def run_census() -> dict:
         "by_file": by_file,
         "alias_count": len(aliases),
         "files_with_refs": len(by_file),
+        # Phase 6 hard-zero surface: non-comment alias hits in categories
+        # representing live code/config (shim/integration/personas/config).
+        # Must be empty for check AT to pass.
+        "code_risk_total": code_risk_total,
+        "code_hits_by_file": code_hits_by_file,
     }
 
 

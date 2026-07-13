@@ -55,11 +55,11 @@ from portal.platform.inference.router.preinject import (
     _inject_system_prompt_append,
     _inject_temporal_context,
     _resolve_auto_routing,
-    _resolve_legacy_workspace_alias,
     _resolve_model_override,
     _resolve_persona_workspace,
     _resolve_vision_fallback,
     _resolve_workspace_variant,
+    _unpack_synthetic_workspace,
 )
 from portal.platform.inference.router.state import (
     _record_error,
@@ -635,12 +635,10 @@ async def chat_completions(
         # no image_url is present in the request.
         workspace_id, body = _resolve_vision_fallback(workspace_id, body)
 
-        # Phase 4a (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6): pre-collapse workspace
-        # ids (e.g. "auto-agentic") that the keyword classifier still emits —
-        # its scoring keywords/thresholds are off-limits to edit — resolve to
-        # their current (base workspace, implied variant) before Gate 4, so the
-        # gate checks the real workspace's module state, not a deleted alias.
-        workspace_id, _alias_variant = _resolve_legacy_workspace_alias(workspace_id)
+        # Phase 4a: unpack the canonical "base::variant" synthetic form (both
+        # routing layers emit it directly — Phase 7 canonicalization) before
+        # Gate 4, so the gate checks the real workspace's module state.
+        workspace_id, _alias_variant = _unpack_synthetic_workspace(workspace_id)
 
         # Gate 4 (M7 toggle layer): reject requests to a workspace whose owning
         # module is currently disabled. Checked after all workspace_id-mutating
@@ -1168,7 +1166,7 @@ async def anthropic_messages(
 
         export ANTHROPIC_BASE_URL=http://localhost:9099
         export ANTHROPIC_API_KEY=$PIPELINE_API_KEY
-        claude --model auto-agentic
+        claude --model agenticheavy
 
     or use ``scripts/cc-local.sh`` which handles the env vars automatically.
 

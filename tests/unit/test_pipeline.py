@@ -476,12 +476,12 @@ class TestR18ModelCompleteness:
             "auto-security should use VulnLLM-R-7B (UCSB SURFI, AppSec/CVE/CWE specialist, promoted 2026-06-20)"
         )
         from portal.platform.inference.router.preinject import (
-            _resolve_legacy_workspace_alias,
             _resolve_workspace_variant,
+            _unpack_synthetic_workspace,
         )
 
-        base, variant = _resolve_legacy_workspace_alias("auto-blueteam")
-        blueteam_id = _resolve_workspace_variant("auto-blueteam", base, variant)
+        base, variant = _unpack_synthetic_workspace("auto-security::blueteam")
+        blueteam_id = _resolve_workspace_variant("auto-security::blueteam", base, variant)
         assert "granite4.1" in WORKSPACES[blueteam_id]["model_hint"].lower(), (
             "auto-blueteam (now auto-security's 'blueteam' variant, Phase 6) should use "
             "Granite 4.1 8B (sylink is a reasoning model that doesn't call tools — "
@@ -941,16 +941,16 @@ class TestAgenticWorkspace:
     auto-agentic into auto-coding's "heavy" variant — it's no longer a
     top-level WORKSPACES key. As of alias-retirement Phase 7
     (DESIGN_ROUTER_CANONICALIZATION_V1.md), the keyword classifier
-    (_WORKSPACE_ROUTING in routing.py) no longer emits "auto-agentic"
-    either — it emits the canonical "auto-coding::heavy" synthetic form
-    directly (the keyword set/threshold that used to live under the
-    "auto-agentic" key is unchanged, byte-for-byte, at the "_coding_heavy"
-    key — see _SCORER_VARIANT_MAP). _resolve_legacy_workspace_alias() still
-    resolves the literal alias string "auto-agentic" too (tested directly
-    below), for any caller that still sends it, until Phase 8 removes the
-    shim."""
+    (_WORKSPACE_ROUTING in routing.py) emits the canonical
+    "auto-coding::heavy" synthetic form directly (the keyword set/threshold
+    that used to live under the "auto-agentic" key is unchanged, byte-for-
+    byte, at the "_coding_heavy" key — see _SCORER_VARIANT_MAP). The legacy
+    alias shim that used to also resolve the bare literal string
+    "auto-agentic" was removed once every live caller was proven migrated
+    to canonical addressing (CLOSEOUT_ALIAS_REMOVAL.md) — these tests now
+    exercise the canonical "auto-coding::heavy" form directly."""
 
-    def test_agentic_workspace_resolves_via_legacy_alias(self):
+    def test_agentic_workspace_not_a_top_level_key(self):
         """auto-agentic is no longer a WORKSPACES key directly."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
@@ -977,13 +977,13 @@ class TestAgenticWorkspace:
         options.num_ctx (see portal.platform.inference.cli.models apply-params).
         """
         from portal.platform.inference.router.preinject import (
-            _resolve_legacy_workspace_alias,
             _resolve_workspace_variant,
+            _unpack_synthetic_workspace,
         )
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        base, variant = _resolve_legacy_workspace_alias("auto-agentic")
-        resolved_id = _resolve_workspace_variant("auto-agentic", base, variant)
+        base, variant = _unpack_synthetic_workspace("auto-coding::heavy")
+        resolved_id = _resolve_workspace_variant("auto-coding::heavy", base, variant)
         merged = WORKSPACES[resolved_id]
 
         hint = merged.get("model_hint")
@@ -998,13 +998,13 @@ class TestAgenticWorkspace:
     def test_agentic_workspace_has_model_hint(self):
         """auto-agentic's resolved variant must have an Ollama model_hint as fallback."""
         from portal.platform.inference.router.preinject import (
-            _resolve_legacy_workspace_alias,
             _resolve_workspace_variant,
+            _unpack_synthetic_workspace,
         )
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        base, variant = _resolve_legacy_workspace_alias("auto-agentic")
-        resolved_id = _resolve_workspace_variant("auto-agentic", base, variant)
+        base, variant = _unpack_synthetic_workspace("auto-coding::heavy")
+        resolved_id = _resolve_workspace_variant("auto-coding::heavy", base, variant)
         hint = WORKSPACES[resolved_id].get("model_hint", "")
         assert hint, "auto-agentic workspace missing model_hint — routing will fail on Ollama path"
 
@@ -1063,10 +1063,10 @@ class TestAgenticWorkspace:
         import yaml
 
         from portal.platform.inference.config import _eval_enabled, load_portal_config
-        from portal.platform.inference.router.preinject import _resolve_legacy_workspace_alias
+        from portal.platform.inference.router.preinject import _unpack_synthetic_workspace
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        base, _variant = _resolve_legacy_workspace_alias("auto-agentic")
+        base, _variant = _unpack_synthetic_workspace("auto-coding::heavy")
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
         eval_on = _eval_enabled()
@@ -1288,15 +1288,15 @@ class TestPersonaToolResolution:
 
     def test_workspace_tools_helper(self):
         from portal.platform.inference.router.preinject import (
-            _resolve_legacy_workspace_alias,
             _resolve_workspace_variant,
+            _unpack_synthetic_workspace,
         )
         from portal.platform.inference.router_pipe import _workspace_tools
 
         # auto-agentic is now auto-coding's "heavy" variant (Phase 5) — _workspace_tools
         # is a raw WORKSPACES lookup, not alias-aware, so resolve first.
-        base, variant = _resolve_legacy_workspace_alias("auto-agentic")
-        resolved_id = _resolve_workspace_variant("auto-agentic", base, variant)
+        base, variant = _unpack_synthetic_workspace("auto-coding::heavy")
+        resolved_id = _resolve_workspace_variant("auto-coding::heavy", base, variant)
         tools = _workspace_tools(resolved_id)
         assert "execute_python" in tools
         assert "web_search" in tools
@@ -1370,12 +1370,12 @@ class TestWorkspaceToolsConsistency:
     def test_auto_agentic_has_comprehensive_tools(self):
         """auto-agentic's resolved 'heavy' variant should have the broadest tool set."""
         from portal.platform.inference.router.preinject import (
-            _resolve_legacy_workspace_alias,
             _resolve_workspace_variant,
+            _unpack_synthetic_workspace,
         )
 
-        base, variant = _resolve_legacy_workspace_alias("auto-agentic")
-        resolved_id = _resolve_workspace_variant("auto-agentic", base, variant)
+        base, variant = _unpack_synthetic_workspace("auto-coding::heavy")
+        resolved_id = _resolve_workspace_variant("auto-coding::heavy", base, variant)
         tools = set(WORKSPACES[resolved_id]["tools"])
         for expected in ["execute_python", "execute_bash", "web_search", "remember", "kb_search"]:
             assert expected in tools, f"auto-agentic missing tool: {expected}"

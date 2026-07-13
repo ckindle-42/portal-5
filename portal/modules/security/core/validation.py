@@ -53,16 +53,14 @@ def _call_pipeline(
 
 def _resolve_ws_variant(raw: str) -> tuple[str, str | None]:
     """Resolve a workspace string to (base, variant), accepting a canonical
-    base id, a canonical "base::variant" string, or (back-compat) a
-    pre-collapse alias (e.g. "auto-redteam") for existing usecase["models"]
-    configs that haven't migrated yet.
+    base id or a canonical "base::variant" string.
     """
-    from portal.platform.inference.router.preinject import _resolve_legacy_workspace_alias
+    from portal.platform.inference.router.preinject import _unpack_synthetic_workspace
     from portal.platform.inference.router.workspaces import WORKSPACES
 
     if raw in WORKSPACES:
         return raw, None
-    return _resolve_legacy_workspace_alias(raw)
+    return _unpack_synthetic_workspace(raw)
 
 
 def validate_usecase(usecase: dict, *, dry_run: bool = False) -> dict:
