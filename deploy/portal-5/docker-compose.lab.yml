@@ -47,18 +47,18 @@ services:
       # LLM backend — Portal 5 pipeline
       - OPENAI_API_BASE=http://host.docker.internal:${PIPELINE_PORT:-9099}/v1
       - OPENAI_API_KEY=${PIPELINE_API_KEY}
-      # KNOWN LIMITATION (alias-retirement, unlike blue-triage below): Incalmo is a
-      # third-party OpenAI-compatible client (not vendored in this repo) — its
-      # OPENAI_MODEL value is sent verbatim as the request body's "model" field
-      # with no verified way to also attach a ?variant= query param, so it cannot
-      # be safely moved to auto-security (role=red) without risking a silent
-      # downgrade to the non-permissive base security posture. Left resolving via
-      # the legacy alias shim (auto-redteam -> auto-security, redteam variant)
-      # until Incalmo's client is confirmed to support a variant param, or this
-      # container is reconfigured to call a small wrapper that injects one.
-      - OPENAI_MODEL=${LAB_REDTEAM_WORKSPACE:-auto-redteam}
-      # Purple team: set to auto-purpleteam for chained red+blue analysis
-      # - OPENAI_MODEL=auto-purpleteam
+      # Incalmo is a third-party OpenAI-compatible client (not vendored in this
+      # repo) — its OPENAI_MODEL value is sent verbatim as the request body's
+      # "model" field. It has no picker/menu (non-interactive caller), so it
+      # uses the canonical "base::variant" synthetic model id directly — the
+      # same mechanism both routing layers already emit internally (Phase 7)
+      # and preinject.py's _resolve_legacy_workspace_alias/_unpack_synthetic_
+      # workspace unpacks server-side. CLOSEOUT_ALIAS_REMOVAL.md Step 2 /
+      # BUILD_PROGRAM_ALIAS_FINISH_V1.md Phase 1: migrated off the retiring
+      # bare alias (auto-redteam) to auto-security::redteam.
+      - OPENAI_MODEL=${LAB_REDTEAM_WORKSPACE:-auto-security::redteam}
+      # Purple team: set to auto-security::purpleteam for chained red+blue analysis
+      # - OPENAI_MODEL=auto-security::purpleteam
       #
       # Target network (your VM lab)
       - TARGET_NETWORK=${LAB_TARGET_NETWORK:-192.168.56.0/24}
