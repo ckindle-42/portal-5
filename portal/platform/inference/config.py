@@ -194,6 +194,12 @@ class PersonaSpec(BaseModel):
     tools_allow: list[str] | None = None
     tools_deny: list[str] = Field(default_factory=list)
 
+    # DESIGN_OPENCODE_ADDRESSING_V1.md §3.2: flags a persona as part of the
+    # opencode/Claude-Code curated model picker, so /v1/models can advertise
+    # it (fixing the divergence between the hand-maintained opencode.jsonc
+    # and the discovery endpoint) without exposing every persona in the repo.
+    ide_expose: bool = False
+
 
 class McpServerCommand(BaseModel):
     """Command spec for local (stdio) MCP servers registered in IDE configs."""

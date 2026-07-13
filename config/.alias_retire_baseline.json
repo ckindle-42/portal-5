@@ -102,8 +102,19 @@
     "tests/routing/corpus.json": 16,
     "docs/ROUTING_INTEGRITY_FINDINGS.md": 34,
     "config/personas/gemma_vision.yaml": 1,
-    "config/personas/glm_thinker.yaml": 1
+    "config/personas/glm_thinker.yaml": 1,
+    "config/personas/blueteamdefender.yaml": 1,
+    "config/personas/pentester.yaml": 1,
+    "config/personas/pentestlead.yaml": 1,
+    "config/personas/agenticheavy.yaml": 1,
+    "config/personas/agenticlite.yaml": 1,
+    "config/personas/codingagentic.yaml": 1,
+    "config/personas/codinguncensored.yaml": 1,
+    "config/personas/codinguncensoredagentic.yaml": 1,
+    "config/personas/purpleteamlead.yaml": 1,
+    "config/personas/purpleteamexec.yaml": 1,
+    "config/personas/securityuncensored.yaml": 1
   },
-  "description": "Alias-retirement ratchet baseline (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 8). Snapshot of live alias-reference counts per file at the point the shim could not yet be fully removed (3 documented holdouts remain: Incalmo, opencode.jsonc+pipeline_mcp.py, and the security bench harness \u2014 see docs/_archive_execdocs/PHASE6_TRIP_FINDINGS_20260713.md). validate_system.py check AT fails if any file exceeds its baseline count or a new file gains alias refs not in this baseline \u2014 growth is blocked, further cleanup is always welcome and should shrink this file, never grow it. Bumped by BUILD_PROGRAM_ROUTING_INTEGRITY_V1.md Stage R (docs/ROUTING_INTEGRITY_FINDINGS.md): preinject.py +1 (documentation comment citing the corrected auto-mistral fold target, Finding 3), test_routing.py +3 (an assertion that auto-redteam must NOT appear in the LLM router prompt, Finding 2), and two new files (tests/routing/build_corpus.py, tests/routing/corpus.json) whose entire purpose is exercising every retired pre-collapse id as routing-integrity corpus content (R0 fold-coverage) \u2014 these are intentional test/doc references to legacy ids, not new production alias usage in a serving path. Also bumped by Stage P (persona intent remediation, DESIGN_PERSONA_INTENT_REMEDIATION_V1.md): gemma_vision.yaml +1 and glm_thinker.yaml +1 \u2014 each persona now carries one explanatory comment citing the pre-collapse workspace id its fix is evidenced against (auto-gemma-vision, auto-glm-thinking), not new production alias usage.",
-  "total_at_snapshot": 802
+  "description": "Alias-retirement ratchet baseline (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 8). Snapshot of live alias-reference counts per file at the point the shim could not yet be fully removed (3 documented holdouts remain: Incalmo, opencode.jsonc+pipeline_mcp.py, and the security bench harness \u2014 see docs/_archive_execdocs/PHASE6_TRIP_FINDINGS_20260713.md). validate_system.py check AT fails if any file exceeds its baseline count or a new file gains alias refs not in this baseline \u2014 growth is blocked, further cleanup is always welcome and should shrink this file, never grow it. Bumped by BUILD_PROGRAM_ROUTING_INTEGRITY_V1.md Stage R (docs/ROUTING_INTEGRITY_FINDINGS.md): preinject.py +1 (documentation comment citing the corrected auto-mistral fold target, Finding 3), test_routing.py +3 (an assertion that auto-redteam must NOT appear in the LLM router prompt, Finding 2), and two new files (tests/routing/build_corpus.py, tests/routing/corpus.json) whose entire purpose is exercising every retired pre-collapse id as routing-integrity corpus content (R0 fold-coverage) \u2014 these are intentional test/doc references to legacy ids, not new production alias usage in a serving path. Also bumped by Stage P (persona intent remediation, DESIGN_PERSONA_INTENT_REMEDIATION_V1.md): gemma_vision.yaml +1 and glm_thinker.yaml +1 \u2014 each persona now carries one explanatory comment citing the pre-collapse workspace id its fix is evidenced against (auto-gemma-vision, auto-glm-thinking), not new production alias usage. Also bumped by Stage A opencode addressing (DESIGN_OPENCODE_ADDRESSING_V1.md): blueteamdefender.yaml/pentester.yaml/pentestlead.yaml +1 each \u2014 each carries one comment citing the retired opencode picker key it now replaces, not new production usage. Also bumped for the 8 new opencode-picker personas (agenticheavy/agenticlite/codingagentic/codinguncensored/codinguncensoredagentic/purpleteamlead/purpleteamexec/securityuncensored) \u2014 each carries one comment citing the retired opencode picker key it replaces.",
+  "total_at_snapshot": 813
 }
