@@ -190,22 +190,36 @@ async def _run_keywords(corpus: list[dict]) -> dict[str, list]:
 
 
 async def _run_llm(corpus: list[dict]) -> dict:
-    from portal.platform.inference.router.routing import _route_with_llm
+    import httpx
 
-    correct = 0
-    total = 0
-    per_prompt: dict[str, list] = {}
-    for item in corpus:
-        expected = item.get("expected_workspace")
-        raw = await _route_with_llm([{"role": "user", "content": item["message"]}])
-        base, variant = _resolve(raw)
-        per_prompt[item["id"]] = [base, variant]
-        if expected:
-            total += 1
-            if base == expected or raw == expected:
-                correct += 1
-    accuracy = (correct / total) if total else None
-    return {"per_prompt": per_prompt, "accuracy": accuracy, "labeled_total": total}
+    import portal.platform.inference.router.routing as routing
+
+    # _route_with_llm degrades to None whenever routing._http_client is
+    # unset (it's normally set by router_pipe's lifespan on server startup,
+    # which never runs for a standalone script) — set it here so this
+    # actually exercises the real router model instead of silently
+    # short-circuiting to "no opinion" on every prompt.
+    owns_client = routing._http_client is None
+    if owns_client:
+        routing._http_client = httpx.AsyncClient()
+    try:
+        correct = 0
+        total = 0
+        per_prompt: dict[str, list] = {}
+        for item in corpus:
+            expected = item.get("expected_workspace")
+            raw = await routing._route_with_llm([{"role": "user", "content": item["message"]}])
+            base, variant = _resolve(raw)
+            per_prompt[item["id"]] = [base, variant]
+            if expected:
+                total += 1
+                if base == expected or raw == expected:
+                    correct += 1
+        accuracy = (correct / total) if total else None
+        return {"per_prompt": per_prompt, "accuracy": accuracy, "labeled_total": total}
+    finally:
+        if owns_client:
+            await routing._http_client.aclose()
 
 
 def main() -> None:
