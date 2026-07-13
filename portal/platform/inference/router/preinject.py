@@ -13,7 +13,7 @@ import logging
 import os
 from datetime import UTC, datetime
 
-from portal.platform.inference.router.metrics import _router_layer_total
+from portal.platform.inference.router.metrics import _alias_resolved_total, _router_layer_total
 from portal.platform.inference.router.routing import _detect_workspace, _route_with_llm
 from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 
@@ -76,10 +76,20 @@ def _resolve_legacy_workspace_alias(workspace_id: str) -> tuple[str, str | None]
 
     Returns ``(workspace_id, None)`` unchanged for anything not in the alias
     map — including every workspace that was never renamed.
+
+    Deprecation trip (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 0): when
+    ``PORTAL_ALIAS_TRIP=1``, every resolved alias logs a WARN naming the
+    alias and increments ``portal5_alias_resolved_total``. Off by default so
+    it doesn't spam production until the retirement's Phase 6 gate arms it
+    deliberately across the full suite — zero hits there is the proof every
+    live caller has migrated to canonical addressing.
     """
     alias = _LEGACY_WORKSPACE_ALIASES.get(workspace_id)
     if alias is None:
         return workspace_id, None
+    if os.environ.get("PORTAL_ALIAS_TRIP") == "1":
+        logger.warning("ALIAS_RESOLVED alias=%s base=%s", workspace_id, alias)
+        _alias_resolved_total.labels(alias=workspace_id).inc()
     return alias
 
 

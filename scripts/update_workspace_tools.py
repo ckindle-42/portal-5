@@ -4,14 +4,19 @@
 import json
 from pathlib import Path
 
+# Keyed by top-level workspace id — one entry per generated
+# imports/openwebui/workspaces/workspace_*.json file (main() skips any id
+# not in this map). Folded pre-collapse ids (auto-agentic, auto-redteam,
+# auto-pentest, etc. — BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6) no longer have
+# their own generated file (they're `?variant=` selections on auto-coding /
+# auto-security), so their entries here were unreachable dead weight —
+# removed rather than migrated (alias-retirement Phase 5; a canonical-form
+# rename would just collide with the auto-coding/auto-security keys already
+# present).
 WORKSPACE_TOOLS = {
     "auto": ["server:mcp:portal_comfyui"],
     "auto-daily": ["server:mcp:portal_research", "server:mcp:portal_memory"],
     "auto-coding": ["server:mcp:portal_code", "server:mcp:portal_memory"],
-    "auto-coding-agentic": ["server:mcp:portal_code", "server:mcp:portal_memory"],
-    "auto-coding-uncensored": ["server:mcp:portal_code", "server:mcp:portal_memory"],
-    "auto-coding-uncensored-agentic": ["server:mcp:portal_code", "server:mcp:portal_memory"],
-    "auto-agentic-lite": ["server:mcp:portal_code"],
     "auto-compliance": ["server:mcp:portal_research"],
     "auto-documents": ["server:mcp:portal_documents", "server:mcp:portal_code"],
     "auto-music": ["server:mcp:portal_music", "server:mcp:portal_tts"],
@@ -21,54 +26,18 @@ WORKSPACE_TOOLS = {
         "server:mcp:portal_code",
         "server:mcp:portal_security",
     ],
-    "auto-security-uncensored": [
-        "server:mcp:portal_research",
-        "server:mcp:portal_code",
-        "server:mcp:portal_security",
-    ],
-    "auto-pentest": [
-        "server:mcp:portal_research",
-        "server:mcp:portal_code",
-        "server:mcp:portal_security",
-    ],
-    "auto-redteam": ["server:mcp:portal_research", "server:mcp:portal_code"],
-    "auto-redteam-deep": ["server:mcp:portal_research", "server:mcp:portal_code"],
-    "auto-purpleteam": [
-        "server:mcp:portal_research",
-        "server:mcp:portal_code",
-        "server:mcp:portal_security",
-    ],
-    "auto-purpleteam-deep": [
-        "server:mcp:portal_research",
-        "server:mcp:portal_code",
-        "server:mcp:portal_security",
-    ],
-    "auto-purpleteam-exec": [
-        "server:mcp:portal_code",
-        "server:mcp:portal_security",
-    ],
-    "auto-blueteam": ["server:mcp:portal_research", "server:mcp:portal_code"],
     "auto-research": ["server:mcp:portal_research"],
     "auto-reasoning": ["server:mcp:portal_research"],
     "auto-creative": ["server:mcp:portal_tts"],
     "auto-vision": ["server:mcp:portal_comfyui"],
-    "auto-gemma-vision": ["server:mcp:portal_comfyui"],
     "auto-data": [
         "server:mcp:portal_research",
         "server:mcp:portal_code",
         "server:mcp:portal_documents",
     ],
     "auto-math": [],
-    "auto-phi4": ["server:mcp:portal_code", "server:mcp:portal_research"],
     "auto-spl": ["server:mcp:portal_code"],
-    "auto-mistral": ["server:mcp:portal_research"],
-    "auto-agentic": ["server:mcp:portal_code"],
-    "auto-devstral": ["server:mcp:portal_code", "server:mcp:portal_memory"],
     "auto-bigfix": ["server:mcp:portal_code"],
-    "auto-glm": ["server:mcp:portal_code", "server:mcp:portal_research"],
-    "auto-glm-thinking": ["server:mcp:portal_code", "server:mcp:portal_research"],
-    "auto-gemma-e4b": [],
-    "auto-gemma-fast": [],
     "auto-general-uncensored": ["server:mcp:portal_research"],
     "auto-extract-uncensored": ["server:mcp:portal_code"],
     "auto-cad": ["server:mcp:portal_code"],

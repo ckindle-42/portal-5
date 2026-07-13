@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Generated: 2026-07-12 22:44 UTC*
+*Generated: 2026-07-13 01:59 UTC*
 
 ## Knowledge Layer
 
@@ -72,13 +72,6 @@
 | `unit-BACKUP_RESTORE-what-not-to-back-up` | why | 1 |
 | `unit-BACKUP_RESTORE-what-to-back-up` | why | 1 |
 | `unit-BACKUP_RESTORE-with-compression-faster-for-large-volumes` | why | 1 |
-| `unit-BENCH_CAPABILITY_V11_FINDINGS-bench-capability-v11-findings-agentworld-re-test` | why | 1 |
-| `unit-BENCH_CAPABILITY_V11_FINDINGS-c3-environment-simulation-3-prompts-seq-ls-df` | why | 1 |
-| `unit-BENCH_CAPABILITY_V11_FINDINGS-c4-swe-diagnosis-3-prompts-tcpdump-filter-construc` | why | 1 |
-| `unit-BENCH_CAPABILITY_V11_FINDINGS-harness-quality` | why | 1 |
-| `unit-BENCH_CAPABILITY_V11_FINDINGS-methodology-fixes-applied` | why | 1 |
-| `unit-BENCH_CAPABILITY_V11_FINDINGS-overall-verdict` | why | 1 |
-| `unit-BENCH_CAPABILITY_V11_FINDINGS-quality-signals-verifier-upgrade` | why | 1 |
 | `unit-CLUSTER_SCALE-portal-5-cluster-scale-out-guide` | why | 1 |
 | `unit-CLUSTER_SCALE-stage-1-stage-2-add-a-second-mac-studio` | why | 1 |
 | `unit-CLUSTER_SCALE-stage-3-vllm-for-70b-models` | why | 1 |
@@ -332,28 +325,6 @@
 | `unit-QWEN_TEMPLATE_PROBE-per-model-template-state` | why | 1 |
 | `unit-QWEN_TEMPLATE_PROBE-qwen-template-probe` | why | 1 |
 | `unit-QWEN_TEMPLATE_PROBE-server-flag-support` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-bloodhound-ad-recon-moderate-pentest-strong-purple` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-blue-defender-architecture` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-blue-defender-results-foundation-sec-8b-reasoning` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-eternalblue-ms17010-strong-purpleteam-gap-pentest` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-kerberoasting-strong-both-workspaces` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-linux-privesc-strong-both-workspaces` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-log4shell-rce-strong-both-workspaces` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-new-6-prompts-first-baselines` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-open-items` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-original-4-prompts` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-pass-the-hash-strong-both-workspaces` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-pipeline-theory-averages` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-rbcd-attack-moderate-improving` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-recommended-chain-validation-sequence` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-redis-to-rce-strong-both-workspaces` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-role-assignments-round-robin-by-position` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-run-history` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-security-bench-chain-execution-analysis` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-smb-enum-relay-strong-purpleteam-gap-pentest` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-web-shell-upload-moderate-pentest-strong-purpletea` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-what-the-chain-score-measures` | why | 1 |
-| `unit-SECURITY_BENCH_CHAIN_ANALYSIS-workspace-comparison` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-1-adaptive-retry-with-fallback-techniques` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-1-real-execution-is-happening` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-10-dynamic-cve-research-dynamic-cve` | why | 1 |
@@ -427,24 +398,6 @@
 | `unit-SECURITY_BENCH_EXEC-tier-3-lab-exec-real-dispatch-all-targets-snapshot` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-vulnerableapp-lxc-112-10-10-11-50-80` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-what-this-is` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-1-workspace-intent-map` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-2-security-group-training-purpose-map` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-4-final-proposed-security-group` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-5-validation-data-run-b-chain-bench` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-6-validation-data-run-c-chain-bench` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-7-role-corrections-summary` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-7-validation-data-promptfoo-quality-eval-run-3` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-add-validated-by-run-b-chain-bench` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-conditional-on-run-a-now-resolved` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-context-from-candidate-eval-v1` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-keep-with-corrected-role-understanding` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-move-not-remove` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-not-added-run-b-failed-candidate-eval-v1-gate` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-remove` | why | 1 |
-| `unit-SECURITY_FLEET_REVIEW_2026-06-security-fleet-review-june-2026` | why | 1 |
-| `unit-SEC_BENCH-agentic-blue-eval-v1-results-2026-07-05` | mixed | 3 |
-| `unit-SEC_BENCH-agentic-blue-tools-arm-ranking-2026-07-11` | mixed | 3 |
-| `unit-SEC_BENCH-e2e-run-status-2026-07-05` | mixed | 4 |
 | `unit-SEC_BENCH-multiseat-v2-results-2026-07-05` | mixed | 4 |
 | `unit-T1003.001-signature` | mixed | 3 |
 | `unit-T1003.003-signature` | mixed | 3 |
@@ -560,14 +513,14 @@
 | `unit-module-research` | mixed | 2 |
 | `unit-module-security` | mixed | 2 |
 
-**Total:** 551 units
+**Total:** 504 units
 
 ## Source Distribution
 
 - **bench-security**: 4 references
-- **code**: 58 references
-- **design**: 505 references
-- **doc**: 5 references
+- **code**: 52 references
+- **design**: 461 references
+- **doc**: 1 references
 - **mitre**: 30 references
 - **scenario**: 56 references
 - **spl**: 30 references

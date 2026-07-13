@@ -24,16 +24,20 @@ PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
 
 
-def _call_pipeline(prompt: str, workspace: str = "auto-security", timeout: float = 60.0) -> str:
+def _call_pipeline(
+    prompt: str, workspace: str = "auto-security", variant: str | None = None, timeout: float = 60.0
+) -> str:
     headers = {"Content-Type": "application/json"}
     if PIPELINE_API_KEY:
         headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
+    params = {"variant": variant} if variant else None
     urls_to_try = [PIPELINE_URL, "http://host.docker.internal:9099", "http://localhost:9099"]
     for url in urls_to_try:
         try:
             r = httpx.post(
                 f"{url}/v1/chat/completions",
                 headers=headers,
+                params=params,
                 json={
                     "model": workspace,
                     "messages": [{"role": "user", "content": prompt}],
@@ -45,6 +49,19 @@ def _call_pipeline(prompt: str, workspace: str = "auto-security", timeout: float
         except Exception:
             continue
     return "[error: pipeline unreachable]"
+
+
+def _resolve_ws_variant(raw: str) -> tuple[str, str | None]:
+    """Resolve a workspace string to (base, variant), accepting either a
+    canonical base id or a pre-collapse alias (e.g. "auto-redteam") for
+    backward compat with existing usecase["models"] configs.
+    """
+    from portal.platform.inference.router.preinject import _resolve_legacy_workspace_alias
+    from portal.platform.inference.router.workspaces import WORKSPACES
+
+    if raw in WORKSPACES:
+        return raw, None
+    return _resolve_legacy_workspace_alias(raw)
 
 
 def validate_usecase(usecase: dict, *, dry_run: bool = False) -> dict:
@@ -62,8 +79,12 @@ def validate_usecase(usecase: dict, *, dry_run: bool = False) -> dict:
     name = usecase.get("name", "unnamed")
     cve = usecase.get("cve", "")
     models = usecase.get("models", {})
-    red_ws = models.get("red", "auto-redteam")
-    blue_ws = models.get("blue", "auto-blueteam")
+    # Default target is auto-security's redteam/blueteam variant (equivalent
+    # to the pre-collapse auto-redteam/auto-blueteam aliases, resolved here
+    # explicitly rather than through the shim). An explicit caller-supplied
+    # workspace (canonical base id or legacy alias) is honored as-is.
+    red_ws, red_variant = _resolve_ws_variant(models.get("red", "auto-redteam"))
+    blue_ws, blue_variant = _resolve_ws_variant(models.get("blue", "auto-blueteam"))
 
     if dry_run:
         return {
@@ -87,13 +108,13 @@ def validate_usecase(usecase: dict, *, dry_run: bool = False) -> dict:
 
     # Run red against vulnerable target
     t0 = time.monotonic()
-    red_vuln_response = _call_pipeline(red_prompt, workspace=red_ws)
+    red_vuln_response = _call_pipeline(red_prompt, workspace=red_ws, variant=red_variant)
     red_vuln_elapsed = time.monotonic() - t0
 
     # Run red against hardened twin
     hardened_prompt = usecase.get("hardened_prompt", red_prompt)
     t0 = time.monotonic()
-    red_hard_response = _call_pipeline(hardened_prompt, workspace=red_ws)
+    red_hard_response = _call_pipeline(hardened_prompt, workspace=red_ws, variant=red_variant)
     red_hard_elapsed = time.monotonic() - t0
 
     # Score: does red find the vuln on vulnerable but not on hardened?
@@ -109,7 +130,7 @@ def validate_usecase(usecase: dict, *, dry_run: bool = False) -> dict:
     blue_result = None
     if blue_prompt:
         t0 = time.monotonic()
-        blue_response = _call_pipeline(blue_prompt, workspace=blue_ws)
+        blue_response = _call_pipeline(blue_prompt, workspace=blue_ws, variant=blue_variant)
         blue_elapsed = time.monotonic() - t0
 
         detection_indicators = usecase.get(

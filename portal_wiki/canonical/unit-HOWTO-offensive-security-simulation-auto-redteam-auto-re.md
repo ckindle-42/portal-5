@@ -22,4 +22,6 @@ Red team workspaces generate structured ATT&CK content. **No tools** — simulat
 2. Type: `Enumerate attack vectors against an Active Directory environment with Kerberos`
 3. Output structured with `## ATTACK VECTORS`, `## EXPLOITATION`, `## PERSISTENCE`, `## DEFENDER CUE`
 
-LLM-based intent classifier auto-routes offensive prompts to `auto-redteam`; keyword scoring provides fallback (signals like "exploit", "payload", "shellcode" trigger routing).
+LLM-based intent classifier auto-routes offensive prompts to `auto-security` with the `redteam`
+variant selected; keyword scoring provides fallback (signals like "exploit", "payload", "shellcode"
+trigger routing).

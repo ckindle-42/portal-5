@@ -201,7 +201,7 @@ backends:
     # supports_tools=false: model is wired to driver-dispatched workspaces
   - id: supergemma4-26b-uncensored:Q4_K_M-ctx64k
     # supports_tools=false: model is wired to driver-dispatched workspaces
-    # (auto-purpleteam-exec). Empirically enters reasoning loop when given
+    # (auto-security, purpleteam-exec variant). Empirically enters reasoning loop when given
     # tool definitions in context (UAT WS-PE03 killed at 1353s). Driver
     # parses model text output and dispatches via _lab_mcp_call directly.
     # Reference: UAT 20260627 + commit 7fee599 regression analysis.
@@ -297,7 +297,7 @@ backends:
     # supports_tools=false: model is wired to driver-dispatched workspaces
   - id: supergemma4-26b-uncensored:Q4_K_M-ctx64k
     # supports_tools=false: model is wired to driver-dispatched workspaces
-    # (auto-purpleteam-exec). Empirically enters reasoning loop when given
+    # (auto-security, purpleteam-exec variant). Empirically enters reasoning loop when given
     # tool definitions in context (UAT WS-PE03 killed at 1353s). Driver
     # parses model text output and dispatches via _lab_mcp_call directly.
     # Reference: UAT 20260627 + commit 7fee599 regression analysis.

@@ -1,4 +1,4 @@
-description: "Portal 5 — Security workspaces quality evaluation (auto-security, auto-redteam, auto-pentest, auto-blueteam)"
+description: "Portal 5 — Security workspaces quality evaluation (auto-security base + redteam/pentest/blueteam variants)"
 prompts:
   - file://prompts/security.txt
 providers:
@@ -13,17 +13,17 @@ providers:
       temperature: 0
       num_predict: 4096
   - id: ollama:chat:huihui_ai/qwen3.5-abliterated:9b
-    label: auto-redteam
+    label: auto-security-redteam
     config:
       temperature: 0
       num_predict: 4096
   - id: ollama:chat:hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
-    label: auto-pentest
+    label: auto-security-pentest
     config:
       temperature: 0
       num_predict: 4096
   - id: ollama:chat:sylink/sylink:8b
-    label: auto-blueteam
+    label: auto-security-blueteam
     config:
       temperature: 0
       num_predict: 4096

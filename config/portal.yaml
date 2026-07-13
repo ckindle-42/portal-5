@@ -334,7 +334,7 @@ workspaces:
         guardrail: default
       uncensored:
         name: 🔓 Portal Code (Uncensored)
-        description: One-shot code generation with a tool-capable, lightly-aligned model — fewer content refusals than the filtered auto-coding lane. OmniCoder-2 9B (Qwen3.5-9B base, ~5.7GB, Apache 2.0, tools=True). Use for codegen the standard coder declines on policy grounds. [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run and a separate operator promotion task. For the agentic loop use auto-coding-uncensored-agentic.]
+        description: One-shot code generation with a tool-capable, lightly-aligned model — fewer content refusals than the filtered auto-coding lane. OmniCoder-2 9B (Qwen3.5-9B base, ~5.7GB, Apache 2.0, tools=True). Use for codegen the standard coder declines on policy grounds. [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run and a separate operator promotion task. For the agentic loop use the uncensored-agentic variant (auto-coding?variant=uncensored-agentic).]
         model_hint: omnicoder2:9b-q4_k_m-ctx8k
         context_limit: 8192
         keep_alive: 10m
@@ -357,7 +357,7 @@ workspaces:
         guardrail: uncensored
       uncensored-agentic:
         name: 🔓 Portal Agentic Coder (Uncensored)
-        description: Multi-turn agentic coding with an abliterated SWE-capable model — the uncensored counterpart to auto-coding-agentic. Qwen3-Coder-Next abliterated (80B/3B MoE, ~46GB, bartowski GGUF, tools per Qwen coding-family arch). Same read→explore→edit→verify loop and explore_repository subagent. [BENCH-GATED PROVISIONAL model_hint — ~46GB resident on 64GB unified memory; not a default; promotion requires a passing bench run + separate operator task. Tool support asserted by architecture, not yet audit-confirmed.]
+        description: Multi-turn agentic coding with an abliterated SWE-capable model — the uncensored counterpart to the laguna variant (auto-coding?variant=laguna). Qwen3-Coder-Next abliterated (80B/3B MoE, ~46GB, bartowski GGUF, tools per Qwen coding-family arch). Same read→explore→edit→verify loop and explore_repository subagent. [BENCH-GATED PROVISIONAL model_hint — ~46GB resident on 64GB unified memory; not a default; promotion requires a passing bench run + separate operator task. Tool support asserted by architecture, not yet audit-confirmed.]
         model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
         context_limit: 65536
         keep_alive: 15m
@@ -434,7 +434,7 @@ workspaces:
         guardrail: default
       ornith:
         name: ⚡ Portal Agentic Coder (Ornith)
-        description: 'Agentic coding workspace direct to Ornith-1.0-35B (DeepReinforce, MIT, ~21GB Q4_K_M, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Self-improving RL training jointly optimizes solution rollout + scaffold — Terminal-Bench/SWE-Bench/NL2Repo/OpenClaw agentic coding. PROMOTED 2026-06-30 from bench-ornith-35b (V10 candidate eval): strong tool-chain coverage (4/5 markers) and SWE handoff (4/5 markers) in TASK_MODEL_EVAL_V10_CANDIDATES probes. Use this for an architecturally-different agentic option alongside auto-agentic (Qwen3-Coder-Next) and auto-agentic-lite (AgentWorld) — not a replacement for either.'
+        description: 'Agentic coding workspace direct to Ornith-1.0-35B (DeepReinforce, MIT, ~21GB Q4_K_M, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Self-improving RL training jointly optimizes solution rollout + scaffold — Terminal-Bench/SWE-Bench/NL2Repo/OpenClaw agentic coding. PROMOTED 2026-06-30 from bench-ornith-35b (V10 candidate eval): strong tool-chain coverage (4/5 markers) and SWE handoff (4/5 markers) in TASK_MODEL_EVAL_V10_CANDIDATES probes. Use this for an architecturally-different agentic option alongside the heavy variant (Qwen3-Coder-Next) and lite variant (AgentWorld) — not a replacement for either.'
         model_hint: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k
         context_limit: 65536
         max_concurrent: 1
@@ -525,7 +525,7 @@ workspaces:
         role: purple
       pentest:
         name: 🖊️ Portal Pentest Assistant
-        description: 'Authorized penetration testing assistant with execution capability. Gemma4-E2B-QAT abliterated (2B thinking model, ~3GB). Head-to-head bench 2026-06-25: composite 0.70 vs 0.50 baronllm, header cov 0.83 vs 0.50, avg MITRE IDs 1.4 vs 0.5 — wins on stripped final answer alone (not just reasoning chain). Zero refusals, zero disclaimers. Exec chain: 80.0% EXPLOIT slot score, 71.6 t/s. Single-hop execution focus (pentest of one target); for multi-hop lateral movement use auto-purpleteam. execute_bash + execute_python + web_search for live target enumeration and PoC validation. Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings.'
+        description: 'Authorized penetration testing assistant with execution capability. Gemma4-E2B-QAT abliterated (2B thinking model, ~3GB). Head-to-head bench 2026-06-25: composite 0.70 vs 0.50 baronllm, header cov 0.83 vs 0.50, avg MITRE IDs 1.4 vs 0.5 — wins on stripped final answer alone (not just reasoning chain). Zero refusals, zero disclaimers. Exec chain: 80.0% EXPLOIT slot score, 71.6 t/s. Single-hop execution focus (pentest of one target); for multi-hop lateral movement use the purpleteam variant (auto-security?variant=purpleteam). execute_bash + execute_python + web_search for live target enumeration and PoC validation. Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings.'
         model_hint: huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k
         context_limit: 8192
         keep_alive: 15m
@@ -579,7 +579,7 @@ workspaces:
         role: red
       redteam-deep:
         name: 🔴 Portal Red Team · Deep
-        description: High-fidelity single-model red team analysis. SuperGemma4-26B-uncensored (abliterated Gemma4 MoE, bench score 0.90, 6.7 ATT&CK IDs avg, zero disclaimers). Slower than auto-redteam (~100s/prompt) but produces denser ATT&CK coverage. Use when you need maximum MITRE TTP specificity for threat models or red team reports. Pipe the output to auto-purpleteam-deep manually for full four-hop analysis.
+        description: High-fidelity single-model red team analysis. SuperGemma4-26B-uncensored (abliterated Gemma4 MoE, bench score 0.90, 6.7 ATT&CK IDs avg, zero disclaimers). Slower than the redteam variant (~100s/prompt) but produces denser ATT&CK coverage. Use when you need maximum MITRE TTP specificity for threat models or red team reports. Pipe the output to the purpleteam-deep variant (auto-security?variant=purpleteam-deep) manually for full four-hop analysis.
         model_hint: supergemma4-26b-uncensored:Q4_K_M-ctx64k
         context_limit: 65536
         keep_alive: 15m
@@ -595,7 +595,7 @@ workspaces:
         role: red
       purpleteam:
         name: 🟣 Portal Purple Team
-        description: "Two-hop purple team chain — one seamless response:\n1. \U0001F534 RED — Qwen3.5-abliterated: attack vectors, exploitation, persistence\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, mitigations\n\nUse for threat modeling and attack/detect alignment. For full detection artifacts + IR playbook, use auto-purpleteam-deep."
+        description: "Two-hop purple team chain — one seamless response:\n1. \U0001F534 RED — Qwen3.5-abliterated: attack vectors, exploitation, persistence\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, mitigations\n\nUse for threat modeling and attack/detect alignment. For full detection artifacts + IR playbook, use the purpleteam-deep variant (auto-security?variant=purpleteam-deep)."
         model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx8k
         context_limit: 8192
         keep_alive: 15m
@@ -645,7 +645,7 @@ workspaces:
         role: purple
       purpleteam-exec:
         name: 🟣 Portal Purple Team · Execute
-        description: "Four-hop execution-mode purple team chain — attack planning + live execution + detection + IR:\n1. \U0001F534 RED (exec) — SuperGemma4-26B: attack plan with execute_bash/execute_python/web_search for live PoC\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection analysis on actual execution output\n3. \U0001F6E1️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries from real artifacts\n4. \U0001F4CB IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\nUnlike auto-purpleteam-deep (simulation only), this workspace executes commands against real targets. Use only on authorized systems. Latency is high — four sequential model calls, first hop uses tools."
+        description: "Four-hop execution-mode purple team chain — attack planning + live execution + detection + IR:\n1. \U0001F534 RED (exec) — SuperGemma4-26B: attack plan with execute_bash/execute_python/web_search for live PoC\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection analysis on actual execution output\n3. \U0001F6E1️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries from real artifacts\n4. \U0001F4CB IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\nUnlike the purpleteam-deep variant (simulation only), this workspace executes commands against real targets. Use only on authorized systems. Latency is high — four sequential model calls, first hop uses tools."
         model_hint: supergemma4-26b-uncensored:Q4_K_M-ctx64k
         context_limit: 65536
         keep_alive: 15m
