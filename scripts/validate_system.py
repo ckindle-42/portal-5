@@ -2727,6 +2727,7 @@ def main() -> int:
     v.run("AS. persona prompt uniqueness", check_persona_prompt_uniqueness)
     v.run("AT. alias ratchet", check_alias_ratchet)
     v.run("AU. routing regression (served model)", check_routing_regression)
+    v.run("AV. persona intent (identity vs served model)", check_persona_intent)
 
     return v.summary()
 
@@ -2981,6 +2982,35 @@ def check_routing_regression() -> tuple[str, str, list[dict]]:
             [],
         )
     return ("PASS", result.stdout.strip(), [])
+
+
+def check_persona_intent() -> tuple[str, str, list[dict]]:
+    """AV. A persona's system_prompt identity claim matches its served model.
+
+    DESIGN_PERSONA_INTENT_REMEDIATION_V1.md §7 Check 2, permanent gate: the
+    bug class this catches is "right workspace, wrong served model" — a
+    persona named/prompted for a specific model lineage (e.g. "powered by
+    Magistral") but actually served a different model via its workspace's
+    pool primary or a stale model_pin. This is exactly what let 7 personas
+    drift silently after the workspace collapse (5 in the design doc + 2
+    more this check itself found: gemma_vision, gemma4jangvision). Also
+    checks module/workspace discipline agreement and that every model_pin
+    is a real backends.yaml catalog id.
+    """
+    # Same PROMETHEUS_MULTIPROC_DIR pollution as check_routing_regression
+    # (see its comment) — this subprocess transitively imports preinject.py
+    # -> metrics.py and doesn't need multiprocess metrics either.
+    child_env = {k: v for k, v in os.environ.items() if k != "PROMETHEUS_MULTIPROC_DIR"}
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "persona_intent_audit.py"), "--verbose"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env=child_env,
+    )
+    if result.returncode != 0:
+        return ("FAIL", (result.stdout.strip() + "\n" + result.stderr.strip()).strip()[-800:], [])
+    return ("PASS", result.stdout.strip() or "0 hard failures", [])
 
 
 if __name__ == "__main__":
