@@ -15,7 +15,7 @@ Also supports:
 
 Usage:
     python3 tests/benchmarks/bench_security.py
-    python3 tests/benchmarks/bench_security.py --workspaces auto-redteam auto-security
+    python3 tests/benchmarks/bench_security.py --workspaces auto-security::redteam auto-security
     python3 tests/benchmarks/bench_security.py --prompt kerberoasting
     python3 tests/benchmarks/bench_security.py --output results/sec_bench.json
     python3 tests/benchmarks/bench_security.py --dry-run
@@ -162,20 +162,33 @@ def resolve_pipeline_model(model: str) -> str:
 # they don't get killed by the default REQUEST_TIMEOUT.
 # Reference: UAT 20260627 — phi4-reasoning ran 67min on P-DA05;
 # tongyi-deepresearch 901s on P-R05; qwen3.5-abliterated 1293s on WS-PT02.
+# CLOSEOUT_ALIAS_REMOVAL.md Step 4: keyed on the pre-resolution canonical
+# "base::variant" string (NOT the resolved base) — auto-security::redteam
+# and auto-security::purpleteam-deep both resolve to "auto-security" but
+# had different timeout caps, so keying on the resolved base would collapse
+# them and silently lose the distinction. Lookup site: _idle_timeout()
+# below, called with the exact string the caller passed as `workspace`
+# (== the literal `model` field sent to the pipeline), before any ::
+# unpacking — so this dict's keys must match that literal string exactly.
 PER_WORKSPACE_TIMEOUT: dict[str, float] = {
-    "auto-phi4": 1500.0,  # phi4-reasoning:plus
     "auto-research": 1200.0,  # tongyi-deepresearch-abliterated
-    "auto-purpleteam-deep": 1500.0,  # qwen3.5-abliterated
-    # auto-redteam and auto-purpleteam share qwen3.5-abliterated's first hop with
-    # auto-purpleteam-deep (portal.yaml model_hint) — same timeout applies. Confirmed
-    # a single kerberoasting-scale prompt takes ~114s (3332 output tokens); the 120s
+    "auto-security::purpleteam-deep": 1500.0,  # qwen3.5-abliterated
+    # auto-security::redteam and auto-security::purpleteam share
+    # qwen3.5-abliterated's first hop with auto-security::purpleteam-deep
+    # (portal.yaml model_hint) — same timeout applies. Confirmed a single
+    # kerberoasting-scale prompt takes ~114s (3332 output tokens); the 120s
     # default trips under concurrent dispatch.
-    "auto-redteam": 1500.0,  # qwen3.5-abliterated
-    "auto-purpleteam": 1500.0,  # qwen3.5-abliterated
+    "auto-security::redteam": 1500.0,  # qwen3.5-abliterated
+    "auto-security::purpleteam": 1500.0,  # qwen3.5-abliterated
     "auto-spl": 600.0,  # huihui-ai_qwen3-coder-next
-    # auto-purpleteam-exec: theory pass uses max_tokens=2000 override (run.py)
-    # to bound degenerate exec-model runs. No timeout override needed here.
+    # auto-security::purpleteam-exec: theory pass uses max_tokens=2000
+    # override (run.py) to bound degenerate exec-model runs. No timeout
+    # override needed here.
 }
+# "auto-phi4" (formerly 1500.0, phi4-reasoning:plus) removed — dead key,
+# not referenced by DEFAULT_WORKSPACES or any harness call site (phi4-
+# reasoning is now reached via the phi4stemanalyst persona -> auto-reasoning,
+# outside this module's scope; see DESIGN_PERSONA_INTENT_REMEDIATION_V1.md).
 PROMPT_MAX_TOKENS = 6000  # model-level token cap — capacity event, not a timer
 # Hard wall-clock cap per model turn in the exec chain. Thinking models (Qwable-35B)
 # can generate 6000 reasoning tokens at ~10 TPS = 600s without hitting the per-chunk
@@ -185,7 +198,9 @@ CHAIN_MODEL_TURN_TIMEOUT_S = 300.0  # 5 minutes per model turn
 # Workspaces that use tools (execute_bash/execute_python) and need both passes:
 #   Theory pass  — tool_choice=none → prose rubric scoring (knowledge quality)
 #   Execution pass — tools enabled → tool call sequence scoring (execution quality)
-EXECUTION_WORKSPACES: frozenset[str] = frozenset({"auto-pentest", "auto-purpleteam-exec"})
+EXECUTION_WORKSPACES: frozenset[str] = frozenset(
+    {"auto-security::pentest", "auto-security::purpleteam-exec"}
+)
 RESULTS_DIR = Path(__file__).parent / "results"
 
 # ── Proxmox VM lifecycle (snapshot/restore between chain runs) ────────────────
@@ -4065,17 +4080,20 @@ CHAIN_INHERITANCE: dict[str, list[str]] = {
 # inheritance chain and inject these into their context.
 _chain_artifacts: dict[str, dict[str, str]] = {}
 
-# Default workspace targets for the security bench
+# Default workspace targets for the security bench.
+# CLOSEOUT_ALIAS_REMOVAL.md Step 4 (Holdout 3): canonical "base::variant"
+# strings — the harness is a non-interactive caller (no picker), so it
+# addresses variants the same way Incalmo does, not via a persona slug.
 DEFAULT_WORKSPACES = [
     "auto-security",
-    "auto-redteam",
-    "auto-redteam-deep",
-    "auto-pentest",
-    "auto-blueteam",
-    "auto-purpleteam-exec",
-    "auto-purpleteam",
-    "auto-purpleteam-deep",
-    "auto-security-uncensored",
+    "auto-security::redteam",
+    "auto-security::redteam-deep",
+    "auto-security::pentest",
+    "auto-security::blueteam",
+    "auto-security::purpleteam-exec",
+    "auto-security::purpleteam",
+    "auto-security::purpleteam-deep",
+    "auto-security::uncensored",
 ]
 
 # Disclaimer phrases that indicate the model hedged its response

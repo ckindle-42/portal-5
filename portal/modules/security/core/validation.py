@@ -52,9 +52,10 @@ def _call_pipeline(
 
 
 def _resolve_ws_variant(raw: str) -> tuple[str, str | None]:
-    """Resolve a workspace string to (base, variant), accepting either a
-    canonical base id or a pre-collapse alias (e.g. "auto-redteam") for
-    backward compat with existing usecase["models"] configs.
+    """Resolve a workspace string to (base, variant), accepting a canonical
+    base id, a canonical "base::variant" string, or (back-compat) a
+    pre-collapse alias (e.g. "auto-redteam") for existing usecase["models"]
+    configs that haven't migrated yet.
     """
     from portal.platform.inference.router.preinject import _resolve_legacy_workspace_alias
     from portal.platform.inference.router.workspaces import WORKSPACES
@@ -79,12 +80,12 @@ def validate_usecase(usecase: dict, *, dry_run: bool = False) -> dict:
     name = usecase.get("name", "unnamed")
     cve = usecase.get("cve", "")
     models = usecase.get("models", {})
-    # Default target is auto-security's redteam/blueteam variant (equivalent
-    # to the pre-collapse auto-redteam/auto-blueteam aliases, resolved here
-    # explicitly rather than through the shim). An explicit caller-supplied
-    # workspace (canonical base id or legacy alias) is honored as-is.
-    red_ws, red_variant = _resolve_ws_variant(models.get("red", "auto-redteam"))
-    blue_ws, blue_variant = _resolve_ws_variant(models.get("blue", "auto-blueteam"))
+    # Default target is auto-security's redteam/blueteam variant, canonical
+    # base::variant form. An explicit caller-supplied workspace (canonical
+    # base id, base::variant, or legacy alias for back-compat) is honored
+    # as-is via _resolve_ws_variant.
+    red_ws, red_variant = _resolve_ws_variant(models.get("red", "auto-security::redteam"))
+    blue_ws, blue_variant = _resolve_ws_variant(models.get("blue", "auto-security::blueteam"))
 
     if dry_run:
         return {
