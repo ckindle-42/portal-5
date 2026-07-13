@@ -16,7 +16,7 @@ _launch_lab_up() {
     echo "  Incalmo C2  → http://localhost:${INCALMO_PORT:-8930}"
     echo "  Talon SOC   → http://localhost:${TALON_PORT:-8931}"
     echo ""
-    echo "  LLM routing: Incalmo → auto-redteam | Talon → auto-blueteam"
+    echo "  LLM routing: Incalmo → auto-security (redteam, via alias shim) | Talon → auto-security (blueteam)"
     echo "  Set LAB_TARGET_NETWORK, LAB_TARGET_DC, LAB_TARGET_WS in .env"
     echo "  See: docs/LAB_SETUP.md"
 }

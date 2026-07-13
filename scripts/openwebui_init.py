@@ -471,10 +471,13 @@ async def create_persona_presets_async(
                                 "auto-security",
                                 "auto-reasoning",
                                 "auto-data",
-                                "auto-redteam",
-                                "auto-blueteam",
                                 "auto-compliance",
                             }
+                            # auto-redteam/auto-blueteam removed: folded into
+                            # auto-security's variants (already covered above)
+                            # since BUILD_PROGRAM_COLLAPSE_V1.md Phase 6 — no
+                            # persona's workspace_model is literally those
+                            # strings anymore, so the entries were dead.
                             else {}
                         ),
                     },

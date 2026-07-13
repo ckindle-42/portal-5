@@ -416,6 +416,14 @@ async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
                "generate a Word document", "run a port scan on the lab DC")
 
     Returns the recommended workspace ID and model, with reasoning.
+
+    KNOWN LIMITATION (alias-retirement Phase 5): several `workspace`/
+    `pipeline_model_id` values below are pre-collapse alias ids
+    (auto-coding-agentic, auto-agentic, auto-purpleteam-exec, auto-blueteam).
+    These are returned deliberately, matching opencode.jsonc's model picker
+    (see its header comment) — the caller pastes this value straight into
+    `model=`, and opencode.jsonc still keys by alias id for the same
+    unverified-query-param-support reason. Migrate both together.
     """
     task_lower = task.lower()
 

@@ -7,6 +7,18 @@
 //   2. PIPELINE_API_KEY exported: export $(grep PIPELINE_API_KEY .env | xargs)
 //   3. opencode installed: ~/.opencode/bin/opencode .
 //
+// KNOWN LIMITATION (alias-retirement, coding_task/cleanup/BUILD_PROGRAM_ALIAS_
+// RETIRE_V1.md Phase 5): the "models" block below still keys several entries
+// by their pre-collapse alias id (auto-coding-agentic, auto-redteam, etc.).
+// opencode sends this key verbatim as the request's "model" field with no
+// verified way to also attach a ?variant= query param, so migrating these to
+// base-workspace ids would need either confirming opencode's client can pass
+// extra params, or a small wrapper/wrapper-provider that injects one — until
+// then these resolve correctly via the legacy alias shim and are left as-is
+// (matches deploy/portal-5/docker-compose.lab.yml's Incalmo service, same
+// underlying constraint). pipeline_mcp.py's get_workspace_recommendation()
+// tool returns matching alias ids for the same reason — keep both in sync.
+//
 // Models available: all 90 Portal 5 workspaces (run `opencode models` to list)
 // Default model: portal/auto-coding-agentic  →  Laguna-XS.2 (Poolside AI 33B-A3B MoE, 68.2% SWE-bench Verified).
 // Uncensored lanes (explicit pick): auto-coding-uncensored (one-shot),
