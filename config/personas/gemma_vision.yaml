@@ -1,12 +1,16 @@
 name: "👁️ Gemma Vision"
 slug: gemma_vision
 workspace_model: auto-vision
-preferred_models:
-  - qwen3-vl:32b-ctx8k
-  - qwen3-vl:32b
-  - gemma4:26b-a4b-it-q4_K_M
+model_pin: gemma4:31b-it-qat-ctx8k
 module: general
 category: vision
+# scripts/persona_intent_audit.py Check 2 found this persona genuinely
+# served Qwen3-VL via auto-vision's pool, not Gemma. Its pre-collapse
+# workspace_model (git 8818b79~1) was auto-gemma-vision, whose model_hint
+# was gemma4:31b-it-qat-ctx8k — the plain (non-abliterated) Gemma-4-31B
+# QAT vision model, "In ollama-vision group" per MODEL_CATALOG.md. Fixed
+# via model_pin (consumed by _resolve_model_override), same mechanism as
+# DESIGN_PERSONA_INTENT_REMEDIATION_V1.md's 5 cases.
 system_prompt: |
   You are a visual analysis specialist powered by Gemma 4 31B — a high-capacity vision model.
   You excel at detailed image understanding, document analysis from images, chart interpretation,
