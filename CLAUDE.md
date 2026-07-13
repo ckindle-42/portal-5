@@ -167,7 +167,7 @@ The pipeline does persist operational metrics (request counts, TPS, errors) to `
 
 ### 5 — Personas Live in config/personas/
 
-Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `module`, `workspace_model`, `category`, and either `system_prompt` (inline) or `prompt_template` (a shared body under `portal/modules/eval/persona_matrix/prompts/<name>.txt` — exactly one of the two is required, see BUILD_PROGRAM_COLLAPSE_V1.md Phase 8). Optional `variant` selects a named override on a factored workspace (e.g. `auto-coding` + `variant: laguna`). Optional `model_pin` is an exact `config/backends.yaml` model id that **is consumed** — applied in the handler via `_resolve_model_override` (the same bounded, catalog-checked mechanism the `?model=<hint>` query param uses) — for a persona whose identity is tied to one specific model rather than its workspace's pool primary (see `DESIGN_PERSONA_INTENT_REMEDIATION_V1.md`). Optional `preferred_models` is an ordered model-fallback chain that is **NOT consumed anywhere in the serving path** — advisory metadata only, roadmapped for a future live chain-walk (`P5-FUT-MODEL-CHAINWALK`); do not treat it as selecting the served model, and do not set it alongside `model_pin` on the same persona (the pin is authoritative — two competing model-intent fields is how a persona can silently be served the wrong model, see `scripts/persona_intent_audit.py` Check 2/4). The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog — currently 130 files (`ls config/personas/*.yaml | wc -l`).
+Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `module`, `workspace_model`, `category`, and either `system_prompt` (inline) or `prompt_template` (a shared body under `portal/modules/eval/persona_matrix/prompts/<name>.txt` — exactly one of the two is required, see BUILD_PROGRAM_COLLAPSE_V1.md Phase 8). Optional `variant` selects a named override on a factored workspace (e.g. `auto-coding` + `variant: laguna`). Optional `model_pin` is an exact `config/backends.yaml` model id that **is consumed** — applied in the handler via `_resolve_model_override` (the same bounded, catalog-checked mechanism the `?model=<hint>` query param uses) — for a persona whose identity is tied to one specific model rather than its workspace's pool primary (see `DESIGN_PERSONA_INTENT_REMEDIATION_V1.md`). Optional `preferred_models` is an ordered model-fallback chain that is **NOT consumed anywhere in the serving path** — advisory metadata only, roadmapped for a future live chain-walk (`P5-FUT-MODEL-CHAINWALK`); do not treat it as selecting the served model, and do not set it alongside `model_pin` on the same persona (the pin is authoritative — two competing model-intent fields is how a persona can silently be served the wrong model, see `scripts/persona_intent_audit.py` Check 2/4). The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog — currently 138 files (`ls config/personas/*.yaml | wc -l`).
 
 ### 6 — config/portal.yaml Is the Single Source of Truth for Workspaces and MCP Fleet
 
@@ -270,7 +270,7 @@ python3 scripts/doc_ledger.py stamp <doc>         # or stamp-all after a full pa
 
 Enforcement: `scripts/validate_system.py` check **`AK. doc currency`** fails when any bound source changed since a doc's stamp. `bash scripts/ci_local.sh` will be red until docs are reconciled. The re-runnable remediation is `TASK_DOC_AUDIT_AGENT_V*.md` — the doc-side analogue of the validate/test harness.
 
-**Never hardcode counts/ports/check-letters as prose** (persona counts, workspace counts, port tables, validate check letters). Derive them from an extractor at reconcile time; a hardcoded "130 personas" is drift waiting to happen.
+**Never hardcode counts/ports/check-letters as prose** (persona counts, workspace counts, port tables, validate check letters). Derive them from an extractor at reconcile time; a hardcoded persona count written from memory is drift waiting to happen.
 
 ---
 
@@ -377,7 +377,7 @@ Before adding new tasks or filing issues, check `KNOWN_LIMITATIONS.md` — some 
 | Topic | Location |
 |---|---|
 | Model catalog + memory budgets | `config/backends.yaml` (annotated YAML comments) |
-| Persona catalog (currently 130 — `ls config/personas/*.yaml \| wc -l`) | `config/personas/*.yaml` |
+| Persona catalog (currently 138 — `ls config/personas/*.yaml \| wc -l`) | `config/personas/*.yaml` |
 | Notification system setup | `docs/ALERTS.md` |
 | ComfyUI image/video setup | `docs/COMFYUI_SETUP.md` |
 | Speech pipeline (Kokoro + Qwen3-TTS/ASR) | `docs/HOWTO.md` (§ MLX Speech) |

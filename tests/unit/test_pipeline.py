@@ -1153,7 +1153,12 @@ class TestCodeHygiene:
             claude_md = Path(__file__).parent.parent.parent / "CLAUDE.md"
         content = claude_md.read_text()
 
-        match = re.search(r"(\d+)\s+personas", content)
+        # Match the specific "currently N files" persona-catalog count
+        # assertion, not any incidental "N personas" text elsewhere in the
+        # doc (e.g. an illustrative example in the anti-hardcoding rule) —
+        # a generic "\d+\s+personas" regex previously matched such
+        # incidental text by coincidence rather than the live count claim.
+        match = re.search(r"currently (\d+) files", content)
         assert match, "Could not find persona count in CLAUDE.md"
         doc_count = int(match.group(1))
 
