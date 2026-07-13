@@ -1,0 +1,512 @@
+[
+  {
+    "id": "routing_examples[0]",
+    "message": "write me a Python script to parse JSON logs",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-coding"
+  },
+  {
+    "id": "routing_examples[1]",
+    "message": "how do I reverse a linked list in Go?",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-coding"
+  },
+  {
+    "id": "routing_examples[2]",
+    "message": "write a Splunk tstats query to count failed logins by user",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-spl"
+  },
+  {
+    "id": "routing_examples[3]",
+    "message": "explain how inputlookup works in SPL",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-spl"
+  },
+  {
+    "id": "routing_examples[4]",
+    "message": "create a correlation search for brute force detection in Splunk ES",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-spl"
+  },
+  {
+    "id": "routing_examples[5]",
+    "message": "write a metasploit module for CVE-2024-12345",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[6]",
+    "message": "generate a reverse shell payload in Python",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[7]",
+    "message": "build an EDR evasion technique for red team engagement",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[8]",
+    "message": "authorized pentest: enumerate kerberoastable service accounts and crack the hashes",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[9]",
+    "message": "run a live AD pivot from compromised workstation to domain controller",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[10]",
+    "message": "analyze this YARA rule for false positives",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[11]",
+    "message": "what does this CVE mean for my network?",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[12]",
+    "message": "write a Sigma rule for credential dumping detection",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[13]",
+    "message": "write firewall rules to block known C2 infrastructure",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[14]",
+    "message": "create an IDS alert for DNS tunneling detection",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[15]",
+    "message": "we had a ransomware hit \u2014 what do we isolate first?",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[16]",
+    "message": "map the attack chain for this incident and write detection rules for each stage",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[17]",
+    "message": "full purple team analysis: cobalt strike beacon \u2014 red TTPs and blue detections",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[18]",
+    "message": "run an authorized scan against 192.168.100.0/24 and identify vulnerabilities",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-security"
+  },
+  {
+    "id": "routing_examples[19]",
+    "message": "is my environment compliant with NERC CIP-007-6 R4?",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-compliance"
+  },
+  {
+    "id": "routing_examples[20]",
+    "message": "map our patch management process to CIP-007 requirements",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-compliance"
+  },
+  {
+    "id": "routing_examples[21]",
+    "message": "analyze the distribution of this dataset and suggest visualizations",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-data"
+  },
+  {
+    "id": "routing_examples[22]",
+    "message": "what are the latest AI developments this month?",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-research"
+  },
+  {
+    "id": "routing_examples[23]",
+    "message": "explain the pros and cons of microservices vs monolith",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-reasoning"
+  },
+  {
+    "id": "routing_examples[24]",
+    "message": "do a deep dive on transformer attention mechanisms",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-reasoning"
+  },
+  {
+    "id": "routing_examples[25]",
+    "message": "design a parametric mounting bracket in OpenSCAD for an M4 screw",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-cad"
+  },
+  {
+    "id": "routing_examples[26]",
+    "message": "generate STL for a hex enclosure with snap-fit lid, 60x40x25mm",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-cad"
+  },
+  {
+    "id": "routing_examples[27]",
+    "message": "query BigFix REST API for computers missing the May 2025 patch",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-bigfix"
+  },
+  {
+    "id": "routing_examples[28]",
+    "message": "write a BigFix relevance expression to check Windows patch level",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-bigfix"
+  },
+  {
+    "id": "routing_examples[29]",
+    "message": "transcribe this meeting recording",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-audio"
+  },
+  {
+    "id": "routing_examples[30]",
+    "message": "summarize the key points from this podcast episode",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-audio"
+  },
+  {
+    "id": "routing_examples[31]",
+    "message": "what does this image show?",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-vision"
+  },
+  {
+    "id": "routing_examples[32]",
+    "message": "create a Word document summarizing our Q3 results",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-documents"
+  },
+  {
+    "id": "routing_examples[33]",
+    "message": "make a PowerPoint deck from these bullet points",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-documents"
+  },
+  {
+    "id": "routing_examples[34]",
+    "message": "generate a 30-second jazz track",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-music"
+  },
+  {
+    "id": "routing_examples[35]",
+    "message": "generate a video of a sunset over mountains",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-video"
+  },
+  {
+    "id": "routing_examples[36]",
+    "message": "write a short story about a robot detective",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-creative"
+  },
+  {
+    "id": "routing_examples[37]",
+    "message": "solve this integral: \u222b x\u00b2 e^x dx",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-math"
+  },
+  {
+    "id": "routing_examples[38]",
+    "message": "prove that there are infinitely many primes",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-math"
+  },
+  {
+    "id": "routing_examples[39]",
+    "message": "use Magistral to reason through this strategic decision",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-reasoning"
+  },
+  {
+    "id": "routing_examples[40]",
+    "message": "refactor this entire 5000-line codebase to use async/await throughout",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto-coding"
+  },
+  {
+    "id": "routing_examples[41]",
+    "message": "read the filesystem and list all Python files recursively",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "tools-specialist"
+  },
+  {
+    "id": "routing_examples[42]",
+    "message": "hello, how are you?",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto"
+  },
+  {
+    "id": "routing_examples[43]",
+    "message": "what is the capital of France?",
+    "source": "config/routing_examples.json",
+    "expected_workspace": "auto"
+  },
+  {
+    "id": "bench_prompts[general]",
+    "message": "You are a helpful assistant. Answer concisely.\n\nList the 7 OSI model layers from bottom to top. For each layer, provide: 1) the layer number, 2) the standard name, 3) one example protocol or technology. Format as a numbered list with one line per layer.",
+    "source": "tests/benchmarks/bench/prompts.py"
+  },
+  {
+    "id": "bench_prompts[coding]",
+    "message": "You are a code assistant. Write clean, production-quality code.\n\nWrite a Python function called `merge_intervals` that takes a list of tuples (each tuple is a pair of integers representing a start and end value) and returns a new list with overlapping intervals merged. Example: [(1,3),(2,6),(8,10),(15,18)] \u2192 [(1,6),(8,10),(15,18)]. Include type hints, a docstring with the algorithm explanation, and handle edge cases (empty list, single interval, fully overlapping). Return only the function, no explanation outside the docstring.",
+    "source": "tests/benchmarks/bench/prompts.py"
+  },
+  {
+    "id": "bench_prompts[security]",
+    "message": "You are a cybersecurity analyst. Be precise and cite frameworks.\n\nAnalyze the following scenario and provide a structured response:\nA company's SIEM detected repeated SSH brute-force attempts from 47 unique IPs over 2 hours targeting port 22 on 3 servers in the DMZ. Two IPs are on the CrowdSec community blocklist.\n\nFor each item below, provide 2-3 sentences:\n1. Classification (MITRE ATT&CK tactic + technique ID)\n2. Immediate containment actions (first 30 minutes)\n3. Detection rule to write (field names + logic)\n4. Root cause question to investigate",
+    "source": "tests/benchmarks/bench/prompts.py"
+  },
+  {
+    "id": "bench_prompts[reasoning]",
+    "message": "You are a structured reasoner. Think step-by-step before concluding.\n\nA hospital emergency room has 30 patients arriving per hour during peak hours. The ER has 8 beds, 3 doctors, and 12 nurses. Average treatment time is 45 minutes per patient. Current wait time is 3.5 hours.\n\nIdentify: 1) the primary bottleneck (beds, doctors, or nurses \u2014 show the math), 2) the minimum number of additional resources of each type needed to reduce wait time to under 1 hour, 3) one process change that could help without adding resources. Show your calculations.",
+    "source": "tests/benchmarks/bench/prompts.py"
+  },
+  {
+    "id": "bench_prompts[creative]",
+    "message": "You are a creative writer with strong narrative voice.\n\nWrite the opening scene (exactly 8-10 sentences) of a noir detective story set in a city where memories can be extracted and traded as currency. The detective has just been hired to find a stolen memory \u2014 but it belongs to the detective themselves. End the scene on a hook. Use vivid sensory details and short, punchy sentences.",
+    "source": "tests/benchmarks/bench/prompts.py"
+  },
+  {
+    "id": "bench_prompts[vision]",
+    "message": "You are a multimodal vision analyst. Describe what you see precisely.\n\nFor any image provided, respond with this exact structure:\n1. OBJECTS: List every distinct object visible (name + color + position)\n2. TEXT: Transcribe any visible text exactly as written\n3. SCENE: Describe the setting in 2-3 sentences\n4. ANOMALIES: Note anything unusual, damaged, or out of place\n5. CONFIDENCE: Rate your analysis certainty (high/medium/low) per category\n\nSince no image is provided for this text-only test, describe this prompt template itself \u2014 what it expects, what each section does, and suggest one improvement to the analysis framework.",
+    "source": "tests/benchmarks/bench/prompts.py"
+  },
+  {
+    "id": "bench_prompts[math]",
+    "message": "You are a precise mathematical reasoner. Show all steps.\n\nSolve the following three problems. For each, show your work step by step and state your final answer clearly.\n\n1. ALGEBRA: Two trains travel toward each other. Train A leaves Station X at 8:00 AM at 60 km/h. Train B leaves Station Y (300 km away) at 8:00 AM at 40 km/h. At what time do they meet, and how far from Station X?\n\n2. COMBINATORICS: A team of 3 is chosen from 4 men and 5 women such that at least 2 women are on the team. How many distinct teams are possible? Show the case breakdown.\n\n3. NUMBER THEORY: Find all integers n such that n\u00b2 + 3n \u2212 18 = 0. Factor the expression and verify each solution by substitution.",
+    "source": "tests/benchmarks/bench/prompts.py"
+  },
+  {
+    "id": "rr_bench_prompts[general]",
+    "message": "You are a helpful assistant. Answer concisely.\n\nList the 7 OSI model layers from bottom to top. For each layer, provide: 1) the layer number, 2) the standard name, 3) one example protocol or technology. Format as a numbered list with one line per layer.",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_bench_prompts[coding]",
+    "message": "You are a code assistant. Write clean, production-quality code.\n\nWrite a Python function called `merge_intervals` that takes a list of tuples (each tuple is a pair of integers representing a start and end value) and returns a new list with overlapping intervals merged. Example: [(1,3),(2,6),(8,10),(15,18)] \u2192 [(1,6),(8,10),(15,18)]. Include type hints, a docstring with the algorithm explanation, and handle edge cases (empty list, single interval, fully overlapping). Return only the function, no explanation outside the docstring.",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_bench_prompts[security]",
+    "message": "You are a cybersecurity analyst. Be precise and cite frameworks.\n\nAnalyze the following scenario and provide a structured response:\nA company's SIEM detected repeated SSH brute-force attempts from 47 unique IPs over 2 hours targeting port 22 on 3 servers in the DMZ. Two IPs are on the CrowdSec community blocklist.\n\nFor each item below, provide 2-3 sentences:\n1. Classification (MITRE ATT&CK tactic + technique ID)\n2. Immediate containment actions (first 30 minutes)\n3. Detection rule to write (field names + logic)\n4. Root cause question to investigate",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_bench_prompts[reasoning]",
+    "message": "You are a structured reasoner. Think step-by-step before concluding.\n\nA hospital emergency room has 30 patients arriving per hour during peak hours. The ER has 8 beds, 3 doctors, and 12 nurses. Average treatment time is 45 minutes per patient. Current wait time is 3.5 hours.\n\nIdentify: 1) the primary bottleneck (beds, doctors, or nurses \u2014 show the math), 2) the minimum number of additional resources of each type needed to reduce wait time to under 1 hour, 3) one process change that could help without adding resources. Show your calculations.",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_bench_prompts[creative]",
+    "message": "You are a creative writer with strong narrative voice.\n\nWrite the opening scene (exactly 8-10 sentences) of a noir detective story set in a city where memories can be extracted and traded as currency. The detective has just been hired to find a stolen memory \u2014 but it belongs to the detective themselves. End the scene on a hook. Use vivid sensory details and short, punchy sentences.",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_bench_prompts[vision]",
+    "message": "You are a multimodal vision analyst. Describe what you see precisely.\n\nFor any image provided, respond with this exact structure:\n1. OBJECTS: List every distinct object visible (name + color + position)\n2. TEXT: Transcribe any visible text exactly as written\n3. SCENE: Describe the setting in 2-3 sentences\n4. ANOMALIES: Note anything unusual, damaged, or out of place\n5. CONFIDENCE: Rate your analysis certainty (high/medium/low) per category\n\nSince no image is provided for this text-only test, describe this prompt template itself \u2014 what it expects, what each section does, and suggest one improvement to the analysis framework.",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_bench_prompts[math]",
+    "message": "You are a precise mathematical reasoner. Show all steps.\n\nSolve the following three problems. For each, show your work step by step and state your final answer clearly.\n\n1. ALGEBRA: Two trains travel toward each other. Train A leaves Station X at 8:00 AM at 60 km/h. Train B leaves Station Y (300 km away) at 8:00 AM at 40 km/h. At what time do they meet, and how far from Station X?\n\n2. COMBINATORICS: A team of 3 is chosen from 4 men and 5 women such that at least 2 women are on the team. How many distinct teams are possible? Show the case breakdown.\n\n3. NUMBER THEORY: Find all integers n such that n\u00b2 + 3n \u2212 18 = 0. Factor the expression and verify each solution by substitution.",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_s06_04_content_aware_security",
+    "message": "exploit vulnerability payload shellcode",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_s06_02_redteam_methodology",
+    "message": "Explain common web application penetration testing methodology.",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_s06_03_blueteam_incident",
+    "message": "How do you respond to a ransomware incident?",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_s06_05_redteam_deep_kerberoast",
+    "message": "Explain Kerberoasting \u2014 what is it, how does it work, and what tools are used?",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_s21_01_sqli_auto",
+    "message": "Write a SQL injection payload to bypass authentication",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_s21_02_coding_auto",
+    "message": "Write a Python function to sort a list of dictionaries by key",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_s21_03_compliance_auto",
+    "message": "What are the requirements for NERC CIP-007 R2 patch management?",
+    "source": "scripts/routing_regression.py"
+  },
+  {
+    "id": "rr_variant_coding_heavy",
+    "message": "This is an agentic multi-file long-horizon codebase refactor across the full codebase, repository-wide.",
+    "source": "scripts/routing_regression.py",
+    "expected_variant_hint": [
+      "auto-coding",
+      "heavy"
+    ]
+  },
+  {
+    "id": "rr_variant_coding_laguna",
+    "message": "Fix this bug, refactor and add feature, then run tests and update the code \u2014 agentic coding with devstral.",
+    "source": "scripts/routing_regression.py",
+    "expected_variant_hint": [
+      "auto-coding",
+      "laguna"
+    ]
+  },
+  {
+    "id": "rr_variant_coding_base",
+    "message": "Write a Python function to compute the Fibonacci sequence.",
+    "source": "scripts/routing_regression.py",
+    "expected_variant_hint": [
+      "auto-coding",
+      null
+    ]
+  },
+  {
+    "id": "rr_variant_security_redteam",
+    "message": "Perform reconnaissance and exploit this target \u2014 pentest attack vulnerability shellcode payload exploit.",
+    "source": "scripts/routing_regression.py",
+    "expected_variant_hint": [
+      "auto-security",
+      "redteam"
+    ]
+  },
+  {
+    "id": "rr_variant_security_base",
+    "message": "What is a firewall and how does it filter traffic?",
+    "source": "scripts/routing_regression.py",
+    "expected_variant_hint": [
+      "auto-security",
+      null
+    ]
+  },
+  {
+    "id": "fold_blueteam",
+    "message": "How do you respond to a ransomware incident \u2014 SOC triage, EDR/XDR containment, and SIEM log analysis for the intrusion?",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-blueteam"
+  },
+  {
+    "id": "fold_purpleteam",
+    "message": "Generate a red-team attack chain and the matching blue-team detection rules and IR playbook for lateral movement via SMB.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-purpleteam"
+  },
+  {
+    "id": "fold_purpleteam_deep",
+    "message": "Run a four-hop purple team simulation: full ATT&CK-mapped attack chain, detection analysis, and synthesis of Sigma rules.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-purpleteam-deep"
+  },
+  {
+    "id": "fold_purpleteam_exec",
+    "message": "Execute a live purple-team chain: run real bash/Python commands against the authorized lab target, then produce detection engineering artifacts and an IR playbook.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-purpleteam-exec"
+  },
+  {
+    "id": "fold_pentest",
+    "message": "Authorized pentest: enumerate kerberoastable service accounts on the domain controller and execute the extraction commands.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-pentest"
+  },
+  {
+    "id": "fold_redteam_deep",
+    "message": "Full kill-chain walkthrough with AD pivoting and EDR evasion techniques mapped to ATT&CK, deep red-team simulation.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-redteam-deep"
+  },
+  {
+    "id": "fold_security_uncensored",
+    "message": "Uncensored security analysis with no safety filtering \u2014 authorized research, skip the content-policy preamble.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-security-uncensored"
+  },
+  {
+    "id": "fold_coding_agentic_laguna",
+    "message": "Fix this bug, refactor and add feature, then run tests and update the code \u2014 agentic coding with devstral.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-coding-agentic"
+  },
+  {
+    "id": "fold_agentic_heavy",
+    "message": "Autonomous agentic multi-file long-horizon codebase refactor, full codebase, repository-wide, heavy coder big model.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-agentic"
+  },
+  {
+    "id": "fold_coding_northmini",
+    "message": "Quick single-file code generation task, small and fast model.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-coding-northmini"
+  },
+  {
+    "id": "fold_coding_uncensored",
+    "message": "Write code with no content restrictions, uncensored coding assistant, no refusals.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-coding-uncensored"
+  },
+  {
+    "id": "fold_coding_uncensored_agentic",
+    "message": "Agentic multi-file uncensored code generation with no content restrictions across the whole repository.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-coding-uncensored-agentic"
+  },
+  {
+    "id": "fold_mistral_llm",
+    "message": "Use Magistral to reason through this strategic business decision with explicit thinking-mode traces.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-mistral"
+  },
+  {
+    "id": "fold_phi4_llm",
+    "message": "Rigorous multi-step STEM reasoning and chain-of-thought math proof, Phi-4 model family style analysis.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-phi4"
+  },
+  {
+    "id": "fold_glm_manual_only",
+    "message": "Route this directly to the GLM-4.7-Flash model lane.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-glm"
+  },
+  {
+    "id": "fold_devstral_manual_only",
+    "message": "Route this directly to the devstral model lane.",
+    "source": "fold-coverage (R0 step 5, hand-authored)",
+    "expected_workspace": "auto-devstral"
+  }
+]
