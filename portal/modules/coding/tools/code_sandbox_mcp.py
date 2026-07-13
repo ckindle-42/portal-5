@@ -122,8 +122,8 @@ SANDBOX_NET_CPUS = os.getenv("SANDBOX_NET_CPUS", "1.0")
 SANDBOX_NET_TIMEOUT_MAX = int(os.getenv("SANDBOX_NET_TIMEOUT_MAX", "300"))
 
 # Lab-exec lane (DEFAULT OFF — production/probe posture unchanged).
-# Set SANDBOX_LAB_EXEC=true ONLY when the *-exec security workspaces
-# (auto-purpleteam-exec, auto-pentest) should run live enumeration/PoC against a
+# Set SANDBOX_LAB_EXEC=true ONLY when the *-exec security workspace variants
+# (auto-security purpleteam-exec / pentest) should run live enumeration/PoC against a
 # routable remote lab (the Incalmo/Talon GOAD lab on a separate machine). When
 # enabled this is a SUPERSET of SANDBOX_ALLOW_NETWORK: containers get bridge
 # networking (outbound routable to the lab machine), the attack image replaces

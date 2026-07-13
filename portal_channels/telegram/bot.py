@@ -48,9 +48,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Send any message to chat.\n"
         "Commands:\n"
         "/workspace [name] — switch workspace\n"
-        "  Available: auto, auto-coding, auto-security, auto-redteam,\n"
-        "             auto-blueteam, auto-reasoning, auto-creative,\n"
-        "             auto-research, auto-vision, auto-data\n"
+        "  Available: auto, auto-coding, auto-security, auto-reasoning,\n"
+        "             auto-creative, auto-research, auto-vision, auto-data\n"
+        "  (redteam/blueteam are auto-security variants, not selectable via\n"
+        "  /workspace yet — see /workspaces for the full canonical list)\n"
         "/clear — clear conversation history\n"
         "/workspaces — list all available workspaces"
     )

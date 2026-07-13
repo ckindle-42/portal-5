@@ -156,6 +156,7 @@ async def call_pipeline_async(
     text: str,
     workspace: str,
     history: list[dict] | None = None,
+    variant: str | None = None,
 ) -> str:
     """Call the Portal Pipeline asynchronously with retry on transient errors.
 
@@ -166,6 +167,7 @@ async def call_pipeline_async(
     messages = list(history or [])
     messages.append({"role": "user", "content": text})
     payload = _build_payload(messages, workspace)
+    params = {"variant": variant} if variant else None
 
     last_exc: Exception | None = None
     for attempt in range(PIPELINE_RETRIES):
@@ -174,6 +176,7 @@ async def call_pipeline_async(
                 resp = await client.post(
                     f"{PIPELINE_URL}/v1/chat/completions",
                     json=payload,
+                    params=params,
                     headers=_auth_headers(),
                 )
                 if resp.status_code >= 500 and attempt < PIPELINE_RETRIES - 1:
@@ -208,13 +211,14 @@ async def call_pipeline_async(
     raise last_exc or RuntimeError("Pipeline call failed after all retries")
 
 
-def call_pipeline_sync(text: str, workspace: str) -> str:
+def call_pipeline_sync(text: str, workspace: str, variant: str | None = None) -> str:
     """Call the Portal Pipeline synchronously with retry on transient errors.
 
     Used by Slack bolt handlers which run in a thread pool.
     """
     messages = [{"role": "user", "content": text}]
     payload = _build_payload(messages, workspace)
+    params = {"variant": variant} if variant else None
 
     last_exc: Exception | None = None
     for attempt in range(PIPELINE_RETRIES):
@@ -223,6 +227,7 @@ def call_pipeline_sync(text: str, workspace: str) -> str:
                 resp = client.post(
                     f"{PIPELINE_URL}/v1/chat/completions",
                     json=payload,
+                    params=params,
                     headers=_auth_headers(),
                 )
                 if resp.status_code >= 500 and attempt < PIPELINE_RETRIES - 1:

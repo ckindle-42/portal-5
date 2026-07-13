@@ -12,10 +12,12 @@
 #   kali01 192.168.56.10  Kali Linux          — Attack pivot (optional)
 #
 # Incalmo orchestrates red-team operations; its LLM brain routes to the
-# Portal pipeline at host.docker.internal:9099 (auto-redteam workspace).
+# Portal pipeline at host.docker.internal:9099 (auto-security, redteam
+# variant — via the legacy alias shim; see the KNOWN LIMITATION note on the
+# incalmo service below for why it isn't on canonical ?variant= addressing yet).
 #
 # Talon polls OpenSearch/Wazuh for security alerts and triages them via
-# the portal pipeline (auto-blueteam workspace).
+# the portal pipeline (auto-security, blueteam variant).
 #
 # Required .env keys (see .env.example for full list):
 #   PIPELINE_API_KEY          — already set by ./launch.sh up
@@ -45,6 +47,15 @@ services:
       # LLM backend — Portal 5 pipeline
       - OPENAI_API_BASE=http://host.docker.internal:${PIPELINE_PORT:-9099}/v1
       - OPENAI_API_KEY=${PIPELINE_API_KEY}
+      # KNOWN LIMITATION (alias-retirement, unlike blue-triage below): Incalmo is a
+      # third-party OpenAI-compatible client (not vendored in this repo) — its
+      # OPENAI_MODEL value is sent verbatim as the request body's "model" field
+      # with no verified way to also attach a ?variant= query param, so it cannot
+      # be safely moved to auto-security (role=red) without risking a silent
+      # downgrade to the non-permissive base security posture. Left resolving via
+      # the legacy alias shim (auto-redteam -> auto-security, redteam variant)
+      # until Incalmo's client is confirmed to support a variant param, or this
+      # container is reconfigured to call a small wrapper that injects one.
       - OPENAI_MODEL=${LAB_REDTEAM_WORKSPACE:-auto-redteam}
       # Purple team: set to auto-purpleteam for chained red+blue analysis
       # - OPENAI_MODEL=auto-purpleteam
@@ -65,8 +76,10 @@ services:
       - "host.docker.internal:host-gateway"
 
   # ── Blue-Triage — Autonomous SIEM Alert Triage (replaces Talon) ───────────
-  # Polls Splunk for alerts, enriches via auto-blueteam workspace, produces
-  # P1-P4 reports to local store.  No CoPilot coupling.
+  # Polls Splunk for alerts, enriches via auto-security (blueteam variant),
+  # produces P1-P4 reports to local store.  No CoPilot coupling. blue_triage.py
+  # passes the variant as a ?variant= query param on the pipeline call, so this
+  # one carries the role/variant explicitly (unlike Incalmo above).
   # Splunk itself runs on Proxmox LXC 301 (10.0.1.30) — not in Docker.
   blue-triage:
     build:
@@ -78,7 +91,8 @@ services:
     environment:
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}
       - PIPELINE_PORT=${PIPELINE_PORT:-9099}
-      - LAB_BLUETEAM_WORKSPACE=${LAB_BLUETEAM_WORKSPACE:-auto-blueteam}
+      - LAB_BLUETEAM_WORKSPACE=${LAB_BLUETEAM_WORKSPACE:-auto-security}
+      - LAB_BLUETEAM_VARIANT=${LAB_BLUETEAM_VARIANT:-blueteam}
       - LAB_SPLUNK_URL=${LAB_SPLUNK_URL:-https://10.0.1.30:8089}
       - LAB_SPLUNK_USER=${LAB_SPLUNK_USER:-admin}
       - LAB_SPLUNK_PASSWORD=${LAB_SPLUNK_PASSWORD:-Portal5Lab1!}
