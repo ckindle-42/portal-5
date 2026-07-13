@@ -241,13 +241,11 @@ hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
 
 ## Quick-Start: All Three Tiers
 
-> Since BUILD_PROGRAM_COLLAPSE_V1.md Phase 6, `auto-redteam`/`auto-redteam-deep`/`auto-blueteam`/
-> `auto-pentest`/`auto-purpleteam-exec` are `auto-security` `?variant=` params on a canonical
-> base workspace, not separate workspaces. The bench CLI below (`portal.modules.security.core`)
-> still takes these pre-collapse ids as its `--workspaces` vocabulary — that reparameterization
-> to canonical `auto-security?variant=<role>` form is tracked as Phase 4 of
-> `BUILD_PROGRAM_ALIAS_RETIRE_V1.md` (bench config), not yet landed — so the commands below use
-> the CLI's current vocabulary and are unaffected by this doc pass.
+> `CLOSEOUT_ALIAS_REMOVAL.md` (Holdout 3, landed): `auto-redteam`/`auto-redteam-deep`/
+> `auto-blueteam`/`auto-pentest`/`auto-purpleteam-exec` are `auto-security` variants on a
+> canonical base workspace, not separate workspaces. The bench CLI's `--workspaces` vocabulary
+> (`portal.modules.security.core`, `DEFAULT_WORKSPACES` in `_data.py`) now takes the canonical
+> `auto-security::<role>` synthetic form directly — the commands below use it.
 
 ### Tier 1 — Theory (prose quality, all workspaces × all prompts)
 
@@ -256,8 +254,8 @@ Runs every prompt against every security workspace with tools disabled. Measures
 ```bash
 python3 -m portal.modules.security.core \
   --workspaces \
-    auto-security auto-redteam auto-redteam-deep auto-pentest \
-    auto-blueteam auto-purpleteam-exec \
+    auto-security auto-security::redteam auto-security::redteam-deep auto-security::pentest \
+    auto-security::blueteam auto-security::purpleteam-exec \
   2>&1 | tee /tmp/secbench_theory.log
 ```
 
@@ -267,7 +265,7 @@ Same prompts but with tools enabled on execution-capable workspaces. Scores tool
 
 ```bash
 python3 -m portal.modules.security.core \
-  --workspaces auto-pentest auto-purpleteam-exec \
+  --workspaces auto-security::pentest auto-security::purpleteam-exec \
   --exec-eval \
   2>&1 | tee /tmp/secbench_exec.log
 ```
@@ -335,12 +333,12 @@ Target coverage of the Tier 3 command:
 ```bash
 # Tier 1: Theory (fast, no lab needed)
 python3 -m portal.modules.security.core \
-  --workspaces auto-security auto-redteam auto-redteam-deep auto-pentest auto-blueteam auto-purpleteam-exec \
+  --workspaces auto-security auto-security::redteam auto-security::redteam-deep auto-security::pentest auto-security::blueteam auto-security::purpleteam-exec \
   2>&1 | tee /tmp/secbench_theory.log
 
 # Tier 2: Execution (tool-call scoring, no lab dispatch)
 python3 -m portal.modules.security.core \
-  --workspaces auto-pentest auto-purpleteam-exec --exec-eval \
+  --workspaces auto-security::pentest auto-security::purpleteam-exec --exec-eval \
   2>&1 | tee /tmp/secbench_exec.log
 
 # Tier 3: Lab-Exec (real dispatch, all targets, snapshot lifecycle)
