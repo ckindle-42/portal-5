@@ -268,7 +268,7 @@ python3 scripts/doc_ledger.py status              # what drifted
 python3 scripts/doc_ledger.py stamp <doc>         # or stamp-all after a full pass
 ```
 
-Enforcement: `scripts/validate_system.py` check **`AL. doc currency`** fails when any bound source changed since a doc's stamp. `bash scripts/ci_local.sh` will be red until docs are reconciled. The re-runnable remediation is `TASK_DOC_AUDIT_AGENT_V*.md` — the doc-side analogue of the validate/test harness.
+Enforcement: `scripts/validate_system.py` check **`AK. doc currency`** fails when any bound source changed since a doc's stamp. `bash scripts/ci_local.sh` will be red until docs are reconciled. The re-runnable remediation is `TASK_DOC_AUDIT_AGENT_V*.md` — the doc-side analogue of the validate/test harness.
 
 **Never hardcode counts/ports/check-letters as prose** (persona counts, workspace counts, port tables, validate check letters). Derive them from an extractor at reconcile time; a hardcoded "130 personas" is drift waiting to happen.
 
@@ -398,7 +398,7 @@ The project has a self-maintaining knowledge backbone (`portal_wiki/`) that agen
 **For operators:** `portal_wiki/canonical/` contains the source-of-truth knowledge units (markdown + frontmatter). Edit the canonical unit, not rendered views. Views are generated to `docs/generated/` and marked `<!-- GENERATED -->`.
 
 **What lives where:**
-- `portal/platform/wiki/` — engine: schema, store, maintenance, rendering (top-level files are stack-agnostic, zero Portal imports — this is the extraction-guarantee boundary CI enforces via `AK. wiki core backbone`)
+- `portal/platform/wiki/` — engine: schema, store, maintenance, rendering (top-level files are stack-agnostic, zero Portal imports — this is the extraction-guarantee boundary CI enforces via `AJ. wiki core backbone`)
 - `portal/platform/wiki/adapters/` — Portal-specific wiring (Ollama inference, git source, security/intent/code seeders, module toggle resolver)
 - `portal_wiki/canonical/` — the knowledge units themselves (git-versioned markdown, still at the repo-root data path — never moved)
 - `portal_wiki/mcp.py` — agent-facing tools (search, get_unit, explain)

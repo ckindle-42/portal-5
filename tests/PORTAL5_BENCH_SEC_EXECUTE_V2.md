@@ -298,7 +298,7 @@ command visibly fails rather than silently mis-targeting.
 **Governing rule, enforced by test + validator:** `DISPATCH_NOT_RUN`, empty evidence, and any
 dry-run/halted transcript always score `indeterminate` — never `verified`. No code path emits
 `verified` without real host output. See `tests/unit/test_live_exec.py` and validator check
-`AA. live exec integrity` in `scripts/validate_system.py`.
+`Z. live exec integrity` in `scripts/validate_system.py`.
 
 ### Full re-run required
 
