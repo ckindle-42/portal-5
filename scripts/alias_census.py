@@ -81,7 +81,14 @@ def _tracked_files() -> list[str]:
     return [
         line
         for line in out.stdout.splitlines()
-        if line and not line.startswith(".claude/worktrees/")
+        if line
+        and not line.startswith(".claude/worktrees/")
+        # Self-referential: the ratchet baseline's own JSON keys are alias-
+        # laden filenames (e.g. "...-auto-blueteam.md"), which would
+        # otherwise register as false-positive "live" alias refs in itself
+        # every time it's regenerated — same exclusion pattern as
+        # doc_ledger.py never listing itself as a bound source.
+        and line != "config/.alias_retire_baseline.json"
     ]
 
 

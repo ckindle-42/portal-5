@@ -2725,6 +2725,7 @@ def main() -> int:
     v.run("AQ. mcp module tag", check_mcp_module_tag)
     v.run("AR. persona module tag", check_persona_module_tag)
     v.run("AS. persona prompt uniqueness", check_persona_prompt_uniqueness)
+    v.run("AT. alias ratchet", check_alias_ratchet)
 
     return v.summary()
 
@@ -2889,6 +2890,59 @@ def check_persona_prompt_uniqueness() -> tuple[str, str, list[dict]]:
             [],
         )
     return ("PASS", "no duplicate persona prompts", [])
+
+
+def check_alias_ratchet() -> tuple[str, str, list[dict]]:
+    """AT. Legacy workspace-alias references never grow beyond the Phase 8 baseline.
+
+    BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 8: the shim
+    (`_LEGACY_WORKSPACE_ALIASES` in preinject.py) could not be fully removed —
+    3 documented holdouts still depend on it (Incalmo's config, opencode.jsonc
+    + pipeline_mcp.py's recommendation defaults, and the security bench
+    harness's own workspace vocabulary; see
+    docs/_archive_execdocs/PHASE6_TRIP_FINDINGS_20260713.md). Rather than a
+    "zero alias refs" assertion that isn't true, this is a ratchet: it fails
+    only if a file's live alias-reference count grows past what
+    config/.alias_retire_baseline.json recorded when Phase 8 landed, or a new
+    file with alias refs appears that isn't in the baseline. Shrinking the
+    count (more migration work) always passes — this only blocks regression,
+    it doesn't require a state that was already declared unsafe to reach in
+    one pass.
+    """
+    import json
+
+    baseline_path = REPO_ROOT / "config" / ".alias_retire_baseline.json"
+    if not baseline_path.exists():
+        return ("FAIL", "config/.alias_retire_baseline.json missing", [])
+    baseline = json.loads(baseline_path.read_text())["by_file"]
+
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    from alias_census import run_census
+
+    current = run_census()["by_file"]
+    current_totals = {f: sum(counts.values()) for f, counts in current.items()}
+
+    regressions = []
+    for f, count in current_totals.items():
+        base = baseline.get(f, 0)
+        if count > base:
+            regressions.append(f"{f}: {count} (baseline {base})")
+
+    if regressions:
+        return (
+            "FAIL",
+            f"{len(regressions)} file(s) grew past their alias-ratchet baseline: "
+            f"{regressions[:5]}{'...' if len(regressions) > 5 else ''}",
+            [],
+        )
+    total_now = sum(current_totals.values())
+    total_baseline = sum(baseline.values())
+    return (
+        "PASS",
+        f"{total_now} live alias refs (baseline {total_baseline}, "
+        f"{'no change' if total_now == total_baseline else 'reduced'})",
+        [],
+    )
 
 
 if __name__ == "__main__":
