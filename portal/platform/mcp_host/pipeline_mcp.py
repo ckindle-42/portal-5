@@ -417,13 +417,10 @@ async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
 
     Returns the recommended workspace ID and model, with reasoning.
 
-    KNOWN LIMITATION (alias-retirement Phase 5): several `workspace`/
-    `pipeline_model_id` values below are pre-collapse alias ids
-    (auto-coding-agentic, auto-agentic, auto-purpleteam-exec, auto-blueteam).
-    These are returned deliberately, matching opencode.jsonc's model picker
-    (see its header comment) — the caller pastes this value straight into
-    `model=`, and opencode.jsonc still keys by alias id for the same
-    unverified-query-param-support reason. Migrate both together.
+    CLOSEOUT_ALIAS_REMOVAL.md Step 3d: `workspace`/`pipeline_model_id`
+    values below are persona slugs (or bare base workspace ids) matching
+    opencode.jsonc's re-keyed model picker (see its header comment) — the
+    caller pastes this value straight into `model=`.
     """
     task_lower = task.lower()
 
@@ -439,8 +436,8 @@ async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
                 "update code",
                 "feature",
             ],
-            "auto-coding-agentic",
-            "Devstral 24B — agentic loop (read→edit→verify)",
+            "codingagentic",
+            "Laguna-XS.2 33B — agentic loop (read→edit→verify)",
         ),
         (
             ["generate code", "write a function", "implement", "one-shot", "snippet"],
@@ -449,12 +446,12 @@ async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
         ),
         (
             ["heavy", "codebase", "multi-file", "long-horizon", "swe-agent"],
-            "auto-agentic",
+            "agenticheavy",
             "Qwen3-Coder-Next 80B — full SWE-agent stack",
         ),
         (
             ["pentest", "kerberoast", "impacket", "nmap", "exploit", "attack chain"],
-            "auto-purpleteam-exec",
+            "purpleteamexec",
             "SuperGemma4 26B — live execution, calls execute_bash",
         ),
         (
@@ -464,7 +461,7 @@ async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
         ),
         (
             ["detect", "sigma", "siem", "blue team", "incident response"],
-            "auto-blueteam",
+            "blueteamdefender",
             "Foundation-Sec 8B — detection & IR",
         ),
         (
@@ -494,10 +491,10 @@ async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
             }
 
     return {
-        "workspace": "auto-coding-agentic",
-        "model": "Devstral 24B (default for portal-5 maintenance)",
+        "workspace": "codingagentic",
+        "model": "Laguna-XS.2 33B (default for portal-5 maintenance)",
         "reason": "no specific keyword match — defaulting to agentic coding workspace",
-        "pipeline_model_id": "auto-coding-agentic",
+        "pipeline_model_id": "codingagentic",
     }
 
 
