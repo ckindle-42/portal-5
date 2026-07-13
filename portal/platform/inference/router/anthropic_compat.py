@@ -10,7 +10,7 @@ Set in the environment before launching Claude Code::
 
     export ANTHROPIC_BASE_URL=http://localhost:9099
     export ANTHROPIC_API_KEY=$PIPELINE_API_KEY
-    claude --model auto-agentic
+    claude --model agenticheavy
 
 Or use the wrapper script::
 

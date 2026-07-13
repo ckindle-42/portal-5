@@ -2,16 +2,12 @@
 """Routing-regression harness — the §9 safety gate for alias retirement.
 
 Runs a fixed corpus of prompts through the auto-routing resolution path and
-records the **resolved (base_id, variant) tuple** for each — resolving any
-alias id through whatever alias-resolution mechanism is currently live, so
-the comparison is on the *decision*, not the *vocabulary*. Before the router
-canonicalization (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 7), the keyword
-scorer may still emit a pre-collapse alias id (e.g. "auto-redteam"), which
-this script resolves via ``_resolve_legacy_workspace_alias``. After Phase 7,
-the scorer emits canonical ids directly (optionally as a synthetic
-``"<base>::<variant>"`` key) — this script's ``_resolve()`` handles both
-shapes transparently, so the same script is the before/after gate without
-modification.
+records the **resolved (base_id, variant) tuple** for each. Both routing
+layers emit the canonical base id (optionally as a synthetic
+``"<base>::<variant>"`` key) directly — Phase 7 canonicalization, and the
+legacy alias shim that used to translate pre-collapse bare ids was removed
+entirely once every live caller was proven migrated (CLOSEOUT_ALIAS_REMOVAL.md).
+This script's ``_resolve()`` just unpacks the ``::`` form.
 
 Corpus sources (per DESIGN_ROUTER_CANONICALIZATION_V1.md §6):
 - config/routing_examples.json (the router's own few-shot examples)
@@ -50,37 +46,18 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 
-def _load_alias_resolver():
-    """Best-effort import of the legacy alias resolver — absent post-Phase-8."""
-    try:
-        from portal.platform.inference.router.preinject import (
-            _resolve_legacy_workspace_alias,
-        )
-
-        return _resolve_legacy_workspace_alias
-    except ImportError:
-        return None
-
-
 def _resolve(raw: str | None) -> tuple[str | None, str | None]:
     """Normalize a raw router-layer output into (base_id, variant).
 
-    Handles three possible output shapes across the retirement's lifecycle:
-    1. ``None`` — no workspace detected.
-    2. A synthetic ``"<base>::<variant>"`` key (post-Phase-7 direct emission).
-    3. A bare id — resolved through the legacy alias shim if it's still
-       importable (pre-Phase-8); otherwise returned unchanged as the base
-       with no variant (post-shim-removal, scorer already canonical).
+    ``None`` -> no workspace detected. A synthetic ``"<base>::<variant>"``
+    key -> unpacked. Anything else -> returned unchanged as the base with no
+    variant (the scorer never emits a bare pre-collapse alias post-Phase-7).
     """
     if raw is None:
         return None, None
-    if "::" in raw:
-        base, variant = raw.split("::", 1)
-        return base, variant
-    resolver = _load_alias_resolver()
-    if resolver is not None:
-        return resolver(raw)
-    return raw, None
+    from portal.platform.inference.router.preinject import _unpack_synthetic_workspace
+
+    return _unpack_synthetic_workspace(raw)
 
 
 def _build_corpus() -> list[dict]:

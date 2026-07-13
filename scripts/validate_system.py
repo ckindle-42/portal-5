@@ -2895,54 +2895,48 @@ def check_persona_prompt_uniqueness() -> tuple[str, str, list[dict]]:
 
 
 def check_alias_ratchet() -> tuple[str, str, list[dict]]:
-    """AT. Legacy workspace-alias references never grow beyond the Phase 8 baseline.
+    """AT. Zero live-code references to a retired pre-collapse workspace alias.
 
-    BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 8: the shim
-    (`_LEGACY_WORKSPACE_ALIASES` in preinject.py) could not be fully removed —
-    3 documented holdouts still depend on it (Incalmo's config, opencode.jsonc
-    + pipeline_mcp.py's recommendation defaults, and the security bench
-    harness's own workspace vocabulary; see
-    docs/_archive_execdocs/PHASE6_TRIP_FINDINGS_20260713.md). Rather than a
-    "zero alias refs" assertion that isn't true, this is a ratchet: it fails
-    only if a file's live alias-reference count grows past what
-    config/.alias_retire_baseline.json recorded when Phase 8 landed, or a new
-    file with alias refs appears that isn't in the baseline. Shrinking the
-    count (more migration work) always passes — this only blocks regression,
-    it doesn't require a state that was already declared unsafe to reach in
-    one pass.
+    BUILD_PROGRAM_ALIAS_FINISH_V1.md Phase 6: the growth-only ratchet this
+    check used to be is retired along with the shim it was guarding
+    (`_LEGACY_WORKSPACE_ALIASES` — removed from preinject.py once the
+    Phase 4 live-traffic trip gate proved zero real callers depended on it;
+    see CLOSEOUT_ALIAS_REMOVAL.md). This is now a hard assertion: zero
+    non-comment occurrences of any of the 23 retired alias ids
+    (`scripts/alias_census.py`'s `_RETIRED_ALIAS_IDS`) in live Python
+    serving-path code (shim/integration/personas categories — where a bare
+    alias id would be a real regression: a default argument, a dict value
+    sent as `model=`, etc.).
+
+    Scope note: this is deliberately *not* a zero-occurrence-anywhere-in-
+    the-repo assertion. `docs/`, `tests/`, `config/`'s narrative JSON/YAML
+    (MODEL_CATALOG.md, routing_descriptions.json's `_note` field, Grafana
+    dashboard panel configs, etc.) legitimately reference retired ids by
+    name when explaining collapse/retirement history — that's the exact
+    "explanatory comment" content the closeout's own exemption design
+    anticipated, at a scale (~700 refs across the doc/test corpus) where a
+    blanket ban would either break historical narrative or demand rewriting
+    every design doc in `coding_task/` that documents this exact program.
+    `scripts/alias_census.py`'s comment/docstring-aware classifier is what
+    makes the code-vs-narrative distinction precise instead of guessing.
     """
-    import json
-
-    baseline_path = REPO_ROOT / "config" / ".alias_retire_baseline.json"
-    if not baseline_path.exists():
-        return ("FAIL", "config/.alias_retire_baseline.json missing", [])
-    baseline = json.loads(baseline_path.read_text())["by_file"]
-
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     from alias_census import run_census
 
-    current = run_census()["by_file"]
-    current_totals = {f: sum(counts.values()) for f, counts in current.items()}
+    result = run_census()
+    code_hits = result["code_hits_by_file"]
 
-    regressions = []
-    for f, count in current_totals.items():
-        base = baseline.get(f, 0)
-        if count > base:
-            regressions.append(f"{f}: {count} (baseline {base})")
-
-    if regressions:
+    if code_hits:
         return (
             "FAIL",
-            f"{len(regressions)} file(s) grew past their alias-ratchet baseline: "
-            f"{regressions[:5]}{'...' if len(regressions) > 5 else ''}",
+            f"{result['code_risk_total']} live alias reference(s) in "
+            f"serving-path code: {code_hits}",
             [],
         )
-    total_now = sum(current_totals.values())
-    total_baseline = sum(baseline.values())
     return (
         "PASS",
-        f"{total_now} live alias refs (baseline {total_baseline}, "
-        f"{'no change' if total_now == total_baseline else 'reduced'})",
+        f"0 live-code alias references ({result['total']} total refs across "
+        f"docs/tests/config narrative, {result['frozen_total']} in frozen artifacts)",
         [],
     )
 

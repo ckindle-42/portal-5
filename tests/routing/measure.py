@@ -52,19 +52,21 @@ def _resolve_model(workspace_id: str, variant: str | None) -> str | None:
 def _resolve_alias(raw: str) -> tuple[str, str | None]:
     """Resolve a raw keyword-scorer/LLM output into (base, variant).
 
-    Handles the canonical "<base>::<variant>" synthetic form (post-Phase-7)
-    and falls back to the legacy alias table when importable (pre-Phase-8),
-    else returns the id unchanged as a bare base.
+    Handles the canonical "<base>::<variant>" synthetic form. When run
+    against a pre-collapse worktree (no ``_unpack_synthetic_workspace`` /
+    legacy alias shim import target exists there at all) or post-alias-
+    closeout current tree, falls back to returning the id unchanged as a
+    bare base.
     """
     if "::" in raw:
         base, variant = raw.split("::", 1)
         return base, variant
     try:
         from portal.platform.inference.router.preinject import (
-            _resolve_legacy_workspace_alias,
+            _unpack_synthetic_workspace,
         )
 
-        return _resolve_legacy_workspace_alias(raw)
+        return _unpack_synthetic_workspace(raw)
     except ImportError:
         return raw, None
 

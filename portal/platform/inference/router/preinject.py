@@ -13,7 +13,7 @@ import logging
 import os
 from datetime import UTC, datetime
 
-from portal.platform.inference.router.metrics import _alias_resolved_total, _router_layer_total
+from portal.platform.inference.router.metrics import _router_layer_total
 from portal.platform.inference.router.routing import _detect_workspace, _route_with_llm
 from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 
@@ -34,80 +34,26 @@ def _resolve_persona_workspace(workspace_id: str) -> str:
     return workspace_id
 
 
-# Legacy workspace ids folded into auto-coding's / auto-security's variants,
-# or deleted outright with no variant (BUILD_PROGRAM_COLLAPSE_V1.md
-# Phase 5/6/7). routing.py's keyword classifier (_WORKSPACE_ROUTING) still
-# emits "auto-agentic", "auto-coding-agentic", "auto-redteam", and
-# "auto-mistral" as detected targets — that's scoring-axis content,
-# explicitly off-limits to edit (DESIGN §9). Aliasing the now-deleted id to
-# (base workspace, variant) here, post-classification, keeps the
-# classifier's output meaningful without touching its keywords/thresholds.
-# A None variant (Phase 7's model-tied deletions) means "just the base
-# workspace" — the old model choice has no preserved variant slot.
-_LEGACY_WORKSPACE_ALIASES: dict[str, tuple[str, str | None]] = {
-    "auto-coding-agentic": ("auto-coding", "laguna"),
-    "auto-coding-northmini": ("auto-coding", "northmini"),
-    "auto-coding-uncensored": ("auto-coding", "uncensored"),
-    "auto-coding-uncensored-agentic": ("auto-coding", "uncensored-agentic"),
-    "auto-agentic": ("auto-coding", "heavy"),
-    "auto-agentic-lite": ("auto-coding", "lite"),
-    "auto-agentic-ornith": ("auto-coding", "ornith"),
-    "auto-security-uncensored": ("auto-security", "uncensored"),
-    "auto-pentest": ("auto-security", "pentest"),
-    "auto-blueteam": ("auto-security", "blueteam"),
-    "auto-redteam": ("auto-security", "redteam"),
-    "auto-redteam-deep": ("auto-security", "redteam-deep"),
-    "auto-purpleteam": ("auto-security", "purpleteam"),
-    "auto-purpleteam-deep": ("auto-security", "purpleteam-deep"),
-    "auto-purpleteam-exec": ("auto-security", "purpleteam-exec"),
-    "auto-devstral": ("auto-coding", None),
-    "auto-glm": ("auto-coding", None),
-    "auto-glm-thinking": ("auto-coding", None),
-    # NOT ("auto-coding", None) — routing.py:557-568's Phase 7 keyword-scorer
-    # union folds auto-mistral into auto-reasoning (operator decision, both
-    # _MISTRAL_KEYWORDS/_REASONING_KEYWORDS are 100% reasoning-flavored with
-    # zero coding terms). This entry used to disagree with that decision
-    # (docs/ROUTING_INTEGRITY_FINDINGS.md Finding 3) — kept in sync now.
-    "auto-mistral": ("auto-reasoning", None),
-    "auto-phi4": ("auto-daily", None),
-    "auto-gemma-e4b": ("auto-daily", None),
-    "auto-gemma-fast": ("auto-daily", None),
-    "auto-gemma-vision": ("auto-vision", None),
-}
+def _unpack_synthetic_workspace(workspace_id: str) -> tuple[str, str | None]:
+    """Unpack the canonical ``"<base>::<variant>"`` synthetic form into
+    (base id, variant). Returns ``(workspace_id, None)`` unchanged for any
+    plain base id (or unrecognized string) with no ``::``.
 
-
-def _resolve_legacy_workspace_alias(workspace_id: str) -> tuple[str, str | None]:
-    """Map a pre-collapse workspace id to (current base id, implied variant).
-
-    Returns ``(workspace_id, None)`` unchanged for anything not in the alias
-    map — including every workspace that was never renamed.
-
-    Also handles the canonical ``"<base>::<variant>"`` synthetic form that
-    the keyword scorer (``_detect_workspace``, Phase 7 canonicalization)
-    emits directly for a scored variant — e.g. ``"auto-coding::heavy"``.
-    This is NOT a legacy alias lookup (it never touches
-    ``_LEGACY_WORKSPACE_ALIASES`` or the deprecation trip below); it's the
-    new canonical vocabulary being unpacked into the same (base, variant)
-    shape the rest of this resolution pipeline already expects.
-
-    Deprecation trip (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 0): when
-    ``PORTAL_ALIAS_TRIP=1``, every resolved *alias* (not a "::" synthetic
-    key) logs a WARN naming the alias and increments
-    ``portal5_alias_resolved_total``. Off by default so it doesn't spam
-    production until the retirement's Phase 6 gate arms it deliberately
-    across the full suite — zero hits there is the proof every live caller
-    has migrated to canonical addressing.
+    This is the sole surviving piece of what was, pre-alias-retirement-
+    closeout, ``_resolve_legacy_workspace_alias`` — a shim that also mapped
+    ~25 pre-collapse bare workspace ids (``auto-agentic``, ``auto-redteam``,
+    etc.) to their current (base, variant). The shim was removed once every
+    live caller (opencode, Incalmo, the security bench harness, and both
+    internal routing layers) was proven to address workspaces canonically —
+    see ``CLOSEOUT_ALIAS_REMOVAL.md`` and ``docs/RESULTS_ALIAS_RETIRE_V1_
+    20260713.md``'s Finish section for the live-traffic zero-trip evidence.
+    A caller that still sends a bare pre-collapse alias id today gets it
+    back unchanged (treated as an unknown workspace, same as any typo).
     """
     if "::" in workspace_id:
         base, variant = workspace_id.split("::", 1)
         return base, variant
-    alias = _LEGACY_WORKSPACE_ALIASES.get(workspace_id)
-    if alias is None:
-        return workspace_id, None
-    if os.environ.get("PORTAL_ALIAS_TRIP") == "1":
-        logger.warning("ALIAS_RESOLVED alias=%s base=%s", workspace_id, alias)
-        _alias_resolved_total.labels(alias=workspace_id).inc()
-    return alias
+    return workspace_id, None
 
 
 def _resolve_workspace_variant(

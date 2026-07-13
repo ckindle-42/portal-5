@@ -195,30 +195,30 @@ class TestBackendModelHintRouting:
         execute_bash in their tool list (BUILD_PROGRAM_COLLAPSE_V1.md Phase 6
         folded auto-purpleteam-exec/auto-pentest into these variants)."""
         from portal.platform.inference.router.preinject import (
-            _resolve_legacy_workspace_alias,
             _resolve_workspace_variant,
+            _unpack_synthetic_workspace,
         )
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        for legacy_id in ["auto-purpleteam-exec", "auto-pentest"]:
-            base, variant = _resolve_legacy_workspace_alias(legacy_id)
-            resolved_id = _resolve_workspace_variant(legacy_id, base, variant)
+        for canonical_id in ["auto-security::purpleteam-exec", "auto-security::pentest"]:
+            base, variant = _unpack_synthetic_workspace(canonical_id)
+            resolved_id = _resolve_workspace_variant(canonical_id, base, variant)
             tools = WORKSPACES[resolved_id].get("tools", [])
             assert "execute_bash" in tools, (
-                f"Exec workspace '{legacy_id}' must include execute_bash in tools list"
+                f"Exec workspace '{canonical_id}' must include execute_bash in tools list"
             )
 
     def test_purpleteam_exec_has_chain_hops(self):
         """auto-security's purpleteam-exec variant must define at least 3
         follow-on chain hops (was auto-purpleteam-exec, Phase 6)."""
         from portal.platform.inference.router.preinject import (
-            _resolve_legacy_workspace_alias,
             _resolve_workspace_variant,
+            _unpack_synthetic_workspace,
         )
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        base, variant = _resolve_legacy_workspace_alias("auto-purpleteam-exec")
-        resolved_id = _resolve_workspace_variant("auto-purpleteam-exec", base, variant)
+        base, variant = _unpack_synthetic_workspace("auto-security::purpleteam-exec")
+        resolved_id = _resolve_workspace_variant("auto-security::purpleteam-exec", base, variant)
         chain = WORKSPACES[resolved_id].get("chain", [])
         assert len(chain) >= 3, (
             f"auto-purpleteam-exec chain must have ≥3 hops (blue/detect/IR), got {len(chain)}"
