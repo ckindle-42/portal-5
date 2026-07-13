@@ -46,9 +46,21 @@ class TestBuildRouterPrompt:
 
     def test_includes_workspace_ids(self):
         prompt = _build_router_prompt("hello")
-        # All workspace IDs that should appear in descriptions/prompt
-        for ws in ["auto-coding", "auto-spl", "auto-security", "auto-redteam"]:
+        # All workspace IDs that should appear in descriptions/prompt.
+        # "auto-redteam" is deliberately NOT asserted here: it's a
+        # pre-collapse alias id, retired from _VALID_WORKSPACE_IDS by Phase 7
+        # canonicalization. It used to leak into the prompt only because
+        # config/routing_examples.json still labeled a few-shot example with
+        # the stale id (docs/ROUTING_INTEGRITY_FINDINGS.md Finding 2, fixed).
+        # redteam intent is now conveyed via auto-security's description and
+        # recovered post-classification by _infer_variant, not via a literal
+        # "auto-redteam" label in the prompt.
+        for ws in ["auto-coding", "auto-spl", "auto-security"]:
             assert ws in prompt, f"Expected '{ws}' in prompt"
+        assert "auto-redteam" not in prompt, (
+            "auto-redteam is a retired alias id — it should not appear in "
+            "the LLM router's few-shot prompt (see Finding 2)"
+        )
 
     def test_capped_at_reasonable_length(self):
         """Prompt must stay under 10000 chars (fits within Llama-3.2-3B 4096-token context).
