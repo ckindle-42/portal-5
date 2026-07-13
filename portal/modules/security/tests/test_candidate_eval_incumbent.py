@@ -49,10 +49,16 @@ class TestGetIncumbentModel:
 
     def test_reads_from_portal_yaml(self):
         """Must read from portal.yaml, not return a hardcoded string."""
-        # Mock portal.yaml to return a known model
+        # Mock portal.yaml to return a known model. "exploit" resolves via
+        # ("auto-security", "pentest") post-collapse (BUILD_PROGRAM_COLLAPSE_V1
+        # Phase 6 folded auto-pentest into auto-security's variants).
         mock_data = {
             "workspaces": {
-                "auto-pentest": {"model_hint": "test-model:latest"},
+                "auto-security": {
+                    "variants": {
+                        "pentest": {"model_hint": "test-model:latest"},
+                    }
+                },
             }
         }
         with patch(
@@ -85,8 +91,12 @@ class TestGetIncumbentModel:
         """The returned model should match what's actually in portal.yaml."""
         portal_yaml = Path(__file__).resolve().parents[4] / "config" / "portal.yaml"
         data = yaml.safe_load(portal_yaml.read_text())
-        workspace = _SLOT_TO_WORKSPACE.get("exploit", "")
-        expected = data.get("workspaces", {}).get(workspace, {}).get("model_hint", "")
+        workspace, variant = _SLOT_TO_WORKSPACE.get("exploit", ("", None))
+        ws_cfg = data.get("workspaces", {}).get(workspace, {})
+        if variant is None:
+            expected = ws_cfg.get("model_hint", "")
+        else:
+            expected = ws_cfg.get("variants", {}).get(variant, {}).get("model_hint", "")
         actual = _get_incumbent_model("exploit")
         assert actual == expected, f"expected {expected!r}, got {actual!r}"
 

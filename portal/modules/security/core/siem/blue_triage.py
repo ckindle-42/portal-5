@@ -23,7 +23,12 @@ TRIAGE_INTERVAL = int(os.environ.get("LAB_TRIAGE_POLL_INTERVAL", "30"))
 SEVERITY_THRESHOLD = int(os.environ.get("LAB_TRIAGE_SEVERITY", "3"))
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
-BLUETEAM_WORKSPACE = os.environ.get("LAB_BLUETEAM_WORKSPACE", "auto-blueteam")
+# auto-blueteam was folded into auto-security's blueteam variant
+# (BUILD_PROGRAM_COLLAPSE_V1.md Phase 6); the base id + variant query param
+# is the canonical addressing (alias-retirement TASK_DEPLOY_INTEGRATION_
+# RECONCILE_V1 path (a) — name the real base workspace + role explicitly).
+BLUETEAM_WORKSPACE = os.environ.get("LAB_BLUETEAM_WORKSPACE", "auto-security")
+BLUETEAM_VARIANT = os.environ.get("LAB_BLUETEAM_VARIANT", "blueteam")
 SPLUNK_URL = os.environ.get("LAB_SPLUNK_URL", "https://portal5-lab-splunk:8089")
 SPLUNK_USER = os.environ.get("LAB_SPLUNK_USER", "admin")
 SPLUNK_PW = os.environ.get("LAB_SPLUNK_PASSWORD", "")
@@ -56,7 +61,7 @@ def poll_alerts(max_alerts: int = 10, since_minutes: int = 5) -> list[dict]:
 
 
 def enrich_alert(alert: dict) -> dict:
-    """Enrich a single alert through the pipeline -> auto-blueteam workspace."""
+    """Enrich a single alert through the pipeline -> auto-security (blueteam variant)."""
     alert_text = json.dumps(alert, indent=2)[:2000]
     prompt = (
         f"You are a SOC analyst triaging a SIEM alert. Analyze this alert and produce:\n"
@@ -74,6 +79,7 @@ def enrich_alert(alert: dict) -> dict:
         r = httpx.post(
             f"{PIPELINE_URL}/v1/chat/completions",
             headers=headers,
+            params={"variant": BLUETEAM_VARIANT},
             json={
                 "model": BLUETEAM_WORKSPACE,
                 "messages": [{"role": "user", "content": prompt}],

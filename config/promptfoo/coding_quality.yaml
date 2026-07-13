@@ -1,4 +1,4 @@
-description: "Portal 5 — Coding workspaces quality evaluation (auto-coding, auto-agentic, tools-specialist)"
+description: "Portal 5 — Coding workspaces quality evaluation (auto-coding base + heavy variant, tools-specialist)"
 prompts:
   - file://prompts/coding.txt
 providers:
@@ -8,7 +8,7 @@ providers:
       temperature: 0
       num_predict: 1024
   - id: ollama:chat:qwen3-coder-next:latest
-    label: auto-agentic
+    label: auto-coding-heavy
     config:
       temperature: 0
       num_predict: 2048

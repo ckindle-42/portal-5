@@ -63,7 +63,7 @@ tools live introspection of the running Portal 5 stack and an AI-powered code ex
 
 > **Two consumer paths.** These tools are reachable two ways:
 > (A) **opencode / Claude Code** connect to `:8928` directly over MCP streamable-http
-> (via `.mcp.json`); (B) the **in-pipeline `auto-coding-agentic` workspace** reaches them
+> (via `.mcp.json`); (B) the **in-pipeline `auto-coding` workspace (`?variant=laguna`)** reaches them
 > through the pipeline's ToolRegistry, which discovers `GET :8928/tools` and dispatches
 > `POST :8928/tools/{name}`. Both paths are served by the same `_impl_*` helpers in
 > `pipeline_mcp.py`, so behavior is identical. `:8928` is registered in
@@ -123,9 +123,12 @@ repo root tells it to use Portal 5 as its AI backend instead of any cloud API.
   (`python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`
   for the current total — 21 functional + 60 `bench-*` as of BUILD_PROGRAM_COLLAPSE_V1.md).
   Default: `portal/auto-coding-agentic` — this and the other `auto-agentic*`/`auto-pentest`/
-  `auto-purpleteam-exec` names below are pre-collapse workspace ids folded into `auto-coding`/
-  `auto-security` `?variant=` params; they still resolve unchanged via a legacy-alias shim
-  (`_resolve_legacy_workspace_alias` in `portal/platform/inference/router/preinject.py`).
+  `auto-purpleteam-exec` names below are `opencode.jsonc`'s declared model entries for what
+  are now `auto-coding`/`auto-security` `?variant=` params on canonical base workspaces.
+  They resolve today through a transitional legacy-alias shim
+  (`_resolve_legacy_workspace_alias` in `portal/platform/inference/router/preinject.py`) and
+  are pending a config migration to canonical `?variant=` model entries
+  (`BUILD_PROGRAM_ALIAS_RETIRE_V1.md` Phase 5) once the shim is retired.
 - **All MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
   filesystem, git, docker, sandbox, pipeline, and every other portal-* tool server — currently
   22 total (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`).
@@ -214,15 +217,15 @@ Portal 5's local models provide the AI via the pipeline's `/v1/messages` Anthrop
 compatibility endpoint. All tokens stay on your hardware. Same tool set as Mode A.
 
 ```bash
-scripts/cc-local.sh                              # default: auto-agentic workspace
-scripts/cc-local.sh --model auto-coding-agentic  # Laguna-XS.2 33B (agentic loop)
-scripts/cc-local.sh --model auto-agentic         # Qwen3-Coder-Next 80B / AgentWorld 35B fallback
-scripts/cc-local.sh --model auto-agentic-lite    # AgentWorld 35B direct (lighter, 45 t/s)
-scripts/cc-local.sh --model auto-agentic-ornith  # Ornith-1.0-35B direct — agentic option, not a replacement
-scripts/cc-local.sh --model auto-coding          # Qwen3-Coder 30B (one-shot)
-scripts/cc-local.sh --model auto-coding-northmini # North-Mini-Code 30B-A3B — coding diversity option
-scripts/cc-local.sh --model auto-reasoning       # DeepSeek-R1-0528 8B (reasoning)
-scripts/cc-local.sh --model auto-security        # VulnLLM-R-7B (security)
+scripts/cc-local.sh                                    # default: auto-coding workspace, heavy variant
+scripts/cc-local.sh --model 'auto-coding?variant=laguna'   # Laguna-XS.2 33B (agentic loop)
+scripts/cc-local.sh --model 'auto-coding?variant=heavy'    # Qwen3-Coder-Next 80B / AgentWorld 35B fallback
+scripts/cc-local.sh --model 'auto-coding?variant=lite'     # AgentWorld 35B direct (lighter, 45 t/s)
+scripts/cc-local.sh --model 'auto-coding?variant=ornith'   # Ornith-1.0-35B direct — agentic option, not a replacement
+scripts/cc-local.sh --model auto-coding                # Qwen3-Coder 30B (one-shot)
+scripts/cc-local.sh --model 'auto-coding?variant=northmini' # North-Mini-Code 30B-A3B — coding diversity option
+scripts/cc-local.sh --model auto-reasoning             # DeepSeek-R1-0528 8B (reasoning)
+scripts/cc-local.sh --model auto-security              # VulnLLM-R-7B (security)
 ```
 
 **How it works:** `cc-local.sh` sets `ANTHROPIC_BASE_URL=http://localhost:9099` and
@@ -235,12 +238,12 @@ SSE format. No change to `.mcp.json` — all Portal tools still available.
 **AgentWorld for IDE use:** AgentWorld (Qwen-AgentWorld-35B-A3B, 45 t/s) is
 particularly well-matched — its pretraining covers MCP tool-calling, Terminal execution,
 SWE workflows, and web/OS environment simulation. These are exactly the trajectories
-Claude Code exercises. It runs as the `auto-agentic` fallback when the primary 80B isn't warm.
+Claude Code exercises. It runs as the `auto-coding` `heavy`-variant fallback when the primary 80B isn't warm.
 (2026-06-30: a re-validation bench scored noticeably below what this training profile would
 predict — production status is unchanged while that gap is investigated, see
 `config/MODEL_CATALOG.md`.)
 
-**Ornith-1.0-35B for IDE use:** Ornith (DeepReinforce, `auto-agentic-ornith`) is a second,
+**Ornith-1.0-35B for IDE use:** Ornith (DeepReinforce, `auto-coding` `ornith` variant) is a second,
 architecturally distinct agentic option — self-improving RL jointly optimizes solution
 rollout and scaffold rather than env-simulation pretraining. Promoted 2026-06-30 on strong
 tool-chain and SWE-handoff probe scores. Not a replacement for AgentWorld or the 80B
@@ -251,7 +254,7 @@ the others aren't warm.
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:9099
 export ANTHROPIC_API_KEY=$(grep PIPELINE_API_KEY .env | cut -d= -f2)
-claude --model auto-agentic
+claude --model 'auto-coding?variant=heavy'
 ```
 
 ### Mode C — Stock cloud (zero Portal MCP, `cc-stock.sh`)
@@ -267,7 +270,7 @@ file-based ones, so `.mcp.json` stays in place untouched.
 
 ---
 
-## `auto-coding-agentic` Workspace
+## `auto-coding` Workspace — `laguna` Variant
 
 Built specifically for Portal 5 self-improvement work. Available in Open WebUI and via opencode.
 

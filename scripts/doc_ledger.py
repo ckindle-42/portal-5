@@ -8,7 +8,7 @@ range ``<last_reconciled_commit>..HEAD``.
 
 This is the doc-side analogue of the test/validate harness: the re-runnable
 doc-audit agent task is how you *clear* staleness; this module is how
-staleness is *detected* and CI-gated (validate_system.py check "AL. doc
+staleness is *detected* and CI-gated (validate_system.py check "AK. doc
 currency"). Docs must never list themselves or this ledger as a source,
 so a reconcile commit (which touches only docs + the ledger) never
 re-triggers staleness.

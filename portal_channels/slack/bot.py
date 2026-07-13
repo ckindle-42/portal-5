@@ -27,21 +27,23 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_WORKSPACE = os.environ.get("SLACK_DEFAULT_WORKSPACE", "auto")
 
-# Channel name → workspace routing (matches current 13 canonical workspace IDs)
-CHANNEL_WORKSPACE_MAP: dict[str, str] = {
-    "coding": "auto-coding",
-    "security": "auto-security",
-    "redteam": "auto-redteam",
-    "blueteam": "auto-blueteam",
-    "images": "auto-vision",  # was "auto-images" (invalid)
-    "vision": "auto-vision",
-    "creative": "auto-creative",
-    "documents": "auto-documents",
-    "video": "auto-video",
-    "music": "auto-music",
-    "research": "auto-research",
-    "reasoning": "auto-reasoning",
-    "data": "auto-data",
+# Channel name → (workspace, variant) routing (matches current 13 canonical
+# workspace IDs; redteam/blueteam are auto-security variants, not their own
+# top-level workspace, since BUILD_PROGRAM_COLLAPSE_V1.md Phase 6).
+CHANNEL_WORKSPACE_MAP: dict[str, tuple[str, str | None]] = {
+    "coding": ("auto-coding", None),
+    "security": ("auto-security", None),
+    "redteam": ("auto-security", "redteam"),
+    "blueteam": ("auto-security", "blueteam"),
+    "images": ("auto-vision", None),  # was "auto-images" (invalid)
+    "vision": ("auto-vision", None),
+    "creative": ("auto-creative", None),
+    "documents": ("auto-documents", None),
+    "video": ("auto-video", None),
+    "music": ("auto-music", None),
+    "research": ("auto-research", None),
+    "reasoning": ("auto-reasoning", None),
+    "data": ("auto-data", None),
 }
 
 
@@ -68,16 +70,16 @@ def _get_tokens() -> tuple[str, str, str]:
     return bot_token, app_token, signing_secret
 
 
-def _workspace_for_channel(channel_name: str) -> str:
+def _workspace_for_channel(channel_name: str) -> tuple[str, str | None]:
     for keyword, workspace in CHANNEL_WORKSPACE_MAP.items():
         if keyword in channel_name.lower():
             return workspace
-    return DEFAULT_WORKSPACE
+    return DEFAULT_WORKSPACE, None
 
 
-def _call_pipeline(text: str, workspace: str) -> str:
+def _call_pipeline(text: str, workspace: str, variant: str | None = None) -> str:
     """Delegate to shared dispatcher."""
-    return call_pipeline_sync(text, workspace)
+    return call_pipeline_sync(text, workspace, variant=variant)
 
 
 def build_app():
@@ -99,12 +101,12 @@ def build_app():
         except Exception:
             pass
 
-        workspace = _workspace_for_channel(channel_name)
+        workspace, variant = _workspace_for_channel(channel_name)
         user_text = event.get("text", "").strip()
         thread_ts = event.get("thread_ts", event.get("ts"))
 
         try:
-            reply = _call_pipeline(user_text, workspace)
+            reply = _call_pipeline(user_text, workspace, variant=variant)
             say(text=reply, thread_ts=thread_ts)
         except Exception as e:
             logger.error("Pipeline error: %s", e)

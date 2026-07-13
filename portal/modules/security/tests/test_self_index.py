@@ -247,7 +247,7 @@ class TestRankWeaknesses:
                 "checks": {
                     "A. python imports": {"status": "PASS", "detail": "ok"},
                     "B. pipeline assembles": {"status": "FAIL", "detail": "missing /v1/foo"},
-                    "X. scenario-oracle": {"status": "FAIL", "detail": "3 issues"},
+                    "W. scenario-oracle": {"status": "FAIL", "detail": "3 issues"},
                     "Z. new check": {"status": "PASS", "detail": "ok"},
                 },
             },
