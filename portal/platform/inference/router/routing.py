@@ -395,11 +395,179 @@ _MISTRAL_KEYWORDS: dict[str, int] = {
     "planning": 1,
 }
 
+# Keyword sets that used to be their own top-level _WORKSPACE_ROUTING entries
+# under a pre-collapse alias id (auto-coding-agentic, auto-agentic,
+# auto-redteam — BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6) but now describe a
+# *variant* of a canonical base workspace. Keyword content and weights are
+# byte-for-byte unchanged from before alias-retirement (DESIGN_ROUTER_
+# CANONICALIZATION_V1.md §4/§9: no keyword/threshold tuning, ever) — only the
+# dict key changed, from an alias-shaped string to an internal-only sentinel
+# that can never collide with a real workspace or alias id (Phase 8's
+# no-alias-ids validator ratchet scans for the 23 retired alias strings
+# specifically; these `_coding_*`/`_security_*` keys were never one of them).
+_CODING_LAGUNA_KEYWORDS: dict[str, int] = {  # was "auto-coding-agentic"
+    "fix this bug": 3,
+    "refactor": 2,
+    "add feature": 2,
+    "maintain": 2,
+    "advance": 2,
+    "iterate": 2,
+    "run tests": 3,
+    "make changes": 2,
+    "update the code": 2,
+    "edit the file": 3,
+    "modify portal": 3,
+    "agentic coding": 3,
+    "devstral": 3,
+}
+_CODING_HEAVY_KEYWORDS: dict[str, int] = {  # was "auto-agentic"
+    "agentic": 3,
+    "swe-agent": 3,
+    "openhands": 3,
+    "multi-file": 3,
+    "long-horizon": 3,
+    "codebase refactor": 3,
+    "full codebase": 3,
+    "repository-wide": 3,
+    "heavy coder": 2,
+    "big model": 2,
+    "qwen3 coder next": 2,
+}
+
+# Reused by both Layer 2 (below) and Layer 1's post-classification variant
+# inference (_infer_variant in _route_with_llm) so the two layers agree on
+# what each variant/role "sounds like" — one keyword source, two consumers.
+_CODING_VARIANT_SIGNALS: dict[str, dict[str, int]] = {
+    "laguna": _CODING_LAGUNA_KEYWORDS,
+    "heavy": _CODING_HEAVY_KEYWORDS,
+}
+
+# Layer 2 (the keyword scorer) only ever had a dedicated entry for "redteam"
+# — the other 6 security variants below were Layer-1 (LLM router)-only
+# vocabulary (DESIGN_ROUTER_CANONICALIZATION_V1.md §5 note under §4). These
+# 6 are new keyword sets, extracted directly from the retiring Layer-1
+# routing_descriptions.json entries (not invented) plus the labeled examples
+# in routing_examples.json, so the variant-inference signal is grounded in
+# content the router already believed differentiated these intents — the
+# LLM-layer accuracy check (scripts/routing_regression.py --layer=llm
+# --labeled-corpus) against the live router model is the real arbiter of
+# whether this reconstruction holds; not tuned to make an assertion pass.
+_SECURITY_VARIANT_SIGNALS: dict[str, dict[str, int]] = {
+    "redteam": _REDTEAM_KEYWORDS,
+    "blueteam": {  # was auto-blueteam: "Defensive security, incident response,
+        # threat hunting, SOC operations, SIEM analysis, EDR/XDR response,
+        # security monitoring, log analysis, malware containment, blue team playbooks."
+        "incident response": 3,
+        "threat hunting": 3,
+        "soc operations": 3,
+        "soc": 2,
+        "siem": 3,
+        "siem analysis": 3,
+        "edr": 2,
+        "xdr": 2,
+        "security monitoring": 2,
+        "log analysis": 2,
+        "malware containment": 3,
+        "blue team": 3,
+        "blueteam": 3,
+        "firewall rules": 2,
+        "ids alert": 3,
+        "ransomware": 2,
+        "isolate": 2,
+        "detection rule": 2,
+    },
+    "pentest": {  # was auto-pentest: "Authorized penetration testing with
+        # live tool execution — runs real commands (bash, Python) against
+        # authorized targets, AD attack chains, hash cracking, lateral
+        # movement, PoC validation." Distinguished from redteam ("Pure
+        # generation — no tool execution") by live-execution language.
+        "live tool execution": 3,
+        "run a live": 3,
+        "authorized pentest": 3,
+        "authorized targets": 2,
+        "ad attack chain": 3,
+        "hash cracking": 3,
+        "crack the hash": 3,
+        "poc validation": 3,
+        "kerberoastable": 3,
+        "ad pivot": 3,
+        "compromised workstation": 2,
+    },
+    "redteam-deep": {  # was auto-redteam-deep: "Advanced red team simulation
+        # ... detailed ATT&CK-mapped attack chains, AD pivoting, evasion
+        # techniques, full kill-chain walk-through. Higher quality than
+        # auto-redteam." No labeled example in routing_examples.json —
+        # flagged as lower-confidence, watch this one in the accuracy check.
+        "detailed att&ck": 3,
+        "full kill-chain": 3,
+        "kill chain walk-through": 3,
+        "advanced red team": 3,
+        "ad pivoting": 3,
+    },
+    "purpleteam": {  # was auto-purpleteam: "Integrated red-team plus
+        # blue-team analysis: attack chain generation combined with matching
+        # detection rules, IR playbooks, and Sigma/YARA artifacts." (2-hop,
+        # no tool execution — the base purple case.)
+        "purple team": 3,
+        "purpleteam": 3,
+        "attack chain": 2,
+        "map the attack chain": 3,
+        "detection rules for each stage": 3,
+    },
+    "purpleteam-deep": {  # was auto-purpleteam-deep: "Four-hop chain
+        # simulation: full red-team TTP generation -> Foundation-Sec
+        # detection analysis -> Qwen3-Coder detection artifacts ->
+        # synthesis. No tool execution — pure simulation."
+        "full purple team analysis": 3,
+        "four-hop": 3,
+        "four hop": 3,
+        "ttp generation": 2,
+        "detection analysis": 2,
+        "pure simulation": 3,
+        "no tool execution": 2,
+        "cobalt strike beacon": 2,
+    },
+    "purpleteam-exec": {  # was auto-purpleteam-exec: "Four-hop chain with
+        # live execution: real bash/Python commands run against authorized
+        # targets, then detection engineering and IR playbook synthesis.
+        # Use only on scoped lab/authorized environments."
+        "run an authorized scan": 3,
+        "authorized scan": 2,
+        "identify vulnerabilities": 2,
+        "detection engineering": 3,
+        "ir playbook synthesis": 3,
+        "scoped lab": 2,
+        "live execution": 2,
+    },
+}
+
+# Maps an internal scorer key to the canonical (base, variant) it represents.
+# Keys not present here (auto-coding, auto-security, auto-spl, auto-reasoning,
+# auto-compliance) are already canonical base ids — no translation needed.
+_SCORER_VARIANT_MAP: dict[str, tuple[str, str]] = {
+    "_security_redteam": ("auto-security", "redteam"),
+    "_coding_laguna": ("auto-coding", "laguna"),
+    "_coding_heavy": ("auto-coding", "heavy"),
+}
+
 # Workspace routing configuration: keywords + activation threshold
 # Thresholds tuned so a single strong signal (weight 3) triggers routing,
 # or a combination of medium signals (2+2=4) reaches the bar.
+#
+# auto-mistral (10 alias keys total on this layer pre-retirement — only 4 had
+# a Layer-2 keyword-scorer presence) is retired here as its own entry: its
+# keywords/threshold are IDENTICAL to before, just unioned into auto-reasoning
+# rather than auto-coding — the operator's call (not the shim's original
+# auto-coding mapping), made explicitly during Phase 7 after all of
+# _MISTRAL_KEYWORDS, the LLM router's own auto-mistral description
+# ("structured strategic reasoning, business analysis, planning"), and the
+# magistralstrategist persona's system prompt turned out to be 100%
+# reasoning-flavored with zero coding terms — the auto-coding shim mapping
+# looks like a collapse-era filing artifact, not a deliberate choice.
+# _MISTRAL_KEYWORDS/_REASONING_KEYWORDS have zero key overlap (verified), so
+# this is a lossless union — no weight collisions to resolve.
 _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
-    "auto-redteam": {
+    "_security_redteam": {  # was "auto-redteam" -> (auto-security, redteam)
         "keywords": _REDTEAM_KEYWORDS,
         "threshold": 4,
     },
@@ -415,50 +583,20 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
         "keywords": _CODING_KEYWORDS,
         "threshold": 3,
     },
-    "auto-coding-agentic": {
-        "keywords": {
-            "fix this bug": 3,
-            "refactor": 2,
-            "add feature": 2,
-            "maintain": 2,
-            "advance": 2,
-            "iterate": 2,
-            "run tests": 3,
-            "make changes": 2,
-            "update the code": 2,
-            "edit the file": 3,
-            "modify portal": 3,
-            "agentic coding": 3,
-            "devstral": 3,
-        },
+    "_coding_laguna": {  # was "auto-coding-agentic" -> (auto-coding, laguna)
+        "keywords": _CODING_LAGUNA_KEYWORDS,
         "threshold": 3,
     },
-    "auto-agentic": {
-        "keywords": {
-            "agentic": 3,
-            "swe-agent": 3,
-            "openhands": 3,
-            "multi-file": 3,
-            "long-horizon": 3,
-            "codebase refactor": 3,
-            "full codebase": 3,
-            "repository-wide": 3,
-            "heavy coder": 2,
-            "big model": 2,
-            "qwen3 coder next": 2,
-        },
+    "_coding_heavy": {  # was "auto-agentic" -> (auto-coding, heavy)
+        "keywords": _CODING_HEAVY_KEYWORDS,
         "threshold": 3,
     },
     "auto-reasoning": {
-        "keywords": _REASONING_KEYWORDS,
+        "keywords": {**_REASONING_KEYWORDS, **_MISTRAL_KEYWORDS},
         "threshold": 3,
     },
     "auto-compliance": {
         "keywords": _COMPLIANCE_KEYWORDS,
-        "threshold": 3,
-    },
-    "auto-mistral": {
-        "keywords": _MISTRAL_KEYWORDS,
         "threshold": 3,
     },
 }
@@ -710,6 +848,47 @@ Respond ONLY with a JSON object: {{"workspace": "<workspace_id>", "confidence": 
 The workspace must be one of the valid IDs listed above."""
 
 
+# Which _*_VARIANT_SIGNALS table (if any) applies once the LLM has picked a
+# base workspace. DESIGN_ROUTER_CANONICALIZATION_V1.md §5 option (a): the LLM
+# only ever classifies into a base id now (its alias vocabulary is retired),
+# and this post-classification pass recovers the variant the same way the
+# pre-retirement alias descriptions used to carry it directly.
+_VARIANT_INFERENCE_TABLE: dict[str, dict[str, dict[str, int]]] = {
+    "auto-coding": _CODING_VARIANT_SIGNALS,
+    "auto-security": _SECURITY_VARIANT_SIGNALS,
+}
+# Minimum score for a variant signal set to "win" and get attached — below
+# this, the message just doesn't say enough to justify picking a specific
+# variant over the base workspace's own generic behavior.
+_VARIANT_INFERENCE_THRESHOLD = 3
+
+
+def _infer_variant(base: str, message: str) -> str:
+    """Score `message` against `base`'s variant-signal sets (if any) and
+    return `"<base>::<variant>"` for the highest-scoring variant that clears
+    `_VARIANT_INFERENCE_THRESHOLD`, else `base` unchanged.
+
+    Used by Layer 1 (`_route_with_llm`) only — Layer 2 (`_detect_workspace`)
+    achieves the same effect natively via its own per-variant scoring
+    entries (`_coding_laguna`/`_coding_heavy`/`_security_redteam` in
+    `_WORKSPACE_ROUTING`) and doesn't need this second pass.
+    """
+    signal_table = _VARIANT_INFERENCE_TABLE.get(base)
+    if not signal_table:
+        return base
+    text = message.lower()
+    scores = {
+        variant: score
+        for variant, keywords in signal_table.items()
+        if (score := sum(w for kw, w in keywords.items() if kw in text))
+        >= _VARIANT_INFERENCE_THRESHOLD
+    }
+    if not scores:
+        return base
+    winner = max(scores, key=lambda k: scores[k])
+    return f"{base}::{winner}"
+
+
 async def _route_with_llm(messages: list[dict]) -> str | None:
     """Layer 1 of auto-routing — LLM intent classifier with grammar-enforced JSON.
 
@@ -837,14 +1016,15 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
             _router_latency_seconds.labels(outcome="low_confidence").observe(time.monotonic() - _t0)
             return None
 
+        resolved = _infer_variant(workspace, last_user_content)
         logger.info(
             "LLM router: '%s' → workspace='%s' confidence=%.2f",
             last_user_content[:60],
-            workspace,
+            resolved,
             confidence,
         )
         _router_latency_seconds.labels(outcome="confident").observe(time.monotonic() - _t0)
-        return workspace
+        return resolved
 
     except (TimeoutError, httpx.TimeoutException):
         logger.debug(
@@ -866,10 +1046,19 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     — either disabled, timed out, low confidence, or hallucinated an
     invalid workspace.
 
-    Scoring: for each workspace in ``_WORKSPACE_ROUTING``, sum the
+    Scoring: for each entry in ``_WORKSPACE_ROUTING``, sum the
     weights of matching keywords in the (lowercased, 2000-char-truncated)
-    last user message. A workspace qualifies if its score meets its
-    declared threshold; the highest-scoring qualifier wins.
+    last user message. An entry qualifies if its score meets its
+    declared threshold; the highest-scoring qualifier wins. Entries whose
+    key is one of ``_SCORER_VARIANT_MAP``'s internal sentinels (e.g.
+    ``"_coding_heavy"``) represent a *variant* of a canonical base
+    workspace, not a workspace of their own — the winning key is translated
+    to the canonical ``"<base>::<variant>"`` synthetic form before returning
+    (DESIGN_ROUTER_CANONICALIZATION_V1.md §4/§9 — this is a rename of the
+    scorer's output *vocabulary*, not a change to its *decisions*: the exact
+    same keyword sets and thresholds score the exact same way as when these
+    were separate top-level ``auto-coding-agentic``/``auto-agentic``/
+    ``auto-redteam`` aliases, proven by the routing-regression gate).
 
     Worked examples illustrating "score, not position":
 
@@ -883,15 +1072,17 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     Two tiebreaks:
 
     1. **Redteam preempts security** when both qualify AND redteam's
-       score ≥ 5 (line 1275). Same model family, but redteam routes
-       to the more permissive abliterated variant; falling through
-       to security would silently degrade quality for users
-       explicitly asking for offensive work.
+       score ≥ 5. Same model family, but redteam routes to the more
+       permissive abliterated variant; falling through to security
+       would silently degrade quality for users explicitly asking for
+       offensive work. Returns ``"auto-security::redteam"`` (not a bare
+       "auto-redteam" alias id — retired).
     2. **Otherwise ties go to ``_WORKSPACE_ROUTING`` insertion
        order** via Python dict semantics under ``max(..., key=...)``
        — first-declared wins. Current declaration order is:
-       redteam, security, spl, coding, agentic, reasoning,
-       compliance, mistral.
+       redteam-variant, security, spl, coding, laguna-variant,
+       heavy-variant, reasoning (mistral's keywords unioned in),
+       compliance.
 
     Performance: keywords are pre-lowercased once at module load
     into ``_KEYWORD_CACHE``, so each request pays one ``.lower()``
@@ -924,13 +1115,21 @@ def _detect_workspace(messages: list[dict]) -> str | None:
 
     # Redteam takes priority over security when both exceed threshold
     # (same model family, but redteam is more permissive)
-    if "auto-redteam" in scores and "auto-security" in scores and scores["auto-redteam"] >= 5:
+    if (
+        "_security_redteam" in scores
+        and "auto-security" in scores
+        and scores["_security_redteam"] >= 5
+    ):
         logger.info(
             "Auto-routing tiebreak: redteam=%d wins over security=%d "
             "(same model family; redteam variant is more permissive).",
-            scores["auto-redteam"],
+            scores["_security_redteam"],
             scores["auto-security"],
         )
-        return "auto-redteam"
+        return "auto-security::redteam"
 
-    return max(scores, key=lambda k: scores[k])
+    winner = max(scores, key=lambda k: scores[k])
+    if winner in _SCORER_VARIANT_MAP:
+        base, variant = _SCORER_VARIANT_MAP[winner]
+        return f"{base}::{variant}"
+    return winner

@@ -922,11 +922,16 @@ class TestAgenticWorkspace:
     """Verify auto-agentic (P5-BIG-001, big-model mode entry point) resolves
     correctly post-collapse. BUILD_PROGRAM_COLLAPSE_V1.md Phase 5 folded
     auto-agentic into auto-coding's "heavy" variant — it's no longer a
-    top-level WORKSPACES key, but the keyword classifier
-    (_WORKSPACE_ROUTING in routing.py) still emits "auto-agentic" as a
-    detected target (that's scoring-axis content, off-limits to edit), so
-    _resolve_legacy_workspace_alias() + _resolve_workspace_variant() must
-    still resolve it to the right merged config."""
+    top-level WORKSPACES key. As of alias-retirement Phase 7
+    (DESIGN_ROUTER_CANONICALIZATION_V1.md), the keyword classifier
+    (_WORKSPACE_ROUTING in routing.py) no longer emits "auto-agentic"
+    either — it emits the canonical "auto-coding::heavy" synthetic form
+    directly (the keyword set/threshold that used to live under the
+    "auto-agentic" key is unchanged, byte-for-byte, at the "_coding_heavy"
+    key — see _SCORER_VARIANT_MAP). _resolve_legacy_workspace_alias() still
+    resolves the literal alias string "auto-agentic" too (tested directly
+    below), for any caller that still sends it, until Phase 8 removes the
+    shim."""
 
     def test_agentic_workspace_resolves_via_legacy_alias(self):
         """auto-agentic is no longer a WORKSPACES key directly."""
@@ -996,37 +1001,41 @@ class TestAgenticWorkspace:
         assert ws_path.exists(), f"Workspace JSON not found at {ws_path}"
 
     def test_agentic_detect_workspace_routes_agentic_query(self):
-        """_detect_workspace must return 'auto-agentic' for agentic-flagged messages."""
+        """_detect_workspace must return the canonical 'auto-coding::heavy' synthetic
+        form for agentic-flagged messages (was the bare 'auto-agentic' alias id
+        pre-Phase-7 — see class docstring)."""
         from portal.platform.inference.router_pipe import _detect_workspace
 
         messages = [
             {"role": "user", "content": "Use an agentic workflow to refactor the full codebase"}
         ]
         result = _detect_workspace(messages)
-        assert result == "auto-agentic", (
-            f"_detect_workspace should return 'auto-agentic' for agentic content, got: {result!r}"
+        assert result == "auto-coding::heavy", (
+            f"_detect_workspace should return 'auto-coding::heavy' for agentic content, got: {result!r}"
         )
 
     def test_agentic_detect_workspace_routes_swe_agent_query(self):
-        """_detect_workspace must return 'auto-agentic' for SWE-agent-style queries."""
+        """_detect_workspace must return the canonical 'auto-coding::heavy' synthetic
+        form for SWE-agent-style queries."""
         from portal.platform.inference.router_pipe import _detect_workspace
 
         messages = [
             {"role": "user", "content": "Run a swe-agent workflow to fix the failing tests"}
         ]
         result = _detect_workspace(messages)
-        assert result == "auto-agentic", (
-            f"_detect_workspace should return 'auto-agentic' for swe-agent content, got: {result!r}"
+        assert result == "auto-coding::heavy", (
+            f"_detect_workspace should return 'auto-coding::heavy' for swe-agent content, got: {result!r}"
         )
 
     def test_agentic_does_not_route_simple_code(self):
-        """Simple coding requests must NOT route to auto-agentic (route to auto-coding instead)."""
+        """Simple coding requests must NOT route to the heavy agentic variant
+        (route to base auto-coding instead)."""
         from portal.platform.inference.router_pipe import _detect_workspace
 
         messages = [{"role": "user", "content": "Write a Python function to parse JSON"}]
         result = _detect_workspace(messages)
-        assert result != "auto-agentic", (
-            f"Simple code request should not route to auto-agentic, got: {result!r}"
+        assert result != "auto-coding::heavy", (
+            f"Simple code request should not route to the heavy agentic variant, got: {result!r}"
         )
 
     def test_agentic_routing_consistent_across_files(self):

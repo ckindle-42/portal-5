@@ -77,13 +77,25 @@ def _resolve_legacy_workspace_alias(workspace_id: str) -> tuple[str, str | None]
     Returns ``(workspace_id, None)`` unchanged for anything not in the alias
     map — including every workspace that was never renamed.
 
+    Also handles the canonical ``"<base>::<variant>"`` synthetic form that
+    the keyword scorer (``_detect_workspace``, Phase 7 canonicalization)
+    emits directly for a scored variant — e.g. ``"auto-coding::heavy"``.
+    This is NOT a legacy alias lookup (it never touches
+    ``_LEGACY_WORKSPACE_ALIASES`` or the deprecation trip below); it's the
+    new canonical vocabulary being unpacked into the same (base, variant)
+    shape the rest of this resolution pipeline already expects.
+
     Deprecation trip (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 0): when
-    ``PORTAL_ALIAS_TRIP=1``, every resolved alias logs a WARN naming the
-    alias and increments ``portal5_alias_resolved_total``. Off by default so
-    it doesn't spam production until the retirement's Phase 6 gate arms it
-    deliberately across the full suite — zero hits there is the proof every
-    live caller has migrated to canonical addressing.
+    ``PORTAL_ALIAS_TRIP=1``, every resolved *alias* (not a "::" synthetic
+    key) logs a WARN naming the alias and increments
+    ``portal5_alias_resolved_total``. Off by default so it doesn't spam
+    production until the retirement's Phase 6 gate arms it deliberately
+    across the full suite — zero hits there is the proof every live caller
+    has migrated to canonical addressing.
     """
+    if "::" in workspace_id:
+        base, variant = workspace_id.split("::", 1)
+        return base, variant
     alias = _LEGACY_WORKSPACE_ALIASES.get(workspace_id)
     if alias is None:
         return workspace_id, None

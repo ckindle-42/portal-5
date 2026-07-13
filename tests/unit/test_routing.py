@@ -171,6 +171,10 @@ class TestRouteWithLLM:
 
     @pytest.mark.asyncio
     async def test_security_routing_via_llm(self):
+        """The LLM classifies the base discipline; _infer_variant (Phase 7,
+        DESIGN_ROUTER_CANONICALIZATION_V1.md §5) then recovers the redteam
+        variant from "exploitation" matching _REDTEAM_KEYWORDS — this is the
+        Layer-1 analogue of what Layer 2's keyword scorer does natively."""
         mock_resp = _mock_llm_response("auto-security", 0.93)
         with patch(
             "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
@@ -180,7 +184,7 @@ class TestRouteWithLLM:
             result = await _route_with_llm(
                 _user_messages("analyze this CVE and explain the exploitation path")
             )
-            assert result == "auto-security"
+            assert result == "auto-security::redteam"
 
     def test_keyword_fallback_still_works(self):
         """_detect_workspace() must still route correctly as LLM fallback."""
@@ -195,7 +199,7 @@ class TestRouteWithLLM:
     def test_keyword_fallback_redteam(self):
         msgs = _user_messages("generate a reverse shell payload using metasploit")
         result = _detect_workspace(msgs)
-        assert result in ("auto-redteam", "auto-security")
+        assert result in ("auto-security::redteam", "auto-security")
 
     def test_valid_workspace_ids_covers_all_workspaces(self):
         """_VALID_WORKSPACE_IDS must cover all non-bench workspaces.
