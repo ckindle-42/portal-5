@@ -63,7 +63,12 @@ _LEGACY_WORKSPACE_ALIASES: dict[str, tuple[str, str | None]] = {
     "auto-devstral": ("auto-coding", None),
     "auto-glm": ("auto-coding", None),
     "auto-glm-thinking": ("auto-coding", None),
-    "auto-mistral": ("auto-coding", None),
+    # NOT ("auto-coding", None) — routing.py:557-568's Phase 7 keyword-scorer
+    # union folds auto-mistral into auto-reasoning (operator decision, both
+    # _MISTRAL_KEYWORDS/_REASONING_KEYWORDS are 100% reasoning-flavored with
+    # zero coding terms). This entry used to disagree with that decision
+    # (docs/ROUTING_INTEGRITY_FINDINGS.md Finding 3) — kept in sync now.
+    "auto-mistral": ("auto-reasoning", None),
     "auto-phi4": ("auto-daily", None),
     "auto-gemma-e4b": ("auto-daily", None),
     "auto-gemma-fast": ("auto-daily", None),
