@@ -7,24 +7,40 @@
 //   2. PIPELINE_API_KEY exported: export $(grep PIPELINE_API_KEY .env | xargs)
 //   3. opencode installed: ~/.opencode/bin/opencode .
 //
-// KNOWN LIMITATION (alias-retirement, coding_task/cleanup/BUILD_PROGRAM_ALIAS_
-// RETIRE_V1.md Phase 5): the "models" block below still keys several entries
-// by their pre-collapse alias id (auto-coding-agentic, auto-redteam, etc.).
-// opencode sends this key verbatim as the request's "model" field with no
-// verified way to also attach a ?variant= query param, so migrating these to
-// base-workspace ids would need either confirming opencode's client can pass
-// extra params, or a small wrapper/wrapper-provider that injects one — until
-// then these resolve correctly via the legacy alias shim and are left as-is
-// (matches deploy/portal-5/docker-compose.lab.yml's Incalmo service, same
-// underlying constraint). pipeline_mcp.py's get_workspace_recommendation()
-// tool returns matching alias ids for the same reason — keep both in sync.
+// ALIAS-RETIREMENT CLOSEOUT (CLOSEOUT_ALIAS_REMOVAL.md,
+// DESIGN_OPENCODE_ADDRESSING_V1.md): the "models" block below is keyed on
+// persona slugs for every variant entry, and bare workspace ids for base
+// entries — the pre-collapse alias ids (auto-coding-agentic, auto-redteam,
+// etc.) are retired. opencode sends the key verbatim as the request's
+// "model" field; a plain persona-slug string (no "::") transmits cleanly
+// with zero risk of client-side mangling, unlike a "base::variant"
+// synthetic id. A persona is the friendly named binding of
+// (workspace + variant) — exactly what a curated picker entry needs.
+// pipeline_mcp.py's get_workspace_recommendation() returns matching
+// persona slugs / base ids for the same reason — keep both in sync.
 //
-// Models available: all 90 Portal 5 workspaces (run `opencode models` to list)
-// Default model: portal/auto-coding-agentic  →  Laguna-XS.2 (Poolside AI 33B-A3B MoE, 68.2% SWE-bench Verified).
-// Uncensored lanes (explicit pick): auto-coding-uncensored (one-shot),
-// auto-coding-uncensored-agentic (agentic), auto-general-uncensored (generalist).
+// Migration table (old alias key -> new picker key):
+//   auto-coding-agentic          -> codingagentic   (persona, opencode default)
+//   auto-agentic                 -> agenticheavy    (persona)
+//   auto-agentic-lite            -> agenticlite     (persona)
+//   auto-coding-uncensored       -> codinguncensored         (persona)
+//   auto-coding-uncensored-agentic -> codinguncensoredagentic (persona)
+//   auto-pentest                 -> pentestlead     (persona)
+//   auto-redteam                 -> pentester       (persona)
+//   auto-blueteam                -> blueteamdefender (persona)
+//   auto-purpleteam               -> purpleteamlead  (persona)
+//   auto-purpleteam-exec          -> purpleteamexec  (persona)
+//   auto-security-uncensored      -> securityuncensored (persona)
+//   (all other keys unchanged — base workspace ids)
+//
+// Models available: the curated 20 below, or the full ~138-persona +
+// 21-workspace catalog via `opencode models` (GET /v1/models advertises
+// every ide_expose: true persona alongside all base workspaces).
+// Default model: portal/codingagentic  →  Laguna-XS.2 (Poolside AI 33B-A3B MoE, 68.2% SWE-bench Verified).
+// Uncensored lanes (explicit pick): codinguncensored (one-shot),
+// codinguncensoredagentic (agentic), auto-general-uncensored (generalist).
 // Not defaults — select deliberately. Also: auto-extract-uncensored and
-// auto-security-uncensored exist outside this picker (full list via `opencode models`).
+// securityuncensored exist outside this picker (full list via `opencode models`).
 {
   "$schema": "https://opencode.ai/config.json",
 
@@ -72,27 +88,27 @@
           "attachment": true,
           "reasoning": false
         },
-        "auto-coding-agentic": {
+        "codingagentic": {
           "name": "Portal · IDE Agentic (Laguna-XS.2 33B, opencode default)",
           "attachment": true,
           "reasoning": false
         },
-        "auto-agentic": {
+        "agenticheavy": {
           "name": "Portal · Agentic Heavy (Qwen3-Coder-Next 80B + AgentWorld 35B fallback)",
           "attachment": true,
           "reasoning": false
         },
-        "auto-agentic-lite": {
+        "agenticlite": {
           "name": "Portal · Agentic Lite (AgentWorld 35B, 45 t/s, MCP/SWE/Terminal)",
           "attachment": true,
           "reasoning": true
         },
-        "auto-coding-uncensored": {
+        "codinguncensored": {
           "name": "Portal · Code Uncensored (OmniCoder-2 9B, one-shot)",
           "attachment": true,
           "reasoning": false
         },
-        "auto-coding-uncensored-agentic": {
+        "codinguncensoredagentic": {
           "name": "Portal · Agentic Coder Uncensored (Qwen3-Coder-Next abliterated)",
           "attachment": true,
           "reasoning": false
@@ -104,27 +120,27 @@
           "attachment": true,
           "reasoning": false
         },
-        "auto-pentest": {
+        "pentestlead": {
           "name": "Portal · Pentest Assistant (authorized engagements)",
           "attachment": false,
           "reasoning": false
         },
-        "auto-redteam": {
+        "pentester": {
           "name": "Portal · Red Team (offensive, authorized)",
           "attachment": false,
           "reasoning": false
         },
-        "auto-blueteam": {
+        "blueteamdefender": {
           "name": "Portal · Blue Team (defensive, IR, detection)",
           "attachment": true,
           "reasoning": false
         },
-        "auto-purpleteam": {
+        "purpleteamlead": {
           "name": "Portal · Purple Team (TTP analysis)",
           "attachment": true,
           "reasoning": false
         },
-        "auto-purpleteam-exec": {
+        "purpleteamexec": {
           "name": "Portal · Purple Team Exec (tool-calling, live lab)",
           "attachment": false,
           "reasoning": true
@@ -134,7 +150,7 @@
           "attachment": true,
           "reasoning": false
         },
-        "auto-security-uncensored": {
+        "securityuncensored": {
           "name": "Portal · Security Uncensored (no refusals)",
           "attachment": false,
           "reasoning": false
@@ -171,7 +187,7 @@
   },
 
   // ── Default model for new sessions ────────────────────────────────────────
-  "model": "portal/auto-coding-agentic",
+  "model": "portal/codingagentic",
 
   // ── Disable built-in cloud providers to prevent accidental cloud use ──────
   "disabled_providers": ["anthropic", "openai", "google", "bedrock", "vertex"],
