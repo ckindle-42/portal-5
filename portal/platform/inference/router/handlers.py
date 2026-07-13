@@ -642,7 +642,18 @@ async def chat_completions(
         # model_hint. Bounded to config/backends.yaml's known model catalog
         # (see _resolve_model_override) -- an unrecognized model param is a
         # silent no-op, not an error.
-        workspace_id = _resolve_model_override(workspace_id, request.query_params.get("model"))
+        #
+        # DESIGN_PERSONA_INTENT_REMEDIATION_V1.md §4.2: a persona's own
+        # model_pin applies through this exact same mechanism, so a persona
+        # claiming a specific model lineage (e.g. magistralstrategist ->
+        # Magistral) is actually served that model, not just its
+        # workspace's pool-primary. An explicit ?model= query param always
+        # wins over the persona's pin (more specific caller intent).
+        _persona_for_pin = _PERSONA_MAP.get(_original_model_id)
+        _model_pin = _persona_for_pin.model_pin if _persona_for_pin else None
+        workspace_id = _resolve_model_override(
+            workspace_id, request.query_params.get("model") or _model_pin
+        )
 
         # Phase 5: Temporal context injection — give web-tool-enabled workspaces today's
         # date plus a search-first nudge so local models don't answer time-sensitive

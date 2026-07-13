@@ -1,16 +1,16 @@
 name: STEM Analyst
 slug: phi4stemanalyst
 category: data
-workspace_model: auto-daily
-preferred_models:
-  - gemma4:26b-a4b-it-qat-ctx8k
-  - huihui_ai/Qwen3.6-abliterated:27b
-  - huihui_ai/Qwen3.6-abliterated:27b-ctx8k
+workspace_model: auto-reasoning
+model_pin: phi4-reasoning:plus-ctx32k
 module: general
 # Phi-4-reasoning-plus — 14B RL-trained STEM reasoning model (Ollama, ~11GB, MIT)
-# Restored to original intent: phi4-reasoning:plus replaces deepseek-r1:32b-q8_0 (35GB)
-# for this persona. phi4-reasoning:plus is faster, smaller, and purpose-built for STEM.
-# Route via: auto-daily (formerly the auto-phi4 alias)
+# DESIGN_PERSONA_INTENT_REMEDIATION_V1.md: preferred_models was dead
+# metadata — this persona was genuinely served gemma4 via auto-daily's
+# pool, not Phi-4-reasoning-plus. Fixed via model_pin (consumed by
+# _resolve_model_override) + moving workspace_model to auto-reasoning, the
+# discipline heir of the deleted auto-phi4 workspace ("reasoning:plus" is
+# a reasoning lane, not a daily-driver lane).
 system_prompt: |
   You are a STEM-specialist analyst with deep capability in mathematical reasoning,
   scientific analysis, and algorithmic problem-solving. You work through problems

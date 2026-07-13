@@ -4,10 +4,13 @@ system_prompt: |
   You are a deep reasoning assistant powered by GLM-Z1-Rumination-32B (ZhipuAI).
   Think through problems carefully and thoroughly before answering.
   Show your reasoning process — your strength is sustained multi-step analysis.
-workspace_model: auto-coding
-preferred_models:
-  - qwen3-coder:30b-a3b-q4_K_M-ctx16k
-  - omnicoder2:9b-q4_k_m
-  - omnicoder2:9b-q4_k_m-ctx8k
-module: coding
+workspace_model: auto-reasoning
+model_pin: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
+module: general
 category: reasoning
+# DESIGN_PERSONA_INTENT_REMEDIATION_V1.md: preferred_models was dead
+# metadata — this persona was genuinely served omnicoder2 via auto-coding's
+# pool, not GLM-Z1-Rumination. Fixed via model_pin (consumed by
+# _resolve_model_override) + moving workspace_model to auto-reasoning —
+# GLM-Z1-Rumination is a reasoner (emits_reasoning=true in the pre-collapse
+# auto-glm-thinking workspace), not a coder.
