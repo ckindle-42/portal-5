@@ -2726,6 +2726,7 @@ def main() -> int:
     v.run("AR. persona module tag", check_persona_module_tag)
     v.run("AS. persona prompt uniqueness", check_persona_prompt_uniqueness)
     v.run("AT. alias ratchet", check_alias_ratchet)
+    v.run("AU. routing regression (served model)", check_routing_regression)
 
     return v.summary()
 
@@ -2943,6 +2944,43 @@ def check_alias_ratchet() -> tuple[str, str, list[dict]]:
         f"{'no change' if total_now == total_baseline else 'reduced'})",
         [],
     )
+
+
+def check_routing_regression() -> tuple[str, str, list[dict]]:
+    """AU. Routing decisions match the versioned baseline (served model, not just id).
+
+    BUILD_PROGRAM_ROUTING_INTEGRITY_V1.md Phase R3: runs the committed corpus
+    (tests/routing/corpus.json) through the current keyword-layer router and
+    asserts the full (base, variant, served_model) tuple per prompt against
+    tests/routing/baseline.json — the persona finding proved that a
+    workspace-id-only check is insufficient (right workspace, wrong served
+    model). Hard fail on any drift. Intended routing changes must be
+    re-blessed explicitly (`scripts/routing_regression.py --rebless`) with
+    the diff recorded in the commit — never silently accepted here.
+    """
+    # Earlier checks in this same process may import portal.platform.inference
+    # and set PROMETHEUS_MULTIPROC_DIR (see metrics.py's own docstring) to a
+    # directory (e.g. /dev/shm/portal_metrics) that only exists once the
+    # pipeline's own startup has created it. This subprocess doesn't need
+    # multiprocess metrics at all — routing_regression.py only imports
+    # routing.py for its pure keyword-scoring function — so drop the
+    # inherited var rather than risk a FileNotFoundError from a stale/
+    # nonexistent multiprocess dir polluting an unrelated check.
+    child_env = {k: v for k, v in os.environ.items() if k != "PROMETHEUS_MULTIPROC_DIR"}
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "routing_regression.py"), "--assert-baseline"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env=child_env,
+    )
+    if result.returncode != 0:
+        return (
+            "FAIL",
+            (result.stdout.strip() + "\n" + result.stderr.strip()).strip()[-800:],
+            [],
+        )
+    return ("PASS", result.stdout.strip(), [])
 
 
 if __name__ == "__main__":

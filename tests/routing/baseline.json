@@ -1,0 +1,432 @@
+{
+  "bench_prompts[coding]": {
+    "base": "auto-coding",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "variant": null
+  },
+  "bench_prompts[creative]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "bench_prompts[general]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "bench_prompts[math]": {
+    "base": "auto-reasoning",
+    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "variant": null
+  },
+  "bench_prompts[reasoning]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "bench_prompts[security]": {
+    "base": "auto-security",
+    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k",
+    "variant": null
+  },
+  "bench_prompts[vision]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "fold_agentic_heavy": {
+    "base": "auto-coding",
+    "served_model": "qwen3-coder-next:latest-ctx64k",
+    "variant": "heavy"
+  },
+  "fold_blueteam": {
+    "base": "auto-security",
+    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k",
+    "variant": null
+  },
+  "fold_coding_agentic_laguna": {
+    "base": "auto-coding",
+    "served_model": "laguna-xs.2:Q4_K_M-ctx64k",
+    "variant": "laguna"
+  },
+  "fold_coding_northmini": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "fold_coding_uncensored": {
+    "base": "auto-coding",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "variant": null
+  },
+  "fold_coding_uncensored_agentic": {
+    "base": "auto-coding",
+    "served_model": "qwen3-coder-next:latest-ctx64k",
+    "variant": "heavy"
+  },
+  "fold_devstral_manual_only": {
+    "base": "auto-coding",
+    "served_model": "laguna-xs.2:Q4_K_M-ctx64k",
+    "variant": "laguna"
+  },
+  "fold_glm_manual_only": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "fold_mistral_llm": {
+    "base": "auto-reasoning",
+    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "variant": null
+  },
+  "fold_pentest": {
+    "base": "auto-security",
+    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+    "variant": "redteam"
+  },
+  "fold_phi4_llm": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "fold_purpleteam": {
+    "base": "auto-security",
+    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k",
+    "variant": null
+  },
+  "fold_purpleteam_deep": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "fold_purpleteam_exec": {
+    "base": "auto-coding",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "variant": null
+  },
+  "fold_redteam_deep": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "fold_security_uncensored": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[0]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[10]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[11]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[12]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[13]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[14]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[15]": {
+    "base": "auto-security",
+    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k",
+    "variant": null
+  },
+  "routing_examples[16]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[17]": {
+    "base": "auto-security",
+    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k",
+    "variant": null
+  },
+  "routing_examples[18]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[19]": {
+    "base": "auto-compliance",
+    "served_model": "granite4.1:8b-ctx16k",
+    "variant": null
+  },
+  "routing_examples[1]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[20]": {
+    "base": "auto-compliance",
+    "served_model": "granite4.1:8b-ctx16k",
+    "variant": null
+  },
+  "routing_examples[21]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[22]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[23]": {
+    "base": "auto-reasoning",
+    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "variant": null
+  },
+  "routing_examples[24]": {
+    "base": "auto-reasoning",
+    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "variant": null
+  },
+  "routing_examples[25]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[26]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[27]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[28]": {
+    "base": "auto-coding",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "variant": null
+  },
+  "routing_examples[29]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[2]": {
+    "base": "auto-spl",
+    "served_model": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k",
+    "variant": null
+  },
+  "routing_examples[30]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[31]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[32]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[33]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[34]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[35]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[36]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[37]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[38]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[39]": {
+    "base": "auto-reasoning",
+    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "variant": null
+  },
+  "routing_examples[3]": {
+    "base": "auto-spl",
+    "served_model": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k",
+    "variant": null
+  },
+  "routing_examples[40]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[41]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[42]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[43]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "routing_examples[4]": {
+    "base": "auto-spl",
+    "served_model": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k",
+    "variant": null
+  },
+  "routing_examples[5]": {
+    "base": "auto-security",
+    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k",
+    "variant": null
+  },
+  "routing_examples[6]": {
+    "base": "auto-security",
+    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+    "variant": "redteam"
+  },
+  "routing_examples[7]": {
+    "base": "auto-security",
+    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k",
+    "variant": null
+  },
+  "routing_examples[8]": {
+    "base": "auto-security",
+    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+    "variant": "redteam"
+  },
+  "routing_examples[9]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "rr_bench_prompts[coding]": {
+    "base": "auto-coding",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "variant": null
+  },
+  "rr_bench_prompts[creative]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "rr_bench_prompts[general]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "rr_bench_prompts[math]": {
+    "base": "auto-reasoning",
+    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "variant": null
+  },
+  "rr_bench_prompts[reasoning]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "rr_bench_prompts[security]": {
+    "base": "auto-security",
+    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k",
+    "variant": null
+  },
+  "rr_bench_prompts[vision]": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "rr_s06_02_redteam_methodology": {
+    "base": "auto-security",
+    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k",
+    "variant": null
+  },
+  "rr_s06_03_blueteam_incident": {
+    "base": "auto-security",
+    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k",
+    "variant": null
+  },
+  "rr_s06_04_content_aware_security": {
+    "base": "auto-security",
+    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+    "variant": "redteam"
+  },
+  "rr_s06_05_redteam_deep_kerberoast": {
+    "base": "auto-security",
+    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k",
+    "variant": null
+  },
+  "rr_s21_01_sqli_auto": {
+    "base": "auto-security",
+    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+    "variant": "redteam"
+  },
+  "rr_s21_02_coding_auto": {
+    "base": "auto-coding",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "variant": null
+  },
+  "rr_s21_03_compliance_auto": {
+    "base": "auto-compliance",
+    "served_model": "granite4.1:8b-ctx16k",
+    "variant": null
+  },
+  "rr_variant_coding_base": {
+    "base": "auto-coding",
+    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "variant": null
+  },
+  "rr_variant_coding_heavy": {
+    "base": "auto-coding",
+    "served_model": "qwen3-coder-next:latest-ctx64k",
+    "variant": "heavy"
+  },
+  "rr_variant_coding_laguna": {
+    "base": "auto-coding",
+    "served_model": "laguna-xs.2:Q4_K_M-ctx64k",
+    "variant": "laguna"
+  },
+  "rr_variant_security_base": {
+    "base": null,
+    "served_model": null,
+    "variant": null
+  },
+  "rr_variant_security_redteam": {
+    "base": "auto-security",
+    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+    "variant": "redteam"
+  }
+}
