@@ -28,7 +28,7 @@ updated_at: 1783195000.871441
 
 > **Two consumer paths.** These tools are reachable two ways:
 > (A) **opencode / Claude Code** connect to `:8928` directly over MCP streamable-http
-> (via `.mcp.json`); (B) the **in-pipeline `auto-coding-agentic` workspace** reaches them
+> (via `.mcp.json`); (B) the **in-pipeline `auto-coding` workspace (`?variant=laguna`)** reaches them
 > through the pipeline's ToolRegistry, which discovers `GET :8928/tools` and dispatches
 > `POST :8928/tools/{name}`. Both paths are served by the same `_impl_*` helpers in
 > `pipeline_mcp.py`, so behavior is identical. `:8928` is registered in
