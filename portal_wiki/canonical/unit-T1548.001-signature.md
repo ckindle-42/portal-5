@@ -19,8 +19,8 @@ tags:
 - T1548.001
 - technique
 - signature
-created_at: 1784050004.182061
-updated_at: 1784050004.182061
+created_at: 1784055842.290549
+updated_at: 1784055842.290549
 ---
 
 # T1548.001 — SUID abuse — setuid binary execution for privilege escalation
