@@ -362,8 +362,8 @@ class TestComplianceWorkspace:
         workspaces into auto-security's variants)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 21, (
-            f"Expected 21 workspaces (module: eval's 60 bench-* gated off by default), "
+        assert len(WORKSPACES) == 22, (
+            f"Expected 22 workspaces (module: eval's 60 bench-* gated off by default), "
             f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
@@ -376,7 +376,7 @@ class TestComplianceWorkspace:
 
         monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
         ws = get_workspace_dict(load_portal_config())
-        assert len(ws) == 81, f"Expected 81 workspaces with eval enabled, got {len(ws)}"
+        assert len(ws) == 82, f"Expected 82 workspaces with eval enabled, got {len(ws)}"
 
 
 class TestR17bModelExpansion:
@@ -792,8 +792,8 @@ class TestSPLWorkspace:
         for the PORTAL_ENABLE_EVAL=1 path)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 21, (
-            f"Expected 21 workspaces (module: eval's 60 bench-* gated off by default), "
+        assert len(WORKSPACES) == 22, (
+            f"Expected 22 workspaces (module: eval's 60 bench-* gated off by default), "
             f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )

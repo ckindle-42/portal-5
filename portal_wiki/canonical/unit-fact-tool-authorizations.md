@@ -1,20 +1,20 @@
 ---
 id: unit-fact-tool-authorizations
 kind: what
-title: tool authorizations for 21 production workspaces
+title: tool authorizations for 22 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: c4895be18722
+  commit: d16cb24ec652
   section: workspaces[].tools
-last_generated_commit: c4895be18722
+last_generated_commit: d16cb24ec652
 confidence: high
 tags:
 - fact
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1784055273.6847548
+updated_at: 1784056264.498743
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -35,6 +35,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-documents` | documents | `create_word_document`, `create_excel`, `create_powerpoint`, `read_word_document`, `read_excel`, `read_powerpoint`, `read_pdf`, `transcribe_with_speakers` |
 | `auto-extract-uncensored` | documents | _(none)_ |
 | `auto-general-uncensored` | general | `execute_bash`, `execute_python`, `read_word_document`, `read_pdf`, `remember`, `recall` |
+| `auto-image` | media | `generate_image`, `list_workflows`, `get_generation_status`, `get_latest_images`, `start_image_generation` |
 | `auto-math` | general | _(none)_ |
 | `auto-music` | media | `generate_music`, `generate_continuation`, `list_music_models`, `speak`, `transcribe_audio`, `clone_voice`, `list_voices` |
 | `auto-reasoning` | general | _(none)_ |

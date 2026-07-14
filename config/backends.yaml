@@ -452,6 +452,8 @@ workspace_routing:
   - coding
   auto-video:
   - general
+  auto-image:
+  - general
   auto-music:
   - general
   auto-research:

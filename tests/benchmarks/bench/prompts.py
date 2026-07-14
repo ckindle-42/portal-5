@@ -105,6 +105,7 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "auto-reasoning": "reasoning",
     "auto-documents": "coding",
     "auto-video": "creative",
+    "auto-image": "creative",
     "auto-music": "creative",
     "auto-research": "reasoning",
     "auto-vision": "vision",

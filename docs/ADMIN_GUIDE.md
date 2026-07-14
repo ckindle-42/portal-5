@@ -398,7 +398,7 @@ edit the source config and re-run `sync-config` instead.
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (21 production, 60 eval, 81 total)
+# Workspace roster (22 production, 60 eval, 82 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -416,6 +416,7 @@ edit the source config and re-run `sync-config` instead.
 | `auto-documents` | documents | `granite4.1:8b-ctx16k` |
 | `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` |
 | `auto-general-uncensored` | general | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` |
+| `auto-image` | media | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
 | `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
@@ -516,6 +517,7 @@ default.
 | `auto-documents` | `granite4.1:8b-ctx16k` | yes |
 | `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` | yes |
 | `auto-general-uncensored` | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | yes |
+| `auto-image` | `granite4.1:8b-ctx16k` | yes |
 | `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
