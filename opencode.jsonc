@@ -282,7 +282,7 @@
     },
     "portal-detections": {
       "type": "remote",
-      "url": "http://localhost:8930/mcp"
+      "url": "http://localhost:8932/mcp"
     },
     "portal-wiki": {
       "type": "remote",
