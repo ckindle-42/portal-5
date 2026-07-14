@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Generated: 2026-07-14 19:47 UTC*
+*Generated: 2026-07-14 20:09 UTC*
 
 ## Architecture Overview
 

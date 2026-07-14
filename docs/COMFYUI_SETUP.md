@@ -120,11 +120,17 @@ pure text-to-video) — `wan22-t2v-a14b` does not.
 
 **Memory warning:** on Apple Silicon, ComfyUI does not reliably evict a previously-loaded
 model's weights when a new workflow loads a different model family. Loading Flux/SDXL
-(~7–23GB) and then a Wan 14B video model (~39GB) back-to-back in the same ComfyUI process
-without a restart between them can exhaust unified memory and swap simultaneously (observed:
-swap at 66.7GB/67.6GB used, system-locking) — restart ComfyUI (`launchctl kickstart -k
-gui/$(id -u)/com.portal5.comfyui`) between large model-family switches until
-`TASK_VRAM_ADMISSION_V1` lands cross-engine admission control.
+(~7–27GB) and then a Wan 14B video model back-to-back in the same ComfyUI process without a
+restart between them can exhaust unified memory and swap simultaneously (observed twice:
+swap at 66.7GB/67.6GB used, system-locking, and separately a *tiny* job crashing free RAM
+from ~45GB to ~60MB — the 14B backend's real peak usage runs well above its ~39GB on-disk
+weight size, close to the entire 64GB pool regardless of frame count) — restart ComfyUI
+(`launchctl kickstart -k gui/$(id -u)/com.portal5.comfyui`) between large model-family
+switches. `TASK_VRAM_ADMISSION_V1` (Slice 7) added a pre-flight admission check
+(`portal/modules/media/tools/_admission.py`) that refuses an oversized job with a structured
+error before it OOMs — see `unit-fact-media-memory-budget` / `unit-HOWTO-media-memory-and-
+launch-order`; it does not replace restarting ComfyUI between families (Tier 2 cross-engine
+coordination with Ollama is explicitly not built).
 
 ### Step 3 — Use
 
