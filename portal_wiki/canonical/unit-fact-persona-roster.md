@@ -5,23 +5,23 @@ title: 138 personas
 sources:
 - type: code
   path: config/personas/
-  commit: 97409a12c530
+  commit: 468525e61329
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: 97409a12c530
+  commit: 468525e61329
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: 97409a12c530
+  commit: 468525e61329
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: 97409a12c530
+  commit: 468525e61329
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: 97409a12c530
+  commit: 468525e61329
 - type: code
   path: config/personas/bench_devstral.yaml
-  commit: 97409a12c530
-last_generated_commit: 97409a12c530
+  commit: 468525e61329
+last_generated_commit: 468525e61329
 confidence: high
 tags:
 - fact
