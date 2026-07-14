@@ -316,6 +316,14 @@ def main() -> int:
     changed = emit_module_manifest(config)
     print(f"  config/modules.generated.yaml: {'updated' if changed else 'no change'}")
 
+    # 6. wiki fact-units + generated doc blocks (DESIGN_WIKI_GENERATION_LOOP_V1.md)
+    from portal.platform.wiki.adapters.seed_facts import seed_facts
+    from portal.platform.wiki.render import render_all_generated_blocks
+
+    seed_facts()
+    changed_docs = render_all_generated_blocks(Path("."))
+    print(f"  wiki fact-units + generated doc blocks: {len(changed_docs)} doc(s) updated")
+
     print("sync-config: done")
     return 0
 

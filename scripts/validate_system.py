@@ -2728,6 +2728,7 @@ def main() -> int:
     v.run("AT. alias ratchet", check_alias_ratchet)
     v.run("AU. routing regression (served model)", check_routing_regression)
     v.run("AV. persona intent (identity vs served model)", check_persona_intent)
+    v.run("AW. wiki facts current (fact-units + generated doc blocks)", check_wiki_facts_current)
 
     return v.summary()
 
@@ -3005,6 +3006,48 @@ def check_persona_intent() -> tuple[str, str, list[dict]]:
     if result.returncode != 0:
         return ("FAIL", (result.stdout.strip() + "\n" + result.stderr.strip()).strip()[-800:], [])
     return ("PASS", result.stdout.strip() or "0 hard failures", [])
+
+
+def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
+    """AW. Wiki fact-units are current vs live config, and generated doc
+    blocks match their units.
+
+    DESIGN_WIKI_GENERATION_LOOP_V1.md F3 — the precise replacement for a
+    coarse "a bound directory changed" doc-currency signal on the docs
+    that now carry generated fact-blocks: read-only diff of each
+    fact-unit's would-be body against what's stored, plus every
+    `<!-- WIKI:GENERATED unit=... -->` block in the Tier-1 docs against
+    its unit's current body. A mismatch here is precise ("unit says 138,
+    doc block says 130"), not "a directory changed, re-stamp" — it means
+    `sync-config` was not re-run after a source change before commit.
+    """
+    from portal.platform.wiki.adapters.seed_facts import check_facts_current
+    from portal.platform.wiki.render import check_generated_blocks_current
+
+    subs: list[dict] = []
+
+    stale_units = check_facts_current()
+    subs.append(
+        {
+            "name": "fact-units vs live config",
+            "status": "PASS" if not stale_units else "FAIL",
+            "detail": ", ".join(stale_units) if stale_units else "all current",
+        }
+    )
+
+    drift = check_generated_blocks_current(REPO_ROOT)
+    subs.append(
+        {
+            "name": "generated doc blocks vs units",
+            "status": "PASS" if not drift else "FAIL",
+            "detail": "; ".join(drift) if drift else "all match",
+        }
+    )
+
+    if stale_units or drift:
+        detail = f"{len(stale_units)} fact-unit(s) stale, {len(drift)} doc block(s) drifted — run sync-config"
+        return ("FAIL", detail, subs)
+    return ("PASS", "fact-units current, all generated blocks match", subs)
 
 
 if __name__ == "__main__":

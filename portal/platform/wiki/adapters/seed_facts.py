@@ -1,0 +1,398 @@
+"""Seed fact-deriving WHAT units — the handful of numbers that drift.
+
+DESIGN_WIKI_GENERATION_LOOP_V1.md F1. Unlike seed_code's structural
+subsystem summaries (scraped file lists), these units COMPUTE their body
+from live config on every run — persona/workspace counts, the security
+variant vocabulary, MCP fleet, model catalog, and (most importantly)
+reachability-resolved model bindings. Re-running re-derives from current
+HEAD and is idempotent: save_unit() overwrites by unit.id, so no churn
+when nothing changed.
+
+unit-fact-model-bindings is deliberately reachability-resolved (same
+logic as scripts/persona_intent_audit.py check 5 / RUN_THIS's GATE 1) —
+it reports what a workspace/persona actually SERVES, not what it claims,
+so the wiki surfaces a "pinned but unservable" gap at derivation time
+instead of by audit.
+"""
+
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+import yaml
+
+from portal.platform.wiki.schema import KnowledgeUnit, SourceRef
+from portal.platform.wiki.store import load_unit, save_unit
+
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _get_current_commit() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.stdout.strip()[:12]
+    except Exception:
+        return "unknown"
+
+
+def _load_yaml(path: Path) -> dict:
+    with open(path) as fh:
+        return yaml.safe_load(fh)
+
+
+def _group_models(backends_cfg: dict) -> dict[str, set[str]]:
+    """backend group name (e.g. "reasoning") -> set of model ids it declares."""
+    groups: dict[str, set[str]] = {}
+    for be in backends_cfg.get("backends", []):
+        name = be.get("group") or (be.get("id") or be.get("name") or "").replace("ollama-", "")
+        groups[name] = {m.get("id") if isinstance(m, dict) else m for m in be.get("models", [])}
+    return groups
+
+
+def _reachable(model: str, ws_groups: list[str], group_models: dict[str, set[str]]) -> bool:
+    return any(model in group_models.get(g, ()) for g in ws_groups)
+
+
+def _make_unit(
+    unit_id: str,
+    title: str,
+    sources: list[SourceRef],
+    body: str,
+    tags: list[str],
+    commit: str,
+    confidence: str = "high",
+) -> KnowledgeUnit:
+    """Construct a fact-unit with STABLE timestamps across re-derivation.
+
+    KnowledgeUnit.__post_init__ defaults created_at/updated_at to "now" for
+    any instance that doesn't already carry them — building a fresh
+    KnowledgeUnit on every derive call would therefore bump both fields
+    every single run even when the body is byte-identical, permanently
+    breaking the "sync-config twice produces no diff" idempotency contract
+    (every re-derivation would show a timestamp-only git diff forever).
+    Preserve the prior unit's created_at unconditionally, and only bump
+    updated_at when the body actually changed.
+    """
+    import time
+
+    prior = load_unit(unit_id)
+    if prior:
+        created_at = prior.created_at
+        unchanged = prior.body.strip() == body.strip()
+        updated_at = prior.updated_at if unchanged else time.time()
+    else:
+        created_at = 0.0  # KnowledgeUnit.__post_init__ sets both to now()
+        updated_at = 0.0
+    return KnowledgeUnit(
+        id=unit_id,
+        kind="what",
+        title=title,
+        sources=sources,
+        body=body,
+        tags=tags,
+        confidence=confidence,
+        last_generated_commit=commit,
+        created_at=created_at,
+        updated_at=updated_at,
+    )
+
+
+def derive_persona_roster(commit: str, save: bool = True) -> KnowledgeUnit:
+    """unit-fact-persona-roster — config/personas/*.yaml."""
+    persona_files = sorted((_REPO_ROOT / "config" / "personas").glob("*.yaml"))
+    rows = []
+    for f in persona_files:
+        p = _load_yaml(f)
+        rows.append(
+            (
+                p.get("slug", f.stem),
+                p.get("module", ""),
+                p.get("workspace_model", ""),
+                p.get("model_pin", "") or "",
+            )
+        )
+
+    body_lines = [
+        f"# Persona roster ({len(rows)} personas)",
+        "",
+        "| Slug | Module | Workspace | Model Pin |",
+        "|---|---|---|---|",
+    ]
+    for slug, module, ws, pin in rows:
+        body_lines.append(f"| `{slug}` | {module} | `{ws}` | {f'`{pin}`' if pin else '—'} |")
+
+    sources = [SourceRef(type="code", path="config/personas/", commit=commit)]
+    sources += [
+        SourceRef(type="code", path=str(f.relative_to(_REPO_ROOT)), commit=commit)
+        for f in persona_files[:5]
+    ]
+    unit = _make_unit(
+        "unit-fact-persona-roster",
+        f"{len(rows)} personas",
+        sources,
+        "\n".join(body_lines),
+        ["fact", "personas"],
+        commit,
+    )
+    if save:
+        save_unit(unit)
+    return unit
+
+
+def derive_workspace_roster(commit: str, save: bool = True) -> KnowledgeUnit:
+    """unit-fact-workspace-roster — config/portal.yaml."""
+    portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
+    ws = portal_cfg["workspaces"]
+    prod = sorted((w, c) for w, c in ws.items() if (c or {}).get("module") != "eval")
+    ev = sorted((w, c) for w, c in ws.items() if (c or {}).get("module") == "eval")
+
+    body_lines = [
+        f"# Workspace roster ({len(prod)} production, {len(ev)} eval, {len(ws)} total)",
+        "",
+        "## Production workspaces (acceptance/UAT scope, eval OFF)",
+        "",
+        "| Workspace | Module | Model Hint |",
+        "|---|---|---|",
+    ]
+    for wid, c in prod:
+        body_lines.append(
+            f"| `{wid}` | {(c or {}).get('module', '')} | `{(c or {}).get('model_hint', '')}` |"
+        )
+    body_lines += ["", "## Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)", ""]
+    for wid, _c in ev:
+        body_lines.append(f"- `{wid}`")
+
+    unit = _make_unit(
+        "unit-fact-workspace-roster",
+        f"{len(prod)} production + {len(ev)} eval workspaces",
+        [SourceRef(type="code", path="config/portal.yaml", commit=commit)],
+        "\n".join(body_lines),
+        ["fact", "workspaces"],
+        commit,
+    )
+    if save:
+        save_unit(unit)
+    return unit
+
+
+def derive_security_variants(commit: str, save: bool = True) -> KnowledgeUnit:
+    """unit-fact-security-variants — config/portal.yaml auto-security.variants."""
+    portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
+    variants = sorted((portal_cfg["workspaces"].get("auto-security") or {}).get("variants") or {})
+    canonical = [f"auto-security::{v}" for v in variants]
+
+    body_lines = [
+        f"# Security canonical variants ({len(canonical)})",
+        "",
+        "sec-bench `--workspaces` targets, addressed as `auto-security::<variant>`:",
+        "",
+    ]
+    body_lines += [f"- `{v}`" for v in canonical]
+
+    unit = _make_unit(
+        "unit-fact-security-variants",
+        f"{len(canonical)} security canonical variants",
+        [
+            SourceRef(
+                type="code",
+                path="config/portal.yaml",
+                commit=commit,
+                section="workspaces.auto-security.variants",
+            )
+        ],
+        "\n".join(body_lines),
+        ["fact", "security"],
+        commit,
+    )
+    if save:
+        save_unit(unit)
+    return unit
+
+
+def derive_model_bindings(commit: str, save: bool = True) -> KnowledgeUnit:
+    """unit-fact-model-bindings — backends.yaml + personas, reachability-resolved.
+
+    Reports what a workspace/persona ACTUALLY serves (reachable via
+    workspace_routing groups), not what it claims. A "claims X, serves Y"
+    row is a live gap — this is the check that would have caught the
+    phi4stemanalyst class of bug at derivation time.
+    """
+    backends_cfg = _load_yaml(_REPO_ROOT / "config" / "backends.yaml")
+    portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
+    group_models = _group_models(backends_cfg)
+    ws_routing = backends_cfg.get("workspace_routing", {})
+    workspaces = portal_cfg["workspaces"]
+
+    body_lines = [
+        "# Model bindings (reachability-resolved)",
+        "",
+        "What each production workspace/persona actually SERVES, not what it",
+        "claims. A row marked GAP means the intended model is unreachable via",
+        "the workspace's routing groups and silently falls back to the pool",
+        "default.",
+        "",
+        "## Workspace model_hint reachability",
+        "",
+        "| Workspace | model_hint | Reachable |",
+        "|---|---|---|",
+    ]
+    gaps: list[str] = []
+    for wid, c in sorted(workspaces.items()):
+        if (c or {}).get("module") == "eval":
+            continue
+        hint = (c or {}).get("model_hint")
+        if not hint:
+            continue
+        ok = _reachable(hint, ws_routing.get(wid, []), group_models)
+        body_lines.append(f"| `{wid}` | `{hint}` | {'yes' if ok else '**GAP**'} |")
+        if not ok:
+            gaps.append(f"workspace `{wid}` cannot reach its own model_hint `{hint}`")
+
+    body_lines += [
+        "",
+        "## Persona model_pin reachability",
+        "",
+        "| Persona | Workspace | model_pin | Reachable |",
+        "|---|---|---|---|",
+    ]
+    for f in sorted((_REPO_ROOT / "config" / "personas").glob("*.yaml")):
+        p = _load_yaml(f)
+        pin = p.get("model_pin")
+        if not pin:
+            continue
+        ws = p.get("workspace_model")
+        ws_cfg = workspaces.get(ws) or {}
+        if ws_cfg.get("module") == "eval":
+            continue
+        ok = _reachable(pin, ws_routing.get(ws, []), group_models)
+        body_lines.append(
+            f"| `{p.get('slug', f.stem)}` | `{ws}` | `{pin}` | {'yes' if ok else '**GAP**'} |"
+        )
+        if not ok:
+            gaps.append(
+                f"persona `{p.get('slug', f.stem)}` model_pin `{pin}` unreachable from `{ws}`"
+            )
+
+    body_lines += ["", f"**{len(gaps)} reachability gap(s)**" + (":" if gaps else " — clean.")]
+    body_lines += [f"- {g}" for g in gaps]
+
+    unit = _make_unit(
+        "unit-fact-model-bindings",
+        f"model bindings — {len(gaps)} reachability gap(s)",
+        [
+            SourceRef(type="code", path="config/backends.yaml", commit=commit),
+            SourceRef(type="code", path="config/portal.yaml", commit=commit),
+            SourceRef(type="code", path="config/personas/", commit=commit),
+        ],
+        "\n".join(body_lines),
+        ["fact", "model-bindings", "reachability"],
+        commit,
+        confidence="high" if not gaps else "low",
+    )
+    if save:
+        save_unit(unit)
+    return unit
+
+
+def derive_mcp_fleet(commit: str, save: bool = True) -> KnowledgeUnit:
+    """unit-fact-mcp-fleet — config/portal.yaml mcp_fleet."""
+    portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
+    fleet = portal_cfg.get("mcp_fleet", [])
+
+    body_lines = [
+        f"# MCP fleet ({len(fleet)} servers)",
+        "",
+        "| ID | Name | Port |",
+        "|---|---|---|",
+    ]
+    for svc in sorted(fleet, key=lambda s: s.get("port", 0)):
+        body_lines.append(
+            f"| `{svc.get('id', '')}` | {svc.get('name', '')} | {svc.get('port', '')} |"
+        )
+
+    unit = _make_unit(
+        "unit-fact-mcp-fleet",
+        f"{len(fleet)} MCP fleet servers",
+        [SourceRef(type="code", path="config/portal.yaml", commit=commit, section="mcp_fleet")],
+        "\n".join(body_lines),
+        ["fact", "mcp"],
+        commit,
+    )
+    if save:
+        save_unit(unit)
+    return unit
+
+
+def derive_model_catalog(commit: str, save: bool = True) -> KnowledgeUnit:
+    """unit-fact-model-catalog — config/backends.yaml, by backend group."""
+    backends_cfg = _load_yaml(_REPO_ROOT / "config" / "backends.yaml")
+    group_models = _group_models(backends_cfg)
+    total = sum(len(m) for m in group_models.values())
+
+    body_lines = [
+        f"# Model catalog ({total} model ids across {len(group_models)} backend groups)",
+        "",
+    ]
+    for group in sorted(group_models):
+        models = sorted(group_models[group])
+        body_lines.append(f"## {group} ({len(models)})")
+        body_lines.append("")
+        body_lines += [f"- `{m}`" for m in models]
+        body_lines.append("")
+
+    unit = _make_unit(
+        "unit-fact-model-catalog",
+        f"{total} model ids, {len(group_models)} backend groups",
+        [SourceRef(type="code", path="config/backends.yaml", commit=commit)],
+        "\n".join(body_lines),
+        ["fact", "models"],
+        commit,
+    )
+    if save:
+        save_unit(unit)
+    return unit
+
+
+_DERIVERS = (
+    derive_persona_roster,
+    derive_workspace_roster,
+    derive_security_variants,
+    derive_model_bindings,
+    derive_mcp_fleet,
+    derive_model_catalog,
+)
+
+
+def seed_facts(commit: str | None = None) -> list[KnowledgeUnit]:
+    """Derive/re-derive all fact units from current config. Idempotent."""
+    commit = commit or _get_current_commit()
+    return [deriver(commit) for deriver in _DERIVERS]
+
+
+def check_facts_current(commit: str | None = None) -> list[str]:
+    """Read-only: which fact units would change if re-derived right now.
+
+    Does NOT write anything — derives each unit in memory (save=False) and
+    diffs its body against what's stored on disk. Used by the validate
+    gate to catch a forgotten `sync-config` before commit.
+    """
+    from portal.platform.wiki.store import load_unit
+
+    commit = commit or _get_current_commit()
+    drifted: list[str] = []
+    for deriver in _DERIVERS:
+        fresh = deriver(commit, save=False)
+        stored = load_unit(fresh.id)
+        # KnowledgeUnit.from_markdown() strips the body on load (schema.py),
+        # so a save/load round-trip normalizes leading/trailing whitespace —
+        # compare stripped to match that normalization, not raw equality.
+        if stored is None or stored.body.strip() != fresh.body.strip():
+            drifted.append(fresh.id)
+    return drifted
