@@ -377,6 +377,175 @@ def derive_model_catalog(commit: str, save: bool = True) -> KnowledgeUnit:
     return unit
 
 
+def _tool_names_in_file(path) -> list[str]:
+    """Tool names registered in one MCP server file.
+
+    Two registration patterns are in use across the fleet: `@mcp.tool()` immediately
+    above a `def`/`async def` (most servers), and `@mcp.custom_route("/tools/<name>", ...)`
+    with no matching `@mcp.tool()` at all (memory_mcp.py, rag_mcp.py, web_search_mcp.py).
+    Both are real, live registrations — treating the second pattern as "unregistered" would
+    falsely flag working tools as bugs, exactly what this deriver must never do.
+    """
+    import re as _re
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    names: list[str] = []
+    for i, ln in enumerate(lines):
+        s = ln.strip()
+        if s.startswith("@mcp.tool()"):
+            for j in range(i + 1, min(i + 4, len(lines))):
+                m = _re.match(r"\s*(?:async )?def (\w+)\(", lines[j])
+                if m:
+                    names.append(m.group(1))
+                    break
+        else:
+            m = _re.match(r'@mcp\.custom_route\("/tools/(\w+)"', s)
+            if m:
+                names.append(m.group(1))
+    return names
+
+
+def _mcp_registry() -> dict[str, list[str]]:
+    """server id -> sorted registered tool names, parsed from the server file.
+
+    Resolves config/portal.yaml mcp_fleet -> portal/modules/<module>/tools/<id>_mcp.py,
+    falling back to portal/platform/<module>/<id>_mcp.py, then to any portal/platform/*/
+    subdirectory whose *_mcp.py filename matches the id (cross-cutting servers declare
+    `module: platform` generically — e.g. `memory` lives under portal/platform/memory/ and
+    `pipeline` under portal/platform/mcp_host/, neither named after the id/module directly).
+    Servers whose file cannot be resolved get an empty list and are marked unresolved by the
+    caller — never faked.
+    """
+    portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
+    reg: dict[str, list[str]] = {}
+    for svc in portal_cfg.get("mcp_fleet", []):
+        sid = svc.get("id", "")
+        module = svc.get("module", "")
+        if not sid or not module:
+            continue
+        candidates = (f"{sid}_mcp.py", f"{sid.rstrip('s')}_mcp.py", f"{sid}s_mcp.py")
+        candidate_dirs = [
+            _REPO_ROOT / "portal" / "modules" / module / "tools",
+            _REPO_ROOT / "portal" / "platform" / module,
+        ]
+        f = None
+        for tools_dir in candidate_dirs:
+            for cand in candidates:
+                if (tools_dir / cand).exists():
+                    f = tools_dir / cand
+                    break
+            if f is None and tools_dir.exists():
+                allfiles = list(tools_dir.glob("*_mcp.py"))
+                f = (
+                    allfiles[0] if len(allfiles) == 1 else None
+                )  # single-server dir only; else unresolved
+            if f is not None:
+                break
+        if f is None:
+            for cand in candidates:
+                hits = list((_REPO_ROOT / "portal" / "platform").glob(f"*/{cand}"))
+                if hits:
+                    f = hits[0]
+                    break
+        tools = _tool_names_in_file(f) if f and f.exists() else []
+        reg[sid] = sorted(set(tools))
+    return reg
+
+
+def _all_registered_tools() -> set[str]:
+    """Union of every registered tool name across all MCP servers (module + cross-cutting).
+
+    Independent of the fleet-id -> file mapping (which can miss on name variance), so the
+    authorized-but-unregistered check is correct even when a server file can't be attributed
+    to a specific fleet id. See `_tool_names_in_file` for the two registration patterns matched.
+    """
+    names: set[str] = set()
+    globs = [
+        (_REPO_ROOT / "portal" / "modules").glob("*/tools/*_mcp.py"),
+        (_REPO_ROOT / "portal" / "platform").glob("*/*_mcp.py"),
+    ]
+    for g in globs:
+        for f in g:
+            names.update(_tool_names_in_file(f))
+    return names
+
+
+def derive_tool_registry(commit: str, save: bool = True) -> KnowledgeUnit:
+    """unit-fact-tool-registry — registered tool defs per MCP server."""
+    reg = _mcp_registry()
+    total = sum(len(v) for v in reg.values())
+    body_lines = [
+        f"# MCP tool registry ({total} tools across {len(reg)} servers)",
+        "",
+        "What each MCP server actually registers — `@mcp.tool()` defs, or "
+        '`@mcp.custom_route("/tools/<name>")` for servers that only expose that route form '
+        "(memory, rag, web-search). Join with `unit-fact-tool-authorizations` to spot "
+        "reachability gaps.",
+        "",
+        "| Server | Registered tools |",
+        "|---|---|",
+    ]
+    for sid in sorted(reg):
+        cell = (
+            ", ".join(f"`{t}`" for t in reg[sid])
+            if reg[sid]
+            else "_(unresolved — server file not found)_"
+        )
+        body_lines.append(f"| `{sid}` | {cell} |")
+    unit = _make_unit(
+        "unit-fact-tool-registry",
+        f"{total} MCP tools across {len(reg)} servers",
+        [SourceRef(type="code", path="portal/modules/*/tools/*_mcp.py", commit=commit)],
+        "\n".join(body_lines),
+        ["fact", "tools", "mcp"],
+        commit,
+    )
+    if save:
+        save_unit(unit)
+    return unit
+
+
+def derive_tool_authorizations(commit: str, save: bool = True) -> KnowledgeUnit:
+    """unit-fact-tool-authorizations — per-workspace tools: whitelist + reachability flag."""
+    portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
+    ws = portal_cfg["workspaces"]
+    known = _all_registered_tools()
+    prod = sorted((w, c) for w, c in ws.items() if (c or {}).get("module") != "eval")
+    body_lines = [
+        "# Tool authorizations (per-workspace `tools:` whitelist)",
+        "",
+        "The pipeline strips any tool a workspace does not authorize "
+        "(metric `portal5_tool_workspace_strip_total`). A trailing `!` marks an authorized "
+        "tool with no matching `@mcp.tool()` in the registry (see `unit-fact-tool-registry`).",
+        "",
+        "| Workspace | Module | Authorized tools |",
+        "|---|---|---|",
+    ]
+    for wid, c in prod:
+        c = c or {}
+        tools = c.get("tools") or []
+        if not tools:
+            cell = "_(none)_"
+        else:
+            cell = ", ".join((f"`{t}`" if t in known else f"`{t}`!") for t in tools)
+        body_lines.append(f"| `{wid}` | {c.get('module', '')} | {cell} |")
+    unit = _make_unit(
+        "unit-fact-tool-authorizations",
+        f"tool authorizations for {len(prod)} production workspaces",
+        [
+            SourceRef(
+                type="code", path="config/portal.yaml", commit=commit, section="workspaces[].tools"
+            )
+        ],
+        "\n".join(body_lines),
+        ["fact", "tools", "workspaces"],
+        commit,
+    )
+    if save:
+        save_unit(unit)
+    return unit
+
+
 _DERIVERS = (
     derive_persona_roster,
     derive_workspace_roster,
@@ -384,6 +553,8 @@ _DERIVERS = (
     derive_model_bindings,
     derive_mcp_fleet,
     derive_model_catalog,
+    derive_tool_authorizations,
+    derive_tool_registry,
 )
 
 
