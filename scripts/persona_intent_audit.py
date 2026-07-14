@@ -19,6 +19,13 @@ Checks:
    contradicting lineage (preferred_models is dead metadata — §6 — so this
    is advisory, not authoritative; a mismatch means the dead field is lying
    about intent, not that anything is mis-served)
+5. (hard) model_pin, if set, is reachable by the workspace's
+   workspace_routing backend groups — catalog membership (check 3) is
+   necessary but not sufficient; a pin can be a valid catalog id yet sit in
+   a backend group the workspace never routes to, so the request silently
+   falls back to the pool default instead of serving the pin
+   (FINDINGS_MODEL_REACHABILITY.md — the phi4stemanalyst class of bug;
+   catalog-membership-only checking is what let it through originally)
 
 Usage:
     python3 scripts/persona_intent_audit.py
@@ -95,6 +102,31 @@ def _discipline_of_module(module: str) -> str:
     return module
 
 
+def _group_models() -> dict[str, set[str]]:
+    """group name (e.g. "reasoning") -> set of model ids it declares."""
+    import yaml
+
+    from portal.platform.inference.cluster_backends import DEFAULT_CONFIG_PATH
+
+    with open(DEFAULT_CONFIG_PATH) as fh:
+        cfg = yaml.safe_load(fh.read())
+    groups: dict[str, set[str]] = {}
+    for be in cfg.get("backends", []):
+        name = be.get("group") or (be.get("id") or be.get("name") or "").replace("ollama-", "")
+        groups[name] = {m.get("id") if isinstance(m, dict) else m for m in be.get("models", [])}
+    return groups
+
+
+def _workspace_routing() -> dict[str, list[str]]:
+    import yaml
+
+    from portal.platform.inference.cluster_backends import DEFAULT_CONFIG_PATH
+
+    with open(DEFAULT_CONFIG_PATH) as fh:
+        cfg = yaml.safe_load(fh.read())
+    return cfg.get("workspace_routing", {})
+
+
 def audit() -> tuple[list[dict], list[dict]]:
     """Returns (hard_failures, warnings)."""
 
@@ -106,6 +138,8 @@ def audit() -> tuple[list[dict], list[dict]]:
     personas = load_persona_map()
 
     known_models = _known_backend_models()
+    group_models = _group_models()
+    ws_routing = _workspace_routing()
 
     hard_failures: list[dict] = []
     warnings: list[dict] = []
@@ -165,6 +199,26 @@ def audit() -> tuple[list[dict], list[dict]]:
                     "detail": f"model_pin {p.model_pin!r} not in config/backends.yaml's catalog",
                 }
             )
+
+        # Check 5: model_pin, if set, is reachable by the workspace's
+        # routing groups (not just a valid catalog id — check 3 catches
+        # that; this catches the "valid id, wrong group" leak).
+        if p.model_pin:
+            groups = ws_routing.get(p.workspace_model, [])
+            reachable = any(p.model_pin in group_models.get(g, ()) for g in groups)
+            if not reachable:
+                hard_failures.append(
+                    {
+                        "check": 5,
+                        "persona": slug,
+                        "detail": (
+                            f"model_pin {p.model_pin!r} not reachable by "
+                            f"workspace_model={p.workspace_model!r}'s routing "
+                            f"groups {groups!r} — request silently falls back "
+                            "to the pool default instead of serving the pin"
+                        ),
+                    }
+                )
 
         # Check 4 (warn): preferred_models[0] contradicts model_pin's lineage
         if p.model_pin and p.preferred_models:
