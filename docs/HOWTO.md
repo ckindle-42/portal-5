@@ -364,8 +364,9 @@ ComfyUI must be running on the host:
 # Install (one-time)
 ./launch.sh install-comfyui
 
-# Download default model (one-time, ~12GB)
-./launch.sh download-comfyui-models
+# Download default model (one-time, ~12GB) — see docs/COMFYUI_SETUP.md#download-models;
+# ./launch.sh download-comfyui-models is currently broken (script deleted, no replacement built)
+hf download black-forest-labs/FLUX.1-schnell flux1-schnell.safetensors --local-dir ~/ComfyUI/models/checkpoints/
 
 # Verify
 curl http://localhost:8188/system_stats
@@ -402,12 +403,9 @@ docker exec portal5-mcp-comfyui python3 -c "import urllib.request; print(urllib.
 
 ### Prerequisites
 
-Wan2.2 model must be downloaded:
-
-```bash
-./launch.sh download-comfyui-models
-# Select wan2.2 when prompted (~18GB)
-```
+A video model must be downloaded — see docs/COMFYUI_SETUP.md#download-models for the
+current working commands (`./launch.sh download-comfyui-models` / `pull-wan22` are broken;
+no replacement is implemented yet).
 
 ### Generate a video
 
@@ -1417,7 +1415,7 @@ curl -s http://localhost:9099/metrics | head -20
 
 # ComfyUI
 ./launch.sh install-comfyui              # Install ComfyUI
-./launch.sh download-comfyui-models      # Download image/video models
+# download-comfyui-models is currently broken — see docs/COMFYUI_SETUP.md#download-models
 
 # Music
 ./launch.sh install-music                # Install Music MCP natively

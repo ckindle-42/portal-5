@@ -110,9 +110,19 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 - **Mitigation**: `./launch.sh install-comfyui` handles setup on supported platforms. See `docs/COMFYUI_SETUP.md`.
 
 ### Voice Cloning (fish-speech) Requires Separate Installation
-- **Description**: Voice cloning via `fish-speech` is not in the Docker stack — requires host-side installation.
-- **Impact**: Voice cloning unavailable; TTS works via the included `kokoro-onnx` engine.
-- **Mitigation**: `kokoro-onnx` provides TTS out of the box. See `docs/FISH_SPEECH_SETUP.md` for fish-speech.
+- **Description**: Voice cloning via `fish-speech` is not in the Docker stack — requires host-side installation. The docker `tts_mcp` `clone_voice` tool requires it and errors without it.
+- **Impact**: The docker-side `clone_voice` tool is unavailable without fish-speech installed.
+- **Mitigation**: Voice cloning still works without fish-speech via the native `mlx-speech` service (`:8918`, `POST /v1/audio/speech` with `voice: "clone:/path/to/reference.wav"`, Qwen3-TTS Base-Clone) — verified during Slice P media bring-up (`TASK_MEDIA_BRINGUP_V1`). `kokoro-onnx` covers non-cloned TTS out of the box either way. See `docs/FISH_SPEECH_SETUP.md` for fish-speech.
+
+### ComfyUI Model Download Commands Are Broken
+- **Description**: `./launch.sh download-comfyui-models` calls `scripts/download_comfyui_models.py`, deleted in commit `ea864cf` ("superseded by pull-wan22 / pull-qwen-image commands in launch.sh") — but neither `pull-wan22` nor `pull-qwen-image` was ever implemented; both are advertised in `launch.sh --help` with no case handler. Found during Slice P media bring-up (`TASK_MEDIA_BRINGUP_V1`).
+- **Impact**: No `launch.sh` subcommand can download ComfyUI image/video models. Separately, the `flux-uncensored` image backend's expected checkpoint (`Flux_v8-NSFW.safetensors`) has no known working source — the old script's repo (`enhanceaiteam/Flux-Uncensored-V2`) 404s, and no other reference to that filename exists in the codebase.
+- **Mitigation**: Download directly with `hf download` / `huggingface-cli download` — see `docs/COMFYUI_SETUP.md#download-models` for the exact working commands (flux-schnell, sdxl, wan21-nsfw). Rebuilding `pull-wan22`/`pull-qwen-image` (or restoring the deleted script) is open work.
+
+### ComfyUI Cross-Model-Family Memory Exhaustion (Apple Silicon)
+- **Description**: ComfyUI on MPS does not reliably evict a previously-loaded model's weights when a new workflow loads a different model family in the same long-running process. Observed live during Slice P: Flux (~22GB) followed by a Wan2.1-NSFW 14B video job (~39GB) in the same process, without a restart between them, drove swap to 66.7GB/67.6GB used and locked up the system (not just RAM pressure — genuine swap-thrashing).
+- **Impact**: Chaining image generation and large video generation (or switching between very different video model families) without restarting ComfyUI in between risks a full system lockup on 64GB unified-memory Apple Silicon hardware.
+- **Mitigation**: Restart ComfyUI between large model-family switches: `launchctl kickstart -k gui/$(id -u)/com.portal5.comfyui`. Real fix is cross-engine VRAM admission control, tracked as `TASK_VRAM_ADMISSION_V1` (not yet built).
 
 ### `pytest portal` Leaves Real Write-Through Test Artifacts
 - **Description**: Some `portal/modules/security/tests/` tests write through the real goal/playbook journal path (`portal/modules/security/core/field_journal/`) and checkpoint path (`portal/modules/security/core/results/checkpoints/`) instead of a `tmp_path`-redirected one, violating the `tmp_path` testing rule (`CLAUDE.md` Testing Rules).
