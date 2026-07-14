@@ -869,11 +869,11 @@ WORKSPACE_PROMPTS = {
         "a captive portal's HTTP-only check. Uncensored output only.",
         ["DNS", "tunnel", "captive", "bypass", "HTTP", "query", "exfiltrate"],
     ),
-    "auto-daily+model=phi4-reasoning": (
+    "auto-reasoning+model=phi4-reasoning:plus-ctx32k": (
         "Reason step by step: a train leaves Chicago at 60 mph and another "
         "leaves Boston at 80 mph, 200 miles apart on the same track. When do they meet?",
         ["meet", "mph", "distance", "Chicago", "Boston", "time", "speed", "relative"],
-        {"model": "phi4-reasoning:plus"},
+        {"model": "phi4-reasoning:plus-ctx32k"},
     ),
     "auto-security+purpleteam": (
         "Coordinate red-team and blue-team analysis for a credential-stuffing "
