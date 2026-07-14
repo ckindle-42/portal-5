@@ -1,35 +1,35 @@
 ---
 id: unit-code-portal
 kind: what
-title: portal subsystem (260 files)
+title: portal subsystem (261 files)
 sources:
 - type: code
   path: portal/conftest.py
-  commit: fc29decf7e62
+  commit: d559731d7800
 - type: code
   path: portal/modules/cad/tools/cad_render_mcp.py
-  commit: fc29decf7e62
+  commit: d559731d7800
 - type: code
   path: portal/modules/coding/tools/code_sandbox_mcp.py
-  commit: fc29decf7e62
+  commit: d559731d7800
 - type: code
   path: portal/modules/compliance/__init__.py
-  commit: fc29decf7e62
+  commit: d559731d7800
 - type: code
   path: portal/modules/compliance/config/__init__.py
-  commit: fc29decf7e62
+  commit: d559731d7800
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - portal
-created_at: 1783896250.439281
-updated_at: 1783896250.439281
+created_at: 1784050004.099052
+updated_at: 1784050004.099052
 ---
 
 # portal subsystem
 
-**Files:** 260
+**Files:** 261
 
 - `portal/conftest.py`
 - `portal/modules/cad/tools/cad_render_mcp.py`
@@ -51,4 +51,4 @@ updated_at: 1783896250.439281
 - `portal/modules/media/tools/music_mcp.py`
 - `portal/modules/media/tools/tts_mcp.py`
 - `portal/modules/media/tools/utils.py`
-- ... and 240 more
+- ... and 241 more

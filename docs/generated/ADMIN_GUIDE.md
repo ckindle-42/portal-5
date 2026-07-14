@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Generated: 2026-07-13 01:59 UTC*
+*Generated: 2026-07-14 17:26 UTC*
 
 ## Architecture Overview
 
@@ -81,18 +81,21 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 
 ## Components
 
+- **114 MCP tools across 24 servers**: 1 source(s)
+- **138 personas**: 6 source(s)
+- **149 model ids, 6 backend groups**: 1 source(s)
+- **21 production + 60 eval workspaces**: 1 source(s)
+- **24 MCP fleet servers**: 1 source(s)
+- **8 security canonical variants**: 1 source(s)
 - **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-06 16:52 UTC)**: 1 source(s)
 - **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-07 21:58 UTC)**: 1 source(s)
 - **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-08 11:56 UTC)**: 1 source(s)
 - **CORRECTED — was misleading: "granite (raw)" was a selection artifact**: 1 source(s)
 - **coding_task subsystem (4 files)**: 4 source(s)
-- **portal subsystem (260 files)**: 5 source(s)
+- **model bindings — 0 reachability gap(s)**: 3 source(s)
+- **portal subsystem (261 files)**: 5 source(s)
 - **portal_channels subsystem (4 files)**: 4 source(s)
 - **portal_mcp subsystem (25 files)**: 5 source(s)
-- **portal_pipeline subsystem (46 files)**: 5 source(s)
-- **portal_wiki subsystem (4 files)**: 4 source(s)
-- **scripts subsystem (41 files)**: 5 source(s)
-- **tests subsystem (219 files)**: 5 source(s)
 
 ---
-*504 knowledge units referenced.*
+*513 knowledge units referenced.*

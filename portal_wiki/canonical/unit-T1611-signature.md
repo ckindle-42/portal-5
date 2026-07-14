@@ -13,8 +13,8 @@ tags:
 - T1611
 - technique
 - signature
-created_at: 1783896250.517683
-updated_at: 1783896250.517683
+created_at: 1784050004.178764
+updated_at: 1784050004.178764
 ---
 
 # T1611 — Container escape — host auditd + docker events

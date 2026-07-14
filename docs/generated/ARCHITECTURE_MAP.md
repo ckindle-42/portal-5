@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Generated: 2026-07-13 01:59 UTC*
+*Generated: 2026-07-14 17:26 UTC*
 
 ## Knowledge Layer
 
@@ -169,6 +169,7 @@
 | `unit-HOWTO-diarization-loaded-voxtral-loaded-become-true-afte` | why | 1 |
 | `unit-HOWTO-diarized-transcription-speaker-labeled-transcripts` | why | 1 |
 | `unit-HOWTO-direct-api-call` | why | 1 |
+| `unit-HOWTO-discovery-with-fact-units` | why | 1 |
 | `unit-HOWTO-docling-document-parsing-rag-mcp-8921` | why | 1 |
 | `unit-HOWTO-enable` | why | 1 |
 | `unit-HOWTO-end-to-end-test` | why | 1 |
@@ -503,6 +504,14 @@
 | `unit-code-portal_wiki` | what | 4 |
 | `unit-code-scripts` | what | 5 |
 | `unit-code-tests` | what | 5 |
+| `unit-fact-mcp-fleet` | what | 1 |
+| `unit-fact-model-bindings` | what | 3 |
+| `unit-fact-model-catalog` | what | 1 |
+| `unit-fact-persona-roster` | what | 6 |
+| `unit-fact-security-variants` | what | 1 |
+| `unit-fact-tool-authorizations` | what | 1 |
+| `unit-fact-tool-registry` | what | 1 |
+| `unit-fact-workspace-roster` | what | 1 |
 | `unit-module-cad` | mixed | 2 |
 | `unit-module-coding` | mixed | 2 |
 | `unit-module-compliance` | mixed | 2 |
@@ -513,14 +522,14 @@
 | `unit-module-research` | mixed | 2 |
 | `unit-module-security` | mixed | 2 |
 
-**Total:** 504 units
+**Total:** 513 units
 
 ## Source Distribution
 
 - **bench-security**: 4 references
-- **code**: 52 references
+- **code**: 67 references
 - **design**: 461 references
-- **doc**: 1 references
+- **doc**: 2 references
 - **mitre**: 30 references
 - **scenario**: 56 references
 - **spl**: 30 references
