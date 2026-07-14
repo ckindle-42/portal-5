@@ -546,6 +546,62 @@ def derive_tool_authorizations(commit: str, save: bool = True) -> KnowledgeUnit:
     return unit
 
 
+# ── Media backend memory budget (Slice 7, TASK_VRAM_ADMISSION_V1) ───────────────
+# No historical per-model GB table exists for ComfyUI/media backends — the retired
+# MLX-proxy admission gate's MODEL_MEMORY dict (commit 91f13a9) only covered the old
+# text/VLM inference tier (Qwen/Llama/Gemma), and config/MODEL_CATALOG.md is GGUF/Ollama
+# only. These figures are session-observed (Slice P media bring-up, 2026-07-14): Flux
+# summed from on-disk checkpoint+CLIP+VAE sizes, Wan2.1-NSFW-14B likewise (the exact
+# combination that drove swap to 66.7GB/67.6GB and locked the system), SDXL from its
+# single-file size, MusicGen from music_mcp.py's own list_music_models RAM figures.
+# Operator-confirmed as the basis pending real vendor-spec numbers (see AskUserQuestion
+# in that session — GATE: HISTORY had no applicable historical table to recover).
+MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
+    "comfyui:flux-schnell": 27.2,  # checkpoint 22 + vae 0.32 + clip_l 0.235 + t5xxl_fp8 4.6
+    "comfyui:sdxl": 6.5,  # single self-contained checkpoint
+    "video:wan21-nsfw": 38.2,  # unet 27 + clip 11 + vae 0.24 (14B — caused the 2026-07-14 lockup)
+    "music:small": 2.0,
+    "music:medium": 6.0,
+    "music:large": 12.0,
+}
+
+
+def derive_media_memory_budget(commit: str, save: bool = True) -> KnowledgeUnit:
+    """unit-fact-media-memory-budget — per-media-backend GB estimates for VRAM admission."""
+    body_lines = [
+        "# Media backend memory budget (Tier 0, cross-engine VRAM admission)",
+        "",
+        "Session-observed peak unified-memory estimates per media backend/model — no "
+        "historical per-model table exists for ComfyUI/media (the retired MLX-proxy admission "
+        "gate only covered the text/VLM inference tier). Used by the Tier 1 pre-flight admission "
+        "check (`portal/modules/media/tools/_admission.py`) to refuse a job before it OOMs "
+        "instead of after.",
+        "",
+        "| Backend:model | Estimated GB |",
+        "|---|---|",
+    ]
+    for key in sorted(MEDIA_MODEL_MEMORY_GB):
+        body_lines.append(f"| `{key}` | {MEDIA_MODEL_MEMORY_GB[key]} |")
+    unit = _make_unit(
+        "unit-fact-media-memory-budget",
+        f"memory budget for {len(MEDIA_MODEL_MEMORY_GB)} media backend/model combinations",
+        [
+            SourceRef(
+                type="code",
+                path="portal/platform/wiki/adapters/seed_facts.py",
+                commit=commit,
+                section="MEDIA_MODEL_MEMORY_GB",
+            )
+        ],
+        "\n".join(body_lines),
+        ["fact", "media", "memory"],
+        commit,
+    )
+    if save:
+        save_unit(unit)
+    return unit
+
+
 _DERIVERS = (
     derive_persona_roster,
     derive_workspace_roster,
@@ -555,6 +611,7 @@ _DERIVERS = (
     derive_model_catalog,
     derive_tool_authorizations,
     derive_tool_registry,
+    derive_media_memory_budget,
 )
 
 
