@@ -1,35 +1,35 @@
 ---
 id: unit-code-portal
 kind: what
-title: portal subsystem (261 files)
+title: portal subsystem (262 files)
 sources:
 - type: code
   path: portal/conftest.py
-  commit: 72d76a89341a
+  commit: 1383f550947d
 - type: code
   path: portal/modules/cad/tools/cad_render_mcp.py
-  commit: 72d76a89341a
+  commit: 1383f550947d
 - type: code
   path: portal/modules/coding/tools/code_sandbox_mcp.py
-  commit: 72d76a89341a
+  commit: 1383f550947d
 - type: code
   path: portal/modules/compliance/__init__.py
-  commit: 72d76a89341a
+  commit: 1383f550947d
 - type: code
   path: portal/modules/compliance/config/__init__.py
-  commit: 72d76a89341a
+  commit: 1383f550947d
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - portal
-created_at: 1784056870.553201
-updated_at: 1784056870.553201
+created_at: 1784058424.781653
+updated_at: 1784058424.781653
 ---
 
 # portal subsystem
 
-**Files:** 261
+**Files:** 262
 
 - `portal/conftest.py`
 - `portal/modules/cad/tools/cad_render_mcp.py`
@@ -47,8 +47,8 @@ updated_at: 1784056870.553201
 - `portal/modules/general/__init__.py`
 - `portal/modules/general/config/__init__.py`
 - `portal/modules/general/tools/__init__.py`
+- `portal/modules/media/tools/_admission.py`
 - `portal/modules/media/tools/comfyui_mcp.py`
 - `portal/modules/media/tools/music_mcp.py`
 - `portal/modules/media/tools/tts_mcp.py`
-- `portal/modules/media/tools/utils.py`
-- ... and 241 more
+- ... and 242 more

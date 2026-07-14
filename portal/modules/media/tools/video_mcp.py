@@ -18,6 +18,8 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 from starlette.responses import JSONResponse
 
+from portal.modules.media.tools._admission import admit
+
 logger = logging.getLogger(__name__)
 
 mcp = FastMCP("video-generation", host="0.0.0.0")
@@ -163,6 +165,18 @@ COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 # Public URL used in links returned to the browser — differs from COMFYUI_URL when the
 # MCP container reaches ComfyUI via host.docker.internal but the browser uses localhost.
 COMFYUI_PUBLIC_URL = os.getenv("COMFYUI_PUBLIC_URL", "http://localhost:8188")
+
+
+def _media_model_key(model: str | None) -> str:
+    """Map a model override / VIDEO_BACKEND to the unit-fact-media-memory-budget key.
+    Unknown models (wan22-* family, cogvideox) fall through to admit()'s conservative
+    default estimate rather than being guessed at — only wan21-nsfw was measured live."""
+    selected = model or VIDEO_BACKEND
+    if selected == "wan21-nsfw":
+        return "video:wan21-nsfw"
+    return f"video:{selected}"
+
+
 VIDEO_BACKEND = os.getenv(
     "VIDEO_BACKEND", "wan22"
 )  # "wan22", "wan21-nsfw", "cogvideox", or "wan22-*"
@@ -897,6 +911,9 @@ async def generate_video(
         model: Override model name (optional, auto-detected from backend)
         seed: Random seed, -1 for random
     """
+    refusal = await admit(_media_model_key(model), COMFYUI_URL)
+    if refusal:
+        return refusal
     workflow, seed = _build_video_workflow(
         prompt, width, height, frames, fps, steps, cfg, model, seed, negative_prompt=negative_prompt
     )
@@ -1264,6 +1281,9 @@ async def start_video_generation(
         image_url: URL or local path to a start-frame image (required for wan22-ti2v-5b and wan22-s2v-14b)
         audio_url: URL or local path to an audio file (required for wan22-s2v-14b)
     """
+    refusal = await admit(_media_model_key(model), COMFYUI_URL)
+    if refusal:
+        return refusal
     fps = VIDEO_OUTPUT_FPS
 
     # Upload media files before building workflow

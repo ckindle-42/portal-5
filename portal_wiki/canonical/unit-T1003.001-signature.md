@@ -16,8 +16,8 @@ tags:
 - T1003.001
 - technique
 - signature
-created_at: 1784056870.6323872
-updated_at: 1784056870.6323872
+created_at: 1784058424.86111
+updated_at: 1784058424.86111
 ---
 
 # T1003.001 — LSASS dump — credential dumping via lsass.exe memory access

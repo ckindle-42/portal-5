@@ -21,6 +21,8 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 from starlette.responses import FileResponse, JSONResponse
 
+from portal.modules.media.tools._admission import admit
+
 port = int(os.getenv("MUSIC_MCP_PORT", "8912"))
 mcp = FastMCP("music-generation", host="0.0.0.0")
 
@@ -421,6 +423,10 @@ async def generate_music(
 
     if model_size not in ("small", "medium", "large"):
         return {"success": False, "error": "model_size must be: small, medium, or large"}
+
+    refusal = await admit(f"music:{model_size}")
+    if refusal:
+        return refusal
 
     available, error = _check_musicgen()
     if not available:

@@ -17,7 +17,22 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 from starlette.responses import JSONResponse
 
+from portal.modules.media.tools._admission import admit
+
 mcp = FastMCP("comfyui-generation", host="0.0.0.0")
+
+
+def _media_model_key(model: str | None) -> str:
+    """Map a model override to the unit-fact-media-memory-budget key. Unknown
+    models (flux-uncensored, qwen-image-*) fall through to the conservative
+    default estimate in admit() rather than being guessed at."""
+    selected = model or IMAGE_BACKEND
+    if selected == "sdxl":
+        return "comfyui:sdxl"
+    if selected == "flux":
+        return "comfyui:flux-schnell"
+    return f"comfyui:{selected}"
+
 
 # Configurable timeout: COMFYUI_TIMEOUT env var (seconds, default 1200 = 20 min).
 # SDXL at 25 steps can take 5+ min on MPS; FLUX schnell is faster but still variable.
@@ -598,6 +613,9 @@ async def start_image_generation(
         lora: LoRA filename to apply (optional)
         seed: -1 for random
     """
+    refusal = await admit(_media_model_key(model), COMFYUI_URL)
+    if refusal:
+        return refusal
     workflow, seed = _build_image_workflow(
         prompt,
         width,
@@ -787,6 +805,9 @@ async def generate_image(
         lora: LoRA filename to apply (optional, from models/loras/)
         lora_strength: LoRA strength 0.0-2.0 (default 1.0)
     """
+    refusal = await admit(_media_model_key(model), COMFYUI_URL)
+    if refusal:
+        return refusal
     workflow, seed = _build_image_workflow(
         prompt,
         width,
