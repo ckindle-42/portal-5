@@ -19,8 +19,8 @@ tags:
 - T1078
 - technique
 - signature
-created_at: 1784050004.184076
-updated_at: 1784050004.184076
+created_at: 1784055842.292109
+updated_at: 1784055842.292109
 ---
 
 # T1078 — Valid accounts — default/weak credential usage

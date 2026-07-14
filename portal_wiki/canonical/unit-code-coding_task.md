@@ -5,23 +5,23 @@ title: coding_task subsystem (4 files)
 sources:
 - type: code
   path: coding_task/check_docstrings.py
-  commit: d559731d7800
+  commit: d38eaeb1b692
 - type: code
   path: coding_task/librechat_gui_transcribe.py
-  commit: d559731d7800
+  commit: d38eaeb1b692
 - type: code
   path: coding_task/librechat_transcribe.py
-  commit: d559731d7800
+  commit: d38eaeb1b692
 - type: code
   path: coding_task/run_gui_transcribe.py
-  commit: d559731d7800
+  commit: d38eaeb1b692
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - coding_task
-created_at: 1784050004.097445
-updated_at: 1784050004.097445
+created_at: 1784055842.212242
+updated_at: 1784055842.212242
 ---
 
 # coding_task subsystem
