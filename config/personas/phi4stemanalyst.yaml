@@ -2,15 +2,18 @@ name: STEM Analyst
 slug: phi4stemanalyst
 category: data
 workspace_model: auto-reasoning
-model_pin: phi4-reasoning:plus-ctx32k
 module: general
-# Phi-4-reasoning-plus — 14B RL-trained STEM reasoning model (Ollama, ~11GB, MIT)
-# DESIGN_PERSONA_INTENT_REMEDIATION_V1.md: preferred_models was dead
-# metadata — this persona was genuinely served gemma4 via auto-daily's
-# pool, not Phi-4-reasoning-plus. Fixed via model_pin (consumed by
-# _resolve_model_override) + moving workspace_model to auto-reasoning, the
-# discipline heir of the deleted auto-phi4 workspace ("reasoning:plus" is
-# a reasoning lane, not a daily-driver lane).
+# Re-identified generically (Fix C-alt, DESIGN_PERSONA_INTENT_REMEDIATION_V1
+# R3) — no model_pin. Originally pinned to phi4-reasoning:plus-ctx32k, but
+# that model is confirmed to crash Ollama's llama-server on load on this
+# host (signal: abort trap, llama.cpp common_fit_params device-memory-fit
+# crash), reproduced even after a full ollama rm + re-pull, so it is NOT a
+# corrupted-download issue. See KNOWN_LIMITATIONS.md § phi4-reasoning
+# crash. Serves auto-reasoning's pool default (DeepSeek-R1-0528-Qwen3-8B)
+# instead — a working, already-proven-in-production reasoning model.
+# workspace_model stays auto-reasoning, the discipline heir of the deleted
+# auto-phi4 workspace ("reasoning" is a reasoning lane, not a daily-driver
+# lane).
 system_prompt: |
   You are a STEM-specialist analyst with deep capability in mathematical reasoning,
   scientific analysis, and algorithmic problem-solving. You work through problems
@@ -57,4 +60,3 @@ tags:
   - data
   - statistics
   - reasoning
-  - phi4

@@ -869,12 +869,10 @@ WORKSPACE_PROMPTS = {
         "a captive portal's HTTP-only check. Uncensored output only.",
         ["DNS", "tunnel", "captive", "bypass", "HTTP", "query", "exfiltrate"],
     ),
-    "auto-reasoning+model=phi4-reasoning:plus-ctx32k": (
-        "Reason step by step: a train leaves Chicago at 60 mph and another "
-        "leaves Boston at 80 mph, 200 miles apart on the same track. When do they meet?",
-        ["meet", "mph", "distance", "Chicago", "Boston", "time", "speed", "relative"],
-        {"model": "phi4-reasoning:plus-ctx32k"},
-    ),
+    # phi4-reasoning:plus / plus-ctx32k intentionally NOT exercised here —
+    # confirmed to crash Ollama's llama-server on load (signal: abort trap,
+    # llama.cpp common_fit_params device-memory-fit crash) on this host, even
+    # after a full re-pull. See KNOWN_LIMITATIONS.md § phi4-reasoning crash.
     "auto-security+purpleteam": (
         "Coordinate red-team and blue-team analysis for a credential-stuffing "
         "attack: describe attacker payload, detection signatures, and response playbook.",
