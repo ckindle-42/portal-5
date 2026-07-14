@@ -434,6 +434,9 @@
   "persona::chartanalyst": {
     "category": "vision",
     "effective_tools": [
+      "generate_image",
+      "get_generation_status",
+      "list_workflows",
       "transcribe_audio"
     ],
     "kind": "persona",
@@ -514,6 +517,9 @@
   "persona::codescreenshotreader": {
     "category": "vision",
     "effective_tools": [
+      "generate_image",
+      "get_generation_status",
+      "list_workflows",
       "transcribe_audio"
     ],
     "kind": "persona",
@@ -712,6 +718,9 @@
   "persona::diagramreader": {
     "category": "vision",
     "effective_tools": [
+      "generate_image",
+      "get_generation_status",
+      "list_workflows",
       "transcribe_audio"
     ],
     "kind": "persona",
@@ -871,6 +880,9 @@
   "persona::gemma4e4bvision": {
     "category": "vision",
     "effective_tools": [
+      "generate_image",
+      "get_generation_status",
+      "list_workflows",
       "transcribe_audio"
     ],
     "kind": "persona",
@@ -882,6 +894,9 @@
   "persona::gemma4jangvision": {
     "category": "vision",
     "effective_tools": [
+      "generate_image",
+      "get_generation_status",
+      "list_workflows",
       "transcribe_audio"
     ],
     "kind": "persona",
@@ -943,6 +958,9 @@
   "persona::gemma_vision": {
     "category": "vision",
     "effective_tools": [
+      "generate_image",
+      "get_generation_status",
+      "list_workflows",
       "transcribe_audio"
     ],
     "kind": "persona",
@@ -1240,6 +1258,9 @@
   "persona::ocrspecialist": {
     "category": "vision",
     "effective_tools": [
+      "generate_image",
+      "get_generation_status",
+      "list_workflows",
       "transcribe_audio"
     ],
     "kind": "persona",
@@ -1762,6 +1783,9 @@
   "persona::whiteboardconverter": {
     "category": "vision",
     "effective_tools": [
+      "generate_image",
+      "get_generation_status",
+      "list_workflows",
       "transcribe_audio"
     ],
     "kind": "persona",
@@ -1828,7 +1852,8 @@
   },
   "workspace::auto-audio": {
     "effective_tools": [
-      "transcribe_audio"
+      "transcribe_audio",
+      "transcribe_with_speakers"
     ],
     "id": "auto-audio",
     "kind": "workspace",
@@ -2142,9 +2167,11 @@
   },
   "workspace::auto-music": {
     "effective_tools": [
+      "clone_voice",
       "generate_continuation",
       "generate_music",
       "list_music_models",
+      "list_voices",
       "speak",
       "transcribe_audio"
     ],
@@ -2298,6 +2325,9 @@
   },
   "workspace::auto-vision": {
     "effective_tools": [
+      "generate_image",
+      "get_generation_status",
+      "list_workflows",
       "transcribe_audio"
     ],
     "id": "auto-vision",
