@@ -326,9 +326,12 @@ def _generate_with_melody_sync(
         target_sr = processor.feature_extractor.sampling_rate
         if sr != target_sr:
             waveform = torchaudio.functional.resample(waveform, sr, target_sr)
-        # Mix to mono if stereo
+        # Mix to mono if stereo, then drop the channel dim — the processor expects a
+        # 1D array for mono audio, not a (1, N) tensor (raises "Expected mono audio
+        # but example has 1 channels" otherwise).
         if waveform.shape[0] > 1:
             waveform = waveform.mean(dim=0, keepdim=True)
+        waveform = waveform.squeeze(0)
 
         melody_np = waveform.numpy()
 

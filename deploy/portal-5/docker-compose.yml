@@ -567,8 +567,8 @@ services:
       - COMFYUI_PUBLIC_URL=${COMFYUI_PUBLIC_URL:-http://localhost:8188}
       - IMAGE_BACKEND=${IMAGE_BACKEND:-flux}
       - FLUX_CKPT_FILE=${FLUX_CKPT_FILE:-flux1-schnell.safetensors}
-      - FLUX_CLIP_L_FILE=${FLUX_CLIP_L_FILE:-text_encoder/model.safetensors}
-      - FLUX_CLIP_T5_FILE=${FLUX_CLIP_T5_FILE:-text_encoder_2/model-00001-of-00002.safetensors}
+      - FLUX_CLIP_L_FILE=${FLUX_CLIP_L_FILE:-clip_l.safetensors}
+      - FLUX_CLIP_T5_FILE=${FLUX_CLIP_T5_FILE:-t5xxl_fp8_e4m3fn.safetensors}
       - FLUX_VAE_FILE=${FLUX_VAE_FILE:-ae.safetensors}
       - COMFYUI_TIMEOUT=${COMFYUI_TIMEOUT:-1200}
     command: ["python", "-m", "portal.modules.media.tools.comfyui_mcp"]
