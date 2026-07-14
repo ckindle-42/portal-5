@@ -1,4 +1,14 @@
-"""UAT catalog group: auto-phi4 (Phi-4-reasoning-plus STEM specialist)."""
+"""UAT catalog group: auto-phi4 (STEM reasoning specialist).
+
+phi4-reasoning:plus / plus-ctx32k are NOT used here — confirmed to crash
+Ollama's llama-server on load (signal: abort trap, llama.cpp
+common_fit_params device-memory-fit crash) on this host, reproduced even
+after a full ollama rm + re-pull + rebuild of the ctx-tagged variants (so
+NOT a corrupted-download issue, contra the earlier theory in
+KNOWN_LIMITATIONS.md). Tests target auto-reasoning's actual pool default
+(DeepSeek-R1-0528-Qwen3-8B) instead — matches phi4stemanalyst's
+re-identified (Phi-4-lineage-dropped) persona.
+"""
 
 from __future__ import annotations
 
@@ -11,21 +21,13 @@ from tests.uat_catalog._shared import (  # noqa: F401
 TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-PHI4-01",
-        "name": "Phi-4 STEM — Eigenvalue Derivation",
+        "name": "STEM Reasoning — Eigenvalue Derivation",
         # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-phi4" retired
-        # (model-tied) — originally folded to auto-daily base + ?model=
-        # hint, but phi4-reasoning:plus lives only in the ollama-coding
-        # backend group, which auto-daily (routes to [general]) cannot
-        # reach — the request silently fell back to auto-daily's pool
-        # default instead of serving Phi-4 (FINDINGS_MODEL_REACHABILITY.md
-        # GAP 1 class; this test instance wasn't in that doc's 3-gap count
-        # but is the same bug). Retargeted to auto-reasoning with the exact
-        # ctx32k id, matching config/personas/phi4stemanalyst.yaml's own
-        # fix (workspace_model=auto-reasoning, model_pin=phi4-reasoning:
-        # plus-ctx32k) and config/backends.yaml's reasoning-group addition.
-        "section": "auto-reasoning (?model=phi4-reasoning:plus-ctx32k)",
+        # (model-tied). See module docstring — phi4-reasoning is confirmed
+        # crash-prone on this host, so this exercises auto-reasoning's
+        # actual served model rather than a ?model= override.
+        "section": "auto-reasoning (STEM reasoning)",
         "model_slug": "auto-reasoning",
-        "route_params": {"model": "phi4-reasoning:plus-ctx32k"},
         "via_dispatcher": True,
         "timeout": 240,
         "workspace_tier": "ollama",
@@ -74,16 +76,10 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     },
     {
         "id": "WS-PHI4-02",
-        "name": "Phi-4 STEM — Physics Derivation",
-        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-phi4" retired
-        # (model-tied) — see WS-PHI4-01's comment above: phi4-reasoning:plus
-        # is unreachable from auto-daily (ollama-coding group only), so this
-        # test is retargeted to auto-reasoning with the exact ctx32k id,
-        # matching the phi4stemanalyst persona fix and the reasoning-group
-        # addition in config/backends.yaml.
-        "section": "auto-reasoning (?model=phi4-reasoning:plus-ctx32k)",
+        "name": "STEM Reasoning — Physics Derivation",
+        # See WS-PHI4-01's comment / module docstring.
+        "section": "auto-reasoning (STEM reasoning)",
         "model_slug": "auto-reasoning",
-        "route_params": {"model": "phi4-reasoning:plus-ctx32k"},
         "via_dispatcher": True,
         "timeout": 240,
         "workspace_tier": "ollama",

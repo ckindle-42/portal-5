@@ -63,14 +63,7 @@ async def run() -> None:
         ),
         (
             "Reasoning / analysis",
-            [
-                "auto-reasoning",
-                ("auto-reasoning", "auto-reasoning+model=phi4-reasoning:plus-ctx32k"),
-                "auto-research",
-                "auto-data",
-                "auto-compliance",
-                "auto-math",
-            ],
+            ["auto-reasoning", "auto-research", "auto-data", "auto-compliance", "auto-math"],
         ),
         ("Creative / vision / audio", ["auto-creative", "auto-vision", "auto-audio"]),
         ("Tool calling", ["tools-specialist"]),
