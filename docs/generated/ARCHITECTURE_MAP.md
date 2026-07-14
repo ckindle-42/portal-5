@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Generated: 2026-07-14 19:21 UTC*
+*Generated: 2026-07-14 19:47 UTC*
 
 ## Knowledge Layer
 
@@ -190,6 +190,7 @@
 | `unit-HOWTO-list-available-models` | why | 1 |
 | `unit-HOWTO-list-available-tools` | why | 1 |
 | `unit-HOWTO-list-versions-tags` | why | 1 |
+| `unit-HOWTO-media-memory-and-launch-order` | why | 1 |
 | `unit-HOWTO-melody-conditioning` | why | 1 |
 | `unit-HOWTO-mlx-speech-voices-apple-silicon-primary` | why | 1 |
 | `unit-HOWTO-models` | why | 1 |
@@ -505,6 +506,7 @@
 | `unit-code-scripts` | what | 5 |
 | `unit-code-tests` | what | 5 |
 | `unit-fact-mcp-fleet` | what | 1 |
+| `unit-fact-media-memory-budget` | what | 1 |
 | `unit-fact-model-bindings` | what | 3 |
 | `unit-fact-model-catalog` | what | 1 |
 | `unit-fact-persona-roster` | what | 6 |
@@ -522,13 +524,13 @@
 | `unit-module-research` | mixed | 2 |
 | `unit-module-security` | mixed | 2 |
 
-**Total:** 513 units
+**Total:** 515 units
 
 ## Source Distribution
 
 - **bench-security**: 4 references
-- **code**: 67 references
-- **design**: 461 references
+- **code**: 68 references
+- **design**: 462 references
 - **doc**: 2 references
 - **mitre**: 30 references
 - **scenario**: 56 references
