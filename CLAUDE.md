@@ -274,6 +274,14 @@ Enforcement: `scripts/validate_system.py` check **`AK. doc currency`** fails whe
 
 ---
 
+
+### 13 — Fact-Units Are the Discovery Index
+
+Before grepping, query the wiki: `wiki_search` / `wiki_get_unit` / `wiki_explain`. Fact-units
+(`unit-fact-*`, gated by validate check AW) are the trusted index for workspaces, models, MCP fleet,
+personas, tool authorizations, and the MCP tool registry. Lead discovery from them; still verify every
+edit anchor `count==1` against HEAD before editing. See `unit-HOWTO-discovery-with-fact-units`.
+
 ## Testing Rules
 
 - All tests in `tests/unit/` must pass with no network access (`pytest tests/unit/`)
