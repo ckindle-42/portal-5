@@ -5,16 +5,16 @@ title: memory budget for 6 media backend/model combinations
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_facts.py
-  commit: 18bb78dc72dc
+  commit: 10561aaeeb80
   section: MEDIA_MODEL_MEMORY_GB
-last_generated_commit: 18bb78dc72dc
+last_generated_commit: 10561aaeeb80
 confidence: high
 tags:
 - fact
 - media
 - memory
 created_at: 1784057641.950119
-updated_at: 1784057641.950119
+updated_at: 1784059355.339781
 ---
 
 # Media backend memory budget (Tier 0, cross-engine VRAM admission)
@@ -28,4 +28,4 @@ Session-observed peak unified-memory estimates per media backend/model — no hi
 | `music:large` | 12.0 |
 | `music:medium` | 6.0 |
 | `music:small` | 2.0 |
-| `video:wan21-nsfw` | 38.2 |
+| `video:wan21-nsfw` | 55.0 |

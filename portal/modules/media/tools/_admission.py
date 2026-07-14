@@ -23,7 +23,12 @@ import os
 MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     "comfyui:flux-schnell": 27.2,  # checkpoint 22 + vae 0.32 + clip_l 0.235 + t5xxl_fp8 4.6
     "comfyui:sdxl": 6.5,  # single self-contained checkpoint
-    "video:wan21-nsfw": 38.2,  # unet 27 + clip 11 + vae 0.24 (14B — caused the 2026-07-14 lockup)
+    # Corrected 38.2 -> 55.0 after a second live lockup during this same session's
+    # verification test: a *tiny* job (9 frames, 5 steps) still crashed free RAM from
+    # ~45GB to ~60MB. Static weight size (unet 27 + clip 11 + vae 0.24 = 38.2GB) does
+    # not capture real peak usage — diffusion activation/buffer overhead pushes this
+    # backend close to the entire 64GB unified pool regardless of frame count.
+    "video:wan21-nsfw": 55.0,
     "music:small": 2.0,
     "music:medium": 6.0,
     "music:large": 12.0,
