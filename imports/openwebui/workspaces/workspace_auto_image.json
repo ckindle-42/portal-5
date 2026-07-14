@@ -1,0 +1,15 @@
+{
+  "id": "auto-image",
+  "name": "🖼️  Portal Image Creator",
+  "meta": {
+    "description": "🖼️  Portal Image Creator",
+    "profile_image_url": "",
+    "toolIds": [
+      "server:mcp:portal_comfyui"
+    ]
+  },
+  "params": {
+    "model": "auto-image",
+    "system": "You help generate images. Use the generate_image tool (ComfyUI backend) to create images\nfrom text descriptions. Use list_workflows to choose a style and get_generation_status to\npoll long jobs. Describe what you will generate before executing, then return the download\nlink from the tool result."
+  }
+}

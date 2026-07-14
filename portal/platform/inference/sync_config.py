@@ -40,6 +40,7 @@ _WORKSPACE_TOOL_IDS: dict[str, list[str]] = {
     "auto-documents": ["server:mcp:portal_documents", "server:mcp:portal_code"],
     "auto-music": ["server:mcp:portal_music", "server:mcp:portal_tts"],
     "auto-video": ["server:mcp:portal_video", "server:mcp:portal_comfyui"],
+    "auto-image": ["server:mcp:portal_comfyui"],
     "auto-security": [
         "server:mcp:portal_research",
         "server:mcp:portal_code",

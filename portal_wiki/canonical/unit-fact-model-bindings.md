@@ -5,21 +5,21 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 468525e61329
+  commit: d16cb24ec652
 - type: code
   path: config/portal.yaml
-  commit: 468525e61329
+  commit: d16cb24ec652
 - type: code
   path: config/personas/
-  commit: 468525e61329
-last_generated_commit: 468525e61329
+  commit: d16cb24ec652
+last_generated_commit: d16cb24ec652
 confidence: high
 tags:
 - fact
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1784000421.433863
+updated_at: 1784056264.396721
 ---
 
 # Model bindings (reachability-resolved)
@@ -45,6 +45,7 @@ default.
 | `auto-documents` | `granite4.1:8b-ctx16k` | yes |
 | `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` | yes |
 | `auto-general-uncensored` | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | yes |
+| `auto-image` | `granite4.1:8b-ctx16k` | yes |
 | `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |

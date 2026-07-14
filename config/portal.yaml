@@ -781,6 +781,25 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing.
+  auto-image:
+    name: "🖼️  Portal Image Creator"
+    module: media
+    model_hint: granite4.1:8b-ctx16k
+    context_limit: 16384
+    tools:
+    - generate_image
+    - list_workflows
+    - get_generation_status
+    - get_latest_images
+    - start_image_generation
+    expose_to_owui: true
+    enable_web_search: false
+    owui_system_prompt: |-
+      You help generate images. Use the generate_image tool (ComfyUI backend) to create images
+      from text descriptions. Use list_workflows to choose a style and get_generation_status to
+      poll long jobs. Describe what you will generate before executing, then return the download
+      link from the tool result.
+    description: Generate images via ComfyUI (Flux/SDXL). Driver granite4.1:8b; generation-first sibling of auto-video.
   auto-music:
     module: media
     name: 🎵 Portal Music Producer
