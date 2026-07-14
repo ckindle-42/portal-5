@@ -158,11 +158,14 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "id": "WS-31",
         "name": "Gemma Fast — Concise QA",
         # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-gemma-fast" retired
-        # (model-tied) — folds to auto-daily base + ?model= hint. gemma4:e2b-it-qat
-        # is documented in config/portal.yaml (bench-gemma4-e2b) as "Fastest TPS
+        # (model-tied) — folds to auto-vision base + ?model= hint (not
+        # auto-daily: gemma4:e2b-it-qat lives only in the ollama-vision
+        # backend group, unreachable from auto-daily's routing groups — see
+        # FINDINGS_MODEL_REACHABILITY.md GAP 3). gemma4:e2b-it-qat is
+        # documented in config/portal.yaml (bench-gemma4-e2b) as "Fastest TPS
         # candidate in fleet" — matches "gemma-fast" naming.
-        "section": "auto-daily (?model=gemma4-e2b)",
-        "model_slug": "auto-daily",
+        "section": "auto-vision (?model=gemma4-e2b)",
+        "model_slug": "auto-vision",
         "route_params": {"model": "gemma4:e2b-it-qat"},
         "via_dispatcher": True,
         "timeout": 60,

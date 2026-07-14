@@ -324,6 +324,12 @@ backends:
     supports_tools: false
   - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
     supports_tools: false
+  - id: phi4-reasoning:plus-ctx32k
+    # Added to reasoning group so auto-reasoning/auto-math can reach it
+    # (FINDINGS_MODEL_REACHABILITY.md GAP 1/2 — phi4-reasoning is a reasoning
+    # model and belongs in the reasoning discipline's pool; previously only
+    # in ollama-coding, unreachable from auto-reasoning's routing groups).
+    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: vision
