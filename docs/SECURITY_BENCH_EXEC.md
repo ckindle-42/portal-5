@@ -247,6 +247,25 @@ hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
 > (`portal.modules.security.core`, `DEFAULT_WORKSPACES` in `_data.py`) now takes the canonical
 > `auto-security::<role>` synthetic form directly — the commands below use it.
 
+The canonical variant vocabulary, generated from `config/portal.yaml`
+(do not hand-edit inside the markers — edit the source and re-run
+`sync-config` instead):
+
+<!-- WIKI:GENERATED unit=unit-fact-security-variants -->
+# Security canonical variants (8)
+
+sec-bench `--workspaces` targets, addressed as `auto-security::<variant>`:
+
+- `auto-security::blueteam`
+- `auto-security::pentest`
+- `auto-security::purpleteam`
+- `auto-security::purpleteam-deep`
+- `auto-security::purpleteam-exec`
+- `auto-security::redteam`
+- `auto-security::redteam-deep`
+- `auto-security::uncensored`
+<!-- /WIKI:GENERATED -->
+
 ### Tier 1 — Theory (prose quality, all workspaces × all prompts)
 
 Runs every prompt against every security workspace with tools disabled. Measures structure adherence, disclaimer density, MITRE coverage. No lab needed.

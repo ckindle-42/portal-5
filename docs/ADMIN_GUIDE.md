@@ -240,3 +240,508 @@ OLLAMA_URL=http://localhost:11434 python3 tests/benchmarks/bench_router_conditio
 ```
 
 Results are written to `tests/benchmarks/results/`.
+
+## Live Facts (Generated)
+
+The tables below are generated from `portal_wiki/canonical/` fact units —
+computed from live config on every `sync-config` run
+(DESIGN_WIKI_GENERATION_LOOP_V1.md). Do not hand-edit inside the markers;
+edit the source config and re-run `sync-config` instead.
+
+### Personas
+
+<!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
+# Persona roster (138 personas)
+
+| Slug | Module | Workspace | Model Pin |
+|---|---|---|---|
+| `adversarysimulator` | security | `auto-security` | — |
+| `agenticheavy` | coding | `auto-coding` | — |
+| `agenticlite` | coding | `auto-coding` | — |
+| `agentorchestrator` | coding | `auto-coding` | — |
+| `bench-devstral` | eval | `bench-devstral-small-2` | — |
+| `bench-devstral-small-2` | eval | `bench-devstral-small-2` | — |
+| `bench-gemma4-12b` | eval | `bench-gemma4-12b` | — |
+| `bench-gemma4-26b-optiq` | eval | `bench-gemma4-26b-optiq` | — |
+| `bench-gemma4-26b-qat` | eval | `bench-gemma4-26b-qat` | — |
+| `bench-gemma4-31b-qat` | eval | `bench-gemma4-31b-qat` | — |
+| `bench-gemma4-e2b` | eval | `bench-gemma4-e2b` | — |
+| `bench-gemma4-e4b` | eval | `bench-gemma4-e4b` | — |
+| `bench-gemma4-e4b-qat` | eval | `bench-gemma4-e4b-qat` | — |
+| `bench-glm` | eval | `bench-glm` | — |
+| `bench-glm-reap` | eval | `bench-glm-reap` | — |
+| `bench-glm-z1-rumination` | eval | `bench-glm-z1-rumination` | — |
+| `bench-gptoss` | eval | `bench-gptoss` | — |
+| `bench-granite41-30b` | eval | `bench-granite41-30b` | — |
+| `bench-granite41-8b` | eval | `bench-granite41-8b` | — |
+| `bench-huihui-qwen36-27b` | eval | `bench-huihui-qwen36-27b` | — |
+| `bench-huihui-qwen36-35b-a3b` | eval | `bench-huihui-qwen36-35b-a3b` | — |
+| `bench-laguna` | eval | `bench-laguna` | — |
+| `bench-lfm25-8b` | eval | `bench-lfm25-8b` | — |
+| `bench-lfm25-8b-uncensored` | eval | `bench-lfm25-8b-uncensored` | — |
+| `bench-nex-n2-mini` | eval | `bench-nex-n2-mini` | — |
+| `bench-omnicoder2` | eval | `bench-omnicoder2` | — |
+| `bench-qwen35-abliterated` | eval | `bench-qwen35-abliterated` | — |
+| `bench-qwen36-27b` | eval | `bench-qwen36-27b` | — |
+| `bench-qwen36-27b-mtp` | eval | `bench-qwen36-27b-mtp` | — |
+| `bench-qwen36-27b-optiq` | eval | `bench-qwen36-27b-optiq` | — |
+| `bench-qwen36-27b-ud` | eval | `bench-qwen36-27b-ud` | — |
+| `bench-qwen36-35b-a3b` | eval | `bench-qwen36-35b-a3b` | — |
+| `bench-qwen36-35b-a3b-ud` | eval | `bench-qwen36-35b-a3b-ud` | — |
+| `bench-qwen36-abl-27b` | eval | `bench-huihui-qwen36-27b` | — |
+| `bench-qwen36-hauhaucs` | eval | `bench-qwen36-hauhaucs` | — |
+| `bench-qwen3-coder-30b` | eval | `bench-qwen3-coder-30b` | — |
+| `bench-qwen3-coder-next` | eval | `bench-qwen3-coder-next` | — |
+| `bench-qwen3-coder-next-abliterated` | eval | `bench-qwen3-coder-next-abliterated` | — |
+| `blueteamdefender` | security | `auto-security` | — |
+| `bugdiscoverycodeassistant` | coding | `auto-coding` | — |
+| `businessanalyst` | general | `auto-reasoning` | — |
+| `cadquerydesigner` | cad | `auto-cad` | — |
+| `chartanalyst` | general | `auto-vision` | — |
+| `cippolicywriter` | compliance | `auto-compliance` | — |
+| `codebasewikidocumentationskill` | coding | `auto-coding` | — |
+| `codereviewassistant` | coding | `auto-coding` | — |
+| `codereviewer` | coding | `auto-coding` | — |
+| `codescreenshotreader` | general | `auto-vision` | — |
+| `codingagentic` | coding | `auto-coding` | — |
+| `codinguncensored` | coding | `auto-coding` | — |
+| `codinguncensoredagentic` | coding | `auto-coding` | — |
+| `complianceanalyst` | compliance | `auto-compliance` | — |
+| `creativecoder` | coding | `auto-coding` | — |
+| `creativewriter` | media | `auto-creative` | — |
+| `cybersecurityspecialist` | security | `auto-security` | — |
+| `dailydriver` | general | `auto-daily` | — |
+| `dashboardarchitect` | research | `auto-data` | — |
+| `dataanalyst` | research | `auto-data` | — |
+| `databasearchitect` | research | `auto-data` | — |
+| `dataextractor` | research | `auto-data` | — |
+| `datascientist` | research | `auto-data` | — |
+| `devopsautomator` | coding | `auto-coding` | — |
+| `devopsengineer` | general | `auto-reasoning` | — |
+| `devstral_coder` | coding | `auto-coding` | `devstral-small-2:latest-ctx8k` |
+| `diagramreader` | general | `auto-vision` | — |
+| `documentationarchitect` | documents | `auto-documents` | — |
+| `e2edebugger` | coding | `auto-coding` | — |
+| `e2etestauthor` | coding | `auto-coding` | — |
+| `ethereumdeveloper` | coding | `auto-coding` | — |
+| `excelsheet` | coding | `auto-coding` | — |
+| `factchecker` | research | `auto-research` | — |
+| `formfiller` | coding | `auto-coding` | — |
+| `fullstacksoftwaredeveloper` | coding | `auto-coding` | — |
+| `gdprdpoadvisor` | compliance | `auto-compliance` | — |
+| `gemma4e4bvision` | general | `auto-vision` | — |
+| `gemma4jangvision` | general | `auto-vision` | `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` |
+| `gemma_e4b` | general | `auto-daily` | — |
+| `gemma_fast` | general | `auto-daily` | — |
+| `gemma_vision` | general | `auto-vision` | `gemma4:31b-it-qat-ctx8k` |
+| `gemmaresearchanalyst` | research | `auto-research` | — |
+| `githubexpert` | coding | `auto-coding` | — |
+| `glm-coder` | coding | `auto-coding` | `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` |
+| `glm-thinker` | general | `auto-reasoning` | `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` |
+| `goengineer` | coding | `auto-coding` | — |
+| `gptossanalyst` | general | `auto-reasoning` | — |
+| `hermes3writer` | media | `auto-creative` | — |
+| `hipaaprivacyofficer` | compliance | `auto-compliance` | — |
+| `interviewcoach` | media | `auto-creative` | — |
+| `itarchitect` | general | `auto-reasoning` | — |
+| `itexpert` | general | `auto` | — |
+| `javascriptconsole` | coding | `auto-coding` | — |
+| `kbnavigator` | research | `auto-research` | — |
+| `kubernetesdockerrpglearningengine` | coding | `auto-coding` | — |
+| `linuxterminal` | coding | `auto-coding` | — |
+| `machinelearningengineer` | research | `auto-data` | — |
+| `magistralstrategist` | general | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` |
+| `marketanalyst` | research | `auto-research` | — |
+| `mathreasoner` | general | `auto-math` | — |
+| `nerccipcomplianceanalyst` | compliance | `auto-compliance` | — |
+| `networkengineer` | security | `auto-security` | — |
+| `ocrspecialist` | general | `auto-vision` | — |
+| `paywalledresearcher` | research | `auto-research` | — |
+| `pcidssassessor` | compliance | `auto-compliance` | — |
+| `pentester` | security | `auto-security` | — |
+| `pentestlead` | security | `auto-security` | — |
+| `personalassistant` | general | `auto-daily` | — |
+| `phi4specialist` | documents | `auto-documents` | — |
+| `phi4stemanalyst` | general | `auto-reasoning` | — |
+| `printabilityengineer` | cad | `auto-cad` | — |
+| `productmanager` | general | `auto-reasoning` | — |
+| `proofreader` | media | `auto-creative` | — |
+| `purpleteamexec` | security | `auto-security` | — |
+| `purpleteamlead` | security | `auto-security` | — |
+| `pythoncodegeneratorcleanoptimizedproduction-ready` | coding | `auto-coding` | — |
+| `pythoninterpreter` | coding | `auto-coding` | — |
+| `redteamoperator` | security | `auto-security` | — |
+| `researchanalyst` | research | `auto-research` | — |
+| `rustengineer` | coding | `auto-coding` | — |
+| `securityuncensored` | security | `auto-security` | — |
+| `seniorfrontenddeveloper` | coding | `auto-coding` | — |
+| `seniorsoftwareengineersoftwarearchitectrules` | general | `auto-reasoning` | — |
+| `soc2auditor` | compliance | `auto-compliance` | — |
+| `softwarequalityassurancetester` | coding | `auto-coding` | — |
+| `splunkdetectionauthor` | general | `auto-spl` | — |
+| `splunksplgineer` | general | `auto-spl` | — |
+| `sqlterminal` | coding | `auto-coding` | — |
+| `statistician` | research | `auto-data` | — |
+| `supergemma4researcher` | research | `auto-research` | — |
+| `techreviewer` | general | `auto` | — |
+| `techwriter` | documents | `auto-documents` | — |
+| `terraformwriter` | coding | `auto-coding` | — |
+| `toolcomposer` | general | `tools-specialist` | — |
+| `transcriptanalyst` | documents | `auto-documents` | — |
+| `typescriptengineer` | coding | `auto-coding` | — |
+| `ux-uideveloper` | coding | `auto-coding` | — |
+| `webnavigator` | general | `auto` | — |
+| `webresearcher` | research | `auto-research` | — |
+| `whiteboardconverter` | general | `auto-vision` | — |
+<!-- /WIKI:GENERATED -->
+
+### Workspaces
+
+<!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
+# Workspace roster (21 production, 60 eval, 81 total)
+
+## Production workspaces (acceptance/UAT scope, eval OFF)
+
+| Workspace | Module | Model Hint |
+|---|---|---|
+| `auto` | general | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` |
+| `auto-audio` | media | `gemma4:12b-it-qat-ctx8k` |
+| `auto-bigfix` | general | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
+| `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx8k` |
+| `auto-coding` | coding | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
+| `auto-compliance` | compliance | `granite4.1:8b-ctx16k` |
+| `auto-creative` | media | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` |
+| `auto-daily` | general | `gemma4:26b-a4b-it-qat-ctx8k` |
+| `auto-data` | research | `granite4.1:30b-ctx64k` |
+| `auto-documents` | documents | `granite4.1:8b-ctx16k` |
+| `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` |
+| `auto-general-uncensored` | general | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` |
+| `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
+| `auto-music` | media | `lfm2.5:8b-ctx8k` |
+| `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
+| `auto-research` | research | `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` |
+| `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k` |
+| `auto-spl` | general | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` |
+| `auto-video` | media | `granite4.1:8b-ctx16k` |
+| `auto-vision` | general | `qwen3-vl:32b-ctx8k` |
+| `tools-specialist` | general | `granite4.1:8b-ctx8k` |
+
+## Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
+
+- `bench-agents-a1`
+- `bench-agentworld`
+- `bench-bugtrace-ultra-27b`
+- `bench-cybersecqwen-4b-toolfix`
+- `bench-devstral`
+- `bench-devstral-small-2`
+- `bench-e2b-pentest`
+- `bench-exec-exploit`
+- `bench-exec-reasoning`
+- `bench-exec-recon`
+- `bench-fastcontext`
+- `bench-gemma4-12b`
+- `bench-gemma4-12b-agentic`
+- `bench-gemma4-26b-optiq`
+- `bench-gemma4-26b-qat`
+- `bench-gemma4-31b-crack`
+- `bench-gemma4-31b-qat`
+- `bench-gemma4-e2b`
+- `bench-gemma4-e4b`
+- `bench-gemma4-e4b-qat`
+- `bench-glm`
+- `bench-glm-reap`
+- `bench-glm-z1-rumination`
+- `bench-gptoss`
+- `bench-granite41-30b`
+- `bench-granite41-8b`
+- `bench-huihui-qwen36-27b`
+- `bench-huihui-qwen36-35b-a3b`
+- `bench-laguna`
+- `bench-lfm-micro-1p2b`
+- `bench-lfm-micro-230m`
+- `bench-lfm-micro-350m`
+- `bench-lfm25-8b`
+- `bench-lfm25-8b-uncensored`
+- `bench-meta-secalign-8b`
+- `bench-mistral7b-uncensored`
+- `bench-nex-n2-mini`
+- `bench-north-mini-code`
+- `bench-omnicoder2`
+- `bench-ornith-35b`
+- `bench-qwable-35b`
+- `bench-qwen3-14b-abliterated`
+- `bench-qwen3-coder-30b`
+- `bench-qwen3-coder-next`
+- `bench-qwen3-coder-next-abliterated`
+- `bench-qwen35-9b-heretic-vision`
+- `bench-qwen35-abliterated`
+- `bench-qwen36-27b`
+- `bench-qwen36-27b-mtp`
+- `bench-qwen36-27b-optiq`
+- `bench-qwen36-27b-ud`
+- `bench-qwen36-35b-a3b`
+- `bench-qwen36-35b-a3b-ud`
+- `bench-qwen36-hauhaucs`
+- `bench-qwopus-coder-mtp-v2`
+- `bench-security-slm-1p5b`
+- `bench-supergemma4-sec`
+- `bench-superqwen-agentworld-ablit`
+- `bench-sylink`
+- `bench-vulnllm-r7b`
+<!-- /WIKI:GENERATED -->
+
+### Model Bindings (reachability-resolved)
+
+<!-- WIKI:GENERATED unit=unit-fact-model-bindings -->
+# Model bindings (reachability-resolved)
+
+What each production workspace/persona actually SERVES, not what it
+claims. A row marked GAP means the intended model is unreachable via
+the workspace's routing groups and silently falls back to the pool
+default.
+
+## Workspace model_hint reachability
+
+| Workspace | model_hint | Reachable |
+|---|---|---|
+| `auto` | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | yes |
+| `auto-audio` | `gemma4:12b-it-qat-ctx8k` | yes |
+| `auto-bigfix` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
+| `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx8k` | yes |
+| `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
+| `auto-compliance` | `granite4.1:8b-ctx16k` | yes |
+| `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
+| `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | yes |
+| `auto-data` | `granite4.1:30b-ctx64k` | yes |
+| `auto-documents` | `granite4.1:8b-ctx16k` | yes |
+| `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` | yes |
+| `auto-general-uncensored` | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | yes |
+| `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
+| `auto-music` | `lfm2.5:8b-ctx8k` | yes |
+| `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
+| `auto-research` | `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` | yes |
+| `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k` | yes |
+| `auto-spl` | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` | yes |
+| `auto-video` | `granite4.1:8b-ctx16k` | yes |
+| `auto-vision` | `qwen3-vl:32b-ctx8k` | yes |
+| `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
+
+## Persona model_pin reachability
+
+| Persona | Workspace | model_pin | Reachable |
+|---|---|---|---|
+| `devstral_coder` | `auto-coding` | `devstral-small-2:latest-ctx8k` | yes |
+| `gemma4jangvision` | `auto-vision` | `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` | yes |
+| `gemma_vision` | `auto-vision` | `gemma4:31b-it-qat-ctx8k` | yes |
+| `glm-coder` | `auto-coding` | `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` | yes |
+| `glm-thinker` | `auto-reasoning` | `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` | yes |
+| `magistralstrategist` | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` | yes |
+
+**0 reachability gap(s)** — clean.
+<!-- /WIKI:GENERATED -->
+
+### MCP Fleet
+
+<!-- WIKI:GENERATED unit=unit-fact-mcp-fleet -->
+# MCP fleet (24 servers)
+
+| ID | Name | Port |
+|---|---|---|
+| `filesystem` | filesystem |  |
+| `fetch` | fetch |  |
+| `git` | git |  |
+| `docker` | docker |  |
+| `comfyui` | portal-comfyui | 8910 |
+| `video` | portal-video | 8911 |
+| `music` | portal-music | 8912 |
+| `documents` | portal-documents | 8913 |
+| `execution` | portal-sandbox | 8914 |
+| `whisper` | portal-whisper | 8915 |
+| `tts` | portal-tts | 8916 |
+| `security` | portal-security | 8919 |
+| `memory` | portal-memory | 8920 |
+| `rag` | portal-rag | 8921 |
+| `research` | portal-research | 8922 |
+| `browser` | portal-browser | 8923 |
+| `mlx_transcribe` | portal-mlx-transcribe | 8924 |
+| `reranker` | portal-reranker | 8925 |
+| `cad_render` | portal-cad-render | 8926 |
+| `proxmox` | portal-proxmox | 8927 |
+| `pipeline` | portal-pipeline | 8928 |
+| `mitre` | portal-mitre | 8929 |
+| `wiki` | portal-wiki | 8931 |
+| `detections` | portal-detections | 8932 |
+<!-- /WIKI:GENERATED -->
+
+### Model Catalog
+
+<!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
+# Model catalog (149 model ids across 6 backend groups)
+
+## coding (39)
+
+- `devstral-small-2`
+- `devstral-small-2:latest-ctx8k`
+- `devstral:24b`
+- `glm-4.7-flash:Q4_K_M`
+- `gpt-oss:20b`
+- `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
+- `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M`
+- `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf`
+- `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
+- `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
+- `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k`
+- `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M`
+- `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k`
+- `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4`
+- `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k`
+- `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M`
+- `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k`
+- `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`
+- `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`
+- `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL`
+- `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
+- `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
+- `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
+- `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
+- `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
+- `huihui_ai/qwen3-abliterated:14b-v2`
+- `laguna-xs.2:Q4_K_M`
+- `laguna-xs.2:Q4_K_M-ctx64k`
+- `omnicoder2:9b-q4_k_m`
+- `omnicoder2:9b-q4_k_m-ctx8k`
+- `phi4-reasoning:plus`
+- `phi4-reasoning:plus-ctx32k`
+- `qwen3-coder-next:latest`
+- `qwen3-coder-next:latest-ctx64k`
+- `qwen3-coder:30b-a3b-q4_K_M`
+- `qwen3-coder:30b-a3b-q4_K_M-ctx16k`
+- `qwen3-coder:30b-a3b-q4_K_M-ctx8k`
+- `qwen3.6:27b-q4_K_M`
+- `qwen3.6:35b-a3b-q4_K_M`
+
+## creative (10)
+
+- `dolphin-llama3:8b`
+- `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4`
+- `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k`
+- `hermes3:8b`
+- `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`
+- `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k`
+- `huihui_ai/Qwen3.6-abliterated:27b`
+- `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`
+- `huihui_ai/baronllm-abliterated`
+- `huihui_ai/baronllm-abliterated:latest-ctx8k`
+
+## general (36)
+
+- `dolphin-llama3:8b`
+- `gemma4:26b-a4b-it-q4_K_M`
+- `gemma4:26b-a4b-it-qat`
+- `gemma4:26b-a4b-it-qat-ctx8k`
+- `gemma4:e4b-it-q4_K_M`
+- `granite4.1:8b`
+- `granite4.1:8b-ctx16k`
+- `granite4.1:8b-ctx8k`
+- `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
+- `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M`
+- `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K`
+- `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M`
+- `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M`
+- `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M`
+- `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M`
+- `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`
+- `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M`
+- `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M`
+- `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf`
+- `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0`
+- `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k`
+- `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
+- `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
+- `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
+- `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
+- `huihui_ai/Qwen3.6-abliterated:27b`
+- `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`
+- `huihui_ai/qwen3.5-abliterated:9b`
+- `huihui_ai/qwen3.5-abliterated:9b-ctx64k`
+- `huihui_ai/qwen3.5-abliterated:9b-ctx8k`
+- `lfm2.5:8b`
+- `lfm2.5:8b-ctx8k`
+- `mistral-small3.2:24b`
+- `phi4-mini`
+- `phi4:14b-q8_0`
+- `portal5/gemma4-12b:q4_K_M-ctx8k`
+
+## reasoning (22)
+
+- `deepseek-r1:32b-q4_k_m`
+- `gpt-oss:20b`
+- `granite4.1:30b`
+- `granite4.1:30b-ctx64k`
+- `granite4.1:8b`
+- `granite4.1:8b-ctx16k`
+- `granite4.1:8b-ctx8k`
+- `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf`
+- `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
+- `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k`
+- `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`
+- `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL`
+- `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k`
+- `huihui_ai/tongyi-deepresearch-abliterated`
+- `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k`
+- `phi4-mini-reasoning`
+- `phi4-mini-reasoning:latest-ctx24k`
+- `portal5/qwen3.6-27b-mtp:q8_0-drafted`
+- `qwen3.6:27b-mtp-q4_K_M`
+- `qwen3.6:27b-q8_0`
+- `supergemma4-26b-uncensored:Q4_K_M`
+- `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
+
+## security (26)
+
+- `cybersecqwen-4b-toolfix:latest`
+- `devstral-small-2:latest`
+- `devstral-small-2:latest-ctx8k`
+- `granite4.1:8b`
+- `granite4.1:8b-ctx16k`
+- `granite4.1:8b-ctx8k`
+- `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K`
+- `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
+- `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
+- `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M`
+- `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
+- `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k`
+- `huihui_ai/baronllm-abliterated`
+- `huihui_ai/baronllm-abliterated:latest-ctx8k`
+- `huihui_ai/gemma-4-abliterated:E2b-qat`
+- `huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k`
+- `huihui_ai/qwen3.5-abliterated:9b`
+- `huihui_ai/qwen3.5-abliterated:9b-ctx64k`
+- `huihui_ai/qwen3.5-abliterated:9b-ctx8k`
+- `lfm2.5:8b`
+- `lfm2.5:8b-ctx8k`
+- `meta-secalign-8b-q4_k_m`
+- `supergemma4-26b-uncensored:Q4_K_M`
+- `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
+- `sylink/sylink:8b`
+- `sylink/sylink:8b-ctx8k`
+
+## vision (16)
+
+- `gemma4:12b-it-qat`
+- `gemma4:12b-it-qat-ctx8k`
+- `gemma4:26b-a4b-it-q4_K_M`
+- `gemma4:26b-a4b-it-qat`
+- `gemma4:26b-a4b-it-qat-ctx8k`
+- `gemma4:31b-it-qat`
+- `gemma4:31b-it-qat-ctx8k`
+- `gemma4:e2b-it-qat`
+- `gemma4:e2b-it-qat-ctx8k`
+- `gemma4:e4b-it-q4_K_M`
+- `gemma4:e4b-it-qat`
+- `gemma4:e4b-it-qat-ctx8k`
+- `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
+- `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M`
+- `qwen3-vl:32b`
+- `qwen3-vl:32b-ctx8k`
+<!-- /WIKI:GENERATED -->
