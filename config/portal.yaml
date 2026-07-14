@@ -791,13 +791,15 @@ workspaces:
     system_prompt_append: |2-
   
   
-      You have music and speech tools available. Use generate_music to create original music from a text description. Use generate_continuation to extend an existing audio clip. Use list_music_models to show available model sizes. Use speak to synthesise speech from text. Always call the appropriate tool rather than just describing what you would do.
+      You have music and speech tools available. Use generate_music to create original music from a text description. Use generate_continuation to extend an existing audio clip. Use list_music_models to show available model sizes. Use speak to synthesise speech from text. Use clone_voice to reproduce a supplied reference voice (5-30s of clean speech) and list_voices to show available voices. Always call the appropriate tool rather than just describing what you would do.
     tools:
     - generate_music
     - generate_continuation
     - list_music_models
     - speak
     - transcribe_audio
+    - clone_voice
+    - list_voices
     expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-
@@ -839,10 +841,13 @@ workspaces:
     min_p: 0.05
     tools:
     - transcribe_audio
+    - generate_image
+    - list_workflows
+    - get_generation_status
     expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-
-      You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, use the ComfyUI MCP tool.
+      You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (ComfyUI backend); use list_workflows to choose a style and get_generation_status to poll long jobs.
   auto-data:
     module: research
     name: 📊 Portal Data Analyst
@@ -920,10 +925,11 @@ workspaces:
     context_limit: 8192
     tools:
     - transcribe_audio
+    - transcribe_with_speakers
     expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-
-      You are an audio analysis assistant. Transcribe audio files, analyze speech content, identify speakers, summarize recordings, and extract key information from audio. When given an audio file, use the transcribe_audio tool to process it, then provide a clear summary with timestamps for key moments.
+      You are an audio analysis assistant. Transcribe audio files, analyze speech content, identify speakers, summarize recordings, and extract key information from audio. When given an audio file, use the transcribe_audio tool to process it (or transcribe_with_speakers for speaker-diarized output), then provide a clear summary with timestamps for key moments.
   bench-qwen3-coder-30b:
     module: eval
     name: 🔬 Bench · Qwen3-Coder-30B
