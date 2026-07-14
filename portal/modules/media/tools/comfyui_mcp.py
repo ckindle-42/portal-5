@@ -472,11 +472,15 @@ def _build_image_workflow(
         workflow["8"]["inputs"]["cfg"] = 1.0
         workflow["7"]["inputs"]["guidance"] = min(max(cfg, 0.0), 10.0)
         workflow["1"]["inputs"]["ckpt_name"] = _get_checkpoint(model)
-        workflow["2"]["inputs"]["clip_name1"] = os.getenv(
-            "FLUX_CLIP_L_FILE", "text_encoder/model.safetensors"
-        )
+        # Defaults point at the single-file ComfyUI-native repackaging
+        # (comfyanonymous/flux_text_encoders), not the raw diffusers repo's sharded
+        # text_encoder_2/model-*-of-00002.safetensors — DualCLIPLoader loads one file
+        # via a plain state-dict read, so pointing it at a single shard of a sharded
+        # T5 silently loads only half the weights (a real bug found during Slice P
+        # media bring-up; TASK_MEDIA_BRINGUP_V1).
+        workflow["2"]["inputs"]["clip_name1"] = os.getenv("FLUX_CLIP_L_FILE", "clip_l.safetensors")
         workflow["2"]["inputs"]["clip_name2"] = os.getenv(
-            "FLUX_CLIP_T5_FILE", "text_encoder_2/model-00001-of-00002.safetensors"
+            "FLUX_CLIP_T5_FILE", "t5xxl_fp8_e4m3fn.safetensors"
         )
         workflow["3"]["inputs"]["vae_name"] = os.getenv("FLUX_VAE_FILE", "ae.safetensors")
         if checkpoint:
