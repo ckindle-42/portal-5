@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Generated: 2026-07-14 19:04 UTC*
+*Generated: 2026-07-14 19:21 UTC*
 
 ## Architecture Overview
 
@@ -84,7 +84,7 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 - **114 MCP tools across 24 servers**: 1 source(s)
 - **138 personas**: 6 source(s)
 - **149 model ids, 6 backend groups**: 1 source(s)
-- **21 production + 60 eval workspaces**: 1 source(s)
+- **22 production + 60 eval workspaces**: 1 source(s)
 - **24 MCP fleet servers**: 1 source(s)
 - **8 security canonical variants**: 1 source(s)
 - **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-06 16:52 UTC)**: 1 source(s)
