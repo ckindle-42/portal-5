@@ -16,8 +16,8 @@ tags:
 - T1003.003
 - technique
 - signature
-created_at: 1784058424.861384
-updated_at: 1784058424.861384
+created_at: 1784059756.937762
+updated_at: 1784059756.937762
 ---
 
 # T1003.003 — NTDS dump — ntdsutil/ntds.dit extraction for domain credential theft
