@@ -1,35 +1,35 @@
 ---
 id: unit-code-scripts
 kind: what
-title: scripts subsystem (39 files)
+title: scripts subsystem (43 files)
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: fc29decf7e62
+  commit: d559731d7800
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py
-  commit: fc29decf7e62
+  commit: d559731d7800
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
-  commit: fc29decf7e62
+  commit: d559731d7800
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-readiness.py
-  commit: fc29decf7e62
+  commit: d559731d7800
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-switch-benchmark.py
-  commit: fc29decf7e62
+  commit: d559731d7800
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1783896250.440584
-updated_at: 1783896250.440584
+created_at: 1784050004.100566
+updated_at: 1784050004.100566
 ---
 
 # scripts subsystem
 
-**Files:** 39
+**Files:** 43
 
 - `scripts/_archive/analyze_bench_v5.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py`
@@ -41,6 +41,7 @@ updated_at: 1783896250.440584
 - `scripts/_archive/mlx-retired-3a0c58e/patch-mlx-templates.py`
 - `scripts/_archive/mlx-retired-3a0c58e/patch-mlx-threads.py`
 - `scripts/_archive/mlx-retired-3a0c58e/smoke_test_mlx.py`
+- `scripts/alias_census.py`
 - `scripts/bench_supervisor.py`
 - `scripts/blend_acceptance_results.py`
 - `scripts/check_docstrings.py`
@@ -50,5 +51,4 @@ updated_at: 1783896250.440584
 - `scripts/collapse_snapshot.py`
 - `scripts/doc_ledger.py`
 - `scripts/embedding-server.py`
-- `scripts/gen-image.py`
-- ... and 19 more
+- ... and 23 more

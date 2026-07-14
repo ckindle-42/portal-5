@@ -19,8 +19,8 @@ tags:
 - T1059
 - technique
 - signature
-created_at: 1783896250.516298
-updated_at: 1783896250.516298
+created_at: 1784050004.177045
+updated_at: 1784050004.177045
 ---
 
 # T1059 — Command execution — auditd execve of shells/interpreters

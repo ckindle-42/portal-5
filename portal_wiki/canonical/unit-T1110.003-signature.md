@@ -22,8 +22,8 @@ tags:
 - T1110.003
 - technique
 - signature
-created_at: 1783896250.519627
-updated_at: 1783896250.519627
+created_at: 1784050004.180823
+updated_at: 1784050004.180823
 ---
 
 # T1110.003 — Password spray — multiple 4625/4771 events from single source [DISTINGUISH: T1110.003 = one password across many accounts; T1110.001 = many passwords against one account] [KEY: Many accounts, few attempts per account, single source IP]
