@@ -18,8 +18,8 @@ tags:
 - T1203
 - technique
 - signature
-created_at: 1784055842.2944498
-updated_at: 1784055842.2944498
+created_at: 1784056870.633845
+updated_at: 1784056870.633845
 ---
 
 # T1203 — Exploitation for client execution — binary overflow and service exploitation
