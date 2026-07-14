@@ -69,27 +69,44 @@ def _make_unit(
     commit: str,
     confidence: str = "high",
 ) -> KnowledgeUnit:
-    """Construct a fact-unit with STABLE timestamps across re-derivation.
+    """Construct a fact-unit that only changes on disk when its BODY changes.
 
-    KnowledgeUnit.__post_init__ defaults created_at/updated_at to "now" for
-    any instance that doesn't already carry them — building a fresh
-    KnowledgeUnit on every derive call would therefore bump both fields
-    every single run even when the body is byte-identical, permanently
-    breaking the "sync-config twice produces no diff" idempotency contract
-    (every re-derivation would show a timestamp-only git diff forever).
-    Preserve the prior unit's created_at unconditionally, and only bump
-    updated_at when the body actually changed.
+    Two idempotency traps, both fixed here:
+
+    1. KnowledgeUnit.__post_init__ defaults created_at/updated_at to "now"
+       for any instance that doesn't already carry them — building a fresh
+       KnowledgeUnit on every derive call would bump both fields every
+       single run even when the body is byte-identical.
+    2. `commit` is "whatever HEAD is right now" at derive time, which is
+       usually the PARENT of the commit-in-progress (pre-commit hooks run
+       before the commit lands) — baking it into `sources[].commit` /
+       `last_generated_commit` unconditionally means the unit file changes
+       on literally every future commit forever, even with zero functional
+       change, because HEAD always differs from the value last stamped.
+
+    Fix: when the body is unchanged from what's stored, reuse the PRIOR
+    unit's sources/commit/timestamps wholesale (a true no-op write) —
+    `last_generated_commit` means "commit at which this fact last actually
+    changed," not "commit at which this script last ran." Only when the
+    body differs do sources/commit/updated_at advance to the current call's
+    values.
     """
     import time
 
     prior = load_unit(unit_id)
-    if prior:
-        created_at = prior.created_at
-        unchanged = prior.body.strip() == body.strip()
-        updated_at = prior.updated_at if unchanged else time.time()
-    else:
-        created_at = 0.0  # KnowledgeUnit.__post_init__ sets both to now()
-        updated_at = 0.0
+    if prior and prior.body.strip() == body.strip():
+        return KnowledgeUnit(
+            id=unit_id,
+            kind="what",
+            title=title,
+            sources=prior.sources,
+            body=body,
+            tags=tags,
+            confidence=confidence,
+            last_generated_commit=prior.last_generated_commit,
+            created_at=prior.created_at,
+            updated_at=prior.updated_at,
+        )
     return KnowledgeUnit(
         id=unit_id,
         kind="what",
@@ -99,8 +116,8 @@ def _make_unit(
         tags=tags,
         confidence=confidence,
         last_generated_commit=commit,
-        created_at=created_at,
-        updated_at=updated_at,
+        created_at=prior.created_at if prior else 0.0,
+        updated_at=time.time() if prior else 0.0,
     )
 
 
