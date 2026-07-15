@@ -196,11 +196,18 @@ class TestDeterminism:
 
 class TestWeakOracleIds:
     def test_weak_oracle_ids_matches_stage1_weakness_view(self):
-        """The live ORACLES registry has exactly 41 experimental + 5 differential = 46 weak."""
+        """The live ORACLES registry has exactly 45 experimental + 5 differential = 50 weak.
+
+        45 experimental = 41 pre-existing + 4 terminal-state objective oracles
+        (objective_oracles.py, Slice 2.2 of TASK_EMERGENT_SLICE2_TRAJECTORY_SCORING_V1).
+        """
+        from portal.modules.security.core import (
+            objective_oracles,  # noqa: F401 — registration side effect
+        )
         from portal.modules.security.core.oracles import ORACLES
 
         weak = weak_oracle_ids(ORACLES)
-        assert len(weak) == 46
+        assert len(weak) == 50
         tiers = {ORACLES[oid].tier for oid in weak}
         assert tiers <= {"experimental", "differential"}
         # deterministic order
