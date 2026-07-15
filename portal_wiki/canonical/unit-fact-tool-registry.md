@@ -1,22 +1,22 @@
 ---
 id: unit-fact-tool-registry
 kind: what
-title: 114 MCP tools across 24 servers
+title: 115 MCP tools across 24 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: c6d81e41a44b
-last_generated_commit: c6d81e41a44b
+  commit: ccf742e4449c
+last_generated_commit: ccf742e4449c
 confidence: high
 tags:
 - fact
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1784049873.7773068
+updated_at: 1784159130.6690261
 ---
 
-# MCP tool registry (114 tools across 24 servers)
+# MCP tool registry (115 tools across 24 servers)
 
 What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_route("/tools/<name>")` for servers that only expose that route form (memory, rag, web-search). Join with `unit-fact-tool-authorizations` to spot reachability gaps.
 
@@ -41,7 +41,7 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 | `rag` | `kb_ingest`, `kb_list`, `kb_optimize`, `kb_restore`, `kb_search`, `kb_search_all`, `kb_versions` |
 | `reranker` | `rerank` |
 | `research` | _(unresolved — server file not found)_ |
-| `security` | `classify_vulnerability` |
+| `security` | `classify_vulnerability`, `lab_perception` |
 | `tts` | `clone_voice`, `list_voices`, `speak` |
 | `video` | `generate_video`, `get_latest_videos`, `get_video_status`, `list_video_models`, `start_video_generation` |
 | `whisper` | `transcribe_audio`, `transcribe_with_speakers` |

@@ -2730,6 +2730,7 @@ def main() -> int:
     v.run("AV. persona intent (identity vs served model)", check_persona_intent)
     v.run("AW. wiki facts current (fact-units + generated doc blocks)", check_wiki_facts_current)
     v.run("AX. trajectory scoring honesty", check_trajectory_scoring_honesty)
+    v.run("AY. perception lab-scope allowlist", check_perception_lab_scope)
 
     return v.summary()
 
@@ -3113,6 +3114,66 @@ def check_trajectory_scoring_honesty() -> tuple[str, str, list[dict]]:
     if any(s["status"] == "FAIL" for s in subs):
         return ("FAIL", "trajectory scoring honesty invariant violated", subs)
     return ("PASS", "synthetic never PROVEN; objective verdict is state-derived", subs)
+
+
+def check_perception_lab_scope() -> tuple[str, str, list[dict]]:
+    """AY. Perception lab-scope allowlist (DESIGN_EMERGENT_LAB_AGENT_V2 invariant I1).
+
+    Permanent ratchet: perception (LabPerception) and the live executor
+    (SecurityExecutor) both reject a non-lab target before any probe/action
+    leaves the box. Non-network — constructs both with fake probers/dispatch
+    and asserts OutOfScopeError fires and the fake was never called.
+    """
+    from unittest import mock
+
+    from portal.modules.security.core.objective_executor import SecurityExecutor
+    from portal.modules.security.core.perception import LabPerception, OutOfScopeError
+
+    subs: list[dict] = []
+
+    calls: list[object] = []
+    perception = LabPerception(prober=lambda hosts: calls.append(hosts) or {})
+    try:
+        perception.enumerate(["10.10.11.5", "8.8.8.8"])
+        perception_rejected = False
+    except OutOfScopeError:
+        perception_rejected = True
+    subs.append(
+        {
+            "name": "LabPerception rejects non-lab target before probing",
+            "status": "PASS" if perception_rejected and not calls else "FAIL",
+            "detail": f"rejected={perception_rejected} probe_calls={len(calls)}",
+        }
+    )
+
+    exec_calls: list[object] = []
+
+    def _fake_dispatch(fn_name, fn_args, dry_run=False):
+        exec_calls.append((fn_name, fn_args))
+        return "should never run"
+
+    with mock.patch("portal.modules.security.core.lab.lab_dispatch", side_effect=_fake_dispatch):
+        executor = SecurityExecutor()
+        try:
+            executor.execute(
+                {"tool": "run_nmap_scan", "args": {"target": "8.8.8.8"}},
+                {"observations": {}, "history": []},
+            )
+            executor_rejected = False
+        except OutOfScopeError:
+            executor_rejected = True
+
+    subs.append(
+        {
+            "name": "SecurityExecutor rejects non-lab target before dispatch",
+            "status": "PASS" if executor_rejected and not exec_calls else "FAIL",
+            "detail": f"rejected={executor_rejected} dispatch_calls={len(exec_calls)}",
+        }
+    )
+
+    if any(s["status"] == "FAIL" for s in subs):
+        return ("FAIL", "lab-scope allowlist not enforced end-to-end", subs)
+    return ("PASS", "perception + executor both reject non-lab targets before any action", subs)
 
 
 if __name__ == "__main__":
