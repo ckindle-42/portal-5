@@ -127,6 +127,17 @@ The pipeline routes every `auto` workspace request through a **two-layer intent 
 - **Layer 1 — LLM router** (`portal/platform/inference/router/routing.py`): A small model classifies intent via Ollama `/api/generate` with grammar-enforced JSON output. Result: `{"workspace": "<id>", "confidence": 0.0–1.0}`. Fast, accurate.
 - **Layer 2 — Keyword scoring** (`portal/platform/inference/router/routing.py`): Weighted keyword match. Fires when LLM router times out, returns low confidence, or errors.
 
+**Layer 2 loses security-variant precision.** `_SECURITY_VARIANT_SIGNALS` defines keyword
+sets for 7 security variants (`redteam`, `blueteam`, `pentest`, `redteam-deep`,
+`purpleteam`, `purpleteam-deep`, `purpleteam-exec`), but only `redteam` has a dedicated
+scoring entry in Layer 2's `_WORKSPACE_ROUTING`/`_SCORER_VARIANT_MAP` — the other 6
+variant-signal sets are consulted only by `_infer_variant()`, which runs post-classification
+for Layer 1 only. When the LLM router is down and Layer 2 fallback fires, a message that
+would have routed to (say) `auto-security::blueteam` on Layer 1 instead lands on the plain
+`auto-security` base — a silent, coarser routing decision for the duration of the fallback.
+This is expected behavior, not a bug, but operators should know it: a Layer-1 outage degrades
+variant precision for defensive/purple intents specifically, not just latency.
+
 ### Three-Tier Router Models
 
 Three models are available; select via `LLM_ROUTER_MODEL` in `.env`:
