@@ -39,13 +39,29 @@ As of 2026-07-12: 104 capabilities indexed (17 from service probes, 80 from chal
 
 ### Goal-Driven Decide (Stage 2 — dry-run/proposal only)
 
-Upgrades the loop's decide step from *lookup* (`playbooks.resolve_phases` walking a phase graph) to *reasoning*: given a bounded goal + current observations, choose the next action from the capability index instead of a pre-authored DAG. **Deliberately stops at proposal + dry-run** — no live actuation exists yet (Stage 3).
+Upgrades the loop's decide step from *lookup* (`playbooks.resolve_phases` walking a phase graph) to *reasoning*: given a bounded goal + current observations, choose the next action from the capability index instead of a pre-authored DAG. **Deliberately stops at proposal + dry-run** on this path — `loop.py::run_goal_engagement` itself still has no live actuation (Stage 3 boundary below). A *separate*, flag-gated live-actuation Executor (`objective_executor.py`, TASK_EMERGENT_SLICE1_PERCEPTION_ENTRY_V1 Slice 1.2) now exists alongside it — see "Emergent objective loop" below.
 
 - `goal.py` — `EngagementGoal` (`intent`, `role: red|blue|purple`, `targets`, `scope`, `budget`, `stop_when`, `domain_hint`) and `validate_goal()` (mirrors `playbooks.validate_playbook`: rejects any goal with no scope or no budget — open-ended never means unbounded).
 - `goal_decide.py` — `decide_next_action(goal, observations, history, *, workspace=None)`: as of `TASK_AGENT_LOOP_PLATFORM_V1`, this is a thin security wrapper over the platform-core `portal.platform.agent.decide.decide_next_action` — it supplies a `CapabilityProvider` adapting `capability.query()` (narrowed by `domain_hint`, then by `goal.intent` as a bonus technique-name filter, falling back to the unnarrowed set so generic prose intents like "poke this machine" don't dead-end) and, when a workspace is given, a model-turn callback. The platform core picks one via `portal.platform.agent.rank.select_tools` (the deterministic floor, re-exported here as `decision_engine.select_tools` for back-compat; a model-turn path exists via `call_pipeline` but any failure — no workspace, no reachable pipeline, unparseable response — silently falls back, keeping this hermetic for tests). Returns `{action, tool, args, reason, confidence, expected_oracle, expected_observation_delta, alternatives_considered, outcome}`; `outcome="no_applicable_capability"` is a clean decline, not a flail.
 - `loop.py::run_goal_engagement(goal, *, dry_run=True, workspace=None, max_steps=None)` — the open-ended loop: perceive → `capability.query` → `decide_next_action` → (dry-run: record the proposal, advance simulated observations by the capability's `expected_observation_delta`) → repeat until budget/hard-cap/`stop_when`/escalation/`no_applicable_capability`. Reuses `enforce_scope` from the playbook path — a proposal against an out-of-scope target is refused and escalated *in dry-run*, proving the guardrail holds on the open-ended path before any Stage-3 grant of live actuation. **`dry_run=False` raises `NotImplementedError('live actuation is Stage 3')`** — the Stage-2/Stage-3 boundary is enforced in code, not just documented, and locked by validator check AM.
 - `goal_eval.py::eval_proposals()` — the Stage-3 go/no-go evidence: runs a single decide step against ~11 real lab targets spanning domains (derived live from the capability index, never invented) and scores relevance/grounding/non-flailing/coverage. As of 2026-07-12: 100% relevance/grounding/non-flailing, 36.4% coverage (the shortfall is a legitimate recon-before-exploit bias — a generic service probe on the same port often outranks a target's specific CVE capability in the single-step deterministic ranker, not a flaw in retrieval).
 - CLI: `portal security goal plan --intent "..." --role red --target <ip> --scope-net <ip> --budget-iters N` (writes `docs/GOAL_PLAN_<target>_<ts>.md`), `goal eval --role red`, `goal replay <plan.json>`. **Deliberately no `--lab-exec`** — the absence is the safety property.
+
+### Emergent objective loop (Slice 1 of TASK_EMERGENT_SLICE1_PERCEPTION_ENTRY_V1, flag-gated)
+
+A second, separate path onto `portal.platform.agent.loop.run_loop` — distinct from `run_goal_engagement`
+above, and not yet reachable from any CLI entry point (that wiring is Slice 1.3). Drops the seeded
+first-move and feeds the composition engine real lab state instead:
+
+- `perception.py` — `LabPerception`: an injectable live-state enumerator hard-scoped to `10.10.11.0/24`
+  (`assert_in_lab`/`in_lab`, invariant I1 — rejects before any probe leaves the box).
+  `PerceptionDelta.to_observation()` always carries `_source="live_perception"`.
+- `objective_executor.py` — `SecurityExecutor`: the platform `Executor` protocol implementation this loop
+  was missing. Wraps the existing real actuation path (`lab.lab_dispatch`) and the named-oracle registry
+  (`oracles.verify_finding`); no new offensive primitive (I2). Ground-truth invariant (D2): its
+  `observation_delta` is built only from the real dispatch result, the real oracle verdict, and live
+  `LabPerception` enumeration — it never reads `decision["expected_observation_delta"]` (that field is the
+  model's *prediction*, meaningful only to the dry-run simulator above).
 
 `tests/benchmarks/bench_security.py` is a backward-compat re-export shim over `portal.modules.security.core` — it re-exports names for import compatibility but has no `__main__` entry point. Run the bench via `python3 -m portal.modules.security.core ...` (below), not `python3 -m tests.benchmarks.bench_security` — the latter silently does nothing (no CLI wiring at that path).
 
