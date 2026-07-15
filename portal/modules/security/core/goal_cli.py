@@ -49,6 +49,20 @@ def goal_main(argv: list[str] | None = None) -> int:
     p_replay = sub.add_parser("replay", help="Re-render a saved plan report")
     p_replay.add_argument("plan_path", help="Path to a saved plan JSON")
 
+    p_emergent = sub.add_parser(
+        "emergent",
+        help="PORTAL_EMERGENT-gated live objective run (Slice 1, DESIGN_EMERGENT_LAB_AGENT_V2)",
+    )
+    p_emergent.add_argument("--target", action="append", required=True, dest="targets")
+    p_emergent.add_argument(
+        "--objective-class",
+        default="host_foothold",
+        choices=["da_equivalent", "host_foothold", "credential", "data_access"],
+    )
+    p_emergent.add_argument("--intent", default=None)
+    p_emergent.add_argument("--no-progress-k", type=int, default=3)
+    p_emergent.add_argument("--json", action="store_true")
+
     args = parser.parse_args(argv)
 
     if args.subcommand == "plan":
@@ -57,6 +71,8 @@ def goal_main(argv: list[str] | None = None) -> int:
         return _cmd_eval(args)
     if args.subcommand == "replay":
         return _cmd_replay(args)
+    if args.subcommand == "emergent":
+        return _cmd_emergent(args)
     return 1
 
 
@@ -155,3 +171,29 @@ def _cmd_replay(args) -> int:
     for i, step in enumerate(data.get("plan", []), 1):
         print(f"  {i}. {step.get('action')} -> {step.get('tool')} ({step.get('reason')})")
     return 0
+
+
+def _cmd_emergent(args) -> int:
+    """PORTAL_EMERGENT-gated live objective run (Slice 1.3, I7). Flag-off is
+    inert — this prints the disabled status and exits 0, it never builds a
+    goal or touches the lab.
+    """
+    from .objective_entry import run_emergent_engagement
+
+    report = run_emergent_engagement(
+        targets=args.targets,
+        objective_class=args.objective_class,
+        intent=args.intent,
+        no_progress_k=args.no_progress_k,
+    )
+
+    if args.json:
+        print(json.dumps(report, indent=2, default=str))
+    else:
+        print(f"status: {report.get('status')}")
+        if report.get("reason"):
+            print(f"reason: {report['reason']}")
+        if "iterations" in report:
+            print(f"iterations: {report['iterations']} / max {report.get('max_iterations')}")
+            print(f"trajectory steps: {len(report.get('trajectory', []))}")
+    return 0 if report.get("status") not in ("rejected",) else 1
