@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from portal.platform.wiki.store import load_unit, reset_canonical_dir, set_canonical_dir
 from portal.platform.wiki.writeback import (
+    WritebackCollisionError,
     confirm_unit,
     list_proposed,
     propose_unit,
@@ -167,6 +168,122 @@ class TestWritebackAPI:
             c1 = confirm_unit(proposed.proposed_id)
             c2 = confirm_unit(proposed.proposed_id)
             assert c1.status == c2.status == "confirmed"
+        finally:
+            reset_proposed_dir()
+            reset_canonical_dir()
+
+    def test_confirm_blocks_silent_overwrite_with_fewer_sources(self, tmp_path):
+        """A confirm whose id already exists in canon, proposing FEWER sources
+        than the existing unit already cites, must be refused — this is
+        exactly the "silently replace with weaker provenance" bug F3 covers."""
+        set_proposed_dir(tmp_path / "proposed")
+        set_canonical_dir(tmp_path / "canonical")
+        try:
+            first = propose_unit(
+                {
+                    "id": "unit-collision-target",
+                    "title": "Original",
+                    "kind": "what",
+                    "sources": [
+                        {"type": "code", "path": "a.py"},
+                        {"type": "code", "path": "b.py"},
+                    ],
+                    "body": "original body",
+                },
+            )
+            confirm_unit(first.proposed_id)
+
+            second = propose_unit(
+                {
+                    "id": "unit-collision-target",
+                    "title": "Weaker Replacement",
+                    "kind": "what",
+                    "sources": [{"type": "code", "path": "a.py"}],  # drops b.py
+                    "body": "weaker body",
+                },
+            )
+            import pytest
+
+            with pytest.raises(WritebackCollisionError, match="would overwrite"):
+                confirm_unit(second.proposed_id)
+
+            # Canonical unit is untouched by the refused confirm.
+            unit = load_unit("unit-collision-target")
+            assert unit.title == "Original"
+        finally:
+            reset_proposed_dir()
+            reset_canonical_dir()
+
+    def test_confirm_allows_superset_sources_without_supersede_flag(self, tmp_path):
+        """Enrichment (same sources plus more) is not a degradation — allowed
+        without the explicit supersede flag."""
+        set_proposed_dir(tmp_path / "proposed")
+        set_canonical_dir(tmp_path / "canonical")
+        try:
+            first = propose_unit(
+                {
+                    "id": "unit-enrich-target",
+                    "title": "Original",
+                    "kind": "what",
+                    "sources": [{"type": "code", "path": "a.py"}],
+                    "body": "original body",
+                },
+            )
+            confirm_unit(first.proposed_id)
+
+            second = propose_unit(
+                {
+                    "id": "unit-enrich-target",
+                    "title": "Enriched",
+                    "kind": "what",
+                    "sources": [
+                        {"type": "code", "path": "a.py"},
+                        {"type": "code", "path": "b.py"},
+                    ],
+                    "body": "enriched body",
+                },
+            )
+            confirmed = confirm_unit(second.proposed_id)
+            assert confirmed.status == "confirmed"
+            unit = load_unit("unit-enrich-target")
+            assert unit.title == "Enriched"
+        finally:
+            reset_proposed_dir()
+            reset_canonical_dir()
+
+    def test_confirm_supersede_flag_forces_overwrite(self, tmp_path):
+        """Explicit supersede=True bypasses the guard even with fewer sources."""
+        set_proposed_dir(tmp_path / "proposed")
+        set_canonical_dir(tmp_path / "canonical")
+        try:
+            first = propose_unit(
+                {
+                    "id": "unit-supersede-target",
+                    "title": "Original",
+                    "kind": "what",
+                    "sources": [
+                        {"type": "code", "path": "a.py"},
+                        {"type": "code", "path": "b.py"},
+                    ],
+                    "body": "original body",
+                },
+            )
+            confirm_unit(first.proposed_id)
+
+            second = propose_unit(
+                {
+                    "id": "unit-supersede-target",
+                    "title": "Forced Replacement",
+                    "kind": "what",
+                    "sources": [{"type": "code", "path": "a.py"}],
+                    "body": "forced body",
+                },
+                supersede=True,
+            )
+            confirmed = confirm_unit(second.proposed_id)
+            assert confirmed.status == "confirmed"
+            unit = load_unit("unit-supersede-target")
+            assert unit.title == "Forced Replacement"
         finally:
             reset_proposed_dir()
             reset_canonical_dir()

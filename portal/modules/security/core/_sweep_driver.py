@@ -549,6 +549,11 @@ def _write_back_winning_config(results: list[dict]) -> str | None:
             },
             proposed_by="sec-maturation-sweep",
             auto_confirm=True,
+            # Date-stamped unit id: a same-day re-run intentionally replaces
+            # the day's prior delta report with a fresh OUT_PATH, which isn't
+            # guaranteed to be a superset of the old citation — explicit
+            # supersede required.
+            supersede=True,
         )
         print(f"M5: Delta report written to wiki: {proposed.unit_id} (status={proposed.status})")
         return proposed.unit_id

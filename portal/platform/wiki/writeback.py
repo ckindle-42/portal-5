@@ -19,10 +19,21 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .schema import KnowledgeUnit, SourceRef
-from .store import save_unit
+from .store import load_unit, save_unit
 
 # Proposed units staging directory
 _PROPOSED_DIR: Path | None = None
+
+
+class WritebackCollisionError(ValueError):
+    """Raised when a confirm would silently degrade an existing canonical unit.
+
+    Confirming a proposed unit whose id already exists in canon, where the
+    proposal's sources are not a superset of the existing unit's sources,
+    would replace a unit with more/richer provenance with one that has
+    less — the never-bloat rule cuts both ways. Pass supersede=True to
+    propose_unit()/confirm_unit() to force the replacement explicitly.
+    """
 
 
 def _get_proposed_dir() -> Path:
@@ -56,6 +67,9 @@ class ProposedUnit:
     proposed_at: float = 0.0
     status: str = "proposed"  # "proposed" | "confirmed" | "rejected"
     auto_confirm: bool = False  # if True, skip confirm gate
+    supersede: bool = False  # if True, allow overwriting an existing canonical
+    # unit even when the new sources are not a superset of its current ones —
+    # explicit operator/loop intent required to degrade provenance on confirm.
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -66,6 +80,7 @@ def propose_unit(
     *,
     proposed_by: str = "",
     auto_confirm: bool = False,
+    supersede: bool = False,
 ) -> ProposedUnit:
     """Propose a unit into the canonical layer.
 
@@ -74,6 +89,9 @@ def propose_unit(
                    plus optional {body, tags, id}
         proposed_by: which loop/agent proposed this (for audit)
         auto_confirm: if True, skip confirm gate (operator opt-in per loop)
+        supersede: if True, permit confirm to overwrite an existing canonical
+            unit of the same id even when the new sources are not a superset
+            of the existing ones (see WritebackCollisionError)
 
     Returns:
         ProposedUnit with status="proposed" (or "confirmed" if auto_confirm).
@@ -125,6 +143,7 @@ def propose_unit(
         proposed_at=time.time(),
         status="proposed",
         auto_confirm=auto_confirm,
+        supersede=supersede,
     )
 
     # Save to staging
@@ -173,6 +192,22 @@ def confirm_unit(proposed_id: str) -> ProposedUnit:
         body=proposed.body,
         tags=proposed.tags,
     )
+
+    # Collision guard: a confirm must never silently degrade an existing
+    # canonical unit's provenance. Allowed without an explicit flag only if
+    # the new sources are a superset of what's already cited; otherwise the
+    # caller must pass supersede=True to propose_unit() to force it.
+    existing = load_unit(proposed.unit_id)
+    if existing is not None and not proposed.supersede:
+        existing_refs = {(s.type, s.path) for s in existing.sources}
+        new_refs = {(s.type, s.path) for s in sources}
+        if not existing_refs.issubset(new_refs):
+            raise WritebackCollisionError(
+                f"Confirm of '{proposed.unit_id}' would overwrite an existing "
+                f"canonical unit whose sources ({sorted(existing_refs)}) are not "
+                f"a subset of the proposal's sources ({sorted(new_refs)}). "
+                "Re-propose with supersede=True to force this replacement."
+            )
 
     # Save to canonical
     save_unit(unit)
