@@ -50,8 +50,7 @@ Upgrades the loop's decide step from *lookup* (`playbooks.resolve_phases` walkin
 ### Emergent objective loop (Slice 1 of TASK_EMERGENT_SLICE1_PERCEPTION_ENTRY_V1, flag-gated)
 
 A second, separate path onto `portal.platform.agent.loop.run_loop` — distinct from `run_goal_engagement`
-above, and not yet reachable from any CLI entry point (that wiring is Slice 1.3). Drops the seeded
-first-move and feeds the composition engine real lab state instead:
+above. Drops the seeded first-move and feeds the composition engine real lab state instead:
 
 - `perception.py` — `LabPerception`: an injectable live-state enumerator hard-scoped to `10.10.11.0/24`
   (`assert_in_lab`/`in_lab`, invariant I1 — rejects before any probe leaves the box).
@@ -62,6 +61,14 @@ first-move and feeds the composition engine real lab state instead:
   `observation_delta` is built only from the real dispatch result, the real oracle verdict, and live
   `LabPerception` enumeration — it never reads `decision["expected_observation_delta"]` (that field is the
   model's *prediction*, meaningful only to the dry-run simulator above).
+- `objective_entry.py` — the `PORTAL_EMERGENT`-gated entry (default off, I7). `run_emergent_engagement`
+  builds an `EngagementGoal(role="red", ...)` with no pinned scenario, budget derived by
+  `derive_max_iterations` (D1: longest known procedure path to the objective class, from the capability
+  graph, × 2.5 slack, hard-capped). The platform `run_loop` is never edited — `run_with_no_progress_halt`
+  steps it one iteration at a time and halts `BLOCKED(no-progress)` when the observed state hasn't actually
+  changed for `no_progress_k` consecutive iterations (I4; budget is only the backstop). CLI:
+  `portal security goal emergent --target <ip> --objective-class {da_equivalent,host_foothold,credential,data_access}`.
+  Flag-off is inert — prints `{"status": "disabled", ...}` and builds no goal.
 
 `tests/benchmarks/bench_security.py` is a backward-compat re-export shim over `portal.modules.security.core` — it re-exports names for import compatibility but has no `__main__` entry point. Run the bench via `python3 -m portal.modules.security.core ...` (below), not `python3 -m tests.benchmarks.bench_security` — the latter silently does nothing (no CLI wiring at that path).
 
