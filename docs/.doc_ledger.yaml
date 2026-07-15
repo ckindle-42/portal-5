@@ -46,7 +46,7 @@ docs:
     sources:
     - portal/platform/inference/
     - tests/
-    last_reconciled_commit: 76906350436cce578c97680cd215fb14814d6b8a
+    last_reconciled_commit: 84301a79e4fb9d0f44ca0836b2a95ff9dcd3e3c4
   docs/USER_GUIDE.md:
     sources:
     - config/personas/
@@ -112,7 +112,7 @@ docs:
     sources:
     - deploy/
     - tests/
-    last_reconciled_commit: 76906350436cce578c97680cd215fb14814d6b8a
+    last_reconciled_commit: 84301a79e4fb9d0f44ca0836b2a95ff9dcd3e3c4
   docs/SECURITY_BENCH_EXEC.md:
     sources:
     - portal/modules/security/core/
