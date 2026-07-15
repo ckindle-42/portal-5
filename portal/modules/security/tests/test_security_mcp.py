@@ -199,6 +199,20 @@ class TestSecurityHealthEndpoint:
         assert "port" in data
         assert isinstance(data["port"], int)
 
+    def test_lab_perception_dispatch_rejects_non_lab_target_with_400(self, client, monkeypatch):
+        """The /tools/lab_perception REST dispatch branch (Slice 1.4) maps a
+        non-lab target to 400, not the generic 500 (OutOfScopeError is caught
+        before the catch-all Exception branch). Lives on the same TestClient
+        as the other health tests — StreamableHTTPSessionManager.run() can
+        only be entered once per app instance, so a second TestClient(_APP)
+        context in a separate class would hard-fail."""
+        monkeypatch.setattr(
+            "portal.modules.security.core.lab.lab_dispatch",
+            lambda *a, **k: "unreachable",
+        )
+        resp = client.post("/tools/lab_perception", json={"arguments": {"hosts": ["8.8.8.8"]}})
+        assert resp.status_code == 400
+
 
 class TestClassifyVulnerability:
     """Test classify_vulnerability tool with mocked ML model."""
@@ -258,6 +272,40 @@ class TestClassifyVulnerability:
         result = classify_vulnerability(long_desc)
         assert isinstance(result, dict)
         assert "severity" in result
+
+
+class TestLabPerceptionTool:
+    """Test the lab_perception MCP tool (Slice 1.4, invariant I1)."""
+
+    def test_manifest_lists_lab_perception(self):
+        from portal.modules.security.tools.security_mcp import TOOLS_MANIFEST
+
+        names = {t["name"] for t in TOOLS_MANIFEST}
+        assert "lab_perception" in names
+
+    def test_lab_target_returns_observation(self, monkeypatch):
+        from portal.modules.security.tools import security_mcp
+
+        monkeypatch.setattr(
+            "portal.modules.security.core.lab.lab_dispatch",
+            lambda fn_name, fn_args, dry_run=False: "OK: scan complete",
+        )
+        result = security_mcp.lab_perception(hosts=["10.10.11.5"])
+        assert result["_source"] == "live_perception"
+        assert result["services"] == [{"host": "10.10.11.5", "raw": "OK: scan complete"}]
+
+    def test_non_lab_target_rejected_before_dispatch(self, monkeypatch):
+        from portal.modules.security.core.perception import OutOfScopeError
+        from portal.modules.security.tools import security_mcp
+
+        calls = []
+        monkeypatch.setattr(
+            "portal.modules.security.core.lab.lab_dispatch",
+            lambda *a, **k: calls.append(a) or "unreachable",
+        )
+        with pytest.raises(OutOfScopeError):
+            security_mcp.lab_perception(hosts=["8.8.8.8"])
+        assert calls == []  # guard fires before any dispatch leaves the box
 
 
 class TestEnsureModel:
