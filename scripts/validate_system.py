@@ -2729,6 +2729,7 @@ def main() -> int:
     v.run("AU. routing regression (served model)", check_routing_regression)
     v.run("AV. persona intent (identity vs served model)", check_persona_intent)
     v.run("AW. wiki facts current (fact-units + generated doc blocks)", check_wiki_facts_current)
+    v.run("AX. trajectory scoring honesty", check_trajectory_scoring_honesty)
 
     return v.summary()
 
@@ -3048,6 +3049,70 @@ def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
         detail = f"{len(stale_units)} fact-unit(s) stale, {len(drift)} doc block(s) drifted — run sync-config"
         return ("FAIL", detail, subs)
     return ("PASS", "fact-units current, all generated blocks match", subs)
+
+
+def check_trajectory_scoring_honesty() -> tuple[str, str, list[dict]]:
+    """AX. Trajectory scoring honesty (DESIGN_EMERGENT_LAB_AGENT_V2 §7 gate).
+
+    Permanent ratchet: a trajectory whose objective was reached via a
+    synthetic-derived step is never PROVEN, and the objective verdict derives
+    from lab state (an objective-state oracle), never from step narration.
+    This turns the Slice 2 measurement gate into a standing regression check,
+    not a one-time build proof.
+    """
+    from portal.modules.security.core.trajectory_score import StepRecord, score_trajectory
+
+    subs: list[dict] = []
+
+    da_state = {"sessions": [{"host_role": "dc", "privilege": "da_equivalent", "verified": True}]}
+
+    clean = score_trajectory(
+        "da_equivalent",
+        [StepRecord("s1", "c1", "RED_LANDED", "DETECTION_CONFIRMED")],
+        da_state,
+    )
+    subs.append(
+        {
+            "name": "reached + clean -> PROVEN",
+            "status": "PASS" if clean.verdict == "PROVEN" else "FAIL",
+            "detail": clean.verdict,
+        }
+    )
+
+    synthetic = score_trajectory(
+        "da_equivalent",
+        [
+            StepRecord("s1", "c1", "RED_LANDED", "DETECTION_CONFIRMED"),
+            StepRecord("s2", "c2", "RED_LANDED", "DETECTION_CONFIRMED", used_synthetic=True),
+        ],
+        da_state,
+    )
+    synthetic_never_proven = synthetic.objective_reached is True and synthetic.verdict != "PROVEN"
+    subs.append(
+        {
+            "name": "synthetic-present -> never PROVEN",
+            "status": "PASS" if synthetic_never_proven else "FAIL",
+            "detail": synthetic.verdict,
+        }
+    )
+
+    narrated = score_trajectory(
+        "da_equivalent",
+        [StepRecord("s1", "c1", "RED_LANDED", "DETECTION_CONFIRMED")],
+        {"sessions": []},
+    )
+    state_not_narration = narrated.objective_reached is False and narrated.verdict != "PROVEN"
+    subs.append(
+        {
+            "name": "objective verdict derives from state, not narration",
+            "status": "PASS" if state_not_narration else "FAIL",
+            "detail": narrated.verdict,
+        }
+    )
+
+    if any(s["status"] == "FAIL" for s in subs):
+        return ("FAIL", "trajectory scoring honesty invariant violated", subs)
+    return ("PASS", "synthetic never PROVEN; objective verdict is state-derived", subs)
 
 
 if __name__ == "__main__":
