@@ -2343,7 +2343,7 @@ def check_telemetry_contracts() -> tuple[str, str, list[dict]]:
 
 
 def check_capability_graph() -> tuple[str, str, list[dict]]:
-    """AJ. Capability graph + deterministic gap engine.
+    """AI. Capability graph + deterministic gap engine.
 
     Verifies:
     - Graph seeds from existing assets (scenarios + detections)
@@ -2418,7 +2418,7 @@ def check_capability_graph() -> tuple[str, str, list[dict]]:
 
 
 def check_wiki_core() -> tuple[str, str, list[dict]]:
-    """AK. Wiki core backbone — schema + provenance + core import-clean.
+    """AJ. Wiki core backbone — schema + provenance + core import-clean.
 
     Verifies:
     - KnowledgeUnit schema works (mandatory provenance)
