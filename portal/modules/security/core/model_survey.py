@@ -598,6 +598,10 @@ def write_discovery_wiki_unit(
         },
         proposed_by="model-discovery-v1",
         auto_confirm=True,
+        # Date-stamped unit id: a same-day re-run intentionally replaces the
+        # day's prior survey with a fresh sweep_path, which isn't guaranteed
+        # to be a superset of the old citation — explicit supersede required.
+        supersede=True,
     )
     print(f"Discovery survey written to wiki: {proposed.unit_id} (status={proposed.status})")
     return proposed.unit_id
