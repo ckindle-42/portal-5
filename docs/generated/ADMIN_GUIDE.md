@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Generated: 2026-07-14 20:09 UTC*
+*Generated: 2026-07-15 23:50 UTC*
 
 ## Architecture Overview
 
@@ -81,7 +81,7 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 
 ## Components
 
-- **114 MCP tools across 24 servers**: 1 source(s)
+- **115 MCP tools across 24 servers**: 1 source(s)
 - **138 personas**: 6 source(s)
 - **149 model ids, 6 backend groups**: 1 source(s)
 - **22 production + 60 eval workspaces**: 1 source(s)
