@@ -99,6 +99,27 @@ class TestKnowledgeUnit:
             )
             assert unit.kind == kind
 
+    def test_reject_invalid_confidence(self):
+        with pytest.raises(ValueError, match="Invalid confidence"):
+            KnowledgeUnit(
+                id="unit-bad-confidence",
+                kind="what",
+                title="Bad confidence",
+                sources=[SourceRef(type="code", path="test.py")],
+                confidence="certain",
+            )
+
+    def test_valid_confidences(self):
+        for confidence in ("high", "medium", "low"):
+            unit = KnowledgeUnit(
+                id=f"unit-confidence-{confidence}",
+                kind="what",
+                title=f"{confidence} confidence unit",
+                sources=[SourceRef(type="code", path="test.py")],
+                confidence=confidence,
+            )
+            assert unit.confidence == confidence
+
     def test_to_frontmatter(self):
         unit = KnowledgeUnit(
             id="unit-fm-001",

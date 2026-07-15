@@ -68,6 +68,8 @@ class KnowledgeUnit:
             )
         if self.kind not in ("what", "why", "mixed"):
             raise ValueError(f"Invalid kind '{self.kind}'; must be what|why|mixed")
+        if self.confidence not in ("high", "medium", "low"):
+            raise ValueError(f"Invalid confidence '{self.confidence}'; must be high|medium|low")
         if not self.created_at:
             self.created_at = time.time()
         if not self.updated_at:
