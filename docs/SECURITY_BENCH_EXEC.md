@@ -4,6 +4,8 @@
 **Scope**: `portal/modules/security/core/` package — real lab-exec mode, portal5-attack container, AD + web lab  
 **Status**: Operational as of 2026-06-24 (refactored to package + BenchConfig); relocated from `tests/benchmarks/bench_security/` to `portal/modules/security/core/` by BUILD-SPEC-PORTAL-MODULES-V1 Slice 3 (the old package directory is gone — `tests/benchmarks/bench_security.py` is now a thin backward-compat re-export shim over the new location, not the implementation)
 
+**2026-07-16 — auto-security model reselection**: the incumbent `VulnLLM-R-7B` model_hint and the `baronllm-abliterated` bench claims in `config/portal.yaml`/`config/MODEL_CATALOG.md` predated two scoring-correctness fixes (P5-SCORING-BIAS-001, the zero-retry stall bug, and the missing tool-call-argument-grounding axis — see `toolcall_reliability.py`). A full 11-candidate re-bench under the corrected methodology found the incumbent hallucinates argument values on repeated steps (`redundant_call_rate 0.50`); `glm-4.7-flash:Q4_K_M` is staged as the recommended replacement (`redundant_call_rate 0.00`, zero hallucinated calls). See `docs/reselection/AUTOSEC_VULNLLM_DIAGNOSIS_20260716T164436Z.md` (root-cause diagnosis) and `docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md` (full gate + ranking table) for the evidence. The swap is staged, not auto-applied, per `PROMOTE_POLICY`.
+
 ---
 
 ## What This Is

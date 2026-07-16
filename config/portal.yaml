@@ -481,7 +481,7 @@ workspaces:
   auto-security:
     module: security
     name: 🔒 Portal Security Analyst
-    description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, hardening. VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base — trained on AppSec vulnerability research: CVE severity, CWE classification, vulnerable code patterns). Full-fleet bench 2026-06-20: 2/2 chain wins at 15s, fastest security model in fleet. Fast vuln analysis with web search, vuln classification, and code execution.'
+    description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, hardening. VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base — trained on AppSec vulnerability research: CVE severity, CWE classification, vulnerable code patterns). CORRECTED 2026-07-16 (P5-AUTOSEC-RESELECT): the "2026-06-20: 2/2 chain wins, fastest" claim predates the reliability-scoring fix and did not measure tool-call argument grounding. Live re-bench (kerberoast_to_da, --lab-exec, toolcall_reliability.py instrument): valid_rate 0.89 but redundant_call_rate 0.50 — repeatedly re-guesses hallucinated vmid values on an already-completed step instead of reusing the exact value it was just given (docs/reselection/AUTOSEC_VULNLLM_DIAGNOSIS_20260716T164436Z.md). Reselection evidence: docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md — glm-4.7-flash:Q4_K_M staged as the recommended primary (valid_rate 1.00, redundant_call_rate 0.00, zero hallucinated calls across 11 candidates measured). Fast vuln analysis with web search, vuln classification, and code execution.'
     model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
     context_limit: 8192
     keep_alive: 10m
@@ -525,7 +525,7 @@ workspaces:
         role: purple
       pentest:
         name: 🖊️ Portal Pentest Assistant
-        description: 'Authorized penetration testing assistant with execution capability. Gemma4-E2B-QAT abliterated (2B thinking model, ~3GB). Head-to-head bench 2026-06-25: composite 0.70 vs 0.50 baronllm, header cov 0.83 vs 0.50, avg MITRE IDs 1.4 vs 0.5 — wins on stripped final answer alone (not just reasoning chain). Zero refusals, zero disclaimers. Exec chain: 80.0% EXPLOIT slot score, 71.6 t/s. Single-hop execution focus (pentest of one target); for multi-hop lateral movement use the purpleteam variant (auto-security?variant=purpleteam). execute_bash + execute_python + web_search for live target enumeration and PoC validation. Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings.'
+        description: 'Authorized penetration testing assistant with execution capability. Gemma4-E2B-QAT abliterated (2B thinking model, ~3GB). NOTE 2026-07-16 (P5-AUTOSEC-RESELECT): the "2026-06-25 head-to-head bench" composite/coverage numbers below predate the reliability-scoring fix (P5-SCORING-BIAS-001) and the tool-call-argument-grounding instrument (toolcall_reliability.py) — this model was not in the Phase 3 reselection slate, so its numbers are UNVERIFIED against the corrected methodology and should not be trusted for a promotion decision until re-benched. Original (stale) claim retained for reference only: composite 0.70 vs 0.50 baronllm, header cov 0.83 vs 0.50, avg MITRE IDs 1.4 vs 0.5, zero refusals, zero disclaimers, exec chain 80.0% EXPLOIT slot score, 71.6 t/s. Single-hop execution focus (pentest of one target); for multi-hop lateral movement use the purpleteam variant (auto-security?variant=purpleteam). execute_bash + execute_python + web_search for live target enumeration and PoC validation. Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings.'
         model_hint: huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k
         context_limit: 8192
         keep_alive: 15m
@@ -1374,7 +1374,7 @@ workspaces:
     module: eval
     name: 🔬 Bench · Qwable-3.6-35B [RETIRED — promotion reversed]
     description: |-
-      RETIRED 2026-06-21 (SECURITY_FLEET_REVIEW_2026-06). Promotion to auto-pentest primary (2026-06-20) reversed: fleet bench scored 0.64 coverage, below CANDIDATE_EVAL_V1 2/2 WIN threshold. 3B active MoE loses chain coherence. Replaced by baronllm-abliterated (53K cybersec examples, 1.00/1.00 Run A). Model removed from fleet: ollama rm hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
+      RETIRED 2026-06-21 (SECURITY_FLEET_REVIEW_2026-06). Promotion to auto-pentest primary (2026-06-20) reversed: fleet bench scored 0.64 coverage, below CANDIDATE_EVAL_V1 2/2 WIN threshold. 3B active MoE loses chain coherence. Replaced by baronllm-abliterated (53K cybersec examples, 1.00/1.00 Run A — this "1.00/1.00" claim predates the reliability-scoring fix; CORRECTED 2026-07-16 P5-AUTOSEC-RESELECT live re-bench: baronllm-abliterated FAILS the reliability gate outright, valid_rate 0.25, 3 of 4 tool-call attempts malformed — see docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md). Model removed from fleet: ollama rm hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
     model_hint: huihui_ai/baronllm-abliterated
     predict_limit: 8192
     max_concurrent: 1

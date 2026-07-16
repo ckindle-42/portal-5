@@ -187,7 +187,7 @@ Qwable-3.6-35B MoE (~21GB, Mia-AiLab, MIT). 29.7 t/s, 5/5 TPS runs. PROMOTED 202
 
 ### `glm-4.7-flash:Q4_K_M`
 
-GLM-4.7-Flash Q4_K_M (~13GB, ZhipuAI / Z.AI, MIT). 31B MoE, 4 experts/token (~3B active). 128K context. Diverse non-Meta/Qwen lineage. Coding quality 0.67 in bench 2026-06-21 (benchmark prompt style may not favour GLM chat template). Restored 2026-06-21: lineage diversity value; re-bench after template verification. DO NOT pull :math variant. bench-glm target.
+GLM-4.7-Flash Q4_K_M (~13GB, ZhipuAI / Z.AI, MIT). 31B MoE, 4 experts/token (~3B active). 128K context. Diverse non-Meta/Qwen lineage. Coding quality 0.67 in bench 2026-06-21 (benchmark prompt style may not favour GLM chat template) — the "template mismatch suspected" note asked for re-verification, never done until now. RE-VERIFIED 2026-07-16 (P5-AUTOSEC-RESELECT): the suspicion was stale, dating from before this project's Ollama 0.30.7 upgrade / MLX retirement (2026-06-09). Direct probes against the real production tool schema (2 turns incl. post-tool-result continuation) plus the formal audit-tools probe (`emitted 1 tool_call(s); first=get_current_time`) all confirm clean, well-formed tool calls. Security chain-test (kerberoast_to_da, --lab-exec): valid_rate 1.00, redundant_call_rate 0.00 — best of 11 candidates measured in the auto-security reselection (docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md). `supports_tools` flipped true in backends.yaml on this basis. DO NOT pull :math variant. bench-glm target; staged as auto-security reselection candidate.
 
 ### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL`
 
@@ -217,7 +217,7 @@ PRIMARY for auto-purpleteam/auto-purpleteam-deep hop-0 (red team). ~5.8GB Q4. Fa
 
 ### `huihui_ai/baronllm-abliterated`
 
-Llama-3.1-8B security specialist (AlicanKiraz0/Cybersecurity-BaronLLM — 53K examples, 200+ cybersec domains). auto-security PRIMARY. SUPERSEDED on auto-pentest by gemma-4-abliterated:E2b-qat (2026-06-25 head-to-head: composite 0.50 vs 0.70, header 0.50 vs 0.83, MITRE 0.5 vs 1.4 avg — E2b stripped final answer wins across all metrics). Fleet bench 2026-06-20: kerberoast_to_da WIN (8/8 1.00 adapt=2/2 14s). Retained for auto-security. Template fix: TASK_TOOLCALL_FIX_LOCKIN_V1.
+Llama-3.1-8B security specialist (AlicanKiraz0/Cybersecurity-BaronLLM — 53K examples, 200+ cybersec domains). auto-security PRIMARY. SUPERSEDED on auto-pentest by gemma-4-abliterated:E2b-qat (2026-06-25 head-to-head: composite 0.50 vs 0.70, header 0.50 vs 0.83, MITRE 0.5 vs 1.4 avg — E2b stripped final answer wins across all metrics; this E2b claim itself is UNVERIFIED against the corrected scoring below — not in the reselection slate). Fleet bench 2026-06-20: kerberoast_to_da WIN (8/8 1.00 adapt=2/2 14s) — predates the reliability-scoring fix. CORRECTED 2026-07-16 (P5-AUTOSEC-RESELECT) live re-bench: FAILS the reliability gate outright, valid_rate 0.25, 3 of 4 tool-call attempts malformed (docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md) — confirms the known abliteration-hurts-tool-discipline risk. Template fix: TASK_TOOLCALL_FIX_LOCKIN_V1.
 
 ### `sylink/sylink:8b`
 
@@ -233,7 +233,7 @@ Gemma 4 31B JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M, dealig
 
 ### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
 
-VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base, ~4.4GB Q4_K_M). AppSec / code vulnerability specialist — CVE severity, CWE classification, vulnerable code patterns. Full-fleet bench 2026-06-20: 2/2 chain wins at 15s (fastest security-group winner). audit-tools 2026-06-20: tool_call confirmed. supports_tools=true (Qwen2.5-7B tool-call format). auto-security + auto-pentest co-primary (vuln depth complements baronllm domain breadth).
+VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base, ~4.4GB Q4_K_M). AppSec / code vulnerability specialist — CVE severity, CWE classification, vulnerable code patterns. Full-fleet bench 2026-06-20: 2/2 chain wins at 15s (fastest security-group winner). audit-tools 2026-06-20: tool_call confirmed. supports_tools=true (Qwen2.5-7B tool-call format). CORRECTED 2026-07-16 (P5-AUTOSEC-RESELECT): the 2026-06-20 claim predates the reliability-scoring fix and never measured tool-call argument grounding. Live re-bench (kerberoast_to_da, --lab-exec): valid_rate 0.89 but redundant_call_rate 0.50 — repeatedly re-guesses hallucinated vmid values instead of reusing the value it was just given (docs/reselection/AUTOSEC_VULNLLM_DIAGNOSIS_20260716T164436Z.md). glm-4.7-flash:Q4_K_M staged as reselection primary (docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md). auto-security + auto-pentest co-primary (vuln depth complements baronllm domain breadth) — pending operator confirmation of the swap.
 
 ### `huihui_ai/gemma-4-abliterated:E2b-qat`
 
