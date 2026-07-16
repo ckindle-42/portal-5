@@ -2731,6 +2731,7 @@ def main() -> int:
     v.run("AW. wiki facts current (fact-units + generated doc blocks)", check_wiki_facts_current)
     v.run("AX. trajectory scoring honesty", check_trajectory_scoring_honesty)
     v.run("AY. perception lab-scope allowlist", check_perception_lab_scope)
+    v.run("AZ. detection recall vs emergent corpus", check_recall_metric)
 
     return v.summary()
 
@@ -3174,6 +3175,58 @@ def check_perception_lab_scope() -> tuple[str, str, list[dict]]:
     if any(s["status"] == "FAIL" for s in subs):
         return ("FAIL", "lab-scope allowlist not enforced end-to-end", subs)
     return ("PASS", "perception + executor both reject non-lab targets before any action", subs)
+
+
+def check_recall_metric() -> tuple[str, str, list[dict]]:
+    """AZ. Detection recall vs emergent corpus (DESIGN_EMERGENT_LAB_AGENT_V2 D4).
+
+    Asserts the recall-vs-emergent-corpus metric is wired and actually
+    computed over an arbitrary procedure corpus — not just present as dead
+    code. Non-network: builds a small in-memory graph and checks the metric
+    reflects the corpus, not the graph's own accumulated technique set.
+    """
+    from portal.modules.security.core.agentic_blue_eval import emergent_recall_metric
+    from portal.modules.security.core.capability_graph import CapabilityGraph, Detection, Gap
+
+    subs: list[dict] = []
+
+    graph = CapabilityGraph()
+    graph.add_detection(Detection(detection_id="det-T1110", technique_id="T1110"))
+    graph.add_gap(
+        Gap(
+            gap_id="gap-scripted-T1110",
+            procedure_id="proc-scripted",
+            technique_id="T1110",
+            axes={
+                "red": "RED_LANDED",
+                "telemetry": "TELEMETRY_OBSERVED",
+                "detection": "DETECTION_CONFIRMED",
+            },
+            summary="COVERED",
+            reason_codes=[],
+        )
+    )
+
+    corpus = {"T1110", "T1595", "T1078", "T1021"}
+    metric = emergent_recall_metric(graph, corpus)
+
+    wired_correctly = (
+        metric.get("metric") == "recall_vs_emergent_corpus"
+        and metric.get("corpus_size") == len(corpus)
+        and metric.get("detected") == 1
+        and metric.get("recall_pct") == 25.0
+    )
+    subs.append(
+        {
+            "name": "recall computed over the corpus, not the graph's own technique set",
+            "status": "PASS" if wired_correctly else "FAIL",
+            "detail": str(metric),
+        }
+    )
+
+    if not wired_correctly:
+        return ("FAIL", "recall-vs-emergent-corpus metric not wired correctly", subs)
+    return ("PASS", "recall metric wired and computed over an arbitrary corpus", subs)
 
 
 if __name__ == "__main__":
