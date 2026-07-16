@@ -729,6 +729,7 @@ After full chain: blue runs final holistic analysis.
 | `blue_det` | Fraction of steps correctly detected by blue defender per-turn |
 | `evaded` | Fraction of steps blue defender missed |
 | `final_det` | Did blue correctly identify the attack in final holistic report? |
+| `reliability` | (single-model `_run_chain_test` path only, `toolcall_reliability.py`) Per-turn tool-call reliability: `valid_rate`/`malformed_rate`/`spiral_rate`/`recovery_rate`, gated (`reliability_gate`) at `valid_rate < 0.70` or `spiral_rate > 0.10` — a model that can't reliably emit a well-formed tool call is disqualified regardless of its other scores (P5-AUTOSEC-RESELECT) |
 
 #### Result-based scoring: 1+3=4 and 2+2=4
 
