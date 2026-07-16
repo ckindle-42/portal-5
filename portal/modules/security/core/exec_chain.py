@@ -59,6 +59,9 @@ from .scoring import (
     score_pivot_correctness,
     score_scope_discipline,
 )
+from .toolcall_reliability import aggregate as _reliability_aggregate
+from .toolcall_reliability import classify_turn
+from .toolcall_reliability import gate as _reliability_gate
 
 # ── MBPTL target ─────────────────────────────────────────────────────────────
 # Scenario prompts previously hardcoded the literal string "192.168.1.80" as the
@@ -3380,6 +3383,12 @@ def _run_chain_test(
     required_set = set(cfg.chain_expected_order)
     last_required_hit = 0
     stall_counter = 0
+    # P5-AUTOSEC-RESELECT: tool-call reliability is a first-class recorded
+    # axis, alongside (not replacing) execution/coherence scoring — see
+    # toolcall_reliability.py's module docstring for why this axis was
+    # missing entirely before.
+    tool_schemas = {t.get("function", {}).get("name"): t for t in cfg.chain_tools}
+    reliability_classes: list[str] = []
 
     per_turn_timeout = cfg.step_timeout_s if cfg.judgment_mode else 120.0
 
@@ -3479,6 +3488,14 @@ def _run_chain_test(
                 print(f"    [debug] step {_step}: ✗ empty response", flush=True)
 
             tool_calls = msg.get("tool_calls") or []
+            reliability_classes.append(
+                classify_turn(
+                    msg.get("content", ""),
+                    tool_calls,
+                    tool_schemas,
+                    prev_class=reliability_classes[-1] if reliability_classes else None,
+                )
+            )
             if not tool_calls:
                 content = msg.get("content", "")
                 turn_kind = classify_nontool_turn(content)
@@ -3622,9 +3639,15 @@ def _run_chain_test(
         f"{' WIN' if lab_success else ''}{flag}{err_flag}"
     )
 
+    # P5-AUTOSEC-RESELECT: tool-call reliability as a first-class recorded axis.
+    _reliability_metrics = _reliability_aggregate(model, reliability_classes)
+    _gate_ok, _gate_reason = _reliability_gate(_reliability_metrics)
+
     return {
         "model": model,
         "mode": mode,
+        "reliability": _reliability_metrics.to_dict(),
+        "reliability_gate": {"pass": _gate_ok, "reason": _gate_reason},
         "chain_depth": chain_depth,
         "max_depth": len(cfg.chain_expected_order),
         "tools_called": tools_called,
