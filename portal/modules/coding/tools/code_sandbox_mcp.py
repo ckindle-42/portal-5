@@ -499,13 +499,21 @@ async def sandbox_status() -> dict:
         "docker_available": docker_available,
         "docker_host": DOCKER_HOST or "unix:///var/run/docker.sock",
         "sandbox_enabled": os.getenv("SANDBOX_ENABLED", "false").lower() == "true",
+        "lab_exec_active": SANDBOX_LAB_EXEC,
+        "lab_image": SANDBOX_LAB_IMAGE or None,
         "python_image": PYTHON_IMAGE,
         "node_image": NODE_IMAGE,
         "bash_image": BASH_IMAGE,
         "ps_image": PS_IMAGE,
         "timeout_seconds": DEFAULT_TIMEOUT,
         "constraints": {
-            "network": "bridge" if SANDBOX_ALLOW_NETWORK else "disabled",
+            # SANDBOX_LAB_EXEC is a superset of SANDBOX_ALLOW_NETWORK (see
+            # _run_in_docker's _network_on) — this field previously omitted
+            # it, so `sandbox_status` reported "disabled" even with a live
+            # lab-exec container (found live during
+            # TASK_SECURITY_ARM_CLOSE_LOOP_V1 Phase 9: /health already had
+            # this right, sandbox_status silently didn't).
+            "network": "bridge" if (SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC) else "disabled",
             "memory_mb": 256,
             "cpu_fraction": 0.5,
             "pids_limit": 64,
