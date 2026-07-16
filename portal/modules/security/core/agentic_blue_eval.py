@@ -37,6 +37,27 @@ _DIRECT_OLLAMA = os.environ.get("CHAIN_DIRECT_OLLAMA", "").lower() == "true"
 _PIPELINE_API_KEY = ""
 
 
+def emergent_recall_metric(graph, corpus_technique_ids: set[str]) -> dict:
+    """The blue honesty metric (D4, DESIGN_EMERGENT_LAB_AGENT_V2 Δ4): detection
+    recall against emergent behaviour, not scenario-signature match.
+
+    Distinct from `score_findings_tiered` (scenario-signature recall, scored
+    against a scenario's fixed `detect_ground_truth`) — this is coverage
+    where the procedure corpus = the emergent trajectory's technique set, via
+    `capability_graph.generate_coverage_json(graph, corpus=...)` unchanged.
+    """
+    from .capability_graph import generate_coverage_json
+
+    coverage = generate_coverage_json(graph, corpus=corpus_technique_ids)
+    return {
+        "metric": "recall_vs_emergent_corpus",
+        "corpus_size": coverage["tiers"]["eligible"],
+        "detected": coverage["tiers"]["detected"],
+        "recall_pct": coverage["tiers"]["detected_pct"],
+        "coverage": coverage,
+    }
+
+
 def _load_api_key() -> str:
     global _PIPELINE_API_KEY
     if _PIPELINE_API_KEY:

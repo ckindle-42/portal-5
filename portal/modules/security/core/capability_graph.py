@@ -318,13 +318,24 @@ def update_graph_from_episode(graph: CapabilityGraph, episode: dict) -> None:
 # ── Coverage map artifacts ───────────────────────────────────────────────────
 
 
-def generate_coverage_json(graph: CapabilityGraph) -> dict:
+def generate_coverage_json(graph: CapabilityGraph, *, corpus: set[str] | None = None) -> dict:
     """Generate a structured coverage map as JSON.
 
     Per-technique four-bar status (Exercise / Telemetry / Detection / Response)
     + the three coverage tiers (Eligible / Strategic / Global denominators).
+
+    `corpus` (D4, DESIGN_EMERGENT_LAB_AGENT_V2): an arbitrary procedure corpus
+    — e.g. the technique IDs exercised by an emergent trajectory set — used AS
+    the eligible-technique denominator instead of the graph's own accumulated
+    exercised|detected set. No new recall formula: `tiers.detected_pct` is the
+    exact same math, now scored against the corpus. Omit for the default
+    scenario-signature-scoped coverage.
     """
-    techniques = graph.techniques_exercised() | graph.techniques_detected()
+    techniques = (
+        set(corpus)
+        if corpus is not None
+        else (graph.techniques_exercised() | graph.techniques_detected())
+    )
     per_technique: dict[str, dict] = {}
 
     for tid in sorted(techniques):
@@ -366,10 +377,13 @@ def generate_coverage_json(graph: CapabilityGraph) -> dict:
             "gap_id": best_gap.gap_id,
         }
 
-    # Coverage tiers
+    # Coverage tiers. exercised/detected are scoped to `techniques` (the
+    # eligible set) — a no-op vs the graph's raw counts in the default case
+    # (techniques IS that union already) and correct when `corpus` is given
+    # (an emergent corpus need not overlap the graph's own accumulated sets).
     eligible = len(techniques)  # all techniques in scope
-    exercised = len(graph.techniques_exercised())
-    detected = len(graph.techniques_detected())
+    exercised = len(techniques & graph.techniques_exercised())
+    detected = len(techniques & graph.techniques_detected())
 
     return {
         "generated_at": time.time(),
