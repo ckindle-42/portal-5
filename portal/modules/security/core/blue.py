@@ -36,6 +36,7 @@ from ._data import (
     resolve_pipeline_model,
 )
 from .episode import Episode, derive_detection_status, derive_verdict, new_episode_id
+from .exec_chain import _stream_chain_turn
 from .lab import dispatch_blue_response
 from .scoring import score_blue_detections as _score_blue_detections
 from .siem.spl_backend import SplunkBackend
@@ -610,19 +611,22 @@ def _run_blue_turn(
 
     try:
         for _step in range(_blue_investigate_budget):
-            resp = httpx.post(
+            # Streamed + idle-timeout (P5-EMERGENT-003, same fix as
+            # exec_chain.py's red chain-test dispatch): a blocking
+            # stream=False call with a single total-duration timeout treats
+            # normal cold-model-load latency as a hard failure. See
+            # _stream_chain_turn's docstring for the full rationale.
+            msg = _stream_chain_turn(
                 f"{PIPELINE_URL}/v1/chat/completions",
-                headers=_headers,
-                json={
+                _headers,
+                {
                     "model": resolve_pipeline_model(blue_model),
                     "messages": messages,
                     "tools": tools,
-                    "stream": False,
                 },
-                timeout=120.0,
+                is_pipeline_mode=True,
+                idle_timeout_s=120.0,
             )
-            resp.raise_for_status()
-            msg = resp.json().get("choices", [{}])[0].get("message", {})
             messages.append(msg)
 
             tcs = msg.get("tool_calls") or _extract_tool_calls_from_content(msg)
@@ -932,35 +936,27 @@ def _run_blue_chain_test(
         _headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
     try:
         for _step in range(len(ground_truth) * 2 + 3):
+            # Streamed + idle-timeout — see _run_blue_turn's identical fix above.
             if _use_pipeline:
-                resp = httpx.post(
+                msg = _stream_chain_turn(
                     f"{PIPELINE_URL}/v1/chat/completions",
-                    headers=_headers,
-                    json={
+                    _headers,
+                    {
                         "model": resolve_pipeline_model(model),
                         "messages": messages,
                         "tools": BLUE_TOOLS,
-                        "stream": False,
                     },
-                    timeout=120.0,
+                    is_pipeline_mode=True,
+                    idle_timeout_s=120.0,
                 )
             else:
-                resp = httpx.post(
+                msg = _stream_chain_turn(
                     f"{OLLAMA_URL}/api/chat",
-                    json={
-                        "model": model,
-                        "messages": messages,
-                        "tools": BLUE_TOOLS,
-                        "stream": False,
-                    },
-                    timeout=120.0,
+                    {},
+                    {"model": model, "messages": messages, "tools": BLUE_TOOLS},
+                    is_pipeline_mode=False,
+                    idle_timeout_s=120.0,
                 )
-            resp.raise_for_status()
-            _resp_json = resp.json()
-            if _use_pipeline:
-                msg = _resp_json.get("choices", [{}])[0].get("message", {})
-            else:
-                msg = _resp_json.get("message", {})
             messages.append(msg)
             tcs = msg.get("tool_calls") or _extract_tool_calls_from_content(msg)
             if not tcs:
