@@ -36,6 +36,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # doc_ledger.py's freshness check (test_spine_gates.py::check_doc_currency)
+          # resolves each doc's last_reconciled_commit via `git cat-file -e <sha>^{commit}`
+          # and diffs bound sources since it — both need real history. actions/checkout's
+          # default fetch-depth:1 only fetches the tip commit, so every historical stamp
+          # resolves to "not found in history" and every doc reads stale. Reproduced by
+          # cloning fresh with --depth 1 locally: `fatal: Not a valid object name <sha>`.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
