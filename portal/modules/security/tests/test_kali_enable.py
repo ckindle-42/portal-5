@@ -121,6 +121,37 @@ class TestLabDispatchRouting:
         result = lab_dispatch("execute_bash", {"cmd": "nmap -sV 10.10.11.50"}, dry_run=True)
         assert "[DRY-RUN]" in result
 
+    def test_nmap_alias_dispatches_same_as_run_nmap_scan(self):
+        """P5-EMERGENT-001: "nmap" is the real Kali binary name the capability
+        library declares (smb_probe/winrm_probe/ldap_probe/kerberos_probe) —
+        it must reach the same live dispatch as run_nmap_scan, not fall
+        through to the synthetic default."""
+        from portal.modules.security.core.lab import lab_dispatch
+
+        with patch(
+            "portal.modules.security.core.lab._lab_mcp_call",
+            return_value={"ok": True, "output": "22/tcp open", "elapsed_s": 0.5},
+        ) as mock_call:
+            result = lab_dispatch("nmap", {"target": "10.10.11.50"}, dry_run=False)
+            mock_call.assert_called_once()
+        assert "synthetic" not in result
+        assert "22/tcp open" in result
+
+    def test_impacket_getuserspns_alias_dispatches_same_as_exploit_service(self):
+        """P5-EMERGENT-001: "impacket-GetUserSPNs" is the real Kali binary
+        name the capability library declares (ldap_probe/kerberos_probe) —
+        must reach the same live dispatch as exploit_service (Kerberoast)."""
+        from portal.modules.security.core.lab import lab_dispatch
+
+        with patch(
+            "portal.modules.security.core.lab._lab_mcp_call",
+            return_value={"ok": True, "output": "$krb5tgs$23$...", "elapsed_s": 0.5},
+        ) as mock_call:
+            result = lab_dispatch("impacket-GetUserSPNs", {}, dry_run=False)
+            mock_call.assert_called_once()
+        assert "synthetic" not in result
+        assert "krb5tgs" in result
+
     def test_execute_python_dry_run(self):
         from portal.modules.security.core.lab import lab_dispatch
 

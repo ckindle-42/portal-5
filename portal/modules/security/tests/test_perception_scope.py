@@ -36,3 +36,36 @@ def test_delta_source_is_live_never_prior():
     )
     d = p.enumerate(["10.10.11.5"])
     assert d.to_observation()["_source"] == "live_perception"
+
+
+def test_open_ports_extracted_from_raw_nmap_text():
+    """P5-EMERGENT-001 follow-up: the real prober's actual shape is raw nmap
+    text per host ({"raw": "22/tcp open\\n..."}), not the structured
+    {"port": N, "up": True} the docstring originally implied. open_ports must
+    be derived from either shape — capability/index.py's applies_when
+    predicates (scoring.py) depend on this flat list, and predate perception."""
+    p = LabPerception(
+        prober=lambda hosts: {
+            "services": [{"host": hosts[0], "raw": "22/tcp open\n80/tcp open\n8080/tcp open"}],
+            "state": {},
+        }
+    )
+    obs = p.enumerate(["10.10.11.50"]).to_observation()
+    assert obs["open_ports"] == [22, 80, 8080]
+
+
+def test_open_ports_extracted_from_structured_shape():
+    p = LabPerception(
+        prober=lambda hosts: {
+            "services": [{"host": hosts[0], "port": 445, "up": True}],
+            "state": {},
+        }
+    )
+    obs = p.enumerate(["10.10.11.5"]).to_observation()
+    assert obs["open_ports"] == [445]
+
+
+def test_open_ports_empty_when_no_services():
+    p = LabPerception(prober=lambda hosts: {"services": [], "state": {}})
+    obs = p.enumerate(["10.10.11.5"]).to_observation()
+    assert obs["open_ports"] == []

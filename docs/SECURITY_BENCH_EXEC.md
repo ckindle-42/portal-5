@@ -67,8 +67,10 @@ above. Drops the seeded first-move and feeds the composition engine real lab sta
   graph, × 2.5 slack, hard-capped). The platform `run_loop` is never edited — `run_with_no_progress_halt`
   steps it one iteration at a time and halts `BLOCKED(no-progress)` when the observed state hasn't actually
   changed for `no_progress_k` consecutive iterations (I4; budget is only the backstop). CLI:
-  `portal security goal emergent --target <ip> --objective-class {da_equivalent,host_foothold,credential,data_access}`.
-  Flag-off is inert — prints `{"status": "disabled", ...}` and builds no goal.
+  `portal security goal emergent --target <ip> --objective-class {da_equivalent,host_foothold,credential,data_access} [--domain-hint ad|web|windows|linux|cloud|re]`.
+  Flag-off is inert — prints `{"status": "disabled", ...}` and builds no goal. `--domain-hint` narrows
+  `capability.query()` the same way `goal plan` already does — without it the unseeded first decision can land
+  on a capability the live-dispatch whitelist doesn't recognize (see `KNOWN_LIMITATIONS.md` P5-EMERGENT-001).
 
 `tests/benchmarks/bench_security.py` is a backward-compat re-export shim over `portal.modules.security.core` — it re-exports names for import compatibility but has no `__main__` entry point. Run the bench via `python3 -m portal.modules.security.core ...` (below), not `python3 -m tests.benchmarks.bench_security` — the latter silently does nothing (no CLI wiring at that path).
 
