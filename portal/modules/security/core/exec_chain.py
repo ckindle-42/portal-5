@@ -3321,7 +3321,27 @@ def _stream_chain_turn(
     if not got_any_chunk:
         raise _ChainTurnStalledError(f"no data received within {idle_timeout_s}s")
 
-    return {"role": role, "content": "".join(content_parts), "tool_calls": tool_calls}
+    msg = {"role": role, "content": "".join(content_parts), "tool_calls": tool_calls}
+
+    # P5-TOOLCALL-WRAPPER-001 (found live 2026-07-16 while auditing the
+    # zero-retry stall bug — agentic_blue_eval.py already had this recovery,
+    # exec_chain.py's red chain-test path never did): some fine-tunes drift
+    # from their own chat template's expected tool-call tag (DeepHat-V1-7B
+    # observed using <response>, <request>, <output>, markdown fences, or no
+    # wrapper at all instead of the <tool_call> its template specifies) — the
+    # JSON payload itself is well-formed, just wrapped differently than
+    # Ollama's parser expects, so `tool_calls` comes back empty even though
+    # the model made a genuine, structured tool call. Recovering it here
+    # (single centralized point, not per-caller) means every chain-test/blue/
+    # agentic-eval caller of this function gets the same protection, and a
+    # model doesn't get scored as "stalled" for a wrapper mismatch that has
+    # nothing to do with its actual reasoning or capability.
+    if not msg["tool_calls"]:
+        from .agentic_blue_eval import normalize_tool_calls
+
+        msg = normalize_tool_calls(msg)
+
+    return msg
 
 
 # ── Chain test (single model, multi-turn) ────────────────────────────────────

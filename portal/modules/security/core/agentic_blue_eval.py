@@ -24,8 +24,6 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import httpx
-
 from ._data import resolve_pipeline_model
 from .siem.spl_detections import technique_reference, technique_signature_full
 from .unknown_defense import MatchGrade, compute_similarity
@@ -241,26 +239,30 @@ def _call_model(
     tools: list[dict] | None = None,
     max_tokens: int = 2000,
 ) -> dict:
-    """Call a model through the pipeline (or direct Ollama if CHAIN_DIRECT_OLLAMA=true)."""
+    """Call a model through the pipeline (or direct Ollama if CHAIN_DIRECT_OLLAMA=true).
+
+    P5-EMERGENT-003 (same class of fix as exec_chain.py's `_stream_chain_turn`
+    and blue.py's turn dispatch): this used to be a blocking
+    `stream=False`/`timeout=300.0` call — a single total-duration timeout that
+    treats a cold model swap as a hard failure indistinguishable from a real
+    hang. Streamed + idle-timeout instead: only fires when NO bytes arrive for
+    300s, not when the whole call takes longer than that.
+    """
+    from .exec_chain import _stream_chain_turn
+
     api_key = _load_api_key()
 
     if _DIRECT_OLLAMA:
-        # Direct Ollama — bypass pipeline routing
         body: dict = {
             "model": model,
             "messages": messages,
-            "stream": False,
             "options": {"num_predict": max_tokens},
         }
         if tools:
             body["tools"] = tools
-        resp = httpx.post(
-            f"{_OLLAMA_URL}/api/chat",
-            json=body,
-            timeout=300.0,
+        msg = _stream_chain_turn(
+            f"{_OLLAMA_URL}/api/chat", {}, body, is_pipeline_mode=False, idle_timeout_s=300.0
         )
-        resp.raise_for_status()
-        msg = resp.json().get("message", {})
         return normalize_tool_calls(msg) if tools else msg
     else:
         headers = {"Content-Type": "application/json"}
@@ -270,20 +272,18 @@ def _call_model(
         body = {
             "model": resolve_pipeline_model(model),
             "messages": messages,
-            "stream": False,
             "max_tokens": max_tokens,
         }
         if tools:
             body["tools"] = tools
 
-        resp = httpx.post(
+        msg = _stream_chain_turn(
             f"{_PIPELINE_URL}/v1/chat/completions",
-            headers=headers,
-            json=body,
-            timeout=300.0,
+            headers,
+            body,
+            is_pipeline_mode=True,
+            idle_timeout_s=300.0,
         )
-        resp.raise_for_status()
-        msg = resp.json().get("choices", [{}])[0].get("message", {})
         return normalize_tool_calls(msg) if tools else msg
 
 
@@ -962,7 +962,25 @@ def _run_tool_driven_arm(
 
             tcs = msg.get("tool_calls") or []
             if not tcs:
-                break
+                # P5-SCORING-BIAS-001 (found live 2026-07-16 on the red-side
+                # chain test, same bug class here): this used to be an
+                # unconditional break on the model's first reasoning-only
+                # turn, exactly the failure this function's own comment two
+                # lines up already describes ("indistinguishable from 'didn't
+                # investigate' even though it may have been trying to") but
+                # never actually fixed. `max_steps` already bounds total
+                # iterations, so nudging and continuing is safe — no separate
+                # stall counter needed, the for-loop's own range is the cap.
+                messages.append(
+                    {
+                        "role": "tool",
+                        "content": (
+                            "[bench] no tool call in that response — call a "
+                            "grounding/investigation tool now."
+                        ),
+                    }
+                )
+                continue
 
             # Compact older tool results to prevent context accumulation.
             # Keep the most recent 2 tool results in full; compact older ones
