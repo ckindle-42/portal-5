@@ -173,6 +173,32 @@ def test_flag_on_builds_unseeded_goal_and_runs(monkeypatch):
     assert isinstance(result["trajectory"], list)
 
 
+def test_flag_on_threads_domain_hint_into_provider_query(monkeypatch):
+    """--domain-hint (added after live verification surfaced that the
+    default None domain_hint let the ranker pick a non-lab-dispatchable
+    capability) must reach provider.query(domain=...)."""
+    monkeypatch.setenv("PORTAL_EMERGENT", "1")
+
+    seen_domains = []
+
+    class _RecordingProvider:
+        def query(self, observations, *, domain=None, goal=None, limit=8):
+            seen_domains.append(domain)
+            return [_FakeCapability()]
+
+    executor = _FakeExecutor(
+        [{"observation_delta": {"changed": True}, "oracle_result": None, "raw": "ok"}]
+    )
+    run_emergent_engagement(
+        targets=["10.10.11.5"],
+        domain_hint="ad",
+        provider=_RecordingProvider(),
+        executor=executor,
+        no_progress_k=1,
+    )
+    assert "ad" in seen_domains
+
+
 def test_flag_on_rejects_empty_targets(monkeypatch):
     monkeypatch.setenv("PORTAL_EMERGENT", "1")
     result = run_emergent_engagement(
