@@ -506,6 +506,11 @@ def main() -> None:
             print(f"  {k:<22} red={'->'.join(sc['red_order'])}")
         return
 
+    if args.list_prompts:
+        for k in PROMPTS:
+            print(f"  {k}")
+        return
+
     # ── Standalone lab probe: `--probe-lab` with no chain/exec/purple work ────
     # requested is a pure connectivity check (used as a Step 0 precondition
     # gate). The auto-filter probe below only runs inside the chain-dispatch
