@@ -145,6 +145,7 @@ def run_emergent_engagement(
     targets: list[str],
     objective_class: str = "host_foothold",
     intent: str | None = None,
+    domain_hint: str | None = None,
     provider: Any = None,
     executor: Any = None,
     no_progress_k: int = _DEFAULT_NO_PROGRESS_K,
@@ -174,7 +175,7 @@ def run_emergent_engagement(
             "max_wall_clock_sec": HARD_MAX_WALL_CLOCK_SEC,
             "max_lab_actions": max_iterations,
         },
-        domain_hint=None,
+        domain_hint=domain_hint,
     )
     problems = validate_goal(goal)
     if problems:

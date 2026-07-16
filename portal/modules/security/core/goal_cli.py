@@ -60,6 +60,7 @@ def goal_main(argv: list[str] | None = None) -> int:
         choices=["da_equivalent", "host_foothold", "credential", "data_access"],
     )
     p_emergent.add_argument("--intent", default=None)
+    p_emergent.add_argument("--domain-hint", default=None)
     p_emergent.add_argument("--no-progress-k", type=int, default=3)
     p_emergent.add_argument("--json", action="store_true")
 
@@ -184,6 +185,7 @@ def _cmd_emergent(args) -> int:
         targets=args.targets,
         objective_class=args.objective_class,
         intent=args.intent,
+        domain_hint=args.domain_hint,
         no_progress_k=args.no_progress_k,
     )
 
