@@ -604,6 +604,8 @@ def _run_blue_turn(
 
     reported: list[dict] = []
     containments: list[dict] = []
+    stall_counter = 0
+    _max_stall_steps = 4  # matches exec_chain.py's cfg.max_stall_steps default
 
     _headers: dict[str, str] = {"Content-Type": "application/json"}
     if PIPELINE_API_KEY:
@@ -616,6 +618,10 @@ def _run_blue_turn(
             # stream=False call with a single total-duration timeout treats
             # normal cold-model-load latency as a hard failure. See
             # _stream_chain_turn's docstring for the full rationale.
+            print(
+                f"    [debug-blue] step {_step}: → Pipeline ({blue_model}) {len(messages)} msgs, {len(tools)} tools",
+                flush=True,
+            )
             msg = _stream_chain_turn(
                 f"{PIPELINE_URL}/v1/chat/completions",
                 _headers,
@@ -631,7 +637,32 @@ def _run_blue_turn(
 
             tcs = msg.get("tool_calls") or _extract_tool_calls_from_content(msg)
             if not tcs:
-                break
+                _content = msg.get("content", "")
+                print(
+                    f"    [debug-blue] step {_step}: ✗ text (no tools) — {_content[:300]}",
+                    flush=True,
+                )
+                # P5-SCORING-BIAS-001 (same fix as exec_chain.py's red-side chain
+                # test): a blue model pausing to reason about telemetry before
+                # calling report_detection is not the same as being genuinely
+                # stuck — give it the same retry budget the red side already
+                # has instead of an unconditional first-text-turn break.
+                messages.append(
+                    {
+                        "role": "tool",
+                        "content": (
+                            "[bench] no tool call in that response — call the next "
+                            "tool now (e.g. report_detection for a confirmed finding)."
+                        ),
+                    }
+                )
+                stall_counter += 1
+                if stall_counter >= _max_stall_steps:
+                    break
+                continue
+
+            _tc_names = [tc.get("function", {}).get("name", "?") for tc in tcs]
+            print(f"    [debug-blue] step {_step}: ✓ tool_calls={_tc_names}", flush=True)
 
             for tc in tcs:
                 fn = tc.get("function", {})
@@ -918,6 +949,8 @@ def _run_blue_chain_test(
     reported: list[dict] = []
     containments: list[dict] = []
     error = None
+    stall_counter = 0
+    _max_stall_steps = 4  # matches exec_chain.py's cfg.max_stall_steps default
 
     # A system message is required, not cosmetic: at least one bench model's
     # Modelfile TEMPLATE only injects the {{ .Tools }} block inside
@@ -960,7 +993,29 @@ def _run_blue_chain_test(
             messages.append(msg)
             tcs = msg.get("tool_calls") or _extract_tool_calls_from_content(msg)
             if not tcs:
-                break
+                _content = msg.get("content", "")
+                print(
+                    f"    [debug-blue] step {_step}: ✗ text (no tools) — {_content[:300]}",
+                    flush=True,
+                )
+                # P5-SCORING-BIAS-001 — see _run_blue_turn's identical fix
+                # above for the full rationale: a reasoning-only turn gets
+                # the same retry budget the timeout path already has.
+                messages.append(
+                    {
+                        "role": "tool",
+                        "content": (
+                            "[bench] no tool call in that response — call the next "
+                            "tool now (e.g. report_detection for a confirmed finding)."
+                        ),
+                    }
+                )
+                stall_counter += 1
+                if stall_counter >= _max_stall_steps:
+                    break
+                continue
+            _tc_names = [tc.get("function", {}).get("name", "?") for tc in tcs]
+            print(f"    [debug-blue] step {_step}: ✓ tool_calls={_tc_names}", flush=True)
             for tc in tcs:
                 name = tc.get("function", {}).get("name", "")
                 args = tc.get("function", {}).get("arguments", {})
