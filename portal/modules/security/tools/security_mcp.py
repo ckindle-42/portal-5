@@ -16,7 +16,11 @@ from mcp.server.fastmcp import FastMCP
 from starlette.responses import JSONResponse
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-from portal.modules.security.core.perception import LabPerception, OutOfScopeError
+from portal.modules.security.core.perception import (
+    LabPerception,
+    OutOfScopeError,
+    default_lab_prober,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -194,20 +198,6 @@ def classify_vulnerability(description: str) -> dict:
     }
 
 
-def _lab_perception_prober(hosts: list[str]) -> dict:
-    """Bind LabPerception to the existing curated real actuation path
-    (`lab.lab_dispatch`) — no new offensive primitive (I2), just recon."""
-    from portal.modules.security.core import lab
-
-    state: dict[str, str] = {}
-    services: list[dict] = []
-    for host in hosts:
-        raw = lab.lab_dispatch("run_nmap_scan", {"target": host}, dry_run=False)
-        state[host] = raw
-        services.append({"host": host, "raw": raw})
-    return {"services": services, "reachable": [], "state": state}
-
-
 @mcp.tool()
 def lab_perception(hosts: list[str]) -> dict:
     """Bounded live-state enumerator for the RBP lab (DESIGN_EMERGENT_LAB_AGENT_V2 Δ1).
@@ -216,7 +206,7 @@ def lab_perception(hosts: list[str]) -> dict:
     for the given hosts. Any host outside 10.10.11.0/24 is rejected before any
     probe leaves the box (invariant I1) — the guard runs first, always.
     """
-    delta = LabPerception(prober=_lab_perception_prober).enumerate(hosts)
+    delta = LabPerception(prober=default_lab_prober).enumerate(hosts)
     return delta.to_observation()
 
 

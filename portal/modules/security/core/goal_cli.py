@@ -180,12 +180,14 @@ def _cmd_emergent(args) -> int:
     goal or touches the lab.
     """
     from .objective_entry import run_emergent_engagement
+    from .perception import LabPerception, default_lab_prober
 
     report = run_emergent_engagement(
         targets=args.targets,
         objective_class=args.objective_class,
         intent=args.intent,
         domain_hint=args.domain_hint,
+        perception=LabPerception(prober=default_lab_prober),
         no_progress_k=args.no_progress_k,
     )
 

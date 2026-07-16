@@ -148,6 +148,7 @@ def run_emergent_engagement(
     domain_hint: str | None = None,
     provider: Any = None,
     executor: Any = None,
+    perception: Any = None,
     no_progress_k: int = _DEFAULT_NO_PROGRESS_K,
 ) -> dict:
     """PORTAL_EMERGENT-gated top-level entry (I7).
@@ -156,6 +157,13 @@ def run_emergent_engagement(
     Flag-on => builds a goal with no pinned scenario / no seeded first-move
     and runs it to a no-progress halt or budget exhaustion.
     Artifact = the returned `trajectory` (mirrors `LoopResult.trajectory`).
+
+    `perception` (LabPerception): when given, enumerates `targets` once up
+    front to seed real initial observations (D2 — the "observations=<perception
+    seed>" the task text calls for) before the first decide-turn, and is bound
+    into the default SecurityExecutor so later steps keep folding live state.
+    Without it the first decision sees empty observations, which starves any
+    capability whose `applies_when` needs prior state (e.g. `open_ports`).
     """
     if not emergent_enabled():
         return {"status": "disabled", "reason": f"{PORTAL_EMERGENT_FLAG} flag is off"}
@@ -181,11 +189,15 @@ def run_emergent_engagement(
     if problems:
         return {"status": "rejected", "reason": "; ".join(problems)}
 
+    seed_observations: dict[str, Any] = {}
+    if perception is not None and targets:
+        seed_observations = perception.enumerate(list(targets)).to_observation()
+
     result = run_with_no_progress_halt(
         goal,
         provider=provider or _SecurityCapabilityProvider(),
-        executor=executor or SecurityExecutor(),
-        observations={},
+        executor=executor or SecurityExecutor(perception=perception),
+        observations=seed_observations,
         no_progress_k=no_progress_k,
     )
     return {

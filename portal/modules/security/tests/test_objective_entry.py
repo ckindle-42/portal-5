@@ -199,6 +199,42 @@ def test_flag_on_threads_domain_hint_into_provider_query(monkeypatch):
     assert "ad" in seen_domains
 
 
+def test_flag_on_seeds_initial_observations_from_perception(monkeypatch):
+    """A live-verification finding: without a perception seed, the first
+    decide-turn sees empty observations, which starves any capability whose
+    applies_when needs prior state (e.g. open_ports) — exactly what happened
+    live against the real AD lab. `perception` must be enumerated once before
+    the loop starts and its result must reach provider.query(observations=...)."""
+    monkeypatch.setenv("PORTAL_EMERGENT", "1")
+
+    seen_observations = []
+
+    class _RecordingProvider:
+        def query(self, observations, *, domain=None, goal=None, limit=8):
+            seen_observations.append(dict(observations))
+            return [_FakeCapability()]
+
+    class _FakePerception:
+        def enumerate(self, hosts):
+            from portal.modules.security.core.perception import PerceptionDelta
+
+            return PerceptionDelta(services=[{"host": hosts[0], "port": 88, "up": True}])
+
+    executor = _FakeExecutor(
+        [{"observation_delta": {"changed": True}, "oracle_result": None, "raw": "ok"}]
+    )
+    run_emergent_engagement(
+        targets=["10.10.11.21"],
+        provider=_RecordingProvider(),
+        executor=executor,
+        perception=_FakePerception(),
+        no_progress_k=1,
+    )
+    assert seen_observations, "provider.query was never called"
+    assert seen_observations[0].get("open_ports") == [88]
+    assert seen_observations[0].get("_source") == "live_perception"
+
+
 def test_flag_on_rejects_empty_targets(monkeypatch):
     monkeypatch.setenv("PORTAL_EMERGENT", "1")
     result = run_emergent_engagement(
