@@ -618,6 +618,26 @@ def _lab_dispatch_inner(fn_name: str, fn_args: dict, dry_run: bool = False) -> s
     """
     if not _LAB_EXEC_AVAILABLE:
         return f"OK: {fn_name} completed (synthetic)."
+
+    # ── Service-probe capabilities (capability/index.py's `_from_service_probes`
+    # mints one capability per _LAB_SERVICE_PROBES entry, id=f"{service}_probe")
+    # — dispatch the same real templated command probe_lab_services() already
+    # uses, against the decision's actual target, instead of falling through to
+    # the generic synthetic catch-all below (P5-EMERGENT-001 follow-up: this was
+    # the gap that made every http_*_probe/*_probe capability in the emergent
+    # objective loop land as synthetic even with a real target in scope).
+    if fn_name.endswith("_probe") and fn_name[: -len("_probe")] in _LAB_SERVICE_PROBES:
+        svc_name = fn_name[: -len("_probe")]
+        _svc_port, cmd_template, exp_keywords = _LAB_SERVICE_PROBES[svc_name]
+        host = fn_args.get("target") or fn_args.get("host") or _LAB_WEB or "10.10.11.50"
+        if dry_run:
+            return f"[DRY-RUN] service probe: {svc_name} on {host}"
+        cmd = cmd_template.replace("${host}", host)
+        r = _lab_mcp_call(cmd, timeout=15)  # type: ignore[misc]
+        ok, out = parse_sandbox_output(r.get("output", ""))
+        reachable = ok and any(k.lower() in out.lower() for k in exp_keywords)
+        return f"{'UP' if reachable else 'DOWN'}: {svc_name} on {host} — {out.strip()}"
+
     # ── MBPTL chain tools — real dispatch against LAB_MBPTL_HOST ────────────
     mbptl_host = os.environ.get("LAB_MBPTL_HOST", "")
     mbptl_web = os.environ.get("LAB_MBPTL_PORT_WEB", "80")
@@ -798,7 +818,10 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         code = (
             f'python3 -c "'
             f"import socket\n"
-            f"ports = [22,53,80,88,135,389,443,445,464,636,3268,8080,8443]\n"
+            # AD ports first, then the WEB-host vulhub ports (redis/tomcat/solr —
+            # P5-EMERGENT-001 follow-up: these were missing, so perception never
+            # discovered live vulhub services on the WEB target's own open ports).
+            f"ports = [22,53,80,88,135,389,443,445,464,636,3268,6379,8080,8081,8443,8983]\n"
             f"for p in ports:\n"
             f"  try:\n"
             f"    s=socket.socket();s.settimeout(1);s.connect(('{target}',p));s.close()\n"

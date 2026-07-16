@@ -34,17 +34,43 @@ def _extract_target(args: dict[str, Any]) -> str | None:
 class SecurityExecutor:
     """Live executor for the emergent objective loop. Lab-scope guarded (I1)."""
 
-    def __init__(self, perception: LabPerception | None = None, dry_run: bool = False):
+    def __init__(
+        self,
+        perception: LabPerception | None = None,
+        dry_run: bool = False,
+        default_targets: list[str] | None = None,
+    ):
         self._perception = perception
         self._dry_run = dry_run
+        # portal.platform.agent.decide always emits "args": {} (it is
+        # discipline-agnostic and has no concept of a security target) — the
+        # engagement's own goal.targets is the only real source of a target,
+        # so it's bound here at construction time rather than invented per
+        # decision. Falls back to the decision's own args first, in case a
+        # future decide-turn does start populating them.
+        self._default_targets = list(default_targets or [])
 
     def execute(self, decision: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
         from portal.modules.security.core import lab
         from portal.modules.security.core import oracles as oracle_mod
 
-        tool = decision.get("tool") or decision.get("action") or ""
+        # portal.platform.agent.decide's "action" is the semantic capability id
+        # (e.g. "redis_probe"); "tool" is the concrete tool BINARY name (e.g.
+        # "curl") drawn from config/tool_catalog.yaml once a capability has any
+        # declared tools. lab.lab_dispatch's fn_name routing is keyed on
+        # action-level names (run_nmap_scan, check_cve, the "{service}_probe"
+        # convention, etc.), not raw binaries — dispatching on "tool" here
+        # silently fell through to the generic synthetic catch-all the moment a
+        # capability had a declared tool (found live during the P5-EMERGENT-001
+        # follow-up: redis_probe/http_8081_probe never landed once tool_catalog
+        # gave them a real "curl"/"redis-cli" tool name).
+        tool = decision.get("action") or decision.get("tool") or ""
         args = dict(decision.get("args") or {})
-        target = _extract_target(args)
+        target = _extract_target(args) or (
+            self._default_targets[0] if self._default_targets else None
+        )
+        if target:
+            args.setdefault("target", target)
         if target:
             assert_in_lab(target)  # I1: reject before any action leaves the box
 
