@@ -76,11 +76,27 @@ try:
 except ImportError as _exc:
     _log.debug("bench_lab_exec not available (%s) — using synthetic defaults", _exc)
     _LAB_EXEC_AVAILABLE = False
-    _LAB_DC: str = "10.10.11.21"
-    _LAB_SRV: str = "10.10.11.33"
-    _LAB_WEB: str = "10.10.11.50"
-    _LAB_META3: str = "10.10.11.10"
-    _LAB_DOMAIN: str = "portal.lab"
+
+    def _load_lab_hosts_config() -> dict[str, str]:
+        """config/lab_targets.yaml's `lab_hosts:` block — single source of truth
+        (P5-SECURITY-ARM-RECONCILE-001). Returns {} on any failure so the literals
+        below remain a last-resort default, never a silent hard dependency."""
+        try:
+            import yaml
+
+            cfg_path = Path(__file__).resolve().parents[4] / "config" / "lab_targets.yaml"
+            doc = yaml.safe_load(cfg_path.read_text())
+            hosts = (doc or {}).get("lab_hosts") or {}
+            return {k: str(v) for k, v in hosts.items()}
+        except Exception:  # noqa: BLE001
+            return {}
+
+    _lab_hosts_cfg = _load_lab_hosts_config()
+    _LAB_DC: str = _lab_hosts_cfg.get("dc", "10.10.11.21")
+    _LAB_SRV: str = _lab_hosts_cfg.get("srv", "10.10.11.33")
+    _LAB_WEB: str = _lab_hosts_cfg.get("web", "10.10.11.50")
+    _LAB_META3: str = _lab_hosts_cfg.get("meta3", "10.10.11.10")
+    _LAB_DOMAIN: str = _lab_hosts_cfg.get("domain", "portal.lab")
     _LAB_ADMIN_PASS: str = "LabAdmin1!"
     _LAB_SVC_PASS: str = "Backup123!"
     _lab_mcp_call = None  # type: ignore[assignment]

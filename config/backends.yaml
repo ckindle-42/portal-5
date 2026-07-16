@@ -210,7 +210,7 @@ backends:
     supports_tools: true
   - id: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
     supports_tools: true
-  - id: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k
+  - id: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
     supports_tools: true
   - id: huihui_ai/gemma-4-abliterated:E2b-qat
     supports_tools: true

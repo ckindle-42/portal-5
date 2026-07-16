@@ -2732,6 +2732,9 @@ def main() -> int:
     v.run("AX. trajectory scoring honesty", check_trajectory_scoring_honesty)
     v.run("AY. perception lab-scope allowlist", check_perception_lab_scope)
     v.run("AZ. detection recall vs emergent corpus", check_recall_metric)
+    v.run("BA. challenge reality-aware (backed or aspirational)", check_challenge_reality)
+    v.run("BB. model inventory reality (bench hints vs snapshot)", check_model_inventory_reality)
+    v.run("BC. fleet health reality (declared vs live)", check_fleet_health_reality)
 
     return v.summary()
 
@@ -3227,6 +3230,151 @@ def check_recall_metric() -> tuple[str, str, list[dict]]:
     if not wired_correctly:
         return ("FAIL", "recall-vs-emergent-corpus metric not wired correctly", subs)
     return ("PASS", "recall metric wired and computed over an arbitrary corpus", subs)
+
+
+def check_challenge_reality() -> tuple[str, str, list[dict]]:
+    """BA. Challenge classes describe only what is deployed or explicitly aspirational.
+
+    P5-SECURITY-ARM-RECONCILE-001: the RBP bench declares a 40-class (now
+    wider) challenge taxonomy in config/challenge_classes.yaml, most of which
+    predates any actual lab build-out. A class is valid only if it is backed
+    on the live lab (its `purpose_built` dir exists on disk, relative to the
+    repo root) OR it explicitly carries `status: aspirational` — so drift
+    (a class quietly claiming to be real when nothing backs it) cannot
+    silently reopen once gated. This check is filesystem-only (no live probe)
+    so it stays fast and network-free; it does not re-verify vulhub deploy
+    state (that's the reconciliation script's job, run periodically).
+    """
+    import yaml
+
+    cc_path = REPO_ROOT / "config" / "challenge_classes.yaml"
+    doc = yaml.safe_load(cc_path.read_text())
+    classes = doc.get("classes", [])
+
+    subs: list[dict] = []
+    bad: list[str] = []
+    for cl in classes:
+        cid = cl.get("id")
+        pb = cl.get("purpose_built")
+        status = cl.get("status")
+        backed = bool(pb) and (REPO_ROOT / pb).is_dir()
+        ok = backed or status == "aspirational"
+        if not ok:
+            bad.append(cid)
+        subs.append(
+            {
+                "name": cid,
+                "status": "PASS" if ok else "FAIL",
+                "detail": f"purpose_built={pb!r} backed={backed} status={status!r}",
+            }
+        )
+
+    if bad:
+        return (
+            "FAIL",
+            f"{len(bad)} challenge class(es) neither backed nor marked aspirational: {bad}",
+            subs,
+        )
+    return ("PASS", f"{len(classes)} challenge classes all backed or gated aspirational", [])
+
+
+def check_model_inventory_reality() -> tuple[str, str, list[dict]]:
+    """BB. Bench-reachable model_hints resolve against the committed Ollama snapshot.
+
+    P5-SECURITY-ARM-RECONCILE-001: config/model_inventory.snapshot is a
+    committed `ollama list` capture (refreshed by
+    scripts/reconcile_security_arm.py's model-pull phase). Any workspace
+    whose model_hint is referenced from a `[security]`-tagged workspace (the
+    bench-reachability signal the reconciliation engine uses) must resolve
+    against that snapshot — this is the mechanical drift check that would
+    have caught the VulnLLM-R-7B ctx8k tag-case mismatch this run fixed
+    (config declared `Q4_K_M-ctx8k`, Ollama only ever had `q4_K_M-ctx8k`).
+    Non-bench hints are informational only, matching the reconciliation
+    engine's own scope.
+    """
+    import yaml
+
+    snap_path = REPO_ROOT / "config" / "model_inventory.snapshot"
+    if not snap_path.exists():
+        return (
+            "FAIL",
+            "config/model_inventory.snapshot missing — run reconcile_security_arm.py",
+            [],
+        )
+    pulled = {ln.strip() for ln in snap_path.read_text().splitlines() if ln.strip()}
+
+    portal_cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    workspaces = portal_cfg.get("workspaces") or {}
+
+    subs: list[dict] = []
+    bad: list[str] = []
+    for wid, c in sorted(workspaces.items()):
+        if not isinstance(c, dict) or c.get("module") != "security":
+            continue
+        hint = c.get("model_hint")
+        if not hint:
+            continue
+        ok = hint in pulled
+        if not ok:
+            bad.append(f"{wid} -> {hint}")
+        subs.append({"name": wid, "status": "PASS" if ok else "FAIL", "detail": hint})
+
+    if bad:
+        return ("FAIL", f"{len(bad)} bench-reachable model_hint(s) not in snapshot: {bad}", subs)
+    return (
+        "PASS",
+        f"{len(subs)} bench-reachable model_hint(s) all resolve against the snapshot",
+        [],
+    )
+
+
+def check_fleet_health_reality() -> tuple[str, str, list[dict]]:
+    """BC. Declared MCP fleet ports are live when the stack is up.
+
+    P5-SECURITY-ARM-RECONCILE-001: health-probes every port declared under
+    config/portal.yaml's mcp_fleet against /ready or /health with a short
+    timeout. Skipped entirely (WARN, not FAIL) when the stack is down —
+    Rule 3 servers are independent processes this check can't start, and a
+    dev machine with the stack stopped shouldn't fail validate_system.py.
+    When at least one fleet member answers, the stack is considered "up"
+    and every declared port must answer.
+    """
+    import urllib.request
+
+    import yaml
+
+    portal_cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    fleet = portal_cfg.get("mcp_fleet") or []
+    ports = [(e.get("id") or e.get("name"), e.get("port")) for e in fleet if e.get("port")]
+
+    def _up(port: int) -> bool:
+        for ep in ("/ready", "/health"):
+            try:
+                urllib.request.urlopen(f"http://localhost:{port}{ep}", timeout=2)  # noqa: S310
+                return True
+            except Exception:  # noqa: BLE001
+                continue
+        return False
+
+    subs = [{"name": f"{name} :{port}", "status": "", "detail": ""} for name, port in ports]
+    results = {name: _up(port) for name, port in ports}
+
+    if not any(results.values()):
+        return ("WARN", "stack appears down — skipping fleet health (not a failure)", [])
+
+    down = [f"{name}:{port}" for name, port in ports if not results[name]]
+    for sub in subs:
+        name = sub["name"].split(" :")[0]
+        sub["status"] = "PASS" if results.get(name) else "FAIL"
+        sub["detail"] = "UP" if results.get(name) else "DOWN (stack otherwise up)"
+
+    if down:
+        return (
+            "FAIL",
+            f"{len(down)} declared fleet port(s) unreachable while stack is up: {down}",
+            subs,
+        )
+    return ("PASS", f"{len(ports)} declared fleet ports all reachable", [])
 
 
 if __name__ == "__main__":

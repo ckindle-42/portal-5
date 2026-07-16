@@ -5,21 +5,21 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: d16cb24ec652
+  commit: 22ac88138460
 - type: code
   path: config/portal.yaml
-  commit: d16cb24ec652
+  commit: 22ac88138460
 - type: code
   path: config/personas/
-  commit: d16cb24ec652
-last_generated_commit: d16cb24ec652
+  commit: 22ac88138460
+last_generated_commit: 22ac88138460
 confidence: high
 tags:
 - fact
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1784056264.396721
+updated_at: 1784169080.695758
 ---
 
 # Model bindings (reachability-resolved)
@@ -50,7 +50,7 @@ default.
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
 | `auto-research` | `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` | yes |
-| `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k` | yes |
+| `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-spl` | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` | yes |
 | `auto-video` | `granite4.1:8b-ctx16k` | yes |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | yes |

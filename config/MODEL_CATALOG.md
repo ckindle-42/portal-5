@@ -582,9 +582,15 @@ Context-capped derived tag of `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M
 
 Context-capped derived tag of `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M` (`PARAMETER num_ctx 8192` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
 
-### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k`
+### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k`
 
 Context-capped derived tag of `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M` (`PARAMETER num_ctx 8192` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+
+Tag note (P5-SECURITY-ARM-RECONCILE-001, 2026-07-16): `ollama create` lowercases the quantization
+segment of derived tags it mints (`Q4_K_M` → `q4_K_M`) even when the source `Modelfile`/CLI arg used
+uppercase — this catalog entry (and `backends.yaml`/`portal.yaml`) previously declared the tag with
+the uppercase `Q` that was never actually pullable/creatable, causing a silent routing gap. Verified
+against the live Ollama instance during the security-arm reconciliation run.
 
 ### `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k`
 
