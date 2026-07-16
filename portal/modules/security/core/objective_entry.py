@@ -196,7 +196,7 @@ def run_emergent_engagement(
     result = run_with_no_progress_halt(
         goal,
         provider=provider or _SecurityCapabilityProvider(),
-        executor=executor or SecurityExecutor(perception=perception),
+        executor=executor or SecurityExecutor(perception=perception, default_targets=list(targets)),
         observations=seed_observations,
         no_progress_k=no_progress_k,
     )
