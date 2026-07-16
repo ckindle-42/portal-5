@@ -482,7 +482,7 @@ workspaces:
     module: security
     name: 🔒 Portal Security Analyst
     description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, hardening. VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base — trained on AppSec vulnerability research: CVE severity, CWE classification, vulnerable code patterns). Full-fleet bench 2026-06-20: 2/2 chain wins at 15s, fastest security model in fleet. Fast vuln analysis with web search, vuln classification, and code execution.'
-    model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k
+    model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
     context_limit: 8192
     keep_alive: 10m
     temperature: 0.3

@@ -5,14 +5,14 @@ title: 22 production + 60 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: d16cb24ec652
-last_generated_commit: d16cb24ec652
+  commit: 22ac88138460
+last_generated_commit: 22ac88138460
 confidence: high
 tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1784056264.227256
+updated_at: 1784169049.7822149
 ---
 
 # Workspace roster (22 production, 60 eval, 82 total)
@@ -38,7 +38,7 @@ updated_at: 1784056264.227256
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
 | `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
 | `auto-research` | research | `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` |
-| `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k` |
+| `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |
 | `auto-spl` | general | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` |
 | `auto-video` | media | `granite4.1:8b-ctx16k` |
 | `auto-vision` | general | `qwen3-vl:32b-ctx8k` |

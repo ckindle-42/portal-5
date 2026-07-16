@@ -3,416 +3,502 @@
 # composes for gaps). Provenance: {source} field per class.
 classes:
   # ── Existing 12 classes ──
-  - id: ssrf-metadata-pivot
-    vulhub: [gitlab/CVE-2021-22214, "web/ssrf-*"]
-    purpose_built: null
-    ground_truth: { oracle: oast_callback }
-    source: reverse-skill
-  - id: deserialization
-    vulhub: [fastjson/*, jackson/CVE-2017-7525, shiro/*, weblogic/CVE-2023-21839, activemq/CVE-2023-46604]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: ssti-blind
-    vulhub: [flask/ssti, jinja2/ssti, confluence/CVE-2022-26134, airflow/CVE-2020-11978]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: jwt-claim-confusion
-    vulhub: []
-    purpose_built: challenges/jwt-claim-confusion/
-    ground_truth: { oracle: idor_bola }
-    source: reverse-skill
-  - id: container-escape
-    vulhub: [docker/unauthorized-rce, "docker/cve-*"]
-    purpose_built: challenges/container-escape/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: sqli-auth-bypass
-    vulhub: [sqli-labs/mysql/*, sqli-labs/postgresql/*, adminer/CVE-2021-21311]
-    purpose_built: null
-    ground_truth: { oracle: sqli_error }
-    source: reverse-skill
-  - id: lfi-path-traversal
-    vulhub: [php/CVE-2018-12613, nginx/CVE-2017-7529, grafana/CVE-2021-43798]
-    purpose_built: null
-    ground_truth: { oracle: lfi_confirm }
-    source: reverse-skill
-  - id: command-injection
-    vulhub: [flask/ssti, struts2/*, confluence/CVE-2022-26134, jenkins/CVE-2017-1000353, drupal/CVE-2018-7600]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: xss-reflected
-    vulhub: [xss/reflected-xss, web/dom-based-xss]
-    purpose_built: null
-    ground_truth: { oracle: reflection }
-    source: reverse-skill
-  - id: k8s-pod-escape
-    vulhub: []
-    purpose_built: challenges/k8s-pod-escape/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: cloud-metadata-ssrf
-    vulhub: []
-    purpose_built: challenges/cloud-metadata-ssrf/
-    ground_truth: { oracle: oast_callback }
-    source: reverse-skill
-  - id: graphql-introspection
-    vulhub: []
-    purpose_built: challenges/graphql-introspection/
-    ground_truth: { oracle: reflection }
-    source: reverse-skill
+- id: ssrf-metadata-pivot
+  vulhub: [gitlab/CVE-2021-22214, "web/ssrf-*"]
+  purpose_built:
+  ground_truth: {oracle: oast_callback}
+  source: reverse-skill
+  status: aspirational
+- id: deserialization
+  vulhub: [fastjson/*, jackson/CVE-2017-7525, shiro/*, weblogic/CVE-2023-21839, 
+      activemq/CVE-2023-46604]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: ssti-blind
+  vulhub: [flask/ssti, jinja2/ssti, confluence/CVE-2022-26134, 
+      airflow/CVE-2020-11978]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: jwt-claim-confusion
+  vulhub: []
+  purpose_built: challenges/jwt-claim-confusion/
+  ground_truth: {oracle: idor_bola}
+  source: reverse-skill
+  status: aspirational
+- id: container-escape
+  vulhub: [docker/unauthorized-rce, "docker/cve-*"]
+  purpose_built: challenges/container-escape/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: sqli-auth-bypass
+  vulhub: [sqli-labs/mysql/*, sqli-labs/postgresql/*, adminer/CVE-2021-21311]
+  purpose_built:
+  ground_truth: {oracle: sqli_error}
+  source: reverse-skill
+  status: aspirational
+- id: lfi-path-traversal
+  vulhub: [php/CVE-2018-12613, nginx/CVE-2017-7529, grafana/CVE-2021-43798]
+  purpose_built:
+  ground_truth: {oracle: lfi_confirm}
+  source: reverse-skill
+  status: aspirational
+- id: command-injection
+  vulhub: [flask/ssti, struts2/*, confluence/CVE-2022-26134, 
+      jenkins/CVE-2017-1000353, drupal/CVE-2018-7600]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: xss-reflected
+  vulhub: [xss/reflected-xss, web/dom-based-xss]
+  purpose_built:
+  ground_truth: {oracle: reflection}
+  source: reverse-skill
+  status: aspirational
+- id: k8s-pod-escape
+  vulhub: []
+  purpose_built: challenges/k8s-pod-escape/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: cloud-metadata-ssrf
+  vulhub: []
+  purpose_built: challenges/cloud-metadata-ssrf/
+  ground_truth: {oracle: oast_callback}
+  source: reverse-skill
+  status: aspirational
+- id: graphql-introspection
+  vulhub: []
+  purpose_built: challenges/graphql-introspection/
+  ground_truth: {oracle: reflection}
+  source: reverse-skill
   # ── New 28 classes (reverse-skill + ptai) ──
-  - id: ad-certificate-abuse
-    vulhub: []
-    purpose_built: challenges/ad-certificate-abuse/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: kerberos-delegation
-    vulhub: []
-    purpose_built: challenges/kerberos-delegation/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: relay-coercion-chain
-    vulhub: []
-    purpose_built: challenges/relay-coercion-chain/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: oauth-oidc-chain
-    vulhub: []
-    purpose_built: challenges/oauth-oidc-chain/
-    ground_truth: { oracle: idor_bola }
-    source: reverse-skill
-  - id: template-render-path
-    vulhub: [flask/ssti, jinja2/ssti, confluence/*, django/CVE-2022-34265]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: race-condition-state-drift
-    vulhub: []
-    purpose_built: challenges/race-condition/
-    ground_truth: { oracle: reflection }
-    source: ptai
-  - id: custom-protocol-replay
-    vulhub: []
-    purpose_built: challenges/custom-protocol-replay/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: websocket-runtime
-    vulhub: []
-    purpose_built: challenges/websocket-runtime/
-    ground_truth: { oracle: reflection }
-    source: reverse-skill
-  - id: stego-media
-    vulhub: []
-    purpose_built: challenges/stego-media/
-    ground_truth: { oracle: reflection }
-    source: reverse-skill
-  - id: crypto-mobile
-    vulhub: []
-    purpose_built: challenges/crypto-mobile/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: file-parser-chain
-    vulhub: [imagemagick/CVE-2016-3714, ghostscript/CVE-2023-36664]
-    purpose_built: null
-    ground_truth: { oracle: lfi_confirm }
-    source: reverse-skill
-  - id: firmware-layout
-    vulhub: []
-    purpose_built: challenges/firmware-layout/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: reverse-pwn
-    vulhub: []
-    purpose_built: challenges/reverse-pwn/
-    ground_truth: { oracle: cve_confirmed }
-    source: reverse-skill
-  - id: android-hooking
-    vulhub: []
-    purpose_built: challenges/android-hooking/
-    ground_truth: { oracle: cve_confirmed }
-    source: reverse-skill
-  - id: ios-runtime
-    vulhub: []
-    purpose_built: challenges/ios-runtime/
-    ground_truth: { oracle: cve_confirmed }
-    source: reverse-skill
-  - id: malware-config
-    vulhub: []
-    purpose_built: challenges/malware-config/
-    ground_truth: { oracle: cve_confirmed }
-    source: reverse-skill
-  - id: forensic-timeline
-    vulhub: []
-    purpose_built: challenges/forensic-timeline/
-    ground_truth: { oracle: reflection }
-    source: reverse-skill
-  - id: windows-pivot
-    vulhub: []
-    purpose_built: challenges/windows-pivot/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: linux-credential-pivot
-    vulhub: []
-    purpose_built: challenges/linux-credential-pivot/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: browser-persistence
-    vulhub: []
-    purpose_built: challenges/browser-persistence/
-    ground_truth: { oracle: reflection }
-    source: reverse-skill
-  - id: dpapi-credential-chain
-    vulhub: []
-    purpose_built: challenges/dpapi-credential-chain/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: lsass-ticket-material
-    vulhub: []
-    purpose_built: challenges/lsass-ticket-material/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: request-smuggling
-    vulhub: [httpd/CVE-2021-41773, nginx/CVE-2021-23017]
-    purpose_built: null
-    ground_truth: { oracle: lfi_confirm }
-    source: ptai
-  - id: prototype-pollution
-    vulhub: []
-    purpose_built: challenges/prototype-pollution/
-    ground_truth: { oracle: rce_shell }
-    source: ptai
-  - id: nosql-injection
-    vulhub: [mongodb/CVE-2019-20925]
-    purpose_built: null
-    ground_truth: { oracle: sqli_error }
-    source: ptai
-  - id: open-redirect
-    vulhub: [django/CVE-2018-14574]
-    purpose_built: null
-    ground_truth: { oracle: open_redirect }
-    source: ptai
-  - id: cors-misconfig
-    vulhub: []
-    purpose_built: challenges/cors-misconfig/
-    ground_truth: { oracle: reflection }
-    source: ptai
-  - id: file-upload-bypass
-    vulhub: [php/CVE-2018-12613]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: ptai
+  status: aspirational
+- id: ad-certificate-abuse
+  vulhub: []
+  purpose_built: challenges/ad-certificate-abuse/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: kerberos-delegation
+  vulhub: []
+  purpose_built: challenges/kerberos-delegation/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: relay-coercion-chain
+  vulhub: []
+  purpose_built: challenges/relay-coercion-chain/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: oauth-oidc-chain
+  vulhub: []
+  purpose_built: challenges/oauth-oidc-chain/
+  ground_truth: {oracle: idor_bola}
+  source: reverse-skill
+  status: aspirational
+- id: template-render-path
+  vulhub: [flask/ssti, jinja2/ssti, confluence/*, django/CVE-2022-34265]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: race-condition-state-drift
+  vulhub: []
+  purpose_built: challenges/race-condition/
+  ground_truth: {oracle: reflection}
+  source: ptai
+  status: aspirational
+- id: custom-protocol-replay
+  vulhub: []
+  purpose_built: challenges/custom-protocol-replay/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: websocket-runtime
+  vulhub: []
+  purpose_built: challenges/websocket-runtime/
+  ground_truth: {oracle: reflection}
+  source: reverse-skill
+  status: aspirational
+- id: stego-media
+  vulhub: []
+  purpose_built: challenges/stego-media/
+  ground_truth: {oracle: reflection}
+  source: reverse-skill
+  status: aspirational
+- id: crypto-mobile
+  vulhub: []
+  purpose_built: challenges/crypto-mobile/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: file-parser-chain
+  vulhub: [imagemagick/CVE-2016-3714, ghostscript/CVE-2023-36664]
+  purpose_built:
+  ground_truth: {oracle: lfi_confirm}
+  source: reverse-skill
+  status: aspirational
+- id: firmware-layout
+  vulhub: []
+  purpose_built: challenges/firmware-layout/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: reverse-pwn
+  vulhub: []
+  purpose_built: challenges/reverse-pwn/
+  ground_truth: {oracle: cve_confirmed}
+  source: reverse-skill
+  status: aspirational
+- id: android-hooking
+  vulhub: []
+  purpose_built: challenges/android-hooking/
+  ground_truth: {oracle: cve_confirmed}
+  source: reverse-skill
+  status: aspirational
+- id: ios-runtime
+  vulhub: []
+  purpose_built: challenges/ios-runtime/
+  ground_truth: {oracle: cve_confirmed}
+  source: reverse-skill
+  status: aspirational
+- id: malware-config
+  vulhub: []
+  purpose_built: challenges/malware-config/
+  ground_truth: {oracle: cve_confirmed}
+  source: reverse-skill
+  status: aspirational
+- id: forensic-timeline
+  vulhub: []
+  purpose_built: challenges/forensic-timeline/
+  ground_truth: {oracle: reflection}
+  source: reverse-skill
+  status: aspirational
+- id: windows-pivot
+  vulhub: []
+  purpose_built: challenges/windows-pivot/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: linux-credential-pivot
+  vulhub: []
+  purpose_built: challenges/linux-credential-pivot/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: browser-persistence
+  vulhub: []
+  purpose_built: challenges/browser-persistence/
+  ground_truth: {oracle: reflection}
+  source: reverse-skill
+  status: aspirational
+- id: dpapi-credential-chain
+  vulhub: []
+  purpose_built: challenges/dpapi-credential-chain/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: lsass-ticket-material
+  vulhub: []
+  purpose_built: challenges/lsass-ticket-material/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: request-smuggling
+  vulhub: [httpd/CVE-2021-41773, nginx/CVE-2021-23017]
+  purpose_built:
+  ground_truth: {oracle: lfi_confirm}
+  source: ptai
+  status: aspirational
+- id: prototype-pollution
+  vulhub: []
+  purpose_built: challenges/prototype-pollution/
+  ground_truth: {oracle: rce_shell}
+  source: ptai
+  status: aspirational
+- id: nosql-injection
+  vulhub: [mongodb/CVE-2019-20925]
+  purpose_built:
+  ground_truth: {oracle: sqli_error}
+  source: ptai
+  status: aspirational
+- id: open-redirect
+  vulhub: [django/CVE-2018-14574]
+  purpose_built:
+  ground_truth: {oracle: open_redirect}
+  source: ptai
+  status: aspirational
+- id: cors-misconfig
+  vulhub: []
+  purpose_built: challenges/cors-misconfig/
+  ground_truth: {oracle: reflection}
+  source: ptai
+  status: aspirational
+- id: file-upload-bypass
+  vulhub: [php/CVE-2018-12613]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: ptai
   # ── Coverage expansion: meta3 + vulhub breadth ──
-  - id: ftp-backdoor
-    vulhub: []
-    purpose_built: meta3/ftp-backdoor/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-    target: meta3
-  - id: smb-enumeration
-    vulhub: []
-    purpose_built: meta3/smb-enumeration/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-    target: meta3
-  - id: mysql-udf-privesc
-    vulhub: []
-    purpose_built: meta3/mysql-udf-privesc/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-    target: meta3
-  - id: glassfish-deploy
-    vulhub: []
-    purpose_built: meta3/glassfish-deploy/
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-    target: meta3
-  - id: elasticsearch-script-rce
-    vulhub: [elasticsearch/CVE-2014-3120]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: struts2-ognl
-    vulhub: ["struts2/*"]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: jenkins-script-console
-    vulhub: [jenkins/CVE-2017-1000353]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: confluence-ognl
-    vulhub: [confluence/CVE-2022-26134]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: weblogic-iiop
-    vulhub: [weblogic/CVE-2023-21839]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: activemq-deserial
-    vulhub: [activemq/CVE-2023-46604]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: drupal-drupalgeddon
-    vulhub: [drupal/CVE-2018-7600]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: solr-velocity-rce
-    vulhub: [solr/CVE-2019-17558]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: grafana-lfi
-    vulhub: [grafana/CVE-2021-43798]
-    purpose_built: null
-    ground_truth: { oracle: lfi_confirm }
-    source: reverse-skill
-  - id: tomcat-manager-deploy
-    vulhub: [tomcat/manager]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: couchdb-admin-creation
-    vulhub: [couchdb/CVE-2017-12635]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: redis-unauth
-    vulhub: [redis/*]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: gitlab-ssrf
-    vulhub: [gitlab/CVE-2021-22214]
-    purpose_built: null
-    ground_truth: { oracle: oast_callback }
-    source: reverse-skill
-  - id: nacos-default-creds
-    vulhub: [nacos/*]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: dubbo-deserial
-    vulhub: [dubbo/*]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: geoserver-rce
-    vulhub: [geoserver/CVE-2024-36401]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: gitea-rce
-    vulhub: [gitea/*]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: nginx-lfi
-    vulhub: [nginx/CVE-2017-7529]
-    purpose_built: null
-    ground_truth: { oracle: lfi_confirm }
-    source: reverse-skill
-  - id: joomla-info-disclosure
-    vulhub: [joomla/CVE-2023-23752]
-    purpose_built: null
-    ground_truth: { oracle: reflection }
-    source: reverse-skill
-  - id: wordpress-user-enum
-    vulhub: [wordpress/*]
-    purpose_built: null
-    ground_truth: { oracle: reflection }
-    source: reverse-skill
-  - id: phpmyadmin-auth-bypass
-    vulhub: [phpmyadmin/*]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: spring-actuator-exposure
-    vulhub: [spring/*]
-    purpose_built: null
-    ground_truth: { oracle: reflection }
-    source: reverse-skill
-  - id: log4shell
-    vulhub: [log4j/CVE-2021-44228]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: shiro-deserial
-    vulhub: [shiro/CVE-2016-4437]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: fastjson-rce
-    vulhub: [fastjson/*]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: jackson-deserial
-    vulhub: [jackson/CVE-2017-7525]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: supervisor-rce
-    vulhub: [supervisor/CVE-2017-11610]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: airflow-rce
-    vulhub: [airflow/CVE-2020-11978]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: kibana-rce
-    vulhub: [kibana/CVE-2019-7609]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: nexus-lfi
-    vulhub: [nexus/CVE-2024-4956]
-    purpose_built: null
-    ground_truth: { oracle: lfi_confirm }
-    source: reverse-skill
-  - id: zabbix-rce
-    vulhub: [zabbix/*]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: django-sqli
-    vulhub: [django/CVE-2022-34265]
-    purpose_built: null
-    ground_truth: { oracle: sqli_error }
-    source: reverse-skill
-  - id: thinkphp-rce
-    vulhub: [thinkphp/*]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: laravel-rce
-    vulhub: [laravel/CVE-2021-3129]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
-  - id: rails-lfi
-    vulhub: [rails/CVE-2019-5418]
-    purpose_built: null
-    ground_truth: { oracle: lfi_confirm }
-    source: reverse-skill
-  - id: coldfusion-rce
-    vulhub: [coldfusion/CVE-2023-26360]
-    purpose_built: null
-    ground_truth: { oracle: rce_shell }
-    source: reverse-skill
+  status: aspirational
+- id: ftp-backdoor
+  vulhub: []
+  purpose_built: meta3/ftp-backdoor/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  target: meta3
+  status: aspirational
+- id: smb-enumeration
+  vulhub: []
+  purpose_built: meta3/smb-enumeration/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  target: meta3
+  status: aspirational
+- id: mysql-udf-privesc
+  vulhub: []
+  purpose_built: meta3/mysql-udf-privesc/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  target: meta3
+  status: aspirational
+- id: glassfish-deploy
+  vulhub: []
+  purpose_built: meta3/glassfish-deploy/
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  target: meta3
+  status: aspirational
+- id: elasticsearch-script-rce
+  vulhub: [elasticsearch/CVE-2014-3120]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: struts2-ognl
+  vulhub: ["struts2/*"]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: jenkins-script-console
+  vulhub: [jenkins/CVE-2017-1000353]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: confluence-ognl
+  vulhub: [confluence/CVE-2022-26134]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: weblogic-iiop
+  vulhub: [weblogic/CVE-2023-21839]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: activemq-deserial
+  vulhub: [activemq/CVE-2023-46604]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: drupal-drupalgeddon
+  vulhub: [drupal/CVE-2018-7600]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: solr-velocity-rce
+  vulhub: [solr/CVE-2019-17558]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: grafana-lfi
+  vulhub: [grafana/CVE-2021-43798]
+  purpose_built:
+  ground_truth: {oracle: lfi_confirm}
+  source: reverse-skill
+  status: aspirational
+- id: tomcat-manager-deploy
+  vulhub: [tomcat/manager]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: couchdb-admin-creation
+  vulhub: [couchdb/CVE-2017-12635]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: redis-unauth
+  vulhub: [redis/*]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: gitlab-ssrf
+  vulhub: [gitlab/CVE-2021-22214]
+  purpose_built:
+  ground_truth: {oracle: oast_callback}
+  source: reverse-skill
+  status: aspirational
+- id: nacos-default-creds
+  vulhub: [nacos/*]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: dubbo-deserial
+  vulhub: [dubbo/*]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: geoserver-rce
+  vulhub: [geoserver/CVE-2024-36401]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: gitea-rce
+  vulhub: [gitea/*]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: nginx-lfi
+  vulhub: [nginx/CVE-2017-7529]
+  purpose_built:
+  ground_truth: {oracle: lfi_confirm}
+  source: reverse-skill
+  status: aspirational
+- id: joomla-info-disclosure
+  vulhub: [joomla/CVE-2023-23752]
+  purpose_built:
+  ground_truth: {oracle: reflection}
+  source: reverse-skill
+  status: aspirational
+- id: wordpress-user-enum
+  vulhub: [wordpress/*]
+  purpose_built:
+  ground_truth: {oracle: reflection}
+  source: reverse-skill
+  status: aspirational
+- id: phpmyadmin-auth-bypass
+  vulhub: [phpmyadmin/*]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: spring-actuator-exposure
+  vulhub: [spring/*]
+  purpose_built:
+  ground_truth: {oracle: reflection}
+  source: reverse-skill
+  status: aspirational
+- id: log4shell
+  vulhub: [log4j/CVE-2021-44228]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: shiro-deserial
+  vulhub: [shiro/CVE-2016-4437]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: fastjson-rce
+  vulhub: [fastjson/*]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: jackson-deserial
+  vulhub: [jackson/CVE-2017-7525]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: supervisor-rce
+  vulhub: [supervisor/CVE-2017-11610]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: airflow-rce
+  vulhub: [airflow/CVE-2020-11978]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: kibana-rce
+  vulhub: [kibana/CVE-2019-7609]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: nexus-lfi
+  vulhub: [nexus/CVE-2024-4956]
+  purpose_built:
+  ground_truth: {oracle: lfi_confirm}
+  source: reverse-skill
+  status: aspirational
+- id: zabbix-rce
+  vulhub: [zabbix/*]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: django-sqli
+  vulhub: [django/CVE-2022-34265]
+  purpose_built:
+  ground_truth: {oracle: sqli_error}
+  source: reverse-skill
+  status: aspirational
+- id: thinkphp-rce
+  vulhub: [thinkphp/*]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: laravel-rce
+  vulhub: [laravel/CVE-2021-3129]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
+  status: aspirational
+- id: rails-lfi
+  vulhub: [rails/CVE-2019-5418]
+  purpose_built:
+  ground_truth: {oracle: lfi_confirm}
+  source: reverse-skill
+  status: aspirational
+- id: coldfusion-rce
+  vulhub: [coldfusion/CVE-2023-26360]
+  purpose_built:
+  ground_truth: {oracle: rce_shell}
+  source: reverse-skill
 
 # ── Widened vulhub family mapping (high-value families) ──
+  status: aspirational
 families:
-  RCE: [struts2, jenkins, confluence, weblogic, fastjson, shiro, activemq, druid, nacos, solr, log4j, drupal, joomla, wordpress, django, grafana, gitea, couchdb, elasticsearch, kibana, airflow, dubbo, geoserver, coldfusion, thinkphp, laravel, zabbix, nexus, supervisor]
+  RCE: [struts2, jenkins, confluence, weblogic, fastjson, shiro, activemq, druid,
+    nacos, solr, log4j, drupal, joomla, wordpress, django, grafana, gitea, 
+      couchdb, elasticsearch, kibana, airflow, dubbo, geoserver, coldfusion, 
+      thinkphp, laravel, zabbix, nexus, supervisor]
   SQLi: [sqli-labs, adminer, drupal, django]
   SSRF: [gitlab, grafana, solr, weblogic]
   deserialization: [fastjson, jackson, shiro, weblogic, activemq, coldfusion]

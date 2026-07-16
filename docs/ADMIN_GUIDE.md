@@ -432,7 +432,7 @@ edit the source config and re-run `sync-config` instead.
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
 | `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
 | `auto-research` | research | `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` |
-| `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k` |
+| `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |
 | `auto-spl` | general | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` |
 | `auto-video` | media | `granite4.1:8b-ctx16k` |
 | `auto-vision` | general | `qwen3-vl:32b-ctx8k` |
@@ -533,7 +533,7 @@ default.
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
 | `auto-research` | `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` | yes |
-| `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k` | yes |
+| `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-spl` | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` | yes |
 | `auto-video` | `granite4.1:8b-ctx16k` | yes |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | yes |
@@ -723,7 +723,7 @@ default.
 - `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
 - `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
-- `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k`
+- `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k`
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 - `huihui_ai/gemma-4-abliterated:E2b-qat`

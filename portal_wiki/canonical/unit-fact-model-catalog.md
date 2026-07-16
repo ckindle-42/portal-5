@@ -5,14 +5,14 @@ title: 149 model ids, 6 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 468525e61329
-last_generated_commit: 468525e61329
+  commit: 22ac88138460
+last_generated_commit: 22ac88138460
 confidence: high
 tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1784000421.487881
+updated_at: 1784169080.748895
 ---
 
 # Model catalog (149 model ids across 6 backend groups)
@@ -149,7 +149,7 @@ updated_at: 1784000421.487881
 - `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
 - `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
-- `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M-ctx8k`
+- `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k`
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 - `huihui_ai/gemma-4-abliterated:E2b-qat`
