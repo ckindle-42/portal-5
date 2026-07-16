@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -454,6 +455,57 @@ for _host_env, _vmid_env, _kind in [
         _LAB_HOST_VMID_MAP[_h] = (_v, _kind)
 
 
+def discover_host_by_mac(vmid: str, kind: str = "vm") -> str | None:
+    """Find a lab host's CURRENT live IP by matching its Proxmox-declared MAC
+    against a fresh ARP sweep of the lab subnet — not a static config value.
+
+    P5-META3-DISCOVERY-001 (found live 2026-07-16): meta3's IP was hardcoded
+    in config as 10.10.11.10, drifted to .11, then .13 across three restarts
+    within the same session — DHCP without a reservation on this host, so any
+    static IP is stale the moment it's written down. The VM's MAC address
+    (from Proxmox config) is the one thing that doesn't change across reboots;
+    this discovers the real IP by sweeping 10.10.11.0/24 from LXC 112 (which
+    sits on the lab's L2 segment, so `ip neigh` after a ping sweep reflects
+    real ARP resolution) and matching on that MAC. Returns None on any
+    failure — callers must fall back to the static config value, never guess.
+    """
+    import re
+
+    from scripts.lab_host import _proxmox_exec
+
+    cmd = "qm config" if kind == "vm" else "pct config"
+    cfg = _proxmox_exec(f"{cmd} {vmid}", timeout=15)
+    if not cfg.get("ok"):
+        return None
+    m = re.search(r"net0:.*?=([0-9A-Fa-f:]{17})", cfg["output"])
+    if not m:
+        return None
+    target_mac = m.group(1).lower()
+
+    # Refresh ARP: fire a parallel ping sweep of the /24, then read ip neigh.
+    # pct exec passes everything after `--` straight to execve (no shell), so
+    # the for-loop needs an explicit `bash -c` to be parsed at all. And the
+    # whole thing transits an SSH command line executed by the REMOTE login
+    # shell before pct even sees it — double-quoting (e.g. json.dumps) still
+    # lets that outer shell expand $i/$(seq ...) immediately, breaking the
+    # loop before the inner bash -c ever runs it. Single-quoting via
+    # shlex.quote is what actually defers expansion to the inner shell.
+    sweep_script = (
+        "for i in $(seq 1 254); do "
+        "(ping -c1 -W1 10.10.11.$i > /dev/null 2>&1 &); done; "
+        "sleep 6; ip neigh show dev eth0"
+    )
+    r = _host_exec(f"bash -c {shlex.quote(sweep_script)}", timeout=20)
+    if not r.get("ok"):
+        return None
+    for line in r["output"].splitlines():
+        parts = line.split()
+        # "10.10.11.13 lladdr bc:24:11:20:b6:50 REACHABLE"
+        if len(parts) >= 3 and parts[1] == "lladdr" and parts[2].lower() == target_mac:
+            return parts[0]
+    return None
+
+
 def _start_lab_host(host: str) -> bool:
     """Start the Proxmox VM/LXC backing a known static lab host.
 
@@ -536,6 +588,24 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
             "reason": "no external target",
         }
 
+    # Discovery-first, not config-first: for static lab hosts backed by a known
+    # Proxmox vmid, the declared config IP is only ever a starting guess. DHCP
+    # without a reservation means it drifts across reboots — found live
+    # 2026-07-16: meta3 moved 10.10.11.10 -> .11 -> .13 within one session, and
+    # every static value written down (config, .env, code fallback) was stale
+    # within minutes. The VM's MAC is the one thing that doesn't change across
+    # reboots — discover_host_by_mac resolves the REAL current IP by ARP-sweeping
+    # the lab subnet and matching on it. Never used for vulhub_env targets
+    # (those get their real host:port from cmd_up's docker-compose port publish,
+    # already live-resolved). config_host is kept for _start_lab_host's vmid
+    # lookup, which is keyed by the declared value, not whatever we discover.
+    config_host = host
+    mapping = None if env else _LAB_HOST_VMID_MAP.get(config_host)
+    if mapping:
+        discovered = discover_host_by_mac(*mapping)
+        if discovered:
+            host = discovered
+
     # VERIFY: is it up, and on WHAT port?
     port = _resolve_live_port(host, env) if env else _probe_any_reachable_port(host)
     if port and _wait_reachable(host, port, timeout_s=5):
@@ -544,7 +614,7 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
             "healed": False,
             "host": host,
             "port": port,
-            "reason": "already up",
+            "reason": "already up" + (" (mac-discovered)" if host != config_host else ""),
         }
 
     # HEAL
@@ -561,7 +631,14 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
                     "reason": f"healed@{attempt + 1}",
                 }
         else:
-            started = _start_lab_host(host) if not dry_run else False
+            started = _start_lab_host(config_host) if not dry_run else False
+            if started and mapping:
+                # A DHCP lease renegotiated on this exact boot can differ from
+                # whatever we discovered a moment ago — re-resolve post-start
+                # rather than poll an address that may already be stale again.
+                redisc = discover_host_by_mac(*mapping)
+                if redisc:
+                    host = redisc
             # A just-started Windows VM needs minutes, not seconds — an LXC or an
             # already-running host that just had a transient blip needs far less.
             port = _poll_reachable_port(host, timeout_s=180 if started else 20)

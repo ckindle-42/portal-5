@@ -95,7 +95,7 @@ except ImportError as _exc:
     _LAB_DC: str = _lab_hosts_cfg.get("dc", "10.10.11.21")
     _LAB_SRV: str = _lab_hosts_cfg.get("srv", "10.10.11.33")
     _LAB_WEB: str = _lab_hosts_cfg.get("web", "10.10.11.50")
-    _LAB_META3: str = _lab_hosts_cfg.get("meta3", "10.10.11.10")
+    _LAB_META3: str = _lab_hosts_cfg.get("meta3", "10.10.11.11")
     _LAB_DOMAIN: str = _lab_hosts_cfg.get("domain", "portal.lab")
     _LAB_ADMIN_PASS: str = "LabAdmin1!"
     _LAB_SVC_PASS: str = "Backup123!"
@@ -341,7 +341,7 @@ _LAB_SERVICE_PROBES: dict[str, tuple[int, str, list[str]]] = {
         "curl -s -o /dev/null -w '%{http_code}' http://${host}:8081/ 2>&1",
         ["200", "401", "404"],
     ),
-    # Metasploitable3 Win2k8 services (10.10.11.10)
+    # Metasploitable3 Win2k8 services (10.10.11.11)
     "meta3_smb": (
         445,
         "nxc smb ${host} -u '' -p '' --shares 2>&1 | grep -v '^\\[\\*\\]' | head -5",

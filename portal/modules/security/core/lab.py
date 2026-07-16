@@ -75,7 +75,7 @@ def probe_lab_services(
         return {}
     dc = target_dc or _LAB_DC or "10.10.11.21"
     web = target_web or _LAB_WEB or "10.10.11.50"
-    meta3 = os.environ.get("LAB_TARGET_META3_WIN", "10.10.11.10")
+    meta3 = os.environ.get("LAB_TARGET_META3_WIN", "10.10.11.11")
     results: dict[str, bool] = {}
     if dry_run:
         for svc in _LAB_SERVICE_PROBES:

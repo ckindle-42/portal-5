@@ -6,13 +6,16 @@
 # portal/modules/security/core/_data.py's env-fallback path (P5-SECURITY-ARM-RECONCILE-001) —
 # _data.py must derive from here instead of hardcoding its own literals. dc/srv/web verified
 # live via Proxmox guest-agent network interfaces during the 2026-07-16 reconciliation run
-# (portal-lab-dc01 vmid 110, portal-lab-srv01 vmid 111, portal-lab-vulhub vmid 112). meta3 has
-# no live host today (vmid 113 stopped, no qemu-guest-agent) — value kept as last-known/aspirational.
+# (portal-lab-dc01 vmid 110, portal-lab-srv01 vmid 111, portal-lab-vulhub vmid 112). meta3
+# (vmid 113) was stopped during that pass so its IP couldn't be confirmed and was left at a
+# stale default (10.10.11.10, which was never actually meta3's address). Corrected the same
+# day once the VM was brought back up for live bench validation and directly port-probed
+# (80/135/139/443/445/593/3389/5985 open, ICMP responds) — the real address is 10.10.11.11.
 lab_hosts:
   dc: 10.10.11.21
   srv: 10.10.11.33
   web: 10.10.11.50
-  meta3: 10.10.11.10  # aspirational — vmid 113 stopped
+  meta3: 10.10.11.11
   domain: portal.lab
 
 targets:
