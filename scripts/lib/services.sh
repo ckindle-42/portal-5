@@ -655,8 +655,16 @@ _launch_start_transcribe() {
       echo "⚠️  HF_TOKEN not set — diarization will fail on first call."
       echo "   Set in .env after accepting pyannote model licenses on HuggingFace."
     fi
+    # mlx-transcribe.py imports portal.platform.mcp_host.workspace, so it needs this
+    # project's own venv interpreter — bare `python3` resolves to the system/Homebrew
+    # interpreter, whose site-packages can have an unrelated same-named "portal"
+    # package installed (found live: __editable__.portal-1.4.0.pth pointing at an
+    # unrelated project), which silently shadows this repo's portal package and
+    # breaks the import with a misleading "No module named 'portal.platform'".
+    TRANSCRIBE_PY="python3"
+    [ -x "$PORTAL_ROOT/.venv/bin/python3" ] && TRANSCRIBE_PY="$PORTAL_ROOT/.venv/bin/python3"
     echo "Starting MLX Transcribe (port 8924)..."
-    nohup python3 "$PORTAL_ROOT/scripts/mlx-transcribe.py" >> "$LOG_FILE" 2>&1 &
+    nohup "$TRANSCRIBE_PY" "$PORTAL_ROOT/scripts/mlx-transcribe.py" >> "$LOG_FILE" 2>&1 &
     echo $! > "$PID_FILE"
     sleep 2
     if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then

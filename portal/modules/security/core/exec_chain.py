@@ -3040,6 +3040,7 @@ def _prepare_scenario(
         scenario["red_order"],
         scenario["red_prompt"],
         runtime_env=runtime_env if runtime_env else None,
+        mission_objective=scenario.get("mission_objective"),
     )
     cfg.gate_result = gate
     return gate
@@ -3225,6 +3226,16 @@ _CHAIN_TOOL_FORCE_CONSTRAINT = (
 )
 
 
+# Turn budget for open-ended/objective-based scenarios (empty red_order —
+# no scripted sequence to derive a budget from, e.g. mission_* scenarios).
+# ~2x the longest scripted chain observed (ad_full_compromise: 9 expected
+# steps -> 18-step budget), rounded up for headroom. Not empirically tuned —
+# these scenarios had never actually run before P5-AUTOSEC-RESELECT (the
+# `range(len(cfg.chain_expected_order) * 2)` loop bound below silently
+# produced range(0) for them, so the model was never dispatched at all).
+_OBJECTIVE_SCENARIO_MAX_STEPS = 20
+
+
 class _ChainTurnStalledError(Exception):
     """Raised when a streamed chain-test turn produces no data for the idle window."""
 
@@ -3400,7 +3411,7 @@ def _run_chain_test(
         _headers: dict[str, str] = {"Content-Type": "application/json"}
         if PIPELINE_API_KEY:
             _headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
-        for _step in range(len(cfg.chain_expected_order) * 2):
+        for _step in range(len(cfg.chain_expected_order) * 2 or _OBJECTIVE_SCENARIO_MAX_STEPS):
             try:
                 if _step == 0:
                     # Show what tools the model sees
@@ -3560,7 +3571,16 @@ def _run_chain_test(
             # satisfy the expected order LENGTH, not just unique tool names.
             # (When all red_order steps are "execute_bash", a set check exits
             # after step 1 — leaving the rest of the chain unexecuted.)
-            if len(tools_called) >= len(cfg.chain_expected_order):
+            # Guarded on chain_expected_order being non-empty: for objective-
+            # based scenarios (empty red_order) this would otherwise be a
+            # spurious 0 >= 0 break after the very first tool call.
+            if cfg.chain_expected_order and len(tools_called) >= len(cfg.chain_expected_order):
+                break
+
+            # Objective-based scenarios (mission_*): no scripted sequence, so
+            # completion is "the mission objective got satisfied," read off
+            # the same lab_observations signals classify_scenario_result uses.
+            if cfg.chain_mission_objective and lab_observations.get(cfg.chain_mission_objective):
                 break
 
             # Track progress by call count, not unique-tool set intersection
@@ -3756,7 +3776,7 @@ def _run_multimodel_chain(
         _headers: dict[str, str] = {"Content-Type": "application/json"}
         if PIPELINE_API_KEY:
             _headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
-        for _step in range(len(cfg.chain_expected_order) * 2):
+        for _step in range(len(cfg.chain_expected_order) * 2 or _OBJECTIVE_SCENARIO_MAX_STEPS):
             _use_pipeline = _is_pipeline_model(current_model)
             try:
                 if _use_pipeline:
@@ -3848,7 +3868,12 @@ def _run_multimodel_chain(
                 messages.append({"role": "tool", "content": tool_result})
 
             # Count-based completion (same fix as first loop)
-            if len(tools_called) >= len(cfg.chain_expected_order):
+            if cfg.chain_expected_order and len(tools_called) >= len(cfg.chain_expected_order):
+                break
+
+            # Objective-based scenarios (mission_*): no scripted sequence, so
+            # completion is "the mission objective got satisfied."
+            if cfg.chain_mission_objective and lab_observations.get(cfg.chain_mission_objective):
                 break
 
             if len(tools_called) > last_required_hit:
