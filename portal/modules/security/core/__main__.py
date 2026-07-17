@@ -1,6 +1,21 @@
 """Entry point for python3 -m portal.modules.security.core."""
 
 import sys
+from pathlib import Path
+
+# Load .env before anything else imports — several modules read LAB_SPLUNK_*
+# and similar env vars at import/instantiation time (e.g. SplunkBackend.__init__),
+# so a caller that forgets to `source .env` first silently gets broken defaults
+# (e.g. LAB_SPLUNK_URL falling back to an unresolvable hostname) instead of an
+# error. Found live 2026-07-17: every non-AD blue/purple telemetry fetch this
+# session returned empty because .env wasn't sourced for the invoking shell —
+# the CLI should not depend on the caller remembering this.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parents[4] / ".env")
+except ImportError:
+    pass
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "self-index":
