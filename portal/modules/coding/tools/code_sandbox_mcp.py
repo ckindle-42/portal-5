@@ -240,11 +240,28 @@ async def _run_in_docker(
         ]
         + (
             # Lab-exec: restore NET_RAW + NET_ADMIN for raw-socket attack tools.
+            # NET_BIND_SERVICE is also required: portal5-attack's nmap binary has
+            # file capabilities cap_net_bind_service,cap_net_admin,cap_net_raw=eip
+            # set (getcap /usr/lib/nmap/nmap) — the kernel refuses the exec with
+            # "Operation not permitted" unless ALL of a binary's file capabilities
+            # are present in the process's capability bounding set, not just the
+            # ones the tool actually uses at runtime. Found live: every -sV nmap
+            # scan through execute_bash failed until this was added (P5-AUTOSEC-
+            # RESELECT mission_* scenario backfill, 2026-07-17).
             # SYS_TIME allows ntpdate/rdate to sync container clock with the DC —
             # required for Kerberos attacks (KRB_AP_ERR_SKEW if >5min drift).
             # Inject DC FQDN via --add-host so tools requiring hostname (bloodhound-ce-python,
             # certipy) can resolve it — container /etc/hosts is read-only under --read-only.
-            ["--cap-add", "NET_RAW", "--cap-add", "NET_ADMIN", "--cap-add", "SYS_TIME"]
+            [
+                "--cap-add",
+                "NET_RAW",
+                "--cap-add",
+                "NET_ADMIN",
+                "--cap-add",
+                "NET_BIND_SERVICE",
+                "--cap-add",
+                "SYS_TIME",
+            ]
             + (
                 [
                     f"--add-host=lab-dc01.portal.lab:{SANDBOX_LAB_TARGET_DC}",
