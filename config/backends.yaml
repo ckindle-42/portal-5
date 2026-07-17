@@ -142,7 +142,7 @@ backends:
   - id: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
     supports_tools: true
   - id: glm-4.7-flash:Q4_K_M
-    supports_tools: false
+    supports_tools: true
   - id: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL
     supports_tools: true
   - id: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k
@@ -183,6 +183,8 @@ backends:
 - group: security
   id: ollama-security
   models:
+  - id: glm-4.7-flash:Q4_K_M
+    supports_tools: true
   - id: huihui_ai/qwen3.5-abliterated:9b
     supports_tools: true
   - id: huihui_ai/qwen3.5-abliterated:9b-ctx64k

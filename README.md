@@ -107,7 +107,7 @@ Portal 5 includes **22 functional workspaces** (plus 60 benchmark workspaces for
 | `auto-spl` | Splunk SPL queries, YARA rules, detection search | — |
 | `auto-compliance` | NERC CIP gap analysis, policy review, audit prep (Granite 4.1 30B) | — |
 | `auto-bigfix` | IBM BigFix relevance scripting | — |
-| `auto-security` | Security analysis, CVE triage, hardening. 8 former sibling workspaces are now `?variant=` query params or a persona's `variant:` field on this base workspace — `uncensored`, `pentest` (JANG-CRACK 31B, live execution), `blueteam` (sylink:8b, threat hunting), `redteam`/`redteam-deep` (SuperGemma4-26B), `purpleteam`/`purpleteam-deep`/`purpleteam-exec` (2/4-hop red→blue chains, exec = live attack + detection + IR playbook) | web_search, kb_search (exec/pentest variants add execute_bash, execute_python) |
+| `auto-security` | Security analysis, CVE triage, hardening (VulnLLM-R-7B). 8 former sibling workspaces are now `?variant=` query params or a persona's `variant:` field on this base workspace — `uncensored`, `pentest` (Qwen3.6-35B-A3B-Uncensored-HauhauCS, live execution — P5-AUTOSEC-RESELECT 2026-07-16), `blueteam` (sylink:8b, threat hunting), `redteam`/`redteam-deep` (SuperGemma4-26B), `purpleteam`/`purpleteam-deep`/`purpleteam-exec` (2/4-hop red→blue chains, exec = live attack + detection + IR playbook) | web_search, kb_search (exec/pentest variants add execute_bash, execute_python) |
 | `auto-general-uncensored` | General uncensored assistant | — |
 | `auto-extract-uncensored` | Uncensored information extraction | — |
 | `tools-specialist` | Tool-use specialist — structured output, function calling (Granite 4.1 8B) | — |

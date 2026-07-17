@@ -5,14 +5,14 @@ title: 22 production + 60 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 22ac88138460
-last_generated_commit: 22ac88138460
+  commit: 0f43390be596
+last_generated_commit: 0f43390be596
 confidence: high
 tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1784169049.7822149
+updated_at: 1784261113.039472
 ---
 
 # Workspace roster (22 production, 60 eval, 82 total)
