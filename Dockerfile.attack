@@ -17,6 +17,7 @@
 #   Recon        — nmap, showmount (nfs-common), bloodhound-python
 #   Password     — hashcat, john, hydra, rockyou.txt (decompressed), seclists
 #   Web          — curl, ffuf, redis-cli
+#   Databases    — mysql (default-mysql-client)
 #   Exploit      — AutoBlue-MS17-010 (python), marshalsec jar (log4shell)
 #   Java         — default-jre-headless (marshalsec + log4shell payload compile)
 #
@@ -57,6 +58,7 @@ RUN apt-get update \
         evil-winrm \
         ffuf \
         redis-tools \
+        default-mysql-client \
         seclists \
         john \
         hashcat \
@@ -101,6 +103,7 @@ RUN set -e; \
     command -v showmount >/dev/null; \
     command -v ffuf >/dev/null; \
     command -v redis-cli >/dev/null; \
+    command -v mysql >/dev/null; \
     command -v john >/dev/null; \
     command -v hashcat >/dev/null; \
     command -v hydra >/dev/null; \
@@ -144,16 +147,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip3 install --no-cache-dir zsteg 2>/dev/null || echo "WARNING: zsteg unavailable"
 
 # ── Build manifest (tool → present) ────────────────────────────────────────
-RUN python3 -c "
-import shutil, json, os
-tools = ['nmap','nxc','certipy-ad','responder','bloodhound-ce-python','impacket-secretsdump','impacket-GetUserSPNs','enum4linux-ng','evil-winrm','showmount','ffuf','redis-cli','john','hashcat','hydra','java','binwalk','radare2','jadx','apktool','foremost','exiftool','steghide','sqlmap','gobuster','nikto','gdb','awscli','kubectl']
-manifest = {t: shutil.which(t) is not None for t in tools}
-manifest['rockyou'] = os.path.exists('/usr/share/wordlists/rockyou.txt')
-manifest['AutoBlue'] = os.path.exists('/opt/AutoBlue-MS17-010/eternalblue_exploit7.py')
-manifest['pwntools'] = True
-with open('/opt/portal5-attack.manifest.json','w') as f: json.dump(manifest,f,indent=2)
-print('manifest: {} / {} tools present'.format(sum(1 for v in manifest.values() if v), len(manifest)))
-" 2>/dev/null || echo "WARNING: manifest gen failed"
+# Single-line python3 -c: a prior multi-line-quoted-string form here relied on
+# Docker layer caching to mask that it was never valid standalone Dockerfile
+# RUN syntax (no line-continuation backslashes) — it only ever executed fresh
+# once, whenever it was originally cached, and broke the instant an upstream
+# layer's cache was invalidated (found live, 2026-07-17, adding default-mysql-
+# client above invalidated this layer for the first time in weeks).
+RUN python3 -c "import shutil, json, os; tools = ['nmap','nxc','certipy-ad','responder','bloodhound-ce-python','impacket-secretsdump','impacket-GetUserSPNs','enum4linux-ng','evil-winrm','showmount','ffuf','redis-cli','mysql','john','hashcat','hydra','java','binwalk','radare2','jadx','apktool','foremost','exiftool','steghide','sqlmap','gobuster','nikto','gdb','awscli','kubectl']; manifest = {t: shutil.which(t) is not None for t in tools}; manifest['rockyou'] = os.path.exists('/usr/share/wordlists/rockyou.txt'); manifest['AutoBlue'] = os.path.exists('/opt/AutoBlue-MS17-010/eternalblue_exploit7.py'); manifest['pwntools'] = True; open('/opt/portal5-attack.manifest.json','w').write(json.dumps(manifest,indent=2)); print('manifest: {} / {} tools present'.format(sum(1 for v in manifest.values() if v), len(manifest)))" 2>/dev/null || echo "WARNING: manifest gen failed"
 
 # execute_bash invokes ["sh", "/code"]; execute_python invokes ["python", "/code"].
 CMD ["sh"]
