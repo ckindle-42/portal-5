@@ -15,6 +15,13 @@ A4 (Challenger) is not optional.  No path bypasses A4.
 
 P6: Agents consult the wiki (wiki.explain) for technique signatures before
 reasoning — recall→lookup, the backbone payoff.
+
+BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2 note: this module is a structural
+stub (A1-A5, InvestigationGraph; no method calls a model). V2's three
+purpose-built sections (tool/Retriever, reasoning/Hunter, expert — see
+blue_orchestrate.py) are philosophically A2/A3/a specialized Reporter,
+realized at the model level. Left untouched here on purpose — do not
+resurrect or re-fork this stub; blue_orchestrate.py is the realized path.
 """
 
 from __future__ import annotations
