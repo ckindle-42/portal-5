@@ -17,6 +17,10 @@ class BenchConfig:
     # ── Scenario state (swapped per-scenario in the run loop) ──────────────
     chain_expected_order: list[str] = field(default_factory=list)
     chain_initial_prompt: str = ""
+    # Set for objective-based scenarios (empty red_order — no scripted
+    # sequence). Names a lab_observations key (e.g. "compromise_confirmed",
+    # "data_extracted") that, once truthy, ends the turn loop early.
+    chain_mission_objective: str | None = None
     gate_result: dict | None = None  # readiness gate result for current scenario
 
     # ── Mode flags (set once from CLI args) ────────────────────────────────
@@ -47,6 +51,7 @@ class BenchConfig:
         red_order: list[str],
         red_prompt: str,
         runtime_env: dict | None = None,
+        mission_objective: str | None = None,
     ) -> None:
         """Swap scenario context — replaces global mutation.
 
@@ -55,6 +60,7 @@ class BenchConfig:
         the container's REAL published port.
         """
         self.chain_expected_order = red_order
+        self.chain_mission_objective = mission_objective
         prompt = red_prompt
         if runtime_env:
             if runtime_env.get("TARGET_HOST"):
