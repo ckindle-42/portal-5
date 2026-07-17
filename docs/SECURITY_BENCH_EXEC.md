@@ -130,17 +130,22 @@ The bench exercises multi-model multi-chain theory calls, tool calls, and lab ex
 │                                                         │
 │  vmid 110  portal-lab-dc01       10.10.11.21  (DC, Win2022)    │
 │  vmid 111  portal-lab-srv01      10.10.11.33  (member server)  │
-│  vmid 113  portal-lab-meta3-win2k8    10.10.11.10  (Metasploitable3 Win2k8) │
+│  vmid 113  portal-lab-meta3-win2k8    10.10.11.13  (Metasploitable3 Win2k8) │
 │  lxc  112  portal-lab-vulhub      10.10.11.50  (Docker: Redis/LFI/       │
 │              Tomcat/Log4Shell/NFS/VulnerableApp)         │
 │  lxc  300  portal-lab-mbptl   10.0.1.140   (MBPTL CTF lab)  │
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Metasploitable3 Win2k8 (vmid 113, 10.10.11.10)
+### Metasploitable3 Win2k8 (vmid 113, 10.10.11.13)
 - Deployed from Vagrant Cloud box → VMDK → qcow2 conversion → LVM import
 - 2 CPU, 4 GB RAM, 60 GB disk
 - Open ports: 21 (FTP), 22 (SSH), 80 (IIS), 135 (RPC), 139 (NetBIOS), 445 (SMB/AD), 3306 (MySQL), 3389 (RDP), 4848 (GlassFish), 8080 (Tomcat), 8383, 8484 (Java), 9200 (Elasticsearch)
+- **IP is DHCP-assigned, not static** — has drifted twice (see `config/lab_targets.yaml`'s
+  meta3 comment for the full history). If meta3_* scenarios start failing with
+  connection-refused, re-verify by MAC (`net0` in `proxmox_vm_config` for vmid 113) against
+  the VM's own tap interface — `tcpdump -i tap113i0 -en ether host <mac>` on the Proxmox host —
+  not by port-probing an IP and assuming any Windows-shaped host found there is meta3.
 
 ### VulnerableApp (lxc 112, 10.10.11.50:80)
 - OWASP project, Docker-native, 14 vulnerability types
@@ -197,7 +202,7 @@ compiler/internet is available in the sandbox.
 # Quick reachability test from within DinD
 docker exec portal5-dind docker run --rm --net bridge portal5-attack:latest \
   sh -c 'nxc smb 10.10.11.21 2>&1 | tail -2 && redis-cli -h 10.10.11.50 ping && \
-         nxc smb 10.10.11.10 -u "" -p "" 2>&1 | head -3 && \
+         nxc smb 10.10.11.13 -u "" -p "" 2>&1 | head -3 && \
          curl -s -o /dev/null -w "%{http_code}" http://10.10.11.50:80/'
 # Expected: SMB portal.lab line + PONG + meta3 SMB + HTTP 200
 ```
@@ -220,7 +225,7 @@ LAB_TARGET_SRV=10.10.11.33
 LAB_TARGET_WEB=10.10.11.50
 
 # Metasploitable3 target (added 2026-06-24)
-LAB_TARGET_META3_WIN=10.10.11.10
+LAB_TARGET_META3_WIN=10.10.11.13
 LAB_META3_WIN_VMID=113
 
 # Optional — for Proxmox VM lifecycle (snapshot/restore)
@@ -369,7 +374,7 @@ Target coverage of the Tier 3 command:
 | Target | Prompts exercising it |
 |---|---|
 | portal-lab-dc01 (10.10.11.21) | kerberoasting, asrep_roasting, bloodhound_ad_recon, pass_the_hash, smb_enum_relay, ad_dcsync_golden_ticket, rbcd_attack, adcs_template_abuse, htb_responder_chain |
-| portal-lab-meta3-win2k8 (10.10.11.10) | kerberoasting, asrep_roasting, bloodhound_ad_recon, pass_the_hash, smb_enum_relay, eternalblue_ms17010, tomcat_manager, ftp_backdoor, mysql_udf_privesc, glassfish_deploy, es_script_rce, iis_webdav_scanner, meta3_full_compromise |
+| portal-lab-meta3-win2k8 (10.10.11.13) | kerberoasting, asrep_roasting, bloodhound_ad_recon, pass_the_hash, smb_enum_relay, eternalblue_ms17010, tomcat_manager, ftp_backdoor, mysql_udf_privesc, glassfish_deploy, es_script_rce, iis_webdav_scanner, meta3_full_compromise |
 | portal-lab-vulhub (10.10.11.50) | redis_to_rce, lfi_to_rce, tomcat_manager, log4shell_rce, nfs_privesc_chain, htb_lfi_log_poison |
 | VulnerableApp (:80) | sqli_manual, web_shell_upload, ssrf_exploitation, htb_sqli_to_shell |
 | Cross-target | web_to_dc_pivot (webshell → DC), htb_responder_chain (Responder → relay) |
@@ -677,12 +682,12 @@ Web-focused prompts (validated against VulnerableApp + portal-lab-vulhub):
 | `web_shell_upload` | 10.10.11.50:80 | VulnerableApp file upload + path traversal |
 | `ssrf_exploitation` | 10.10.11.50:80 | VulnerableApp SSRF endpoint |
 | `lfi_to_rce` | 10.10.11.50:8080 | PHP LFI inclusion container |
-| `tomcat_manager` | 10.10.11.50:8081 or 10.10.11.10:8080 | Tomcat manager (portal-lab-vulhub or meta3) |
+| `tomcat_manager` | 10.10.11.50:8081 or 10.10.11.13:8080 | Tomcat manager (portal-lab-vulhub or meta3) |
 | `log4shell_rce` | 10.10.11.50:8983 | Apache Solr 8.11 CVE-2021-44228 |
 | `redis_to_rce` | 10.10.11.50:6379 | Unauthenticated Redis |
 | `nfs_privesc_chain` | 10.10.11.50:2049 | NFS with no_root_squash |
 
-Metasploitable3 service-specific prompts (10.10.11.10):
+Metasploitable3 service-specific prompts (10.10.11.13):
 
 | Prompt key | Steps | Service | CVE |
 |---|---|---|---|
@@ -819,7 +824,7 @@ NET_RAW cap added for lab-exec containers. If failing, restart MCP sandbox.
 
 ## Lab Validation Status
 
-| Prompt | Lab DC (10.10.11.21) | Meta3 (10.10.11.10) | vulhub (10.10.11.50) |
+| Prompt | Lab DC (10.10.11.21) | Meta3 (10.10.11.13) | vulhub (10.10.11.50) |
 |---|---|---|---|
 | `kerberoasting` | ✅ | ✅ | — |
 | `asrep_roasting` | ⚠️ (needs preauth-disabled) | ✅ | — |

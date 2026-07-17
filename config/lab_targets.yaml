@@ -6,16 +6,31 @@
 # portal/modules/security/core/_data.py's env-fallback path (P5-SECURITY-ARM-RECONCILE-001) —
 # _data.py must derive from here instead of hardcoding its own literals. dc/srv/web verified
 # live via Proxmox guest-agent network interfaces during the 2026-07-16 reconciliation run
-# (portal-lab-dc01 vmid 110, portal-lab-srv01 vmid 111, portal-lab-vulhub vmid 112). meta3
-# (vmid 113) was stopped during that pass so its IP couldn't be confirmed and was left at a
-# stale default (10.10.11.10, which was never actually meta3's address). Corrected the same
-# day once the VM was brought back up for live bench validation and directly port-probed
-# (80/135/139/443/445/593/3389/5985 open, ICMP responds) — the real address is 10.10.11.11.
+# (portal-lab-dc01 vmid 110, portal-lab-srv01 vmid 111, portal-lab-vulhub vmid 112).
+#
+# meta3 (vmid 113) IP has been wrong TWICE now from the same failure mode — port-probing an
+# address and assuming any Windows-shaped host found there is meta3:
+#   - 10.10.11.10 (original default): never actually meta3's address.
+#   - 10.10.11.11 (2026-07-16 "correction"): meta3 (vmid 113) was STOPPED at the time; this
+#     port-probe (80/135/139/443/445/593/3389/5985, ICMP) hit a *different*, unrelated VM
+#     (hostname RDS01, Windows Server 2022, domain lab.internal) that happened to be up and
+#     Windows-shaped. Every meta3_* scenario run against .11 during 2026-07-17's HauhauCS
+#     red-capture sweep (20 scenarios) was against the wrong target.
+#   - 10.10.11.13 (2026-07-17, this correction): vmid 113 was found stopped (again), started,
+#     then identified by its Proxmox-config MAC (net0=BC:24:11:20:B6:50) via `tcpdump -i
+#     tap113i0 -en ether host bc:24:11:20:b6:50` on the Proxmox host itself — MAC-based
+#     identification against the VM's own tap interface, not a port-probe guess. Confirmed
+#     live: FTP/SSH/IIS 7.5/MySQL 5.5.20/GlassFish 4.0/Elasticsearch 1.1.1/Jetty on Windows
+#     Server 2008 R2 — an exact match for Metasploitable3's documented service fleet.
+#   Caution: meta3 issued a DHCPv6 solicit on boot (DHCP-assigned, not static) — this address
+#   can drift again on the VM's next reboot. Re-verify by MAC (not port-probe) if meta3_*
+#   scenarios start failing with connection-refused again. A static IP or DHCP reservation on
+#   the VM itself would remove this whole failure class permanently — recommended, not yet done.
 lab_hosts:
   dc: 10.10.11.21
   srv: 10.10.11.33
   web: 10.10.11.50
-  meta3: 10.10.11.11
+  meta3: 10.10.11.13
   domain: portal.lab
 
 targets:
