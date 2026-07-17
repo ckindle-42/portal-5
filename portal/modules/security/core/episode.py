@@ -49,6 +49,12 @@ REASON_CODES: dict[str, list[str]] = {
 
 CAPABILITY_VERDICTS = ["PROVEN", "FAILED", "INDETERMINATE", "UNAVAILABLE"]
 
+# BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2 (additive re-export): the analyst/expert
+# confidence verdict axis lives in analyst_verdict.py and is deliberately disjoint
+# from CAPABILITY_VERDICTS above (harness truth, untouched). Re-exported here only
+# for discoverability alongside the axis it is not to be confused with.
+from .analyst_verdict import ANALYST_VERDICTS, AnalystVerdict  # noqa: E402, F401
+
 
 def new_episode_id(scenario: str) -> str:
     """Generate a unique episode ID: ep-<ISO timestamp>-<scenario>-<short hash>.
