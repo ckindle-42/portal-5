@@ -675,6 +675,27 @@ workspaces:
         depth: exec
         guardrail: default
         role: purple
+      blueteam-orchestrated:
+        name: 🔵 Portal Blue Team · Orchestrated Discovery
+        description: 'BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2. Purpose-built three-section
+          discovery pipeline (portal.modules.security.core.blue_orchestrate.run_blue_orchestration):
+          a tool-capable Retriever gathers telemetry, a generalist reasoning Hunter forms
+          hypotheses and runs similarity/novelty detection (open discovery prompt, no
+          checklist), and a fed no-tools domain expert renders the conclusive verdict —
+          looping until CONFIRMED / ANOMALOUS_UNCLASSIFIED / RULED_OUT or budget-exhausted
+          UNRESOLVED. NOT auto-routed and NOT exposed to OWUI (I5) — this variant exists
+          only to hold the confirm-only tool_model/reasoning_model/expert_model trio for
+          the CLI (--blue-mode orchestrated, Slice 7) and the Slice 8 ablation. The
+          existing blueteam variant''s prod model_hint (granite4.1:8b-ctx8k) is unchanged.'
+        expose_to_owui: false
+        tool_model: granite4.1:8b-ctx8k
+        reasoning_model: devstral-small-2:latest
+        expert_model: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+        tools:
+        - classify_vulnerability
+        depth: default
+        guardrail: default
+        role: blue
   auto-bigfix:
     module: general
     name: 🩹 Portal BigFix Analyst

@@ -284,11 +284,12 @@ The canonical variant vocabulary, generated from `config/portal.yaml`
 `sync-config` instead):
 
 <!-- WIKI:GENERATED unit=unit-fact-security-variants -->
-# Security canonical variants (8)
+# Security canonical variants (9)
 
 sec-bench `--workspaces` targets, addressed as `auto-security::<variant>`:
 
 - `auto-security::blueteam`
+- `auto-security::blueteam-orchestrated`
 - `auto-security::pentest`
 - `auto-security::purpleteam`
 - `auto-security::purpleteam-deep`
