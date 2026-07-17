@@ -13,9 +13,19 @@ Reuses (never re-implements):
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
+from typing import Any
 
-from .agentic_blue_eval import Episode, _call_model, _query_real_telemetry
+from .agentic_blue_eval import (
+    Episode,
+    _call_model,
+    _find_balanced_json_objects,
+    _query_real_telemetry,
+)
+from .analyst_verdict import SectionOutput
+from .blue import _BLUE_SYSTEM_PROMPT_DISCOVERY
+from .unknown_defense import MatchGrade, compute_similarity
 
 # Retrieval-only tool schemas for the tool section (Retriever). report_detection
 # is deliberately excluded here — the tool section gathers, it does not
@@ -142,4 +152,143 @@ def run_tool_model(
     raw_summary = "\n".join(r.get("result", "") for r in rows)[:4000]
     return ToolResult(
         query=req.spec, rows=rows, provenance=provenance, window=req.window, raw_summary=raw_summary
+    )
+
+
+# ── Slice 3: Reasoning section (Hunter) — open-ended discovery ──────────────
+
+_THINK_TAG_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+_HUNTER_OUTPUT_FORMAT_INSTRUCTIONS = (
+    "\n\nWhen you respond, include exactly one JSON object (in addition to any prose "
+    "reasoning) with these fields:\n"
+    '{"request_more": "<what telemetry you still need, or empty if you have enough>", '
+    '"technique_ids": ["T...."], "evidence": ["..."], "reasoning": "...", '
+    '"match_grade": "EXACT|SIMILAR|NONE", "similar_to": ["T...."]}\n'
+    "Set request_more (non-empty) and leave technique_ids empty if you need more evidence "
+    "before proposing anything — do not guess. You are proposing hypotheses for a domain "
+    "expert to review; you are not issuing the final verdict."
+)
+
+
+def _strip_think_tags(text: str) -> str:
+    """Strip inline <think>...</think> scratchpad blocks before parsing (I3).
+
+    Ollama's reasoning API usually separates thinking from content already,
+    but some fine-tunes (per the project's June zero-retry lesson) emit the
+    scratchpad inline in `content` regardless — defensive strip either way.
+    """
+    return _THINK_TAG_RE.sub("", text or "").strip()
+
+
+def format_for_reasoning(results: list[ToolResult], trigger: str) -> str:
+    """Render gathered telemetry + trigger into the Hunter's context.
+
+    Framed with blue._BLUE_SYSTEM_PROMPT_DISCOVERY (reused, open, no
+    checklist) plus the structured-output instructions the Hunter needs to
+    hand hypotheses to the expert (design §3.1.a / I8: never a checklist of
+    *what to look for*, only of *how to answer*).
+    """
+    parts = [f"Trigger: {trigger}"]
+    for r in results:
+        parts.append(f"[{r.provenance}] query: {r.query}\n{r.raw_summary}")
+    evidence_block = (
+        "\n\n".join(parts) if results else f"Trigger: {trigger}\n(no telemetry gathered yet)"
+    )
+    return (
+        f"{_BLUE_SYSTEM_PROMPT_DISCOVERY}\n\n{evidence_block}{_HUNTER_OUTPUT_FORMAT_INSTRUCTIONS}"
+    )
+
+
+def run_similarity(
+    features: dict[str, Any], *, wiki_descriptions: dict[str, str]
+) -> dict[str, Any]:
+    """Run unknown_defense.compute_similarity and translate its grade into the
+    analyst_verdict match_grade/similar_to carry (I8: a SIMILAR match is a
+    named-variant lead, never coerced into EXACT or dropped)."""
+    result = compute_similarity(features, wiki_descriptions)
+    if result.grade == MatchGrade.NONE:
+        return {"match_grade": "NONE", "similar_to": [], "similarity_detail": result.detail}
+    return {
+        "match_grade": result.grade,
+        "similar_to": [result.matched_technique] if result.matched_technique else [],
+        "similarity_detail": result.detail,
+    }
+
+
+def _parse_hunter_json(stripped: str) -> dict[str, Any] | None:
+    for obj in reversed(_find_balanced_json_objects(stripped)):
+        if "request_more" in obj or "technique_ids" in obj or "evidence" in obj:
+            return obj
+    return None
+
+
+def run_reasoning_model(
+    context: str,
+    *,
+    reasoning_model: str,
+    ground_truth: set[str],
+    dry_run: bool = False,
+) -> SectionOutput:
+    """Call a generalist reasoner (tools off) to hunt: form hypotheses, decide
+    what more to pull, and carry a similarity result. The Hunter proposes; it
+    never issues the section's terminal CONFIRMED (the expert does, Slice 4)."""
+    if dry_run:
+        return SectionOutput(
+            request_more="dry-run: no live hunt performed",
+            section="reasoning",
+            raw="",
+        )
+
+    messages = [
+        {"role": "system", "content": _BLUE_SYSTEM_PROMPT_DISCOVERY},
+        {"role": "user", "content": context},
+    ]
+    msg = _call_model(reasoning_model, messages, tools=None, max_tokens=3000)
+    content = msg.get("content", "") or ""
+    stripped = _strip_think_tags(content)
+    parsed = _parse_hunter_json(stripped)
+
+    if not parsed:
+        # No structured output at all -> treat as an insufficient-evidence
+        # turn (I8: never guess a verdict from unparseable free text).
+        fallback = stripped[:400] or "insufficient evidence — need more telemetry"
+        return SectionOutput(request_more=fallback, section="reasoning", raw=content)
+
+    request_more = str(parsed.get("request_more") or "").strip()
+    technique_ids = [t for t in (parsed.get("technique_ids") or []) if t]
+    match_grade = str(parsed.get("match_grade") or "NONE").upper()
+    if match_grade not in ("EXACT", "SIMILAR", "NONE"):
+        match_grade = "NONE"
+    similar_to = [t for t in (parsed.get("similar_to") or []) if t]
+
+    if request_more and not technique_ids:
+        return SectionOutput(
+            request_more=request_more,
+            match_grade=match_grade,
+            similar_to=similar_to,
+            section="reasoning",
+            raw=content,
+        )
+
+    if not technique_ids and not request_more:
+        # Neither a hypothesis nor a request -> still insufficient (I8).
+        return SectionOutput(
+            request_more=stripped[:400] or "insufficient evidence — need more telemetry",
+            section="reasoning",
+            raw=content,
+        )
+
+    # A hypothesis set for the expert. Provisional only — section="reasoning"
+    # marks it non-terminal; the orchestrator does not score this verdict.
+    proposed_verdict = "ANOMALOUS_UNCLASSIFIED" if match_grade == "SIMILAR" else "CONFIRMED"
+    return SectionOutput(
+        verdict=proposed_verdict,
+        technique_ids=technique_ids,
+        evidence=[str(e) for e in (parsed.get("evidence") or [])],
+        reasoning=str(parsed.get("reasoning") or ""),
+        match_grade=match_grade,
+        similar_to=similar_to,
+        section="reasoning",
+        raw=content,
     )
