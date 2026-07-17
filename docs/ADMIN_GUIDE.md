@@ -589,7 +589,7 @@ default.
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (149 model ids across 6 backend groups)
+# Model catalog (150 model ids across 6 backend groups)
 
 ## coding (39)
 
@@ -710,11 +710,12 @@ default.
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 
-## security (26)
+## security (27)
 
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
 - `devstral-small-2:latest-ctx8k`
+- `glm-4.7-flash:Q4_K_M`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`

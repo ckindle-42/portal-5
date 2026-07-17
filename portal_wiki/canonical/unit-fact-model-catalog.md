@@ -1,21 +1,21 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 149 model ids, 6 backend groups
+title: 150 model ids, 6 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 22ac88138460
-last_generated_commit: 22ac88138460
+  commit: 4fea07314f03
+last_generated_commit: 4fea07314f03
 confidence: high
 tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1784169080.748895
+updated_at: 1784237998.0891452
 ---
 
-# Model catalog (149 model ids across 6 backend groups)
+# Model catalog (150 model ids across 6 backend groups)
 
 ## coding (39)
 
@@ -136,11 +136,12 @@ updated_at: 1784169080.748895
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 
-## security (26)
+## security (27)
 
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
 - `devstral-small-2:latest-ctx8k`
+- `glm-4.7-flash:Q4_K_M`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`
