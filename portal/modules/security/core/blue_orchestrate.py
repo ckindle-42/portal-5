@@ -437,3 +437,191 @@ def run_expert_model(
         section="expert",
         raw=content,
     )
+
+
+# ── Slice 5: Deterministic section-pipeline orchestrator (GATE-B) ──────────
+#
+# GATE-B spike outcome: FORCED to a bespoke state machine, not run_loop.
+# platform/agent/loop.py::run_loop + decide.py::decide_next_action are built
+# around CapabilityProvider.query()+rank() — open-ended selection over an
+# *indexed capability graph*, where the loop doesn't know in advance which
+# capability runs next. This pipeline is the opposite shape: a fixed,
+# strictly-ordered 3-stage flow (tool -> reasoning -> expert) with typed data
+# threading between stages (ToolResult accumulation feeding format_for_reasoning,
+# the Hunter's SectionOutput feeding format_for_expert). Forcing that into
+# run_loop would mean building a synthetic 3-candidate capability graph whose
+# "ranking" is just the fixed order we already have — pure indirection, no
+# reduction in code and no use of run_loop's actual value (open capability
+# selection). A small bespoke loop here is the honest, auditable shape;
+# run_loop remains available for a future *open-ended* section (e.g. a variable
+# number of specialist consultants), which this build's canonical 3-section
+# pipeline is not.
+
+
+@dataclass
+class OrchestrationResult:
+    """Final result of one run_blue_orchestration call.
+
+    `verdict` is one of ANALYST_VERDICTS; UNRESOLVED means the orchestrator
+    (not any section) gave up on budget — distinct from a section-produced
+    ANOMALOUS_UNCLASSIFIED (§3.2; I8: a real discovery is never punished by
+    looking like a stall). `capability_verdict` is intentionally left for the
+    caller to fill in from the untouched episode.derive_verdict harness axis
+    (I1) — this module never computes it.
+    """
+
+    verdict: str = "UNRESOLVED"
+    technique_ids: list[str] = field(default_factory=list)
+    evidence: list[str] = field(default_factory=list)
+    reasoning: str = ""
+    match_grade: str = "NONE"
+    similar_to: list[str] = field(default_factory=list)
+    trace: list[dict] = field(default_factory=list)
+    rounds: int = 0
+    elapsed_s: float = 0.0
+    capability_verdict: str | None = None
+
+
+def run_blue_orchestration(
+    episode: Episode,
+    *,
+    sections: list[SectionSpec],
+    max_rounds: int = 6,
+    wall_clock_s: float | None = None,
+    check_additional: bool = False,
+    dry_run: bool = False,
+) -> OrchestrationResult:
+    """Run the canonical tool -> reasoning -> expert pipeline to a conclusive
+    expert verdict, or UNRESOLVED on budget exhaustion.
+
+    `sections` binds each role to a model (canonical: [tool, reasoning,
+    expert]) — swapping a section's model, or adding a 4th role later, is a
+    config change to this list, not a rewrite of the flow below (§0.1(2)).
+    """
+    import time as _time
+
+    models = {s.role: s.model for s in sections}
+    for role in ("tool", "reasoning", "expert"):
+        if role not in models:
+            raise ValueError(f"sections is missing a '{role}' SectionSpec")
+
+    ground_truth = set(episode.techniques)
+    trigger = f"An alert was triggered on {episode.target_host} (scenario: {episode.scenario})."
+
+    tool_results: list[ToolResult] = []
+    trace: list[dict] = []
+    rounds = 0
+    started = _time.monotonic()
+    hunter_out: SectionOutput | None = None
+    expert_out: SectionOutput | None = None
+
+    def _elapsed() -> float:
+        return _time.monotonic() - started
+
+    def _budget_exhausted() -> bool:
+        if rounds >= max_rounds:
+            return True
+        return bool(wall_clock_s and _elapsed() >= wall_clock_s)
+
+    def _gather(request_more: str) -> None:
+        req = build_tool_request(request_more)
+        tr = run_tool_model(
+            req,
+            tool_model=models["tool"],
+            ground_truth=ground_truth,
+            episode=episode,
+            dry_run=dry_run,
+        )
+        tool_results.append(tr)
+        trace.append(
+            {
+                "round": rounds,
+                "section": "tool",
+                "model": models["tool"],
+                "provenance": tr.provenance,
+                "query": tr.query,
+            }
+        )
+
+    while not _budget_exhausted():
+        ctx = format_for_reasoning(tool_results, trigger)
+        hunter_out = run_reasoning_model(
+            ctx, reasoning_model=models["reasoning"], ground_truth=ground_truth, dry_run=dry_run
+        )
+        trace.append(
+            {
+                "round": rounds,
+                "section": "reasoning",
+                "model": models["reasoning"],
+                "verdict": hunter_out.verdict,
+                "match_grade": hunter_out.match_grade,
+                "wants_more": hunter_out.wants_more(),
+            }
+        )
+        rounds += 1
+
+        if hunter_out.wants_more():
+            if _budget_exhausted():
+                break
+            _gather(hunter_out.request_more)
+            rounds += 1
+            continue
+
+        ectx = format_for_expert(hunter_out, tool_results, trigger)
+        expert_out = run_expert_model(
+            ectx,
+            expert_model=models["expert"],
+            ground_truth=ground_truth,
+            tool_results=tool_results,
+            hunter_similar_to=hunter_out.similar_to,
+            dry_run=dry_run,
+        )
+        trace.append(
+            {
+                "round": rounds,
+                "section": "expert",
+                "model": models["expert"],
+                "verdict": expert_out.verdict,
+                "match_grade": expert_out.match_grade,
+                "wants_more": expert_out.wants_more(),
+            }
+        )
+        rounds += 1
+
+        if expert_out.is_conclusion():
+            break
+        if expert_out.wants_more() and not _budget_exhausted():
+            _gather(expert_out.request_more)
+            rounds += 1
+            continue
+        break
+
+    if expert_out is not None and expert_out.is_conclusion():
+        result = OrchestrationResult(
+            verdict=expert_out.verdict,
+            technique_ids=expert_out.technique_ids,
+            evidence=expert_out.evidence,
+            reasoning=expert_out.reasoning,
+            match_grade=expert_out.match_grade,
+            similar_to=expert_out.similar_to,
+            trace=trace,
+            rounds=rounds,
+            elapsed_s=round(_elapsed(), 2),
+        )
+    else:
+        result = OrchestrationResult(
+            verdict="UNRESOLVED",
+            trace=trace,
+            rounds=rounds,
+            elapsed_s=round(_elapsed(), 2),
+        )
+
+    if check_additional and result.verdict != "UNRESOLVED":
+        # design §3.1.b: one more pass to surface other findings after a
+        # conclusion. Left as a documented no-op for this slice — the trace
+        # already records every round for a human to review manually; a real
+        # second pass is a follow-on once Slice 8's ablation shows it's worth
+        # the extra round cost.
+        pass
+
+    return result
