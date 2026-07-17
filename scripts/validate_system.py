@@ -47,6 +47,7 @@ import asyncio
 import importlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -2735,6 +2736,7 @@ def main() -> int:
     v.run("BA. challenge reality-aware (backed or aspirational)", check_challenge_reality)
     v.run("BB. model inventory reality (bench hints vs snapshot)", check_model_inventory_reality)
     v.run("BC. fleet health reality (declared vs live)", check_fleet_health_reality)
+    v.run("BD. blue orchestration verdict axis", check_blue_orchestration_axis)
 
     return v.summary()
 
@@ -3375,6 +3377,85 @@ def check_fleet_health_reality() -> tuple[str, str, list[dict]]:
             subs,
         )
     return ("PASS", f"{len(ports)} declared fleet ports all reachable", [])
+
+
+def check_blue_orchestration_axis() -> tuple[str, str, list[dict]]:
+    """BD. The analyst-confidence verdict axis stays disjoint from harness truth,
+    and blue_orchestrate.py reuses (never re-implements) the never-invent +
+    similarity substrate.
+
+    BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2 I1/I2/I7: (1) ANALYST_VERDICTS
+    (analyst_verdict.py) must never collide with CAPABILITY_VERDICTS
+    (episode.py, harness truth) — a collision would let a model-produced
+    verdict silently masquerade as ground truth. (2) blue_orchestrate.py must
+    import _cite_or_drop and compute_similarity (reused, not duplicated) and
+    must not define its own derive_verdict (episode.py's stays the single
+    harness-truth implementation).
+    """
+    from portal.modules.security.core.analyst_verdict import ANALYST_VERDICTS
+    from portal.modules.security.core.episode import CAPABILITY_VERDICTS
+
+    subs: list[dict] = []
+    bad: list[str] = []
+
+    overlap = set(ANALYST_VERDICTS) & set(CAPABILITY_VERDICTS)
+    ok = not overlap
+    subs.append(
+        {
+            "name": "verdict axes disjoint",
+            "status": "PASS" if ok else "FAIL",
+            "detail": f"overlap={sorted(overlap)}" if overlap else "no overlap",
+        }
+    )
+    if not ok:
+        bad.append(f"ANALYST_VERDICTS overlaps CAPABILITY_VERDICTS: {sorted(overlap)}")
+
+    orch_path = REPO_ROOT / "portal" / "modules" / "security" / "core" / "blue_orchestrate.py"
+    src = orch_path.read_text()
+
+    imports_cite_or_drop = bool(
+        re.search(r"\bimport\b[^\n]*\b_cite_or_drop\b", src)
+        or re.search(r"^\s*from\s+\S+\s+import\s+.*\b_cite_or_drop\b", src, re.MULTILINE)
+    )
+    subs.append(
+        {
+            "name": "imports _cite_or_drop",
+            "status": "PASS" if imports_cite_or_drop else "FAIL",
+            "detail": "reused from blue.py" if imports_cite_or_drop else "not imported",
+        }
+    )
+    if not imports_cite_or_drop:
+        bad.append("blue_orchestrate.py does not import _cite_or_drop")
+
+    imports_compute_similarity = bool(
+        re.search(r"^\s*from\s+\S+\s+import\s+.*\bcompute_similarity\b", src, re.MULTILINE)
+    )
+    subs.append(
+        {
+            "name": "imports compute_similarity",
+            "status": "PASS" if imports_compute_similarity else "FAIL",
+            "detail": "reused from unknown_defense.py"
+            if imports_compute_similarity
+            else "not imported",
+        }
+    )
+    if not imports_compute_similarity:
+        bad.append("blue_orchestrate.py does not import compute_similarity")
+
+    redefines_derive_verdict = bool(re.search(r"^\s*def\s+derive_verdict\s*\(", src, re.MULTILINE))
+    subs.append(
+        {
+            "name": "does not redefine derive_verdict",
+            "status": "FAIL" if redefines_derive_verdict else "PASS",
+            "detail": "redefined!" if redefines_derive_verdict else "not redefined",
+        }
+    )
+    if redefines_derive_verdict:
+        bad.append("blue_orchestrate.py redefines derive_verdict (must reuse episode.py's)")
+
+    if bad:
+        return ("FAIL", "; ".join(bad), subs)
+    return ("PASS", "verdict axis disjoint; never-invent + similarity substrate reused", [])
 
 
 if __name__ == "__main__":

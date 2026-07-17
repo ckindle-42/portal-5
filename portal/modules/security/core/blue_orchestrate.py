@@ -87,6 +87,24 @@ def build_tool_request(trigger_or_more: str, *, window: str = "") -> ToolRequest
     return ToolRequest(spec=trigger_or_more.strip(), window=window)
 
 
+def _coerce_tool_args(raw: Any) -> dict:
+    """Ollama's native tool-call arguments are usually already a dict, but a
+    live probe against granite4.1:8b-ctx8k (Slice 7 end-to-end run) found it
+    can return `arguments` as a JSON-encoded string instead — crashing
+    _query_real_telemetry's `.values()` call downstream. Defensive parse."""
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        import json
+
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
 def _dispatch_tool_call(name: str, args: dict, episode: Episode) -> str:
     """Answer one tool call against the episode's captured telemetry.
 
@@ -126,7 +144,7 @@ def run_tool_model(
         for tc in tool_calls:
             fn = tc.get("function", {})
             name = fn.get("name", "")
-            args = fn.get("arguments") or {}
+            args = _coerce_tool_args(fn.get("arguments"))
             if name not in _RETRIEVAL_TOOL_NAMES:
                 continue
             result_text = _dispatch_tool_call(name, args, episode)

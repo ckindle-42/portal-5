@@ -243,7 +243,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--blue-mode",
-        choices=["scripted", "discovery", "hybrid"],
+        choices=["scripted", "discovery", "hybrid", "orchestrated"],
         default="scripted",
         help=(
             "With --purple: which blue investigation prompt to use "
@@ -252,8 +252,39 @@ def main() -> None:
             "decides what to investigate from scratch. 'hybrid' = open-ended but "
             "with technique-reference hints as optional context plus an explicit "
             "anti-rumination instruction, no mandatory sequence. Same tools, "
-            "telemetry, and scoring across all three."
+            "telemetry, and scoring across all three. 'orchestrated' "
+            "(BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2) is a standalone mode, not "
+            "a --purple prompt variant: runs the tool/reasoning/expert 3-section "
+            "discovery pipeline (blue_orchestrate.run_blue_orchestration) against "
+            "a captured episode via --scenario + --replay-captured-red, using "
+            "--tool-model/--reasoning-model/--expert-model (defaults from "
+            "config/portal.yaml's auto-security::blueteam-orchestrated variant)."
         ),
+    )
+    parser.add_argument(
+        "--tool-model",
+        default=None,
+        metavar="MODEL",
+        help="With --blue-mode orchestrated: the tool-capable Retriever model.",
+    )
+    parser.add_argument(
+        "--reasoning-model",
+        default=None,
+        metavar="MODEL",
+        help="With --blue-mode orchestrated: the generalist reasoning Hunter model.",
+    )
+    parser.add_argument(
+        "--expert-model",
+        default=None,
+        metavar="MODEL",
+        help="With --blue-mode orchestrated: the fed, no-tools domain-expert model.",
+    )
+    parser.add_argument(
+        "--max-orchestration-rounds",
+        type=int,
+        default=6,
+        metavar="N",
+        help="With --blue-mode orchestrated: round budget before UNRESOLVED (default: 6).",
     )
     parser.add_argument(
         "--all-scenarios",
@@ -523,6 +554,100 @@ def main() -> None:
     if args.list_prompts:
         for k in PROMPTS:
             print(f"  {k}")
+        return
+
+    # ── Standalone: --blue-mode orchestrated ─────────────────────────────────
+    # BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2 Slice 7. Not a --purple prompt
+    # variant (I5: no auto-security prod routing touched) — runs the
+    # tool/reasoning/expert discovery pipeline directly against a captured
+    # episode and exits. Additive-only; every other --blue-mode value is
+    # unaffected.
+    if args.blue_mode == "orchestrated":
+        from portal.platform.inference.config import load_portal_config
+
+        from .agentic_blue_eval import load_episode, score_findings_tiered
+        from .blue_orchestrate import SectionSpec, run_blue_orchestration
+
+        if not args.replay_captured_red:
+            print("  ERROR: --blue-mode orchestrated requires --replay-captured-red")
+            return
+
+        episode = load_episode(args.scenario)
+        if episode is None:
+            print(f"  ERROR: no captured episode found for scenario '{args.scenario}'")
+            return
+
+        default_variant = (
+            load_portal_config()
+            .workspaces.get("auto-security")
+            .variants.get("blueteam-orchestrated", {})
+        )
+        tool_model = args.tool_model or default_variant.get("tool_model")
+        reasoning_model = args.reasoning_model or default_variant.get("reasoning_model")
+        expert_model = args.expert_model or default_variant.get("expert_model")
+        if not (tool_model and reasoning_model and expert_model):
+            print(
+                "  ERROR: --tool-model/--reasoning-model/--expert-model not set and "
+                "no default found in config/portal.yaml's blueteam-orchestrated variant"
+            )
+            return
+
+        print(f"Blue orchestration — scenario={episode.scenario} target={episode.target_host}")
+        print(f"  tool_model={tool_model}")
+        print(f"  reasoning_model={reasoning_model}")
+        print(f"  expert_model={expert_model}")
+
+        sections = [
+            SectionSpec(role="tool", model=tool_model, needs_tools=True),
+            SectionSpec(role="reasoning", model=reasoning_model),
+            SectionSpec(role="expert", model=expert_model),
+        ]
+        result = run_blue_orchestration(
+            episode,
+            sections=sections,
+            max_rounds=args.max_orchestration_rounds,
+            dry_run=args.dry_run,
+        )
+        scoring = score_findings_tiered(set(result.technique_ids), set(episode.techniques))
+
+        print(f"\n  Verdict       : {result.verdict}")
+        print(f"  Technique IDs : {result.technique_ids}")
+        print(f"  Match grade   : {result.match_grade}  similar_to={result.similar_to}")
+        print(f"  Rounds/elapsed: {result.rounds} / {result.elapsed_s}s")
+        print(f"  Overall recall: {scoring['overall']['recall']}")
+
+        ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = (
+            Path(args.output)
+            if args.output
+            else RESULTS_DIR / f"sec_blue_orchestrated_{episode.scenario}_{ts}.json"
+        )
+        out_path.write_text(
+            json.dumps(
+                {
+                    "scenario": episode.scenario,
+                    "target_host": episode.target_host,
+                    "ground_truth": episode.techniques,
+                    "tool_model": tool_model,
+                    "reasoning_model": reasoning_model,
+                    "expert_model": expert_model,
+                    "verdict": result.verdict,
+                    "technique_ids": result.technique_ids,
+                    "evidence": result.evidence,
+                    "reasoning": result.reasoning,
+                    "match_grade": result.match_grade,
+                    "similar_to": result.similar_to,
+                    "rounds": result.rounds,
+                    "elapsed_s": result.elapsed_s,
+                    "trace": result.trace,
+                    "scoring": scoring,
+                },
+                indent=2,
+                default=str,
+            )
+        )
+        print(f"  Results written -> {out_path}")
         return
 
     # ── Standalone lab probe: `--probe-lab` with no chain/exec/purple work ────

@@ -100,6 +100,33 @@ def test_live_tool_call_ignores_non_retrieval_tool_calls(monkeypatch):
     assert result.provenance == "live-broad-fallback"
 
 
+def test_live_tool_call_with_string_encoded_arguments_does_not_crash(monkeypatch):
+    """Regression: granite4.1:8b-ctx8k, live end-to-end (Slice 7), returned
+    tool-call `arguments` as a JSON-encoded string instead of a dict,
+    crashing _query_real_telemetry's `.values()` call downstream."""
+    ep = _episode({"windows:security": ["EventCode=4768 AS-REP roasting event for svc-web"]})
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+        return {
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "query_windows_events",
+                        "arguments": '{"event_ids": [4768]}',
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    req = bo.build_tool_request("check AS-REP roasting event 4768")
+    result = bo.run_tool_model(
+        req, tool_model="granite4.1:8b-ctx8k", ground_truth={"T1558.004"}, episode=ep
+    )
+    assert result.provenance == "matched-exact"
+    assert result.rows[0]["args"] == {"event_ids": [4768]}
+
+
 def test_retrieval_tool_schemas_excludes_report_detection():
     schemas = bo._retrieval_tool_schemas()
     names = {s["function"]["name"] for s in schemas}
