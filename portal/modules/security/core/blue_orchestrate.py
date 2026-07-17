@@ -24,7 +24,7 @@ from .agentic_blue_eval import (
     _query_real_telemetry,
 )
 from .analyst_verdict import SectionOutput
-from .blue import _BLUE_SYSTEM_PROMPT_DISCOVERY
+from .blue import _BLUE_SYSTEM_PROMPT_DISCOVERY, _cite_or_drop
 from .unknown_defense import MatchGrade, compute_similarity
 
 # Retrieval-only tool schemas for the tool section (Retriever). report_detection
@@ -290,5 +290,150 @@ def run_reasoning_model(
         match_grade=match_grade,
         similar_to=similar_to,
         section="reasoning",
+        raw=content,
+    )
+
+
+# ── Slice 4: Expert section (fed, no tools) — the conclusive verdict ────────
+
+_EXPERT_SYSTEM_PROMPT = (
+    "You are a domain-expert security analyst rendering a conclusive judgment. You have no "
+    "tools and cannot fetch more data — you must decide based on what is given to you. A "
+    "hunter analyst has proposed hypotheses and gathered evidence; your job is to confirm, "
+    "refute, or reclassify them as a security expert would, grounding every conclusion "
+    "strictly in the evidence provided. Never invent supporting evidence that isn't there."
+)
+
+_EXPERT_OUTPUT_FORMAT_INSTRUCTIONS = (
+    "\n\nRespond with exactly one JSON object:\n"
+    '{"verdict": "CONFIRMED|ANOMALOUS_UNCLASSIFIED|RULED_OUT", "technique_ids": ["T...."], '
+    '"evidence": ["..."], "reasoning": "...", "match_grade": "EXACT|SIMILAR|NONE", '
+    '"similar_to": ["T...."], "request_more": "<leave empty unless you need one specific '
+    'targeted gap filled before you can conclude>"}\n'
+    "Set request_more only if a single specific gap would let you conclude — otherwise render "
+    "your best-grounded verdict now; RULED_OUT is a valid, honest conclusion when the evidence "
+    "does not support the hunter's hypothesis."
+)
+
+
+def format_for_expert(reasoning_out: SectionOutput, results: list[ToolResult], trigger: str) -> str:
+    """A focused 'here is what the hunt found; render your expert judgment'
+    prompt — distinct from the open hunt prompt (the expert is fed, not
+    exploring)."""
+    evidence_lines = [f"[{r.provenance}] {r.query}: {r.raw_summary}" for r in results]
+    hunter_block = (
+        f"Hunter's proposed verdict: {reasoning_out.verdict or '(none — requested more evidence)'}\n"
+        f"Hunter's proposed technique_ids: {reasoning_out.technique_ids}\n"
+        f"Hunter's evidence: {reasoning_out.evidence}\n"
+        f"Hunter's reasoning: {reasoning_out.reasoning}\n"
+        f"Hunter's similarity result: match_grade={reasoning_out.match_grade}, "
+        f"similar_to={reasoning_out.similar_to}"
+    )
+    return (
+        f"Trigger: {trigger}\n\n{hunter_block}\n\nGathered telemetry:\n" + "\n".join(evidence_lines)
+        if evidence_lines
+        else f"Trigger: {trigger}\n\n{hunter_block}\n\n(no telemetry gathered)"
+    )
+
+
+def _combined_telemetry_text(results: list[ToolResult]) -> dict[str, dict]:
+    combined = "\n".join(r.raw_summary for r in results)
+    return {"gathered": {"telemetry": combined, "source": "tool-section"}}
+
+
+def run_expert_model(
+    context: str,
+    *,
+    expert_model: str,
+    ground_truth: set[str],
+    tool_results: list[ToolResult] | None = None,
+    hunter_similar_to: list[str] | None = None,
+    dry_run: bool = False,
+) -> SectionOutput:
+    """Call the fed, no-tools domain-expert model for the conclusive verdict.
+
+    Deliberately never passes `tools` and never checks any backends.yaml
+    `supports_tools` gate — this is the require_tools=False path that makes a
+    supports_tools:false expert (Foundation-Sec-8B-Reasoning) usable. A
+    CONFIRMED verdict is run through blue._cite_or_drop; if its evidence
+    doesn't survive, it is downgraded to ANOMALOUS_UNCLASSIFIED (I2/I8),
+    carrying the Hunter's similar_to when the expert didn't supply its own.
+    """
+    if dry_run:
+        return SectionOutput(
+            request_more="dry-run: no live expert call performed", section="expert"
+        )
+
+    messages = [
+        {"role": "system", "content": _EXPERT_SYSTEM_PROMPT},
+        {"role": "user", "content": context + _EXPERT_OUTPUT_FORMAT_INSTRUCTIONS},
+    ]
+    msg = _call_model(expert_model, messages, tools=None, max_tokens=3000)
+    content = msg.get("content", "") or ""
+    stripped = _strip_think_tags(content)
+    parsed = None
+    for obj in reversed(_find_balanced_json_objects(stripped)):
+        if "verdict" in obj or "request_more" in obj:
+            parsed = obj
+            break
+
+    if not parsed:
+        fallback = (
+            stripped[:400] or "expert produced no parseable verdict — need one targeted re-check"
+        )
+        return SectionOutput(request_more=fallback, section="expert", raw=content)
+
+    verdict = parsed.get("verdict")
+    if verdict not in ("CONFIRMED", "ANOMALOUS_UNCLASSIFIED", "RULED_OUT"):
+        verdict = None
+    request_more = str(parsed.get("request_more") or "").strip()
+    technique_ids = [t for t in (parsed.get("technique_ids") or []) if t]
+    evidence = [str(e) for e in (parsed.get("evidence") or [])]
+    reasoning = str(parsed.get("reasoning") or "")
+    match_grade = str(parsed.get("match_grade") or "NONE").upper()
+    if match_grade not in ("EXACT", "SIMILAR", "NONE"):
+        match_grade = "NONE"
+    similar_to = [t for t in (parsed.get("similar_to") or []) if t] or list(hunter_similar_to or [])
+
+    if verdict is None and not request_more:
+        request_more = stripped[:400] or "expert produced no verdict — need one targeted re-check"
+
+    if verdict is None:
+        return SectionOutput(
+            request_more=request_more,
+            match_grade=match_grade,
+            similar_to=similar_to,
+            section="expert",
+            raw=content,
+        )
+
+    if verdict == "CONFIRMED":
+        telemetry = _combined_telemetry_text(tool_results or [])
+        reported = [{"technique_id": t, "evidence": "; ".join(evidence)} for t in technique_ids]
+        kept = _cite_or_drop(reported, telemetry, list(ground_truth))
+        kept_ids = {d.get("technique_id", "").upper() for d in kept}
+        if not technique_ids or kept_ids != {t.upper() for t in technique_ids}:
+            # Evidence didn't fully survive citation -- never-invent (I2):
+            # downgrade rather than let an uncited CONFIRMED stand.
+            return SectionOutput(
+                verdict="ANOMALOUS_UNCLASSIFIED",
+                technique_ids=technique_ids,
+                evidence=evidence,
+                reasoning=reasoning
+                or "downgraded: CONFIRMED evidence did not survive cite-or-drop",
+                match_grade=match_grade if match_grade != "NONE" else "SIMILAR",
+                similar_to=similar_to or technique_ids,
+                section="expert",
+                raw=content,
+            )
+
+    return SectionOutput(
+        verdict=verdict,
+        technique_ids=technique_ids,
+        evidence=evidence,
+        reasoning=reasoning,
+        match_grade=match_grade,
+        similar_to=similar_to,
+        section="expert",
         raw=content,
     )
