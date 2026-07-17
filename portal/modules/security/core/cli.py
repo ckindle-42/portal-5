@@ -242,6 +242,20 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--blue-mode",
+        choices=["scripted", "discovery", "hybrid"],
+        default="scripted",
+        help=(
+            "With --purple: which blue investigation prompt to use "
+            "(P5-PURPLE-DISCOVERY-001). 'scripted' (default) = mandatory step "
+            "checklist. 'discovery' = fully open-ended, no hints — the model "
+            "decides what to investigate from scratch. 'hybrid' = open-ended but "
+            "with technique-reference hints as optional context plus an explicit "
+            "anti-rumination instruction, no mandatory sequence. Same tools, "
+            "telemetry, and scoring across all three."
+        ),
+    )
+    parser.add_argument(
         "--all-scenarios",
         action="store_true",
         help=(
@@ -1113,6 +1127,7 @@ def main() -> None:
                         dry_run=args.dry_run,
                         lab_exec=args.lab_exec,
                         replay_captured_red=args.replay_captured_red,
+                        blue_mode=args.blue_mode,
                     )
                 )
                 _write_checkpoint()

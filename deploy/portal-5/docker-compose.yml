@@ -73,6 +73,18 @@ services:
       - "0.0.0.0:9099:9099"
     volumes:
       - ../../config/backends.yaml:/app/config/backends.yaml:ro
+      # portal_wiki/canonical/ was never reachable from this container at all
+      # (not baked into the image, not previously mounted) — module.py's Gate
+      # 4 (workspace-disabled-by-module check) reads module enable/disable
+      # state from wiki units here via load_unit(), so without this mount it
+      # silently and permanently falls back to DEFAULT_ENABLED_MODULES
+      # (everything except eval) regardless of what `portal module enable`
+      # does on the host. Found live 2026-07-17 testing blue/purple bench
+      # dispatch for the first time since the modular refactor — every
+      # bench-* synthetic workspace 404'd as "module not enabled" no matter
+      # what the CLI reported. Read-only: the pipeline only ever reads gate
+      # state, module toggles are written host-side via the CLI/git.
+      - ../../portal_wiki/canonical:/app/portal_wiki/canonical:ro
       - type: tmpfs
         target: /tmp/portal_metrics
         tmpfs:
@@ -85,6 +97,22 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - MAX_CONCURRENT_REQUESTS=${MAX_CONCURRENT_REQUESTS:-20}
       - PROMETHEUS_MULTIPROC_DIR=/tmp/portal_metrics
+      # Was also missing this passthrough — startup hint validation has no
+      # per-workspace exception, so enabling eval (60 bench-* workspaces) for
+      # the first time since the modular refactor exposed 41 stale model
+      # hints (candidate models from past evaluation rounds, never registered
+      # in backends.yaml). Real fix is cleaning up those 41 hints or removing
+      # workspaces for models no longer in the catalog — tracked separately,
+      # not blocking this test. STRICT_HINT_VALIDATION defaults to true.
+      - STRICT_HINT_VALIDATION=${STRICT_HINT_VALIDATION:-true}
+      # eval module opt-in (Rule 6) — gates the per-model bench-* synthetic
+      # workspaces blue/purple's resolve_pipeline_model() dispatches through.
+      # Was missing entirely from this file (found live: every blue/purple
+      # bench request 404'd with "Workspace 'bench-*' is disabled" regardless
+      # of .env, since docker-compose never passed the var into the container
+      # at all) — red-side dispatch never hit this since it uses raw Ollama
+      # model IDs directly, bypassing workspace resolution.
+      - PORTAL_ENABLE_EVAL=${PORTAL_ENABLE_EVAL:-false}
       # Notifications
       - NOTIFICATIONS_ENABLED=${NOTIFICATIONS_ENABLED:-false}
       - SLACK_ALERT_WEBHOOK_URL=${SLACK_ALERT_WEBHOOK_URL:-}
