@@ -127,6 +127,45 @@ def test_live_tool_call_with_string_encoded_arguments_does_not_crash(monkeypatch
     assert result.rows[0]["args"] == {"event_ids": [4768]}
 
 
+def test_list_valued_event_ids_actually_narrow_the_query(monkeypatch):
+    """Regression: query_windows_events's OWN tool schema types event_ids as
+    an array of integers, but _query_real_telemetry's keyword extraction only
+    scans string-valued query_args — a well-formed structured call therefore
+    silently returned the same generic broad summary every round regardless
+    of which event_ids were requested (root cause of every live Hunter
+    candidate's non-convergence in the Slice 8 pre-screen, 2026-07-17)."""
+    ep = _episode(
+        {
+            "windows:security": [
+                "EventCode=4769 kerberos ticket request for svc-web",
+                "EventCode=4624 unrelated logon event",
+            ]
+        }
+    )
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+        return {
+            "tool_calls": [
+                {"function": {"name": "query_windows_events", "arguments": {"event_ids": [4769]}}}
+            ]
+        }
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    req = bo.build_tool_request("give me AS-REP roasting events")
+    result = bo.run_tool_model(req, tool_model="m", ground_truth={"T1558.004"}, episode=ep)
+    assert result.provenance == "matched-exact"
+    assert "4769" in result.rows[0]["result"]
+    assert "4624" not in result.rows[0]["result"]  # narrowed, not the generic broad summary
+
+
+def test_stringify_query_args_flattens_lists_and_numbers():
+    assert bo._stringify_query_args({"event_ids": [4769, 4776]}) == {"event_ids": "4769 4776"}
+    assert bo._stringify_query_args({"n": 5}) == {"n": "5"}
+    assert bo._stringify_query_args({"spl_query": "already a string"}) == {
+        "spl_query": "already a string"
+    }
+
+
 def test_retrieval_tool_schemas_excludes_report_detection():
     schemas = bo._retrieval_tool_schemas()
     names = {s["function"]["name"] for s in schemas}
