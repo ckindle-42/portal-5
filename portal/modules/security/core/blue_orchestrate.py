@@ -973,6 +973,21 @@ def _run_three_section(
     _hunter_history_cap_pairs = 6
     _hunter_history_turn_cap_chars = 3000
 
+    # Stall handoff (live-verified 2026-07-18, meta3_tomcat_manager): the
+    # Hunter's own output contract has no way to say "I've searched enough,
+    # nothing here" — it can only propose a hypothesis or request_more, so a
+    # genuinely exhausted search (the model's own reasoning text conceding
+    # "no concrete indicators found," round after round) still forces
+    # wants_more()=True and loops until max_rounds, never reaching the
+    # Expert at all. After _hunter_stall_cap consecutive rounds with no
+    # hypothesis proposed, hand off to the Expert anyway with a note that
+    # the search appears exhausted — I8-safe: this never tells the Expert
+    # what to conclude, only that it's the Expert's turn to render its own
+    # honest judgment (RULED_OUT/ANOMALOUS_UNCLASSIFIED are valid) instead of
+    # the loop silently running out the clock.
+    _hunter_stall_cap = 3
+    consecutive_no_hypothesis_rounds = 0
+
     def _elapsed() -> float:
         return _time.monotonic() - started
 
@@ -1037,7 +1052,13 @@ def _run_three_section(
         )
         rounds += 1
 
-        if hunter_out.wants_more():
+        if hunter_out.technique_ids:
+            consecutive_no_hypothesis_rounds = 0
+        elif hunter_out.wants_more():
+            consecutive_no_hypothesis_rounds += 1
+        stalled = consecutive_no_hypothesis_rounds >= _hunter_stall_cap
+
+        if hunter_out.wants_more() and not stalled:
             if _budget_exhausted():
                 break
             _gather(hunter_out.request_more)
@@ -1045,6 +1066,16 @@ def _run_three_section(
             continue
 
         ectx = format_for_expert(hunter_out, tool_results, trigger)
+        if stalled and hunter_out.wants_more():
+            ectx += (
+                f"\n\nNote: the hunter has searched {consecutive_no_hypothesis_rounds} "
+                "consecutive rounds without forming a hypothesis — repeated requests have "
+                "not surfaced anything more specific. Render your best-grounded conclusion "
+                "from what has been gathered so far; RULED_OUT or ANOMALOUS_UNCLASSIFIED are "
+                "valid, honest conclusions when nothing more specific is available. You may "
+                "still request one targeted gap if you believe it would change the outcome."
+            )
+            consecutive_no_hypothesis_rounds = 0
         expert_out = run_expert_model(
             ectx,
             expert_model=models["expert"],
