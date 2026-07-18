@@ -335,6 +335,56 @@ class TestCollect:
         )
         assert "Account=vagrant" in lines[0]
 
+    def test_normalize_windows_security_events_empty_cmdline_field_not_garbled(self):
+        """Regression: real Windows 4688 events append a long explanatory
+        footer after the actual field values, starting with "Token Elevation
+        Type indicates the type of token that was...". The old
+        `Process Command Line:\\s*(.+)` regex let `\\s*` cross the newline
+        past an EMPTY command-line field (auditing not enabled) and captured
+        that boilerplate sentence as if it were the real command line — found
+        live 2026-07-18 on every meta3_* captured scenario. An empty field
+        must be omitted, never garbled."""
+        from portal.modules.security.core.siem.collect import (
+            _normalize_windows_security_events,
+        )
+
+        raw = (
+            "Id          : 4688\n"
+            "TimeCreated : 7/17/2026 3:07:44 PM\n"
+            "Message     : A new process has been created.\n"
+            "Process Information:\n"
+            "\tNew Process Name:\tC:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\n"
+            "\tToken Elevation Type:\t%%1938\n"
+            "\tProcess Command Line:\t\n"
+            "\n"
+            "Token Elevation Type indicates the type of token that was assigned to the "
+            "new process in accordance with User Account Control policy.\n"
+        )
+        lines = _normalize_windows_security_events(raw)
+        assert len(lines) == 1
+        assert "Token Elevation Type indicates" not in lines[0]
+        assert "CommandLine=" not in lines[0]
+        assert (
+            "NewProcessName=C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+            in lines[0]
+        )
+
+    def test_normalize_windows_security_events_real_cmdline_still_extracted(self):
+        """The fix must not regress the case where auditing IS enabled and a
+        real command line follows the label on the same line."""
+        from portal.modules.security.core.siem.collect import (
+            _normalize_windows_security_events,
+        )
+
+        raw = (
+            "Id          : 4688\n"
+            "Process Information:\n"
+            "\tNew Process Name:\tC:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\n"
+            "\tProcess Command Line:\tpowershell.exe -enc SGVsbG8=\n"
+        )
+        lines = _normalize_windows_security_events(raw)
+        assert "CommandLine=powershell.exe -enc SGVsbG8=" in lines[0]
+
 
 class TestMeta3Collect:
     """collect.py's kind="meta3" branch — IIS/FTP log + process-creation collection."""
