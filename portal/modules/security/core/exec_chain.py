@@ -3036,6 +3036,27 @@ def _prepare_scenario(
     if gate.get("port"):
         scenario["gate_port"] = gate["port"]
 
+    # Meta3 (Metasploitable3-Windows) has process creation auditing OFF by
+    # default — found live 2026-07-18 (BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2
+    # Slice 8 pre-screen): every meta3_* scenario's captured EventCode=4688
+    # CommandLine field came back as Windows's own explanatory boilerplate
+    # ("Token Elevation Type indicates the type of token that was...") because
+    # the real value was empty — command-line auditing was never enabled on
+    # the target, so there was nothing for red's actual attack command to
+    # populate. siem/collect.py's enable_meta3_audit_policies() already existed
+    # to fix exactly this but was never called from anywhere. Wired in here,
+    # before red runs, gated to real live execution only — a replay-captured
+    # run doesn't re-attack so there's nothing new to audit, and a dry run has
+    # no live target to configure.
+    if lab_exec and not dry_run and gate.get("ready") and scenario.get("target_host") == _LAB_META3:
+        from .siem.collect import enable_meta3_audit_policies
+
+        audit_result = enable_meta3_audit_policies(gate.get("host") or scenario["target_host"])
+        if not audit_result.get("ok"):
+            print(
+                f"  [meta3-audit] WARNING: {audit_result.get('error', 'audit policy enable failed')}"
+            )
+
     cfg.set_scenario(
         scenario["red_order"],
         scenario["red_prompt"],

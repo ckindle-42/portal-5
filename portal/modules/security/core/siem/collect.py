@@ -55,34 +55,34 @@ def unwrap_mcp_stdout(raw: str) -> str:
 # ship it already normalized to EventCode=/TicketEncryptionType=/etc.
 _WINDOWS_EVENT_FIELD_PATTERNS: dict[str, list[tuple[str, str]]] = {
     "4769": [  # Kerberoasting (T1558.003)
-        ("TicketEncryptionType", r"Ticket Encryption Type:\s*(\S+)"),
-        ("ServiceName", r"Service Name:\s*(\S+)"),
-        ("Account", r"Account Name:\s*(\S+)"),
+        ("TicketEncryptionType", r"Ticket Encryption Type:[ \t]*(\S+)"),
+        ("ServiceName", r"Service Name:[ \t]*(\S+)"),
+        ("Account", r"Account Name:[ \t]*(\S+)"),
     ],
     "4768": [  # AS-REP roasting (T1558.004)
-        ("PreAuthType", r"Pre-Authentication Type:\s*(\S+)"),
-        ("Account", r"Account Name:\s*(\S+)"),
+        ("PreAuthType", r"Pre-Authentication Type:[ \t]*(\S+)"),
+        ("Account", r"Account Name:[ \t]*(\S+)"),
     ],
     "4662": [  # DCSync (T1003.006)
-        ("Properties", r"Properties:\s*(.+)"),
-        ("Account", r"Account Name:\s*(\S+)"),
+        ("Properties", r"Properties:[ \t]*(\S.*)"),
+        ("Account", r"Account Name:[ \t]*(\S+)"),
     ],
     "4698": [  # Scheduled task persistence (T1053.005)
-        ("TaskName", r"Task Name:\s*(\S+)"),
-        ("Account", r"Account Name:\s*(\S+)"),
+        ("TaskName", r"Task Name:[ \t]*(\S+)"),
+        ("Account", r"Account Name:[ \t]*(\S+)"),
     ],
     "4625": [  # Failed logon (T1110.003, password spray)
-        ("IpAddress", r"Source Network Address:\s*(\S+)"),
-        ("Account", r"Account Name:\s*(\S+)"),
+        ("IpAddress", r"Source Network Address:[ \t]*(\S+)"),
+        ("Account", r"Account Name:[ \t]*(\S+)"),
     ],
     "4771": [  # Kerberos pre-auth failed (T1110.003, password spray)
-        ("IpAddress", r"Client Address:\s*(\S+)"),
-        ("Account", r"Account Name:\s*(\S+)"),
+        ("IpAddress", r"Client Address:[ \t]*(\S+)"),
+        ("Account", r"Account Name:[ \t]*(\S+)"),
     ],
     "4688": [  # Process creation (T1059/T1059.004/T1548.001/T1068 command exec + privesc)
-        ("NewProcessName", r"New Process Name:\s*(\S+)"),
-        ("CommandLine", r"Process Command Line:\s*(.+)"),
-        ("Account", r"Account Name:\s*(\S+)"),
+        ("NewProcessName", r"New Process Name:[ \t]*(\S+)"),
+        ("CommandLine", r"Process Command Line:[ \t]*(\S.*)"),
+        ("Account", r"Account Name:[ \t]*(\S+)"),
     ],
 }
 
