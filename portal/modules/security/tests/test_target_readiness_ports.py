@@ -94,8 +94,39 @@ class TestPublishedPort:
                 return {"ok": True, "output": self._ps_json_output([6379, 16379])}
             return {"ok": True, "output": "000"}
 
-        with patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec):
+        with (
+            patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec),
+            patch("scripts.lab_targets.time.sleep"),
+        ):
             assert _published_port("/opt/vulhub/redis/docker-compose.yml") == 6379
+
+    def test_retries_across_a_wait_window_before_falling_back(self):
+        """Regression: called immediately after `docker compose up -d`
+        returns, before the app has actually finished starting — a JVM's
+        debug port opens well before its HTTP layer does (Solr's Jetty on
+        8983 took 10-20s past the JDWP port on 5005 in the live case that
+        found this). A single-shot probe reproduced the exact bug
+        _pick_http_port exists to fix by catching the real port mid-startup.
+        Must retry across a real wait window, not just once."""
+        from scripts.lab_targets import _pick_http_port
+
+        calls = {"n": 0}
+
+        def fake_host_exec(cmd, timeout=15):
+            calls["n"] += 1
+            # First two full sweeps (2 ports each = 4 calls) see nothing up;
+            # the real app port answers starting on the third sweep.
+            if calls["n"] > 4 and ":8983/" in cmd:
+                return {"ok": True, "output": "200"}
+            return {"ok": True, "output": "000"}
+
+        with (
+            patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec),
+            patch("scripts.lab_targets.time.sleep") as mock_sleep,
+        ):
+            port = _pick_http_port([5005, 8983], retries=6, retry_delay_s=5.0)
+        assert port == 8983
+        assert mock_sleep.call_count >= 2  # waited across at least 2 retry gaps
 
 
 class TestEnsureTargetReady:
