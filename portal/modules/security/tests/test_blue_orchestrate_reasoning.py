@@ -125,3 +125,63 @@ def test_run_similarity_no_overlap_returns_none_grade():
     )
     assert out["match_grade"] == "NONE"
     assert out["similar_to"] == []
+
+
+def test_format_new_evidence_renders_only_the_given_results_not_a_full_pile():
+    """Regression: the delta renderer must not re-render trigger/discovery
+    framing (that's already in the Hunter's conversation history) — only
+    the new evidence itself, keeping context growth linear across rounds."""
+    r1 = bo.ToolResult(query="q1", provenance="matched-exact", raw_summary="EventCode=4769 stuff")
+    ctx = bo.format_new_evidence([r1])
+    assert "EventCode=4769 stuff" in ctx
+    assert "q1" in ctx
+    from portal.modules.security.core.blue import _BLUE_SYSTEM_PROMPT_DISCOVERY
+
+    assert _BLUE_SYSTEM_PROMPT_DISCOVERY not in ctx
+
+
+def test_format_new_evidence_empty_list_still_produces_valid_prompt():
+    ctx = bo.format_new_evidence([])
+    assert "no new telemetry" in ctx.lower()
+
+
+def test_run_reasoning_model_passes_history_into_messages(monkeypatch):
+    """Regression: found live 2026-07-18 — run_reasoning_model rebuilt a
+    fresh system+user pair every call with zero memory of its own prior
+    turns, so every hunt-loop round was a cold re-derivation instead of
+    genuine iterative refinement. `history` must be threaded into the
+    actual message list sent to the model."""
+    seen_messages = []
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+        seen_messages.extend(messages)
+        return {"content": json.dumps({"request_more": "still need X", "technique_ids": []})}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    prior_history = [
+        {"role": "user", "content": "round 1 context"},
+        {"role": "assistant", "content": "round 1 reply"},
+    ]
+    bo.run_reasoning_model(
+        "round 2 context", reasoning_model="m", ground_truth=set(), history=prior_history
+    )
+    assert seen_messages[0]["role"] == "system"
+    assert seen_messages[1] == {"role": "user", "content": "round 1 context"}
+    assert seen_messages[2] == {"role": "assistant", "content": "round 1 reply"}
+    assert seen_messages[3] == {"role": "user", "content": "round 2 context"}
+
+
+def test_run_reasoning_model_without_history_is_unchanged(monkeypatch):
+    """Backward compat: omitting `history` (existing callers, isolated
+    probes) must produce the same single-turn message shape as before."""
+    seen_messages = []
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+        seen_messages.extend(messages)
+        return {"content": json.dumps({"request_more": "x", "technique_ids": []})}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    bo.run_reasoning_model("ctx", reasoning_model="m", ground_truth=set())
+    assert len(seen_messages) == 2
+    assert seen_messages[0]["role"] == "system"
+    assert seen_messages[1] == {"role": "user", "content": "ctx"}

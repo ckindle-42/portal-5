@@ -351,6 +351,32 @@ def format_for_reasoning(results: list[ToolResult], trigger: str) -> str:
     )
 
 
+def format_new_evidence(results: list[ToolResult]) -> str:
+    """Render ONLY newly-gathered telemetry as a follow-up turn.
+
+    Found live 2026-07-18 (BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2 Slice 8
+    model comparison): run_reasoning_model rebuilt a fresh system+user
+    message pair from scratch every hunt-loop round, re-rendering the ENTIRE
+    accumulated tool_results pile each time via format_for_reasoning — the
+    Hunter had zero memory of its own prior reasoning turns, so every round
+    was a cold re-derivation from a growing evidence dump rather than genuine
+    iterative refinement. Combined with real multi-turn history (see
+    run_reasoning_model's `history` param), this renders only the NEW
+    evidence gathered since the Hunter's last turn — the model already has
+    everything earlier in its own conversation history, so re-sending it
+    would both bloat context (quadratic growth across rounds) and dilute the
+    model's own prior reasoning with a wall of repeated telemetry.
+    """
+    if not results:
+        return f"(no new telemetry gathered){_HUNTER_OUTPUT_FORMAT_INSTRUCTIONS}"
+    parts = [f"[{r.provenance}] query: {r.query}\n{r.raw_summary}" for r in results]
+    return (
+        "New telemetry gathered in response to your request:\n\n"
+        + "\n\n".join(parts)
+        + _HUNTER_OUTPUT_FORMAT_INSTRUCTIONS
+    )
+
+
 def run_similarity(
     features: dict[str, Any], *, wiki_descriptions: dict[str, str]
 ) -> dict[str, Any]:
@@ -379,11 +405,20 @@ def run_reasoning_model(
     *,
     reasoning_model: str,
     ground_truth: set[str],
+    history: list[dict] | None = None,
     dry_run: bool = False,
 ) -> SectionOutput:
     """Call a generalist reasoner (tools off) to hunt: form hypotheses, decide
     what more to pull, and carry a similarity result. The Hunter proposes; it
-    never issues the section's terminal CONFIRMED (the expert does, Slice 4)."""
+    never issues the section's terminal CONFIRMED (the expert does, Slice 4).
+
+    `history` carries the Hunter's own prior turns in this hunt loop (user/
+    assistant pairs) so it can build on its own reasoning across rounds
+    instead of cold-restarting on a growing evidence pile each time (found
+    live 2026-07-18 — see format_new_evidence's docstring for the full
+    story). Optional and defaults to None for callers that want a single
+    isolated turn (e.g. the Slice 3 unit tests, or a one-shot probe).
+    """
     if dry_run:
         return SectionOutput(
             request_more="dry-run: no live hunt performed",
@@ -391,10 +426,10 @@ def run_reasoning_model(
             raw="",
         )
 
-    messages = [
-        {"role": "system", "content": _BLUE_SYSTEM_PROMPT_DISCOVERY},
-        {"role": "user", "content": context},
-    ]
+    messages = [{"role": "system", "content": _BLUE_SYSTEM_PROMPT_DISCOVERY}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": context})
     msg = _call_model(reasoning_model, messages, tools=None, max_tokens=_REASONING_MAX_TOKENS)
     content = msg.get("content", "") or ""
     stripped = _strip_think_tags(content)
@@ -666,6 +701,20 @@ def run_blue_orchestration(
     hunter_out: SectionOutput | None = None
     expert_out: SectionOutput | None = None
 
+    # Hunter conversation continuity (found live 2026-07-18 — see
+    # format_new_evidence's docstring): the Hunter needs its own prior
+    # reasoning turns to genuinely refine across rounds instead of
+    # cold-restarting on a growing evidence pile each time. Bounded to keep
+    # context growth linear rather than quadratic: each turn carries only
+    # the NEW evidence gathered since the Hunter's last turn (not the whole
+    # accumulated pile), and the history itself is capped to the most recent
+    # _hunter_history_cap_pairs turn-pairs as a defensive backstop beyond
+    # whatever max_rounds already bounds it to.
+    hunter_history: list[dict] = []
+    new_since_last_hunt: list[ToolResult] = []
+    _hunter_history_cap_pairs = 6
+    _hunter_history_turn_cap_chars = 3000
+
     def _elapsed() -> float:
         return _time.monotonic() - started
 
@@ -684,6 +733,7 @@ def run_blue_orchestration(
             dry_run=dry_run,
         )
         tool_results.append(tr)
+        new_since_last_hunt.append(tr)
         trace.append(
             {
                 "round": rounds,
@@ -694,11 +744,28 @@ def run_blue_orchestration(
             }
         )
 
+    def _remember_hunter_turn(ctx: str, out: SectionOutput) -> None:
+        hunter_history.append({"role": "user", "content": ctx})
+        reply = _strip_think_tags(out.raw)[:_hunter_history_turn_cap_chars]
+        hunter_history.append({"role": "assistant", "content": reply})
+        cap = _hunter_history_cap_pairs * 2
+        if len(hunter_history) > cap:
+            del hunter_history[: len(hunter_history) - cap]
+
     while not _budget_exhausted():
-        ctx = format_for_reasoning(tool_results, trigger)
+        if not hunter_history:
+            ctx = format_for_reasoning(tool_results, trigger)
+        else:
+            ctx = format_new_evidence(new_since_last_hunt)
         hunter_out = run_reasoning_model(
-            ctx, reasoning_model=models["reasoning"], ground_truth=ground_truth, dry_run=dry_run
+            ctx,
+            reasoning_model=models["reasoning"],
+            ground_truth=ground_truth,
+            history=hunter_history,
+            dry_run=dry_run,
         )
+        _remember_hunter_turn(ctx, hunter_out)
+        new_since_last_hunt = []
         trace.append(
             {
                 "round": rounds,

@@ -35,6 +35,84 @@ def _fake_call_model_sequence(responses):
     return _fn
 
 
+def test_hunter_sees_own_history_and_only_new_evidence_across_rounds(monkeypatch):
+    """Regression: found live 2026-07-18 — the Hunter rebuilt a fresh
+    system+user pair every hunt-loop round, re-rendering the WHOLE
+    accumulated evidence pile with zero memory of its own prior turns.
+    Round 2's call to the reasoning model must carry round 1's user+
+    assistant turn as history, and its own new user content must be ONLY
+    the newly-gathered evidence — not a full re-render of round 1's
+    telemetry + trigger again."""
+    import json
+
+    calls = []
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+        calls.append({"model": model, "messages": messages})
+        if model == "reasoning-model" and len(calls) == 1:
+            return {"content": json.dumps({"request_more": "need event 4769", "technique_ids": []})}
+        if model == "reasoning-model":
+            return {
+                "content": json.dumps(
+                    {
+                        "technique_ids": ["T1558.004"],
+                        "evidence": ["EventCode=4769"],
+                        "reasoning": "confirmed",
+                        "match_grade": "EXACT",
+                        "similar_to": [],
+                        "request_more": "",
+                    }
+                )
+            }
+        return {
+            "content": json.dumps(
+                {
+                    "verdict": "CONFIRMED",
+                    "technique_ids": ["T1558.004"],
+                    "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+                    "reasoning": "confirmed",
+                    "match_grade": "EXACT",
+                    "similar_to": [],
+                    "request_more": "",
+                }
+            )
+        }
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec, provenance="matched-exact", raw_summary="EventCode=4769 detail"
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    result = bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=6)
+    assert result.verdict == "CONFIRMED"
+
+    reasoning_calls = [c for c in calls if c["model"] == "reasoning-model"]
+    assert len(reasoning_calls) == 2
+
+    round1_messages = reasoning_calls[0]["messages"]
+    round2_messages = reasoning_calls[1]["messages"]
+
+    # Round 1: no history yet — just system + the initial framing.
+    assert len(round1_messages) == 2
+
+    # Round 2: system + round 1's own user/assistant turn (real continuity)
+    # + a new user turn that is ONLY the new evidence, not a re-render.
+    assert round2_messages[0]["role"] == "system"
+    assert round2_messages[1] == round1_messages[1]  # round 1's user turn, verbatim
+    assert round2_messages[2]["role"] == "assistant"  # the Hunter's own round-1 reply
+    round2_new_turn = round2_messages[-1]["content"]
+    assert "EventCode=4769 detail" in round2_new_turn
+    # Must NOT re-render the trigger/discovery framing again in round 2's
+    # new turn — that's already carried in history.
+    from portal.modules.security.core.blue import _BLUE_SYSTEM_PROMPT_DISCOVERY
+
+    assert _BLUE_SYSTEM_PROMPT_DISCOVERY not in round2_new_turn
+
+
 def test_request_more_tool_reasoning_expert_confirmed_terminates_confirmed(monkeypatch):
     import json
 
