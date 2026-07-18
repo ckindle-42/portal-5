@@ -139,6 +139,15 @@ SANDBOX_LAB_IMAGE = os.getenv("SANDBOX_LAB_IMAGE", "")
 SANDBOX_LAB_MEMORY = os.getenv("SANDBOX_LAB_MEMORY", "2g")
 SANDBOX_LAB_CPUS = os.getenv("SANDBOX_LAB_CPUS", "2.0")
 SANDBOX_LAB_TIMEOUT_MAX = int(os.getenv("SANDBOX_LAB_TIMEOUT_MAX", "600"))
+# Live SIEM collection (siem/collect.py) shells full multi-line Get-WinEvent
+# Message detail out through this MCP — found live 2026-07-18: a single
+# combined-event-ID query with full Message bodies produced 466KB, silently
+# truncated to the default 50KB cap before collect.py's field-extraction
+# regexes ever saw most events' TicketEncryptionType/ServiceName/Account
+# lines, so captures shipped with EventCode-only fallback lines despite the
+# real attack having landed. Widened only under the already-widened lab-exec
+# lane, same pattern as SANDBOX_LAB_TIMEOUT_MAX above.
+SANDBOX_LAB_OUTPUT_MAX = int(os.getenv("SANDBOX_LAB_OUTPUT_MAX", "1000000"))
 # Lab target coordinates injected into the spawned container's environment.
 # Mirror the LAB_TARGET_* vars consumed by docker-compose.lab.yml.
 SANDBOX_LAB_TARGET_NETWORK = os.getenv("LAB_TARGET_NETWORK", "")
@@ -338,8 +347,9 @@ async def _run_in_docker(
                 "timed_out": True,
             }
 
-        stdout_text = stdout[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")
-        stderr_text = stderr[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")
+        _output_cap = SANDBOX_LAB_OUTPUT_MAX if SANDBOX_LAB_EXEC else MAX_OUTPUT_BYTES
+        stdout_text = stdout[:_output_cap].decode("utf-8", errors="replace")
+        stderr_text = stderr[:_output_cap].decode("utf-8", errors="replace")
         return {
             "success": proc.returncode == 0,
             "stdout": stdout_text,

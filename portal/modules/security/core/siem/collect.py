@@ -346,23 +346,44 @@ def collect_target(
                     if len(parts) == 2 and parts[0].isdigit():
                         all_events.append(f"EventCode={parts[0]} TimeCreated={parts[1]}")
 
-            # Pass 2: Attack-relevant events with full Message detail.
-            # These are the events the model needs to examine closely.
-            attack_ids = "4769,4768,4662,4698,4625,4771,4688,4702,4770,5140"
-            ps_detail = (
-                f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={attack_ids}}} "
-                "-MaxEvents 100 | Format-List Id,TimeCreated,Message"
-            )
-            b64_detail = base64.b64encode(ps_detail.encode("utf-16-le")).decode()
-            code_detail = (
-                f"nxc winrm {lab_dc} -u administrator -p '{lab_pass}' "
-                f'-X "powershell -NoProfile -EncodedCommand {b64_detail}" 2>&1'
-            )
-            r_detail = mcp_call(code_detail, timeout=120)
+            # Pass 2: Attack-relevant events with full Message detail, one
+            # event ID per call. Found live 2026-07-18: a single combined
+            # query across all 10 IDs with -MaxEvents 100 produced 466KB of
+            # PowerShell output — 9x the sandbox MCP's output cap — so most
+            # events (and any ID crowded out by a noisier one, e.g. frequent
+            # 4688 process-creation events swamping rare 4769/4770/4771)
+            # never reached _normalize_windows_security_events' regexes
+            # intact, degrading to the EventCode-only best-effort fallback.
+            # A smaller per-ID cap keeps each call's output well under any
+            # reasonable limit and guarantees every attack-relevant EventCode
+            # gets its own sample regardless of how noisy its neighbors are.
+            _attack_ids = [
+                "4769",
+                "4768",
+                "4662",
+                "4698",
+                "4625",
+                "4771",
+                "4688",
+                "4702",
+                "4770",
+                "5140",
+            ]
             detailed_events: list[str] = []
-            if r_detail.get("ok") and r_detail.get("output", "").strip():
-                stdout_detail = unwrap_mcp_stdout(r_detail["output"])
-                detailed_events = _normalize_windows_security_events(stdout_detail)
+            for _aid in _attack_ids:
+                ps_detail = (
+                    f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={_aid}}} "
+                    "-MaxEvents 15 | Format-List Id,TimeCreated,Message"
+                )
+                b64_detail = base64.b64encode(ps_detail.encode("utf-16-le")).decode()
+                code_detail = (
+                    f"nxc winrm {lab_dc} -u administrator -p '{lab_pass}' "
+                    f'-X "powershell -NoProfile -EncodedCommand {b64_detail}" 2>&1'
+                )
+                r_detail = mcp_call(code_detail, timeout=60)
+                if r_detail.get("ok") and r_detail.get("output", "").strip():
+                    stdout_detail = unwrap_mcp_stdout(r_detail["output"])
+                    detailed_events.extend(_normalize_windows_security_events(stdout_detail))
 
             # Merge: all compact events + detailed attack events (detailed takes precedence).
             # The model sees the full landscape AND has the detail it needs for grounding.
