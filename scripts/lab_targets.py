@@ -112,6 +112,35 @@ def _host_compose_path(path: str) -> str:
     return f"{LAB_VULHUB_HOST_ROOT}/{path}/docker-compose.yml"
 
 
+def _pick_http_port(ports: list[int]) -> int | None:
+    """Given several candidate published ports for one container, prefer the
+    one that's actually serving HTTP.
+
+    Found live 2026-07-18 (BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2 Slice 8
+    capture verification): log4j/CVE-2021-44228's compose file publishes
+    BOTH 5005 (the JVM's own JDWP debug port) and 8983 (Solr's real HTTP
+    admin API), with 5005 listed first in Docker's own Publishers order —
+    the old "take the first TCP port" logic picked 5005, so every red
+    attack against this scenario was hitting a debug protocol port that
+    can never serve the actual exploit, and every captured telemetry run
+    showed zero attack evidence no matter how many times it re-ran. Any
+    vulhub target that publishes an auxiliary port (debug, metrics, a
+    second internal service) ahead of its real app port in compose file
+    order hits the same failure mode. Probes each candidate with a quick
+    HTTP request and returns the first one that gets ANY HTTP response
+    (even 4xx/5xx counts — it proves the port speaks HTTP at all).
+    """
+    for port in ports:
+        r = _host_exec(
+            f"curl -s -o /dev/null -w '%{{http_code}}' -m 3 http://localhost:{port}/",
+            timeout=8,
+        )
+        code = r.get("output", "").strip()
+        if r.get("ok") and code.isdigit() and code != "000":
+            return port
+    return None
+
+
 def _published_port(compose_path: str) -> int | None:
     """Ask Docker for the actual published host port(s) — never guess from a hardcoded
     default. A raw vulhub path's real port can differ from any catalog assumption (e.g.
@@ -119,7 +148,17 @@ def _published_port(compose_path: str) -> int | None:
 
     Robustness: tries `docker compose ps --format json` (Publishers key) first,
     then falls back to `docker compose port <svc> tcp` for compose JSON shape drift.
+    When a container publishes MULTIPLE distinct ports, probes each over HTTP and
+    prefers the one that actually answers (see _pick_http_port) — the first
+    published port is not reliably the application port (debug/metrics ports are
+    often published too, sometimes listed first).
     """
+    candidates: list[int] = []
+
+    def _add(port: int) -> None:
+        if port not in candidates:
+            candidates.append(port)
+
     r = _host_exec(f"docker compose -f {compose_path} ps --format json", timeout=15)
     if r.get("ok"):
         for line in r["output"].splitlines():
@@ -133,7 +172,7 @@ def _published_port(compose_path: str) -> int | None:
             # Try Publishers key (newer compose)
             for pub in entry.get("Publishers") or []:
                 if pub.get("Protocol") == "tcp" and pub.get("PublishedPort"):
-                    return int(pub["PublishedPort"])
+                    _add(int(pub["PublishedPort"]))
             # Try Ports key (older compose JSON shape)
             ports_str = entry.get("Ports", "")
             if ports_str:
@@ -143,30 +182,36 @@ def _published_port(compose_path: str) -> int | None:
                         host_part = part.split("->")[0]
                         if ":" in host_part:
                             try:
-                                return int(host_part.rsplit(":", 1)[-1])
+                                _add(int(host_part.rsplit(":", 1)[-1]))
                             except ValueError:
                                 pass
 
-    # Fallback: `docker compose port <first_service> tcp`
-    # Extract service name from compose file
-    svc_r = _host_exec(
-        f"docker compose -f {compose_path} config --services 2>/dev/null | head -1",
-        timeout=10,
-    )
-    if svc_r.get("ok") and svc_r.get("output", "").strip():
-        svc = svc_r["output"].strip()
-        port_r = _host_exec(
-            f"docker compose -f {compose_path} port {svc} tcp 2>/dev/null", timeout=10
+    if not candidates:
+        # Fallback: `docker compose port <first_service> tcp`
+        # Extract service name from compose file
+        svc_r = _host_exec(
+            f"docker compose -f {compose_path} config --services 2>/dev/null | head -1",
+            timeout=10,
         )
-        if port_r.get("ok"):
-            # Output format: "0.0.0.0:8090" or ":::8090"
-            for tok in port_r.get("output", "").strip().split():
-                if ":" in tok:
-                    try:
-                        return int(tok.rsplit(":", 1)[-1])
-                    except ValueError:
-                        pass
-    return None
+        if svc_r.get("ok") and svc_r.get("output", "").strip():
+            svc = svc_r["output"].strip()
+            port_r = _host_exec(
+                f"docker compose -f {compose_path} port {svc} tcp 2>/dev/null", timeout=10
+            )
+            if port_r.get("ok"):
+                # Output format: "0.0.0.0:8090" or ":::8090"
+                for tok in port_r.get("output", "").strip().split():
+                    if ":" in tok:
+                        try:
+                            _add(int(tok.rsplit(":", 1)[-1]))
+                        except ValueError:
+                            pass
+
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0]
+    return _pick_http_port(candidates) or candidates[0]
 
 
 def _wait_reachable(host: str, port: int, timeout_s: float = 30.0) -> bool:

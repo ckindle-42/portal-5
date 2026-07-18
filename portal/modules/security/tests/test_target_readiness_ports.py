@@ -44,6 +44,60 @@ def _make_scenario(
 # ── Phase 1: ensure_target_ready gate ───────────────────────────────────────
 
 
+class TestPublishedPort:
+    """_published_port / _pick_http_port — prefer the port that actually
+    serves HTTP when a container publishes several (Slice 8 capture
+    verification, 2026-07-18: log4j/CVE-2021-44228 publishes both 5005
+    (JDWP debug port) and 8983 (real Solr HTTP admin API), with 5005 listed
+    first in Docker's own Publishers order — every red attack was hitting
+    the debug port and could never trigger the actual exploit."""
+
+    def _ps_json_output(self, ports: list[int]) -> str:
+        publishers = ", ".join(
+            f'{{"URL":"0.0.0.0","TargetPort":{p},"PublishedPort":{p},"Protocol":"tcp"}}'
+            for p in ports
+        )
+        return f'{{"Publishers":[{publishers}]}}\n'
+
+    def test_single_port_returned_without_http_probe(self):
+        from scripts.lab_targets import _published_port
+
+        def fake_host_exec(cmd, timeout=15):
+            assert "curl" not in cmd, "must not probe when there's only one candidate port"
+            return {"ok": True, "output": self._ps_json_output([8090])}
+
+        with patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec):
+            assert _published_port("/opt/vulhub/x/docker-compose.yml") == 8090
+
+    def test_prefers_http_responsive_port_over_first_listed(self):
+        from scripts.lab_targets import _published_port
+
+        def fake_host_exec(cmd, timeout=15):
+            if "ps --format json" in cmd:
+                return {"ok": True, "output": self._ps_json_output([5005, 8983])}
+            if "curl" in cmd and ":5005/" in cmd:
+                return {"ok": True, "output": "000"}  # debug port doesn't speak HTTP
+            if "curl" in cmd and ":8983/" in cmd:
+                return {"ok": True, "output": "200"}
+            return {"ok": False, "output": ""}
+
+        with patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec):
+            assert _published_port("/opt/vulhub/log4j/CVE-2021-44228/docker-compose.yml") == 8983
+
+    def test_falls_back_to_first_port_when_nothing_answers_http(self):
+        """Non-HTTP services (redis, mysql) must still resolve — TCP-only
+        candidates with no HTTP response fall back to the first one found."""
+        from scripts.lab_targets import _published_port
+
+        def fake_host_exec(cmd, timeout=15):
+            if "ps --format json" in cmd:
+                return {"ok": True, "output": self._ps_json_output([6379, 16379])}
+            return {"ok": True, "output": "000"}
+
+        with patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec):
+            assert _published_port("/opt/vulhub/redis/docker-compose.yml") == 6379
+
+
 class TestEnsureTargetReady:
     """Gate verifies→heals→re-verify using existing primitives only."""
 
