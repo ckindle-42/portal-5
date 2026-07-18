@@ -504,3 +504,58 @@ def test_ground_hunter_evidence_passes_through_when_wants_more_already():
         hunter_out, [bo.ToolResult(query="q", raw_summary="x")], ground_truth=set()
     )
     assert out is hunter_out
+
+
+def test_hunter_stall_hands_off_to_expert_instead_of_running_out_the_clock(monkeypatch):
+    """Regression: found live 2026-07-18, meta3_tomcat_manager — the Hunter's
+    output contract has no way to say "search exhausted, nothing here"; it
+    can only propose a hypothesis or request_more, so a genuinely exhausted
+    search looped until max_rounds without ever reaching the Expert. After 3
+    consecutive no-hypothesis rounds, the Expert must get a turn — and
+    RULED_OUT (its own honest judgment, not a forced answer) must be
+    reachable well before the round budget runs out."""
+    import json
+
+    always_wants_more = json.dumps(
+        {
+            "request_more": "still need more",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "",
+            "match_grade": "NONE",
+            "similar_to": [],
+        }
+    )
+    expert_ruled_out = json.dumps(
+        {
+            "verdict": "RULED_OUT",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "nothing conclusive after an exhaustive search",
+            "match_grade": "NONE",
+            "similar_to": [],
+            "request_more": "",
+        }
+    )
+
+    calls = []
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+        calls.append(model)
+        if model == "expert-model":
+            return {"content": expert_ruled_out}
+        return {"content": always_wants_more}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    result = bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=20)
+    assert result.verdict == "RULED_OUT"
+    # Reached the Expert well before the 20-round budget — the stall cap
+    # (3 consecutive no-hypothesis rounds) fired, not exhaustion.
+    assert result.rounds < 12
+    assert "expert-model" in calls
