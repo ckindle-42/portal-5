@@ -146,6 +146,23 @@ def _stringify_query_args(args: dict) -> dict:
 
 _BROAD_SUMMARY_RE = re.compile(r"^\d+ events: ")
 
+# Real MITRE ATT&CK technique IDs are Txxxx or Txxxx.xxx — nothing looser.
+# This is NOT a claim that every real technique is enumerable or that an
+# unmapped finding is invalid (I8: novelty is a legitimate outcome, and
+# ANOMALOUS_UNCLASSIFIED/RULED_OUT are never required to name a specific
+# known ID at all — an empty or absent technique_id there is fine). CONFIRMED
+# is the one verdict that claims "I've matched this to a specific known
+# technique" — that's an inherently specific claim, so if what's offered
+# doesn't even parse as a real ID (found live 2026-07-18: a "T...." literal
+# slipped through as CONFIRMED), the claim doesn't hold up, same class of
+# problem as evidence that doesn't survive citation.
+_TECHNIQUE_ID_RE = re.compile(r"^T\d{4}(\.\d{3})?$")
+
+
+def _all_technique_ids_well_formed(technique_ids: list[str]) -> bool:
+    return bool(technique_ids) and all(_TECHNIQUE_ID_RE.match(t.upper()) for t in technique_ids)
+
+
 # Words too generic to narrow anything (query framing filler, not evidence
 # terms) — kept short and conservative; anything not on this list is a
 # candidate keyword.
@@ -676,15 +693,23 @@ def run_expert_model(
         reported = [{"technique_id": t, "evidence": "; ".join(evidence)} for t in technique_ids]
         kept = _cite_or_drop(reported, telemetry, list(ground_truth))
         kept_ids = {d.get("technique_id", "").upper() for d in kept}
-        if not technique_ids or kept_ids != {t.upper() for t in technique_ids}:
-            # Evidence didn't fully survive citation -- never-invent (I2):
-            # downgrade rather than let an uncited CONFIRMED stand.
+        malformed = not _all_technique_ids_well_formed(technique_ids)
+        if not technique_ids or kept_ids != {t.upper() for t in technique_ids} or malformed:
+            # Evidence didn't fully survive citation, or the claimed ID(s)
+            # don't even parse as real MITRE IDs -- never-invent (I2):
+            # downgrade rather than let an uncited or malformed-ID CONFIRMED
+            # stand. Only CONFIRMED is held to this — ANOMALOUS_UNCLASSIFIED
+            # below is never required to name a specific known ID (I8).
             return SectionOutput(
                 verdict="ANOMALOUS_UNCLASSIFIED",
                 technique_ids=technique_ids,
                 evidence=evidence,
                 reasoning=reasoning
-                or "downgraded: CONFIRMED evidence did not survive cite-or-drop",
+                or (
+                    "downgraded: CONFIRMED technique_id(s) did not parse as real MITRE IDs"
+                    if malformed
+                    else "downgraded: CONFIRMED evidence did not survive cite-or-drop"
+                ),
                 match_grade=match_grade if match_grade != "NONE" else "SIMILAR",
                 similar_to=similar_to or technique_ids,
                 section="expert",
@@ -825,13 +850,18 @@ def run_merged_model(
         reported = [{"technique_id": t, "evidence": "; ".join(evidence)} for t in technique_ids]
         kept = _cite_or_drop(reported, telemetry, list(ground_truth))
         kept_ids = {d.get("technique_id", "").upper() for d in kept}
-        if not technique_ids or kept_ids != {t.upper() for t in technique_ids}:
+        malformed = not _all_technique_ids_well_formed(technique_ids)
+        if not technique_ids or kept_ids != {t.upper() for t in technique_ids} or malformed:
             return SectionOutput(
                 verdict="ANOMALOUS_UNCLASSIFIED",
                 technique_ids=technique_ids,
                 evidence=evidence,
                 reasoning=reasoning
-                or "downgraded: CONFIRMED evidence did not survive cite-or-drop",
+                or (
+                    "downgraded: CONFIRMED technique_id(s) did not parse as real MITRE IDs"
+                    if malformed
+                    else "downgraded: CONFIRMED evidence did not survive cite-or-drop"
+                ),
                 match_grade=match_grade if match_grade != "NONE" else "SIMILAR",
                 similar_to=similar_to or technique_ids,
                 section="merged",

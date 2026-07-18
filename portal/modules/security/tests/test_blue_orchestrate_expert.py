@@ -145,6 +145,59 @@ def test_unparseable_output_becomes_request_more(monkeypatch):
     assert out.verdict is None
 
 
+def test_confirmed_with_malformed_technique_id_downgrades_to_anomalous(monkeypatch):
+    """Regression: found live 2026-07-18 — a literal 'T....' slipped through
+    as a CONFIRMED technique_id. CONFIRMED claims a specific known match, so
+    a claim that doesn't even parse as a real MITRE ID doesn't hold up —
+    same class of problem as evidence that fails citation. This is NOT a
+    general requirement that every finding resolve to a known ID (I8):
+    ANOMALOUS_UNCLASSIFIED/RULED_OUT are never held to this."""
+    content = json.dumps(
+        {
+            "verdict": "CONFIRMED",
+            "technique_ids": ["T...."],
+            "evidence": ["EventCode=4768 AS-REP roasting"],
+            "reasoning": "",
+            "match_grade": "EXACT",
+            "similar_to": [],
+            "request_more": "",
+        }
+    )
+    monkeypatch.setattr(bo, "_call_model", _fake_call_model(content))
+    tool_results = [
+        bo.ToolResult(
+            query="q",
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 AS-REP roasting event",
+        )
+    ]
+    out = bo.run_expert_model(
+        "ctx", expert_model="m", ground_truth={"T1558.004"}, tool_results=tool_results
+    )
+    assert out.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert "did not parse as real MITRE IDs" in out.reasoning
+
+
+def test_anomalous_unclassified_never_requires_a_valid_technique_id(monkeypatch):
+    """I8: novelty is a legitimate outcome. A SIMILAR/novel finding is never
+    required to name a real, resolvable technique ID — only CONFIRMED is."""
+    content = json.dumps(
+        {
+            "verdict": "ANOMALOUS_UNCLASSIFIED",
+            "technique_ids": ["unknown-novel-pattern"],
+            "evidence": ["odd but real telemetry pattern"],
+            "reasoning": "shares no known signature",
+            "match_grade": "NONE",
+            "similar_to": [],
+            "request_more": "",
+        }
+    )
+    monkeypatch.setattr(bo, "_call_model", _fake_call_model(content))
+    out = bo.run_expert_model("ctx", expert_model="m", ground_truth=set())
+    assert out.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert out.technique_ids == ["unknown-novel-pattern"]
+
+
 def test_format_for_expert_carries_hunter_hypothesis():
     from portal.modules.security.core.analyst_verdict import SectionOutput
 
