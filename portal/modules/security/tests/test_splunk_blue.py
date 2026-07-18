@@ -385,6 +385,28 @@ class TestCollect:
         lines = _normalize_windows_security_events(raw)
         assert "CommandLine=powershell.exe -enc SGVsbG8=" in lines[0]
 
+    def test_normalize_windows_security_events_process_name_with_spaces_not_truncated(self):
+        """Regression: NewProcessName/TaskName used `(\\S+)` — a real process
+        path containing spaces (e.g. "C:\\Program Files\\...") got truncated
+        at the first space instead of capturing the full value. Found live
+        2026-07-18 while verifying the capture fix end-to-end on the DC."""
+        from portal.modules.security.core.siem.collect import (
+            _normalize_windows_security_events,
+        )
+
+        raw = (
+            "Id          : 4688\n"
+            "Process Information:\n"
+            "\tNew Process Name:\tC:\\Program Files\\Common Files\\service.exe\n"
+            "\tProcess Command Line:\tC:\\Program Files\\Common Files\\service.exe -start now\n"
+        )
+        lines = _normalize_windows_security_events(raw)
+        assert (
+            lines[0]
+            == "EventCode=4688 NewProcessName=C:\\Program Files\\Common Files\\service.exe "
+            "CommandLine=C:\\Program Files\\Common Files\\service.exe -start now"
+        )
+
 
 class TestMeta3Collect:
     """collect.py's kind="meta3" branch — IIS/FTP log + process-creation collection."""
