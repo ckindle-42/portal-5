@@ -27,6 +27,18 @@ from .analyst_verdict import SectionOutput
 from .blue import _BLUE_SYSTEM_PROMPT_DISCOVERY, _cite_or_drop
 from .unknown_defense import MatchGrade, compute_similarity
 
+# Live-verified finding (Slice 7/8 pre-screen, 2026-07-17): 3000 tokens is
+# tight enough that a heavy chain-of-thought reasoning model (observed on
+# deepseek-r1:32b) can run out mid-thought right as it reaches its
+# conclusion — response cut off mid-sentence, no closing JSON ever emitted.
+# The Hunter/expert then correctly (I8) treat the truncated garble as
+# insufficient evidence and request more, which looks identical to genuine
+# non-convergence but is actually a token-budget artifact. Raised generously
+# for both sections; a "thinking" model's visible <think> block competes
+# with its own JSON answer for this same budget.
+_REASONING_MAX_TOKENS = 8000
+_EXPERT_MAX_TOKENS = 8000
+
 # Retrieval-only tool schemas for the tool section (Retriever). report_detection
 # is deliberately excluded here — the tool section gathers, it does not
 # interpret or conclude (design §3.3; "DO NOT interpret" below).
@@ -262,7 +274,7 @@ def run_reasoning_model(
         {"role": "system", "content": _BLUE_SYSTEM_PROMPT_DISCOVERY},
         {"role": "user", "content": context},
     ]
-    msg = _call_model(reasoning_model, messages, tools=None, max_tokens=3000)
+    msg = _call_model(reasoning_model, messages, tools=None, max_tokens=_REASONING_MAX_TOKENS)
     content = msg.get("content", "") or ""
     stripped = _strip_think_tags(content)
     parsed = _parse_hunter_json(stripped)
@@ -386,7 +398,7 @@ def run_expert_model(
         {"role": "system", "content": _EXPERT_SYSTEM_PROMPT},
         {"role": "user", "content": context + _EXPERT_OUTPUT_FORMAT_INSTRUCTIONS},
     ]
-    msg = _call_model(expert_model, messages, tools=None, max_tokens=3000)
+    msg = _call_model(expert_model, messages, tools=None, max_tokens=_EXPERT_MAX_TOKENS)
     content = msg.get("content", "") or ""
     stripped = _strip_think_tags(content)
     parsed = None
