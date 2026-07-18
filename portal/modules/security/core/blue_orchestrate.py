@@ -144,14 +144,108 @@ def _stringify_query_args(args: dict) -> dict:
     return out
 
 
+_BROAD_SUMMARY_RE = re.compile(r"^\d+ events: ")
+
+# Words too generic to narrow anything (query framing filler, not evidence
+# terms) — kept short and conservative; anything not on this list is a
+# candidate keyword.
+_FREETEXT_STOPWORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "of",
+        "for",
+        "to",
+        "and",
+        "or",
+        "in",
+        "on",
+        "at",
+        "with",
+        "from",
+        "log",
+        "logs",
+        "details",
+        "detail",
+        "full",
+        "data",
+        "all",
+        "any",
+        "related",
+        "access",
+        "additional",
+        "specific",
+        "information",
+        "context",
+        "including",
+        "showing",
+        "during",
+        "around",
+        "over",
+        "into",
+        "that",
+        "this",
+        "these",
+        "those",
+        "host",
+        "hosts",
+    }
+)
+
+
+def _freetext_narrow(args: dict, episode: Episode) -> str | None:
+    """Fallback narrowing for tool-call args with no literal EventCode/
+    technique-ID pattern (query_web_logs/query_network_traffic/query_splunk
+    calls framed as free text, e.g. filter="Tomcat manager interface").
+
+    _query_real_telemetry's own keyword extraction is Windows-EventCode/
+    MITRE-ID-centric only (I7 forbids extending it) — live-verified on
+    meta3_tomcat_manager (2026-07-17): a request for "Tomcat manager
+    interface access" never narrowed at all, always returning the generic
+    cross-sourcetype event summary instead of the actual matching web/ftp
+    log lines, even though those lines exist in the episode. This is a
+    substring fallback confined to blue_orchestrate.py — additive-only,
+    does not touch agentic_blue_eval.py.
+    """
+    words: set[str] = set()
+    for v in args.values():
+        if not isinstance(v, str):
+            continue
+        for w in re.findall(r"[a-zA-Z][a-zA-Z0-9_/.-]{2,}", v.lower()):
+            if w not in _FREETEXT_STOPWORDS:
+                words.add(w)
+    if not words:
+        return None
+
+    matches: list[str] = []
+    for source_type, lines in episode.telemetry.items():
+        for line in lines:
+            low = line.lower()
+            if any(w in low for w in words):
+                matches.append(f"[{source_type}] {line}")
+    if not matches:
+        return None
+    return "\n".join(matches[:50])[:2500]
+
+
 def _dispatch_tool_call(name: str, args: dict, episode: Episode) -> str:
     """Answer one tool call against the episode's captured telemetry.
 
     Thin wrapper over agentic_blue_eval._query_real_telemetry (reused, not
     reimplemented) — this is what makes the tool leg hermetically testable
-    with a fake Episode instead of a live Splunk/WinRM backend.
+    with a fake Episode instead of a live Splunk/WinRM backend. Falls back
+    to _freetext_narrow when the reused primitive's EventCode/technique-ID-
+    only extraction couldn't narrow the query (still returned the generic
+    broad summary) but the args contain free-text terms that DO match
+    something in the episode's raw telemetry.
     """
-    return _query_real_telemetry(name, episode, _stringify_query_args(args))
+    result = _query_real_telemetry(name, episode, _stringify_query_args(args))
+    if _BROAD_SUMMARY_RE.match(result):
+        narrowed = _freetext_narrow(args, episode)
+        if narrowed:
+            return narrowed
+    return result
 
 
 def run_tool_model(

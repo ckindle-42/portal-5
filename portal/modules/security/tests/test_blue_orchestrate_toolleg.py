@@ -166,6 +166,46 @@ def test_stringify_query_args_flattens_lists_and_numbers():
     }
 
 
+def test_freetext_narrow_finds_matching_lines_without_eventcode():
+    """Regression: _query_real_telemetry's own keyword extraction is
+    Windows-EventCode/technique-ID-centric only — a free-text filter like
+    'Tomcat manager interface access' never narrows web/ftp/other log types
+    at all (live-verified on meta3_tomcat_manager, 2026-07-17: always fell
+    through to the generic cross-sourcetype summary). _freetext_narrow is the
+    additive fallback confined to blue_orchestrate.py."""
+    ep = _episode(
+        {
+            "windows:security": [
+                "EventCode=4688 NewProcessName=powershell.exe CommandLine=whoami Account=vagrant",
+                "EventCode=4624 unrelated logon event",
+            ]
+        }
+    )
+    narrowed = bo._freetext_narrow({"filter": "PowerShell process creation command line"}, ep)
+    assert narrowed is not None
+    assert "powershell.exe" in narrowed
+    assert "unrelated logon event" not in narrowed
+
+
+def test_freetext_narrow_returns_none_when_nothing_matches():
+    ep = _episode({"windows:security": ["EventCode=4624 unrelated logon event"]})
+    assert bo._freetext_narrow({"filter": "kerberos ticket roasting"}, ep) is None
+
+
+def test_dispatch_tool_call_falls_back_to_freetext_when_broad_summary(monkeypatch):
+    ep = _episode(
+        {
+            "web:access": [
+                "10.10.11.13 POST /manager/html deploy war payload.jsp 200",
+                "10.10.11.13 GET / 200 unrelated",
+            ]
+        }
+    )
+    result = bo._dispatch_tool_call("query_web_logs", {"filter": "manager deploy war"}, ep)
+    assert "manager/html" in result
+    assert "unrelated" not in result
+
+
 def test_retrieval_tool_schemas_excludes_report_detection():
     schemas = bo._retrieval_tool_schemas()
     names = {s["function"]["name"] for s in schemas}
