@@ -243,7 +243,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--blue-mode",
-        choices=["scripted", "discovery", "hybrid", "orchestrated"],
+        choices=["scripted", "discovery", "hybrid", "orchestrated", "orchestrated-2section"],
         default="scripted",
         help=(
             "With --purple: which blue investigation prompt to use "
@@ -258,7 +258,11 @@ def main() -> None:
             "discovery pipeline (blue_orchestrate.run_blue_orchestration) against "
             "a captured episode via --scenario + --replay-captured-red, using "
             "--tool-model/--reasoning-model/--expert-model (defaults from "
-            "config/portal.yaml's auto-security::blueteam-orchestrated variant)."
+            "config/portal.yaml's auto-security::blueteam-orchestrated variant). "
+            "'orchestrated-2section' (Slice 8 ablation arm, design §6.1's 'V1 "
+            "shape') is the same standalone path but with tool + merged "
+            "reasoning/expert — one generalist model both hunts and concludes — "
+            "via --tool-model/--merged-model."
         ),
     )
     parser.add_argument(
@@ -278,6 +282,15 @@ def main() -> None:
         default=None,
         metavar="MODEL",
         help="With --blue-mode orchestrated: the fed, no-tools domain-expert model.",
+    )
+    parser.add_argument(
+        "--merged-model",
+        default=None,
+        metavar="MODEL",
+        help=(
+            "With --blue-mode orchestrated-2section: the single generalist model "
+            "that both hunts and renders the conclusive verdict."
+        ),
     )
     parser.add_argument(
         "--max-orchestration-rounds",
@@ -632,6 +645,86 @@ def main() -> None:
                     "tool_model": tool_model,
                     "reasoning_model": reasoning_model,
                     "expert_model": expert_model,
+                    "verdict": result.verdict,
+                    "technique_ids": result.technique_ids,
+                    "evidence": result.evidence,
+                    "reasoning": result.reasoning,
+                    "match_grade": result.match_grade,
+                    "similar_to": result.similar_to,
+                    "rounds": result.rounds,
+                    "elapsed_s": result.elapsed_s,
+                    "trace": result.trace,
+                    "scoring": scoring,
+                },
+                indent=2,
+                default=str,
+            )
+        )
+        print(f"  Results written -> {out_path}")
+        return
+
+    # ── Standalone: --blue-mode orchestrated-2section (Slice 8 ablation) ─────
+    # design §6.1's "V1 shape" — tool + merged reasoning/expert, one model
+    # hunts and concludes itself. Same standalone contract as 'orchestrated'
+    # above (not a --purple prompt variant, no prod routing touched, I5).
+    if args.blue_mode == "orchestrated-2section":
+        from .agentic_blue_eval import load_episode, score_findings_tiered
+        from .blue_orchestrate import SectionSpec, run_blue_orchestration
+
+        if not args.replay_captured_red:
+            print("  ERROR: --blue-mode orchestrated-2section requires --replay-captured-red")
+            return
+
+        episode = load_episode(args.scenario)
+        if episode is None:
+            print(f"  ERROR: no captured episode found for scenario '{args.scenario}'")
+            return
+
+        tool_model = args.tool_model
+        merged_model = args.merged_model
+        if not (tool_model and merged_model):
+            print("  ERROR: --tool-model and --merged-model are both required")
+            return
+
+        print(
+            f"Blue orchestration (2-section) — scenario={episode.scenario} target={episode.target_host}"
+        )
+        print(f"  tool_model={tool_model}")
+        print(f"  merged_model={merged_model}")
+
+        sections = [
+            SectionSpec(role="tool", model=tool_model, needs_tools=True),
+            SectionSpec(role="merged", model=merged_model),
+        ]
+        result = run_blue_orchestration(
+            episode,
+            sections=sections,
+            max_rounds=args.max_orchestration_rounds,
+            dry_run=args.dry_run,
+        )
+        scoring = score_findings_tiered(set(result.technique_ids), set(episode.techniques))
+
+        print(f"\n  Verdict       : {result.verdict}")
+        print(f"  Technique IDs : {result.technique_ids}")
+        print(f"  Match grade   : {result.match_grade}  similar_to={result.similar_to}")
+        print(f"  Rounds/elapsed: {result.rounds} / {result.elapsed_s}s")
+        print(f"  Overall recall: {scoring['overall']['recall']}")
+
+        ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = (
+            Path(args.output)
+            if args.output
+            else RESULTS_DIR / f"sec_blue_orchestrated_2section_{episode.scenario}_{ts}.json"
+        )
+        out_path.write_text(
+            json.dumps(
+                {
+                    "scenario": episode.scenario,
+                    "target_host": episode.target_host,
+                    "ground_truth": episode.techniques,
+                    "tool_model": tool_model,
+                    "merged_model": merged_model,
                     "verdict": result.verdict,
                     "technique_ids": result.technique_ids,
                     "evidence": result.evidence,

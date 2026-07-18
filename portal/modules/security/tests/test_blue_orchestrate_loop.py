@@ -310,3 +310,132 @@ def test_missing_role_in_sections_raises():
 
     with pytest.raises(ValueError):
         bo.run_blue_orchestration(_episode(), sections=incomplete, max_rounds=1)
+
+
+def _two_sections() -> list[bo.SectionSpec]:
+    return [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="merged", model="merged-model"),
+    ]
+
+
+def test_two_section_ablation_arm_confirms_without_a_separate_expert(monkeypatch):
+    """Slice 8 (GATE-D ablation): the 2-section 'V1 shape' arm — tool + merged
+    reasoning/expert — lets one model both hunt and conclude. Only 'tool' and
+    'merged' sections should appear in the trace; no 'reasoning'/'expert'."""
+    import json
+
+    calls = []
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+        calls.append(model)
+        return {
+            "content": json.dumps(
+                {
+                    "verdict": "CONFIRMED",
+                    "technique_ids": ["T1558.004"],
+                    "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+                    "reasoning": "confirmed",
+                    "match_grade": "EXACT",
+                    "similar_to": [],
+                    "request_more": "",
+                }
+            )
+        }
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec, provenance="matched-exact", raw_summary="EventCode=4768"
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    result = bo.run_blue_orchestration(_episode(), sections=_two_sections(), max_rounds=6)
+    assert result.verdict == "CONFIRMED"
+    assert result.technique_ids == ["T1558.004"]
+    sections_in_trace = {t["section"] for t in result.trace}
+    assert sections_in_trace == {"merged"}
+    assert "merged-model" in calls
+    assert "tool-model" not in calls  # tool section is dry-run-free here (no _call_model)
+
+
+def test_two_section_ablation_arm_requests_more_then_confirms(monkeypatch):
+    import json
+
+    responses = [
+        {
+            "content": json.dumps(
+                {
+                    "request_more": "need event 4769",
+                    "verdict": "",
+                    "technique_ids": [],
+                    "evidence": [],
+                    "reasoning": "",
+                    "match_grade": "NONE",
+                    "similar_to": [],
+                }
+            )
+        },
+        {
+            "content": json.dumps(
+                {
+                    "verdict": "CONFIRMED",
+                    "technique_ids": ["T1558.004"],
+                    "evidence": ["EventCode=4769"],
+                    "reasoning": "confirmed",
+                    "match_grade": "EXACT",
+                    "similar_to": [],
+                    "request_more": "",
+                }
+            )
+        },
+    ]
+    monkeypatch.setattr(bo, "_call_model", _fake_call_model_sequence(responses))
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec, provenance="matched-exact", raw_summary="EventCode=4769 detail"
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    result = bo.run_blue_orchestration(_episode(), sections=_two_sections(), max_rounds=6)
+    assert result.verdict == "CONFIRMED"
+    sections_in_trace = [t["section"] for t in result.trace]
+    assert sections_in_trace == ["merged", "tool", "merged"]
+
+
+def test_two_section_never_concluding_hits_max_rounds_unresolved(monkeypatch):
+    import json
+
+    always_wants_more = json.dumps(
+        {
+            "request_more": "still need more",
+            "verdict": "",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "",
+            "match_grade": "NONE",
+            "similar_to": [],
+        }
+    )
+    monkeypatch.setattr(bo, "_call_model", lambda *a, **kw: {"content": always_wants_more})
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    result = bo.run_blue_orchestration(_episode(), sections=_two_sections(), max_rounds=4)
+    assert result.verdict == "UNRESOLVED"
+    assert result.rounds >= 4
+
+
+def test_sections_shape_neither_two_nor_three_raises():
+    bad = [bo.SectionSpec(role="tool", model="m"), bo.SectionSpec(role="oracle", model="m")]
+    import pytest
+
+    with pytest.raises(ValueError):
+        bo.run_blue_orchestration(_episode(), sections=bad, max_rounds=1)

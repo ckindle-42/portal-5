@@ -625,6 +625,153 @@ def run_expert_model(
     )
 
 
+# ── Slice 8: Merged reasoning/expert role — the 2-section "V1 shape" ────────
+#
+# design §6.1 / build-doc Slice 8: the ablation's 2-section arm is "tool +
+# merged reasoning/expert" — one generalist model both hunts (open discovery,
+# decides what more to pull, runs similarity/novelty detection) AND renders
+# the conclusive verdict itself, instead of a separate Hunter proposing to a
+# separate fed expert. Additive-only (I7): the canonical 3-section pipeline
+# above is untouched; this is a second, optional pipeline shape selected by
+# which roles are present in `sections`.
+
+_MERGED_SYSTEM_PROMPT = (
+    _BLUE_SYSTEM_PROMPT_DISCOVERY
+    + "\n\nUnlike a hunter proposing hypotheses to someone else, you are the "
+    "sole analyst here: you both investigate and render the conclusive "
+    "verdict yourself. Ground every conclusion strictly in evidence given to "
+    "you or gathered on your request — never invent supporting evidence."
+)
+
+_MERGED_OUTPUT_FORMAT_INSTRUCTIONS = (
+    "\n\nWhen you respond, include exactly one JSON object (in addition to any prose "
+    "reasoning) with these fields:\n"
+    '{"request_more": "<what telemetry you still need, or empty if you have enough to '
+    'conclude>", "verdict": "CONFIRMED|ANOMALOUS_UNCLASSIFIED|RULED_OUT (omit/empty if '
+    'requesting more)", "technique_ids": ["T...."], "evidence": ["..."], "reasoning": "...", '
+    '"match_grade": "EXACT|SIMILAR|NONE", "similar_to": ["T...."]}\n'
+    "Set request_more (non-empty) and leave verdict empty if you need more evidence before "
+    "concluding — do not guess. Otherwise render your best-grounded verdict now; RULED_OUT is "
+    "a valid, honest conclusion when the evidence does not support your hypothesis."
+)
+
+
+def format_for_merged(results: list[ToolResult], trigger: str) -> str:
+    """Render gathered telemetry + trigger for the merged role's first turn —
+    same open-discovery framing as format_for_reasoning, but paired with the
+    merged output contract (a verdict field, not just a hypothesis)."""
+    parts = [f"Trigger: {trigger}"]
+    for r in results:
+        parts.append(f"[{r.provenance}] query: {r.query}\n{r.raw_summary}")
+    evidence_block = (
+        "\n\n".join(parts) if results else f"Trigger: {trigger}\n(no telemetry gathered yet)"
+    )
+    return f"{evidence_block}{_MERGED_OUTPUT_FORMAT_INSTRUCTIONS}"
+
+
+def format_new_evidence_merged(results: list[ToolResult]) -> str:
+    """Merged-role analogue of format_new_evidence — delta-only follow-up
+    turn, paired with the merged output contract."""
+    if not results:
+        return f"(no new telemetry gathered){_MERGED_OUTPUT_FORMAT_INSTRUCTIONS}"
+    parts = [f"[{r.provenance}] query: {r.query}\n{r.raw_summary}" for r in results]
+    return (
+        "New telemetry gathered in response to your request:\n\n"
+        + "\n\n".join(parts)
+        + _MERGED_OUTPUT_FORMAT_INSTRUCTIONS
+    )
+
+
+def run_merged_model(
+    context: str,
+    *,
+    merged_model: str,
+    ground_truth: set[str],
+    tool_results: list[ToolResult] | None = None,
+    history: list[dict] | None = None,
+    dry_run: bool = False,
+) -> SectionOutput:
+    """Call one generalist model to both hunt and render the conclusive
+    verdict — the 2-section "V1 shape" ablation arm (design §6.1, build-doc
+    Slice 8). Same never-invent citation gate as the expert (I2): a CONFIRMED
+    verdict is run through blue._cite_or_drop, downgraded to
+    ANOMALOUS_UNCLASSIFIED if its evidence doesn't survive."""
+    if dry_run:
+        return SectionOutput(
+            request_more="dry-run: no live merged call performed", section="merged"
+        )
+
+    messages = [{"role": "system", "content": _MERGED_SYSTEM_PROMPT}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": context})
+    msg = _call_model(merged_model, messages, tools=None, max_tokens=_REASONING_MAX_TOKENS)
+    content = msg.get("content", "") or ""
+    stripped = _strip_think_tags(content)
+    parsed = None
+    for obj in reversed(_find_balanced_json_objects(stripped)):
+        if "verdict" in obj or "request_more" in obj:
+            parsed = obj
+            break
+
+    if not parsed:
+        fallback = stripped[:400] or "insufficient evidence — need more telemetry"
+        return SectionOutput(request_more=fallback, section="merged", raw=content)
+
+    verdict = parsed.get("verdict")
+    if verdict not in ("CONFIRMED", "ANOMALOUS_UNCLASSIFIED", "RULED_OUT"):
+        verdict = None
+    request_more = str(parsed.get("request_more") or "").strip()
+    technique_ids = [t for t in (parsed.get("technique_ids") or []) if t]
+    evidence = [str(e) for e in (parsed.get("evidence") or [])]
+    reasoning = str(parsed.get("reasoning") or "")
+    match_grade = str(parsed.get("match_grade") or "NONE").upper()
+    if match_grade not in ("EXACT", "SIMILAR", "NONE"):
+        match_grade = "NONE"
+    similar_to = [t for t in (parsed.get("similar_to") or []) if t]
+
+    if verdict is None and not request_more:
+        request_more = stripped[:400] or "insufficient evidence — need more telemetry"
+
+    if verdict is None:
+        return SectionOutput(
+            request_more=request_more,
+            match_grade=match_grade,
+            similar_to=similar_to,
+            section="merged",
+            raw=content,
+        )
+
+    if verdict == "CONFIRMED":
+        telemetry = _combined_telemetry_text(tool_results or [])
+        reported = [{"technique_id": t, "evidence": "; ".join(evidence)} for t in technique_ids]
+        kept = _cite_or_drop(reported, telemetry, list(ground_truth))
+        kept_ids = {d.get("technique_id", "").upper() for d in kept}
+        if not technique_ids or kept_ids != {t.upper() for t in technique_ids}:
+            return SectionOutput(
+                verdict="ANOMALOUS_UNCLASSIFIED",
+                technique_ids=technique_ids,
+                evidence=evidence,
+                reasoning=reasoning
+                or "downgraded: CONFIRMED evidence did not survive cite-or-drop",
+                match_grade=match_grade if match_grade != "NONE" else "SIMILAR",
+                similar_to=similar_to or technique_ids,
+                section="merged",
+                raw=content,
+            )
+
+    return SectionOutput(
+        verdict=verdict,
+        technique_ids=technique_ids,
+        evidence=evidence,
+        reasoning=reasoning,
+        match_grade=match_grade,
+        similar_to=similar_to,
+        section="merged",
+        raw=content,
+    )
+
+
 # ── Slice 5: Deterministic section-pipeline orchestrator (GATE-B) ──────────
 #
 # GATE-B spike outcome: FORCED to a bespoke state machine, not run_loop.
@@ -677,19 +824,52 @@ def run_blue_orchestration(
     check_additional: bool = False,
     dry_run: bool = False,
 ) -> OrchestrationResult:
-    """Run the canonical tool -> reasoning -> expert pipeline to a conclusive
-    expert verdict, or UNRESOLVED on budget exhaustion.
+    """Run the section pipeline to a conclusive verdict, or UNRESOLVED on
+    budget exhaustion.
 
-    `sections` binds each role to a model (canonical: [tool, reasoning,
-    expert]) — swapping a section's model, or adding a 4th role later, is a
-    config change to this list, not a rewrite of the flow below (§0.1(2)).
+    `sections` binds each role to a model. Two shapes are accepted: the
+    canonical 3-section pipeline (`[tool, reasoning, expert]`) and the
+    2-section ablation arm (`[tool, merged]`, design §6.1 / build-doc
+    Slice 8's "V1 shape") where one generalist model both hunts and renders
+    the verdict itself. Swapping a section's model is a config change to
+    this list, not a rewrite of the flow below (§0.1(2)).
     """
-    import time as _time
-
     models = {s.role: s.model for s in sections}
-    for role in ("tool", "reasoning", "expert"):
-        if role not in models:
-            raise ValueError(f"sections is missing a '{role}' SectionSpec")
+    has_three = {"tool", "reasoning", "expert"} <= models.keys()
+    has_two = {"tool", "merged"} <= models.keys()
+    if not has_three and not has_two:
+        raise ValueError(
+            "sections must contain {'tool','reasoning','expert'} (3-section canonical) "
+            "or {'tool','merged'} (2-section ablation arm)"
+        )
+    if has_two and not has_three:
+        return _run_two_section(
+            episode,
+            models=models,
+            max_rounds=max_rounds,
+            wall_clock_s=wall_clock_s,
+            dry_run=dry_run,
+        )
+    return _run_three_section(
+        episode,
+        models=models,
+        max_rounds=max_rounds,
+        wall_clock_s=wall_clock_s,
+        check_additional=check_additional,
+        dry_run=dry_run,
+    )
+
+
+def _run_three_section(
+    episode: Episode,
+    *,
+    models: dict[str, str],
+    max_rounds: int,
+    wall_clock_s: float | None,
+    check_additional: bool,
+    dry_run: bool,
+) -> OrchestrationResult:
+    import time as _time
 
     ground_truth = set(episode.techniques)
     trigger = f"An alert was triggered on {episode.target_host} (scenario: {episode.scenario})."
@@ -843,3 +1023,122 @@ def run_blue_orchestration(
         pass
 
     return result
+
+
+def _run_two_section(
+    episode: Episode,
+    *,
+    models: dict[str, str],
+    max_rounds: int,
+    wall_clock_s: float | None,
+    dry_run: bool,
+) -> OrchestrationResult:
+    """The 2-section ablation arm: tool + merged reasoning/expert (design
+    §6.1's "V1 shape"). One generalist model hunts and concludes itself —
+    no separate Hunter-proposes/expert-confirms handoff."""
+    import time as _time
+
+    ground_truth = set(episode.techniques)
+    trigger = f"An alert was triggered on {episode.target_host} (scenario: {episode.scenario})."
+
+    tool_results: list[ToolResult] = []
+    trace: list[dict] = []
+    rounds = 0
+    started = _time.monotonic()
+    merged_out: SectionOutput | None = None
+
+    merged_history: list[dict] = []
+    new_since_last_turn: list[ToolResult] = []
+    _merged_history_cap_pairs = 6
+    _merged_history_turn_cap_chars = 3000
+
+    def _elapsed() -> float:
+        return _time.monotonic() - started
+
+    def _budget_exhausted() -> bool:
+        if rounds >= max_rounds:
+            return True
+        return bool(wall_clock_s and _elapsed() >= wall_clock_s)
+
+    def _gather(request_more: str) -> None:
+        req = build_tool_request(request_more)
+        tr = run_tool_model(
+            req,
+            tool_model=models["tool"],
+            ground_truth=ground_truth,
+            episode=episode,
+            dry_run=dry_run,
+        )
+        tool_results.append(tr)
+        new_since_last_turn.append(tr)
+        trace.append(
+            {
+                "round": rounds,
+                "section": "tool",
+                "model": models["tool"],
+                "provenance": tr.provenance,
+                "query": tr.query,
+            }
+        )
+
+    def _remember_turn(ctx: str, out: SectionOutput) -> None:
+        merged_history.append({"role": "user", "content": ctx})
+        reply = _strip_think_tags(out.raw)[:_merged_history_turn_cap_chars]
+        merged_history.append({"role": "assistant", "content": reply})
+        cap = _merged_history_cap_pairs * 2
+        if len(merged_history) > cap:
+            del merged_history[: len(merged_history) - cap]
+
+    while not _budget_exhausted():
+        if not merged_history:
+            ctx = format_for_merged(tool_results, trigger)
+        else:
+            ctx = format_new_evidence_merged(new_since_last_turn)
+        merged_out = run_merged_model(
+            ctx,
+            merged_model=models["merged"],
+            ground_truth=ground_truth,
+            tool_results=tool_results,
+            history=merged_history,
+            dry_run=dry_run,
+        )
+        _remember_turn(ctx, merged_out)
+        new_since_last_turn = []
+        trace.append(
+            {
+                "round": rounds,
+                "section": "merged",
+                "model": models["merged"],
+                "verdict": merged_out.verdict,
+                "match_grade": merged_out.match_grade,
+                "wants_more": merged_out.wants_more(),
+            }
+        )
+        rounds += 1
+
+        if merged_out.is_conclusion():
+            break
+        if merged_out.wants_more() and not _budget_exhausted():
+            _gather(merged_out.request_more)
+            rounds += 1
+            continue
+        break
+
+    if merged_out is not None and merged_out.is_conclusion():
+        return OrchestrationResult(
+            verdict=merged_out.verdict,
+            technique_ids=merged_out.technique_ids,
+            evidence=merged_out.evidence,
+            reasoning=merged_out.reasoning,
+            match_grade=merged_out.match_grade,
+            similar_to=merged_out.similar_to,
+            trace=trace,
+            rounds=rounds,
+            elapsed_s=round(_elapsed(), 2),
+        )
+    return OrchestrationResult(
+        verdict="UNRESOLVED",
+        trace=trace,
+        rounds=rounds,
+        elapsed_s=round(_elapsed(), 2),
+    )
