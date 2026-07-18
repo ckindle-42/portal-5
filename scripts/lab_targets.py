@@ -112,7 +112,9 @@ def _host_compose_path(path: str) -> str:
     return f"{LAB_VULHUB_HOST_ROOT}/{path}/docker-compose.yml"
 
 
-def _pick_http_port(ports: list[int]) -> int | None:
+def _pick_http_port(
+    ports: list[int], *, retries: int = 6, retry_delay_s: float = 5.0
+) -> int | None:
     """Given several candidate published ports for one container, prefer the
     one that's actually serving HTTP.
 
@@ -129,15 +131,28 @@ def _pick_http_port(ports: list[int]) -> int | None:
     order hits the same failure mode. Probes each candidate with a quick
     HTTP request and returns the first one that gets ANY HTTP response
     (even 4xx/5xx counts — it proves the port speaks HTTP at all).
+
+    Retries across a real wait window (found live 2026-07-18, second
+    verification pass): this is called immediately after `docker compose up
+    -d` returns, before the app has actually finished starting — a JVM's
+    debug port (5005) opens as soon as the process forks, well before its
+    HTTP layer (Solr's Jetty on 8983) finishes initializing, which can take
+    10-20s. A single-shot probe caught 8983 still refusing connections and
+    silently fell back to the first port (5005) again, reproducing the
+    exact bug this function exists to fix. Retries for up to
+    retries * retry_delay_s seconds before giving up.
     """
-    for port in ports:
-        r = _host_exec(
-            f"curl -s -o /dev/null -w '%{{http_code}}' -m 3 http://localhost:{port}/",
-            timeout=8,
-        )
-        code = r.get("output", "").strip()
-        if r.get("ok") and code.isdigit() and code != "000":
-            return port
+    for attempt in range(retries):
+        for port in ports:
+            r = _host_exec(
+                f"curl -s -o /dev/null -w '%{{http_code}}' -m 3 http://localhost:{port}/",
+                timeout=8,
+            )
+            code = r.get("output", "").strip()
+            if r.get("ok") and code.isdigit() and code != "000":
+                return port
+        if attempt < retries - 1:
+            time.sleep(retry_delay_s)
     return None
 
 
