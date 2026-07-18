@@ -1652,8 +1652,13 @@ def collect_and_ship_scenario_telemetry(
         shipped = 0
         for sourcetype, lines in merged_tele.items():
             if lines:
+                # Plain strings, not {"raw": line} — see capture_store.py's
+                # replay_capture for the full root-cause (2026-07-18): a JSON
+                # envelope wrapper defeats Splunk's key=value field
+                # extraction, so structured SPL queries return empty even on
+                # correctly-indexed events.
                 ship_batch(
-                    [{"raw": line} for line in lines],
+                    list(lines),
                     sourcetype=sourcetype,
                     host=primary_host,
                     event_time=scenario_start,

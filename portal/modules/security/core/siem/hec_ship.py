@@ -57,7 +57,7 @@ def ship(
 
 
 def ship_batch(
-    events: list[dict],
+    events: list[dict | str],
     *,
     sourcetype: str,
     host: str,

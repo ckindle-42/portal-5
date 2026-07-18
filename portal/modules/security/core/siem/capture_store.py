@@ -148,8 +148,14 @@ def replay_capture(
     for sourcetype, lines in telemetry.items():
         if not lines:
             continue
+        # Plain strings, not {"raw": line} — found live 2026-07-18: wrapping
+        # each line in a JSON envelope meant Splunk indexed the literal text
+        # `{"raw": "EventCode=4769 ..."}`, and its automatic key=value field
+        # extraction never descends into a nested JSON string value, so
+        # every structured-field SPL query (siem/spl_detections.yaml) came
+        # back empty even on correctly-shipped, indexed-confirmed events.
         r = ship_batch(
-            [{"raw": line} for line in lines],
+            list(lines),
             sourcetype=sourcetype,
             host=target_host,
             dry_run=dry_run,
