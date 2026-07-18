@@ -439,3 +439,68 @@ def test_sections_shape_neither_two_nor_three_raises():
 
     with pytest.raises(ValueError):
         bo.run_blue_orchestration(_episode(), sections=bad, max_rounds=1)
+
+
+def test_ground_hunter_evidence_downgrades_ungrounded_citation():
+    """Regression: found live 2026-07-18 — given a weak/mismatched tool
+    result, the Hunter still claimed EXACT match and cited specific details
+    (account names, encryption types) never actually present in what was
+    retrieved. The Expert correctly refused to confirm it, but only after a
+    full round was burned. Catch it one round earlier."""
+    hunter_out = bo.SectionOutput(
+        verdict="CONFIRMED",
+        technique_ids=["T1558.099"],
+        evidence=["sAMAccountName svc_account$ RC4_HMAC_MD5 Invoke-Kerberoast"],
+        match_grade="EXACT",
+        section="reasoning",
+    )
+    tool_results = [
+        bo.ToolResult(
+            query="q", provenance="live-broad-fallback", raw_summary="531 events: 4624x147 4672x139"
+        )
+    ]
+    out = bo._ground_hunter_evidence(hunter_out, tool_results, ground_truth={"T1558.003"})
+    assert out.wants_more()
+    assert "T1558.099" in out.request_more
+
+
+def test_ground_hunter_evidence_passes_grounded_citation_through():
+    hunter_out = bo.SectionOutput(
+        verdict="CONFIRMED",
+        technique_ids=["T1558.004"],
+        evidence=["EventCode=4768 AS-REP event for svc-web"],
+        match_grade="EXACT",
+        section="reasoning",
+    )
+    tool_results = [
+        bo.ToolResult(
+            query="q",
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 AS-REP event for svc-web",
+        )
+    ]
+    out = bo._ground_hunter_evidence(hunter_out, tool_results, ground_truth={"T1558.004"})
+    assert out is hunter_out
+
+
+def test_ground_hunter_evidence_skips_when_nothing_gathered_yet():
+    """A hypothesis formed before any tool round has run isn't the
+    mismatched-evidence failure mode this guards against — pass through."""
+    hunter_out = bo.SectionOutput(
+        verdict="ANOMALOUS_UNCLASSIFIED",
+        technique_ids=["T1558.099"],
+        evidence=["odd ticket pattern"],
+        match_grade="SIMILAR",
+        similar_to=["T1558.003"],
+        section="reasoning",
+    )
+    out = bo._ground_hunter_evidence(hunter_out, [], ground_truth={"T1558.004"})
+    assert out is hunter_out
+
+
+def test_ground_hunter_evidence_passes_through_when_wants_more_already():
+    hunter_out = bo.SectionOutput(request_more="need more data", section="reasoning")
+    out = bo._ground_hunter_evidence(
+        hunter_out, [bo.ToolResult(query="q", raw_summary="x")], ground_truth=set()
+    )
+    assert out is hunter_out

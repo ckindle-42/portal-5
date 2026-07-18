@@ -185,3 +185,34 @@ def test_run_reasoning_model_without_history_is_unchanged(monkeypatch):
     assert len(seen_messages) == 2
     assert seen_messages[0]["role"] == "system"
     assert seen_messages[1] == {"role": "user", "content": "ctx"}
+
+
+def test_bias_tool_schemas_narrows_to_windows_events_on_event_id_mention():
+    """Regression: found live 2026-07-18 — a Hunter request naming Event ID
+    4769 by name still let the tool model pick query_network_traffic, a
+    plausible-sounding but wrong tool, returning a useless generic summary
+    the Hunter then embellished past. Deterministically narrow the offered
+    tools when the request is this unambiguous."""
+    tools = [
+        {"function": {"name": "query_splunk"}},
+        {"function": {"name": "query_windows_events"}},
+        {"function": {"name": "query_web_logs"}},
+        {"function": {"name": "query_network_traffic"}},
+    ]
+    narrowed = bo._bias_tool_schemas("Windows Security event logs, Event ID 4769", tools)
+    assert [t["function"]["name"] for t in narrowed] == ["query_windows_events"]
+
+
+def test_bias_tool_schemas_unbiased_request_keeps_all_tools():
+    tools = [
+        {"function": {"name": "query_splunk"}},
+        {"function": {"name": "query_web_logs"}},
+    ]
+    unchanged = bo._bias_tool_schemas("web server access logs for suspicious requests", tools)
+    assert unchanged == tools
+
+
+def test_bias_tool_schemas_falls_back_when_windows_tool_not_offered():
+    tools = [{"function": {"name": "query_splunk"}}]
+    result = bo._bias_tool_schemas("Event ID 4769", tools)
+    assert result == tools
