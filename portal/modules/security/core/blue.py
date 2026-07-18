@@ -1064,8 +1064,14 @@ def _run_blue_chain_test(
     A genuinely-indexed replay should be allowed to query it.
     """
     effective_query_live = lab_exec if query_live is None else query_live
-    mode = "lab-exec" if (effective_query_live and _LAB_EXEC_AVAILABLE) else "synthetic"
-    print(f"  blue-chain [{mode}]  {model} ...", end="", flush=True)
+    # Live-query provenance label for the progress line only — found live
+    # 2026-07-18: this used to be assigned into `mode` itself, silently
+    # clobbering the prompt-mode param (scripted/discovery/hybrid) before it
+    # was ever used to pick _prompt_pairs below, so every --blue-mode
+    # hybrid/discovery selection routed through --purple was silently
+    # discarded in favor of the "scripted" fallback.
+    query_provenance = "lab-exec" if (effective_query_live and _LAB_EXEC_AVAILABLE) else "synthetic"
+    print(f"  blue-chain [{query_provenance}]  {model} ...", end="", flush=True)
     if dry_run:
         print(" DRY-RUN")
         return {"model": model, "outcome": "dry_run", "mode": mode}
@@ -1221,7 +1227,9 @@ def _run_blue_chain_test(
 
     score = _score_blue_detections(reported, ground_truth)
     used_fallback = (
-        any(v["source"] != "live" for v in telemetry.values()) if mode == "lab-exec" else None
+        any(v["source"] != "live" for v in telemetry.values())
+        if query_provenance == "lab-exec"
+        else None
     )
 
     # ── Cite-or-drop FP (Phase B: never-invent applied to blue output) ──────

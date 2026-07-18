@@ -292,3 +292,65 @@ class TestQueryLiveDecoupledFromLabExec:
             ["red-m"], ["blue-m"], scenario, cfg, lab_exec=False, replay_captured_red=True
         )
         assert captured_kwargs.get("query_live") is True
+
+
+class TestBlueModeNotClobberedByQueryProvenance:
+    """Found live 2026-07-18: _run_blue_chain_test computed a live-query
+    provenance label ("lab-exec"/"synthetic") and assigned it INTO the
+    `mode` parameter itself, before `mode` was used to pick the investigation
+    prompt (_prompt_pairs). Since "lab-exec"/"synthetic" are never keys in
+    _prompt_pairs, every --blue-mode discovery/hybrid selection routed
+    through --purple silently fell back to "scripted" regardless of what
+    was actually requested."""
+
+    def test_hybrid_mode_selects_hybrid_prompt_even_when_query_live(self, monkeypatch):
+        from portal.modules.security.core import blue as blue_mod
+
+        seen_system_prompts: list[str] = []
+
+        def _fake_stream_chain_turn(url, headers, body, **kwargs):
+            seen_system_prompts.append(body["messages"][0]["content"])
+            return {"content": "no tools here", "tool_calls": []}
+
+        monkeypatch.setattr(blue_mod, "_stream_chain_turn", _fake_stream_chain_turn)
+        monkeypatch.setattr(blue_mod, "_LAB_EXEC_AVAILABLE", True)
+        monkeypatch.setattr(blue_mod, "_BLUE_DIRECT_OLLAMA", True)
+
+        scenario = {
+            "name": "kerberoast_to_da",
+            "detect_ground_truth": ["T1558.003"],
+            "persistence_technique": "",
+            "target_host": None,
+        }
+        # query_live=True (as a replay passes) used to clobber `mode` into
+        # "lab-exec" before it reached _prompt_pairs.
+        blue_mod._run_blue_chain_test(
+            "blue-m", scenario, lab_exec=False, query_live=True, mode="hybrid"
+        )
+        assert seen_system_prompts, "model must have been called at least once"
+        assert seen_system_prompts[0] == blue_mod._BLUE_SYSTEM_PROMPT_HYBRID
+
+    def test_discovery_mode_selects_discovery_prompt_when_not_query_live(self, monkeypatch):
+        from portal.modules.security.core import blue as blue_mod
+
+        seen_system_prompts: list[str] = []
+
+        def _fake_stream_chain_turn(url, headers, body, **kwargs):
+            seen_system_prompts.append(body["messages"][0]["content"])
+            return {"content": "no tools here", "tool_calls": []}
+
+        monkeypatch.setattr(blue_mod, "_stream_chain_turn", _fake_stream_chain_turn)
+        monkeypatch.setattr(blue_mod, "_LAB_EXEC_AVAILABLE", False)
+        monkeypatch.setattr(blue_mod, "_BLUE_DIRECT_OLLAMA", True)
+
+        scenario = {
+            "name": "kerberoast_to_da",
+            "detect_ground_truth": ["T1558.003"],
+            "persistence_technique": "",
+            "target_host": None,
+        }
+        blue_mod._run_blue_chain_test(
+            "blue-m", scenario, lab_exec=False, query_live=False, mode="discovery"
+        )
+        assert seen_system_prompts, "model must have been called at least once"
+        assert seen_system_prompts[0] == blue_mod._BLUE_SYSTEM_PROMPT_DISCOVERY
