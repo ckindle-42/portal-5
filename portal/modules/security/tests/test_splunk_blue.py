@@ -495,6 +495,67 @@ class TestMeta3Collect:
             )
         assert result == {}
 
+    def test_collect_meta3_falls_back_to_tomcat_log_when_iis_empty(self):
+        """Regression: meta3_tomcat_manager's actual vulnerable service is
+        Tomcat, not IIS — IIS's W3C log path never sees Tomcat's own
+        requests. Found live 2026-07-18: a full purple run's fresh capture
+        had zero web-layer exploit evidence for exactly this reason. The
+        broadened search must pick up Tomcat's own access log when IIS's is
+        empty (the common case — meta3's non-IIS-hosted services)."""
+        from portal.modules.security.core.siem import collect as collect_mod
+
+        tomcat_text = (
+            '10.0.0.25 - - [18/Jul/2026:01:49:41 +0000] "PUT /manager/text/deploy?path=/shell '
+            'HTTP/1.1" 200 -\n'
+        )
+
+        def _mcp_call(code: str, timeout: int = 90):
+            import base64
+            import re
+
+            m = re.search(r"-EncodedCommand (\S+)", code)
+            ps_script = base64.b64decode(m.group(1)).decode("utf-16-le") if m else ""
+            if "localhost_access_log" in ps_script:
+                return {
+                    "ok": True,
+                    "output": json.dumps({"success": True, "stdout": tomcat_text}),
+                }
+            return {"ok": True, "output": json.dumps({"success": True, "stdout": ""})}
+
+        with patch.object(collect_mod, "_get_mcp_call", return_value=_mcp_call):
+            result = collect_mod.collect_target(
+                "10.10.11.10", "meta3", since_epoch=0, dry_run=False
+            )
+        assert result["web:access"] == [
+            '10.0.0.25 - - [18/Jul/2026:01:49:41 +0000] "PUT /manager/text/deploy?path=/shell '
+            'HTTP/1.1" 200 -'
+        ]
+
+    def test_collect_meta3_tomcat_search_excludes_catalina_log(self):
+        """Regression: catalina.*.log (Tomcat's server/deployment log) was
+        briefly in the same -Include list as the access log — server startup/
+        WAR-deploy noise often has a newer mtime than the real access log and
+        won the "most recent file" sort, returning zero real request
+        evidence. The access-log search must never include catalina.*.log."""
+        from portal.modules.security.core.siem import collect as collect_mod
+
+        seen_scripts: list[str] = []
+
+        def _mcp_call(code: str, timeout: int = 90):
+            import base64
+            import re
+
+            m = re.search(r"-EncodedCommand (\S+)", code)
+            ps_script = base64.b64decode(m.group(1)).decode("utf-16-le") if m else ""
+            seen_scripts.append(ps_script)
+            return {"ok": True, "output": json.dumps({"success": True, "stdout": ""})}
+
+        with patch.object(collect_mod, "_get_mcp_call", return_value=_mcp_call):
+            collect_mod.collect_target("10.10.11.10", "meta3", since_epoch=0, dry_run=False)
+
+        tomcat_search = next(s for s in seen_scripts if "localhost_access_log" in s)
+        assert "catalina" not in tomcat_search
+
 
 # ── Index wait ───────────────────────────────────────────────────────────────
 

@@ -422,7 +422,14 @@ def collect_target(
                     and not ln.lstrip().startswith(("[*]", "[+]", "[-]"))
                 ]
 
-            # IIS access logs (T1190 — web exploit evidence)
+            # Web exploit evidence (T1190) — IIS access logs, PLUS a broad
+            # search for Tomcat/Apache/other web-server logs. Found live
+            # 2026-07-18: meta3_tomcat_manager's actual vulnerable service is
+            # Tomcat (its own separate web server on :8080 with its own log
+            # files), NOT IIS — IIS's W3C log path never sees Tomcat's
+            # requests at all, so exploit evidence for that (and any other
+            # non-IIS meta3_* scenario: Jenkins, Glassfish, etc.) never
+            # reached the capture regardless of anything else being fixed.
             iis_out = _winrm_ps(
                 "Get-ChildItem C:\\inetpub\\logs\\LogFiles\\W3SVC1 -ErrorAction SilentlyContinue "
                 "| Sort LastWriteTime -Descending | Select -First 1 "
@@ -433,6 +440,25 @@ def collect_target(
                 lines = _real_log_lines(iis_out)
                 if lines:
                     out["web:access"] = lines
+
+            # Access-log patterns only — deliberately excludes catalina.*.log
+            # (Tomcat's own server/deployment log). Found live 2026-07-18: with
+            # catalina.*.log in the same "most recent file" competition, server
+            # startup/deployment noise (WAR deploy messages) frequently has a
+            # newer mtime than the actual per-request access log and won the
+            # sort, returning zero real request evidence.
+            other_web_out = _winrm_ps(
+                "Get-ChildItem -Path 'C:\\', 'C:\\Program Files', 'C:\\Program Files (x86)' "
+                "-Recurse -Depth 4 -ErrorAction SilentlyContinue "
+                "-Include 'localhost_access_log*.txt','access_log*','access.log*' "
+                "| Sort LastWriteTime -Descending | Select -First 1 "
+                "| Get-Content -Tail 500",
+                120,
+            )
+            if other_web_out:
+                lines = _real_log_lines(other_web_out)
+                if lines:
+                    out.setdefault("web:access", []).extend(lines)
 
             # FTP service logs
             ftp_out = _winrm_ps(
