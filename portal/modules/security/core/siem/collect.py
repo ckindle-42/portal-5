@@ -68,7 +68,7 @@ _WINDOWS_EVENT_FIELD_PATTERNS: dict[str, list[tuple[str, str]]] = {
         ("Account", r"Account Name:[ \t]*(\S+)"),
     ],
     "4698": [  # Scheduled task persistence (T1053.005)
-        ("TaskName", r"Task Name:[ \t]*(\S+)"),
+        ("TaskName", r"Task Name:[ \t]*(\S.*)"),
         ("Account", r"Account Name:[ \t]*(\S+)"),
     ],
     "4625": [  # Failed logon (T1110.003, password spray)
@@ -80,7 +80,7 @@ _WINDOWS_EVENT_FIELD_PATTERNS: dict[str, list[tuple[str, str]]] = {
         ("Account", r"Account Name:[ \t]*(\S+)"),
     ],
     "4688": [  # Process creation (T1059/T1059.004/T1548.001/T1068 command exec + privesc)
-        ("NewProcessName", r"New Process Name:[ \t]*(\S+)"),
+        ("NewProcessName", r"New Process Name:[ \t]*(\S.*)"),
         ("CommandLine", r"Process Command Line:[ \t]*(\S.*)"),
         ("Account", r"Account Name:[ \t]*(\S+)"),
     ],
@@ -126,7 +126,7 @@ def _normalize_windows_security_events(raw_text: str) -> list[str]:
         for name, pattern in _WINDOWS_EVENT_FIELD_PATTERNS.get(event_code, []):
             fm = re.search(pattern, block)
             if fm:
-                fields.append(f"{name}={fm.group(1)}")
+                fields.append(f"{name}={fm.group(1).rstrip()}")
         lines.append(" ".join(fields))
     return lines
 
