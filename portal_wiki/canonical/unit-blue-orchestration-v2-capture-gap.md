@@ -1,15 +1,14 @@
 ---
 id: unit-blue-orchestration-v2-capture-gap
 kind: why
-title: 'Blue Orchestration V2: capture pipeline fixed + live end-to-end proven; one
-  IIS/Tomcat gap remains'
+title: 'Blue Orchestration V2: capture pipeline fully fixed + live end-to-end proven'
 sources:
 - type: design
   path: coding_task/BUILD PROGRAM SEC BLUE ORCHESTRATION V2.md
   section: Slice 8
 - type: code
   path: portal/modules/security/core/siem/collect.py
-  commit: 81f819ee
+  commit: 8acfdca5
 - type: code
   path: scripts/lab_targets.py
   commit: b5fe8438
@@ -28,8 +27,8 @@ tags:
 - known-limitation
 - blue-orchestration-v2
 - telemetry-capture
-created_at: 1784341138.741646
-updated_at: 1784341138.741646
+created_at: 1784342326.783638
+updated_at: 1784342326.783638
 ---
 
 
