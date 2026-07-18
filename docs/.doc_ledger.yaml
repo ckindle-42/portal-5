@@ -15,7 +15,7 @@ docs:
     - launch.sh
     - portal/modules/
     - portal_mcp/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   CLAUDE.md:
     sources:
     - config/portal.yaml
@@ -29,37 +29,37 @@ docs:
     - portal_mcp/
     - .env.example
     - portal_wiki/canonical/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   KNOWN_LIMITATIONS.md:
     sources:
     - portal/platform/inference/
     - config/backends.yaml
     - portal/modules/
     - portal_mcp/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   P5_ROADMAP.md:
     sources:
     - config/backends.yaml
     - portal/platform/inference/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   KNOWN_ISSUES.md:
     sources:
     - portal/platform/inference/
     - tests/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/USER_GUIDE.md:
     sources:
     - config/personas/
     - config/portal.yaml
     - portal/platform/inference/router/workspaces.py
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/ADMIN_GUIDE.md:
     sources:
     - launch.sh
     - config/portal.yaml
     - deploy/
     - .env.example
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/HOWTO.md:
     sources:
     - launch.sh
@@ -67,73 +67,73 @@ docs:
     - portal_mcp/
     - scripts/mlx-speech.py
     - scripts/mlx-transcribe.py
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/CLUSTER_SCALE.md:
     sources:
     - config/backends.yaml
     - portal/platform/inference/cluster_backends.py
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/ALERTS.md:
     sources:
     - portal/platform/inference/notifications/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/PERFORMANCE.md:
     sources:
     - config/backends.yaml
     - tests/benchmarks/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/MCP_DEV_TOOLING.md:
     sources:
     - portal/modules/
     - portal_mcp/
     - .mcp.json
     - portal/platform/inference/tool_registry.py
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/COMFYUI_SETUP.md:
     sources:
     - portal/modules/media/tools/
     - deploy/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/FISH_SPEECH_SETUP.md:
     sources:
     - scripts/mlx-speech.py
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/COMPLIANCE_FALLBACK_POLICY.md:
     sources:
     - config/backends.yaml
     - config/personas/
     - portal/platform/inference/router/routing.py
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/BACKUP_RESTORE.md:
     sources:
     - launch.sh
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/LAB_SETUP.md:
     sources:
     - deploy/
     - tests/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/SECURITY_BENCH_EXEC.md:
     sources:
     - portal/modules/security/core/
     - config/tool_catalog.yaml
     - config/challenge_classes.yaml
     - config/lab_targets.yaml
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/PERSONA_MATRIX_CI.md:
     sources:
     - portal/modules/eval/persona_matrix/
     - .github/workflows/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/generated/ADMIN_GUIDE.md:
     sources:
     - portal_wiki/canonical/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/generated/ARCHITECTURE_MAP.md:
     sources:
     - portal_wiki/canonical/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
   docs/AGENT_LOOP.md:
     sources:
     - portal/platform/agent/
-    last_reconciled_commit: 2fb86a6cd6d21b88c656c5c60673f29f9b85753f
+    last_reconciled_commit: 394fb78e558d6e09596e5e2f3f3c8e2829283483
