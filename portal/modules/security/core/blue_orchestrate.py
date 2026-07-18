@@ -117,6 +117,33 @@ def _coerce_tool_args(raw: Any) -> dict:
     return {}
 
 
+def _stringify_query_args(args: dict) -> dict:
+    """Flatten list/int-valued args to strings before _query_real_telemetry.
+
+    Live-verified root cause (Slice 8 pre-screen, 2026-07-17): every Hunter
+    candidate tried (devstral, deepseek-r1, granite4.1:30b) kept re-asking for
+    telemetry it had already been "given" — because _query_real_telemetry's
+    keyword extraction only scans string-valued query_args, and
+    query_windows_events's OWN tool schema types `event_ids` as an array of
+    integers. A perfectly well-formed structured call like
+    query_windows_events(event_ids=[4769, 4776]) therefore never narrowed the
+    query at all — it silently fell through to the generic broad-summary
+    branch every round, so no Hunter model was ever actually receiving the
+    narrower evidence it asked for, regardless of how well it reasoned.
+    _query_real_telemetry itself is I7-protected (additive-only); this
+    normalizes the args shape at the call site instead.
+    """
+    out: dict = {}
+    for k, v in args.items():
+        if isinstance(v, list):
+            out[k] = " ".join(str(x) for x in v)
+        elif isinstance(v, (int, float)):
+            out[k] = str(v)
+        else:
+            out[k] = v
+    return out
+
+
 def _dispatch_tool_call(name: str, args: dict, episode: Episode) -> str:
     """Answer one tool call against the episode's captured telemetry.
 
@@ -124,7 +151,7 @@ def _dispatch_tool_call(name: str, args: dict, episode: Episode) -> str:
     reimplemented) — this is what makes the tool leg hermetically testable
     with a fake Episode instead of a live Splunk/WinRM backend.
     """
-    return _query_real_telemetry(name, episode, args)
+    return _query_real_telemetry(name, episode, _stringify_query_args(args))
 
 
 def run_tool_model(
