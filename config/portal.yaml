@@ -689,7 +689,7 @@ workspaces:
           existing blueteam variant''s prod model_hint (granite4.1:8b-ctx8k) is unchanged.'
         expose_to_owui: false
         tool_model: granite4.1:8b-ctx8k
-        reasoning_model: devstral-small-2:latest
+        reasoning_model: granite4.1:30b
         expert_model: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
         tools:
         - classify_vulnerability
