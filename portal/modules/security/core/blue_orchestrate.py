@@ -248,6 +248,31 @@ def _dispatch_tool_call(name: str, args: dict, episode: Episode) -> str:
     return result
 
 
+_WINDOWS_EVENT_HINT_RE = re.compile(
+    r"\bEvent\s*ID\b|\bEventCode\b|\bWindows\s+Security\b|\b4\d{3}\b", re.IGNORECASE
+)
+
+
+def _bias_tool_schemas(req_spec: str, tools: list[dict]) -> list[dict]:
+    """Narrow the offered tool schemas to query_windows_events when the
+    request unambiguously names a Windows Security EventCode/Event ID.
+
+    Live-verified root cause (Slice 8 ablation, 2026-07-18): the Hunter asked
+    for "Event ID 4769" by name, but the small tool model called
+    query_network_traffic instead — a plausible-sounding but wrong pick from
+    4 similarly-described retrieval tools — getting back a useless generic
+    event-count summary. The Hunter then still claimed EXACT match and
+    fabricated specific details (account names, encryption types) that were
+    never actually in that summary — a confabulation the Expert later
+    (correctly) rejected, but only after burning a full round. When the
+    request is this unambiguous, don't leave the choice to the small model.
+    """
+    if not _WINDOWS_EVENT_HINT_RE.search(req_spec):
+        return tools
+    narrowed = [t for t in tools if t.get("function", {}).get("name") == "query_windows_events"]
+    return narrowed or tools
+
+
 def run_tool_model(
     req: ToolRequest,
     *,
@@ -258,11 +283,13 @@ def run_tool_model(
 ) -> ToolResult:
     """Dispatch the tool model to gather telemetry for `req`.
 
-    Composes reused primitives: _call_model (with retrieval-only tool schemas)
-    -> tool_calls -> _query_real_telemetry per call -> broad fallback on empty
-    (prefer_broad) -> ToolResult with provenance. DO NOT interpret.
+    Composes reused primitives: _call_model (with retrieval-only tool schemas,
+    biased toward query_windows_events when the request unambiguously names a
+    Windows EventCode — see _bias_tool_schemas) -> tool_calls ->
+    _query_real_telemetry per call -> broad fallback on empty (prefer_broad)
+    -> ToolResult with provenance. DO NOT interpret.
     """
-    tools = _retrieval_tool_schemas()
+    tools = _bias_tool_schemas(req.spec, _retrieval_tool_schemas())
     messages = [
         {"role": "system", "content": _TOOL_SECTION_SYSTEM_PROMPT},
         {"role": "user", "content": f"Investigation request: {req.spec}"},
@@ -318,7 +345,12 @@ _HUNTER_OUTPUT_FORMAT_INSTRUCTIONS = (
     '"match_grade": "EXACT|SIMILAR|NONE", "similar_to": ["T...."]}\n'
     "Set request_more (non-empty) and leave technique_ids empty if you need more evidence "
     "before proposing anything — do not guess. You are proposing hypotheses for a domain "
-    "expert to review; you are not issuing the final verdict."
+    "expert to review; you are not issuing the final verdict. Every entry in `evidence` must "
+    "be something you can point to verbatim in the telemetry you were actually given — never "
+    "cite a detail (an account name, an encryption type, a tool name) just because it's typical "
+    "of the technique you suspect; if the telemetry doesn't show it, that detail doesn't belong "
+    "in `evidence`. If request_more is non-empty, name the exact gap (which EventCode/field/"
+    "technique you still need to see) — never a generic re-ask for 'more logs'."
 )
 
 
@@ -496,7 +528,8 @@ _EXPERT_OUTPUT_FORMAT_INSTRUCTIONS = (
     '"evidence": ["..."], "reasoning": "...", "match_grade": "EXACT|SIMILAR|NONE", '
     '"similar_to": ["T...."], "request_more": "<leave empty unless you need one specific '
     'targeted gap filled before you can conclude>"}\n'
-    "Set request_more only if a single specific gap would let you conclude — otherwise render "
+    "Set request_more only if a single specific gap would let you conclude — name the exact "
+    "EventCode/field/technique that gap is about, never a generic re-ask — otherwise render "
     "your best-grounded verdict now; RULED_OUT is a valid, honest conclusion when the evidence "
     "does not support the hunter's hypothesis."
 )
@@ -525,6 +558,51 @@ def format_for_expert(reasoning_out: SectionOutput, results: list[ToolResult], t
 def _combined_telemetry_text(results: list[ToolResult]) -> dict[str, dict]:
     combined = "\n".join(r.raw_summary for r in results)
     return {"gathered": {"telemetry": combined, "source": "tool-section"}}
+
+
+def _ground_hunter_evidence(
+    hunter_out: SectionOutput, tool_results: list[ToolResult], ground_truth: set[str]
+) -> SectionOutput:
+    """Catch Hunter confabulation one round before it reaches the Expert.
+
+    Live-verified (Slice 8 ablation, 2026-07-18): given a weak/mismatched
+    tool result, the Hunter still claimed EXACT match and cited specific
+    details (account names, encryption types, tool names) that were never
+    actually present in the gathered telemetry — plausible textbook
+    knowledge, not evidence it retrieved. The Expert (correctly, I2) refused
+    to confirm it, but only after a full round was already spent. Reuses the
+    same _cite_or_drop gate already applied to the Expert's CONFIRMED —
+    additive, not a new grounding mechanism — so an ungrounded hypothesis is
+    caught here and turned into a request_more that names the specific
+    technique(s) that didn't survive citation, rather than being forwarded
+    to the Expert as if it were solid.
+    """
+    if hunter_out.verdict is None or not hunter_out.technique_ids or not tool_results:
+        # Nothing gathered yet to cite against — not the failure mode this
+        # guards against (a mismatched/wrong tool result the Hunter then
+        # embellished past), so don't punish a hypothesis formed before any
+        # tool round has run.
+        return hunter_out
+    telemetry = _combined_telemetry_text(tool_results)
+    reported = [
+        {"technique_id": t, "evidence": "; ".join(hunter_out.evidence)}
+        for t in hunter_out.technique_ids
+    ]
+    kept = _cite_or_drop(reported, telemetry, list(ground_truth))
+    kept_ids = {d.get("technique_id", "").upper() for d in kept}
+    if kept_ids == {t.upper() for t in hunter_out.technique_ids}:
+        return hunter_out
+    ungrounded = [t for t in hunter_out.technique_ids if t.upper() not in kept_ids]
+    return SectionOutput(
+        request_more=(
+            f"Your cited evidence for {ungrounded} did not survive a citation check against "
+            "the telemetry actually gathered so far — it wasn't literally present in what was "
+            "retrieved. Re-query for that specific evidence (exact EventCode/field), or "
+            "reconsider your hypothesis using only what has actually been returned."
+        ),
+        section="reasoning",
+        raw=hunter_out.raw,
+    )
 
 
 def run_expert_model(
@@ -944,6 +1022,7 @@ def _run_three_section(
             history=hunter_history,
             dry_run=dry_run,
         )
+        hunter_out = _ground_hunter_evidence(hunter_out, tool_results, ground_truth)
         _remember_hunter_turn(ctx, hunter_out)
         new_since_last_hunt = []
         trace.append(
