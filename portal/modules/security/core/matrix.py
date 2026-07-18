@@ -384,8 +384,12 @@ def _execute_unit(unit: RunUnit, *, lab_exec: bool, purple: bool) -> RunResult:
                 shipped = 0
                 for sourcetype, lines in tele.items():
                     if lines:
+                        # Plain strings, not {"raw": line} — see
+                        # siem/capture_store.py's replay_capture for the full
+                        # root-cause (2026-07-18): a JSON envelope wrapper
+                        # defeats Splunk's key=value field extraction.
                         ship_batch(
-                            [{"raw": line} for line in lines],
+                            list(lines),
                             sourcetype=sourcetype,
                             host=unit.target_spec,
                         )
