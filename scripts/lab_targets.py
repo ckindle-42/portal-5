@@ -32,6 +32,10 @@ def _load_env() -> None:
     and nothing guarantees import order for other callers, so load .env here too
     rather than depend on another module having done it first.
     """
+    # Hermetic-test guard (CLAUDE.md: tests/unit/ must pass with no network
+    # access / real config) — this module is imported by test_lab_setup.py.
+    if os.environ.get("UNIT_TEST_MODE") == "1":
+        return
     env_file = REPO_ROOT / ".env"
     if env_file.exists():
         for line in env_file.read_text().splitlines():

@@ -527,36 +527,6 @@ security-scoped patch. Until fixed, a live emergent run against a target
 whose exploit-phase capabilities require ports already open in the first
 perception pass will halt at I4 before ever attempting the exploit.
 
-### PORTAL_ENABLE_EVAL gate checks for the literal string "1", not truthiness
-
-`portal/platform/inference/config.py` gates the `bench-*` workspace tier behind
-`os.environ.get("PORTAL_ENABLE_EVAL") == "1"` (exact-string comparison). This
-environment's `.env` has `PORTAL_ENABLE_EVAL=true`, which fails that check —
-so every `bench-*` model call through the pipeline (`/v1/chat/completions`
-with a `bench-*` workspace id) 404s with `"Workspace '...' is disabled
-(module not enabled)"`, even though the container's env clearly has the var
-set to a truthy-looking value. Found live 2026-07-18 debugging
-`blue_orchestration_ablation.py`'s 2-/3-section arms.
-
-Flipping `.env` to `PORTAL_ENABLE_EVAL=1` and recreating the pipeline
-container (`docker compose up -d --force-recreate portal-pipeline` — a plain
-`restart` does not re-read `.env`) does enable the tier, but then surfaces a
-**second**, larger problem: ~60 `bench-*` workspace `model_hint`s in
-`config/portal.yaml` no longer resolve against this host's live Ollama model
-list (models pulled for past sweeps, since pruned) and `STRICT_HINT_VALIDATION=true`
-makes that a hard startup failure for the whole pipeline, not just those
-workspaces — blocking Open WebUI along with everything else. **Not fixed
-here**: reverted `.env` back to `true` (the accidental-but-stable disabled
-state) to restore the shared pipeline; the ablation driver instead bypasses
-the pipeline's workspace layer entirely via `CHAIN_DIRECT_OLLAMA=true
-BLUE_DIRECT_OLLAMA=true` (talks straight to Ollama for the specific models it
-needs). Real fix needs either (a) the gate accepting `"1"`/`"true"` per
-existing loose-boolean convention elsewhere in the codebase, or (b) pruning
-`config/portal.yaml`'s `bench-*` workspaces to match the currently-pulled
-model set (see `scripts/validate_system.py` check **BB. model inventory
-reality**, which already flags this same drift outside of strict-startup
-mode) — either is a standalone task, not bundled into GATE-D.
-
 ### V8 Catalog Deferred (insufficient hardware)
 
 | Model | Est Size | Reason Deferred |

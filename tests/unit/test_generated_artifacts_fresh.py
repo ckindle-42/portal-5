@@ -44,24 +44,21 @@ def test_sync_config_is_idempotent() -> None:
 
 
 def test_backends_yaml_workspace_routing_matches_catalog() -> None:
-    """Every non-eval-gated workspace in portal.yaml must appear in
-    backends.yaml workspace_routing (Gate 3, BUILD_PROGRAM_COLLAPSE_V1.md
-    Phase 4 — module: eval workspaces are intentionally excluded, same
-    discipline as Gate 1/Gate 2)."""
-    from portal.platform.inference.config import _eval_enabled
-
+    """Every workspace in portal.yaml must appear in backends.yaml
+    workspace_routing — a static backend-group lookup table, NOT gated on
+    module-enabled state (unlike Gate 1/OWUI presets and Gate 2/.mcp.json;
+    see sync_config.emit_workspace_routing's docstring). Gating this table
+    on live enable state made its completeness depend on whatever env var/
+    toggle state happened to be active in whichever shell last ran
+    sync-config — found live 2026-07-18 chasing a GATE-D ablation hint-
+    validation bug that looked like stale models but wasn't."""
     portal_yaml_path = REPO / "config" / "portal.yaml"
     backends_path = REPO / "config" / "backends.yaml"
 
     portal_raw = yaml.safe_load(portal_yaml_path.read_text()) or {}
     backends_raw = yaml.safe_load(backends_path.read_text()) or {}
 
-    eval_on = _eval_enabled()
-    portal_ws = {
-        ws_id
-        for ws_id, spec in portal_raw.get("workspaces", {}).items()
-        if eval_on or spec.get("module") != "eval"
-    }
+    portal_ws = set(portal_raw.get("workspaces", {}).keys())
     backends_routing = set(backends_raw.get("workspace_routing", {}).keys())
 
     missing = portal_ws - backends_routing

@@ -243,10 +243,15 @@ def check_config_loads() -> tuple[str, str, list[dict]]:
 def check_rule_6() -> tuple[str, str, list[dict]]:
     """D. portal.yaml workspaces ↔ backends.yaml workspace_routing ↔ WORKSPACES.
 
-    module: eval workspaces (bench-*) are gated off WORKSPACES and
-    workspace_routing by default (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4), so
-    the 3-way comparison is against portal.yaml's non-eval-gated subset,
-    not its full set — that subset is what actually loads by default.
+    module: eval workspaces (bench-*) are gated off WORKSPACES by default
+    (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4), so ws_router is compared against
+    portal.yaml's non-eval-gated subset. workspace_routing is different: it's
+    a static backend-group lookup table for every known workspace, NOT gated
+    on module-enabled state (see sync_config.emit_workspace_routing's
+    docstring — gating it on live enable state made its completeness depend
+    on whatever env var happened to be set in whichever shell last ran
+    sync-config, found live 2026-07-18), so ws_backends is compared against
+    the full set instead.
     """
     import yaml
 
@@ -255,6 +260,7 @@ def check_rule_6() -> tuple[str, str, list[dict]]:
 
     cfg = load_portal_config()
     eval_on = _eval_enabled()
+    ws_all = set(cfg.workspaces.keys())
     ws_yaml = {wid for wid, spec in cfg.workspaces.items() if eval_on or spec.module != "eval"}
     ws_router = set(WORKSPACES.keys())
 
@@ -262,18 +268,22 @@ def check_rule_6() -> tuple[str, str, list[dict]]:
     backends = yaml.safe_load(backends_path.read_text())
     ws_backends = set(backends.get("workspace_routing", {}).keys())
 
-    if ws_yaml != ws_router or ws_yaml != ws_backends:
+    if ws_yaml != ws_router or ws_all != ws_backends:
         details = []
         if ws_yaml - ws_router:
             details.append(f"yaml extra: {ws_yaml - ws_router}")
         if ws_router - ws_yaml:
             details.append(f"router extra: {ws_router - ws_yaml}")
-        if ws_yaml - ws_backends:
-            details.append(f"backends missing: {ws_yaml - ws_backends}")
-        if ws_backends - ws_yaml:
-            details.append(f"backends extra: {ws_backends - ws_yaml}")
+        if ws_all - ws_backends:
+            details.append(f"backends missing: {ws_all - ws_backends}")
+        if ws_backends - ws_all:
+            details.append(f"backends extra: {ws_backends - ws_all}")
         return "FAIL", "; ".join(details), []
-    return "PASS", f"all 3 surfaces agree on {len(ws_yaml)} workspaces", []
+    return (
+        "PASS",
+        f"WORKSPACES agrees with portal.yaml ({len(ws_yaml)}); workspace_routing covers all {len(ws_all)}",
+        [],
+    )
 
 
 def check_hint_validator() -> tuple[str, str, list[dict]]:

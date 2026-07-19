@@ -27,9 +27,13 @@ def _seed_module_unit(name: str, enabled: bool) -> None:
 
 
 class TestModulesResolver:
-    def test_enabled_modules_falls_back_to_defaults_when_no_wiki_units(self, tmp_path):
+    def test_enabled_modules_falls_back_to_defaults_when_no_wiki_units(self, tmp_path, monkeypatch):
         from portal.platform.wiki.adapters.modules import DEFAULT_ENABLED_MODULES, enabled_modules
 
+        # Isolate from PORTAL_ENABLE_EVAL leaking in from another test in the
+        # same session (eval's env-var opt-in is intentionally independent of
+        # the wiki toggle this test exercises — see _eval_env_opt_in).
+        monkeypatch.delenv("PORTAL_ENABLE_EVAL", raising=False)
         set_canonical_dir(tmp_path / "canonical")
         try:
             assert set(enabled_modules()) == set(DEFAULT_ENABLED_MODULES)

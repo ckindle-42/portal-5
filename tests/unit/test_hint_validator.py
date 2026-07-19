@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from portal.platform.inference.router_pipe import WORKSPACES, _validate_workspace_hints
 
 
@@ -67,12 +65,15 @@ def test_validator_catches_missing_hint():
         WORKSPACES.update(saved)
 
 
-@pytest.mark.xfail(
-    reason="bench-lfm-micro workspace hints reference hf.co/ models not listed in "
-    "backends.yaml backend models. Real data gap — fix backends.yaml, not the test."
-)
 def test_validator_catches_real_workspaces_dict():
-    """Smoke test against the actual WORKSPACES dict and backends.yaml."""
+    """Smoke test against the actual WORKSPACES dict and backends.yaml.
+
+    Run with PORTAL_ENABLE_EVAL=1 to also exercise the bench-* tier (60
+    hints fixed 2026-07-18: not stale/pruned models, just a missing
+    workspace_routing group assignment for the whole eval module plus a
+    handful of bare-tag hints missing an explicit :latest suffix — see
+    KNOWN_LIMITATIONS.md's now-removed PORTAL_ENABLE_EVAL entry history).
+    """
     from portal.platform.inference.cluster_backends import BackendRegistry
 
     reg = BackendRegistry()

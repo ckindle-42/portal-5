@@ -53,6 +53,9 @@ RESULTS_DIR = Path(__file__).parent / "results"
 
 
 def _load_env() -> None:
+    # Hermetic-test guard — same class of bug as bench/config.py's _load_env.
+    if os.environ.get("UNIT_TEST_MODE") == "1":
+        return
     env_file = _ROOT / ".env"
     if env_file.exists():
         for line in env_file.read_text().splitlines():

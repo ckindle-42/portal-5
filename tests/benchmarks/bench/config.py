@@ -168,6 +168,17 @@ _ENV_KEYS_SKIP_FROM_DOTENV = {"PIPELINE_URL"}  # Compose-internal hostname; benc
 
 
 def _load_env() -> None:
+    # Hermetic-test guard (CLAUDE.md: tests/unit/ must pass with no network
+    # access / real config): tests/unit/test_adhoc_probe.py transitively
+    # imports this module (bench/adhoc_probe.py -> bench/config.py), and this
+    # function used to run unconditionally at import time, setdefault-ing
+    # every real .env key (LAB_* secrets, PIPELINE_API_KEY, PORTAL_ENABLE_EVAL,
+    # ...) into the whole unit-test session's os.environ for every test that
+    # ran after it — invisible until a later test happened to read one of
+    # those keys with different expectations. tests/unit/conftest.py already
+    # sets UNIT_TEST_MODE=1 for exactly this kind of hermetic-mode signal.
+    if os.environ.get("UNIT_TEST_MODE") == "1":
+        return
     env_file = PROJECT_ROOT / ".env"
     if env_file.exists():
         for line in env_file.read_text().splitlines():

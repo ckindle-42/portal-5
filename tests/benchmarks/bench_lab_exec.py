@@ -64,6 +64,16 @@ _ENV_KEYS_SKIP_FROM_DOTENV = {"PIPELINE_URL"}  # Compose-internal hostname; benc
 
 
 def _load_env() -> None:
+    # Hermetic-test guard (CLAUDE.md: tests/unit/ must pass with no network
+    # access / real config) — same class of bug as bench/config.py's
+    # _load_env (see its comment): scripts/bench_supervisor.py lazily
+    # `import bench_lab_exec` (its sys.path.insert(0, tests/benchmarks/)
+    # makes the bare name importable), and this ran unconditionally at
+    # import time, leaking every real .env key into the whole unit-test
+    # session via setdefault. tests/unit/conftest.py sets UNIT_TEST_MODE=1
+    # for exactly this hermetic-mode signal.
+    if os.environ.get("UNIT_TEST_MODE") == "1":
+        return
     env_file = _ROOT / ".env"
     if env_file.exists():
         for line in env_file.read_text().splitlines():

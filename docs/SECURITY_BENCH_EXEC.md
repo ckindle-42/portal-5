@@ -965,10 +965,24 @@ checkpoint backup before overwrite:
 python -m portal.modules.security.eval.blue_orchestration_ablation --reps 3 --out ABLATION_DECISION.json
 ```
 
-Routes model calls directly to Ollama (`CHAIN_DIRECT_OLLAMA=true BLUE_DIRECT_OLLAMA=true`) rather
-than through the pipeline's `bench-*` workspace layer — that layer requires `PORTAL_ENABLE_EVAL=1`
-(exact string `"1"`, not `"true"`) and, as of this writing, this environment's `.env` has it set to
-`"true"`, which the eval-module gate does not treat as enabled; flipping it to `"1"` also currently
-surfaces ~60 stale `bench-*` workspace model hints failing `STRICT_HINT_VALIDATION` at pipeline
-startup. Both are pre-existing local config gaps, tracked in `KNOWN_LIMITATIONS.md`, not fixed by
-this task — the direct-Ollama bypass sidesteps them without touching shared pipeline config.
+Routes model calls through the real pipeline's `bench-*` workspace layer (the production-adjacent
+serving path — persona/workspace parameters, not a bypass). That layer requires the `eval` module
+enabled two ways at once, found live 2026-07-18 getting this driver running and fixed at the root
+rather than routed around:
+
+1. `_eval_enabled()` (`portal/platform/inference/config.py`) gated on `PORTAL_ENABLE_EVAL == "1"`
+   exact-string, inconsistent with every other loose-boolean env flag in the codebase
+   (`.lower() in ("true", "1", "yes")`) — fixed to match that convention.
+2. Even with the module import-time-enabled, every actual request was still 404ing via a *separate*
+   persisted module-toggle gate (`portal.platform.wiki.adapters.modules.is_workspace_disabled`,
+   Gate 4 in `router/handlers.py`) that doesn't know about the env var at all. Fixed by actually
+   enabling the module: `python3 -m portal.platform.inference.cli module enable eval --yes`.
+3. `sync-config` had never generated a `workspace_routing` entry for any `bench-*` workspace
+   (`emit_workspace_routing` itself gates on `_eval_enabled()`, which was always False per #1) — so
+   every bench hint failed validation with `groups=[]`, not because ~60 models were stale/pruned.
+   Re-running `sync-config` with the module properly enabled populated `groups: [general]` for all
+   of them, which resolved all but 4 hints against models already installed locally
+   (`ollama list` confirmed) — those 4 just needed declaring in `config/backends.yaml`'s `general`
+   group `models:` list, plus 4 more `config/portal.yaml` hints that were bare tags (e.g.
+   `devstral-small-2`) missing the explicit `:latest` Ollama defaults to. Zero models were actually
+   missing or needed re-pulling.

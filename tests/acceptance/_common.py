@@ -31,13 +31,17 @@ from .results import (  # noqa: F401
 ROOT = Path(__file__).parent.parent.parent.resolve()
 
 # ── Environment setup ────────────────────────────────────────────────────────
-_env_file = ROOT / ".env"
-if _env_file.exists():
-    for _line in _env_file.read_text().splitlines():
-        _line = _line.strip()
-        if _line and not _line.startswith("#") and "=" in _line:
-            _k, _, _v = _line.partition("=")
-            os.environ.setdefault(_k.strip(), _v.strip())
+# Hermetic-test guard — same class of bug as bench/config.py's _load_env:
+# this ran unconditionally at import time, leaking every real .env key into
+# whichever test session transitively imported this module.
+if os.environ.get("UNIT_TEST_MODE") != "1":
+    _env_file = ROOT / ".env"
+    if _env_file.exists():
+        for _line in _env_file.read_text().splitlines():
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _, _v = _line.partition("=")
+                os.environ.setdefault(_k.strip(), _v.strip())
 
 # ── Prometheus multiprocess guard ────────────────────────────────────────────
 # .env sets PROMETHEUS_MULTIPROC_DIR=/dev/shm/portal_metrics (Linux-only path).

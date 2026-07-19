@@ -12,7 +12,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Hermetic-test guard — same class of bug as bench/config.py's _load_env:
+# this ran unconditionally at import time, leaking every real .env key into
+# whichever test session transitively imported this module.
+if os.environ.get("UNIT_TEST_MODE") != "1":
+    load_dotenv()
 
 # Config
 # ---------------------------------------------------------------------------
