@@ -899,3 +899,47 @@ The bench NEVER modifies Open WebUI or the pipeline. It communicates directly wi
 3. Add prompt mappings to `_svc_to_prompt` dict in `__init__.py` (probe auto-filter)
 4. Deploy target (Proxmox VM via API or Docker via compose on lxc 112)
 5. Verify reachability from sandbox: `docker exec portal5-dind docker run --rm --net bridge portal5-attack:latest sh -c '<probe cmd>'`
+
+## Blue/Purple Discovery Orchestration (BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2)
+
+`--blue-mode` selects which blue investigation path a run uses. All five share the same tools, telemetry, and scoring — only the prompt/pipeline shape differs:
+
+| Mode | Shape | Prompt |
+|---|---|---|
+| `scripted` (default) | 1 model, tools | Mandatory step checklist |
+| `discovery` | 1 model, tools | Fully open-ended, no hints — the model decides what to investigate from scratch |
+| `hybrid` | 1 model, tools | Open-ended with technique-reference hints as optional context, plus an anti-rumination instruction |
+| `orchestrated` | 3 sections (tool + reasoning + expert) | See below |
+| `orchestrated-2section` | 2 sections (tool + merged reasoning/expert) | Design §6.1's "V1 shape" — one generalist model both hunts and concludes itself |
+
+`scripted`/`discovery`/`hybrid` are `--purple` prompt variants (real backend telemetry via Splunk, live-queried when `--replay-captured-red`/`--lab-exec` is set — see `_fetch_blue_telemetry` in `blue.py`). `orchestrated`/`orchestrated-2section` are standalone modes (not `--purple` variants, I5 — no `auto-security` prod routing touched): they run `blue_orchestrate.run_blue_orchestration` directly against a captured episode via `--scenario` + `--replay-captured-red`, reading the episode's telemetry in-process rather than round-tripping through Splunk (hermetically testable by design).
+
+### The three-section pipeline (`orchestrated`)
+
+A tool-capable **Retriever** gathers telemetry (retrieval only — never interprets); a generalist reasoning **Hunter** forms hypotheses, decides what more to pull, and runs similarity/novelty detection against known technique signatures (open discovery prompt, no checklist — never coerces a genuinely novel finding into a wrong exact match); a fed, no-tools **Expert** renders the conclusive verdict. Loops tool→reasoning→(expert) until `CONFIRMED` / `ANOMALOUS_UNCLASSIFIED` / `RULED_OUT`, or the round budget is exhausted (`UNRESOLVED` — an orchestrator-level budget failure, never a section-produced verdict; see `analyst_verdict.py`'s `ANALYST_VERDICTS`, disjoint from the harness-truth `episode.CAPABILITY_VERDICTS`).
+
+```bash
+python3 -m portal.modules.security.core --scenario kerberoast_to_da --blue-mode orchestrated \
+  --replay-captured-red \
+  --tool-model granite4.1:8b-ctx8k --reasoning-model granite4.1:30b \
+  --expert-model hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0 \
+  --max-orchestration-rounds 12
+```
+
+Defaults for `--tool-model`/`--reasoning-model`/`--expert-model` come from `config/portal.yaml`'s `auto-security::blueteam-orchestrated` variant when omitted (confirm-only — the existing `blueteam` variant's prod `model_hint` is untouched, I5).
+
+### The 2-section ablation arm (`orchestrated-2section`)
+
+`--tool-model`/`--merged-model` (no separate reasoning/expert split) — one generalist model both hunts and renders the conclusive verdict itself, via `run_merged_model`. Same never-invent citation gate as the 3-section Expert.
+
+### Slice 8 ablation findings (2026-07-18)
+
+Live-verified across `kerberoast_to_da` and `meta3_tomcat_manager` (real recaptured red evidence, `VulnLLM-R-7B-GGUF:Q4_K_M` as red model, `granite4.1:30b` as the generalist reasoning slot throughout). Five root-caused, fixed bugs were found in the course of getting a trustworthy read — none specific to the ablation, all load-bearing for the whole orchestration path:
+
+1. **Red-model reliability** — the red model used for the bulk 89-scenario recapture sweep hallucinated/refused on `kerberoast_to_da`/`asrep_to_lateral`; recaptured with a model that lands the full chain cleanly.
+2. **Sandbox output truncation** — `code_sandbox_mcp.py`'s 50KB `MAX_OUTPUT_BYTES` cap silently cut off Windows-event collection detail (a single combined 10-event-ID query produced 466KB); widened under `SANDBOX_LAB_EXEC` (`SANDBOX_LAB_OUTPUT_MAX`, default 1MB) and the collection query split to one smaller call per event ID.
+3. **`--blue-mode` clobber** — `_run_blue_chain_test` reused the `mode` parameter for a live-query provenance label before it was used to pick the prompt, so every `hybrid`/`discovery` selection through `--purple` silently ran `scripted` instead.
+4. **Splunk HEC envelope** — every telemetry-shipping call wrapped each line in `{"raw": line}`; Splunk indexed that literally, and its key=value field extraction never descends into a nested JSON string, so structured SPL queries came back empty even on correctly-indexed events. Fixed to ship plain strings.
+5. **3-section-specific fixes** in `blue_orchestrate.py`: `_bias_tool_schemas` (route unambiguous Windows-EventCode requests to `query_windows_events` instead of leaving the pick to the small tool model), `_ground_hunter_evidence` (catch Hunter confabulation via the same `_cite_or_drop` gate one round before it reaches the Expert), a stall-handoff (after 3 consecutive no-hypothesis Hunter rounds, hand off to the Expert anyway rather than running out the round budget), and a CONFIRMED-only technique-ID format check (a malformed ID like `"T...."` never blocks `ANOMALOUS_UNCLASSIFIED`/`RULED_OUT` — I8, novelty is never required to resolve to a known ID — but it can't stand as a CONFIRMED claim either).
+
+**Result**: pre-fix, the 3-section pipeline hit `UNRESOLVED` on both scenarios every time (0% informative). Post-fix, across 10 reps: `kerberoast_to_da` landed the correct technique (T1558.003, recall 0.333, precision 1.0) in 3/5 reps, `UNRESOLVED` in 2/5; `meta3_tomcat_manager` reached a real conclusion in 5/5 reps (0% timeout), 2/5 correct-ish. **GATE-D sign-off**: the 3-section design is sound; remaining variance is model capability, not pipeline plumbing — model selection for the Hunter/Expert slots is the tracked follow-on (not blocking this build).
