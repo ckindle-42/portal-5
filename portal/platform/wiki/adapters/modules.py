@@ -71,11 +71,35 @@ def _unit_enabled_state(module: str) -> bool | None:
     return m.group(1).lower() == "true"
 
 
+def _eval_env_opt_in() -> bool:
+    """Bench-harness opt-in for the eval module via PORTAL_ENABLE_EVAL, mirroring
+    ``portal.platform.inference.config._eval_enabled()``'s env check. Duplicated
+    rather than imported — that function's own fallback path calls
+    ``enabled_modules()`` here, so importing it back would be circular.
+
+    Found live 2026-07-18 (GATE-D ablation): before this, PORTAL_ENABLE_EVAL
+    only ever affected the import-time WORKSPACES snapshot (config.py's
+    get_workspace_dict), never this module's per-request
+    is_workspace_disabled() gate — so setting the env var made bench-*
+    workspaces visible in the dict but every actual request to one still
+    404'd, contradicting Rule 6's documented "doesn't require a persisted
+    wiki toggle" claim. Now both gates agree.
+    """
+    import os
+
+    return os.environ.get("PORTAL_ENABLE_EVAL", "").lower() in ("true", "1", "yes")
+
+
 def enabled_modules() -> list[str]:
     """Every module currently enabled — wiki state if present, else the
-    documented default (everything except eval)."""
+    documented default (everything except eval). eval additionally honors
+    PORTAL_ENABLE_EVAL as a transient opt-in that doesn't require flipping
+    the persisted toggle (see _eval_env_opt_in)."""
     result = []
     for mod in sorted(ALL_MODULES):
+        if mod == "eval" and _eval_env_opt_in():
+            result.append(mod)
+            continue
         state = _unit_enabled_state(mod)
         if state is None:
             state = mod in DEFAULT_ENABLED_MODULES

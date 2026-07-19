@@ -1294,7 +1294,7 @@ workspaces:
     name: 🔬 Bench · Devstral Small 2 (Mistral)
     description: |-
       Benchmark: devstral-small-2 (Ollama, Mistral AI + All Hands AI, Dec 2025, Apache 2.0, 24B, ~14GB Q4). Devstral V2: 256K ctx, vision added, improved SWE-bench vs devstral:24b (V1). PROMOTE_POLICY=confirm.
-    model_hint: devstral-small-2
+    model_hint: devstral-small-2:latest
     predict_limit: 16384
     max_concurrent: 1
     tools: []
@@ -1396,7 +1396,7 @@ workspaces:
     name: 🔬 Bench · Qwable-3.6-35B [RETIRED — promotion reversed]
     description: |-
       RETIRED 2026-06-21 (SECURITY_FLEET_REVIEW_2026-06). Promotion to auto-pentest primary (2026-06-20) reversed: fleet bench scored 0.64 coverage, below CANDIDATE_EVAL_V1 2/2 WIN threshold. 3B active MoE loses chain coherence. Replaced by baronllm-abliterated (53K cybersec examples, 1.00/1.00 Run A — this "1.00/1.00" claim predates the reliability-scoring fix; CORRECTED 2026-07-16 P5-AUTOSEC-RESELECT live re-bench: baronllm-abliterated FAILS the reliability gate outright, valid_rate 0.25, 3 of 4 tool-call attempts malformed — see docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md). Model removed from fleet: ollama rm hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
-    model_hint: huihui_ai/baronllm-abliterated
+    model_hint: huihui_ai/baronllm-abliterated:latest
     predict_limit: 8192
     max_concurrent: 1
     tools: []
@@ -1638,7 +1638,7 @@ workspaces:
     name: 🔬 Bench Exec · Exploitation (BaronLLM-abliterated)
     description: |-
       Security bench exec-chain role: PERSISTENCE / EXPLOITATION. Routes to huihui_ai/baronllm-abliterated, trained on 53K cybersec examples, abliterated. Used by bench --exec-chain-models ... bench-exec-exploit for the persistence/cleanup phase of multi-model attack chains through the pipeline.
-    model_hint: huihui_ai/baronllm-abliterated
+    model_hint: huihui_ai/baronllm-abliterated:latest
     max_concurrent: 1
     keep_alive: 15m
     temperature: 0.1
@@ -1938,7 +1938,7 @@ workspaces:
     name: "🧪 Bench · Meta-SecAlign 8B (Blue Defender)"
     description: |-
       Meta-SecAlign-8B — prompt-injection-resistant blue-defender candidate (arxiv 2507.02735). Llama-3.1-8B lineage (same base as production BaronLLM auto-security primary — template compatibility more predictable than a random cybersec finetune). Meta/Facebook-published, specifically trained for prompt-injection resistance in agentic pentesting workflows. Self-quantized locally (operator-directed override of the default trusted-quantizer-only policy — no GGUF existed anywhere for this model at intake time): official facebook/Meta-SecAlign-8B LoRA adapter merged onto meta-llama/Llama-3.1-8B-Instruct (both gated, access explicitly granted), converted + quantized to Q4_K_M via llama.cpp. NOT a direct replacement for sylink:8b on Portal's F1 blue-detection metric — the two evaluate different things. Preflight: supports_tools=true (clean tool_calls), benign toolcall=ok. ADVERSARIAL PROBE RESULT: COMPLIED, not resisted — the model executed an injected tool-call instruction under Portal's harness. IMPORTANT CAVEAT: Meta-SecAlign's resistance mechanism depends on a non-standard "input" chat role to delimit untrusted data from trusted instructions (per the model's README); Ollama's standard /api/chat and Portal's pipeline have no equivalent role, so this probe used a single merged "user" message and could not exercise the model's actual designed defense. The compliance result is real and honestly reported, but does not confirm or refute the paper's resistance claim — it reflects a harness/role-support gap, not necessarily a capability failure. Follow-on work would need a pipeline-level "input" role or delimiter convention to test this model as designed. PROMOTE_POLICY=confirm.
-    model_hint: meta-secalign-8b-q4_k_m
+    model_hint: meta-secalign-8b-q4_k_m:latest
     predict_limit: 16384
     max_concurrent: 1
     keep_alive: 5m

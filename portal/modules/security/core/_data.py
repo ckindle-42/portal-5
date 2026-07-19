@@ -121,6 +121,15 @@ _ENV_KEYS_SKIP_FROM_DOTENV = {"PIPELINE_URL"}
 
 
 def _load_env() -> None:
+    # Hermetic-test guard (CLAUDE.md: tests/unit/ must pass with no network
+    # access / real config) — same class of bug as bench/config.py's
+    # _load_env: this module is imported by nearly every security test, and
+    # this ran unconditionally at import time, leaking every real .env key
+    # (LAB_* secrets, PIPELINE_API_KEY, PORTAL_ENABLE_EVAL, ...) into the
+    # whole unit-test session's os.environ. tests/unit/conftest.py sets
+    # UNIT_TEST_MODE=1 for exactly this hermetic-mode signal.
+    if os.environ.get("UNIT_TEST_MODE") == "1":
+        return
     env_file = _PROJECT_ROOT / ".env"
     if env_file.exists():
         for line in env_file.read_text().splitlines():

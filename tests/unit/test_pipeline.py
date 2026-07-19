@@ -918,20 +918,34 @@ class TestSPLWorkspace:
         )
 
     def test_auto_spl_routing_consistent_across_files(self):
-        """auto-spl key must exist in both WORKSPACES and backends.yaml workspace_routing."""
+        """auto-spl key must exist in both WORKSPACES and backends.yaml workspace_routing.
+
+        workspace_routing is a static backend-group lookup for every known
+        workspace (not gated on module-enabled state — see
+        sync_config.emit_workspace_routing's docstring), so it's always a
+        superset of the live, module-filtered WORKSPACES dict. The invariant
+        is pipe_ids <= yaml_ids, and yaml_ids == every workspace in
+        config/portal.yaml.
+        """
         import yaml
 
+        from portal.platform.inference.config import load_portal_config
         from portal.platform.inference.router_pipe import WORKSPACES
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
         pipe_ids = set(WORKSPACES.keys())
         yaml_ids = set(cfg["workspace_routing"].keys())
+        all_ids = set(load_portal_config().workspaces.keys())
         assert "auto-spl" in pipe_ids, "auto-spl missing from WORKSPACES in router_pipe.py"
         assert "auto-spl" in yaml_ids, "auto-spl missing from workspace_routing in backends.yaml"
-        assert pipe_ids == yaml_ids, (
-            f"WORKSPACES / workspace_routing mismatch after adding auto-spl. "
-            f"In pipe but not yaml: {pipe_ids - yaml_ids}. "
-            f"In yaml but not pipe: {yaml_ids - pipe_ids}."
+        assert pipe_ids <= yaml_ids, (
+            f"Every live workspace must have a routing entry. "
+            f"In pipe but not yaml: {pipe_ids - yaml_ids}."
+        )
+        assert yaml_ids == all_ids, (
+            f"workspace_routing must cover every workspace in portal.yaml, module-enabled or not. "
+            f"In yaml but not portal.yaml: {yaml_ids - all_ids}. "
+            f"In portal.yaml but not yaml: {all_ids - yaml_ids}."
         )
 
 
@@ -1057,32 +1071,50 @@ class TestAgenticWorkspace:
 
     def test_agentic_routing_consistent_across_files(self):
         """auto-agentic's resolved base (auto-coding) must exist in both
-        WORKSPACES and backends.yaml workspace_routing (module: eval
-        workspaces are gated off both by default — BUILD_PROGRAM_COLLAPSE_V1.md
-        Phase 4 — so this compares against the loaded, non-eval-gated set)."""
+        WORKSPACES and backends.yaml workspace_routing.
+
+        workspace_routing is a static backend-group lookup for every known
+        workspace (not gated on module-enabled state — see
+        sync_config.emit_workspace_routing's docstring): pipe_ids (the live,
+        module-filtered set) must be a subset of yaml_ids, and yaml_ids must
+        equal every workspace in portal.yaml, module-enabled or not."""
         import yaml
 
-        from portal.platform.inference.config import _eval_enabled, load_portal_config
+        from portal.platform.inference.config import load_portal_config
         from portal.platform.inference.router.preinject import _unpack_synthetic_workspace
         from portal.platform.inference.router_pipe import WORKSPACES
 
         base, _variant = _unpack_synthetic_workspace("auto-coding::heavy")
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
-        eval_on = _eval_enabled()
         pipe_ids = set(WORKSPACES.keys())
         yaml_ids = set(cfg["workspace_routing"].keys())
-        expected_ids = {
-            wid
-            for wid, spec in load_portal_config().workspaces.items()
-            if eval_on or spec.module != "eval"
+        all_ids = set(load_portal_config().workspaces.keys())
+        # WORKSPACES is computed once at module-import time (router/workspaces.py),
+        # so it reflects whatever PORTAL_ENABLE_EVAL/wiki-toggle state was active
+        # at THAT moment, not necessarily this test's current live state — check
+        # against both valid snapshots (eval on or off) rather than recomputing
+        # "now" and asserting exact equality, which is fragile to import-order
+        # env-var leakage from other tests in the same session (_eval_enabled()).
+        ids_eval_off = {
+            wid for wid, spec in load_portal_config().workspaces.items() if spec.module != "eval"
         }
         assert base in pipe_ids, f"{base} missing from WORKSPACES in router_pipe.py"
         assert base in yaml_ids, f"{base} missing from workspace_routing in backends.yaml"
-        assert pipe_ids == expected_ids == yaml_ids, (
-            f"WORKSPACES / workspace_routing mismatch. "
-            f"In pipe but not yaml: {pipe_ids - yaml_ids}. "
-            f"In yaml but not pipe: {yaml_ids - pipe_ids}."
+        assert pipe_ids in (ids_eval_off, all_ids), (
+            f"WORKSPACES must match either the eval-off default set or the full "
+            f"eval-on set (whichever was active at first import), got neither. "
+            f"Extra vs eval-off: {pipe_ids - ids_eval_off}. Missing vs eval-off: "
+            f"{ids_eval_off - pipe_ids}."
+        )
+        assert pipe_ids <= yaml_ids, (
+            f"Every live workspace must have a routing entry. "
+            f"In pipe but not yaml: {pipe_ids - yaml_ids}."
+        )
+        assert yaml_ids == all_ids, (
+            f"workspace_routing must cover every workspace in portal.yaml, module-enabled or not. "
+            f"In yaml but not portal.yaml: {yaml_ids - all_ids}. "
+            f"In portal.yaml but not yaml: {all_ids - yaml_ids}."
         )
 
 

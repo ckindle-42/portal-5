@@ -102,19 +102,21 @@ def _owui_preset(ws_id: str, spec: Any) -> dict[str, Any]:
 def emit_workspace_routing(config: Any) -> bool:
     """Rewrite workspace_routing block in config/backends.yaml. Returns True if changed.
 
-    Gate 3 (M7 toggle layer, BUILD_PROGRAM_COLLAPSE_V1.md Phase 4): workspaces
-    belonging to a disabled module (eval, off by default) are skipped, same
-    discipline as Gate 1 (OWUI presets) and Gate 2 (.mcp.json).
+    Deliberately NOT gated on module-enabled state (unlike Gate 1/OWUI presets
+    and Gate 2/.mcp.json): this is a static backend-group lookup table for
+    every known workspace, not a live-visibility gate — Gate 4
+    (is_workspace_disabled, per-request in router/handlers.py) is what
+    actually enforces module enablement. Gating this on `_eval_enabled()` at
+    generation time (as this used to) meant the routing table's completeness
+    depended on ambient env-var/toggle state in whatever shell happened to
+    run sync-config last — found live 2026-07-18 (GATE-D ablation): a
+    sync-config run without PORTAL_ENABLE_EVAL set would silently strip every
+    bench-* entry back to groups=[], even though the persisted toggle was
+    unrelated and unchanged, breaking hint validation for reasons that looked
+    like (but were not) a toggle regression.
     """
-    from portal.platform.inference.config import _eval_enabled
-
     backends_path = REPO / "config" / "backends.yaml"
     original = backends_path.read_text(encoding="utf-8")
-
-    eval_on = _eval_enabled()
-    live_workspaces = {
-        ws_id: spec for ws_id, spec in config.workspaces.items() if eval_on or spec.module != "eval"
-    }
 
     # Parse existing routing to preserve backend groups
     raw = yaml.safe_load(original) or {}
@@ -122,7 +124,7 @@ def emit_workspace_routing(config: Any) -> bool:
 
     new_routing: dict[str, list[str]] = {}
     missing: list[str] = []
-    for ws_id in live_workspaces:
+    for ws_id in config.workspaces:
         if ws_id in existing_routing:
             new_routing[ws_id] = existing_routing[ws_id]
         else:

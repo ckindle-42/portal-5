@@ -349,7 +349,7 @@ def _eval_enabled() -> bool:
     Neither of these is control flow — they're the two ways an operator or
     harness opts into the bench surface that's off by default.
     """
-    if os.environ.get("PORTAL_ENABLE_EVAL") == "1":
+    if os.environ.get("PORTAL_ENABLE_EVAL", "").lower() in ("true", "1", "yes"):
         return True
     from portal.platform.wiki.adapters.modules import enabled_modules
 

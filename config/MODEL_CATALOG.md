@@ -386,6 +386,12 @@ Preflight: supports_tools=true (clean, well-formed tool_calls). Benign toolcall 
 
 bench-meta-secalign-8b target. NOT a direct replacement for sylink:8b on F1 blue-detection — different metric class; intake rationale is capability coverage, not head-to-head incumbent challenge. PROMOTE_POLICY=confirm.
 
+### `meta-secalign-8b-q4_k_m:latest`
+
+Same model as `meta-secalign-8b-q4_k_m` above — `bench-meta-secalign-8b`'s `model_hint` needed the
+explicit `:latest` Ollama defaults an untagged pull to (found 2026-07-18 fixing GATE-D ablation hint
+validation; the untagged form never actually resolved against `ollama list`'s tagged id).
+
 ## Reasoning group
 
 ### `deepseek-r1:32b-q4_k_m`

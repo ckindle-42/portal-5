@@ -84,6 +84,89 @@ backends:
     # supports_tools value below is from Step 1A preflight (direct /api/chat probe):
     # Ollama returns "does not support tools" — model template lacks .Tools.
     supports_tools: false
+  # GATE-D ablation hint-validation fix (2026-07-18): these bench-* models
+  # are installed locally (ollama list) but were never declared in this
+  # group's models list, so hint validation always failed for them once
+  # eval-module workspace_routing started being generated correctly.
+  # supports_tools defaults to false (conservative — not live-probed, per
+  # CLAUDE.md discipline: never infer tool support from a model card).
+  - id: qwen3-coder:30b-a3b-q4_K_M
+    supports_tools: false
+  - id: gpt-oss:20b
+    supports_tools: false
+  - id: laguna-xs.2:Q4_K_M
+    supports_tools: false
+  - id: granite4.1:30b
+    supports_tools: false
+  - id: qwen3.6:27b-q4_K_M
+    supports_tools: false
+  - id: portal5/qwen3.6-27b-mtp:q8_0-drafted
+    supports_tools: false
+  - id: qwen3.6:35b-a3b-q4_K_M
+    supports_tools: false
+  - id: omnicoder2:9b-q4_k_m
+    supports_tools: false
+  - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
+    supports_tools: false
+  - id: gemma4:12b-it-qat
+    supports_tools: false
+  - id: gemma4:e2b-it-qat
+    supports_tools: false
+  - id: gemma4:e4b-it-qat
+    supports_tools: false
+  - id: gemma4:31b-it-qat
+    supports_tools: false
+  - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
+    supports_tools: false
+  - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
+    supports_tools: false
+  - id: qwen3-coder-next:latest
+    supports_tools: false
+  - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
+    supports_tools: false
+  - id: huihui_ai/gemma-4-abliterated:E2b-qat
+    supports_tools: false
+  - id: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M
+    supports_tools: false
+  - id: devstral:24b
+    supports_tools: false
+  - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf
+    supports_tools: false
+  - id: glm-4.7-flash:Q4_K_M
+    supports_tools: false
+  - id: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL
+    supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
+    supports_tools: false
+  - id: supergemma4-26b-uncensored:Q4_K_M
+    supports_tools: false
+  - id: sylink/sylink:8b
+    supports_tools: false
+  - id: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4
+    supports_tools: false
+  - id: hf.co/Nguuma/security-slm-unsloth-1.5b:latest
+    supports_tools: false
+  - id: cybersecqwen-4b-toolfix:latest
+    supports_tools: false
+  - id: huihui_ai/qwen3-abliterated:14b-v2
+    supports_tools: false
+  # GATE-D ablation hint-validation fix (2026-07-18) cont'd: these were
+  # bare-tag hints (no explicit :latest) that never matched the tagged
+  # ollama list id — the models were installed the whole time.
+  - id: devstral-small-2:latest
+    supports_tools: false
+  - id: huihui_ai/baronllm-abliterated:latest
+    supports_tools: false
+  - id: meta-secalign-8b-q4_k_m:latest
+    supports_tools: false
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: coding
@@ -476,6 +559,126 @@ workspace_routing:
   auto-audio:
   - vision
   - general
+  bench-qwen3-coder-30b:
+  - general
+  bench-gptoss:
+  - general
+  bench-laguna:
+  - general
+  bench-granite41-8b:
+  - general
+  bench-granite41-30b:
+  - general
+  bench-qwen35-abliterated:
+  - general
+  bench-qwen36-27b:
+  - general
+  bench-qwen36-27b-mtp:
+  - general
+  bench-qwen36-35b-a3b:
+  - general
+  bench-omnicoder2:
+  - general
+  bench-qwen36-27b-ud:
+  - general
+  bench-gemma4-26b-optiq:
+  - general
+  bench-huihui-qwen36-27b:
+  - general
+  bench-qwen36-35b-a3b-ud:
+  - general
+  bench-qwen36-hauhaucs:
+  - general
+  bench-gemma4-12b:
+  - general
+  bench-gemma4-e4b:
+  - general
+  bench-gemma4-e2b:
+  - general
+  bench-gemma4-e4b-qat:
+  - general
+  bench-gemma4-26b-qat:
+  - general
+  bench-gemma4-31b-qat:
+  - general
+  bench-gemma4-31b-crack:
+  - general
+  bench-lfm25-8b:
+  - general
+  bench-devstral-small-2:
+  - general
+  bench-nex-n2-mini:
+  - general
+  bench-qwen3-coder-next:
+  - general
+  bench-lfm25-8b-uncensored:
+  - general
+  bench-qwen3-coder-next-abliterated:
+  - general
+  bench-e2b-pentest:
+  - general
+  bench-qwable-35b:
+  - general
+  bench-fastcontext:
+  - general
+  bench-devstral:
+  - general
+  bench-qwopus-coder-mtp-v2:
+  - general
+  bench-glm:
+  - general
+  bench-glm-reap:
+  - general
+  bench-glm-z1-rumination:
+  - general
   auto-cad:
   - coding
+  - general
+  bench-supergemma4-sec:
+  - general
+  bench-sylink:
+  - general
+  bench-vulnllm-r7b:
+  - general
+  bench-huihui-qwen36-35b-a3b:
+  - general
+  bench-qwen36-27b-optiq:
+  - general
+  bench-exec-recon:
+  - general
+  bench-exec-reasoning:
+  - general
+  bench-exec-exploit:
+  - general
+  bench-lfm-micro-230m:
+  - general
+  bench-lfm-micro-350m:
+  - general
+  bench-lfm-micro-1p2b:
+  - general
+  bench-agentworld:
+  - general
+  bench-ornith-35b:
+  - general
+  bench-north-mini-code:
+  - general
+  bench-qwen35-9b-heretic-vision:
+  - general
+  bench-agents-a1:
+  - general
+  bench-superqwen-agentworld-ablit:
+  - general
+  bench-bugtrace-ultra-27b:
+  - general
+  bench-gemma4-12b-agentic:
+  - general
+  bench-security-slm-1p5b:
+  - general
+  bench-cybersecqwen-4b-toolfix:
+  - general
+  bench-mistral7b-uncensored:
+  - general
+  bench-qwen3-14b-abliterated:
+  - general
+  bench-meta-secalign-8b:
   - general

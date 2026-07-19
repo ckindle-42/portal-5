@@ -589,7 +589,7 @@ default.
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (150 model ids across 6 backend groups)
+# Model catalog (187 model ids across 6 backend groups)
 
 ## coding (39)
 
@@ -646,27 +646,51 @@ default.
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (36)
+## general (73)
 
+- `cybersecqwen-4b-toolfix:latest`
+- `devstral-small-2:latest`
+- `devstral:24b`
 - `dolphin-llama3:8b`
+- `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4`
+- `gemma4:12b-it-qat`
 - `gemma4:26b-a4b-it-q4_K_M`
 - `gemma4:26b-a4b-it-qat`
 - `gemma4:26b-a4b-it-qat-ctx8k`
+- `gemma4:31b-it-qat`
+- `gemma4:e2b-it-qat`
 - `gemma4:e4b-it-q4_K_M`
+- `gemma4:e4b-it-qat`
+- `glm-4.7-flash:Q4_K_M`
+- `gpt-oss:20b`
+- `granite4.1:30b`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`
 - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M`
 - `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K`
+- `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf`
 - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M`
 - `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M`
 - `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M`
 - `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M`
+- `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`
+- `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
+- `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
+- `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M`
+- `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4`
+- `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M`
+- `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
+- `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`
+- `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M`
 - `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M`
+- `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
 - `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf`
+- `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`
+- `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0`
 - `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k`
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
@@ -675,15 +699,28 @@ default.
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
 - `huihui_ai/Qwen3.6-abliterated:27b`
 - `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`
+- `huihui_ai/baronllm-abliterated:latest`
+- `huihui_ai/gemma-4-abliterated:E2b-qat`
+- `huihui_ai/qwen3-abliterated:14b-v2`
 - `huihui_ai/qwen3.5-abliterated:9b`
 - `huihui_ai/qwen3.5-abliterated:9b-ctx64k`
 - `huihui_ai/qwen3.5-abliterated:9b-ctx8k`
+- `laguna-xs.2:Q4_K_M`
 - `lfm2.5:8b`
 - `lfm2.5:8b-ctx8k`
+- `meta-secalign-8b-q4_k_m:latest`
 - `mistral-small3.2:24b`
+- `omnicoder2:9b-q4_k_m`
 - `phi4-mini`
 - `phi4:14b-q8_0`
 - `portal5/gemma4-12b:q4_K_M-ctx8k`
+- `portal5/qwen3.6-27b-mtp:q8_0-drafted`
+- `qwen3-coder-next:latest`
+- `qwen3-coder:30b-a3b-q4_K_M`
+- `qwen3.6:27b-q4_K_M`
+- `qwen3.6:35b-a3b-q4_K_M`
+- `supergemma4-26b-uncensored:Q4_K_M`
+- `sylink/sylink:8b`
 
 ## reasoning (22)
 

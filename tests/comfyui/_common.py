@@ -26,6 +26,9 @@ REPO_ROOT = ROOT.parent
 
 # ── Load .env ─────────────────────────────────────────────────────────────────
 def _load_env() -> None:
+    # Hermetic-test guard — same class of bug as bench/config.py's _load_env.
+    if os.environ.get("UNIT_TEST_MODE") == "1":
+        return
     for candidate in [ROOT / ".env", REPO_ROOT / ".env"]:
         if candidate.exists():
             for line in candidate.read_text().splitlines():
