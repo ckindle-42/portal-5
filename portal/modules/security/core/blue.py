@@ -1251,6 +1251,16 @@ def _run_blue_chain_test(
         "ground_truth": ground_truth,
         "reported": reported,
         "containments": containments,
+        # Per-round tool-result content the model actually queried (additive,
+        # GATE-D ablation): distinct from telemetry_raw below, which is every
+        # fixture regardless of whether it was ever queried. Lets an
+        # attribution instrument tell "surfaced but not confirmed" (handoff
+        # loss) apart from "never queried" (hunter miss) for this arm too.
+        "trace": [
+            {"role": m.get("role"), "content": m.get("content", "")}
+            for m in messages
+            if m.get("role") == "tool"
+        ],
         "telemetry_source": {k: v["source"] for k, v in telemetry.items()},
         # Raw evidence blue actually saw, not just what it reported — this is
         # what makes a result replayable: rescoring a technique-mapping change
