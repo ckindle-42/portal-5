@@ -12,8 +12,44 @@ from portal.modules.security.eval.ablation_attribution import (
     OUTCOMES,
     ArmScenarioOutcome,
     classify,
+    decide_route,
     summarize,
 )
+
+
+def _decision(
+    *,
+    best_arm="3section",
+    miss_hist,
+    real_recall=0.5,
+    other_real_recall=0.1,
+    error_rate=0.0,
+    honest_blocked=False,
+):
+    """Minimal crafted ABLATION_DECISION.json-shaped dict for decide_route tests."""
+    arm_summary = {
+        "arm": best_arm,
+        "n": 10,
+        "hits": 0,
+        "novelty": 0,
+        "real_recall": real_recall,
+        "miss_hist": miss_hist,
+        "hallucination_rate": miss_hist.get("HALLUCINATION", 0.0),
+        "nonconv_rate": miss_hist.get("NON_CONVERGENCE", 0.0),
+    }
+    other_arm = {**arm_summary, "real_recall": other_real_recall}
+    return {
+        "head": "deadbeef",
+        "generated_at": "2026-07-18T00:00:00Z",
+        "reps": 3,
+        "corpus_n": 10,
+        "error_rate": error_rate,
+        "arms": {"1section": other_arm, "2section": other_arm, best_arm: arm_summary},
+        "best_multi_arm": best_arm,
+        "split_proven": False,
+        "honest_blocked": honest_blocked,
+        "block_reason": None,
+    }
 
 
 def test_hit_when_grounded_true_positive_present():
@@ -167,3 +203,123 @@ def test_all_outcomes_reachable():
         "HALLUCINATION",
         "NON_CONVERGENCE",
     }
+
+
+# ── Phase 3: decide_route ────────────────────────────────────────────────────
+
+
+def test_route_blocked_on_honest_blocked_flag():
+    decision = _decision(
+        miss_hist={
+            "HUNTER_MISS": 0.5,
+            "HANDOFF_LOSS": 0.2,
+            "HALLUCINATION": 0.2,
+            "NON_CONVERGENCE": 0.1,
+        },
+        honest_blocked=True,
+    )
+    route, reason = decide_route(decision)
+    assert route == "BLOCKED"
+
+
+def test_route_blocked_on_high_error_rate():
+    decision = _decision(
+        miss_hist={
+            "HUNTER_MISS": 0.5,
+            "HANDOFF_LOSS": 0.2,
+            "HALLUCINATION": 0.2,
+            "NON_CONVERGENCE": 0.1,
+        },
+        error_rate=0.25,
+    )
+    route, _ = decide_route(decision)
+    assert route == "BLOCKED"
+
+
+def test_route_blocked_on_degenerate_low_recall_no_dominant_class():
+    decision = _decision(
+        miss_hist={
+            "HUNTER_MISS": 0.3,
+            "HANDOFF_LOSS": 0.3,
+            "HALLUCINATION": 0.2,
+            "NON_CONVERGENCE": 0.2,
+        },
+        real_recall=0.01,
+        other_real_recall=0.01,
+    )
+    route, _ = decide_route(decision)
+    assert route == "BLOCKED"
+
+
+def test_route_retrieval_first_when_hunter_miss_dominates():
+    decision = _decision(
+        miss_hist={
+            "HUNTER_MISS": 0.6,
+            "HANDOFF_LOSS": 0.2,
+            "HALLUCINATION": 0.1,
+            "NON_CONVERGENCE": 0.1,
+        },
+    )
+    route, reason = decide_route(decision)
+    assert route == "RETRIEVAL_FIRST"
+    assert "evidence not gathered" in reason
+
+
+def test_route_budget_first_when_nonconvergence_dominates_with_progress():
+    decision = _decision(
+        miss_hist={
+            "HUNTER_MISS": 0.1,
+            "HANDOFF_LOSS": 0.1,
+            "HALLUCINATION": 0.1,
+            "NON_CONVERGENCE": 0.7,
+        },
+    )
+    route, reason = decide_route(decision, nonconv_progress_frac=0.8)
+    assert route == "BUDGET_FIRST"
+    assert "loop cut off" in reason
+
+
+def test_route_council_when_nonconvergence_dominates_without_progress():
+    """Same dominant miss class as the BUDGET_FIRST case, but the trace shows
+    no real progress before the budget ran out — that's not a rounds problem,
+    fall through to the default COUNCIL route instead."""
+    decision = _decision(
+        miss_hist={
+            "HUNTER_MISS": 0.1,
+            "HANDOFF_LOSS": 0.1,
+            "HALLUCINATION": 0.1,
+            "NON_CONVERGENCE": 0.7,
+        },
+    )
+    route, _ = decide_route(decision, nonconv_progress_frac=0.1)
+    assert route == "COUNCIL"
+
+
+def test_route_council_default_when_hallucination_or_handoff_dominates():
+    decision = _decision(
+        miss_hist={
+            "HUNTER_MISS": 0.1,
+            "HANDOFF_LOSS": 0.3,
+            "HALLUCINATION": 0.5,
+            "NON_CONVERGENCE": 0.1,
+        },
+    )
+    route, reason = decide_route(decision)
+    assert route == "COUNCIL"
+    assert "cross-check" in reason
+
+
+def test_route_priority_blocked_wins_over_retrieval_first():
+    """Rule order matters (I10): honest_blocked short-circuits before the
+    miss-class rules are ever consulted, even if HUNTER_MISS looks dominant."""
+    decision = _decision(
+        miss_hist={
+            "HUNTER_MISS": 0.9,
+            "HANDOFF_LOSS": 0.05,
+            "HALLUCINATION": 0.05,
+            "NON_CONVERGENCE": 0.0,
+        },
+        honest_blocked=True,
+    )
+    route, _ = decide_route(decision)
+    assert route == "BLOCKED"
