@@ -141,3 +141,76 @@ def summarize(arm: str, outcomes: list[ArmScenarioOutcome]) -> ArmSummary:
         hallucination_rate=round(sum(o.outcome == "HALLUCINATION" for o in outcomes) / n, 3),
         nonconv_rate=round(sum(o.outcome == "NON_CONVERGENCE" for o in outcomes) / n, 3),
     )
+
+
+# Decision-rule thresholds (Phase 3) — tunable knobs, recorded in the report
+# whenever decide_route runs.
+SPLIT_MARGIN = 0.10
+DEGEN_ERR = 0.20
+DEGEN_RECALL = 0.05
+DOMINANT = 0.40
+
+
+def decide_route(decision: dict, *, nonconv_progress_frac: float | None = None) -> tuple[str, str]:
+    """Convert one ABLATION_DECISION.json into a route. Deterministic, auditable.
+
+    `nonconv_progress_frac` — the fraction of the dominant arm's NON_CONVERGENCE
+    cases whose trace shows real progress before budget ran out (as opposed to
+    stalling immediately) — is not part of the committed ABLATION_DECISION.json
+    schema (it needs per-scenario trace inspection, not just the aggregate
+    ArmSummary). Callers with that data pass it explicitly; when omitted, this
+    rule assumes progress WAS made (True-ish), i.e. still prefers a cheap
+    budget-tune attempt over jumping straight to Council build cost — the
+    conservative direction, since under-provisioning rounds is far cheaper to
+    fix than building Council on a starved budget it never got to prove itself
+    against. Rule order is the diagnosis priority; do not reorder (I10).
+    """
+    if decision.get("honest_blocked"):
+        return "BLOCKED", "degenerate/inconclusive data — re-instrument or re-capture, do not build"
+
+    error_rate = decision.get("error_rate", 0.0)
+    if error_rate > DEGEN_ERR:
+        return "BLOCKED", "degenerate/inconclusive data — re-instrument or re-capture, do not build"
+
+    arms = decision.get("arms", {})
+    all_low = arms and all(a.get("real_recall", 0.0) < DEGEN_RECALL for a in arms.values())
+    if all_low:
+        max_dominant = max(
+            (max(a.get("miss_hist", {}).values(), default=0.0) for a in arms.values()),
+            default=0.0,
+        )
+        if max_dominant < DOMINANT:
+            return (
+                "BLOCKED",
+                "degenerate/inconclusive data — re-instrument or re-capture, do not build",
+            )
+
+    best_arm = decision.get("best_multi_arm")
+    best = arms.get(best_arm, {})
+    misses = best.get("miss_hist", {})
+    if not misses:
+        return (
+            "COUNCIL",
+            "models see the evidence but conclude wrongly/inconsistently — cross-check them",
+        )
+    top_class = max(misses, key=misses.get)
+    top_frac = misses[top_class]
+
+    if top_class == "HUNTER_MISS" and top_frac >= DOMINANT:
+        return (
+            "RETRIEVAL_FIRST",
+            "evidence not gathered — council cannot cross-check absent evidence",
+        )
+
+    if top_class == "NON_CONVERGENCE" and top_frac >= DOMINANT:
+        progressed = True if nonconv_progress_frac is None else nonconv_progress_frac >= 0.5
+        if progressed:
+            return (
+                "BUDGET_FIRST",
+                "loop cut off mid-progress — tune rounds before adding council cost",
+            )
+
+    return (
+        "COUNCIL",
+        "models see the evidence but conclude wrongly/inconsistently — cross-check them",
+    )

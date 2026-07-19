@@ -943,3 +943,32 @@ Live-verified across `kerberoast_to_da` and `meta3_tomcat_manager` (real recaptu
 5. **3-section-specific fixes** in `blue_orchestrate.py`: `_bias_tool_schemas` (route unambiguous Windows-EventCode requests to `query_windows_events` instead of leaving the pick to the small tool model), `_ground_hunter_evidence` (catch Hunter confabulation via the same `_cite_or_drop` gate one round before it reaches the Expert), a stall-handoff (after 3 consecutive no-hypothesis Hunter rounds, hand off to the Expert anyway rather than running out the round budget), and a CONFIRMED-only technique-ID format check (a malformed ID like `"T...."` never blocks `ANOMALOUS_UNCLASSIFIED`/`RULED_OUT` — I8, novelty is never required to resolve to a known ID — but it can't stand as a CONFIRMED claim either).
 
 **Result**: pre-fix, the 3-section pipeline hit `UNRESOLVED` on both scenarios every time (0% informative). Post-fix, across 10 reps: `kerberoast_to_da` landed the correct technique (T1558.003, recall 0.333, precision 1.0) in 3/5 reps, `UNRESOLVED` in 2/5; `meta3_tomcat_manager` reached a real conclusion in 5/5 reps (0% timeout), 2/5 correct-ish. **GATE-D sign-off**: the 3-section design is sound; remaining variance is model capability, not pipeline plumbing — model selection for the Hunter/Expert slots is the tracked follow-on (not blocking this build).
+
+### GATE-D full-corpus ablation + failure attribution (TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1)
+
+`portal/modules/security/eval/ablation_attribution.py` turns one (arm, scenario) result into a
+single diagnosis — `HIT` / `NOVELTY` (successes) or `HUNTER_MISS` / `HANDOFF_LOSS` / `HALLUCINATION`
+/ `NON_CONVERGENCE` (the miss taxonomy) — via `classify()`, aggregated per arm via `summarize()`.
+Proven on synthetic fixtures (`test_ablation_attribution.py`) before it judges any live run.
+`decide_route(decision)` converts one `ABLATION_DECISION.json` into a deterministic route —
+`COUNCIL` (default/expected), `RETRIEVAL_FIRST` or `BUDGET_FIRST` (guardrails, loop back to a
+re-run), or `BLOCKED` (degenerate/inconclusive data, never build on it).
+
+`portal/modules/security/eval/blue_orchestration_ablation.py` runs all three arms (`1section` —
+`blue._run_blue_chain_test(mode="discovery")` alone, the null hypothesis; `2section`; `3section` —
+the locked V2 trio) across every captured scenario in `--replay-captured-red` mode, classifies each
+cell, and emits `ABLATION_DECISION.json` + a human `ABLATION_REPORT_<ts>.md`. Sequential only
+(never concurrent with another bench/eval run), per-scenario checkpointed, unconditional
+checkpoint backup before overwrite:
+
+```bash
+python -m portal.modules.security.eval.blue_orchestration_ablation --reps 3 --out ABLATION_DECISION.json
+```
+
+Routes model calls directly to Ollama (`CHAIN_DIRECT_OLLAMA=true BLUE_DIRECT_OLLAMA=true`) rather
+than through the pipeline's `bench-*` workspace layer — that layer requires `PORTAL_ENABLE_EVAL=1`
+(exact string `"1"`, not `"true"`) and, as of this writing, this environment's `.env` has it set to
+`"true"`, which the eval-module gate does not treat as enabled; flipping it to `"1"` also currently
+surfaces ~60 stale `bench-*` workspace model hints failing `STRICT_HINT_VALIDATION` at pipeline
+startup. Both are pre-existing local config gaps, tracked in `KNOWN_LIMITATIONS.md`, not fixed by
+this task — the direct-Ollama bypass sidesteps them without touching shared pipeline config.

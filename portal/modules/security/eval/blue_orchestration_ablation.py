@@ -37,7 +37,14 @@ from portal.modules.security.core.blue import _run_blue_chain_test
 from portal.modules.security.core.blue_orchestrate import SectionSpec, run_blue_orchestration
 from portal.modules.security.core.exec_chain import SCENARIOS
 from portal.modules.security.core.siem.capture_store import list_captures
-from portal.modules.security.eval.ablation_attribution import classify, summarize
+from portal.modules.security.eval.ablation_attribution import (
+    DEGEN_ERR,
+    DEGEN_RECALL,
+    DOMINANT,
+    SPLIT_MARGIN,
+    classify,
+    summarize,
+)
 
 # Locked V2 trio (b576439) — see task Appendix.
 TOOL_MODEL = "granite4.1:8b-ctx8k"
@@ -52,11 +59,6 @@ MERGED_MODEL = REASONING_MODEL
 
 ARMS = ["1section", "2section", "3section"]
 DEFAULT_OUT = Path("ABLATION_DECISION.json")
-
-SPLIT_MARGIN = 0.10
-DEGEN_ERR = 0.20
-DEGEN_RECALL = 0.05
-DOMINANT = 0.40
 
 
 def _git_head() -> str:
