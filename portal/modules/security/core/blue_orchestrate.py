@@ -552,11 +552,42 @@ _EXPERT_OUTPUT_FORMAT_INSTRUCTIONS = (
 )
 
 
-def format_for_expert(reasoning_out: SectionOutput, results: list[ToolResult], trigger: str) -> str:
+def format_for_expert(
+    reasoning_out: SectionOutput,
+    results: list[ToolResult],
+    trigger: str,
+    hunter_history: list[dict] | None = None,
+) -> str:
     """A focused 'here is what the hunt found; render your expert judgment'
     prompt — distinct from the open hunt prompt (the expert is fed, not
-    exploring)."""
+    exploring).
+
+    `hunter_history` (optional, additive): the Hunter's own accumulated
+    multi-round conversation, if any. Previously the Expert only ever saw
+    reasoning_out's terminal evidence/reasoning fields — a one-shot,
+    already-compressed restatement of however many rounds the Hunter spent
+    narrowing down a hypothesis, with the actual back-and-forth that
+    produced it thrown away. Found live 2026-07-20 (GATE-D validation): this
+    is a real information-loss point distinct from the 2-section "merged"
+    arm, where the same model instance that reasoned across all rounds also
+    renders the final verdict, so it never goes through this compression
+    step at all. Safe to forward here despite the Hunter's own history cap
+    existing specifically to prevent quadratic growth *within* the Hunter's
+    own loop (re-sending the whole accumulated pile every round) — the
+    round budget already caps how many Hunter turns can occur before
+    hand-off (3 by default, `_hunter_stall_cap`), so this is a small,
+    one-time cost at hand-off, not a recurring per-round one.
+    """
     evidence_lines = [f"[{r.provenance}] {r.query}: {r.raw_summary}" for r in results]
+    history_block = ""
+    if hunter_history:
+        turns = [f"  {m['role']}: {m['content']}" for m in hunter_history if m.get("content")]
+        if turns:
+            history_block = (
+                "Hunter's investigation history (own reasoning across rounds):\n"
+                + "\n".join(turns)
+                + "\n\n"
+            )
     hunter_block = (
         f"Hunter's proposed verdict: {reasoning_out.verdict or '(none — requested more evidence)'}\n"
         f"Hunter's proposed technique_ids: {reasoning_out.technique_ids}\n"
@@ -566,9 +597,10 @@ def format_for_expert(reasoning_out: SectionOutput, results: list[ToolResult], t
         f"similar_to={reasoning_out.similar_to}"
     )
     return (
-        f"Trigger: {trigger}\n\n{hunter_block}\n\nGathered telemetry:\n" + "\n".join(evidence_lines)
+        f"Trigger: {trigger}\n\n{history_block}{hunter_block}\n\nGathered telemetry:\n"
+        + "\n".join(evidence_lines)
         if evidence_lines
-        else f"Trigger: {trigger}\n\n{hunter_block}\n\n(no telemetry gathered)"
+        else f"Trigger: {trigger}\n\n{history_block}{hunter_block}\n\n(no telemetry gathered)"
     )
 
 
@@ -1161,16 +1193,44 @@ def _run_three_section(
             rounds += 1
             continue
 
-        ectx = format_for_expert(hunter_out, tool_results, trigger)
+        ectx = format_for_expert(hunter_out, tool_results, trigger, hunter_history=hunter_history)
+        told_expert_final_round = False
         if stalled and hunter_out.wants_more():
-            ectx += (
-                f"\n\nNote: the hunter has searched {consecutive_no_hypothesis_rounds} "
-                "consecutive rounds without forming a hypothesis — repeated requests have "
-                "not surfaced anything more specific. Render your best-grounded conclusion "
-                "from what has been gathered so far; RULED_OUT or ANOMALOUS_UNCLASSIFIED are "
-                "valid, honest conclusions when nothing more specific is available. You may "
-                "still request one targeted gap if you believe it would change the outcome."
-            )
+            # Whether a post-Expert request_more could ever actually be
+            # honored: one round for the gather, plus at least one more for
+            # the Hunter turn that has to process it before the Expert is
+            # reachable again (the post-gather loop always returns to the
+            # Hunter, never straight back to the Expert) — < 2 rounds left
+            # after this Expert call means it structurally cannot happen.
+            # Found live 2026-07-20 (GATE-D validation): under the *default*
+            # budget (max_rounds=6, stall_cap=3) this stall-triggered
+            # hand-off always lands with exactly 0 rounds left after the
+            # Expert's turn — "you may still request one targeted gap" was
+            # being offered on every single stalled conclusion, never once
+            # actually honorable, and the Expert doing so anyway forced
+            # UNRESOLVED instead of the RULED_OUT/ANOMALOUS_UNCLASSIFIED it
+            # had just been told were valid to render right then.
+            rounds_left_after_expert = max_rounds - (rounds + 1)
+            if rounds_left_after_expert >= 2:
+                ectx += (
+                    f"\n\nNote: the hunter has searched {consecutive_no_hypothesis_rounds} "
+                    "consecutive rounds without forming a hypothesis — repeated requests have "
+                    "not surfaced anything more specific. Render your best-grounded conclusion "
+                    "from what has been gathered so far; RULED_OUT or ANOMALOUS_UNCLASSIFIED are "
+                    "valid, honest conclusions when nothing more specific is available. You may "
+                    "still request one targeted gap if you believe it would change the outcome."
+                )
+            else:
+                told_expert_final_round = True
+                ectx += (
+                    f"\n\nNote: the hunter has searched {consecutive_no_hypothesis_rounds} "
+                    "consecutive rounds without forming a hypothesis, and this is the final "
+                    "round available — no further evidence can be gathered regardless of what "
+                    "you request. You MUST render CONFIRMED, RULED_OUT, or ANOMALOUS_UNCLASSIFIED "
+                    "now, using only what has already been gathered; RULED_OUT or "
+                    "ANOMALOUS_UNCLASSIFIED are valid, honest conclusions when nothing more "
+                    "specific is available. Do not request more evidence."
+                )
             consecutive_no_hypothesis_rounds = 0
         expert_out = run_expert_model(
             ectx,
@@ -1181,6 +1241,45 @@ def _run_three_section(
             dry_run=dry_run,
         )
         expert_out = _ground_similarity(expert_out, tool_results)
+
+        # Retry-not-fabricate (same "same retry budget" discipline as
+        # blue._run_blue_turn's P5-SCORING-BIAS-001): if we already told the
+        # Expert plainly that this is its final turn and no more evidence is
+        # coming, and it still didn't conclude, give it exactly one more
+        # chance with an even more direct nudge before accepting UNRESOLVED —
+        # never invent a verdict it didn't give (I8), but a model ignoring a
+        # clear instruction once is not the same as it being incapable of
+        # complying, and this doesn't burn any of the tool-gather round
+        # budget (no new evidence is being requested).
+        if told_expert_final_round and not expert_out.is_conclusion():
+            retry_ctx = ectx + (
+                "\n\nYou did not render a verdict. There is no more evidence available under "
+                "any circumstance — repeating a request_more will not produce anything new. "
+                "Choose exactly one of CONFIRMED, RULED_OUT, or ANOMALOUS_UNCLASSIFIED right "
+                "now, based only on what has already been gathered above."
+            )
+            retry_out = run_expert_model(
+                retry_ctx,
+                expert_model=models["expert"],
+                ground_truth=ground_truth,
+                tool_results=tool_results,
+                hunter_similar_to=hunter_out.similar_to,
+                dry_run=dry_run,
+            )
+            retry_out = _ground_similarity(retry_out, tool_results)
+            trace.append(
+                {
+                    "round": rounds,
+                    "section": "expert-retry",
+                    "model": models["expert"],
+                    "verdict": retry_out.verdict,
+                    "match_grade": retry_out.match_grade,
+                    "wants_more": retry_out.wants_more(),
+                }
+            )
+            if retry_out.is_conclusion():
+                expert_out = retry_out
+
         trace.append(
             {
                 "round": rounds,

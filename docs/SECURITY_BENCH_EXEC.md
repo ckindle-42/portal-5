@@ -1041,3 +1041,42 @@ from disk in seconds, with zero live model calls. Note the current limit of that
 replays the `classify()` taxonomy over already-computed `match_grade`/`similar_to` values, so a
 *future* fix to `compute_similarity` itself (fixes #3/#4 here) still requires a fresh live run to
 get new grounded values — only `classify()`-level scoring changes are free to replay.
+
+**Why `3section` was scoring below `2section` on recall (found live 2026-07-20, before trusting
+the validation run further):** two more real, distinct causes, both in `_run_three_section`'s
+Hunter→Expert hand-off, isolated by walking through a live `NON_CONVERGENCE` trace round by round
+rather than guessing:
+
+5. **A hollow escape hatch.** Under the *default* round budget (`max_rounds=6`,
+   `_hunter_stall_cap=3`), a stall-triggered Expert hand-off always lands with exactly 0 rounds
+   left afterward — provably, not just usually (`(stall_cap - 1) * 2 + 1` rounds consumed reaching
+   the hand-off, `+1` for the Expert's own turn, `= max_rounds` exactly). The Expert's prompt was
+   still offering "you may still request one targeted gap" on every one of these — an option that
+   could never be honored — and the Expert doing so anyway forced `UNRESOLVED` instead of the
+   `RULED_OUT`/`ANOMALOUS_UNCLASSIFIED` it had just been told were valid right then. Fixed: when
+   there's genuinely no budget left for a follow-up (`rounds_left_after_expert < 2`), the prompt
+   now says so plainly and omits the false option entirely.
+6. **Lossy hand-off.** The Expert only ever saw `reasoning_out`'s terminal `evidence`/`reasoning`
+   fields — a one-shot, already-compressed restatement of however many rounds the Hunter spent
+   narrowing down a hypothesis — never the Hunter's own accumulated multi-round reasoning
+   (`hunter_history`). The 2-section "merged" arm never goes through this compression step at all
+   (the same model instance that reasoned across rounds also concludes). Fixed: `format_for_expert`
+   now also renders the Hunter's own investigation history at hand-off — a bounded, one-time cost
+   at hand-off (the round budget already caps Hunter turns to ~3), not the recurring per-round
+   growth that motivated capping the Hunter's *own* loop history in the first place.
+
+A live retest surfaced a **third, separate, genuinely non-code finding**: even fixed and correctly
+telling the Expert (`Foundation-Sec-8B-Reasoning`) plainly that this is its final turn and it MUST
+render a verdict, it sometimes still returns `verdict: None` with a `request_more` anyway —
+including one live case with `match_grade: SIMILAR` already correctly grounded (i.e.
+`ANOMALOUS_UNCLASSIFIED` was right there, available, explicitly named as valid). Never fabricate a
+verdict a model refuses to give (I8) — but a model ignoring an instruction once isn't proof it
+can't comply, so `_run_three_section` now gives the Expert exactly one retry with a more direct
+nudge (same "same retry budget" discipline as `blue._run_blue_turn`'s P5-SCORING-BIAS-001) before
+accepting `UNRESOLVED`; the retry doesn't consume tool-gather round budget (no new evidence is
+being requested). Live-tested twice: the retry mechanism itself fires and falls back correctly,
+but the model declined to conclude on both the original and the retry call. That's real
+information about this model's reliability in the Expert role, not a bug — stopped iterating on
+prompt engineering after two honest attempts rather than guess further; whatever
+`NON_CONVERGENCE` rate the validation run now shows should be trusted as a true reflection of
+model behavior, not an artifact of either bug above.
