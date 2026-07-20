@@ -958,6 +958,26 @@ def _fetch_blue_telemetry(
     return out
 
 
+# Technique -> known Windows Event ID markers, hoisted to module level
+# (additive) so other modules can reuse this domain knowledge instead of
+# re-deriving it — e.g. ablation_attribution._trace_mentions_any uses this
+# to detect "the Hunter's evidence actually covers this GT technique" without
+# requiring the literal MITRE ID string to appear in raw telemetry (which it
+# never does — event logs carry event codes, not ATT&CK IDs).
+TECHNIQUE_EVENT_ID_MARKERS: dict[str, list[str]] = {
+    "T1558.003": ["4769"],  # Kerberoasting
+    "T1558.004": ["4768"],  # AS-REP Roasting
+    "T1003.006": ["4662"],  # DCSync
+    "T1003.001": ["4688", "10"],  # LSASS dump
+    "T1003.003": ["4688", "4661"],  # NTDS dump
+    "T1110.003": ["4625", "4771"],  # Password spray
+    "T1053.005": ["4698"],  # Scheduled task
+    "T1047": ["4688", "5861"],  # WMI
+    "T1557": ["4624"],  # AiTM
+    "T1550.002": ["4624"],  # Pass-the-hash
+}
+
+
 def _cite_or_drop(
     reported: list[dict],
     telemetry: dict[str, dict],
@@ -1004,19 +1024,7 @@ def _cite_or_drop(
             continue
 
         # Check for technique-specific event IDs in telemetry
-        _event_id_map = {
-            "T1558.003": ["4769"],  # Kerberoasting
-            "T1558.004": ["4768"],  # AS-REP Roasting
-            "T1003.006": ["4662"],  # DCSync
-            "T1003.001": ["4688", "10"],  # LSASS dump
-            "T1003.003": ["4688", "4661"],  # NTDS dump
-            "T1110.003": ["4625", "4771"],  # Password spray
-            "T1053.005": ["4698"],  # Scheduled task
-            "T1047": ["4688", "5861"],  # WMI
-            "T1557": ["4624"],  # AiTM
-            "T1550.002": ["4624"],  # Pass-the-hash
-        }
-        event_ids = _event_id_map.get(tid, [])
+        event_ids = TECHNIQUE_EVENT_ID_MARKERS.get(tid, [])
         if any(eid in all_telemetry_text for eid in event_ids):
             kept.append(detection)
             continue

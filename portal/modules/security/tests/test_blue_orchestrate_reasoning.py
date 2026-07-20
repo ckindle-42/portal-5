@@ -127,6 +127,85 @@ def test_run_similarity_no_overlap_returns_none_grade():
     assert out["similar_to"] == []
 
 
+# ── _ground_similarity: root-cause fix for NOVELTY structurally reading 0 ────
+# (GATE-D ablation, 2026-07-19/20): run_similarity() existed and was
+# unit-tested above in isolation, but was never called from the live Hunter/
+# Expert/merged flow — match_grade/similar_to were pure LLM self-report,
+# untethered from the wiki-grounded engine. These tests prove the grounding
+# helper actually overrides an unverified self-report with the deterministic
+# computation, rather than trusting whatever the model claimed.
+
+
+def test_ground_similarity_overrides_unverified_self_report_with_grounded_grade(monkeypatch):
+    monkeypatch.setattr(
+        bo,
+        "_wiki_technique_descriptions_cache",
+        {"T1558.003": "kerberoast service ticket request tgtdeleg klist unusual"},
+    )
+    tool_results = [
+        bo.ToolResult(
+            query="q1",
+            provenance="matched-exact",
+            raw_summary="klist tgtdeleg unusual service ticket request observed",
+        )
+    ]
+    # Model self-reported EXACT/NONE with no similar_to at all — should be
+    # overridden by the grounded SIMILAR/EXACT computation from real overlap.
+    out = bo.SectionOutput(
+        verdict="ANOMALOUS_UNCLASSIFIED",
+        technique_ids=[],
+        match_grade="NONE",
+        similar_to=[],
+        section="reasoning",
+    )
+    grounded = bo._ground_similarity(out, tool_results)
+    assert grounded.match_grade in ("SIMILAR", "EXACT")
+    assert grounded.similar_to == ["T1558.003"]
+    # verdict/technique_ids/section pass through untouched — only the
+    # similarity axis is grounded, not the separately-gated verdict axis.
+    assert grounded.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert grounded.section == "reasoning"
+
+
+def test_ground_similarity_corrects_a_claimed_similarity_that_does_not_hold_up(monkeypatch):
+    """The model claims SIMILAR to a specific technique, but the actual
+    gathered telemetry has zero overlap with any wiki description — the
+    unverified claim must not stand (never-invent extended to similarity)."""
+    monkeypatch.setattr(
+        bo,
+        "_wiki_technique_descriptions_cache",
+        {"T1558.003": "kerberoast service ticket request tgtdeleg klist unusual"},
+    )
+    tool_results = [
+        bo.ToolResult(query="q1", provenance="empty", raw_summary="no matching events found")
+    ]
+    out = bo.SectionOutput(
+        verdict="ANOMALOUS_UNCLASSIFIED",
+        match_grade="SIMILAR",
+        similar_to=["T1558.003"],
+        section="expert",
+    )
+    grounded = bo._ground_similarity(out, tool_results)
+    assert grounded.match_grade == "NONE"
+    assert grounded.similar_to == []
+
+
+def test_ground_similarity_skips_when_no_tool_results_gathered_yet():
+    """Nothing retrieved yet — not enough to ground against either way, so
+    leave the (still-provisional) self-report alone rather than force NONE."""
+    out = bo.SectionOutput(verdict=None, match_grade="SIMILAR", similar_to=["T1558.003"])
+    grounded = bo._ground_similarity(out, [])
+    assert grounded is out
+
+
+def test_ground_similarity_skips_when_wiki_not_seeded(monkeypatch):
+    monkeypatch.setattr(bo, "_wiki_technique_descriptions_cache", {})
+    tool_results = [bo.ToolResult(query="q1", provenance="matched-exact", raw_summary="anything")]
+    out = bo.SectionOutput(match_grade="SIMILAR", similar_to=["T1558.003"])
+    grounded = bo._ground_similarity(out, tool_results)
+    assert grounded is out
+
+
 def test_format_new_evidence_renders_only_the_given_results_not_a_full_pile():
     """Regression: the delta renderer must not re-render trigger/discovery
     framing (that's already in the Hunter's conversation history) — only

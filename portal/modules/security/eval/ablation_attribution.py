@@ -105,11 +105,52 @@ def classify(
 
 
 def _trace_mentions_any(trace: list[dict], techniques: set[str]) -> bool:
-    """Did any GT technique appear anywhere the Hunter/tool actually surfaced?
-    Executor: match against trace entries' evidence/technique fields; keep it
-    conservative (a GT id string present in a trace round's surfaced content)."""
-    blob = " ".join(str(entry) for entry in (trace or []))
-    return any(t in blob for t in techniques)
+    """Did the Hunter/tool actually surface real evidence, whether or not we
+    recognize what it found?
+
+    Two signals, checked in this order — structural first, on purpose:
+
+    1. STRUCTURAL (generalizes to anything, known or novel): the tool
+       section's own retrieval provenance already records whether a round
+       found a real, specific match (`matched-exact` / `live-broad-fallback`)
+       versus nothing (`empty`) or a fixture placeholder
+       (`synthetic-fallback`). This doesn't require recognizing *what* was
+       found — a genuinely new attack pattern the tool section actually
+       retrieved evidence for still counts, which a signature list can never
+       do by construction (found live 2026-07-19: relying on known markers
+       alone means every technique outside a small hand-curated table is
+       permanently unreachable-to-disprove as HUNTER_MISS, no matter how
+       much real evidence the tool retrieved — the model card equivalent of
+       "we can only detect what we already know to look for").
+    2. KNOWN-MARKER fallback (narrower, but higher precision when it hits):
+       literal MITRE ID, parent-number substring, or a known technique ->
+       Windows Event ID mapping (blue.TECHNIQUE_EVENT_ID_MARKERS). Useful
+       when trace entries lack a provenance field (e.g. the 1-section arm,
+       which has no tool/reasoning/expert split to record retrieval
+       provenance against) or as corroboration, never as the sole gate.
+    """
+    from portal.modules.security.core.blue import TECHNIQUE_EVENT_ID_MARKERS
+
+    for entry in trace or []:
+        if entry.get("section") == "tool" and entry.get("provenance") in (
+            "matched-exact",
+            "live-broad-fallback",
+        ):
+            return True
+
+    blob = " ".join(str(entry) for entry in (trace or [])).lower()
+    for t in techniques:
+        t_upper = t.upper()
+        if t.lower() in blob:
+            return True
+        tid_base = t_upper.split(".")[0] if "." in t_upper else t_upper
+        tid_number = tid_base[1:] if tid_base.startswith("T") else tid_base
+        if tid_number and tid_number in blob:
+            return True
+        for eid in TECHNIQUE_EVENT_ID_MARKERS.get(t_upper, []):
+            if eid in blob:
+                return True
+    return False
 
 
 @dataclass

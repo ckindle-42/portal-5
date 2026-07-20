@@ -986,3 +986,38 @@ rather than routed around:
    group `models:` list, plus 4 more `config/portal.yaml` hints that were bare tags (e.g.
    `devstral-small-2`) missing the explicit `:latest` Ollama defaults to. Zero models were actually
    missing or needed re-pulling.
+
+**Two measurement-instrument root causes, found live 2026-07-19/20 after a full 89-scenario ×
+3-arm × 3-rep corpus run showed `HANDOFF_LOSS: 0.0` and `NOVELTY: 0` across every arm — both
+confirmed-then-fixed rather than papered over, because a rate that clean is itself evidence of a
+broken detector, not a real finding:**
+
+1. **`ablation_attribution._trace_mentions_any`** originally checked for a literal MITRE ID string
+   (e.g. `"T1558.003"`) inside the trace to decide "did the Hunter actually see this evidence" —
+   but real telemetry (Windows event logs, Splunk records) never contains that literal string, so
+   the check was structurally unsatisfiable and every non-hallucination miss collapsed into
+   `HUNTER_MISS`. Fixed with a two-tier check: the tool section's own retrieval provenance
+   (`matched-exact` / `live-broad-fallback`) as the primary, generalizing signal — this credits
+   real evidence whether or not the specific pattern is one we've already catalogued, which a
+   fixed marker list can never do — with known-marker matching (`blue.TECHNIQUE_EVENT_ID_MARKERS`)
+   as a narrower, higher-precision fallback.
+2. **`run_similarity()`** (the deterministic, wiki-grounded U1 similarity engine —
+   `unknown_defense.compute_similarity` against 30 wiki-seeded technique descriptions) existed and
+   was unit-tested in isolation (`test_blue_orchestrate_reasoning.py`) but was never called from
+   the live Hunter/Expert/merged flow in any of the three arms — `match_grade`/`similar_to` were
+   pure unverified LLM self-report the whole time. This made `NOVELTY` — the "known unknown, flag
+   it as SIMILAR" outcome that Council's whole rationale (Part II-A below) depends on — structurally
+   ~0 regardless of model capability, not a measurement of anything. Fixed by adding
+   `_ground_similarity()`, called after every Hunter round, Expert conclusion, and merged-model
+   conclusion in `blue_orchestrate.py`: it overrides the model's self-reported `match_grade`/
+   `similar_to` with the grounded computation, the same never-invent discipline `_cite_or_drop`
+   already applies to exact technique claims, now extended to the similarity axis.
+
+Both fixes are proven on synthetic fixtures (`test_ablation_attribution.py`,
+`test_blue_orchestrate_reasoning.py`) before being trusted against a live run, per this task's I9
+invariant. The full 798-cell run that surfaced these had its raw verdict/technique_ids/trace
+discarded after classification (only the already-computed outcome was persisted) — an unrelated,
+now also-fixed gap: `blue_orchestration_ablation.py` persists every raw result to a `.raw.jsonl`
+sidecar and supports `--rescore <path>` to reclassify the whole corpus from disk in seconds, with
+zero live model calls, so a future scoring fix never again requires re-running potentially many
+hours of live inference to get a second chance at judging data correctly.
