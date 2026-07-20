@@ -152,6 +152,43 @@ def test_handoff_loss_when_ruled_out_but_trace_saw_gt():
     assert out.hallucinated == 0
 
 
+def test_handoff_loss_via_structural_provenance_for_unrecognized_technique():
+    """A GT technique with NO known marker (not in TECHNIQUE_EVENT_ID_MARKERS,
+    ID doesn't appear literally) must still be detected as "evidence was
+    surfaced" when the tool section's own retrieval provenance shows a real,
+    specific match — a signature list can never cover a genuinely novel
+    pattern by construction, so the structural signal (tool self-reported a
+    real hit) has to carry this case, not a marker lookup."""
+    out = classify(
+        arm="3section",
+        scenario="s8",
+        verdict="RULED_OUT",
+        technique_ids=[],
+        ground_truth={"T9999.001"},  # deliberately not in any known-marker table
+        trace=[
+            {"round": 1, "section": "tool", "provenance": "matched-exact", "query": "novel query"},
+        ],
+    )
+    assert out.outcome == "HANDOFF_LOSS"
+
+
+def test_hunter_miss_when_only_empty_or_synthetic_provenance():
+    """Tool rounds exist but every one came back empty or synthetic-fallback
+    (no real match, known or novel) — genuinely no evidence was surfaced."""
+    out = classify(
+        arm="3section",
+        scenario="s9",
+        verdict="RULED_OUT",
+        technique_ids=[],
+        ground_truth={"T9999.001"},
+        trace=[
+            {"round": 1, "section": "tool", "provenance": "empty", "query": "q1"},
+            {"round": 2, "section": "tool", "provenance": "synthetic-fallback", "query": "q2"},
+        ],
+    )
+    assert out.outcome == "HUNTER_MISS"
+
+
 def test_hunter_miss_when_gt_never_surfaced_anywhere():
     out = classify(
         arm="1section",

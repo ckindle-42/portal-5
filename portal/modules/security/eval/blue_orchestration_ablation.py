@@ -16,7 +16,18 @@ Sequential only (CLAUDE.md: never run more than one bench/eval at a time —
 VRAM/model-eviction contention gives bad data from concurrent runs).
 Per-scenario checkpointed so a mid-corpus failure doesn't lose completed work.
 
+Raw per-rep results (verdict, technique_ids, trace, ...) are persisted to a
+JSONL sidecar (<out>.raw.jsonl) SEPARATELY from the classified outcome, so a
+scoring/attribution bug (like the one found live 2026-07-19: HUNTER_MISS
+swallowing every real HANDOFF_LOSS because the evidence-detection heuristic
+was checked against fixture data that never resembled real telemetry) can be
+fixed and the whole corpus reclassified in seconds via --rescore, instead of
+re-running potentially many hours of live model inference to get a second
+chance at scoring it correctly.
+
 Run: python -m portal.modules.security.eval.blue_orchestration_ablation --reps 3
+Rescore only (no live calls): python -m portal.modules.security.eval.blue_orchestration_ablation \
+    --rescore ABLATION_DECISION.raw.jsonl --out ABLATION_DECISION.json
 """
 
 from __future__ import annotations
@@ -42,6 +53,7 @@ from portal.modules.security.eval.ablation_attribution import (
     DEGEN_RECALL,
     DOMINANT,
     SPLIT_MARGIN,
+    ArmScenarioOutcome,
     classify,
     summarize,
 )
@@ -79,9 +91,28 @@ def _backup_existing(path: Path) -> Path | None:
     return bak
 
 
-def _run_1section(scenario_name: str, ground_truth: set[str], reps: int) -> list[dict]:
+def _raw_path_for(out_path: Path) -> Path:
+    return out_path.with_suffix(".raw.jsonl")
+
+
+def _append_raw(path: Path, record: dict) -> None:
+    with path.open("a") as f:
+        f.write(json.dumps(record, default=str) + "\n")
+
+
+def _load_raw(path: Path) -> list[dict]:
+    records = []
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if line:
+            records.append(json.loads(line))
+    return records
+
+
+def _run_1section_raw(scenario_name: str, ground_truth: list[str], reps: int) -> list[dict]:
+    """Gather raw (arm, scenario) reps for the 1-section arm — no classification."""
     sc = SCENARIOS[scenario_name]
-    outcomes = []
+    records = []
     for _ in range(reps):
         try:
             res = _run_blue_chain_test(
@@ -96,23 +127,35 @@ def _run_1section(scenario_name: str, ground_truth: set[str], reps: int) -> list
                 d.get("technique_id") for d in res.get("reported", []) if d.get("technique_id")
             ]
             verdict = "CONFIRMED" if technique_ids else "RULED_OUT"
-            out = classify(
-                arm="1section",
-                scenario=scenario_name,
-                verdict=verdict,
-                technique_ids=technique_ids,
-                ground_truth=ground_truth,
-                trace=res.get("trace", []),
+            records.append(
+                {
+                    "arm": "1section",
+                    "scenario": scenario_name,
+                    "verdict": verdict,
+                    "technique_ids": technique_ids,
+                    "trace": res.get("trace", []),
+                    "ground_truth": ground_truth,
+                    "match_grade": "NONE",
+                    "similar_to": [],
+                    "error": None,
+                }
             )
-            outcomes.append({"outcome": out, "error": None})
         except Exception as exc:
-            outcomes.append({"outcome": None, "error": str(exc)})
-    return outcomes
+            records.append(
+                {
+                    "arm": "1section",
+                    "scenario": scenario_name,
+                    "ground_truth": ground_truth,
+                    "error": str(exc),
+                }
+            )
+    return records
 
 
-def _run_orchestrated(
-    arm: str, scenario_name: str, episode, ground_truth: set[str], reps: int
+def _run_orchestrated_raw(
+    arm: str, scenario_name: str, episode, ground_truth: list[str], reps: int
 ) -> list[dict]:
+    """Gather raw (arm, scenario) reps for the 2/3-section arms — no classification."""
     if arm == "2section":
         sections = [
             SectionSpec(role="tool", model=TOOL_MODEL, needs_tools=True),
@@ -124,27 +167,52 @@ def _run_orchestrated(
             SectionSpec(role="reasoning", model=REASONING_MODEL),
             SectionSpec(role="expert", model=EXPERT_MODEL),
         ]
-    outcomes = []
+    records = []
     for _ in range(reps):
         try:
             result = run_blue_orchestration(episode, sections=sections)
-            out = classify(
-                arm=arm,
-                scenario=scenario_name,
-                verdict=result.verdict,
-                technique_ids=result.technique_ids,
-                ground_truth=ground_truth,
-                trace=result.trace,
-                match_grade=result.match_grade,
-                similar_to=result.similar_to,
+            records.append(
+                {
+                    "arm": arm,
+                    "scenario": scenario_name,
+                    "verdict": result.verdict,
+                    "technique_ids": result.technique_ids,
+                    "trace": result.trace,
+                    "ground_truth": ground_truth,
+                    "match_grade": result.match_grade,
+                    "similar_to": result.similar_to,
+                    "error": None,
+                }
             )
-            outcomes.append({"outcome": out, "error": None})
         except Exception as exc:
-            outcomes.append({"outcome": None, "error": str(exc)})
-    return outcomes
+            records.append(
+                {
+                    "arm": arm,
+                    "scenario": scenario_name,
+                    "ground_truth": ground_truth,
+                    "error": str(exc),
+                }
+            )
+    return records
 
 
-def _outcome_to_dict(o) -> dict:
+def _classify_raw_record(record: dict) -> ArmScenarioOutcome | None:
+    """Apply the CURRENT classify() to one raw record. None if it errored."""
+    if record.get("error") is not None:
+        return None
+    return classify(
+        arm=record["arm"],
+        scenario=record["scenario"],
+        verdict=record["verdict"],
+        technique_ids=record["technique_ids"],
+        ground_truth=set(record["ground_truth"]),
+        trace=record["trace"],
+        match_grade=record.get("match_grade", "NONE"),
+        similar_to=record.get("similar_to"),
+    )
+
+
+def _outcome_to_dict(o: ArmScenarioOutcome) -> dict:
     return {
         "arm": o.arm,
         "scenario": o.scenario,
@@ -185,7 +253,7 @@ def _decide_honest_blocked(error_rate: float, arms: dict) -> tuple[bool, str | N
     return False, None
 
 
-def _write_report(path: Path, decision: dict, all_outcomes: list[dict]) -> None:
+def _write_report(path: Path, decision: dict) -> None:
     lines = [
         f"# Blue-Orchestration Ablation Report ({decision['generated_at']})",
         "",
@@ -217,85 +285,18 @@ def _write_report(path: Path, decision: dict, all_outcomes: list[dict]) -> None:
     path.write_text("\n".join(lines))
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--reps", type=int, default=int(os.environ.get("SWEEP_SCENARIOS_REPS", "3")))
-    ap.add_argument("--out", default=str(DEFAULT_OUT))
-    ap.add_argument("--scenarios", default="")
-    args = ap.parse_args()
-
-    reps = args.reps
-    out_path = Path(args.out)
-    _backup_existing(out_path)
-
-    if args.scenarios:
-        scenarios = [s.strip() for s in args.scenarios.split(",")]
-    else:
-        scenarios = [s for s in SCENARIOS if list_captures(s)]
-
-    print(f"Ablation: {len(scenarios)} captured scenarios x {len(ARMS)} arms x {reps} reps")
-    print(f"Scenarios: {scenarios}")
-
-    all_outcomes: list[dict] = []
-    attempted = 0
-    errored = 0
-
-    checkpoint_path = out_path.with_suffix(".outcomes.json")
-    if checkpoint_path.exists():
-        all_outcomes = json.loads(checkpoint_path.read_text())
-        print(f"Resuming from checkpoint: {len(all_outcomes)} outcomes already recorded")
-    done_keys = {(o["arm"], o["scenario"]) for o in all_outcomes}
-
-    t0 = time.monotonic()
-    for scenario_name in scenarios:
-        episode = load_episode(scenario_name)
-        if episode is None:
-            print(f"SKIP {scenario_name}: no captured episode")
-            continue
-        ground_truth = set(episode.techniques)
-
-        for arm in ARMS:
-            if (arm, scenario_name) in done_keys:
-                print(f"[skip] {arm} x {scenario_name} (checkpointed)")
-                continue
-            print(f"[run] {arm} x {scenario_name} ({reps} reps)...", flush=True)
-            if arm == "1section":
-                results = _run_1section(scenario_name, ground_truth, reps)
-            else:
-                results = _run_orchestrated(arm, scenario_name, episode, ground_truth, reps)
-
-            for r in results:
-                attempted += 1
-                if r["error"] is not None:
-                    errored += 1
-                    print(f"    ERROR: {r['error'][:150]}")
-                    continue
-                all_outcomes.append(_outcome_to_dict(r["outcome"]))
-                print(f"    -> {r['outcome'].outcome}")
-
-            checkpoint_path.write_text(json.dumps(all_outcomes, indent=2))
-
-    wall_s = round(time.monotonic() - t0, 1)
-    print(f"\nAblation corpus run complete in {wall_s}s ({wall_s / 60:.1f}min)")
-
-    error_rate = round(errored / attempted, 3) if attempted else 1.0
+def _build_decision(all_records: list[dict], reps: int, corpus_n: int, out_path: Path) -> dict:
+    """Classify every raw record with the CURRENT classify() and build the
+    decision dict + report. No live calls — pure reclassification."""
+    attempted = len(all_records)
+    errored = sum(1 for r in all_records if r.get("error") is not None)
 
     arms_summary: dict[str, dict] = {}
     for arm in ARMS:
-        from portal.modules.security.eval.ablation_attribution import ArmScenarioOutcome
-
         arm_outcomes = [
-            ArmScenarioOutcome(
-                o["arm"],
-                o["scenario"],
-                o["outcome"],
-                o["detail"],
-                o["grounded_tp"],
-                o["hallucinated"],
-                o["ground_truth"],
-            )
-            for o in all_outcomes
-            if o["arm"] == arm
+            o
+            for o in (_classify_raw_record(r) for r in all_records if r["arm"] == arm)
+            if o is not None
         ]
         arms_summary[arm] = _summary_to_dict(summarize(arm, arm_outcomes))
 
@@ -309,14 +310,14 @@ def main() -> int:
         >= arms_summary["1section"]["real_recall"] + SPLIT_MARGIN
         and arms_summary["3section"]["novelty"] > 0
     )
-
+    error_rate = round(errored / attempted, 3) if attempted else 1.0
     honest_blocked, block_reason = _decide_honest_blocked(error_rate, arms_summary)
 
     decision = {
         "head": _git_head(),
         "generated_at": datetime.now(UTC).isoformat(),
         "reps": reps,
-        "corpus_n": len(scenarios),
+        "corpus_n": corpus_n,
         "error_rate": error_rate,
         "arms": arms_summary,
         "best_multi_arm": best_multi_arm,
@@ -331,15 +332,101 @@ def main() -> int:
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = RESULTS_DIR / f"ABLATION_REPORT_{ts}.md"
-    _write_report(report_path, decision, all_outcomes)
+    _write_report(report_path, decision)
     print(f"Report written -> {report_path}")
-
     print(json.dumps(decision, indent=2))
 
     if honest_blocked:
         print(f"\nHONEST_BLOCKED: {block_reason}")
+    return decision
+
+
+def _rescore(raw_path: Path, out_path: Path, reps: int) -> int:
+    """Reclassify every raw record on disk with the CURRENT classify() logic.
+    No Ollama/pipeline calls — pure, fast, replayable scoring."""
+    if not raw_path.exists():
+        print(f"ERROR: raw results file not found: {raw_path}")
         return 1
-    return 0
+    all_records = _load_raw(raw_path)
+    scenarios = sorted({r["scenario"] for r in all_records})
+    print(
+        f"Rescoring {len(all_records)} raw records across {len(scenarios)} scenarios "
+        f"(no live calls)..."
+    )
+    _backup_existing(out_path)
+    decision = _build_decision(all_records, reps=reps, corpus_n=len(scenarios), out_path=out_path)
+    return 1 if decision["honest_blocked"] else 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--reps", type=int, default=int(os.environ.get("SWEEP_SCENARIOS_REPS", "3")))
+    ap.add_argument("--out", default=str(DEFAULT_OUT))
+    ap.add_argument("--scenarios", default="")
+    ap.add_argument(
+        "--rescore",
+        default="",
+        help="Path to a raw .raw.jsonl file — reclassify with the current "
+        "classify() logic and emit a fresh decision, with no live model calls.",
+    )
+    args = ap.parse_args()
+
+    out_path = Path(args.out)
+
+    if args.rescore:
+        return _rescore(Path(args.rescore), out_path, args.reps)
+
+    reps = args.reps
+    _backup_existing(out_path)
+
+    if args.scenarios:
+        scenarios = [s.strip() for s in args.scenarios.split(",")]
+    else:
+        scenarios = [s for s in SCENARIOS if list_captures(s)]
+
+    print(f"Ablation: {len(scenarios)} captured scenarios x {len(ARMS)} arms x {reps} reps")
+    print(f"Scenarios: {scenarios}")
+
+    raw_path = _raw_path_for(out_path)
+    _backup_existing(raw_path)
+    all_records: list[dict] = []
+    if raw_path.exists():
+        all_records = _load_raw(raw_path)
+        print(f"Resuming from raw checkpoint: {len(all_records)} records already recorded")
+    done_keys = {(r["arm"], r["scenario"]) for r in all_records}
+
+    t0 = time.monotonic()
+    for scenario_name in scenarios:
+        episode = load_episode(scenario_name)
+        if episode is None:
+            print(f"SKIP {scenario_name}: no captured episode")
+            continue
+        ground_truth = sorted(episode.techniques)
+
+        for arm in ARMS:
+            if (arm, scenario_name) in done_keys:
+                print(f"[skip] {arm} x {scenario_name} (checkpointed)")
+                continue
+            print(f"[run] {arm} x {scenario_name} ({reps} reps)...", flush=True)
+            if arm == "1section":
+                records = _run_1section_raw(scenario_name, ground_truth, reps)
+            else:
+                records = _run_orchestrated_raw(arm, scenario_name, episode, ground_truth, reps)
+
+            for rec in records:
+                _append_raw(raw_path, rec)
+                all_records.append(rec)
+                if rec.get("error") is not None:
+                    print(f"    ERROR: {rec['error'][:150]}")
+                else:
+                    outcome = _classify_raw_record(rec)
+                    print(f"    -> {outcome.outcome}")
+
+    wall_s = round(time.monotonic() - t0, 1)
+    print(f"\nAblation corpus run complete in {wall_s}s ({wall_s / 60:.1f}min)")
+
+    decision = _build_decision(all_records, reps=reps, corpus_n=len(scenarios), out_path=out_path)
+    return 1 if decision["honest_blocked"] else 0
 
 
 if __name__ == "__main__":

@@ -577,6 +577,71 @@ def _combined_telemetry_text(results: list[ToolResult]) -> dict[str, dict]:
     return {"gathered": {"telemetry": combined, "source": "tool-section"}}
 
 
+_wiki_technique_descriptions_cache: dict[str, str] | None = None
+
+
+def _wiki_technique_descriptions() -> dict[str, str]:
+    """Process-lifetime cache — the wiki-seeded technique descriptions don't
+    change mid-run, and this gets called at least once per Hunter round plus
+    once per Expert/merged conclusion across the whole corpus."""
+    global _wiki_technique_descriptions_cache
+    if _wiki_technique_descriptions_cache is None:
+        from .blue import _load_wiki_technique_descriptions
+
+        _wiki_technique_descriptions_cache = _load_wiki_technique_descriptions()
+    return _wiki_technique_descriptions_cache
+
+
+def _ground_similarity(out: SectionOutput, tool_results: list[ToolResult]) -> SectionOutput:
+    """Replace the model's self-reported match_grade/similar_to with the
+    deterministic U1 similarity computation (unknown_defense.compute_similarity)
+    against real gathered telemetry + the wiki's seeded technique descriptions.
+
+    Root cause (found live 2026-07-19/20, GATE-D ablation): `run_similarity()`
+    already existed in this module and is unit-tested in isolation
+    (test_blue_orchestrate_reasoning.py), but was never actually called from
+    the live Hunter/Expert/merged flow below — every match_grade/similar_to
+    in a corpus run was pure unverified LLM self-report in a JSON field, with
+    zero connection to the wiki-grounded engine built for exactly this. That
+    made NOVELTY structurally ~0 regardless of model capability: the "known
+    unknown, flag it as SIMILAR" case this whole design exists to catch
+    (I8; Part II-A's Council rationale) was never actually measurable,
+    because nothing ever computed a grounded SIMILAR. Same never-invent
+    spirit as _cite_or_drop/_ground_hunter_evidence, extended from the
+    exact-technique axis to the similarity axis: don't trust an unverified
+    "this looks similar to X" claim any more than an unverified "this IS X."
+
+    Skips (returns `out` unchanged) when there's no telemetry gathered yet or
+    the wiki hasn't been seeded — honestly reports NONE rather than fabricate
+    a grounded verdict from nothing (mirrors compute_similarity's own
+    no-wiki-data contract).
+    """
+    if not tool_results:
+        return out
+    wiki_descriptions = _wiki_technique_descriptions()
+    if not wiki_descriptions:
+        return out
+
+    observed_features = {
+        "telemetry": "\n".join(r.raw_summary for r in tool_results),
+        "reported_techniques": list(out.technique_ids),
+        "sources": [r.provenance for r in tool_results],
+    }
+    similarity = compute_similarity(observed_features, wiki_descriptions)
+    grounded_similar_to = [similarity.matched_technique] if similarity.matched_technique else []
+    return SectionOutput(
+        verdict=out.verdict,
+        technique_ids=out.technique_ids,
+        evidence=out.evidence,
+        reasoning=out.reasoning,
+        request_more=out.request_more,
+        match_grade=similarity.grade,
+        similar_to=grounded_similar_to,
+        section=out.section,
+        raw=out.raw,
+    )
+
+
 def _ground_hunter_evidence(
     hunter_out: SectionOutput, tool_results: list[ToolResult], ground_truth: set[str]
 ) -> SectionOutput:
@@ -1068,6 +1133,7 @@ def _run_three_section(
             dry_run=dry_run,
         )
         hunter_out = _ground_hunter_evidence(hunter_out, tool_results, ground_truth)
+        hunter_out = _ground_similarity(hunter_out, tool_results)
         _remember_hunter_turn(ctx, hunter_out)
         new_since_last_hunt = []
         trace.append(
@@ -1114,6 +1180,7 @@ def _run_three_section(
             hunter_similar_to=hunter_out.similar_to,
             dry_run=dry_run,
         )
+        expert_out = _ground_similarity(expert_out, tool_results)
         trace.append(
             {
                 "round": rounds,
@@ -1242,6 +1309,7 @@ def _run_two_section(
             history=merged_history,
             dry_run=dry_run,
         )
+        merged_out = _ground_similarity(merged_out, tool_results)
         _remember_turn(ctx, merged_out)
         new_since_last_turn = []
         trace.append(
