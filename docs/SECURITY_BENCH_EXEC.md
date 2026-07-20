@@ -1013,11 +1013,31 @@ broken detector, not a real finding:**
    `similar_to` with the grounded computation, the same never-invent discipline `_cite_or_drop`
    already applies to exact technique claims, now extended to the similarity axis.
 
-Both fixes are proven on synthetic fixtures (`test_ablation_attribution.py`,
-`test_blue_orchestrate_reasoning.py`) before being trusted against a live run, per this task's I9
-invariant. The full 798-cell run that surfaced these had its raw verdict/technique_ids/trace
-discarded after classification (only the already-computed outcome was persisted) — an unrelated,
-now also-fixed gap: `blue_orchestration_ablation.py` persists every raw result to a `.raw.jsonl`
-sidecar and supports `--rescore <path>` to reclassify the whole corpus from disk in seconds, with
-zero live model calls, so a future scoring fix never again requires re-running potentially many
-hours of live inference to get a second chance at judging data correctly.
+A first small (18-scenario) validation run of fix #2 surfaced a **third**, independent bug in
+`unknown_defense.compute_similarity` itself — the wiring fix alone made the scorer reachable, but
+the scorer was also wrong:
+
+3. **Tokenization**: `compute_similarity` used `.lower().split()` (whitespace-only) to build word
+   sets from both the wiki description and the observed telemetry. A description like `"Unix shell
+   — command execution via sh/bash/python on Linux targets"` tokenized `"sh/bash/python"` into one
+   glued blob that could never match `"bash"` as a standalone word — any hyphenated or
+   slash-joined phrase failed the same way, silently zeroing overlap for almost every real
+   description. Fixed with a regex word-extractor (`_tokenize`, `[a-z0-9]+`).
+4. **Scoring formula**: even after fixing tokenization, real telemetry (a large blob of mostly
+   irrelevant structured field names — `EventCode`, `timestamp`, `host`, ...) diluted a Jaccard
+   score (`overlap / union`) into oblivion — a genuinely on-topic match (`bash`, `sh`, `linux` all
+   present) scored 0.09, below the 0.15 `SIMILAR` floor, purely because the observed side was
+   large. Fixed to containment (`overlap / len(desc_words)`) — "how much of the description's own
+   signature did we find," immune to how much unrelated noise sits alongside real evidence in what
+   was actually observed.
+
+All four fixes are proven on synthetic fixtures (`test_ablation_attribution.py`,
+`test_blue_orchestrate_reasoning.py`, `test_unknown_defense.py`) before being trusted against a
+live run, per this task's I9 invariant. The full 798-cell run that surfaced the first two had its
+raw verdict/technique_ids/trace discarded after classification (only the already-computed outcome
+was persisted) — an unrelated, now also-fixed gap: `blue_orchestration_ablation.py` persists every
+raw result to a `.raw.jsonl` sidecar and supports `--rescore <path>` to reclassify the whole corpus
+from disk in seconds, with zero live model calls. Note the current limit of that mechanism: it
+replays the `classify()` taxonomy over already-computed `match_grade`/`similar_to` values, so a
+*future* fix to `compute_similarity` itself (fixes #3/#4 here) still requires a fresh live run to
+get new grounded values — only `classify()`-level scoring changes are free to replay.

@@ -12,10 +12,33 @@ U6: Purple outcome-space expansion — confirmed/variant/anomaly/missed scored d
 
 from __future__ import annotations
 
+import re
 import time
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
+
+_WORD_RE = re.compile(r"[a-z0-9]+")
+
+
+def _tokenize(text: str) -> set[str]:
+    """Extract lowercase alphanumeric word tokens from text.
+
+    Found live 2026-07-20 (GATE-D ablation): compute_similarity previously
+    used `.lower().split()`, which only splits on whitespace — a technique
+    description like "Unix shell — command execution via sh/bash/python on
+    Linux targets" tokenized to a single glued blob `"sh/bash/python"` (never
+    matching "bash" as a standalone word in observed telemetry) plus a
+    useless `"—"` token, and any hyphenated/slashed phrase failed the same
+    way. This silently zeroed out overlap for almost any real technique
+    description, making NOVELTY/SIMILAR grading effectively unreachable
+    even when the underlying content was genuinely related — a second,
+    independent cause of the same "NOVELTY structurally ~0" symptom already
+    fixed once (wiring run_similarity() in) that the wiring fix alone
+    couldn't catch, since it only made the (still-broken) scorer reachable.
+    """
+    return set(_WORD_RE.findall(text.lower()))
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # U1 — Similarity Tier (graded match: EXACT / SIMILAR / NONE)
@@ -75,19 +98,34 @@ def compute_similarity(
     observed_words = set()
     for v in observed_features.values():
         if isinstance(v, str):
-            observed_words.update(v.lower().split())
+            observed_words.update(_tokenize(v))
         elif isinstance(v, list):
             for item in v:
-                observed_words.update(str(item).lower().split())
+                observed_words.update(_tokenize(str(item)))
 
     for tid, desc in wiki_descriptions.items():
-        desc_words = set(desc.lower().split())
+        desc_words = _tokenize(desc)
         overlap = observed_words & desc_words
         if not overlap:
             continue
 
-        # Jaccard-like score weighted by feature specificity
-        score = len(overlap) / max(len(observed_words | desc_words), 1)
+        # Containment against the description, NOT Jaccard-over-union.
+        # Found live 2026-07-20 (GATE-D ablation), independent of the
+        # tokenization bug above: real telemetry is a large blob (dozens of
+        # structured field names — EventCode, timestamp, host, ...) compared
+        # against a short natural-language description (~10 words). Jaccard
+        # (overlap / union) is diluted by the SIZE of the observed side, not
+        # just its relevance — a genuinely on-topic match (e.g. observed
+        # telemetry literally containing "bash", "sh", "linux" for a Unix
+        # shell technique) scored 0.09, below the 0.15 SIMILAR floor, purely
+        # because dozens of unrelated field-name tokens inflated the
+        # denominator. What actually matters is "how much of the
+        # description's own signature did we find," not "what fraction of
+        # everything we observed (most of which will never resemble a
+        # 10-word description) matched" — that's containment relative to
+        # the description's word count, immune to how much irrelevant noise
+        # sits alongside the real evidence in what was observed.
+        score = len(overlap) / max(len(desc_words), 1)
         if score > best_score:
             best_score = score
             best_tid = tid

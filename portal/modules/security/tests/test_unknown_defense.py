@@ -78,6 +78,42 @@ class TestSimilarityTier:
         result = compute_similarity({"keywords": ["test"]}, {})
         assert result.grade == MatchGrade.NONE
 
+    def test_punctuated_description_still_matches_separate_words(self):
+        """Found live 2026-07-20 (GATE-D ablation): a description like
+        "sh/bash/python" or "credential-access" used to tokenize via naive
+        .lower().split() into one glued blob that could never match "bash"
+        or "credential" as standalone words in observed telemetry. This
+        silently zeroed out overlap for almost any real technique
+        description containing a slash or hyphen."""
+        wiki = {"T1059.004": "Unix shell — command execution via sh/bash/python on Linux targets"}
+        observed = {"telemetry": "process exec bash shell command on linux host"}
+        result = compute_similarity(observed, wiki)
+        assert result.grade in (MatchGrade.SIMILAR, MatchGrade.EXACT)
+        assert "bash" in result.overlapping_features
+
+    def test_real_telemetry_sized_blob_is_not_diluted_by_jaccard(self):
+        """Found live 2026-07-20 (GATE-D ablation), independent of the
+        tokenization bug above: real telemetry is a large blob of mostly
+        irrelevant structured field names compared against a short
+        description. A pure Jaccard (overlap/union) score gets diluted by
+        the SIZE of the observed side, not just its relevance — a
+        genuinely on-topic match scored below the SIMILAR floor purely
+        because of unrelated noise words. Containment (overlap relative to
+        the description's own word count) must not have this problem."""
+        wiki = {"T1059.004": "Unix shell — command execution via sh/bash/python on Linux targets"}
+        noisy_telemetry = (
+            "EventCode=4688 NewProcessName=/bin/bash CommandLine=bash timestamp=2026-07-20T10:15:22Z "
+            "host=web01 source=linux:auditd type=EXECVE exe=/bin/sh a0=sh a1=-c a2=id "
+            "additional noise words here to simulate a realistic verbose telemetry dump "
+            "with many unrelated field names and values padding out the actual signal "
+            "user session login logout network connection established port 443 tls handshake "
+            "more filler content unrelated to the actual technique but present in real logs"
+        )
+        result = compute_similarity({"telemetry": noisy_telemetry}, wiki)
+        assert result.grade in (MatchGrade.SIMILAR, MatchGrade.EXACT), (
+            f"expected a real match to survive noise, got {result.grade} (score={result.confidence})"
+        )
+
     def test_similarity_result_to_dict(self):
         import json
 
