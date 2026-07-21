@@ -87,6 +87,14 @@ portal/modules/security/core/results/checkpoints/
 # net, not source. Findings belong in docs/wiki, not committed .bak blobs.
 portal/modules/security/core/results/*.bak
 
+# blue_orchestration_ablation.py's default output (DEFAULT_OUT is a bare
+# relative path, resolved from repo root, not portal/modules/security/core/
+# results/ — same ephemeral-artifact rationale as that directory's *.json
+# pattern above, just a different location).
+/ABLATION_DECISION.json
+/ABLATION_DECISION.raw.jsonl
+/ABLATION_DECISION*.bak
+
 # Provenance ledger (portal_wiki/core/provenance_ledger.py) — append-only local
 # audit trail, grows with every run/write-back; durable on disk, not source-
 # controlled (same pattern as metrics_state.json in portal_pipeline).
