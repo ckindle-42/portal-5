@@ -238,6 +238,7 @@ def _call_model(
     messages: list[dict],
     tools: list[dict] | None = None,
     max_tokens: int = 2000,
+    extra_options: dict | None = None,
 ) -> dict:
     """Call a model through the pipeline (or direct Ollama if CHAIN_DIRECT_OLLAMA=true).
 
@@ -247,16 +248,28 @@ def _call_model(
     treats a cold model swap as a hard failure indistinguishable from a real
     hang. Streamed + idle-timeout instead: only fires when NO bytes arrive for
     300s, not when the whole call takes longer than that.
+
+    `extra_options`, when given, is merged into the request's `options`
+    dict — pipeline-mode caller-supplied `options` always win over a
+    workspace's own injected sampling defaults (see
+    `_inject_ollama_options`'s docstring), so this is how a controlled
+    before/after sampling-tuning comparison can force specific
+    temperature/top_p/etc without touching `config/portal.yaml`. `None`
+    (the default) leaves the workspace's own configured values in effect —
+    no behavior change for existing callers.
     """
     from .exec_chain import _stream_chain_turn
 
     api_key = _load_api_key()
 
     if _DIRECT_OLLAMA:
+        options = {"num_predict": max_tokens}
+        if extra_options:
+            options.update(extra_options)
         body: dict = {
             "model": model,
             "messages": messages,
-            "options": {"num_predict": max_tokens},
+            "options": options,
         }
         if tools:
             body["tools"] = tools
@@ -276,6 +289,8 @@ def _call_model(
         }
         if tools:
             body["tools"] = tools
+        if extra_options:
+            body["options"] = dict(extra_options)
 
         msg = _stream_chain_turn(
             f"{_PIPELINE_URL}/v1/chat/completions",

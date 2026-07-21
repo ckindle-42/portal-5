@@ -569,6 +569,14 @@ workspace_routing:
   - general
   bench-granite41-30b:
   - general
+  bench-cybersecqwen-4b:
+  - security
+  bench-vulnllm-r-7b:
+  - general
+  bench-sylink-8b:
+  - general
+  bench-foundation-sec-8b-reasoning:
+  - reasoning
   bench-qwen35-abliterated:
   - general
   bench-qwen36-27b:

@@ -81,6 +81,12 @@ portal/modules/security/core/results/captures/
 portal/modules/security/core/results/*.json
 portal/modules/security/core/results/checkpoints/
 
+# Checkpoint Backup Discipline (CLAUDE.md) — timestamped .bak snapshots taken
+# before clearing/overwriting a long-running bench/ablation checkpoint.
+# Same ephemeral-artifact rationale as the *.json pattern above: local safety
+# net, not source. Findings belong in docs/wiki, not committed .bak blobs.
+portal/modules/security/core/results/*.bak
+
 # Provenance ledger (portal_wiki/core/provenance_ledger.py) — append-only local
 # audit trail, grows with every run/write-back; durable on disk, not source-
 # controlled (same pattern as metrics_state.json in portal_pipeline).

@@ -1080,3 +1080,120 @@ information about this model's reliability in the Expert role, not a bug — sto
 prompt engineering after two honest attempts rather than guess further; whatever
 `NON_CONVERGENCE` rate the validation run now shows should be trusted as a true reflection of
 model behavior, not an artifact of either bug above.
+
+**Correction (found live 2026-07-20/21) — the finding directly above was wrong, and not for a
+prompting reason.** The "model declined to conclude" conclusion was never actually about
+`Foundation-Sec-8B-Reasoning` — it was about whatever model the pipeline silently substituted in
+its place. Root cause, in order of discovery:
+
+8. **Raw-persistence gap.** The `.raw.jsonl` sidecar (added earlier, see the `--rescore` note
+   above) persisted a structured trace summary per round (`verdict`/`match_grade`/`wants_more`)
+   but never the model's actual raw text — so when the "won't conclude" cases were revisited, there
+   was nothing to diagnose *why*, only that it happened. Fixed: every reasoning/expert/expert-retry/
+   merged trace entry in `blue_orchestrate.py` now also carries `"raw"` — the full, unstripped
+   model output. Cheap (JSONL, not the live budget) and exactly the gap that made root-causing #9
+   possible at all.
+9. **Silent model substitution — the real root cause, and the single most consequential bug found
+   in this entire task.** `portal.modules.security.core._data.resolve_pipeline_model()` maps a raw
+   Ollama model tag to its `bench-*`/production workspace slug via `model_hint` in
+   `config/portal.yaml` — this exists *specifically* to prevent the pipeline's own
+   unknown-workspace-id fallback (silently serving the routing group's first model instead of
+   erroring) from mis-attributing a bench result to the wrong model, a failure mode its own
+   docstring already documented from a 2026-07-05 incident. `hf.co/fdtn-ai/Foundation-Sec-8B-
+   Reasoning-Q8_0-GGUF:Q8_0` had no such workspace entry. Verified directly against the live
+   pipeline via the `x-portal-route` response header (`requested;backend;served`): every single
+   Expert-role call across the *entire* investigation — the original 30-hour full corpus run, the
+   "flawed instrument" run, the 19-scenario validation run, and even this task's own earlier
+   diagnostic probes — was silently served by `huihui_ai/Qwen3.6-abliterated:27b` instead. The tool
+   (`granite4.1:8b-ctx8k` → `tools-specialist`) and reasoning (`granite4.1:30b` →
+   `bench-granite41-30b`) roles were unaffected — both already had correct mappings. Fixed by
+   adding a `bench-foundation-sec-8b-reasoning` workspace with the correct `model_hint`, and
+   correcting its `workspace_routing` group in `config/backends.yaml` to `reasoning` (where the
+   model is actually registered — the default `general` group doesn't carry it, which trips the
+   pipeline's own `STRICT_HINT_VALIDATION` startup check, a second independent safety net that
+   caught the first attempt at this fix). Re-verified live post-fix: 5/5 reps across 3 scenarios
+   (`meta3_linux_privesc` ×3, `ad_full_compromise`, `web_reflected_xss`) all reached a real
+   conclusion — concise (1.3–3.7K raw chars vs. the 11.6K of repetitive "Wait, actually…" looping
+   previously misattributed to it), no truncation, no non-convergence. **Finding #7 above is
+   retracted**: it was never evidence about this model's reliability, and none of the corpus data
+   collected before this fix can be trusted for anything involving the Expert role.
+10. **Project-wide audit (scoped, not exhaustive).** Checked every file that posts to the
+    pipeline's `/v1/chat/completions` for the same class of bug. `tests/benchmarks/bench_tps.py`,
+    `bench_router.py`, `bench_router_conditions.py` call Ollama directly — not exposed.
+    `bench_candidates_v10.py` and `tests/scripts/capability_probe.py` already only ever address
+    pre-registered `bench-*` workspace slugs (`bench_candidates_v10.py` even has its own explicit
+    `RuntimeError` guard for a missing `model_hint`) — not exposed. Only this ablation harness
+    (`blue_orchestration_ablation.py`'s `EXPERT_MODEL` constant, plus any future free-text
+    `--tool-model`/`--reasoning-model`/`--expert-model`/`--blue-models` CLI value in
+    `portal/modules/security/core/cli.py`) had no structural guard against a newly-added raw model
+    tag slipping through unmapped.
+11. **Structural guard, not just the one fix.** Rather than trust every future model addition to
+    remember a `portal.yaml` entry, `exec_chain.py`'s `_stream_chain_turn` — the single chokepoint
+    every security-harness pipeline call goes through (`agentic_blue_eval._call_model`, both of
+    `blue.py`'s call sites) — now verifies the actually-served model (via the router's own
+    `x-portal-route` header, not per-chunk `"model"` echoes, which are unreliable on tool-calling
+    turns that emit no content chunk) against the requested workspace's registered `model_hint`,
+    raising loudly on any mismatch. Verified against both a plain and a tool-calling live request
+    before trusting it; live-tested with two fresh scenarios (`ad_full_compromise`,
+    `web_reflected_xss`) post-guard with zero false positives.
+
+**Expert-model sampling tuning (2026-07-21) — researched, applied, then controlled-tested; net
+effect: negligible, but the test itself found where the real variance lives.** Ollama's `/api/show`
+showed `parameters: None` (no Modelfile overrides) for every Expert candidate except `sylink:8b`,
+meaning each ran on Ollama's raw defaults (temperature 0.8/top_p 0.9/top_k 40/repeat_penalty 1.1)
+rather than the model creator's own GGUF-embedded recommendation — auto-application of that
+embedded metadata is a recent, not-guaranteed llama.cpp feature, not something to rely on. Applied
+creator-recommended values (or the project's existing role-based convention from
+`_inject_ollama_options`'s docstring where a model has no embedded recommendation) to
+`bench-granite41-30b` and the Expert candidate workspaces via `config/portal.yaml`'s per-workspace
+`temperature`/`top_p`/`top_k`/`repeat_penalty` fields.
+
+To find out whether this tuning actually helped, ran a **controlled** before/after comparison
+using the capture/resume infrastructure below (see the next section) — one captured hand-off, old
+(untuned) vs. new (tuned) `options` forced explicitly via a new `extra_options` passthrough on
+`_call_model`/`run_expert_model`/`run_reasoning_model`, 3 reps each, evidence context held fixed.
+Result: 5/6 and 6/6 agreement (Expert role), 6/6 agreement (Hunter role) between old and new —
+sampling tuning made almost no observable difference at either role once the input context was
+held constant. The real source of run-to-run variance in this whole ablation is upstream of both
+roles' sampling config: the inherent stochasticity of free-form generation itself (which evidence
+the Hunter gathers, how it phrases its hypothesis) dominates the final verdict far more than either
+model's temperature/top_p at the ranges tested. If reproducibility (not creator-fidelity) becomes
+the goal, the lever is a much lower, near-greedy temperature specifically for that purpose — a
+different tuning goal than what was applied here.
+
+**Section/role replay infrastructure (2026-07-21) — built specifically so none of the above ever
+again requires a fresh multi-hour run to investigate.** `blue_orchestrate.py` now supports
+capturing and replaying either hand-off point in the 3-section arm independently:
+
+- `capture_expert_handoff(episode, models=...)` / `resume_from_handoff(handoff, expert_model, ...)`
+  — captures the state right before the *first* Expert call (tool+reasoning rounds, arms 1+2,
+  paid once); resume swaps in any Expert model against that same fixed evidence packet.
+- `capture_hunter_handoff(episode, models=...)` / `resume_hunter_from_handoff(handoff,
+  reasoning_model, ...)` — one level up the chain: captures the state right before the Hunter call
+  whose output determines hand-off (tool rounds + any earlier Hunter rounds, paid once); resume
+  swaps in a different reasoning model or sampling config against that same fixed tool evidence.
+- Both `ExpertHandoff` and `HunterHandoff` are plain dataclasses with `to_dict`/`from_dict` — JSON-
+  round-trippable, so a capture is durable across separate script invocations, not just usable
+  within one Python process.
+- Both accept an `extra_options` override (threaded through `_call_model`) for exactly the
+  controlled A/B sampling comparison described above, without touching `config/portal.yaml`.
+- Implemented as a minimal, tested refactor of `_run_three_section` (a `_capture_only`/
+  `_capture_hunter_only` interception point at the same place the live loop already decides to
+  hand off) rather than a parallel reimplementation — the live path and the capture/replay path
+  share the exact same `_run_expert_section`/hunter-call logic, so there's no risk of the two
+  drifting apart. All 108 existing `blue_orchestrate`/`exec_chain`/`agentic_blue_eval` tests still
+  pass unmodified; 4 new fixture tests cover the capture/resume contract (matches a live run,
+  never re-invokes the upstream role on resume, round-trips through JSON) for both roles.
+- **Scope limit**: only the round that actually led to hand-off is captured — earlier rounds, and
+  a resumed call's own follow-up `request_more` (if a swapped-in candidate asks for more evidence
+  the retry doesn't resolve), aren't independently replayable with this mechanism. Covers the
+  dominant observed case (single hand-off, one retry at most) but isn't a byte-for-byte substitute
+  for a full live run in every branch.
+- Live-verified end to end: one capture (100–115s) + N resumes (12–45s each) vs. N full independent
+  runs (85–220s each) — roughly 2.4× faster at N=5 candidates on one scenario, with the gap growing
+  with N. Cross-candidate comparison data collected this way (`foundation-sec-8b-reasoning`,
+  `cybersecqwen-4b`, `vulnllm-r-7b`, `meta-secalign-8b`, `sylink-8b` across `meta3_linux_privesc`/
+  `ad_full_compromise`/`web_reflected_xss`) shows no candidate cleanly dominating — `vulnllm-r-7b`
+  produced the one exact ground-truth `CONFIRMED` hit seen in this task, but also the one clean
+  miss; sample size (1–3 reps per candidate per scenario) is too thin for a real ranking. More
+  reps via this same replay mechanism, not a fresh full run, is the way to get there.

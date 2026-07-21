@@ -8,7 +8,7 @@ from portal.modules.security.core import blue_orchestrate as bo
 
 
 def _fake_call_model(content: str):
-    def _fn(model, messages, tools=None, max_tokens=2000):
+    def _fn(model, messages, tools=None, max_tokens=2000, extra_options=None):
         assert tools is None  # Hunter requests data, it doesn't fetch (tools off)
         return {"content": content}
 
@@ -232,7 +232,7 @@ def test_run_reasoning_model_passes_history_into_messages(monkeypatch):
     actual message list sent to the model."""
     seen_messages = []
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
         seen_messages.extend(messages)
         return {"content": json.dumps({"request_more": "still need X", "technique_ids": []})}
 
@@ -255,7 +255,7 @@ def test_run_reasoning_model_without_history_is_unchanged(monkeypatch):
     probes) must produce the same single-turn message shape as before."""
     seen_messages = []
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
         seen_messages.extend(messages)
         return {"content": json.dumps({"request_more": "x", "technique_ids": []})}
 
