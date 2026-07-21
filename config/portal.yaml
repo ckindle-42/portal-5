@@ -183,6 +183,9 @@ workspaces:
       Intelligently routes to the best specialist model based on your question. Security/redteam topics → BaronLLM. Coding → Qwen3-Coder. Reasoning/research → DeepSeek-R1. Other → general.
     model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx8k
     context_limit: 8192
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     tools: []
     expose_to_owui: true
     enable_web_search: true
@@ -196,6 +199,9 @@ workspaces:
     model_hint: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k
     context_limit: 8192
     keep_alive: 10m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     system_prompt_append: |2-
   
   
@@ -239,6 +245,10 @@ workspaces:
     memory_writeback: true
     context_limit: 8192
     predict_limit: 4096
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
     tools:
     - web_search
     - web_fetch
@@ -470,6 +480,9 @@ workspaces:
     model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
     context_limit: 65536
     keep_alive: 10m
+    temperature: 0.2
+    top_p: 0.95
+    repeat_penalty: 1.1
     tools:
     - classify_vulnerability
     - kb_search
@@ -721,6 +734,9 @@ workspaces:
       Structured function/API calling via Granite-4.1 8B (tool-tagged, BFCL V3 68.27). Substitutes for ToolACE-2.5 (no GGUF after MLX retirement; re-sourcing tracked in P5-FUT-PARITY-001). Use for tasks composing multiple tool calls in sequence.
     model_hint: granite4.1:8b-ctx8k
     context_limit: 8192
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     max_concurrent: 1
     tools:
     - execute_python
@@ -794,6 +810,9 @@ workspaces:
     description: Generate videos via ComfyUI / Wan2.2
     model_hint: granite4.1:8b-ctx16k
     context_limit: 16384
+    temperature: 0.8
+    top_p: 0.95
+    repeat_penalty: 1.0
     tools:
     - generate_video
     - generate_image
@@ -807,6 +826,9 @@ workspaces:
     module: media
     model_hint: granite4.1:8b-ctx16k
     context_limit: 16384
+    temperature: 0.8
+    top_p: 0.95
+    repeat_penalty: 1.0
     tools:
     - generate_image
     - list_workflows
@@ -828,6 +850,9 @@ workspaces:
       Generate music and audio via AudioCraft/MusicGen. LFM2.5-8B-A1B hybrid (V8: fastest structured-output model in fleet, 89 t/s, unique non-transformer architecture, tool-capable, Apache 2.0).
     model_hint: lfm2.5:8b-ctx8k
     context_limit: 8192
+    temperature: 0.8
+    top_p: 0.95
+    repeat_penalty: 1.0
     system_prompt_append: |2-
   
   
@@ -916,6 +941,9 @@ workspaces:
     model_hint: granite4.1:8b-ctx16k
     context_limit: 16384
     predict_limit: 16384
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     emits_reasoning: false
     tools:
     - create_word_document
@@ -950,6 +978,9 @@ workspaces:
     model_hint: phi4-mini-reasoning:latest-ctx24k
     context_limit: 24576
     predict_limit: 8192
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -963,6 +994,10 @@ workspaces:
       Audio transcription, speech analysis, audio understanding. Gemma 4 12B QAT (V8: first encoder-free audio model in fleet, native audio+image+text, 256K ctx, function calling, ~7GB, Google, Apache 2.0).
     model_hint: gemma4:12b-it-qat-ctx8k
     context_limit: 8192
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
     tools:
     - transcribe_audio
     - transcribe_with_speakers
@@ -978,6 +1013,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -993,6 +1031,9 @@ workspaces:
     predict_limit: 16384
     max_concurrent: 1
     keep_alive: 10m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     emits_reasoning: true
     tools:
     - execute_bash
@@ -1015,6 +1056,9 @@ workspaces:
     predict_limit: 16384
     max_concurrent: 1
     keep_alive: 15m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     tools:
     - explore_repository
     - execute_bash
@@ -1038,6 +1082,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -1107,6 +1154,10 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.0
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1157,6 +1208,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1172,6 +1226,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1187,6 +1244,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1202,6 +1262,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1217,6 +1280,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -1230,6 +1296,9 @@ workspaces:
     model_hint: qwen3.6:27b-q4_K_M
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1243,6 +1312,9 @@ workspaces:
     model_hint: gemma4:26b-a4b-it-q4_K_M
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -1256,6 +1328,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1271,6 +1346,10 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 1
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.1
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1286,6 +1365,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 1
+    top_p: 0.95
+    repeat_penalty: 1.0
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1299,6 +1381,10 @@ workspaces:
       Benchmark: gemma4:12b-it-qat (Ollama, Google DeepMind, June 2026, Apache 2.0). 12B Unified QAT — ~7GB, encoder-free audio+image+text, 256K ctx, native function calling. QAT: near-BF16 at 4-bit. PROMOTE_POLICY=confirm.
     model_hint: gemma4:12b-it-qat
     predict_limit: 8192
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1312,6 +1398,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1322,6 +1411,10 @@ workspaces:
       Benchmark: gemma4:e2b-it-qat (Ollama, Google DeepMind, Apache 2.0). Effective 2B QAT — ~3GB, audio+image+video+text, thinking, 128K ctx. Fastest TPS candidate in fleet. QAT: near-BF16 at 4-bit. PROMOTE_POLICY=confirm.
     model_hint: gemma4:e2b-it-qat
     predict_limit: 8192
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1333,6 +1426,10 @@ workspaces:
       Benchmark: gemma4:e4b-it-qat (Ollama, Google DeepMind, Apache 2.0). Effective 4B QAT — ~5GB, audio+image+video+text, thinking, 128K ctx. QAT quality upgrade vs production gemma4:e4b-it-q4_K_M. PROMOTE_POLICY=confirm.
     model_hint: gemma4:e4b-it-qat
     predict_limit: 8192
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1344,6 +1441,10 @@ workspaces:
       Benchmark: gemma4:26b-a4b-it-qat (Ollama, Google DeepMind, June 2026, Apache 2.0). 26B-A4B MoE QAT — ~15GB, vision+text, 256K ctx. QAT quality comparison vs production gemma4:26b-a4b-it-q4_K_M at same memory. If bench shows quality gain at ≥20 TPS, promotion task can swap the primary. PROMOTE_POLICY=confirm.
     model_hint: gemma4:26b-a4b-it-qat
     predict_limit: 8192
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1355,6 +1456,10 @@ workspaces:
       Benchmark: gemma4:31b-it-qat (Ollama, Google DeepMind, June 2026, Apache 2.0). 31B Dense QAT — ~18GB, vision+text, 256K ctx. QAT quality comparison vs production gemma4:31b-it-q4_K_M. PROMOTE_POLICY=confirm.
     model_hint: gemma4:31b-it-qat
     predict_limit: 8192
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1366,6 +1471,10 @@ workspaces:
       Benchmark: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf (douyamv quant of dealignai/Gemma-4-31B-JANG_4M-CRACK, Gemma license, 31B dense, ~20GB Q4_K_M). JANG_4M-CRACK: abliterated + uncensored Gemma 4 31B fine-tune with 4M context. Vision+text. Head-to-head vs bench-gemma4-31b-qat (refusals baseline) and bench-huihui-qwen36-27b (abliterated comparison). PROBE RESULT (2026-06-16): 20/23 — D8 5/5 (matches laguna/qwen36-27b), D10 9/10 (matches qwen3-coder-30b). PENTEST BENCH (2026-06-16): 0.933 avg vs supergemma4 0.867 — WINS by +0.066. web_exploit_chain 0.80 (tied), ad_lateral_movement 1.00 (supergemma4 misses persistence), container_escape 1.00 (tied). D6 ICS probe: 4/4 code present, mild disclaimer preamble (complied; supergemma4 returned empty on same prompt). Latency: ~180s avg vs supergemma4 110s. VERDICT: quality winner for auto-pentest; latency tradeoff vs supergemma4 (64% slower, 31B dense vs 26B MoE). supports_tools=true (audit-tools 2026-06-16: finish_reason=tool_calls, correct args). PROMOTED to auto-pentest primary (2026-06-16).
     model_hint: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
     predict_limit: 8192
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.1
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1377,6 +1486,9 @@ workspaces:
       Benchmark: lfm2.5:8b (Ollama, Liquid AI, June 2026, Apache 2.0, ~5GB Q4, 128K ctx). Hybrid gated-convolution + attention MoE — ONLY non-transformer model in fleet. 8.3B total / 1.5B active. Fastest in class on CPU. Strengths: agentic workflows, tool use, structured outputs, multilingual. Weaknesses: heavy code generation, knowledge-only tasks. PROMOTE_POLICY=confirm.
     model_hint: lfm2.5:8b
     predict_limit: 8192
+    temperature: 0.8
+    top_p: 0.95
+    repeat_penalty: 1.0
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1388,6 +1500,9 @@ workspaces:
       Benchmark: devstral-small-2 (Ollama, Mistral AI + All Hands AI, Dec 2025, Apache 2.0, 24B, ~14GB Q4). Devstral V2: 256K ctx, vision added, improved SWE-bench vs devstral:24b (V1). PROMOTE_POLICY=confirm.
     model_hint: devstral-small-2:latest
     predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1399,6 +1514,9 @@ workspaces:
       Benchmark: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M (June 2026, Apache 2.0, 35B total / 3B active MoE, ~22GB UD-Q4_K_M). Post-trained on Qwen3.5-35B-A3B-Base for agentic coding, tool use, reasoning. Multimodal (image+text). imatrix community GGUF by sjakek. Terminal-Bench 2.1 score: 60.7. PROMOTE_POLICY=confirm.
     model_hint: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
     predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     max_concurrent: 1
     emits_reasoning: true
     tools: []
@@ -1411,6 +1529,9 @@ workspaces:
       Benchmark: qwen3-coder-next (Ollama, Alibaba Feb 2026, Apache 2.0). 80B total / 3B active MoE. Hybrid architecture (Gated DeltaNet + MoE). Non-reasoning for fast code responses. 256K ctx. ~46GB Q4, fits 64GB. Agentic training: 800K executable tasks + RL. PROMOTE_POLICY=confirm.
     model_hint: qwen3-coder-next:latest
     predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     max_concurrent: 1
     emits_reasoning: true
     tools: []
@@ -1423,6 +1544,9 @@ workspaces:
       Benchmark: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M (gaston-parravicini, imatrix Q4_K_M, ~5GB, abliterated LiquidAI/LFM2.5-8B-A1B base). Head-to-head vs production lfm2.5:8b — quality delta for creative/music/agentic lanes. PROMOTE_POLICY=confirm.
     model_hint: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M
     predict_limit: 8192
+    temperature: 0.8
+    top_p: 0.95
+    repeat_penalty: 1.0
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1434,6 +1558,9 @@ workspaces:
       Benchmark: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M (bartowski, 74k downloads, huihui-ai abliteration of Qwen/Qwen3-Coder-Next, ~46GB Q4_K_M). Abliterated Qwen3-Coder-Next — 80B/3B MoE agentic coder without refusals. Candidate for auto-agentic / auto-redteam coding lane. Head-to-head vs non-abliterated bench-qwen3-coder-next. PROMOTE_POLICY=confirm.
     model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
     predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.95
+    repeat_penalty: 1.1
     max_concurrent: 1
     emits_reasoning: true
     tools: []
@@ -1490,6 +1617,9 @@ workspaces:
       RETIRED 2026-06-21 (SECURITY_FLEET_REVIEW_2026-06). Promotion to auto-pentest primary (2026-06-20) reversed: fleet bench scored 0.64 coverage, below CANDIDATE_EVAL_V1 2/2 WIN threshold. 3B active MoE loses chain coherence. Replaced by baronllm-abliterated (53K cybersec examples, 1.00/1.00 Run A — this "1.00/1.00" claim predates the reliability-scoring fix; CORRECTED 2026-07-16 P5-AUTOSEC-RESELECT live re-bench: baronllm-abliterated FAILS the reliability gate outright, valid_rate 0.25, 3 of 4 tool-call attempts malformed — see docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md). Model removed from fleet: ollama rm hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
     model_hint: huihui_ai/baronllm-abliterated:latest
     predict_limit: 8192
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1501,6 +1631,10 @@ workspaces:
       Benchmark: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M (Microsoft github.com/microsoft/fastcontext, mitkox GGUF quant). 4B SFT model purpose-trained for long-context retrieval and reasoning: needle-in-haystack, multi-hop QA, instruction following at 32K–128K ctx. NOT a coding or tool-use model. NOT suitable as router (standard model; refusals). PROBE RESULT (2026-06-15): returns empty content for most standard chat prompts via Ollama — only activates on long-context retrieval patterns (document+question). D4 PASS (1/1), D7 2/3; all D9/D10 returned 500 (pipeline choked on empty response). NOT viable as a pipeline workspace until a correct Modelfile/prompt template is written. PROMOTE_POLICY=blocked. Revisit if Microsoft publishes a chat-tuned variant or a community Modelfile with the right system prompt format.
     model_hint: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M
     predict_limit: 4096
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    repeat_penalty: 1.1
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1512,6 +1646,9 @@ workspaces:
       Benchmark: devstral:24b (Ollama, Mistral, Apache 2.0, 24B MoE 22B active, ~14GB). State-of-the-art open-source agent model for software engineering tasks. 46.8% SWE-bench Verified, #1 open-source at release (May 2025). Designed for agentic coding: multi-step tool use, file editing, repo navigation. Head-to-head vs bench-devstral-small-2 (7B MoE). Candidate for auto-agentic primary if TPS competitive and quality > small variant. PROMOTE_POLICY=confirm.
     model_hint: devstral:24b
     predict_limit: 8192
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     max_concurrent: 1
     tools: []
     expose_to_owui: true
@@ -1527,6 +1664,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1539,6 +1679,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -1553,6 +1696,9 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1565,6 +1711,9 @@ workspaces:
     predict_limit: 16384
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.0
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1576,6 +1725,9 @@ workspaces:
     model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx8k
     context_limit: 8192
     predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
     system_prompt_append: |2-
   
   
@@ -1604,6 +1756,10 @@ workspaces:
     model_hint: supergemma4-26b-uncensored:Q4_K_M
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.1
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1615,6 +1771,10 @@ workspaces:
     model_hint: sylink/sylink:8b
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.1
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1626,6 +1786,10 @@ workspaces:
     model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    repeat_penalty: 1.1
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1637,6 +1801,10 @@ workspaces:
     model_hint: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 1
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.0
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -1650,6 +1818,10 @@ workspaces:
     model_hint: hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 1
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.1
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -1971,6 +2143,9 @@ workspaces:
     model_hint: hf.co/Nguuma/security-slm-unsloth-1.5b:latest
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.1
     emits_reasoning: true
     tools: []
     expose_to_owui: false
@@ -1983,6 +2158,10 @@ workspaces:
     model_hint: cybersecqwen-4b-toolfix:latest
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    repeat_penalty: 1.1
     emits_reasoning: false
     tools: []
     expose_to_owui: false
