@@ -334,10 +334,30 @@ NEUTRAL/slightly negative, worse than RavenX on web_sqli_dump (depth 1/3 vs the 
 Red EXPLOIT-slot candidate (Qwen3-4B, lightweight/fast option). Disqualified on tool-call audit: "does not
 support tools." Not benched.
 
-### `AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF` — DROPPED (blocked, never evaluated)
+### `AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF` — DROPPED (hf_id only — see `baronllm:q6_k` below for the fleet entry)
 
-Red EXPLOIT-slot candidate. Never pulled — gated HF repo (requires accepting terms to access files, no
-anonymous/token-based Ollama pull path available). Blocked, not evaluated.
+Red EXPLOIT-slot candidate. Historically blocked — `ollama pull hf.co/...` fails on this gated repo
+regardless of `HF_TOKEN` ("realm host huggingface.co does not match original host hf.co", still true
+as of 2026-07-21). Un-blocked for the GATE-D Expert-candidate pool by downloading via
+`huggingface_hub.hf_hub_download` (correctly handles gated-repo auth) and `ollama create` with a
+local Modelfile — see `baronllm:q6_k` below for the fleet entry. `portal models pull` still can't do
+this automatically; the workaround is a one-off manual step, not scripted.
+
+### `baronllm:q6_k`
+
+GATE-D Expert-role candidate (added 2026-07-21, user-requested) — the non-abliterated original
+BaronLLM (Llama-3.1-8B, 53K cybersec examples, 200+ domains), pulled per the workaround above.
+Distinct checkpoint from `huihui_ai/baronllm-abliterated:latest` below (different weights, not
+abliterated) — its tool-call reliability finding (`valid_rate 0.25`, DROPPED from `auto-security`)
+does not automatically carry over, since Hunter/Expert run with `tools=None` (pure-text reasoning
+over supplied telemetry — model card claims SIEM/PCAP/EDR JSON classification+summarization, which
+is on-target for that job, not for MCP tool-calling). Registered in the `security` backend group and
+a `bench-baronllm-q6k` workspace; not yet run through `capture_expert_handoff`/
+`resume_from_handoff` — queued for the next comparison pass alongside the other 5 Expert candidates
+(`foundation-sec-8b-reasoning`, `cybersecqwen-4b`, `vulnllm-r-7b`, `meta-secalign-8b`, `sylink-8b`).
+Sampling: temperature 0.6, top_p 0.9, repeat_penalty 1.1 (project's "reasoning" role convention, no
+GGUF-embedded creator recommendation found). Chat template: reused `huihui_ai/baronllm-abliterated`'s
+known-good Llama-3.1 template (same base lineage) via `ollama show --modelfile`.
 
 ### `huihui_ai/baronllm-abliterated:latest` — DROPPED (evaluated, not adopted; supersedes the gated AlicanKiraz0 BaronLLM above)
 

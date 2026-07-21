@@ -1113,6 +1113,24 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
+  bench-baronllm-q6k:
+    module: eval
+    name: 🔬 Bench · BaronLLM-Offensive-Security Q6_K (AlicanKiraz0)
+    description: |-
+      Expert-role candidate comparison (GATE-D ablation, added 2026-07-21): AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF, Llama-3.1-8B lineage, 53K cybersec examples, 200+ domains. Non-abliterated original (huihui_ai/baronllm-abliterated is a separate decensored fork already in the fleet, DROPPED from auto-security 2026-07-16 for tool-call unreliability — valid_rate 0.25 — but that finding is about MCP tool-calling, not the tools=None Hunter/Expert reasoning path this workspace is for, so it doesn't carry over automatically). Model card claims SIEM/PCAP/EDR JSON classification+summarization — on-target for Hunter/Expert's actual job (reason over supplied telemetry, not tool-call). Not yet run through capture_expert_handoff/resume_from_handoff — queued for the next comparison pass alongside the other 5 candidates.
+    model_hint: baronllm:q6_k
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.9
+    repeat_penalty: 1.1
+    emits_reasoning: false
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+    owui_system_prompt: |-
+      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
   bench-foundation-sec-8b-reasoning:
     module: eval
     name: 🔬 Bench · Foundation-Sec-8B-Reasoning (Cisco)
@@ -2040,7 +2058,17 @@ models:
     filename: baronllm-llama3.1-v1-q6_k.gguf
     ollama_name: baronllm:q6_k
     gated: true
-    retired: true
+    # Un-retired 2026-07-21 — GATE-D Expert-candidate pool intake. `ollama pull
+    # hf.co/...` fails with "realm host huggingface.co does not match original
+    # host hf.co" for this gated repo regardless of HF_TOKEN (still true as of
+    # this date, matches the original DROPPED note in MODEL_CATALOG.md) — not
+    # an access problem, an Ollama pull-mechanism limitation for gated repos.
+    # Worked around: downloaded via huggingface_hub.hf_hub_download (correctly
+    # handles gated-repo auth) then `ollama create` with a local Modelfile
+    # reusing huihui_ai/baronllm-abliterated's known-good Llama-3.1 template
+    # (same base lineage) + researched sampling defaults (temp 0.6/top_p
+    # 0.9/repeat_penalty 1.1). `portal models pull` still can't do this
+    # automatically — the workaround is a one-off manual step, not scripted.
   - hf_id: segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
     filename: Lily-7B-Instruct-v0.2.Q4_K_M.gguf
     ollama_name: lily-cybersecurity:7b-q4_k_m

@@ -409,7 +409,7 @@ edit the source config and re-run `sync-config` instead.
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (22 production, 64 eval, 86 total)
+# Workspace roster (22 production, 65 eval, 87 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -442,6 +442,7 @@ edit the source config and re-run `sync-config` instead.
 
 - `bench-agents-a1`
 - `bench-agentworld`
+- `bench-baronllm-q6k`
 - `bench-bugtrace-ultra-27b`
 - `bench-cybersecqwen-4b`
 - `bench-cybersecqwen-4b-toolfix`
@@ -593,7 +594,7 @@ default.
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (187 model ids across 6 backend groups)
+# Model catalog (188 model ids across 6 backend groups)
 
 ## coding (39)
 
@@ -751,8 +752,9 @@ default.
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 
-## security (27)
+## security (28)
 
+- `baronllm:q6_k`
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
 - `devstral-small-2:latest-ctx8k`

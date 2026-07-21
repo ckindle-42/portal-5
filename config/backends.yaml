@@ -266,6 +266,8 @@ backends:
 - group: security
   id: ollama-security
   models:
+  - id: baronllm:q6_k
+    supports_tools: false
   - id: glm-4.7-flash:Q4_K_M
     supports_tools: true
   - id: huihui_ai/qwen3.5-abliterated:9b
@@ -575,6 +577,8 @@ workspace_routing:
   - general
   bench-sylink-8b:
   - general
+  bench-baronllm-q6k:
+  - security
   bench-foundation-sec-8b-reasoning:
   - reasoning
   bench-qwen35-abliterated:
