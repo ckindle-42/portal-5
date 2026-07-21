@@ -152,6 +152,26 @@ _PORTAL_YAML = (
     Path(__file__).resolve().parent.parent.parent.parent.parent / "config" / "portal.yaml"
 )
 _MODEL_TO_BENCH_WORKSPACE: dict[str, str] | None = None
+_WORKSPACE_TO_MODEL_HINT: dict[str, str] | None = None
+
+
+def _load_workspace_model_hints() -> dict[str, str]:
+    global _MODEL_TO_BENCH_WORKSPACE, _WORKSPACE_TO_MODEL_HINT
+    if _MODEL_TO_BENCH_WORKSPACE is None:
+        _MODEL_TO_BENCH_WORKSPACE = {}
+        _WORKSPACE_TO_MODEL_HINT = {}
+        try:
+            import yaml
+
+            data = yaml.safe_load(_PORTAL_YAML.read_text()) or {}
+            for ws_id, ws_cfg in (data.get("workspaces") or {}).items():
+                hint = ws_cfg.get("model_hint")
+                if hint:
+                    _MODEL_TO_BENCH_WORKSPACE.setdefault(hint, ws_id)
+                    _WORKSPACE_TO_MODEL_HINT[ws_id] = hint
+        except Exception:
+            pass
+    return _WORKSPACE_TO_MODEL_HINT
 
 
 def resolve_pipeline_model(model: str) -> str:
@@ -166,20 +186,21 @@ def resolve_pipeline_model(model: str) -> str:
     entry in ``config/portal.yaml`` with a matching ``model_hint``. Already-known
     workspace/persona ids pass through unchanged.
     """
-    global _MODEL_TO_BENCH_WORKSPACE
-    if _MODEL_TO_BENCH_WORKSPACE is None:
-        _MODEL_TO_BENCH_WORKSPACE = {}
-        try:
-            import yaml
+    _load_workspace_model_hints()
+    return (_MODEL_TO_BENCH_WORKSPACE or {}).get(model, model)
 
-            data = yaml.safe_load(_PORTAL_YAML.read_text()) or {}
-            for ws_id, ws_cfg in (data.get("workspaces") or {}).items():
-                hint = ws_cfg.get("model_hint")
-                if hint:
-                    _MODEL_TO_BENCH_WORKSPACE.setdefault(hint, ws_id)
-        except Exception:
-            pass
-    return _MODEL_TO_BENCH_WORKSPACE.get(model, model)
+
+def expected_model_hint(workspace_id: str) -> str | None:
+    """Return the ``model_hint`` registered for ``workspace_id``, or ``None`` if unmapped.
+
+    Used to verify a pipeline call was actually served the intended model,
+    not silently substituted (see ``resolve_pipeline_model``'s docstring for
+    the failure mode this guards against — found live 2026-07-21 during the
+    GATE-D ablation: the Expert-role model had no workspace mapping and every
+    call was silently served by an unrelated fallback model for the entire
+    investigation before this was caught).
+    """
+    return _load_workspace_model_hints().get(workspace_id)
 
 
 # Per-workspace request-timeout overrides (seconds).

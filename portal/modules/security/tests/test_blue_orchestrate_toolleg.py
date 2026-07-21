@@ -53,7 +53,7 @@ def test_dry_run_no_telemetry_at_all_stays_empty_even_with_broaden():
 def test_live_tool_call_dispatches_and_returns_matched_exact(monkeypatch):
     ep = _episode({"windows:security": ["EventCode=4768 AS-REP roasting event for user svc-web"]})
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
         return {
             "tool_calls": [
                 {
@@ -79,7 +79,7 @@ def test_live_tool_call_dispatches_and_returns_matched_exact(monkeypatch):
 def test_live_tool_call_ignores_non_retrieval_tool_calls(monkeypatch):
     ep = _episode({"windows:security": ["EventCode=4768 event"]})
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
         return {
             "tool_calls": [
                 {
@@ -106,7 +106,7 @@ def test_live_tool_call_with_string_encoded_arguments_does_not_crash(monkeypatch
     crashing _query_real_telemetry's `.values()` call downstream."""
     ep = _episode({"windows:security": ["EventCode=4768 AS-REP roasting event for svc-web"]})
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
         return {
             "tool_calls": [
                 {
@@ -143,7 +143,7 @@ def test_list_valued_event_ids_actually_narrow_the_query(monkeypatch):
         }
     )
 
-    def fake_call_model(model, messages, tools=None, max_tokens=2000):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
         return {
             "tool_calls": [
                 {"function": {"name": "query_windows_events", "arguments": {"event_ids": [4769]}}}

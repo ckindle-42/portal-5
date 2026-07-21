@@ -36,6 +36,7 @@ from ._data import (
     PROMPT_MAX_TOKENS,
     PROMPTS,
     REQUEST_TIMEOUT,
+    expected_model_hint,
 )
 from .lab import (
     build_step_dag,
@@ -3317,12 +3318,23 @@ def _stream_chain_turn(
     tool_calls: list[dict] = []
     role = "assistant"
     got_any_chunk = False
+    served_model = ""
 
     with (
         httpx.Client(timeout=timeout) as client,
         client.stream("POST", url, headers=headers, json=payload) as resp,
     ):
         resp.raise_for_status()
+        # x-portal-route is "{requested_workspace};{backend_id};{target_model}",
+        # set once per HTTP response by the router itself (handlers.py) —
+        # unlike per-chunk "model" fields (which echo the *requested* value on
+        # the pipeline's own synthetic preamble/tool_calls-only chunks and are
+        # unreliable for tool-calling turns that never emit a content chunk),
+        # this is the router's own routing decision, always present and
+        # accurate regardless of hop count.
+        route_header = resp.headers.get("x-portal-route", "")
+        if route_header.count(";") == 2:
+            served_model = route_header.rsplit(";", 1)[1]
         for line in resp.iter_lines():
             if not line:
                 continue
@@ -3358,6 +3370,29 @@ def _stream_chain_turn(
 
     if not got_any_chunk:
         raise _ChainTurnStalledError(f"no data received within {idle_timeout_s}s")
+
+    # Served-model verification (P5-SILENT-SUBSTITUTION-001, found live
+    # 2026-07-21): the pipeline treats `model` as a workspace id and silently
+    # falls back to the routing group's first model when no workspace matches
+    # — resolve_pipeline_model() exists to prevent that by mapping a raw tag
+    # to its registered workspace, but a *new* model with no workspace entry
+    # yet still slips through unresolved and gets silently swapped, with no
+    # error anywhere (this is exactly what happened to the GATE-D ablation's
+    # Expert model for its entire investigation). Only checkable in pipeline
+    # mode — direct-Ollama requests use a literal model tag, not a
+    # workspace id, so there's no substitution risk to verify there.
+    if is_pipeline_mode and served_model:
+        requested_workspace = payload.get("model", "")
+        expected_hint = expected_model_hint(requested_workspace)
+        if expected_hint and served_model != expected_hint:
+            raise RuntimeError(
+                f"Silent model substitution: requested workspace {requested_workspace!r} "
+                f"(expected model {expected_hint!r}) but the pipeline served "
+                f"{served_model!r} instead. This means {requested_workspace!r}'s "
+                "model_hint is missing/wrong in config/portal.yaml, or its "
+                "workspace_routing group in config/backends.yaml doesn't actually "
+                "carry that model — fix the mapping, don't silently continue."
+            )
 
     msg = {"role": role, "content": "".join(content_parts), "tool_calls": tool_calls}
 

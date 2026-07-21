@@ -1052,6 +1052,80 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.1
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+    owui_system_prompt: |-
+      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
+  bench-cybersecqwen-4b:
+    module: eval
+    name: 🔬 Bench · CyberSecQwen-4B (mradermacher)
+    description: |-
+      Expert-role candidate comparison (GATE-D ablation): hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M, no-tools security-domain 4B model.
+    model_hint: hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+    owui_system_prompt: |-
+      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
+  bench-vulnllm-r-7b:
+    module: eval
+    name: 🔬 Bench · VulnLLM-R-7B (mradermacher)
+    description: |-
+      Expert-role candidate comparison (GATE-D ablation): hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M, no-tools security-domain 7B model.
+    model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+    owui_system_prompt: |-
+      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
+  bench-sylink-8b:
+    module: eval
+    name: 🔬 Bench · Sylink 8B
+    description: |-
+      Expert-role candidate comparison (GATE-D ablation): sylink/sylink:8b, security-domain 8B model.
+    model_hint: sylink/sylink:8b
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+    owui_system_prompt: |-
+      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
+  bench-foundation-sec-8b-reasoning:
+    module: eval
+    name: 🔬 Bench · Foundation-Sec-8B-Reasoning (Cisco)
+    description: |-
+      Benchmark: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0 (Ollama, Cisco Foundation AI, 8B cybersecurity reasoning model, native Ollama "thinking" capability). GATE-D ablation's locked V2 trio Expert model — added so resolve_pipeline_model() has a real workspace to route to instead of silently falling back to the general group's first model (found 2026-07-20/21: every Expert-role call in the ablation had been silently served by huihui_ai/Qwen3.6-abliterated:27b instead).
+    model_hint: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.1
+    emits_reasoning: true
     tools: []
     expose_to_owui: true
     enable_web_search: false

@@ -8,7 +8,7 @@ from portal.modules.security.core import blue_orchestrate as bo
 
 
 def _fake_call_model(content: str):
-    def _fn(model, messages, tools=None, max_tokens=2000):
+    def _fn(model, messages, tools=None, max_tokens=2000, extra_options=None):
         assert tools is None  # expert never gets tools (fed, no-tools)
         return {"content": content}
 

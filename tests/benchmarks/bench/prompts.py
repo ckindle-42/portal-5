@@ -127,6 +127,10 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # interpret a low CC-01 score against Laguna/GLM as expected, not a defect.
     "bench-granite41-8b": "coding",
     "bench-granite41-30b": "coding",
+    "bench-foundation-sec-8b-reasoning": "general",  # Cisco Foundation-Sec-8B-Reasoning — GATE-D ablation Expert model
+    "bench-cybersecqwen-4b": "general",  # CyberSecQwen-4B — GATE-D ablation Expert candidate comparison
+    "bench-vulnllm-r-7b": "general",  # VulnLLM-R-7B — GATE-D ablation Expert candidate comparison
+    "bench-sylink-8b": "general",  # sylink:8b — GATE-D ablation Expert candidate comparison
     "bench-qwen35-abliterated": "general",  # huihui_ai/qwen3.5-abliterated:9b — uncensored, AUTO primary baseline
     # ── V6 bench workspaces (TASK_MODEL_REFRESH_V6) — ascending size, family-grouped ──
     # 9B tier

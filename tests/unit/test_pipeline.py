@@ -376,7 +376,7 @@ class TestComplianceWorkspace:
 
         monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
         ws = get_workspace_dict(load_portal_config())
-        assert len(ws) == 82, f"Expected 82 workspaces with eval enabled, got {len(ws)}"
+        assert len(ws) == 86, f"Expected 86 workspaces with eval enabled, got {len(ws)}"
 
 
 class TestR17bModelExpansion:

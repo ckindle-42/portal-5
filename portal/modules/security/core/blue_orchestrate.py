@@ -14,7 +14,7 @@ Reuses (never re-implements):
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from .agentic_blue_eval import (
@@ -456,6 +456,7 @@ def run_reasoning_model(
     ground_truth: set[str],
     history: list[dict] | None = None,
     dry_run: bool = False,
+    extra_options: dict | None = None,
 ) -> SectionOutput:
     """Call a generalist reasoner (tools off) to hunt: form hypotheses, decide
     what more to pull, and carry a similarity result. The Hunter proposes; it
@@ -467,6 +468,9 @@ def run_reasoning_model(
     live 2026-07-18 — see format_new_evidence's docstring for the full
     story). Optional and defaults to None for callers that want a single
     isolated turn (e.g. the Slice 3 unit tests, or a one-shot probe).
+
+    `extra_options` forwards to `_call_model` — see `run_expert_model`'s
+    docstring for the same mechanism (controlled sampling comparisons).
     """
     if dry_run:
         return SectionOutput(
@@ -479,7 +483,13 @@ def run_reasoning_model(
     if history:
         messages.extend(history)
     messages.append({"role": "user", "content": context})
-    msg = _call_model(reasoning_model, messages, tools=None, max_tokens=_REASONING_MAX_TOKENS)
+    msg = _call_model(
+        reasoning_model,
+        messages,
+        tools=None,
+        max_tokens=_REASONING_MAX_TOKENS,
+        extra_options=extra_options,
+    )
     content = msg.get("content", "") or ""
     stripped = _strip_think_tags(content)
     parsed = _parse_hunter_json(stripped)
@@ -727,6 +737,7 @@ def run_expert_model(
     tool_results: list[ToolResult] | None = None,
     hunter_similar_to: list[str] | None = None,
     dry_run: bool = False,
+    extra_options: dict | None = None,
 ) -> SectionOutput:
     """Call the fed, no-tools domain-expert model for the conclusive verdict.
 
@@ -736,6 +747,11 @@ def run_expert_model(
     CONFIRMED verdict is run through blue._cite_or_drop; if its evidence
     doesn't survive, it is downgraded to ANOMALOUS_UNCLASSIFIED (I2/I8),
     carrying the Hunter's similar_to when the expert didn't supply its own.
+
+    `extra_options` forwards straight to `_call_model` — lets a caller force
+    specific sampling values (temperature/top_p/etc) for a controlled
+    comparison against the workspace's own configured defaults, without
+    touching config/portal.yaml. `None` (default) is a no-op.
     """
     if dry_run:
         return SectionOutput(
@@ -746,7 +762,13 @@ def run_expert_model(
         {"role": "system", "content": _EXPERT_SYSTEM_PROMPT},
         {"role": "user", "content": context + _EXPERT_OUTPUT_FORMAT_INSTRUCTIONS},
     ]
-    msg = _call_model(expert_model, messages, tools=None, max_tokens=_EXPERT_MAX_TOKENS)
+    msg = _call_model(
+        expert_model,
+        messages,
+        tools=None,
+        max_tokens=_EXPERT_MAX_TOKENS,
+        extra_options=extra_options,
+    )
     content = msg.get("content", "") or ""
     stripped = _strip_think_tags(content)
     parsed = None
@@ -1065,6 +1087,328 @@ def run_blue_orchestration(
     )
 
 
+@dataclass
+class ExpertHandoff:
+    """Captured state right before the Expert is first invoked in the
+    3-section arm — everything the tool+reasoning rounds (arms 1+2)
+    produced, model-independent. Replay this against any expert model via
+    ``resume_from_handoff`` instead of re-running the (identical) tool+
+    reasoning rounds — lets a comparison across N expert candidates pay the
+    tool/reasoning cost once instead of N times (found live 2026-07-21,
+    GATE-D ablation Expert-candidate comparison).
+
+    Scope limitation: only covers the *first* hand-off. If a resumed
+    expert call itself requests more evidence and the retry doesn't
+    resolve it, ``resume_from_handoff`` returns UNRESOLVED rather than
+    spinning up a fresh model-specific gather+hunter round — that
+    branching is genuinely candidate-dependent and isn't something a
+    shared capture can serve. This matches the dominant observed case
+    (single hand-off, expert concludes or exhausts its one retry) but is
+    not a byte-for-byte substitute for a full ``_run_three_section`` call
+    in every case.
+    """
+
+    ectx: str
+    hunter_similar_to: list[str]
+    tool_results: list[ToolResult]
+    ground_truth: list[str]
+    trace: list[dict]
+    told_expert_final_round: bool
+    rounds: int
+
+    def to_dict(self) -> dict:
+        return {
+            "ectx": self.ectx,
+            "hunter_similar_to": self.hunter_similar_to,
+            "tool_results": [asdict(tr) for tr in self.tool_results],
+            "ground_truth": self.ground_truth,
+            "trace": self.trace,
+            "told_expert_final_round": self.told_expert_final_round,
+            "rounds": self.rounds,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> ExpertHandoff:
+        return cls(
+            ectx=d["ectx"],
+            hunter_similar_to=list(d.get("hunter_similar_to") or []),
+            tool_results=[ToolResult(**tr) for tr in d.get("tool_results") or []],
+            ground_truth=list(d.get("ground_truth") or []),
+            trace=list(d.get("trace") or []),
+            told_expert_final_round=bool(d.get("told_expert_final_round")),
+            rounds=int(d.get("rounds", 0)),
+        )
+
+
+def _run_expert_section(
+    ectx: str,
+    *,
+    expert_model: str,
+    ground_truth: set[str],
+    tool_results: list[ToolResult],
+    hunter_similar_to: list[str],
+    told_expert_final_round: bool,
+    rounds: int,
+    dry_run: bool,
+    extra_options: dict | None = None,
+) -> tuple[SectionOutput, list[dict]]:
+    """Call the Expert once, with the retry-not-fabricate nudge if this was
+    flagged as the final round — the shared logic behind both a live
+    ``_run_three_section`` call and a captured-handoff replay. Returns
+    ``(expert_out, new_trace_entries)``; caller appends the trace entries
+    and decides what ``rounds += 1``/loop-continuation means for it.
+
+    ``extra_options`` forwards to every ``run_expert_model`` call made here
+    (including the retry) — see that function's docstring.
+    """
+    expert_out = run_expert_model(
+        ectx,
+        expert_model=expert_model,
+        ground_truth=ground_truth,
+        tool_results=tool_results,
+        hunter_similar_to=hunter_similar_to,
+        dry_run=dry_run,
+        extra_options=extra_options,
+    )
+    expert_out = _ground_similarity(expert_out, tool_results)
+
+    trace_entries: list[dict] = []
+
+    # Retry-not-fabricate (same "same retry budget" discipline as
+    # blue._run_blue_turn's P5-SCORING-BIAS-001): if we already told the
+    # Expert plainly that this is its final turn and no more evidence is
+    # coming, and it still didn't conclude, give it exactly one more
+    # chance with an even more direct nudge before accepting UNRESOLVED —
+    # never invent a verdict it didn't give (I8), but a model ignoring a
+    # clear instruction once is not the same as it being incapable of
+    # complying, and this doesn't burn any of the tool-gather round
+    # budget (no new evidence is being requested).
+    if told_expert_final_round and not expert_out.is_conclusion():
+        retry_ctx = ectx + (
+            "\n\nYou did not render a verdict. There is no more evidence available under "
+            "any circumstance — repeating a request_more will not produce anything new. "
+            "Choose exactly one of CONFIRMED, RULED_OUT, or ANOMALOUS_UNCLASSIFIED right "
+            "now, based only on what has already been gathered above."
+        )
+        retry_out = run_expert_model(
+            retry_ctx,
+            expert_model=expert_model,
+            ground_truth=ground_truth,
+            tool_results=tool_results,
+            hunter_similar_to=hunter_similar_to,
+            dry_run=dry_run,
+            extra_options=extra_options,
+        )
+        retry_out = _ground_similarity(retry_out, tool_results)
+        trace_entries.append(
+            {
+                "round": rounds,
+                "section": "expert-retry",
+                "model": expert_model,
+                "verdict": retry_out.verdict,
+                "match_grade": retry_out.match_grade,
+                "wants_more": retry_out.wants_more(),
+                "raw": retry_out.raw,
+            }
+        )
+        if retry_out.is_conclusion():
+            expert_out = retry_out
+
+    trace_entries.append(
+        {
+            "round": rounds,
+            "section": "expert",
+            "model": expert_model,
+            "verdict": expert_out.verdict,
+            "match_grade": expert_out.match_grade,
+            "wants_more": expert_out.wants_more(),
+            "raw": expert_out.raw,
+        }
+    )
+    return expert_out, trace_entries
+
+
+def capture_expert_handoff(
+    episode: Episode,
+    *,
+    models: dict[str, str],
+    max_rounds: int = 6,
+    wall_clock_s: float | None = None,
+    dry_run: bool = False,
+) -> ExpertHandoff | OrchestrationResult:
+    """Run the tool+reasoning rounds (arms 1+2) and stop right before the
+    first Expert call, returning the captured hand-off state instead.
+    ``models["expert"]`` is unused (any placeholder is fine) — the whole
+    point is that arms 1+2 don't depend on which expert will be used.
+
+    Returns an ``OrchestrationResult`` (verdict "UNRESOLVED") instead of an
+    ``ExpertHandoff`` in the rare case the round/wall-clock budget runs out
+    before the Hunter ever reaches a hand-off point.
+    """
+    result = _run_three_section(
+        episode,
+        models=models,
+        max_rounds=max_rounds,
+        wall_clock_s=wall_clock_s,
+        check_additional=False,
+        dry_run=dry_run,
+        _capture_only=True,
+    )
+    return result
+
+
+def resume_from_handoff(
+    handoff: ExpertHandoff,
+    expert_model: str,
+    *,
+    dry_run: bool = False,
+    extra_options: dict | None = None,
+) -> OrchestrationResult:
+    """Replay just the Expert call (+ its one retry) against a captured
+    hand-off, without re-running the tool+reasoning rounds. See
+    ``ExpertHandoff``'s docstring for the scope limitation (only the first
+    hand-off is replayed; a resumed expert requesting further evidence
+    ends in UNRESOLVED rather than spinning up a model-specific gather).
+
+    ``extra_options`` forces specific sampling values for this resume call
+    (e.g. a controlled before/after comparison of a workspace's tuned
+    defaults) — see ``run_expert_model``'s docstring.
+    """
+    expert_out, new_trace = _run_expert_section(
+        handoff.ectx,
+        expert_model=expert_model,
+        ground_truth=set(handoff.ground_truth),
+        tool_results=handoff.tool_results,
+        hunter_similar_to=handoff.hunter_similar_to,
+        told_expert_final_round=handoff.told_expert_final_round,
+        rounds=handoff.rounds,
+        dry_run=dry_run,
+        extra_options=extra_options,
+    )
+    trace = handoff.trace + new_trace
+    rounds = handoff.rounds + 1
+    if expert_out.is_conclusion():
+        return OrchestrationResult(
+            verdict=expert_out.verdict,
+            technique_ids=expert_out.technique_ids,
+            evidence=expert_out.evidence,
+            reasoning=expert_out.reasoning,
+            match_grade=expert_out.match_grade,
+            similar_to=expert_out.similar_to,
+            trace=trace,
+            rounds=rounds,
+        )
+    return OrchestrationResult(verdict="UNRESOLVED", trace=trace, rounds=rounds)
+
+
+@dataclass
+class HunterHandoff:
+    """Captured state right before the *final* Hunter call in the 3-section
+    arm — the round whose output determines whether the loop hands off to
+    the Expert (concludes/stalls) or gathers again. Everything the earlier
+    tool+reasoning rounds produced, reasoning-model-independent. Replay via
+    ``resume_hunter_from_handoff`` to test the Hunter's own sampling
+    (temperature/top_p/etc) or swap the reasoning model entirely, without
+    re-running the rounds that got to this point (mirrors ``ExpertHandoff``
+    one level up the chain — added 2026-07-21 to make any section of the
+    chain replayable, not just the Expert).
+
+    Scope: like ``ExpertHandoff``, only the round that led to the *actual*
+    hand-off is captured — earlier rounds aren't independently replayable
+    with this dataclass. Capturing an arbitrary mid-chain round is a
+    natural follow-on (thread a `target_round` through `_run_three_section`
+    to stop earlier) but isn't built yet — this covers the round that
+    matters for a Hunter-sampling variance test.
+    """
+
+    ctx: str
+    hunter_history: list[dict]
+    tool_results: list[ToolResult]
+    ground_truth: list[str]
+    trace: list[dict]
+    rounds: int
+
+    def to_dict(self) -> dict:
+        return {
+            "ctx": self.ctx,
+            "hunter_history": self.hunter_history,
+            "tool_results": [asdict(tr) for tr in self.tool_results],
+            "ground_truth": self.ground_truth,
+            "trace": self.trace,
+            "rounds": self.rounds,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> HunterHandoff:
+        return cls(
+            ctx=d["ctx"],
+            hunter_history=[dict(m) for m in d.get("hunter_history") or []],
+            tool_results=[ToolResult(**tr) for tr in d.get("tool_results") or []],
+            ground_truth=list(d.get("ground_truth") or []),
+            trace=list(d.get("trace") or []),
+            rounds=int(d.get("rounds", 0)),
+        )
+
+
+def capture_hunter_handoff(
+    episode: Episode,
+    *,
+    models: dict[str, str],
+    max_rounds: int = 6,
+    wall_clock_s: float | None = None,
+    dry_run: bool = False,
+) -> HunterHandoff | OrchestrationResult:
+    """Run the tool+reasoning rounds up through (not including) the Hunter
+    call that determines hand-off, returning that captured state.
+    ``models["reasoning"]`` is unused for the capture itself beyond
+    determining how many rounds ran to reach that point — pass whichever
+    reasoning model you'd use for a live run; the actual replay model is
+    supplied to ``resume_hunter_from_handoff``. ``models["expert"]`` is
+    unused entirely (any placeholder is fine).
+    """
+    return _run_three_section(
+        episode,
+        models=models,
+        max_rounds=max_rounds,
+        wall_clock_s=wall_clock_s,
+        check_additional=False,
+        dry_run=dry_run,
+        _capture_hunter_only=True,
+    )
+
+
+def resume_hunter_from_handoff(
+    handoff: HunterHandoff,
+    reasoning_model: str,
+    *,
+    dry_run: bool = False,
+    extra_options: dict | None = None,
+) -> SectionOutput:
+    """Replay just the Hunter's final call against a captured hand-off,
+    without re-running the tool/earlier-reasoning rounds. Returns the
+    grounded ``SectionOutput`` (same post-processing — ``_ground_hunter_evidence``
+    + ``_ground_similarity`` — the live loop applies) so a caller can inspect
+    verdict/technique_ids/wants_more exactly as the live loop would have
+    seen them.
+
+    ``extra_options`` forces specific sampling values — see
+    ``run_expert_model``'s docstring for the same mechanism on the Expert
+    side.
+    """
+    ground_truth = set(handoff.ground_truth)
+    hunter_out = run_reasoning_model(
+        handoff.ctx,
+        reasoning_model=reasoning_model,
+        ground_truth=ground_truth,
+        history=handoff.hunter_history,
+        dry_run=dry_run,
+        extra_options=extra_options,
+    )
+    hunter_out = _ground_hunter_evidence(hunter_out, handoff.tool_results, ground_truth)
+    hunter_out = _ground_similarity(hunter_out, handoff.tool_results)
+    return hunter_out
+
+
 def _run_three_section(
     episode: Episode,
     *,
@@ -1073,7 +1417,9 @@ def _run_three_section(
     wall_clock_s: float | None,
     check_additional: bool,
     dry_run: bool,
-) -> OrchestrationResult:
+    _capture_only: bool = False,
+    _capture_hunter_only: bool = False,
+) -> OrchestrationResult | ExpertHandoff | HunterHandoff:
     import time as _time
 
     ground_truth = set(episode.techniques)
@@ -1152,11 +1498,27 @@ def _run_three_section(
         if len(hunter_history) > cap:
             del hunter_history[: len(hunter_history) - cap]
 
+    pending_hunter_handoff: HunterHandoff | None = None
+
     while not _budget_exhausted():
         if not hunter_history:
             ctx = format_for_reasoning(tool_results, trigger)
         else:
             ctx = format_new_evidence(new_since_last_hunt)
+        # Snapshot the state right before this Hunter call — if this turns
+        # out to be the round whose output triggers hand-off (below),
+        # _capture_hunter_only returns this snapshot instead of the
+        # ExpertHandoff, letting a caller replay just *this* Hunter call
+        # under different sampling without re-running the tool rounds that
+        # produced it (mirrors capture_expert_handoff one level up).
+        pending_hunter_handoff = HunterHandoff(
+            ctx=ctx,
+            hunter_history=[dict(m) for m in hunter_history],
+            tool_results=list(tool_results),
+            ground_truth=sorted(ground_truth),
+            trace=list(trace),
+            rounds=rounds,
+        )
         hunter_out = run_reasoning_model(
             ctx,
             reasoning_model=models["reasoning"],
@@ -1176,6 +1538,7 @@ def _run_three_section(
                 "verdict": hunter_out.verdict,
                 "match_grade": hunter_out.match_grade,
                 "wants_more": hunter_out.wants_more(),
+                "raw": hunter_out.raw,
             }
         )
         rounds += 1
@@ -1232,64 +1595,33 @@ def _run_three_section(
                     "specific is available. Do not request more evidence."
                 )
             consecutive_no_hypothesis_rounds = 0
-        expert_out = run_expert_model(
+
+        if _capture_hunter_only:
+            assert pending_hunter_handoff is not None
+            return pending_hunter_handoff
+
+        if _capture_only:
+            return ExpertHandoff(
+                ectx=ectx,
+                hunter_similar_to=list(hunter_out.similar_to),
+                tool_results=list(tool_results),
+                ground_truth=sorted(ground_truth),
+                trace=list(trace),
+                told_expert_final_round=told_expert_final_round,
+                rounds=rounds,
+            )
+
+        expert_out, new_trace = _run_expert_section(
             ectx,
             expert_model=models["expert"],
             ground_truth=ground_truth,
             tool_results=tool_results,
             hunter_similar_to=hunter_out.similar_to,
+            told_expert_final_round=told_expert_final_round,
+            rounds=rounds,
             dry_run=dry_run,
         )
-        expert_out = _ground_similarity(expert_out, tool_results)
-
-        # Retry-not-fabricate (same "same retry budget" discipline as
-        # blue._run_blue_turn's P5-SCORING-BIAS-001): if we already told the
-        # Expert plainly that this is its final turn and no more evidence is
-        # coming, and it still didn't conclude, give it exactly one more
-        # chance with an even more direct nudge before accepting UNRESOLVED —
-        # never invent a verdict it didn't give (I8), but a model ignoring a
-        # clear instruction once is not the same as it being incapable of
-        # complying, and this doesn't burn any of the tool-gather round
-        # budget (no new evidence is being requested).
-        if told_expert_final_round and not expert_out.is_conclusion():
-            retry_ctx = ectx + (
-                "\n\nYou did not render a verdict. There is no more evidence available under "
-                "any circumstance — repeating a request_more will not produce anything new. "
-                "Choose exactly one of CONFIRMED, RULED_OUT, or ANOMALOUS_UNCLASSIFIED right "
-                "now, based only on what has already been gathered above."
-            )
-            retry_out = run_expert_model(
-                retry_ctx,
-                expert_model=models["expert"],
-                ground_truth=ground_truth,
-                tool_results=tool_results,
-                hunter_similar_to=hunter_out.similar_to,
-                dry_run=dry_run,
-            )
-            retry_out = _ground_similarity(retry_out, tool_results)
-            trace.append(
-                {
-                    "round": rounds,
-                    "section": "expert-retry",
-                    "model": models["expert"],
-                    "verdict": retry_out.verdict,
-                    "match_grade": retry_out.match_grade,
-                    "wants_more": retry_out.wants_more(),
-                }
-            )
-            if retry_out.is_conclusion():
-                expert_out = retry_out
-
-        trace.append(
-            {
-                "round": rounds,
-                "section": "expert",
-                "model": models["expert"],
-                "verdict": expert_out.verdict,
-                "match_grade": expert_out.match_grade,
-                "wants_more": expert_out.wants_more(),
-            }
-        )
+        trace.extend(new_trace)
         rounds += 1
 
         if expert_out.is_conclusion():
@@ -1419,6 +1751,7 @@ def _run_two_section(
                 "verdict": merged_out.verdict,
                 "match_grade": merged_out.match_grade,
                 "wants_more": merged_out.wants_more(),
+                "raw": merged_out.raw,
             }
         )
         rounds += 1

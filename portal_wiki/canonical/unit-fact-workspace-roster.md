@@ -1,21 +1,21 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 22 production + 60 eval workspaces
+title: 22 production + 64 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 0f43390be596
-last_generated_commit: 0f43390be596
+  commit: c68e4c635e37
+last_generated_commit: c68e4c635e37
 confidence: high
 tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1784261113.039472
+updated_at: 1784595108.00613
 ---
 
-# Workspace roster (22 production, 60 eval, 82 total)
+# Workspace roster (22 production, 64 eval, 86 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -49,6 +49,7 @@ updated_at: 1784261113.039472
 - `bench-agents-a1`
 - `bench-agentworld`
 - `bench-bugtrace-ultra-27b`
+- `bench-cybersecqwen-4b`
 - `bench-cybersecqwen-4b-toolfix`
 - `bench-devstral`
 - `bench-devstral-small-2`
@@ -57,6 +58,7 @@ updated_at: 1784261113.039472
 - `bench-exec-reasoning`
 - `bench-exec-recon`
 - `bench-fastcontext`
+- `bench-foundation-sec-8b-reasoning`
 - `bench-gemma4-12b`
 - `bench-gemma4-12b-agentic`
 - `bench-gemma4-26b-optiq`
@@ -105,4 +107,6 @@ updated_at: 1784261113.039472
 - `bench-supergemma4-sec`
 - `bench-superqwen-agentworld-ablit`
 - `bench-sylink`
+- `bench-sylink-8b`
+- `bench-vulnllm-r-7b`
 - `bench-vulnllm-r7b`
