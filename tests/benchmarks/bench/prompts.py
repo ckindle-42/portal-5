@@ -131,6 +131,7 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-cybersecqwen-4b": "general",  # CyberSecQwen-4B — GATE-D ablation Expert candidate comparison
     "bench-vulnllm-r-7b": "general",  # VulnLLM-R-7B — GATE-D ablation Expert candidate comparison
     "bench-sylink-8b": "general",  # sylink:8b — GATE-D ablation Expert candidate comparison
+    "bench-baronllm-q6k": "general",  # baronllm:q6_k — GATE-D ablation Expert candidate comparison
     "bench-qwen35-abliterated": "general",  # huihui_ai/qwen3.5-abliterated:9b — uncensored, AUTO primary baseline
     # ── V6 bench workspaces (TASK_MODEL_REFRESH_V6) — ascending size, family-grouped ──
     # 9B tier
