@@ -43,7 +43,14 @@ def save_capture(
     path = CAPTURE_DIR / f"{scenario}_{ts}.json"
 
     # ── ground-truth gate ──────────────────────────────────────────────
-    validity = {"checked": False, "valid": False, "coverage": 0.0, "found": [], "missing": []}
+    validity = {
+        "checked": False,
+        "valid": False,
+        "coverage": 0.0,
+        "found": [],
+        "missing": [],
+        "unchecked": [],
+    }
     try:
         from .capture_enrichment import validate_capture_signals
 
@@ -54,6 +61,7 @@ def save_capture(
             "coverage": result["coverage"],
             "found": result["found"],
             "missing": result["missing"],
+            "unchecked": result.get("unchecked", []),
         }
     except Exception:
         pass  # don't let validation errors block saving

@@ -116,22 +116,30 @@ def test_hallucination_when_wrong_conclusion_and_trace_never_saw_gt():
         verdict="CONFIRMED",
         technique_ids=["T1110"],
         ground_truth={"T1558.003"},
-        trace=[{"evidence": "brute force attempts"}],
+        trace=[{"role": "tool", "content": "brute force attempts, EventID 4625"}],
     )
     assert out.outcome == "HALLUCINATION"
     assert out.hallucinated == 1
 
 
 def test_handoff_loss_when_wrong_conclusion_but_trace_saw_gt():
-    """Same wrong verdict as the hallucination case, but the trace shows the
-    Hunter actually surfaced the GT technique — found-but-not-confirmed."""
+    """Same wrong verdict as the hallucination case, but a section's own
+    CITED evidence list (not free-text reasoning/hypothesis prose) actually
+    surfaced the GT technique — found-but-not-confirmed."""
     out = classify(
         arm="3section",
         scenario="s5",
         verdict="CONFIRMED",
         technique_ids=["T1110"],
         ground_truth={"T1558.003"},
-        trace=[{"evidence": "saw T1558.003 ticket request, but moved on"}],
+        trace=[
+            {
+                "section": "reasoning",
+                "raw": '{"technique_ids": [], "evidence": '
+                '["EventCode=4769 TGS request noted for T1558.003"], '
+                '"reasoning": "considered, but moved on", "request_more": ""}',
+            }
+        ],
     )
     assert out.outcome == "HANDOFF_LOSS"
     assert out.hallucinated == 1
@@ -139,26 +147,44 @@ def test_handoff_loss_when_wrong_conclusion_but_trace_saw_gt():
 
 def test_handoff_loss_when_ruled_out_but_trace_saw_gt():
     """No hallucinated techniques at all (e.g. RULED_OUT with empty
-    technique_ids) but the trace shows GT evidence was surfaced and dropped."""
+    technique_ids) but a section's own CITED evidence surfaced GT and it was
+    dropped/deemed benign."""
     out = classify(
         arm="2section",
         scenario="s6",
         verdict="RULED_OUT",
         technique_ids=[],
         ground_truth={"T1558.003"},
-        trace=[{"evidence": "T1558.003 ticket noted, deemed benign"}],
+        trace=[
+            {
+                "section": "merged",
+                "raw": '{"technique_ids": [], "evidence": '
+                '["EventCode=4769 TGS request T1558.003 noted, deemed benign"], '
+                '"reasoning": "benign", "request_more": ""}',
+            }
+        ],
     )
     assert out.outcome == "HANDOFF_LOSS"
     assert out.hallucinated == 0
 
 
-def test_handoff_loss_via_structural_provenance_for_unrecognized_technique():
-    """A GT technique with NO known marker (not in TECHNIQUE_EVENT_ID_MARKERS,
-    ID doesn't appear literally) must still be detected as "evidence was
-    surfaced" when the tool section's own retrieval provenance shows a real,
-    specific match — a signature list can never cover a genuinely novel
-    pattern by construction, so the structural signal (tool self-reported a
-    real hit) has to carry this case, not a marker lookup."""
+def test_hunter_miss_when_real_retrieval_is_topically_unrelated_to_ground_truth():
+    """A real (`matched-exact`) tool retrieval that never mentions the ground
+    truth technique's ID/parent-number/known marker anywhere in the trace is
+    NOT evidence the hunter "saw" that ground truth — it's evidence of
+    something else entirely. This must classify HUNTER_MISS, not HANDOFF_LOSS.
+
+    A prior version of this test asserted the opposite (HANDOFF_LOSS), on the
+    theory that any real structural retrieval should generalize to cover
+    genuinely novel patterns a marker table can't recognize. Quantified live
+    against the full 89-scenario ablation corpus (2026-07-22): that structural
+    shortcut fired on 267/267 (100%) of both the 2-section and 3-section arms'
+    records regardless of topical relevance, making HUNTER_MISS structurally
+    unreachable for those arms (0.0% in both) while masking a real ~24-49%
+    HUNTER_MISS rate and a real ~8-13% HALLUCINATION rate underneath it. Ground
+    truth here is always a real classified MITRE ID, so ID/parent-substring
+    text matching already generalizes reasonably without that shortcut's
+    false-positive cost — see `_trace_mentions_any`'s docstring."""
     out = classify(
         arm="3section",
         scenario="s8",
@@ -169,7 +195,7 @@ def test_handoff_loss_via_structural_provenance_for_unrecognized_technique():
             {"round": 1, "section": "tool", "provenance": "matched-exact", "query": "novel query"},
         ],
     )
-    assert out.outcome == "HANDOFF_LOSS"
+    assert out.outcome == "HUNTER_MISS"
 
 
 def test_hunter_miss_when_only_empty_or_synthetic_provenance():

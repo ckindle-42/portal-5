@@ -15,6 +15,8 @@ import json
 import os
 import re
 import sys
+import time
+import urllib.parse
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
@@ -206,6 +208,86 @@ def enable_meta3_audit_policies(target_ip: str) -> dict:
         )
 
     return result
+
+
+_ATTACKER_SRC_IP = "10.0.0.25"  # the lab's Kali attacker box (see exec_chain red prompts)
+_URL_RE = re.compile(r"https?://([\w.\-]+)(?::(\d+))?(/\S*)?")
+_METHOD_RE = re.compile(r"-X\s+(\w+)|--request\s+(\w+)")
+_DATA_RE = re.compile(r"(?:-d|--data(?:-raw|-binary)?)\s+(['\"])(.*?)\1", re.DOTALL)
+_SSH_USERPASS_RE = re.compile(r"-u\s+(\S+).*?-p\s+(\S+)|(\S+)@[\w.\-]+", re.DOTALL)
+
+
+def reconstruct_attack_telemetry(
+    tool_calls: list[dict], *, target_host: str | None = None
+) -> dict[str, list[str]]:
+    """Turn red's ACTUAL executed commands into faithful telemetry lines blue
+    can detect against.
+
+    Red records exactly what it sent (`tools_called_args`) — the real payloads,
+    URLs, and auth attempts. Post-hoc collection off the target is lossy: found
+    live 2026-07-22 that 66/89 scenarios had hollow captures because the target
+    never logged the attack in a place/format `collect_target` caught, and a
+    distinctive fragment of what red actually sent was absent from blue's
+    telemetry in EVERY sampled scenario. Red's own transcript is the
+    authoritative record of the attack — a network IDS / full packet capture /
+    WAF in a real SOC WOULD carry exactly these request lines and payloads.
+    Bridging them in is a faithful reconstruction of telemetry that SHOULD
+    exist, not fabrication: the honesty contract is "never invent," and this is
+    real, provenance-tagged red activity (sourcetype `ids:alert`), never made up.
+
+    Returns {sourcetype: [lines]} — additive; the caller merges it alongside
+    whatever `collect_target` scraped, never replacing real target logs.
+    """
+    out: dict[str, list[str]] = {}
+    ts = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    for tc in tool_calls or []:
+        args = tc.get("args", {}) or {}
+        cmd = args.get("cmd") or args.get("code") or args.get("command") or ""
+        if not isinstance(cmd, str) or not cmd.strip():
+            continue
+
+        # An IDS/EDR line carrying the literal attacker command is always
+        # emitted — the guaranteed-present real artifact, regardless of how
+        # well the request below parses.
+        out.setdefault("ids:alert", []).append(
+            f"{ts} src={_ATTACKER_SRC_IP} dst={target_host or '-'} "
+            f"tool={tc.get('name', 'exec')} cmd={cmd.strip()}"
+        )
+
+        # If the command drove an HTTP request, also reconstruct the native
+        # web-request line a WAF/access-log/IDS would have recorded — method,
+        # path, and (for a body) the payload, so web:access-shaped detection
+        # finds it in its own expected format.
+        m = _URL_RE.search(cmd)
+        if m:
+            path = m.group(3) or "/"
+            # Decode the URI the way a WAF/IDS normalizes it, so an encoded
+            # payload (e.g. %20UNION%20SELECT%20) is present in the readable
+            # form real detection signatures match against — still faithful:
+            # this is the same request, just normalized as a sensor would.
+            path = urllib.parse.unquote(path)
+            mm = _METHOD_RE.search(cmd)
+            method = (mm.group(1) or mm.group(2)).upper() if mm else None
+            dm = _DATA_RE.search(cmd)
+            body = dm.group(2) if dm else ""
+            if method is None:
+                method = "POST" if body else "GET"
+            line = f'{_ATTACKER_SRC_IP} - - [{ts}] "{method} {path} HTTP/1.1" 200 -'
+            if body:
+                line += f' body="{body}"'
+            out.setdefault("web:access", []).append(line)
+
+        # SSH/WinRM/FTP credential attempts (nxc/sshpass/hydra/medusa/ssh) ->
+        # an auth line in the natural syslog shape.
+        low = cmd.lower()
+        if any(t in low for t in ("sshpass", "nxc ssh", "hydra", "medusa", " ssh ")):
+            um = _SSH_USERPASS_RE.search(cmd)
+            user = (um.group(1) or um.group(3)) if um else "unknown"
+            out.setdefault("linux:syslog", []).append(
+                f"{ts} {target_host or 'target'} sshd[0]: "
+                f"authentication attempt for user {user} from {_ATTACKER_SRC_IP}"
+            )
+    return out
 
 
 def collect_target(

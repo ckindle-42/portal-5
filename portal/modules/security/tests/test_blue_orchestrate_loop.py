@@ -69,7 +69,7 @@ def test_hunter_sees_own_history_and_only_new_evidence_across_rounds(monkeypatch
                 {
                     "verdict": "CONFIRMED",
                     "technique_ids": ["T1558.004"],
-                    "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+                    "evidence": ["EventCode=4769 detail"],
                     "reasoning": "confirmed",
                     "match_grade": "EXACT",
                     "similar_to": [],
@@ -400,6 +400,11 @@ def test_two_section_ablation_arm_confirms_without_a_separate_expert(monkeypatch
 
     def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
         calls.append(model)
+        # The merged model is called at the START of each round, before that
+        # round's own tool call — round 0 has no gathered evidence yet, so it
+        # must request more rather than confirm against nothing.
+        if len(calls) == 1:
+            return {"content": json.dumps({"request_more": "need AS-REP telemetry"})}
         return {
             "content": json.dumps(
                 {
@@ -418,7 +423,9 @@ def test_two_section_ablation_arm_confirms_without_a_separate_expert(monkeypatch
 
     def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
         return bo.ToolResult(
-            query=req.spec, provenance="matched-exact", raw_summary="EventCode=4768"
+            query=req.spec,
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 AS-REP event for svc-web",
         )
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -427,7 +434,11 @@ def test_two_section_ablation_arm_confirms_without_a_separate_expert(monkeypatch
     assert result.verdict == "CONFIRMED"
     assert result.technique_ids == ["T1558.004"]
     sections_in_trace = {t["section"] for t in result.trace}
-    assert sections_in_trace == {"merged"}
+    # Only "tool"/"merged" ever appear — no separate "reasoning"/"expert"
+    # sections in the 2-section arm. A tool round now precedes confirmation
+    # (round 0 has no gathered evidence yet, so it can't confirm on the spot
+    # — see _cite_or_drop's docstring on why an ungrounded confirm is dropped).
+    assert sections_in_trace == {"tool", "merged"}
     assert "merged-model" in calls
     assert "tool-model" not in calls  # tool section is dry-run-free here (no _call_model)
 
@@ -770,10 +781,16 @@ def test_capture_expert_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
     import json
 
     call_log: list[str] = []
+    reasoning_calls = {"n": 0}
 
     def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
         call_log.append(model)
         if model == "reasoning-model":
+            reasoning_calls["n"] += 1
+            if reasoning_calls["n"] == 1:
+                # Round 0 — no tool round has run yet, so no evidence to
+                # propose a technique from. Request more, matching real flow.
+                return {"content": json.dumps({"request_more": "need AS-REP telemetry"})}
             return {
                 "content": json.dumps(
                     {
@@ -805,7 +822,11 @@ def test_capture_expert_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
 
     def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
         call_log.append(tool_model)
-        return bo.ToolResult(query=req.spec, provenance="matched-exact", raw_summary="unused")
+        return bo.ToolResult(
+            query=req.spec,
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 AS-REP event for svc-web",
+        )
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
 
@@ -813,6 +834,7 @@ def test_capture_expert_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
     assert live_result.verdict == "CONFIRMED"
 
     call_log.clear()
+    reasoning_calls["n"] = 0
     handoff = bo.capture_expert_handoff(
         _episode(),
         models={"tool": "tool-model", "reasoning": "reasoning-model", "expert": "unused"},
@@ -906,7 +928,7 @@ def test_capture_hunter_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
                 {
                     "verdict": "CONFIRMED",
                     "technique_ids": ["T1558.004"],
-                    "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+                    "evidence": ["EventCode=4769 detail"],
                     "reasoning": "confirmed",
                     "match_grade": "EXACT",
                     "similar_to": [],
@@ -988,15 +1010,21 @@ def test_council_dispatch_unanimous_confirmed(monkeypatch):
     import json
 
     calls = []
+    lead_hunter_calls = {"n": 0}
 
     def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
         calls.append(model)
         if model == "lead-hunter":
+            lead_hunter_calls["n"] += 1
+            if lead_hunter_calls["n"] == 1:
+                # Round 0 — no tool round has run yet, request more first
+                # (matches real flow, and how the other loop tests handle it).
+                return {"content": json.dumps({"request_more": "need AS-REP telemetry"})}
             return {
                 "content": json.dumps(
                     {
                         "technique_ids": ["T1558.004"],
-                        "evidence": ["EventCode=4768"],
+                        "evidence": ["EventCode=4768 AS-REP event for svc-web"],
                         "reasoning": "AS-REP roasting pattern",
                         "match_grade": "EXACT",
                         "similar_to": [],
@@ -1149,7 +1177,15 @@ def test_three_section_and_two_section_unaffected_by_council_dispatch(monkeypatc
     _run_two_section's own behavior for their existing single-model callers."""
     import json
 
+    seen_models: set[str] = set()
+
     def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        # Each role's own FIRST call happens before that round's tool call
+        # has run, so it must request more rather than confirm against no
+        # evidence — matches _cite_or_drop's grounding requirement.
+        if model not in seen_models:
+            seen_models.add(model)
+            return {"content": json.dumps({"request_more": "need AS-REP telemetry"})}
         return {
             "content": json.dumps(
                 {
@@ -1167,7 +1203,11 @@ def test_three_section_and_two_section_unaffected_by_council_dispatch(monkeypatc
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
     def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
-        return bo.ToolResult(query=req.spec, provenance="matched-exact", raw_summary="unused")
+        return bo.ToolResult(
+            query=req.spec,
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 AS-REP event for svc-web",
+        )
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
 

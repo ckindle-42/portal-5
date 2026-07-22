@@ -100,6 +100,27 @@ def build_tool_request(trigger_or_more: str, *, window: str = "") -> ToolRequest
     return ToolRequest(spec=trigger_or_more.strip(), window=window)
 
 
+def _build_trigger(episode: Episode) -> str:
+    """The initial alert context handed to the tool/Hunter section.
+
+    Must name the actually-available telemetry sources (`episode.telemetry`
+    keys, e.g. `web:access`/`linux:syslog`/`windows:security`/`ftp:access`) —
+    found live 2026-07-22, during the GATE-D ablation's Council POC: a bare
+    "An alert was triggered on <host> (scenario: <name>)" gives the model no
+    platform signal at all, and 61 of the 89-scenario corpus's episodes (68.5%)
+    have NO Windows telemetry whatsoever. Every round of every sampled
+    HUNTER_MISS case asked for Windows Security Event IDs (4688/4624) anyway —
+    the trained-in "SOC investigation = Windows Events" default winning by
+    omission, on targets where that telemetry doesn't exist. Naming the real
+    sources up front removes the guess.
+    """
+    sources = ", ".join(sorted(episode.telemetry.keys())) or "none captured"
+    return (
+        f"An alert was triggered on {episode.target_host} (scenario: {episode.scenario}). "
+        f"Available telemetry sources for this host: {sources}."
+    )
+
+
 def _coerce_tool_args(raw: Any) -> dict:
     """Ollama's native tool-call arguments are usually already a dict, but a
     live probe against granite4.1:8b-ctx8k (Slice 7 end-to-end run) found it
@@ -624,14 +645,21 @@ _wiki_technique_descriptions_cache: dict[str, str] | None = None
 
 
 def _wiki_technique_descriptions() -> dict[str, str]:
-    """Process-lifetime cache — the wiki-seeded technique descriptions don't
+    """Process-lifetime cache — the similarity reference descriptions don't
     change mid-run, and this gets called at least once per Hunter round plus
-    once per Expert/merged conclusion across the whole corpus."""
+    once per Expert/merged conclusion across the whole corpus.
+
+    Sources the full independent MITRE ATT&CK catalog (697 techniques) as the
+    base, with this project's own wiki-seeded descriptions overlaid where they
+    exist (see `blue._load_similarity_reference_descriptions`'s docstring —
+    the prior wiki-only version made NOVELTY grounding close to circular for
+    this project's own ablation corpus, since that 30-technique set is
+    auto-generated from the corpus's own scenario/detection definitions)."""
     global _wiki_technique_descriptions_cache
     if _wiki_technique_descriptions_cache is None:
-        from .blue import _load_wiki_technique_descriptions
+        from .blue import _load_similarity_reference_descriptions
 
-        _wiki_technique_descriptions_cache = _load_wiki_technique_descriptions()
+        _wiki_technique_descriptions_cache = _load_similarity_reference_descriptions()
     return _wiki_technique_descriptions_cache
 
 
@@ -1452,7 +1480,7 @@ def _run_three_section(
     import time as _time
 
     ground_truth = set(episode.techniques)
-    trigger = f"An alert was triggered on {episode.target_host} (scenario: {episode.scenario})."
+    trigger = _build_trigger(episode)
 
     tool_results: list[ToolResult] = []
     trace: list[dict] = []
@@ -1706,7 +1734,7 @@ def _run_two_section(
     import time as _time
 
     ground_truth = set(episode.techniques)
-    trigger = f"An alert was triggered on {episode.target_host} (scenario: {episode.scenario})."
+    trigger = _build_trigger(episode)
 
     tool_results: list[ToolResult] = []
     trace: list[dict] = []
@@ -1953,11 +1981,25 @@ def _run_council(
     # the individual members' own CONFIRMEDs were already grounded via
     # run_expert_model's own gate, but the quorum-agreed technique set is a
     # new claim (a union/subset across members), not a re-statement of any
-    # one member's already-cited set.
+    # one member's already-cited set. Uses the real UNION of members' own
+    # cited evidence per technique, not agreement.rationale (a generic
+    # "N technique(s) at/above quorum" string with no distinctive, checkable
+    # content — found live 2026-07-22, same day as the _cite_or_drop
+    # ground-truth-exemption fix: using the rationale string here would have
+    # made every council CONFIRMED unconditionally fail grounding, even when
+    # every member's own evidence was genuinely real).
     if final_out.verdict == "CONFIRMED":
         telemetry = _combined_telemetry_text(handoff.tool_results)
+        evidence_by_technique: dict[str, list[str]] = {}
+        for m in members:
+            for t in m.technique_ids:
+                evidence_by_technique.setdefault(t.upper(), []).extend(m.evidence)
         reported = [
-            {"technique_id": t, "evidence": final_out.reasoning} for t in final_out.technique_ids
+            {
+                "technique_id": t,
+                "evidence": "; ".join(evidence_by_technique.get(t.upper(), [])),
+            }
+            for t in final_out.technique_ids
         ]
         kept = _cite_or_drop(reported, telemetry, handoff.ground_truth)
         kept_ids = {d.get("technique_id", "").upper() for d in kept}

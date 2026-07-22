@@ -69,6 +69,13 @@ EXPERT_MODEL = "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0"
 # midpoint between 1section (no split) and 3section (full split).
 MERGED_MODEL = REASONING_MODEL
 
+# Council of Agreement roster (GATE-D ablation Part II-A, C4) — matches
+# config/portal.yaml's blueteam-council variant defaults exactly, so a CLI
+# --blue-mode council run and this ablation arm measure the same roster.
+COUNCIL_MODELS = [REASONING_MODEL, "mistral-small3.2:24b", "qwen3.6:27b-q4_K_M"]
+COUNCIL_ARBITER = EXPERT_MODEL
+COUNCIL_QUORUM = 0.5
+
 ARMS = ["1section", "2section", "3section"]
 DEFAULT_OUT = Path("ABLATION_DECISION.json")
 
@@ -155,12 +162,20 @@ def _run_1section_raw(scenario_name: str, ground_truth: list[str], reps: int) ->
 def _run_orchestrated_raw(
     arm: str, scenario_name: str, episode, ground_truth: list[str], reps: int
 ) -> list[dict]:
-    """Gather raw (arm, scenario) reps for the 2/3-section arms — no classification."""
+    """Gather raw (arm, scenario) reps for the 2/3-section/council arms — no classification."""
+    extra_kwargs: dict = {}
     if arm == "2section":
         sections = [
             SectionSpec(role="tool", model=TOOL_MODEL, needs_tools=True),
             SectionSpec(role="merged", model=MERGED_MODEL),
         ]
+    elif arm == "council":
+        sections = [
+            SectionSpec(role="tool", model=TOOL_MODEL, needs_tools=True),
+            *(SectionSpec(role="reasoning", model=m) for m in COUNCIL_MODELS),
+            SectionSpec(role="expert", model=COUNCIL_ARBITER),
+        ]
+        extra_kwargs["quorum"] = COUNCIL_QUORUM
     else:
         sections = [
             SectionSpec(role="tool", model=TOOL_MODEL, needs_tools=True),
@@ -170,7 +185,7 @@ def _run_orchestrated_raw(
     records = []
     for _ in range(reps):
         try:
-            result = run_blue_orchestration(episode, sections=sections)
+            result = run_blue_orchestration(episode, sections=sections, **extra_kwargs)
             records.append(
                 {
                     "arm": arm,
@@ -291,8 +306,14 @@ def _build_decision(all_records: list[dict], reps: int, corpus_n: int, out_path:
     attempted = len(all_records)
     errored = sum(1 for r in all_records if r.get("error") is not None)
 
+    present_arms = list(ARMS)
+    if any(r["arm"] == "council" for r in all_records):
+        # Additive-only: council is extra reporting data, never wired into
+        # best_multi_arm/split_proven below — those stay 1/2/3section-only (I7).
+        present_arms.append("council")
+
     arms_summary: dict[str, dict] = {}
-    for arm in ARMS:
+    for arm in present_arms:
         arm_outcomes = [
             o
             for o in (_classify_raw_record(r) for r in all_records if r["arm"] == arm)
@@ -369,6 +390,13 @@ def main() -> int:
         help="Path to a raw .raw.jsonl file — reclassify with the current "
         "classify() logic and emit a fresh decision, with no live model calls.",
     )
+    ap.add_argument(
+        "--include-council",
+        action="store_true",
+        help="Opt-in: also run the 'council' arm (Council of Agreement, C4 POC). "
+        "Never on by default — it's a 4th arm's worth of live model calls, and a "
+        "bare full-corpus invocation must not silently 4x in cost.",
+    )
     args = ap.parse_args()
 
     out_path = Path(args.out)
@@ -384,7 +412,8 @@ def main() -> int:
     else:
         scenarios = [s for s in SCENARIOS if list_captures(s)]
 
-    print(f"Ablation: {len(scenarios)} captured scenarios x {len(ARMS)} arms x {reps} reps")
+    arms = [*ARMS, "council"] if args.include_council else ARMS
+    print(f"Ablation: {len(scenarios)} captured scenarios x {len(arms)} arms x {reps} reps")
     print(f"Scenarios: {scenarios}")
 
     raw_path = _raw_path_for(out_path)
@@ -403,7 +432,7 @@ def main() -> int:
             continue
         ground_truth = sorted(episode.techniques)
 
-        for arm in ARMS:
+        for arm in arms:
             if (arm, scenario_name) in done_keys:
                 print(f"[skip] {arm} x {scenario_name} (checkpointed)")
                 continue

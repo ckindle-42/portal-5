@@ -311,126 +311,95 @@ def enrich_all_captures(*, dry_run: bool = False) -> list[dict]:
 
 
 def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> dict:
-    """Validate that a capture has signals for its ground truth techniques.
+    """Validate that a capture has TECHNIQUE-SPECIFIC signals for its ground
+    truth techniques.
 
     Returns:
         {valid: bool, coverage: float, found: [str], missing: [str],
-         techniques_checked: int}
+         unchecked: [str], techniques_checked: int}
+
+    `coverage` is computed only over the CHECKABLE subset (techniques with an
+    `EXPECTED_SIGNALS` entry) — `unchecked` techniques (no entry exists yet)
+    are never silently credited as found, and never count against the capture
+    either; they're an honest gap in verification coverage, not a pass/fail.
+
+    A prior version of this function had a "broader attack evidence" fallback:
+    if a technique's specific keywords didn't match, or it had no
+    `EXPECTED_SIGNALS` entry at all, it fell back to checking whether ANY of
+    ~35 generic words ("error", "failed", "denied", "exception",
+    "unauthorized"...) appeared ANYWHERE in the capture's combined telemetry —
+    and if so, credited EVERY missing/unchecked technique as "found",
+    regardless of which technique it was or whether that word had anything to
+    do with it. Found live 2026-07-22 (GATE-D ablation Part II-A, prompted by
+    a user architecture question about whether captures are genuinely
+    replayable): `meta3_ssh_brute`'s capture — which has NO SSH telemetry
+    source at all, only thin FTP auth-failure noise, web-scan noise, and
+    generic Windows process events — was certified `coverage: 1.0, valid:
+    true, found: [T1110.003, T1078, T1059]` purely because one FTP `530`
+    failure line matched "denied"/"failed" once. Checked across all 422
+    on-disk captures with this fallback still active: 352 (83.4%) showed
+    `coverage: 1.00` — a near-universal rubber stamp, not a real quality
+    signal. This gate exists specifically so downstream consumers (the
+    89-scenario ablation corpus, any future re-ablation) can trust that a
+    capture marked valid actually contains evidence of what it claims to —
+    the whole point of "capture once, replay for blue/purple forever" is
+    that the capture is trustworthy without needing a fresh live check.
     """
     try:
         from portal.modules.security.core.exec_chain import SCENARIOS
     except ImportError:
-        return {"valid": False, "coverage": 0.0, "found": [], "missing": []}
+        return {
+            "valid": False,
+            "coverage": 0.0,
+            "found": [],
+            "missing": [],
+            "unchecked": [],
+            "techniques_checked": 0,
+        }
 
     sc = SCENARIOS.get(scenario, {})
     gt = sc.get("detect_ground_truth", [])
     if not gt:
-        return {"valid": False, "coverage": 0.0, "found": [], "missing": []}
+        return {
+            "valid": False,
+            "coverage": 0.0,
+            "found": [],
+            "missing": [],
+            "unchecked": [],
+            "techniques_checked": 0,
+        }
 
     all_existing = " ".join(line for lines in telemetry.values() for line in lines)
-    total_lines = sum(len(lines) for lines in telemetry.values())
-
-    # Attack evidence indicators — server-side proof that an exploit landed.
-    # These are broader than the SPL-specific keywords in EXPECTED_SIGNALS;
-    # they catch real attack output (exceptions, error responses, exploit traces)
-    # that a human analyst would recognize as attack evidence.
-    attack_evidence = [
-        "exception",
-        "error",
-        "exploit",
-        "payload",
-        "injection",
-        "invalidcontenttype",
-        "multipart",
-        "ognl",
-        "rce",
-        "exec",
-        "unauthorized",
-        "forbidden",
-        "denied",
-        "failed",
-        "attack",
-        "malicious",
-        "suspicious",
-        "intrusion",
-        "backdoor",
-        "shell",
-        "reverse_tcp",
-        "meterpreter",
-        "mimikatz",
-        "psexec",
-        "smbexec",
-        "wmiexec",
-        "dcomexec",
-        "atexec",
-        "secretsdump",
-        "kerberoast",
-        "asrep",
-        "golden",
-        "silver",
-        "ticket",
-        "hash",
-        "ntlm",
-        "kerberos",
-        "4688",
-        "4624",
-        "4625",
-        "4662",
-        "4698",
-        "4768",
-        "4769",
-        "4771",
-        "eventcode",
-        "ticketencryptiontype",
-    ]
 
     found = []
     missing_techniques = []
-    lower_existing = all_existing.lower() if total_lines > 5 else ""
+    unchecked = []
     for technique in gt:
         expected = EXPECTED_SIGNALS.get(technique)
         if not expected:
-            # No EXPECTED_SIGNALS entry for this technique — use the broader
-            # attack evidence check instead of immediately marking as missing.
-            if total_lines > 5:
-                has_evidence = any(indicator in lower_existing for indicator in attack_evidence)
-                if has_evidence:
-                    found.append(technique)
-                else:
-                    missing_techniques.append(technique)
-            else:
-                missing_techniques.append(technique)
+            unchecked.append(technique)
             continue
 
-        sourcetype, expected_lines = expected
+        _sourcetype, expected_lines = expected
         technique_keywords = set()
         for line in expected_lines:
             for token in line.split():
                 if "=" in token:
                     technique_keywords.add(token)
 
-        # Primary check: SPL-specific keywords from EXPECTED_SIGNALS
         has_signal = any(kw in all_existing for kw in technique_keywords)
-
-        # Secondary check: broader attack evidence indicators.
-        # If the capture has substantial telemetry (>5 lines) and contains
-        # attack evidence strings, consider the technique covered — the
-        # attack landed but produced different log formats than expected.
-        if not has_signal and total_lines > 5:
-            has_evidence = any(indicator in lower_existing for indicator in attack_evidence)
-            if has_evidence:
-                has_signal = True
-
         if has_signal:
             found.append(technique)
         else:
             missing_techniques.append(technique)
 
-    coverage = len(found) / len(gt) if gt else 0.0
+    checked_n = len(found) + len(missing_techniques)
+    coverage = len(found) / checked_n if checked_n else 0.0
     return {
-        "valid": coverage > 0,
+        "valid": checked_n > 0 and len(found) == checked_n,
         "coverage": round(coverage, 3),
         "found": found,
         "missing": missing_techniques,
-        "techniques_checked": len(gt),
+        "unchecked": unchecked,
+        "techniques_checked": checked_n,
     }

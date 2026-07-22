@@ -2975,8 +2975,18 @@ def classify_scenario_result(
     if tools_called is not None and not tools_called:
         return "indeterminate"
 
-    # If target had no open ports and tools were called, target was likely down
+    # No recorded open ports + tools were called: distinguish "target down"
+    # from "red just didn't run a port scan" (found live 2026-07-22: this
+    # conflation mislabeled 78/89 scenarios as `indeterminate` — every web/
+    # vuln scenario where red curls a KNOWN port directly without nmap left
+    # open_ports empty, and was scored as if the target were down, even though
+    # the readiness gate had confirmed it reachable). If the gate confirmed the
+    # target reachable, red attacked a live target and simply didn't confirm
+    # the exploit landed — that's an honest `red_fail`, not target-down. Only
+    # a target the gate could NOT confirm reachable stays `indeterminate`.
     if not open_ports and tools_called:
+        if gate_result and gate_result.get("ready"):
+            return "red_fail"
         return "indeterminate"
 
     # Target was up, tools ran, no success markers → honest red-fail
