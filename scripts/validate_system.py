@@ -2747,6 +2747,7 @@ def main() -> int:
     v.run("BB. model inventory reality (bench hints vs snapshot)", check_model_inventory_reality)
     v.run("BC. fleet health reality (declared vs live)", check_fleet_health_reality)
     v.run("BD. blue orchestration verdict axis", check_blue_orchestration_axis)
+    v.run("BE. council agreement gate (cite-or-drop + novelty carry)", check_council_agreement_gate)
 
     return v.summary()
 
@@ -3466,6 +3467,126 @@ def check_blue_orchestration_axis() -> tuple[str, str, list[dict]]:
     if bad:
         return ("FAIL", "; ".join(bad), subs)
     return ("PASS", "verdict axis disjoint; never-invent + similarity substrate reused", [])
+
+
+def check_council_agreement_gate() -> tuple[str, str, list[dict]]:
+    """BE. Council of Agreement (GATE-D ablation Part II-A): consensus never
+    yields CONFIRMED without passing through _cite_or_drop, and the
+    ANOMALOUS_UNCLASSIFIED (disagreement-as-novelty, I8) path preserves
+    similar_to rather than silently dropping the near-miss neighbours.
+
+    Structural (source-scan) + live functional checks combined: source-scan
+    alone would pass on a _run_council that imports _cite_or_drop but never
+    actually calls it on the council's own aggregate technique set (as
+    opposed to each member's own already-gated CONFIRMED); the functional
+    check exercises compute_agreement/to_section_output directly to confirm
+    the runtime contract, not just that the right names appear somewhere in
+    the file.
+    """
+    from portal.modules.security.core.analyst_verdict import SectionOutput
+    from portal.modules.security.core.council_agreement import compute_agreement, to_section_output
+
+    subs: list[dict] = []
+    bad: list[str] = []
+
+    orch_path = REPO_ROOT / "portal" / "modules" / "security" / "core" / "blue_orchestrate.py"
+    src = orch_path.read_text()
+
+    has_run_council = bool(re.search(r"^\s*def\s+_run_council\s*\(", src, re.MULTILINE))
+    subs.append(
+        {
+            "name": "_run_council defined",
+            "status": "PASS" if has_run_council else "FAIL",
+            "detail": "found" if has_run_council else "missing",
+        }
+    )
+    if not has_run_council:
+        bad.append("blue_orchestrate.py does not define _run_council")
+
+    # _run_council's own body (not just any _cite_or_drop call elsewhere in
+    # the file, which _run_three_section/run_expert_model already have) must
+    # call _cite_or_drop on the council's aggregate verdict.
+    council_body_match = re.search(
+        r"^def _run_council\(.*?(?=^def |\Z)", src, re.MULTILINE | re.DOTALL
+    )
+    council_body = council_body_match.group(0) if council_body_match else ""
+    council_calls_cite_or_drop = "_cite_or_drop(" in council_body
+    subs.append(
+        {
+            "name": "_run_council calls _cite_or_drop on its own aggregate",
+            "status": "PASS" if council_calls_cite_or_drop else "FAIL",
+            "detail": "found in _run_council body" if council_calls_cite_or_drop else "not found",
+        }
+    )
+    if not council_calls_cite_or_drop:
+        bad.append("_run_council does not gate its aggregate CONFIRMED through _cite_or_drop (I2)")
+
+    # Live functional check: a 3-way split with SIMILAR neighbours must
+    # surface as ANOMALOUS_UNCLASSIFIED carrying the similar_to union, never
+    # silently dropped novelty (I8).
+    members = [
+        SectionOutput(verdict="CONFIRMED", technique_ids=["T1078"], similar_to=["T1078.002"]),
+        SectionOutput(verdict="CONFIRMED", technique_ids=["T1055"], similar_to=["T1055.001"]),
+        SectionOutput(
+            verdict="ANOMALOUS_UNCLASSIFIED", technique_ids=["T1548"], similar_to=["T1548.002"]
+        ),
+    ]
+    agreement = compute_agreement(members, quorum=0.5)
+    novelty_ok = (
+        agreement.verdict == "ANOMALOUS_UNCLASSIFIED"
+        and agreement.needs_arbiter
+        and set(agreement.similar_to) == {"T1055.001", "T1078.002", "T1548.002"}
+    )
+    subs.append(
+        {
+            "name": "split-no-quorum preserves similar_to union (live)",
+            "status": "PASS" if novelty_ok else "FAIL",
+            "detail": f"verdict={agreement.verdict} similar_to={agreement.similar_to}",
+        }
+    )
+    if not novelty_ok:
+        bad.append("compute_agreement split-no-quorum did not preserve the similar_to union (I8)")
+
+    so = to_section_output(agreement)
+    section_output_ok = (
+        so.verdict == "ANOMALOUS_UNCLASSIFIED" and so.match_grade == "SIMILAR" and so.similar_to
+    )
+    subs.append(
+        {
+            "name": "to_section_output carries novelty forward (live)",
+            "status": "PASS" if section_output_ok else "FAIL",
+            "detail": f"verdict={so.verdict} match_grade={so.match_grade} similar_to={so.similar_to}",
+        }
+    )
+    if not section_output_ok:
+        bad.append("to_section_output did not carry the novelty (match_grade/similar_to) forward")
+
+    # Unanimous CONFIRMED must still expose technique_ids for a downstream
+    # _cite_or_drop gate to act on (never a bare verdict with nothing to check).
+    unanimous = compute_agreement(
+        [
+            SectionOutput(verdict="CONFIRMED", technique_ids=["T1078"]),
+            SectionOutput(verdict="CONFIRMED", technique_ids=["T1078"]),
+        ]
+    )
+    confirmed_carries_ids = unanimous.verdict == "CONFIRMED" and bool(unanimous.technique_ids)
+    subs.append(
+        {
+            "name": "unanimous CONFIRMED carries technique_ids for cite-or-drop (live)",
+            "status": "PASS" if confirmed_carries_ids else "FAIL",
+            "detail": f"verdict={unanimous.verdict} technique_ids={unanimous.technique_ids}",
+        }
+    )
+    if not confirmed_carries_ids:
+        bad.append("unanimous CONFIRMED agreement did not carry technique_ids")
+
+    if bad:
+        return ("FAIL", "; ".join(bad), subs)
+    return (
+        "PASS",
+        "council consensus gated through _cite_or_drop; novelty carry verified live",
+        [],
+    )
 
 
 if __name__ == "__main__":

@@ -709,6 +709,33 @@ workspaces:
         depth: default
         guardrail: default
         role: blue
+      blueteam-council:
+        name: 🔵 Portal Blue Team · Council of Agreement
+        description: 'GATE-D ablation Part II-A (TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1).
+          The routed next build after the full 89-scenario 1-vs-2-vs-3-section ablation
+          (2026-07-22, decision=COUNCIL): a tool-capable Retriever gathers telemetry once
+          (shared evidence), every model in council_models independently concludes from
+          that same evidence (blue_orchestrate.run_blue_orchestration''s council roster
+          dispatch), and a deterministic quorum vote decides CONFIRMED / ANOMALOUS_UNCLASSIFIED
+          (disagreement-as-novelty) / RULED_OUT — with expert_model as an optional fed
+          arbiter for a no-quorum split. Diverse generalists per the project''s own finding
+          that generalists out-hunt security-SFT models on this task; the fed security
+          expert breaks ties. NOT auto-routed and NOT exposed to OWUI (I5) — this variant
+          exists only to hold the confirm-only tool_model/council_models/expert_model
+          roster for the CLI (--blue-mode council). The existing blueteam variant''s
+          prod model_hint (granite4.1:8b-ctx8k) is unchanged.'
+        expose_to_owui: false
+        tool_model: granite4.1:8b-ctx8k
+        council_models:
+        - granite4.1:30b
+        - mistral-small3.2:24b
+        - qwen3.6:27b-q4_K_M
+        expert_model: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+        tools:
+        - classify_vulnerability
+        depth: default
+        guardrail: default
+        role: blue
   auto-bigfix:
     module: general
     name: 🩹 Portal BigFix Analyst

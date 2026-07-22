@@ -978,3 +978,207 @@ def test_hunter_handoff_round_trips_through_json(monkeypatch):
     assert round_tripped.tool_results == handoff.tool_results
     assert round_tripped.ground_truth == handoff.ground_truth
     assert round_tripped.rounds == handoff.rounds
+
+
+def test_council_dispatch_unanimous_confirmed(monkeypatch):
+    """run_blue_orchestration with a multi-model reasoning roster must route
+    to _run_council, gather evidence once (shared hand-off), then have every
+    council member conclude from that same evidence -- unanimous CONFIRMED
+    across all 3 members should surface as CONFIRMED with agreement=1.0."""
+    import json
+
+    calls = []
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        calls.append(model)
+        if model == "lead-hunter":
+            return {
+                "content": json.dumps(
+                    {
+                        "technique_ids": ["T1558.004"],
+                        "evidence": ["EventCode=4768"],
+                        "reasoning": "AS-REP roasting pattern",
+                        "match_grade": "EXACT",
+                        "similar_to": [],
+                        "request_more": "",
+                    }
+                )
+            }
+        # every council member call
+        return {
+            "content": json.dumps(
+                {
+                    "verdict": "CONFIRMED",
+                    "technique_ids": ["T1558.004"],
+                    "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+                    "reasoning": "confirmed",
+                    "match_grade": "EXACT",
+                    "similar_to": [],
+                    "request_more": "",
+                }
+            )
+        }
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec,
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 AS-REP event for svc-web",
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="lead-hunter"),
+        bo.SectionSpec(role="reasoning", model="member-b"),
+        bo.SectionSpec(role="reasoning", model="member-c"),
+    ]
+    result = bo.run_blue_orchestration(_episode(), sections=sections, max_rounds=6)
+    assert result.verdict == "CONFIRMED"
+    assert result.technique_ids == ["T1558.004"]
+
+    council_entries = [t for t in result.trace if t.get("section") == "council_member"]
+    assert len(council_entries) == 3
+    assert {e["model"] for e in council_entries} == {"lead-hunter", "member-b", "member-c"}
+    agreement_entry = [t for t in result.trace if t.get("section") == "agreement"][0]
+    assert agreement_entry["agreement"] == 1.0
+
+
+def test_council_split_with_arbiter_breaks_tie(monkeypatch):
+    """3-way split (no quorum) must route to the fed arbiter, which -- when
+    it renders its own conclusion -- supersedes the split verdict."""
+    import json
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "lead-hunter":
+            return {
+                "content": json.dumps(
+                    {
+                        "technique_ids": ["T1078"],
+                        "evidence": ["EventCode=4624"],
+                        "reasoning": "possible valid accounts abuse",
+                        "match_grade": "SIMILAR",
+                        "similar_to": ["T1078"],
+                        "request_more": "",
+                    }
+                )
+            }
+        if model == "member-a":
+            verdict, tids = "CONFIRMED", ["T1078"]
+        elif model == "member-b":
+            verdict, tids = "CONFIRMED", ["T1055"]
+        elif model == "member-c":
+            verdict, tids = "CONFIRMED", ["T1548"]
+        elif model == "arbiter-model":
+            verdict, tids = "ANOMALOUS_UNCLASSIFIED", []
+        else:
+            raise AssertionError(f"unexpected model {model}")
+        return {
+            "content": json.dumps(
+                {
+                    "verdict": verdict,
+                    "technique_ids": tids,
+                    "evidence": ["EventCode=4624"],
+                    "reasoning": "member verdict",
+                    "match_grade": "SIMILAR",
+                    "similar_to": [],
+                    "request_more": "",
+                }
+            )
+        }
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec, provenance="matched-exact", raw_summary="EventCode=4624"
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="lead-hunter"),
+        bo.SectionSpec(role="reasoning", model="member-a"),
+        bo.SectionSpec(role="reasoning", model="member-b"),
+        bo.SectionSpec(role="reasoning", model="member-c"),
+        bo.SectionSpec(role="expert", model="arbiter-model"),
+    ]
+    result = bo.run_blue_orchestration(_episode(), sections=sections, max_rounds=6)
+
+    arbiter_entries = [t for t in result.trace if t.get("section") == "arbiter"]
+    assert len(arbiter_entries) == 1
+    assert arbiter_entries[0]["model"] == "arbiter-model"
+    # Arbiter's own ANOMALOUS_UNCLASSIFIED conclusion supersedes the 3-way split.
+    assert result.verdict == "ANOMALOUS_UNCLASSIFIED"
+
+
+def test_council_unresolved_when_no_handoff_reached(monkeypatch):
+    """If the shared hunter loop never reaches a hand-off (budget exhausted
+    mid-loop), the council has nothing to agree on -- must surface UNRESOLVED,
+    not crash or fabricate a verdict."""
+    import json
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        # Hunter always wants more, forever -- never triggers hand-off.
+        return {"content": json.dumps({"request_more": "still need more", "technique_ids": []})}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="lead-hunter"),
+        bo.SectionSpec(role="reasoning", model="member-b"),
+    ]
+    # max_rounds=1: budget exhausts before the stall-cap (3) is ever reached,
+    # so capture_expert_handoff never gets to a hand-off point.
+    result = bo.run_blue_orchestration(_episode(), sections=sections, max_rounds=1)
+    assert result.verdict == "UNRESOLVED"
+
+
+def test_three_section_and_two_section_unaffected_by_council_dispatch(monkeypatch):
+    """I7: adding council dispatch must not change _run_three_section's or
+    _run_two_section's own behavior for their existing single-model callers."""
+    import json
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        return {
+            "content": json.dumps(
+                {
+                    "verdict": "CONFIRMED",
+                    "technique_ids": ["T1558.004"],
+                    "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+                    "reasoning": "confirmed",
+                    "match_grade": "EXACT",
+                    "similar_to": [],
+                    "request_more": "",
+                }
+            )
+        }
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="matched-exact", raw_summary="unused")
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    three = bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=6)
+    assert three.verdict == "CONFIRMED"
+    assert not any(t.get("section") == "council_member" for t in three.trace)
+
+    two_sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="merged", model="merged-model"),
+    ]
+    two = bo.run_blue_orchestration(_episode(), sections=two_sections, max_rounds=6)
+    assert two.verdict == "CONFIRMED"
+    assert not any(t.get("section") == "council_member" for t in two.trace)

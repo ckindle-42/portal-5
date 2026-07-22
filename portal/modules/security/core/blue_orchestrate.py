@@ -25,6 +25,7 @@ from .agentic_blue_eval import (
 )
 from .analyst_verdict import SectionOutput
 from .blue import _BLUE_SYSTEM_PROMPT_DISCOVERY, _cite_or_drop
+from .council_agreement import AgreementResult, compute_agreement, to_section_output
 from .unknown_defense import MatchGrade, compute_similarity
 
 # Live-verified finding (Slice 7/8 pre-screen, 2026-07-17): 3000 tokens is
@@ -1050,24 +1051,52 @@ def run_blue_orchestration(
     wall_clock_s: float | None = None,
     check_additional: bool = False,
     dry_run: bool = False,
+    quorum: float = 0.5,
 ) -> OrchestrationResult:
     """Run the section pipeline to a conclusive verdict, or UNRESOLVED on
     budget exhaustion.
 
-    `sections` binds each role to a model. Two shapes are accepted: the
-    canonical 3-section pipeline (`[tool, reasoning, expert]`) and the
+    `sections` binds each role to a model. Three shapes are accepted: the
+    canonical 3-section pipeline (`[tool, reasoning, expert]`); the
     2-section ablation arm (`[tool, merged]`, design §6.1 / build-doc
     Slice 8's "V1 shape") where one generalist model both hunts and renders
-    the verdict itself. Swapping a section's model is a config change to
-    this list, not a rewrite of the flow below (§0.1(2)).
+    the verdict itself; and the council roster (`[tool, reasoning x N,
+    expert?]` — multiple `SectionSpec`s bound to `role="reasoning"`, GATE-D
+    ablation Part II-A) where N independent models each conclude from the
+    same gathered evidence and a deterministic quorum vote (optionally
+    broken by a fed arbiter bound to `role="expert"`) decides the verdict.
+    Swapping a section's model is a config change to this list, not a
+    rewrite of the flow below (§0.1(2)).
     """
     models = {s.role: s.model for s in sections}
+    rosters: dict[str, list[str]] = {}
+    for s in sections:
+        rosters.setdefault(s.role, []).append(s.model)
+    # Checked before has_three/has_two: a naive {s.role: s.model for s in
+    # sections} dict comprehension collapses a multi-model "reasoning"
+    # roster down to just its LAST entry, which would silently mis-route a
+    # genuine council call into the single-model 3-section path instead of
+    # raising or dispatching correctly.
+    has_council = "tool" in rosters and len(rosters.get("reasoning", [])) > 1
+    if has_council:
+        arbiter_roster = rosters.get("expert") or []
+        return _run_council(
+            episode,
+            tool_model=rosters["tool"][0],
+            council_models=rosters["reasoning"],
+            arbiter_model=arbiter_roster[0] if arbiter_roster else None,
+            quorum=quorum,
+            max_rounds=max_rounds,
+            wall_clock_s=wall_clock_s,
+            dry_run=dry_run,
+        )
     has_three = {"tool", "reasoning", "expert"} <= models.keys()
     has_two = {"tool", "merged"} <= models.keys()
     if not has_three and not has_two:
         raise ValueError(
-            "sections must contain {'tool','reasoning','expert'} (3-section canonical) "
-            "or {'tool','merged'} (2-section ablation arm)"
+            "sections must contain {'tool','reasoning','expert'} (3-section canonical), "
+            "{'tool','merged'} (2-section ablation arm), or {'tool', reasoning x N} "
+            "(council roster, GATE-D Part II-A)"
         )
     if has_two and not has_three:
         return _run_two_section(
@@ -1781,4 +1810,185 @@ def _run_two_section(
         trace=trace,
         rounds=rounds,
         elapsed_s=round(_elapsed(), 2),
+    )
+
+
+def _format_for_arbiter(ectx: str, members: list[SectionOutput], agreement: AgreementResult) -> str:
+    """Build the fed-expert arbiter's context: the same evidence the council
+    saw, plus a plain account of the split (who said what) — never the
+    arbiter's own instruction on what to conclude (I8: the arbiter forms its
+    own judgment from the disagreement, it isn't told the "right" answer)."""
+    lines = [
+        f"Council member {i + 1}: verdict={m.verdict!r} techniques={m.technique_ids}"
+        for i, m in enumerate(members)
+    ]
+    return (
+        f"{ectx}\n\n"
+        "--- Council split (no single technique reached quorum) ---\n"
+        + "\n".join(lines)
+        + f"\ndissent tally: {agreement.dissent}\n"
+        "As the arbiter, review the evidence above and the council's disagreement, then "
+        "render your own independent verdict — CONFIRMED (naming the technique(s) the "
+        "evidence actually supports), RULED_OUT, or ANOMALOUS_UNCLASSIFIED. Do not simply "
+        "restate a member's vote; ground your own conclusion in the evidence."
+    )
+
+
+def _run_council(
+    episode: Episode,
+    *,
+    tool_model: str,
+    council_models: list[str],
+    arbiter_model: str | None,
+    quorum: float,
+    max_rounds: int,
+    wall_clock_s: float | None,
+    dry_run: bool,
+) -> OrchestrationResult:
+    """Council of Agreement (GATE-D ablation Part II-A): gather evidence once
+    — via the same tool+Hunter loop and hand-off point already exercised by
+    ``capture_expert_handoff``/the 3-section ablation arm, using the roster's
+    first model as the lead investigator — then have every council member
+    independently conclude from that *same* evidence. Deterministic
+    ``compute_agreement`` decides CONFIRMED (quorum) / ANOMALOUS_UNCLASSIFIED
+    (disagreement-as-novelty, I8) / RULED_OUT (unanimous benign); an optional
+    fed arbiter breaks a no-quorum split.
+
+    Deliberately reuses ``capture_expert_handoff`` (the exact code path the
+    ablation already measured) rather than a parallel reimplementation of the
+    hunter loop — I7 additive-only; this never touches
+    ``_run_three_section``/``_run_two_section``. This also means the council
+    tests "do independent models agree on a verdict given identical
+    evidence" — the ablation's own ``HANDOFF_LOSS`` finding (evidence
+    retrieved, lone models concluding wrong or inconsistently) — not whether
+    different models would have gathered different evidence in the first
+    place (a separate question, already explored via ``capture_hunter_handoff``
+    model-swap testing).
+    """
+    import time as _time
+
+    started = _time.monotonic()
+    ground_truth = set(episode.techniques)
+
+    handoff = capture_expert_handoff(
+        episode,
+        models={"tool": tool_model, "reasoning": council_models[0], "expert": "unused"},
+        max_rounds=max_rounds,
+        wall_clock_s=wall_clock_s,
+        dry_run=dry_run,
+    )
+    if not isinstance(handoff, ExpertHandoff):
+        # capture_expert_handoff returns an OrchestrationResult (UNRESOLVED)
+        # when budget ran out before any hand-off was reached — nothing for
+        # the council to agree on; the orchestrator (not any section) gave up.
+        return handoff
+
+    trace = list(handoff.trace)
+    members: list[SectionOutput] = []
+    for member_model in council_models:
+        member_out = run_expert_model(
+            handoff.ectx,
+            expert_model=member_model,
+            ground_truth=ground_truth,
+            tool_results=handoff.tool_results,
+            hunter_similar_to=handoff.hunter_similar_to,
+            dry_run=dry_run,
+        )
+        member_out = _ground_similarity(member_out, handoff.tool_results)
+        members.append(member_out)
+        trace.append(
+            {
+                "round": handoff.rounds,
+                "section": "council_member",
+                "model": member_model,
+                "verdict": member_out.verdict,
+                "match_grade": member_out.match_grade,
+                "wants_more": member_out.wants_more(),
+                "raw": member_out.raw,
+            }
+        )
+
+    agreement = compute_agreement(members, quorum=quorum)
+    extra_rounds = len(council_models)
+
+    if agreement.needs_arbiter and arbiter_model:
+        arbiter_ctx = _format_for_arbiter(handoff.ectx, members, agreement)
+        arbiter_out = run_expert_model(
+            arbiter_ctx,
+            expert_model=arbiter_model,
+            ground_truth=ground_truth,
+            tool_results=handoff.tool_results,
+            hunter_similar_to=agreement.similar_to,
+            dry_run=dry_run,
+        )
+        arbiter_out = _ground_similarity(arbiter_out, handoff.tool_results)
+        trace.append(
+            {
+                "round": handoff.rounds,
+                "section": "arbiter",
+                "model": arbiter_model,
+                "verdict": arbiter_out.verdict,
+                "match_grade": arbiter_out.match_grade,
+                "wants_more": arbiter_out.wants_more(),
+                "raw": arbiter_out.raw,
+            }
+        )
+        extra_rounds += 1
+        if arbiter_out.is_conclusion():
+            # The arbiter was specifically asked to break the tie, not just
+            # re-vote — its own conclusion supersedes the split verdict.
+            agreement = AgreementResult(
+                verdict=arbiter_out.verdict,
+                technique_ids=arbiter_out.technique_ids,
+                agreement=agreement.agreement,
+                dissent=agreement.dissent,
+                needs_arbiter=False,
+                similar_to=arbiter_out.similar_to or agreement.similar_to,
+                rationale=f"arbiter ({arbiter_model}) broke the split: {agreement.rationale}",
+            )
+
+    final_out = to_section_output(agreement)
+
+    # I2: the council's own AGGREGATE CONFIRMED still passes _cite_or_drop —
+    # the individual members' own CONFIRMEDs were already grounded via
+    # run_expert_model's own gate, but the quorum-agreed technique set is a
+    # new claim (a union/subset across members), not a re-statement of any
+    # one member's already-cited set.
+    if final_out.verdict == "CONFIRMED":
+        telemetry = _combined_telemetry_text(handoff.tool_results)
+        reported = [
+            {"technique_id": t, "evidence": final_out.reasoning} for t in final_out.technique_ids
+        ]
+        kept = _cite_or_drop(reported, telemetry, handoff.ground_truth)
+        kept_ids = {d.get("technique_id", "").upper() for d in kept}
+        if kept_ids != {t.upper() for t in final_out.technique_ids}:
+            final_out = SectionOutput(
+                verdict="ANOMALOUS_UNCLASSIFIED",
+                technique_ids=final_out.technique_ids,
+                reasoning="downgraded: council CONFIRMED technique(s) did not survive cite-or-drop",
+                match_grade="SIMILAR",
+                similar_to=final_out.similar_to or final_out.technique_ids,
+                section="agreement",
+            )
+
+    trace.append(
+        {
+            "round": handoff.rounds,
+            "section": "agreement",
+            "verdict": final_out.verdict,
+            "agreement": agreement.agreement,
+            "dissent": agreement.dissent,
+        }
+    )
+
+    return OrchestrationResult(
+        verdict=final_out.verdict,
+        technique_ids=final_out.technique_ids,
+        evidence=final_out.evidence,
+        reasoning=final_out.reasoning,
+        match_grade=final_out.match_grade,
+        similar_to=final_out.similar_to,
+        trace=trace,
+        rounds=handoff.rounds + extra_rounds,
+        elapsed_s=round(_time.monotonic() - started, 2),
     )
