@@ -450,6 +450,37 @@ class TestScorePurpleEpisode:
         )
         assert rec["episode"]["used_synthetic"] is True
 
+    def test_coverage_not_credited_to_composite_when_telemetry_synthetic(self):
+        """Hop 4 (evidence-chain fix, 2026-07-22): detection_coverage against
+        synthetic-only telemetry is vacuous and must NOT lift
+        model_competence_score. Two runs identical except telemetry realness —
+        the live one scores strictly higher purely from the coverage term."""
+        from portal.modules.security.core.blue import _score_purple
+
+        live = _score_purple(
+            self._make_red_result(order_accuracy=0.0),
+            self._make_blue_result(detected=["T1190"], f1=0.0, telemetry_source={"T1190": "live"}),
+            self._make_scenario(),
+        )
+        synth = _score_purple(
+            self._make_red_result(order_accuracy=0.0),
+            self._make_blue_result(
+                detected=["T1190"],
+                f1=0.0,
+                synthetic_fallback=True,
+                telemetry_source={"T1190": "synthetic-fallback"},
+            ),
+            self._make_scenario(),
+        )
+        # Same reported detection, same f1/order — only telemetry realness
+        # differs. The raw coverage number is still exposed on both...
+        assert live["detection_coverage"] == synth["detection_coverage"] == 1.0
+        assert live["coverage_grounded"] is True
+        assert synth["coverage_grounded"] is False
+        # ...but only real telemetry lets coverage lift the composite.
+        assert live["model_competence_score"] > synth["model_competence_score"]
+        assert synth["model_competence_score"] == 0.0
+
     def test_real_hit_red_landed_is_proven(self):
         from portal.modules.security.core.blue import _score_purple
 

@@ -76,11 +76,16 @@ def test_confirmed_failing_cite_or_drop_downgrades_to_anomalous(monkeypatch):
 
 
 def test_confirmed_with_ground_truth_technique_survives_cite_or_drop(monkeypatch):
+    """A ground-truth CONFIRMED claim survives cite_or_drop when its OWN
+    cited evidence is actually grounded in real telemetry — not on label
+    match alone (found live 2026-07-22: an unconditional ground-truth
+    exemption let fabricated evidence through, see blue._cite_or_drop's
+    docstring)."""
     content = json.dumps(
         {
             "verdict": "CONFIRMED",
             "technique_ids": ["T1558.004"],
-            "evidence": ["confirmed via 4768"],
+            "evidence": ["EventCode=4768 AS-REP roasting confirmed"],
             "reasoning": "matches ground truth",
             "match_grade": "EXACT",
             "similar_to": [],
@@ -88,7 +93,16 @@ def test_confirmed_with_ground_truth_technique_survives_cite_or_drop(monkeypatch
         }
     )
     monkeypatch.setattr(bo, "_call_model", _fake_call_model(content))
-    out = bo.run_expert_model("ctx", expert_model="m", ground_truth={"T1558.004"}, tool_results=[])
+    tool_results = [
+        bo.ToolResult(
+            query="q",
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 AS-REP roasting event for svc-web on dc01",
+        )
+    ]
+    out = bo.run_expert_model(
+        "ctx", expert_model="m", ground_truth={"T1558.004"}, tool_results=tool_results
+    )
     assert out.verdict == "CONFIRMED"
     assert out.technique_ids == ["T1558.004"]
 

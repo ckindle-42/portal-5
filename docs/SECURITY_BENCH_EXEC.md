@@ -903,7 +903,7 @@ The bench NEVER modifies Open WebUI or the pipeline. It communicates directly wi
 
 ## Blue/Purple Discovery Orchestration (BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2)
 
-`--blue-mode` selects which blue investigation path a run uses. All five share the same tools, telemetry, and scoring — only the prompt/pipeline shape differs:
+`--blue-mode` selects which blue investigation path a run uses. All six share the same tools, telemetry, and scoring — only the prompt/pipeline shape differs:
 
 | Mode | Shape | Prompt |
 |---|---|---|
@@ -912,6 +912,7 @@ The bench NEVER modifies Open WebUI or the pipeline. It communicates directly wi
 | `hybrid` | 1 model, tools | Open-ended with technique-reference hints as optional context, plus an anti-rumination instruction |
 | `orchestrated` | 3 sections (tool + reasoning + expert) | See below |
 | `orchestrated-2section` | 2 sections (tool + merged reasoning/expert) | Design §6.1's "V1 shape" — one generalist model both hunts and concludes itself |
+| `council` | tool + N reasoning members + fed arbiter | See "Council of Agreement" below |
 
 `scripted`/`discovery`/`hybrid` are `--purple` prompt variants (real backend telemetry via Splunk, live-queried when `--replay-captured-red`/`--lab-exec` is set — see `_fetch_blue_telemetry` in `blue.py`). `orchestrated`/`orchestrated-2section` are standalone modes (not `--purple` variants, I5 — no `auto-security` prod routing touched): they run `blue_orchestrate.run_blue_orchestration` directly against a captured episode via `--scenario` + `--replay-captured-red`, reading the episode's telemetry in-process rather than round-tripping through Splunk (hermetically testable by design).
 
@@ -932,6 +933,25 @@ Defaults for `--tool-model`/`--reasoning-model`/`--expert-model` come from `conf
 ### The 2-section ablation arm (`orchestrated-2section`)
 
 `--tool-model`/`--merged-model` (no separate reasoning/expert split) — one generalist model both hunts and renders the conclusive verdict itself, via `run_merged_model`. Same never-invent citation gate as the 3-section Expert.
+
+### Council of Agreement (`council`)
+
+`TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1` Part II-A. Originally motivated by the GATE-D full-corpus ablation's `decide_route()` outcome: 89 scenarios x 3 arms x 3 reps concluded `COUNCIL` — "models see the evidence but conclude wrongly/inconsistently — cross-check them," not a retrieval or budget problem.
+
+**That route decision did not survive scrutiny (2026-07-22, during Part II-A's own proof-of-concept — see findings #12-15 above).** Two compounding measurement-instrument bugs made `HUNTER_MISS` structurally impossible to detect in the 2/3-section arms; once both were fixed and the corpus rescored (free, no live calls), `decide_route()` returns **`RETRIEVAL_FIRST`**, not `COUNCIL` — the dominant failure is evidence never being gathered (`HUNTER_MISS` 56.9% in 3-section, corrected), not evidence being misjudged (`HANDOFF_LOSS` collapsed from a fabricated 91.4% down to 2.9%). A concrete, live root cause for that retrieval gap was also found and fixed (finding #14: the trigger text told the model nothing about which telemetry sources exist, so it defaulted to Windows-Event vocabulary on the 68.5% of episodes that have none). The Council of Agreement build below is kept and documented as-implemented — it is real, tested, working infrastructure — but per I5's evidence-attached-to-operator discipline and the task's own C4 fallback language ("if the council does not beat 3-section, that is the honest result: report it, ship council as an opt-in tool, do not promote"), **it is not the currently-indicated next build**. Part II's live next step is validating the retrieval-context fix (finding #14) and the novelty-grounding fix (finding #15), not finishing the Council POC.
+
+One tool-capable Retriever gathers evidence once (`capture_expert_handoff`, reused across members — no re-paying retrieval cost per member); N independent reasoning members (`council_models`, each a full `run_expert_model` call against the same captured evidence) vote independently; `council_agreement.compute_agreement()` decides deterministically: a technique agreed by >= `--quorum` (default 0.5) fraction of members -> `CONFIRMED` (still re-gated through `_cite_or_drop`, I2); a shared-but-unagreed signal -> `ANOMALOUS_UNCLASSIFIED` with the union of members' `similar_to` (disagreement-as-novelty, I8); unanimous benign -> `RULED_OUT`. A no-quorum split additionally invokes a fed arbiter model (`arbiter_model`) whose verdict, if conclusive, supersedes the split. Implementation: `blue_orchestrate._run_council()`, `council_agreement.py`. Confirm-only (`config/portal.yaml`'s `blueteam-council` variant has `expose_to_owui: false`, I5) — never auto-routed to `auto-security` prod traffic regardless of ablation outcome.
+
+```bash
+python3 -m portal.modules.security.core --scenario kerberoast_to_da --blue-mode council \
+  --replay-captured-red \
+  --council-models granite4.1:30b,mistral-small3.2:24b,qwen3.6:27b-q4_K_M \
+  --tool-model granite4.1:8b-ctx8k --expert-model hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0 \
+  --quorum 0.5
+```
+
+**C4 proof-of-concept (2026-07-22, stopped early)**: per explicit scope instruction, a 19-scenario systematic sample (evenly spread across the 89-scenario corpus's category ordering) was run through the `council` arm, live, to compare against the same 19 scenarios' already-completed 2-section/3-section results from the full-corpus backup. Stopped after 7/19 scenarios once findings #13-15 made clear the comparison would be apples-to-oranges against a since-corrected baseline and a since-fixed retrieval path — the partial raw data
+(`portal/modules/security/core/results/ABLATION_POC_COUNCIL_19SCENARIO_20260722T200513Z.raw.jsonl`) is preserved, not deleted, but was not carried to a final decision. `blue_orchestration_ablation.py --include-council` is the opt-in flag for a full-corpus re-ablation of this arm, should Council still be worth re-evaluating once the retrieval-context and novelty-grounding fixes are validated; it defaults off so a bare invocation never silently 4x's live-model cost.
 
 ### Slice 8 ablation findings (2026-07-18)
 
@@ -1137,6 +1157,99 @@ its place. Root cause, in order of discovery:
     raising loudly on any mismatch. Verified against both a plain and a tool-calling live request
     before trusting it; live-tested with two fresh scenarios (`ad_full_compromise`,
     `web_reflected_xss`) post-guard with zero false positives.
+12. **The finding #1 fix over-corrected — found live 2026-07-22, during Part II-A's Council
+    proof-of-concept.** Finding #1's structural signal (any real, non-fixture tool retrieval
+    anywhere in the trace counts as "the Hunter saw the ground truth," to generalize past a small
+    marker table) turned out to fire on **267/267 (100%) of both the 2-section and 3-section arms'
+    records in the completed 89-scenario corpus**, independent of whether that retrieval had
+    anything to do with the ground truth technique — a tool round that only ever queried generic
+    PowerShell/`whoami` process-creation events got credited as having "seen" a Kerberoasting/DCSync
+    ground truth it never once queried for (`ad_full_compromise`, live-inspected trace). This made
+    `HUNTER_MISS` **structurally unreachable** for those two arms (0.0% in both, in the completed
+    corpus decision) while `1-section` — scored on markers alone, since it has no tool/provenance
+    trace shape — landed at 99.6% `HUNTER_MISS`: the three arms were being scored on three different,
+    incompatible criteria, not the same yardstick, and every genuine `HALLUCINATION` for 2/3-section
+    was silently absorbed into `HANDOFF_LOSS` by the same shortcut (both arms showed
+    `hallucination_rate: 0.0`, which was itself a tell). Fixed by dropping the structural shortcut
+    entirely and keeping the marker/ID-substring match as the sole criterion — ground truth in this
+    harness is always a real classified MITRE ID (never a truly-unclassified novel label), so
+    ID/parent-substring text matching already generalizes reasonably (20 of the corpus's 29 distinct
+    ground-truth techniques have no `TECHNIQUE_EVENT_ID_MARKERS` entry at all, but are still catchable
+    via literal ID mentions a model writes in its own reasoning) without the false-positive cost.
+    Rescored the full 89-scenario corpus for free via `--rescore` (no live calls, the
+    finding-#8-era `.raw.jsonl` sidecar existing is exactly what made this possible) — `real_recall`/
+    `hits`/`novelty`/`best_multi_arm`/`split_proven` were all unaffected (`classify()`'s HIT/NOVELTY
+    branches run before the buggy structural check, so they were never touched by it), but the
+    miss-taxonomy breakdown changed substantially: 3-section's `HUNTER_MISS` went 0.0% → 24.1%,
+    `HALLUCINATION` 0.0% → 19.5%, `HANDOFF_LOSS` 91.4% → 47.7% (still the dominant class). At this
+    point `decide_route()` still returned `COUNCIL` — but two more, deeper measurement bugs were
+    still hiding underneath (#13, #14 below), and once those were also fixed, the route changed.
+13. **Fix #12 itself over-corrected in the OTHER direction — found live the same day, same POC
+    session, before trusting fix #12's `COUNCIL`-survives conclusion any further.** Dropping the
+    structural shortcut still left the marker/ID-substring match scanning the WHOLE trace text —
+    including a section's own free-form `reasoning`/`request_more` prose, where a model brainstorms
+    candidate techniques ("could involve credential dumping (T1003), lateral movement...") without
+    having found any of them. Quantified against the full corpus: **59.2% of 3-section's "saw the
+    ground truth" credit came from a GT technique ID appearing ONLY in that hypothesis-listing
+    prose** — a candidate the model considered and found no support for, not evidence it actually
+    gathered. Only 7.9% of records had grounding tied to real, cited evidence. Fixed by scoping the
+    match to genuinely-found content only: `role == "tool"` entries' `content` (1-section's real
+    retrieved telemetry) and, for 2/3-section/council, each section's own cited `evidence` list —
+    extracted from its `raw` response text via a small balanced-brace JSON scanner
+    (`_extract_evidence_list`) — never its `reasoning`/`request_more` prose, and never a
+    `section == "tool"` entry's `query` (the retrieval ASK, not what was found). Rescored the full
+    corpus again for free: 3-section's `HUNTER_MISS` went 24.1% → **56.9%** (now dominant),
+    `HALLUCINATION` 19.5% → **31.6%**, `HANDOFF_LOSS` 47.7% → **2.9%** (nearly gone).
+    **`decide_route()` flipped: `COUNCIL` → `RETRIEVAL_FIRST`.** Part I's original route decision
+    does not survive both fixes — the evidence the whole Council build was justified on (`models see
+    the evidence but conclude wrongly`) turns out to have been an artifact of two compounding
+    scoring bugs; the corrected, honest diagnosis is that evidence is very often never gathered at
+    all (`real_recall`/`hits`/`novelty`/`best_multi_arm`/`split_proven` are unaffected throughout —
+    the HIT/NOVELTY branches in `classify()` run before either bug's code path).
+14. **The retrieval gap itself has a concrete, live root cause — found live the same session,
+    tracing WHY `HUNTER_MISS` is so high.** Every tool round's query, sampled across several
+    `HUNTER_MISS` records, asked for Windows Security Event IDs (4688/4624/etc.) regardless of the
+    target. Checked against the corpus's own captured telemetry: **61 of 89 episodes (68.5%) have
+    NO Windows telemetry at all** — their real evidence lives in `web:access`/`linux:syslog`/
+    `ftp:access`. The trigger text every tool/Hunter section receives
+    (`blue_orchestrate.py`, both `_run_three_section` and `_run_two_section`) was
+    `f"An alert was triggered on {episode.target_host} (scenario: {episode.scenario})."` — no
+    platform, no OS, no hint about what's actually available, so the model falls back on "SOC
+    investigation = Windows Events," an overwhelmingly dominant pattern in what these models were
+    trained on, even against a Linux container running a web app. Fixed with `_build_trigger()`,
+    naming the episode's actually-available telemetry sources (`episode.telemetry.keys()`) up
+    front — e.g. `"...Available telemetry sources for this host: linux:syslog, web:access."` This
+    is a live-behavior fix (not a scoring-instrument fix like #12/#13) — it changes what the tool
+    section actually asks for, so it needs a fresh live re-run to confirm impact; that validation
+    is still owed as of this writing.
+15. **The NOVELTY/SIMILAR grounding itself was close to circular — found live the same session,
+    stepping back to ask why Council's cross-checking wasn't moving the needle at all.** The U1
+    similarity engine's reference set (`_load_wiki_technique_descriptions`, 30 wiki-seeded
+    technique descriptions) turned out to be auto-generated FROM this project's own
+    `siem/spl_detections.yaml` + `exec_chain.py#SCENARIOS` — confirmed via each wiki unit's own
+    `sources` frontmatter and generator footer (`unit-T1558.003-signature.md`: `sources: type:
+    scenario, path: exec_chain.py#kerberoast_to_da` etc., footer "Unit auto-generated from
+    spl_detections.yaml + SCENARIOS"). That 30-technique set covers 27 of the ablation corpus's own
+    29 ground-truth techniques — meaning "is this similar to a known pattern" was mostly measuring
+    whether a model's language overlaps with a description WE wrote FROM the answer key, not
+    whether it can recognize a genuinely unfamiliar pattern against real ATT&CK knowledge. This
+    plausibly also explains why swapping Hunter/Expert candidate models kept showing near-total
+    agreement regardless of model (the 2026-07-21 sampling-tuning study, "5/6 and 6/6 agreement...
+    sampling tuning made almost no observable difference") — a near-tautological yardstick can't
+    surface real capability differences between models either. Fixed by vendoring the real, full
+    MITRE ATT&CK Enterprise technique catalog (697 techniques — `siem/mitre_attack_techniques.json`,
+    extracted 2026-07-22 from `mitre/cti`'s `enterprise-attack.json` STIX bundle, citations/markdown
+    stripped) as `_load_mitre_attack_catalog()`, and merging it as the similarity reference's base
+    via `_load_similarity_reference_descriptions()` — project-specific wiki descriptions (which
+    carry genuinely useful SIEM-specific discriminator detail, e.g. exact EventCode differences
+    between sibling sub-techniques) are overlaid on top where they exist, so nothing is lost, but
+    coverage is no longer limited to this project's own 30-item answer-key subset (this also
+    incidentally fixed a real gap: `T1078.004`/`T1537` are corpus ground-truth techniques that had
+    NO wiki description at all before this fix). Applied at both call sites: `blue.py`'s 1-section
+    similarity call and `blue_orchestrate.py`'s `_wiki_technique_descriptions()` cache (used by
+    2/3-section/council). This is also a live-behavior fix requiring fresh validation, not a free
+    rescore — `match_grade`/`similar_to` are computed at run time from whatever reference set is
+    loaded, not persisted in a rescoreable form for a description-set change.
 
 **Expert-model sampling tuning (2026-07-21) — researched, applied, then controlled-tested; net
 effect: negligible, but the test itself found where the real variance lives.** Ollama's `/api/show`
@@ -1198,3 +1311,62 @@ capturing and replaying either hand-off point in the 3-section arm independently
   produced the one exact ground-truth `CONFIRMED` hit seen in this task, but also the one clean
   miss; sample size (1–3 reps per candidate per scenario) is too thin for a real ranking. More
   reps via this same replay mechanism, not a fresh full run, is the way to get there.
+
+### The RBP evidence chain was severed at every hop (found + fixed 2026-07-22)
+
+Prompted by a user architecture question — "a red attack we prescriptively executed should have all
+its artifacts collected and replayable for blue/purple" — an end-to-end audit found the evidence
+chain from red-action → captured-telemetry → blue-detection → purple-score was broken at **every**
+hop, each masked by the same permissive-fallback anti-pattern as the grading bugs above. All four
+were corrected; the corrections are additive and honesty-preserving (never fabricate, never credit
+against synthetic/hollow evidence).
+
+1. **Red-success misclassification (Hop 1, `exec_chain.classify_scenario_result`).** The classifier
+   conflated "target unreachable" with "red attacked a reachable target but didn't confirm the
+   exploit": `if not open_ports and tools_called: return "indeterminate"` treated *no port scan
+   recorded* as *target down*. Every web/vuln scenario where red curls a known port directly
+   (without nmap) left `open_ports` empty and was scored as if the target were down — **78 of 89
+   scenarios (87.6%) never once registered `red_success` across ~781 runs.** Fixed: a gate-confirmed-
+   reachable target that red attacked without a scan is an honest `red_fail` (tried, unconfirmed),
+   not `indeterminate`; only a target the readiness gate could NOT confirm reachable stays
+   `indeterminate`. This does not fabricate success — blind exploits that genuinely can't be
+   confirmed remain honest non-successes.
+2. **Lossy post-hoc collection (Hop 2, `siem/collect.py`).** Telemetry is a generic scrape of the
+   target's docker/access logs after the fact — decoupled from what red actually sent. Quantified
+   with the corrected capture validator (below): **66 of 89 scenarios had captures with zero
+   ground-truth coverage** — the attack simply wasn't in the scraped logs.
+3. **Red's own transcript never bridged to blue (Hop 3 — the root cause).** Red records exactly
+   what it executed (`tools_called_args`: the real fastjson `@type` payload, the real `${jndi:...}`
+   string, the real `UNION SELECT`), but this authoritative record was used only for red scoring and
+   **discarded for blue's purposes** — verified: a distinctive fragment of red's actual sent request
+   was absent from blue's telemetry in *every* sampled scenario. Fixed with
+   `siem/collect.reconstruct_attack_telemetry(tool_calls)`, wired into
+   `collect_and_ship_scenario_telemetry` (new `red_tool_calls` param, gathered from `red_cache` in
+   `run_purple_tests`): red's commands are reconstructed into faithful telemetry a network IDS / WAF
+   / full packet capture *would* have recorded — the HTTP request line in `web:access` (URI decoded
+   as a sensor normalizes it, so an encoded SQLi payload is matchable), the full command+payload in
+   an `ids:alert` sourcetype (guaranteed-present real artifact), auth attempts in `linux:syslog`.
+   This is a faithful reconstruction of telemetry that *should* exist, provenance-tagged, **never
+   fabricated** (the honesty contract: it's real red activity) — and additive, never replacing the
+   real target scrape.
+4. **Purple coverage credited against synthetic/hollow evidence (Hop 4, `blue._score_purple`).** The
+   `model_competence_score` composite credited `0.20 * detection_coverage` unconditionally — even
+   when the only telemetry blue ever saw was a synthetic fallback — silently inflating the score on
+   scenarios with no real evidence (the docstring already claimed "if red failed, coverage is N/A"
+   but the code never enforced it). Fixed: a new `coverage_grounded` flag gates the coverage term on
+   real observed telemetry (`live`/`live-broad-fallback`), mirroring the truth-plane
+   `detection_status` guard; the raw `detection_coverage` is still exposed, but only grounded
+   coverage lifts the competence score.
+
+**Why this is the root of the earlier symptoms.** Blue cannot detect an attack whose evidence was
+never put in front of it — the 56.9% `HUNTER_MISS` (corrected ablation), the fabricated-evidence
+`HIT`s, models showing no difference regardless of swap, and Council not helping all trace back to
+this severed chain, not to model capability, prompt guidance, or pipeline shape. The
+capture-validity gate that was *supposed* to catch hollow captures (`capture_enrichment.
+validate_capture_signals`) was itself the same anti-pattern — a broad "any generic word like
+'denied'/'failed' anywhere ⇒ all techniques found" fallback rubber-stamped **352/422 captures
+(83.4%) as `coverage: 1.0`**; corrected to require each technique's own specific `EXPECTED_SIGNALS`,
+with an honest `unchecked` state for techniques that have no signal table entry (never silently
+credited or blamed). None of these fixes have been validated against a fresh live corpus run yet —
+that (and a re-ablation on genuinely-populated captures) is the outstanding next step before any
+of the earlier ablation route conclusions can be re-trusted.

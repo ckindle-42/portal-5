@@ -294,3 +294,42 @@ class TestPurpleOutcomeExpansion:
 
         r = ExpandedPurpleResult(outcome=PurpleOutcome.CONFIRMED, technique_id="T1190")
         json.dumps(r.to_dict())
+
+
+class TestSimilarityReferenceCatalog:
+    """The U1 similarity reference must be a broad, independent MITRE ATT&CK
+    catalog, not just this project's own answer-key subset (found live
+    2026-07-22, GATE-D ablation Part II-A: the wiki's 30 seeded descriptions
+    are auto-generated from this project's own spl_detections.yaml +
+    exec_chain.py#SCENARIOS, covering 27/29 of the ablation corpus's own
+    ground-truth techniques — near-circular novelty grounding)."""
+
+    def test_mitre_catalog_is_broad_not_just_project_techniques(self):
+        from portal.modules.security.core.blue import (
+            _load_mitre_attack_catalog,
+            _load_wiki_technique_descriptions,
+        )
+
+        broad = _load_mitre_attack_catalog()
+        narrow = _load_wiki_technique_descriptions()
+        assert len(broad) > 500  # full MITRE Enterprise catalog, not a curated subset
+        # Techniques absent from this project's own answer-key set must still
+        # be covered by the broad catalog.
+        assert "T1078.004" not in narrow
+        assert "T1078.004" in broad
+        assert "T1537" not in narrow
+        assert "T1537" in broad
+
+    def test_merged_reference_prefers_project_specific_detail(self):
+        from portal.modules.security.core.blue import (
+            _load_similarity_reference_descriptions,
+        )
+
+        merged = _load_similarity_reference_descriptions()
+        assert len(merged) > 500
+        # Project-specific SIEM detail (exact EventCode discriminators) wins
+        # for techniques the project has real detection content for.
+        assert "4769" in merged["T1558.003"]
+        # But techniques outside the project's own 30-item set are still
+        # covered, from the broad catalog.
+        assert merged.get("T1078.004", "").startswith("Cloud Accounts")

@@ -8,6 +8,7 @@ vs budget vs council) instead of guessing. Hermetic: operates on plain dicts
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 
 # Outcome of one (arm, scenario). HIT / NOVELTY are successes; the rest are the
@@ -104,41 +105,98 @@ def classify(
     return ArmScenarioOutcome(arm, scenario, "HUNTER_MISS", ground_truth=sorted(ground_truth))
 
 
+def _extract_evidence_list(raw: str) -> list[str]:
+    """Pull a section's cited `evidence` array out of its raw model-response
+    text, ignoring `reasoning`/`request_more` prose entirely — those are
+    where a model brainstorms candidate techniques ("could involve X, Y, or
+    Z") without having found any of them, and treating that prose as "found"
+    is exactly the second measurement bug documented in
+    `_trace_mentions_any` below."""
+    if not raw:
+        return []
+    depth = 0
+    start = None
+    blocks = []
+    for i, ch in enumerate(raw):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start is not None:
+                blocks.append(raw[start : i + 1])
+    for block in reversed(blocks):
+        try:
+            obj = json.loads(block)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(obj, dict) and ("evidence" in obj or "technique_ids" in obj):
+            ev = obj.get("evidence") or []
+            return [str(e) for e in ev] if isinstance(ev, list) else []
+    return []
+
+
 def _trace_mentions_any(trace: list[dict], techniques: set[str]) -> bool:
-    """Did the Hunter/tool actually surface real evidence, whether or not we
-    recognize what it found?
+    """Did the Hunter/tool actually surface real, CITED evidence *of these
+    specific techniques* — not just mention them as a candidate hypothesis?
 
-    Two signals, checked in this order — structural first, on purpose:
+    Scope, by trace-entry shape:
+    - 1-section (`role == "tool"`): its `content` field is real retrieved
+      telemetry, not model prose — matched as-is.
+    - 2/3-section/council (`section` in reasoning/expert/merged/council_member/
+      arbiter): only that section's own cited `evidence` list, extracted from
+      its `raw` response text. Its `reasoning`/`request_more` prose is never
+      scanned — see `_extract_evidence_list`.
+    - A `section == "tool"` entry's `query` (the retrieval ASK) is never
+      scanned either — asking for telemetry isn't evidence that any was found.
 
-    1. STRUCTURAL (generalizes to anything, known or novel): the tool
-       section's own retrieval provenance already records whether a round
-       found a real, specific match (`matched-exact` / `live-broad-fallback`)
-       versus nothing (`empty`) or a fixture placeholder
-       (`synthetic-fallback`). This doesn't require recognizing *what* was
-       found — a genuinely new attack pattern the tool section actually
-       retrieved evidence for still counts, which a signature list can never
-       do by construction (found live 2026-07-19: relying on known markers
-       alone means every technique outside a small hand-curated table is
-       permanently unreachable-to-disprove as HUNTER_MISS, no matter how
-       much real evidence the tool retrieved — the model card equivalent of
-       "we can only detect what we already know to look for").
-    2. KNOWN-MARKER fallback (narrower, but higher precision when it hits):
-       literal MITRE ID, parent-number substring, or a known technique ->
-       Windows Event ID mapping (blue.TECHNIQUE_EVENT_ID_MARKERS). Useful
-       when trace entries lack a provenance field (e.g. the 1-section arm,
-       which has no tool/reasoning/expert split to record retrieval
-       provenance against) or as corroboration, never as the sole gate.
+    Match itself is KNOWN-MARKER / ID-substring: literal MITRE ID,
+    parent-number substring, or a known technique -> Windows Event ID mapping
+    (blue.TECHNIQUE_EVENT_ID_MARKERS).
+
+    This function has had two prior, broader (and wrong) versions, both found
+    live against the full 89-scenario ablation corpus:
+
+    1. (found 2026-07-19, reverted 2026-07-22) A STRUCTURAL shortcut: any real
+       (non-fixture) tool-section retrieval anywhere in the trace, regardless
+       of topic, counted as "saw it." Fired on 267/267 (100%) of both
+       2-section and 3-section records — e.g. a tool round that only ever
+       retrieved generic PowerShell/whoami process-creation events got
+       credited as "saw" a Kerberoasting/DCSync ground truth it never queried
+       for. Made HUNTER_MISS structurally impossible for those two arms (0.0%
+       in both) while 1-section, with no such shortcut available, landed at
+       99.6% HUNTER_MISS — three arms scored on three different criteria.
+    2. (found 2026-07-22, same day) Even after removing shortcut #1, marker/
+       ID-substring matching against the WHOLE trace blob — including
+       `reasoning`/`request_more` prose — still let a model's own
+       hypothesis-brainstorming count as "found": 59.2% of 3-section's
+       "saw it" credit came from a ground-truth ID appearing only in text
+       like "could involve techniques like credential dumping (T1003)..." —
+       a candidate the model considered and then found no support for, not
+       evidence it actually gathered. Only 7.9% of records had grounding tied
+       to real evidence content. Fixed by scoping the match to cited
+       `evidence` lists / real tool-result content only, per above.
+
+    Ground truth in this harness is always a real classified MITRE ID (never
+    a truly-unclassified novel label), so ID/parent-substring text matching
+    already generalizes reasonably (20 of 29 corpus ground-truth techniques
+    have no event-ID marker at all, but are still catchable via literal
+    ID-substring mentions within cited evidence) without either shortcut's
+    false-positive cost.
     """
     from portal.modules.security.core.blue import TECHNIQUE_EVENT_ID_MARKERS
 
+    parts: list[str] = []
     for entry in trace or []:
-        if entry.get("section") == "tool" and entry.get("provenance") in (
-            "matched-exact",
-            "live-broad-fallback",
-        ):
-            return True
+        if entry.get("role") == "tool":
+            parts.append(str(entry.get("content", "")))
+            continue
+        raw = entry.get("raw")
+        if raw:
+            parts.extend(_extract_evidence_list(raw))
 
-    blob = " ".join(str(entry) for entry in (trace or [])).lower()
+    blob = " ".join(parts).lower()
     for t in techniques:
         t_upper = t.upper()
         if t.lower() in blob:

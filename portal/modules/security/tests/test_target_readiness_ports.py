@@ -331,6 +331,24 @@ class TestClassifier:
         )
         assert result == "indeterminate"
 
+    def test_reachable_target_no_portscan_is_red_fail_not_indeterminate(self):
+        """A reachable target (gate ready) that red attacked WITHOUT running a
+        port scan (open_ports stays empty) is an honest red_fail — red tried a
+        live target and didn't confirm the exploit landed — NOT indeterminate.
+
+        Found live 2026-07-22: conflating "no port scan recorded" with "target
+        down" mislabeled 78/89 scenarios as indeterminate — every web/vuln
+        scenario where red curls a known port directly without nmap. Only a
+        target the gate could NOT confirm reachable stays indeterminate."""
+        from portal.modules.security.core.exec_chain import classify_scenario_result
+
+        result = classify_scenario_result(
+            {"open_ports": []},  # no nmap was run
+            gate_result={"ready": True},  # but the gate confirmed it reachable
+            tools_called=["execute_bash"],  # and red attacked it
+        )
+        assert result == "red_fail"
+
     def test_down_target_never_red_fail(self):
         """Core invariant: a down target can NEVER be scored as red-fail."""
         from portal.modules.security.core.exec_chain import classify_scenario_result
