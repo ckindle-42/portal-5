@@ -243,7 +243,14 @@ def main() -> None:
     )
     parser.add_argument(
         "--blue-mode",
-        choices=["scripted", "discovery", "hybrid", "orchestrated", "orchestrated-2section"],
+        choices=[
+            "scripted",
+            "discovery",
+            "hybrid",
+            "orchestrated",
+            "orchestrated-2section",
+            "council",
+        ],
         default="scripted",
         help=(
             "With --purple: which blue investigation prompt to use "
@@ -262,7 +269,14 @@ def main() -> None:
             "'orchestrated-2section' (Slice 8 ablation arm, design §6.1's 'V1 "
             "shape') is the same standalone path but with tool + merged "
             "reasoning/expert — one generalist model both hunts and concludes — "
-            "via --tool-model/--merged-model."
+            "via --tool-model/--merged-model. 'council' (GATE-D ablation Part "
+            "II-A, TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1) is the same standalone "
+            "path with a council roster: --tool-model gathers evidence once, "
+            "every model in --council-models independently concludes from that "
+            "same evidence, and a deterministic quorum vote (--quorum, default "
+            "0.5) decides CONFIRMED/ANOMALOUS_UNCLASSIFIED/RULED_OUT — a split "
+            "with no technique at quorum is broken by the fed --expert-model "
+            "arbiter if one is given."
         ),
     )
     parser.add_argument(
@@ -298,6 +312,27 @@ def main() -> None:
         default=6,
         metavar="N",
         help="With --blue-mode orchestrated: round budget before UNRESOLVED (default: 6).",
+    )
+    parser.add_argument(
+        "--council-models",
+        default=None,
+        metavar="M1,M2,M3",
+        help=(
+            "With --blue-mode council: comma-separated council roster — each "
+            "model independently concludes from the same gathered evidence "
+            "(GATE-D ablation Part II-A). First model in the list acts as the "
+            "lead investigator that decides what evidence to request."
+        ),
+    )
+    parser.add_argument(
+        "--quorum",
+        type=float,
+        default=0.5,
+        metavar="FRAC",
+        help=(
+            "With --blue-mode council: member-vote fraction a technique must "
+            "reach to be CONFIRMED-eligible (default: 0.5)."
+        ),
     )
     parser.add_argument(
         "--all-scenarios",
@@ -725,6 +760,112 @@ def main() -> None:
                     "ground_truth": episode.techniques,
                     "tool_model": tool_model,
                     "merged_model": merged_model,
+                    "verdict": result.verdict,
+                    "technique_ids": result.technique_ids,
+                    "evidence": result.evidence,
+                    "reasoning": result.reasoning,
+                    "match_grade": result.match_grade,
+                    "similar_to": result.similar_to,
+                    "rounds": result.rounds,
+                    "elapsed_s": result.elapsed_s,
+                    "trace": result.trace,
+                    "scoring": scoring,
+                },
+                indent=2,
+                default=str,
+            )
+        )
+        print(f"  Results written -> {out_path}")
+        return
+
+    # ── Standalone: --blue-mode council (GATE-D ablation Part II-A) ──────────
+    # TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1. Same standalone contract as
+    # 'orchestrated'/'orchestrated-2section' above (not a --purple prompt
+    # variant, no prod routing touched, I5 confirm-only) — gathers evidence
+    # once via the roster's lead model, then has every --council-models
+    # member independently conclude from that same evidence; a deterministic
+    # quorum vote decides, with the fed --expert-model as an optional arbiter
+    # for a no-quorum split.
+    if args.blue_mode == "council":
+        from portal.platform.inference.config import load_portal_config
+
+        from .agentic_blue_eval import load_episode, score_findings_tiered
+        from .blue_orchestrate import SectionSpec, run_blue_orchestration
+
+        if not args.replay_captured_red:
+            print("  ERROR: --blue-mode council requires --replay-captured-red")
+            return
+
+        episode = load_episode(args.scenario)
+        if episode is None:
+            print(f"  ERROR: no captured episode found for scenario '{args.scenario}'")
+            return
+
+        default_variant = (
+            load_portal_config()
+            .workspaces.get("auto-security")
+            .variants.get("blueteam-council", {})
+        )
+        tool_model = args.tool_model or default_variant.get("tool_model")
+        council_models_raw = args.council_models or default_variant.get("council_models")
+        expert_model = args.expert_model or default_variant.get("expert_model")
+        council_models = (
+            [m.strip() for m in council_models_raw.split(",") if m.strip()]
+            if isinstance(council_models_raw, str)
+            else list(council_models_raw or [])
+        )
+        if not (tool_model and len(council_models) > 1):
+            print(
+                "  ERROR: --tool-model and --council-models (2+ comma-separated models) "
+                "are required, and no default found in config/portal.yaml's "
+                "blueteam-council variant"
+            )
+            return
+
+        print(
+            f"Blue orchestration (council) — scenario={episode.scenario} target={episode.target_host}"
+        )
+        print(f"  tool_model={tool_model}")
+        print(f"  council_models={council_models}")
+        print(f"  expert_model (arbiter)={expert_model}")
+        print(f"  quorum={args.quorum}")
+
+        sections = [SectionSpec(role="tool", model=tool_model, needs_tools=True)]
+        sections += [SectionSpec(role="reasoning", model=m) for m in council_models]
+        if expert_model:
+            sections.append(SectionSpec(role="expert", model=expert_model))
+        result = run_blue_orchestration(
+            episode,
+            sections=sections,
+            max_rounds=args.max_orchestration_rounds,
+            dry_run=args.dry_run,
+            quorum=args.quorum,
+        )
+        scoring = score_findings_tiered(set(result.technique_ids), set(episode.techniques))
+
+        print(f"\n  Verdict       : {result.verdict}")
+        print(f"  Technique IDs : {result.technique_ids}")
+        print(f"  Match grade   : {result.match_grade}  similar_to={result.similar_to}")
+        print(f"  Rounds/elapsed: {result.rounds} / {result.elapsed_s}s")
+        print(f"  Overall recall: {scoring['overall']['recall']}")
+
+        ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = (
+            Path(args.output)
+            if args.output
+            else RESULTS_DIR / f"sec_blue_council_{episode.scenario}_{ts}.json"
+        )
+        out_path.write_text(
+            json.dumps(
+                {
+                    "scenario": episode.scenario,
+                    "target_host": episode.target_host,
+                    "ground_truth": episode.techniques,
+                    "tool_model": tool_model,
+                    "council_models": council_models,
+                    "expert_model": expert_model,
+                    "quorum": args.quorum,
                     "verdict": result.verdict,
                     "technique_ids": result.technique_ids,
                     "evidence": result.evidence,
