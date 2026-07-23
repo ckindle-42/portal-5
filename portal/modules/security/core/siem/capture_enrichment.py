@@ -381,13 +381,29 @@ def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> 
             continue
 
         _sourcetype, expected_lines = expected
-        technique_keywords = set()
+        # A technique is found only if ONE example line's FULL field set is
+        # present (AND within that line's own tokens), not any single token
+        # pooled across every example (OR across lines is fine — two example
+        # lines are two legitimate variants of the same technique).
+        #
+        # Found live 2026-07-23 (first scenario of the post-fix recapture run,
+        # kerberoast_to_da): pooling every field=value token across all lines
+        # and accepting ANY single one anywhere in the telemetry let a bare,
+        # generic token from one technique's example (e.g. T1053.005's
+        # "Account=administrator") false-match a completely unrelated real
+        # event (a Kerberoasting 4769 line that also happens to involve the
+        # administrator account) — and a bare "EventCode=4662" (used for many
+        # unrelated Windows auditing operations) false-matched T1003.006/DCSync
+        # without its actually-discriminating
+        # "Properties=Replication-Dir-Replication-Right" value ever appearing.
+        # Both non-Kerberoasting ground-truth techniques were credited as
+        # "found" purely from these coincidental generic-token overlaps.
+        has_signal = False
         for line in expected_lines:
-            for token in line.split():
-                if "=" in token:
-                    technique_keywords.add(token)
-
-        has_signal = any(kw in all_existing for kw in technique_keywords)
+            line_tokens = {tok for tok in line.split() if "=" in tok}
+            if line_tokens and all(tok in all_existing for tok in line_tokens):
+                has_signal = True
+                break
         if has_signal:
             found.append(technique)
         else:
