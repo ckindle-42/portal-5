@@ -84,14 +84,16 @@ class TestValidateCaptureSignals:
     def test_partial_signal_yields_partial_coverage_not_full_credit(self):
         """One of three checkable techniques present -> coverage reflects
         exactly that fraction, not rounded up to full via the old fallback.
-        Uses a distinct IP from T1078's/T1059's own EXPECTED_SIGNALS entries
-        so this doesn't accidentally collide with a *different* technique's
-        expected field value (a real, narrower precision limit of any
-        keyword-based check — distinct from the generic-word bug this file
-        otherwise tests for)."""
+        Uses T1110.003's REAL EXPECTED_SIGNALS example line verbatim — safe
+        from colliding with T1078's/T1059's own examples now that matching
+        requires a whole example line's fields together (AND within a line),
+        not any single pooled token (the 2026-07-23 fix, found live on the
+        first scenario of the post-fix recapture run: a bare shared token like
+        "Account=administrator" or "EventCode=4662" alone used to false-match
+        an unrelated technique's real telemetry)."""
         telemetry = {
             "windows:security": [
-                "EventCode=4625 Account=user01 WorkstationName=WKSTN01 IpAddress=10.0.0.99 Status=0xc000006d",
+                "EventCode=4625 Account=user01 WorkstationName=WKSTN01 IpAddress=10.0.0.50 Status=0xc000006d",
             ],
             "web:access": ["some unrelated 500 error line here"],  # generic noise, must not help
         }
@@ -107,3 +109,39 @@ class TestValidateCaptureSignals:
         assert result["coverage"] == 0.0
         assert result["found"] == []
         assert result["unchecked"] == []
+
+    def test_stray_generic_token_from_a_different_technique_does_not_false_match(self):
+        """Regression: found live 2026-07-23 on the first scenario of the
+        post-fix recapture run (kerberoast_to_da). A real capture had ONLY
+        genuine Kerberoasting evidence (T1558.003, EventCode=4769 with
+        TicketEncryptionType=0x17) — the red chain stalled before ever
+        attempting DCSync or scheduled-task persistence. But the (then-)
+        current validator credited ALL THREE ground-truth techniques
+        (T1558.003, T1003.006 DCSync, T1053.005 Scheduled Task) as "found",
+        because pooling every field=value token across every technique's
+        examples let a bare, generic token from an unrelated technique's
+        example — T1053.005's "Account=administrator" — coincidentally
+        substring-match the real Kerberoasting event's own
+        "Account=administrator@PORTAL.LAB" field, and a bare "EventCode=4662"
+        (Windows' general object-access audit event, used for many unrelated
+        operations) false-matched T1003.006 without its actually-discriminating
+        "Properties=Replication-Dir-Replication-Right" value ever appearing.
+
+        Fixed by requiring a whole example line's fields together (AND within
+        the line), not any single token pooled across every example (OR
+        across lines only, never across techniques or partial lines)."""
+        telemetry = {
+            "windows:security": [
+                # Genuine Kerberoasting evidence only.
+                "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
+                # A generic EventCode=4662 for an UNRELATED object access, and
+                # a coincidental "Account=administrator" mention elsewhere —
+                # neither is real DCSync/Scheduled-Task evidence.
+                "EventCode=4662 Properties=Control Access Account=WIN-MVQO0PT39IO$",
+                "EventCode=4624 LogonType=3 Account=administrator WorkstationName=WKSTN02",
+            ]
+        }
+        result = validate_capture_signals("kerberoast_to_da", telemetry)
+        assert result["found"] == ["T1558.003"]
+        assert set(result["missing"]) == {"T1003.006", "T1053.005"}
+        assert result["valid"] is False
