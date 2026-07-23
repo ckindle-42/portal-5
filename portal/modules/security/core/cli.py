@@ -250,6 +250,7 @@ def main() -> None:
             "orchestrated",
             "orchestrated-2section",
             "council",
+            "multichain",
         ],
         default="scripted",
         help=(
@@ -276,7 +277,12 @@ def main() -> None:
             "same evidence, and a deterministic quorum vote (--quorum, default "
             "0.5) decides CONFIRMED/ANOMALOUS_UNCLASSIFIED/RULED_OUT — a split "
             "with no technique at quorum is broken by the fed --expert-model "
-            "arbiter if one is given."
+            "arbiter if one is given. 'multichain' runs N FULLY INDEPENDENT "
+            "investigative chains (--chain-analyst-models) — each does its own "
+            "tool+reasoning+expert hunt with its own hypothesis and evidence "
+            "pulls — then consolidates across chains that saw DIFFERENT evidence "
+            "into one operator decision: AUTO_CONFIRM (independent convergence), "
+            "ESCALATE (real signal, divergent → human review), or DISMISS."
         ),
     )
     parser.add_argument(
@@ -325,13 +331,27 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--chain-analyst-models",
+        default=None,
+        metavar="M1,M2,M3",
+        help=(
+            "With --blue-mode multichain: comma-separated roster of INDEPENDENT "
+            "investigative chains — each runs its own full tool+reasoning+expert "
+            "hunt (its own hypothesis, its own evidence pulls), then the chains "
+            "are consolidated into an AUTO_CONFIRM/ESCALATE/DISMISS decision. "
+            "Unlike --council-models (one shared evidence pool), each model here "
+            "gathers its own evidence."
+        ),
+    )
+    parser.add_argument(
         "--quorum",
         type=float,
         default=0.5,
         metavar="FRAC",
         help=(
-            "With --blue-mode council: member-vote fraction a technique must "
-            "reach to be CONFIRMED-eligible (default: 0.5)."
+            "With --blue-mode council/multichain: vote fraction a technique must "
+            "reach to be CONFIRMED-eligible (council: member vote; multichain: "
+            "independent-chain vote). Default: 0.5."
         ),
     )
     parser.add_argument(
@@ -872,6 +892,119 @@ def main() -> None:
                     "reasoning": result.reasoning,
                     "match_grade": result.match_grade,
                     "similar_to": result.similar_to,
+                    "rounds": result.rounds,
+                    "elapsed_s": result.elapsed_s,
+                    "trace": result.trace,
+                    "scoring": scoring,
+                },
+                indent=2,
+                default=str,
+            )
+        )
+        print(f"  Results written -> {out_path}")
+        return
+
+    # ── Standalone: --blue-mode multichain (multi-model multi-chain analyst) ──
+    # N FULLY INDEPENDENT investigative chains — each its own tool+reasoning+
+    # expert hunt with its own hypothesis/evidence pulls — consolidated into an
+    # AUTO_CONFIRM / ESCALATE / DISMISS operator decision. Same standalone
+    # contract as the arms above (not a --purple variant, no prod routing, I5).
+    # Unlike council (one shared evidence pool), each chain gathers its own.
+    if args.blue_mode == "multichain":
+        from portal.platform.inference.config import load_portal_config
+
+        from .agentic_blue_eval import load_episode, score_findings_tiered
+        from .blue_orchestrate import run_multichain_orchestration
+
+        if not args.replay_captured_red:
+            print("  ERROR: --blue-mode multichain requires --replay-captured-red")
+            return
+
+        episode = load_episode(args.scenario)
+        if episode is None:
+            print(f"  ERROR: no captured episode found for scenario '{args.scenario}'")
+            return
+
+        default_variant = (
+            load_portal_config()
+            .workspaces.get("auto-security")
+            .variants.get("blueteam-council", {})
+        )
+        tool_model = args.tool_model or default_variant.get("tool_model")
+        chain_models_raw = args.chain_analyst_models or default_variant.get("council_models")
+        chain_models = (
+            [m.strip() for m in chain_models_raw.split(",") if m.strip()]
+            if isinstance(chain_models_raw, str)
+            else list(chain_models_raw or [])
+        )
+        # expert_model is OPTIONAL here — default None gives each chain its own
+        # model end to end (fully independent). A shared expert is opt-in.
+        expert_model = args.expert_model
+        if not (tool_model and len(chain_models) > 1):
+            print(
+                "  ERROR: --tool-model and --chain-analyst-models (2+ comma-separated "
+                "models) are required, and no default found in config/portal.yaml's "
+                "blueteam-council variant"
+            )
+            return
+
+        print(
+            f"Blue orchestration (multichain) — scenario={episode.scenario} "
+            f"target={episode.target_host}"
+        )
+        print(f"  tool_model={tool_model}")
+        print(f"  chain_models (independent)={chain_models}")
+        print(f"  expert_model (shared, optional)={expert_model}")
+        print(f"  quorum={args.quorum}")
+
+        result = run_multichain_orchestration(
+            episode,
+            tool_model=tool_model,
+            chain_models=chain_models,
+            expert_model=expert_model,
+            quorum=args.quorum,
+            max_rounds=args.max_orchestration_rounds,
+            dry_run=args.dry_run,
+        )
+        scoring = score_findings_tiered(set(result.technique_ids), set(episode.techniques))
+        consolidation = next((t for t in result.trace if t.get("section") == "consolidation"), {})
+
+        print(f"\n  Decision      : {consolidation.get('decision')}")
+        print(f"  Verdict       : {result.verdict}")
+        print(f"  Technique IDs : {result.technique_ids}")
+        print(f"  Match grade   : {result.match_grade}  similar_to={result.similar_to}")
+        print(f"  Evidence div. : {consolidation.get('evidence_diversity')} distinct source(s)")
+        if consolidation.get("escalation_reason"):
+            print(f"  Escalation    : {consolidation.get('escalation_reason')}")
+        print(f"  Rounds/elapsed: {result.rounds} / {result.elapsed_s}s")
+        print(f"  Overall recall: {scoring['overall']['recall']}")
+
+        ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = (
+            Path(args.output)
+            if args.output
+            else RESULTS_DIR / f"sec_blue_multichain_{episode.scenario}_{ts}.json"
+        )
+        out_path.write_text(
+            json.dumps(
+                {
+                    "scenario": episode.scenario,
+                    "target_host": episode.target_host,
+                    "ground_truth": episode.techniques,
+                    "tool_model": tool_model,
+                    "chain_models": chain_models,
+                    "expert_model": expert_model,
+                    "quorum": args.quorum,
+                    "decision": consolidation.get("decision"),
+                    "verdict": result.verdict,
+                    "technique_ids": result.technique_ids,
+                    "evidence": result.evidence,
+                    "reasoning": result.reasoning,
+                    "match_grade": result.match_grade,
+                    "similar_to": result.similar_to,
+                    "evidence_diversity": consolidation.get("evidence_diversity"),
+                    "escalation_reason": consolidation.get("escalation_reason"),
                     "rounds": result.rounds,
                     "elapsed_s": result.elapsed_s,
                     "trace": result.trace,

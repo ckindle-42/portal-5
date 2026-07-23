@@ -1222,3 +1222,164 @@ def test_three_section_and_two_section_unaffected_by_council_dispatch(monkeypatc
     two = bo.run_blue_orchestration(_episode(), sections=two_sections, max_rounds=6)
     assert two.verdict == "CONFIRMED"
     assert not any(t.get("section") == "council_member" for t in two.trace)
+
+
+def _multichain_episode() -> Episode:
+    """Episode with two real telemetry sources so evidence_diversity is
+    exercisable across independent chains."""
+    return Episode(
+        scenario="asrep_to_lateral",
+        target_host="dc01",
+        techniques=["T1558.004"],
+        telemetry={
+            "windows:security": ["EventCode=4768 AS-REP event for svc-web"],
+            "web:access": ["10.0.0.25 GET / HTTP/1.1 200"],
+        },
+    )
+
+
+def test_multichain_independent_convergence_is_auto_confirm(monkeypatch):
+    """N independent chains that each hunt their own way and converge on the
+    same technique consolidate to AUTO_CONFIRM. Each chain is a FULL
+    tool+reasoning+expert investigation (its own tool queries), not a shared-
+    pool voter — the trace carries per-chain tags and a consolidation entry."""
+    import json
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        # Every reasoning/expert model, in every chain, concludes CONFIRMED
+        # T1558.004 from its own gathered evidence.
+        return {
+            "content": json.dumps(
+                {
+                    "verdict": "CONFIRMED",
+                    "technique_ids": ["T1558.004"],
+                    "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+                    "reasoning": "confirmed",
+                    "match_grade": "EXACT",
+                    "similar_to": [],
+                    "request_more": "",
+                }
+            )
+        }
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(
+            query="windows:security EventCode 4768 query",
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 AS-REP event for svc-web",
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    result = bo.run_multichain_orchestration(
+        _multichain_episode(),
+        tool_model="tool-model",
+        chain_models=["chain-a", "chain-b", "chain-c"],
+        expert_model="expert-model",
+        max_rounds=6,
+    )
+    assert result.verdict == "CONFIRMED"
+    assert result.technique_ids == ["T1558.004"]
+    consolidation = [t for t in result.trace if t.get("section") == "consolidation"]
+    assert len(consolidation) == 1
+    assert consolidation[0]["decision"] == "AUTO_CONFIRM"
+    # Each chain's trace is tagged and preserved (independent investigations).
+    chains_seen = {t.get("chain") for t in result.trace if t.get("chain")}
+    assert chains_seen == {"chain-a", "chain-b", "chain-c"}
+
+
+def test_multichain_divergent_chains_escalate_to_human(monkeypatch):
+    """Independent chains that each surface a DIFFERENT technique consolidate
+    to ESCALATE ('a human needs to look at this'), never a forced confirm."""
+    import json
+
+    # Each chain (keyed by its reasoning model name) concludes a different tech.
+    per_model = {
+        "chain-a": "T1558.004",
+        "chain-b": "T1078",
+        "chain-c": "T1021.002",
+    }
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        tech = per_model.get(model, "T1558.004")
+        return {
+            "content": json.dumps(
+                {
+                    "verdict": "CONFIRMED",
+                    "technique_ids": [tech],
+                    "evidence": [f"evidence for {tech}"],
+                    "reasoning": "confirmed",
+                    "match_grade": "EXACT",
+                    "similar_to": [],
+                    "request_more": "",
+                }
+            )
+        }
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(
+            query="q", provenance="matched-exact", raw_summary="some real evidence"
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    # No shared expert — each chain concludes with its OWN model, so the
+    # divergence at the reasoning step survives to the verdict (full
+    # independence, the faithful multi-chain config).
+    result = bo.run_multichain_orchestration(
+        _multichain_episode(),
+        tool_model="tool-model",
+        chain_models=["chain-a", "chain-b", "chain-c"],
+        quorum=0.5,
+    )
+    assert result.verdict == "ANOMALOUS_UNCLASSIFIED"
+    consolidation = [t for t in result.trace if t.get("section") == "consolidation"][0]
+    assert consolidation["decision"] == "ESCALATE"
+    assert consolidation["escalation_reason"]
+
+
+def test_multichain_does_not_alter_existing_arms(monkeypatch):
+    """I7: run_multichain_orchestration composes run_blue_orchestration but must
+    not change 3-section / 2-section / council behaviour for their callers."""
+    import json
+
+    seen: set[str] = set()
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model not in seen:
+            seen.add(model)
+            return {"content": json.dumps({"request_more": "need telemetry"})}
+        return {
+            "content": json.dumps(
+                {
+                    "verdict": "CONFIRMED",
+                    "technique_ids": ["T1558.004"],
+                    "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+                    "reasoning": "confirmed",
+                    "match_grade": "EXACT",
+                    "similar_to": [],
+                    "request_more": "",
+                }
+            )
+        }
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+        return bo.ToolResult(
+            query="q",
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 AS-REP event for svc-web",
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    three = bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=6)
+    assert three.verdict == "CONFIRMED"
+    # No consolidation/chain artefacts leak into a plain 3-section run.
+    assert not any(t.get("section") == "consolidation" for t in three.trace)
+    assert not any(t.get("chain") for t in three.trace)

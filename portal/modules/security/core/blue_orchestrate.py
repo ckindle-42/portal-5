@@ -26,6 +26,9 @@ from .agentic_blue_eval import (
 from .analyst_verdict import SectionOutput
 from .blue import _BLUE_SYSTEM_PROMPT_DISCOVERY, _cite_or_drop
 from .council_agreement import AgreementResult, compute_agreement, to_section_output
+from .multichain import ChainResult
+from .multichain import consolidate as _consolidate_chains
+from .multichain import to_section_output as _consolidation_to_section_output
 from .unknown_defense import MatchGrade, compute_similarity
 
 # Live-verified finding (Slice 7/8 pre-screen, 2026-07-17): 3000 tokens is
@@ -2032,5 +2035,130 @@ def _run_council(
         similar_to=final_out.similar_to,
         trace=trace,
         rounds=handoff.rounds + extra_rounds,
+        elapsed_s=round(_time.monotonic() - started, 2),
+    )
+
+
+def _sources_from_trace(trace: list[dict], available_sources: list[str]) -> list[str]:
+    """Which real telemetry sourcetypes a chain actually queried while hunting
+    — matched from its own tool-request text against the episode's real
+    sources (`episode.telemetry` keys). Best-effort signal for evidence
+    diversity across chains; never load-bearing for the decision itself."""
+    covered = set()
+    for e in trace or []:
+        if e.get("section") != "tool":
+            continue
+        q = str(e.get("query", "")).lower()
+        for st in available_sources:
+            if st.lower() in q or st.split(":")[0].lower() in q:
+                covered.add(st)
+    return sorted(covered)
+
+
+def run_multichain_orchestration(
+    episode: Episode,
+    *,
+    tool_model: str,
+    chain_models: list[str],
+    expert_model: str | None = None,
+    quorum: float = 0.5,
+    max_rounds: int = 6,
+    wall_clock_s: float | None = None,
+    dry_run: bool = False,
+) -> OrchestrationResult:
+    """Multi-model, multi-chain analyst: run N INDEPENDENT investigative chains,
+    then cool them into one operator decision.
+
+    Unlike the Council of Agreement — which has one lead investigator gather
+    evidence and N interpreters vote over that *same* pool — each chain here is
+    a full, independent `[tool, reasoning=chain_i, expert]` investigation: its
+    own reasoning model drives its own hypothesis-shaped tool queries, hunts its
+    own way, and reaches its own conclusion against the evidence IT chose to
+    pull. `multichain.consolidate` then routes across chains that saw DIFFERENT
+    evidence to one of three operator decisions — AUTO_CONFIRM (independent
+    convergence on a known bad), ESCALATE (real signal, divergent
+    investigations → a human must look), DISMISS (independently ruled out).
+
+    Why this is not just "council with more models" (found 2026-07-22, user
+    architecture steer): agreement forced by identical input is a measurement
+    artifact (the council's near-total agreement in the sampling study); the
+    union of N independent hunts is broader telemetry coverage by construction
+    — the direct structural answer to a single lead investigator's tunnel
+    vision (the corrected ablation's 56.9% HUNTER_MISS). A CONFIRMED technique
+    here needs no aggregate cite-or-drop re-gate: each chain already ran its own
+    `_cite_or_drop` before reporting CONFIRMED, so a quorum-confirmed technique
+    is already grounded in >= quorum INDEPENDENT evidence pools — stronger than
+    the council's single shared-pool re-gate, not weaker.
+
+    `expert_model` default (None) gives each chain its OWN model as its expert
+    (`expert_model or cm`) — fully independent end to end, hunt AND conclusion.
+    Passing a shared `expert_model` is an optional variant: independent hunts,
+    one common adjudicator (less independent at the conclusion, so a genuine
+    divergence between chains can be masked by the shared expert — prefer the
+    default when the point is to surface disagreement).
+
+    Additive-only (I7): this composes `run_blue_orchestration` (the untouched
+    3-section path) N times and never modifies it or the council/2-section arms.
+    """
+    import time as _time
+
+    started = _time.monotonic()
+    available_sources = list(episode.telemetry.keys())
+    chains: list[ChainResult] = []
+    trace: list[dict] = []
+    total_rounds = 0
+
+    for cm in chain_models:
+        sections = [
+            SectionSpec(role="tool", model=tool_model, needs_tools=True),
+            SectionSpec(role="reasoning", model=cm),
+            SectionSpec(role="expert", model=expert_model or cm),
+        ]
+        result = run_blue_orchestration(
+            episode,
+            sections=sections,
+            max_rounds=max_rounds,
+            wall_clock_s=wall_clock_s,
+            dry_run=dry_run,
+        )
+        chains.append(
+            ChainResult(
+                model=cm,
+                verdict=result.verdict,
+                technique_ids=list(result.technique_ids),
+                similar_to=list(result.similar_to),
+                evidence_sources=_sources_from_trace(result.trace, available_sources),
+            )
+        )
+        for e in result.trace:
+            tagged = dict(e)
+            tagged["chain"] = cm
+            trace.append(tagged)
+        total_rounds += result.rounds
+
+    consolidation = _consolidate_chains(chains, quorum=quorum)
+    final_out = _consolidation_to_section_output(consolidation)
+
+    trace.append(
+        {
+            "section": "consolidation",
+            "decision": consolidation.decision,
+            "verdict": consolidation.verdict,
+            "agreement": consolidation.agreement,
+            "dissent": consolidation.dissent,
+            "evidence_diversity": consolidation.evidence_diversity,
+            "escalation_reason": consolidation.escalation_reason,
+        }
+    )
+
+    return OrchestrationResult(
+        verdict=final_out.verdict,
+        technique_ids=final_out.technique_ids,
+        evidence=final_out.evidence,
+        reasoning=final_out.reasoning,
+        match_grade=final_out.match_grade,
+        similar_to=final_out.similar_to,
+        trace=trace,
+        rounds=total_rounds,
         elapsed_s=round(_time.monotonic() - started, 2),
     )

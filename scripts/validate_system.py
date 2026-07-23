@@ -2748,6 +2748,10 @@ def main() -> int:
     v.run("BC. fleet health reality (declared vs live)", check_fleet_health_reality)
     v.run("BD. blue orchestration verdict axis", check_blue_orchestration_axis)
     v.run("BE. council agreement gate (cite-or-drop + novelty carry)", check_council_agreement_gate)
+    v.run(
+        "BF. multichain consolidation gate (escalate first-class + I7 composition)",
+        check_multichain_consolidation_gate,
+    )
 
     return v.summary()
 
@@ -3585,6 +3589,116 @@ def check_council_agreement_gate() -> tuple[str, str, list[dict]]:
     return (
         "PASS",
         "council consensus gated through _cite_or_drop; novelty carry verified live",
+        [],
+    )
+
+
+def check_multichain_consolidation_gate() -> tuple[str, str, list[dict]]:
+    """BF. Multi-model multi-chain analyst (2026-07-22): the consolidation
+    across INDEPENDENT chains routes to a real operator decision, with ESCALATE
+    ('a human needs to look at this') as a FIRST-CLASS outcome — divergent
+    independent investigations must never be forced into a confirm or silently
+    dismissed. Also structurally guards that the arm COMPOSES the untouched
+    3-section path (independence via full chains) rather than reimplementing a
+    hunter loop (I7).
+    """
+    from portal.modules.security.core.multichain import ChainResult, consolidate
+
+    subs: list[dict] = []
+    bad: list[str] = []
+
+    orch_path = REPO_ROOT / "portal" / "modules" / "security" / "core" / "blue_orchestrate.py"
+    src = orch_path.read_text()
+
+    body_match = re.search(
+        r"^def run_multichain_orchestration\(.*?(?=^def |\Z)", src, re.MULTILINE | re.DOTALL
+    )
+    body = body_match.group(0) if body_match else ""
+    composes_3section = bool(body) and "run_blue_orchestration(" in body
+    subs.append(
+        {
+            "name": "run_multichain_orchestration composes run_blue_orchestration (I7)",
+            "status": "PASS" if composes_3section else "FAIL",
+            "detail": "found" if composes_3section else "missing or reimplements the loop",
+        }
+    )
+    if not composes_3section:
+        bad.append(
+            "run_multichain_orchestration does not compose run_blue_orchestration "
+            "(must reuse the untouched 3-section path per chain, not reimplement)"
+        )
+
+    # Live: divergent independent chains (each a different technique) must
+    # ESCALATE, never AUTO_CONFIRM.
+    divergent = consolidate(
+        [
+            ChainResult(model="a", verdict="CONFIRMED", technique_ids=["T1190"]),
+            ChainResult(model="b", verdict="CONFIRMED", technique_ids=["T1059"]),
+            ChainResult(model="c", verdict="ANOMALOUS_UNCLASSIFIED", similar_to=["T1505.003"]),
+        ],
+        quorum=0.5,
+    )
+    escalate_ok = (
+        divergent.decision == "ESCALATE"
+        and divergent.verdict == "ANOMALOUS_UNCLASSIFIED"
+        and bool(divergent.escalation_reason)
+        and "T1505.003" in divergent.similar_to
+    )
+    subs.append(
+        {
+            "name": "divergent independent chains ESCALATE with novelty carry (live)",
+            "status": "PASS" if escalate_ok else "FAIL",
+            "detail": f"decision={divergent.decision} similar_to={divergent.similar_to}",
+        }
+    )
+    if not escalate_ok:
+        bad.append("divergent independent chains did not ESCALATE as a first-class outcome (I8)")
+
+    # Live: independent convergence AUTO_CONFIRMs; unanimous benign DISMISSes.
+    converge = consolidate(
+        [
+            ChainResult(model="a", verdict="CONFIRMED", technique_ids=["T1190"]),
+            ChainResult(model="b", verdict="CONFIRMED", technique_ids=["T1190"]),
+        ]
+    )
+    dismiss = consolidate(
+        [
+            ChainResult(model="a", verdict="RULED_OUT"),
+            ChainResult(model="b", verdict="RULED_OUT"),
+        ]
+    )
+    decisions_ok = converge.decision == "AUTO_CONFIRM" and dismiss.decision == "DISMISS"
+    subs.append(
+        {
+            "name": "convergence AUTO_CONFIRM / unanimous benign DISMISS (live)",
+            "status": "PASS" if decisions_ok else "FAIL",
+            "detail": f"converge={converge.decision} dismiss={dismiss.decision}",
+        }
+    )
+    if not decisions_ok:
+        bad.append("consolidate did not route convergence/benign to AUTO_CONFIRM/DISMISS")
+
+    # Live: an incomplete investigation (no chain concluded) must ESCALATE, not
+    # be handed to the SOC as 'all clear'.
+    incomplete = consolidate(
+        [ChainResult(model="a", verdict="UNRESOLVED"), ChainResult(model="b", verdict="UNRESOLVED")]
+    )
+    incomplete_ok = incomplete.decision == "ESCALATE"
+    subs.append(
+        {
+            "name": "incomplete investigation ESCALATES, never DISMISS (live)",
+            "status": "PASS" if incomplete_ok else "FAIL",
+            "detail": f"decision={incomplete.decision}",
+        }
+    )
+    if not incomplete_ok:
+        bad.append("no-conclusion consolidation did not ESCALATE (was handed to SOC as clear)")
+
+    if bad:
+        return ("FAIL", "; ".join(bad), subs)
+    return (
+        "PASS",
+        "multichain consolidation routes AUTO_CONFIRM/ESCALATE/DISMISS; escalate first-class",
         [],
     )
 
