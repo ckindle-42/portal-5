@@ -69,13 +69,19 @@ def test_unanimous_benign_ruled_out():
     assert not r.needs_arbiter
 
 
-def test_no_member_concludes_ruled_out_not_a_crash():
+def test_no_member_concludes_escalates_never_benign():
+    """2026-07-23 design review: no member concluding is a budget/convergence
+    FAILURE — it previously returned RULED_OUT, telling the SOC 'all clear'
+    because the investigation never completed (the exact bug multichain's
+    no-concluder branch escalates). Must surface as anomalous/escalate, with
+    the arbiter (if configured) given a shot at a real conclusion."""
     members = [
         SectionOutput(verdict=None, request_more="need more data"),
         SectionOutput(verdict=None, request_more="need more data"),
     ]
     r = compute_agreement(members)
-    assert r.verdict == "RULED_OUT"
+    assert r.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert r.needs_arbiter is True
     assert r.agreement == 0.0
     assert "no member reached a conclusion" in r.rationale
 

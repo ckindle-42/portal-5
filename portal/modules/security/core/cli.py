@@ -972,15 +972,24 @@ def main() -> None:
         # result.technique_ids = confirmed known-bad; result.similar_to = review
         # leads. Score both channels so a correct escalation is a win, not a
         # miss (dimension-1 fix): operational_recall = confirmed OR correctly
-        # escalated to a human.
+        # escalated to a human. Gate-demoted claims are passed separately so
+        # they can never convert into escalation credit (2026-07-23).
         scoring = score_analyst_outcome(
-            set(result.technique_ids), set(result.similar_to), set(episode.techniques)
+            set(result.technique_ids),
+            set(result.similar_to),
+            set(episode.techniques),
+            ungrounded_claims=set(result.ungrounded_claims),
         )
 
         print(f"\n  Decision      : {consolidation.get('decision')}")
         print(f"  Verdict       : {result.verdict}")
         print(f"  Confirmed     : {result.technique_ids}  (known-bad channel)")
         print(f"  Review leads  : {result.similar_to}  (escalation channel)")
+        if result.ungrounded_claims:
+            print(
+                f"  Ungrounded    : {result.ungrounded_claims}  "
+                "(gate-demoted claims — audit only, never credited)"
+            )
         print(f"  Evidence div. : {consolidation.get('evidence_diversity')} distinct source(s)")
         if consolidation.get("escalation_reason"):
             print(f"  Escalation    : {consolidation.get('escalation_reason')}")
@@ -1018,6 +1027,7 @@ def main() -> None:
                     "reasoning": result.reasoning,
                     "match_grade": result.match_grade,
                     "similar_to": result.similar_to,
+                    "ungrounded_claims": result.ungrounded_claims,
                     "evidence_diversity": consolidation.get("evidence_diversity"),
                     "escalation_reason": consolidation.get("escalation_reason"),
                     "rounds": result.rounds,

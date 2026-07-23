@@ -80,7 +80,7 @@ def test_hunter_sees_own_history_and_only_new_evidence_across_rounds(monkeypatch
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(
             query=req.spec, provenance="matched-exact", raw_summary="EventCode=4769 detail"
         )
@@ -158,7 +158,7 @@ def test_request_more_tool_reasoning_expert_confirmed_terminates_confirmed(monke
     # run_tool_model directly to avoid needing a 4th fake response slot.
     monkeypatch.setattr(bo, "_call_model", _fake_call_model_sequence(responses))
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -230,7 +230,7 @@ def test_expert_receives_hunters_own_multi_round_history_not_just_final_summary(
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -262,7 +262,7 @@ def test_never_concluding_pipeline_hits_max_rounds_unresolved(monkeypatch):
     )
     monkeypatch.setattr(bo, "_call_model", lambda *a, **kw: {"content": always_wants_more})
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -325,7 +325,7 @@ def test_wall_clock_backstop_fires_independently(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", slow_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -423,7 +423,7 @@ def test_two_section_ablation_arm_confirms_without_a_separate_expert(monkeypatch
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -480,7 +480,7 @@ def test_two_section_ablation_arm_requests_more_then_confirms(monkeypatch):
     ]
     monkeypatch.setattr(bo, "_call_model", _fake_call_model_sequence(responses))
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(
             query=req.spec, provenance="matched-exact", raw_summary="EventCode=4769 detail"
         )
@@ -509,7 +509,7 @@ def test_two_section_never_concluding_hits_max_rounds_unresolved(monkeypatch):
     )
     monkeypatch.setattr(bo, "_call_model", lambda *a, **kw: {"content": always_wants_more})
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -545,7 +545,7 @@ def test_ground_hunter_evidence_downgrades_ungrounded_citation():
             query="q", provenance="live-broad-fallback", raw_summary="531 events: 4624x147 4672x139"
         )
     ]
-    out = bo._ground_hunter_evidence(hunter_out, tool_results, ground_truth={"T1558.003"})
+    out = bo._ground_hunter_evidence(hunter_out, tool_results)
     assert out.wants_more()
     assert "T1558.099" in out.request_more
 
@@ -565,7 +565,7 @@ def test_ground_hunter_evidence_passes_grounded_citation_through():
             raw_summary="EventCode=4768 AS-REP event for svc-web",
         )
     ]
-    out = bo._ground_hunter_evidence(hunter_out, tool_results, ground_truth={"T1558.004"})
+    out = bo._ground_hunter_evidence(hunter_out, tool_results)
     assert out is hunter_out
 
 
@@ -580,15 +580,13 @@ def test_ground_hunter_evidence_skips_when_nothing_gathered_yet():
         similar_to=["T1558.003"],
         section="reasoning",
     )
-    out = bo._ground_hunter_evidence(hunter_out, [], ground_truth={"T1558.004"})
+    out = bo._ground_hunter_evidence(hunter_out, [])
     assert out is hunter_out
 
 
 def test_ground_hunter_evidence_passes_through_when_wants_more_already():
     hunter_out = bo.SectionOutput(request_more="need more data", section="reasoning")
-    out = bo._ground_hunter_evidence(
-        hunter_out, [bo.ToolResult(query="q", raw_summary="x")], ground_truth=set()
-    )
+    out = bo._ground_hunter_evidence(hunter_out, [bo.ToolResult(query="q", raw_summary="x")])
     assert out is hunter_out
 
 
@@ -634,7 +632,7 @@ def test_hunter_stall_hands_off_to_expert_instead_of_running_out_the_clock(monke
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -690,7 +688,7 @@ def test_stall_handoff_under_default_budget_tells_expert_no_more_evidence_possib
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -761,7 +759,7 @@ def test_expert_gets_one_retry_before_unresolved_when_it_ignores_final_round_not
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -824,7 +822,7 @@ def test_capture_expert_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         call_log.append(tool_model)
         return bo.ToolResult(
             query=req.spec,
@@ -881,7 +879,7 @@ def test_expert_handoff_round_trips_through_json(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(query=req.spec, provenance="matched-exact", raw_summary="unused")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -943,7 +941,7 @@ def test_capture_hunter_handoff_resume_matches_live_run_and_skips_rerun(monkeypa
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         call_log.append(tool_model)
         return bo.ToolResult(
             query=req.spec, provenance="matched-exact", raw_summary="EventCode=4769 detail"
@@ -986,7 +984,7 @@ def test_hunter_handoff_round_trips_through_json(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(query=req.spec, provenance="matched-exact", raw_summary="unused")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -1053,7 +1051,7 @@ def test_council_dispatch_unanimous_confirmed(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -1124,7 +1122,7 @@ def test_council_split_with_arbiter_breaks_tie(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(
             query=req.spec, provenance="matched-exact", raw_summary="EventCode=4624"
         )
@@ -1160,7 +1158,7 @@ def test_council_unresolved_when_no_handoff_reached(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
 
     monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
@@ -1206,7 +1204,7 @@ def test_three_section_and_two_section_unaffected_by_council_dispatch(monkeypatc
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(
             query=req.spec,
             provenance="matched-exact",
@@ -1250,8 +1248,16 @@ def test_multichain_independent_convergence_is_auto_confirm(monkeypatch):
     import json
 
     def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
-        # Every reasoning/expert model, in every chain, concludes CONFIRMED
-        # T1558.004 from its own gathered evidence.
+        # Round 0 has no gathered telemetry yet — a confirm there would
+        # (correctly) fail the citation gate, so each chain's hunter first
+        # requests evidence, then every reasoning/expert model concludes
+        # CONFIRMED T1558.004 grounded in its own gathered evidence. (The
+        # expert's context embeds the hunter's round-0 turn, so key on
+        # whether real gathered evidence is present, not on the round-0
+        # marker alone.)
+        content = messages[-1]["content"]
+        if "(no telemetry gathered yet)" in content and "EventCode=4768" not in content:
+            return {"content": json.dumps({"request_more": "need AS-REP telemetry"})}
         return {
             "content": json.dumps(
                 {
@@ -1268,7 +1274,7 @@ def test_multichain_independent_convergence_is_auto_confirm(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(
             query="windows:security EventCode 4768 query",
             provenance="matched-exact",
@@ -1324,7 +1330,7 @@ def test_multichain_divergent_chains_escalate_to_human(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(
             query="q", provenance="matched-exact", raw_summary="some real evidence"
         )
@@ -1373,7 +1379,7 @@ def test_multichain_does_not_alter_existing_arms(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
 
-    def fake_run_tool_model(req, *, tool_model, ground_truth, episode, dry_run=False):
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
         return bo.ToolResult(
             query="q",
             provenance="matched-exact",

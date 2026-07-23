@@ -40,8 +40,18 @@ def compute_agreement(members: list[SectionOutput], *, quorum: float = 0.5) -> A
     """
     concluders = [m for m in members if m.is_conclusion()]
     if not concluders:
+        # Budget/convergence failure, NOT a benign finding (2026-07-23 design
+        # review): this previously returned RULED_OUT — telling the SOC "all
+        # clear" because no council member managed to conclude, the exact
+        # failure multichain.consolidate's no-concluder branch escalates.
+        # Mirror it: an incomplete investigation escalates, never dismisses.
+        # needs_arbiter=True so a configured arbiter still gets its shot at a
+        # real conclusion before the escalation stands.
         return AgreementResult(
-            verdict="RULED_OUT", agreement=0.0, rationale="no member reached a conclusion"
+            verdict="ANOMALOUS_UNCLASSIFIED",
+            agreement=0.0,
+            needs_arbiter=True,
+            rationale="no member reached a conclusion — investigation incomplete, escalate",
         )
 
     n = len(concluders)
