@@ -34,7 +34,10 @@ from .analyst_verdict import SectionOutput
 
 # Operator decisions — what the analyst tells the SOC to DO, distinct from the
 # per-chain analyst verdicts (CONFIRMED / ANOMALOUS_UNCLASSIFIED / RULED_OUT).
-DECISIONS = ("AUTO_CONFIRM", "ESCALATE", "DISMISS")
+# Known-bad detection and unknown-surfacing are SEPARATE channels a single run
+# can produce at once (a real analyst can confirm one thing AND flag another) —
+# CONFIRM_AND_ESCALATE is the both-at-once outcome, not a forced either/or.
+DECISIONS = ("AUTO_CONFIRM", "CONFIRM_AND_ESCALATE", "ESCALATE", "DISMISS")
 
 
 @dataclass
@@ -69,24 +72,47 @@ class ChainResult:
 @dataclass
 class ConsolidationResult:
     decision: str  # one of DECISIONS
-    verdict: str  # CONFIRMED | ANOMALOUS_UNCLASSIFIED | RULED_OUT
-    technique_ids: list[str] = field(default_factory=list)
+    verdict: str  # CONFIRMED | ANOMALOUS_UNCLASSIFIED | RULED_OUT (top-line, for scoring)
+    # ── Two SEPARATE channels (known-bad detection vs. unknown-surfacing) ──
+    # a single run can populate BOTH: confirm one thing AND flag another.
+    confirmed_techniques: list[str] = field(default_factory=list)  # known-bad, auto-confirm channel
+    review_leads: list[str] = field(default_factory=list)  # unknown/near-miss, escalate channel
+    # ── Audit detail ──
+    technique_ids: list[str] = field(
+        default_factory=list
+    )  # == confirmed_techniques (compat/scoring)
     agreement: float = 0.0  # top technique's independent-chain-vote fraction
     dissent: dict = field(default_factory=dict)  # technique -> chain-vote count
-    similar_to: list[str] = field(default_factory=list)
+    similar_to: list[str] = field(default_factory=list)  # == review_leads (compat)
     evidence_diversity: int = 0  # distinct telemetry sourcetypes covered across chains
     escalation_reason: str = ""
     rationale: str = ""
 
 
+def _triage_decision(confirmed: list[str], review: list[str], *, any_conclusion: bool) -> str:
+    """The "cooling" step: given the separated known-bad and unknown channels,
+    route to the operator decision. Known-bad and unknown are not mutually
+    exclusive — a run can do both, so CONFIRM_AND_ESCALATE is a real outcome,
+    not a forced pick."""
+    if confirmed and review:
+        return "CONFIRM_AND_ESCALATE"
+    if confirmed:
+        return "AUTO_CONFIRM"
+    if review or not any_conclusion:
+        return "ESCALATE"
+    return "DISMISS"
+
+
 def consolidate(chains: list[ChainResult], *, quorum: float = 0.5) -> ConsolidationResult:
-    """Cool N independent chains into one operator decision.
+    """Cool N independent chains into one operator decision, keeping the
+    KNOWN-BAD and UNKNOWN channels separate so a run can surface both.
 
     quorum is the fraction of *concluding* chains that must independently agree
-    on a technique for AUTO_CONFIRM. A shared-but-unagreed signal (chains found
-    something suspicious, but no technique reached quorum across independent
-    investigations) is the strong ESCALATE case — exactly the "unknown read"
-    the concept is built to surface, not bury.
+    on a technique for it to land in the confirmed (known-bad) channel. Every
+    other surfaced signal — a technique that got votes but missed quorum, or a
+    SIMILAR near-miss neighbour from an anomalous chain — is a review lead in
+    the unknown channel (the "someone needs to look at this" read, I8), never
+    dropped just because a *different* technique happened to auto-confirm.
     """
     concluders = [c for c in chains if c.is_conclusion()]
     diversity = len({s for c in chains for s in c.evidence_sources})
@@ -108,45 +134,26 @@ def consolidate(chains: list[ChainResult], *, quorum: float = 0.5) -> Consolidat
     for c in concluders:
         for t in set(c.technique_ids):
             votes[t] += 1
-    similar_union = sorted({s for c in concluders for s in c.similar_to})
+    similar_union = {s for c in concluders for s in c.similar_to}
 
-    if votes:
-        top, top_votes = votes.most_common(1)[0]
-        frac = top_votes / n
-        agreed = sorted(t for t, v in votes.items() if v / n >= quorum)
-        if agreed:
-            return ConsolidationResult(
-                decision="AUTO_CONFIRM",
-                verdict="CONFIRMED",
-                technique_ids=agreed,
-                agreement=round(frac, 3),
-                dissent=dict(votes),
-                similar_to=similar_union,
-                evidence_diversity=diversity,
-                rationale=(
-                    f"{len(agreed)} technique(s) independently confirmed by "
-                    f">= quorum {quorum} of {n} chains"
-                ),
-            )
-        # Signal exists across independent chains, but no technique reached
-        # quorum — independent investigations diverged. The strong ESCALATE.
-        return ConsolidationResult(
-            decision="ESCALATE",
-            verdict="ANOMALOUS_UNCLASSIFIED",
-            agreement=round(frac, 3),
-            dissent=dict(votes),
-            similar_to=similar_union,
-            evidence_diversity=diversity,
-            escalation_reason=(
-                "independent chains surfaced signal but diverged — no technique "
-                f"reached quorum {quorum} (dissent: {dict(votes)})"
-            ),
-            rationale="divergent independent investigations — human review",
-        )
+    # KNOWN-BAD channel: techniques >= quorum of independent chains confirmed.
+    confirmed = sorted(t for t, v in votes.items() if v / n >= quorum)
+    # UNKNOWN channel: techniques that got real votes but missed quorum
+    # (divergent independent investigations) + SIMILAR near-miss neighbours,
+    # minus anything already auto-confirmed.
+    below_quorum = {t for t, v in votes.items() if v / n < quorum}
+    review = sorted((below_quorum | similar_union) - set(confirmed))
 
-    # No technique votes at all — chains concluded without naming a technique.
+    # An ANOMALOUS chain that named neither a technique nor a SIMILAR neighbour
+    # is still unease — a signal a human should see, even with nothing concrete
+    # to hand them. It must escalate, never dismiss.
+    has_unnamed_anomaly = any(
+        c.verdict == "ANOMALOUS_UNCLASSIFIED" and not c.technique_ids and not c.similar_to
+        for c in concluders
+    )
+    any_signal = bool(votes) or bool(similar_union) or has_unnamed_anomaly
     benign = sum(c.verdict == "RULED_OUT" for c in concluders)
-    if benign == n:
+    if not any_signal and benign == n:
         return ConsolidationResult(
             decision="DISMISS",
             verdict="RULED_OUT",
@@ -154,29 +161,67 @@ def consolidate(chains: list[ChainResult], *, quorum: float = 0.5) -> Consolidat
             evidence_diversity=diversity,
             rationale="all independent chains ruled it out",
         )
-    # Mixed benign / anomalous-without-technique — a shared unease with no
-    # concrete claim. Escalate rather than silently dismiss.
+
+    # Unnamed anomaly forces an escalation channel even with no concrete lead.
+    decision = _triage_decision(
+        confirmed, review, any_conclusion=not (has_unnamed_anomaly and not review and not confirmed)
+    )
+    if has_unnamed_anomaly and decision == "AUTO_CONFIRM":
+        decision = "CONFIRM_AND_ESCALATE"
+    top_frac = (votes.most_common(1)[0][1] / n) if votes else 0.0
+
+    # Top-line verdict for downstream scoring: CONFIRMED if a known-bad landed
+    # (even alongside review leads — the confirm is real), else ANOMALOUS.
+    verdict = "CONFIRMED" if confirmed else "ANOMALOUS_UNCLASSIFIED"
+
+    escalation_reason = ""
+    if review:
+        escalation_reason = (
+            f"{len(review)} lead(s) need human review: {review} (dissent tally: {dict(votes)})"
+        )
+    elif has_unnamed_anomaly:
+        escalation_reason = (
+            "a chain flagged an anomaly it could not map to a known technique — "
+            "unnamed unease, human review"
+        )
+    rationale_parts = []
+    if confirmed:
+        rationale_parts.append(
+            f"{len(confirmed)} technique(s) independently confirmed by >= quorum {quorum} of {n} chains"
+        )
+    if review:
+        rationale_parts.append(f"{len(review)} unresolved lead(s) escalated for review")
+    rationale = "; ".join(rationale_parts) or "signal surfaced across chains"
+
     return ConsolidationResult(
-        decision="ESCALATE",
-        verdict="ANOMALOUS_UNCLASSIFIED",
-        similar_to=similar_union,
+        decision=decision,
+        verdict=verdict,
+        confirmed_techniques=confirmed,
+        review_leads=review,
+        technique_ids=confirmed,
+        agreement=round(top_frac, 3),
+        dissent=dict(votes),
+        similar_to=sorted(similar_union),
         evidence_diversity=diversity,
-        escalation_reason="chains split benign vs. anomalous with no concrete technique",
-        rationale="unresolved unease across chains — human review",
+        escalation_reason=escalation_reason,
+        rationale=rationale,
     )
 
 
 def to_section_output(res: ConsolidationResult) -> SectionOutput:
     """Fold the consolidation into the pipeline's standard SectionOutput so
     scoring / cite-or-drop / the OrchestrationResult trace treat it like any
-    other section."""
+    other section.
+
+    Both channels are carried forward: `technique_ids` = confirmed known-bad,
+    `similar_to` = review leads. `match_grade` is SIMILAR whenever there are
+    review leads (even alongside a confirm) so a CONFIRM_AND_ESCALATE run still
+    surfaces its unknown channel downstream, never silently dropping it."""
     return SectionOutput(
         verdict=res.verdict,
-        technique_ids=list(res.technique_ids),
+        technique_ids=list(res.confirmed_techniques),
         reasoning=res.rationale,
-        match_grade="SIMILAR"
-        if (res.verdict == "ANOMALOUS_UNCLASSIFIED" and res.similar_to)
-        else "NONE",
-        similar_to=list(res.similar_to),
+        match_grade="SIMILAR" if res.review_leads else "NONE",
+        similar_to=list(res.review_leads),
         section="consolidation",
     )

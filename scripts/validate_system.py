@@ -3694,11 +3694,65 @@ def check_multichain_consolidation_gate() -> tuple[str, str, list[dict]]:
     if not incomplete_ok:
         bad.append("no-conclusion consolidation did not ESCALATE (was handed to SOC as clear)")
 
+    # Live: known-bad and unknown are SEPARATE channels — a confirm alongside a
+    # near-miss lead is CONFIRM_AND_ESCALATE carrying BOTH, never dropping the
+    # unknown just because a different technique auto-confirmed (dims 1-3 fix).
+    both = consolidate(
+        [
+            ChainResult(model="a", verdict="CONFIRMED", technique_ids=["T1190"]),
+            ChainResult(model="b", verdict="CONFIRMED", technique_ids=["T1190"]),
+            ChainResult(model="c", verdict="ANOMALOUS_UNCLASSIFIED", similar_to=["T1505.003"]),
+        ],
+        quorum=0.5,
+    )
+    both_ok = (
+        both.decision == "CONFIRM_AND_ESCALATE"
+        and both.confirmed_techniques == ["T1190"]
+        and both.review_leads == ["T1505.003"]
+    )
+    subs.append(
+        {
+            "name": "confirm+escalate keeps both channels separate (live)",
+            "status": "PASS" if both_ok else "FAIL",
+            "detail": (
+                f"decision={both.decision} confirmed={both.confirmed_techniques} "
+                f"review={both.review_leads}"
+            ),
+        }
+    )
+    if not both_ok:
+        bad.append("confirm-alongside-unknown did not surface both channels (dropped the unknown)")
+
+    # Live: escalation is a SCORED win, not a miss — a correct escalation
+    # (review lead hits ground truth) yields operational_recall 1.0 even though
+    # nothing was autonomously confirmed (dimension-1 scoring fix).
+    from portal.modules.security.core.agentic_blue_eval import score_analyst_outcome
+
+    esc_score = score_analyst_outcome(
+        confirmed=set(), review_leads={"T1558.003"}, ground_truth={"T1558.003"}
+    )
+    esc_scored_ok = (
+        esc_score["confirmed"]["overall"]["recall"] == 0.0
+        and esc_score["operational"]["operational_recall"] == 1.0
+    )
+    subs.append(
+        {
+            "name": "correct escalation scores operational win, not a miss (live)",
+            "status": "PASS" if esc_scored_ok else "FAIL",
+            "detail": (
+                f"confirmed_recall={esc_score['confirmed']['overall']['recall']} "
+                f"operational_recall={esc_score['operational']['operational_recall']}"
+            ),
+        }
+    )
+    if not esc_scored_ok:
+        bad.append("a correct escalation was not credited as an operational win (I8 scoring)")
+
     if bad:
         return ("FAIL", "; ".join(bad), subs)
     return (
         "PASS",
-        "multichain consolidation routes AUTO_CONFIRM/ESCALATE/DISMISS; escalate first-class",
+        "multichain: separate known/unknown channels, escalate first-class + scored",
         [],
     )
 

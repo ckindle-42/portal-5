@@ -104,14 +104,50 @@ class TestConsolidate:
         assert res.evidence_diversity == 3  # web:access, ids:alert, windows:security
 
     def test_quorum_threshold_respected(self):
-        """A 2/3 vote clears quorum 0.5 but not 0.7."""
+        """A 2/3 vote on T1190 clears quorum 0.5 (confirmed) but not 0.7. The
+        lone dissenting T1059 finding is a review lead, never silently dropped:
+        at 0.5 -> CONFIRM_AND_ESCALATE (confirm T1190, review T1059); at 0.7 ->
+        neither clears, both become review leads -> ESCALATE."""
         chains = [
             _c("m1", "CONFIRMED", ["T1190"]),
             _c("m2", "CONFIRMED", ["T1190"]),
             _c("m3", "CONFIRMED", ["T1059"]),
         ]
-        assert consolidate(chains, quorum=0.5).decision == "AUTO_CONFIRM"
+        r50 = consolidate(chains, quorum=0.5)
+        assert r50.decision == "CONFIRM_AND_ESCALATE"
+        assert r50.confirmed_techniques == ["T1190"]
+        assert r50.review_leads == ["T1059"]
         assert consolidate(chains, quorum=0.7).decision == "ESCALATE"
+
+    def test_unanimous_known_bad_is_pure_auto_confirm(self):
+        """No dissent, no near-miss leads -> a clean AUTO_CONFIRM with an empty
+        review channel."""
+        chains = [
+            _c("m1", "CONFIRMED", ["T1190"]),
+            _c("m2", "CONFIRMED", ["T1190"]),
+        ]
+        res = consolidate(chains, quorum=0.5)
+        assert res.decision == "AUTO_CONFIRM"
+        assert res.confirmed_techniques == ["T1190"]
+        assert res.review_leads == []
+
+    def test_confirm_and_escalate_carries_both_channels(self):
+        """The headline separation: a run that confirms a known bad AND surfaces
+        an unknown near-miss reports BOTH — the unknown is never dropped just
+        because a different technique auto-confirmed (dimensions 1-3 fix)."""
+        chains = [
+            _c("m1", "CONFIRMED", ["T1190"], sources=["web:access"]),
+            _c("m2", "CONFIRMED", ["T1190"], sources=["ids:alert"]),
+            _c("m3", "ANOMALOUS_UNCLASSIFIED", similar=["T1505.003"], sources=["linux:syslog"]),
+        ]
+        res = consolidate(chains, quorum=0.5)
+        assert res.decision == "CONFIRM_AND_ESCALATE"
+        assert res.confirmed_techniques == ["T1190"]
+        assert res.review_leads == ["T1505.003"]
+        so = to_section_output(res)
+        assert so.technique_ids == ["T1190"]  # known-bad channel
+        assert so.similar_to == ["T1505.003"]  # unknown channel, preserved
+        assert so.match_grade == "SIMILAR"
 
     def test_confirmed_carries_technique_to_section_output(self):
         res = consolidate([_c("m1", "CONFIRMED", ["T1190"]), _c("m2", "CONFIRMED", ["T1190"])])

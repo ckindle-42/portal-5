@@ -966,18 +966,31 @@ def main() -> None:
             max_rounds=args.max_orchestration_rounds,
             dry_run=args.dry_run,
         )
-        scoring = score_findings_tiered(set(result.technique_ids), set(episode.techniques))
+        from .agentic_blue_eval import score_analyst_outcome
+
         consolidation = next((t for t in result.trace if t.get("section") == "consolidation"), {})
+        # result.technique_ids = confirmed known-bad; result.similar_to = review
+        # leads. Score both channels so a correct escalation is a win, not a
+        # miss (dimension-1 fix): operational_recall = confirmed OR correctly
+        # escalated to a human.
+        scoring = score_analyst_outcome(
+            set(result.technique_ids), set(result.similar_to), set(episode.techniques)
+        )
 
         print(f"\n  Decision      : {consolidation.get('decision')}")
         print(f"  Verdict       : {result.verdict}")
-        print(f"  Technique IDs : {result.technique_ids}")
-        print(f"  Match grade   : {result.match_grade}  similar_to={result.similar_to}")
+        print(f"  Confirmed     : {result.technique_ids}  (known-bad channel)")
+        print(f"  Review leads  : {result.similar_to}  (escalation channel)")
         print(f"  Evidence div. : {consolidation.get('evidence_diversity')} distinct source(s)")
         if consolidation.get("escalation_reason"):
             print(f"  Escalation    : {consolidation.get('escalation_reason')}")
         print(f"  Rounds/elapsed: {result.rounds} / {result.elapsed_s}s")
-        print(f"  Overall recall: {scoring['overall']['recall']}")
+        print(f"  Confirmed recall  : {scoring['confirmed']['overall']['recall']}")
+        print(f"  Escalation recall : {scoring['escalation']['escalation_recall']}")
+        print(
+            f"  OPERATIONAL recall: {scoring['operational']['operational_recall']}  "
+            "(caught OR correctly escalated)"
+        )
 
         ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -998,6 +1011,8 @@ def main() -> None:
                     "quorum": args.quorum,
                     "decision": consolidation.get("decision"),
                     "verdict": result.verdict,
+                    "confirmed_techniques": result.technique_ids,
+                    "review_leads": result.similar_to,
                     "technique_ids": result.technique_ids,
                     "evidence": result.evidence,
                     "reasoning": result.reasoning,

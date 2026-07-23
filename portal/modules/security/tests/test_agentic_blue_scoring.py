@@ -10,6 +10,7 @@ import pytest
 from portal.modules.security.core.agentic_blue_eval import (
     _parent_technique,
     _tactic_for,
+    score_analyst_outcome,
     score_findings_tiered,
 )
 
@@ -198,3 +199,53 @@ class TestScoreFindingsTiered:
         assert result["parent"]["recall"] <= 1.0
         assert result["tactic"]["recall"] <= 1.0
         assert result["overall"]["recall"] <= 1.0
+
+
+class TestScoreAnalystOutcome:
+    """Escalation is a first-class, scored outcome — a correct 'someone needs to
+    look at this' is a win, not a miss (dimension-1 fix, 2026-07-22)."""
+
+    def test_correct_escalation_scores_operational_win_not_a_miss(self):
+        """Confirmed nothing, but escalated the RIGHT technique for review:
+        plain confirmed-recall is 0, but operational_recall is 1.0 — the real
+        technique reached a human."""
+        r = score_analyst_outcome(
+            confirmed=set(), review_leads={"T1558.003"}, ground_truth={"T1558.003"}
+        )
+        assert r["confirmed"]["overall"]["recall"] == 0.0
+        assert r["escalation"]["escalation_recall"] == 1.0
+        assert r["operational"]["operational_recall"] == 1.0
+        assert r["operational"]["escalated_gt"] == ["T1558.003"]
+
+    def test_confirm_and_escalate_both_credited(self):
+        r = score_analyst_outcome(
+            confirmed={"T1190"},
+            review_leads={"T1505.003"},
+            ground_truth={"T1190", "T1505.003"},
+        )
+        assert r["operational"]["operational_recall"] == 1.0
+        assert r["operational"]["confirmed_gt"] == ["T1190"]
+        assert r["operational"]["escalated_gt"] == ["T1505.003"]
+
+    def test_escalation_by_parent_family_counts(self):
+        """A review lead pointing at the right technique FAMILY is an actionable
+        escalation (parent-tier), still an operational win."""
+        r = score_analyst_outcome(
+            confirmed=set(), review_leads={"T1558.004"}, ground_truth={"T1558.003"}
+        )
+        assert r["operational"]["operational_recall"] == 1.0
+
+    def test_noise_escalation_is_not_credited_and_is_flagged(self):
+        """An escalation that maps to no ground truth is triage noise the human
+        must sift — never credited, and surfaced honestly."""
+        r = score_analyst_outcome(
+            confirmed=set(), review_leads={"T9999"}, ground_truth={"T1558.003"}
+        )
+        assert r["operational"]["operational_recall"] == 0.0
+        assert r["escalation"]["noise_leads"] == ["T9999"]
+        assert r["operational"]["missed"] == ["T1558.003"]
+
+    def test_nothing_found_or_escalated_is_zero(self):
+        r = score_analyst_outcome(confirmed=set(), review_leads=set(), ground_truth={"T1558.003"})
+        assert r["operational"]["operational_recall"] == 0.0
+        assert r["operational"]["missed"] == ["T1558.003"]
