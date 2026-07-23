@@ -939,7 +939,7 @@ Defaults for `--tool-model`/`--reasoning-model`/`--expert-model` come from `conf
 
 `TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1` Part II-A. Originally motivated by the GATE-D full-corpus ablation's `decide_route()` outcome: 89 scenarios x 3 arms x 3 reps concluded `COUNCIL` — "models see the evidence but conclude wrongly/inconsistently — cross-check them," not a retrieval or budget problem.
 
-**That route decision did not survive scrutiny (2026-07-22, during Part II-A's own proof-of-concept — see findings #12-15 above).** Two compounding measurement-instrument bugs made `HUNTER_MISS` structurally impossible to detect in the 2/3-section arms; once both were fixed and the corpus rescored (free, no live calls), `decide_route()` returns **`RETRIEVAL_FIRST`**, not `COUNCIL` — the dominant failure is evidence never being gathered (`HUNTER_MISS` 56.9% in 3-section, corrected), not evidence being misjudged (`HANDOFF_LOSS` collapsed from a fabricated 91.4% down to 2.9%). A concrete, live root cause for that retrieval gap was also found and fixed (finding #14: the trigger text told the model nothing about which telemetry sources exist, so it defaulted to Windows-Event vocabulary on the 68.5% of episodes that have none). The Council of Agreement build below is kept and documented as-implemented — it is real, tested, working infrastructure — but per I5's evidence-attached-to-operator discipline and the task's own C4 fallback language ("if the council does not beat 3-section, that is the honest result: report it, ship council as an opt-in tool, do not promote"), **it is not the currently-indicated next build**. Part II's live next step is validating the retrieval-context fix (finding #14) and the novelty-grounding fix (finding #15), not finishing the Council POC.
+**That route decision did not survive scrutiny (2026-07-22, during Part II-A's own proof-of-concept — see findings #12-15 above).** Two compounding measurement-instrument bugs first changed `COUNCIL` to a historical/exploratory `RETRIEVAL_FIRST`. A subsequent instrument audit found that the v1 multi-section trace did not persist returned tool payload at all: it tried to infer retrieval from model-authored evidence arrays. The v2 instrument now separates tool-output availability, Hunter citation, and final grounding, and marks those legacy records `ATTRIBUTION_UNKNOWN`. Consequently **neither historical route is currently authorized**. A new route requires a fresh v2 corpus, frozen scorer, blinded live audit, independent confirmation corpus, and oracle-evidence intervention. Council remains opt-in and is not promoted.
 
 One tool-capable Retriever gathers evidence once (`capture_expert_handoff`, reused across members — no re-paying retrieval cost per member); N independent reasoning members (`council_models`, each a full `run_expert_model` call against the same captured evidence) vote independently; `council_agreement.compute_agreement()` decides deterministically: a technique agreed by >= `--quorum` (default 0.5) fraction of members -> `CONFIRMED` (still re-gated through `_cite_or_drop`, I2); a shared-but-unagreed signal -> `ANOMALOUS_UNCLASSIFIED` with the union of members' `similar_to` (disagreement-as-novelty, I8); unanimous benign -> `RULED_OUT`. A no-quorum split additionally invokes a fed arbiter model (`arbiter_model`) whose verdict, if conclusive, supersedes the split. Implementation: `blue_orchestrate._run_council()`, `council_agreement.py`. Confirm-only (`config/portal.yaml`'s `blueteam-council` variant has `expose_to_owui: false`, I5) — never auto-routed to `auto-security` prod traffic regardless of ablation outcome.
 
@@ -1036,13 +1036,19 @@ Live-verified across `kerberoast_to_da` and `meta3_tomcat_manager` (real recaptu
 
 ### GATE-D full-corpus ablation + failure attribution (TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1)
 
-`portal/modules/security/eval/ablation_attribution.py` turns one (arm, scenario) result into a
-single diagnosis — `HIT` / `NOVELTY` (successes) or `HUNTER_MISS` / `HANDOFF_LOSS` / `HALLUCINATION`
-/ `NON_CONVERGENCE` (the miss taxonomy) — via `classify()`, aggregated per arm via `summarize()`.
-Proven on synthetic fixtures (`test_ablation_attribution.py`) before it judges any live run.
-`decide_route(decision)` converts one `ABLATION_DECISION.json` into a deterministic route —
-`COUNCIL` (default/expected), `RETRIEVAL_FIRST` or `BUDGET_FIRST` (guardrails, loop back to a
-re-run), or `BLOCKED` (degenerate/inconclusive data, never build on it).
+`portal/modules/security/eval/ablation_attribution.py` records completion, retrieved-support
+observation, Hunter citation, final outcome, and secondary failures separately. Its compact primary
+labels add `ATTENTION_LOSS` and `ATTRIBUTION_UNKNOWN` to the historical labels. Multi-section tool
+trace entries now persist returned `content`; model-authored evidence is citation evidence only,
+never proof of retrieval. Fixtures verify implementation behavior but do not validate the live
+measurement construct.
+
+`decide_route(decision)` now fails closed. `INDETERMINATE` is emitted for an unfrozen/unvalidated
+instrument, legacy unobservable traces, unstable dominance, or missing causal/progress evidence.
+There is no default Council route. Actionable routes are `RETRIEVAL_FIRST`, `HUNTER_FIRST`,
+`BUDGET_FIRST`, and `COUNCIL`, each requiring stable dominance plus the validation manifest
+documented in `coding_task/RBP_03_EVALUATION_AND_INSTRUMENTATION.md`. Routing counts one modal
+failure per scenario rather than treating repeated arm trials as independent observations.
 
 `portal/modules/security/eval/blue_orchestration_ablation.py` runs all three arms (`1section` —
 `blue._run_blue_chain_test(mode="discovery")` alone, the null hypothesis; `2section`; `3section` —
@@ -1052,7 +1058,9 @@ cell, and emits `ABLATION_DECISION.json` + a human `ABLATION_REPORT_<ts>.md`. Se
 checkpoint backup before overwrite:
 
 ```bash
-python -m portal.modules.security.eval.blue_orchestration_ablation --reps 3 --out ABLATION_DECISION.json
+python3 -m portal.modules.security.eval.blue_orchestration_ablation \
+  --reps 3 --out ABLATION_DECISION.json \
+  --validation-manifest /path/to/completed-attribution-validation.json
 ```
 
 Routes model calls through the real pipeline's `bench-*` workspace layer (the production-adjacent
@@ -1077,7 +1085,7 @@ rather than routed around:
    `devstral-small-2`) missing the explicit `:latest` Ollama defaults to. Zero models were actually
    missing or needed re-pulling.
 
-**Two measurement-instrument root causes, found live 2026-07-19/20 after a full 89-scenario ×
+**Historical v1 incident sequence (superseded by attribution schema v2): two measurement-instrument root causes, found live 2026-07-19/20 after a full 89-scenario ×
 3-arm × 3-rep corpus run showed `HANDOFF_LOSS: 0.0` and `NOVELTY: 0` across every arm — both
 confirmed-then-fixed rather than papered over, because a rate that clean is itself evidence of a
 broken detector, not a real finding:**
@@ -1121,16 +1129,19 @@ the scorer was also wrong:
    signature did we find," immune to how much unrelated noise sits alongside real evidence in what
    was actually observed.
 
-All four fixes are proven on synthetic fixtures (`test_ablation_attribution.py`,
-`test_blue_orchestrate_reasoning.py`, `test_unknown_defense.py`) before being trusted against a
-live run, per this task's I9 invariant. The full 798-cell run that surfaced the first two had its
+All four fixes were implementation-tested on synthetic fixtures (`test_ablation_attribution.py`,
+`test_blue_orchestrate_reasoning.py`, `test_unknown_defense.py`) before a live run. That did not
+establish construct validity; later live evidence invalidated the attribution proxy again. The
+current I9 requires a blinded live criterion audit and independent confirmation before route
+action. The full 798-cell run that surfaced the first two had its
 raw verdict/technique_ids/trace discarded after classification (only the already-computed outcome
 was persisted) — an unrelated, now also-fixed gap: `blue_orchestration_ablation.py` persists every
 raw result to a `.raw.jsonl` sidecar and supports `--rescore <path>` to reclassify the whole corpus
 from disk in seconds, with zero live model calls. Note the current limit of that mechanism: it
 replays the `classify()` taxonomy over already-computed `match_grade`/`similar_to` values, so a
 *future* fix to `compute_similarity` itself (fixes #3/#4 here) still requires a fresh live run to
-get new grounded values — only `classify()`-level scoring changes are free to replay.
+get new grounded values. Even `classify()`-only rescoring is statistically exploratory when the
+same corpus informed the scorer change.
 
 **Why `3section` was scoring below `2section` on recall (found live 2026-07-20, before trusting
 the validation run further):** two more real, distinct causes, both in `_run_three_section`'s
@@ -1269,12 +1280,12 @@ its place. Root cause, in order of discovery:
     `section == "tool"` entry's `query` (the retrieval ASK, not what was found). Rescored the full
     corpus again for free: 3-section's `HUNTER_MISS` went 24.1% → **56.9%** (now dominant),
     `HALLUCINATION` 19.5% → **31.6%**, `HANDOFF_LOSS` 47.7% → **2.9%** (nearly gone).
-    **`decide_route()` flipped: `COUNCIL` → `RETRIEVAL_FIRST`.** Part I's original route decision
-    does not survive both fixes — the evidence the whole Council build was justified on (`models see
-    the evidence but conclude wrongly`) turns out to have been an artifact of two compounding
-    scoring bugs; the corrected, honest diagnosis is that evidence is very often never gathered at
-    all (`real_recall`/`hits`/`novelty`/`best_multi_arm`/`split_proven` are unaffected throughout —
-    the HIT/NOVELTY branches in `classify()` run before either bug's code path).
+    **Historical v1 result: `decide_route()` flipped `COUNCIL` → `RETRIEVAL_FIRST`.** A later
+    instrument audit showed that this still was not a validated causal diagnosis: multi-section
+    traces persisted retrieval query/provenance but not returned tool content, so v1 used
+    model-authored citation text as a retrieval proxy. Schema v2 marks these legacy records
+    `ATTRIBUTION_UNKNOWN`; neither historical route is actionable. The earlier claim that
+    HIT/NOVELTY were unaffected described branch-order stability, not construct validity.
 14. **The retrieval gap itself has a concrete, live root cause — found live the same session,
     tracing WHY `HUNTER_MISS` is so high.** Every tool round's query, sampled across several
     `HUNTER_MISS` records, asked for Windows Security Event IDs (4688/4624/etc.) regardless of the
