@@ -972,16 +972,35 @@ hunts its own way, concludes against the evidence *it* chose to pull. `multichai
 routes across chains that saw **different** evidence to one **operator decision** — distinct from the
 per-chain analyst verdict:
 
+**Known-bad and unknown are SEPARATE channels** a single run can populate at once — the fusion fix
+(dimensions 1-3, 2026-07-22): a real analyst can confirm one thing *and* flag another. `consolidate`
+tracks a **confirmed channel** (`confirmed_techniques`, the known-bad) and a **review channel**
+(`review_leads`, the unknown/near-miss) independently, then the **triage** step (`_triage_decision`,
+the "cooling") routes:
+
 - **AUTO_CONFIRM** ("we've detected a known bad") — ≥ `--quorum` of independent chains converged on
-  the same known technique. No aggregate cite-or-drop re-gate needed: each chain already ran its own
-  `_cite_or_drop` before reporting CONFIRMED, so a quorum-confirmed technique is grounded in ≥ quorum
-  *independent* evidence pools — stronger than the council's single shared-pool re-gate.
-- **ESCALATE** ("a human needs to look at this") — the chains surfaced real signal but diverged, or
-  the investigation never completed within budget. A **first-class outcome**, never a fallback: a
-  divergence between independent investigations is exactly the emerging-threat / unknown-read signal
-  the whole design exists to surface (I8), and an incomplete investigation is escalated rather than
-  handed to the SOC as "all clear."
+  the same known technique, with no unresolved leads. No aggregate cite-or-drop re-gate needed: each
+  chain already ran its own `_cite_or_drop` before reporting CONFIRMED, so a quorum-confirmed
+  technique is grounded in ≥ quorum *independent* evidence pools — stronger than the council's single
+  shared-pool re-gate.
+- **ESCALATE** ("a human needs to look at this") — the chains surfaced signal but no technique reached
+  quorum (divergent independent investigations), an anomaly couldn't be mapped to a known technique
+  (unnamed unease), or the investigation never completed. A **first-class outcome**, never a fallback
+  — the emerging-threat / unknown-read signal the whole design exists to surface (I8); an incomplete
+  investigation is escalated rather than handed to the SOC as "all clear."
+- **CONFIRM_AND_ESCALATE** — a known-bad landed AND unresolved leads remain (e.g. 2/3 chains confirm
+  T1190 while the third independently found T1059). BOTH channels are reported: the unknown is never
+  dropped just because a *different* technique auto-confirmed — the exact fusion bug this fixed.
 - **DISMISS** ("ruled out") — the chains independently found nothing.
+
+**Escalation is a SCORED win, not a miss** (dimension-1 scoring fix). The plain `score_findings_tiered`
+credits only confirmed technique IDs, so a correct escalation (a review lead naming the right
+technique) scored recall 0 — identical to finding nothing, penalising the exact "someone needs to look
+at this" behaviour the analyst is built for. `agentic_blue_eval.score_analyst_outcome(confirmed,
+review_leads, ground_truth)` scores both channels plus an **`operational_recall`**: the fraction of
+ground truth the analyst put in front of a human EITHER by confirming it OR by correctly escalating it
+(parent-family match counts as actionable). Escalations that map to no ground truth are reported as
+`noise_leads`, so escalation precision stays honest.
 
 The consolidation also reports **evidence diversity** (distinct telemetry sourcetypes the chains
 collectively queried) — the union of N independent hunts is broader coverage by construction, the

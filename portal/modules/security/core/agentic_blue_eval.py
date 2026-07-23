@@ -503,6 +503,72 @@ def score_findings_tiered(detected: set[str], ground_truth: set[str]) -> dict[st
     }
 
 
+def score_analyst_outcome(
+    confirmed: set[str], review_leads: set[str], ground_truth: set[str]
+) -> dict:
+    """Score an analyst outcome that has TWO channels: autonomously CONFIRMED
+    known-bad techniques, and review leads escalated for human eyes.
+
+    A correct escalation is a WIN, not a miss (found 2026-07-22, dimension-1
+    fix): the plain `score_findings_tiered` credits only `confirmed` and scores
+    an ANOMALOUS_UNCLASSIFIED / ESCALATE that named the *right* neighbourhood
+    (`similar_to` hits ground truth) at recall 0 — identical to finding nothing,
+    penalising the exact "someone needs to look at this" behaviour the analyst
+    is built to produce (I8). This scores the two channels separately, then an
+    `operational_recall`: the fraction of ground truth the analyst would have
+    put in front of a SOC EITHER by confirming it OR by correctly escalating it
+    (parent-tier match counts — a lead pointing at the right technique family
+    is an actionable escalation).
+
+    Returns:
+      {confirmed: <score_findings_tiered>, escalation: {...}, operational: {...}}
+    """
+    confirmed = {t.upper() for t in confirmed}
+    review_leads = {t.upper() for t in review_leads}
+    gt = {t.upper() for t in ground_truth}
+    gt_parents = {_parent_technique(g) for g in gt}
+
+    confirmed_score = score_findings_tiered(confirmed, gt)
+    confirmed_gt = set(confirmed_score["overall"]["true_positives"])
+
+    # A review lead correctly escalates a ground-truth technique if it matches
+    # exact or by parent family (an actionable pointer for the analyst).
+    escalated_gt: set[str] = set()
+    for lead in review_leads:
+        if lead in gt:
+            escalated_gt.add(lead)
+        elif _parent_technique(lead) in gt_parents:
+            for g in gt:
+                if _parent_technique(lead) == _parent_technique(g):
+                    escalated_gt.add(g)
+
+    # Operational: caught autonomously OR correctly escalated for review.
+    operational_gt = {g for g in gt if g in confirmed_gt} | escalated_gt
+    # Escalations that don't map to any ground truth are noise the human must
+    # triage — reported so escalation precision is honest, not hidden.
+    escalation_noise = sorted(
+        lead
+        for lead in review_leads
+        if lead not in gt and _parent_technique(lead) not in gt_parents
+    )
+
+    return {
+        "confirmed": confirmed_score,
+        "escalation": {
+            "correct_escalations": sorted(escalated_gt),
+            "escalation_recall": round(len(escalated_gt) / len(gt), 3) if gt else 0.0,
+            "noise_leads": escalation_noise,
+        },
+        "operational": {
+            # The headline: did the right technique reach a human at all?
+            "operational_recall": round(len(operational_gt) / len(gt), 3) if gt else 0.0,
+            "confirmed_gt": sorted(confirmed_gt),
+            "escalated_gt": sorted(escalated_gt),
+            "missed": sorted(gt - operational_gt),
+        },
+    }
+
+
 # ── Search tools (always available to blue) ─────────────────────────────────
 
 _SEARCH_TOOLS: list[dict] = [
