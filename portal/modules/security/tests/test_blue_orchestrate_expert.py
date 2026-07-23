@@ -41,7 +41,6 @@ def test_supports_tools_false_expert_id_is_accepted(monkeypatch):
     out = bo.run_expert_model(
         "ctx",
         expert_model="hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
-        ground_truth={"T1558.004"},
         tool_results=tool_results,
     )
     assert out.verdict == "CONFIRMED"
@@ -67,18 +66,25 @@ def test_confirmed_failing_cite_or_drop_downgrades_to_anomalous(monkeypatch):
     out = bo.run_expert_model(
         "ctx",
         expert_model="m",
-        ground_truth={"T1558.004"},
         tool_results=tool_results,
         hunter_similar_to=["T1558.003"],
     )
     assert out.verdict == "ANOMALOUS_UNCLASSIFIED"
+    # The Hunter's own neighbour claim carries — it predates the failed
+    # confirm and isn't part of the demotion.
     assert out.similar_to == ["T1558.003"]
+    # 2026-07-23 laundering fix: the failed CONFIRMED IDs are quarantined —
+    # never left in technique_ids (multichain quorum votes) or recycled into
+    # similar_to (escalation credit).
+    assert out.technique_ids == []
+    assert out.ungrounded_claims == ["T1499"]
 
 
-def test_confirmed_with_ground_truth_technique_survives_cite_or_drop(monkeypatch):
-    """A ground-truth CONFIRMED claim survives cite_or_drop when its OWN
-    cited evidence is actually grounded in real telemetry — not on label
-    match alone (found live 2026-07-22: an unconditional ground-truth
+def test_confirmed_with_grounded_evidence_survives_cite_or_drop(monkeypatch):
+    """A CONFIRMED claim survives cite_or_drop when its OWN cited evidence
+    is actually grounded in real telemetry. The gate is label-blind
+    (2026-07-23) — grounded evidence is the bar, for correct and incorrect
+    labels alike (found live 2026-07-22: an unconditional ground-truth
     exemption let fabricated evidence through, see blue._cite_or_drop's
     docstring)."""
     content = json.dumps(
@@ -100,9 +106,7 @@ def test_confirmed_with_ground_truth_technique_survives_cite_or_drop(monkeypatch
             raw_summary="EventCode=4768 AS-REP roasting event for svc-web on dc01",
         )
     ]
-    out = bo.run_expert_model(
-        "ctx", expert_model="m", ground_truth={"T1558.004"}, tool_results=tool_results
-    )
+    out = bo.run_expert_model("ctx", expert_model="m", tool_results=tool_results)
     assert out.verdict == "CONFIRMED"
     assert out.technique_ids == ["T1558.004"]
 
@@ -120,7 +124,7 @@ def test_expert_request_more_round_trips(monkeypatch):
         }
     )
     monkeypatch.setattr(bo, "_call_model", _fake_call_model(content))
-    out = bo.run_expert_model("ctx", expert_model="m", ground_truth=set())
+    out = bo.run_expert_model("ctx", expert_model="m")
     assert out.wants_more()
     assert "4625" in out.request_more
     assert out.section == "expert"
@@ -139,7 +143,7 @@ def test_ruled_out_is_a_valid_conclusion_without_citation_check(monkeypatch):
         }
     )
     monkeypatch.setattr(bo, "_call_model", _fake_call_model(content))
-    out = bo.run_expert_model("ctx", expert_model="m", ground_truth=set())
+    out = bo.run_expert_model("ctx", expert_model="m")
     assert out.verdict == "RULED_OUT"
 
 
@@ -148,13 +152,13 @@ def test_dry_run_never_calls_model(monkeypatch):
         raise AssertionError("dry_run must not call the model")
 
     monkeypatch.setattr(bo, "_call_model", _boom)
-    out = bo.run_expert_model("ctx", expert_model="m", ground_truth=set(), dry_run=True)
+    out = bo.run_expert_model("ctx", expert_model="m", dry_run=True)
     assert out.wants_more()
 
 
 def test_unparseable_output_becomes_request_more(monkeypatch):
     monkeypatch.setattr(bo, "_call_model", _fake_call_model("hmm, unclear, not sure honestly"))
-    out = bo.run_expert_model("ctx", expert_model="m", ground_truth=set())
+    out = bo.run_expert_model("ctx", expert_model="m")
     assert out.wants_more()
     assert out.verdict is None
 
@@ -185,9 +189,7 @@ def test_confirmed_with_malformed_technique_id_downgrades_to_anomalous(monkeypat
             raw_summary="EventCode=4768 AS-REP roasting event",
         )
     ]
-    out = bo.run_expert_model(
-        "ctx", expert_model="m", ground_truth={"T1558.004"}, tool_results=tool_results
-    )
+    out = bo.run_expert_model("ctx", expert_model="m", tool_results=tool_results)
     assert out.verdict == "ANOMALOUS_UNCLASSIFIED"
     assert "did not parse as real MITRE IDs" in out.reasoning
 
@@ -207,7 +209,7 @@ def test_anomalous_unclassified_never_requires_a_valid_technique_id(monkeypatch)
         }
     )
     monkeypatch.setattr(bo, "_call_model", _fake_call_model(content))
-    out = bo.run_expert_model("ctx", expert_model="m", ground_truth=set())
+    out = bo.run_expert_model("ctx", expert_model="m")
     assert out.verdict == "ANOMALOUS_UNCLASSIFIED"
     assert out.technique_ids == ["unknown-novel-pattern"]
 

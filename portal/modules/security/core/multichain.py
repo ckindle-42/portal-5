@@ -57,6 +57,12 @@ class ChainResult:
     technique_ids: list[str] = field(default_factory=list)
     similar_to: list[str] = field(default_factory=list)
     evidence_sources: list[str] = field(default_factory=list)
+    # CONFIRMED claims this chain made that failed its citation gate —
+    # quarantined audit data (2026-07-23). Deliberately excluded from quorum
+    # votes AND from review leads: before this field existed, a demoted
+    # fabrication rode along in technique_ids/similar_to and could vote a
+    # hallucination toward AUTO_CONFIRM or earn it escalation credit.
+    ungrounded_claims: list[str] = field(default_factory=list)
 
     def is_conclusion(self) -> bool:
         return self.verdict in ("CONFIRMED", "ANOMALOUS_UNCLASSIFIED", "RULED_OUT")
@@ -87,6 +93,7 @@ class ConsolidationResult:
     evidence_diversity: int = 0  # distinct telemetry sourcetypes covered across chains
     escalation_reason: str = ""
     rationale: str = ""
+    ungrounded_claims: list[str] = field(default_factory=list)  # union across chains — audit only
 
 
 def _triage_decision(confirmed: list[str], review: list[str], *, any_conclusion: bool) -> str:
@@ -116,6 +123,9 @@ def consolidate(chains: list[ChainResult], *, quorum: float = 0.5) -> Consolidat
     """
     concluders = [c for c in chains if c.is_conclusion()]
     diversity = len({s for c in chains for s in c.evidence_sources})
+    # Demoted (gate-failed) claims are carried for audit only — they never
+    # vote, never become review leads (2026-07-23 design review).
+    ungrounded_union = sorted({u for c in chains for u in c.ungrounded_claims})
 
     if not concluders:
         # Every chain ran out of budget / never converged — the orchestrator
@@ -127,6 +137,7 @@ def consolidate(chains: list[ChainResult], *, quorum: float = 0.5) -> Consolidat
             evidence_diversity=diversity,
             escalation_reason="no chain reached a conclusion within budget",
             rationale="inconclusive — investigation did not complete",
+            ungrounded_claims=ungrounded_union,
         )
 
     n = len(concluders)
@@ -160,6 +171,7 @@ def consolidate(chains: list[ChainResult], *, quorum: float = 0.5) -> Consolidat
             agreement=1.0,
             evidence_diversity=diversity,
             rationale="all independent chains ruled it out",
+            ungrounded_claims=ungrounded_union,
         )
 
     # Unnamed anomaly forces an escalation channel even with no concrete lead.
@@ -205,6 +217,7 @@ def consolidate(chains: list[ChainResult], *, quorum: float = 0.5) -> Consolidat
         evidence_diversity=diversity,
         escalation_reason=escalation_reason,
         rationale=rationale,
+        ungrounded_claims=ungrounded_union,
     )
 
 
@@ -224,4 +237,5 @@ def to_section_output(res: ConsolidationResult) -> SectionOutput:
         match_grade="SIMILAR" if res.review_leads else "NONE",
         similar_to=list(res.review_leads),
         section="consolidation",
+        ungrounded_claims=list(res.ungrounded_claims),
     )

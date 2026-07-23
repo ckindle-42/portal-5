@@ -27,9 +27,7 @@ def test_similar_grade_yields_similar_to_and_steers_anomalous(monkeypatch):
         }
     )
     monkeypatch.setattr(bo, "_call_model", _fake_call_model(content))
-    out = bo.run_reasoning_model(
-        "ctx", reasoning_model="devstral-small-2", ground_truth={"T1558.003"}
-    )
+    out = bo.run_reasoning_model("ctx", reasoning_model="devstral-small-2")
     assert out.match_grade == "SIMILAR"
     assert out.similar_to == ["T1558.003"]
     assert out.verdict == "ANOMALOUS_UNCLASSIFIED"
@@ -51,7 +49,7 @@ def test_think_wrapped_hypothesis_parses(monkeypatch):
         )
     )
     monkeypatch.setattr(bo, "_call_model", _fake_call_model(content))
-    out = bo.run_reasoning_model("ctx", reasoning_model="m", ground_truth={"T1558.004"})
+    out = bo.run_reasoning_model("ctx", reasoning_model="m")
     assert out.technique_ids == ["T1558.004"]
     assert out.verdict == "CONFIRMED"
     assert "<think>" not in out.raw or out.raw == content  # raw keeps original; parse strips
@@ -69,7 +67,7 @@ def test_insufficient_evidence_emits_request_more_not_a_guess(monkeypatch):
         }
     )
     monkeypatch.setattr(bo, "_call_model", _fake_call_model(content))
-    out = bo.run_reasoning_model("ctx", reasoning_model="m", ground_truth=set())
+    out = bo.run_reasoning_model("ctx", reasoning_model="m")
     assert out.wants_more()
     assert out.verdict is None
     assert "dc01" in out.request_more
@@ -81,7 +79,7 @@ def test_unparseable_free_text_falls_back_to_request_more_never_guesses(monkeypa
         "_call_model",
         _fake_call_model("I think something might be happening but I'm not sure."),
     )
-    out = bo.run_reasoning_model("ctx", reasoning_model="m", ground_truth=set())
+    out = bo.run_reasoning_model("ctx", reasoning_model="m")
     assert out.wants_more()
     assert out.verdict is None
     assert not out.technique_ids
@@ -92,7 +90,7 @@ def test_dry_run_never_calls_model(monkeypatch):
         raise AssertionError("dry_run must not call the model")
 
     monkeypatch.setattr(bo, "_call_model", _boom)
-    out = bo.run_reasoning_model("ctx", reasoning_model="m", ground_truth=set(), dry_run=True)
+    out = bo.run_reasoning_model("ctx", reasoning_model="m", dry_run=True)
     assert out.wants_more()
 
 
@@ -241,9 +239,7 @@ def test_run_reasoning_model_passes_history_into_messages(monkeypatch):
         {"role": "user", "content": "round 1 context"},
         {"role": "assistant", "content": "round 1 reply"},
     ]
-    bo.run_reasoning_model(
-        "round 2 context", reasoning_model="m", ground_truth=set(), history=prior_history
-    )
+    bo.run_reasoning_model("round 2 context", reasoning_model="m", history=prior_history)
     assert seen_messages[0]["role"] == "system"
     assert seen_messages[1] == {"role": "user", "content": "round 1 context"}
     assert seen_messages[2] == {"role": "assistant", "content": "round 1 reply"}
@@ -260,7 +256,7 @@ def test_run_reasoning_model_without_history_is_unchanged(monkeypatch):
         return {"content": json.dumps({"request_more": "x", "technique_ids": []})}
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
-    bo.run_reasoning_model("ctx", reasoning_model="m", ground_truth=set())
+    bo.run_reasoning_model("ctx", reasoning_model="m")
     assert len(seen_messages) == 2
     assert seen_messages[0]["role"] == "system"
     assert seen_messages[1] == {"role": "user", "content": "ctx"}
