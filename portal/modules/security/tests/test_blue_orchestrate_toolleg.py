@@ -24,9 +24,7 @@ def test_build_tool_request_defaults_prefer_broad_true():
 def test_dry_run_narrow_empty_broadens_and_tags_live_broad_fallback():
     ep = _episode({"windows:security": ["EventCode=4768 some AS-REP event"]})
     req = bo.build_tool_request("look for anything unusual")
-    result = bo.run_tool_model(
-        req, tool_model="unused", ground_truth={"T1558.004"}, episode=ep, dry_run=True
-    )
+    result = bo.run_tool_model(req, tool_model="unused", episode=ep, dry_run=True)
     assert result.provenance == "live-broad-fallback"
     assert "4768" in result.raw_summary or result.rows
 
@@ -34,9 +32,7 @@ def test_dry_run_narrow_empty_broadens_and_tags_live_broad_fallback():
 def test_dry_run_prefer_broad_false_stays_empty():
     ep = _episode({})
     req = bo.ToolRequest(spec="look for anything", window="", prefer_broad=False)
-    result = bo.run_tool_model(
-        req, tool_model="unused", ground_truth=set(), episode=ep, dry_run=True
-    )
+    result = bo.run_tool_model(req, tool_model="unused", episode=ep, dry_run=True)
     assert result.provenance == "empty"
     assert result.rows == []
 
@@ -44,9 +40,7 @@ def test_dry_run_prefer_broad_false_stays_empty():
 def test_dry_run_no_telemetry_at_all_stays_empty_even_with_broaden():
     ep = _episode({})
     req = bo.build_tool_request("look for anything unusual")
-    result = bo.run_tool_model(
-        req, tool_model="unused", ground_truth=set(), episode=ep, dry_run=True
-    )
+    result = bo.run_tool_model(req, tool_model="unused", episode=ep, dry_run=True)
     assert result.provenance == "empty"
 
 
@@ -67,9 +61,7 @@ def test_live_tool_call_dispatches_and_returns_matched_exact(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
     req = bo.build_tool_request("check AS-REP roasting event 4768")
-    result = bo.run_tool_model(
-        req, tool_model="granite4.1:8b-ctx8k", ground_truth={"T1558.004"}, episode=ep
-    )
+    result = bo.run_tool_model(req, tool_model="granite4.1:8b-ctx8k", episode=ep)
     assert result.provenance == "matched-exact"
     assert result.rows
     assert result.rows[0]["tool"] == "query_windows_events"
@@ -93,7 +85,7 @@ def test_live_tool_call_ignores_non_retrieval_tool_calls(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
     req = bo.build_tool_request("investigate")
-    result = bo.run_tool_model(req, tool_model="m", ground_truth=set(), episode=ep)
+    result = bo.run_tool_model(req, tool_model="m", episode=ep)
     # report_detection is not a retrieval tool -> nothing dispatched from the
     # model's call -> the empty-result path broadens instead (prefer_broad default).
     assert all(r["tool"] != "report_detection" for r in result.rows)
@@ -120,9 +112,7 @@ def test_live_tool_call_with_string_encoded_arguments_does_not_crash(monkeypatch
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
     req = bo.build_tool_request("check AS-REP roasting event 4768")
-    result = bo.run_tool_model(
-        req, tool_model="granite4.1:8b-ctx8k", ground_truth={"T1558.004"}, episode=ep
-    )
+    result = bo.run_tool_model(req, tool_model="granite4.1:8b-ctx8k", episode=ep)
     assert result.provenance == "matched-exact"
     assert result.rows[0]["args"] == {"event_ids": [4768]}
 
@@ -152,7 +142,7 @@ def test_list_valued_event_ids_actually_narrow_the_query(monkeypatch):
 
     monkeypatch.setattr(bo, "_call_model", fake_call_model)
     req = bo.build_tool_request("give me AS-REP roasting events")
-    result = bo.run_tool_model(req, tool_model="m", ground_truth={"T1558.004"}, episode=ep)
+    result = bo.run_tool_model(req, tool_model="m", episode=ep)
     assert result.provenance == "matched-exact"
     assert "4769" in result.rows[0]["result"]
     assert "4624" not in result.rows[0]["result"]  # narrowed, not the generic broad summary
