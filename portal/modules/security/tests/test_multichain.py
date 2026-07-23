@@ -23,13 +23,14 @@ from portal.modules.security.core.multichain import (
 )
 
 
-def _c(model, verdict, techs=None, similar=None, sources=None):
+def _c(model, verdict, techs=None, similar=None, sources=None, ungrounded=None):
     return ChainResult(
         model=model,
         verdict=verdict,
         technique_ids=techs or [],
         similar_to=similar or [],
         evidence_sources=sources or [],
+        ungrounded_claims=ungrounded or [],
     )
 
 
@@ -155,6 +156,41 @@ class TestConsolidate:
         assert so.verdict == "CONFIRMED"
         assert so.technique_ids == ["T1190"]
         assert so.section == "consolidation"
+
+    def test_ungrounded_claims_never_vote_and_never_become_review_leads(self):
+        """2026-07-23 design review (laundering fix): a chain whose CONFIRMED
+        failed its citation gate arrives as ANOMALOUS with the failed IDs in
+        ungrounded_claims. Those IDs must not vote toward quorum, must not
+        appear as review leads (escalation credit), and must stay visible in
+        the audit channel."""
+        chains = [
+            _c("m1", "CONFIRMED", ["T1190"], sources=["web:access"]),
+            _c("m2", "CONFIRMED", ["T1190"], sources=["ids:alert"]),
+            # Fabricated-confirm chain, demoted by its own gate:
+            _c("m3", "ANOMALOUS_UNCLASSIFIED", ungrounded=["T1543"], sources=["linux:syslog"]),
+        ]
+        res = consolidate(chains, quorum=0.5)
+        assert "T1543" not in res.dissent  # never voted
+        assert "T1543" not in res.review_leads  # never escalation credit
+        assert res.confirmed_techniques == ["T1190"]
+        assert res.ungrounded_claims == ["T1543"]  # audit visibility preserved
+        so = to_section_output(res)
+        assert "T1543" not in so.technique_ids
+        assert "T1543" not in so.similar_to
+        assert so.ungrounded_claims == ["T1543"]
+
+    def test_chain_with_only_ungrounded_claims_escalates_as_unnamed_unease(self):
+        """A lone chain whose entire output was a demoted fabrication has
+        nothing credited — but its ANOMALOUS verdict still escalates as
+        unnamed unease rather than being dismissed."""
+        chains = [
+            _c("m1", "RULED_OUT"),
+            _c("m2", "ANOMALOUS_UNCLASSIFIED", ungrounded=["T1499"]),
+        ]
+        res = consolidate(chains)
+        assert res.decision == "ESCALATE"
+        assert res.review_leads == []
+        assert res.ungrounded_claims == ["T1499"]
 
     def test_escalate_section_output_carries_similar_as_grade(self):
         res = consolidate(

@@ -1022,6 +1022,43 @@ CI-guarded by `validate_system.py` check **BF** (escalate-first-class + I7 compo
 run against a live corpus** — like the evidence-chain fixes, its real evaluation waits on a fresh live
 red pass that populates genuine attack telemetry via the bridge.
 
+### Design-review corrections (2026-07-23) — verdict-axis integrity
+
+A skeptical design review of the blue-orchestration pipeline found four structural defects in how
+the never-invent gates, verdict axis, and scoring interact. All four are fixed in code:
+
+1. **The citation gate is now label-blind.** `blue._cite_or_drop` previously took `ground_truth`
+   and branched on it (a GT-matching technique needed grounded evidence; a non-GT technique was
+   never evidence-checked at all, only ID/event-marker-checked). That made the gate unrunnable in
+   production (no answer key exists there) and made live eval trajectories label-conditioned —
+   `_ground_hunter_evidence` fed ground truth into the LIVE hunt loop, so round-budget burn
+   depended on the label. The gate now applies one uniform rule to every claim: kept iff its own
+   cited evidence is grounded, OR its technique ID appears in telemetry, OR a known event-ID
+   marker is present. `run_tool_model`/`run_reasoning_model`/`run_expert_model`/`run_merged_model`
+   no longer accept `ground_truth` at all; the handoff dataclasses keep it as an audit record only.
+2. **Demoted claims are quarantined, not laundered.** A CONFIRMED that failed the gate was
+   previously downgraded to `ANOMALOUS_UNCLASSIFIED` *keeping* its `technique_ids` and recycling
+   them into `similar_to` — so a fabricated confirm could still vote toward multichain quorum
+   (`consolidate` counts `technique_ids` of every concluder) and earn escalation credit in
+   `score_analyst_outcome` (a correct-family `similar_to` scores `operational_recall`). Demoted
+   IDs now land only in the new `ungrounded_claims` field (SectionOutput → OrchestrationResult →
+   ChainResult → ConsolidationResult), which never votes, never becomes a review lead, and is
+   reported per-run for audit. `score_analyst_outcome(..., ungrounded_claims=...)` strips them
+   defensively and reports `ungrounded.would_have_scored` — the per-run size of the prevented
+   laundering. It also now reports `escalation_precision` (lead-side), the alert-fatigue signal
+   `operational_recall` alone hides.
+3. **Council no-concluder is no longer benign.** `council_agreement.compute_agreement` returned
+   `RULED_OUT` ("all clear") when zero members reached a conclusion — a budget failure scored as a
+   benign finding, the exact bug `multichain.consolidate`'s no-concluder branch escalates. It now
+   returns `ANOMALOUS_UNCLASSIFIED` with `needs_arbiter=True`.
+4. **Trigger echo is not a citation; self-report does not seed the similarity override.**
+   `_evidence_is_grounded` now excludes tokens the trigger itself handed the model
+   (host/scenario/telemetry-source names, threaded as `context_text` from `_build_trigger`) — a
+   fabricated narrative can no longer ground itself by mentioning the hostname it was given. And
+   `_ground_similarity` no longer feeds the model's own `reported_techniques` into
+   `compute_similarity`'s observed features — the deterministic override is computed from gathered
+   telemetry only.
+
 ### Slice 8 ablation findings (2026-07-18)
 
 Live-verified across `kerberoast_to_da` and `meta3_tomcat_manager` (real recaptured red evidence, `VulnLLM-R-7B-GGUF:Q4_K_M` as red model, `granite4.1:30b` as the generalist reasoning slot throughout). Five root-caused, fixed bugs were found in the course of getting a trustworthy read — none specific to the ablation, all load-bearing for the whole orchestration path:

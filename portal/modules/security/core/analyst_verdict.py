@@ -37,6 +37,14 @@ class SectionOutput:
     Similarity carry (match_grade/similar_to) makes the emerging-threat case
     first-class: match_grade == "SIMILAR" with a named technique => a variant
     worth ANOMALOUS_UNCLASSIFIED + review, never a forced CONFIRMED (I8).
+
+    `ungrounded_claims` quarantines the technique IDs of a CONFIRMED claim
+    that failed the citation gate (2026-07-23 design review): a demoted claim
+    is a verification FAILURE, not a soft anomaly finding. It must never ride
+    along in `technique_ids` (where it would vote toward multichain quorum) or
+    `similar_to` (where it would earn escalation credit) — those two channels
+    would otherwise launder a fabricated CONFIRMED into a scored win. It is
+    audit provenance only.
     """
 
     verdict: AnalystVerdict | None = None
@@ -48,6 +56,7 @@ class SectionOutput:
     similar_to: list[str] = field(default_factory=list)  # nearest known technique(s) when SIMILAR
     section: str = ""  # "reasoning" | "expert" (provenance)
     raw: str = ""
+    ungrounded_claims: list[str] = field(default_factory=list)  # demoted CONFIRMED IDs — audit only
 
     def is_conclusion(self) -> bool:
         return self.verdict in ANALYST_REACHABLE

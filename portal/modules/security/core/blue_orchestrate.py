@@ -319,7 +319,6 @@ def run_tool_model(
     req: ToolRequest,
     *,
     tool_model: str,
-    ground_truth: set[str],
     episode: Episode,
     dry_run: bool = False,
 ) -> ToolResult:
@@ -478,7 +477,6 @@ def run_reasoning_model(
     context: str,
     *,
     reasoning_model: str,
-    ground_truth: set[str],
     history: list[dict] | None = None,
     dry_run: bool = False,
     extra_options: dict | None = None,
@@ -696,9 +694,12 @@ def _ground_similarity(out: SectionOutput, tool_results: list[ToolResult]) -> Se
     if not wiki_descriptions:
         return out
 
+    # Deliberately telemetry-only: the model's own reported technique IDs are
+    # NOT fed into the "grounded" computation (2026-07-23 design review) — a
+    # deterministic override that tokenizes the model's claim back into its
+    # input lets self-report leak into the very check meant to replace it.
     observed_features = {
         "telemetry": "\n".join(r.raw_summary for r in tool_results),
-        "reported_techniques": list(out.technique_ids),
         "sources": [r.provenance for r in tool_results],
     }
     similarity = compute_similarity(observed_features, wiki_descriptions)
@@ -713,11 +714,12 @@ def _ground_similarity(out: SectionOutput, tool_results: list[ToolResult]) -> Se
         similar_to=grounded_similar_to,
         section=out.section,
         raw=out.raw,
+        ungrounded_claims=out.ungrounded_claims,
     )
 
 
 def _ground_hunter_evidence(
-    hunter_out: SectionOutput, tool_results: list[ToolResult], ground_truth: set[str]
+    hunter_out: SectionOutput, tool_results: list[ToolResult], *, context_text: str = ""
 ) -> SectionOutput:
     """Catch Hunter confabulation one round before it reaches the Expert.
 
@@ -732,6 +734,11 @@ def _ground_hunter_evidence(
     caught here and turned into a request_more that names the specific
     technique(s) that didn't survive citation, rather than being forwarded
     to the Expert as if it were solid.
+
+    `context_text` is the trigger handed to the sections (host/scenario/
+    source names) so trigger-echoed tokens can't count as citations; the
+    gate itself is label-blind (2026-07-23 — it previously received
+    ground_truth, making the LIVE loop's round budget label-conditioned).
     """
     if hunter_out.verdict is None or not hunter_out.technique_ids or not tool_results:
         # Nothing gathered yet to cite against — not the failure mode this
@@ -744,7 +751,7 @@ def _ground_hunter_evidence(
         {"technique_id": t, "evidence": "; ".join(hunter_out.evidence)}
         for t in hunter_out.technique_ids
     ]
-    kept = _cite_or_drop(reported, telemetry, list(ground_truth))
+    kept = _cite_or_drop(reported, telemetry, context_text=context_text)
     kept_ids = {d.get("technique_id", "").upper() for d in kept}
     if kept_ids == {t.upper() for t in hunter_out.technique_ids}:
         return hunter_out
@@ -765,7 +772,7 @@ def run_expert_model(
     context: str,
     *,
     expert_model: str,
-    ground_truth: set[str],
+    context_text: str = "",
     tool_results: list[ToolResult] | None = None,
     hunter_similar_to: list[str] | None = None,
     dry_run: bool = False,
@@ -777,8 +784,18 @@ def run_expert_model(
     `supports_tools` gate — this is the require_tools=False path that makes a
     supports_tools:false expert (Foundation-Sec-8B-Reasoning) usable. A
     CONFIRMED verdict is run through blue._cite_or_drop; if its evidence
-    doesn't survive, it is downgraded to ANOMALOUS_UNCLASSIFIED (I2/I8),
-    carrying the Hunter's similar_to when the expert didn't supply its own.
+    doesn't survive, it is downgraded to ANOMALOUS_UNCLASSIFIED (I2/I8) with
+    the failed IDs quarantined in `ungrounded_claims` — never recycled into
+    `technique_ids` or `similar_to`, where they would launder a fabricated
+    claim into quorum votes or escalation credit (2026-07-23 design review).
+    The Hunter's own `similar_to` still carries when the expert didn't
+    supply one — that's a pre-existing neighbour claim, not the demotion.
+
+    `context_text` is the trigger handed to the sections (host/scenario/
+    telemetry-source names) — excluded from citation grounding so a claim
+    can't ground itself by echoing the prompt. This function is label-blind:
+    it never sees ground truth (2026-07-23; it previously did, which made it
+    both undeployable and eval-contaminating).
 
     `extra_options` forwards straight to `_call_model` — lets a caller force
     specific sampling values (temperature/top_p/etc) for a controlled
@@ -842,7 +859,7 @@ def run_expert_model(
     if verdict == "CONFIRMED":
         telemetry = _combined_telemetry_text(tool_results or [])
         reported = [{"technique_id": t, "evidence": "; ".join(evidence)} for t in technique_ids]
-        kept = _cite_or_drop(reported, telemetry, list(ground_truth))
+        kept = _cite_or_drop(reported, telemetry, context_text=context_text)
         kept_ids = {d.get("technique_id", "").upper() for d in kept}
         malformed = not _all_technique_ids_well_formed(technique_ids)
         if not technique_ids or kept_ids != {t.upper() for t in technique_ids} or malformed:
@@ -851,9 +868,12 @@ def run_expert_model(
             # downgrade rather than let an uncited or malformed-ID CONFIRMED
             # stand. Only CONFIRMED is held to this — ANOMALOUS_UNCLASSIFIED
             # below is never required to name a specific known ID (I8).
+            # The failed IDs land ONLY in ungrounded_claims: keeping them in
+            # technique_ids let them vote toward multichain quorum, and
+            # recycling them into similar_to converted a failed fabrication
+            # into scored escalation credit (2026-07-23 design review).
             return SectionOutput(
                 verdict="ANOMALOUS_UNCLASSIFIED",
-                technique_ids=technique_ids,
                 evidence=evidence,
                 reasoning=reasoning
                 or (
@@ -861,10 +881,11 @@ def run_expert_model(
                     if malformed
                     else "downgraded: CONFIRMED evidence did not survive cite-or-drop"
                 ),
-                match_grade=match_grade if match_grade != "NONE" else "SIMILAR",
-                similar_to=similar_to or technique_ids,
+                match_grade="SIMILAR" if similar_to else "NONE",
+                similar_to=similar_to,
                 section="expert",
                 raw=content,
+                ungrounded_claims=technique_ids,
             )
 
     return SectionOutput(
@@ -940,7 +961,7 @@ def run_merged_model(
     context: str,
     *,
     merged_model: str,
-    ground_truth: set[str],
+    context_text: str = "",
     tool_results: list[ToolResult] | None = None,
     history: list[dict] | None = None,
     dry_run: bool = False,
@@ -948,8 +969,11 @@ def run_merged_model(
     """Call one generalist model to both hunt and render the conclusive
     verdict — the 2-section "V1 shape" ablation arm (design §6.1, build-doc
     Slice 8). Same never-invent citation gate as the expert (I2): a CONFIRMED
-    verdict is run through blue._cite_or_drop, downgraded to
-    ANOMALOUS_UNCLASSIFIED if its evidence doesn't survive."""
+    verdict is run through blue._cite_or_drop (label-blind, trigger tokens
+    excluded via `context_text`), downgraded to ANOMALOUS_UNCLASSIFIED with
+    the failed IDs quarantined in `ungrounded_claims` if its evidence
+    doesn't survive — see run_expert_model's docstring for why demoted IDs
+    never ride along in technique_ids/similar_to (2026-07-23)."""
     if dry_run:
         return SectionOutput(
             request_more="dry-run: no live merged call performed", section="merged"
@@ -999,13 +1023,12 @@ def run_merged_model(
     if verdict == "CONFIRMED":
         telemetry = _combined_telemetry_text(tool_results or [])
         reported = [{"technique_id": t, "evidence": "; ".join(evidence)} for t in technique_ids]
-        kept = _cite_or_drop(reported, telemetry, list(ground_truth))
+        kept = _cite_or_drop(reported, telemetry, context_text=context_text)
         kept_ids = {d.get("technique_id", "").upper() for d in kept}
         malformed = not _all_technique_ids_well_formed(technique_ids)
         if not technique_ids or kept_ids != {t.upper() for t in technique_ids} or malformed:
             return SectionOutput(
                 verdict="ANOMALOUS_UNCLASSIFIED",
-                technique_ids=technique_ids,
                 evidence=evidence,
                 reasoning=reasoning
                 or (
@@ -1013,10 +1036,11 @@ def run_merged_model(
                     if malformed
                     else "downgraded: CONFIRMED evidence did not survive cite-or-drop"
                 ),
-                match_grade=match_grade if match_grade != "NONE" else "SIMILAR",
-                similar_to=similar_to or technique_ids,
+                match_grade="SIMILAR" if similar_to else "NONE",
+                similar_to=similar_to,
                 section="merged",
                 raw=content,
+                ungrounded_claims=technique_ids,
             )
 
     return SectionOutput(
@@ -1072,6 +1096,9 @@ class OrchestrationResult:
     rounds: int = 0
     elapsed_s: float = 0.0
     capability_verdict: str | None = None
+    # CONFIRMED claims demoted by the citation gate — audit provenance only,
+    # never part of the confirmed or escalation channels (2026-07-23).
+    ungrounded_claims: list[str] = field(default_factory=list)
 
 
 def run_blue_orchestration(
@@ -1171,10 +1198,11 @@ class ExpertHandoff:
     ectx: str
     hunter_similar_to: list[str]
     tool_results: list[ToolResult]
-    ground_truth: list[str]
+    ground_truth: list[str]  # audit/scoring record only — never fed to the gates (2026-07-23)
     trace: list[dict]
     told_expert_final_round: bool
     rounds: int
+    trigger: str = ""  # the trigger shown to the sections — excluded from citation grounding
 
     def to_dict(self) -> dict:
         return {
@@ -1185,6 +1213,7 @@ class ExpertHandoff:
             "trace": self.trace,
             "told_expert_final_round": self.told_expert_final_round,
             "rounds": self.rounds,
+            "trigger": self.trigger,
         }
 
     @classmethod
@@ -1197,6 +1226,7 @@ class ExpertHandoff:
             trace=list(d.get("trace") or []),
             told_expert_final_round=bool(d.get("told_expert_final_round")),
             rounds=int(d.get("rounds", 0)),
+            trigger=str(d.get("trigger") or ""),
         )
 
 
@@ -1204,7 +1234,7 @@ def _run_expert_section(
     ectx: str,
     *,
     expert_model: str,
-    ground_truth: set[str],
+    context_text: str = "",
     tool_results: list[ToolResult],
     hunter_similar_to: list[str],
     told_expert_final_round: bool,
@@ -1224,7 +1254,7 @@ def _run_expert_section(
     expert_out = run_expert_model(
         ectx,
         expert_model=expert_model,
-        ground_truth=ground_truth,
+        context_text=context_text,
         tool_results=tool_results,
         hunter_similar_to=hunter_similar_to,
         dry_run=dry_run,
@@ -1253,7 +1283,7 @@ def _run_expert_section(
         retry_out = run_expert_model(
             retry_ctx,
             expert_model=expert_model,
-            ground_truth=ground_truth,
+            context_text=context_text,
             tool_results=tool_results,
             hunter_similar_to=hunter_similar_to,
             dry_run=dry_run,
@@ -1337,7 +1367,7 @@ def resume_from_handoff(
     expert_out, new_trace = _run_expert_section(
         handoff.ectx,
         expert_model=expert_model,
-        ground_truth=set(handoff.ground_truth),
+        context_text=handoff.trigger,
         tool_results=handoff.tool_results,
         hunter_similar_to=handoff.hunter_similar_to,
         told_expert_final_round=handoff.told_expert_final_round,
@@ -1355,6 +1385,7 @@ def resume_from_handoff(
             reasoning=expert_out.reasoning,
             match_grade=expert_out.match_grade,
             similar_to=expert_out.similar_to,
+            ungrounded_claims=expert_out.ungrounded_claims,
             trace=trace,
             rounds=rounds,
         )
@@ -1384,9 +1415,10 @@ class HunterHandoff:
     ctx: str
     hunter_history: list[dict]
     tool_results: list[ToolResult]
-    ground_truth: list[str]
+    ground_truth: list[str]  # audit/scoring record only — never fed to the gates (2026-07-23)
     trace: list[dict]
     rounds: int
+    trigger: str = ""  # the trigger shown to the sections — excluded from citation grounding
 
     def to_dict(self) -> dict:
         return {
@@ -1396,6 +1428,7 @@ class HunterHandoff:
             "ground_truth": self.ground_truth,
             "trace": self.trace,
             "rounds": self.rounds,
+            "trigger": self.trigger,
         }
 
     @classmethod
@@ -1407,6 +1440,7 @@ class HunterHandoff:
             ground_truth=list(d.get("ground_truth") or []),
             trace=list(d.get("trace") or []),
             rounds=int(d.get("rounds", 0)),
+            trigger=str(d.get("trigger") or ""),
         )
 
 
@@ -1455,16 +1489,16 @@ def resume_hunter_from_handoff(
     ``run_expert_model``'s docstring for the same mechanism on the Expert
     side.
     """
-    ground_truth = set(handoff.ground_truth)
     hunter_out = run_reasoning_model(
         handoff.ctx,
         reasoning_model=reasoning_model,
-        ground_truth=ground_truth,
         history=handoff.hunter_history,
         dry_run=dry_run,
         extra_options=extra_options,
     )
-    hunter_out = _ground_hunter_evidence(hunter_out, handoff.tool_results, ground_truth)
+    hunter_out = _ground_hunter_evidence(
+        hunter_out, handoff.tool_results, context_text=handoff.trigger
+    )
     hunter_out = _ground_similarity(hunter_out, handoff.tool_results)
     return hunter_out
 
@@ -1534,7 +1568,6 @@ def _run_three_section(
         tr = run_tool_model(
             req,
             tool_model=models["tool"],
-            ground_truth=ground_truth,
             episode=episode,
             dry_run=dry_run,
         )
@@ -1578,15 +1611,15 @@ def _run_three_section(
             ground_truth=sorted(ground_truth),
             trace=list(trace),
             rounds=rounds,
+            trigger=trigger,
         )
         hunter_out = run_reasoning_model(
             ctx,
             reasoning_model=models["reasoning"],
-            ground_truth=ground_truth,
             history=hunter_history,
             dry_run=dry_run,
         )
-        hunter_out = _ground_hunter_evidence(hunter_out, tool_results, ground_truth)
+        hunter_out = _ground_hunter_evidence(hunter_out, tool_results, context_text=trigger)
         hunter_out = _ground_similarity(hunter_out, tool_results)
         _remember_hunter_turn(ctx, hunter_out)
         new_since_last_hunt = []
@@ -1669,12 +1702,13 @@ def _run_three_section(
                 trace=list(trace),
                 told_expert_final_round=told_expert_final_round,
                 rounds=rounds,
+                trigger=trigger,
             )
 
         expert_out, new_trace = _run_expert_section(
             ectx,
             expert_model=models["expert"],
-            ground_truth=ground_truth,
+            context_text=trigger,
             tool_results=tool_results,
             hunter_similar_to=hunter_out.similar_to,
             told_expert_final_round=told_expert_final_round,
@@ -1700,6 +1734,7 @@ def _run_three_section(
             reasoning=expert_out.reasoning,
             match_grade=expert_out.match_grade,
             similar_to=expert_out.similar_to,
+            ungrounded_claims=expert_out.ungrounded_claims,
             trace=trace,
             rounds=rounds,
             elapsed_s=round(_elapsed(), 2),
@@ -1736,7 +1771,6 @@ def _run_two_section(
     no separate Hunter-proposes/expert-confirms handoff."""
     import time as _time
 
-    ground_truth = set(episode.techniques)
     trigger = _build_trigger(episode)
 
     tool_results: list[ToolResult] = []
@@ -1763,7 +1797,6 @@ def _run_two_section(
         tr = run_tool_model(
             req,
             tool_model=models["tool"],
-            ground_truth=ground_truth,
             episode=episode,
             dry_run=dry_run,
         )
@@ -1795,7 +1828,7 @@ def _run_two_section(
         merged_out = run_merged_model(
             ctx,
             merged_model=models["merged"],
-            ground_truth=ground_truth,
+            context_text=trigger,
             tool_results=tool_results,
             history=merged_history,
             dry_run=dry_run,
@@ -1832,6 +1865,7 @@ def _run_two_section(
             reasoning=merged_out.reasoning,
             match_grade=merged_out.match_grade,
             similar_to=merged_out.similar_to,
+            ungrounded_claims=merged_out.ungrounded_claims,
             trace=trace,
             rounds=rounds,
             elapsed_s=round(_elapsed(), 2),
@@ -1899,7 +1933,6 @@ def _run_council(
     import time as _time
 
     started = _time.monotonic()
-    ground_truth = set(episode.techniques)
 
     handoff = capture_expert_handoff(
         episode,
@@ -1920,7 +1953,7 @@ def _run_council(
         member_out = run_expert_model(
             handoff.ectx,
             expert_model=member_model,
-            ground_truth=ground_truth,
+            context_text=handoff.trigger,
             tool_results=handoff.tool_results,
             hunter_similar_to=handoff.hunter_similar_to,
             dry_run=dry_run,
@@ -1942,12 +1975,13 @@ def _run_council(
     agreement = compute_agreement(members, quorum=quorum)
     extra_rounds = len(council_models)
 
+    arbiter_ungrounded: list[str] = []
     if agreement.needs_arbiter and arbiter_model:
         arbiter_ctx = _format_for_arbiter(handoff.ectx, members, agreement)
         arbiter_out = run_expert_model(
             arbiter_ctx,
             expert_model=arbiter_model,
-            ground_truth=ground_truth,
+            context_text=handoff.trigger,
             tool_results=handoff.tool_results,
             hunter_similar_to=agreement.similar_to,
             dry_run=dry_run,
@@ -1965,6 +1999,7 @@ def _run_council(
             }
         )
         extra_rounds += 1
+        arbiter_ungrounded = list(arbiter_out.ungrounded_claims)
         if arbiter_out.is_conclusion():
             # The arbiter was specifically asked to break the tie, not just
             # re-vote — its own conclusion supersedes the split verdict.
@@ -2004,17 +2039,28 @@ def _run_council(
             }
             for t in final_out.technique_ids
         ]
-        kept = _cite_or_drop(reported, telemetry, handoff.ground_truth)
+        kept = _cite_or_drop(reported, telemetry, context_text=handoff.trigger)
         kept_ids = {d.get("technique_id", "").upper() for d in kept}
         if kept_ids != {t.upper() for t in final_out.technique_ids}:
+            # Same quarantine as run_expert_model's demotion (2026-07-23):
+            # the failed aggregate IDs go to ungrounded_claims only — never
+            # recycled into similar_to as escalation-creditable leads.
             final_out = SectionOutput(
                 verdict="ANOMALOUS_UNCLASSIFIED",
-                technique_ids=final_out.technique_ids,
                 reasoning="downgraded: council CONFIRMED technique(s) did not survive cite-or-drop",
-                match_grade="SIMILAR",
-                similar_to=final_out.similar_to or final_out.technique_ids,
+                match_grade="SIMILAR" if final_out.similar_to else "NONE",
+                similar_to=final_out.similar_to,
                 section="agreement",
+                ungrounded_claims=final_out.technique_ids,
             )
+
+    # Union of every demoted claim seen anywhere in the council run (member
+    # demotions, arbiter demotion, aggregate demotion) — audit only.
+    all_ungrounded = sorted(
+        set(final_out.ungrounded_claims)
+        .union(arbiter_ungrounded)
+        .union(*(m.ungrounded_claims for m in members))
+    )
 
     trace.append(
         {
@@ -2023,6 +2069,7 @@ def _run_council(
             "verdict": final_out.verdict,
             "agreement": agreement.agreement,
             "dissent": agreement.dissent,
+            "ungrounded_claims": all_ungrounded,
         }
     )
 
@@ -2033,6 +2080,7 @@ def _run_council(
         reasoning=final_out.reasoning,
         match_grade=final_out.match_grade,
         similar_to=final_out.similar_to,
+        ungrounded_claims=all_ungrounded,
         trace=trace,
         rounds=handoff.rounds + extra_rounds,
         elapsed_s=round(_time.monotonic() - started, 2),
@@ -2128,6 +2176,7 @@ def run_multichain_orchestration(
                 technique_ids=list(result.technique_ids),
                 similar_to=list(result.similar_to),
                 evidence_sources=_sources_from_trace(result.trace, available_sources),
+                ungrounded_claims=list(result.ungrounded_claims),
             )
         )
         for e in result.trace:
@@ -2148,6 +2197,7 @@ def run_multichain_orchestration(
             "dissent": consolidation.dissent,
             "evidence_diversity": consolidation.evidence_diversity,
             "escalation_reason": consolidation.escalation_reason,
+            "ungrounded_claims": consolidation.ungrounded_claims,
         }
     )
 
@@ -2158,6 +2208,7 @@ def run_multichain_orchestration(
         reasoning=final_out.reasoning,
         match_grade=final_out.match_grade,
         similar_to=final_out.similar_to,
+        ungrounded_claims=final_out.ungrounded_claims,
         trace=trace,
         rounds=total_rounds,
         elapsed_s=round(_time.monotonic() - started, 2),
