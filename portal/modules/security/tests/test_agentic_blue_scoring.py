@@ -265,3 +265,47 @@ class TestScoreAnalystOutcome:
         r = score_analyst_outcome(confirmed=set(), review_leads=set(), ground_truth={"T1558.003"})
         assert r["operational"]["operational_recall"] == 0.0
         assert r["operational"]["missed"] == ["T1558.003"]
+
+    def test_ungrounded_claims_never_earn_escalation_credit(self):
+        """2026-07-23 laundering fix: a CONFIRMED claim demoted by the citation
+        gate must not convert into escalation credit — even if an upstream path
+        still routes it into review_leads, the scorer strips it first. The
+        prevented credit is reported in the ungrounded section instead."""
+        r = score_analyst_outcome(
+            confirmed=set(),
+            review_leads={"T1190"},  # a demoted claim wrongly routed as a lead
+            ground_truth={"T1190"},
+            ungrounded_claims={"T1190"},
+        )
+        assert r["escalation"]["escalation_recall"] == 0.0
+        assert r["operational"]["operational_recall"] == 0.0
+        assert r["operational"]["missed"] == ["T1190"]
+        assert r["ungrounded"]["claims"] == ["T1190"]
+        # Visibility: this is exactly the credit the gate prevented.
+        assert r["ungrounded"]["would_have_scored"] == ["T1190"]
+
+    def test_ungrounded_claims_do_not_taint_legitimate_leads(self):
+        """A genuine, model-originated lead still scores normally alongside a
+        quarantined demotion."""
+        r = score_analyst_outcome(
+            confirmed=set(),
+            review_leads={"T1558.003"},
+            ground_truth={"T1558.003"},
+            ungrounded_claims={"T1499"},
+        )
+        assert r["escalation"]["escalation_recall"] == 1.0
+        assert r["operational"]["operational_recall"] == 1.0
+        assert r["ungrounded"]["claims"] == ["T1499"]
+        assert r["ungrounded"]["would_have_scored"] == []
+
+    def test_escalation_precision_flags_noisy_escalation(self):
+        """Lead-side precision: an always-escalate policy can max recall but
+        collapses here — the alert-fatigue signal operational_recall hides."""
+        r = score_analyst_outcome(
+            confirmed=set(),
+            review_leads={"T1558.003", "T9998", "T9999"},
+            ground_truth={"T1558.003"},
+        )
+        assert r["escalation"]["escalation_recall"] == 1.0
+        assert r["escalation"]["escalation_precision"] == round(1 / 3, 3)
+        assert sorted(r["escalation"]["noise_leads"]) == ["T9998", "T9999"]

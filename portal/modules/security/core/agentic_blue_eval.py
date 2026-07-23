@@ -504,7 +504,11 @@ def score_findings_tiered(detected: set[str], ground_truth: set[str]) -> dict[st
 
 
 def score_analyst_outcome(
-    confirmed: set[str], review_leads: set[str], ground_truth: set[str]
+    confirmed: set[str],
+    review_leads: set[str],
+    ground_truth: set[str],
+    *,
+    ungrounded_claims: set[str] | None = None,
 ) -> dict:
     """Score an analyst outcome that has TWO channels: autonomously CONFIRMED
     known-bad techniques, and review leads escalated for human eyes.
@@ -523,13 +527,26 @@ def score_analyst_outcome(
     and operational F1 are emitted alongside it so "escalate everything" cannot
     be presented as an operational win.
 
+    `ungrounded_claims` (2026-07-23 design review) are CONFIRMED claims the
+    citation gate demoted. They are stripped from `review_leads` before any
+    credit is computed — a claim that failed evidence verification must never
+    convert into escalation credit ("laundering") — and reported in their own
+    section, including which of them would otherwise have scored, so the size
+    of the prevented laundering stays visible per run.
+
     Returns:
-      {confirmed: <score_findings_tiered>, escalation: {...}, operational: {...}}
+      {confirmed: <score_findings_tiered>, escalation: {...}, operational: {...},
+       ungrounded: {...}}
     """
     confirmed = {t.upper() for t in confirmed}
     review_leads = {t.upper() for t in review_leads}
     gt = {t.upper() for t in ground_truth}
     gt_parents = {_parent_technique(g) for g in gt}
+    ungrounded = {t.upper() for t in (ungrounded_claims or set())}
+    # Defensive: even if an upstream path still routes demoted claims into the
+    # escalation channel, they earn nothing here.
+    review_leads -= ungrounded
+    confirmed -= ungrounded
 
     confirmed_score = score_findings_tiered(confirmed, gt)
     confirmed_gt = set(confirmed_score["overall"]["true_positives"])
@@ -572,6 +589,12 @@ def score_analyst_outcome(
         else 0.0
     )
 
+    # Which demoted claims WOULD have earned confirm/escalation credit had the
+    # gate not caught them — the per-run size of the prevented laundering.
+    ungrounded_would_have_scored = sorted(
+        u for u in ungrounded if u in gt or _parent_technique(u) in gt_parents
+    )
+
     return {
         "confirmed": confirmed_score,
         "escalation": {
@@ -594,6 +617,10 @@ def score_analyst_outcome(
             "confirmed_gt": sorted(confirmed_gt),
             "escalated_gt": sorted(escalated_gt),
             "missed": sorted(gt - operational_gt),
+        },
+        "ungrounded": {
+            "claims": sorted(ungrounded),
+            "would_have_scored": ungrounded_would_have_scored,
         },
     }
 

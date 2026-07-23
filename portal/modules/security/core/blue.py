@@ -991,13 +991,23 @@ _DISTINCTIVE_EVIDENCE_TOKEN_RE = re.compile(
 _GENERIC_EVIDENCE_TOKENS = {"http/1.1", "http/1.0", "https"}
 
 
-def _evidence_is_grounded(evidence_text: str, all_telemetry_text: str) -> bool:
+def _evidence_is_grounded(
+    evidence_text: str, all_telemetry_text: str, context_text: str = ""
+) -> bool:
     """Does a detection's OWN cited evidence text contain at least one
     distinctive value (IP, URI path, or a 6+-char alnum token — a specific
     field value, hash, hostname, endpoint) that literally appears in the
     real telemetry? Generic HTTP-boilerplate tokens ("HTTP/1.1") don't count
     — a model can share those with real telemetry by coincidence even when
     the specific values around them are entirely fabricated.
+
+    `context_text` is the text the harness itself handed the model before it
+    saw any telemetry (the trigger: target host, scenario name, telemetry
+    source names). Tokens from it are excluded from the distinctive set
+    (2026-07-23 design review): the trigger names the target host, so a
+    fabricated narrative that merely mentions the hostname would otherwise
+    pass grounding on a token the model was *given*, not one it retrieved.
+    Echoing the prompt back is not a citation.
 
     If the evidence text has no distinctive tokens to check at all (pure
     prose, no concrete values), it can't be verified — treated as ungrounded
@@ -1008,6 +1018,8 @@ def _evidence_is_grounded(evidence_text: str, all_telemetry_text: str) -> bool:
         for t in _DISTINCTIVE_EVIDENCE_TOKEN_RE.findall(evidence_text or "")
         if t.lower() not in _GENERIC_EVIDENCE_TOKENS
     }
+    if context_text:
+        tokens -= {t.lower() for t in _DISTINCTIVE_EVIDENCE_TOKEN_RE.findall(context_text)}
     if not tokens:
         return False
     return any(t in all_telemetry_text for t in tokens)
@@ -1016,7 +1028,8 @@ def _evidence_is_grounded(evidence_text: str, all_telemetry_text: str) -> bool:
 def _cite_or_drop(
     reported: list[dict],
     telemetry: dict[str, dict],
-    ground_truth: list[str],
+    *,
+    context_text: str = "",
 ) -> list[dict]:
     """Drop reported techniques with no supporting telemetry evidence.
 
@@ -1024,40 +1037,42 @@ def _cite_or_drop(
     ID with no corresponding telemetry line is a hallucination — drop it
     deterministically, don't let it inflate the false-positive count.
 
-    A technique is kept if ANY of these hold:
-    1. It appears in the ground truth AND its own cited evidence is grounded
-       in real telemetry (`_evidence_is_grounded`) — see below for why this
-       is no longer an unconditional keep.
+    A technique is kept if ANY of these hold — the same rule for every
+    reported technique, with no knowledge of the answer key:
+    1. Its own cited evidence is grounded in real telemetry
+       (`_evidence_is_grounded`, with trigger-supplied tokens excluded via
+       `context_text`)
     2. Its technique ID (or a parent ID) appears in the telemetry text
     3. It has a known mapping to a telemetry event ID that's present
 
-    Techniques that fail all applicable checks are dropped as unsubstantiated.
+    Techniques that fail all checks are dropped as unsubstantiated.
 
-    Ground-truth matches used to be kept unconditionally ("we're measuring
-    recall, so a correct label is enough") — found live 2026-07-22 (GATE-D
-    ablation Part II-A) that this let a correctly-labeled-but-fabricated
-    detection through untouched: `vuln_fastjson_rce`'s Expert cited
-    `"GET /api/v1/data?param=..." 200 1024` and `source_ip=203.0.113.45` as
-    its supporting evidence for `T1190` — neither string appears ANYWHERE in
-    the real captured telemetry, which contains nothing but benign Tomcat
-    startup logs and plain `GET /` 200s. The model invented a plausible
-    CVE-2021-3156 exploit line from scratch and scored a clean `HIT`, because
-    the ground-truth exemption meant nobody ever checked whether its cited
-    evidence was real. Since T1190 is the single most common ground-truth
-    label in this corpus (used across nearly every `vuln_*_rce`/`web_*`
-    scenario), this created a systematic blind spot: a model could earn real
-    recall credit purely by pattern-matching a scenario's likely label and
-    fabricating a matching narrative, without ever using real telemetry —
-    exactly the failure mode `_cite_or_drop`'s own docstring says it exists
-    to prevent ("never-invent... don't let it inflate the false-positive
-    count"), just reached through the one exempted path.
+    This gate is deliberately LABEL-BLIND (2026-07-23 design review; it
+    previously took `ground_truth` and branched on it). Reading the answer
+    key inside the gate had two costs: the gate could never run in
+    production, where no ground truth exists — an "honesty spine" that only
+    works on scored corpora is an eval instrument, not an architecture — and
+    it made live eval trajectories label-conditioned (a correct label faced
+    a stricter bar than a wrong one), silently biasing every cross-model
+    comparison run through it. A wrong-but-genuinely-grounded interpretation
+    of real evidence is now kept and scored honestly as a false positive
+    downstream, rather than silently dropped to flatter precision.
+
+    History the uniform rule preserves — found live 2026-07-22 (GATE-D
+    ablation Part II-A): an unconditional "matches ground truth -> keep"
+    exemption let a correctly-labeled-but-fabricated detection through
+    untouched (`vuln_fastjson_rce`'s Expert cited a `GET /api/v1/data...` /
+    `source_ip=203.0.113.45` exploit line for `T1190` that appears NOWHERE
+    in the real telemetry, which is benign Tomcat startup noise, and scored
+    a clean `HIT`). Under the uniform rule that claim still dies: its cited
+    evidence isn't grounded, T1190 never appears in the telemetry text, and
+    it has no event-ID marker — no path keeps it.
     """
     if not reported:
         return reported
 
     # Build a set of all telemetry text for matching
     all_telemetry_text = " ".join(v.get("telemetry", "") for v in telemetry.values()).lower()
-    gt_upper = {g.upper() for g in ground_truth}
 
     kept = []
     for detection in reported:
@@ -1065,13 +1080,11 @@ def _cite_or_drop(
         if not tid:
             continue
 
-        # Ground-truth techniques still get a shot at the recall credit, but
-        # only if their OWN cited evidence is grounded in real telemetry —
-        # a correct label with fabricated support is a hallucination too.
-        if tid in gt_upper:
-            evidence_text = str(detection.get("evidence", ""))
-            if _evidence_is_grounded(evidence_text, all_telemetry_text):
-                kept.append(detection)
+        # A claim whose OWN cited evidence is literally present in the
+        # gathered telemetry is grounded — correct or not, it isn't invented.
+        evidence_text = str(detection.get("evidence", ""))
+        if _evidence_is_grounded(evidence_text, all_telemetry_text, context_text):
+            kept.append(detection)
             continue
 
         # Check if the technique ID (or parent) appears in telemetry
@@ -1303,8 +1316,9 @@ def _run_blue_chain_test(
     # ── Cite-or-drop FP (Phase B: never-invent applied to blue output) ──────
     # A reported technique with no supporting telemetry evidence is a
     # hallucination — drop it deterministically.  This directly attacks
-    # the false-positive over-reporting problem.
-    reported = _cite_or_drop(reported, telemetry, ground_truth)
+    # the false-positive over-reporting problem. Label-blind: the gate never
+    # sees ground_truth (2026-07-23) — scoring below is where truth lives.
+    reported = _cite_or_drop(reported, telemetry)
     # Re-score after cite-or-drop
     score = _score_blue_detections(reported, ground_truth)
     print(
