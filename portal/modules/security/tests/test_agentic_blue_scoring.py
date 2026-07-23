@@ -214,7 +214,9 @@ class TestScoreAnalystOutcome:
         )
         assert r["confirmed"]["overall"]["recall"] == 0.0
         assert r["escalation"]["escalation_recall"] == 1.0
+        assert r["escalation"]["escalation_precision"] == 1.0
         assert r["operational"]["operational_recall"] == 1.0
+        assert r["operational"]["operational_f1"] == 1.0
         assert r["operational"]["escalated_gt"] == ["T1558.003"]
 
     def test_confirm_and_escalate_both_credited(self):
@@ -234,6 +236,8 @@ class TestScoreAnalystOutcome:
             confirmed=set(), review_leads={"T1558.004"}, ground_truth={"T1558.003"}
         )
         assert r["operational"]["operational_recall"] == 1.0
+        assert r["escalation"]["exact_escalations"] == []
+        assert r["escalation"]["parent_family_escalations"] == ["T1558.003"]
 
     def test_noise_escalation_is_not_credited_and_is_flagged(self):
         """An escalation that maps to no ground truth is triage noise the human
@@ -244,6 +248,18 @@ class TestScoreAnalystOutcome:
         assert r["operational"]["operational_recall"] == 0.0
         assert r["escalation"]["noise_leads"] == ["T9999"]
         assert r["operational"]["missed"] == ["T1558.003"]
+
+    def test_escalate_everything_cannot_hide_review_burden_behind_recall(self):
+        r = score_analyst_outcome(
+            confirmed=set(),
+            review_leads={"T1558.003", "T1110", "T1190", "T9999"},
+            ground_truth={"T1558.003"},
+        )
+        assert r["operational"]["operational_recall"] == 1.0
+        assert r["escalation"]["escalation_precision"] == 0.25
+        assert r["operational"]["action_precision"] == 0.25
+        assert r["operational"]["operational_f1"] == 0.4
+        assert r["operational"]["human_review_load"] == 4
 
     def test_nothing_found_or_escalated_is_zero(self):
         r = score_analyst_outcome(confirmed=set(), review_leads=set(), ground_truth={"T1558.003"})

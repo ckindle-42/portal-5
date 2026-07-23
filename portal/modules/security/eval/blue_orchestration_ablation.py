@@ -16,14 +16,14 @@ Sequential only (CLAUDE.md: never run more than one bench/eval at a time —
 VRAM/model-eviction contention gives bad data from concurrent runs).
 Per-scenario checkpointed so a mid-corpus failure doesn't lose completed work.
 
-Raw per-rep results (verdict, technique_ids, trace, ...) are persisted to a
-JSONL sidecar (<out>.raw.jsonl) SEPARATELY from the classified outcome, so a
-scoring/attribution bug (like the one found live 2026-07-19: HUNTER_MISS
-swallowing every real HANDOFF_LOSS because the evidence-detection heuristic
-was checked against fixture data that never resembled real telemetry) can be
-fixed and the whole corpus reclassified in seconds via --rescore, instead of
-re-running potentially many hours of live model inference to get a second
-chance at scoring it correctly.
+Raw per-rep results (verdict, technique_ids, final evidence, returned tool
+content, trace, instrument schema, ...) are persisted to a JSONL sidecar
+(<out>.raw.jsonl) separately from classified outcomes.  ``--rescore`` makes
+instrument development cheap, but is exploratory: a corpus inspected while
+changing the scorer is development data, not independent confirmation.
+Legacy schema-v1 multi-section traces omitted returned tool content and are
+therefore ATTRIBUTION_UNKNOWN rather than retrospectively forced into a causal
+retrieval/handoff class.
 
 Run: python -m portal.modules.security.eval.blue_orchestration_ablation --reps 3
 Rescore only (no live calls): python -m portal.modules.security.eval.blue_orchestration_ablation \
@@ -49,12 +49,16 @@ from portal.modules.security.core.blue_orchestrate import SectionSpec, run_blue_
 from portal.modules.security.core.exec_chain import SCENARIOS
 from portal.modules.security.core.siem.capture_store import list_captures
 from portal.modules.security.eval.ablation_attribution import (
+    ATTRIBUTION_SCHEMA_VERSION,
     DEGEN_ERR,
     DEGEN_RECALL,
     DOMINANT,
+    DOMINANT_MARGIN,
+    MAX_ATTRIBUTION_UNKNOWN,
     SPLIT_MARGIN,
     ArmScenarioOutcome,
     classify,
+    decide_route,
     summarize,
 )
 
@@ -78,6 +82,33 @@ COUNCIL_QUORUM = 0.5
 
 ARMS = ["1section", "2section", "3section"]
 DEFAULT_OUT = Path("ABLATION_DECISION.json")
+
+
+def _pending_instrument_validation() -> dict:
+    """Fail-closed validation state for exploratory runs and old rescores."""
+    return {
+        "schema_version": ATTRIBUTION_SCHEMA_VERSION,
+        "scorer_frozen": False,
+        "scorer_hash": "",
+        "development_corpus_id": "",
+        "live_audit": {"status": "PENDING", "n": 0, "agreement": 0.0},
+        "confirmatory": {"status": "PENDING", "independent": False, "corpus_id": ""},
+        "oracle_evidence": {
+            "status": "PENDING",
+            "n": 0,
+            "retrieval_mediated": False,
+        },
+    }
+
+
+def _load_validation_manifest(path: str) -> dict:
+    if not path:
+        return _pending_instrument_validation()
+    manifest_path = Path(path)
+    data = json.loads(manifest_path.read_text())
+    if not isinstance(data, dict):
+        raise ValueError("validation manifest must be a JSON object")
+    return data
 
 
 def _git_head() -> str:
@@ -142,6 +173,10 @@ def _run_1section_raw(scenario_name: str, ground_truth: list[str], reps: int) ->
                     "technique_ids": technique_ids,
                     "trace": res.get("trace", []),
                     "ground_truth": ground_truth,
+                    "final_evidence": [
+                        d.get("evidence", "") for d in res.get("reported", []) if d.get("evidence")
+                    ],
+                    "instrument_schema_version": ATTRIBUTION_SCHEMA_VERSION,
                     "match_grade": "NONE",
                     "similar_to": [],
                     "error": None,
@@ -194,6 +229,8 @@ def _run_orchestrated_raw(
                     "technique_ids": result.technique_ids,
                     "trace": result.trace,
                     "ground_truth": ground_truth,
+                    "final_evidence": result.evidence,
+                    "instrument_schema_version": ATTRIBUTION_SCHEMA_VERSION,
                     "match_grade": result.match_grade,
                     "similar_to": result.similar_to,
                     "error": None,
@@ -224,6 +261,7 @@ def _classify_raw_record(record: dict) -> ArmScenarioOutcome | None:
         trace=record["trace"],
         match_grade=record.get("match_grade", "NONE"),
         similar_to=record.get("similar_to"),
+        grounding_verified=record.get("instrument_schema_version") == ATTRIBUTION_SCHEMA_VERSION,
     )
 
 
@@ -236,6 +274,11 @@ def _outcome_to_dict(o: ArmScenarioOutcome) -> dict:
         "grounded_tp": o.grounded_tp,
         "hallucinated": o.hallucinated,
         "ground_truth": o.ground_truth,
+        "completion_state": o.completion_state,
+        "retrieval_state": o.retrieval_state,
+        "citation_state": o.citation_state,
+        "secondary_failures": o.secondary_failures,
+        "attribution_sources": o.attribution_sources,
     }
 
 
@@ -247,8 +290,16 @@ def _summary_to_dict(s) -> dict:
         "novelty": s.novelty,
         "real_recall": s.real_recall,
         "miss_hist": s.miss_hist,
+        "miss_counts": s.miss_counts,
+        "miss_n": s.miss_n,
+        "scenario_miss_counts": s.scenario_miss_counts,
+        "scenario_miss_n": s.scenario_miss_n,
         "hallucination_rate": s.hallucination_rate,
         "nonconv_rate": s.nonconv_rate,
+        "false_positive_rate": s.false_positive_rate,
+        "attribution_unknown_rate": s.attribution_unknown_rate,
+        "retrieval_state_hist": s.retrieval_state_hist,
+        "secondary_failure_hist": s.secondary_failure_hist,
     }
 
 
@@ -277,13 +328,15 @@ def _write_report(path: Path, decision: dict) -> None:
         "",
         "## Per-arm summary",
         "",
-        "| arm | n | hits | novelty | real_recall | hallucination_rate | nonconv_rate |",
-        "|---|---|---|---|---|---|---|",
+        "| arm | n | hits | novelty | real_recall | false_positive_rate | "
+        "attribution_unknown_rate | nonconv_rate |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for arm, s in decision["arms"].items():
         lines.append(
             f"| {arm} | {s['n']} | {s['hits']} | {s['novelty']} | {s['real_recall']} | "
-            f"{s['hallucination_rate']} | {s['nonconv_rate']} |"
+            f"{s['false_positive_rate']} | {s['attribution_unknown_rate']} | "
+            f"{s['nonconv_rate']} |"
         )
     lines += ["", "## Miss histograms (fraction of misses)", ""]
     for arm, s in decision["arms"].items():
@@ -295,12 +348,25 @@ def _write_report(path: Path, decision: dict) -> None:
         f"{decision['split_proven']}  ",
         f"**honest_blocked**: {decision['honest_blocked']}"
         + (f" — {decision['block_reason']}" if decision["block_reason"] else ""),
+        f"**instrument_validation**: {decision['instrument_validation']}  ",
+        f"**route**: {decision['route']} — {decision['route_reason']}  ",
+        "",
+        "A route of `INDETERMINATE` is mandatory for exploratory rescoring, "
+        "unobservable retrieval payloads, unconfirmed scorer revisions, or unstable "
+        f"dominance (threshold={DOMINANT}, margin={DOMINANT_MARGIN}, "
+        f"max_unknown={MAX_ATTRIBUTION_UNKNOWN}).",
         "",
     ]
     path.write_text("\n".join(lines))
 
 
-def _build_decision(all_records: list[dict], reps: int, corpus_n: int, out_path: Path) -> dict:
+def _build_decision(
+    all_records: list[dict],
+    reps: int,
+    corpus_n: int,
+    out_path: Path,
+    instrument_validation: dict | None = None,
+) -> dict:
     """Classify every raw record with the CURRENT classify() and build the
     decision dict + report. No live calls — pure reclassification."""
     attempted = len(all_records)
@@ -340,12 +406,23 @@ def _build_decision(all_records: list[dict], reps: int, corpus_n: int, out_path:
         "reps": reps,
         "corpus_n": corpus_n,
         "error_rate": error_rate,
+        "raw_instrument_schema_versions": sorted(
+            {
+                int(r.get("instrument_schema_version", 1))
+                for r in all_records
+                if r.get("error") is None
+            }
+        ),
         "arms": arms_summary,
         "best_multi_arm": best_multi_arm,
         "split_proven": split_proven,
         "honest_blocked": honest_blocked,
         "block_reason": block_reason,
+        "instrument_validation": instrument_validation or _pending_instrument_validation(),
     }
+    route, route_reason = decide_route(decision)
+    decision["route"] = route
+    decision["route_reason"] = route_reason
 
     out_path.write_text(json.dumps(decision, indent=2))
     print(f"\nDecision written -> {out_path}")
@@ -362,7 +439,9 @@ def _build_decision(all_records: list[dict], reps: int, corpus_n: int, out_path:
     return decision
 
 
-def _rescore(raw_path: Path, out_path: Path, reps: int) -> int:
+def _rescore(
+    raw_path: Path, out_path: Path, reps: int, instrument_validation: dict | None = None
+) -> int:
     """Reclassify every raw record on disk with the CURRENT classify() logic.
     No Ollama/pipeline calls — pure, fast, replayable scoring."""
     if not raw_path.exists():
@@ -375,8 +454,14 @@ def _rescore(raw_path: Path, out_path: Path, reps: int) -> int:
         f"(no live calls)..."
     )
     _backup_existing(out_path)
-    decision = _build_decision(all_records, reps=reps, corpus_n=len(scenarios), out_path=out_path)
-    return 1 if decision["honest_blocked"] else 0
+    decision = _build_decision(
+        all_records,
+        reps=reps,
+        corpus_n=len(scenarios),
+        out_path=out_path,
+        instrument_validation=instrument_validation,
+    )
+    return 1 if decision["route"] in {"BLOCKED", "INDETERMINATE"} else 0
 
 
 def main() -> int:
@@ -397,12 +482,25 @@ def main() -> int:
         "Never on by default — it's a 4th arm's worth of live model calls, and a "
         "bare full-corpus invocation must not silently 4x in cost.",
     )
+    ap.add_argument(
+        "--validation-manifest",
+        default="",
+        help="JSON manifest recording a frozen scorer, blinded live audit, independent "
+        "confirmatory corpus, and oracle-evidence intervention. Without it, results "
+        "are exploratory and route=INDETERMINATE.",
+    )
     args = ap.parse_args()
 
     out_path = Path(args.out)
+    instrument_validation = _load_validation_manifest(args.validation_manifest)
 
     if args.rescore:
-        return _rescore(Path(args.rescore), out_path, args.reps)
+        return _rescore(
+            Path(args.rescore),
+            out_path,
+            args.reps,
+            instrument_validation=instrument_validation,
+        )
 
     reps = args.reps
     _backup_existing(out_path)
@@ -454,8 +552,14 @@ def main() -> int:
     wall_s = round(time.monotonic() - t0, 1)
     print(f"\nAblation corpus run complete in {wall_s}s ({wall_s / 60:.1f}min)")
 
-    decision = _build_decision(all_records, reps=reps, corpus_n=len(scenarios), out_path=out_path)
-    return 1 if decision["honest_blocked"] else 0
+    decision = _build_decision(
+        all_records,
+        reps=reps,
+        corpus_n=len(scenarios),
+        out_path=out_path,
+        instrument_validation=instrument_validation,
+    )
+    return 1 if decision["route"] in {"BLOCKED", "INDETERMINATE"} else 0
 
 
 if __name__ == "__main__":

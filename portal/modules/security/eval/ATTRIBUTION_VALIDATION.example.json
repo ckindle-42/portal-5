@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "scorer_frozen": false,
+  "scorer_hash": "",
+  "development_corpus_id": "",
+  "live_audit": {
+    "status": "PENDING",
+    "n": 0,
+    "agreement": 0.0,
+    "protocol": "Blindly label retrieval payload, Hunter citation, and final grounding as separate fields."
+  },
+  "confirmatory": {
+    "status": "PENDING",
+    "independent": false,
+    "corpus_id": ""
+  },
+  "oracle_evidence": {
+    "status": "PENDING",
+    "n": 0,
+    "retrieval_mediated": false,
+    "protocol": "Inject adjudicated GT-supporting telemetry at the Hunter handoff and measure verdict lift."
+  }
+}

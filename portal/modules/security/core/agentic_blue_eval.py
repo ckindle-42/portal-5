@@ -518,7 +518,10 @@ def score_analyst_outcome(
     `operational_recall`: the fraction of ground truth the analyst would have
     put in front of a SOC EITHER by confirming it OR by correctly escalating it
     (parent-tier match counts — a lead pointing at the right technique family
-    is an actionable escalation).
+    is an actionable escalation). Recall is never sufficient on its own:
+    escalation precision, review load, exact-vs-parent credit, action precision,
+    and operational F1 are emitted alongside it so "escalate everything" cannot
+    be presented as an operational win.
 
     Returns:
       {confirmed: <score_findings_tiered>, escalation: {...}, operational: {...}}
@@ -533,14 +536,19 @@ def score_analyst_outcome(
 
     # A review lead correctly escalates a ground-truth technique if it matches
     # exact or by parent family (an actionable pointer for the analyst).
-    escalated_gt: set[str] = set()
+    exact_escalated_gt: set[str] = set()
+    parent_escalated_gt: set[str] = set()
+    correct_leads: set[str] = set()
     for lead in review_leads:
         if lead in gt:
-            escalated_gt.add(lead)
+            exact_escalated_gt.add(lead)
+            correct_leads.add(lead)
         elif _parent_technique(lead) in gt_parents:
+            correct_leads.add(lead)
             for g in gt:
                 if _parent_technique(lead) == _parent_technique(g):
-                    escalated_gt.add(g)
+                    parent_escalated_gt.add(g)
+    escalated_gt = exact_escalated_gt | parent_escalated_gt
 
     # Operational: caught autonomously OR correctly escalated for review.
     operational_gt = {g for g in gt if g in confirmed_gt} | escalated_gt
@@ -551,17 +559,38 @@ def score_analyst_outcome(
         for lead in review_leads
         if lead not in gt and _parent_technique(lead) not in gt_parents
     )
+    escalation_precision = len(correct_leads) / len(review_leads) if review_leads else 0.0
+    correct_confirmed_actions = len(confirmed_score["overall"]["true_positives"])
+    all_actions = len(confirmed) + len(review_leads)
+    action_precision = (
+        (correct_confirmed_actions + len(correct_leads)) / all_actions if all_actions else 0.0
+    )
+    operational_recall = len(operational_gt) / len(gt) if gt else 0.0
+    operational_f1 = (
+        2 * action_precision * operational_recall / (action_precision + operational_recall)
+        if action_precision + operational_recall
+        else 0.0
+    )
 
     return {
         "confirmed": confirmed_score,
         "escalation": {
             "correct_escalations": sorted(escalated_gt),
+            "exact_escalations": sorted(exact_escalated_gt),
+            "parent_family_escalations": sorted(parent_escalated_gt),
             "escalation_recall": round(len(escalated_gt) / len(gt), 3) if gt else 0.0,
+            "escalation_precision": round(escalation_precision, 3),
             "noise_leads": escalation_noise,
+            "review_lead_count": len(review_leads),
         },
         "operational": {
-            # The headline: did the right technique reach a human at all?
-            "operational_recall": round(len(operational_gt) / len(gt), 3) if gt else 0.0,
+            "operational_recall": round(operational_recall, 3),
+            "action_precision": round(action_precision, 3),
+            "operational_f1": round(operational_f1, 3),
+            "human_review_load": len(review_leads),
+            "autonomy_rate": (
+                round(len(confirmed_gt) / len(operational_gt), 3) if operational_gt else 0.0
+            ),
             "confirmed_gt": sorted(confirmed_gt),
             "escalated_gt": sorted(escalated_gt),
             "missed": sorted(gt - operational_gt),

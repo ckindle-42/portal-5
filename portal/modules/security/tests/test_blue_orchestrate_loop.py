@@ -172,6 +172,8 @@ def test_request_more_tool_reasoning_expert_confirmed_terminates_confirmed(monke
     assert result.technique_ids == ["T1558.004"]
     sections_in_trace = [t["section"] for t in result.trace]
     assert sections_in_trace == ["reasoning", "tool", "reasoning", "expert"]
+    tool_trace = next(t for t in result.trace if t["section"] == "tool")
+    assert tool_trace["content"] == "EventCode=4768 AS-REP event for svc-web"
 
 
 def test_expert_receives_hunters_own_multi_round_history_not_just_final_summary(monkeypatch):
@@ -439,6 +441,8 @@ def test_two_section_ablation_arm_confirms_without_a_separate_expert(monkeypatch
     # (round 0 has no gathered evidence yet, so it can't confirm on the spot
     # — see _cite_or_drop's docstring on why an ungrounded confirm is dropped).
     assert sections_in_trace == {"tool", "merged"}
+    tool_trace = next(t for t in result.trace if t["section"] == "tool")
+    assert tool_trace["content"] == "EventCode=4768 AS-REP event for svc-web"
     assert "merged-model" in calls
     assert "tool-model" not in calls  # tool section is dry-run-free here (no _call_model)
 

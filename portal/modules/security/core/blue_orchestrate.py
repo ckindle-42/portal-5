@@ -1547,6 +1547,12 @@ def _run_three_section(
                 "model": models["tool"],
                 "provenance": tr.provenance,
                 "query": tr.query,
+                # Persist what retrieval returned, not only what was asked.
+                # The attribution layer must be able to distinguish telemetry
+                # availability from a later model's paraphrase/citation.  Old
+                # traces omitted this field and therefore cannot support a
+                # causal retrieval-vs-handoff diagnosis.
+                "content": tr.raw_summary,
             }
         )
 
@@ -1776,6 +1782,7 @@ def _run_two_section(
                 "model": models["tool"],
                 "provenance": tr.provenance,
                 "query": tr.query,
+                "content": tr.raw_summary,
             }
         )
 

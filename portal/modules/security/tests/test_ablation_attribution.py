@@ -1,13 +1,14 @@
-"""Fixture-first proof of the failure-attribution instrument (I9).
+"""Fixture coverage for failure-attribution implementation behavior.
 
-Every outcome class is proven on a synthetic (verdict, techniques, trace, GT)
-tuple before the instrument is trusted to judge a live ablation run. Sentinel
-ATTRIBTEST_V1.
+These tests do not establish construct validity on live traces.  That requires
+the blinded audit, independent corpus, and oracle intervention enforced by the
+route-validation manifest. Sentinel ATTRIBTEST_V2.
 """
 
 from __future__ import annotations
 
 from portal.modules.security.eval.ablation_attribution import (
+    ATTRIBUTION_SCHEMA_VERSION,
     MISS_CLASSES,
     OUTCOMES,
     ArmScenarioOutcome,
@@ -15,6 +16,22 @@ from portal.modules.security.eval.ablation_attribution import (
     decide_route,
     summarize,
 )
+
+
+def _valid_instrument_validation():
+    return {
+        "schema_version": ATTRIBUTION_SCHEMA_VERSION,
+        "scorer_frozen": True,
+        "scorer_hash": "sha256:test-scorer",
+        "development_corpus_id": "development-v1",
+        "live_audit": {"status": "PASS", "n": 30, "agreement": 0.9},
+        "confirmatory": {
+            "status": "PASS",
+            "independent": True,
+            "corpus_id": "confirmation-v1",
+        },
+        "oracle_evidence": {"status": "PASS", "n": 20, "retrieval_mediated": True},
+    }
 
 
 def _decision(
@@ -29,13 +46,18 @@ def _decision(
     """Minimal crafted ABLATION_DECISION.json-shaped dict for decide_route tests."""
     arm_summary = {
         "arm": best_arm,
-        "n": 10,
+        "n": 100,
         "hits": 0,
         "novelty": 0,
         "real_recall": real_recall,
         "miss_hist": miss_hist,
+        "miss_counts": {key: round(value * 100) for key, value in miss_hist.items()},
+        "miss_n": 100,
+        "scenario_miss_counts": {key: round(value * 100) for key, value in miss_hist.items()},
+        "scenario_miss_n": 100,
         "hallucination_rate": miss_hist.get("HALLUCINATION", 0.0),
         "nonconv_rate": miss_hist.get("NON_CONVERGENCE", 0.0),
+        "attribution_unknown_rate": 0.0,
     }
     other_arm = {**arm_summary, "real_recall": other_real_recall}
     return {
@@ -49,6 +71,7 @@ def _decision(
         "split_proven": False,
         "honest_blocked": honest_blocked,
         "block_reason": None,
+        "instrument_validation": _valid_instrument_validation(),
     }
 
 
@@ -64,6 +87,32 @@ def test_hit_when_grounded_true_positive_present():
     assert out.outcome == "HIT"
     assert out.grounded_tp == 1
     assert out.hallucinated == 1
+
+
+def test_gt_identifier_is_not_a_hit_without_confirmed_verified_grounding():
+    out = classify(
+        arm="3section",
+        scenario="ungrounded",
+        verdict="ANOMALOUS_UNCLASSIFIED",
+        technique_ids=["T1558.003"],
+        ground_truth={"T1558.003"},
+        trace=[{"role": "tool", "content": "unrelated telemetry"}],
+    )
+    assert out.outcome == "ATTRIBUTION_UNKNOWN"
+    assert "UNVERIFIED_GROUNDING" in out.secondary_failures
+
+
+def test_legacy_record_cannot_claim_hit_after_grounding_gate_changed():
+    out = classify(
+        arm="3section",
+        scenario="legacy-hit",
+        verdict="CONFIRMED",
+        technique_ids=["T1558.003"],
+        ground_truth={"T1558.003"},
+        trace=[{"role": "tool", "content": "EventCode 4769"}],
+        grounding_verified=False,
+    )
+    assert out.outcome == "ATTRIBUTION_UNKNOWN"
 
 
 def test_novelty_when_anomalous_with_grounded_similar_neighbour():
@@ -94,7 +143,7 @@ def test_not_novelty_when_similar_neighbour_not_in_ground_truth():
         match_grade="SIMILAR",
         similar_to=["T1110"],
     )
-    assert out.outcome == "HUNTER_MISS"
+    assert out.outcome == "ATTRIBUTION_UNKNOWN"
 
 
 def test_non_convergence_on_unresolved():
@@ -109,7 +158,7 @@ def test_non_convergence_on_unresolved():
     assert out.outcome == "NON_CONVERGENCE"
 
 
-def test_hallucination_when_wrong_conclusion_and_trace_never_saw_gt():
+def test_retrieval_miss_retains_hallucination_as_secondary_failure():
     out = classify(
         arm="1section",
         scenario="s4",
@@ -117,6 +166,20 @@ def test_hallucination_when_wrong_conclusion_and_trace_never_saw_gt():
         technique_ids=["T1110"],
         ground_truth={"T1558.003"},
         trace=[{"role": "tool", "content": "brute force attempts, EventID 4625"}],
+    )
+    assert out.outcome == "HUNTER_MISS"
+    assert out.hallucinated == 1
+    assert out.secondary_failures == ["HALLUCINATION"]
+
+
+def test_single_section_hallucination_when_gt_evidence_was_available():
+    out = classify(
+        arm="1section",
+        scenario="hallucination",
+        verdict="CONFIRMED",
+        technique_ids=["T1110"],
+        ground_truth={"T1558.003"},
+        trace=[{"role": "tool", "content": "EventCode 4769 TGS request for svc-web"}],
     )
     assert out.outcome == "HALLUCINATION"
     assert out.hallucinated == 1
@@ -134,11 +197,17 @@ def test_handoff_loss_when_wrong_conclusion_but_trace_saw_gt():
         ground_truth={"T1558.003"},
         trace=[
             {
+                "section": "tool",
+                "provenance": "matched-exact",
+                "query": "ticket requests",
+                "content": "EventCode=4769 TGS request",
+            },
+            {
                 "section": "reasoning",
                 "raw": '{"technique_ids": [], "evidence": '
                 '["EventCode=4769 TGS request noted for T1558.003"], '
                 '"reasoning": "considered, but moved on", "request_more": ""}',
-            }
+            },
         ],
     )
     assert out.outcome == "HANDOFF_LOSS"
@@ -157,11 +226,17 @@ def test_handoff_loss_when_ruled_out_but_trace_saw_gt():
         ground_truth={"T1558.003"},
         trace=[
             {
+                "section": "tool",
+                "provenance": "matched-exact",
+                "query": "ticket requests",
+                "content": "EventCode=4769 TGS request",
+            },
+            {
                 "section": "merged",
                 "raw": '{"technique_ids": [], "evidence": '
                 '["EventCode=4769 TGS request T1558.003 noted, deemed benign"], '
                 '"reasoning": "benign", "request_more": ""}',
-            }
+            },
         ],
     )
     assert out.outcome == "HANDOFF_LOSS"
@@ -192,7 +267,13 @@ def test_hunter_miss_when_real_retrieval_is_topically_unrelated_to_ground_truth(
         technique_ids=[],
         ground_truth={"T9999.001"},  # deliberately not in any known-marker table
         trace=[
-            {"round": 1, "section": "tool", "provenance": "matched-exact", "query": "novel query"},
+            {
+                "round": 1,
+                "section": "tool",
+                "provenance": "matched-exact",
+                "query": "novel query T9999.001",
+                "content": "generic PowerShell process creation only",
+            },
         ],
     )
     assert out.outcome == "HUNTER_MISS"
@@ -222,7 +303,75 @@ def test_hunter_miss_when_gt_never_surfaced_anywhere():
         verdict="RULED_OUT",
         technique_ids=[],
         ground_truth={"T1558.003"},
-        trace=[{"evidence": "nothing unusual"}],
+        trace=[{"role": "tool", "content": "nothing unusual"}],
+    )
+    assert out.outcome == "HUNTER_MISS"
+
+
+def test_attention_loss_when_tool_found_gt_but_hunter_did_not_cite_it():
+    out = classify(
+        arm="3section",
+        scenario="attention",
+        verdict="RULED_OUT",
+        technique_ids=[],
+        ground_truth={"T1558.003"},
+        trace=[
+            {
+                "section": "tool",
+                "provenance": "matched-exact",
+                "content": "EventCode 4769 service ticket request",
+            },
+            {
+                "section": "reasoning",
+                "raw": '{"evidence": ["generic process event"], "technique_ids": []}',
+            },
+        ],
+    )
+    assert out.outcome == "ATTENTION_LOSS"
+
+
+def test_model_authored_evidence_without_tool_payload_is_unobservable():
+    out = classify(
+        arm="3section",
+        scenario="legacy",
+        verdict="RULED_OUT",
+        technique_ids=[],
+        ground_truth={"T1558.003"},
+        trace=[
+            {
+                "section": "tool",
+                "provenance": "matched-exact",
+                "query": "T1558.003",
+            },
+            {
+                "section": "reasoning",
+                "raw": '{"evidence": ["EventCode 4769 proves T1558.003"]}',
+            },
+        ],
+    )
+    assert out.outcome == "ATTRIBUTION_UNKNOWN"
+
+
+def test_bare_parent_number_does_not_match_unrelated_payload():
+    out = classify(
+        arm="1section",
+        scenario="substring",
+        verdict="RULED_OUT",
+        technique_ids=[],
+        ground_truth={"T1003.006"},
+        trace=[{"role": "tool", "content": "request_count=1003 port=10030"}],
+    )
+    assert out.outcome == "HUNTER_MISS"
+
+
+def test_bare_event_number_is_not_evidence_without_event_field_context():
+    out = classify(
+        arm="1section",
+        scenario="event-substring",
+        verdict="RULED_OUT",
+        technique_ids=[],
+        ground_truth={"T1003.001"},
+        trace=[{"role": "tool", "content": "10 requests from 10.10.10.10 on port 4688"}],
     )
     assert out.outcome == "HUNTER_MISS"
 
@@ -256,15 +405,30 @@ def test_summarize_empty_outcomes_does_not_divide_by_zero():
     assert all(v == 0.0 for v in summary.miss_hist.values())
 
 
+def test_summarize_clusters_repeated_trials_by_scenario_for_routing():
+    outcomes = [
+        *[ArmScenarioOutcome("3section", "same", "HUNTER_MISS") for _ in range(20)],
+        ArmScenarioOutcome("3section", "other-a", "HANDOFF_LOSS"),
+        ArmScenarioOutcome("3section", "other-b", "HANDOFF_LOSS"),
+    ]
+    summary = summarize("3section", outcomes)
+    assert summary.miss_counts["HUNTER_MISS"] == 20
+    assert summary.scenario_miss_counts["HUNTER_MISS"] == 1
+    assert summary.scenario_miss_counts["HANDOFF_LOSS"] == 2
+    assert summary.scenario_miss_n == 3
+
+
 def test_all_outcomes_reachable():
-    """Sanity: OUTCOMES enumerates exactly the six classes proven above."""
+    """The primary label includes explicit attention and observability states."""
     assert set(OUTCOMES) == {
         "HIT",
         "NOVELTY",
         "HUNTER_MISS",
+        "ATTENTION_LOSS",
         "HANDOFF_LOSS",
         "HALLUCINATION",
         "NON_CONVERGENCE",
+        "ATTRIBUTION_UNKNOWN",
     }
 
 
@@ -325,7 +489,7 @@ def test_route_retrieval_first_when_hunter_miss_dominates():
     )
     route, reason = decide_route(decision)
     assert route == "RETRIEVAL_FIRST"
-    assert "evidence not gathered" in reason
+    assert "oracle audit" in reason
 
 
 def test_route_budget_first_when_nonconvergence_dominates_with_progress():
@@ -344,8 +508,8 @@ def test_route_budget_first_when_nonconvergence_dominates_with_progress():
 
 def test_route_council_when_nonconvergence_dominates_without_progress():
     """Same dominant miss class as the BUDGET_FIRST case, but the trace shows
-    no real progress before the budget ran out — that's not a rounds problem,
-    fall through to the default COUNCIL route instead."""
+    no real progress before the budget ran out. That is not evidence for a
+    rounds fix or Council, so the route must abstain."""
     decision = _decision(
         miss_hist={
             "HUNTER_MISS": 0.1,
@@ -355,7 +519,7 @@ def test_route_council_when_nonconvergence_dominates_without_progress():
         },
     )
     route, _ = decide_route(decision, nonconv_progress_frac=0.1)
-    assert route == "COUNCIL"
+    assert route == "INDETERMINATE"
 
 
 def test_route_council_default_when_hallucination_or_handoff_dominates():
@@ -369,7 +533,7 @@ def test_route_council_default_when_hallucination_or_handoff_dominates():
     )
     route, reason = decide_route(decision)
     assert route == "COUNCIL"
-    assert "cross-check" in reason
+    assert "downstream conclusion failures" in reason
 
 
 def test_route_priority_blocked_wins_over_retrieval_first():
@@ -386,3 +550,80 @@ def test_route_priority_blocked_wins_over_retrieval_first():
     )
     route, _ = decide_route(decision)
     assert route == "BLOCKED"
+
+
+def test_route_indeterminate_without_independent_instrument_validation():
+    decision = _decision(
+        miss_hist={
+            "HUNTER_MISS": 0.7,
+            "ATTENTION_LOSS": 0.1,
+            "HANDOFF_LOSS": 0.1,
+            "HALLUCINATION": 0.05,
+            "NON_CONVERGENCE": 0.05,
+            "ATTRIBUTION_UNKNOWN": 0.0,
+        },
+    )
+    decision["instrument_validation"]["scorer_frozen"] = False
+    route, _ = decide_route(decision)
+    assert route == "INDETERMINATE"
+
+
+def test_route_indeterminate_at_hand_set_threshold_cliff():
+    decision = _decision(
+        miss_hist={
+            "HUNTER_MISS": 0.41,
+            "ATTENTION_LOSS": 0.2,
+            "HANDOFF_LOSS": 0.19,
+            "HALLUCINATION": 0.1,
+            "NON_CONVERGENCE": 0.1,
+            "ATTRIBUTION_UNKNOWN": 0.0,
+        },
+    )
+    route, reason = decide_route(decision)
+    assert route == "INDETERMINATE"
+    assert "unstable" in reason
+
+
+def test_route_indeterminate_when_tool_payload_is_often_unobservable():
+    decision = _decision(
+        miss_hist={
+            "HUNTER_MISS": 0.7,
+            "ATTENTION_LOSS": 0.1,
+            "HANDOFF_LOSS": 0.1,
+            "HALLUCINATION": 0.05,
+            "NON_CONVERGENCE": 0.05,
+            "ATTRIBUTION_UNKNOWN": 0.0,
+        },
+    )
+    decision["arms"]["3section"]["attribution_unknown_rate"] = 0.2
+    route, _ = decide_route(decision)
+    assert route == "INDETERMINATE"
+
+
+def test_driver_marks_unvalidated_rescore_exploratory(tmp_path, monkeypatch):
+    from portal.modules.security.eval import blue_orchestration_ablation as driver
+
+    monkeypatch.setattr(driver, "RESULTS_DIR", tmp_path)
+    records = [
+        {
+            "arm": arm,
+            "scenario": "s1",
+            "verdict": "RULED_OUT",
+            "technique_ids": [],
+            "ground_truth": ["T1558.003"],
+            "trace": [{"role": "tool", "content": "unrelated telemetry"}],
+            "match_grade": "NONE",
+            "similar_to": [],
+            "instrument_schema_version": ATTRIBUTION_SCHEMA_VERSION,
+            "error": None,
+        }
+        for arm in ("1section", "2section", "3section")
+    ]
+    decision = driver._build_decision(
+        records,
+        reps=1,
+        corpus_n=1,
+        out_path=tmp_path / "decision.json",
+    )
+    assert decision["route"] == "INDETERMINATE"
+    assert decision["raw_instrument_schema_versions"] == [ATTRIBUTION_SCHEMA_VERSION]
