@@ -903,7 +903,7 @@ The bench NEVER modifies Open WebUI or the pipeline. It communicates directly wi
 
 ## Blue/Purple Discovery Orchestration (BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2)
 
-`--blue-mode` selects which blue investigation path a run uses. All six share the same tools, telemetry, and scoring — only the prompt/pipeline shape differs:
+`--blue-mode` selects which blue investigation path a run uses. All seven share the same tools, telemetry, and scoring — only the prompt/pipeline shape differs:
 
 | Mode | Shape | Prompt |
 |---|---|---|
@@ -912,7 +912,8 @@ The bench NEVER modifies Open WebUI or the pipeline. It communicates directly wi
 | `hybrid` | 1 model, tools | Open-ended with technique-reference hints as optional context, plus an anti-rumination instruction |
 | `orchestrated` | 3 sections (tool + reasoning + expert) | See below |
 | `orchestrated-2section` | 2 sections (tool + merged reasoning/expert) | Design §6.1's "V1 shape" — one generalist model both hunts and concludes itself |
-| `council` | tool + N reasoning members + fed arbiter | See "Council of Agreement" below |
+| `council` | tool + N reasoning members + fed arbiter | N interpreters vote over ONE shared evidence pool — see "Council of Agreement" below |
+| `multichain` | N independent tool+reasoning+expert chains + consolidation | N FULLY INDEPENDENT investigations, then a KNOWN-BAD/NEEDS-HUMAN/RULED-OUT decision — see "Multi-chain analyst" below |
 
 `scripted`/`discovery`/`hybrid` are `--purple` prompt variants (real backend telemetry via Splunk, live-queried when `--replay-captured-red`/`--lab-exec` is set — see `_fetch_blue_telemetry` in `blue.py`). `orchestrated`/`orchestrated-2section` are standalone modes (not `--purple` variants, I5 — no `auto-security` prod routing touched): they run `blue_orchestrate.run_blue_orchestration` directly against a captured episode via `--scenario` + `--replay-captured-red`, reading the episode's telemetry in-process rather than round-tripping through Splunk (hermetically testable by design).
 
@@ -952,6 +953,55 @@ python3 -m portal.modules.security.core --scenario kerberoast_to_da --blue-mode 
 
 **C4 proof-of-concept (2026-07-22, stopped early)**: per explicit scope instruction, a 19-scenario systematic sample (evenly spread across the 89-scenario corpus's category ordering) was run through the `council` arm, live, to compare against the same 19 scenarios' already-completed 2-section/3-section results from the full-corpus backup. Stopped after 7/19 scenarios once findings #13-15 made clear the comparison would be apples-to-oranges against a since-corrected baseline and a since-fixed retrieval path — the partial raw data
 (`portal/modules/security/core/results/ABLATION_POC_COUNCIL_19SCENARIO_20260722T200513Z.raw.jsonl`) is preserved, not deleted, but was not carried to a final decision. `blue_orchestration_ablation.py --include-council` is the opt-in flag for a full-corpus re-ablation of this arm, should Council still be worth re-evaluating once the retrieval-context and novelty-grounding fixes are validated; it defaults off so a bare invocation never silently 4x's live-model cost.
+
+### Multi-chain analyst (`multichain`)
+
+The multi-model, multi-chain analyst the RBP concept actually calls for (2026-07-22, user architecture
+steer). The Council of Agreement, by its own docstring, tests "do independent models agree given
+**identical** evidence" — one lead investigator hunts, N interpreters vote over that same pool; it
+explicitly does *not* address "whether different models would have gathered different evidence in the
+first place." That second question is the concept. Confirmed at the code level: `_run_council` gathers
+evidence once via `council_models[0]` and the other members never issue a single tool query — and the
+near-total member agreement seen in the 2026-07-21 sampling study (5/6, 6/6) is a measurement artifact
+of identical input, not consensus strength.
+
+`multichain` runs **N fully independent investigative chains** — each a complete
+`[tool, reasoning=chain_i, expert]` hunt (`run_multichain_orchestration`, composing the untouched
+3-section path per chain, I7): its own reasoning model drives its own hypothesis-shaped tool queries,
+hunts its own way, concludes against the evidence *it* chose to pull. `multichain.consolidate` then
+routes across chains that saw **different** evidence to one **operator decision** — distinct from the
+per-chain analyst verdict:
+
+- **AUTO_CONFIRM** ("we've detected a known bad") — ≥ `--quorum` of independent chains converged on
+  the same known technique. No aggregate cite-or-drop re-gate needed: each chain already ran its own
+  `_cite_or_drop` before reporting CONFIRMED, so a quorum-confirmed technique is grounded in ≥ quorum
+  *independent* evidence pools — stronger than the council's single shared-pool re-gate.
+- **ESCALATE** ("a human needs to look at this") — the chains surfaced real signal but diverged, or
+  the investigation never completed within budget. A **first-class outcome**, never a fallback: a
+  divergence between independent investigations is exactly the emerging-threat / unknown-read signal
+  the whole design exists to surface (I8), and an incomplete investigation is escalated rather than
+  handed to the SOC as "all clear."
+- **DISMISS** ("ruled out") — the chains independently found nothing.
+
+The consolidation also reports **evidence diversity** (distinct telemetry sourcetypes the chains
+collectively queried) — the union of N independent hunts is broader coverage by construction, the
+direct structural answer to a single lead investigator's tunnel vision (the corrected ablation's
+56.9% `HUNTER_MISS`, where one lead fixated on Windows-event queries against a Linux web target).
+
+```bash
+python3 -m portal.modules.security.core --scenario kerberoast_to_da --blue-mode multichain \
+  --replay-captured-red \
+  --chain-analyst-models granite4.1:30b,mistral-small3.2:24b,qwen3.6:27b-q4_K_M \
+  --tool-model granite4.1:8b-ctx8k --quorum 0.5
+```
+
+`--expert-model` is optional here: omitted (default), each chain concludes with its *own* model —
+fully independent end to end. Passing a shared `--expert-model` is an opt-in variant (independent
+hunts, one common adjudicator) that can mask a genuine divergence between chains, so prefer the
+default when the point is to surface disagreement. Deterministic consolidation is structurally + live
+CI-guarded by `validate_system.py` check **BF** (escalate-first-class + I7 composition). **Not yet
+run against a live corpus** — like the evidence-chain fixes, its real evaluation waits on a fresh live
+red pass that populates genuine attack telemetry via the bridge.
 
 ### Slice 8 ablation findings (2026-07-18)
 
