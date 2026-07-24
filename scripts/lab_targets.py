@@ -611,7 +611,9 @@ def _probe_any_reachable_port(
     return None
 
 
-def _poll_reachable_port(host: str, timeout_s: float, interval_s: float = 5.0) -> int | None:
+def _poll_reachable_port(
+    host: str, timeout_s: float, interval_s: float = 5.0, ports: list[int] | None = None
+) -> int | None:
     """Poll _probe_any_reachable_port until something answers or timeout_s elapses.
 
     A cold Windows VM (meta3, DC, SRV) takes minutes to boot — a single immediate
@@ -621,7 +623,7 @@ def _poll_reachable_port(host: str, timeout_s: float, interval_s: float = 5.0) -
     """
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
-        port = _probe_any_reachable_port(host)
+        port = _probe_any_reachable_port(host, ports)
         if port:
             return port
         time.sleep(interval_s)
@@ -641,6 +643,16 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
     """
     host = scenario.get("target_host")
     env = scenario.get("vulhub_env")
+    # A scenario that names a specific service (declared target_port) must be
+    # verified on THAT port, not "whichever port answers first." Found live
+    # 2026-07-24: on a cold VM boot, services come up in whatever order they
+    # happen to start -- meta3_elasticsearch_rce (wants 9200) got healed to
+    # port 21 (FTP) because it answered first and _STATIC_HOST_PROBE_PORTS has
+    # no notion of which service a given scenario actually needs. Only
+    # applies to the static-host path (env=None) -- vulhub_env already
+    # resolves its own real published port via cmd_up, unrelated to this list.
+    declared_port = scenario.get("target_port")
+    probe_ports = [declared_port] if declared_port and not env else None
 
     # No external target (AD-only scenarios, etc.) — always "ready"
     if not host:
@@ -671,7 +683,7 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
             host = discovered
 
     # VERIFY: is it up, and on WHAT port?
-    port = _resolve_live_port(host, env) if env else _probe_any_reachable_port(host)
+    port = _resolve_live_port(host, env) if env else _probe_any_reachable_port(host, probe_ports)
     if port and _wait_reachable(host, port, timeout_s=5):
         return {
             "ready": True,
@@ -705,7 +717,7 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
                     host = redisc
             # A just-started Windows VM needs minutes, not seconds — an LXC or an
             # already-running host that just had a transient blip needs far less.
-            port = _poll_reachable_port(host, timeout_s=180 if started else 20)
+            port = _poll_reachable_port(host, timeout_s=180 if started else 20, ports=probe_ports)
             if port:
                 return {
                     "ready": True,

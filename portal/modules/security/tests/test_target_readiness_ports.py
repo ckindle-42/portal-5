@@ -479,6 +479,99 @@ class TestRunLoopIntegration:
         assert "$TARGET_PORT" not in cfg.chain_initial_prompt
 
 
+# ── Declared target_port takes priority over the generic probe list ────────
+
+
+class TestDeclaredTargetPortPriority:
+    """A scenario naming a specific service (target_port) must be verified on
+    THAT port, not whichever port answers first on a cold VM boot.
+
+    Found live 2026-07-24: meta3_elasticsearch_rce (wants 9200) got healed to
+    port 21 (FTP) because _STATIC_HOST_PROBE_PORTS has no notion of which
+    service a given scenario actually needs, and FTP happened to come up
+    first during the VM's cold boot sequence."""
+
+    def test_probe_any_reachable_port_uses_declared_ports_when_given(self):
+        from scripts.lab_targets import _probe_any_reachable_port
+
+        calls = []
+
+        class FakeSocket:
+            def __init__(self, addr, timeout):
+                host, port = addr
+                calls.append(port)
+                if port != 9200:
+                    raise OSError("refused")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        with patch("socket.create_connection", side_effect=FakeSocket):
+            port = _probe_any_reachable_port("10.10.11.10", ports=[9200])
+        assert port == 9200
+        assert calls == [9200], "must only probe the declared port, not the static list"
+
+    def test_ensure_target_ready_passes_declared_target_port_to_probe(self):
+        """A scenario with target_port set must reach _probe_any_reachable_port
+        with exactly that port as the candidate list, on a static host (no
+        vulhub_env)."""
+        from scripts.lab_targets import ensure_target_ready
+
+        scenario = _make_scenario(
+            target_host="10.10.11.13", vulhub_env=None, red_prompt="ES at $TARGET_HOST:$TARGET_PORT"
+        )
+        scenario["target_port"] = 9200
+
+        with (
+            patch("scripts.lab_targets._LAB_HOST_VMID_MAP", {}),
+            patch("scripts.lab_targets._probe_any_reachable_port") as mock_probe,
+            patch("scripts.lab_targets._wait_reachable", return_value=True),
+        ):
+            mock_probe.return_value = 9200
+            result = ensure_target_ready(scenario, dry_run=True)
+
+        mock_probe.assert_called_once_with("10.10.11.13", [9200])
+        assert result["port"] == 9200
+
+    def test_ensure_target_ready_without_target_port_uses_generic_list(self):
+        """Backward compat: a scenario with no target_port still falls back to
+        the generic any-reachable-port probe (ports=None)."""
+        from scripts.lab_targets import ensure_target_ready
+
+        scenario = _make_scenario(target_host="10.10.11.13", vulhub_env=None)
+
+        with (
+            patch("scripts.lab_targets._LAB_HOST_VMID_MAP", {}),
+            patch("scripts.lab_targets._probe_any_reachable_port") as mock_probe,
+            patch("scripts.lab_targets._wait_reachable", return_value=True),
+        ):
+            mock_probe.return_value = 80
+            ensure_target_ready(scenario, dry_run=True)
+
+        mock_probe.assert_called_once_with("10.10.11.13", None)
+
+    def test_vulhub_env_scenario_ignores_declared_target_port(self):
+        """target_port is only meaningful for the static-host path -- a
+        vulhub_env scenario always resolves its real port via cmd_up's own
+        docker-compose port publish, never the static probe list."""
+        from scripts.lab_targets import ensure_target_ready
+
+        scenario = _make_scenario(target_host="10.10.11.50", vulhub_env="fastjson/1.2.47-rce")
+        scenario["target_port"] = 9200  # should be ignored -- env takes precedence
+
+        with (
+            patch("scripts.lab_targets._resolve_live_port", return_value=8090) as mock_resolve,
+            patch("scripts.lab_targets._wait_reachable", return_value=True),
+        ):
+            result = ensure_target_ready(scenario, dry_run=True)
+
+        mock_resolve.assert_called_once()
+        assert result["port"] == 8090
+
+
 # ── Existing primitives only ─────────────────────────────────────────────────
 
 

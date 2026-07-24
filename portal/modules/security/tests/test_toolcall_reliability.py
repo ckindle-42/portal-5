@@ -111,6 +111,32 @@ def test_chain_retry_messages_use_user_role_not_tool_role():
     assert "step timed out — continue with next engagement step" not in src
 
 
+def test_next_expected_index_ignores_over_calls_of_a_repeatable_tool():
+    """Found live 2026-07-24 (ctf_multi_service): expected_order budgets 2x
+    web_request before run_sqlmap, but the model called web_request 4 times
+    first. A raw len(tools_called) index would land on expected_order[4]
+    (webshell_exec) -- 2 steps past where the model actually is. The aligned
+    index must stay at run_sqlmap's position (2) until it's actually called."""
+    from portal.modules.security.core.exec_chain import _next_expected_index
+
+    order = ["web_request", "web_request", "run_sqlmap", "upload_webshell", "webshell_exec"]
+
+    # Exactly matches the budget: 2 calls -> position 2 (run_sqlmap next).
+    assert _next_expected_index(["web_request", "web_request"], order) == 2
+
+    # Over-called web_request 4 times before ever reaching run_sqlmap:
+    # position must NOT skip ahead just because more calls were made.
+    over_called = ["web_request", "web_request", "web_request", "web_request"]
+    assert _next_expected_index(over_called, order) == 2
+
+    # Once run_sqlmap is actually called, the pointer advances past it.
+    assert _next_expected_index([*over_called, "run_sqlmap"], order) == 3
+
+    # Empty expected_order or empty tools_called -> position 0.
+    assert _next_expected_index([], order) == 0
+    assert _next_expected_index(["web_request"], []) == 0
+
+
 def test_escalated_nudge_names_next_expected_tool_on_repeat_failure():
     from portal.modules.security.core.exec_chain import _escalated_nudge
 
