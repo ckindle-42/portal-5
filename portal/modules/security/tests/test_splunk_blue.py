@@ -448,7 +448,7 @@ class TestMeta3Collect:
 
         return _mcp_call
 
-    def test_collect_meta3_returns_all_three_sourcetypes(self):
+    def test_collect_meta3_returns_time_bounded_windows_events_only(self):
         from portal.modules.security.core.siem import collect as collect_mod
 
         iis_text = (
@@ -468,8 +468,8 @@ class TestMeta3Collect:
             result = collect_mod.collect_target(
                 "10.10.11.10", "meta3", since_epoch=0, dry_run=False
             )
-        assert result["web:access"] == ["2026-07-04 15:06:00 POST /_search"]
-        assert result["ftp:access"] == ["2026-07-04 15:05:08 user :)"]
+        assert "web:access" not in result
+        assert "ftp:access" not in result
         assert len(result["windows:security"]) == 1
         assert "EventCode=4688" in result["windows:security"][0]
         assert "NewProcessName=C:\\Windows\\System32\\cmd.exe" in result["windows:security"][0]
@@ -495,13 +495,7 @@ class TestMeta3Collect:
             )
         assert result == {}
 
-    def test_collect_meta3_falls_back_to_tomcat_log_when_iis_empty(self):
-        """Regression: meta3_tomcat_manager's actual vulnerable service is
-        Tomcat, not IIS — IIS's W3C log path never sees Tomcat's own
-        requests. Found live 2026-07-18: a full purple run's fresh capture
-        had zero web-layer exploit evidence for exactly this reason. The
-        broadened search must pick up Tomcat's own access log when IIS's is
-        empty (the common case — meta3's non-IIS-hosted services)."""
+    def test_collect_meta3_does_not_tail_unbounded_tomcat_history(self):
         from portal.modules.security.core.siem import collect as collect_mod
 
         tomcat_text = (
@@ -526,17 +520,9 @@ class TestMeta3Collect:
             result = collect_mod.collect_target(
                 "10.10.11.10", "meta3", since_epoch=0, dry_run=False
             )
-        assert result["web:access"] == [
-            '10.0.0.25 - - [18/Jul/2026:01:49:41 +0000] "PUT /manager/text/deploy?path=/shell '
-            'HTTP/1.1" 200 -'
-        ]
+        assert "web:access" not in result
 
-    def test_collect_meta3_tomcat_search_excludes_catalina_log(self):
-        """Regression: catalina.*.log (Tomcat's server/deployment log) was
-        briefly in the same -Include list as the access log — server startup/
-        WAR-deploy noise often has a newer mtime than the real access log and
-        won the "most recent file" sort, returning zero real request
-        evidence. The access-log search must never include catalina.*.log."""
+    def test_collect_meta3_never_requests_flat_file_tails(self):
         from portal.modules.security.core.siem import collect as collect_mod
 
         seen_scripts: list[str] = []
@@ -553,8 +539,8 @@ class TestMeta3Collect:
         with patch.object(collect_mod, "_get_mcp_call", return_value=_mcp_call):
             collect_mod.collect_target("10.10.11.10", "meta3", since_epoch=0, dry_run=False)
 
-        tomcat_search = next(s for s in seen_scripts if "localhost_access_log" in s)
-        assert "catalina" not in tomcat_search
+        assert all("localhost_access_log" not in script for script in seen_scripts)
+        assert all("catalina" not in script for script in seen_scripts)
 
 
 # ── Index wait ───────────────────────────────────────────────────────────────
@@ -703,6 +689,8 @@ class TestCaptureStore:
             kind="web",
             since_epoch=1000.0,
             telemetry={"web:access": ["GET /?id=1 UNION SELECT 200"]},
+            telemetry_origins={"web:access": "observed_target_log"},
+            episode_id="ep-replay-test",
         )
         assert path is not None
         saved = json.loads(Path(path).read_text())
@@ -749,6 +737,8 @@ class TestCaptureStore:
             kind="web",
             since_epoch=1000.0,
             telemetry={"web:access": ["GET /?id=1 UNION SELECT 200"]},
+            telemetry_origins={"web:access": "observed_target_log"},
+            episode_id="ep-replay-test",
         )
         with (
             patch(
@@ -776,6 +766,8 @@ class TestCaptureStore:
             kind="web",
             since_epoch=0.0,
             telemetry={"web:access": ["line"]},
+            telemetry_origins={"web:access": "observed_target_log"},
+            episode_id="ep-replay-dry",
         )
         with patch(
             "portal.modules.security.core.siem.hec_ship.ship_batch",

@@ -15,8 +15,6 @@ import json
 import os
 import re
 import sys
-import time
-import urllib.parse
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
@@ -210,84 +208,43 @@ def enable_meta3_audit_policies(target_ip: str) -> dict:
     return result
 
 
-_ATTACKER_SRC_IP = "10.0.0.25"  # the lab's Kali attacker box (see exec_chain red prompts)
-_URL_RE = re.compile(r"https?://([\w.\-]+)(?::(\d+))?(/\S*)?")
-_METHOD_RE = re.compile(r"-X\s+(\w+)|--request\s+(\w+)")
-_DATA_RE = re.compile(r"(?:-d|--data(?:-raw|-binary)?)\s+(['\"])(.*?)\1", re.DOTALL)
-_SSH_USERPASS_RE = re.compile(r"-u\s+(\S+).*?-p\s+(\S+)|(\S+)@[\w.\-]+", re.DOTALL)
-
-
 def reconstruct_attack_telemetry(
     tool_calls: list[dict], *, target_host: str | None = None
 ) -> dict[str, list[str]]:
-    """Turn red's ACTUAL executed commands into faithful telemetry lines blue
-    can detect against.
+    """Serialize red's command ledger as counterfactual evidence.
 
-    Red records exactly what it sent (`tools_called_args`) — the real payloads,
-    URLs, and auth attempts. Post-hoc collection off the target is lossy: found
-    live 2026-07-22 that 66/89 scenarios had hollow captures because the target
-    never logged the attack in a place/format `collect_target` caught, and a
-    distinctive fragment of what red actually sent was absent from blue's
-    telemetry in EVERY sampled scenario. Red's own transcript is the
-    authoritative record of the attack — a network IDS / full packet capture /
-    WAF in a real SOC WOULD carry exactly these request lines and payloads.
-    Bridging them in is a faithful reconstruction of telemetry that SHOULD
-    exist, not fabrication: the honesty contract is "never invent," and this is
-    real, provenance-tagged red activity (sourcetype `ids:alert`), never made up.
-
-    Returns {sourcetype: [lines]} — additive; the caller merges it alongside
-    whatever `collect_target` scraped, never replacing real target logs.
+    A model-emitted command proves only that the harness received an execution
+    request.  It does not prove that dispatch succeeded, a packet left the
+    attacker, the target returned HTTP 200, or a target-side authentication
+    event existed.  Consequently this function deliberately emits no
+    IDS/WAF/syslog-shaped records.  Its output is retained for audit and a
+    separately reported counterfactual-recognition ceiling; it is never shipped
+    into the observed telemetry plane or credited to blue's primary score.
     """
-    out: dict[str, list[str]] = {}
-    ts = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    entries: list[str] = []
     for tc in tool_calls or []:
         args = tc.get("args", {}) or {}
         cmd = args.get("cmd") or args.get("code") or args.get("command") or ""
         if not isinstance(cmd, str) or not cmd.strip():
             continue
-
-        # An IDS/EDR line carrying the literal attacker command is always
-        # emitted — the guaranteed-present real artifact, regardless of how
-        # well the request below parses.
-        out.setdefault("ids:alert", []).append(
-            f"{ts} src={_ATTACKER_SRC_IP} dst={target_host or '-'} "
-            f"tool={tc.get('name', 'exec')} cmd={cmd.strip()}"
-        )
-
-        # If the command drove an HTTP request, also reconstruct the native
-        # web-request line a WAF/access-log/IDS would have recorded — method,
-        # path, and (for a body) the payload, so web:access-shaped detection
-        # finds it in its own expected format.
-        m = _URL_RE.search(cmd)
-        if m:
-            path = m.group(3) or "/"
-            # Decode the URI the way a WAF/IDS normalizes it, so an encoded
-            # payload (e.g. %20UNION%20SELECT%20) is present in the readable
-            # form real detection signatures match against — still faithful:
-            # this is the same request, just normalized as a sensor would.
-            path = urllib.parse.unquote(path)
-            mm = _METHOD_RE.search(cmd)
-            method = (mm.group(1) or mm.group(2)).upper() if mm else None
-            dm = _DATA_RE.search(cmd)
-            body = dm.group(2) if dm else ""
-            if method is None:
-                method = "POST" if body else "GET"
-            line = f'{_ATTACKER_SRC_IP} - - [{ts}] "{method} {path} HTTP/1.1" 200 -'
-            if body:
-                line += f' body="{body}"'
-            out.setdefault("web:access", []).append(line)
-
-        # SSH/WinRM/FTP credential attempts (nxc/sshpass/hydra/medusa/ssh) ->
-        # an auth line in the natural syslog shape.
-        low = cmd.lower()
-        if any(t in low for t in ("sshpass", "nxc ssh", "hydra", "medusa", " ssh ")):
-            um = _SSH_USERPASS_RE.search(cmd)
-            user = (um.group(1) or um.group(3)) if um else "unknown"
-            out.setdefault("linux:syslog", []).append(
-                f"{ts} {target_host or 'target'} sshd[0]: "
-                f"authentication attempt for user {user} from {_ATTACKER_SRC_IP}"
+        dispatch = tc.get("dispatch") if isinstance(tc.get("dispatch"), dict) else {}
+        dispatch_ok = dispatch.get("ok", tc.get("dispatch_ok"))
+        dispatch_elapsed = dispatch.get("elapsed_s", tc.get("dispatch_elapsed_s"))
+        entries.append(
+            json.dumps(
+                {
+                    "evidence_origin": "transcript_counterfactual",
+                    "issued_at": tc.get("issued_at"),
+                    "tool": tc.get("name", "exec"),
+                    "command": cmd.strip(),
+                    "claimed_target": target_host,
+                    "dispatch_ok": dispatch_ok,
+                    "dispatch_elapsed_s": dispatch_elapsed,
+                },
+                sort_keys=True,
             )
-    return out
+        )
+    return {"transcript:command": entries} if entries else {}
 
 
 def collect_target(
@@ -334,44 +291,22 @@ def collect_target(
             r = _host_exec_script(
                 "for name in $(docker ps --format '{{.Names}}'); do "
                 'echo "--- container: $name ---"; '
-                f'docker logs --since $(( $(date +%s) - {since} ))s "$name" 2>&1; '
+                f'docker logs --since {since} "$name" 2>&1; '
                 "done | tail -1000",
                 timeout=60,
             )
             if r.get("ok") and r.get("output", "").strip():
                 out["web:access"] = [line for line in r["output"].splitlines() if line.strip()]
 
-            # Also collect web server access/error/auth logs from inside ALL containers.
-            r2 = _host_exec_script(
-                "for cid in $(docker ps -q); do "
-                "docker exec $cid sh -c '"
-                "find /var/log /usr/local/tomcat/logs /usr/local/nginx/logs "
-                "/var/log/apache2 /var/log/nginx /var/log/httpd /var/log/lighttpd "
-                "/var/log/caddy /tmp /opt/*/logs /usr/local/*/logs "
-                "-maxdepth 3 "
-                '\\( -name "*access*" -o -name "*request*" -o -name "*error*" '
-                '-o -name "*auth*" -o -name "*syslog*" -o -name "*messages*" \\) '
-                '\\( -name "*.log" -o -name "*.txt" -o -name "*.log.*" \\) '
-                "-type f 2>/dev/null"
-                "' 2>/dev/null | while read logfile; do "
-                'docker exec $cid cat "$logfile" 2>/dev/null; '
-                "done; "
-                "done | tail -500",
-                timeout=60,
-            )
-            if r2.get("ok") and r2.get("output", "").strip():
-                access_lines = [
-                    line
-                    for line in r2["output"].splitlines()
-                    if line.strip() and not line.startswith("#")
-                ]
-                if access_lines:
-                    out.setdefault("web:access", []).extend(access_lines)
+            # Do not cat whole access/error files here.  A file modified during
+            # the episode may contain months of old requests, and HEC stamping
+            # those rows at scenario_start launders ambient history into the
+            # episode.  Container stdout above is timestamp-filtered by Docker;
+            # packet capture is the lossless fallback for services that do not
+            # write requests to stdout.
 
-            # System-level logs from the host (auth, syslog, audit)
+            # System-level logs from the host, scoped to the episode.
             r3 = _host_exec_script(
-                f"cat /var/log/auth.log 2>/dev/null | tail -100; "
-                f"cat /var/log/syslog 2>/dev/null | tail -100; "
                 f"journalctl --since @{since} -n 100 --no-pager 2>/dev/null || true",
                 timeout=30,
             )
@@ -409,7 +344,9 @@ def collect_target(
             # This gives the model the full event landscape including background
             # noise (logon/logoff, privilege use, etc.) without blowing up output size.
             ps_all = (
-                "Get-WinEvent -FilterHashtable @{LogName='Security'} -MaxEvents 500 "
+                f"$start=[DateTimeOffset]::FromUnixTimeSeconds({since}).LocalDateTime; "
+                "Get-WinEvent -FilterHashtable @{LogName='Security';StartTime=$start} "
+                "-MaxEvents 500 "
                 "| ForEach-Object { $_.Id.ToString() + ' ' + $_.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss') }"
             )
             b64_all = base64.b64encode(ps_all.encode("utf-16-le")).decode()
@@ -454,7 +391,8 @@ def collect_target(
             detailed_events: list[str] = []
             for _aid in _attack_ids:
                 ps_detail = (
-                    f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={_aid}}} "
+                    f"$start=[DateTimeOffset]::FromUnixTimeSeconds({since}).LocalDateTime; "
+                    f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={_aid};StartTime=$start}} "
                     "-MaxEvents 15 | Format-List Id,TimeCreated,Message"
                 )
                 b64_detail = base64.b64encode(ps_detail.encode("utf-16-le")).decode()
@@ -495,6 +433,7 @@ def collect_target(
         if mcp_call:
             import base64
 
+            since = int(since_epoch)
             meta3_user = os.environ.get("LAB_META3_USER", "vagrant")
             meta3_pass = os.environ.get("LAB_META3_PASS", "vagrant")
 
@@ -525,60 +464,16 @@ def collect_target(
                     and not ln.lstrip().startswith(("[*]", "[+]", "[-]"))
                 ]
 
-            # Web exploit evidence (T1190) — IIS access logs, PLUS a broad
-            # search for Tomcat/Apache/other web-server logs. Found live
-            # 2026-07-18: meta3_tomcat_manager's actual vulnerable service is
-            # Tomcat (its own separate web server on :8080 with its own log
-            # files), NOT IIS — IIS's W3C log path never sees Tomcat's
-            # requests at all, so exploit evidence for that (and any other
-            # non-IIS meta3_* scenario: Jenkins, Glassfish, etc.) never
-            # reached the capture regardless of anything else being fixed.
-            iis_out = _winrm_ps(
-                "Get-ChildItem C:\\inetpub\\logs\\LogFiles\\W3SVC1 -ErrorAction SilentlyContinue "
-                "| Sort LastWriteTime -Descending | Select -First 1 "
-                "| Get-Content -Tail 500",
-                90,
-            )
-            if iis_out:
-                lines = _real_log_lines(iis_out)
-                if lines:
-                    out["web:access"] = lines
-
-            # Access-log patterns only — deliberately excludes catalina.*.log
-            # (Tomcat's own server/deployment log). Found live 2026-07-18: with
-            # catalina.*.log in the same "most recent file" competition, server
-            # startup/deployment noise (WAR deploy messages) frequently has a
-            # newer mtime than the actual per-request access log and won the
-            # sort, returning zero real request evidence.
-            other_web_out = _winrm_ps(
-                "Get-ChildItem -Path 'C:\\', 'C:\\Program Files', 'C:\\Program Files (x86)' "
-                "-Recurse -Depth 4 -ErrorAction SilentlyContinue "
-                "-Include 'localhost_access_log*.txt','access_log*','access.log*' "
-                "| Sort LastWriteTime -Descending | Select -First 1 "
-                "| Get-Content -Tail 500",
-                120,
-            )
-            if other_web_out:
-                lines = _real_log_lines(other_web_out)
-                if lines:
-                    out.setdefault("web:access", []).extend(lines)
-
-            # FTP service logs
-            ftp_out = _winrm_ps(
-                "Get-ChildItem C:\\inetpub\\logs\\LogFiles\\FTPSVC2 -ErrorAction SilentlyContinue "
-                "| Sort LastWriteTime -Descending | Select -First 1 "
-                "| Get-Content -Tail 500",
-                90,
-            )
-            if ftp_out:
-                lines = _real_log_lines(ftp_out)
-                if lines:
-                    out["ftp:access"] = lines
+            # IIS/Tomcat/FTP flat-file tails are intentionally excluded until
+            # their heterogeneous timestamp formats have a verified
+            # episode-window parser.  Packet capture supplies network evidence
+            # without re-stamping unbounded historical file content.
 
             # ALL Windows Security events — not just specific IDs.
             # In a real SOC, the analyst sees everything.
             proc_out = _winrm_ps(
-                "Get-WinEvent -FilterHashtable @{LogName='Security'} "
+                f"$start=[DateTimeOffset]::FromUnixTimeSeconds({since}).LocalDateTime; "
+                "Get-WinEvent -FilterHashtable @{LogName='Security';StartTime=$start} "
                 "-MaxEvents 200 -ErrorAction SilentlyContinue "
                 "| Format-List Id,TimeCreated,Message",
                 120,

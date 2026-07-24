@@ -507,9 +507,8 @@ def run_bench(
                 _ct = _ar2[0].get("chain_total_models", len(_ar2))
                 _ch = _ar2[0].get("chain_handoff_quality", "?")
                 _bdr = _ar2[0].get("blue_detection_rate", 0.0)
-                _ber = _ar2[0].get("blue_evasion_rate", 0.0)
                 _speed = _ar2[0].get("chain_speed_score", "?")
-                _bd_str = f"  blue_det={_bdr:.0%}  evaded={_ber:.0%}" if _be2 else ""
+                _bd_str = f"  blue_det={_bdr:.0%}" if _be2 else ""
                 _spd_str = f"  speed={_speed}" if isinstance(_speed, (int, float)) else ""
                 _final_det = f"  final_det={_be2.get('detection_score', 0):.2f}" if _be2 else ""
                 print(

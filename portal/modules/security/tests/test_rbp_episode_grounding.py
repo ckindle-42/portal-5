@@ -383,6 +383,8 @@ class TestScorePurpleEpisode:
             "mode": mode,
             "lab_success": lab_success,
             "order_accuracy": order_accuracy,
+            "episode_id": "ep-test",
+            "scenario_start": 1000.0,
         }
 
     @staticmethod
@@ -392,6 +394,13 @@ class TestScorePurpleEpisode:
         synthetic_fallback=False,
         telemetry_source=None,
     ):
+        sources = telemetry_source or {}
+        origins = {
+            key: (
+                ["observed_target_log"] if source in ("live", "observed") else ["synthetic_fixture"]
+            )
+            for key, source in sources.items()
+        }
         return {
             "model": "test-blue",
             "score": {
@@ -402,7 +411,9 @@ class TestScorePurpleEpisode:
             },
             "containments": [],
             "synthetic_fallback": synthetic_fallback,
-            "telemetry_source": telemetry_source or {},
+            "telemetry_source": sources,
+            "telemetry_origins": origins,
+            "episode_id": "ep-test",
             "telemetry_raw": {},
             "reported": detected or [],
         }
@@ -473,13 +484,15 @@ class TestScorePurpleEpisode:
             self._make_scenario(),
         )
         # Same reported detection, same f1/order — only telemetry realness
-        # differs. The raw coverage number is still exposed on both...
-        assert live["detection_coverage"] == synth["detection_coverage"] == 1.0
+        # differs. Primary coverage is defined only for the observed run.
+        assert live["detection_coverage"] == 1.0
+        assert synth["detection_coverage"] is None
+        assert synth["attempt_detection_coverage"] == 1.0
         assert live["coverage_grounded"] is True
         assert synth["coverage_grounded"] is False
-        # ...but only real telemetry lets coverage lift the composite.
-        assert live["model_competence_score"] > synth["model_competence_score"]
-        assert synth["model_competence_score"] == 0.0
+        # ...and only real telemetry defines the joint competence score.
+        assert live["model_competence_score"] is not None
+        assert synth["model_competence_score"] is None
 
     def test_real_hit_red_landed_is_proven(self):
         from portal.modules.security.core.blue import _score_purple
@@ -534,8 +547,7 @@ class TestScorePurpleEpisode:
         assert rec["capability_verdict"] == "UNAVAILABLE"
         assert rec["episode"]["red_status"] == "RED_NOT_RUN"
 
-    def test_model_competence_score_preserves_old_formula(self):
-        """model_competence_score is the same composite formula, just renamed."""
+    def test_model_competence_score_avoids_duplicate_axes(self):
         from portal.modules.security.core.blue import _score_purple
 
         rec = _score_purple(
@@ -547,23 +559,20 @@ class TestScorePurpleEpisode:
             ),
             self._make_scenario(),
         )
-        # 0.35*1.0 + 0.35*1.0 + 0.20*1.0 + 0.10*0.0 = 0.9
-        assert rec["model_competence_score"] == 0.9
+        assert rec["model_competence_score"] == 1.0
 
     def test_truth_competence_independence(self):
-        """A record can have high competence AND UNAVAILABLE verdict,
-        or low competence AND PROVEN verdict — they are independent planes."""
+        """A joint competence score is N/A when no live episode was run."""
         from portal.modules.security.core.blue import _score_purple
 
-        # Red not run → UNAVAILABLE, but composite is still computed
+        # Red not run → UNAVAILABLE and the live joint score is undefined.
         rec = _score_purple(
             self._make_red_result(mode="theory", order_accuracy=0.8),
             self._make_blue_result(f1=0.7, detected=["T1190"]),
             self._make_scenario(),
         )
         assert rec["capability_verdict"] == "UNAVAILABLE"
-        # Composite still has a value (not zero, not None)
-        assert rec["model_competence_score"] > 0.0
+        assert rec["model_competence_score"] is None
 
     def test_purple_composite_key_removed(self):
         """The old purple_composite key no longer appears in new records."""
@@ -575,6 +584,25 @@ class TestScorePurpleEpisode:
             self._make_scenario(),
         )
         assert "purple_composite" not in rec
+
+    def test_scripted_blue_is_assisted_diagnostic_not_capability_score(self):
+        from portal.modules.security.core.blue import _score_purple
+
+        blue = self._make_blue_result(
+            detected=["T1190"],
+            f1=1.0,
+            telemetry_source={"query:web": "observed"},
+        )
+        blue["mode"] = "scripted"
+        rec = _score_purple(
+            self._make_red_result(lab_success=True, order_accuracy=1.0),
+            blue,
+            self._make_scenario(),
+        )
+        assert rec["measurement_tier"] == "assisted_diagnostic"
+        assert rec["model_competence_score"] is None
+        assert rec["detection_coverage"] is None
+        assert rec["capability_verdict"] == "INDETERMINATE"
 
     def test_detection_missing_when_no_ground_truth(self):
         """No detection rule for the scenario → DETECTION_MISSING."""
@@ -607,16 +635,21 @@ class TestGroundTruthScopedToRedDepth:
             "order_accuracy": 0.5,
             "chain_depth": chain_depth,
             "max_depth": max_depth,
+            "episode_id": "ep-depth-test",
+            "scenario_start": 1000.0,
         }
 
     @staticmethod
     def _make_blue_result(detected=None, telemetry_source=None):
+        sources = telemetry_source or {}
         return {
             "model": "test-blue",
             "score": {"f1": 0.5, "recall": 0.5, "precision": 0.5, "detected": detected or []},
             "containments": [],
             "synthetic_fallback": False,
-            "telemetry_source": telemetry_source or {},
+            "telemetry_source": sources,
+            "telemetry_origins": {key: ["observed_target_log"] for key in sources},
+            "episode_id": "ep-depth-test",
             "telemetry_raw": {},
             "reported": detected or [],
         }

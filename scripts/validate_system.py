@@ -2182,20 +2182,27 @@ def check_rbp_evidence_grounding() -> tuple[str, str, list[dict]]:
     # Check 4: _score_purple produces episode + verdict + model_competence_score
     try:
         from portal.modules.security.core.blue import _score_purple
+        from portal.modules.security.core.telemetry import OBSERVED_PACKET
 
+        episode_id = "validator-probe-scored"
         red_result = {
             "model": "probe",
             "mode": "lab-exec",
             "lab_success": True,
             "order_accuracy": 0.8,
+            "episode_id": episode_id,
         }
         blue_result = {
             "model": "probe",
+            "mode": "discovery",
+            "episode_id": episode_id,
             "score": {"f1": 0.7, "recall": 0.7, "precision": 0.7, "detected": ["T1190"]},
             "containments": [],
             "synthetic_fallback": False,
-            "telemetry_source": {"T1190": "live"},
-            "telemetry_raw": {},
+            "telemetry_source": {"network:packet": "live"},
+            "telemetry_origins": {"network:packet": [OBSERVED_PACKET]},
+            "episode_inventory_origins": [OBSERVED_PACKET],
+            "telemetry_raw": {"network:packet": "validator observed packet"},
             "reported": ["T1190"],
         }
         scenario = {

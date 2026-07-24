@@ -1,0 +1,4 @@
+# DinD execution boundary with episode-scoped packet capture support.
+FROM docker:27-dind
+
+RUN apk add --no-cache tcpdump

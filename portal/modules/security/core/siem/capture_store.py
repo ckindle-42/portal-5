@@ -27,6 +27,10 @@ def save_capture(
     kind: str,
     since_epoch: float,
     telemetry: dict[str, list[str]],
+    telemetry_origins: dict[str, str] | None = None,
+    counterfactual_telemetry: dict[str, list[str]] | None = None,
+    episode_id: str | None = None,
+    pcap_path: str | None = None,
 ) -> str | None:
     """Persist a collect_target() result to disk. Returns the file path, or None if empty.
 
@@ -36,11 +40,13 @@ def save_capture(
     with ``validity`` metadata so downstream consumers can distinguish real
     captures from hollow ones.
     """
-    if not any(telemetry.values()):
+    counterfactual_telemetry = counterfactual_telemetry or {}
+    if not any(telemetry.values()) and not any(counterfactual_telemetry.values()):
         return None
     CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
     ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    path = CAPTURE_DIR / f"{scenario}_{ts}.json"
+    episode_suffix = f"_{episode_id[-8:]}" if episode_id else ""
+    path = CAPTURE_DIR / f"{scenario}_{ts}{episode_suffix}.json"
 
     # ── ground-truth gate ──────────────────────────────────────────────
     validity = {
@@ -72,7 +78,14 @@ def save_capture(
         "kind": kind,
         "collected_since_epoch": since_epoch,
         "captured_at": time.time(),
+        "schema_version": 2,
+        "episode_id": episode_id,
         "telemetry": telemetry,
+        "telemetry_origins": telemetry_origins or {},
+        # Red's command ledger is retained for audit and counterfactual
+        # recognition experiments, but replay_capture never ships this plane.
+        "counterfactual_telemetry": counterfactual_telemetry,
+        "pcap_path": pcap_path,
         "validity": validity,
     }
     path.write_text(json.dumps(payload, indent=2))
@@ -109,7 +122,9 @@ def save_evidence(kind: str, scenario: str, payload: dict) -> str:
     d = CAPTURE_DIR / kind
     d.mkdir(parents=True, exist_ok=True)
     ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    path = d / f"{scenario}_{ts}.json"
+    episode_id = payload.get("episode_id")
+    episode_suffix = f"_{str(episode_id)[-8:]}" if episode_id else ""
+    path = d / f"{scenario}_{ts}{episode_suffix}.json"
     body = {"kind": kind, "scenario": scenario, "captured_at": time.time(), **payload}
     path.write_text(json.dumps(body, indent=2, default=str))
     return str(path)
@@ -150,6 +165,30 @@ def replay_capture(
     scenario = data["scenario"]
     target_host = data["target_host"]
     telemetry = data["telemetry"]
+    telemetry_origins = data.get("telemetry_origins") or {}
+    episode_id = data.get("episode_id")
+    if data.get("schema_version") != 2 or not episode_id:
+        return {
+            "ok": False,
+            "error": "LEGACY_CAPTURE_UNSCOPED",
+            "scenario": scenario,
+            "target_host": target_host,
+            "shipped": 0,
+            "indexed_confirmed": None,
+            "episode_id": episode_id,
+            "replayed_from": str(p),
+        }
+    if not any(telemetry.values()):
+        return {
+            "ok": False,
+            "error": "NO_OBSERVED_TELEMETRY",
+            "scenario": scenario,
+            "target_host": target_host,
+            "shipped": 0,
+            "indexed_confirmed": None,
+            "episode_id": episode_id,
+            "replayed_from": str(p),
+        }
 
     replay_start = event_time if event_time is not None else time.time()
     shipped = 0
@@ -168,6 +207,8 @@ def replay_capture(
             host=target_host,
             dry_run=dry_run,
             event_time=event_time,
+            evidence_origin=telemetry_origins.get(sourcetype, "observed_target_log"),
+            episode_id=episode_id,
         )
         if r.get("ok"):
             shipped += len(lines)
@@ -175,7 +216,11 @@ def replay_capture(
     indexed_confirmed = None
     if shipped and not dry_run:
         indexed_confirmed = wait_indexed(
-            host=target_host, since_epoch=replay_start, expect_min=1, timeout_s=timeout_s
+            host=target_host,
+            since_epoch=replay_start,
+            expect_min=1,
+            timeout_s=timeout_s,
+            episode_id=episode_id,
         )
 
     return {
@@ -184,5 +229,7 @@ def replay_capture(
         "target_host": target_host,
         "shipped": shipped,
         "indexed_confirmed": indexed_confirmed,
+        "episode_id": episode_id,
+        "replay_start": replay_start,
         "replayed_from": str(p),
     }

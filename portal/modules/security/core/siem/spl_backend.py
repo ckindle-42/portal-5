@@ -15,6 +15,29 @@ import httpx
 
 # Host-field priority order for row extraction
 _HOST_FIELDS = ("host", "ComputerName", "dest", "Computer", "src")
+_EPISODE_PIPE_COMMANDS = frozenset(
+    {
+        "search",
+        "where",
+        "regex",
+        "fields",
+        "table",
+        "head",
+        "sort",
+        "stats",
+        "dedup",
+        "eval",
+        "rex",
+        "spath",
+        "rename",
+        "bin",
+        "bucket",
+        "timechart",
+        "top",
+        "rare",
+        "transaction",
+    }
+)
 
 
 class SplunkBackend:
@@ -79,19 +102,10 @@ class SplunkBackend:
     def query(self, technique_id: str, window: dict) -> dict:
         """Run the SPL for technique_id via /services/search/jobs/export (oneshot, json).
 
-        If the exact technique SPL returns nothing, falls back to a broad,
-        index-wide search over the same time window before giving up (see
-        P5-PURPLE-DISCOVERY-001, 2026-07-17: found live that T1059/T1078's
-        SPL requires an exact `sourcetype="linux:auditd"` match, but a
-        target's actual collected telemetry can land under a different
-        sourcetype — the narrow query then reports "nothing here" even
-        though real, relevant data exists in the index. Real detections
-        should not be silently discarded just because they don't match the
-        exact classification a query author guessed at. Tagged distinctly
-        (`source="live-broad-fallback"`) so callers can tell "matched
-        exactly" from "found via broad search" — this is not a substitute
-        for fixing collection coverage or SPL accuracy, just a safety net
-        so real evidence isn't invisible in the meantime.)
+        This legacy technique-specific method never performs a broad fallback.
+        Returning an episode-wide haystack once per expected technique
+        duplicates the same event under the answer-key labels and turns
+        unrelated ambient data into apparent supporting evidence.
 
         Returns:
             {
@@ -131,20 +145,6 @@ class SplunkBackend:
 
         source = "live" if rows else "synthetic-fallback"
 
-        # Broad discovery fallback — only when the exact query found nothing
-        # and didn't error (an error means Splunk itself is unreachable;
-        # retrying broader would just fail the same way).
-        if not rows and error is None:
-            try:
-                broad_rows = self._run_search(
-                    f"search index={self.index} | head 200", earliest, latest
-                )
-            except Exception:
-                broad_rows = []
-            if broad_rows:
-                rows = broad_rows
-                source = "live-broad-fallback"
-
         telemetry = "\n".join(r["raw"] for r in rows)
 
         return {
@@ -156,4 +156,113 @@ class SplunkBackend:
             "time_bounds": time_bounds,
             "error": error,
             "telemetry": telemetry,
+        }
+
+    def query_episode(
+        self,
+        window: dict,
+        *,
+        episode_id: str,
+        host: str | None = None,
+        limit: int = 500,
+    ) -> dict:
+        """Return one unlabeled, episode-scoped telemetry haystack.
+
+        Ground-truth technique IDs are intentionally absent from this API.
+        ``episode_id`` is an indexed HEC field attached at collection time, so
+        concurrent or back-to-back runs cannot contaminate one another.
+        """
+        earliest = window.get("earliest", "-15m")
+        latest = window.get("latest", "now")
+        clauses = [f"index={self.index}", f'episode_id="{episode_id}"']
+        if host:
+            clauses.append(f'host="{host}"')
+        search = f"search {' '.join(clauses)} | head {max(1, min(int(limit), 5000))}"
+        error: str | None = None
+        try:
+            rows = self._run_search(search, earliest, latest)
+        except Exception as exc:
+            rows = []
+            error = str(exc)
+        origins: set[str] = set()
+        for row in rows:
+            fields = row.get("fields", {})
+            origin = fields.get("evidence_origin")
+            source = str(fields.get("source", ""))
+            if origin:
+                origins.add(str(origin))
+            elif source.startswith("portal5:"):
+                origins.add(source.split(":", 1)[1])
+        return {
+            "rows": rows,
+            "source": "observed" if rows else "empty",
+            "origins": sorted(origins),
+            "backend": self.name,
+            "spl": search,
+            "time_bounds": {"earliest": earliest, "latest": latest},
+            "error": error,
+            "telemetry": "\n".join(row["raw"] for row in rows),
+        }
+
+    def query_freeform(
+        self,
+        spl: str,
+        window: dict,
+        *,
+        episode_id: str,
+        host: str | None = None,
+    ) -> dict:
+        """Execute blue's requested SPL inside an immutable episode scope."""
+        earliest = window.get("earliest", "-15m")
+        latest = window.get("latest", "now")
+        requested = (spl or "").strip()
+        if any(token in requested for token in ("[", "]", "`", ";")):
+            return {
+                "rows": [],
+                "source": "empty",
+                "origin": "observed_query",
+                "backend": self.name,
+                "spl": "",
+                "requested_spl": spl,
+                "time_bounds": {"earliest": earliest, "latest": latest},
+                "error": "query rejected: subsearches and command separators are not allowed",
+                "telemetry": "",
+            }
+        if requested.lower().startswith("search "):
+            requested = requested[7:].strip()
+        pipeline = requested.split("|")
+        for segment in pipeline[1:]:
+            command = segment.strip().split(maxsplit=1)[0].lower() if segment.strip() else ""
+            if command not in _EPISODE_PIPE_COMMANDS:
+                return {
+                    "rows": [],
+                    "source": "empty",
+                    "origin": "observed_query",
+                    "backend": self.name,
+                    "spl": "",
+                    "requested_spl": spl,
+                    "time_bounds": {"earliest": earliest, "latest": latest},
+                    "error": f"query rejected: pipeline command {command!r} is not allowed",
+                    "telemetry": "",
+                }
+        base = f'search index={self.index} episode_id="{episode_id}"'
+        if host:
+            base += f' host="{host}"'
+        search = f"{base} | search {requested}" if requested else f"{base} | head 500"
+        try:
+            rows = self._run_search(search, earliest, latest)
+            error = None
+        except Exception as exc:
+            rows = []
+            error = str(exc)
+        return {
+            "rows": rows,
+            "source": "observed" if rows else "empty",
+            "origin": "observed_query",
+            "backend": self.name,
+            "spl": search,
+            "requested_spl": spl,
+            "time_bounds": {"earliest": earliest, "latest": latest},
+            "error": error,
+            "telemetry": "\n".join(row["raw"] for row in rows),
         }

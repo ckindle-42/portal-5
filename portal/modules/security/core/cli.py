@@ -252,15 +252,16 @@ def main() -> None:
             "council",
             "multichain",
         ],
-        default="scripted",
+        default="discovery",
         help=(
             "With --purple: which blue investigation prompt to use "
-            "(P5-PURPLE-DISCOVERY-001). 'scripted' (default) = mandatory step "
-            "checklist. 'discovery' = fully open-ended, no hints — the model "
+            "(P5-PURPLE-DISCOVERY-001). 'discovery' (default) = fully open-ended, "
+            "no hints — the model "
             "decides what to investigate from scratch. 'hybrid' = open-ended but "
             "with technique-reference hints as optional context plus an explicit "
-            "anti-rumination instruction, no mandatory sequence. Same tools, "
-            "telemetry, and scoring across all three. 'orchestrated' "
+            "anti-rumination instruction, no mandatory sequence. 'scripted' and "
+            "'hybrid' are assisted diagnostics and do not produce a primary "
+            "capability score. 'orchestrated' "
             "(BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2) is a standalone mode, not "
             "a --purple prompt variant: runs the tool/reasoning/expert 3-section "
             "discovery pipeline (blue_orchestrate.run_blue_orchestration) against "
@@ -2084,10 +2085,16 @@ def main() -> None:
             # chain_results, missed here the first time (found live: this crash
             # lost an entire ~3hr Step 2 dual-dispatch run's results before they
             # were ever written to disk).
+            coverage = r.get("detection_coverage")
+            competence = r.get("model_competence_score")
+            coverage_text = f"{coverage:>5.2f}" if isinstance(coverage, (int, float)) else "  N/A"
+            competence_text = (
+                f"{competence:>8.2f}" if isinstance(competence, (int, float)) else "     N/A"
+            )
             print(
                 f"{str(r.get('red_model', '?'))[:24]:<24}{str(r.get('blue_model', '?'))[:24]:<24}"
-                f"{r.get('detection_coverage', 0.0):>5.2f}"
-                f"{r.get('blue_f1', 0.0):>8.2f}{r.get('model_competence_score', 0.0):>8.2f}"
+                f"{coverage_text}"
+                f"{r.get('blue_f1', 0.0):>8.2f}{competence_text}"
                 f" {r.get('capability_verdict', 'N/A'):<14}"
             )
 
