@@ -1449,11 +1449,43 @@ def main() -> None:
                     f"  Target healed: {gate.get('reason')} → {gate.get('host')}:{gate.get('port')}"
                 )
             scenario_start = time.time()
-            sc_results = run_chain_tests(
-                args.chain_models, cfg, dry_run=args.dry_run, lab_exec=args.lab_exec
-            )
+            # Episode-scoped packet capture at the DinD attack boundary --
+            # found live 2026-07-24: this red-only --all-scenarios path never
+            # called start_network_capture/stop_network_capture at all (only
+            # blue.py's separate --purple orchestration did), so every
+            # red-only run fell back entirely to the old lossy post-hoc
+            # scrape (collect_and_ship_scenario_telemetry's docker/access-log
+            # read after the fact) -- the exact Hop 2/3 evidence-chain gap
+            # 993b6a97 built network_capture.py to fix, just never wired into
+            # this code path. Without it, a captured red run has no lossless
+            # sensor-observed evidence for blue to ever detect, regardless of
+            # whether the attack itself succeeded -- 52/68 full-depth
+            # completions in the first run through this gap showed zero
+            # ground-truth coverage.
+            from .episode import new_episode_id
+
+            episode_id = new_episode_id(sc["name"])
+            network_capture = None
+            if args.lab_exec and not args.dry_run:
+                from portal.modules.security.core.siem.network_capture import (
+                    start_network_capture,
+                )
+
+                network_capture = start_network_capture(episode_id, sc.get("target_host"))
+            try:
+                sc_results = run_chain_tests(
+                    args.chain_models, cfg, dry_run=args.dry_run, lab_exec=args.lab_exec
+                )
+            finally:
+                if network_capture is not None:
+                    from portal.modules.security.core.siem.network_capture import (
+                        stop_network_capture,
+                    )
+
+                    network_capture = stop_network_capture(network_capture)
             for r in sc_results:
                 r["scenario"] = sc["name"]
+                r["episode_id"] = episode_id
             all_scenario_results[sc["name"]] = sc_results
             chain_results.extend(sc_results)
             _write_checkpoint()
@@ -1471,7 +1503,13 @@ def main() -> None:
                 cap_path, indexed, tele_err = None, None, ""
                 try:
                     cap_path, indexed, tele_err = collect_and_ship_scenario_telemetry(
-                        sc, scenario_start, lab_exec=args.lab_exec, dry_run=args.dry_run
+                        sc,
+                        scenario_start,
+                        lab_exec=args.lab_exec,
+                        dry_run=args.dry_run,
+                        episode_id=episode_id,
+                        network_telemetry=network_capture.telemetry if network_capture else None,
+                        pcap_path=network_capture.local_pcap_path if network_capture else None,
                     )
                 except Exception as _cap_exc:
                     logging.warning("capture failed for %s: %s", sc["name"], _cap_exc)

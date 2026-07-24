@@ -90,6 +90,22 @@ RUN mkdir -p /opt/marshalsec \
        https://github.com/mbechler/marshalsec/releases/download/0.0.3-SNAPSHOT/marshalsec-0.0.3-SNAPSHOT-all.jar \
     || echo "WARNING: marshalsec download failed — log4shell server step will need manual setup"
 
+# ── CVE-2017-1000353 (Jenkins CLI SignedObject deserialization RCE) ──────────
+# Matches vuln_jenkins_rce. Found live 2026-07-24: this vulhub image's own
+# /script Groovy console requires authentication (403, anonymous lacks
+# hudson.model.Hudson.RunScripts) -- the real, only working technique here is
+# the CLI deserialization CVE, which vulhub's own README says needs this
+# externally-hosted payload-generator jar + exploit.py. The sandbox has no
+# runtime internet access, so this must be pre-baked at build time (build-time
+# internet access is available, same as marshalsec/AutoBlue above) or the
+# scenario is genuinely unexploitable, not just under-prompted.
+RUN mkdir -p /opt/CVE-2017-1000353 \
+    && wget -q -O /opt/CVE-2017-1000353/CVE-2017-1000353-1.1-SNAPSHOT-all.jar \
+       https://github.com/vulhub/CVE-2017-1000353/releases/download/1.1/CVE-2017-1000353-1.1-SNAPSHOT-all.jar \
+    && wget -q -O /opt/CVE-2017-1000353/exploit.py \
+       https://raw.githubusercontent.com/vulhub/CVE-2017-1000353/master/exploit.py \
+    || echo "WARNING: CVE-2017-1000353 tooling download failed — jenkins RCE step will need manual setup"
+
 # ── Tool verification ─────────────────────────────────────────────────────────
 # Use command -v (existence check) — nmap and cap-requiring binaries fail
 # --version in Docker's restricted build sandbox even though they work at runtime.
@@ -164,7 +180,7 @@ RUN pip3 install --no-cache-dir zsteg 2>/dev/null || echo "WARNING: zsteg unavai
 # once, whenever it was originally cached, and broke the instant an upstream
 # layer's cache was invalidated (found live, 2026-07-17, adding default-mysql-
 # client above invalidated this layer for the first time in weeks).
-RUN python3 -c "import shutil, json, os; tools = ['nmap','nxc','certipy-ad','responder','bloodhound-ce-python','impacket-secretsdump','impacket-GetUserSPNs','enum4linux-ng','evil-winrm','showmount','ffuf','redis-cli','mysql','john','hashcat','hydra','java','javac','binwalk','radare2','jadx','apktool','foremost','exiftool','steghide','sqlmap','gobuster','nikto','gdb','awscli','kubectl']; manifest = {t: shutil.which(t) is not None for t in tools}; manifest['rockyou'] = os.path.exists('/usr/share/wordlists/rockyou.txt'); manifest['AutoBlue'] = os.path.exists('/opt/AutoBlue-MS17-010/eternalblue_exploit7.py'); manifest['POC_CVE-2023-21839'] = os.path.exists('/opt/POC_CVE-2023-21839'); manifest['pwntools'] = True; open('/opt/portal5-attack.manifest.json','w').write(json.dumps(manifest,indent=2)); print('manifest: {} / {} tools present'.format(sum(1 for v in manifest.values() if v), len(manifest)))" 2>/dev/null || echo "WARNING: manifest gen failed"
+RUN python3 -c "import shutil, json, os; tools = ['nmap','nxc','certipy-ad','responder','bloodhound-ce-python','impacket-secretsdump','impacket-GetUserSPNs','enum4linux-ng','evil-winrm','showmount','ffuf','redis-cli','mysql','john','hashcat','hydra','java','javac','binwalk','radare2','jadx','apktool','foremost','exiftool','steghide','sqlmap','gobuster','nikto','gdb','awscli','kubectl']; manifest = {t: shutil.which(t) is not None for t in tools}; manifest['rockyou'] = os.path.exists('/usr/share/wordlists/rockyou.txt'); manifest['AutoBlue'] = os.path.exists('/opt/AutoBlue-MS17-010/eternalblue_exploit7.py'); manifest['POC_CVE-2023-21839'] = os.path.exists('/opt/POC_CVE-2023-21839'); manifest['CVE-2017-1000353'] = os.path.exists('/opt/CVE-2017-1000353/exploit.py'); manifest['pwntools'] = True; open('/opt/portal5-attack.manifest.json','w').write(json.dumps(manifest,indent=2)); print('manifest: {} / {} tools present'.format(sum(1 for v in manifest.values() if v), len(manifest)))" 2>/dev/null || echo "WARNING: manifest gen failed"
 
 # execute_bash invokes ["sh", "/code"]; execute_python invokes ["python", "/code"].
 CMD ["sh"]
