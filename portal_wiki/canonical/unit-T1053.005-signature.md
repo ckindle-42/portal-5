@@ -18,8 +18,8 @@ tags:
 - T1053.005
 - technique
 - signature
-created_at: 1784862799.30791
-updated_at: 1784862799.30791
+created_at: 1784898346.207846
+updated_at: 1784898346.207846
 ---
 
 # T1053.005 — Scheduled task persistence — Windows Security Event 4698
