@@ -18,8 +18,8 @@ tags:
 - T1558.004
 - technique
 - signature
-created_at: 1784862799.306622
-updated_at: 1784862799.306622
+created_at: 1784898346.206722
+updated_at: 1784898346.206722
 ---
 
 # T1558.004 — AS-REP Roasting — Windows Security Event 4768 without pre-auth [DISTINGUISH: T1558.004 uses EventCode=4768 (AS-REQ) with PreAuthType=0; T1558.003 uses EventCode=4769 (TGS-REQ) with RC4] [KEY: PreAuthType=0 in 4768 events]

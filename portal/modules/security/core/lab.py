@@ -36,6 +36,18 @@ from ._data import (
 
 # ── Sandbox output parsing ───────────────────────────────────────────────────
 
+# Red's own execute_bash/execute_python results are capped far below
+# SANDBOX_LAB_OUTPUT_MAX (1MB -- widened for siem/collect.py's Get-WinEvent
+# needs, a completely different caller). Found live 2026-07-24: meta3's
+# default IIS page embeds a ~1.1MB __VIEWSTATE blob on essentially one line
+# (13 newlines total), so `curl ... | head -20` -- a *line* limit -- passed
+# almost the entire blob through untruncated. The model correctly described
+# receiving "long strings of hexadecimal characters" and stalled trying to
+# make sense of it. This is a *byte* cap applied here, at the one choke point
+# every red tool result passes through, independent of whatever truncation
+# (if any) the model's own command attempted.
+_RED_TOOL_OUTPUT_CAP = 8000
+
 
 def parse_sandbox_output(raw: str) -> tuple[bool, str]:
     """Extract clean terminal text from the MCP sandbox JSON envelope.
@@ -54,9 +66,21 @@ def parse_sandbox_output(raw: str) -> tuple[bool, str]:
             parts.append(f"[stderr] {stderr}")
         if not parts:
             parts.append(f"[exit_code={d.get('exit_code', '?')}]")
-        return ok, "\n".join(parts)
+        combined = "\n".join(parts)
     except Exception:
-        return bool(raw.strip()), raw
+        return bool(raw.strip()), _cap_output(raw)
+    return ok, _cap_output(combined)
+
+
+def _cap_output(text: str, limit: int = _RED_TOOL_OUTPUT_CAP) -> str:
+    if len(text) <= limit:
+        return text
+    return (
+        text[:limit] + f"\n[... {len(text) - limit} bytes truncated -- output exceeded the "
+        f"{limit}-byte cap for tool results; the command likely returned a "
+        "single long line or binary blob rather than the expected output. "
+        "Try a byte-limited variant like `| head -c 500` instead of `| head -N`.]"
+    )
 
 
 # ── Lab service probing ──────────────────────────────────────────────────────
