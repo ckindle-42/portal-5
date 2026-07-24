@@ -62,3 +62,75 @@ def test_recovery_detected():
     classes = ["TOOL_CALL_MALFORMED", "TOOL_CALL_VALID"]
     m = aggregate("x", classes)
     assert m.recovery_rate == 1.0 and m.recoveries == 1
+
+
+# ── Chain-test retry nudge strength (2026-07-23) ────────────────────────────
+# Found live in a fully event-driven (untimed) recapture: the original retry
+# nudge was a generic one-liner sent under role="tool" -- a role models weight
+# as a call RESULT, not an authoritative instruction. A model that correctly
+# reasoned "the sequence is strict, I must call the next tool" still drifted
+# into three more turns of commentary in a row instead of emitting the call.
+# Regression guard: the nudges must restate the actual HARD CONSTRAINT and
+# never regress back to role="tool" or the old weak one-liner text.
+
+
+def test_chain_nudges_restate_hard_constraint_not_generic_oneliner():
+    from portal.modules.security.core import exec_chain
+
+    for nudge in (exec_chain._CHAIN_NUDGE_NO_TOOL_CALL, exec_chain._CHAIN_NUDGE_TIMEOUT):
+        assert "tool call" in nudge
+        assert "no analysis" in nudge or "no reasoning in prose" in nudge
+        # the old weak nudges never said anything this specific
+        assert "continue with next engagement step" not in nudge.lower()
+        assert "continue with the next engagement step" not in nudge.lower()
+
+
+def test_chain_retry_messages_use_user_role_not_tool_role():
+    import inspect
+
+    from portal.modules.security.core import exec_chain
+
+    src = inspect.getsource(exec_chain)
+    # All 4 retry-nudge injection sites must use role="user" (real
+    # instructional weight), never role="tool" (weighted as a call result),
+    # and must route through _escalated_nudge (not the bare constant) so
+    # repeated consecutive failures get new information, not an identical
+    # repeated prompt (found live 2026-07-23: a model produced 4 consecutive
+    # EMPTY responses to the exact same unchanged nudge in a row).
+    # Whitespace-insensitive: count call sites by argument order, not exact
+    # formatting (ruff reformats line breaks independently of this test).
+    import re
+
+    calls = re.findall(r"_escalated_nudge\(\s*(_CHAIN_NUDGE_\w+)", src)
+    assert calls.count("_CHAIN_NUDGE_TIMEOUT") == 2
+    assert calls.count("_CHAIN_NUDGE_NO_TOOL_CALL") == 2
+    # Every nudge message dict in the file uses role="user".
+    assert '"role": "tool", "content": _CHAIN_NUDGE' not in src
+    # The old generic one-liners must not have silently come back.
+    assert "step timed out — tool did not respond within the budget" not in src
+    assert "step timed out — continue with next engagement step" not in src
+
+
+def test_escalated_nudge_names_next_expected_tool_on_repeat_failure():
+    from portal.modules.security.core.exec_chain import _escalated_nudge
+
+    order = ["start_lab_target", "run_nmap_scan", "exploit_service", "establish_persistence"]
+
+    # First failure (stall_counter passed pre-increment == 0): base nudge,
+    # unchanged -- no need to escalate on a single miss.
+    first = _escalated_nudge("BASE", 0, order, 2)
+    assert first == "BASE"
+
+    # Second+ consecutive failure at the same decision point: escalate to
+    # naming the specific next tool, not the identical generic text again.
+    second = _escalated_nudge("BASE", 1, order, 2)
+    assert second != "BASE"
+    assert "exploit_service" in second
+
+    third = _escalated_nudge("BASE", 2, order, 2)
+    assert "exploit_service" in third
+
+    # Past the end of the expected order (or no order at all): fall back to
+    # the base nudge rather than indexing out of range.
+    assert _escalated_nudge("BASE", 2, order, len(order)) == "BASE"
+    assert _escalated_nudge("BASE", 2, [], 0) == "BASE"

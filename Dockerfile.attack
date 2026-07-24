@@ -19,7 +19,10 @@
 #   Web          — curl, ffuf, redis-cli
 #   Databases    — mysql (default-mysql-client)
 #   Exploit      — AutoBlue-MS17-010 (python), marshalsec jar (log4shell)
-#   Java         — default-jre-headless (marshalsec + log4shell payload compile)
+#   Java         — default-jdk-headless (marshalsec + javac for compiling RCE
+#                    payload classes, e.g. fastjson/CVE-2021-44228's TouchFile.java
+#                    -- a JRE alone has no javac; found live 2026-07-23 checking
+#                    vulhub source material against this image's real tool list)
 #
 # Kali rolling ships native linux/arm64 — no QEMU emulation on Apple Silicon.
 FROM kalilinux/kali-rolling
@@ -48,7 +51,7 @@ RUN apt-get update \
         openssh-client \
         python3 \
         python3-pip \
-        default-jre-headless \
+        default-jdk-headless \
         netexec \
         impacket-scripts \
         certipy-ad \
@@ -72,6 +75,13 @@ RUN apt-get update \
 # Python3 EternalBlue exploit suite — matches eternalblue_ms17010 tool_hint.
 RUN git clone --depth 1 https://github.com/3ndG4me/AutoBlue-MS17-010 /opt/AutoBlue-MS17-010 \
     && pip3 install --no-cache-dir -r /opt/AutoBlue-MS17-010/requirements.txt 2>/dev/null || true
+
+# ── WebLogic CVE-2023-21839 PoC ──────────────────────────────────────────────
+# Matches vuln_weblogic_rce -- T3/IIOP pre-auth JNDI RCE, per vulhub's own
+# README this needs the public exploit script (not a generic curl payload),
+# paired with marshalsec's LDAPRefServer below as the callback listener.
+RUN git clone --depth 1 https://github.com/houqe/POC_CVE-2023-21839 /opt/POC_CVE-2023-21839 \
+    || echo "WARNING: POC_CVE-2023-21839 clone failed — weblogic RCE step will need manual setup"
 
 # ── marshalsec (log4shell LDAP redirect server) ───────────────────────────────
 # Pre-built jar; java must be installed above for runtime.
@@ -108,6 +118,7 @@ RUN set -e; \
     command -v hashcat >/dev/null; \
     command -v hydra >/dev/null; \
     command -v java >/dev/null; \
+    command -v javac >/dev/null; \
     test -f /usr/share/wordlists/rockyou.txt; \
     test -d /usr/share/seclists; \
     test -f /opt/AutoBlue-MS17-010/eternalblue_exploit7.py; \
@@ -153,7 +164,7 @@ RUN pip3 install --no-cache-dir zsteg 2>/dev/null || echo "WARNING: zsteg unavai
 # once, whenever it was originally cached, and broke the instant an upstream
 # layer's cache was invalidated (found live, 2026-07-17, adding default-mysql-
 # client above invalidated this layer for the first time in weeks).
-RUN python3 -c "import shutil, json, os; tools = ['nmap','nxc','certipy-ad','responder','bloodhound-ce-python','impacket-secretsdump','impacket-GetUserSPNs','enum4linux-ng','evil-winrm','showmount','ffuf','redis-cli','mysql','john','hashcat','hydra','java','binwalk','radare2','jadx','apktool','foremost','exiftool','steghide','sqlmap','gobuster','nikto','gdb','awscli','kubectl']; manifest = {t: shutil.which(t) is not None for t in tools}; manifest['rockyou'] = os.path.exists('/usr/share/wordlists/rockyou.txt'); manifest['AutoBlue'] = os.path.exists('/opt/AutoBlue-MS17-010/eternalblue_exploit7.py'); manifest['pwntools'] = True; open('/opt/portal5-attack.manifest.json','w').write(json.dumps(manifest,indent=2)); print('manifest: {} / {} tools present'.format(sum(1 for v in manifest.values() if v), len(manifest)))" 2>/dev/null || echo "WARNING: manifest gen failed"
+RUN python3 -c "import shutil, json, os; tools = ['nmap','nxc','certipy-ad','responder','bloodhound-ce-python','impacket-secretsdump','impacket-GetUserSPNs','enum4linux-ng','evil-winrm','showmount','ffuf','redis-cli','mysql','john','hashcat','hydra','java','javac','binwalk','radare2','jadx','apktool','foremost','exiftool','steghide','sqlmap','gobuster','nikto','gdb','awscli','kubectl']; manifest = {t: shutil.which(t) is not None for t in tools}; manifest['rockyou'] = os.path.exists('/usr/share/wordlists/rockyou.txt'); manifest['AutoBlue'] = os.path.exists('/opt/AutoBlue-MS17-010/eternalblue_exploit7.py'); manifest['POC_CVE-2023-21839'] = os.path.exists('/opt/POC_CVE-2023-21839'); manifest['pwntools'] = True; open('/opt/portal5-attack.manifest.json','w').write(json.dumps(manifest,indent=2)); print('manifest: {} / {} tools present'.format(sum(1 for v in manifest.values() if v), len(manifest)))" 2>/dev/null || echo "WARNING: manifest gen failed"
 
 # execute_bash invokes ["sh", "/code"]; execute_python invokes ["python", "/code"].
 CMD ["sh"]
