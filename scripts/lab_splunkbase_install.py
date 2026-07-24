@@ -8,10 +8,12 @@ Stream, Suricata, CIM datamodels) do not extract, so the published BOTS hunt
 searches match nothing.
 
 Splunkbase downloads are auth-gated — the app *pages* are public but the
-download endpoint returns 401 — so this needs a splunk.com account. Credentials
-come from the environment and are never written to disk::
+download endpoint returns 401 — so this needs a splunk.com account.
+``SPLUNKBASE_USERNAME`` / ``SPLUNKBASE_PASSWORD`` live in ``.env`` (gitignored,
+placeholders in ``.env.example``); they are install-time only and no runtime
+path reads them::
 
-    export SPLUNKBASE_USERNAME=... SPLUNKBASE_PASSWORD=...
+    set -a; . ./.env; set +a
     docker cp scripts/lab_splunkbase_install.py splunk:/tmp/
     docker exec -u splunk -e SPLUNKBASE_USERNAME -e SPLUNKBASE_PASSWORD \\
         splunk /opt/splunk/bin/python3 /tmp/lab_splunkbase_install.py
