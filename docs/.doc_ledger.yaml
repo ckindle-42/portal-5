@@ -29,7 +29,7 @@ docs:
     - portal_mcp/
     - .env.example
     - portal_wiki/canonical/
-    last_reconciled_commit: f74c7c5d963a4759c4b771d651354addad3d313a
+    last_reconciled_commit: 4662d7513156d7ce93a41c73786e4f3235d51580
   KNOWN_LIMITATIONS.md:
     sources:
     - portal/platform/inference/
@@ -59,7 +59,7 @@ docs:
     - config/portal.yaml
     - deploy/
     - .env.example
-    last_reconciled_commit: f74c7c5d963a4759c4b771d651354addad3d313a
+    last_reconciled_commit: 4662d7513156d7ce93a41c73786e4f3235d51580
   docs/HOWTO.md:
     sources:
     - launch.sh
@@ -145,4 +145,4 @@ docs:
     - scripts/caldera_emulate.py
     - portal/modules/security/core/siem/hec_ship.py
     - portal/modules/security/core/siem/spl_detections.yaml
-    last_reconciled_commit: 45b40b424bddd46163d9bb0e4e5a082a66e93cc8
+    last_reconciled_commit: 4662d7513156d7ce93a41c73786e4f3235d51580
