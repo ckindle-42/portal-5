@@ -154,6 +154,18 @@ SANDBOX_LAB_TARGET_NETWORK = os.getenv("LAB_TARGET_NETWORK", "")
 SANDBOX_LAB_TARGET_DC = os.getenv("LAB_TARGET_DC", "")
 SANDBOX_LAB_TARGET_WS = os.getenv("LAB_TARGET_WS", "")
 SANDBOX_LAB_TARGET_SRV = os.getenv("LAB_TARGET_SRV", "")
+# vulhub's own clone ships a real, working poc.py/exploit.py alongside ~38 of
+# its ~1,234 environments' READMEs (scripts/lab_setup.py clones it to
+# $LAB_DIR/vulhub) -- these are the exact scripts vulhub's own documentation
+# tells you to run, so mounting the clone read-only lets red models use the
+# authoritative exploit instead of needing to reconstruct one from scratch or
+# have it individually pre-baked into the image per-CVE. Found live 2026-07-23:
+# none of this was reachable from execute_bash before -- only the image's
+# baked-in tools were, so any scenario whose real exploit depends on a
+# bundled vulhub script had no way to succeed even with a fully correct prompt.
+SANDBOX_LAB_VULHUB_DIR = os.path.join(
+    os.getenv("LAB_DIR", os.path.expanduser("~/AI_Output/lab")), "vulhub"
+)
 
 # PowerShell image — portal5-pwsh:latest is a native arm64 image built from
 # Dockerfile.pwsh (ubuntu:22.04 + Microsoft pwsh apt package). Falls back to
@@ -316,6 +328,14 @@ async def _run_in_docker(
                 for arg in ("--env", f"{k}={v}")
             ]
             if SANDBOX_LAB_EXEC
+            else []
+        )
+        + (
+            # Read-only vulhub clone -- gives execute_bash access to each
+            # environment's own bundled poc.py/exploit.py (see
+            # SANDBOX_LAB_VULHUB_DIR above for why this exists).
+            ["-v", f"{SANDBOX_LAB_VULHUB_DIR}:/vulhub:ro"]
+            if SANDBOX_LAB_EXEC and os.path.isdir(SANDBOX_LAB_VULHUB_DIR)
             else []
         )
         + (extra_args or [])

@@ -57,7 +57,10 @@ class BenchConfig:
 
         If runtime_env is provided (from ensure_target_ready), substitute
         $TARGET_HOST and $TARGET_PORT in the prompt so the model attacks
-        the container's REAL published port.
+        the container's REAL published port. $TARGET_VMID similarly
+        substitutes the real current Proxmox vmid for the resolved host
+        (never hand-typed per-scenario text -- vmids can and do change, see
+        exec_chain.py's _HOST_TO_VMID for the live env-driven source).
         """
         self.chain_expected_order = red_order
         self.chain_mission_objective = mission_objective
@@ -67,4 +70,6 @@ class BenchConfig:
                 prompt = prompt.replace("$TARGET_HOST", str(runtime_env["TARGET_HOST"]))
             if runtime_env.get("TARGET_PORT"):
                 prompt = prompt.replace("$TARGET_PORT", str(runtime_env["TARGET_PORT"]))
+            if runtime_env.get("TARGET_VMID"):
+                prompt = prompt.replace("$TARGET_VMID", str(runtime_env["TARGET_VMID"]))
         self.chain_initial_prompt = prompt

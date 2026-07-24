@@ -589,6 +589,108 @@ class TestScorePurpleEpisode:
         assert rec["capability_verdict"] == "FAILED"
 
 
+# ── Ground truth scoped to red's actual chain depth (2026-07-23) ────────────
+# Found live: an untimed, fully event-driven red chain can still stop early
+# (refused/stalled) with lab_success=True (WIN already happened before the
+# stop). Scoring blue against the FULL scenario-static ground truth list
+# regardless penalizes blue for techniques red never attempted -- not a blue
+# detection failure. Scope ground truth to red's completion fraction instead.
+
+
+class TestGroundTruthScopedToRedDepth:
+    @staticmethod
+    def _make_red_result(chain_depth=None, max_depth=None, lab_success=True):
+        return {
+            "model": "test-red",
+            "mode": "lab-exec",
+            "lab_success": lab_success,
+            "order_accuracy": 0.5,
+            "chain_depth": chain_depth,
+            "max_depth": max_depth,
+        }
+
+    @staticmethod
+    def _make_blue_result(detected=None, telemetry_source=None):
+        return {
+            "model": "test-blue",
+            "score": {"f1": 0.5, "recall": 0.5, "precision": 0.5, "detected": detected or []},
+            "containments": [],
+            "synthetic_fallback": False,
+            "telemetry_source": telemetry_source or {},
+            "telemetry_raw": {},
+            "reported": detected or [],
+        }
+
+    @staticmethod
+    def _make_scenario(ground_truth):
+        return {
+            "name": "test",
+            "detect_ground_truth": ground_truth,
+            "persistence_technique": "",
+            "target_host": "10.0.1.30",
+        }
+
+    def test_full_completion_scores_against_full_ground_truth(self):
+        from portal.modules.security.core.blue import _score_purple
+
+        rec = _score_purple(
+            self._make_red_result(chain_depth=8, max_depth=8),
+            self._make_blue_result(
+                detected=["T1558.003", "T1003.006", "T1053.005"],
+                telemetry_source=dict.fromkeys(("T1558.003", "T1003.006", "T1053.005"), "live"),
+            ),
+            self._make_scenario(["T1558.003", "T1003.006", "T1053.005"]),
+        )
+        assert rec["detection_coverage"] == 1.0
+        assert rec["ground_truth_unchecked"] == []
+        assert rec["ground_truth_in_scope"] == ["T1003.006", "T1053.005", "T1558.003"]
+
+    def test_partial_completion_shrinks_ground_truth_scope(self):
+        """Red only reached 1/3 of the chain -- only the first ground-truth
+        technique (in declared order) is in scope; the rest are unchecked,
+        not counted as blue false negatives."""
+        from portal.modules.security.core.blue import _score_purple
+
+        rec = _score_purple(
+            self._make_red_result(chain_depth=3, max_depth=8),
+            self._make_blue_result(detected=[], telemetry_source={}),
+            self._make_scenario(["T1558.003", "T1003.006", "T1053.005"]),
+        )
+        # round(3 * (3/8)) == round(1.125) == 1 technique in scope
+        assert rec["ground_truth_in_scope"] == ["T1558.003"]
+        assert rec["ground_truth_unchecked"] == ["T1003.006", "T1053.005"]
+
+    def test_partial_completion_does_not_penalize_blue_for_unreached_techniques(self):
+        """Blue correctly detected everything red actually did (the one
+        in-scope technique) -- coverage should be 1.0, not penalized for
+        the two techniques red's chain never reached."""
+        from portal.modules.security.core.blue import _score_purple
+
+        rec = _score_purple(
+            self._make_red_result(chain_depth=3, max_depth=8),
+            self._make_blue_result(detected=["T1558.003"], telemetry_source={"T1558.003": "live"}),
+            self._make_scenario(["T1558.003", "T1003.006", "T1053.005"]),
+        )
+        assert rec["detection_coverage"] == 1.0
+
+    def test_missing_depth_fields_falls_back_to_full_ground_truth(self):
+        """Backward compatible: red_result without chain_depth/max_depth
+        (e.g. theory-mode, or older callers) scores against the full list,
+        same as before this fix."""
+        from portal.modules.security.core.blue import _score_purple
+
+        rec = _score_purple(
+            self._make_red_result(chain_depth=None, max_depth=None),
+            self._make_blue_result(
+                detected=["T1558.003", "T1003.006", "T1053.005"],
+                telemetry_source=dict.fromkeys(("T1558.003", "T1003.006", "T1053.005"), "live"),
+            ),
+            self._make_scenario(["T1558.003", "T1003.006", "T1053.005"]),
+        )
+        assert rec["ground_truth_unchecked"] == []
+        assert rec["detection_coverage"] == 1.0
+
+
 # ── Telemetry failure → reason code (Phase 2b) ──────────────────────────────
 
 
