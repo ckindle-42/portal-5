@@ -19,8 +19,8 @@ tags:
 - T1059
 - technique
 - signature
-created_at: 1784059756.931288
-updated_at: 1784059756.931288
+created_at: 1784855332.550022
+updated_at: 1784855332.550022
 ---
 
 # T1059 — Command execution — auditd execve of shells/interpreters
@@ -38,7 +38,7 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe=/bin/sh OR exe=/bin
 - `web_reflected_xss` — target: 10.10.11.50
 - `web_ssti` — target: 10.10.11.50
 - `web_ssti_stored` — target: 10.10.11.50
-- `meta3_elasticsearch_rce` — target: 10.10.11.10
+- `meta3_elasticsearch_rce` — target: 10.10.11.13
 
 ## Per-Source Expected Signatures
 

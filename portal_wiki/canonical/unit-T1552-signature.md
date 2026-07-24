@@ -20,8 +20,8 @@ tags:
 - T1552
 - technique
 - signature
-created_at: 1784059756.939521
-updated_at: 1784059756.939521
+created_at: 1784855332.558236
+updated_at: 1784855332.558236
 ---
 
 # T1552 — Unsecured credentials — SSRF-to-metadata, .env/.git exposure, hardcoded creds

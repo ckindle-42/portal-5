@@ -15,8 +15,8 @@ tags:
 - T1047
 - technique
 - signature
-created_at: 1784059756.9380429
-updated_at: 1784059756.9380429
+created_at: 1784855332.556767
+updated_at: 1784855332.556767
 ---
 
 # T1047 — WMI execution — remote command execution via WMI/cimv2
@@ -30,7 +30,7 @@ index=portal5_lab sourcetype="windows:security" (EventCode=4688 (NewProcessName=
 
 ## Exercised By Scenarios
 
-- `ad_full_compromise` — target: None
+- `ad_full_compromise` — target: 10.10.11.21
 
 ## Per-Source Expected Signatures
 

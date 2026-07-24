@@ -19,8 +19,8 @@ tags:
 - T1548.001
 - technique
 - signature
-created_at: 1784059756.935096
-updated_at: 1784059756.935096
+created_at: 1784855332.553813
+updated_at: 1784855332.553813
 ---
 
 # T1548.001 — SUID abuse — setuid binary execution for privilege escalation
@@ -35,8 +35,8 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a1="*perm*4000*" OR exe
 ## Exercised By Scenarios
 
 - `web_to_root` — target: 10.0.1.140
-- `meta3_linux_privesc` — target: 10.10.11.10
-- `meta3_full_chain` — target: 10.10.11.10
+- `meta3_linux_privesc` — target: 10.10.11.13
+- `meta3_full_chain` — target: 10.10.11.13
 
 ## Per-Source Expected Signatures
 

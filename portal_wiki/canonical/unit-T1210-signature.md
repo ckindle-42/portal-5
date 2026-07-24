@@ -15,8 +15,8 @@ tags:
 - T1210
 - technique
 - signature
-created_at: 1784059756.9345121
-updated_at: 1784059756.9345121
+created_at: 1784855332.5532072
+updated_at: 1784855332.5532072
 ---
 
 # T1210 — SMB/service exploitation — lateral movement via SMB
@@ -30,7 +30,7 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="smbclient" OR a0="n
 
 ## Exercised By Scenarios
 
-- `meta3_smb_exploit` — target: 10.10.11.10
+- `meta3_smb_exploit` — target: 10.10.11.13
 
 ## Per-Source Expected Signatures
 
