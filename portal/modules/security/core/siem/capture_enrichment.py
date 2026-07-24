@@ -219,19 +219,21 @@ ADDITIONAL_SIGNAL_PATTERNS: dict[str, list[str]] = {
         # by coincidental web content; every Class-A scenario's prompt (see
         # exec_chain.py's 2026-07-24 comment block) explicitly runs `id` as
         # its own documented verification step.
+        #
+        # A self-callback pattern (target curls back to a listener in our own
+        # attack container) was tried and abandoned 2026-07-24 for scenarios
+        # whose real vulhub-documented technique is blind: it required
+        # Docker-published inbound ports reachable from the lab network, and
+        # Docker Desktop for Mac's own proxy/vpnkit layer resets genuinely
+        # externally-LAN-sourced connections to published ports (confirmed
+        # live, independent of macOS's Application Firewall and pf, both
+        # checked clean). Rather than keep working around that, every
+        # previously-blind scenario was swapped for a different real vulhub
+        # CVE whose own documented exploit reflects command output directly
+        # in the response (see exec_chain.py: vuln_hugegraph_rce,
+        # vuln_druid_rce, vuln_shellshock_rce, vuln_jimureport_rce,
+        # vuln_ajreport_rce, vuln_spring4shell_rce, vuln_docker_api_rce).
         r"uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\)",
-        # Callback proof for scenarios whose real vulhub-documented technique
-        # is fundamentally BLIND (supervisor/airflow/kibana's own READMEs all
-        # verify via `touch /tmp/success` -- a filesystem side effect with no
-        # network-observable channel at all). Rather than fabricate an
-        # id-output claim these exploit classes genuinely can't produce, the
-        # injected command calls back to our own attack container instead of
-        # touching a file -- the callback crossing the wire IS real,
-        # independently observable network:packet evidence, using the same
-        # "container's own reachable IP" pattern vuln_log4shell's marshalsec
-        # callback already established. See exec_chain.py's per-scenario
-        # rce-proof-<scenario> marker.
-        r"GET /rce-proof-[\w-]+",
     ],
 }
 

@@ -115,7 +115,7 @@ Lab-exec is the ground truth for red/purple team evaluation. All tiers run from 
 
 Attack chains are grounded in four external sources — every scenario's `red_order`/`red_prompt` in `exec_chain.py`'s `SCENARIOS` dict traces back to one of these:
 - **[HTB Writeups](https://github.com/momenbasel/htb-writeups)** — real attack patterns from HackTheBox machines (Responder relay chains, LFI log poisoning, SQLi-to-shell, privilege escalation techniques)
-- **[VulnHub](https://github.com/vulhub/vulhub)** — Docker-native vulnerable applications deployed on portal-lab-vulhub (Redis, PHP LFI, Apache Solr Log4Shell, Tomcat, NFS, VulnerableApp); also the source for the ~76 `vuln_*`/`web_*` single-CVE scenarios (Log4Shell, Struts2, Fastjson, Shiro, etc.)
+- **[VulnHub](https://github.com/vulhub/vulhub)** — Docker-native vulnerable applications deployed on portal-lab-vulhub (Redis, PHP LFI, Apache Solr Log4Shell, Tomcat, NFS, VulnerableApp); also the source for the ~76 `vuln_*`/`web_*` single-CVE scenarios (Shellshock, Struts2, Fastjson, Shiro, etc. — favoring CVEs whose own documented exploit reflects command output directly in the response over ones requiring a blind/callback proof, see `exec_chain.py`'s 2026-07-24 comment block)
 - **[Metasploitable3](https://github.com/rapid7/metasploitable3)** — Windows VM with 12+ vulnerable services (vsftpd backdoor, MySQL UDF, GlassFish WAR deploy, Elasticsearch script RCE, IIS WebDAV, SMB/AD); source for the `meta3_*` scenarios
 - **[MBPTL](https://github.com/bayufedra/MBPTL)** ("Most Basic Penetration Testing Lab", Black Hat Arsenal EU 2025) — 17-flag CTF (web, SQLi, post-exploit, pivot, binary) deployed on portal-lab-mbptl (lxc 300); source for `mbptl_ctf_full_chain` and related multi-step web-to-shell scenarios
 
