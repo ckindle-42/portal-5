@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Generated: 2026-07-24 01:13 UTC*
+*Generated: 2026-07-24 03:13 UTC*
 
 ## Architecture Overview
 
@@ -94,7 +94,7 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 - **coding_task subsystem (4 files)**: 4 source(s)
 - **memory budget for 6 media backend/model combinations**: 1 source(s)
 - **model bindings — 0 reachability gap(s)**: 3 source(s)
-- **portal subsystem (292 files)**: 5 source(s)
+- **portal subsystem (294 files)**: 5 source(s)
 - **portal_channels subsystem (4 files)**: 4 source(s)
 
 ---
