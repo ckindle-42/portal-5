@@ -19,8 +19,8 @@ tags:
 - T1046
 - technique
 - signature
-created_at: 1784855332.5585642
-updated_at: 1784855332.5585642
+created_at: 1784862799.313848
+updated_at: 1784862799.313848
 ---
 
 # T1046 — Network service discovery — port scanning and SNMP enumeration

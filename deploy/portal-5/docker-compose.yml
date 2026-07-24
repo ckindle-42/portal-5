@@ -458,6 +458,12 @@ services:
     volumes:
       - dind-storage:/var/lib/docker
       - sandbox-work:/app/data/sandbox  # Shared with mcp-sandbox for code files
+      # Read-only vulhub clone, bind-mounted into DinD's own filesystem so
+      # `docker run -v /vulhub-src:/vulhub:ro` (issued by mcp-sandbox against
+      # this DOCKER_HOST) has a source path that actually exists on the daemon
+      # side -- DinD bind-mount sources resolve against the daemon's fs, not
+      # the client (mcp-sandbox) container's. See code_sandbox_mcp.py.
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}/lab/vulhub:/vulhub-src:ro
     # P7: Resource limits prevent DinD from consuming all system RAM/CPU.
     deploy:
       resources:

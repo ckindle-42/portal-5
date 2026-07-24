@@ -163,9 +163,14 @@ SANDBOX_LAB_TARGET_SRV = os.getenv("LAB_TARGET_SRV", "")
 # none of this was reachable from execute_bash before -- only the image's
 # baked-in tools were, so any scenario whose real exploit depends on a
 # bundled vulhub script had no way to succeed even with a fully correct prompt.
-SANDBOX_LAB_VULHUB_DIR = os.path.join(
-    os.getenv("LAB_DIR", os.path.expanduser("~/AI_Output/lab")), "vulhub"
-)
+#
+# The actual `docker run -v <src>:/vulhub:ro` below is issued against
+# DOCKER_HOST (the DinD daemon), so <src> must exist on DinD's own
+# filesystem, not this container's. docker-compose.yml bind-mounts the real
+# host clone into DinD at the fixed path below for exactly that reason --
+# found live 2026-07-24: the host-relative path here resolved against this
+# container's own (wrong, unmounted) view of $LAB_DIR and always missed.
+SANDBOX_LAB_VULHUB_DIR = "/vulhub-src"
 
 # PowerShell image — portal5-pwsh:latest is a native arm64 image built from
 # Dockerfile.pwsh (ubuntu:22.04 + Microsoft pwsh apt package). Falls back to
@@ -333,10 +338,11 @@ async def _run_in_docker(
         + (
             # Read-only vulhub clone -- gives execute_bash access to each
             # environment's own bundled poc.py/exploit.py (see
-            # SANDBOX_LAB_VULHUB_DIR above for why this exists).
-            ["-v", f"{SANDBOX_LAB_VULHUB_DIR}:/vulhub:ro"]
-            if SANDBOX_LAB_EXEC and os.path.isdir(SANDBOX_LAB_VULHUB_DIR)
-            else []
+            # SANDBOX_LAB_VULHUB_DIR above for why this exists). Existence is
+            # docker-compose's job (bind-mounted into DinD, not this
+            # container), so no local os.path.isdir check here -- this
+            # container can't see DinD's filesystem to check it.
+            ["-v", f"{SANDBOX_LAB_VULHUB_DIR}:/vulhub:ro"] if SANDBOX_LAB_EXEC else []
         )
         + (extra_args or [])
         + [

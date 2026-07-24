@@ -5,26 +5,26 @@ title: tests subsystem (225 files)
 sources:
 - type: code
   path: tests/__init__.py
-  commit: 96650fbe002a
+  commit: 993b6a971e86
 - type: code
   path: tests/acceptance/_common.py
-  commit: 96650fbe002a
+  commit: 993b6a971e86
 - type: code
   path: tests/acceptance/cli.py
-  commit: 96650fbe002a
+  commit: 993b6a971e86
 - type: code
   path: tests/acceptance/results.py
-  commit: 96650fbe002a
+  commit: 993b6a971e86
 - type: code
   path: tests/acceptance/runner.py
-  commit: 96650fbe002a
+  commit: 993b6a971e86
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - tests
-created_at: 1784855332.479135
-updated_at: 1784855332.479135
+created_at: 1784862799.229557
+updated_at: 1784862799.229557
 ---
 
 # tests subsystem
