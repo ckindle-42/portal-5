@@ -94,12 +94,19 @@ Splunkbase app *pages* are public but the **download endpoint returns 401** — 
 needs a splunk.com account. `scripts/lab_splunkbase_install.py` handles the
 whole flow; credentials come from the environment and are never written to disk:
 
+`SPLUNKBASE_USERNAME` / `SPLUNKBASE_PASSWORD` live in `.env` (gitignored;
+placeholders in `.env.example`), so sourcing it is all that is needed — there is
+nothing to remember or paste:
+
 ```bash
-export SPLUNKBASE_USERNAME=... SPLUNKBASE_PASSWORD=...
+set -a; . ./.env; set +a
 docker cp scripts/lab_splunkbase_install.py splunk:/tmp/
 docker exec -u splunk -e SPLUNKBASE_USERNAME -e SPLUNKBASE_PASSWORD \
     splunk /opt/splunk/bin/python3 /tmp/lab_splunkbase_install.py
 ```
+
+These are **install-time only** — no runtime or serving path reads them, which
+is why they are not part of the stack's env contract.
 
 Its `BOTS_APP_IDS` is the union of every app id referenced across the v1/v2/v3
 READMEs. It installs the **latest** release of each rather than the BOTS-era
