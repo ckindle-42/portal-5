@@ -1,22 +1,19 @@
-"""Capture enrichment — add missing attack signals to captured telemetry.
+"""Capture validity — verify a capture actually contains technique-specific
+evidence for its declared ground truth, honestly.
 
-The red team execution generates attack activity on lab targets, but the
-telemetry collection process may not capture all relevant event types.
-This module enriches captures with the expected attack signals that the
-ground truth techniques would produce, so the eval has something to detect.
-
-Each enrichment is a realistic synthetic event line that matches the format
-of the real telemetry in the capture. The enriched capture is saved alongside
-the original (not overwritten).
+Never fabricates or credits missing evidence: a technique with no matching
+signal in the real captured telemetry is reported missing, not synthesized.
+An earlier version of this module (`enrich_capture`/`get_missing_signals`)
+did synthesize plausible-looking signal lines into captures with gaps --
+removed 2026-07-24 as unused dead code (no callers anywhere in the codebase)
+that also directly contradicted this module's now-current honesty guarantee;
+see validate_capture_signals' own docstring for the historical incident that
+established never-fabricate as a hard rule here.
 """
 
 from __future__ import annotations
 
-import json
-import time
-from pathlib import Path
-
-from .capture_store import CAPTURE_DIR
+import re
 
 # ── Expected signals per technique ───────────────────────────────────────────
 # Each technique maps to (sourcetype, [lines]) that SHOULD be present in the
@@ -190,124 +187,53 @@ EXPECTED_SIGNALS: dict[str, tuple[str, list[str]]] = {
     ),
 }
 
-
-def get_missing_signals(scenario: str, telemetry: dict[str, list[str]]) -> dict[str, list[str]]:
-    """Identify which expected signals are missing from a capture's telemetry.
-
-    Args:
-        scenario: scenario name (to look up ground truth)
-        telemetry: the capture's {sourcetype: [lines]} dict
-
-    Returns:
-        {sourcetype: [missing_lines]} for signals that should be added.
-    """
-    try:
-        from portal.modules.security.core.exec_chain import SCENARIOS
-    except ImportError:
-        return {}
-
-    sc = SCENARIOS.get(scenario, {})
-    gt = sc.get("detect_ground_truth", [])
-    if not gt:
-        return {}
-
-    # Flatten all existing telemetry into one string for substring matching
-    all_existing = " ".join(line for lines in telemetry.values() for line in lines)
-
-    missing: dict[str, list[str]] = {}
-    for technique in gt:
-        expected = EXPECTED_SIGNALS.get(technique)
-        if not expected:
-            continue
-
-        sourcetype, expected_lines = expected
-        # Check if ANY of the expected signal keywords are present
-        technique_keywords = set()
-        for line in expected_lines:
-            # Extract key tokens from the expected line
-            for token in line.split():
-                if "=" in token or token.startswith("EventCode="):
-                    technique_keywords.add(token)
-
-        has_signal = any(kw in all_existing for kw in technique_keywords)
-        if not has_signal:
-            missing.setdefault(sourcetype, []).extend(expected_lines)
-
-    return missing
-
-
-def enrich_capture(capture_path: Path, *, dry_run: bool = False) -> dict:
-    """Enrich a capture file with missing attack signals.
-
-    Reads the capture, identifies missing signals based on ground truth,
-    adds them to the telemetry, and saves the enriched version.
-
-    Args:
-        capture_path: path to the capture JSON file
-        dry_run: if True, report what would be added without saving
-
-    Returns:
-        {enriched: bool, scenario: str, added: {sourcetype: count}, path: str}
-    """
-    data = json.loads(capture_path.read_text())
-    scenario = data.get("scenario", "")
-    telemetry = data.get("telemetry", {})
-
-    missing = get_missing_signals(scenario, telemetry)
-    if not missing:
-        return {
-            "enriched": False,
-            "scenario": scenario,
-            "added": {},
-            "path": str(capture_path),
-            "reason": "all signals present or no ground truth",
-        }
-
-    added: dict[str, int] = {}
-    for sourcetype, lines in missing.items():
-        existing = telemetry.get(sourcetype, [])
-        # Avoid duplicates
-        new_lines = [line for line in lines if line not in existing]
-        if new_lines:
-            telemetry.setdefault(sourcetype, []).extend(new_lines)
-            added[sourcetype] = len(new_lines)
-
-    if dry_run:
-        return {
-            "enriched": False,
-            "scenario": scenario,
-            "added": added,
-            "path": str(capture_path),
-            "reason": "dry_run",
-        }
-
-    # Save enriched capture (overwrite original)
-    data["telemetry"] = telemetry
-    data["enriched_at"] = time.time()
-    capture_path.write_text(json.dumps(data, indent=2))
-
-    return {
-        "enriched": True,
-        "scenario": scenario,
-        "added": added,
-        "path": str(capture_path),
-    }
-
-
-def enrich_all_captures(*, dry_run: bool = False) -> list[dict]:
-    """Enrich all captured scenarios with missing attack signals.
-
-    Args:
-        dry_run: if True, report what would be added without saving
-
-    Returns:
-        list of enrichment results per capture file.
-    """
-    results = []
-    for cap_path in sorted(CAPTURE_DIR.glob("*.json")):
-        result = enrich_capture(cap_path, dry_run=dry_run)
-        results.append(result)
-    return results
+# Regex-based ALTERNATIVE evidence per technique, checked with OR logic
+# against the EXPECTED_SIGNALS token-match above (either satisfies the
+# technique -- see validate_capture_signals). Exists because a MITRE
+# technique can be legitimately proven by evidence shapes EXPECTED_SIGNALS'
+# single (sourcetype, [literal example lines]) format can't express: exact
+# literal substrings can't match a value that legitimately varies (a uid
+# number, a session token), and some techniques are provable via more than
+# one real evidence channel depending on target OS/exploit class.
+#
+# Found live 2026-07-24: 18 vulhub-LXC scenarios declared "T1059" (bare --
+# EXPECTED_SIGNALS' only entry for it is windows:security EventCode=4688,
+# collected via linux:auditd's `ausearch -m EXECVE` on Linux targets) --
+# confirmed live that linux:auditd can never produce telemetry from this LXC
+# (Linux kernel audit is a single host-wide facility a container sharing the
+# host kernel can't independently own; installing/starting auditd there fails
+# immediately with "Operation not permitted" even with cap_audit_control
+# present). But real, observable command-execution evidence DOES exist for
+# most of these scenarios by design: reading their own red_prompt AND each
+# CVE's real vulhub README (e.g. struts2 S2-045 verifies via a reflected OGNL
+# math-eval header, ThinkPHP/Elasticsearch/Solr/GeoServer/Confluence/Drupal
+# all explicitly run `id` and the exploit class reflects its stdout directly
+# into the HTTP response body/JSON field) -- that's real, independently
+# captured evidence (web:access full-haystack container logs, and now the
+# network:packet capture), it just isn't literal-substring-matchable since
+# the exact uid/gid numbers vary by container.
+ADDITIONAL_SIGNAL_PATTERNS: dict[str, list[str]] = {
+    "T1059": [
+        # `id` command output reflected into a response/log/packet capture --
+        # e.g. "uid=0(root) gid=0(root) groups=0(root)". Effectively unfakeable
+        # by coincidental web content; every Class-A scenario's prompt (see
+        # exec_chain.py's 2026-07-24 comment block) explicitly runs `id` as
+        # its own documented verification step.
+        r"uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\)",
+        # Callback proof for scenarios whose real vulhub-documented technique
+        # is fundamentally BLIND (supervisor/airflow/kibana's own READMEs all
+        # verify via `touch /tmp/success` -- a filesystem side effect with no
+        # network-observable channel at all). Rather than fabricate an
+        # id-output claim these exploit classes genuinely can't produce, the
+        # injected command calls back to our own attack container instead of
+        # touching a file -- the callback crossing the wire IS real,
+        # independently observable network:packet evidence, using the same
+        # "container's own reachable IP" pattern vuln_log4shell's marshalsec
+        # callback already established. See exec_chain.py's per-scenario
+        # rce-proof-<scenario> marker.
+        r"GET /rce-proof-[\w-]+",
+    ],
+}
 
 
 def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> dict:
@@ -376,11 +302,12 @@ def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> 
     unchecked = []
     for technique in gt:
         expected = EXPECTED_SIGNALS.get(technique)
-        if not expected:
+        extra_patterns = ADDITIONAL_SIGNAL_PATTERNS.get(technique, [])
+        if not expected and not extra_patterns:
             unchecked.append(technique)
             continue
 
-        _sourcetype, expected_lines = expected
+        _sourcetype, expected_lines = expected or ("", [])
         # A technique is found only if ONE example line's FULL field set is
         # present (AND within that line's own tokens), not any single token
         # pooled across every example (OR across lines is fine — two example
@@ -404,6 +331,11 @@ def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> 
             if line_tokens and all(tok in all_existing for tok in line_tokens):
                 has_signal = True
                 break
+        if not has_signal:
+            for pattern in extra_patterns:
+                if re.search(pattern, all_existing):
+                    has_signal = True
+                    break
         if has_signal:
             found.append(technique)
         else:
