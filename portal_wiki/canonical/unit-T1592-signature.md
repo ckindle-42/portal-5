@@ -19,8 +19,8 @@ tags:
 - T1592
 - technique
 - signature
-created_at: 1784059756.935688
-updated_at: 1784059756.935688
+created_at: 1784855332.5544078
+updated_at: 1784855332.5544078
 ---
 
 # T1592 — Gather victim host info — service fingerprinting and enumeration
@@ -37,7 +37,7 @@ index=portal5_lab sourcetype="web:access" (user_agent="-" OR user_agent="curl*" 
 - `web_graphql_introspect` — target: 10.10.11.50
 - `web_forced_error` — target: 10.10.11.50
 - `web_asset_discovery` — target: 10.10.11.50
-- `meta3_snmp_enum` — target: 10.10.11.10
+- `meta3_snmp_enum` — target: 10.10.11.13
 - `vuln_wordpress_rce` — target: 10.10.11.50
 
 ## Per-Source Expected Signatures

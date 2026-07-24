@@ -16,8 +16,8 @@ tags:
 - T1003.001
 - technique
 - signature
-created_at: 1784059756.937494
-updated_at: 1784059756.937494
+created_at: 1784855332.556205
+updated_at: 1784855332.556205
 ---
 
 # T1003.001 — LSASS dump — credential dumping via lsass.exe memory access
@@ -31,7 +31,7 @@ index=portal5_lab sourcetype="windows:security" (EventCode=4688 (NewProcessName=
 
 ## Exercised By Scenarios
 
-- `ad_full_compromise` — target: None
+- `ad_full_compromise` — target: 10.10.11.21
 
 ## Per-Source Expected Signatures
 

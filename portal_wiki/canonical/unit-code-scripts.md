@@ -1,35 +1,35 @@
 ---
 id: unit-code-scripts
 kind: what
-title: scripts subsystem (43 files)
+title: scripts subsystem (44 files)
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: 48238a44cad8
+  commit: 96650fbe002a
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py
-  commit: 48238a44cad8
+  commit: 96650fbe002a
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
-  commit: 48238a44cad8
+  commit: 96650fbe002a
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-readiness.py
-  commit: 48238a44cad8
+  commit: 96650fbe002a
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-switch-benchmark.py
-  commit: 48238a44cad8
+  commit: 96650fbe002a
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1784059756.859607
-updated_at: 1784059756.859607
+created_at: 1784855332.4786491
+updated_at: 1784855332.4786491
 ---
 
 # scripts subsystem
 
-**Files:** 43
+**Files:** 44
 
 - `scripts/_archive/analyze_bench_v5.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py`
@@ -51,4 +51,4 @@ updated_at: 1784059756.859607
 - `scripts/collapse_snapshot.py`
 - `scripts/doc_ledger.py`
 - `scripts/embedding-server.py`
-- ... and 23 more
+- ... and 24 more

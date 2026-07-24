@@ -19,8 +19,8 @@ tags:
 - T1046
 - technique
 - signature
-created_at: 1784059756.939842
-updated_at: 1784059756.939842
+created_at: 1784855332.5585642
+updated_at: 1784855332.5585642
 ---
 
 # T1046 — Network service discovery — port scanning and SNMP enumeration
@@ -34,9 +34,9 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="nmap" OR a0="massca
 
 ## Exercised By Scenarios
 
-- `meta3_snmp_enum` — target: 10.10.11.10
-- `mission_meta3_recon_exploit` — target: 10.10.11.10
-- `mission_meta3_lateral_pivot` — target: 10.10.11.10
+- `meta3_snmp_enum` — target: 10.10.11.13
+- `mission_meta3_recon_exploit` — target: 10.10.11.13
+- `mission_meta3_lateral_pivot` — target: 10.10.11.13
 
 ## Per-Source Expected Signatures
 
