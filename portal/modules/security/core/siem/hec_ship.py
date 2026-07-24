@@ -25,6 +25,8 @@ def ship(
     index: str = INDEX,
     dry_run: bool = False,
     event_time: float | None = None,
+    evidence_origin: str | None = None,
+    episode_id: str | None = None,
 ) -> dict:
     """Post one event to HEC. Returns {'ok': bool, 'code': int|None, 'dry_run'?: True}.
 
@@ -40,6 +42,16 @@ def ship(
         "index": index,
         "event": event,
     }
+    fields = {
+        key: value
+        for key, value in {
+            "evidence_origin": evidence_origin,
+            "episode_id": episode_id,
+        }.items()
+        if value
+    }
+    if fields:
+        envelope["fields"] = fields
     if dry_run:
         return {"ok": True, "dry_run": True, "envelope": envelope}
     try:
@@ -64,6 +76,8 @@ def ship_batch(
     index: str = INDEX,
     dry_run: bool = False,
     event_time: float | None = None,
+    evidence_origin: str | None = None,
+    episode_id: str | None = None,
 ) -> dict:
     """Batch to /services/collector/event (newline-concatenated event objects).
 
@@ -74,18 +88,29 @@ def ship_batch(
     if dry_run:
         return {"ok": True, "dry_run": True, "count": len(events)}
     stamp = event_time if event_time is not None else time.time()
-    payload = "\n".join(
-        json.dumps(
-            {
-                "time": stamp,
-                "host": host,
-                "sourcetype": sourcetype,
-                "index": index,
-                "event": e,
-            }
-        )
-        for e in events
-    )
+
+    def _envelope(e: dict | str) -> dict:
+        envelope = {
+            "time": stamp,
+            "host": host,
+            "source": f"portal5:{evidence_origin or 'unclassified'}",
+            "sourcetype": sourcetype,
+            "index": index,
+            "event": e,
+        }
+        fields = {
+            key: value
+            for key, value in {
+                "evidence_origin": evidence_origin,
+                "episode_id": episode_id,
+            }.items()
+            if value
+        }
+        if fields:
+            envelope["fields"] = fields
+        return envelope
+
+    payload = "\n".join(json.dumps(_envelope(e)) for e in events)
     try:
         r = httpx.post(
             f"{HEC_URL.rstrip('/')}/services/collector/event",

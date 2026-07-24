@@ -50,7 +50,7 @@ class TestReplayCapturedRedNoEvidence:
         assert rec["capability_verdict"] == "UNAVAILABLE"
         assert rec["blue_model"] == "some-blue-model"
         assert rec["match_grade"] == "NONE"
-        assert rec["telemetry_collection_error"] == "NO_CAPTURED_RED_EVIDENCE"
+        assert rec["telemetry_collection_error"] == "NO_REPLAYABLE_EPISODE"
 
     def test_multiple_blue_models_each_get_a_record(self):
         scenario = {

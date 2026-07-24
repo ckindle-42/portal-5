@@ -31,7 +31,12 @@ RESULTS_DIR = Path(__file__).resolve().parent / "results"
 CANARY_DIR = RESULTS_DIR / "canary_baselines"
 CANARY_DIR.mkdir(parents=True, exist_ok=True)
 
-TRACKED_METRICS = ("blue_f1", "detection_coverage", "purple_composite", "red_order_accuracy")
+TRACKED_METRICS = (
+    "blue_f1",
+    "detection_coverage",
+    "model_competence_score",
+    "red_order_accuracy",
+)
 NOISE_FLOOR = 0.03  # on a 0-1 scale; a drop below this is noise, never REGRESSION
 MIN_BASELINE_RUNS = 3
 DEFAULT_WINDOW = 7

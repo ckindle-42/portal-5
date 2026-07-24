@@ -618,9 +618,13 @@ def _run_blue_on_unit(unit: RunUnit, lab_output: str, *, lab_exec: bool) -> dict
     """Run blue detection on a unit's output."""
     from .blue import _fetch_blue_telemetry
 
-    telemetry = _fetch_blue_telemetry(unit.technique_ids, lab_exec=lab_exec, dry_run=False)
+    telemetry = _fetch_blue_telemetry(
+        unit.technique_ids,
+        query_live=lab_exec,
+        dry_run=False,
+    )
     # Check if any real telemetry was returned
-    has_real = any(v.get("source") == "live" for v in telemetry.values())
+    has_real = any(v.get("source") == "observed" for v in telemetry.values())
     return {
         "telemetry": telemetry,
         "has_real_telemetry": has_real,

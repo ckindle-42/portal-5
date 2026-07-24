@@ -15,6 +15,34 @@ import time
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+# Evidence origin is a truth claim, not presentation metadata.  Only origins in
+# OBSERVED_EVIDENCE_ORIGINS may support production-adjacent detection credit.
+OBSERVED_PACKET = "observed_packet"
+OBSERVED_TARGET_LOG = "observed_target_log"
+SENSOR_DERIVED = "sensor_derived"
+TRANSCRIPT_COUNTERFACTUAL = "transcript_counterfactual"
+SYNTHETIC_FIXTURE = "synthetic_fixture"
+
+OBSERVED_EVIDENCE_ORIGINS = frozenset(
+    {
+        OBSERVED_PACKET,
+        OBSERVED_TARGET_LOG,
+        SENSOR_DERIVED,
+    }
+)
+NON_OBSERVED_EVIDENCE_ORIGINS = frozenset(
+    {
+        TRANSCRIPT_COUNTERFACTUAL,
+        SYNTHETIC_FIXTURE,
+    }
+)
+
+
+def is_observed_origin(origin: str | None) -> bool:
+    """Return True only for evidence produced from an actual sensor observation."""
+    return bool(origin and origin in OBSERVED_EVIDENCE_ORIGINS)
+
+
 # ── Canonical TelemetryBackend protocol ──────────────────────────────────────
 
 

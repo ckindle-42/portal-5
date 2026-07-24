@@ -133,12 +133,19 @@ class TestPurpleWebConvergence:
 
     def test_purple_requires_red_and_blue(self):
         """Purple composite requires both red landed and blue detected."""
-        red_result = {"lab_success": True, "order_accuracy": 0.8, "mode": "lab-exec"}
+        red_result = {
+            "lab_success": True,
+            "order_accuracy": 0.8,
+            "mode": "lab-exec",
+            "episode_id": "ep-web-hit",
+        }
         blue_result = {
             "model": "test-model",
             "score": {"f1": 0.7, "recall": 0.8, "precision": 0.6, "detected": ["T1190"]},
             "containments": [],
             "synthetic_fallback": False,
+            "telemetry_origins": {"query:0:web": ["observed_target_log"]},
+            "episode_id": "ep-web-hit",
         }
         scenario = {
             "name": "test",
@@ -151,12 +158,19 @@ class TestPurpleWebConvergence:
 
     def test_purple_zero_when_blue_misses(self):
         """Purple composite drops when blue detects nothing."""
-        red_result = {"lab_success": True, "order_accuracy": 0.8, "mode": "lab-exec"}
+        red_result = {
+            "lab_success": True,
+            "order_accuracy": 0.8,
+            "mode": "lab-exec",
+            "episode_id": "ep-web-miss",
+        }
         blue_result = {
             "model": "test-model",
             "score": {"f1": 0.0, "recall": 0.0, "precision": 0.0, "detected": []},
             "containments": [],
             "synthetic_fallback": False,
+            "telemetry_origins": {"query:0:web": ["observed_target_log"]},
+            "episode_id": "ep-web-miss",
         }
         scenario = {
             "name": "test",
@@ -225,16 +239,34 @@ class TestQueryLiveDecoupledFromLabExec:
         calls = []
 
         class _FakeSplunk:
-            def query(self, tid, window):
-                calls.append((tid, window))
-                return {"telemetry": "EventCode=4769 TicketEncryptionType=0x17", "source": "live"}
+            def query_episode(self, window, *, episode_id, host=None):
+                calls.append((window, episode_id, host))
+                return {
+                    "rows": [
+                        {
+                            "raw": "EventCode=4769 TicketEncryptionType=0x17",
+                            "fields": {
+                                "sourcetype": "windows:security",
+                                "evidence_origin": "observed_target_log",
+                                "_raw": "EventCode=4769 TicketEncryptionType=0x17",
+                            },
+                        }
+                    ],
+                    "source": "observed",
+                }
 
         monkeypatch.setattr(blue_mod, "_splunk_backend", _FakeSplunk())
         monkeypatch.setattr(blue_mod, "_LAB_EXEC_AVAILABLE", True)
 
-        telemetry = _fetch_blue_telemetry(["T1558.003"], query_live=True, dry_run=False)
+        telemetry = _fetch_blue_telemetry(
+            ["T1558.003"],
+            query_live=True,
+            dry_run=False,
+            episode_id="ep-one",
+        )
         assert calls, "query_live=True must actually query the backend, not skip to synthetic"
-        assert telemetry["T1558.003"]["source"] == "live"
+        assert set(telemetry) == {"windows:security"}
+        assert telemetry["windows:security"]["source"] == "observed"
 
     def test_query_live_false_never_queries_backend_even_if_lab_exec_available(self, monkeypatch):
         from portal.modules.security.core import blue as blue_mod
@@ -242,9 +274,9 @@ class TestQueryLiveDecoupledFromLabExec:
         calls = []
 
         class _FakeSplunk:
-            def query(self, tid, window):
-                calls.append((tid, window))
-                return {"telemetry": "should not be reached", "source": "live"}
+            def query_episode(self, window, *, episode_id, host=None):
+                calls.append((window, episode_id, host))
+                return {"rows": [], "source": "empty"}
 
         monkeypatch.setattr(blue_mod, "_splunk_backend", _FakeSplunk())
         monkeypatch.setattr(blue_mod, "_LAB_EXEC_AVAILABLE", True)
@@ -278,7 +310,27 @@ class TestQueryLiveDecoupledFromLabExec:
         monkeypatch.setattr(
             blue_mod,
             "load_latest_red_capture",
-            lambda name: ({"model": "red-m", "lab_success": True, "mode": "lab-exec"}, None),
+            lambda name: (
+                {
+                    "model": "red-m",
+                    "lab_success": True,
+                    "mode": "lab-exec",
+                    "episode_id": "ep-replay",
+                },
+                "/tmp/capture.json",
+            ),
+        )
+        from portal.modules.security.core.siem import capture_store
+
+        monkeypatch.setattr(
+            capture_store,
+            "replay_capture",
+            lambda path: {
+                "ok": True,
+                "episode_id": "ep-replay",
+                "replay_start": 1000.0,
+                "indexed_confirmed": True,
+            },
         )
 
         scenario = {

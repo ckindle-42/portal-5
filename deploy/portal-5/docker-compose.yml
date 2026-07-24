@@ -445,7 +445,11 @@ services:
     # provides the isolation boundary, so privileged DinD is acceptable here.
     # On bare-metal Linux hosts you can switch to docker:27-dind-rootless +
     # seccomp:unconfined + apparmor:unconfined + tmpfs /run/user/1000.
-    image: docker:27-dind
+    build:
+      context: ../..
+      dockerfile: Dockerfile.dind
+    image: portal5-dind:latest
+    pull_policy: never
     container_name: portal5-dind
     restart: unless-stopped
     privileged: true
