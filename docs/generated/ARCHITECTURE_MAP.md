@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Generated: 2026-07-15 23:50 UTC*
+*Generated: 2026-07-24 01:08 UTC*
 
 ## Knowledge Layer
 
@@ -368,6 +368,7 @@
 | `unit-SECURITY_BENCH_EXEC-exec-sequences-36-prompts-with-step-definitions` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-execution-transport-host-exec-task-sec-live-exec-v` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-file-locations-after-refactor-commit-0dbe1c1` | why | 1 |
+| `unit-SECURITY_BENCH_EXEC-gate-d-ablation-silent-model-substitution` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-key-paths` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-lab-topology` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-lab-validation-status` | why | 1 |
@@ -468,6 +469,8 @@
 | `unit-V2_SCENARIO_AUDIT_V1-scenarios-from-uat-pass-predecessors-6-of-15` | why | 1 |
 | `unit-V2_SCENARIO_AUDIT_V1-summary` | why | 1 |
 | `unit-V2_SCENARIO_AUDIT_V1-v2-scenario-audit-bias-check-vs-uat-prompts` | why | 1 |
+| `unit-blue-orchestration-v2-capture-gap` | why | 5 |
+| `unit-blue-orchestration-v3-council-of-agreement` | why | 2 |
 | `unit-claude-1-config-backends-yaml-is-sacred` | why | 1 |
 | `unit-claude-10-git-discipline` | why | 1 |
 | `unit-claude-11-shared-workspace-is-the-only-path-for-user-file` | why | 1 |
@@ -524,14 +527,14 @@
 | `unit-module-research` | mixed | 2 |
 | `unit-module-security` | mixed | 2 |
 
-**Total:** 515 units
+**Total:** 518 units
 
 ## Source Distribution
 
 - **bench-security**: 4 references
-- **code**: 68 references
-- **design**: 462 references
+- **code**: 72 references
+- **design**: 465 references
 - **doc**: 2 references
 - **mitre**: 30 references
-- **scenario**: 56 references
+- **scenario**: 57 references
 - **spl**: 30 references

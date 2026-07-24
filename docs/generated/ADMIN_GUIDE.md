@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Generated: 2026-07-15 23:50 UTC*
+*Generated: 2026-07-24 01:08 UTC*
 
 ## Architecture Overview
 
@@ -81,12 +81,12 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 
 ## Components
 
+- **10 security canonical variants**: 1 source(s)
 - **115 MCP tools across 24 servers**: 1 source(s)
 - **138 personas**: 6 source(s)
-- **149 model ids, 6 backend groups**: 1 source(s)
-- **22 production + 60 eval workspaces**: 1 source(s)
+- **188 model ids, 6 backend groups**: 1 source(s)
+- **22 production + 65 eval workspaces**: 1 source(s)
 - **24 MCP fleet servers**: 1 source(s)
-- **8 security canonical variants**: 1 source(s)
 - **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-06 16:52 UTC)**: 1 source(s)
 - **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-07 21:58 UTC)**: 1 source(s)
 - **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-08 11:56 UTC)**: 1 source(s)
@@ -94,8 +94,8 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 - **coding_task subsystem (4 files)**: 4 source(s)
 - **memory budget for 6 media backend/model combinations**: 1 source(s)
 - **model bindings — 0 reachability gap(s)**: 3 source(s)
-- **portal subsystem (262 files)**: 5 source(s)
+- **portal subsystem (292 files)**: 5 source(s)
 - **portal_channels subsystem (4 files)**: 4 source(s)
 
 ---
-*515 knowledge units referenced.*
+*518 knowledge units referenced.*
