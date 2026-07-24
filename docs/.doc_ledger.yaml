@@ -145,4 +145,4 @@ docs:
     - scripts/caldera_emulate.py
     - portal/modules/security/core/siem/hec_ship.py
     - portal/modules/security/core/siem/spl_detections.yaml
-    last_reconciled_commit: b7ac573bbd5fa5b51de871038b09f597507f190f
+    last_reconciled_commit: 45b40b424bddd46163d9bb0e4e5a082a66e93cc8

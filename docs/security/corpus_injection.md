@@ -265,6 +265,43 @@ index=portal5_lab evidence_origin=live:caldera:* earliest=0
 and the same events must come back from
 `SplunkBackend.query_episode(<operation_id>)`.
 
+## Durability — surviving a lab reset
+
+Everything these three lanes produce lives **only in the lab**, not in git. The
+scripts are versioned; the ~275M indexed events are not. A rollback of the
+Splunk container to an older snapshot silently erases all of it, and the
+bench's own reset paths roll lab guests back to named snapshots routinely
+(`LAB_CLEAN_SNAPSHOT`, `LAB_MBPTL_SNAPSHOT`).
+
+Restore points covering this work, on `proxmox3`:
+
+| Guest | Snapshot | Covers |
+|---|---|---|
+| LXC 301 `portal-lab-splunk` | `corpus-loaded` | BOTS v1/v2/v3, the `portal5_lab` corpus, all Splunkbase add-ons, the `can_delete` grant, the grown rootfs |
+| LXC 302 `portal-lab-caldera` | `caldera-ready` | Caldera + Go + Node 22 + magma build, systemd unit, adversary profile |
+
+```bash
+pct listsnapshot 301                 # confirm the restore point still exists
+pct snapshot 301 <name> -description # take a new one after materially adding data
+```
+
+Take the Splunk snapshot with the `splunk` container **stopped** (`docker stop
+splunk`, then snapshot, then `docker start`) so bucket files are consistent
+rather than crash-state.
+
+What is *not* covered, and why it does not matter much:
+
+- The **sandcat agent** on a target lives in `/tmp` and does not survive a
+  reboot or a target rollback. Redeploy it with the one-liner in Lane C; it is
+  a single curl.
+- Nothing else is stateful. If both containers were lost entirely, the three
+  scripts rebuild the whole thing unattended — that is the point of keeping the
+  installers idempotent rather than hand-installing.
+
+Rebuild cost if a restore point is lost: ~25 GB of BOTS download plus a
+multi-hour HEC re-ship for Lane B. The snapshots are cheap copy-on-write; the
+rebuild is not.
+
 ## Related
 
 - `scripts/lab_bots_install.py` — Lane A installer
