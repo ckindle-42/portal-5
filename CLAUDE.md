@@ -32,6 +32,45 @@ Do not add these — they are explicitly out of scope:
 
 ---
 
+## Working Style — How to Make Changes Here
+
+These rules bias toward caution over speed. For trivial tasks, use judgment.
+
+### Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations of the task exist, present them — don't pick one silently.
+- If a simpler approach exists than what was asked for, say so. Push back when warranted.
+- Before proposing new work: check `KNOWN_LIMITATIONS.md` (some "bugs" are documented limitations) and lead discovery from the wiki fact-units (Rule 13) rather than cold-grepping.
+
+### Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked. No abstractions for single-use code. No unrequested "flexibility" or "configurability". No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+- This is architectural here, not just stylistic: scope creep collides with "What Portal 5 Is NOT" at the feature level and with the lean-container rules (Rules 8–9) at the dependency level.
+
+### Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+- Every changed line should trace directly to the task. Don't "improve" adjacent code, comments, or formatting; match existing style even where you'd choose differently.
+- Remove imports/variables/functions that YOUR change made unused. Pre-existing dead code: mention it, don't delete it unless asked.
+- Before staging, confirm the diff contains no ride-along artifacts (see Testing Rules on `field_journal/` write-through).
+
+### Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+- Transform tasks into verifiable goals before coding: "fix the bug" → "write a test that reproduces it, then make it pass"; "refactor X" → "tests pass before and after".
+- For multi-step tasks, state a brief plan with a verification check per step.
+- The verification ladder is already fixed by this project — per-commit gate (`pytest tests/unit/ -q && ruff check . && ruff format --check .`), final gate (`bash scripts/ci_local.sh`), live streaming gate where required (`./scripts/smoke_stream.sh`), and doc reconciliation (Rule 12). A task isn't done until the applicable gates are green.
+
+---
+
 ## Project Layout
 
 As of `BUILD_PROGRAM_MODULARIZATION_ALL_V1` (M0-M8), the codebase is organized by discipline module under `portal/modules/`, with cross-cutting infrastructure under `portal/platform/`. `portal_mcp/` now holds only externally-vendored MCP servers that were never moved (`filesystem/`, `scrapling/`). `portal_wiki/` is the wiki's git-versioned data home (`canonical/`) plus its CLI/MCP-tool entrypoints; the wiki engine itself lives at `portal/platform/wiki/`.
@@ -272,15 +311,14 @@ Enforcement: `scripts/validate_system.py` check **`AK. doc currency`** fails whe
 
 **Never hardcode counts/ports/check-letters as prose** (persona counts, workspace counts, port tables, validate check letters). Derive them from an extractor at reconcile time; a hardcoded persona count written from memory is drift waiting to happen.
 
----
-
-
 ### 13 — Fact-Units Are the Discovery Index
 
 Before grepping, query the wiki: `wiki_search` / `wiki_get_unit` / `wiki_explain`. Fact-units
 (`unit-fact-*`, gated by validate check AW) are the trusted index for workspaces, models, MCP fleet,
 personas, tool authorizations, and the MCP tool registry. Lead discovery from them; still verify every
 edit anchor `count==1` against HEAD before editing. See `unit-HOWTO-discovery-with-fact-units`.
+
+---
 
 ## Testing Rules
 
