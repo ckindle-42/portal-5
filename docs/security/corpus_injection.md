@@ -84,12 +84,37 @@ Verify (counts are large; `tstats` avoids a full scan):
 | tstats count where index=botsv1 OR index=botsv2 OR index=botsv3 by index
 ```
 
-**Field extraction / Splunkbase add-ons.** Some BOTS sourcetypes (Sysmon, the
-Windows TA, Stream, CIM) get their field aliases from Splunkbase add-ons listed
-in each dataset's README. Splunkbase requires an interactive authenticated
-login, so the TAs are **not** installed here — the raw data is fully searchable
-and huntable without them, only some normalized field names are missing. Install
-the version-matched TAs manually if CIM-normalized hunting is needed.
+**Field extraction / Splunkbase add-ons.** BOTS ships raw events; the field
+aliases and CIM normalization live in Splunkbase add-ons listed in each
+dataset's README. Without them the data is still fully searchable, but
+sourcetype-specific fields (Sysmon, Windows TA, Stream, Suricata) do not
+extract, so the published BOTS hunt searches match nothing.
+
+Splunkbase app *pages* are public but the **download endpoint returns 401** — it
+needs a splunk.com account. `scripts/lab_splunkbase_install.py` handles the
+whole flow; credentials come from the environment and are never written to disk:
+
+```bash
+export SPLUNKBASE_USERNAME=... SPLUNKBASE_PASSWORD=...
+docker cp scripts/lab_splunkbase_install.py splunk:/tmp/
+docker exec -u splunk -e SPLUNKBASE_USERNAME -e SPLUNKBASE_PASSWORD \
+    splunk /opt/splunk/bin/python3 /tmp/lab_splunkbase_install.py
+```
+
+Its `BOTS_APP_IDS` is the union of every app id referenced across the v1/v2/v3
+READMEs. It installs the **latest** release of each rather than the BOTS-era
+version pinned in the README, because those are Splunk 6.5/7.1-era builds and
+this lab runs Splunk 10.2. Two auth details that cost time:
+
+- Basic auth against `api/account:login/` returns `Bad Request`; the endpoint
+  wants the credentials as **POST form fields**, and returns the session token
+  as `<id>` in an Atom feed. That token then goes in an `X-Auth-Token` header.
+- App **2760** (TA-Suricata, named in the v1/v2 READMEs) is fully delisted —
+  every version 404s. It is superseded by app **4242** ("TA for Suricata").
+
+Add-ons load at splunkd startup, so restart afterwards. Extraction is
+search-time, so add-ons installed *after* the data still apply retroactively —
+there is no need to reinstall or re-index a dataset to pick up a new TA.
 
 ## Lane B — ATT&CK-labeled corpora over HEC
 
@@ -243,6 +268,7 @@ and the same events must come back from
 ## Related
 
 - `scripts/lab_bots_install.py` — Lane A installer
+- `scripts/lab_splunkbase_install.py` — Lane A field-extraction add-ons
 - `scripts/corpus_ingest.py` — Lane B loader
 - `scripts/caldera_emulate.py` — Lane C driver
 - `portal/modules/security/core/siem/hec_ship.py` — the shared `ship_batch` primitive

@@ -140,6 +140,7 @@ docs:
   docs/security/corpus_injection.md:
     sources:
     - scripts/lab_bots_install.py
+    - scripts/lab_splunkbase_install.py
     - scripts/corpus_ingest.py
     - scripts/caldera_emulate.py
     - portal/modules/security/core/siem/hec_ship.py
