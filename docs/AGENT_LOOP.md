@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 # Agent Loop (platform core)
 
 `portal/platform/agent/` is the discipline-agnostic agent loop: a bounded,
@@ -47,3 +48,4 @@ Security is the first consumer: `security.core.goal` / `decision_engine` /
 modules (compliance, research, coding) implement `CapabilityProvider` +
 `Executor` to unlock the loop. Full-loop runtime wiring + MCP/OWUI entry are
 slices 2-3 (see `coding_task/TASK_AGENT_LOOP_PLATFORM_V1.md`).
+<!-- /WIKI:HUMAN-OWNED -->

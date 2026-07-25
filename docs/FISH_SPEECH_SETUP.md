@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 # Portal 6.0.0 — Fish Speech Setup Guide
 
 Fish Speech is an **optional** TTS backend for Portal 5 that adds high-quality voice
@@ -149,3 +150,4 @@ kokoro-onnx provides:
 - 11 English voices (American and British, male and female)
 - Fast CPU inference via ONNX runtime
 - No GPU required
+<!-- /WIKI:HUMAN-OWNED -->

@@ -18,23 +18,60 @@ import re
 import time
 from pathlib import Path
 
+from portal.platform.wiki.migration import doc_is_migrated
 from portal.platform.wiki.store import load_all, load_unit
 
 _BLOCK_START = "<!-- WIKI:GENERATED unit={unit_id} -->"
 _BLOCK_END = "<!-- /WIKI:GENERATED -->"
 _MARKER_RE = re.compile(r"<!-- WIKI:GENERATED unit=([\w.-]+) -->")
 
+_HUMAN_OWNED_START_RE = re.compile(r"<!-- WIKI:HUMAN-OWNED -->")
+_HUMAN_OWNED_END_RE = re.compile(r"<!-- /WIKI:HUMAN-OWNED -->")
+
+
+def _find_unit_ids_outside_human_owned(text: str) -> list[str]:
+    """Find WIKI:GENERATED unit IDs that are NOT inside a HUMAN-OWNED fence."""
+    # Build set of character ranges that are inside HUMAN-OWNED fences.
+    human_ranges: list[tuple[int, int]] = []
+    for m in _HUMAN_OWNED_START_RE.finditer(text):
+        end = _HUMAN_OWNED_END_RE.search(text, m.end())
+        if end:
+            human_ranges.append((m.start(), end.end()))
+
+    def _in_human_owned(pos: int) -> bool:
+        return any(start <= pos < end for start, end in human_ranges)
+
+    return [m.group(1) for m in _MARKER_RE.finditer(text) if not _in_human_owned(m.start())]
+
+
 # Tier-1 living docs eligible for generated fact-blocks (CLAUDE.md §Rule 12 /
-# DESIGN_WIKI_GENERATION_LOOP_V1.md §4 scope). Docs are only touched if they
-# actually contain a marker — this list is the search scope, not a mandate
-# that every doc has one.
+# DESIGN_WIKI_GENERATION_LOOP_V1.md §4 scope). This is also the migration
+# domain — the set of docs the generation loop operates over. CLAUDE.md is
+# explicitly excluded: it stays hand-authored as the agent entry point.
+# Docs are only touched if they actually contain a marker — this list is the
+# search scope, not a mandate that every doc has one.
 TIER1_DOCS = (
-    "CLAUDE.md",
     "README.md",
+    "P5_ROADMAP.md",
+    "KNOWN_ISSUES.md",
     "KNOWN_LIMITATIONS.md",
     "docs/HOWTO.md",
     "docs/ADMIN_GUIDE.md",
     "docs/SECURITY_BENCH_EXEC.md",
+    "docs/USER_GUIDE.md",
+    "docs/CLUSTER_SCALE.md",
+    "docs/ALERTS.md",
+    "docs/PERFORMANCE.md",
+    "docs/MCP_DEV_TOOLING.md",
+    "docs/COMFYUI_SETUP.md",
+    "docs/FISH_SPEECH_SETUP.md",
+    "docs/COMPLIANCE_FALLBACK_POLICY.md",
+    "docs/BACKUP_RESTORE.md",
+    "docs/LAB_SETUP.md",
+    "docs/PERSONA_MATRIX_CI.md",
+    "docs/AGENT_LOOP.md",
+    "docs/DESIGN_WIKI_GENERATION_LOOP_V1.md",
+    "docs/security/corpus_injection.md",
     "config/MODEL_CATALOG.md",
     "tests/PORTAL5_ACCEPTANCE_EXECUTE_V9.md",
     "tests/PORTAL5_BENCH_EXECUTE_V4.md",
@@ -79,7 +116,7 @@ def render_all_generated_blocks(repo_root: Path, doc_paths: list[Path] | None = 
         if not doc_path.exists():
             continue
         text = doc_path.read_text(encoding="utf-8")
-        unit_ids = _MARKER_RE.findall(text)
+        unit_ids = _find_unit_ids_outside_human_owned(text)
         doc_changed = False
         for unit_id in unit_ids:
             if render_unit_into_doc(doc_path, unit_id):
@@ -104,7 +141,7 @@ def check_generated_blocks_current(
         if not doc_path.exists():
             continue
         text = doc_path.read_text(encoding="utf-8")
-        for unit_id in _MARKER_RE.findall(text):
+        for unit_id in _find_unit_ids_outside_human_owned(text):
             unit = load_unit(unit_id)
             if unit is None:
                 drifted.append(f"{doc_path}: block references missing unit {unit_id!r}")
@@ -117,6 +154,37 @@ def check_generated_blocks_current(
             elif m.group(1) != unit.body:
                 drifted.append(f"{doc_path}: block for unit {unit_id!r} does not match unit body")
     return drifted
+
+
+def render_report(repo_root: Path) -> dict:
+    """Migration progress report over the doc surface.
+
+    Returns {migrated: [...], unmigrated: [...], blocks_total: int, coverage_pct: float}.
+    coverage_pct = migrated / (migrated + unmigrated) over TIER1_DOCS (excl CLAUDE.md).
+    """
+    migrated: list[str] = []
+    unmigrated: list[str] = []
+    blocks_total = 0
+
+    for rel in TIER1_DOCS:
+        p = repo_root / rel
+        if not p.exists():
+            continue
+        text = p.read_text(encoding="utf-8")
+        blocks_total += len(_MARKER_RE.findall(text))
+        if doc_is_migrated(p):
+            migrated.append(rel)
+        else:
+            unmigrated.append(rel)
+
+    total = len(migrated) + len(unmigrated)
+    coverage_pct = (len(migrated) / total * 100) if total else 0.0
+    return {
+        "migrated": migrated,
+        "unmigrated": unmigrated,
+        "blocks_total": blocks_total,
+        "coverage_pct": round(coverage_pct, 1),
+    }
 
 
 def render_admin_guide(output_dir: Path | None = None) -> Path:

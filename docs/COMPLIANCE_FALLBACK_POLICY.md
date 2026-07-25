@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 # Compliance Fallback Policy
 
 **Status**: Initial baseline pending. Updated by operator after first
@@ -145,3 +146,4 @@ multi-model fallback chains (`auto-coding`, `auto-research`, `auto-data`,
 matrix approach but require their own scenario fixtures and threshold
 documents. The matrix driver is workspace-parameterizable; only the
 fixture and threshold doc are workspace-specific.
+<!-- /WIKI:HUMAN-OWNED -->

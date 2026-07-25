@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 # Lab Setup — Cold-Start Runbook
 
 Two-tier lab: **Tier 1** (expensive, rare, idempotent — downloads everything) and **Tier 2**
@@ -102,3 +103,4 @@ python3 scripts/lab_targets.py list | wc -l   # ≥ 7 targets
 | `config/lab_targets.yaml` | Live-target catalog |
 | `config/challenge_classes.yaml` | Class → container map |
 | `tests/PORTAL5_BENCH_SEC_EXECUTE_V2.md` | Security bench execution runbook |
+<!-- /WIKI:HUMAN-OWNED -->

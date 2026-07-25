@@ -31,7 +31,7 @@ It validates:
     AA. Live exec integrity — vulhub->host dispatch, DISPATCH_NOT_RUN guard
     AB. Stage 2 propose integrity — bounded proposals, proof-gated promotion,
         no hollow flag-flip, no writes without operator --apply
-    AL. Doc currency — every ledgered doc is fresh vs HEAD (docs/.doc_ledger.yaml)
+    AK. Doc currency — every ledgered doc is fresh vs HEAD (docs/.doc_ledger.yaml)
 
 Designed to run in under 60 seconds on the M4 Pro Mac Mini. Use this as
 the gate before kicking off the full long-running suites:
@@ -2503,7 +2503,7 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
 
 
 def check_doc_currency() -> tuple[str, str, list[dict]]:
-    """AL — every doc bound in docs/.doc_ledger.yaml is fresh vs HEAD.
+    """AK — every doc bound in docs/.doc_ledger.yaml is fresh vs HEAD.
 
     Delegates to scripts/doc_ledger.py (subprocess, JSON) so the ledger logic
     lives in one place. FAIL lists the stale docs; run the doc-audit agent to
@@ -3039,8 +3039,8 @@ def check_persona_intent() -> tuple[str, str, list[dict]]:
 
 
 def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
-    """AW. Wiki fact-units are current vs live config, and generated doc
-    blocks match their units.
+    """AW. Wiki fact-units are current vs live config, generated doc
+    blocks match their units, and migrated docs have no un-fenced substance.
 
     DESIGN_WIKI_GENERATION_LOOP_V1.md F3 — the precise replacement for a
     coarse "a bound directory changed" doc-currency signal on the docs
@@ -3050,9 +3050,14 @@ def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
     its unit's current body. A mismatch here is precise ("unit says 138,
     doc block says 130"), not "a directory changed, re-stamp" — it means
     `sync-config` was not re-run after a source change before commit.
+
+    Additionally enforces A1: a doc that has graduated to "migrated" status
+    must have zero substantive remainder (no hand-edited facts outside
+    WIKI:GENERATED or WIKI:HUMAN-OWNED fences). Edit the unit, not the shell.
     """
     from portal.platform.wiki.adapters.seed_facts import check_facts_current
-    from portal.platform.wiki.render import check_generated_blocks_current
+    from portal.platform.wiki.migration import substantive_remainder
+    from portal.platform.wiki.render import check_generated_blocks_current, render_report
 
     subs: list[dict] = []
 
@@ -3074,10 +3079,35 @@ def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
         }
     )
 
-    if stale_units or drift:
-        detail = f"{len(stale_units)} fact-unit(s) stale, {len(drift)} doc block(s) drifted — run sync-config"
+    # A1 enforcement: a migrated doc must have zero substantive remainder.
+    # If someone hand-edits a migrated doc's meat (outside fences), catch it.
+    report = render_report(REPO_ROOT)
+    violations: list[str] = []
+    for rel in report["migrated"]:
+        p = REPO_ROOT / rel
+        if p.exists():
+            remainder = substantive_remainder(p.read_text(encoding="utf-8"))
+            if remainder:
+                violations.append(rel)
+    subs.append(
+        {
+            "name": "migrated docs have no un-fenced substance",
+            "status": "PASS" if not violations else "FAIL",
+            "detail": (
+                "; ".join(f"{v}: hand-edited substance outside fences" for v in violations)
+                if violations
+                else "all clean"
+            ),
+        }
+    )
+
+    if stale_units or drift or violations:
+        detail = (
+            f"{len(stale_units)} fact-unit(s) stale, {len(drift)} doc block(s) drifted, "
+            f"{len(violations)} migrated doc(s) with un-fenced substance — run sync-config / edit units"
+        )
         return ("FAIL", detail, subs)
-    return ("PASS", "fact-units current, all generated blocks match", subs)
+    return ("PASS", "fact-units current, all generated blocks match, migrated docs clean", subs)
 
 
 def check_trajectory_scoring_honesty() -> tuple[str, str, list[dict]]:

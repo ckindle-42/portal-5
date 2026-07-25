@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 # Persona Matrix CI Operations
 
 Companion to `docs/COMPLIANCE_FALLBACK_POLICY.md`. Where that doc captures
@@ -115,3 +116,4 @@ When CI surfaces a regression:
 - Pipeline routing tests. Acceptance v6 covers those (`S3a` / `S3b`).
 - Per-(persona, model) coverage of non-registered workspaces. Each
   workspace must register in `WORKSPACE_REGISTRY` before CI can sweep it.
+<!-- /WIKI:HUMAN-OWNED -->

@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 <!-- GENERATED FROM portal_wiki/canonical/ — edit the source unit, not this file -->
 
 # Portal 5 Admin Guide
@@ -99,3 +100,4 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 
 ---
 *518 knowledge units referenced.*
+<!-- /WIKI:HUMAN-OWNED -->

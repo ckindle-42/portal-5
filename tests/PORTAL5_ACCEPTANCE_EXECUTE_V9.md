@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 # PORTAL5_ACCEPTANCE_EXECUTE_V9 — Claude Code Prompt
 
 > **Supersedes** `PORTAL5_ACCEPTANCE_EXECUTE_V8.md` (archive to
@@ -145,3 +146,4 @@ git commit -m "acceptance: run <date> — <N> sections, <pass>/<total>, <notable
 - Product code read-only; regressions get reported, never masked by loosening
   acceptance expectations.
 - Routing baseline + served-model checks are pass/fail signal, not advisory.
+<!-- /WIKI:HUMAN-OWNED -->
