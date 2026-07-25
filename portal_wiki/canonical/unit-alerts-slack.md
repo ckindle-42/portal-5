@@ -1,20 +1,19 @@
 ---
-id: unit-ALERTS-slack
-kind: why
+id: unit-alerts-slack
+kind: what
 title: "ALERTS \u2014 Slack"
 sources:
-- type: design
+- type: doc
   path: docs/ALERTS.md
+  commit: 05e42ec2
   section: Slack
-last_generated_commit: ''
+last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-- ALERTS
-created_at: 1783195000.819577
-updated_at: 1783195000.819577
+created_at: 1784946220.5462432
+updated_at: 1784946220.5462432
 ---
-
 
 1. Create an Incoming Webhook at [https://api.slack.com/messaging/webhooks](https://api.slack.com/messaging/webhooks)
 2. Copy the webhook URL (e.g. `https://hooks.slack.com/services/...`)

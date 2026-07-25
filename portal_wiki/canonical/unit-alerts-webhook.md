@@ -1,20 +1,19 @@
 ---
-id: unit-ALERTS-webhook
-kind: why
+id: unit-alerts-webhook
+kind: what
 title: "ALERTS \u2014 Webhook"
 sources:
-- type: design
+- type: doc
   path: docs/ALERTS.md
+  commit: 05e42ec2
   section: Webhook
-last_generated_commit: ''
+last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-- ALERTS
-created_at: 1783195000.82042
-updated_at: 1783195000.82042
+created_at: 1784946220.54787
+updated_at: 1784946220.54787
 ---
-
 
 POST JSON to any HTTP endpoint — works with PagerDuty, custom receivers, SIEM systems, or any service that accepts inbound webhooks.
 

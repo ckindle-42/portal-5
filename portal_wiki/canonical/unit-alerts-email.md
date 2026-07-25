@@ -1,20 +1,19 @@
 ---
-id: unit-ALERTS-email
-kind: why
+id: unit-alerts-email
+kind: what
 title: "ALERTS \u2014 Email"
 sources:
-- type: design
+- type: doc
   path: docs/ALERTS.md
+  commit: 05e42ec2
   section: Email
-last_generated_commit: ''
+last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-- ALERTS
-created_at: 1783195000.819978
-updated_at: 1783195000.819978
+created_at: 1784946220.5472
+updated_at: 1784946220.5472
 ---
-
 
 Any SMTP provider works (Gmail, Mailgun, SendGrid, etc.):
 

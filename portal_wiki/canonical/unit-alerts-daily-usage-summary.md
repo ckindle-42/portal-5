@@ -1,20 +1,19 @@
 ---
-id: unit-ALERTS-daily-usage-summary
-kind: why
+id: unit-alerts-daily-usage-summary
+kind: what
 title: "ALERTS \u2014 Daily Usage Summary"
 sources:
-- type: design
+- type: doc
   path: docs/ALERTS.md
+  commit: 05e42ec2
   section: Daily Usage Summary
-last_generated_commit: ''
+last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-- ALERTS
-created_at: 1783195000.8193548
-updated_at: 1783195000.8193548
+created_at: 1784946220.5459251
+updated_at: 1784946220.5459251
 ---
-
 
 Fired once per day at a configured hour. Contains:
 - Total requests since last summary

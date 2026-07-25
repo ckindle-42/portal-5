@@ -1,20 +1,19 @@
 ---
-id: unit-ALERTS-telegram
-kind: why
+id: unit-alerts-telegram
+kind: what
 title: "ALERTS \u2014 Telegram"
 sources:
-- type: design
+- type: doc
   path: docs/ALERTS.md
+  commit: 05e42ec2
   section: Telegram
-last_generated_commit: ''
+last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-- ALERTS
-created_at: 1783195000.819777
-updated_at: 1783195000.819777
+created_at: 1784946220.5466712
+updated_at: 1784946220.5466712
 ---
-
 
 1. Create a **dedicated alert bot** via [@BotFather](https://t.me/BotFather) — keep it separate from your user-facing bot
 2. Add the bot to your target channel as an admin
