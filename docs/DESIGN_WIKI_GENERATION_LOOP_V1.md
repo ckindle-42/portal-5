@@ -1,7 +1,5 @@
 # DESIGN_WIKI_GENERATION_LOOP_V1
 
-The wiki spine generation loop: making generated-from-spine the default state of documentation.
-
 ## Principles
 
 ### Single write-point
@@ -56,15 +54,11 @@ When `discover_unmigrated_docs` returns empty, the commit-stamp ledger (`docs/.d
 ### Migration coverage
 
 <!-- WIKI:GENERATED unit=unit-fact-doc-migration-coverage -->
-# Doc migration coverage (1/25 docs migrated, 4.0%)
+# Doc migration coverage (25/25 docs migrated, 100.0%)
 
-Total generated blocks across migrated docs: 22
+Total generated blocks across migrated docs: 551
 
 ## Migrated docs (content-hash gate only)
-
-- `docs/SECURITY_BENCH_EXEC.md`
-
-## Unmigrated docs (commit-stamp ledger)
 
 - `README.md`
 - `P5_ROADMAP.md`
@@ -72,6 +66,7 @@ Total generated blocks across migrated docs: 22
 - `KNOWN_LIMITATIONS.md`
 - `docs/HOWTO.md`
 - `docs/ADMIN_GUIDE.md`
+- `docs/SECURITY_BENCH_EXEC.md`
 - `docs/USER_GUIDE.md`
 - `docs/CLUSTER_SCALE.md`
 - `docs/ALERTS.md`
@@ -90,10 +85,13 @@ Total generated blocks across migrated docs: 22
 - `tests/PORTAL5_ACCEPTANCE_EXECUTE_V9.md`
 - `tests/PORTAL5_BENCH_EXECUTE_V4.md`
 - `tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md`
+
+## Unmigrated docs (commit-stamp ledger)
 <!-- /WIKI:GENERATED -->
 
 ## Migration procedure
 
+<!-- WIKI:GENERATED unit=unit-DESIGN_WIKI-migration-procedure -->
 For each doc `D` returned by `discover_unmigrated_docs()` (highest priority first):
 
 1. Read `D` and read HEAD reality. For every substantive claim, verify against actual code/config/data. Author units from HEAD truth, not stale prose.
@@ -104,3 +102,4 @@ For each doc `D` returned by `discover_unmigrated_docs()` (highest priority firs
 6. Verify green, commit. Re-discover and continue.
 
 Each doc is one atomic commit. The repo is green after every commit. The loop is resumable at any point.
+<!-- /WIKI:GENERATED -->

@@ -1,31 +1,62 @@
-# Performance Optimizations
-
 ## P7-PERF Pipeline Optimizations
 
+<!-- WIKI:GENERATED unit=unit-performance-p7-perf-pipeline-optimizations -->
 Optimizations targeting routing overhead identified by `bench_tps.py`. Look for `P7-PERF` comments in code to find these paths.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### LLM Router Warmup at Startup
+
+<!-- WIKI:GENERATED unit=unit-performance-llm-router-warmup-at-startup -->
 `_warmup_llm_router()` in `router_pipe.py` fires at pipeline startup to pre-load the intent classifier into Ollama VRAM before the first request arrives. The warmup uses `keep_alive: -1` (integer) — Ollama 0.30.8+ rejects the string form `"-1"`.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Shared HTTP Client
+
+<!-- WIKI:GENERATED unit=unit-performance-shared-http-client -->
 All backend requests use a single `httpx.AsyncClient` with connection pooling (20 keepalive, 100 max connections). The LLM router also uses this shared client instead of creating per-request clients.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Keyword Cache
+
+<!-- WIKI:GENERATED unit=unit-performance-keyword-cache -->
 Workspace keyword dictionaries are pre-compiled to lowercase at module load (`_KEYWORD_CACHE`). Eliminates repeated `.lower()` calls and dict rebuilding on every request.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Backend Candidate Cache
+
+<!-- WIKI:GENERATED unit=unit-performance-backend-candidate-cache -->
 `get_backend_candidates()` results are cached with a 5-second TTL. Cache is invalidated after health checks. Avoids list comprehension and `random.shuffle()` on every request.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Benchmark Client Reuse
+
+<!-- WIKI:GENERATED unit=unit-performance-benchmark-client-reuse -->
 `bench_tps.py` reuses a single httpx client across all benchmark runs for accurate pipeline latency measurement.
+
+---
+<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Benchmarking
 
+<!-- WIKI:GENERATED unit=unit-performance-benchmarking -->
 Run TPS benchmarks with:
 ```bash
 python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace auto --runs 3
 ```
 
 Compare direct vs pipeline paths to identify overhead.
+<!-- /WIKI:GENERATED -->
+
+---

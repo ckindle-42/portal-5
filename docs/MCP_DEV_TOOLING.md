@@ -1,5 +1,6 @@
 # MCP Dev Tooling — Claude Code & opencode Integration
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-mcp-dev-tooling-claude-code-opencode-integration -->
 Portal 5 ships two configuration files that wire it into AI-powered coding tools:
 
 - **`.mcp.json`** — MCP server roster, picked up automatically by Claude Code (not opencode — see `opencode.jsonc` `mcp` block)
@@ -9,9 +10,13 @@ These let Claude Code and opencode read the repo, run code, call Portal 5 tools,
 use fully local Portal 5 models instead of any cloud API.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## MCP Servers (`.mcp.json`)
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-mcp-servers-mcp-json -->
 Six servers activate when Claude Code or opencode opens this project:
 
 | Server | Transport | Purpose |
@@ -22,16 +27,25 @@ Six servers activate when Claude Code or opencode opens this project:
 | `docker` | npx `@modelcontextprotocol/server-docker` | Container logs, status, exec — live MCP server debug |
 | `portal-sandbox` | URL `:8914/mcp` | `execute_bash`, `execute_python`, `execute_nodejs` in isolated container |
 | `portal-pipeline` | URL `:8928/mcp` | Stack introspection + FastContext repository explorer |
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Prerequisites
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-prerequisites -->
 `npx` and `uvx` must be on PATH:
 
 ```bash
 node --version && npx --version   # npx ships with Node.js ≥18
 uv --version && uvx --version     # uvx ships with uv
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Install if missing:
+
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-install-if-missing -->
 brew install node                          # macOS
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
@@ -43,14 +57,22 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Portal Pipeline MCP (`portal-pipeline`, `:8928`)
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-portal-pipeline-mcp-portal-pipeline-8928 -->
 A host-native FastMCP server started automatically by `./launch.sh up`. It gives coding
 tools live introspection of the running Portal 5 stack and an AI-powered code explorer.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Tools
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-tools -->
 | Tool | What it does |
 |---|---|
 | `get_pipeline_status` | Pipeline health, workspace count, version |
@@ -68,9 +90,13 @@ tools live introspection of the running Portal 5 stack and an AI-powered code ex
 > `POST :8928/tools/{name}`. Both paths are served by the same `_impl_*` helpers in
 > `pipeline_mcp.py`, so behavior is identical. `:8928` is registered in
 > `MCP_SERVERS["pipeline"]` (`MCP_PIPELINE_URL` to override).
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### FastContext Repository Explorer
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-fastcontext-repository-explorer -->
 `explore_repository(query)` runs **FastContext-1.0-4B-SFT** (Microsoft, 2.5 GB,
 [arxiv:2606.14066](https://arxiv.org/abs/2606.14066)) as a dedicated repository exploration subagent.
 
@@ -109,14 +135,22 @@ ollama pull hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M
 ```
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## opencode Integration (`opencode.jsonc`)
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-opencode-integration-opencode-jsonc -->
 [opencode](https://opencode.ai) is an open-source coding assistant. `opencode.jsonc` at the
 repo root tells it to use Portal 5 as its AI backend instead of any cloud API.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### What opencode gets
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-what-opencode-gets -->
 - **Fully local inference** — all completions go through portal-pipeline (:9099) to Ollama
   on your hardware. No tokens leave the machine.
 - **All workspaces + curated personas as models** — `GET /v1/models` (and `opencode models`)
@@ -133,22 +167,46 @@ repo root tells it to use Portal 5 as its AI backend instead of any cloud API.
   22 total (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`).
 - **Cloud providers disabled** — `anthropic`, `openai`, `google`, `bedrock`, `vertex` are
   all disabled to prevent accidental cloud use.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Quick start
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-quick-start -->
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # 1. Ensure stack is running
+
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-1-ensure-stack-is-running -->
 ./launch.sh up
+<!-- /WIKI:GENERATED -->
+
+---
 
 # 2. Export the pipeline API key into the environment
+
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-2-export-the-pipeline-api-key-into-the-environment -->
 export $(grep PIPELINE_API_KEY .env | xargs)
+<!-- /WIKI:GENERATED -->
+
+---
 
 # 3. Launch opencode (reads opencode.jsonc + .mcp.json automatically)
+
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-3-launch-opencode-reads-opencode-jsonc-mcp-json-automatically -->
 opencode .
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Workspace selection
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-workspace-selection -->
 ```bash
 opencode .                                          # default: portal/codingagentic (Laguna-XS.2 33B)
 opencode . --model portal/agenticheavy              # heavy 80B MoE for complex multi-file refactors
@@ -189,9 +247,13 @@ picker.
 Run `opencode models` to list all available workspaces + curated personas (discovery is
 driven by `GET /v1/models`, which now agrees with `opencode.jsonc` — see
 `DESIGN_OPENCODE_ADDRESSING_V1.md` §3.2).
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Dual mode: Portal vs stock (no file renaming)
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-dual-mode-portal-vs-stock-no-file-renaming -->
 Portal is the in-repo default — bare `opencode .` auto-discovers `opencode.jsonc`. To run
 **stock** opencode (your normal cloud providers) while inside the repo, use the wrapper,
 which points `OPENCODE_CONFIG` at your global config:
@@ -208,13 +270,21 @@ shows Portal models, run opencode from outside the repo (`cd ~ && opencode`) or 
 `opencode.jsonc`.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Claude Code Integration
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-claude-code-integration -->
 Claude Code has **two modes** with Portal 5:
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Mode A — Cloud intelligence + Portal tools (default, `cc-portal.sh`)
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-mode-a-cloud-intelligence-portal-tools-default-cc-portal-sh -->
 Anthropic cloud provides the AI. Portal 5 provides tools. The `.mcp.json` gives Claude Code
 access to Portal 5's full tool set alongside Anthropic's intelligence.
 
@@ -233,9 +303,13 @@ Available tools after opening this project:
 | `fetch/*` | fetch (HTTP GET) — pipeline health, models, Prometheus, Grafana |
 | `portal-sandbox/*` | execute_bash, execute_python, execute_nodejs, sandbox_status |
 | `portal-pipeline/*` | explore_repository, list_workspaces, get_loaded_models, get_metrics_summary |
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Mode B — Local model intelligence + Portal tools (`cc-local.sh`)
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-mode-b-local-model-intelligence-portal-tools-cc-local-sh -->
 Portal 5's local models provide the AI via the pipeline's `/v1/messages` Anthropic
 compatibility endpoint. All tokens stay on your hardware. Same tool set as Mode A.
 
@@ -279,9 +353,13 @@ export ANTHROPIC_BASE_URL=http://localhost:9099
 export ANTHROPIC_API_KEY=$(grep PIPELINE_API_KEY .env | cut -d= -f2)
 claude --model 'auto-coding?variant=heavy'
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Mode C — Stock cloud (zero Portal MCP, `cc-stock.sh`)
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-mode-c-stock-cloud-zero-portal-mcp-cc-stock-sh -->
 ```bash
 scripts/cc-stock.sh             # stock: claude --strict-mcp-config --mcp-config '{}' (zero MCP)
 CC_STOCK_KEEP_GENERIC=1 scripts/cc-stock.sh   # stock intelligence, keep filesystem/git/fetch/docker
@@ -292,9 +370,13 @@ CC_STOCK_IGNORE_SETTINGS=1 scripts/cc-stock.sh  # also ignore project/local sett
 file-based ones, so `.mcp.json` stays in place untouched.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## `auto-coding` Workspace — `laguna` Variant
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-auto-coding-workspace-laguna-variant -->
 Built specifically for Portal 5 self-improvement work. Available in Open WebUI and via opencode.
 
 | Property | Value |
@@ -314,11 +396,13 @@ Built specifically for Portal 5 self-improvement work. Available in Open WebUI a
 6. Report what changed, what passed, what remains
 
 ---
+<!-- /WIKI:GENERATED -->
 
-## Workflow Examples
+---
 
 ### Fixing a bug (Claude Code)
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-fixing-a-bug-claude-code -->
 ```
 You: "Workspace routing is sending some requests to the wrong model"
 
@@ -332,9 +416,13 @@ Claude Code:
   git/git_diff
   git/git_commit
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Adding a feature (opencode with local Laguna)
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-adding-a-feature-opencode-with-local-laguna -->
 ```
 You: "Add a new auto-lab-report workspace for generating pentest reports"
 
@@ -346,9 +434,13 @@ opencode (Laguna-XS.2 33B-A3B via portal/codingagentic):
   execute_bash "pytest tests/unit/ -q && python3 -c 'workspace consistency check'"
   [reports complete with passing tests]
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Debugging a failing MCP server (Claude Code)
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-debugging-a-failing-mcp-server-claude-code -->
 ```
 You: "portal-sandbox is returning errors on execute_bash"
 
@@ -358,9 +450,13 @@ Claude Code:
   fetch/fetch http://localhost:8914/health → reads health state
   portal-sandbox/execute_bash "ls /workspace" → tests the tool directly
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Checking what's in VRAM before a long task
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-checking-what-s-in-vram-before-a-long-task -->
 ```
 You: "Is devstral loaded? I don't want to wait for a cold start"
 
@@ -371,9 +467,13 @@ Claude Code:
 ```
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Prometheus Fetch Patterns
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-prometheus-fetch-patterns -->
 ```
 http://localhost:9090/api/v1/query?query=portal5_requests_total
 http://localhost:9090/api/v1/query?query=portal5_tool_calls_total
@@ -383,9 +483,13 @@ http://localhost:3000/api/dashboards/home   (Grafana read-only API)
 ```
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Security Boundaries
 
+<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-security-boundaries -->
 - `filesystem` is scoped to the repo dirs and `~/.portal5/logs` only — cannot reach outside.
 - `docker` uses the Docker socket. Acceptable on a local single-user machine only.
 - `fetch` is read-only HTTP GET. Do not use it to POST to the Open WebUI admin API.
@@ -397,3 +501,6 @@ http://localhost:3000/api/dashboards/home   (Grafana read-only API)
 > **sqlite server omitted:** Open WebUI's `webui.db` lives in a Docker volume not bind-mounted
 > to the host. To enable sqlite MCP, add a bind mount in `docker-compose.yml` and add the
 > entry back to `.mcp.json`.
+<!-- /WIKI:GENERATED -->
+
+---

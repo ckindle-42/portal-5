@@ -1,7 +1,7 @@
 ---
 id: unit-ADMIN_GUIDE-ollama-max-loaded-models-3
 kind: why
-title: "ADMIN_GUIDE \u2014 OLLAMA_MAX_LOADED_MODELS=3"
+title: "ADMIN_GUIDE \u2014 OLLAMA_MAX_LOADED_MODELS (now 5, was 3)"
 sources:
 - type: design
   path: docs/ADMIN_GUIDE.md

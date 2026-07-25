@@ -18,3 +18,9 @@ updated_at: 1783195000.818032
 
 To re-validate router accuracy after model changes:
 ```bash
+OLLAMA_URL=http://localhost:11434 python3 tests/benchmarks/bench_router.py
+OLLAMA_URL=http://localhost:11434 python3 tests/benchmarks/bench_router_conditions.py \
+  --companions devstral:24b granite4.1:8b
+```
+
+Results are written to `tests/benchmarks/results/`.

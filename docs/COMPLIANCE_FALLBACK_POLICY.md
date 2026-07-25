@@ -1,5 +1,6 @@
 # Compliance Fallback Policy
 
+<!-- WIKI:GENERATED unit=unit-compliance-fallback-policy-compliance-fallback-policy -->
 **Status**: Initial baseline pending. Updated by operator after first
 matrix sweep run (TASK_GRANITE_COMPLIANCE_VALIDATE_005).
 
@@ -9,9 +10,13 @@ This document captures the operator's policy for which models are
 acceptable as fallbacks behind the `auto-compliance` workspace, the
 threshold each fallback must meet, and the action taken when a fallback
 falls below threshold.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## What "compliance fallback" means
 
+<!-- WIKI:GENERATED unit=unit-compliance-fallback-policy-what-compliance-fallback-means -->
 The `auto-compliance` workspace routes through `[reasoning, general]`
 groups in that priority order. The primary model hint is `granite4.1:8b`
 (IBM Granite 4.1 8B, Ollama GGUF, BFCL V3 #1 structured output, Apache 2.0).
@@ -25,9 +30,13 @@ Note: the MLX inference proxy was retired at commit 3a0c58e — the former
 Every Ollama model in `ollama-reasoning` and `ollama-general` is
 therefore a potential primary handler for a compliance request. This
 policy specifies the bar each must meet to remain in those groups.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Threshold policy
 
+<!-- WIKI:GENERATED unit=unit-compliance-fallback-policy-threshold-policy -->
 The persona matrix driver
 (`tests/portal5_persona_matrix.py`) produces a per-(persona, model) result
 matrix using the assertion library in `tests/lib/compliance_assertions.py`
@@ -45,9 +54,13 @@ Special-case rule: **fabrication failures override percentage**. A model
 that confabulates verbatim requirement text on any scenario is rejected
 regardless of overall PASS rate. Fabrication is the highest-stakes
 behavior in compliance work.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Canonical baseline
 
+<!-- WIKI:GENERATED unit=unit-compliance-fallback-policy-canonical-baseline -->
 Operator stores the accepted baseline at:
 ```
 tests/benchmarks/results/persona_matrix_baseline.json
@@ -60,9 +73,13 @@ Re-baselining cadence: quarterly, or after any of the following changes:
 - Persona system prompt edited (TASK_COMPLIANCE_REFRAME class changes)
 - Fixture scenario added or modified
 - Assertion library threshold or regex changed
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Granite 4.1 — initial expectation
 
+<!-- WIKI:GENERATED unit=unit-compliance-fallback-policy-granite-4-1-initial-expectation -->
 Per IBM Research's stated design (Granite 4.1: dense, no-thinking,
 tool-calling-first, BFCL V3 leader at 73.7 for the 30B, GRC-aware
 training, ISO certification), Granite is expected to:
@@ -90,15 +107,30 @@ If Granite 30B fails to clear the 80% MUST threshold, the operator
 explicitly evaluates whether to keep it in `ollama-reasoning` or
 demote it. The dense architecture's slower TPS at 30B is a separate
 trade-off captured in `bench_tps` runs, not in this policy.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Re-running the matrix
 
+<!-- WIKI:GENERATED unit=unit-compliance-fallback-policy-re-running-the-matrix -->
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # Full sweep
+
+<!-- WIKI:GENERATED unit=unit-compliance-fallback-policy-full-sweep -->
 python3 tests/portal5_persona_matrix.py \
     --output tests/benchmarks/results/persona_matrix_$(date -u +%Y%m%dT%H%M%SZ).json
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Granite-required sweep (fails if Granite has been removed from chain)
+
+<!-- WIKI:GENERATED unit=unit-compliance-fallback-policy-granite-required-sweep-fails-if-granite-has-been-removed-from-chain -->
 python3 tests/portal5_persona_matrix.py \
     --backend ollama \
     --require granite4.1:8b,granite4.1:30b \
@@ -136,12 +168,19 @@ for m in all_models:
     print(f'  {m:60} baseline={b:5.1f}%  new={n:5.1f}%  \u0394={delta:+5.1f}  {flag}')
 "
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Out of scope
 
+<!-- WIKI:GENERATED unit=unit-compliance-fallback-policy-out-of-scope -->
 This policy covers only `auto-compliance`. Other workspaces with
 multi-model fallback chains (`auto-coding`, `auto-research`, `auto-data`,
 `auto-security`, etc.) are valid future targets for the same per-backend
 matrix approach but require their own scenario fixtures and threshold
 documents. The matrix driver is workspace-parameterizable; only the
 fixture and threshold doc are workspace-specific.
+<!-- /WIKI:GENERATED -->
+
+---

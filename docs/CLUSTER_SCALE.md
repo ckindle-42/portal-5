@@ -1,10 +1,15 @@
 # Portal 5 — Cluster Scale-Out Guide
 
+<!-- WIKI:GENERATED unit=unit-cluster-scale-portal-5-cluster-scale-out-guide -->
 Portal 5 is designed to grow from a single M4 Mac to a 12-node Mac Studio
 cluster without any code changes. All scaling is done by editing config/backends.yaml.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Stage 1 → Stage 2: Add a Second Mac Studio
 
+<!-- WIKI:GENERATED unit=unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio -->
 1. Install Ollama on the new Mac Studio
 2. Configure it to listen on the network:
    ```bash
@@ -24,9 +29,13 @@ cluster without any code changes. All scaling is done by editing config/backends
    ```
 
 Portal automatically discovers the new backend and load-balances across both.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Stage 3: vLLM for 70B Models
 
+<!-- WIKI:GENERATED unit=unit-cluster-scale-stage-3-vllm-for-70b-models -->
 When ready to run 70B+ models (Llama 3.1 70B, etc.) via vLLM:
 
 1. Install vLLM on the target machine
@@ -42,9 +51,13 @@ When ready to run 70B+ models (Llama 3.1 70B, etc.) via vLLM:
      group: general
      models: [meta-llama/Llama-3.1-70B-Instruct]
    ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Stage 4-5: Specialized Model Groups
 
+<!-- WIKI:GENERATED unit=unit-cluster-scale-stage-4-5-specialized-model-groups -->
 Assign different machines to different workspace groups for optimal routing:
 
 ```yaml
@@ -61,3 +74,6 @@ Assign different machines to different workspace groups for optimal routing:
 
 Open WebUI, the MCP tools, and the Telegram/Slack channels all continue working
 unchanged. The only edit is a YAML file.
+<!-- /WIKI:GENERATED -->
+
+---

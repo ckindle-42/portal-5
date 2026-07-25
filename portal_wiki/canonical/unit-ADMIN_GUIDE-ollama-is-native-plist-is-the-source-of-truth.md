@@ -25,3 +25,7 @@ Ollama runs under launchd, not Docker. Docker-compose env vars pass through to t
 To change `OLLAMA_MAX_LOADED_MODELS` (or add `OLLAMA_MEMORY_LIMIT`), edit the plist and reload:
 
 ```bash
+launchctl unload ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
+launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
+ps eww -p $(pgrep -f "ollama serve") | tr ' ' '\n' | grep OLLAMA_MAX_LOADED
+```

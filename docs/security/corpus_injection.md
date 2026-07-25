@@ -1,5 +1,6 @@
 # Corpus Injection — getting hunt-ready telemetry into lab Splunk
 
+<!-- WIKI:GENERATED unit=unit-corpus-injection-corpus-injection-getting-hunt-ready-telemetry-into-lab-splunk -->
 Blue and purple need adversary telemetry to hunt. Waiting for red bench runs to
 produce it is the bottleneck. This document covers the three lanes that fill the
 lab SIEM, what each is good for, and how to verify or reverse each one.
@@ -14,9 +15,13 @@ Lanes A and B are finite and pre-labeled: every event already carries its answer
 which makes them ideal for detection coverage and hunt training but useless for
 discovery work. Lane C is the only lane that generates genuinely novel, unlabeled
 activity, which is what `ANOMALOUS_UNCLASSIFIED` / discovery evaluation needs.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Why corpus data coexists safely with bench runs
 
+<!-- WIKI:GENERATED unit=unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs -->
 Lane B writes into the same `portal5_lab` index the bench uses. Three properties
 keep the two from contaminating each other — all three are asserted in
 `scripts/corpus_ingest.py` and verifiable after any injection:
@@ -34,15 +39,24 @@ keep the two from contaminating each other — all three are asserted in
 3. **Provenance.** `evidence_origin` is `corpus:<src>:<label>` or
    `live:caldera:<profile>`, which makes every injected event attributable and
    the whole injection reversible in one search.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Lane A — BOTS pre-indexed datasets
 
+<!-- WIKI:GENERATED unit=unit-corpus-injection-lane-a-bots-pre-indexed-datasets -->
 BOTS ships as pre-indexed Splunk buckets, so it does **not** go through HEC. Each
 tarball untars into `$SPLUNK_HOME/etc/apps` and serves its own index.
 
 ```bash
-# Run ON the Splunk host. For Portal 5 that is the `splunk` Docker container
+<!-- /WIKI:GENERATED -->
+
+---
+
 # inside LXC 301, as the splunk user (uid 41812) — the apps dir is splunk-owned.
+
+<!-- WIKI:GENERATED unit=unit-corpus-injection-inside-lxc-301-as-the-splunk-user-uid-41812-the-apps-dir-is-splunk-owned -->
 docker cp scripts/lab_bots_install.py splunk:/tmp/
 docker exec -u splunk splunk /opt/splunk/bin/python3 /tmp/lab_bots_install.py \
     --workdir /opt/splunk/var/p5corpus
@@ -122,15 +136,25 @@ this lab runs Splunk 10.2. Two auth details that cost time:
 Add-ons load at splunkd startup, so restart afterwards. Extraction is
 search-time, so add-ons installed *after* the data still apply retroactively —
 there is no need to reinstall or re-index a dataset to pick up a new TA.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Lane B — ATT&CK-labeled corpora over HEC
 
+<!-- WIKI:GENERATED unit=unit-corpus-injection-lane-b-att-ck-labeled-corpora-over-hec -->
 `scripts/corpus_ingest.py` reuses the existing `ship_batch` primitive — no new
 HEC code — and maps events onto the four sourcetypes `spl_detections.yaml`
 actually fires on, so the existing SPL library lights up with zero rule changes.
 
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # Always dry-run first: it prints exact per-sourcetype volume without injecting.
+
+<!-- WIKI:GENERATED unit=unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting -->
 python3 scripts/corpus_ingest.py --src attack_data --root /path/attack_data/datasets --dry-run
 python3 scripts/corpus_ingest.py --src attack_data --root /path/attack_data/datasets --ship
 ```
@@ -147,9 +171,13 @@ Corpora used, and what each needs:
 - **`sbousseaden/EVTX-ATTACK-SAMPLES`** and **`mdecrevoisier/EVTX-to-MITRE-Attack`**
   — raw `.evtx`. The loader decodes these inline (`pip install evtx`); no manual
   EVTX→JSON pre-step is needed.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Two format traps that silently produce useless data
 
+<!-- WIKI:GENERATED unit=unit-corpus-injection-two-format-traps-that-silently-produce-useless-data -->
 Both were hit building this lane. Neither fails loudly — they yield events that
 index fine and match nothing.
 
@@ -176,27 +204,56 @@ and there are no network detections in `spl_detections.yaml` to hunt them with
 (only `web:access` is network-side). The loader filters archive members to text
 formats. Ingesting flow data you cannot hunt is negative ROI until a
 Zeek/Suricata lane exists.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Verify Lane B
 
+<!-- WIKI:GENERATED unit=unit-corpus-injection-verify-lane-b -->
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # landing + which sourcetypes got data
+
+<!-- WIKI:GENERATED unit=unit-corpus-injection-landing-which-sourcetypes-got-data -->
 index=portal5_lab evidence_origin=corpus:* earliest=0 | stats count by sourcetype
+<!-- /WIKI:GENERATED -->
+
+---
 
 # the property that matters: field extraction actually works
+
+<!-- WIKI:GENERATED unit=unit-corpus-injection-the-property-that-matters-field-extraction-actually-works -->
 index=portal5_lab evidence_origin=corpus:* earliest=0
   | stats count(EventCode) as with_eventcode, count as total
+<!-- /WIKI:GENERATED -->
+
+---
 
 # a canned detection firing on corpus data (T1558.004 AS-REP roasting, verbatim SPL)
+
+<!-- WIKI:GENERATED unit=unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl -->
 index=portal5_lab sourcetype="windows:security" EventCode=4768 PreAuthType=0
   evidence_origin=corpus:* earliest=0 | stats count by Account
+<!-- /WIKI:GENERATED -->
+
+---
 
 # confirm the live triage window is still clean
+
+<!-- WIKI:GENERATED unit=unit-corpus-injection-confirm-the-live-triage-window-is-still-clean -->
 index=portal5_lab earliest=-60m evidence_origin=corpus:* | stats count
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Rollback
 
+<!-- WIKI:GENERATED unit=unit-corpus-injection-rollback -->
 Because every event is tagged and backdated, removal is surgical and never
 touches bench data:
 
@@ -220,9 +277,13 @@ what would stay:
 index=portal5_lab earliest=0
   | eval grp=if(like(evidence_origin,"corpus:%"),"CORPUS","BENCH") | stats count by grp
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Lane C — live emulation (Caldera + Atomic Red Team)
 
+<!-- WIKI:GENERATED unit=unit-corpus-injection-lane-c-live-emulation-caldera-atomic-red-team -->
 Caldera runs on lab-internal LXC 302 (`portal-lab-caldera`, 10.10.11.60:8888) as
 a systemd unit, on the VLAN-60 lab bridge only. The Atomic Red Team ability
 collection is included via Caldera's bundled `atomic` plugin.
@@ -242,7 +303,13 @@ The driver refuses to target any host outside `LAB_TARGET_NETWORK`.
 Deploying an agent onto a lab target:
 
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # on the target, from the lab network
+
+<!-- WIKI:GENERATED unit=unit-corpus-injection-on-the-target-from-the-lab-network -->
 curl -s -X POST -H "file:sandcat.go" -H "platform:linux" \
      http://10.10.11.60:8888/file/download -o /tmp/p5agent
 chmod +x /tmp/p5agent && setsid /tmp/p5agent -server http://10.10.11.60:8888 -group red &
@@ -261,9 +328,13 @@ curl -s -H "KEY: $CALDERA_API_KEY" -H "Content-Type: application/json" \
   -X POST http://10.10.11.60:8888/api/v2/adversaries \
   -d '{"name":"Portal5 Linux Discovery","atomic_ordering":["<ability-id>", "..."]}'
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Verify Lane C
 
+<!-- WIKI:GENERATED unit=unit-corpus-injection-verify-lane-c -->
 ```
 index=portal5_lab evidence_origin=live:caldera:* earliest=0
   | stats count by sourcetype, host, episode_id
@@ -271,9 +342,13 @@ index=portal5_lab evidence_origin=live:caldera:* earliest=0
 
 and the same events must come back from
 `SplunkBackend.query_episode(<operation_id>)`.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Durability — surviving a lab reset
 
+<!-- WIKI:GENERATED unit=unit-corpus-injection-durability-surviving-a-lab-reset -->
 Everything these three lanes produce lives **only in the lab**, not in git. The
 scripts are versioned; the ~275M indexed events are not. A rollback of the
 Splunk container to an older snapshot silently erases all of it, and the
@@ -308,9 +383,13 @@ What is *not* covered, and why it does not matter much:
 Rebuild cost if a restore point is lost: ~25 GB of BOTS download plus a
 multi-hour HEC re-ship for Lane B. The snapshots are cheap copy-on-write; the
 rebuild is not.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Related
 
+<!-- WIKI:GENERATED unit=unit-corpus-injection-related -->
 - `scripts/lab_bots_install.py` — Lane A installer
 - `scripts/lab_splunkbase_install.py` — Lane A field-extraction add-ons
 - `scripts/corpus_ingest.py` — Lane B loader
@@ -318,3 +397,6 @@ rebuild is not.
 - `portal/modules/security/core/siem/hec_ship.py` — the shared `ship_batch` primitive
 - `portal/modules/security/core/siem/spl_detections.yaml` — the detections these lanes feed
 - `docs/LAB_SETUP.md` — lab topology and target inventory
+<!-- /WIKI:GENERATED -->
+
+---

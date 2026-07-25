@@ -1,27 +1,40 @@
 # Portal 5 — ComfyUI Setup Guide
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-portal-5-comfyui-setup-guide -->
 ComfyUI handles image and video generation. It runs natively on the host
 for Metal GPU access on Apple Silicon.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Quick Install (Apple Silicon)
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-quick-install-apple-silicon -->
 ```bash
 ./launch.sh install-comfyui
 ```
 
 This clones ComfyUI to `~/ComfyUI`, installs PyTorch with MPS support,
 and registers it as a launchd service that auto-starts on login.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Download Models
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-download-models -->
 **`./launch.sh download-comfyui-models` is currently broken** — the script it called
 (`scripts/download_comfyui_models.py`) was deleted in commit `ea864cf` ("superseded by
 pull-wan22 / pull-qwen-image"), but those replacement subcommands were never implemented
 in `launch.sh` (found during Slice P media bring-up, `TASK_MEDIA_BRINGUP_V1`). Until one of
 them is rebuilt, download models directly with `hf download` / `huggingface-cli download`.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Image: flux-schnell (default)
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-image-flux-schnell-default -->
 ```bash
 hf download black-forest-labs/FLUX.1-schnell flux1-schnell.safetensors \
     --local-dir ~/ComfyUI/models/checkpoints/
@@ -52,17 +65,25 @@ ComfyUI-native repackaging (`comfyanonymous/flux_text_encoders`) above instead.
 no currently-known working source — the old script's repo
 (`enhanceaiteam/Flux-Uncensored-V2`) returns 404. Use `sdxl` or plain `flux` instead until
 a source is found.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Image: sdxl (simpler, single self-contained file, no separate CLIP/VAE needed)
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-image-sdxl-simpler-single-self-contained-file-no-separate-clip-vae-needed -->
 ```bash
 hf download stabilityai/stable-diffusion-xl-base-1.0 sd_xl_base_1.0.safetensors \
     --local-dir ~/ComfyUI/models/checkpoints/
 ```
 Set `IMAGE_BACKEND=sdxl` in `.env`.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Video: wan21-nsfw (currently configured `VIDEO_BACKEND` in `.env`)
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-video-wan21-nsfw-currently-configured-video-backend-in-env -->
 ```bash
 hf download NSFW-API/NSFW_Wan_14b nsfw_wan_14b_e15.safetensors \
     --local-dir ~/ComfyUI/models/diffusion_models/
@@ -70,11 +91,21 @@ hf download zootkitty/nsfw_wan_umt5-xxl_bf16_fixed nsfw_wan_umt5-xxl_bf16_fixed.
     --local-dir ~/ComfyUI/models/text_encoders/
 hf download ratoenien/wan_2.1_vae wan_2.1_vae.safetensors \
     --local-dir ~/ComfyUI/models/vae/
+<!-- /WIKI:GENERATED -->
+
+---
+
 # Then set VIDEO_BACKEND=wan21-nsfw in .env and restart: docker compose restart mcp-video
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-then-set-video-backend-wan21-nsfw-in-env-and-restart-docker-compose-restart-mcp-video -->
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Wan 2.2 Family (v6.2 addition)
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-wan-2-2-family-v6-2-addition -->
 Wan 2.2 is the MoE successor to Wan 2.1 (27B total / 14B active per step). Four variants are supported as parallel ComfyUI workflows. The Wan 2.1 NSFW pipeline is unchanged and remains the default for NSFW-tagged requests.
 
 | Variant | Model ID | Size | Best for |
@@ -85,14 +116,24 @@ Wan 2.2 is the MoE successor to Wan 2.1 (27B total / 14B active per step). Four 
 | `wan22-s2v-14b` | `wan22-s2v-14b` | 14B | Speech-driven video generation (**NEW capability**) |
 
 All four are Apache 2.0 licensed.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Step 1 — Pull the weights (opt-in, ~80GB total)
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-step-1-pull-the-weights-opt-in-80gb-total -->
 **`./launch.sh pull-wan22` is advertised in `launch.sh --help` but has no implementation**
 (found during Slice P media bring-up) — download directly instead:
 
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # TI2V-5B (fast, image-to-video): single-file ComfyUI-native repackaging
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-ti2v-5b-fast-image-to-video-single-file-comfyui-native-repackaging -->
 hf download Comfy-Org/Wan_2.2_ComfyUI_Repackaged \
     split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors \
     split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors \
@@ -102,9 +143,13 @@ hf download Comfy-Org/Wan_2.2_ComfyUI_Repackaged \
 
 T2V-A14B's weight source is not yet pinned down (see `WAN22_T2V_UNET` comment in
 `video_mcp.py` — "requires separate download, not yet in pull-wan22").
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Step 2 — Export ComfyUI workflow templates
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-step-2-export-comfyui-workflow-templates -->
 `wan22-t2v-a14b` and `wan22-ti2v-5b` already have real (non-stub) workflow dicts in
 `portal/modules/media/tools/video_mcp.py` — no export needed for those two. Only
 `wan22-animate-14b` and `wan22-s2v-14b` remain stubs; for those, export via ComfyUI:
@@ -131,60 +176,138 @@ switches. `TASK_VRAM_ADMISSION_V1` (Slice 7) added a pre-flight admission check
 error before it OOMs — see `unit-fact-media-memory-budget` / `unit-HOWTO-media-memory-and-
 launch-order`; it does not replace restarting ComfyUI between families (Tier 2 cross-engine
 coordination with Ollama is explicitly not built).
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Step 3 — Use
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-step-3-use -->
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # Fast preset (TI2V-5B, ~9 min per 5s clip)
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-fast-preset-ti2v-5b-9-min-per-5s-clip -->
 python3 scripts/gen-video.py "a woman dancing in a sunlit garden" --preset wan22-fast
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Cinematic quality (T2V-A14B, slower)
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-cinematic-quality-t2v-a14b-slower -->
 python3 scripts/gen-video.py "a sweeping aerial view of mountain peaks at sunset" --preset wan22-quality
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Explicit model override
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-explicit-model-override -->
 python3 scripts/gen-video.py "your prompt" --model wan22-t2v-a14b --steps 40
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Via MCP tool
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-via-mcp-tool -->
 curl -X POST http://localhost:8911/tools/start_video_generation \
   -H "Content-Type: application/json" \
   -d '{"arguments": {"prompt": "your prompt", "model": "wan22-ti2v-5b", "steps": 30}}'
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Manual Start / Stop
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-manual-start-stop -->
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # Start
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-start -->
 ~/ComfyUI/start.sh
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Stop
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-stop -->
 launchctl stop com.portal5.comfyui
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Restart
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-restart -->
 launchctl stop com.portal5.comfyui && launchctl start com.portal5.comfyui
+<!-- /WIKI:GENERATED -->
+
+---
 
 # View logs
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-view-logs -->
 tail -f ~/.portal5/logs/comfyui.log
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Linux (NVIDIA GPU)
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-linux-nvidia-gpu -->
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # Use Docker ComfyUI with CUDA profile
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-use-docker-comfyui-with-cuda-profile -->
 ./launch.sh up --profile docker-comfyui
+<!-- /WIKI:GENERATED -->
+
+---
+
 # Models download automatically on first start
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-models-download-automatically-on-first-start -->
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Verify
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-verify -->
 ```bash
 curl http://localhost:8188/system_stats
-# Should return JSON with GPU info showing MPS device
-```
+<!-- /WIKI:GENERATED -->
 
-## Troubleshooting
+---
+
+# Should return JSON with GPU info showing MPS device
+
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-should-return-json-with-gpu-info-showing-mps-device -->
+```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### FLUX images are pure static / TV noise
 
+<!-- WIKI:GENERATED unit=unit-comfyui-setup-flux-images-are-pure-static-tv-noise -->
 **Do not use `--force-fp16`** with FLUX on Apple Silicon MPS. FLUX's transformer
 attention layers are numerically sensitive — float16 precision errors compound over
 sampling steps until the output is indistinguishable from noise. SDXL tolerates fp16
@@ -201,3 +324,6 @@ ps aux | grep "main.py" | grep -v grep   # should NOT show --force-fp16
 If it shows `--force-fp16`, edit `~/ComfyUI/start.sh` and
 `~/Library/LaunchAgents/com.portal5.comfyui.plist` to remove it, then restart
 ComfyUI.
+<!-- /WIKI:GENERATED -->
+
+---

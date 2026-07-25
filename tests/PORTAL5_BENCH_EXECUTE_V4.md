@@ -1,5 +1,6 @@
 # PORTAL5_BENCH_EXECUTE_V4 — opencode Bench Execution Prompt
 
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-portal5-bench-execute-v4-opencode-bench-execution-prompt -->
 > **Supersedes** `PORTAL5_BENCH_EXECUTE_V3.md` (archive it to
 > `docs/_archive_execdocs/`). V4 updates for the post-collapse / post-alias-
 > retirement codebase (HEAD `87b19bf`): corrected scale, `PORTAL_ENABLE_EVAL`
@@ -26,9 +27,13 @@ and `--dry-run` are the source of truth, not this paragraph.
 no performance numbers.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Your Role
 
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-your-role -->
 You are the **benchmark execution agent**, not the implementation agent. You
 execute the suite, diagnose failures, adjust the run, retry intelligently, and
 produce a Grafana dashboard update. Results go to
@@ -42,17 +47,37 @@ are still loaded or producing similar TPS. Every run is fresh.
 traces to a product bug, report it — don't patch it here.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Phase 0 — Preflight (required before any run)
 
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-phase-0-preflight-required-before-any-run -->
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # 1. Ground truth — counts + no retired-alias leak
+
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-1-ground-truth-counts-no-retired-alias-leak -->
 python3 scripts/execute_preflight.py                 # must end "OK to run"; nonzero = STOP
+<!-- /WIKI:GENERATED -->
+
+---
 
 # 2. Bench plan — the real test count for THIS run
+
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-2-bench-plan-the-real-test-count-for-this-run -->
 PORTAL_ENABLE_EVAL=1 python3 tests/benchmarks/bench_tps.py --dry-run
+<!-- /WIKI:GENERATED -->
+
+---
 
 # 3. Backends up?
+
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-3-backends-up -->
 curl -s localhost:11434/api/tags  >/dev/null && echo "ollama ok"
 curl -s localhost:9099/health     >/dev/null && echo "pipeline ok"
 ```
@@ -67,19 +92,33 @@ If the preflight reports a retired-alias leak, STOP — the surface has regresse
 surface.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Autonomous Monitoring Loop — required default
 
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-autonomous-monitoring-loop-required-default -->
 Full bench runs take 3–6 hours (~273 tests across 3 modes). **Immediately after
 launching, establish a `ScheduleWakeup` loop.** Not optional.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### On launch
+
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-on-launch -->
 1. Start the run detached, logging to a timestamped file under
    `tests/benchmarks/results/`.
 2. Record the PID and the expected test count (from `--dry-run`).
 3. Set the first wakeup ~20 min out.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### On each wakeup
+
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-on-each-wakeup -->
 1. Is the process alive? (`ps`), how far along? (tail the log, count completed
    tests vs planned).
 2. If progressing: reschedule ~20–30 min out.
@@ -89,9 +128,13 @@ launching, establish a `ScheduleWakeup` loop.** Not optional.
 4. If finished: proceed to results + dashboard.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Modes
 
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-modes -->
 `bench_tps.py` runs three modes (`--mode all` default):
 - **direct** — model hit directly on Ollama (raw model TPS).
 - **pipeline** — through the pipeline at `:9099` (routing + serving overhead).
@@ -105,9 +148,13 @@ model's direct-mode number, that's a signal the pin isn't being served — flag
 it (it should match the pinned model's direct TPS within overhead).
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Served-model sanity (new in V4)
 
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-served-model-sanity-new-in-v4 -->
 Because persona served-model correctness was a recent bug class, add one check
 to the run: for each `model_pin` persona (preflight lists them), confirm the
 bench recorded it being served its pinned model, not the workspace pool default.
@@ -133,9 +180,13 @@ Any MISMATCH is a served-model regression — report it; it means the `model_pin
 handler hook regressed.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Results + dashboard
 
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-results-dashboard -->
 1. Confirm the run completed the planned test count (allow documented skips).
 2. Update `config/grafana/dashboards/portal5_benchmarks.json` from the results
    JSON via the existing updater (confirm its name):
@@ -149,9 +200,13 @@ handler hook regressed.
    ```
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Failure playbook
 
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-failure-playbook -->
 - **A model won't load / OOMs** — the M4 Pro has 64GB; a 70B q4 + context can
   exceed it. Skip and note; don't force.
 - **Persona benches at pool-default TPS not its pin** — served-model regression;
@@ -160,9 +215,17 @@ handler hook regressed.
   (routing overhead), but a large gap on a simple prompt may indicate a
   mis-route; cross-check with `routing_regression.py --assert-baseline`.
 - **Preflight retired-alias leak** — surface regression; halt.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Non-negotiables
+
+<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-non-negotiables -->
 - Preflight + `--dry-run` before every run; counts come from there, not this doc.
 - `PORTAL_ENABLE_EVAL=1` for full coverage.
 - Product code is read-only; bench failures that are product bugs get reported.
 - Every run fresh; no prior-run assumptions.
+<!-- /WIKI:GENERATED -->
+
+---

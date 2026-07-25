@@ -1,5 +1,6 @@
 # PORTAL5_ACCEPTANCE_EXECUTE_V9 — Claude Code Prompt
 
+<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-portal5-acceptance-execute-v9-claude-code-prompt -->
 > **Supersedes** `PORTAL5_ACCEPTANCE_EXECUTE_V8.md` (archive to
 > `docs/_archive_execdocs/`). V9 updates for the post-collapse / post-alias-
 > retirement / post-routing-integrity codebase (HEAD `87b19bf`).
@@ -27,17 +28,25 @@ python3 scripts/execute_preflight.py     # 21 production workspaces, 138 persona
 The acceptance suite is not a benchmark and asserts no TPS/perf numbers.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Your Role
 
+<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-your-role -->
 You are the **acceptance execution agent**. Run the section suite against a live
 stack, diagnose failures, retry intelligently, produce a pass/fail report with
 evidence. **You do NOT modify product code** (`portal/**` is protected).
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Phase 0 — Preflight (required)
 
+<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-phase-0-preflight-required -->
 ```bash
 python3 scripts/execute_preflight.py                 # must end "OK to run"
 ps aux | grep portal5_acceptance | grep -v grep      # nothing already running
@@ -49,17 +58,25 @@ curl -s localhost:9099/health >/dev/null && echo "pipeline ok"
 retired-alias leak, STOP (surface regression).
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Autonomous Monitoring Loop — required default
 
+<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-autonomous-monitoring-loop-required-default -->
 Full suite is ~82 min (S10c compliance personas ~50 min alone). Establish a
 `ScheduleWakeup` loop immediately after launching; check liveness + section
 progress every ~15 min; diagnose stalls; halt with evidence if hung.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Running
 
+<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-running -->
 Entry point is `tests/portal5_acceptance_v6.py` (confirm it's still the current
 runner via `ls tests/portal5_acceptance_v*.py`; if a higher version exists, use
 it):
@@ -82,9 +99,13 @@ section list. Key sections for the current surface:
 - **S17 (cad)**, **S21 (llm router)**, **S23 (model diversity)**.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Coverage (current)
 
+<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-coverage-current -->
 S3 covers the production workspaces via `WORKSPACE_PROMPTS` (derived live from
 `WORKSPACES` in `_common.py` — no hardcoded list to drift). S6 covers
 `auto-security` and its variants. S17 covers `auto-cad`. All 21 production
@@ -93,9 +114,13 @@ preflight list against the section coverage; report any production workspace
 with no covering section.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## New in V9 — routing + served-model verification
 
+<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-new-in-v9-routing-served-model-verification -->
 The recent routing-integrity work added a versioned baseline and a served-model
 regression gate. Acceptance should confirm these hold end-to-end:
 
@@ -114,9 +139,13 @@ S10 should catch a regression. If a persona test passes routing but the served
 model ≠ its pin, that's a `{sec}-WARN`/fail worth flagging.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Results + dashboard
 
+<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-results-dashboard -->
 ```bash
 python3 scripts/update_grafana_acceptance.py --input ACCEPTANCE_RESULTS.md
 git add ACCEPTANCE_RESULTS.md config/grafana/dashboards/portal5_acceptance.json
@@ -124,9 +153,13 @@ git commit -m "acceptance: run <date> — <N> sections, <pass>/<total>, <notable
 ```
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Failure playbook
 
+<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-failure-playbook -->
 - **`{sec}-ERR` NameError row** — stale checkout (missing-import defects in
   decomposed section files were fixed); re-clone at HEAD.
 - **S6 asserts on a retired id** — you're on a stale section file or stale doc;
@@ -138,10 +171,18 @@ git commit -m "acceptance: run <date> — <N> sections, <pass>/<total>, <notable
   agent).
 - **Persona served wrong model** — served-model regression; report with the
   persona slug + expected pin + actual served model.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Non-negotiables
+
+<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-non-negotiables -->
 - Preflight first; 21 production workspaces is the current truth, printed live.
 - `PORTAL_ENABLE_EVAL` unset for acceptance.
 - Product code read-only; regressions get reported, never masked by loosening
   acceptance expectations.
 - Routing baseline + served-model checks are pass/fail signal, not advisory.
+<!-- /WIKI:GENERATED -->
+
+---

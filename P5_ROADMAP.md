@@ -1,5 +1,6 @@
 # P5_ROADMAP.md — Portal 5 v7 Future Enhancements
 
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements -->
 ```
 Portal 5 v7 Roadmap
 ===================
@@ -14,9 +15,13 @@ All v5.0–v6.1.0 items are marked DONE in CHANGELOG.md. This document tracks
 genuinely open future work. Completed items are kept for reference only.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Future Considerations (Not Yet Implemented)
 
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-future-considerations-not-yet-implemented -->
 | ID | Priority | Title | Status | Notes |
 |----|----------|-------|--------|-------|
 | P5-FUT-003 | P3 | Usage analytics dashboard | DONE | Grafana portal5_overview.json v3: 6 new panels — workspace request trends, tokens by workspace, top workspaces, model×workspace breakdown, request rate. All queries use existing Prometheus metrics. Per-user blocked — Open WebUI doesn't expose user IDs to Pipeline. |
@@ -34,45 +39,45 @@ genuinely open future work. Completed items are kept for reference only.
 | P5-FUT-SPEC | P2 | Speculative decoding for large MLX targets | MOOT | **Update 2026-06-09 (TASK_MLX_RETIRE_TRUEUP_V1):** MLX proxy retired. MTP speculative decoding now targets Ollama's native MTP path (llama.cpp b9180+). |
 | P5-FUT-015 | P2 | Unified shared workspace | DONE | TASK-WORKSPACE-001. Single `${AI_OUTPUT_DIR}` root mounted into OWUI (uploads overlay) and all participating MCPs (`/workspace`). New `portal_mcp.core.workspace` helper module. AUDIO_STT_ENGINE disabled — voice-input loss documented. Foundation for TASK-TRANSCRIBE-001 and future file-handling MCPs. |
 | P5-FUT-014 | P3 | Diarized transcription (speaker-labeled) | DONE | TASK-TRANSCRIBE-001 (built on TASK-WORKSPACE-001 foundation). Host-native `scripts/mlx-transcribe.py` (mlx-whisper + pyannote.audio on MPS) primary on Apple Silicon, port 8924. Docker `whisper_mcp.py` extended with same `transcribe_with_speakers` tool for cross-platform fallback. New `transcriptanalyst` persona in `auto-documents` workspace handles full flow: detects audio attachments, calls tool, formats output, chains to `create_word_document` for docx. Uses `portal_mcp.core.workspace` helpers for file resolution. HF_TOKEN required (gated pyannote models). |
-| P5-FUT-PARITY-001 | P2 | Source/verify GGUF for Foundation-Sec-8B + ToolACE-2.5, or formally accept substitutes | DONE | MLX-only specialists lost in 3a0c58e, both now dispositioned. Foundation-Sec RESTORED to auto-security's 'blueteam' variant production (TASK_PARITY_FOUNDATION_SEC_V1, first-party fdtn-ai Q8_0 GGUF). ToolACE-2.5 EVALUATED AND DROPPED — granite4.1:8b accepted as the tools-specialist model (no verified ToolACE-2.5 GGUF; self-quant + Ollama tool-template risk not justified). Acceptance of the substitute was an allowed resolution per this item's title. See KNOWN_LIMITATIONS § Model Parity. |
-| P5-FUT-PARITY-002 | P3 | Scrub residual MLX-inference references in persona YAML comments | DONE | Done in TASK_PARITY_FOUNDATION_SEC_V1. Dead-proxy comment clauses (mlx_only, mlx_model_hint) removed/replaced with retirement notes across persona YAMLs; verified zero `mlx_only`/`mlx_model_hint` remain. Retained-audio/vision MLX comments (mlx_vlm/mlx_audio/voxtral/granite-speech/nemotron-omni/gemma vision) intentionally preserved — those runtimes are live (:8917/:8918/:8924/:8925). |
-| P5-FUT-PROMPT-GUARD-INLINE | P3 | Input-side prompt-injection guardrail (Llama-Prompt-Guard-86M) |  | Feature request from V13 model review (2026-07-08). Meta's Llama-Prompt-Guard-86M (86M classifier, meta-llama repo) classifies input for prompt-injection attempts. Would require new pipeline stage under portal/platform/inference/router/ (input-side filter, runs before router) — this is architecture work, NOT model intake, so not a workspace. Related: V13-D intake of Meta-SecAlign-8B addresses the SAME threat class (prompt-injection) but at the model layer rather than the pipeline layer; these are complementary, not substitutes. Consider building after reasoning-depth eval framework lands (see DESIGN_REASONING_DEPTH_V1.md) since an input-side guard is a natural companion piece. |
-| P5-FUT-TOOL-PRESELECT | P2 | Query-level tool-schema preselection | BUILT NOT DEPLOYED — closed | TASK_BUILD_TOOL_PRESELECT_V1 (2026-07-12). Module built at `portal/platform/inference/tool_preselect/` (config, prompt/parser, Ollama-call preselector, metrics, self-healing auto-disable state — 54 unit tests, 90% coverage), feature-flagged off (`PORTAL5_TOOL_PRESELECT=0`). Halted at the Phase 2 gate, then given a full extended diagnostic pass the same day before closing for good: 3 distinct models (both original 1B candidates plus `qwen2.5:1.5b`, this project's own proven compact router-bench performer) across 7 elicitation techniques (natural-language prompt, grammar-constrained JSON, system-prompt framing, `think:false` reasoning suppression, single-choice simplification, few-shot in-context examples, position-bias control) all converge on the same negative result — no sub-2B model tested can reliably rank tools by relevance, regardless of prompting or output-format strategy. See KNOWN_LIMITATIONS.md § P5-TOOLPRESELECT-001 for the full per-technique record. No pipeline integration, observability, or validation harness (Phases 3-5) built — would sit atop a preselector proven not to work. Revisit only with a materially larger (3B+) or purpose-built tool-ranking model; the built Phase 1+2 code is reusable as-is. |
-| P5-FUT-WS-FROM-MODULE | P3 | Derive served workspace from `module` (retire `workspace_model`) |  | Follow-on from surface collapse (BUILD_PROGRAM_COLLAPSE_V1 Phase 8, commit 214a16f). DESIGN_COLLAPSE_V1 §D6 called for retiring persona `workspace_model`; the build kept it because `module` alone is ambiguous for modules that map to several post-collapse workspaces (general → auto-daily/auto-math/auto-reasoning/tools-specialist; media → auto-creative/-music/-video/-audio). Retiring `workspace_model` needs a disambiguator: either a `default_workspace` per module (in unit-module-<name>) plus a persona-level `mode`/`role`/`variant` selector that the router resolves to a concrete workspace, OR keeping `workspace_model` as the disambiguator and just documenting it as the canonical field (i.e. accept the field, close the "retire" intent). Low urgency — `workspace_model` works correctly today. Decide direction before building. |
-| P5-FUT-MODEL-CHAINWALK | P2 | Live `preferred_models` chain-walk (auto-failover) |  | Follow-on from surface collapse (BUILD_PROGRAM_COLLAPSE_V1 Phase 8, commit 214a16f). Today `preferred_models` is advisory metadata; `?model=<hint>` is the only way to act on it, and it's manual. This item makes the chain automatic: a live-availability check (poll Ollama's loaded/pullable model set) walks each persona's `preferred_models` in order and serves the first available, so a persona degrades gracefully when its lead model isn't resident instead of failing or forcing a manual override. Requires: (1) an availability source (Ollama `/api/tags` + resident-model introspection, cached with a short TTL — event-driven refresh preferred over a fixed poll interval per project convention), (2) chain-walk resolution in the router's model-selection path (reuse the bounded synthetic-cache-merge pattern from `_resolve_model_override` in preinject.py), (3) a metric for which chain position served (observability into how often the lead model was unavailable). This is the piece that turns the collapse's `preferred_models` investment into a working reliability feature. P2 because it directly affects served-request success rate. |
-| P5-FUT-WS-FROM-MODULE | P3 | Derive served workspace from `module` (retire `workspace_model`) |  | Follow-on from surface collapse (BUILD_PROGRAM_COLLAPSE_V1 Phase 8, commit 214a16f). DESIGN_COLLAPSE_V1 §D6 called for retiring persona `workspace_model`; the build kept it because `module` alone is ambiguous for modules that map to several post-collapse workspaces (general → auto-daily/auto-math/auto-reasoning/tools-specialist; media → auto-creative/-music/-video/-audio). Retiring `workspace_model` needs a disambiguator: either a `default_workspace` per module (in unit-module-<name>) plus a persona-level `mode`/`role`/`variant` selector that the router resolves to a concrete workspace, OR keeping `workspace_model` as the disambiguator and just documenting it as the canonical field (i.e. accept the field, close the "retire" intent). Low urgency — `workspace_model` works correctly today. Decide direction before building. |
-| P5-FUT-MODEL-CHAINWALK | P2 | Live `preferred_models` chain-walk (auto-failover) |  | Follow-on from surface collapse (BUILD_PROGRAM_COLLAPSE_V1 Phase 8, commit 214a16f). Today `preferred_models` is advisory metadata; `?model=<hint>` is the only way to act on it, and it's manual. This item makes the chain automatic: a live-availability check (poll Ollama's loaded/pullable model set) walks each persona's `preferred_models` in order and serves the first available, so a persona degrades gracefully when its lead model isn't resident instead of failing or forcing a manual override. Requires: (1) an availability source (Ollama `/api/tags` + resident-model introspection, cached with a short TTL — event-driven refresh preferred over a fixed poll interval per project convention), (2) chain-walk resolution in the router's model-selection path (reuse the bounded synthetic-cache-merge pattern from `_resolve_model_override` in preinject.py), (3) a metric for which chain position served (observability into how often the lead model was unavailable). This is the piece that turns the collapse's `preferred_models` investment into a working reliability feature. P2 because it directly affects served-request success rate. |
-| P5-FUT-ALIAS-SHIM-RETIRE | P3 | Retire the legacy workspace-alias shim fully (resolve the 3 remaining holdouts) | **done** | Closed 2026-07-13 (`CLOSEOUT_ALIAS_REMOVAL.md` finish pass, `BUILD_PROGRAM_ALIAS_FINISH_V1.md`). All 3 holdouts migrated to canonical addressing: (1) Incalmo — `docker-compose.lab.yml`'s `OPENAI_MODEL` default → `auto-security::redteam`. (2) opencode — 8 new + 3 reused thin variant-personas, `/v1/models` advertises `ide_expose: true` personas, `opencode.jsonc`'s 20-entry picker re-keyed to persona slugs/bare base ids, `pipeline_mcp.py`'s `get_workspace_recommendation()`/`trigger_backend_warmup()` return persona slugs, CLI docs/wrappers (`MCP_DEV_TOOLING.md`, `cc-local.sh`) migrated with a visible old→new table. (3) Security bench harness — `DEFAULT_WORKSPACES`/`PER_WORKSPACE_TIMEOUT`/`EXECUTION_WORKSPACES` re-keyed to canonical `auto-security::<variant>` strings (timeout distinctions preserved — keyed on the pre-resolution string, not the resolved base). Real live-traffic deprecation trip (`PORTAL_ALIAS_TRIP=1` on the running pipeline) drove every migrated path — Incalmo `::` request, opencode persona-slug request, 2 security-bench `call_pipeline()` calls, Slack/Telegram confirmed structurally incapable (both default to `auto`) — zero `ALIAS_RESOLVED` hits. `_LEGACY_WORKSPACE_ALIASES` and `_resolve_legacy_workspace_alias` deleted from `preinject.py` (renamed to `_unpack_synthetic_workspace`, `::` unpacking retained). Check AT (`validate_system.py`) tightened from a growth-only ratchet to a hard zero-live-alias assertion (comment/docstring-aware classifier, scoped to Python serving-path code — see the check's own docstring for why docs/tests narrative isn't in scope). `config/.alias_retire_baseline.json` retired. Tag: `alias-retire-complete`. See `docs/RESULTS_ALIAS_RETIRE_V1_20260713.md`'s Finish section for full evidence. |
-| P5-FUT-RBP-MCP-SECURITY | P2 | RBP red-side: MCP Security Assessment challenge class | | Feature request from GATE-D ablation follow-up (2026-07-21) — comparing Portal 5's red-side scenario library against [m14r41/PenTestingEverything](https://github.com/m14r41/PenTestingEverything/tree/main)'s 23-domain taxonomy. Not present at all in `config/challenge_classes.yaml`'s 80 classes, and uniquely dogfooding-relevant since Portal 5 runs ~15 of its own MCP servers — this tests Portal 5's *own* architecture, unlike the generic-vulnerable-software CVE classes that make up most of the existing library. Candidate techniques: tool-description poisoning (a malicious/compromised MCP server's tool schema instructs the model to exfiltrate data or invoke unintended tools), confused-deputy via chained tool calls (tool A's output steers tool B's invocation without the model treating it as untrusted input), unauthorized tool invocation (bypassing `effective_tools`/persona tool allowlists), and MCP response tampering (a tool result containing embedded instructions the model treats as trusted). Needs: new challenge classes in `config/challenge_classes.yaml`, a way to stand up an intentionally-malicious/instrumented MCP server in the lab (Proxmox or Docker, matching the existing vulhub pattern), and RBP scoring criteria for "did blue detect the tool-layer compromise" distinct from the existing technique-ID-match scoring. Scope this out before building — see `portal/modules/security/core/llm_redteam.py` for the adjacent existing lane. |
-| P5-FUT-RBP-LLM-SECURITY-EXPAND | P2 | RBP red-side: expand LLM Security Assessment (OWASP LLM Top 10 coverage) | | Feature request from GATE-D ablation follow-up (2026-07-21), same source comparison as P5-FUT-RBP-MCP-SECURITY. `portal/modules/security/core/llm_redteam.py` already exists but is thin: only 4 probes across 3 of the 10 OWASP LLM Top 10 categories (LLM01 prompt injection, LLM06 sensitive info disclosure, LLM08 excessive agency), with crude keyword-match refusal/compliance grading rather than model-graded scoring. Candidate expansion: LLM02 (insecure output handling — does a tool blindly execute unsanitized model output without validation?), LLM03/LLM05 (training data poisoning / supply chain — relevant to locally-pulled GGUF provenance, not just prompted behavior), LLM09 (overreliance — does blue accept an ungrounded model claim without citation, the same I2/I8 discipline the GATE-D ablation's Expert-role grounding already enforces elsewhere in this codebase), and indirect prompt injection specifically (malicious content fetched by the research/browser MCP feeding instructions back into the model — a realistic Portal 5 attack surface since `auto-research`/browser MCP fetch live untrusted web content today). Also worth revisiting the keyword-match grading itself — a model-graded judge (same pattern as the RBP blue-side scoring) would be more reliable than substring matching for refusal/compliance detection. Scope this out before building. |
-| P5-FUT-DISK-CLEANUP-001 | P2 | Delete 41 confirmed-unused Ollama models (637GB) | | Found during a project-wide disk-usage review (2026-07-21) prompted by disk at 91% capacity (171GB free of 1.8TB). 1.2TB across 162 pulled models; cross-referencing every workspace `model_hint`/`secondary_model`/`tertiary_model`/`preferred_models`, every `backends.yaml` group id, every persona `model_pin`, a full-repo code grep, and `scripts/reconcile_security_arm.py`'s 2026-07-16 reconciliation report (which already flagged these as unwired 5 days before this review) all agree: 41 models, 637.4GB, have zero live reference anywhere — deferred cleanup debt from past V10/V11/V13 candidate-intake rounds. Full researched list with exact `ollama rm` targets: `config/UNUSED_MODELS_20260721.md`. 3 already-DROPPED models (30GB) deleted in the same pass; 2 look-alike candidates (`hf.co/ewinregirgojr/MiniCPM5-1B-Agentic-Tooluse-GGUF`, `hf.co/openbmb/MiniCPM5-1B-GGUF`) were excluded — still imported by the dormant `portal/platform/inference/tool_preselect/` code (P5-FUT-TOOL-PRESELECT), do not delete those. Deliberately not executed in this pass — a 30-hour GATE-D corpus run was in progress; re-verify nothing in the list overlaps whatever's active (`curl -s http://localhost:11434/api/ps`) before running the deletes. |
-| P5-FUT-ABLATION-CAPTURE-PERSIST | P2 | Wire ExpertHandoff/HunterHandoff persistence into blue_orchestration_ablation.py's corpus driver | | Found live 2026-07-22, during the post-corpus Expert/Hunter model-swap study: `_run_orchestrated_raw` calls `run_blue_orchestration` directly (the full pipeline), not through `capture_expert_handoff`/`capture_hunter_handoff` — so the just-completed 25.7-hour, 89-scenario full corpus run never persisted any capture-ready state, only final raw verdicts (`.raw.jsonl`). Testing an alternate Expert/Hunter model against the *full* corpus (not just a stratified sample) still means a from-scratch tool+reasoning re-run today. Fix: have the corpus driver capture-and-persist (JSON, one file per scenario/arm, same `to_dict()` already built) alongside its existing raw-verdict persistence, so a *future* full corpus run gets this benefit from the start — this is a driver change, not a re-run of the just-completed corpus (do not re-run 25 hours just to get this; wire it in for next time). |
+| P5-FUT-PARITY-001 | P2 | Source/verify GGUF for Foundation-Sec-8B + ToolACE-2.5, or formally accept substitutes | DONE | MLX-only specialists lost in 3a0c58e, both now dispositioned. Foundation-
+
+[Content truncated — see full doc]
+<!-- /WIKI:GENERATED -->
 
 ---
-
-## Open Items
 
 ### Speculative Decoding / MTP — RETIRED (commit 3a0c58e)
 
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e -->
 The MLX-proxy speculative-decoding and MTP unblock paths described here were removed with the proxy. See the MOOT rows in the table above. Any future work targets Ollama's native path, not MLX.
-
-### workspace-clean Utility (LOW priority)
-
-`${AI_OUTPUT_DIR}` grows unbounded. Planned command `./launch.sh workspace-clean --age=Nd` deletes generated artifacts older than N days. Not yet implemented.
+<!-- /WIKI:GENERATED -->
 
 ---
 
-## Implementation Notes (completed items)
+### workspace-clean Utility (LOW priority)
+
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-workspace-clean-utility-low-priority -->
+`${AI_OUTPUT_DIR}` grows unbounded. Planned command `./launch.sh workspace-clean --age=Nd` deletes generated artifacts older than N days. Not yet implemented.
+
+---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-FUT-004: Webhook-Based Event Notifications
 
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications -->
 IMPLEMENTED: `WebhookChannel` (`portal_pipeline/notifications/channels/webhook.py`) sends
 JSON POST to any user-defined HTTP endpoint on all alert and daily summary events.
 Configure via `WEBHOOK_URL` and optional `WEBHOOK_HEADERS` (JSON object) env vars.
 Live-verified: a `config_error` test event was confirmed delivered to a listening endpoint.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-FUT-006: LLM-Based Intent Routing
 
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-006-llm-based-intent-routing -->
 IMPLEMENTED in v6.0.0 (`portal_pipeline/router_pipe.py`). `_route_with_llm()` uses
 `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` as a semantic intent classifier, replacing keyword-based
 workspace detection for the primary routing path.
@@ -93,9 +98,13 @@ LLM_ROUTER_CONFIDENCE_THRESHOLD=0.5
 LLM_ROUTER_TIMEOUT_MS=500
 LLM_ROUTER_OLLAMA_URL=http://localhost:11434
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-FUT-009: Model-Size-Aware Admission Control (MLX Proxy)
 
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy -->
 IMPLEMENTED in v6.0.0 (`scripts/mlx-proxy.py`). Note: the MLX proxy was subsequently retired
 at commit 3a0c58e — this note is historical. Ollama's native model-load behavior now handles
 memory pressure via OLLAMA_MAX_LOADED_MODELS and OLLAMA_MEMORY_LIMIT (see Admin Guide).
@@ -115,17 +124,25 @@ MLX_MEMORY_UNKNOWN_DEFAULT_GB=20
 ```
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-FUT-013: OMLX Evaluation — CANCELED
 
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled -->
 Full bake-off completed 2026-04-25. Decision: **RETIRE**. See `OMLX_DECISION.md` for full results. KV cache persistence not functional (warm TTFT 31% *slower* than cold). mlx-proxy retains the production inference role.
 
 **Update 2026-05-28 (TASK_OMLX_REEVAL_V2):** oMLX v0.3.12 full re-evaluation completed. KV cache STILL broken (warm 2× slower than cold on 3B and 30B). MTP speedup clears 1.5× gate (1.55×-1.65×). 30B model now loads (memory fix works). 70B borderline (HTTP 507 on cold load). Decision: PROBE_AGAIN_NARROWLY. Status: REMAINS RETIRED. See OMLX_DECISION.md "Re-evaluation 2026-05-28" section and `tests/benchmarks/results/omlx_reeval_20260528T145902Z.md` for detail. Next re-evaluation trigger: MTP stability probe (TASK_OMLX_MTP_STABILITY_V1).
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-FUT-014-V7: Model Refresh Waterline
 
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline -->
 TASK_MODEL_REFRESH_V7 (2026-05-27) added 6 bench workspaces (one since
 removed from the fleet): bench-voxtral-realtime, bench-voxtral-tts,
 bench-granite-speech, bench-qwen36-27b-ud, bench-qwen36-35b-a3b-ud.
@@ -142,9 +159,13 @@ bench-granite-speech, bench-qwen36-27b-ud, bench-qwen36-35b-a3b-ud.
    P5-FUT-SPEECH-002 speech-shootout task.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-FUT-EMBED-001: EmbeddingGemma Migration Seed
 
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed -->
 Current production: scripts/embedding-server.py with
 microsoft/harrier-oss-v1-0.6b on :8917 (ARM64). Candidate:
 google/embeddinggemma-300M (outperforms Qwen3-Embedding-0.6B on multiple
@@ -165,9 +186,13 @@ migration target is EmbeddingGemma or Qwen3-Embedding is itself part of
 the P5-FUT-EMBED-001 scope.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-FUT-SPEECH-002: Speech-Model Shootout
 
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-speech-002-speech-model-shootout -->
 Current production speech stack: mlx-transcribe.py (mlx-whisper-large-v3-turbo
 + Voxtral-Mini-3B-2507-bf16 lazy-loaded + pyannote 3.1 on MPS, :8924),
 mlx-speech.py (Kokoro 82M + Qwen3-TTS Custom/Design/Base on :8918).
@@ -192,9 +217,13 @@ bench_tps.py is the wrong tool for this — its text-prompt harness does
 not exercise streaming ASR or TTS rendering.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Score History
 
+<!-- WIKI:GENERATED unit=unit-p5-roadmap-score-history -->
 | Date | Score | Notes |
 |------|-------|-------|
 | 2026-03-30 | 100/100 | v5.2.0 — all production items complete |
@@ -207,3 +236,6 @@ not exercise streaming ASR or TTS rendering.
 
 *Last updated: 2026-06-25*
 *Part of Portal 5 v7 release documentation*
+<!-- /WIKI:GENERATED -->
+
+---
