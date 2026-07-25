@@ -116,6 +116,60 @@ class TestCouncilRosterExcludesUnfitModels:
         valid_sourcetypes = {"windows:security", "web:access", "linux:auditd"}
         assert set(crb.CURATED_TECHNIQUES.values()) <= valid_sourcetypes
 
+    def test_cogito_is_tracked_from_v4_participation_evidence(self):
+        assert "cogito:32b" in _COUNCIL_UNFIT_MODELS
+
+
+class TestCouncilParticipationSummary:
+    def test_counts_voters_and_non_voters_per_model(self):
+        results = [
+            {
+                "status": "done",
+                "mode": "council",
+                "trace": [
+                    {
+                        "section": "council_member",
+                        "model": "voter",
+                        "verdict": "RULED_OUT",
+                    },
+                    {
+                        "section": "council_member",
+                        "model": "non-voter",
+                        "verdict": None,
+                    },
+                ],
+            },
+            {
+                "status": "done",
+                "mode": "council",
+                "trace": [
+                    {
+                        "section": "council_member",
+                        "model": "voter",
+                        "verdict": "CONFIRMED",
+                    },
+                    {
+                        "section": "council_member",
+                        "model": "non-voter",
+                        "verdict": "ANOMALOUS_UNCLASSIFIED",
+                    },
+                ],
+            },
+        ]
+        summary = crb._council_participation_summary(results)
+        assert summary["voter"] == {
+            "participated": 2,
+            "cells": 2,
+            "non_votes": 0,
+            "rate": 1.0,
+        }
+        assert summary["non-voter"] == {
+            "participated": 1,
+            "cells": 2,
+            "non_votes": 1,
+            "rate": 0.5,
+        }
+
 
 class TestRunCellWiring:
     def test_promotion_recall_requires_confirmed_verdict(self):

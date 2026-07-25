@@ -113,6 +113,34 @@ def _promotion_recall(verdict: str | None, technique_ids: list[str], expected: s
     return scoring["overall"]["recall"]
 
 
+def _council_participation_summary(results: list[dict]) -> dict[str, dict[str, float | int]]:
+    """Summarize conclusive council votes per model from persisted traces."""
+    totals: dict[str, int] = {}
+    votes: dict[str, int] = {}
+    conclusions = {"CONFIRMED", "ANOMALOUS_UNCLASSIFIED", "RULED_OUT"}
+    for record in results:
+        if record.get("status") != "done" or record.get("mode") != "council":
+            continue
+        per_model: dict[str, bool] = {}
+        for entry in record.get("trace") or []:
+            if entry.get("section") != "council_member" or not entry.get("model"):
+                continue
+            model = str(entry["model"])
+            per_model[model] = per_model.get(model, False) or entry.get("verdict") in conclusions
+        for model, participated in per_model.items():
+            totals[model] = totals.get(model, 0) + 1
+            votes[model] = votes.get(model, 0) + int(participated)
+    return {
+        model: {
+            "participated": votes.get(model, 0),
+            "cells": cells,
+            "non_votes": cells - votes.get(model, 0),
+            "rate": round(votes.get(model, 0) / cells, 3) if cells else 0.0,
+        }
+        for model, cells in sorted(totals.items())
+    }
+
+
 def _load_spl_detections() -> dict:
     import yaml
 
@@ -413,6 +441,14 @@ def main() -> None:
         else:
             print(f"    -> {status}")
 
+    participation = _council_participation_summary(results)
+    if participation:
+        print("\nCouncil participation:")
+        for model, summary in participation.items():
+            print(
+                f"  {model}: {summary['participated']}/{summary['cells']} "
+                f"({summary['rate']:.1%}); non-votes={summary['non_votes']}"
+            )
     print(f"\nDone. {len(results)} cells checkpointed at {out_path}")
 
 
