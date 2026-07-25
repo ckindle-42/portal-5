@@ -1,12 +1,16 @@
 # Known Limitations
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-known-limitations -->
 Architectural and design constraints that are currently unresolved. Resolved items are not listed here — see git log for history.
 
 ---
+<!-- /WIKI:GENERATED -->
 
-## CAD / 3D Printing
+---
 
 ### CadQuery and build123d Unusable on linux/arm64
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64 -->
 - **ID**: P5-CAD-ARM64-001
 - **Description**: CadQuery ≥2.4 and build123d both require `cadquery-ocp` / `ocp` (OpenCASCADE Python bindings), which has no pre-built wheels for `linux/arm64`. Installing either package in `Dockerfile.mcp` on Apple Silicon fails at build time.
 - **Impact**: Python-native parametric CAD (`.box()`, `.extrude()` style) is unavailable inside the MCP containers. The `auto-cad` workspace uses OpenSCAD instead, which runs headlessly and has no platform restriction.
@@ -14,30 +18,48 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 - **Do not re-add** `cadquery` or `build123d` to `Dockerfile.mcp` without first verifying an arm64 wheel exists — the build will silently succeed on x86 CI and fail on this hardware.
 
 ---
+<!-- /WIKI:GENERATED -->
 
-## Security
+---
 
 ### Code Sandbox Requires Privileged Container
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-code-sandbox-requires-privileged-container -->
 - **ID**: P5-ROAD-SEC-001
 - **Description**: The `dind` (Docker-in-Docker) service runs with `privileged: true`. Docker-in-Docker cannot function without host kernel capabilities.
 - **Impact**: In hardened environments, a compromised sandbox container could potentially escape to host.
 - **Mitigation**: Disable the code sandbox by removing `mcp-sandbox` and `dind` from `docker-compose.yml`, or apply host-level controls (AppArmor/seccomp on the Docker daemon).
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### No Built-in Multi-User Rate Limiting
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-no-built-in-multi-user-rate-limiting -->
 - **ID**: P5-ROAD-031
 - **Description**: Open WebUI has no per-user rate limiting. A single user in a multi-user deployment can exhaust server resources.
 - **Mitigation**: Deploy behind a reverse proxy (nginx, Traefik) with rate limiting, or use Open WebUI's admin controls for per-user quotas.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Devstral 2509 Upgrade Blocked — Model Not Published
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-devstral-2509-upgrade-blocked-model-not-published -->
 - **ID**: P5-BENCH-DEVSTRAL-2509
 - **Description**: `lmstudio-community/Devstral-Small-2509-MLX-4bit` was not found on
   HuggingFace as of TASK_BENCH_COVERAGE_V1 (2026-05-21). bench-devstral remains pinned
   to the 2507 (July 2025) variant.
 - **Operator action**: Re-run Change 0 verification when the 2509 card appears.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### meta3 (Metasploitable3-Windows) — Scenario Coverage + SPL Precision Gaps
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps -->
 - **ID**: P5-SEC-META3-001
 - **Description**: As of commit `cdf080e` (2026-07-04), meta3 (vmid 113, `portal-lab-meta3-win2k8`,
   10.10.11.10) has a real, working evidence pipeline — IIS logs (`web:access`), FTP logs
@@ -78,8 +100,13 @@ Architectural and design constraints that are currently unresolved. Resolved ite
   a documented history of crashing under load (`qmpstatus: internal-error`, recovered via
   hard stop+start) even from routine investigation traffic, not just live exploitation —
   budget for that when scripting new scenarios against it.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Blue Detection Quality — Wrong MITRE ID Reporting on Correct Evidence
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-blue-detection-quality-wrong-mitre-id-reporting-on-correct-evidence -->
 - **ID**: P5-SEC-BLUE-MITRE-001
 - **Description**: With the Splunk telemetry pipeline confirmed working end-to-end (commits
   `306df2a`/`cdf080e`), the root problem motivating this whole investigation is now isolated:
@@ -101,36 +128,64 @@ Architectural and design constraints that are currently unresolved. Resolved ite
   ceiling for an 8B model on this specific technique?), and separately, work on reducing false
   positives (the model over-reports plausible-but-wrong techniques alongside a correct one).
   `--replay-captured-red` makes this cheap to iterate on — no live lab time needed per trial.
+<!-- /WIKI:GENERATED -->
 
-## Infrastructure
+---
 
 ### ComfyUI Runs Outside Docker
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-comfyui-runs-outside-docker -->
 - **Description**: ComfyUI runs on the host (not in Docker) to access MPS/CUDA directly. Required for image/video generation performance.
 - **Impact**: Manual setup required outside `./launch.sh up`. On a fresh machine, ComfyUI must be installed separately.
 - **Mitigation**: `./launch.sh install-comfyui` handles setup on supported platforms. See `docs/COMFYUI_SETUP.md`.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Voice Cloning (fish-speech) Requires Separate Installation
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-voice-cloning-fish-speech-requires-separate-installation -->
 - **Description**: Voice cloning via `fish-speech` is not in the Docker stack — requires host-side installation. The docker `tts_mcp` `clone_voice` tool requires it and errors without it.
 - **Impact**: The docker-side `clone_voice` tool is unavailable without fish-speech installed.
 - **Mitigation**: Voice cloning still works without fish-speech via the native `mlx-speech` service (`:8918`, `POST /v1/audio/speech` with `voice: "clone:/path/to/reference.wav"`, Qwen3-TTS Base-Clone) — verified during Slice P media bring-up (`TASK_MEDIA_BRINGUP_V1`). `kokoro-onnx` covers non-cloned TTS out of the box either way. See `docs/FISH_SPEECH_SETUP.md` for fish-speech.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### ComfyUI Model Download Commands Are Broken
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-comfyui-model-download-commands-are-broken -->
 - **Description**: `./launch.sh download-comfyui-models` calls `scripts/download_comfyui_models.py`, deleted in commit `ea864cf` ("superseded by pull-wan22 / pull-qwen-image commands in launch.sh") — but neither `pull-wan22` nor `pull-qwen-image` was ever implemented; both are advertised in `launch.sh --help` with no case handler. Found during Slice P media bring-up (`TASK_MEDIA_BRINGUP_V1`).
 - **Impact**: No `launch.sh` subcommand can download ComfyUI image/video models. Separately, the `flux-uncensored` image backend's expected checkpoint (`Flux_v8-NSFW.safetensors`) has no known working source — the old script's repo (`enhanceaiteam/Flux-Uncensored-V2`) 404s, and no other reference to that filename exists in the codebase.
 - **Mitigation**: Download directly with `hf download` / `huggingface-cli download` — see `docs/COMFYUI_SETUP.md#download-models` for the exact working commands (flux-schnell, sdxl, wan21-nsfw). Rebuilding `pull-wan22`/`pull-qwen-image` (or restoring the deleted script) is open work.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### ComfyUI Cross-Model-Family Memory Exhaustion (Apple Silicon)
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-comfyui-cross-model-family-memory-exhaustion-apple-silicon -->
 - **Description**: ComfyUI on MPS does not reliably evict a previously-loaded model's weights when a new workflow loads a different model family in the same long-running process. Observed live during Slice P: Flux (~22GB) followed by a Wan2.1-NSFW 14B video job (~39GB) in the same process, without a restart between them, drove swap to 66.7GB/67.6GB used and locked up the system (not just RAM pressure — genuine swap-thrashing). Recurred a second time during Slice 7's own live verification: a *tiny* wan21-nsfw job (9 frames, 5 steps) still crashed free RAM from ~45GB to ~60MB — the 14B backend's real peak usage (diffusion activation/buffer overhead) runs well above its static on-disk weight size (~39GB) regardless of frame count, close to the entire 64GB pool.
 - **Impact**: Chaining image generation and large video generation (or switching between very different video model families) without restarting ComfyUI in between risks a full system lockup on 64GB unified-memory Apple Silicon hardware. The wan21-nsfw backend specifically should be treated as needing the *whole* machine, not just its weight size.
 - **Mitigation**: Tier 0 (`unit-fact-media-memory-budget`) and Tier 1 (`portal/modules/media/tools/_admission.py`, `admit()`) pre-flight admission control landed in `TASK_VRAM_ADMISSION_V1` (Slice 7) — wan21-nsfw's estimate is set to 55GB (not the 39GB weight size) to reflect the observed real peak. Restart ComfyUI between large model-family switches regardless: `launchctl kickstart -k gui/$(id -u)/com.portal5.comfyui`. Tier 2 (shared cross-engine broker with Ollama) is explicitly not built — see the task's `[GATE: SCOPE]`.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### `pytest portal` Leaves Real Write-Through Test Artifacts
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts -->
 - **Description**: Some `portal/modules/security/tests/` tests write through the real goal/playbook journal path (`portal/modules/security/core/field_journal/`) and checkpoint path (`portal/modules/security/core/results/checkpoints/`) instead of a `tmp_path`-redirected one, violating the `tmp_path` testing rule (`CLAUDE.md` Testing Rules).
 - **Impact**: Running `pytest portal` locally dirties the working tree — new dated entries under `field_journal/` and a modified `field_journal/_index.json`, plus files under `results/checkpoints/`.
 - **Mitigation**: `results/checkpoints/` is gitignored. `field_journal/` holds real committed history so it is intentionally *not* gitignored — run `git status` after `pytest portal` and `git checkout -- portal/modules/security/core/field_journal/_index.json` (plus `git clean` any new dated entries) before staging a commit. See `CLAUDE.md` Testing Rules.
 - **Fix (open)**: Route the journal writer through a fixture-injected path in the offending tests so `pytest portal` is side-effect-free like `pytest tests/unit`.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Emergent Objective Loop — Curated Capability Tool Names vs Live-Dispatch Whitelist
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist -->
 - **ID**: P5-EMERGENT-001
 - **Status**: PARTIALLY FIXED 2026-07-16 (live-verification pass, same day as discovery) — three real, root-cause fixes landed; the underlying gap class remains open for the tools not yet aliased.
 - **Description**: `capability/index.py`'s curated Capability library (used by `capability.query()` and now the emergent objective loop, `TASK_EMERGENT_SLICE1_PERCEPTION_ENTRY_V1`) has two kinds of `tools` values for many entries — real Kali binary names (`nmap`, `impacket-secretsdump`, `bloodhound-ce-python`, ...) for domain-probe capabilities (`smb_probe`, `ldap_probe`, ...), or an **empty list** for several named-technique capabilities (`ad-certificate-abuse`, `kerberos-delegation`, `oauth-oidc-chain`, `file-upload-bypass`, `smb-enumeration`, and others). `lab.py::_lab_dispatch_inner`'s real live-dispatch path only recognizes a small fixed whitelist of ~15 literal tool names — neither the Kali binary names nor the empty-tools capability IDs originally matched that whitelist, so `SecurityExecutor` (Slice 1.2) dispatched them through the synthetic fallback even when the lab was fully live and reachable. A second, compounding cause was found the same day: `capability.query()`'s `applies_when` predicates (e.g. `smb_probe` requires `open_ports` to contain 445) are gated on a flat `observations["open_ports"]` list that predates `LabPerception` — `PerceptionDelta.to_observation()` didn't populate it, and `run_emergent_engagement` started with `observations={}` (no upfront perception call), so on a cold start every real-tooled AD-probe capability was starved out and only the empty-`tools` capabilities (which have no `applies_when` gate) ever matched.
@@ -140,19 +195,27 @@ Architectural and design constraints that are currently unresolved. Resolved ite
   3. `PerceptionDelta.to_observation()` now also derives a flat `open_ports` list (`perception._extract_open_ports`, additive) from either shape the real prober can return, and `run_emergent_engagement` gained a `perception` param that seeds real initial observations before the loop starts (`goal_cli._cmd_emergent` wires this by default via the new shared `perception.default_lab_prober`, replacing a near-duplicate that used to live only in `security_mcp.py`). Confirmed live: after this fix the ranker's first pick against the AD domain moved from an empty-`tools` capability (`ad-certificate-abuse`) to a real-tooled one (`smb_probe`/`ldap_probe`'s `bloodhound-ce-python`) — proving the seed closes the starvation, though `bloodhound-ce-python` itself isn't in the alias table yet (see below).
 - **Still open**: Real Kali binaries seen live but not yet aliased/verified (`bloodhound-ce-python`, `impacket-secretsdump`, `impacket-psexec`, `impacket-wmiexec`, `enum4linux-ng`, `nxc`, `responder`, `impacket-GetNPUsers`, `impacket-dacledit`, `certipy-ad`, `ldap3`, `metasploit`) and the empty-`tools` capabilities (`ad-certificate-abuse`, `kerberos-delegation`, `oauth-oidc-chain`, `file-upload-bypass`, `smb-enumeration`) still dispatch synthetic. Each remaining alias needs its exact CLI invocation verified correct (and, for stateful/destructive ones like `impacket-psexec`/`impacket-wmiexec`/`responder`, reviewed for lab safety) before wiring — not done blind, unlike the two above which were directly confirmed working first.
 - **Impact**: The emergent loop's "no seeded first-move" design means the deterministic ranker can still pick a non-dispatchable capability, producing a synthetic-only trajectory even against a fully live lab, for any tool not yet in the alias table. This still slows G1 corpus sign-off (DESIGN_EMERGENT_LAB_AGENT_V2 §9) accumulating real PROVEN trajectories — every synthetic step is honestly excluded from `emergent_gaps.gaps_from_trajectory` (never contributes a false gap) and every synthetic-derived trajectory is honestly never PROVEN (AX ratchet holds), so this remains a coverage/usefulness gap, not a correctness or honesty regression.
-- **Resolution path (open)**: Continue verifying and aliasing the remaining real binary names one at a time (never batch-guess CLI syntax for tools with real side effects), and separately decide what the empty-`tools` capabilities should actually dispatch to (populate `capability/index.py` or retire them). Pre-existing architecture gap in the "already-built" composition engine (DESIGN_EMERGENT_LAB_AGENT_V2 §1's KEEP list assumed this layer was solid); not part of the original Slice 1/2/3 delta, but now partially remediated as part of the same live-verification pass.
+- **Resolution path (open)**: Continue verifying and aliasing the remaining real binary names one at a time (never batch-guess CLI syntax for tools with real side effects), and separately decide what the empty-`tools` capabilities should actually dispatch to (populate `capability/index.py` or retire them). Pre-existing architecture gap in the "already-built" composition engine (DESIGN_EMERGEN
+
+[Content truncated — see full doc]
+<!-- /WIKI:GENERATED -->
 
 ---
 
-## Models
-
 ### auto-math Workspace — Reasoning Block Support
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-auto-math-workspace-reasoning-block-support -->
 - **ID**: P5-MATH-001
 - **Status**: ✅ RESOLVED (V8 model refresh — 2026-06-10)
 - **History**: Original limitation was `Qwen2.5-Math-7B-Instruct` (MLX, no `reasoning_content` blocks). Model replaced in V8 by `phi4-mini-reasoning` (RL-trained, Phi-4-Mini-Reasoning, ~2.5GB). The new model has `emits_reasoning: True` — math reasoning appears in the collapsible thinking panel.
 - **Alternative**: For even heavier reasoning, `auto-reasoning` (DeepSeek-R1-0528-Qwen3-8B) also separates reasoning content.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### baronllm text_only tool output — auto-security MCP tools non-functional
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional -->
 - **ID**: P5-TOOL-001
 - **Description**: `huihui_ai/baronllm-abliterated` (formerly auto-security primary; VulnLLM-R-7B is now the model_hint primary as of SECURITY_FLEET_REVIEW_2026-06, though baronllm remains in the security pool) outputs tool-call JSON embedded in the `content` field of Ollama's `/v1/chat/completions` response rather than in the structured `tool_calls` field. Ollama's llama.cpp backend does not parse this as a function-call delta. Result: the pipeline's `_dispatch_tool_call` path is never triggered for auto-security requests that attempt MCP tool use.
 - **Evidence**: `audit-tools 2026-06-18` probe — outcome `text_only`, content: `{"name":"get_current_time","parameters}:{ "city": "Paris" }`. UAT TV-02 (execute_python proof) and TV-03 (classify_vulnerability) both show tool not dispatched. Previous `supports_tools: true` marking (TASK_TOOL_AUDIT_V2) was a false positive from Ollama template header inspection, not a live response probe.
@@ -160,13 +223,23 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 - **Resolution path**: (a) Fix baronllm's Ollama chat template to emit proper `tool_calls` structure — this requires inspecting the model's tokenizer_config and Ollama template to align with llama.cpp's tool-call parsing; OR (b) Replace baronllm with a model in the auto-security chain that passes the live probe (e.g., qwen3.5-abliterated:9b was confirmed tool_call in a prior audit).
 - **Status**: ✅ RESOLVED 2026-06-20 (TASK_TOOLCALL_FIX_LOCKIN_V1). A corrected tool-calling chat template makes baronllm emit structured `tool_calls`. Fleet `--audit-tools` confirmed outcome=`tool_call` and the security chain scored 8/8 1.00 WIN. Resolution path (a) — template fix — was taken; no model swap required. `supports_tools` flipped to `true` in `config/backends.yaml` (both entries), backed by the live probe. The same template fix also recovered HauhauCS (no_tool → tool_call).
 - **Do not re-enable** `supports_tools: true` for baronllm without running `python3 tests/portal5_persona_matrix.py --audit-tools --workspace auto-security` or the direct Ollama probe and confirming outcome=`tool_call`. *(This gate was satisfied by the 2026-06-20 fleet audit.)*
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Asteroids Bench Score Variance Is the Benchmark's Purpose
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose -->
 - **ID**: P5-BENCH-001
 - **Description**: The CC-01 Asteroids bench (`bench-*` workspaces) intentionally surfaces raw model differences on a fixed task. All bench personas share an identical creative-coder system prompt — score variance reflects model capability, not a test harness defect.
 - **Operator action**: Use bench scores as model-selection signal. A model scoring ≤3/5 on CC-01 is not a candidate for `auto-coding` HTML generation tasks.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Tool Preselection — Candidate 1B Models Cannot Rank Tools
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools -->
 - **ID**: P5-TOOLPRESELECT-001
 - **Status**: BUILT NOT DEPLOYED — exhausted, closed (TASK_BUILD_TOOL_PRESELECT_V1 Phase 2 gate, 2026-07-12; extended diagnostic pass same day before final halt)
 - **Description**: `portal/platform/inference/tool_preselect/` implements query-level tool-schema preselection — a small fast model ranks a workspace's tools by relevance to the user's turn so only the top-K schemas are sent to the primary model. The module, config surface, parser, and metrics are built and unit-tested (54 tests, 90% coverage), shipped feature-flagged off (`PORTAL5_TOOL_PRESELECT=0`, default).
@@ -183,17 +256,25 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 - **Do not** re-attempt promotion without first re-running `cli_probe.py` against the new candidate and confirming a plausible top-K ranking (e.g. `web_search` ranking above `execute_bash` for an information-lookup query) on at least 5 varied scenarios, not a single spot-check.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## MLX Inference Proxy — RETIRED (commit 3a0c58e)
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e -->
 The MLX inference proxy and all its limitations (single-model eviction,
 cold-boot 503 windows, admission control, deploy staleness) no longer
 apply. All chat inference runs through Ollama (:11434). MLX is retained
 only for speech (:8918), transcription (:8924), embeddings (:8917), and
 reranking (:8925) — those have their own sections.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Model Parity — Specialist models lost in the MLX→Ollama migration
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration -->
 Two production specialist models were MLX-only safetensor builds with no
 verified GGUF equivalent. The migration (3a0c58e) remapped their
 workspaces to general-purpose GGUF substitutes:
@@ -216,9 +297,13 @@ not justified). P5-FUT-PARITY-001 is CLOSED/DONE — both specialists dispositio
 (Foundation-Sec restored, ToolACE substitute accepted).
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Ollama Native MLX Engine — Evaluation Findings (2026-07-01)
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01 -->
 Ollama 0.31.1 added a built-in MLX engine (distinct from the retired standalone
 `mlx_lm`/`mlx_vlm` proxy above) that claims ~90% faster Gemma 4 via multi-token
 prediction (MTP). This section documents a same-day evaluation of that engine
@@ -226,8 +311,13 @@ plus a broader catalog sweep for MLX equivalents of the fleet. **No production
 config was changed** — `config/backends.yaml` was reverted, all pulled MLX
 models (4 Ollama-native + 16 HF-sourced, ~254GB total) were deleted, and disk
 usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-MLX-EVAL-001 — GGUF fleet regressed slightly on 0.31.1; MTP is MLX-engine-only
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only -->
 - **Description**: Ollama 0.31.1's claimed MTP speedup applies only when Ollama
   selects its own MLX engine subprocess (triggered by official `-mlx`-tagged
   models). Our entire GGUF fleet routes through `llama-server` regardless of
@@ -241,8 +331,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
   workaround.
 - **Impact**: None today (no config changed). Documented so a future Ollama
   upgrade isn't mistaken for a routing/pipeline regression.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-MLX-EVAL-002 — Ollama's official gemma4 `-mlx` tags are not drop-in swaps
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-p5-mlx-eval-002-ollama-s-official-gemma4-mlx-tags-are-not-drop-in-swaps -->
 - **Description**: `gemma4:{e2b,e4b,12b}-mlx` (Ollama's own curated library
   tags) showed real, large gains over our current `gemma4:{e2b,e4b,12b}-it-qat`
   GGUF models: +93%, +61%, +30% respectively (clean, isolated, warm-up-matched
@@ -267,8 +362,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
   not just TPS, before promoting — QAT vs nvfp4 is not guaranteed equivalent.
   **Do not add `gemma4:*-mlx` tags to `config/backends.yaml` until all three
   are done.**
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-MLX-EVAL-003 — HF-hosted MLX models are currently unreachable by the Pipeline
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-p5-mlx-eval-003-hf-hosted-mlx-models-are-currently-unreachable-by-the-pipeline -->
 - **Description**: Ollama's `hf.co/` puller only accepts GGUF repos —
   confirmed directly: pulling any `mlx-community` (or other HF org) safetensors
   repo fails with `"Repository is not GGUF or is not compatible with
@@ -304,8 +404,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
   as broken under Ollama ("sharded GGUF incompatible with Ollama"). Its huge
   MLX gain in this evaluation reflects a pre-existing GGUF bug for this
   specific model, not a general MLX advantage.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-MLX-EVAL-004 — Large single-blob MLX downloads hang intermittently
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently -->
 - **Description**: During evaluation, 3 separate large (18-26GB) downloads
   (both `ollama pull` from the official registry and `huggingface_hub`
   pulls from HF) silently stalled mid-transfer for 30+ minutes with no error
@@ -317,8 +422,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
   + retry after 90s with no growth) recovered every case on retry. Not
   currently a committed script — if large-model pulls become a recurring
   pain point, consider promoting this pattern into `scripts/`.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-MLX-EVAL-005 — Two security-tier fine-tunes have no working MLX conversion
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion -->
 - **Description**: `supergemma4-26b-uncensored` (auto-security's
   `purpleteam-exec`/`redteam-deep` variants) and `huihui_ai/gemma-4-abliterated:E2b-qat`
   (auto-security's `pentest` variant) were searched across multiple HF uploaders (mlx-community,
@@ -331,10 +441,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
   either unless a new text-only-compatible upload appears.
 
 ---
+<!-- /WIKI:GENERATED -->
 
-## Inference Performance
+---
 
 ### Importing the security bench module sets a Linux-only PROMETHEUS_MULTIPROC_DIR host-side
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side -->
 - **ID**: P5-ENV-MULTIPROC-HOSTLEAK-001
 - **Description**: `tests/benchmarks/bench_lab_exec.py` has a module-level
   `_load_env()` call that runs `os.environ.setdefault(k, v)` for every line
@@ -365,8 +478,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
   import-time side effect, or making the multiprocess dir path OS-aware
   (e.g. `tempfile.gettempdir()`-based) rather than hardcoding a Linux path
   in `.env`.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### POST /v1/messages (Anthropic-compat endpoint) returns HTTP 200 with a `null` body
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body -->
 - **ID**: P5-ANTHROPIC-COMPAT-001
 - **Description**: `handlers.anthropic_messages` (`portal/platform/inference/router/handlers.py:1159`,
   the endpoint `scripts/cc-local.sh` / Claude Code's `ANTHROPIC_BASE_URL` integration
@@ -386,38 +504,68 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
   dispatch/`openai_response_to_anthropic` translation chain is a distinct
   bug outside Stage A's scope (alias/persona addressing, not the Anthropic
   wire-format translation layer). Needs its own investigation + unit tests.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### devstral:24b Runtime VRAM Footprint (25.7 GB)
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb -->
 - **ID**: P5-VRAM-DEVSTRAL-001
 - **Description**: devstral:24b file size is 14.3 GB but runtime Ollama resident size is ~25.7 GB due to large default context window and KV cache allocation (q8_0). This is nearly 2× the file size and can cause memory-pressure eviction of other loaded models; on M4 Pro 64 GB hardware this is non-critical (graceful CPU offload), but relevant on tighter budgets.
 - **Impact**: When devstral is active, it may evict the LLM router model from VRAM. The first post-eviction routing request falls back to Layer 2 keyword scoring (correct behavior), then the router cold-loads in ~4.2s and stays warm. Subsequent requests use the LLM router normally.
 - **This is graceful, not a crash**: Ollama offloads CPU layers under memory pressure rather than failing. Unlike the former MLX Metal OOM, no kernel panic occurs.
 - **Mitigation**: `OLLAMA_MAX_LOADED_MODELS=3` (current default) reserves a slot for the router + 2 inference models. If devstral:24b is loading as an inference peer, its runtime footprint is the limiting factor — not the slot count. Setting `OLLAMA_MEMORY_LIMIT=42g` in the Ollama plist caps worst-case pressure; see Admin Guide → Router Configuration.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Request-Size Cap Relies on Content-Length Only
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-request-size-cap-relies-on-content-length-only -->
 - **ID**: P5-REQ-SIZE-001
 - **Description**: The pipeline caps requests at 4 MB via `Content-Length` header check. Chunked transfer-encoded requests bypass this cap entirely — Starlette middleware is the proper fix.
 - **Mitigation**: Until Starlette body-size middleware is added, operators should configure upstream proxies (nginx, OWUI) to enforce request-size limits.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Speculative Decoding / MTP — RETIRED with the MLX proxy (commit 3a0c58e)
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e -->
 - **IDs**: P5-SPEC-001, P5-MTP-001, P5-MTP-PATH (all moot)
 - **Status**: The MLX inference proxy that hosted `--draft-model` speculative decoding and the `speculative_decoding.draft_models` map was retired; chat inference is Ollama-only. These limitations no longer apply because the infrastructure they described no longer exists.
 - **If revisited**: any future speculative-decoding / MTP work targets Ollama's native path (llama.cpp b9180+), not MLX. The bench-only MTP GGUF candidates remain in the catalog as bench entries; there is no production MLX serving path to enable.
 - **P5-FUT**: evaluate `/api/chat` as `chat_url` — `/api/chat` would allow full `options` passthrough but requires changing payload/response shapes.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### phi4-reasoning:plus crashes Ollama's llama-server on this host — CONFIRMED NOT a corrupted download
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download -->
 - **ID**: P5-MODEL-PHI4REASONING-001
 - **Description**: Both `phi4-reasoning:plus` and `phi4-reasoning:plus-ctx32k` fail on direct `POST /api/generate` with `{"error":"llama-server process has terminated: signal: abort trap"}` — a local Ollama/model-file issue, not a routing or pipeline bug. Discovered during `DESIGN_PERSONA_INTENT_REMEDIATION_V1.md`'s live verification of the `phi4stemanalyst` persona's `model_pin`: the pipeline correctly resolved and requested `phi4-reasoning:plus-ctx32k` (confirmed in logs — `wanted phi4-reasoning:plus-ctx32k`), the registry's existing backend-failover mechanism correctly caught the crash and fell back to another reasoning-pool model, and honestly logged `model_hint mismatch ... response may be from wrong model` rather than silently misreporting. The routing/pin mechanism is proven correct by the other 4 personas (`magistralstrategist`, `devstral_coder`, `glm-coder`, `glm-thinker`) succeeding cleanly end-to-end.
 - **Root cause CONFIRMED (2026-07-13, TASK_MODEL_POOL_REACHABILITY_FIX.md live-confirm)**: `ollama rm phi4-reasoning:plus-ctx32k phi4-reasoning:plus`, full re-pull of `phi4-reasoning:plus` from scratch, and rebuild of both ctx-tagged variants via `ollama create` — crash reproduced identically on the freshly-pulled base model. **Not a corrupted download.** `/opt/homebrew/var/log/ollama.log` shows the abort originates in llama.cpp's device-memory-fitting path (`common_fit_params` → `common_params_fit_impl` → `common_get_device_memory_data_impl`) during model load on Ollama 0.31.1 — a real incompatibility between this GGUF and the installed llama-server build on this host (Apple Silicon Metal backend), not model-file integrity.
 - **Impact**: `phi4stemanalyst` currently falls back to whatever `auto-reasoning`'s pool serves instead of Phi-4-reasoning-plus. Given the confirmed crash, the persona has been re-identified generically (no `model_pin`, no Phi-4 branding in tags/comments) rather than left claiming an identity it can't serve — it now intentionally serves `auto-reasoning`'s pool default (`DeepSeek-R1-0528-Qwen3-8B`). `config/backends.yaml`'s `reasoning` backend group intentionally does NOT include `phi4-reasoning:plus-ctx32k` — do not add it without first resolving this crash.
 - **Mitigation options not yet tried**: (1) upgrade/downgrade Ollama to a different llama.cpp vendor commit and retest; (2) try a different quantization/source GGUF for Phi-4-reasoning-plus (this one may be built with a `common_fit_params` code path this Ollama build mishandles); (3) file upstream against Ollama/llama.cpp with the log excerpt above. Re-pulling alone will NOT fix it — already tried and reproduced.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### 70B Dense Models Unusable for Daily Routing on M4 Pro 64GB
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb -->
 - **ID**: P5-SPEED-001
 - **Description**: Llama-3.3-70B-Instruct-4bit and DeepSeek-R1-Distill-Llama-70B-4bit measure ~3.5 TPS warm — too slow for interactive use. 3-bit quantization (~28GB) is theoretically viable at ~9.7 TPS but not yet bench-validated.
 - **Mitigation**: All daily-routed workspaces use ≤33B models. 70B variants are bench-tier only.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Ollama /v1 ignores options.num_ctx and options.num_batch
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch -->
 - **ID**: P5-OLLAMA-OPTIONS-001
 - **Description**: Ollama's OpenAI-compatible `/v1/chat/completions` endpoint ignores the `options` sub-object entirely (VERIFY-1 probes, 2026-06). The pipeline still injects `options.num_ctx`, `options.num_batch`, and `options.num_predict` (the latter mapped to `max_tokens` at top level per Branch I) because a future Ollama version may honor them. Currently:
   - `context_limit` per workspace (e.g. `auto-coding: 16384`) is **not enforced** — set PARAMETER num_ctx in the model's Modelfile or OLLAMA_CONTEXT_LENGTH
@@ -426,18 +574,26 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 - **Roadmap note:** P5-FUT: evaluate `/api/chat` as `chat_url` — it honors the Ollama-native parameter set but requires changing all payload/response shapes.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Shared Workspace + Auto-STT Disabled (TASK-WORKSPACE-001)
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001 -->
 - **Voice-input via microphone is disabled.** `AUDIO_STT_ENGINE` is empty by default, which disables auto-transcription of both file uploads and microphone recordings. Re-enabling it re-enables auto-transcribe-on-upload. The global toggle is OWUI's only knob.
 - **Existing MCPs not migrated to /workspace.** `mcp-documents`, `mcp-tts`, and `mcp-comfyui` still write to `${AI_OUTPUT_DIR}` flat. New MCPs use `/workspace/generated/<category>/`. Both layouts coexist; migration is opportunistic.
 - **Permissions assume single-host deployment.** 0775 mode on workspace directories assumes operator-owned files and compatible Docker UIDs. Multi-tenant or hardened hosts need explicit UID mapping.
 - **No retention policy.** `${AI_OUTPUT_DIR}` grows unbounded. `./launch.sh workspace-clean --age=Nd` is a planned but not yet implemented command.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Diarized Transcription (TASK-TRANSCRIBE-001)
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-diarized-transcription-task-transcribe-001 -->
 - **Pyannote model gating.** Diarization requires accepting HuggingFace user agreements for `pyannote/segmentation-3.0` and `pyannote/speaker-diarization-3.1`. Without `HF_TOKEN` in `.env` and licenses accepted, diarization calls return 500.
 - **Overlapping speech.** Pyannote 3.1 underperforms when multiple speakers talk simultaneously. Segments are assigned to a single speaker by maximum overlap.
 - **Speaker count drift on long recordings.** For recordings >15–30 min, pyannote may split one speaker into two IDs after long silence gaps. Pass `num_speakers=N` if known.
@@ -445,9 +601,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 - **MLX path is macOS-only.** `scripts/mlx-transcribe.py` requires Apple Silicon. The Docker `whisper_mcp.py` fallback (faster-whisper + pyannote on CPU/CUDA) is the cross-platform alternative.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## OWUI Audio Drop UX (TASK-OWUI-AUDIO-DROP-001)
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001 -->
 - **OWUI internal 60s tool-call ceiling.** Some OWUI builds enforce a hard internal timeout on tool execution that `AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA` does not affect (open-webui/open-webui#16902). When this fires, the tool completes server-side but the persona never sees the result. Use `scripts/transcribe_and_complete.sh` for files with wall time >60s.
 - **WEBUI_SECRET_KEY rotation invalidates OAuth tokens.** If `.env` is regenerated and the secret key changes, all MCP OAuth tools need re-authentication.
 - **Microphone voice input remains disabled.** Unchanged from TASK-WORKSPACE-001 trade-off.
@@ -455,9 +615,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 ---
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Models Out of M4 Pro 64 GB Budget
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-models-out-of-m4-pro-64-gb-budget -->
 The following models were evaluated and explicitly **refused** from the Portal 5
 catalog. They exceed the M4 Pro 64 GB unified memory ceiling at the lowest
 quality-preserving quantization. Do not re-propose without a cluster scaling
@@ -482,9 +646,13 @@ is the path for these models.
 | `huihui-ai/Huihui-GLM-5.1-abliterated` (754B) | 377+ GB at 4-bit | Same bucket as GLM-5 — abliterated variant, total params far exceed 64 GB. |
 
 **P5-MODEL-64GB principle**: MoE active-parameter count governs decode *speed*, but total parameters govern *whether it fits* — 64 GB gates on total, not active. The April-2026 headline releases (DeepSeek-V4-Flash 284B/13B active, Kimi-K2.6 1T/32B active) are verified real but excluded on this basis. They become relevant only at the cluster Stage-3 / Mac-Studio tier on the roadmap.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### P5-EMERGENT-002 — Deterministic capability ranker can't reach oracle-bearing capabilities once any tool-declaring recon capability is a candidate
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate -->
 Found live during `TASK_SECURITY_ARM_CLOSE_LOOP_V1` Phase 8 (`goal emergent`
 run against the reconciled `10.10.11.50` target, `objective_class=host_foothold`,
 2026-07-16). `portal.platform.agent.decide._decide_via_deterministic_fallback`
@@ -526,9 +694,13 @@ of already-attempted (capability, target) pairs — rather than a
 security-scoped patch. Until fixed, a live emergent run against a target
 whose exploit-phase capabilities require ports already open in the first
 perception pass will halt at I4 before ever attempting the exploit.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### V8 Catalog Deferred (insufficient hardware)
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-v8-catalog-deferred-insufficient-hardware -->
 | Model | Est Size | Reason Deferred |
 |-------|----------|-----------------|
 | `sjakek/Nex-N2-Pro` | ~230GB | 397B total, 17B active — far exceeds 64 GB even at Q1. |
@@ -536,3 +708,6 @@ perception pass will halt at I4 before ever attempting the exploit.
 | `Harness-1` (full capability) | n/a | Requires Chroma vector DB + external search state harness. Standalone model (gpt-oss-20B fine-tune) added to V8 bench-harness1. |
 
 *Last updated: 2026-06-10*
+<!-- /WIKI:GENERATED -->
+
+---

@@ -21,3 +21,10 @@ Critical data is in Docker volumes:
 - `portal-5_ollama-models` — downloaded model weights (replaceable, not personal data)
 
 ```bash
+# Easiest: use the launch script (saves to ./backups/)
+./launch.sh backup
+
+# Or manually (Open WebUI):
+docker run --rm -v portal-5_open-webui-data:/data -v $(pwd):/backup \
+    alpine tar czf /backup/openwebui-backup-$(date +%Y%m%d).tar.gz /data
+```

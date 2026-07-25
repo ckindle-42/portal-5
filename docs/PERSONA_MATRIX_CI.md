@@ -1,11 +1,16 @@
 # Persona Matrix CI Operations
 
+<!-- WIKI:GENERATED unit=unit-persona-matrix-ci-persona-matrix-ci-operations -->
 Companion to `docs/COMPLIANCE_FALLBACK_POLICY.md`. Where that doc captures
 *what* the matrix measures, this doc captures *how* it runs in CI and what
 operator workflows it supports.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Pipeline shape
 
+<!-- WIKI:GENERATED unit=unit-persona-matrix-ci-pipeline-shape -->
 ```
 [scheduled cron] ──┐
 [PR-touching matrix code] ──┤── persona-matrix-nightly workflow
@@ -22,9 +27,13 @@ operator workflows it supports.
                                      ▼
                           green or red CI status
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Baseline lifecycle
 
+<!-- WIKI:GENERATED unit=unit-persona-matrix-ci-baseline-lifecycle -->
 1. **First baseline (per workspace).** Operator runs the matrix locally
    without `--baseline-compare`, inspects results, decides whether the
    numbers represent acceptable behavior, and commits the JSON to:
@@ -42,9 +51,13 @@ operator workflows it supports.
 3. **Quarterly cadence.** Even with no triggering change, re-baseline
    quarterly to absorb drift in model behavior from re-pulls,
    environmental shifts, or assertion-library tuning.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## CI vs. local-run boundary
 
+<!-- WIKI:GENERATED unit=unit-persona-matrix-ci-ci-vs-local-run-boundary -->
 CI runs on a self-hosted runner that has access to the Portal 5 stack.
 Public GitHub-hosted runners cannot reach the local pipeline / MLX /
 Ollama services. If the self-hosted runner is unavailable, the workflow
@@ -56,9 +69,13 @@ The CI run is **non-destructive** by design:
 - Baselines are updated only by an operator-authored commit
 - Failed CI runs comment with the diff summary but do not block local
   development unless the failing run is on a PR
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## MLX coverage policy
 
+<!-- WIKI:GENERATED unit=unit-persona-matrix-ci-mlx-coverage-policy -->
 **MLX inference is retired (commit 3a0c58e).** All chat inference runs through
 Ollama (:11434). The `--mlx-warmup` flag and `mlx_models:` key in `backends.yaml`
 described here no longer exist — they were part of the pre-retirement MLX proxy.
@@ -66,9 +83,13 @@ described here no longer exist — they were part of the pre-retirement MLX prox
 CI sweeps are Ollama-only. MLX is retained only for non-chat runtimes:
 speech (:8918), transcription (:8924), embeddings (:8917), and reranking (:8925).
 Those runtimes are not exercised by the persona matrix driver.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Big-model coverage
 
+<!-- WIKI:GENERATED unit=unit-persona-matrix-ci-big-model-coverage -->
 Models flagged `big_model: true` in `backends.yaml` (currently:
 `Qwen3-Coder-Next-4bit` ~46GB, `Llama-3.3-70B-Instruct-4bit` ~40GB,
 `Qwen3-VL-32B-Instruct-8bit` ~36GB) are skipped from CI by default.
@@ -80,9 +101,13 @@ Big-model coverage is operator-driven:
 - Pre-release validation: run `--include-big-models` once before
   shipping a release that touches the agentic-coding workspace.
 - Quarterly: same trigger as re-baselining.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Regression triage workflow
 
+<!-- WIKI:GENERATED unit=unit-persona-matrix-ci-regression-triage-workflow -->
 When CI surfaces a regression:
 
 1. **Identify the regressed cell.** The diff output names exactly
@@ -107,11 +132,18 @@ When CI surfaces a regression:
      Either revise the prompt or relax the assertion.
    - **Genuine regression.** The model is now worse. Demote per the
      fallback policy in `docs/<WORKSPACE>_FALLBACK_POLICY.md`.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Out of scope for CI
 
+<!-- WIKI:GENERATED unit=unit-persona-matrix-ci-out-of-scope-for-ci -->
 - TPS / latency comparison. That's `bench_tps`'s job; the matrix only
   cares about behavioral pass/fail.
 - Pipeline routing tests. Acceptance v6 covers those (`S3a` / `S3b`).
 - Per-(persona, model) coverage of non-registered workspaces. Each
   workspace must register in `WORKSPACE_REGISTRY` before CI can sweep it.
+<!-- /WIKI:GENERATED -->
+
+---

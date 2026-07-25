@@ -1,18 +1,39 @@
 # Lab Setup — Cold-Start Runbook
 
+<!-- WIKI:GENERATED unit=unit-lab-setup-lab-setup-cold-start-runbook -->
 Two-tier lab: **Tier 1** (expensive, rare, idempotent — downloads everything) and **Tier 2**
 (cheap, frequent — start/stop what's provisioned).
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Tier 1 — First-Time Setup (run once, re-run to update)
 
+<!-- WIKI:GENERATED unit=unit-lab-setup-tier-1-first-time-setup-run-once-re-run-to-update -->
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # Full setup (downloads vulhub, challenge composes, base images, model pulls):
+
+<!-- WIKI:GENERATED unit=unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls -->
 ./launch.sh setup
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Metadata-only (skip heavy vulhub + model pulls):
+
+<!-- WIKI:GENERATED unit=unit-lab-setup-metadata-only-skip-heavy-vulhub-model-pulls -->
 ./launch.sh setup --skip-heavy
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Update an existing setup (git pull vulhub, refresh composes):
+
+<!-- WIKI:GENERATED unit=unit-lab-setup-update-an-existing-setup-git-pull-vulhub-refresh-composes -->
 ./launch.sh setup --update
 ```
 
@@ -25,17 +46,25 @@ Two-tier lab: **Tier 1** (expensive, rare, idempotent — downloads everything) 
 
 **Disk expectation:** ~10–15 GB for vulhub (shallow clone) + models (variable). Use
 `--skip-heavy` to defer large downloads.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Tier 2 — Daily Operations
 
+<!-- WIKI:GENERATED unit=unit-lab-setup-tier-2-daily-operations -->
 ```bash
 ./launch.sh lab-up               # start the core lab stack
 ./launch.sh lab-up-wazuh         # start telemetry (Wazuh/WinEvent)
 ./launch.sh lab-ready            # readiness gate — GREEN = ready to bench
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### On-Demand Targets (from lab_targets.yaml)
 
+<!-- WIKI:GENERATED unit=unit-lab-setup-on-demand-targets-from-lab-targets-yaml -->
 ```bash
 ./launch.sh lab-targets list                                           # show catalog
 ./launch.sh lab-targets up vulhub-log4shell-solr                       # by catalog id
@@ -44,17 +73,25 @@ Two-tier lab: **Tier 1** (expensive, rare, idempotent — downloads everything) 
 ./launch.sh lab-targets down vulhub-log4shell-solr
 ./launch.sh lab-targets status
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Lane Targets
 
+<!-- WIKI:GENERATED unit=unit-lab-setup-lane-targets -->
 ```bash
 ./launch.sh lab-web-up   / lab-web-down      # SPA target (browser/OAST)
 ./launch.sh lab-cloud-up / lab-cloud-down    # LocalStack+kind (cloud)
 ./launch.sh oast-up      / oast-down         # OAST collaborator
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Teardown
 
+<!-- WIKI:GENERATED unit=unit-lab-setup-teardown -->
 ```bash
 ./launch.sh lab-down                        # stop core + on-demand (no footprint)
 ./launch.sh lab-teardown                    # lab-down + teardown
@@ -62,9 +99,13 @@ Two-tier lab: **Tier 1** (expensive, rare, idempotent — downloads everything) 
 ```
 
 Default preserves downloads (`--purge-downloads` is opt-in) so the next `lab up` is instant.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Readiness Gate
 
+<!-- WIKI:GENERATED unit=unit-lab-setup-readiness-gate -->
 `./launch.sh lab-ready` checks and prints a green/red board:
 
 | Component | Required | What it checks |
@@ -80,19 +121,33 @@ Default preserves downloads (`--purge-downloads` is opt-in) so the next `lab up`
 Returns non-zero if a **required** component is RED. **Do not bench a lab that fails
 lab-ready.** Best-effort components (extended arsenal, optional telemetry) warn but don't
 block.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Verification
 
+<!-- WIKI:GENERATED unit=unit-lab-setup-verification -->
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # All these should succeed after setup:
+
+<!-- WIKI:GENERATED unit=unit-lab-setup-all-these-should-succeed-after-setup -->
 ./launch.sh setup --skip-heavy --dry-run
 ./launch.sh lab-ready
 python3 scripts/lab_targets.py up struts2/s2-045 --dry-run
 python3 scripts/lab_targets.py list | wc -l   # ≥ 7 targets
 ```
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Reference
 
+<!-- WIKI:GENERATED unit=unit-lab-setup-reference -->
 | Artifact | What |
 |---|---|
 | `Dockerfile.attack` | Builds portal5-attack (AD arsenal required; RE/cloud/web/CTF best-effort) |
@@ -102,3 +157,6 @@ python3 scripts/lab_targets.py list | wc -l   # ≥ 7 targets
 | `config/lab_targets.yaml` | Live-target catalog |
 | `config/challenge_classes.yaml` | Class → container map |
 | `tests/PORTAL5_BENCH_SEC_EXECUTE_V2.md` | Security bench execution runbook |
+<!-- /WIKI:GENERATED -->
+
+---

@@ -443,6 +443,8 @@ The project has a self-maintaining knowledge backbone (`portal_wiki/`) that agen
 
 **For operators:** `portal_wiki/canonical/` contains the source-of-truth knowledge units (markdown + frontmatter). Edit the canonical unit, not rendered views. Views are generated to `docs/generated/` and marked `<!-- GENERATED -->`.
 
+**CLAUDE.md is the one intentional exception.** As of `TASK_WIKI_SPINE_DOC_GENERATION_V3`, nearly every other doc in this repo (`README.md`, `docs/*.md`, `config/MODEL_CATALOG.md`, the test-execution prompts, etc.) is a shell whose substance is `<!-- WIKI:GENERATED unit=<id> -->` blocks rendered from `portal_wiki/canonical/` — see `docs/DESIGN_WIKI_GENERATION_LOOP_V1.md` for the mechanism. CLAUDE.md alone stays hand-authored (it is hard-excluded from migration in `portal/platform/wiki/migration.py`) because it is the agent entry point, not a reference doc. When a change at HEAD affects a fact recorded in a spine unit, update that unit (and re-run `./launch.sh sync-config`) in the same change — a stale unit is a stale doc across the whole surface it feeds, not just one file.
+
 **What lives where:**
 - `portal/platform/wiki/` — engine: schema, store, maintenance, rendering (top-level files are stack-agnostic, zero Portal imports — this is the extraction-guarantee boundary CI enforces via `AJ. wiki core backbone`)
 - `portal/platform/wiki/adapters/` — Portal-specific wiring (Ollama inference, git source, security/intent/code seeders, module toggle resolver)

@@ -1,5 +1,6 @@
 # Portal 5 — Local AI Platform
 
+<!-- WIKI:GENERATED unit=unit-readme-portal-5-local-ai-platform -->
 A complete, private AI platform that runs on your hardware. Text, code, security
 analysis, images, video, music, documents, and voice — all local, all yours.
 
@@ -10,9 +11,13 @@ or Ollama registries transmit standard HTTP metadata; if `HF_TOKEN` is configure
 gated models, authentication requests are sent to HuggingFace.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Prerequisites
 
+<!-- WIKI:GENERATED unit=unit-readme-prerequisites -->
 | Requirement | Minimum | Recommended |
 |---|---|---|
 | **Docker** | Docker Desktop 4.x or Docker Engine 24+ with Compose v2 | Latest Docker Desktop |
@@ -29,9 +34,13 @@ gated models, authentication requests are sent to HuggingFace.
 > `sudo usermod -aG docker $USER && newgrp docker`
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Quick Start
 
+<!-- WIKI:GENERATED unit=unit-readme-quick-start -->
 ```bash
 git clone https://github.com/ckindle-42/portal-5.git
 cd portal-5
@@ -52,9 +61,13 @@ Open **http://localhost:8080** and sign in with the admin credentials printed to
 your terminal.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## What Starts Automatically
 
+<!-- WIKI:GENERATED unit=unit-readme-what-starts-automatically -->
 Everything runs with a single command. No manual configuration.
 
 | Service | What it does | URL |
@@ -77,16 +90,24 @@ Everything runs with a single command. No manual configuration.
 | Grafana | Metrics dashboard | http://localhost:3000 |
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Workspaces
 
+<!-- WIKI:GENERATED unit=unit-readme-workspaces -->
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
-Portal 5 includes **22 functional workspaces** (plus 64 benchmark workspaces for performance comparison, gated off by default behind the `eval` module — see `coding_task/BUILD_PROGRAM_COLLAPSE_V1.md`; 86 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
+Portal 5 includes **22 functional workspaces** (plus 65 benchmark workspaces for performance comparison, gated off by default behind the `eval` module — see `coding_task/BUILD_PROGRAM_COLLAPSE_V1.md`; 87 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Functional Workspaces
 
+<!-- WIKI:GENERATED unit=unit-readme-functional-workspaces -->
 | Workspace | Purpose | Auto-activates |
 |---|---|---|
 | `auto` | General — routes to best model for each task | — |
@@ -111,9 +132,13 @@ Portal 5 includes **22 functional workspaces** (plus 64 benchmark workspaces for
 | `auto-general-uncensored` | General uncensored assistant | — |
 | `auto-extract-uncensored` | Uncensored information extraction | — |
 | `tools-specialist` | Tool-use specialist — structured output, function calling (Granite 4.1 8B) | — |
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Benchmark Workspaces (user-selected only)
 
+<!-- WIKI:GENERATED unit=unit-readme-benchmark-workspaces-user-selected-only -->
 These pin a specific model for direct performance comparison. Not intended for daily use.
 Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"` for the current full list (currently 60 workspaces).
 
@@ -155,58 +180,117 @@ Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPA
 | *(+ 15 more)* | Security exec chain, LFM micro, MTP, security bench lanes |
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Common Commands
 
+<!-- WIKI:GENERATED unit=unit-readme-common-commands -->
 ```bash
+<!-- /WIKI:GENERATED -->
+
+---
+
 # Start / stop
+
+<!-- WIKI:GENERATED unit=unit-readme-start-stop -->
 ./launch.sh up              # Start everything
 ./launch.sh down            # Stop (data preserved)
 ./launch.sh status          # Check service health
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Test everything is working
+
+<!-- WIKI:GENERATED unit=unit-readme-test-everything-is-working -->
 ./launch.sh test            # Run live smoke tests against running stack
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Pull specialized models (security, coding, reasoning — 30–90 min)
+
+<!-- WIKI:GENERATED unit=unit-readme-pull-specialized-models-security-coding-reasoning-30-90-min -->
 ./launch.sh pull-models
+<!-- /WIKI:GENERATED -->
+
+---
 
 # MLX (Apple Silicon)
+
+<!-- WIKI:GENERATED unit=unit-readme-mlx-apple-silicon -->
 ./launch.sh start-speech    # Start MLX speech server (Apple Silicon)
 ./launch.sh stop-speech     # Stop MLX speech server
 ./launch.sh mlx-status      # Check MLX component status (includes speech)
+<!-- /WIKI:GENERATED -->
+
+---
 
 # User management
+
+<!-- WIKI:GENERATED unit=unit-readme-user-management -->
 ./launch.sh add-user alice@example.com "Alice Smith"
 ./launch.sh list-users
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Enable messaging channels (requires tokens in .env)
+
+<!-- WIKI:GENERATED unit=unit-readme-enable-messaging-channels-requires-tokens-in-env -->
 ./launch.sh up-telegram     # Start Telegram bot
 ./launch.sh up-slack        # Start Slack bot
 ./launch.sh up-channels     # Start both
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Backup and restore
+
+<!-- WIKI:GENERATED unit=unit-readme-backup-and-restore -->
 ./launch.sh backup          # Save all data to ./backups/
 ./launch.sh restore <file>  # Restore from backup
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Seeding
+
+<!-- WIKI:GENERATED unit=unit-readme-seeding -->
 ./launch.sh seed            # Re-seed Open WebUI (workspaces + personas)
 ./launch.sh reseed          # Force-refresh all presets (delete + recreate)
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Update (single command: git pull + rebuild + model refresh + re-seed)
+
+<!-- WIKI:GENERATED unit=unit-readme-update-single-command-git-pull-rebuild-model-refresh-re-seed -->
 ./launch.sh update                  # Full update of all components
 ./launch.sh update --skip-models    # Skip Ollama + MLX model refresh (faster)
 ./launch.sh update --models-only    # Only refresh models
+<!-- /WIKI:GENERATED -->
+
+---
 
 # Cleanup
+
+<!-- WIKI:GENERATED unit=unit-readme-cleanup -->
 ./launch.sh clean           # Remove containers (keeps model weights)
 ./launch.sh clean-all       # Remove everything including models
 ./launch.sh rebuild         # Rebuild portal-pipeline Docker image after git pull
 ```
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Enable Telegram Bot
 
+<!-- WIKI:GENERATED unit=unit-readme-enable-telegram-bot -->
 1. Message **@BotFather** on Telegram → `/newbot` → copy the token
 2. Get your Telegram user ID from **@userinfobot**
 3. Add to `.env`:
@@ -218,9 +302,13 @@ Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPA
 5. Message your bot `/start` to verify
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Enable Slack Bot
 
+<!-- WIKI:GENERATED unit=unit-readme-enable-slack-bot -->
 1. Go to https://api.slack.com/apps → **Create New App** → **From scratch**
 2. Under **OAuth & Permissions** → add bot scopes:
    `app_mentions:read`, `chat:write`, `channels:history`, `im:history`, `im:read`, `im:write`
@@ -236,21 +324,34 @@ Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPA
 7. Mention `@portal` in any channel to verify
 
 ---
+<!-- /WIKI:GENERATED -->
 
-## Hardware & Model Guide
+---
 
 ### Core models (pulled automatically on first run, ~4 GB)
+
+<!-- WIKI:GENERATED unit=unit-readme-core-models-pulled-automatically-on-first-run-4-gb -->
 - `dolphin-llama3:8b` — general purpose default
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` — LLM router fallback/standby (uncensored 3B). Router primary is `gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M` (pulled with `pull-models`)
 - `nomic-embed-text` — document embeddings for RAG
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Specialized models (pulled with `./launch.sh pull-models`, ~60–100 GB total)
+
+<!-- WIKI:GENERATED unit=unit-readme-specialized-models-pulled-with-launch-sh-pull-models-60-100-gb-total -->
 - **Security:** JANG-CRACK 31B (pentest), SuperGemma4-26B (red team), BaronLLM-9B (security analyst), sylink:8b (blue team primary — SOC triage, DFIR, ATT&CK); Foundation-Sec-8B in reasoning group for analytical blue-team work
 - **Coding:** Qwen3-Coder-30B MoE, Laguna-XS.2 33B-A3B (auto-coding `?variant=laguna`), Devstral-Small-2, GLM-4.7-Flash REAP, DeepSeek-Coder-V2
 - **Reasoning:** DeepSeek-R1-0528-Qwen3-8B (auto-reasoning), GLM-Z1-Rumination-32B, GPT-OSS 20B, Tongyi-DeepResearch-abliterated
 - **Vision:** Qwen3-VL 32B (auto-vision), Gemma4-31B dense QAT (auto-vision `?model=gemma-vision`), Gemma4-E4B (auto-daily `?model=gemma-e4b`)
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### MLX models (Apple Silicon, retained for audio/embedding/reranker only — chat inference is Ollama-only)
+
+<!-- WIKI:GENERATED unit=unit-readme-mlx-models-apple-silicon-retained-for-audio-embedding-reranker-only-chat-inference-is-ollama-only -->
 - **Speech:** MLX speech server (:8918) — Kokoro + Qwen3-TTS/ASR, host-native
 - **Transcription:** MLX Transcribe (:8924) — mlx-whisper + pyannote diarization, host-native
 - **Embedding:** Harrier-0.6B TEI (:8917)
@@ -258,17 +359,26 @@ Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPA
 - Chat model inference runs exclusively through Ollama (:11434) — GGUF format, pulled via `ollama pull`
 
 The MLX inference proxy (:8081/:18081/:18082) was retired in commit 3a0c58e.
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Image generation (downloaded automatically on first run, ~12 GB)
+
+<!-- WIKI:GENERATED unit=unit-readme-image-generation-downloaded-automatically-on-first-run-12-gb -->
 - FLUX.1-schnell — fast, high-quality image generation
 
 To use a different image model: set `IMAGE_MODEL=sdxl` or `IMAGE_MODEL=flux-dev`
 in `.env` (flux-dev requires a HuggingFace token).
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Speech (Text-to-Speech & Speech-to-Text)
 
+<!-- WIKI:GENERATED unit=unit-readme-speech-text-to-speech-speech-to-text -->
 Portal 5 includes a native MLX speech server on Apple Silicon with:
 - **Kokoro TTS** — fast, high-quality English TTS (200+ voices)
 - **Qwen3-TTS** — 10 languages, voice cloning, voice design, emotion control
@@ -289,9 +399,13 @@ Portal 5 includes a native MLX speech server on Apple Silicon with:
 > Qwen3-TTS and Qwen3-ASR work without these dependencies.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Troubleshooting
 
+<!-- WIKI:GENERATED unit=unit-readme-troubleshooting -->
 **Services not starting:**
 ```bash
 ./launch.sh status          # See which services failed
@@ -302,13 +416,25 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 ```bash
 docker system df            # See Docker disk usage
 ./launch.sh clean           # Remove containers
+<!-- /WIKI:GENERATED -->
+
+---
+
 # Then free disk space and retry ./launch.sh up
+
+<!-- WIKI:GENERATED unit=unit-readme-then-free-disk-space-and-retry-launch-sh-up -->
 ```
 
 **Models not loading (Ollama shows 0 backends):**
 ```bash
 ./launch.sh pull-models     # Ensure at least one model is pulled
+<!-- /WIKI:GENERATED -->
+
+---
+
 # Wait for Ollama to finish loading, then try again
+
+<!-- WIKI:GENERATED unit=unit-readme-wait-for-ollama-to-finish-loading-then-try-again -->
 ```
 
 **First run taking too long:**
@@ -318,21 +444,33 @@ On slower connections it may take longer. The download resumes if interrupted.
 **Port already in use:**
 ```bash
 lsof -i :8080               # Find what is using port 8080
-# Stop the conflicting service, then ./launch.sh up
-```
+<!-- /WIKI:GENERATED -->
 
 ---
 
-## Security
+# Stop the conflicting service, then ./launch.sh up
+
+<!-- WIKI:GENERATED unit=unit-readme-stop-the-conflicting-service-then-launch-sh-up -->
+```
+
+---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Required Environment Variables
 
+<!-- WIKI:GENERATED unit=unit-readme-required-environment-variables -->
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `PIPELINE_API_KEY` | **Yes** | API key for pipeline authentication. Generate with: `openssl rand -hex 32`. Pipeline will not start without this. |
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Network Exposure
 
+<!-- WIKI:GENERATED unit=unit-readme-network-exposure -->
 By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allow LAN access from other applications. This is intentional for multi-device setups.
 
 **Security Considerations**:
@@ -341,9 +479,13 @@ By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allo
 - For local-only deployments, set in `.env`: `PIPELINE_LISTEN_ADDR=127.0.0.1`
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Coding Tool Integration (Claude Code / opencode)
 
+<!-- WIKI:GENERATED unit=unit-readme-coding-tool-integration-claude-code-opencode -->
 Portal 5 ships first-class support for AI coding assistants. Two config files at the repo root
 activate automatically when either tool opens this project:
 
@@ -366,7 +508,7 @@ opencode .  # default model: portal/codingagentic (Laguna-XS.2 33B-A3B, auto-cod
 ```
 
 The `auto-coding` workspace's `laguna` variant uses **FastContext-4B** as an exploration subagent — it finds
-exact file paths and line ranges before Devstral edits anything, reducing wasted token budget by
+exact file paths and line ranges before Laguna-XS.2 edits anything, reducing wasted token budget by
 ~50-60% compared to unguided file scanning.
 
 See [MCP Dev Tooling](docs/MCP_DEV_TOOLING.md) for the full guide, workflow examples, and tool reference.
@@ -377,9 +519,13 @@ See [MCP Dev Tooling](docs/MCP_DEV_TOOLING.md) for the full guide, workflow exam
 > auto-generated by `./launch.sh`).
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Documentation
 
+<!-- WIKI:GENERATED unit=unit-readme-documentation -->
 | Guide | Contents |
 |---|---|
 | [MCP Dev Tooling](docs/MCP_DEV_TOOLING.md) | Claude Code & opencode integration, FastContext explorer, workflow examples |
@@ -393,9 +539,13 @@ See [MCP Dev Tooling](docs/MCP_DEV_TOOLING.md) for the full guide, workflow exam
 | [Agent Loop](docs/AGENT_LOOP.md) | Platform-core bounded agent loop (`portal/platform/agent/`) — contracts, discipline, `portal agent` CLI |
 | [Backup & Restore](docs/BACKUP_RESTORE.md) | Data backup procedures |
 | [Known Issues](KNOWN_ISSUES.md) | Current limitations and workarounds |
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Acceptance Testing
 
+<!-- WIKI:GENERATED unit=unit-readme-acceptance-testing -->
 The full acceptance test suite (`tests/portal5_acceptance_v6.py`) runs
 ~300 tests across ~27 sections. Run with:
 
@@ -405,9 +555,13 @@ python3 tests/portal5_acceptance_v6.py --section S70  # one section
 ```
 
 Latest run summary is in [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md).
+<!-- /WIKI:GENERATED -->
+
+---
 
 ### Unit Test CI
 
+<!-- WIKI:GENERATED unit=unit-readme-unit-test-ci -->
 The unit test suite (`pytest tests/unit -x`) runs on every PR and push to
 `main` via GitHub Actions (`.github/workflows/unit-tests.yml`). For local
 pre-commit feedback, install the hooks:
@@ -419,9 +573,13 @@ pip install pre-commit && pre-commit install
 This adds a `pytest-unit` hook that runs before each commit.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## Architecture
 
+<!-- WIKI:GENERATED unit=unit-readme-architecture -->
 ```
 ┌──────────────┐
 │  Open WebUI  │
@@ -459,7 +617,14 @@ MLX is retained for speech (:8918), transcription (:8924), embeddings (:8917),
 and reranking (:8925) — non-chat-inference runtimes only.
 
 ---
+<!-- /WIKI:GENERATED -->
+
+---
 
 ## License
 
+<!-- WIKI:GENERATED unit=unit-readme-license -->
 MIT — see [LICENSE](LICENSE)
+<!-- /WIKI:GENERATED -->
+
+---

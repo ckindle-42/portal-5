@@ -16,4 +16,4 @@ updated_at: 1783195000.8136199
 ---
 
 
-Portal 5 is designed for single-machine local use. Open WebUI binds to `127.0.0.1` by default and is only reachable from `localhost`. All MCP servers (8910–8923) are always 127.0.0.1-bound and never reach the network directly.
+Portal 5 is designed for single-machine local use. Open WebUI binds to `127.0.0.1` by default and is only reachable from `localhost`. All MCP servers (8910–8932) are always 127.0.0.1-bound and never reach the network directly.
