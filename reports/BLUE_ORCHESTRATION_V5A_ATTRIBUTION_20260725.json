@@ -1,0 +1,1124 @@
+{
+  "arms": {
+    "council_strong": {
+      "A_evidence_present_misses": 4,
+      "B_honest_negatives": 4,
+      "I_unscorable": 6,
+      "M_misattributions": 0,
+      "cells": 17,
+      "defensible_honest_anomalies": 2,
+      "true_positives": 1
+    },
+    "strong_full_v3": {
+      "A_evidence_present_misses": 0,
+      "B_honest_negatives": 4,
+      "I_unscorable": 6,
+      "M_misattributions": 0,
+      "cells": 17,
+      "defensible_honest_anomalies": 4,
+      "true_positives": 3
+    },
+    "weak_mentor_validation": {
+      "A_evidence_present_misses": 3,
+      "B_honest_negatives": 2,
+      "I_unscorable": 7,
+      "M_misattributions": 1,
+      "cells": 17,
+      "defensible_honest_anomalies": 4,
+      "true_positives": 0
+    }
+  },
+  "cells": [
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1190",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1190",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 234,
+      "telemetry_sha256": "bec02c0eef9eed3beaadddfc5eb03bb02d24e7ff6a38455f66f834f33d7dbe25",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1190",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1190",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 149,
+      "telemetry_sha256": "54521aa511c28c05b68c07b7520fe3104a111d34828cd1be4b37b96ae883b3f3",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1611",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1611",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 49,
+      "telemetry_sha256": "97dfac4fbbc8ccad81bae8044ccfe92fed0235dad25ee88f471ababca8a1148b",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1611",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1611",
+      "technique_ids": [
+        "T1610",
+        "T1087"
+      ],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 1012,
+      "telemetry_sha256": "055e599445f3bf8533d7420636cca29755b20c221738836d706c2da5636c78a8",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1552_005",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1552.005",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 271,
+      "telemetry_sha256": "2e620da2c4b660e520915070232f4eb7b2215d91cd67305f52eb7523b77ac1ef",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1552_005",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1552.005",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 7525,
+      "telemetry_sha256": "6b929eafbe38477ebf998d8176cf54b68fb99ea96d4011f427c3cd821cdcff55",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "HONEST_NEGATIVE",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "TicketEncryptionType=0x17"
+      ],
+      "label": "t1558_003",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1558.003",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 286,
+      "telemetry_sha256": "efa5b75a4cbaf68e39c067a3e5f098856905efe59b06a47b1f5e0a617747a2aa",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "HONEST_NEGATIVE",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "TicketEncryptionType=0x17"
+      ],
+      "label": "t1558_003",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1558.003",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 133,
+      "telemetry_sha256": "09cea6b24deedbcb2e7259693afdf77cb2f0bacba16f5d83d74dc6fc9d10ca18",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "HONEST_ANOMALY",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "PreAuthType=0"
+      ],
+      "label": "t1558_004",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1558.004",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 196,
+      "telemetry_sha256": "1998a14937f82696a216b9b3c1cb450b8d87cbcd2885229f5cf51266108503a6",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "HONEST_ANOMALY",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "PreAuthType=0"
+      ],
+      "label": "t1558_004",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1558.004",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 196,
+      "telemetry_sha256": "590a8afa003aeb69bedbccb25eb39c172fffa0f943d3b0188ef94589599cec8f",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "HONEST_ANOMALY",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "distinct_accounts"
+      ],
+      "label": "t1110_003",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1110.003",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 165,
+      "telemetry_sha256": "7e769e70388e182e651ded5a1253af473cfc713e2101d0c8345115f151385e9d",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "HONEST_ANOMALY",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "distinct_accounts"
+      ],
+      "label": "t1110_003",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1110.003",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 5236,
+      "telemetry_sha256": "7cb4ceb91df877868389c47a54225716fb046b0c3ca5dd07decc5debc313d767",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "HONEST_NEGATIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4698"
+      ],
+      "label": "t1053_005",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1053.005",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 165,
+      "telemetry_sha256": "7e769e70388e182e651ded5a1253af473cfc713e2101d0c8345115f151385e9d",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4698"
+      ],
+      "label": "t1053_005",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "model_visible_telemetry_not_captured",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1053.005",
+      "technique_ids": [],
+      "telemetry_capture_complete": false,
+      "telemetry_chars": 0,
+      "telemetry_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "TRUE_POSITIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "status=404"
+      ],
+      "label": "t1595",
+      "matched_discriminators": [
+        "status=404"
+      ],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 1.0,
+      "technique_expected": "T1595",
+      "technique_ids": [
+        "T1595"
+      ],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 2500,
+      "telemetry_sha256": "c3224707a135078904e9118b1032a7055dd475ebd31d7108e444c9166f57cba6",
+      "verdict": "CONFIRMED"
+    },
+    {
+      "attribution": "HONEST_ANOMALY",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "status=404"
+      ],
+      "label": "t1595",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1595",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 45,
+      "telemetry_sha256": "b19328fed6c5b1e99a07db7e1d8845e605f138e17d92e472099045f65e016db6",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1190",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1190",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 151,
+      "telemetry_sha256": "f08658bf85de1ca48c3e368a7ab0cb261eb02e16c18d3dae7201ad9f05146f11",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1611",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1611",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 157,
+      "telemetry_sha256": "bbae42bb30947e70cb635b650288b95486554b0cad81d3ae0314de9b7e3c348c",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1552_005",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1552.005",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 211,
+      "telemetry_sha256": "f780caf159ddb23df3a607a2d424abb25d487df7a86cf37a35cc6c3a3f0ff8c4",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "HONEST_NEGATIVE",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "TicketEncryptionType=0x17"
+      ],
+      "label": "t1558_003",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1558.003",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 248,
+      "telemetry_sha256": "3cd3f2eb5cbfb575666862104f533d4f519ce51ed709a44ab64671108cfc50b6",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "HONEST_NEGATIVE",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "PreAuthType=0"
+      ],
+      "label": "t1558_004",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1558.004",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 165,
+      "telemetry_sha256": "403c199549551bf78412a88e9c64c951fdfa1005e360c96529e5e198a1abfc99",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "HONEST_ANOMALY",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "distinct_accounts"
+      ],
+      "label": "t1110_003",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1110.003",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 165,
+      "telemetry_sha256": "7e769e70388e182e651ded5a1253af473cfc713e2101d0c8345115f151385e9d",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "HONEST_NEGATIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4698"
+      ],
+      "label": "t1053_005",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1053.005",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 165,
+      "telemetry_sha256": "7e769e70388e182e651ded5a1253af473cfc713e2101d0c8345115f151385e9d",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "FALSE_NEGATIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "status=404"
+      ],
+      "label": "t1595",
+      "matched_discriminators": [
+        "status=404"
+      ],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1595",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 7525,
+      "telemetry_sha256": "b0d3b38ed9453c17506792528c7e1473f2f86f5a10e1d6db5f6f8faa9ef9aba6",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1083",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1083",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 738,
+      "telemetry_sha256": "9cb3fc4329413dcbf678ae3e816f593841bb3ff482ed0b0275dfe39705147b29",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1083",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1083",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 105,
+      "telemetry_sha256": "d74e7cb46ffdf9c3e73ae7e08f8a77b7bb6cdd477aa724febff0cd6fc3d59357",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1083",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1083",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 188,
+      "telemetry_sha256": "7b9d36c1c65b3a55fa4a802d1b56ebfc32af21077a2ea408d6c88b8959adb1a8",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "HONEST_ANOMALY",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "status=200"
+      ],
+      "label": "t1078",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1078",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 45,
+      "telemetry_sha256": "b19328fed6c5b1e99a07db7e1d8845e605f138e17d92e472099045f65e016db6",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "HONEST_ANOMALY",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "status=200"
+      ],
+      "label": "t1078",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1078",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 91,
+      "telemetry_sha256": "2806a5d70a04e0358900ba1df038f7c3e684ece396915c2d8b67498ea0dfb7b0",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "HONEST_NEGATIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "status=200"
+      ],
+      "label": "t1078",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1078",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 45,
+      "telemetry_sha256": "b19328fed6c5b1e99a07db7e1d8845e605f138e17d92e472099045f65e016db6",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "TRUE_POSITIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4624",
+        "LogonType=3"
+      ],
+      "label": "t1557",
+      "matched_discriminators": [
+        "EventCode=4624",
+        "LogonType=3"
+      ],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 1.0,
+      "technique_expected": "T1557",
+      "technique_ids": [
+        "T1557"
+      ],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 2500,
+      "telemetry_sha256": "8e708915aa256ec6919bc8103593039ed2fc19b110427dfc8122a6cbfe7f5c59",
+      "verdict": "CONFIRMED"
+    },
+    {
+      "attribution": "FALSE_NEGATIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4624",
+        "LogonType=3"
+      ],
+      "label": "t1557",
+      "matched_discriminators": [
+        "EventCode=4624",
+        "LogonType=3"
+      ],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1557",
+      "technique_ids": [
+        "T1557"
+      ],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 5167,
+      "telemetry_sha256": "61e287290ccee560f5ac7843b3bdebe5044b8afb38183eefbb67e939b87df1ed",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "EVIDENCE_PRESENT_MISS",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4624",
+        "LogonType=3"
+      ],
+      "label": "t1557",
+      "matched_discriminators": [
+        "EventCode=4624",
+        "LogonType=3"
+      ],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1557",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 5115,
+      "telemetry_sha256": "687f49175a5c0e76b0f3923b4e09507e418393e363c590619bf37745f3f50bb6",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "HONEST_NEGATIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4624",
+        "LogonType=3",
+        "AuthenticationPackageName=NTLM"
+      ],
+      "label": "t1550_002",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1550.002",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 165,
+      "telemetry_sha256": "7e769e70388e182e651ded5a1253af473cfc713e2101d0c8345115f151385e9d",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "FALSE_NEGATIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4624",
+        "LogonType=3",
+        "AuthenticationPackageName=NTLM"
+      ],
+      "label": "t1550_002",
+      "matched_discriminators": [
+        "EventCode=4624",
+        "LogonType=3",
+        "AuthenticationPackageName=NTLM"
+      ],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1550.002",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 2583,
+      "telemetry_sha256": "46c63e8152b23f5d46ad7a46a6a78f75951372eecd117de45fdb26b083cfab09",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "HONEST_ANOMALY",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4624",
+        "LogonType=3",
+        "AuthenticationPackageName=NTLM"
+      ],
+      "label": "t1550_002",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1550.002",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 151,
+      "telemetry_sha256": "61a07bc476973055ebdb39d96ac41662c3d4d26305377ca4de7c1815e44bc429",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "TRUE_POSITIVE",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "NewProcessName=*ntdsutil*",
+        "Message=*ntds.dit*",
+        "ntdsutil",
+        "ntds.dit"
+      ],
+      "label": "t1003_003",
+      "matched_discriminators": [
+        "NewProcessName=*ntdsutil*",
+        "ntdsutil"
+      ],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 1.0,
+      "technique_expected": "T1003.003",
+      "technique_ids": [
+        "T1003.003"
+      ],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 2161,
+      "telemetry_sha256": "a3bed5dca89102b36f0d912eed41a68a581e0b2f20cbefd0070feec02da1db61",
+      "verdict": "CONFIRMED"
+    },
+    {
+      "attribution": "TRUE_POSITIVE",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "NewProcessName=*ntdsutil*",
+        "Message=*ntds.dit*",
+        "ntdsutil",
+        "ntds.dit"
+      ],
+      "label": "t1003_003",
+      "matched_discriminators": [
+        "NewProcessName=*ntdsutil*",
+        "ntdsutil"
+      ],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 1.0,
+      "technique_expected": "T1003.003",
+      "technique_ids": [
+        "T1003.003"
+      ],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 2161,
+      "telemetry_sha256": "a3bed5dca89102b36f0d912eed41a68a581e0b2f20cbefd0070feec02da1db61",
+      "verdict": "CONFIRMED"
+    },
+    {
+      "attribution": "MISATTRIBUTION",
+      "discriminator_source": "declared_discriminator_tokens",
+      "discriminators": [
+        "NewProcessName=*ntdsutil*",
+        "Message=*ntds.dit*",
+        "ntdsutil",
+        "ntds.dit"
+      ],
+      "label": "t1003_003",
+      "matched_discriminators": [
+        "NewProcessName=*ntdsutil*",
+        "ntdsutil"
+      ],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "declared_discriminator_tokens",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 1.0,
+      "technique_expected": "T1003.003",
+      "technique_ids": [
+        "T1003",
+        "T1486"
+      ],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 4399,
+      "telemetry_sha256": "9d9d58b6aa4267d3861a588c9a126cd62b347d64704a80c36b7160f683c90952",
+      "verdict": "CONFIRMED"
+    },
+    {
+      "attribution": "HONEST_NEGATIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4688",
+        "NewProcessName=*wmic*",
+        "NewProcessName=*WmiPrvSE*",
+        "EventCode=5861"
+      ],
+      "label": "t1047",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1047",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 165,
+      "telemetry_sha256": "7e769e70388e182e651ded5a1253af473cfc713e2101d0c8345115f151385e9d",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "FALSE_NEGATIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4688",
+        "NewProcessName=*wmic*",
+        "NewProcessName=*WmiPrvSE*",
+        "EventCode=5861"
+      ],
+      "label": "t1047",
+      "matched_discriminators": [
+        "EventCode=4688",
+        "NewProcessName=*WmiPrvSE*"
+      ],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1047",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 2583,
+      "telemetry_sha256": "0aeedcfef2003ab7df1761f84be739a84e30278b32dc8d2310dd936d61ed7437",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "EVIDENCE_PRESENT_MISS",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4688",
+        "NewProcessName=*wmic*",
+        "NewProcessName=*WmiPrvSE*",
+        "EventCode=5861"
+      ],
+      "label": "t1047",
+      "matched_discriminators": [
+        "EventCode=4688",
+        "NewProcessName=*WmiPrvSE*"
+      ],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1047",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 2583,
+      "telemetry_sha256": "23c7e75ee43048befb90b19a4ca875f609b3cd37955a41823b89a5c4e6ad273f",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1189",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1189",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 91,
+      "telemetry_sha256": "2806a5d70a04e0358900ba1df038f7c3e684ece396915c2d8b67498ea0dfb7b0",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1189",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1189",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 45,
+      "telemetry_sha256": "b19328fed6c5b1e99a07db7e1d8845e605f138e17d92e472099045f65e016db6",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1189",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1189",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 22,
+      "telemetry_sha256": "421abe949f2b6f5d264d3cbe5ae60508efc8a055a4130ecb9c07be3f3af978d6",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "HONEST_ANOMALY",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4697",
+        "Message=*LLMNR*",
+        "Message=*responder*",
+        "exe=*responder*"
+      ],
+      "label": "t1557_001",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1557.001",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 331,
+      "telemetry_sha256": "7b1fce575b83c71d8fe6614b80ceff9b2b5e3295f903c3fddf55258133acaf6f",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "HONEST_NEGATIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4697",
+        "Message=*LLMNR*",
+        "Message=*responder*",
+        "exe=*responder*"
+      ],
+      "label": "t1557_001",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "ABSENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1557.001",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 165,
+      "telemetry_sha256": "7e769e70388e182e651ded5a1253af473cfc713e2101d0c8345115f151385e9d",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "FALSE_NEGATIVE",
+      "discriminator_source": "spl_field_value_clauses",
+      "discriminators": [
+        "EventCode=4697",
+        "Message=*LLMNR*",
+        "Message=*responder*",
+        "exe=*responder*"
+      ],
+      "label": "t1557_001",
+      "matched_discriminators": [
+        "EventCode=4697"
+      ],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "spl_field_value_clauses",
+      "oracle_result": "PRESENT",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1557.001",
+      "technique_ids": [
+        "T1087"
+      ],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 7540,
+      "telemetry_sha256": "0549ace9edad77fb33604c53c8108e23562bfab728a60fa561a368e885eb63f3",
+      "verdict": "RULED_OUT"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1552",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1552",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 5107,
+      "telemetry_sha256": "ad00dfdab6cd1cc589c329e1603d2e55f9b79c8d6e09594e0ed4885a2470cd9c",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1552",
+      "matched_discriminators": [],
+      "mode": "council",
+      "model_arm": "council_strong",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1552",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 2689,
+      "telemetry_sha256": "72d2cd910e07b69c4d58e9f66e2a9eeaadffe5d38903d872521704abb10b14aa",
+      "verdict": "ANOMALOUS_UNCLASSIFIED"
+    },
+    {
+      "attribution": "UNSCORABLE_BY_ORACLE",
+      "discriminator_source": "none",
+      "discriminators": [],
+      "label": "t1552",
+      "matched_discriminators": [],
+      "mode": "orchestrated",
+      "model_arm": "weak_mentor_validation",
+      "oracle_reason": "no_declared_discriminator",
+      "oracle_result": "INDETERMINATE",
+      "promotion_recall": 0.0,
+      "technique_expected": "T1552",
+      "technique_ids": [],
+      "telemetry_capture_complete": true,
+      "telemetry_chars": 2523,
+      "telemetry_sha256": "179e186161b3e4a30fb63c21c90e73e6822efd3a5f094a9a22fb466ab674af39",
+      "verdict": "RULED_OUT"
+    }
+  ],
+  "overall": {
+    "A_evidence_present_misses": 7,
+    "B_honest_negatives": 10,
+    "I_unscorable": 19,
+    "M_misattributions": 1,
+    "cells": 51,
+    "defensible_honest_anomalies": 10,
+    "true_positives": 4
+  },
+  "schema_version": 1,
+  "semantics": {
+    "A": "EVIDENCE_PRESENT_MISS + FALSE_NEGATIVE",
+    "B": "HONEST_NEGATIVE (V5B branch-rule definition)",
+    "D": "HONEST_ANOMALY (evidence absent but anomaly surfaced; I8-preserving)",
+    "I": "UNSCORABLE_BY_ORACLE",
+    "M": "MISATTRIBUTION"
+  },
+  "source_checkpoint": "portal/modules/security/core/results/checkpoints/corpus_replay_bench_v4_closeout.json",
+  "source_checkpoint_sha256": "8bfb406544a903f11def43ecb3c65e4ac66149671ef032e6b8fb507eb1bcbad0"
+}
