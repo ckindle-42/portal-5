@@ -2763,6 +2763,10 @@ def main() -> int:
     v.run(
         "BH. budget backward compat (V2 identical when no budgets=)", check_budget_backward_compat
     )
+    v.run(
+        "BI. barrier tools gate (T1 JSON fallback + T2 escalate first-class + I2 cite-or-drop)",
+        check_barrier_tools_gate,
+    )
 
     return v.summary()
 
@@ -4005,6 +4009,107 @@ def check_budget_backward_compat() -> tuple[str, str, list[dict]]:
     if bad:
         return ("FAIL", "; ".join(bad), subs)
     return ("PASS", "budgets=None is byte-for-byte V2 (B1 preserved)", subs)
+
+
+def check_barrier_tools_gate() -> tuple[str, str, list[dict]]:
+    """BI. V3C: barrier-tool schemas are shaped correctly (T2: escalate is
+    distinct from emit_verdict) and cite-or-drop still runs on CONFIRMED
+    emitted via barrier tool (I2).
+
+    Static schema check + live functional check combined."""
+    from portal.modules.security.core import blue_orchestrate as bo
+    from portal.modules.security.core.blue_orchestrate import _BARRIER_TOOL_SCHEMAS
+
+    subs: list[dict] = []
+    bad: list[str] = []
+
+    names = [t["function"]["name"] for t in _BARRIER_TOOL_SCHEMAS]
+    expected = {"emit_verdict", "escalate_anomalous", "request_more"}
+    ok_names = set(names) == expected
+    subs.append(
+        {
+            "name": "three barrier tools present",
+            "status": "PASS" if ok_names else "FAIL",
+            "detail": f"names={names}",
+        }
+    )
+    if not ok_names:
+        bad.append(f"barrier tool set incorrect: got {names}, want {sorted(expected)}")
+
+    emit = next((t for t in _BARRIER_TOOL_SCHEMAS if t["function"]["name"] == "emit_verdict"), None)
+    if emit:
+        enum_vals = emit["function"]["parameters"]["properties"]["verdict"].get("enum", [])
+        t2_ok = "ANOMALOUS_UNCLASSIFIED" not in enum_vals and set(enum_vals) == {
+            "CONFIRMED",
+            "RULED_OUT",
+        }
+        subs.append(
+            {
+                "name": "T2: emit_verdict enum excludes ANOMALOUS_UNCLASSIFIED",
+                "status": "PASS" if t2_ok else "FAIL",
+                "detail": f"enum={enum_vals}",
+            }
+        )
+        if not t2_ok:
+            bad.append(
+                f"T2 violated: emit_verdict enum = {enum_vals} (should be CONFIRMED/RULED_OUT only)"
+            )
+
+    # I2 live check: a CONFIRMED emitted via barrier tool with ungrounded
+    # evidence must still be demoted through the same cite-or-drop gate the
+    # JSON path uses — barrier tools are structural, not exempting.
+    orig_call_model = bo._call_model
+
+    def fake_ungrounded_confirm(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        return {
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "emit_verdict",
+                        "arguments": {
+                            "verdict": "CONFIRMED",
+                            "technique_ids": ["T1558.004"],
+                            "evidence": ["fabricated-citation-zzz99001, never actually gathered"],
+                            "reasoning": "r",
+                            "match_grade": "EXACT",
+                        },
+                    }
+                }
+            ]
+        }
+
+    bo._call_model = fake_ungrounded_confirm
+    try:
+        out = bo.run_expert_model(
+            "ctx",
+            expert_model="expert-model",
+            context_text="",
+            tool_results=[
+                bo.ToolResult(
+                    query="q",
+                    provenance="matched-exact",
+                    raw_summary="EventCode=9999 innocuous-startup-alpha7712",
+                )
+            ],
+            use_barrier_tools=True,
+        )
+    finally:
+        bo._call_model = orig_call_model
+
+    i2_ok = out.verdict == "ANOMALOUS_UNCLASSIFIED" and out.ungrounded_claims == ["T1558.004"]
+    subs.append(
+        {
+            "name": "I2: ungrounded CONFIRMED via barrier tool is demoted (live)",
+            "status": "PASS" if i2_ok else "FAIL",
+            "detail": f"verdict={out.verdict} ungrounded_claims={out.ungrounded_claims}",
+        }
+    )
+    if not i2_ok:
+        bad.append("barrier-tool CONFIRMED with ungrounded evidence was not demoted (I2 broken)")
+
+    if bad:
+        return ("FAIL", "; ".join(bad), subs)
+    return ("PASS", "barrier tools shape + I2 grounding preserved", subs)
 
 
 if __name__ == "__main__":

@@ -1917,3 +1917,230 @@ def test_budgets_dict_is_not_mutated_by_orchestration(monkeypatch):
     before = dict(budgets)
     bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=6, budgets=budgets)
     assert budgets == before
+
+
+# ── V3C: Barrier tools ───────────────────────────────────────────────────
+
+
+def test_barrier_tools_disabled_reproduces_v2_json_path(monkeypatch):
+    """I7: use_barrier_tools defaults False everywhere -> V2 JSON path."""
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        assert tools is None
+        if model == "expert-model":
+            return {"content": _confirmed_json()}
+        return {"content": _always_wants_more_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec, provenance="matched-exact", raw_summary="EventCode=4768"
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    result = bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=6)
+    assert result.verdict == "CONFIRMED"
+
+
+def _barrier_msg(name: str, arguments: dict) -> dict:
+    return {"tool_calls": [{"function": {"name": name, "arguments": arguments}}]}
+
+
+def test_emit_verdict_confirmed_path(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        assert tools == bo._BARRIER_TOOL_SCHEMAS
+        return _barrier_msg(
+            "emit_verdict",
+            {
+                "verdict": "CONFIRMED",
+                "technique_ids": ["T1558.004"],
+                "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+                "reasoning": "confirmed via barrier tool",
+                "match_grade": "EXACT",
+            },
+        )
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    out = bo.run_expert_model(
+        "ctx",
+        expert_model="expert-model",
+        context_text="",
+        tool_results=[
+            bo.ToolResult(
+                query="q",
+                provenance="matched-exact",
+                raw_summary="EventCode=4768 AS-REP event for svc-web",
+            )
+        ],
+        use_barrier_tools=True,
+    )
+    assert out.verdict == "CONFIRMED"
+    assert out.technique_ids == ["T1558.004"]
+    assert out.evidence
+
+
+def test_escalate_anomalous_is_first_class_not_demoted_confirmed(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        return _barrier_msg(
+            "escalate_anomalous",
+            {
+                "reasoning": "novel pattern, no exact technique mapping",
+                "similar_to": ["T1548.002"],
+                "evidence": ["odd timing pattern"],
+            },
+        )
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    out = bo.run_expert_model(
+        "ctx", expert_model="expert-model", context_text="", tool_results=[], use_barrier_tools=True
+    )
+    assert out.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert out.similar_to == ["T1548.002"]
+    assert out.technique_ids == []
+
+
+def test_request_more_barrier_tool_matches_v2_request_more_semantics(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        return _barrier_msg("request_more", {"what": "EventCode 4769"})
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    out = bo.run_expert_model(
+        "ctx", expert_model="expert-model", context_text="", tool_results=[], use_barrier_tools=True
+    )
+    assert out.wants_more() is True
+    assert out.request_more == "EventCode 4769"
+
+
+def test_json_fallback_when_no_tool_call_emitted(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        return {"content": _confirmed_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    out = bo.run_expert_model(
+        "ctx",
+        expert_model="expert-model",
+        context_text="",
+        tool_results=[
+            bo.ToolResult(
+                query="q",
+                provenance="matched-exact",
+                raw_summary="EventCode=4768 AS-REP event for svc-web",
+            )
+        ],
+        use_barrier_tools=True,
+    )
+    assert out.verdict == "CONFIRMED"
+
+
+def test_malformed_toolcall_args_falls_back_to_json_scrape(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        msg = _barrier_msg("emit_verdict", {"verdict": "MAYBE"})
+        msg["content"] = _ruled_out_json()
+        return msg
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    out = bo.run_expert_model(
+        "ctx", expert_model="expert-model", context_text="", tool_results=[], use_barrier_tools=True
+    )
+    assert out.verdict == "RULED_OUT"
+
+
+def test_council_members_use_barrier_tools_when_configured(monkeypatch):
+    """The lead-hunter phase (run_reasoning_model, discovery system prompt)
+    and the member-vote phase (run_expert_model, expert system prompt) are
+    distinguished by system prompt, not by model name — council-a plays
+    BOTH the lead hunter and a member here, and must gather evidence in the
+    first role before concluding in the second."""
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        is_expert_turn = messages[0]["content"] == bo._EXPERT_SYSTEM_PROMPT
+        if not is_expert_turn:
+            # Lead-hunter turn: gather one round of evidence, then hand off.
+            return {"content": _always_wants_more_json()}
+        if model == "council-a":
+            return _barrier_msg(
+                "emit_verdict",
+                {
+                    "verdict": "CONFIRMED",
+                    "technique_ids": ["T1078"],
+                    "evidence": ["EventCode=4768"],
+                    "reasoning": "r",
+                    "match_grade": "EXACT",
+                },
+            )
+        if model == "council-b":
+            return _barrier_msg(
+                "escalate_anomalous",
+                {"reasoning": "novel", "similar_to": ["T1078.002"], "evidence": ["EventCode=4768"]},
+            )
+        raise AssertionError(f"unexpected expert-turn model {model}")
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec, provenance="matched-exact", raw_summary="EventCode=4768"
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="council-a", use_barrier_tools=True),
+        bo.SectionSpec(role="reasoning", model="council-b", use_barrier_tools=True),
+    ]
+    result = bo.run_blue_orchestration(_episode(), sections=sections, max_rounds=6)
+    member_entries = [t for t in result.trace if t.get("section") == "council_member"]
+    assert len(member_entries) == 2
+    verdicts = {t["model"]: t["verdict"] for t in member_entries}
+    assert verdicts["council-a"] == "CONFIRMED"
+    assert verdicts["council-b"] == "ANOMALOUS_UNCLASSIFIED"
+
+
+def test_confirmed_via_barrier_tool_still_cite_or_drops(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        return _barrier_msg(
+            "emit_verdict",
+            {
+                "verdict": "CONFIRMED",
+                "technique_ids": ["T1558.004"],
+                "evidence": ["fabricated-citation-zzz99001, never actually gathered"],
+                "reasoning": "r",
+                "match_grade": "EXACT",
+            },
+        )
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    out = bo.run_expert_model(
+        "ctx",
+        expert_model="expert-model",
+        context_text="",
+        tool_results=[
+            bo.ToolResult(
+                query="q",
+                provenance="matched-exact",
+                raw_summary="EventCode=9999 innocuous-startup-alpha7712",
+            )
+        ],
+        use_barrier_tools=True,
+    )
+    assert out.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert out.ungrounded_claims == ["T1558.004"]
+
+
+def test_barrier_tool_schemas_shape_static():
+    names = [t["function"]["name"] for t in bo._BARRIER_TOOL_SCHEMAS]
+    assert set(names) == {"emit_verdict", "escalate_anomalous", "request_more"}
+    emit = next(t for t in bo._BARRIER_TOOL_SCHEMAS if t["function"]["name"] == "emit_verdict")
+    enum_vals = emit["function"]["parameters"]["properties"]["verdict"]["enum"]
+    assert set(enum_vals) == {"CONFIRMED", "RULED_OUT"}
+    for t in bo._BARRIER_TOOL_SCHEMAS:
+        assert t["function"]["parameters"]["required"]

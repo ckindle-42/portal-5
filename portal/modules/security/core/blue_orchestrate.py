@@ -13,6 +13,7 @@ Reuses (never re-implements):
 
 from __future__ import annotations
 
+import contextlib
 import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -77,6 +78,233 @@ def _retrieval_tool_schemas() -> list[dict]:
     return [t for t in _SEARCH_TOOLS if t.get("function", {}).get("name") in _RETRIEVAL_TOOL_NAMES]
 
 
+# ── V3C: Barrier tools for verdict emission (Hunter + Expert) ──────────────
+#
+# Structural verdict emission with escalate_anomalous as first-class (T2).
+# A tool_call is unambiguous where JSON scraping is fragile: the model
+# chose to call `emit_verdict` or `escalate_anomalous`, not a heuristic
+# over its prose.
+
+_BARRIER_TOOL_SCHEMAS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "emit_verdict",
+            "description": (
+                "Emit a conclusive verdict. Use CONFIRMED when the evidence "
+                "supports a specific known MITRE technique; use RULED_OUT "
+                "when the evidence, examined honestly, does not support the "
+                "hypothesis being investigated. If you saw signal but cannot "
+                "map it exactly to a known technique, do NOT emit CONFIRMED — "
+                "use escalate_anomalous instead."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "verdict": {
+                        "type": "string",
+                        "enum": ["CONFIRMED", "RULED_OUT"],
+                    },
+                    "technique_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "MITRE technique IDs (T####.### form). Required "
+                            "when verdict is CONFIRMED; must be [] when "
+                            "RULED_OUT."
+                        ),
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "Verbatim citations from the gathered telemetry. "
+                            "Every entry must be something you can point to "
+                            "in the evidence you were given — never a typical "
+                            "detail invented from the technique."
+                        ),
+                    },
+                    "reasoning": {"type": "string"},
+                    "match_grade": {
+                        "type": "string",
+                        "enum": ["EXACT", "NONE"],
+                        "description": (
+                            "EXACT when the evidence matches the named "
+                            "technique(s) directly; NONE when RULED_OUT. "
+                            "SIMILAR is not valid here — use "
+                            "escalate_anomalous for variant/novel matches."
+                        ),
+                    },
+                },
+                "required": ["verdict", "technique_ids", "evidence", "reasoning", "match_grade"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "escalate_anomalous",
+            "description": (
+                "Emit ANOMALOUS_UNCLASSIFIED — signal was present in the "
+                "evidence but you cannot map it exactly to a known technique. "
+                "This is a first-class success outcome for this investigation, "
+                "not a fallback. Use this when you see something worth "
+                "surfacing to a human analyst that does not fit a known "
+                "signature — the emerging-threat case."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reasoning": {
+                        "type": "string",
+                        "description": (
+                            "Why this is anomalous — what pattern you saw, "
+                            "and why it doesn't fit a known technique."
+                        ),
+                    },
+                    "similar_to": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "Nearest known techniques (T####.### form) — the "
+                            "SIMILAR-neighbours, for downstream review. May "
+                            "be [] if truly nothing close."
+                        ),
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "The verbatim telemetry citations that support "
+                            "this being anomalous. Same grounding rule as "
+                            "emit_verdict."
+                        ),
+                    },
+                },
+                "required": ["reasoning", "similar_to", "evidence"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "request_more",
+            "description": (
+                "Explicit continuation — you need more telemetry before you "
+                "can render one of the barrier verdicts above. Name the "
+                "specific gap (EventCode, field, source) — never a generic "
+                "re-ask. Not emitting a tool call at all is not the same as "
+                "requesting more; if you do not call one of these three, "
+                "your turn contributes nothing to the investigation."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "what": {
+                        "type": "string",
+                        "description": (
+                            "Exact telemetry gap: EventCode, field, source, "
+                            "or technique-family you still need to see."
+                        ),
+                    },
+                },
+                "required": ["what"],
+            },
+        },
+    },
+]
+
+_BARRIER_TOOLS_ENABLED_ADDENDUM = (
+    "\n\nYou have three tools available: emit_verdict (for CONFIRMED or "
+    "RULED_OUT), escalate_anomalous (for the emerging-threat case — signal "
+    "present, no exact known mapping), and request_more (for a specific "
+    "telemetry gap). Call exactly one of these to end your turn. If your "
+    "runtime does not support tool calls, emit the equivalent JSON block "
+    "from the format above as a fallback."
+)
+
+
+def _parse_barrier_toolcall(msg: dict) -> SectionOutput | None:
+    """Convert a barrier tool_call into a SectionOutput.
+
+    Returns None when no barrier tool was called (caller falls back to
+    JSON scrape — T1). Never raises on malformed args; degrades to None
+    and lets the fallback path handle it.
+
+    T2: escalate_anomalous is a distinct verdict path here, not routed
+    through emit_verdict.
+    """
+    tool_calls = msg.get("tool_calls") or []
+    for tc in tool_calls:
+        fn = tc.get("function") or {}
+        name = fn.get("name", "")
+        args = _coerce_tool_args(fn.get("arguments"))
+        if name == "emit_verdict":
+            verdict = str(args.get("verdict") or "").upper()
+            if verdict not in ("CONFIRMED", "RULED_OUT"):
+                continue  # malformed — try next tool_call or fall through
+            technique_ids = [str(t) for t in (args.get("technique_ids") or []) if t]
+            match_grade = str(args.get("match_grade") or "NONE").upper()
+            if match_grade not in ("EXACT", "NONE"):
+                match_grade = "NONE"
+            return SectionOutput(
+                verdict=verdict,
+                technique_ids=technique_ids,
+                evidence=[str(e) for e in (args.get("evidence") or [])],
+                reasoning=str(args.get("reasoning") or ""),
+                match_grade=match_grade,
+                similar_to=[],
+                section="",  # caller stamps
+                raw=str(msg),
+            )
+        if name == "escalate_anomalous":
+            return SectionOutput(
+                verdict="ANOMALOUS_UNCLASSIFIED",
+                technique_ids=[],
+                evidence=[str(e) for e in (args.get("evidence") or [])],
+                reasoning=str(args.get("reasoning") or ""),
+                match_grade="SIMILAR" if (args.get("similar_to") or []) else "NONE",
+                similar_to=[str(t) for t in (args.get("similar_to") or []) if t],
+                section="",
+                raw=str(msg),
+            )
+        if name == "request_more":
+            return SectionOutput(
+                verdict=None,
+                request_more=str(args.get("what") or "").strip() or "unspecified gap",
+                section="",
+                raw=str(msg),
+            )
+    return None
+
+
+def _record_barrier_fallback(role: str, reason: str) -> None:
+    """Observability only (V3C) — never raises. Fallback rate per role/reason
+    is the signal for the standing 'no barrier-tool support' model list."""
+    with contextlib.suppress(Exception):
+        _BARRIER_FALLBACK_COUNTER.labels(role=role, reason=reason).inc()
+
+
+try:
+    from prometheus_client import Counter as _PromCounter
+
+    _BARRIER_FALLBACK_COUNTER = _PromCounter(
+        "portal5_barrier_toolcall_fallback_total",
+        "Barrier tool-call verdict emission fell back to JSON scrape (V3C)",
+        ["role", "reason"],
+    )
+except Exception:  # pragma: no cover - prometheus_client always present in this repo's env
+
+    class _NoopCounter:
+        def labels(self, **_kwargs):
+            return self
+
+        def inc(self) -> None:
+            pass
+
+    _BARRIER_FALLBACK_COUNTER = _NoopCounter()
+
+
 @dataclass
 class ToolResult:
     query: str
@@ -103,6 +331,7 @@ class SectionSpec:
     role: str  # "tool" | "reasoning" | "expert" | "mentor"
     model: str
     needs_tools: bool = False  # True only for role == "tool"
+    use_barrier_tools: bool = False  # V3C: emit_verdict/escalate_anomalous/request_more
 
 
 def build_tool_request(trigger_or_more: str, *, window: str = "") -> ToolRequest:
@@ -493,6 +722,7 @@ def run_reasoning_model(
     history: list[dict] | None = None,
     dry_run: bool = False,
     extra_options: dict | None = None,
+    use_barrier_tools: bool = False,
 ) -> SectionOutput:
     """Call a generalist reasoner (tools off) to hunt: form hypotheses, decide
     what more to pull, and carry a similarity result. The Hunter proposes; it
@@ -507,6 +737,11 @@ def run_reasoning_model(
 
     `extra_options` forwards to `_call_model` — see `run_expert_model`'s
     docstring for the same mechanism (controlled sampling comparisons).
+
+    `use_barrier_tools` (V3C, default False = V2 JSON-scrape path unchanged,
+    I7): when True, offers `_BARRIER_TOOL_SCHEMAS` and prefers a structural
+    tool_call verdict over the JSON scrape (T1: JSON stays as fallback when
+    no barrier tool was called).
     """
     if dry_run:
         return SectionOutput(
@@ -518,14 +753,22 @@ def run_reasoning_model(
     messages = [{"role": "system", "content": _BLUE_SYSTEM_PROMPT_DISCOVERY}]
     if history:
         messages.extend(history)
-    messages.append({"role": "user", "content": context})
+    turn_content = context + (_BARRIER_TOOLS_ENABLED_ADDENDUM if use_barrier_tools else "")
+    messages.append({"role": "user", "content": turn_content})
     msg = _call_model(
         reasoning_model,
         messages,
-        tools=None,
+        tools=_BARRIER_TOOL_SCHEMAS if use_barrier_tools else None,
         max_tokens=_REASONING_MAX_TOKENS,
         extra_options=extra_options,
     )
+    if use_barrier_tools:
+        barrier_out = _parse_barrier_toolcall(msg)
+        if barrier_out is not None:
+            barrier_out.section = "reasoning"
+            return barrier_out
+        _record_barrier_fallback("reasoning", "no_tool_call")
+
     content = msg.get("content", "") or ""
     stripped = _strip_think_tags(content)
     parsed = _parse_hunter_json(stripped)
@@ -781,84 +1024,26 @@ def _ground_hunter_evidence(
     )
 
 
-def run_expert_model(
-    context: str,
+def _finalize_expert_verdict(
     *,
-    expert_model: str,
-    context_text: str = "",
-    tool_results: list[ToolResult] | None = None,
-    hunter_similar_to: list[str] | None = None,
-    dry_run: bool = False,
-    extra_options: dict | None = None,
+    verdict: str | None,
+    technique_ids: list[str],
+    evidence: list[str],
+    reasoning: str,
+    match_grade: str,
+    similar_to: list[str],
+    request_more: str,
+    tool_results: list[ToolResult] | None,
+    context_text: str,
+    raw: str,
 ) -> SectionOutput:
-    """Call the fed, no-tools domain-expert model for the conclusive verdict.
-
-    Deliberately never passes `tools` and never checks any backends.yaml
-    `supports_tools` gate — this is the require_tools=False path that makes a
-    supports_tools:false expert (Foundation-Sec-8B-Reasoning) usable. A
-    CONFIRMED verdict is run through blue._cite_or_drop; if its evidence
-    doesn't survive, it is downgraded to ANOMALOUS_UNCLASSIFIED (I2/I8) with
-    the failed IDs quarantined in `ungrounded_claims` — never recycled into
-    `technique_ids` or `similar_to`, where they would launder a fabricated
-    claim into quorum votes or escalation credit (2026-07-23 design review).
-    The Hunter's own `similar_to` still carries when the expert didn't
-    supply one — that's a pre-existing neighbour claim, not the demotion.
-
-    `context_text` is the trigger handed to the sections (host/scenario/
-    telemetry-source names) — excluded from citation grounding so a claim
-    can't ground itself by echoing the prompt. This function is label-blind:
-    it never sees ground truth (2026-07-23; it previously did, which made it
-    both undeployable and eval-contaminating).
-
-    `extra_options` forwards straight to `_call_model` — lets a caller force
-    specific sampling values (temperature/top_p/etc) for a controlled
-    comparison against the workspace's own configured defaults, without
-    touching config/portal.yaml. `None` (default) is a no-op.
+    """Shared Expert finalization for BOTH the JSON-scrape path and the
+    barrier-tool path (T1/I2): a CONFIRMED verdict — however it was
+    emitted — always runs through `_cite_or_drop`; barrier tools are
+    structural, not exempting.
     """
-    if dry_run:
-        return SectionOutput(
-            request_more="dry-run: no live expert call performed", section="expert"
-        )
-
-    messages = [
-        {"role": "system", "content": _EXPERT_SYSTEM_PROMPT},
-        {"role": "user", "content": context + _EXPERT_OUTPUT_FORMAT_INSTRUCTIONS},
-    ]
-    msg = _call_model(
-        expert_model,
-        messages,
-        tools=None,
-        max_tokens=_EXPERT_MAX_TOKENS,
-        extra_options=extra_options,
-    )
-    content = msg.get("content", "") or ""
-    stripped = _strip_think_tags(content)
-    parsed = None
-    for obj in reversed(_find_balanced_json_objects(stripped)):
-        if "verdict" in obj or "request_more" in obj:
-            parsed = obj
-            break
-
-    if not parsed:
-        fallback = (
-            stripped[:400] or "expert produced no parseable verdict — need one targeted re-check"
-        )
-        return SectionOutput(request_more=fallback, section="expert", raw=content)
-
-    verdict = parsed.get("verdict")
-    if verdict not in ("CONFIRMED", "ANOMALOUS_UNCLASSIFIED", "RULED_OUT"):
-        verdict = None
-    request_more = str(parsed.get("request_more") or "").strip()
-    technique_ids = [t for t in (parsed.get("technique_ids") or []) if t]
-    evidence = [str(e) for e in (parsed.get("evidence") or [])]
-    reasoning = str(parsed.get("reasoning") or "")
-    match_grade = str(parsed.get("match_grade") or "NONE").upper()
-    if match_grade not in ("EXACT", "SIMILAR", "NONE"):
-        match_grade = "NONE"
-    similar_to = [t for t in (parsed.get("similar_to") or []) if t] or list(hunter_similar_to or [])
-
     if verdict is None and not request_more:
-        request_more = stripped[:400] or "expert produced no verdict — need one targeted re-check"
+        request_more = raw[:400] or "expert produced no verdict — need one targeted re-check"
 
     if verdict is None:
         return SectionOutput(
@@ -866,7 +1051,7 @@ def run_expert_model(
             match_grade=match_grade,
             similar_to=similar_to,
             section="expert",
-            raw=content,
+            raw=raw,
         )
 
     if verdict == "CONFIRMED":
@@ -897,7 +1082,7 @@ def run_expert_model(
                 match_grade="SIMILAR" if similar_to else "NONE",
                 similar_to=similar_to,
                 section="expert",
-                raw=content,
+                raw=raw,
                 ungrounded_claims=technique_ids,
             )
 
@@ -909,6 +1094,128 @@ def run_expert_model(
         match_grade=match_grade,
         similar_to=similar_to,
         section="expert",
+        raw=raw,
+    )
+
+
+def run_expert_model(
+    context: str,
+    *,
+    expert_model: str,
+    context_text: str = "",
+    tool_results: list[ToolResult] | None = None,
+    hunter_similar_to: list[str] | None = None,
+    dry_run: bool = False,
+    extra_options: dict | None = None,
+    use_barrier_tools: bool = False,
+) -> SectionOutput:
+    """Call the fed, no-tools domain-expert model for the conclusive verdict.
+
+    Deliberately never passes `tools` (unless `use_barrier_tools`, V3C) and
+    never checks any backends.yaml `supports_tools` gate — this is the
+    require_tools=False path that makes a supports_tools:false expert
+    (Foundation-Sec-8B-Reasoning) usable. A CONFIRMED verdict is run through
+    blue._cite_or_drop (via `_finalize_expert_verdict`, shared by both the
+    JSON-scrape and barrier-tool paths — I2, barrier tools do not exempt
+    this); if its evidence doesn't survive, it is downgraded to
+    ANOMALOUS_UNCLASSIFIED (I2/I8) with the failed IDs quarantined in
+    `ungrounded_claims` — never recycled into `technique_ids` or
+    `similar_to`, where they would launder a fabricated claim into quorum
+    votes or escalation credit (2026-07-23 design review). The Hunter's own
+    `similar_to` still carries when the expert didn't supply one — that's a
+    pre-existing neighbour claim, not the demotion.
+
+    `context_text` is the trigger handed to the sections (host/scenario/
+    telemetry-source names) — excluded from citation grounding so a claim
+    can't ground itself by echoing the prompt. This function is label-blind:
+    it never sees ground truth (2026-07-23; it previously did, which made it
+    both undeployable and eval-contaminating).
+
+    `extra_options` forwards straight to `_call_model` — lets a caller force
+    specific sampling values (temperature/top_p/etc) for a controlled
+    comparison against the workspace's own configured defaults, without
+    touching config/portal.yaml. `None` (default) is a no-op.
+
+    `use_barrier_tools` (V3C, default False = V2 JSON-scrape path unchanged,
+    I7): when True, offers `_BARRIER_TOOL_SCHEMAS`; a barrier tool_call
+    verdict is preferred over the JSON scrape, which stays as fallback (T1).
+    """
+    if dry_run:
+        return SectionOutput(
+            request_more="dry-run: no live expert call performed", section="expert"
+        )
+
+    messages = [
+        {"role": "system", "content": _EXPERT_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": context
+            + _EXPERT_OUTPUT_FORMAT_INSTRUCTIONS
+            + (_BARRIER_TOOLS_ENABLED_ADDENDUM if use_barrier_tools else ""),
+        },
+    ]
+    msg = _call_model(
+        expert_model,
+        messages,
+        tools=_BARRIER_TOOL_SCHEMAS if use_barrier_tools else None,
+        max_tokens=_EXPERT_MAX_TOKENS,
+        extra_options=extra_options,
+    )
+
+    if use_barrier_tools:
+        barrier_out = _parse_barrier_toolcall(msg)
+        if barrier_out is not None:
+            similar_to = barrier_out.similar_to or list(hunter_similar_to or [])
+            return _finalize_expert_verdict(
+                verdict=barrier_out.verdict,
+                technique_ids=barrier_out.technique_ids,
+                evidence=barrier_out.evidence,
+                reasoning=barrier_out.reasoning,
+                match_grade=barrier_out.match_grade,
+                similar_to=similar_to,
+                request_more=barrier_out.request_more,
+                tool_results=tool_results,
+                context_text=context_text,
+                raw=barrier_out.raw,
+            )
+        _record_barrier_fallback("expert", "no_tool_call")
+
+    content = msg.get("content", "") or ""
+    stripped = _strip_think_tags(content)
+    parsed = None
+    for obj in reversed(_find_balanced_json_objects(stripped)):
+        if "verdict" in obj or "request_more" in obj:
+            parsed = obj
+            break
+
+    if not parsed:
+        fallback = (
+            stripped[:400] or "expert produced no parseable verdict — need one targeted re-check"
+        )
+        return SectionOutput(request_more=fallback, section="expert", raw=content)
+
+    verdict = parsed.get("verdict")
+    if verdict not in ("CONFIRMED", "ANOMALOUS_UNCLASSIFIED", "RULED_OUT"):
+        verdict = None
+    request_more = str(parsed.get("request_more") or "").strip()
+    technique_ids = [t for t in (parsed.get("technique_ids") or []) if t]
+    evidence = [str(e) for e in (parsed.get("evidence") or [])]
+    reasoning = str(parsed.get("reasoning") or "")
+    match_grade = str(parsed.get("match_grade") or "NONE").upper()
+    if match_grade not in ("EXACT", "SIMILAR", "NONE"):
+        match_grade = "NONE"
+    similar_to = [t for t in (parsed.get("similar_to") or []) if t] or list(hunter_similar_to or [])
+
+    return _finalize_expert_verdict(
+        verdict=verdict,
+        technique_ids=technique_ids,
+        evidence=evidence,
+        reasoning=reasoning,
+        match_grade=match_grade,
+        similar_to=similar_to,
+        request_more=request_more,
+        tool_results=tool_results,
+        context_text=context_text,
         raw=content,
     )
 
@@ -1252,11 +1559,17 @@ def run_blue_orchestration(
     is None or a role is absent from it, that role falls back to
     `max_rounds` (B1: `max_rounds=N` alone reproduces V2 identically). When
     both are given, `budgets` wins for any role it names (B3).
+
+    `SectionSpec.use_barrier_tools` (V3C, default False on every role = V2
+    JSON-scrape path unchanged, I7) is read per-role here and forwarded to
+    the reasoning/expert calls inside the dispatched arm.
     """
     models = {s.role: s.model for s in sections}
     rosters: dict[str, list[str]] = {}
+    barrier_by_role: dict[str, bool] = {}
     for s in sections:
         rosters.setdefault(s.role, []).append(s.model)
+        barrier_by_role[s.role] = barrier_by_role.get(s.role, False) or s.use_barrier_tools
     # Checked before has_three/has_two: a naive {s.role: s.model for s in
     # sections} dict comprehension collapses a multi-model "reasoning"
     # roster down to just its LAST entry, which would silently mis-route a
@@ -1275,6 +1588,7 @@ def run_blue_orchestration(
             quorum=quorum,
             max_rounds=max_rounds,
             budgets=budgets,
+            use_barrier_tools=barrier_by_role.get("reasoning", False),
             wall_clock_s=wall_clock_s,
             dry_run=dry_run,
         )
@@ -1300,6 +1614,7 @@ def run_blue_orchestration(
         models=models,
         max_rounds=max_rounds,
         budgets=budgets,
+        barrier_tools=barrier_by_role,
         wall_clock_s=wall_clock_s,
         check_additional=check_additional,
         dry_run=dry_run,
@@ -1373,6 +1688,7 @@ def _run_expert_section(
     rounds: int,
     dry_run: bool,
     extra_options: dict | None = None,
+    use_barrier_tools: bool = False,
 ) -> tuple[SectionOutput, list[dict]]:
     """Call the Expert once, with the retry-not-fabricate nudge if this was
     flagged as the final round — the shared logic behind both a live
@@ -1391,6 +1707,7 @@ def _run_expert_section(
         hunter_similar_to=hunter_similar_to,
         dry_run=dry_run,
         extra_options=extra_options,
+        use_barrier_tools=use_barrier_tools,
     )
     expert_out = _ground_similarity(expert_out, tool_results)
 
@@ -1420,6 +1737,7 @@ def _run_expert_section(
             hunter_similar_to=hunter_similar_to,
             dry_run=dry_run,
             extra_options=extra_options,
+            use_barrier_tools=use_barrier_tools,
         )
         retry_out = _ground_similarity(retry_out, tool_results)
         trace_entries.append(
@@ -1456,6 +1774,7 @@ def capture_expert_handoff(
     models: dict[str, str],
     max_rounds: int = 6,
     budgets: dict[str, int] | None = None,
+    barrier_tools: dict[str, bool] | None = None,
     wall_clock_s: float | None = None,
     dry_run: bool = False,
 ) -> ExpertHandoff | OrchestrationResult:
@@ -1472,6 +1791,7 @@ def capture_expert_handoff(
         episode,
         models=models,
         budgets=budgets,
+        barrier_tools=barrier_tools,
         max_rounds=max_rounds,
         wall_clock_s=wall_clock_s,
         check_additional=False,
@@ -1645,6 +1965,7 @@ def _run_three_section(
     models: dict[str, str],
     max_rounds: int,
     budgets: dict[str, int] | None = None,
+    barrier_tools: dict[str, bool] | None = None,
     wall_clock_s: float | None,
     check_additional: bool,
     dry_run: bool,
@@ -1654,6 +1975,8 @@ def _run_three_section(
     import time as _time
 
     hunter_budget = _resolve_budget("hunter", budgets, max_rounds)
+    reasoning_use_barrier_tools = bool((barrier_tools or {}).get("reasoning", False))
+    expert_use_barrier_tools = bool((barrier_tools or {}).get("expert", False))
 
     ground_truth = set(episode.techniques)
     trigger = _build_trigger(episode)
@@ -1774,6 +2097,7 @@ def _run_three_section(
             reasoning_model=models["reasoning"],
             history=hunter_history,
             dry_run=dry_run,
+            use_barrier_tools=reasoning_use_barrier_tools,
         )
         hunter_out = _ground_hunter_evidence(hunter_out, tool_results, context_text=trigger)
         hunter_out = _ground_similarity(hunter_out, tool_results)
@@ -1903,6 +2227,7 @@ def _run_three_section(
             told_expert_final_round=told_expert_final_round,
             rounds=rounds,
             dry_run=dry_run,
+            use_barrier_tools=expert_use_barrier_tools,
         )
         trace.extend(new_trace)
         rounds += 1
@@ -2102,6 +2427,7 @@ def _run_council(
     quorum: float,
     max_rounds: int,
     budgets: dict[str, int] | None = None,
+    use_barrier_tools: bool = False,
     wall_clock_s: float | None,
     dry_run: bool,
 ) -> OrchestrationResult:
@@ -2131,6 +2457,11 @@ def _run_council(
     evidence (V2 behavior), so there's nothing to bound yet; it's accepted
     here only so future bench-driven tuning doesn't need another signature
     change.
+
+    ``use_barrier_tools`` (V3C, default False = V2 JSON-scrape path
+    unchanged, I7): applied to the shared lead-hunter's reasoning turn AND
+    every council member's conclusive vote — a council configured for
+    barrier tools uses them structurally throughout, not just at the vote.
     """
     import time as _time
 
@@ -2144,6 +2475,7 @@ def _run_council(
         models=lead_models,
         max_rounds=max_rounds,
         budgets=budgets,
+        barrier_tools={"reasoning": use_barrier_tools} if use_barrier_tools else None,
         wall_clock_s=wall_clock_s,
         dry_run=dry_run,
     )
@@ -2163,6 +2495,7 @@ def _run_council(
             tool_results=handoff.tool_results,
             hunter_similar_to=handoff.hunter_similar_to,
             dry_run=dry_run,
+            use_barrier_tools=use_barrier_tools,
         )
         member_out = _ground_similarity(member_out, handoff.tool_results)
         members.append(member_out)
