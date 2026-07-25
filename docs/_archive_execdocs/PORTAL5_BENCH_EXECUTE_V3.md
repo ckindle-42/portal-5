@@ -39,9 +39,9 @@ it is the required execution pattern for any run that exceeds a single session.
 #     > /tmp/bench_tps.log 2>&1 &
 # After starting the process, schedule the first wakeup:
 ScheduleWakeup(
-    delaySeconds=270,          # stay within 5-min cache TTL for warm re-entry
+    delaySeconds=270,  # stay within 5-min cache TTL for warm re-entry
     reason="monitoring bench run — check progress, handle model failures",
-    prompt="<self-contained context — see template below>"
+    prompt="<self-contained context — see template below>",
 )
 ```
 

@@ -65,9 +65,9 @@ required execution pattern. Do not hand off to the user to re-invoke you.
 ```python
 # After starting the phase process, schedule the first wakeup:
 ScheduleWakeup(
-    delaySeconds=270,          # stay within 5-min cache TTL for warm re-entry
+    delaySeconds=270,  # stay within 5-min cache TTL for warm re-entry
     reason="monitoring UAT phase N — check progress, handle failures",
-    prompt="<self-contained context — see template below>"
+    prompt="<self-contained context — see template below>",
 )
 ```
 
