@@ -134,10 +134,15 @@ not the model."
 
 - [x] V5A — Attribution instrument  (commit d31da27a at HEAD d31da27a)
       Rollup (strong arm): A=0 ; B=4 ; INDETERMINATE=6 ; MISATTRIBUTION=0
-- [ ] V5B — Data-routed remediation  (branch: R1 discriminator expansion,
-      selected by V5A data A=0/B=4/I=6/M=0; I dominant)
-- [ ] V5C — Council roster decision
-- [ ] V5D — V2 baseline
+- [x] V5B — R1 discriminator expansion → R3 documented non-build
+      (commit 2ff39da5 at HEAD 2ff39da5)
+      Initial A=0/B=4/I=6/M=0; post-R1 A=2/B=6/I=0/M=0;
+      targeted I 6→0, then B-dominant R3; production routing held
+- [x] V5C — Council roster decision  (commit d1beead0 at HEAD d1beead0)
+      Second non-voter tracked: cogito:32b @ 1/17; council disposition:
+      retained-but-experimental
+- [x] V5D — V2 baseline  (commit 3b30fbb1 at HEAD 3b30fbb1)
+      V2→V3→V4 confirm-only (strong solo): 4/17 → 3/17 → 3/17
 
 Agent records the V5B branch selection in the status line above once V5A data
 is in hand, and appends `[x]` + commit sha + HEAD per phase.

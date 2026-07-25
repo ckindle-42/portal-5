@@ -1,7 +1,8 @@
 ---
 id: unit-T1552.005-signature
 kind: mixed
-title: "T1552.005 \u2014 Cloud-metadata SSRF \u2014 169.254.169.254 access signal"
+title: "T1552.005 \u2014 Cloud-metadata SSRF \u2014 169.254.169.254 access signal\
+  \ [KEY: Cloud metadata endpoint literal from the SPL]"
 sources:
 - type: spl
   path: siem/spl_detections.yaml#T1552.005
@@ -15,11 +16,11 @@ tags:
 - T1552.005
 - technique
 - signature
-created_at: 1784898346.206052
-updated_at: 1784898346.206052
+created_at: 1785020525.008306
+updated_at: 1785020525.008306
 ---
 
-# T1552.005 — Cloud-metadata SSRF — 169.254.169.254 access signal
+# T1552.005 — Cloud-metadata SSRF — 169.254.169.254 access signal [KEY: Cloud metadata endpoint literal from the SPL]
 
 ## Telemetry Signatures
 

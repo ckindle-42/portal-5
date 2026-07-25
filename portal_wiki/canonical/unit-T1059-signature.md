@@ -8,19 +8,19 @@ sources:
 - type: mitre
   path: ATT&CK:T1059
 - type: scenario
-  path: exec_chain.py#web_deserial_rce
-- type: scenario
-  path: exec_chain.py#web_reflected_xss
-- type: scenario
   path: exec_chain.py#web_ssti
+- type: scenario
+  path: exec_chain.py#meta3_elasticsearch_rce
+- type: scenario
+  path: exec_chain.py#meta3_tomcat_manager
 last_generated_commit: ''
 confidence: high
 tags:
 - T1059
 - technique
 - signature
-created_at: 1784898346.204628
-updated_at: 1784898346.204628
+created_at: 1785020525.007047
+updated_at: 1785020525.007047
 ---
 
 # T1059 — Command execution — auditd execve of shells/interpreters
@@ -34,11 +34,11 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe=/bin/sh OR exe=/bin
 
 ## Exercised By Scenarios
 
-- `web_deserial_rce` — target: 10.10.11.50
-- `web_reflected_xss` — target: 10.10.11.50
 - `web_ssti` — target: 10.10.11.50
-- `web_ssti_stored` — target: 10.10.11.50
 - `meta3_elasticsearch_rce` — target: 10.10.11.13
+- `meta3_tomcat_manager` — target: 10.10.11.13
+- `meta3_jenkins_rce` — target: 10.10.11.13
+- `meta3_struts_rce` — target: 10.10.11.13
 
 ## Per-Source Expected Signatures
 

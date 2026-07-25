@@ -2,7 +2,7 @@
 id: unit-T1190-signature
 kind: mixed
 title: "T1190 \u2014 Web exploit \u2014 access-log signatures (LFI/SQLi/Log4Shell/webshell\
-  \ markers)"
+  \ markers) [KEY: One of the literal exploit markers used by this SPL]"
 sources:
 - type: spl
   path: siem/spl_detections.yaml#T1190
@@ -20,11 +20,11 @@ tags:
 - T1190
 - technique
 - signature
-created_at: 1784898346.203887
-updated_at: 1784898346.203887
+created_at: 1785020525.005383
+updated_at: 1785020525.005383
 ---
 
-# T1190 — Web exploit — access-log signatures (LFI/SQLi/Log4Shell/webshell markers)
+# T1190 — Web exploit — access-log signatures (LFI/SQLi/Log4Shell/webshell markers) [KEY: One of the literal exploit markers used by this SPL]
 
 ## Telemetry Signatures
 

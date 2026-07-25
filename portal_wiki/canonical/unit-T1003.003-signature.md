@@ -2,7 +2,9 @@
 id: unit-T1003.003-signature
 kind: mixed
 title: "T1003.003 \u2014 NTDS dump \u2014 ntdsutil/ntds.dit extraction for domain\
-  \ credential theft"
+  \ credential theft [DISTINGUISH: T1003.003 = NTDS.dit extraction; T1003.001 = local\
+  \ LSASS memory access; T1003.006 = remote AD replication] [KEY: NewProcessName=*ntdsutil*\
+  \ or Message=*ntds.dit*]"
 sources:
 - type: spl
   path: siem/spl_detections.yaml#T1003.003
@@ -16,11 +18,11 @@ tags:
 - T1003.003
 - technique
 - signature
-created_at: 1784898346.2116292
-updated_at: 1784898346.2116292
+created_at: 1785020525.01423
+updated_at: 1785020525.01423
 ---
 
-# T1003.003 — NTDS dump — ntdsutil/ntds.dit extraction for domain credential theft
+# T1003.003 — NTDS dump — ntdsutil/ntds.dit extraction for domain credential theft [DISTINGUISH: T1003.003 = NTDS.dit extraction; T1003.001 = local LSASS memory access; T1003.006 = remote AD replication] [KEY: NewProcessName=*ntdsutil* or Message=*ntds.dit*]
 
 ## Telemetry Signatures
 

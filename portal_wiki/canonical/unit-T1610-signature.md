@@ -13,8 +13,8 @@ tags:
 - T1610
 - technique
 - signature
-created_at: 1784898346.2053928
-updated_at: 1784898346.2053928
+created_at: 1785020525.007759
+updated_at: 1785020525.007759
 ---
 
 # T1610 — Container deploy — docker-daemon events

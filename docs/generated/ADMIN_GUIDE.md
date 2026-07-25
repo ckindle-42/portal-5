@@ -1,9 +1,8 @@
-<!-- WIKI:HUMAN-OWNED -->
 <!-- GENERATED FROM portal_wiki/canonical/ — edit the source unit, not this file -->
 
 # Portal 5 Admin Guide
 
-*Generated: 2026-07-24 18:37 UTC*
+*Generated: 2026-07-25 23:02 UTC*
 
 ## Architecture Overview
 
@@ -39,6 +38,13 @@ Critical data is in Docker volumes:
 - `portal-5_ollama-models` — downloaded model weights (replaceable, not personal data)
 
 ```bash
+# Easiest: use the launch script (saves to ./backups/)
+./launch.sh backup
+
+# Or manually (Open WebUI):
+docker run --rm -v portal-5_open-webui-data:/data -v $(pwd):/backup \
+    alpine tar czf /backup/openwebui-backup-$(date +%Y%m%d).tar.gz /data
+```
 
 ### ADMIN_GUIDE — Changing the Router Model
 *Source: docs/ADMIN_GUIDE.md*
@@ -88,16 +94,15 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 - **188 model ids, 6 backend groups**: 1 source(s)
 - **22 production + 65 eval workspaces**: 1 source(s)
 - **24 MCP fleet servers**: 1 source(s)
-- **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-06 16:52 UTC)**: 1 source(s)
-- **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-07 21:58 UTC)**: 1 source(s)
-- **Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-08 11:56 UTC)**: 1 source(s)
-- **CORRECTED — was misleading: "granite (raw)" was a selection artifact**: 1 source(s)
-- **coding_task subsystem (4 files)**: 4 source(s)
-- **memory budget for 6 media backend/model combinations**: 1 source(s)
-- **model bindings — 0 reachability gap(s)**: 3 source(s)
-- **portal subsystem (296 files)**: 5 source(s)
-- **portal_channels subsystem (4 files)**: 4 source(s)
+- **25/25 docs migrated (100.0%)**: 1 source(s)
+- **ADMIN_GUIDE — Debugging crashes**: 1 source(s)
+- **ADMIN_GUIDE — Pull Additional Models**: 1 source(s)
+- **AGENT_LOOP — Agent Loop (platform core)**: 1 source(s)
+- **AGENT_LOOP — Consumers**: 1 source(s)
+- **AGENT_LOOP — Contracts (the "key" modules implement)**: 1 source(s)
+- **AGENT_LOOP — Discipline (borrowed from the Campaign Supervisor)**: 1 source(s)
+- **AGENT_LOOP — Operator surface**: 1 source(s)
+- **AGENT_LOOP — Record path (writing enabled, CI-gated)**: 1 source(s)
 
 ---
-*518 knowledge units referenced.*
-<!-- /WIKI:HUMAN-OWNED -->
+*993 knowledge units referenced.*

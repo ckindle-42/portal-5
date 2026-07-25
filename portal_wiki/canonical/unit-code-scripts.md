@@ -1,35 +1,35 @@
 ---
 id: unit-code-scripts
 kind: what
-title: scripts subsystem (44 files)
+title: scripts subsystem (49 files)
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: d1ed2f6a55aa
+  commit: 3b30fbb1f95d
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py
-  commit: d1ed2f6a55aa
+  commit: 3b30fbb1f95d
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
-  commit: d1ed2f6a55aa
+  commit: 3b30fbb1f95d
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-readiness.py
-  commit: d1ed2f6a55aa
+  commit: 3b30fbb1f95d
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-switch-benchmark.py
-  commit: d1ed2f6a55aa
+  commit: 3b30fbb1f95d
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1784898346.080162
-updated_at: 1784898346.080162
+created_at: 1785020524.927957
+updated_at: 1785020524.927957
 ---
 
 # scripts subsystem
 
-**Files:** 44
+**Files:** 49
 
 - `scripts/_archive/analyze_bench_v5.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py`
@@ -44,11 +44,11 @@ updated_at: 1784898346.080162
 - `scripts/alias_census.py`
 - `scripts/bench_supervisor.py`
 - `scripts/blend_acceptance_results.py`
+- `scripts/caldera_emulate.py`
 - `scripts/check_docstrings.py`
 - `scripts/ci/check_generated_fresh.py`
 - `scripts/ci/check_no_identical_sources.py`
 - `scripts/ci/check_pyproject_no_dup.py`
 - `scripts/collapse_snapshot.py`
-- `scripts/doc_ledger.py`
-- `scripts/embedding-server.py`
-- ... and 24 more
+- `scripts/corpus_ingest.py`
+- ... and 29 more

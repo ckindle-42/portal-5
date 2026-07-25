@@ -10,17 +10,17 @@ sources:
 - type: scenario
   path: exec_chain.py#meta3_snmp_enum
 - type: scenario
-  path: exec_chain.py#mission_meta3_recon_exploit
+  path: exec_chain.py#vuln_adminer_ssrf_recon
 - type: scenario
-  path: exec_chain.py#mission_meta3_lateral_pivot
+  path: exec_chain.py#mission_meta3_recon_exploit
 last_generated_commit: ''
 confidence: high
 tags:
 - T1046
 - technique
 - signature
-created_at: 1784898346.213805
-updated_at: 1784898346.213805
+created_at: 1785020525.016507
+updated_at: 1785020525.016507
 ---
 
 # T1046 — Network service discovery — port scanning and SNMP enumeration
@@ -35,6 +35,7 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="nmap" OR a0="massca
 ## Exercised By Scenarios
 
 - `meta3_snmp_enum` — target: 10.10.11.13
+- `vuln_adminer_ssrf_recon` — target: 10.10.11.50
 - `mission_meta3_recon_exploit` — target: 10.10.11.13
 - `mission_meta3_lateral_pivot` — target: 10.10.11.13
 
