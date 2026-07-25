@@ -2779,6 +2779,10 @@ def main() -> int:
         "BL. council participation floor (Q1: non-voter counts against quorum)",
         check_council_participation_floor,
     )
+    v.run(
+        "BM. recall attribution boundary (label-blind oracle + World A/B split)",
+        check_recall_attribution_boundary,
+    )
 
     return v.summary()
 
@@ -4322,6 +4326,65 @@ def check_council_participation_floor() -> tuple[str, str, list[dict]]:
     if not (roster_ok and full_ok and floor_ok):
         return ("FAIL", "council roster denominator or participation floor failed", subs)
     return ("PASS", "council quorum uses roster and participation floor", subs)
+
+
+def check_recall_attribution_boundary() -> tuple[str, str, list[dict]]:
+    """BM. Eval label selection cannot leak into the presence decision."""
+    import inspect
+
+    from portal.modules.security.core import recall_attribution as ra
+
+    params = list(inspect.signature(ra.evidence_presence).parameters)
+    signature_ok = params == ["telemetry", "technique_discriminators"]
+
+    present_cell = {
+        "label": "world-a",
+        "technique_expected": "T1558.004",
+        "mode": "orchestrated",
+        "model_arm": "synthetic",
+        "status": "done",
+        "verdict": "ANOMALOUS_UNCLASSIFIED",
+        "technique_ids": [],
+        "trace": [{"section": "tool", "content": "EventCode=4768 PreAuthType=0"}],
+    }
+    absent_cell = {
+        **present_cell,
+        "label": "world-b",
+        "verdict": "RULED_OUT",
+        "trace": [{"section": "tool", "content": "EventCode=4769 TicketEncryptionType=0x17"}],
+    }
+    world_a = ra.attribute_cell(present_cell)
+    world_b = ra.attribute_cell(absent_cell)
+    split_ok = (
+        world_a["attribution"] == ra.EVIDENCE_PRESENT_MISS
+        and world_b["attribution"] == ra.HONEST_NEGATIVE
+    )
+
+    production_source = (
+        REPO_ROOT / "portal" / "modules" / "security" / "core" / "siem" / "spl_detections.py"
+    ).read_text()
+    boundary_ok = "recall_attribution" not in production_source
+
+    subs = [
+        {
+            "name": "oracle presence decision receives no label or answer key",
+            "status": "PASS" if signature_ok else "FAIL",
+            "detail": f"params={params}",
+        },
+        {
+            "name": "canonical World A and World B cases remain distinct",
+            "status": "PASS" if split_ok else "FAIL",
+            "detail": (f"present={world_a['attribution']} absent={world_b['attribution']}"),
+        },
+        {
+            "name": "production discriminator accessor does not import eval attribution",
+            "status": "PASS" if boundary_ok else "FAIL",
+            "detail": "read-only dependency direction preserved",
+        },
+    ]
+    if not (signature_ok and split_ok and boundary_ok):
+        return ("FAIL", "recall-attribution boundary or World A/B split failed", subs)
+    return ("PASS", "label-blind token oracle and eval-only boundary preserved", subs)
 
 
 if __name__ == "__main__":
