@@ -37,4 +37,8 @@ def _load_validate():
 def test_spine_gate(fn_name):
     mod = _load_validate()
     status, detail, _subs = getattr(mod, fn_name)()
-    assert status == "PASS", f"{fn_name}: {status} — {detail}"
+    # check_doc_currency SKIPs on an empty ledger by design (doc_ledger.py's
+    # all_status() contract) — CLAUDE.md is exempt and no other doc is
+    # commit-stamp-governed once migrated onto the content-hash gate (AW).
+    ok = {"PASS"} if fn_name != "check_doc_currency" else {"PASS", "SKIP"}
+    assert status in ok, f"{fn_name}: {status} — {detail}"

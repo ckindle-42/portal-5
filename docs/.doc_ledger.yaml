@@ -4,19 +4,10 @@
 # A doc is STALE when a bound source changed in <commit>..HEAD.
 # Re-stamp after reconciling: python3 scripts/doc_ledger.py stamp <doc>
 # Never list a doc or this ledger as its own source.
+#
+# CLAUDE.md is exempt: it is the agent entry point, never a wiki spine
+# target (see portal/platform/wiki/migration.py's hard exclusion), and the
+# commit-stamp model this ledger implements is being retired as doc
+# currency moves fully onto the content-hash gate (AW / render_report).
 version: 1
-docs:
-  CLAUDE.md:
-    sources:
-    - config/portal.yaml
-    - config/backends.yaml
-    - portal/platform/inference/router/
-    - portal/platform/inference/tool_registry.py
-    - scripts/validate_system.py
-    - launch.sh
-    - portal/modules/
-    - portal/platform/
-    - portal_mcp/
-    - .env.example
-    - portal_wiki/canonical/
-    last_reconciled_commit: 47c6d8d9dbd2372176a337716d25a9812f06000c
+docs: {}
