@@ -2759,6 +2759,7 @@ def main() -> int:
         "BF. multichain consolidation gate (escalate first-class + I7 composition)",
         check_multichain_consolidation_gate,
     )
+    v.run("BG. mentor prompt discipline (M1: never prescribes)", check_mentor_discipline)
 
     return v.summary()
 
@@ -3822,6 +3823,94 @@ def check_multichain_consolidation_gate() -> tuple[str, str, list[dict]]:
         "multichain: separate known/unknown channels, escalate first-class + scored",
         [],
     )
+
+
+def _mentor_prompt_directive_text(prompt: str) -> str:
+    """Strip sentences that are themselves negations/self-references (e.g.
+    "not to tell it what the answer is", the "MUST NOT ..." clause) so a
+    forbidden substring appearing ONLY inside a disclaimer doesn't trip the
+    scan. A plain disclaimer-span removal (just the "MUST NOT" sentence)
+    isn't enough — the locked prompt's opening sentence also self-references
+    ("not to tell it what the answer is") outside that span."""
+    sentences = re.split(r"(?<=[.!?])\s+", prompt)
+    kept = [
+        s
+        for s in sentences
+        if not re.search(r"\bnot\b|\bcannot\b|\bnever\b|n['’]t\b", s, re.IGNORECASE)
+    ]
+    return " ".join(kept)
+
+
+def check_mentor_discipline() -> tuple[str, str, list[dict]]:
+    """BG. Mentor prompt (M1) never prescribes: no MITRE technique IDs,
+    no verdict class as a directive, no 'the answer is' language.
+
+    Purely static — scans the source constant _MENTOR_SYSTEM_PROMPT. This
+    catches drift: someone re-edits the prompt to be 'more helpful' and
+    accidentally names a technique or a verdict target. Directive text is
+    computed by dropping negation/self-reference sentences (see
+    _mentor_prompt_directive_text) rather than only the trailing "MUST NOT"
+    clause, since the prompt's own opening disclaimer sentence also contains
+    a forbidden substring in negated form."""
+    from portal.modules.security.core.blue_orchestrate import _MENTOR_SYSTEM_PROMPT
+
+    subs: list[dict] = []
+    bad: list[str] = []
+
+    mitre_hits = re.findall(r"\bT\d{4}(?:\.\d+)?\b", _MENTOR_SYSTEM_PROMPT)
+    ok_mitre = not mitre_hits
+    subs.append(
+        {
+            "name": "no MITRE technique IDs in mentor prompt",
+            "status": "PASS" if ok_mitre else "FAIL",
+            "detail": "none found" if ok_mitre else f"found: {mitre_hits}",
+        }
+    )
+    if not ok_mitre:
+        bad.append(f"mentor prompt names MITRE IDs: {mitre_hits}")
+
+    directive = _mentor_prompt_directive_text(_MENTOR_SYSTEM_PROMPT)
+
+    verdict_hits = [
+        v for v in ("CONFIRMED", "RULED_OUT", "ANOMALOUS_UNCLASSIFIED") if v in directive
+    ]
+    ok_verdicts = not verdict_hits
+    subs.append(
+        {
+            "name": "verdict class names confined to negated/self-reference sentences",
+            "status": "PASS" if ok_verdicts else "FAIL",
+            "detail": "confined" if ok_verdicts else f"leaked to directive body: {verdict_hits}",
+        }
+    )
+    if not ok_verdicts:
+        bad.append(f"mentor prompt names verdict classes outside disclaimer: {verdict_hits}")
+
+    prescriptive = [
+        p
+        for p in (
+            "the answer is",
+            "you should conclude",
+            "conclude that",
+            "this is a ",
+            "is confirmed",
+            "is ruled out",
+        )
+        if p.lower() in directive.lower()
+    ]
+    ok_pres = not prescriptive
+    subs.append(
+        {
+            "name": "no prescriptive templates in mentor prompt directive body",
+            "status": "PASS" if ok_pres else "FAIL",
+            "detail": "none found" if ok_pres else f"found: {prescriptive}",
+        }
+    )
+    if not ok_pres:
+        bad.append(f"mentor prompt contains prescriptive templates: {prescriptive}")
+
+    if bad:
+        return ("FAIL", "; ".join(bad), subs)
+    return ("PASS", "mentor prompt scans clean (M1 preserved)", subs)
 
 
 if __name__ == "__main__":

@@ -1393,3 +1393,289 @@ def test_multichain_does_not_alter_existing_arms(monkeypatch):
     # No consolidation/chain artefacts leak into a plain 3-section run.
     assert not any(t.get("section") == "consolidation" for t in three.trace)
     assert not any(t.get("chain") for t in three.trace)
+
+
+# ── V3A: Mentor ──────────────────────────────────────────────────────────
+
+
+def _sections_with_mentor() -> list[bo.SectionSpec]:
+    return _sections() + [bo.SectionSpec(role="mentor", model="mentor-model")]
+
+
+def test_mentor_absent_reproduces_v2_behavior(monkeypatch):
+    """I7: no mentor role in sections -> V2 behavior byte-for-byte."""
+    import json
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "reasoning-model":
+            return {"content": json.dumps({"request_more": "need more", "technique_ids": []})}
+        if model == "expert-model":
+            return {
+                "content": json.dumps(
+                    {
+                        "verdict": "CONFIRMED",
+                        "technique_ids": ["T1558.004"],
+                        "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+                        "reasoning": "confirmed",
+                        "match_grade": "EXACT",
+                        "similar_to": [],
+                        "request_more": "",
+                    }
+                )
+            }
+        raise AssertionError(f"unexpected model {model}")
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="matched", raw_summary="EventCode=4768")
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    result = bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=6)
+    assert result.verdict == "CONFIRMED"
+    assert not any(t.get("section") == "mentor" for t in result.trace)
+
+
+def test_mentor_fires_at_second_no_hypothesis_round(monkeypatch):
+    import json
+
+    always_wants_more = json.dumps(
+        {
+            "request_more": "still need more",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "",
+            "match_grade": "NONE",
+            "similar_to": [],
+        }
+    )
+    expert_ruled_out = json.dumps(
+        {
+            "verdict": "RULED_OUT",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "nothing conclusive",
+            "match_grade": "NONE",
+            "similar_to": [],
+            "request_more": "",
+        }
+    )
+    mentor_calls = {"n": 0}
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "expert-model":
+            return {"content": expert_ruled_out}
+        if model == "mentor-model":
+            mentor_calls["n"] += 1
+            return {"content": "<mentor_analysis>observed pattern; gap; reframe</mentor_analysis>"}
+        return {"content": always_wants_more}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    result = bo.run_blue_orchestration(_episode(), sections=_sections_with_mentor(), max_rounds=20)
+    assert mentor_calls["n"] >= 1
+    assert any(t.get("section") == "mentor" for t in result.trace)
+
+
+def test_mentor_block_appears_in_next_hunter_context(monkeypatch):
+    import json
+
+    always_wants_more = json.dumps(
+        {
+            "request_more": "still need more",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "",
+            "match_grade": "NONE",
+            "similar_to": [],
+        }
+    )
+    expert_ruled_out = json.dumps(
+        {
+            "verdict": "RULED_OUT",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "nothing conclusive",
+            "match_grade": "NONE",
+            "similar_to": [],
+            "request_more": "",
+        }
+    )
+    reasoning_contexts = []
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "reasoning-model":
+            reasoning_contexts.append(messages[-1]["content"])
+            return {"content": always_wants_more}
+        if model == "expert-model":
+            return {"content": expert_ruled_out}
+        if model == "mentor-model":
+            return {"content": "<mentor_analysis>observed pattern; gap; reframe</mentor_analysis>"}
+        raise AssertionError(f"unexpected model {model}")
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    bo.run_blue_orchestration(_episode(), sections=_sections_with_mentor(), max_rounds=20)
+    assert any(
+        "<mentor_analysis>" in ctx and "</mentor_analysis>" in ctx for ctx in reasoning_contexts
+    )
+
+
+def test_mentor_max_invocations_is_two_per_hunt(monkeypatch):
+    import json
+
+    always_wants_more = json.dumps(
+        {
+            "request_more": "still need more",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "",
+            "match_grade": "NONE",
+            "similar_to": [],
+        }
+    )
+    expert_ruled_out = json.dumps(
+        {
+            "verdict": "RULED_OUT",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "nothing conclusive",
+            "match_grade": "NONE",
+            "similar_to": [],
+            "request_more": "",
+        }
+    )
+    mentor_calls = {"n": 0}
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "expert-model":
+            return {"content": expert_ruled_out}
+        if model == "mentor-model":
+            mentor_calls["n"] += 1
+            return {"content": "<mentor_analysis>observed pattern; gap; reframe</mentor_analysis>"}
+        return {"content": always_wants_more}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    bo.run_blue_orchestration(_episode(), sections=_sections_with_mentor(), max_rounds=20)
+    assert mentor_calls["n"] == bo._MENTOR_MAX_INVOCATIONS
+
+
+def test_broken_mentor_response_falls_back_cleanly(monkeypatch):
+    import json
+
+    always_wants_more = json.dumps(
+        {
+            "request_more": "still need more",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "",
+            "match_grade": "NONE",
+            "similar_to": [],
+        }
+    )
+    expert_ruled_out = json.dumps(
+        {
+            "verdict": "RULED_OUT",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "nothing conclusive",
+            "match_grade": "NONE",
+            "similar_to": [],
+            "request_more": "",
+        }
+    )
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "expert-model":
+            return {"content": expert_ruled_out}
+        if model == "mentor-model":
+            return {"content": "garbage, no tags here"}
+        return {"content": always_wants_more}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    result = bo.run_blue_orchestration(_episode(), sections=_sections_with_mentor(), max_rounds=20)
+    assert result.verdict == "RULED_OUT"
+    mentor_entries = [t for t in result.trace if t.get("section") == "mentor"]
+    assert not mentor_entries
+
+
+def test_mentor_prompt_scan_forbids_prescriptive_tokens():
+    from scripts.validate_system import check_mentor_discipline
+
+    status, detail, _subs = check_mentor_discipline()
+    assert status == "PASS", detail
+
+
+def test_council_lead_hunter_uses_mentor_when_configured(monkeypatch):
+    import json
+
+    always_wants_more = json.dumps(
+        {
+            "request_more": "still need more",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "",
+            "match_grade": "NONE",
+            "similar_to": [],
+        }
+    )
+    mentor_calls = {"n": 0}
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "mentor-model":
+            mentor_calls["n"] += 1
+            return {"content": "<mentor_analysis>observed pattern; gap; reframe</mentor_analysis>"}
+        if model in ("council-a", "council-b"):
+            return {
+                "content": json.dumps(
+                    {
+                        "verdict": "RULED_OUT",
+                        "technique_ids": [],
+                        "evidence": [],
+                        "reasoning": "nothing conclusive",
+                        "match_grade": "NONE",
+                        "similar_to": [],
+                        "request_more": "",
+                    }
+                )
+            }
+        return {"content": always_wants_more}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="council-a"),
+        bo.SectionSpec(role="reasoning", model="council-b"),
+        bo.SectionSpec(role="mentor", model="mentor-model"),
+    ]
+    bo.run_blue_orchestration(_episode(), sections=sections, max_rounds=20)
+    assert mentor_calls["n"] >= 1

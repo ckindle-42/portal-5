@@ -42,6 +42,14 @@ from .unknown_defense import MatchGrade, compute_similarity
 # with its own JSON answer for this same budget.
 _REASONING_MAX_TOKENS = 8000
 _EXPERT_MAX_TOKENS = 8000
+_MENTOR_MAX_TOKENS = 2000  # mentor is observational, not evidentiary — smaller than Hunter/Expert
+
+# Mentor triggers earlier than the forced-handoff stall cap so it gets a
+# chance to unstick the Hunter *before* the Expert hand-off. If the Mentor
+# fires and the Hunter still can't form a hypothesis in the following
+# rounds, the existing stall cap still fires (unchanged).
+_MENTOR_STALL_TRIGGER = 2  # consecutive no-hypothesis rounds → invoke mentor
+_MENTOR_MAX_INVOCATIONS = 2  # per hunt loop; not per round
 
 # Retrieval-only tool schemas for the tool section (Retriever). report_detection
 # is deliberately excluded here — the tool section gathers, it does not
@@ -92,7 +100,7 @@ class SectionSpec:
     """One purpose-built section bound to a model. The orchestrator runs an
     ordered list of these (canonical: tool -> reasoning -> expert)."""
 
-    role: str  # "tool" | "reasoning" | "expert"
+    role: str  # "tool" | "reasoning" | "expert" | "mentor"
     model: str
     needs_tools: bool = False  # True only for role == "tool"
 
@@ -424,7 +432,7 @@ def format_for_reasoning(results: list[ToolResult], trigger: str) -> str:
     )
 
 
-def format_new_evidence(results: list[ToolResult]) -> str:
+def format_new_evidence(results: list[ToolResult], mentor_block: str = "") -> str:
     """Render ONLY newly-gathered telemetry as a follow-up turn.
 
     Found live 2026-07-18 (BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2 Slice 8
@@ -439,15 +447,20 @@ def format_new_evidence(results: list[ToolResult]) -> str:
     everything earlier in its own conversation history, so re-sending it
     would both bloat context (quadratic growth across rounds) and dilute the
     model's own prior reasoning with a wall of repeated telemetry.
+
+    `mentor_block`, when non-empty (V3A), is a `<mentor_analysis>...</mentor_analysis>`
+    string appended after the new evidence and before the output-format
+    instructions — a peer observation riding with the new telemetry, not a
+    system-level override.
     """
     if not results:
-        return f"(no new telemetry gathered){_HUNTER_OUTPUT_FORMAT_INSTRUCTIONS}"
-    parts = [f"[{r.provenance}] query: {r.query}\n{r.raw_summary}" for r in results]
-    return (
-        "New telemetry gathered in response to your request:\n\n"
-        + "\n\n".join(parts)
-        + _HUNTER_OUTPUT_FORMAT_INSTRUCTIONS
-    )
+        body = "(no new telemetry gathered)"
+    else:
+        parts = [f"[{r.provenance}] query: {r.query}\n{r.raw_summary}" for r in results]
+        body = "New telemetry gathered in response to your request:\n\n" + "\n\n".join(parts)
+    if mentor_block:
+        body += "\n\n" + mentor_block
+    return body + _HUNTER_OUTPUT_FORMAT_INSTRUCTIONS
 
 
 def run_similarity(
@@ -900,6 +913,98 @@ def run_expert_model(
     )
 
 
+# ── V3A: Mentor — model-call observation on a stalling Hunter ───────────────
+#
+# BUILD_PROGRAM_BLUE_ORCHESTRATION_V3 / TASK_BLUE_V3_MENTOR. Adapted from
+# PentAGI's Adviser pattern, reshaped for defensive discovery: the mentor
+# observes the Hunter's own reasoning history and names a process gap — it
+# never prescribes a verdict or a technique (I8). LOCKED prompt: do not
+# modify without prompt-review sign-off, check_mentor_discipline (BG) parses
+# this exact constant.
+
+_MENTOR_SYSTEM_PROMPT = (
+    "You are a mentor observing a security investigation in progress. "
+    "A hunter analyst has run several rounds gathering telemetry and reasoning "
+    "about it, but has not yet formed a hypothesis or appears to be circling. "
+    "Your job is to give the hunter one structured observation about its process "
+    "— not to tell it what the answer is."
+    "\n\n"
+    "You will see the hunter's own recent reasoning turns and the telemetry "
+    "gathered so far. You have no tools; you cannot fetch more data. Return "
+    "exactly one <mentor_analysis>...</mentor_analysis> block, containing:"
+    "\n"
+    "  1. Observed pattern — what the hunter has been doing across rounds "
+    "(e.g., 'querying the same event code with a narrow filter across three rounds')."
+    "\n"
+    "  2. Gap or alternative — telemetry source not yet queried, or a different "
+    "angle on the same evidence (e.g., 'the network telemetry has entries not yet examined')."
+    "\n"
+    "  3. Reframe suggestion — if the hunter's framing appears to be missing "
+    "signals visible in the evidence, name that reframing WITHOUT naming a "
+    "conclusion (e.g., 'the timing pattern in the gathered data does not match "
+    "the framing being pursued')."
+    "\n\n"
+    "You MUST NOT: name a MITRE technique or technique ID; say what verdict "
+    "is correct; tell the hunter what to conclude; suggest that any specific "
+    "activity type has been confirmed or ruled out. Only observe the process "
+    "and name what has not been tried."
+    "\n\n"
+    "Emit exactly one <mentor_analysis>...</mentor_analysis> block. Nothing "
+    "outside the tags."
+)
+
+_MENTOR_BLOCK_RE = re.compile(r"<mentor_analysis>.*?</mentor_analysis>", re.DOTALL)
+
+
+def run_mentor_model(
+    hunter_history: list[dict],
+    tool_results: list[ToolResult],
+    trigger: str,
+    *,
+    mentor_model: str,
+    dry_run: bool = False,
+    extra_options: dict | None = None,
+) -> str:
+    """Invoke the mentor on the current stalled hunt state. Returns the raw
+    <mentor_analysis>...</mentor_analysis> block (or empty string on dry_run
+    / malformed response). Never raises on model failure — a broken mentor
+    response degrades to no injection, which is the pre-mentor behavior.
+
+    The mentor sees the Hunter's OWN reasoning history (not evidence-fresh,
+    like the Expert) plus the accumulated telemetry — the goal is a
+    process observation, so the Hunter's prior thinking is the primary
+    input, not just the raw evidence pile.
+    """
+    if dry_run:
+        return ""
+
+    telemetry = _combined_telemetry_text(tool_results)
+    context = (
+        f"Trigger: {trigger}\n\nAccumulated telemetry so far:\n{telemetry or '(none gathered)'}"
+    )
+    messages = [{"role": "system", "content": _MENTOR_SYSTEM_PROMPT}]
+    messages.extend(hunter_history)
+    messages.append({"role": "user", "content": context})
+
+    try:
+        msg = _call_model(
+            mentor_model,
+            messages,
+            tools=None,
+            max_tokens=_MENTOR_MAX_TOKENS,
+            extra_options=extra_options,
+        )
+    except Exception:
+        return ""
+
+    content = msg.get("content", "") or ""
+    stripped = _strip_think_tags(content)
+    match = _MENTOR_BLOCK_RE.search(stripped)
+    if not match:
+        return ""
+    return match.group(0)
+
+
 # ── Slice 8: Merged reasoning/expert role — the 2-section "V1 shape" ────────
 #
 # design §6.1 / build-doc Slice 8: the ablation's 2-section arm is "tool +
@@ -1138,11 +1243,13 @@ def run_blue_orchestration(
     has_council = "tool" in rosters and len(rosters.get("reasoning", [])) > 1
     if has_council:
         arbiter_roster = rosters.get("expert") or []
+        mentor_roster = rosters.get("mentor") or []
         return _run_council(
             episode,
             tool_model=rosters["tool"][0],
             council_models=rosters["reasoning"],
             arbiter_model=arbiter_roster[0] if arbiter_roster else None,
+            mentor_model=mentor_roster[0] if mentor_roster else None,
             quorum=quorum,
             max_rounds=max_rounds,
             wall_clock_s=wall_clock_s,
@@ -1555,6 +1662,16 @@ def _run_three_section(
     _hunter_stall_cap = 3
     consecutive_no_hypothesis_rounds = 0
 
+    # V3A Mentor (additive, I7): only active when a "mentor" section is
+    # configured. Fires once _MENTOR_STALL_TRIGGER consecutive no-hypothesis
+    # rounds pass — earlier than _hunter_stall_cap so it gets a chance to
+    # unstick the Hunter before the forced Expert hand-off. Bounded to
+    # _MENTOR_MAX_INVOCATIONS per hunt loop; once exhausted, falls through
+    # to the unchanged stall-cap behavior.
+    mentor_model = models.get("mentor")
+    mentor_invocations = 0
+    pending_mentor_block = ""
+
     def _elapsed() -> float:
         return _time.monotonic() - started
 
@@ -1603,7 +1720,8 @@ def _run_three_section(
         if not hunter_history:
             ctx = format_for_reasoning(tool_results, trigger)
         else:
-            ctx = format_new_evidence(new_since_last_hunt)
+            ctx = format_new_evidence(new_since_last_hunt, mentor_block=pending_mentor_block)
+        pending_mentor_block = ""
         # Snapshot the state right before this Hunter call — if this turns
         # out to be the round whose output triggers hand-off (below),
         # _capture_hunter_only returns this snapshot instead of the
@@ -1647,6 +1765,39 @@ def _run_three_section(
         elif hunter_out.wants_more():
             consecutive_no_hypothesis_rounds += 1
         stalled = consecutive_no_hypothesis_rounds >= _hunter_stall_cap
+
+        if (
+            mentor_model
+            and mentor_invocations < _MENTOR_MAX_INVOCATIONS
+            and consecutive_no_hypothesis_rounds == _MENTOR_STALL_TRIGGER
+        ):
+            mentor_block = run_mentor_model(
+                hunter_history,
+                tool_results,
+                trigger,
+                mentor_model=mentor_model,
+                dry_run=dry_run,
+            )
+            if mentor_block:
+                mentor_invocations += 1
+                pending_mentor_block = mentor_block
+                trace.append(
+                    {
+                        "round": rounds,
+                        "section": "mentor",
+                        "model": mentor_model,
+                        "invocation": mentor_invocations,
+                        "raw": mentor_block,
+                    }
+                )
+                # A successful intervention earns the Hunter a fresh run at
+                # the stall trigger — the mentor is meant to unstick it, not
+                # just get logged once. Once invocations are exhausted, stop
+                # resetting: the existing _hunter_stall_cap (unchanged) takes
+                # over exactly as it did pre-mentor.
+                if mentor_invocations < _MENTOR_MAX_INVOCATIONS:
+                    consecutive_no_hypothesis_rounds = 0
+                    stalled = False
 
         if hunter_out.wants_more() and not stalled:
             if _budget_exhausted():
@@ -1912,6 +2063,7 @@ def _run_council(
     tool_model: str,
     council_models: list[str],
     arbiter_model: str | None,
+    mentor_model: str | None = None,
     quorum: float,
     max_rounds: int,
     wall_clock_s: float | None,
@@ -1941,9 +2093,12 @@ def _run_council(
 
     started = _time.monotonic()
 
+    lead_models = {"tool": tool_model, "reasoning": council_models[0], "expert": "unused"}
+    if mentor_model:
+        lead_models["mentor"] = mentor_model
     handoff = capture_expert_handoff(
         episode,
-        models={"tool": tool_model, "reasoning": council_models[0], "expert": "unused"},
+        models=lead_models,
         max_rounds=max_rounds,
         wall_clock_s=wall_clock_s,
         dry_run=dry_run,
