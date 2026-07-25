@@ -8,12 +8,12 @@ sources:
   path: KNOWN_LIMITATIONS.md
   commit: 05e42ec2
   section: "Blue Detection Quality \u2014 Wrong MITRE ID Reporting on Correct Evidence"
-last_generated_commit: 05e42ec2
+last_generated_commit: 89885284
 confidence: high
 tags:
 - docs
 created_at: 1784946220.662762
-updated_at: 1784946220.662762
+updated_at: 1784952000.0
 ---
 
 - **ID**: P5-SEC-BLUE-MITRE-001
@@ -37,3 +37,17 @@ updated_at: 1784946220.662762
   ceiling for an 8B model on this specific technique?), and separately, work on reducing false
   positives (the model over-reports plausible-but-wrong techniques alongside a correct one).
   `--replay-captured-red` makes this cheap to iterate on — no live lab time needed per trial.
+- **Reproduced on new data (2026-07-25, corpus-replay V3 validation bench)**: same failure
+  class, different sub-technique pair, real corpus telemetry (not a captured scenario).
+  `granite4.1:30b`, given real BOTS/ATT&CK corpus `T1558.004` (AS-REP roasting) events
+  showing the diagnostic `PreAuthType=0` field on `EventCode=4768`, both hunted AND
+  concluded `CONFIRMED T1558.003` (Kerberoasting — the sibling sub-technique) via a real
+  barrier tool call (`emit_verdict`) — its own cited evidence and reasoning talked about
+  `TicketEncryptionType` framing (Kerberoasting's signature), never mentioning
+  `PreAuthType=0` at all, even though it was directly present in the evidence it had just
+  gathered. Separately, the deliberately weaker `security-slm-unsloth-1.5b` model
+  collapsed `T1003.003` (NTDS.dit process-based dumping) to its bare parent `T1003`
+  (generic "OS Credential Dumping") rather than the specific sub-technique. Confirms this
+  is a genuine, recurring sibling/parent sub-technique precision gap that generalizes
+  across model sizes and across the credential-access tactic family, not an artifact of
+  one specific captured scenario.

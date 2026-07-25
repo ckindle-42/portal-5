@@ -128,6 +128,92 @@ Architectural and design constraints that are currently unresolved. Resolved ite
   ceiling for an 8B model on this specific technique?), and separately, work on reducing false
   positives (the model over-reports plausible-but-wrong techniques alongside a correct one).
   `--replay-captured-red` makes this cheap to iterate on — no live lab time needed per trial.
+- **Reproduced on new data (2026-07-25, corpus-replay V3 validation bench)**: same failure
+  class, different sub-technique pair, real corpus telemetry (not a captured scenario).
+  `granite4.1:30b`, given real BOTS/ATT&CK corpus `T1558.004` (AS-REP roasting) events
+  showing the diagnostic `PreAuthType=0` field on `EventCode=4768`, both hunted AND
+  concluded `CONFIRMED T1558.003` (Kerberoasting — the sibling sub-technique) via a real
+  barrier tool call (`emit_verdict`) — its own cited evidence and reasoning talked about
+  `TicketEncryptionType` framing (Kerberoasting's signature), never mentioning
+  `PreAuthType=0` at all, even though it was directly present in the evidence it had just
+  gathered. Separately, the deliberately weaker `security-slm-unsloth-1.5b` model
+  collapsed `T1003.003` (NTDS.dit process-based dumping) to its bare parent `T1003`
+  (generic "OS Credential Dumping") rather than the specific sub-technique. Confirms this
+  is a genuine, recurring sibling/parent sub-technique precision gap that generalizes
+  across model sizes and across the credential-access tactic family, not an artifact of
+  one specific captured scenario.
+<!-- /WIKI:GENERATED -->
+
+---
+
+### Council Member Evidence-Abandonment Loop (hf.co/HeYujie/Qwen3.5-27B-abliterated-GGUF)
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-council-member-evidence-abandonment-loop -->
+- **ID**: P5-SEC-COUNCIL-001
+- **Description**: Found live 2026-07-25 during the corpus-replay Council of Agreement
+  validation bench (real BOTS/ATT&CK corpus telemetry, `T1558.003` Kerberoasting subset —
+  `EventCode=4769`, `TicketEncryptionType=0x17` across multiple service accounts). As a
+  council member, `hf.co/HeYujie/Qwen3.5-27B-abliterated-GGUF:Q4_K_M` abandoned evidence
+  grounding entirely and spiraled into an ~8000-token self-doubting loop trying to
+  re-derive MITRE ATT&CK technique ID numbering from training-data recall ("Wait...
+  actually T1558 is... no wait, let me check v13/v14/v15 mappings...") instead of reading
+  the telemetry it was actually given. It never emitted a verdict — the council still
+  reached the correct `CONFIRMED T1558.003` via the other member (`granite4.1:30b`) and
+  the lead hunter, but this member's vote slot was entirely wasted.
+- **Impact**: In a council roster, a wasted vote slot changes the effective quorum
+  fraction — with a 2-member roster and one member failing to vote, `compute_agreement`
+  effectively degrades to a single-model decision without the quorum's intended
+  cross-check. This is worse in council mode than in a solo orchestrated run, because the
+  operator configuring `--council-models` may reasonably assume every named model
+  contributes a real, evidence-grounded vote.
+- **Operator action**: `blue_orchestrate._COUNCIL_UNFIT_MODELS` is a standing, data-driven
+  list (not a hard block — see its docstring) that `_warn_if_council_unfit_models` checks
+  against every `_run_council` call, printing a warning to stderr if a roster includes a
+  known-unfit model. `portal/modules/security/core/corpus_replay_bench.py`'s
+  `COUNCIL_MODELS` roster is filtered against this list. Before adding a new model to a
+  council roster, sanity-check it against a real evidence-grounded scenario first (not
+  just a tool-call/format check) — a model can pass basic capability probes and still
+  fail this specific "reason honestly from the evidence in front of you, don't recall
+  from memory" failure mode.
+<!-- /WIKI:GENERATED -->
+
+---
+
+### Hunter Round Budget Can Starve the Expert Entirely
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-hunter-budget-can-starve-the-expert-entirely -->
+- **ID**: P5-SEC-BUDGET-STARVE-001
+- **Description**: `_run_three_section`'s hunt loop breaks out with no verdict the moment
+  the round budget is exhausted WHILE the Hunter still wants more evidence and hasn't yet
+  hit the stall cap (`if hunter_out.wants_more() and not stalled: if _budget_exhausted():
+  break`) — this exits the function without ever calling the Expert. This is pre-existing
+  V2 behavior (`max_rounds` always worked this way), but V3B's `budgets={"hunter": N}`
+  kwarg makes it trivial to configure a value tight enough to hit this every time: each
+  no-hypothesis round costs 2 of the round budget (one for the Hunter call, one for the
+  tool gather that follows it), so `hunter_budget=4` only affords 2 full hunt cycles —
+  never enough to reach the stall cap (3 consecutive no-hypothesis rounds needs ~5-6
+  rounds), and V3A's Mentor makes this worse, not better: a successful Mentor
+  intervention resets the consecutive-no-hypothesis counter (by design — it's meant to
+  give the Hunter a genuine fresh shot), which means reaching the stall cap under Mentor
+  needs even more round budget than without it, not less.
+- **Impact**: Found live 2026-07-25 (corpus-replay V3 validation bench, first full
+  51-cell sweep): `budgets={"hunter": 4, "expert": 2}` produced 14/17 UNRESOLVED results
+  that all shared the identical signature — `rounds=4`, trace ending right after the 2nd
+  tool gather, `wants_more=True` on the last Hunter turn, Expert never invoked. Raising to
+  `hunter=10` (orchestrated) / `hunter=8` (council) fixed most of these, but even
+  `hunter=8` in council mode was still occasionally insufficient once Mentor fired and
+  reset the counter (see corpus_replay_bench.py commit 89885284's changelog). Any
+  operator or bench author using `budgets=` should not assume the round count they pass
+  maps 1:1 to "number of Hunter turns" — it maps to total round increments across
+  Hunter+tool+Mentor+Expert combined, and Mentor's own reset behavior consumes more of
+  that budget than the un-mentored case.
+- **Operator action**: When configuring `budgets["hunter"]`, budget for at minimum
+  `2 * (stall_cap + mentor_max_invocations)` rounds (with V2 defaults, stall_cap=3,
+  mentor_max_invocations=2 → at least 10) to give the loop a real chance to either
+  converge or reach the stall-cap handoff to the Expert. A lower budget is a legitimate
+  choice for a deliberately fast/cheap probe, but the caller should expect a high
+  UNRESOLVED rate as the direct, mechanical consequence of that choice — not a signal
+  about model capability.
 <!-- /WIKI:GENERATED -->
 
 ---
