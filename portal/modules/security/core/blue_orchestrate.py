@@ -2396,6 +2396,36 @@ def _run_two_section(
     )
 
 
+# Standing "known council-unfit" list — data, not eviction (same philosophy
+# as the barrier-tool fallback tracking, T1). Council members vote from
+# *identical* shared evidence; a member that can't render a verdict at all
+# doesn't just lose its own vote, it wastes a slot. Found live 2026-07-25
+# (corpus-replay curated bench, GATE-D-adjacent): given real Kerberoasting
+# corpus telemetry (EventCode=4769, TicketEncryptionType=0x17), this model
+# abandoned evidence grounding entirely and spiraled into an ~8000-token
+# self-doubting loop re-deriving MITRE ID numbering from training-data
+# recall ("Wait... actually T1558 is... no wait...") instead of reading the
+# telemetry it was given, never emitting a verdict. A warning, not a hard
+# block — the roster is a caller/CLI decision; this only makes the failure
+# mode visible instead of silently eating a wasted round.
+_COUNCIL_UNFIT_MODELS = {
+    "hf.co/HeYujie/Qwen3.5-27B-abliterated-GGUF:Q4_K_M",
+}
+
+
+def _warn_if_council_unfit_models(council_models: list[str]) -> None:
+    hits = [m for m in council_models if m in _COUNCIL_UNFIT_MODELS]
+    if hits:
+        import sys as _sys
+
+        print(
+            f"WARNING: council roster includes known council-unfit model(s) {hits} — "
+            "see _COUNCIL_UNFIT_MODELS docstring (evidence-grounding failure, not a "
+            "verdict disagreement). Consider a different member.",
+            file=_sys.stderr,
+        )
+
+
 def _format_for_arbiter(ectx: str, members: list[SectionOutput], agreement: AgreementResult) -> str:
     """Build the fed-expert arbiter's context: the same evidence the council
     saw, plus a plain account of the split (who said what) — never the
@@ -2464,6 +2494,8 @@ def _run_council(
     barrier tools uses them structurally throughout, not just at the vote.
     """
     import time as _time
+
+    _warn_if_council_unfit_models(council_models)
 
     started = _time.monotonic()
 
