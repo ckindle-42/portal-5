@@ -65,6 +65,27 @@ from .scoring import (
 # ── CLI entry point ───────────────────────────────────────────────────────────
 
 
+def _parse_budgets_arg(raw: str | None) -> dict[str, int] | None:
+    """V3B: '--budgets hunter=3,expert=2' -> {'hunter': 3, 'expert': 2}."""
+    if not raw:
+        return None
+    budgets: dict[str, int] = {}
+    for pair in raw.split(","):
+        pair = pair.strip()
+        if not pair:
+            continue
+        role, _, value = pair.partition("=")
+        budgets[role.strip()] = int(value.strip())
+    return budgets or None
+
+
+def _parse_barrier_tools_arg(raw: str | None) -> set[str]:
+    """V3C: '--barrier-tools reasoning,expert' -> {'reasoning', 'expert'}."""
+    if not raw:
+        return set()
+    return {role.strip() for role in raw.split(",") if role.strip()}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Portal 5 Security Model Benchmark")
     parser.add_argument(
@@ -353,6 +374,40 @@ def main() -> None:
             "With --blue-mode council/multichain: vote fraction a technique must "
             "reach to be CONFIRMED-eligible (council: member vote; multichain: "
             "independent-chain vote). Default: 0.5."
+        ),
+    )
+    parser.add_argument(
+        "--mentor-model",
+        default=None,
+        metavar="MODEL",
+        help=(
+            "V3A: with --blue-mode orchestrated/council, adds a SectionSpec(role="
+            "'mentor', ...) that observes a stalling Hunter (2 consecutive "
+            "no-hypothesis rounds) and injects a structured, non-prescriptive "
+            "<mentor_analysis> block into its next turn. Absent = V2 behavior."
+        ),
+    )
+    parser.add_argument(
+        "--budgets",
+        default=None,
+        metavar="ROLE=N,ROLE=N",
+        help=(
+            "V3B: with --blue-mode orchestrated/council, comma-separated "
+            "per-role round-cap overrides (roles: hunter, expert, merged, "
+            "council_member, total). Absent = every role falls back to "
+            "--max-orchestration-rounds (B1: byte-for-byte V2 behavior)."
+        ),
+    )
+    parser.add_argument(
+        "--barrier-tools",
+        default=None,
+        metavar="ROLE,ROLE",
+        help=(
+            "V3C: with --blue-mode orchestrated/council, comma-separated roles "
+            "(reasoning, expert) that emit verdicts via explicit tool calls "
+            "(emit_verdict/escalate_anomalous/request_more) instead of a JSON "
+            "scrape — JSON stays as automatic fallback for non-tool-calling "
+            "models (T1). Absent = V2 JSON-scrape path unchanged."
         ),
     )
     parser.add_argument(
@@ -661,20 +716,38 @@ def main() -> None:
             )
             return
 
+        budgets = _parse_budgets_arg(args.budgets)
+        barrier_roles = _parse_barrier_tools_arg(args.barrier_tools)
+
         print(f"Blue orchestration — scenario={episode.scenario} target={episode.target_host}")
         print(f"  tool_model={tool_model}")
         print(f"  reasoning_model={reasoning_model}")
         print(f"  expert_model={expert_model}")
+        if args.mentor_model:
+            print(f"  mentor_model={args.mentor_model}")
+        if budgets:
+            print(f"  budgets={budgets}")
+        if barrier_roles:
+            print(f"  barrier_tools={sorted(barrier_roles)}")
 
         sections = [
             SectionSpec(role="tool", model=tool_model, needs_tools=True),
-            SectionSpec(role="reasoning", model=reasoning_model),
-            SectionSpec(role="expert", model=expert_model),
+            SectionSpec(
+                role="reasoning",
+                model=reasoning_model,
+                use_barrier_tools="reasoning" in barrier_roles,
+            ),
+            SectionSpec(
+                role="expert", model=expert_model, use_barrier_tools="expert" in barrier_roles
+            ),
         ]
+        if args.mentor_model:
+            sections.append(SectionSpec(role="mentor", model=args.mentor_model))
         result = run_blue_orchestration(
             episode,
             sections=sections,
             max_rounds=args.max_orchestration_rounds,
+            budgets=budgets,
             dry_run=args.dry_run,
         )
         scoring = score_findings_tiered(set(result.technique_ids), set(episode.techniques))
@@ -843,6 +916,9 @@ def main() -> None:
             )
             return
 
+        budgets = _parse_budgets_arg(args.budgets)
+        barrier_roles = _parse_barrier_tools_arg(args.barrier_tools)
+
         print(
             f"Blue orchestration (council) — scenario={episode.scenario} target={episode.target_host}"
         )
@@ -850,15 +926,31 @@ def main() -> None:
         print(f"  council_models={council_models}")
         print(f"  expert_model (arbiter)={expert_model}")
         print(f"  quorum={args.quorum}")
+        if args.mentor_model:
+            print(f"  mentor_model={args.mentor_model}")
+        if budgets:
+            print(f"  budgets={budgets}")
+        if barrier_roles:
+            print(f"  barrier_tools={sorted(barrier_roles)}")
 
         sections = [SectionSpec(role="tool", model=tool_model, needs_tools=True)]
-        sections += [SectionSpec(role="reasoning", model=m) for m in council_models]
+        sections += [
+            SectionSpec(role="reasoning", model=m, use_barrier_tools="reasoning" in barrier_roles)
+            for m in council_models
+        ]
         if expert_model:
-            sections.append(SectionSpec(role="expert", model=expert_model))
+            sections.append(
+                SectionSpec(
+                    role="expert", model=expert_model, use_barrier_tools="expert" in barrier_roles
+                )
+            )
+        if args.mentor_model:
+            sections.append(SectionSpec(role="mentor", model=args.mentor_model))
         result = run_blue_orchestration(
             episode,
             sections=sections,
             max_rounds=args.max_orchestration_rounds,
+            budgets=budgets,
             dry_run=args.dry_run,
             quorum=args.quorum,
         )
