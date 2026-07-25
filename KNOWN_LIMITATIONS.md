@@ -1,4 +1,3 @@
-<!-- WIKI:HUMAN-OWNED -->
 # Known Limitations
 
 Architectural and design constraints that are currently unresolved. Resolved items are not listed here — see git log for history.
@@ -537,4 +536,3 @@ perception pass will halt at I4 before ever attempting the exploit.
 | `Harness-1` (full capability) | n/a | Requires Chroma vector DB + external search state harness. Standalone model (gpt-oss-20B fine-tune) added to V8 bench-harness1. |
 
 *Last updated: 2026-06-10*
-<!-- /WIKI:HUMAN-OWNED -->

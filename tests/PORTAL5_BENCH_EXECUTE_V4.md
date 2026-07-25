@@ -1,4 +1,3 @@
-<!-- WIKI:HUMAN-OWNED -->
 # PORTAL5_BENCH_EXECUTE_V4 — opencode Bench Execution Prompt
 
 > **Supersedes** `PORTAL5_BENCH_EXECUTE_V3.md` (archive it to
@@ -167,4 +166,3 @@ handler hook regressed.
 - `PORTAL_ENABLE_EVAL=1` for full coverage.
 - Product code is read-only; bench failures that are product bugs get reported.
 - Every run fresh; no prior-run assumptions.
-<!-- /WIKI:HUMAN-OWNED -->

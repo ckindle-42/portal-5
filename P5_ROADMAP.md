@@ -1,4 +1,3 @@
-<!-- WIKI:HUMAN-OWNED -->
 # P5_ROADMAP.md — Portal 5 v7 Future Enhancements
 
 ```
@@ -208,4 +207,3 @@ not exercise streaming ASR or TTS rendering.
 
 *Last updated: 2026-06-25*
 *Part of Portal 5 v7 release documentation*
-<!-- /WIKI:HUMAN-OWNED -->

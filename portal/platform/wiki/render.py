@@ -159,12 +159,26 @@ def check_generated_blocks_current(
 def render_report(repo_root: Path) -> dict:
     """Migration progress report over the doc surface.
 
-    Returns {migrated: [...], unmigrated: [...], blocks_total: int, coverage_pct: float}.
+    Returns {migrated: [...], unmigrated: [...], gamed: [...], blocks_total: int,
+    coverage_pct: float, human_ratio: {path: ratio}}.
     coverage_pct = migrated / (migrated + unmigrated) over TIER1_DOCS (excl CLAUDE.md).
+    gamed = docs that pass V1 substantive_remainder check but fail V2 (no generated
+    blocks or human-fence ratio exceeded) — these are the fence-everything cheats.
     """
+    from portal.platform.wiki.migration import (
+        _HUMAN_FENCE_MAX,
+        fenced_human_lines,
+        generated_block_count,
+        human_owned_reasons,
+        substantive_remainder,
+        total_substantive_lines,
+    )
+
     migrated: list[str] = []
     unmigrated: list[str] = []
+    gamed: list[str] = []
     blocks_total = 0
+    human_ratio: dict[str, float] = {}
 
     for rel in TIER1_DOCS:
         p = repo_root / rel
@@ -174,16 +188,36 @@ def render_report(repo_root: Path) -> dict:
         blocks_total += len(_MARKER_RE.findall(text))
         if doc_is_migrated(p):
             migrated.append(rel)
+            # Report human ratio for migrated docs
+            total = total_substantive_lines(text)
+            if total > 0:
+                ratio = fenced_human_lines(text) / total
+                human_ratio[rel] = round(ratio, 3)
         else:
-            unmigrated.append(rel)
+            # Check if this is a "gamed" doc: passes V1 check (no remainder)
+            # but fails V2 (no generated blocks or ratio exceeded)
+            remainder = substantive_remainder(text)
+            gen_count = generated_block_count(text)
+            human = fenced_human_lines(text)
+            total = total_substantive_lines(text)
+            reasons = human_owned_reasons(text)
+            has_bad_reason = any(r == "[MISSING]" for r in reasons)
+            ratio = human / max(1, total) if total > 0 else 0
 
-    total = len(migrated) + len(unmigrated)
+            if remainder == "" and (gen_count < 1 or ratio > _HUMAN_FENCE_MAX or has_bad_reason):
+                gamed.append(rel)
+            else:
+                unmigrated.append(rel)
+
+    total = len(migrated) + len(unmigrated) + len(gamed)
     coverage_pct = (len(migrated) / total * 100) if total else 0.0
     return {
         "migrated": migrated,
         "unmigrated": unmigrated,
+        "gamed": gamed,
         "blocks_total": blocks_total,
         "coverage_pct": round(coverage_pct, 1),
+        "human_ratio": human_ratio,
     }
 
 

@@ -1,4 +1,3 @@
-<!-- WIKI:HUMAN-OWNED -->
 # Portal 5 — User Guide
 
 ## Getting Access
@@ -90,4 +89,3 @@ To view or edit memories: **Settings → Personalization → Memory**
 - Attach files with the paperclip icon for document analysis
 - Use `#` to reference knowledge bases
 - Long reasoning tasks (Deep Reasoner) may take 60-90 seconds — be patient
-<!-- /WIKI:HUMAN-OWNED -->

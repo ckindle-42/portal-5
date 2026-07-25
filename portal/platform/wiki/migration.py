@@ -209,8 +209,8 @@ def doc_is_migrated(path: Path) -> bool:
     human = fenced_human_lines(text)
     total = total_substantive_lines(text)
 
-    # Check B3 allowlist
-    allowlist = _load_allowlist(path.parent if path.parent != Path(".") else Path("."))
+    # Check B3 allowlist (always from repo root)
+    allowlist = _load_allowlist(Path("."))
     is_allowlisted = str(path) in allowlist or path.name in allowlist
 
     # (b) must have >=1 generated block (unless allowlisted)

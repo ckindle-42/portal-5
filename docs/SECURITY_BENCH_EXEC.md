@@ -1,9 +1,7 @@
 # Security Bench Real-Execution Runbook
 
-<!-- WIKI:HUMAN-OWNED -->
 **Document type**: Operator runbook + coding-agent re-entry guide
 **Scope**: `portal/modules/security/core/` package — real lab-exec mode, portal5-attack container, AD + web lab
-<!-- /WIKI:HUMAN-OWNED -->
 
 <!-- WIKI:GENERATED unit=unit-fact-security-variants -->
 # Security canonical variants (10)
@@ -44,7 +42,6 @@ sec-bench `--workspaces` targets, addressed as `auto-security::<variant>`:
 | `__init__.py` | Thin facade: pipeline I/O + re-exports |
 <!-- /WIKI:GENERATED -->
 
-<!-- WIKI:HUMAN-OWNED -->
 ### Capability Index
 
 `portal.modules.security.core.capability` makes the scattered security library legible to a decide step: "given what I've observed, what's worth trying?" It is read-only — it indexes what already exists and changes nothing about how engagements execute.
@@ -90,7 +87,6 @@ An autonomous loop is only truly unattended if it can reach the operator when it
 - `loop.py::_notify(event_type_name, message, *, engagement_id, stop_reason=None, detail=None, resume_cmd=None)` — fire-and-forget, non-fatal. No-op when `LOOP_NOTIFY_ENABLED=false`.
 - Checkpoint/resume: `_write_checkpoint` persists `EngagementState` to `results/checkpoints/<engagement_id>.json` on every stop; `resume_engagement(engagement_id)` reloads and re-enters `_run_loop`.
 - CLI: `portal security loop run <playbook.yaml> [--dry-run] [--lab-exec] [--workspace WS] [--auto-continue-safe] [--notify-on-success]` and `portal security loop resume <engagement_id>`.
-<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
@@ -127,7 +123,6 @@ The governing rule is that DISPATCH_NOT_RUN and any dry-run/halted evidence alwa
 
 ---
 
-<!-- WIKI:HUMAN-OWNED -->
 ## Prerequisites
 
 ### 1. Lab VMs must be running
@@ -181,7 +176,6 @@ hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
 huihui_ai/baronllm-abliterated:latest
 hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
 ```
-<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
@@ -201,7 +195,6 @@ hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
 
 ---
 
-<!-- WIKI:HUMAN-OWNED -->
 ## Quick-Start: All Three Tiers
 
 > `CLOSEOUT_ALIAS_REMOVAL.md` (Holdout 3, landed): `auto-redteam`/`auto-redteam-deep`/
@@ -277,7 +270,6 @@ python3 -m portal.modules.security.core \
 ```bash
 python3 -m portal.modules.security.core --probe-lab --dry-run 2>&1
 ```
-<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
@@ -294,7 +286,6 @@ A related but separate component, **Incalmo** (arXiv 2501.16466), is an optional
 
 ---
 
-<!-- WIKI:HUMAN-OWNED -->
 ## Execution Chain Features
 
 ### 1. Adaptive Retry with Fallback Techniques
@@ -362,11 +353,9 @@ Crosses every scenario (56 in `PROMPTS`) and every challenge class (12 in `chall
 
 ### 22. Linux/Web Telemetry (Adapter Seam)
 Blue telemetry reads through a backend-agnostic `TelemetryBackend` protocol. The first adapter is **Wazuh/OpenSearch**. Linux/web targets have telemetry paths via auditd + agent and web-server access/error logs.
-<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
-<!-- WIKI:HUMAN-OWNED -->
 ## What the Bench Exercises
 
 ### EXEC_SEQUENCES — 36 prompts with step definitions
@@ -393,11 +382,9 @@ Cross-target and HTB-pattern chains: `web_to_dc_pivot`, `htb_responder_chain`, `
 | `blue_det` | Fraction of steps correctly detected by blue defender per-turn |
 | `final_det` | Did blue correctly identify the attack in final holistic report? |
 | `reliability` | Per-turn tool-call reliability, gated at `valid_rate < 0.70` or `spiral_rate > 0.10` |
-<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
-<!-- WIKI:HUMAN-OWNED -->
 ## What to Verify After Running
 
 1. **Real execution is happening** — Look for `[EXEC OK]` / `[EXEC ERR]` lines. Must print `True` for `_LAB_EXEC_AVAILABLE`.
@@ -414,11 +401,9 @@ Cross-target and HTB-pattern chains: `web_to_dc_pivot`, `htb_responder_chain`, `
 - **Clock skew (KRB_AP_ERR_SKEW)** — `_ensure_lab_time_sync()` auto-syncs before first dispatch.
 - **Models hallucinate HTB IPs** — `_sub_hint()` resolves `$LAB_TARGET_DC/$DOMAIN` in tool_hints.
 - **Small models do exploratory commands** — Use `--chain-rounds 3` if steps are missed.
-<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
-<!-- WIKI:HUMAN-OWNED -->
 ## Lab Validation Status
 
 | Prompt | Lab DC (10.10.11.21) | Meta3 (10.10.11.13) | vulhub (10.10.11.50) |
@@ -440,11 +425,9 @@ Cross-target and HTB-pattern chains: `web_to_dc_pivot`, `htb_responder_chain`, `
 | `lfi_to_rce` | — | — | pass (PHP LFI :8080) |
 | `tomcat_manager` | — | pass (:8080) | pass (:8081) |
 | `log4shell_rce` | — | — | pass (Solr :8983) |
-<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
-<!-- WIKI:HUMAN-OWNED -->
 ## Coding-Agent Re-Entry Notes
 
 ### File locations after refactor
@@ -480,11 +463,9 @@ portal/modules/security/core/
 3. Add prompt mappings to `_svc_to_prompt` dict in `__init__.py`
 4. Deploy target (Proxmox VM via API or Docker via compose on lxc 112)
 5. Verify reachability from sandbox
-<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
-<!-- WIKI:HUMAN-OWNED -->
 ## Blue/Purple Discovery Orchestration
 
 `--blue-mode` selects which blue investigation path a run uses:
@@ -532,4 +513,3 @@ Four structural defects found and fixed:
 ### GATE-D full-corpus ablation + failure attribution
 
 `decide_route(decision)` now fails closed. `INDETERMINATE` is emitted for an unfrozen/unvalidated instrument. Actionable routes are `RETRIEVAL_FIRST`, `HUNTER_FIRST`, `BUDGET_FIRST`, and `COUNCIL`, each requiring stable dominance plus validation.
-<!-- /WIKI:HUMAN-OWNED -->

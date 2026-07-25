@@ -1,4 +1,3 @@
-<!-- WIKI:HUMAN-OWNED -->
 # Corpus Injection — getting hunt-ready telemetry into lab Splunk
 
 Blue and purple need adversary telemetry to hunt. Waiting for red bench runs to
@@ -319,4 +318,3 @@ rebuild is not.
 - `portal/modules/security/core/siem/hec_ship.py` — the shared `ship_batch` primitive
 - `portal/modules/security/core/siem/spl_detections.yaml` — the detections these lanes feed
 - `docs/LAB_SETUP.md` — lab topology and target inventory
-<!-- /WIKI:HUMAN-OWNED -->

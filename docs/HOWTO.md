@@ -1,6 +1,5 @@
 # Portal 6.0.3 — How-To Guide
 
-<!-- WIKI:HUMAN-OWNED -->
 Complete working examples for every feature. Each section shows: what it does, how to activate it, a working example, and how to verify.
 
 ---
@@ -1429,4 +1428,3 @@ pytest tests/ -v --tb=short # Run unit tests (no Docker needed)
 ---
 
 *Last updated: 2026-05-21 | Portal 6.1.0*
-<!-- /WIKI:HUMAN-OWNED -->

@@ -1,4 +1,3 @@
-<!-- WIKI:HUMAN-OWNED -->
 # MODEL_CATALOG — Portal 5 Model Reference
 
 Human-readable model notes extracted from `config/backends.yaml`.
@@ -702,4 +701,3 @@ Context-capped derived tag of `supergemma4-26b-uncensored:Q4_K_M` (`PARAMETER nu
 ### `sylink/sylink:8b-ctx8k`
 
 Context-capped derived tag of `sylink/sylink:8b` (`PARAMETER num_ctx 8192` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
-<!-- /WIKI:HUMAN-OWNED -->
