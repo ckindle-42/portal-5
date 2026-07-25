@@ -27,7 +27,12 @@ client = OpenAI(
 
 response = client.chat.completions.create(
     model="auto-security",
-    messages=[{"role": "user", "content": "Review this nginx config for security issues:\nserver { listen 80; root /var/www; }"}],
+    messages=[
+        {
+            "role": "user",
+            "content": "Review this nginx config for security issues:\nserver { listen 80; root /var/www; }",
+        }
+    ],
 )
 print(response.choices[0].message.content)
 ```

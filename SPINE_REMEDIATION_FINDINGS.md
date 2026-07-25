@@ -20,7 +20,7 @@ def save_unit(unit: KnowledgeUnit) -> Path:
     canonical = _get_canonical_dir()
     canonical.mkdir(parents=True, exist_ok=True)
     path = _unit_path(unit.id)
-    path.write_text(unit.to_markdown(), encoding="utf-8")   # unconditional overwrite
+    path.write_text(unit.to_markdown(), encoding="utf-8")  # unconditional overwrite
     return path
 ```
 No existence check, no diff, no merge. `portal/platform/wiki/writeback.py:143-200`
@@ -47,7 +47,9 @@ the loop-write confirm path specifically.
 `schema.py:134-138`:
 ```python
 def content_hash(self) -> str:
-    return hashlib.sha256(f"{self.id}:{self.kind}:{self.title}:{self.body}".encode()).hexdigest()[:16]
+    return hashlib.sha256(f"{self.id}:{self.kind}:{self.title}:{self.body}".encode()).hexdigest()[
+        :16
+    ]
 ```
 `sources` (provenance) is not part of the hash — a unit whose body/id/kind/title are
 unchanged but whose sources list changes (e.g. re-cited to a different commit, or a
