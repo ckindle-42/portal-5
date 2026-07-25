@@ -18,6 +18,18 @@ T1190:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" (passwd OR "../" OR "UNION SELECT" OR "${jndi:" OR ".php" OR "cmd=") | stats count by host, source, _raw'
   expected_signal: "HTTP requests with attack payloads in URI/body"
+  distinguishing_features:
+    key_indicator: "One of the literal exploit markers used by this SPL"
+    # V5B/R1: literal terms copied from the SPL above. No sibling_ids means
+    # this expands eval observability without changing the production
+    # sibling-contradiction gate.
+    discriminator_tokens:
+      - "passwd"
+      - "../"
+      - "UNION SELECT"
+      - "${jndi:"
+      - ".php"
+      - "cmd="
   spl_variants:
     - source: "web:access"
       spl: 'index=portal5_lab sourcetype="web:access" (passwd OR "../" OR "UNION SELECT" OR "${jndi:" OR ".php" OR "cmd=") | stats count by host, source, _raw'
@@ -100,6 +112,13 @@ T1611:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab (sourcetype="linux:auditd" "nsenter" OR "mount" OR "/proc/1") OR (sourcetype="docker:daemon" "privileged") | stats count by host'
   expected_signal: "Container escape indicators (nsenter, privileged, /proc/1 access)"
+  distinguishing_features:
+    key_indicator: "nsenter, mount, /proc/1, or privileged from the SPL"
+    discriminator_tokens:
+      - "nsenter"
+      - "mount"
+      - "/proc/1"
+      - "privileged"
 
 T1552.005:
   description: "Cloud-metadata SSRF — 169.254.169.254 access signal"
@@ -120,6 +139,10 @@ T1552.005:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" "169.254.169.254" | stats count by host, _raw'
   expected_signal: "HTTP requests to cloud metadata endpoint"
+  distinguishing_features:
+    key_indicator: "Cloud metadata endpoint literal from the SPL"
+    discriminator_tokens:
+      - "169.254.169.254"
 
 T1558.003:
   description: "Kerberoasting — Windows Security Event 4769 with RC4 encryption"
@@ -416,6 +439,13 @@ T1083:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" ("../" OR "..%2f" OR "etc/passwd" OR "proc/self") | stats count by host, uri_path'
   expected_signal: "Path traversal sequences in HTTP requests"
+  distinguishing_features:
+    key_indicator: "One of the path traversal literals used by this SPL"
+    discriminator_tokens:
+      - "../"
+      - "..%2f"
+      - "etc/passwd"
+      - "proc/self"
 
 T1078:
   description: "Valid accounts — default/weak credential usage"
@@ -584,6 +614,16 @@ T1189:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" ("%3Cscript" OR "<script" OR "onerror=" OR "onload=" OR "javascript:" OR "redirect_url=" OR "Location:") | stats count by host, uri_path, _raw'
   expected_signal: "XSS payloads or redirect parameters in HTTP requests"
+  distinguishing_features:
+    key_indicator: "One of the XSS/redirect literals used by this SPL"
+    discriminator_tokens:
+      - "%3Cscript"
+      - "<script"
+      - "onerror="
+      - "onload="
+      - "javascript:"
+      - "redirect_url="
+      - "Location:"
 
 T1203:
   description: "Exploitation for client execution — binary overflow and service exploitation"
@@ -641,6 +681,16 @@ T1552:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="web:access" ("169.254.169.254" OR "/latest/meta-data" OR ".git/config" OR ".env" OR "credentials" OR "password=" OR "secret=") | stats count by host, uri_path, _raw'
   expected_signal: "Metadata endpoint access or sensitive file exposure in HTTP traffic"
+  distinguishing_features:
+    key_indicator: "One of the metadata/credential exposure literals used by this SPL"
+    discriminator_tokens:
+      - "169.254.169.254"
+      - "/latest/meta-data"
+      - ".git/config"
+      - ".env"
+      - "credentials"
+      - "password="
+      - "secret="
 
 T1046:
   description: "Network service discovery — port scanning and SNMP enumeration"

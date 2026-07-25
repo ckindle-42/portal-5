@@ -38,7 +38,7 @@ class TestEvidenceOracle:
         assert result["oracle_result"] == ra.ABSENT
 
     def test_indeterminate_without_machine_checkable_discriminator(self):
-        result = ra.attribute_cell(_cell(expected="T1190", telemetry='GET /index.php?cmd="whoami"'))
+        result = ra.attribute_cell(_cell(expected="T1610", telemetry="container event"))
         assert result["oracle_result"] == ra.INDETERMINATE
         assert result["oracle_reason"] == "no_declared_discriminator"
 
@@ -46,6 +46,20 @@ class TestEvidenceOracle:
         info = ra.technique_discriminators("T1053.005")
         assert info["source"] == "spl_field_value_clauses"
         assert "EventCode=4698" in info["tokens"]
+
+    def test_r1_spl_derived_literal_coverage(self):
+        cases = {
+            "T1190": "GET /index.php?cmd=whoami",
+            "T1611": "exe=nsenter target=/proc/1/ns/mnt",
+            "T1552.005": "GET http://169.254.169.254/latest/meta-data",
+            "T1083": "GET /../../etc/passwd",
+            "T1189": "GET /?q=%3Cscript%3Ealert(1)",
+            "T1552": "GET /.git/config",
+        }
+        for technique_id, telemetry in cases.items():
+            info = ra.technique_discriminators(technique_id)
+            assert info["source"] == "declared_discriminator_tokens"
+            assert ra.evidence_presence(telemetry, info["tokens"])[0] == ra.PRESENT
 
     def test_presence_function_is_label_blind(self):
         assert list(inspect.signature(ra.evidence_presence).parameters) == [
@@ -91,7 +105,7 @@ class TestAttributionTruthTable:
 
     def test_unscorable_by_oracle(self):
         result = ra.attribute_cell(
-            _cell(expected="T1190", verdict="RULED_OUT", telemetry="generic web event")
+            _cell(expected="T1610", verdict="RULED_OUT", telemetry="generic container event")
         )
         assert result["attribution"] == ra.UNSCORABLE_BY_ORACLE
 
