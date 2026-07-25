@@ -1,28 +1,29 @@
 ---
 id: unit-fact-doc-migration-coverage
 kind: what
-title: 0/25 docs migrated (0.0%)
+title: 1/25 docs migrated (4.0%)
 sources:
 - type: code
   path: portal/platform/wiki/render.py
-  commit: 47c6d8d9dbd2
+  commit: '639575143988'
   section: render_report
-last_generated_commit: 47c6d8d9dbd2
+last_generated_commit: '639575143988'
 confidence: high
 tags:
 - fact
 - wiki
 - migration
 created_at: 1784941448.187764
-updated_at: 1784944312.180064
+updated_at: 1784949690.379931
 ---
 
-# Doc migration coverage (0/25 docs migrated, 0.0%)
+# Doc migration coverage (1/25 docs migrated, 4.0%)
 
-Total generated blocks across migrated docs: 16
+Total generated blocks across migrated docs: 22
 
 ## Migrated docs (content-hash gate only)
 
+- `docs/SECURITY_BENCH_EXEC.md`
 
 ## Unmigrated docs (commit-stamp ledger)
 
@@ -32,7 +33,6 @@ Total generated blocks across migrated docs: 16
 - `KNOWN_LIMITATIONS.md`
 - `docs/HOWTO.md`
 - `docs/ADMIN_GUIDE.md`
-- `docs/SECURITY_BENCH_EXEC.md`
 - `docs/USER_GUIDE.md`
 - `docs/CLUSTER_SCALE.md`
 - `docs/ALERTS.md`
