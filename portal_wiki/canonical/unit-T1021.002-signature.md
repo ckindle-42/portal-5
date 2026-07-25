@@ -19,8 +19,8 @@ tags:
 - T1021.002
 - technique
 - signature
-created_at: 1784898346.2084649
-updated_at: 1784898346.2084649
+created_at: 1785020525.0110521
+updated_at: 1785020525.0110521
 ---
 
 # T1021.002 — SMB/Windows Admin Shares — remote file copy via SMB

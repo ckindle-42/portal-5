@@ -1,7 +1,8 @@
 ---
 id: unit-T1083-signature
 kind: mixed
-title: "T1083 \u2014 File and directory discovery \u2014 path traversal and LFI"
+title: "T1083 \u2014 File and directory discovery \u2014 path traversal and LFI [KEY:\
+  \ One of the path traversal literals used by this SPL]"
 sources:
 - type: spl
   path: siem/spl_detections.yaml#T1083
@@ -19,11 +20,11 @@ tags:
 - T1083
 - technique
 - signature
-created_at: 1784898346.2101068
-updated_at: 1784898346.2101068
+created_at: 1785020525.012683
+updated_at: 1785020525.012683
 ---
 
-# T1083 — File and directory discovery — path traversal and LFI
+# T1083 — File and directory discovery — path traversal and LFI [KEY: One of the path traversal literals used by this SPL]
 
 ## Telemetry Signatures
 

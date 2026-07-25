@@ -2,7 +2,8 @@
 id: unit-T1552-signature
 kind: mixed
 title: "T1552 \u2014 Unsecured credentials \u2014 SSRF-to-metadata, .env/.git exposure,\
-  \ hardcoded creds"
+  \ hardcoded creds [KEY: One of the metadata/credential exposure literals used by\
+  \ this SPL]"
 sources:
 - type: spl
   path: siem/spl_detections.yaml#T1552
@@ -20,11 +21,11 @@ tags:
 - T1552
 - technique
 - signature
-created_at: 1784898346.21346
-updated_at: 1784898346.21346
+created_at: 1785020525.016157
+updated_at: 1785020525.016157
 ---
 
-# T1552 — Unsecured credentials — SSRF-to-metadata, .env/.git exposure, hardcoded creds
+# T1552 — Unsecured credentials — SSRF-to-metadata, .env/.git exposure, hardcoded creds [KEY: One of the metadata/credential exposure literals used by this SPL]
 
 ## Telemetry Signatures
 

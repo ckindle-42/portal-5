@@ -1,7 +1,8 @@
 ---
 id: unit-T1611-signature
 kind: mixed
-title: "T1611 \u2014 Container escape \u2014 host auditd + docker events"
+title: "T1611 \u2014 Container escape \u2014 host auditd + docker events [KEY: nsenter,\
+  \ mount, /proc/1, or privileged from the SPL]"
 sources:
 - type: spl
   path: siem/spl_detections.yaml#T1611
@@ -13,11 +14,11 @@ tags:
 - T1611
 - technique
 - signature
-created_at: 1784898346.2057831
-updated_at: 1784898346.2057831
+created_at: 1785020525.0080278
+updated_at: 1785020525.0080278
 ---
 
-# T1611 — Container escape — host auditd + docker events
+# T1611 — Container escape — host auditd + docker events [KEY: nsenter, mount, /proc/1, or privileged from the SPL]
 
 ## Telemetry Signatures
 

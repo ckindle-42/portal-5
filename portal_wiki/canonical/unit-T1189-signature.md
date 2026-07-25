@@ -2,7 +2,7 @@
 id: unit-T1189-signature
 kind: mixed
 title: "T1189 \u2014 Drive-by compromise \u2014 reflected XSS and malicious redirect\
-  \ indicators"
+  \ indicators [KEY: One of the XSS/redirect literals used by this SPL]"
 sources:
 - type: spl
   path: siem/spl_detections.yaml#T1189
@@ -18,11 +18,11 @@ tags:
 - T1189
 - technique
 - signature
-created_at: 1784898346.212539
-updated_at: 1784898346.212539
+created_at: 1785020525.015189
+updated_at: 1785020525.015189
 ---
 
-# T1189 — Drive-by compromise — reflected XSS and malicious redirect indicators
+# T1189 — Drive-by compromise — reflected XSS and malicious redirect indicators [KEY: One of the XSS/redirect literals used by this SPL]
 
 ## Telemetry Signatures
 

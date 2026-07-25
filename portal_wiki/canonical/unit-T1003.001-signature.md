@@ -2,7 +2,8 @@
 id: unit-T1003.001-signature
 kind: mixed
 title: "T1003.001 \u2014 LSASS dump \u2014 credential dumping via lsass.exe memory\
-  \ access"
+  \ access [DISTINGUISH: T1003.001 = local LSASS memory access; T1003.003 = NTDS.dit\
+  \ extraction; T1003.006 = remote AD replication] [KEY: TargetImage=*lsass* or NewProcessName=*lsass*]"
 sources:
 - type: spl
   path: siem/spl_detections.yaml#T1003.001
@@ -16,11 +17,11 @@ tags:
 - T1003.001
 - technique
 - signature
-created_at: 1784898346.211338
-updated_at: 1784898346.211338
+created_at: 1785020525.0139031
+updated_at: 1785020525.0139031
 ---
 
-# T1003.001 — LSASS dump — credential dumping via lsass.exe memory access
+# T1003.001 — LSASS dump — credential dumping via lsass.exe memory access [DISTINGUISH: T1003.001 = local LSASS memory access; T1003.003 = NTDS.dit extraction; T1003.006 = remote AD replication] [KEY: TargetImage=*lsass* or NewProcessName=*lsass*]
 
 ## Telemetry Signatures
 
