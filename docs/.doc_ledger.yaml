@@ -19,4 +19,4 @@ docs:
     - portal_mcp/
     - .env.example
     - portal_wiki/canonical/
-    last_reconciled_commit: 4662d7513156d7ce93a41c73786e4f3235d51580
+    last_reconciled_commit: f214af6446fe4e28e644e43384d7a82ba13d773b
