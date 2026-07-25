@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 # PORTAL5_BENCH_SEC_EXECUTE_V3 — Security Bench Execution Prompt
 
 > **Supersedes** `PORTAL5_BENCH_SEC_EXECUTE_V2.md` (archive to
@@ -152,3 +153,4 @@ model produces a meaningless capability score. The preflight lists all
 - Canonical `auto-security::<variant>` only; retired aliases are gone.
 - Lab-ready green before lab-exec.
 - Product code read-only; PROMOTE_POLICY zero auto-promotions.
+<!-- /WIKI:HUMAN-OWNED -->

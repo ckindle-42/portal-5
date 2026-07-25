@@ -139,7 +139,12 @@ def all_status() -> list[dict[str, Any]]:
 
 
 def check_doc_currency() -> tuple[str, str, list[dict[str, Any]]]:
-    """(status, detail, findings) — for validate_system.py check AL."""
+    """(status, detail, findings) — for validate_system.py check AK.
+
+    Auto-prunes migrated docs before checking so a graduated doc can never
+    be reported stale by the commit-stamp mechanism.
+    """
+    prune_migrated()
     statuses = all_status()
     if not statuses:
         return ("SKIP", "doc ledger empty (no docs bound)", [])
@@ -159,6 +164,50 @@ def check_doc_currency() -> tuple[str, str, list[dict[str, Any]]]:
         "then `python3 scripts/doc_ledger.py stamp-all`"
     )
     return ("FAIL", detail, findings)
+
+
+def prune_migrated(repo_root: Path | None = None) -> list[str]:
+    """Remove migrated docs from the commit-stamp ledger.
+
+    A doc whose `doc_is_migrated()` returns True has graduated to the
+    content-hash gate (AW) and no longer needs commit-stamp policing.
+    Returns the list of pruned doc paths.
+    """
+    try:
+        from portal.platform.wiki.migration import doc_is_migrated
+    except ImportError:
+        # Standalone script context — try adding repo root to sys.path
+        try:
+            import sys as _sys
+
+            if str(REPO_ROOT) not in _sys.path:
+                _sys.path.insert(0, str(REPO_ROOT))
+            from portal.platform.wiki.migration import doc_is_migrated
+        except ImportError:
+            return []  # portal not importable at all
+
+    root = repo_root or REPO_ROOT
+    led = load_ledger()
+    pruned: list[str] = []
+    for doc in list(led["docs"].keys()):
+        p = root / doc
+        if p.exists() and doc_is_migrated(p):
+            del led["docs"][doc]
+            pruned.append(doc)
+    if pruned:
+        save_ledger(led)
+    return pruned
+
+
+def cmd_prune(args: argparse.Namespace) -> int:
+    pruned = prune_migrated()
+    if pruned:
+        for doc in pruned:
+            print(f"pruned {doc} (migrated — now under content-hash gate)")
+        print(f"\npruned {len(pruned)} doc(s)")
+    else:
+        print("no migrated docs to prune")
+    return 0
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -245,6 +294,9 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("doc")
     sp.add_argument("--sources", required=True, help="comma-separated repo-relative paths")
     sp.set_defaults(func=cmd_add)
+
+    sp = sub.add_parser("prune", help="remove migrated docs from ledger")
+    sp.set_defaults(func=cmd_prune)
 
     args = p.parse_args(argv)
     return args.func(args)

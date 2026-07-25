@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 # Portal 5 — Cluster Scale-Out Guide
 
 Portal 5 is designed to grow from a single M4 Mac to a 12-node Mac Studio
@@ -61,3 +62,4 @@ Assign different machines to different workspace groups for optimal routing:
 
 Open WebUI, the MCP tools, and the Telegram/Slack channels all continue working
 unchanged. The only edit is a YAML file.
+<!-- /WIKI:HUMAN-OWNED -->

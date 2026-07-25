@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 # Performance Optimizations
 
 ## P7-PERF Pipeline Optimizations
@@ -29,3 +30,4 @@ python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace auto --runs 3
 ```
 
 Compare direct vs pipeline paths to identify overhead.
+<!-- /WIKI:HUMAN-OWNED -->

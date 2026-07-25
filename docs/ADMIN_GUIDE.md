@@ -1,5 +1,6 @@
 # Portal 7.6.0 — Admin Guide
 
+<!-- WIKI:HUMAN-OWNED -->
 ## First Login
 
 After `./launch.sh up`, credentials are printed to the console and saved in `.env`.
@@ -115,9 +116,11 @@ curl -s http://localhost:9099/health/all | jq .
 # Check all services
 ./launch.sh status
 ```
+<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
+<!-- WIKI:HUMAN-OWNED -->
 ## Router Configuration
 
 ### How the LLM Router Works
@@ -127,16 +130,7 @@ The pipeline routes every `auto` workspace request through a **two-layer intent 
 - **Layer 1 — LLM router** (`portal/platform/inference/router/routing.py`): A small model classifies intent via Ollama `/api/generate` with grammar-enforced JSON output. Result: `{"workspace": "<id>", "confidence": 0.0–1.0}`. Fast, accurate.
 - **Layer 2 — Keyword scoring** (`portal/platform/inference/router/routing.py`): Weighted keyword match. Fires when LLM router times out, returns low confidence, or errors.
 
-**Layer 2 loses security-variant precision.** `_SECURITY_VARIANT_SIGNALS` defines keyword
-sets for 7 security variants (`redteam`, `blueteam`, `pentest`, `redteam-deep`,
-`purpleteam`, `purpleteam-deep`, `purpleteam-exec`), but only `redteam` has a dedicated
-scoring entry in Layer 2's `_WORKSPACE_ROUTING`/`_SCORER_VARIANT_MAP` — the other 6
-variant-signal sets are consulted only by `_infer_variant()`, which runs post-classification
-for Layer 1 only. When the LLM router is down and Layer 2 fallback fires, a message that
-would have routed to (say) `auto-security::blueteam` on Layer 1 instead lands on the plain
-`auto-security` base — a silent, coarser routing decision for the duration of the fallback.
-This is expected behavior, not a bug, but operators should know it: a Layer-1 outage degrades
-variant precision for defensive/purple intents specifically, not just latency.
+**Layer 2 loses security-variant precision.** When the LLM router is down and Layer 2 fallback fires, a message that would have routed to (say) `auto-security::blueteam` on Layer 1 instead lands on the plain `auto-security` base — a silent, coarser routing decision for the duration of the fallback. This is expected behavior, not a bug, but operators should know it: a Layer-1 outage degrades variant precision for defensive/purple intents specifically, not just latency.
 
 ### Three-Tier Router Models
 
@@ -150,24 +144,9 @@ Three models are available; select via `LLM_ROUTER_MODEL` in `.env`:
 
 Accuracy figures are from `tests/benchmarks/bench_router.py` (36-query GOLDEN_SET, 3 rounds).
 
-### OLLAMA_MAX_LOADED_MODELS=3
+### OLLAMA_MAX_LOADED_MODELS
 
-The Ollama slot count is set to **3** (not 2) for two reasons:
-
-**1. Router keep-warm.** The router model holds its own slot alongside two inference models. Without this, Ollama evicts the router to make room for inference models — the first request after eviction falls back to Layer 2 keyword scoring while the router cold-loads.
-
-**Cold-load times** (after eviction): PRIMARY 4.2s · STANDBY 2.4s · FALLBACK 1.6s. All exceed the production `LLM_ROUTER_TIMEOUT_MS` limit, so the first post-eviction request always goes to Layer 2 — exactly one fallback, then the router reloads and stays warm.
-
-**2. Security multi-chain operations.** The purple team and security exec-chain workspaces (auto-security's `purpleteam`/`purpleteam-deep`/`purpleteam-exec` variants, folded in BUILD_PROGRAM_COLLAPSE_V1.md Phase 6) run multi-hop model chains where two inference models need to be simultaneously warm: the attack model and the defender/blue-team model. The bench exec-chain driver (`portal/modules/security/core/commands/run.py`) explicitly relies on `MAX_LOADED=3` to pre-warm all chain models before any chain prompt runs — it evicts non-chain inference models first, then fills all 3 slots with chain models so no mid-chain eviction occurs.
-
-In production, the purple team chain steps execute sequentially (not concurrently), but having both models loaded avoids a cold-load stall between hops. With `MAX_LOADED=2`, the second chain model evicts the first, causing a cold-load on every hop reversal.
-
-**Bench parallelism (added 2026-06-29).** The default `MAX_LOADED` has been raised to **5**
-to support `tests/benchmarks/bench_security.py --parallel-workspaces N` (default N=2).
-The 4-hop `purpleteam-deep` variant chain needs 4 distinct chain models hot; without `MAX_LOADED>=4`
-Ollama evicts and re-cold-loads between hops, defeating the parallelism gain. Operators running
-the security bench in parallel should verify the live Ollama process picks up the new value
-(`ps eww -p $(pgrep -f "ollama serve") | tr ' ' '\n' | grep OLLAMA_MAX_LOADED`).
+The Ollama slot count is set to **5** to support bench parallelism. The router model holds its own slot alongside inference models. Security multi-chain operations need 4+ chain models hot simultaneously.
 
 ### Changing the Router Model
 
@@ -194,11 +173,8 @@ Ollama runs under launchd, not Docker. Docker-compose env vars pass through to t
 To change `OLLAMA_MAX_LOADED_MODELS` (or add `OLLAMA_MEMORY_LIMIT`), edit the plist and reload:
 
 ```bash
-# Edit the plist, then:
 launchctl unload ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
-
-# Verify the new value was picked up:
 ps eww -p $(pgrep -f "ollama serve") | tr ' ' '\n' | grep OLLAMA_MAX_LOADED
 ```
 
@@ -212,29 +188,11 @@ Ollama allocates KV cache at model-load time. Runtime resident size is **signifi
 | granite4.1:8b | 5.3 GB | ~16.8 GB | Large context + KV q8_0 |
 | OBLITERATED E4B | 5.3 GB | ~5.3 GB | Compact architecture |
 
-**devstral:24b specifically**: its 25.7 GB runtime footprint can cause memory-pressure eviction of other models regardless of `MAX_LOADED_MODELS`. This is expected graceful behavior — Ollama offloads CPU layers rather than crashing (unlike MLX Metal OOM). If devstral evicts the router, Layer 2 keyword scoring handles that one request, then the router reloads. Not a bug.
-
-### OLLAMA_MEMORY_LIMIT (deferred)
-
-`OLLAMA_MEMORY_LIMIT` is currently **not set** (unlimited). On the M4 Pro 64GB, worst-case slot composition (router 5.3GB + devstral 25.7GB + granite 16.8GB) can hit ~47.8GB — well within budget. Ollama gracefully offloads to CPU before crashing, but if kernel panics or Metal OOM errors appear under heavy multi-model loads, add to the plist:
-
-```xml
-<key>OLLAMA_MEMORY_LIMIT</key>
-<string>42g</string>
-```
-
-42 GB leaves ~6 GB for macOS + pipeline + Open WebUI.
-
 ### Verifying Router Is Warm
 
 ```bash
-# Check which models Ollama currently has loaded
 curl -s http://localhost:11434/api/ps | jq '.models[] | {name, size_vram}'
-
-# Check pipeline logs for router decisions
 ./launch.sh logs | grep -E "LLM router|Routing workspace|keyword fallback" | tail -20
-
-# Pull router model if not yet downloaded
 ollama pull hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M
 ```
 
@@ -242,22 +200,15 @@ ollama pull hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M
 
 To re-validate router accuracy after model changes:
 ```bash
-# Accuracy across 36-query GOLDEN_SET
 OLLAMA_URL=http://localhost:11434 python3 tests/benchmarks/bench_router.py
-
-# VRAM eviction and cold-load conditions bench (3 router candidates × 4 scenarios)
 OLLAMA_URL=http://localhost:11434 python3 tests/benchmarks/bench_router_conditions.py \
   --companions devstral:24b granite4.1:8b
 ```
+<!-- /WIKI:HUMAN-OWNED -->
 
-Results are written to `tests/benchmarks/results/`.
+---
 
 ## Live Facts (Generated)
-
-The tables below are generated from `portal_wiki/canonical/` fact units —
-computed from live config on every `sync-config` run
-(DESIGN_WIKI_GENERATION_LOOP_V1.md). Do not hand-edit inside the markers;
-edit the source config and re-run `sync-config` instead.
 
 ### Personas
 

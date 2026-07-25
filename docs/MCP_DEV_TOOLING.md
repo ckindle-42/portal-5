@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 # MCP Dev Tooling — Claude Code & opencode Integration
 
 Portal 5 ships two configuration files that wire it into AI-powered coding tools:
@@ -397,3 +398,4 @@ http://localhost:3000/api/dashboards/home   (Grafana read-only API)
 > **sqlite server omitted:** Open WebUI's `webui.db` lives in a Docker volume not bind-mounted
 > to the host. To enable sqlite MCP, add a bind mount in `docker-compose.yml` and add the
 > entry back to `.mcp.json`.
+<!-- /WIKI:HUMAN-OWNED -->

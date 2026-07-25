@@ -607,6 +607,49 @@ def derive_media_memory_budget(commit: str, save: bool = True) -> KnowledgeUnit:
     return unit
 
 
+def derive_doc_migration_coverage(commit: str, save: bool = True) -> KnowledgeUnit:
+    """unit-fact-doc-migration-coverage — render_report() numbers from live state."""
+    from portal.platform.wiki.render import render_report
+
+    report = render_report(_REPO_ROOT)
+    migrated = report["migrated"]
+    unmigrated = report["unmigrated"]
+    total = len(migrated) + len(unmigrated)
+    pct = report["coverage_pct"]
+    blocks = report["blocks_total"]
+
+    body_lines = [
+        f"# Doc migration coverage ({len(migrated)}/{total} docs migrated, {pct}%)",
+        "",
+        f"Total generated blocks across migrated docs: {blocks}",
+        "",
+        "## Migrated docs (content-hash gate only)",
+        "",
+    ]
+    body_lines += [f"- `{d}`" for d in migrated]
+    body_lines += ["", "## Unmigrated docs (commit-stamp ledger)", ""]
+    body_lines += [f"- `{d}`" for d in unmigrated]
+
+    unit = _make_unit(
+        "unit-fact-doc-migration-coverage",
+        f"{len(migrated)}/{total} docs migrated ({pct}%)",
+        [
+            SourceRef(
+                type="code",
+                path="portal/platform/wiki/render.py",
+                commit=commit,
+                section="render_report",
+            )
+        ],
+        "\n".join(body_lines),
+        ["fact", "wiki", "migration"],
+        commit,
+    )
+    if save:
+        save_unit(unit)
+    return unit
+
+
 _DERIVERS = (
     derive_persona_roster,
     derive_workspace_roster,
@@ -617,6 +660,7 @@ _DERIVERS = (
     derive_tool_authorizations,
     derive_tool_registry,
     derive_media_memory_budget,
+    derive_doc_migration_coverage,
 )
 
 

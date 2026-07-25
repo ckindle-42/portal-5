@@ -1,3 +1,4 @@
+<!-- WIKI:HUMAN-OWNED -->
 <!-- GENERATED FROM portal_wiki/canonical/ — edit the source unit, not this file -->
 
 # Portal 5 Architecture Map
@@ -538,3 +539,4 @@
 - **mitre**: 30 references
 - **scenario**: 57 references
 - **spl**: 30 references
+<!-- /WIKI:HUMAN-OWNED -->
