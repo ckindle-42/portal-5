@@ -1,20 +1,19 @@
 ---
-id: unit-PERFORMANCE-benchmarking
-kind: why
+id: unit-performance-benchmarking
+kind: what
 title: "PERFORMANCE \u2014 Benchmarking"
 sources:
-- type: design
+- type: doc
   path: docs/PERFORMANCE.md
+  commit: 05e42ec2
   section: Benchmarking
-last_generated_commit: ''
+last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-- PERFORMANCE
-created_at: 1783195000.881315
-updated_at: 1783195000.881315
+created_at: 1784946220.510845
+updated_at: 1784946220.510845
 ---
-
 
 Run TPS benchmarks with:
 ```bash

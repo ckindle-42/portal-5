@@ -1,20 +1,19 @@
 ---
-id: unit-ALERTS-pushover
-kind: why
+id: unit-alerts-pushover
+kind: what
 title: "ALERTS \u2014 Pushover"
 sources:
-- type: design
+- type: doc
   path: docs/ALERTS.md
+  commit: 05e42ec2
   section: Pushover
-last_generated_commit: ''
+last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-- ALERTS
-created_at: 1783195000.820197
-updated_at: 1783195000.820197
+created_at: 1784946220.547549
+updated_at: 1784946220.547549
 ---
-
 
 1. Sign up at [https://pushover.net](https://pushover.net)
 2. Create an application to get your API token

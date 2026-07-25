@@ -1,20 +1,19 @@
 ---
-id: unit-ALERTS-operational-alerts
-kind: why
+id: unit-alerts-operational-alerts
+kind: what
 title: "ALERTS \u2014 Operational Alerts"
 sources:
-- type: design
+- type: doc
   path: docs/ALERTS.md
+  commit: 05e42ec2
   section: Operational Alerts
-last_generated_commit: ''
+last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-- ALERTS
-created_at: 1783195000.819131
-updated_at: 1783195000.819131
+created_at: 1784946220.545603
+updated_at: 1784946220.545603
 ---
-
 
 Fired immediately when a threshold is crossed:
 

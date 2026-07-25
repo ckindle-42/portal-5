@@ -1,20 +1,19 @@
 ---
-id: unit-ALERTS-troubleshooting
-kind: why
+id: unit-alerts-troubleshooting
+kind: what
 title: "ALERTS \u2014 Troubleshooting"
 sources:
-- type: design
+- type: doc
   path: docs/ALERTS.md
+  commit: 05e42ec2
   section: Troubleshooting
-last_generated_commit: ''
+last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-- ALERTS
-created_at: 1783195000.8211122
-updated_at: 1783195000.8211122
+created_at: 1784946220.551797
+updated_at: 1784946220.551797
 ---
-
 
 **No alerts received:**
 - Verify `NOTIFICATIONS_ENABLED=true` in `.env`
