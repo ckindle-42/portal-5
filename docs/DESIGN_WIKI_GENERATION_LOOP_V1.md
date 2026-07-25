@@ -56,12 +56,13 @@ When `discover_unmigrated_docs` returns empty, the commit-stamp ledger (`docs/.d
 ### Migration coverage
 
 <!-- WIKI:GENERATED unit=unit-fact-doc-migration-coverage -->
-# Doc migration coverage (0/25 docs migrated, 0.0%)
+# Doc migration coverage (1/25 docs migrated, 4.0%)
 
-Total generated blocks across migrated docs: 16
+Total generated blocks across migrated docs: 22
 
 ## Migrated docs (content-hash gate only)
 
+- `docs/SECURITY_BENCH_EXEC.md`
 
 ## Unmigrated docs (commit-stamp ledger)
 
@@ -71,7 +72,6 @@ Total generated blocks across migrated docs: 16
 - `KNOWN_LIMITATIONS.md`
 - `docs/HOWTO.md`
 - `docs/ADMIN_GUIDE.md`
-- `docs/SECURITY_BENCH_EXEC.md`
 - `docs/USER_GUIDE.md`
 - `docs/CLUSTER_SCALE.md`
 - `docs/ALERTS.md`
