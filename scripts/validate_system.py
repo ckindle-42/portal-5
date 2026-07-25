@@ -3101,13 +3101,43 @@ def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
         }
     )
 
-    if stale_units or drift or violations:
+    # V2 enforcement: HUMAN-OWNED fences must be reasoned and bounded.
+    from portal.platform.wiki.migration import human_owned_reasons
+    from portal.platform.wiki.render import TIER1_DOCS
+
+    fence_violations: list[str] = []
+    for rel in TIER1_DOCS:
+        p = REPO_ROOT / rel
+        if not p.exists():
+            continue
+        text = p.read_text(encoding="utf-8")
+        reasons = human_owned_reasons(text)
+        if any(r == "[MISSING]" for r in reasons):
+            fence_violations.append(f"{rel}: unreasoned HUMAN-OWNED fence")
+    for rel in report.get("gamed", []):
+        fence_violations.append(f"{rel}: gamed (fence-everything, not real migration)")
+    subs.append(
+        {
+            "name": "HUMAN-OWNED fences are reasoned + bounded",
+            "status": "PASS" if not fence_violations else "FAIL",
+            "detail": "; ".join(fence_violations)
+            if fence_violations
+            else "all reasoned and bounded",
+        }
+    )
+
+    if stale_units or drift or violations or fence_violations:
         detail = (
             f"{len(stale_units)} fact-unit(s) stale, {len(drift)} doc block(s) drifted, "
-            f"{len(violations)} migrated doc(s) with un-fenced substance — run sync-config / edit units"
+            f"{len(violations)} migrated doc(s) with un-fenced substance, "
+            f"{len(fence_violations)} fence violation(s) — run sync-config / edit units"
         )
         return ("FAIL", detail, subs)
-    return ("PASS", "fact-units current, all generated blocks match, migrated docs clean", subs)
+    return (
+        "PASS",
+        "fact-units current, all generated blocks match, migrated docs clean, fences reasoned",
+        subs,
+    )
 
 
 def check_trajectory_scoring_honesty() -> tuple[str, str, list[dict]]:

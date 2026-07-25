@@ -1,6 +1,5 @@
 # Portal 5 — Local AI Platform
 
-<!-- WIKI:HUMAN-OWNED -->
 A complete, private AI platform that runs on your hardware. Text, code, security
 analysis, images, video, music, documents, and voice — all local, all yours.
 
@@ -9,11 +8,9 @@ model for each task. No cloud accounts. No usage fees. Inference is fully local 
 your prompts and responses never leave your machine. Model downloads from HuggingFace
 or Ollama registries transmit standard HTTP metadata; if `HF_TOKEN` is configured for
 gated models, authentication requests are sent to HuggingFace.
-<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
-<!-- WIKI:HUMAN-OWNED -->
 ## Prerequisites
 
 | Requirement | Minimum | Recommended |
@@ -466,4 +463,3 @@ and reranking (:8925) — non-chat-inference runtimes only.
 ## License
 
 MIT — see [LICENSE](LICENSE)
-<!-- /WIKI:HUMAN-OWNED -->

@@ -1,4 +1,3 @@
-<!-- WIKI:HUMAN-OWNED -->
 # Portal 6.0.0 — Backup & Restore Guide
 
 This guide covers backup and restore procedures for all Portal 5 data.
@@ -191,4 +190,3 @@ docker exec ollama ollama pull dolphin-llama3:8b
 - Offsite backup recommended (S3, external drive)
 - `.env` contains secrets — back up separately, store securely
 - Test restore procedure periodically
-<!-- /WIKI:HUMAN-OWNED -->

@@ -1,8 +1,6 @@
 # DESIGN_WIKI_GENERATION_LOOP_V1
 
-<!-- WIKI:HUMAN-OWNED -->
 The wiki spine generation loop: making generated-from-spine the default state of documentation.
-<!-- /WIKI:HUMAN-OWNED -->
 
 ## Principles
 
@@ -94,7 +92,6 @@ Total generated blocks across migrated docs: 16
 - `tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md`
 <!-- /WIKI:GENERATED -->
 
-<!-- WIKI:HUMAN-OWNED -->
 ## Migration procedure
 
 For each doc `D` returned by `discover_unmigrated_docs()` (highest priority first):
@@ -107,4 +104,3 @@ For each doc `D` returned by `discover_unmigrated_docs()` (highest priority firs
 6. Verify green, commit. Re-discover and continue.
 
 Each doc is one atomic commit. The repo is green after every commit. The loop is resumable at any point.
-<!-- /WIKI:HUMAN-OWNED -->

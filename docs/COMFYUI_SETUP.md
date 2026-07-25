@@ -1,4 +1,3 @@
-<!-- WIKI:HUMAN-OWNED -->
 # Portal 5 — ComfyUI Setup Guide
 
 ComfyUI handles image and video generation. It runs natively on the host
@@ -202,4 +201,3 @@ ps aux | grep "main.py" | grep -v grep   # should NOT show --force-fp16
 If it shows `--force-fp16`, edit `~/ComfyUI/start.sh` and
 `~/Library/LaunchAgents/com.portal5.comfyui.plist` to remove it, then restart
 ComfyUI.
-<!-- /WIKI:HUMAN-OWNED -->

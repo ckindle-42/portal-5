@@ -1,6 +1,5 @@
 # Portal 7.6.0 — Admin Guide
 
-<!-- WIKI:HUMAN-OWNED -->
 ## First Login
 
 After `./launch.sh up`, credentials are printed to the console and saved in `.env`.
@@ -116,11 +115,9 @@ curl -s http://localhost:9099/health/all | jq .
 # Check all services
 ./launch.sh status
 ```
-<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 
-<!-- WIKI:HUMAN-OWNED -->
 ## Router Configuration
 
 ### How the LLM Router Works
@@ -204,7 +201,6 @@ OLLAMA_URL=http://localhost:11434 python3 tests/benchmarks/bench_router.py
 OLLAMA_URL=http://localhost:11434 python3 tests/benchmarks/bench_router_conditions.py \
   --companions devstral:24b granite4.1:8b
 ```
-<!-- /WIKI:HUMAN-OWNED -->
 
 ---
 

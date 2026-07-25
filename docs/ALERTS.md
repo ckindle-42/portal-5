@@ -1,4 +1,3 @@
-<!-- WIKI:HUMAN-OWNED -->
 # Portal 6.0.0 — Alerts & Notifications Guide
 
 Portal 5 can send operational alerts and daily usage summaries to Slack, Telegram,
@@ -177,4 +176,3 @@ Slack/Telegram, use separate bots or filter with channel rules.
 - Check that the endpoint accepts POST requests with `Content-Type: application/json`
 - If using `WEBHOOK_HEADERS`, ensure it is valid JSON — malformed JSON is logged and ignored
 - Inspect outgoing requests: `docker compose logs portal-pipeline | grep -i webhook`
-<!-- /WIKI:HUMAN-OWNED -->
