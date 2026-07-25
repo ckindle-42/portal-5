@@ -2767,6 +2767,18 @@ def main() -> int:
         "BI. barrier tools gate (T1 JSON fallback + T2 escalate first-class + I2 cite-or-drop)",
         check_barrier_tools_gate,
     )
+    v.run(
+        "BJ. sub-technique discriminator gate (S1 label-blind + S2 contradiction-only)",
+        check_subtechnique_discriminator_gate,
+    )
+    v.run(
+        "BK. budget-starve reaches expert (U1: no silent UNRESOLVED)",
+        check_budget_starve_reaches_expert,
+    )
+    v.run(
+        "BL. council participation floor (Q1: non-voter counts against quorum)",
+        check_council_participation_floor,
+    )
 
     return v.summary()
 
@@ -3503,9 +3515,13 @@ def check_blue_orchestration_axis() -> tuple[str, str, list[dict]]:
     orch_path = REPO_ROOT / "portal" / "modules" / "security" / "core" / "blue_orchestrate.py"
     src = orch_path.read_text()
 
-    imports_cite_or_drop = bool(
-        re.search(r"\bimport\b[^\n]*\b_cite_or_drop\b", src)
-        or re.search(r"^\s*from\s+\S+\s+import\s+.*\b_cite_or_drop\b", src, re.MULTILINE)
+    import ast
+
+    module_tree = ast.parse(src)
+    imports_cite_or_drop = any(
+        isinstance(node, ast.ImportFrom)
+        and any(alias.name == "_cite_or_drop" for alias in node.names)
+        for node in ast.walk(module_tree)
     )
     subs.append(
         {
@@ -4110,6 +4126,202 @@ def check_barrier_tools_gate() -> tuple[str, str, list[dict]]:
     if bad:
         return ("FAIL", "; ".join(bad), subs)
     return ("PASS", "barrier tools shape + I2 grounding preserved", subs)
+
+
+def check_subtechnique_discriminator_gate() -> tuple[str, str, list[dict]]:
+    """BJ. V4A discriminator gate is label-blind and contradiction-only."""
+    import inspect
+
+    from portal.modules.security.core.blue import _discriminator_contradicts
+
+    subs: list[dict] = []
+    bad: list[str] = []
+
+    params = list(inspect.signature(_discriminator_contradicts).parameters)
+    forbidden = {"ground_truth", "episode", "techniques", "expected", "answer"}
+    leaked = [p for p in params if any(word in p.lower() for word in forbidden)]
+    s1_ok = not leaked
+    subs.append(
+        {
+            "name": "S1: gate takes no ground-truth parameter",
+            "status": "PASS" if s1_ok else "FAIL",
+            "detail": f"params={params}",
+        }
+    )
+    if not s1_ok:
+        bad.append(f"discriminator gate leaks ground truth via params: {leaked}")
+
+    telemetry = "EventCode=4768 PreAuthType=0 Account=svc-web"
+    contradicted_wrong, siblings = _discriminator_contradicts("T1558.003", telemetry)
+    contradicted_right, _ = _discriminator_contradicts("T1558.004", telemetry)
+    s2_ok = contradicted_wrong and "T1558.004" in siblings and not contradicted_right
+    subs.append(
+        {
+            "name": "S2: wrong sibling contradicted, correct claim retained",
+            "status": "PASS" if s2_ok else "FAIL",
+            "detail": (
+                f"wrong={contradicted_wrong} siblings={siblings} right={contradicted_right}"
+            ),
+        }
+    )
+    if not s2_ok:
+        bad.append("positive-contradiction behavior failed")
+
+    orch = (
+        REPO_ROOT / "portal" / "modules" / "security" / "core" / "blue_orchestrate.py"
+    ).read_text()
+    cite_sites = orch.count("_cite_or_drop(")
+    gate_sites = orch.count("_grounded_discriminator_contradictions(") - 1
+    coexist_ok = gate_sites >= cite_sites
+    subs.append(
+        {
+            "name": "I2: discriminator gate shares every orchestration citation chokepoint",
+            "status": "PASS" if coexist_ok else "FAIL",
+            "detail": f"cite_sites={cite_sites} gated_sites={gate_sites}",
+        }
+    )
+    if not coexist_ok:
+        bad.append(f"only {gate_sites}/{cite_sites} citation chokepoints are discriminator-gated")
+
+    if bad:
+        return ("FAIL", "; ".join(bad), subs)
+    return ("PASS", "sub-technique discriminator gate is label-blind and S2-safe", subs)
+
+
+def check_budget_starve_reaches_expert() -> tuple[str, str, list[dict]]:
+    """BK. A budget-starved Hunter reaches the Expert before UNRESOLVED."""
+    import json
+
+    from portal.modules.security.core import blue_orchestrate as bo
+
+    hunter_more = json.dumps({"request_more": "still need more", "technique_ids": []})
+    expert_ruled_out = json.dumps(
+        {
+            "verdict": "RULED_OUT",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "nothing conclusive",
+            "match_grade": "NONE",
+            "similar_to": [],
+            "request_more": "",
+        }
+    )
+    calls: list[str] = []
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        calls.append(model)
+        return {"content": expert_ruled_out if model == "expert-model" else hunter_more}
+
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
+
+    episode = bo.Episode(
+        scenario="v4b-budget-starve-check",
+        target_host="dc01",
+        techniques=[],
+        telemetry={"windows:security": []},
+    )
+    sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="hunter-model"),
+        bo.SectionSpec(role="expert", model="expert-model"),
+    ]
+
+    original_call_model = bo._call_model
+    original_run_tool_model = bo.run_tool_model
+    try:
+        bo._call_model = fake_call_model
+        bo.run_tool_model = fake_run_tool_model
+        result = bo.run_blue_orchestration(
+            episode,
+            sections=sections,
+            max_rounds=20,
+            budgets={"hunter": 4},
+        )
+    finally:
+        bo._call_model = original_call_model
+        bo.run_tool_model = original_run_tool_model
+
+    expert_in_trace = any(entry.get("section") == "expert" for entry in result.trace)
+    ok = "expert-model" in calls and expert_in_trace and result.verdict == "RULED_OUT"
+    subs = [
+        {
+            "name": "U1: starved hunt invokes Expert and uses its conclusion",
+            "status": "PASS" if ok else "FAIL",
+            "detail": (
+                f"verdict={result.verdict} expert_called={'expert-model' in calls} "
+                f"expert_trace={expert_in_trace}"
+            ),
+        }
+    ]
+    if not ok:
+        return ("FAIL", "budget-starved hunt still bypassed its Expert", subs)
+    return ("PASS", "budget-starved hunt reaches a final Expert turn", subs)
+
+
+def check_council_participation_floor() -> tuple[str, str, list[dict]]:
+    """BL. Council quorum uses the full roster, including non-voters."""
+    from portal.modules.security.core.analyst_verdict import SectionOutput
+    from portal.modules.security.core.council_agreement import compute_agreement
+
+    concluder = SectionOutput(
+        verdict="CONFIRMED",
+        technique_ids=["T1558.003"],
+        section="expert",
+    )
+    non_voter = SectionOutput(
+        verdict=None,
+        request_more="still confused",
+        section="expert",
+    )
+    one_of_two = compute_agreement([concluder, non_voter], quorum=0.5)
+    roster_ok = (
+        one_of_two.verdict == "ANOMALOUS_UNCLASSIFIED"
+        and one_of_two.needs_arbiter
+        and one_of_two.agreement == 0.5
+    )
+
+    both = [
+        SectionOutput(
+            verdict="CONFIRMED",
+            technique_ids=["T1558.003"],
+            section="expert",
+        ),
+        SectionOutput(
+            verdict="CONFIRMED",
+            technique_ids=["T1558.003"],
+            section="expert",
+        ),
+    ]
+    unanimous = compute_agreement(both, quorum=0.5)
+    full_ok = unanimous.verdict == "CONFIRMED" and unanimous.agreement == 1.0
+
+    below_floor = compute_agreement([concluder, non_voter, non_voter], quorum=0.5)
+    floor_ok = (
+        below_floor.verdict == "ANOMALOUS_UNCLASSIFIED"
+        and below_floor.needs_arbiter
+        and "below floor" in below_floor.rationale
+    )
+    subs = [
+        {
+            "name": "Q1: lone survivor is 1/2, never auto-1.0",
+            "status": "PASS" if roster_ok else "FAIL",
+            "detail": f"agreement={one_of_two.agreement} verdict={one_of_two.verdict}",
+        },
+        {
+            "name": "I7: full participation unanimous remains CONFIRMED @1.0",
+            "status": "PASS" if full_ok else "FAIL",
+            "detail": f"agreement={unanimous.agreement} verdict={unanimous.verdict}",
+        },
+        {
+            "name": "Q1: participation below floor escalates",
+            "status": "PASS" if floor_ok else "FAIL",
+            "detail": f"verdict={below_floor.verdict} rationale={below_floor.rationale}",
+        },
+    ]
+    if not (roster_ok and full_ok and floor_ok):
+        return ("FAIL", "council roster denominator or participation floor failed", subs)
+    return ("PASS", "council quorum uses roster and participation floor", subs)
 
 
 if __name__ == "__main__":

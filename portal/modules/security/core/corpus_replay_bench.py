@@ -106,6 +106,13 @@ OUT_PATH = Path(
 _write_lock = Lock()
 
 
+def _promotion_recall(verdict: str | None, technique_ids: list[str], expected: str) -> float:
+    """Confirm-only recall used by the production-promotion close-out."""
+    scoreable_ids = set(technique_ids) if verdict == "CONFIRMED" else set()
+    scoring = score_findings_tiered(scoreable_ids, {expected})
+    return scoring["overall"]["recall"]
+
+
 def _load_spl_detections() -> dict:
     import yaml
 
@@ -234,7 +241,12 @@ def _run_cell(
         quorum=0.5,
     )
     elapsed = round(time.monotonic() - started, 1)
-    scoring = score_findings_tiered(set(result.technique_ids), set(episode.techniques))
+    # Production promotion is confirm-only: a model that says RULED_OUT but
+    # leaves stale technique IDs in its payload has not detected them. Counting
+    # those IDs as recall inflated the first V4 close-out pass (live finding,
+    # 2026-07-25) and could promote a routing policy that explicitly dismissed
+    # the signal.
+    scoring_recall = _promotion_recall(result.verdict, result.technique_ids, technique_id)
     mentor_entries = [t for t in result.trace if t.get("section") == "mentor"]
 
     return {
@@ -251,7 +263,7 @@ def _run_cell(
         "rounds": result.rounds,
         "elapsed_s": elapsed,
         "mentor_invocations": len(mentor_entries),
-        "scoring_recall": scoring["overall"]["recall"],
+        "scoring_recall": scoring_recall,
         "trace": result.trace,
     }
 
@@ -267,6 +279,11 @@ def main() -> None:
         action="store_true",
         help="Skip the dedicated Mentor-firing validation arm (WEAK_REASONING_MODEL)",
     )
+    parser.add_argument(
+        "--rerun-council",
+        action="store_true",
+        help="When resuming, rerun council cells while retaining unaffected solo cells",
+    )
     args = parser.parse_args()
 
     out_path = Path(args.resume) if args.resume else OUT_PATH
@@ -275,8 +292,20 @@ def main() -> None:
         backup = out_path.with_name(f"{out_path.stem}_{time.strftime('%Y%m%dT%H%M%SZ')}.json.bak")
         shutil.copy(out_path, backup)
         print(f"Resuming {len(results)} completed cells from {out_path} (backed up to {backup})")
+        for record in results:
+            if record.get("status") != "done" or not record.get("technique_expected"):
+                continue
+            record["scoring_recall"] = _promotion_recall(
+                record.get("verdict"),
+                list(record.get("technique_ids") or []),
+                record["technique_expected"],
+            )
 
-    done_keys = {(r.get("label"), r.get("mode"), r.get("model_arm")) for r in results}
+    done_keys = {
+        (r.get("label"), r.get("mode"), r.get("model_arm"))
+        for r in results
+        if not (args.rerun_council and r.get("mode") == "council")
+    }
 
     env_techniques = os.environ.get("CORPUS_BENCH_TECHNIQUES")
     if args.techniques:

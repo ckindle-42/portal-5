@@ -144,6 +144,9 @@ T1558.003:
     event_code: 4769
     encryption: "RC4 (0x17)"
     key_indicator: "TicketEncryptionType=0x17 in 4769 events"
+    discriminator_tokens:
+      - "TicketEncryptionType=0x17"
+    sibling_ids: ["T1558.004"]
     sibling_diff: "T1558.003 uses EventCode=4769 (TGS-REQ) with RC4; T1558.004 uses EventCode=4768 (AS-REQ) with no preauth"
 
 T1558.004:
@@ -169,6 +172,9 @@ T1558.004:
     event_code: 4768
     preauth: "PreAuthType=0 (disabled)"
     key_indicator: "PreAuthType=0 in 4768 events"
+    discriminator_tokens:
+      - "PreAuthType=0"
+    sibling_ids: ["T1558.003"]
     sibling_diff: "T1558.004 uses EventCode=4768 (AS-REQ) with PreAuthType=0; T1558.003 uses EventCode=4769 (TGS-REQ) with RC4"
 
 T1003.006:
@@ -192,7 +198,11 @@ T1003.006:
   expected_signal: "Directory replication requests from non-DC accounts"
   distinguishing_features:
     event_code: 4662
-    key_indicator: "Replication-Dir-Replication-Right GUID in Properties"
+    key_indicator: "Properties=*Replication* in 4662 events"
+    discriminator_tokens:
+      - "Properties=*Replication*"
+      - "Replication"
+    sibling_ids: ["T1003.001", "T1003.003"]
     sibling_diff: "T1003.006 = remote AD replication (4662+replication rights); T1003.001 = local LSASS memory dump; T1003.003 = NTDS.dit file access"
 
 T1110.003:
@@ -217,7 +227,31 @@ T1110.003:
   distinguishing_features:
     event_codes: [4625, 4771]
     key_indicator: "Many accounts, few attempts per account, single source IP"
+    discriminator_tokens:
+      - "distinct_accounts"
+    sibling_ids: ["T1110.001"]
     sibling_diff: "T1110.003 = one password across many accounts; T1110.001 = many passwords against one account"
+
+T1110.001:
+  description: "Password guessing — repeated authentication failures against one account"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1110.001"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+  spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4625 OR EventCode=4771) | stats count as attempt_count by Account, IpAddress | where attempt_count > 10'
+  expected_signal: "Many failed authentication attempts against one account"
+  distinguishing_features:
+    event_codes: [4625, 4771]
+    key_indicator: "Many attempts against one account"
+    discriminator_tokens:
+      - "attempt_count"
+    sibling_ids: ["T1110.003"]
+    sibling_diff: "T1110.001 = many passwords against one account; T1110.003 = one password across many accounts"
 
 T1053.005:
   description: "Scheduled task persistence — Windows Security Event 4698"
@@ -456,6 +490,19 @@ T1003.001:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4688 (NewProcessName="*lsass*" OR NewProcessName="*procdump*" OR NewProcessName="*comsvcs*") OR EventCode=10 (TargetImage="*lsass*")) | stats count by NewProcessName, Account'
   expected_signal: "Process access to lsass.exe for credential dumping"
+  distinguishing_features:
+    event_codes: [4688, 10]
+    key_indicator: "TargetImage=*lsass* or NewProcessName=*lsass*"
+    discriminator_tokens:
+      - "TargetImage=*lsass*"
+      - "NewProcessName=*lsass*"
+      - "NewProcessName=*procdump*"
+      - "NewProcessName=*comsvcs*"
+      - "lsass.exe"
+      - "procdump"
+      - "comsvcs"
+    sibling_ids: ["T1003.003", "T1003.006"]
+    sibling_diff: "T1003.001 = local LSASS memory access; T1003.003 = NTDS.dit extraction; T1003.006 = remote AD replication"
 
 T1003.003:
   description: "NTDS dump — ntdsutil/ntds.dit extraction for domain credential theft"
@@ -476,6 +523,16 @@ T1003.003:
       source: "NERC CIP standard (public)"
   spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4688 (NewProcessName="*ntdsutil*") OR EventCode=4661 OR Message="*ntds.dit*") | stats count by Account, NewProcessName'
   expected_signal: "NTDS.dit extraction via ntdsutil or Volume Shadow Copy"
+  distinguishing_features:
+    event_codes: [4688, 4661]
+    key_indicator: "NewProcessName=*ntdsutil* or Message=*ntds.dit*"
+    discriminator_tokens:
+      - "NewProcessName=*ntdsutil*"
+      - "Message=*ntds.dit*"
+      - "ntdsutil"
+      - "ntds.dit"
+    sibling_ids: ["T1003.001", "T1003.006"]
+    sibling_diff: "T1003.003 = NTDS.dit extraction; T1003.001 = local LSASS memory access; T1003.006 = remote AD replication"
 
 T1047:
   description: "WMI execution — remote command execution via WMI/cimv2"

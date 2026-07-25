@@ -25,7 +25,12 @@ from .agentic_blue_eval import (
     _query_real_telemetry,
 )
 from .analyst_verdict import SectionOutput
-from .blue import _BLUE_SYSTEM_PROMPT_DISCOVERY, _cite_or_drop
+from .blue import (
+    _BLUE_SYSTEM_PROMPT_DISCOVERY,
+    _cite_or_drop,
+    _discriminator_contradicts,
+    _parent_collapse_precision_note,
+)
 from .council_agreement import AgreementResult, compute_agreement, to_section_output
 from .multichain import ChainResult
 from .multichain import consolidate as _consolidate_chains
@@ -898,6 +903,36 @@ def _combined_telemetry_text(results: list[ToolResult]) -> dict[str, dict]:
     return {"gathered": {"telemetry": combined, "source": "tool-section"}}
 
 
+def _telemetry_blob(telemetry: dict[str, dict]) -> str:
+    return " ".join(str(value.get("telemetry", "")) for value in telemetry.values())
+
+
+def _grounded_discriminator_contradictions(
+    technique_ids: list[str],
+    kept_ids: set[str],
+    telemetry: dict[str, dict],
+) -> list[str]:
+    """Return grounded claims contradicted by a sibling discriminator."""
+    all_telemetry_text = _telemetry_blob(telemetry)
+    contradicted: list[str] = []
+    for technique_id in technique_ids:
+        if technique_id.upper() not in kept_ids:
+            continue
+        is_contradicted, _siblings = _discriminator_contradicts(technique_id, all_telemetry_text)
+        if is_contradicted:
+            contradicted.append(technique_id)
+    return contradicted
+
+
+def _precision_note(
+    technique_ids: list[str],
+    tool_results: list[ToolResult],
+) -> str:
+    return _parent_collapse_precision_note(
+        technique_ids, _telemetry_blob(_combined_telemetry_text(tool_results))
+    )
+
+
 _wiki_technique_descriptions_cache: dict[str, str] | None = None
 
 
@@ -1009,14 +1044,23 @@ def _ground_hunter_evidence(
     ]
     kept = _cite_or_drop(reported, telemetry, context_text=context_text)
     kept_ids = {d.get("technique_id", "").upper() for d in kept}
-    if kept_ids == {t.upper() for t in hunter_out.technique_ids}:
+    contradicted_ids = _grounded_discriminator_contradictions(
+        hunter_out.technique_ids, kept_ids, telemetry
+    )
+    if kept_ids == {t.upper() for t in hunter_out.technique_ids} and not contradicted_ids:
         return hunter_out
     ungrounded = [t for t in hunter_out.technique_ids if t.upper() not in kept_ids]
+    failed = sorted(set(ungrounded + contradicted_ids))
+    failure_detail = (
+        "carried a sibling's distinctive discriminator rather than its own"
+        if contradicted_ids
+        else "wasn't literally present in what was retrieved"
+    )
     return SectionOutput(
         request_more=(
-            f"Your cited evidence for {ungrounded} did not survive a citation check against "
-            "the telemetry actually gathered so far — it wasn't literally present in what was "
-            "retrieved. Re-query for that specific evidence (exact EventCode/field), or "
+            f"Your cited evidence for {failed} did not survive the grounding and "
+            f"sub-technique checks against the telemetry gathered so far — it {failure_detail}. "
+            "Re-query for that specific evidence (exact EventCode/field), or "
             "reconsider your hypothesis using only what has actually been returned."
         ),
         section="reasoning",
@@ -1060,7 +1104,15 @@ def _finalize_expert_verdict(
         kept = _cite_or_drop(reported, telemetry, context_text=context_text)
         kept_ids = {d.get("technique_id", "").upper() for d in kept}
         malformed = not _all_technique_ids_well_formed(technique_ids)
-        if not technique_ids or kept_ids != {t.upper() for t in technique_ids} or malformed:
+        contradicted_ids = _grounded_discriminator_contradictions(
+            technique_ids, kept_ids, telemetry
+        )
+        if (
+            not technique_ids
+            or kept_ids != {t.upper() for t in technique_ids}
+            or malformed
+            or contradicted_ids
+        ):
             # Evidence didn't fully survive citation, or the claimed ID(s)
             # don't even parse as real MITRE IDs -- never-invent (I2):
             # downgrade rather than let an uncited or malformed-ID CONFIRMED
@@ -1070,15 +1122,20 @@ def _finalize_expert_verdict(
             # technique_ids let them vote toward multichain quorum, and
             # recycling them into similar_to converted a failed fabrication
             # into scored escalation credit (2026-07-23 design review).
+            demotion_reason = (
+                "downgraded: CONFIRMED technique_id(s) did not parse as real MITRE IDs"
+                if malformed
+                else (
+                    "downgraded: sibling discriminator present while claimed "
+                    "technique's own discriminator is absent — likely misattribution"
+                )
+                if contradicted_ids
+                else "downgraded: CONFIRMED evidence did not survive cite-or-drop"
+            )
             return SectionOutput(
                 verdict="ANOMALOUS_UNCLASSIFIED",
                 evidence=evidence,
-                reasoning=reasoning
-                or (
-                    "downgraded: CONFIRMED technique_id(s) did not parse as real MITRE IDs"
-                    if malformed
-                    else "downgraded: CONFIRMED evidence did not survive cite-or-drop"
-                ),
+                reasoning=(f"{reasoning}\n\n{demotion_reason}" if reasoning else demotion_reason),
                 match_grade="SIMILAR" if similar_to else "NONE",
                 similar_to=similar_to,
                 section="expert",
@@ -1438,16 +1495,29 @@ def run_merged_model(
         kept = _cite_or_drop(reported, telemetry, context_text=context_text)
         kept_ids = {d.get("technique_id", "").upper() for d in kept}
         malformed = not _all_technique_ids_well_formed(technique_ids)
-        if not technique_ids or kept_ids != {t.upper() for t in technique_ids} or malformed:
+        contradicted_ids = _grounded_discriminator_contradictions(
+            technique_ids, kept_ids, telemetry
+        )
+        if (
+            not technique_ids
+            or kept_ids != {t.upper() for t in technique_ids}
+            or malformed
+            or contradicted_ids
+        ):
+            demotion_reason = (
+                "downgraded: CONFIRMED technique_id(s) did not parse as real MITRE IDs"
+                if malformed
+                else (
+                    "downgraded: sibling discriminator present while claimed "
+                    "technique's own discriminator is absent — likely misattribution"
+                )
+                if contradicted_ids
+                else "downgraded: CONFIRMED evidence did not survive cite-or-drop"
+            )
             return SectionOutput(
                 verdict="ANOMALOUS_UNCLASSIFIED",
                 evidence=evidence,
-                reasoning=reasoning
-                or (
-                    "downgraded: CONFIRMED technique_id(s) did not parse as real MITRE IDs"
-                    if malformed
-                    else "downgraded: CONFIRMED evidence did not survive cite-or-drop"
-                ),
+                reasoning=(f"{reasoning}\n\n{demotion_reason}" if reasoning else demotion_reason),
                 match_grade="SIMILAR" if similar_to else "NONE",
                 similar_to=similar_to,
                 section="merged",
@@ -1754,17 +1824,19 @@ def _run_expert_section(
         if retry_out.is_conclusion():
             expert_out = retry_out
 
-    trace_entries.append(
-        {
-            "round": rounds,
-            "section": "expert",
-            "model": expert_model,
-            "verdict": expert_out.verdict,
-            "match_grade": expert_out.match_grade,
-            "wants_more": expert_out.wants_more(),
-            "raw": expert_out.raw,
-        }
-    )
+    expert_trace = {
+        "round": rounds,
+        "section": "expert",
+        "model": expert_model,
+        "verdict": expert_out.verdict,
+        "match_grade": expert_out.match_grade,
+        "wants_more": expert_out.wants_more(),
+        "raw": expert_out.raw,
+    }
+    precision_note = _precision_note(expert_out.technique_ids, tool_results)
+    if precision_note:
+        expert_trace["precision_note"] = precision_note
+    trace_entries.append(expert_trace)
     return expert_out, trace_entries
 
 
@@ -2071,6 +2143,59 @@ def _run_three_section(
 
     pending_hunter_handoff: HunterHandoff | None = None
 
+    def _force_final_expert_handoff(
+        hunter: SectionOutput,
+    ) -> tuple[
+        SectionOutput | None,
+        list[dict],
+        ExpertHandoff | HunterHandoff | None,
+    ]:
+        """V4B/U1: conclude from gathered evidence after Hunter starvation."""
+        ectx = format_for_expert(
+            hunter,
+            tool_results,
+            trigger,
+            hunter_history=hunter_history,
+        )
+        ectx += (
+            "\n\nNote: the investigation's round budget is exhausted — no "
+            "further evidence can be gathered regardless of what you request. "
+            "You MUST render CONFIRMED, RULED_OUT, or ANOMALOUS_UNCLASSIFIED "
+            "now, using only what has already been gathered; RULED_OUT or "
+            "ANOMALOUS_UNCLASSIFIED are valid, honest conclusions when nothing "
+            "more specific is available. Do not request more evidence."
+        )
+        if _capture_hunter_only:
+            assert pending_hunter_handoff is not None
+            return None, [], pending_hunter_handoff
+        if _capture_only:
+            return (
+                None,
+                [],
+                ExpertHandoff(
+                    ectx=ectx,
+                    hunter_similar_to=list(hunter.similar_to),
+                    tool_results=list(tool_results),
+                    ground_truth=sorted(ground_truth),
+                    trace=list(trace),
+                    told_expert_final_round=True,
+                    rounds=rounds,
+                    trigger=trigger,
+                ),
+            )
+        forced_out, forced_trace = _run_expert_section(
+            ectx,
+            expert_model=models["expert"],
+            context_text=trigger,
+            tool_results=tool_results,
+            hunter_similar_to=hunter.similar_to,
+            told_expert_final_round=True,
+            rounds=rounds,
+            dry_run=dry_run,
+            use_barrier_tools=expert_use_barrier_tools,
+        )
+        return forced_out, forced_trace, None
+
     while not _budget_exhausted():
         if not hunter_history:
             ctx = format_for_reasoning(tool_results, trigger)
@@ -2157,6 +2282,16 @@ def _run_three_section(
 
         if hunter_out.wants_more() and not stalled:
             if _budget_exhausted():
+                # V4B / P5-SEC-BUDGET-STARVE-001: the Hunter consumed its
+                # evidence-gathering budget while still asking for more.
+                # Hand the evidence already gathered to the Expert once
+                # instead of returning a synthetic UNRESOLVED without any
+                # expert judgment (U1).
+                expert_out, new_trace, captured = _force_final_expert_handoff(hunter_out)
+                if captured is not None:
+                    return captured
+                trace.extend(new_trace)
+                rounds += 1
                 break
             _gather(hunter_out.request_more)
             rounds += 1
@@ -2239,6 +2374,22 @@ def _run_three_section(
             rounds += 1
             continue
         break
+
+    # An even Hunter budget can be consumed by the final gather itself:
+    # the loop guard then exits before the in-loop budget-starve branch is
+    # evaluated again. Cover that parity-dependent exit with the identical
+    # forced Expert handoff (V4B/U1).
+    if (
+        expert_out is None
+        and hunter_out is not None
+        and hunter_out.wants_more()
+        and _budget_exhausted()
+    ):
+        expert_out, new_trace, captured = _force_final_expert_handoff(hunter_out)
+        if captured is not None:
+            return captured
+        trace.extend(new_trace)
+        rounds += 1
 
     if expert_out is not None and expert_out.is_conclusion():
         result = OrchestrationResult(
@@ -2354,17 +2505,19 @@ def _run_two_section(
         merged_out = _ground_similarity(merged_out, tool_results)
         _remember_turn(ctx, merged_out)
         new_since_last_turn = []
-        trace.append(
-            {
-                "round": rounds,
-                "section": "merged",
-                "model": models["merged"],
-                "verdict": merged_out.verdict,
-                "match_grade": merged_out.match_grade,
-                "wants_more": merged_out.wants_more(),
-                "raw": merged_out.raw,
-            }
-        )
+        merged_trace = {
+            "round": rounds,
+            "section": "merged",
+            "model": models["merged"],
+            "verdict": merged_out.verdict,
+            "match_grade": merged_out.match_grade,
+            "wants_more": merged_out.wants_more(),
+            "raw": merged_out.raw,
+        }
+        precision_note = _precision_note(merged_out.technique_ids, tool_results)
+        if precision_note:
+            merged_trace["precision_note"] = precision_note
+        trace.append(merged_trace)
         rounds += 1
 
         if merged_out.is_conclusion():
@@ -2531,15 +2684,36 @@ def _run_council(
         )
         member_out = _ground_similarity(member_out, handoff.tool_results)
         members.append(member_out)
+        member_trace = {
+            "round": handoff.rounds,
+            "section": "council_member",
+            "model": member_model,
+            "verdict": member_out.verdict,
+            "match_grade": member_out.match_grade,
+            "wants_more": member_out.wants_more(),
+            "raw": member_out.raw,
+        }
+        precision_note = _precision_note(member_out.technique_ids, handoff.tool_results)
+        if precision_note:
+            member_trace["precision_note"] = precision_note
+        trace.append(member_trace)
+
+    non_voters = [
+        member_model
+        for member_model, member_out in zip(council_models, members, strict=True)
+        if not member_out.is_conclusion()
+    ]
+    if non_voters:
         trace.append(
             {
                 "round": handoff.rounds,
-                "section": "council_member",
-                "model": member_model,
-                "verdict": member_out.verdict,
-                "match_grade": member_out.match_grade,
-                "wants_more": member_out.wants_more(),
-                "raw": member_out.raw,
+                "section": "council_participation",
+                "roster": list(council_models),
+                "non_voters": non_voters,
+                "participation": round((len(members) - len(non_voters)) / len(members), 3)
+                if members
+                else 0.0,
+                "note": "member(s) did not conclude — counted against quorum (Q1)",
             }
         )
 
@@ -2612,13 +2786,21 @@ def _run_council(
         ]
         kept = _cite_or_drop(reported, telemetry, context_text=handoff.trigger)
         kept_ids = {d.get("technique_id", "").upper() for d in kept}
-        if kept_ids != {t.upper() for t in final_out.technique_ids}:
+        contradicted_ids = _grounded_discriminator_contradictions(
+            final_out.technique_ids, kept_ids, telemetry
+        )
+        if kept_ids != {t.upper() for t in final_out.technique_ids} or contradicted_ids:
             # Same quarantine as run_expert_model's demotion (2026-07-23):
             # the failed aggregate IDs go to ungrounded_claims only — never
             # recycled into similar_to as escalation-creditable leads.
             final_out = SectionOutput(
                 verdict="ANOMALOUS_UNCLASSIFIED",
-                reasoning="downgraded: council CONFIRMED technique(s) did not survive cite-or-drop",
+                reasoning=(
+                    "downgraded: council sibling discriminator present while claimed "
+                    "technique's own discriminator is absent — likely misattribution"
+                    if contradicted_ids
+                    else "downgraded: council CONFIRMED technique(s) did not survive cite-or-drop"
+                ),
                 match_grade="SIMILAR" if final_out.similar_to else "NONE",
                 similar_to=final_out.similar_to,
                 section="agreement",

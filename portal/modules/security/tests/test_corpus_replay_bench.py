@@ -118,6 +118,49 @@ class TestCouncilRosterExcludesUnfitModels:
 
 
 class TestRunCellWiring:
+    def test_promotion_recall_requires_confirmed_verdict(self):
+        assert crb._promotion_recall("RULED_OUT", ["T1053.005"], "T1053.005") == 0.0
+        assert crb._promotion_recall("ANOMALOUS_UNCLASSIFIED", ["T1053.005"], "T1053.005") == 0.0
+        assert crb._promotion_recall("CONFIRMED", ["T1053.005"], "T1053.005") == 1.0
+
+    def test_scoring_is_confirm_only(self, monkeypatch):
+        """RULED_OUT payload IDs are stale/audit data, not recall hits."""
+        from portal.modules.security.core.agentic_blue_eval import Episode
+        from portal.modules.security.core.blue_orchestrate import OrchestrationResult
+
+        monkeypatch.setattr(
+            crb,
+            "_corpus_episode",
+            lambda tid, st: Episode(
+                scenario="corpus_test",
+                target_host="lab-corpus-splunk",
+                techniques=[tid],
+                telemetry={st: ["EventCode=4698"]},
+            ),
+        )
+        monkeypatch.setattr(
+            crb,
+            "run_blue_orchestration",
+            lambda *args, **kwargs: OrchestrationResult(
+                verdict="RULED_OUT",
+                technique_ids=["T1053.005"],
+                reasoning="dismissed",
+            ),
+        )
+        record = crb._run_cell(
+            label="scheduled_task",
+            technique_id="T1053.005",
+            sourcetype="windows:security",
+            mode="orchestrated",
+            model_arm="strong_full_v3",
+            reasoning_model="reasoning-model",
+            mentor=False,
+            budgets={"hunter": 4},
+            barrier_roles=set(),
+        )
+        assert record["technique_ids"] == ["T1053.005"]
+        assert record["scoring_recall"] == 0.0
+
     def test_orchestrated_cell_wires_mentor_budgets_barrier_tools(self, monkeypatch):
         """Live-functional (mocked models): confirms _run_cell actually builds
         a SectionSpec list with mentor + budgets + barrier tools engaged, and

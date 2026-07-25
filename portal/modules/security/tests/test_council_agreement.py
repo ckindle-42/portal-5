@@ -86,6 +86,65 @@ def test_no_member_concludes_escalates_never_benign():
     assert "no member reached a conclusion" in r.rationale
 
 
+def test_one_of_two_members_non_voter_does_not_auto_quorum():
+    members = [
+        _member("CONFIRMED", ["T1558.003"]),
+        SectionOutput(verdict=None, request_more="still confused", section="expert"),
+    ]
+    r = compute_agreement(members, quorum=0.5)
+    assert r.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert r.needs_arbiter is True
+    assert r.agreement == 0.5
+    assert r.agreement != 1.0
+
+
+def test_participation_below_floor_escalates():
+    members = [
+        _member("CONFIRMED", ["T1558.003"]),
+        SectionOutput(verdict=None, request_more="need more", section="expert"),
+        SectionOutput(verdict=None, request_more="still unsure", section="expert"),
+    ]
+    r = compute_agreement(members, quorum=0.5)
+    assert r.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert r.needs_arbiter is True
+    assert r.agreement == round(1 / 3, 3)
+    assert "participation 1/3 below floor" in r.rationale
+
+
+def test_stricter_participation_floor_escalates_one_of_two():
+    members = [
+        _member("CONFIRMED", ["T1558.003"]),
+        SectionOutput(verdict=None, request_more="still confused", section="expert"),
+    ]
+    r = compute_agreement(members, quorum=0.5, min_participation=0.75)
+    assert r.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert r.needs_arbiter is True
+
+
+def test_full_participation_unchanged_by_v4c():
+    members = [
+        _member("CONFIRMED", ["T1078"]),
+        _member("CONFIRMED", ["T1078"]),
+        _member("CONFIRMED", ["T1055"]),
+    ]
+    r = compute_agreement(members, quorum=0.5)
+    assert r.verdict == "CONFIRMED"
+    assert r.technique_ids == ["T1078"]
+    assert r.agreement == round(2 / 3, 3)
+    assert r.dissent == {"T1078": 2, "T1055": 1}
+
+
+def test_quorum_denominator_is_roster_not_concluders():
+    members = [
+        _member("CONFIRMED", ["T1078"]),
+        _member("CONFIRMED", ["T1055"]),
+        _member("CONFIRMED", ["T1548"]),
+    ]
+    r = compute_agreement(members, quorum=0.5)
+    assert r.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert r.agreement == round(1 / 3, 3)
+
+
 def test_mixed_benign_and_anomalous_without_technique_votes():
     members = [
         _member("RULED_OUT"),
