@@ -1077,6 +1077,96 @@ def _cite_or_drop(
     return kept
 
 
+def _discriminator_contradicts(
+    technique_id: str,
+    all_telemetry_text: str,
+) -> tuple[bool, list[str]]:
+    """Detect a grounded-but-misattributed sibling sub-technique.
+
+    A claim is contradicted only when the telemetry contains at least one
+    declared sibling's distinctive token and contains none of the claim's
+    own distinctive tokens.  Both-present, neither-present, and unknown
+    discriminator cases pass through unchanged (S2).
+
+    The check is label-blind (S1): its only reference data is the production
+    SPL detection library.  It never receives an episode or expected label.
+    """
+    from .siem.spl_detections import technique_signature_full
+
+    tid = technique_id.strip().upper()
+    diff = technique_signature_full(tid).get("distinguishing_features") or {}
+    own_tokens = [str(token).lower() for token in (diff.get("discriminator_tokens") or []) if token]
+    sibling_ids = [
+        str(sibling).strip().upper() for sibling in (diff.get("sibling_ids") or []) if sibling
+    ]
+
+    # I7: without both sides of a known comparison, there is no deterministic
+    # contradiction to enforce.
+    if not own_tokens or not sibling_ids:
+        return False, []
+
+    telemetry_text = (all_telemetry_text or "").lower()
+    if any(token in telemetry_text for token in own_tokens):
+        # Own evidence wins even if a sibling is also present: co-occurrence
+        # is ambiguous, not a positive contradiction.
+        return False, []
+
+    siblings_present: list[str] = []
+    for sibling_id in sibling_ids:
+        sibling_diff = technique_signature_full(sibling_id).get("distinguishing_features") or {}
+        sibling_tokens = [
+            str(token).lower()
+            for token in (sibling_diff.get("discriminator_tokens") or [])
+            if token
+        ]
+        if any(token in telemetry_text for token in sibling_tokens):
+            siblings_present.append(sibling_id)
+
+    return bool(siblings_present), siblings_present
+
+
+def _parent_collapse_precision_note(
+    technique_ids: list[str],
+    all_telemetry_text: str,
+) -> str:
+    """Return an audit note when a bare parent could be more specific.
+
+    Parent claims are technically correct, so the V4A sibling-contradiction
+    gate does not demote them.  This separate, label-blind helper makes the
+    loss of precision visible to traces/scoring without weakening S2.
+    """
+    from .siem.spl_detections import technique_signature_full, techniques_covered
+
+    telemetry_text = (all_telemetry_text or "").lower()
+    collapsed: dict[str, list[str]] = {}
+    covered = techniques_covered()
+    for technique_id in technique_ids:
+        parent = technique_id.strip().upper()
+        if not parent or "." in parent:
+            continue
+        children: list[str] = []
+        for child in covered:
+            child_id = str(child).strip().upper()
+            if not child_id.startswith(f"{parent}."):
+                continue
+            diff = technique_signature_full(child_id).get("distinguishing_features") or {}
+            tokens = [
+                str(token).lower() for token in (diff.get("discriminator_tokens") or []) if token
+            ]
+            if tokens and any(token in telemetry_text for token in tokens):
+                children.append(child_id)
+        if children:
+            collapsed[parent] = sorted(set(children))
+
+    if not collapsed:
+        return ""
+    details = "; ".join(
+        f"{parent} could be refined to {', '.join(children)}"
+        for parent, children in sorted(collapsed.items())
+    )
+    return f"precision note: {details}; parent claim retained (not contradicted)"
+
+
 def _run_blue_chain_test(
     model: str,
     scenario: dict,

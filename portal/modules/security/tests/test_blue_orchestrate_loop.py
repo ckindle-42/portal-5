@@ -1016,7 +1016,7 @@ def test_council_dispatch_unanimous_confirmed(monkeypatch):
 
     def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
         calls.append(model)
-        if model == "lead-hunter":
+        if model == "lead-hunter" and messages[0]["content"] != bo._EXPERT_SYSTEM_PROMPT:
             lead_hunter_calls["n"] += 1
             if lead_hunter_calls["n"] == 1:
                 # Round 0 — no tool round has run yet, request more first
@@ -1075,6 +1075,87 @@ def test_council_dispatch_unanimous_confirmed(monkeypatch):
     assert {e["model"] for e in council_entries} == {"lead-hunter", "member-b", "member-c"}
     agreement_entry = [t for t in result.trace if t.get("section") == "agreement"][0]
     assert agreement_entry["agreement"] == 1.0
+
+
+def test_council_non_voting_members_counted_against_quorum(monkeypatch):
+    hunter_calls = {"n": 0}
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        is_expert_turn = messages[0]["content"] == bo._EXPERT_SYSTEM_PROMPT
+        if not is_expert_turn:
+            hunter_calls["n"] += 1
+            if hunter_calls["n"] == 1:
+                return {"content": _always_wants_more_json()}
+            return {"content": _confirmed_json()}
+        if model == "member-b":
+            return {"content": _confirmed_json()}
+        return {"content": _always_wants_more_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_tool(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec,
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 PreAuthType=0 Account=svc-web",
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_tool)
+    sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="lead-hunter"),
+        bo.SectionSpec(role="reasoning", model="member-b"),
+        bo.SectionSpec(role="reasoning", model="member-c"),
+    ]
+    result = bo.run_blue_orchestration(_episode(), sections=sections, max_rounds=6)
+    assert result.verdict == "ANOMALOUS_UNCLASSIFIED"
+    participation = [t for t in result.trace if t.get("section") == "council_participation"]
+    assert len(participation) == 1
+    assert participation[0]["non_voters"] == ["lead-hunter", "member-c"]
+    assert participation[0]["participation"] == round(1 / 3, 3)
+
+
+def test_council_aggregate_sibling_misattribution_demoted(monkeypatch):
+    hunter_calls = {"n": 0}
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        hunter_calls["n"] += 1
+        if hunter_calls["n"] == 1:
+            return {"content": _always_wants_more_json()}
+        return {"content": _confirmed_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_tool(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec,
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 PreAuthType=0 Account=svc-web",
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_tool)
+
+    def fake_member(*args, **kwargs):
+        return bo.SectionOutput(
+            verdict="CONFIRMED",
+            technique_ids=["T1558.003"],
+            evidence=["EventCode=4768 PreAuthType=0 Account=svc-web"],
+            reasoning="wrong sibling",
+            match_grade="EXACT",
+            section="expert",
+        )
+
+    monkeypatch.setattr(bo, "run_expert_model", fake_member)
+    sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="member-a"),
+        bo.SectionSpec(role="reasoning", model="member-b"),
+    ]
+    result = bo.run_blue_orchestration(_episode(), sections=sections, max_rounds=6)
+    assert result.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert result.technique_ids == []
+    assert result.ungrounded_claims == ["T1558.003"]
+    assert "misattribution" in result.reasoning
 
 
 def test_council_split_with_arbiter_breaks_tie(monkeypatch):
@@ -1146,10 +1227,12 @@ def test_council_split_with_arbiter_breaks_tie(monkeypatch):
     assert result.verdict == "ANOMALOUS_UNCLASSIFIED"
 
 
-def test_council_unresolved_when_no_handoff_reached(monkeypatch):
-    """If the shared hunter loop never reaches a hand-off (budget exhausted
-    mid-loop), the council has nothing to agree on -- must surface UNRESOLVED,
-    not crash or fabricate a verdict."""
+def test_council_budget_starve_still_reaches_non_voting_members(monkeypatch):
+    """V4B routes a starved lead hunt into a final council handoff.
+
+    If every member still declines, the council escalates honestly rather
+    than fabricating a vote or returning a pre-member UNRESOLVED.
+    """
     import json
 
     def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
@@ -1168,10 +1251,11 @@ def test_council_unresolved_when_no_handoff_reached(monkeypatch):
         bo.SectionSpec(role="reasoning", model="lead-hunter"),
         bo.SectionSpec(role="reasoning", model="member-b"),
     ]
-    # max_rounds=1: budget exhausts before the stall-cap (3) is ever reached,
-    # so capture_expert_handoff never gets to a hand-off point.
+    # max_rounds=1 exhausts before the stall cap, exercising V4B's forced
+    # handoff. Both members still decline, so zero-concluder escalation wins.
     result = bo.run_blue_orchestration(_episode(), sections=sections, max_rounds=1)
-    assert result.verdict == "UNRESOLVED"
+    assert result.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert len([t for t in result.trace if t.get("section") == "council_member"]) == 2
 
 
 def test_three_section_and_two_section_unaffected_by_council_dispatch(monkeypatch):
@@ -1794,10 +1878,88 @@ def test_budgets_hunter_key_overrides_max_rounds_for_hunter_only(monkeypatch):
     result = bo.run_blue_orchestration(
         _episode(), sections=_sections(), max_rounds=6, budgets={"hunter": 3}
     )
-    # A hunter that never stops requesting more (no stall) is bounded by the
-    # hunter budget (3), not the default max_rounds (6) — well short of it.
+    # V4B allows exactly one final Expert turn beyond the Hunter's own budget.
     assert result.rounds <= 4
+    assert result.verdict == "RULED_OUT"
+    assert any(t.get("section") == "expert" for t in result.trace)
+
+
+def test_budget_starve_forces_expert_turn_not_unresolved(monkeypatch):
+    calls: list[str] = []
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        calls.append(model)
+        if model == "expert-model":
+            return {"content": _ruled_out_json()}
+        return {"content": _always_wants_more_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    monkeypatch.setattr(bo, "run_tool_model", _empty_tool_fake)
+
+    result = bo.run_blue_orchestration(
+        _episode(), sections=_sections(), max_rounds=20, budgets={"hunter": 4}
+    )
+    assert result.verdict == "RULED_OUT"
+    assert "expert-model" in calls
+    assert any(t.get("section") == "expert" for t in result.trace)
+
+
+def test_budget_starve_expert_can_still_confirm(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "expert-model":
+            return {"content": _confirmed_json()}
+        return {"content": _always_wants_more_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_tool(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec,
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 PreAuthType=0 AS-REP event for svc-web",
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_tool)
+    result = bo.run_blue_orchestration(
+        _episode(), sections=_sections(), max_rounds=20, budgets={"hunter": 4}
+    )
+    assert result.verdict == "CONFIRMED"
+    assert result.technique_ids == ["T1558.004"]
+
+
+def test_budget_starve_expert_declining_still_unresolved(monkeypatch):
+    expert_calls = {"n": 0}
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "expert-model":
+            expert_calls["n"] += 1
+        return {"content": _always_wants_more_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    monkeypatch.setattr(bo, "run_tool_model", _empty_tool_fake)
+    result = bo.run_blue_orchestration(
+        _episode(), sections=_sections(), max_rounds=20, budgets={"hunter": 4}
+    )
     assert result.verdict == "UNRESOLVED"
+    assert expert_calls["n"] == 2
+    assert any(t.get("section") == "expert" for t in result.trace)
+
+
+def test_budget_starve_honors_capture_only(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        return {"content": _always_wants_more_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    monkeypatch.setattr(bo, "run_tool_model", _empty_tool_fake)
+    handoff = bo.capture_expert_handoff(
+        _episode(),
+        models={"tool": "tool-model", "reasoning": "reasoning-model", "expert": "unused"},
+        max_rounds=20,
+        budgets={"hunter": 4},
+    )
+    assert isinstance(handoff, bo.ExpertHandoff)
+    assert handoff.told_expert_final_round is True
+    assert "round budget is exhausted" in handoff.ectx
 
 
 def _always_wants_more_with_hypothesis_json() -> str:
@@ -2134,6 +2296,80 @@ def test_confirmed_via_barrier_tool_still_cite_or_drops(monkeypatch):
     )
     assert out.verdict == "ANOMALOUS_UNCLASSIFIED"
     assert out.ungrounded_claims == ["T1558.004"]
+
+
+def test_confirmed_sibling_misattribution_demoted_to_anomalous(monkeypatch):
+    hunter_calls = {"n": 0}
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "reasoning-model":
+            hunter_calls["n"] += 1
+            if hunter_calls["n"] == 1:
+                return {"content": _always_wants_more_json()}
+            return {"content": _confirmed_json()}
+        assert model == "expert-model"
+        return _barrier_msg(
+            "emit_verdict",
+            {
+                "verdict": "CONFIRMED",
+                "technique_ids": ["T1558.003"],
+                "evidence": ["EventCode=4768 PreAuthType=0 Account=svc-web"],
+                "reasoning": "misread as Kerberoasting",
+                "match_grade": "EXACT",
+            },
+        )
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_tool(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec,
+            provenance="matched-exact",
+            raw_summary="EventCode=4768 PreAuthType=0 Account=svc-web",
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_tool)
+    sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="reasoning-model"),
+        bo.SectionSpec(role="expert", model="expert-model", use_barrier_tools=True),
+    ]
+    result = bo.run_blue_orchestration(_episode(), sections=sections, max_rounds=6)
+    assert result.verdict == "ANOMALOUS_UNCLASSIFIED"
+    assert result.technique_ids == []
+    assert result.ungrounded_claims == ["T1558.003"]
+    assert "misattribution" in result.reasoning
+
+
+def test_correct_confirmed_survives_discriminator_gate(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        return _barrier_msg(
+            "emit_verdict",
+            {
+                "verdict": "CONFIRMED",
+                "technique_ids": ["T1558.004"],
+                "evidence": ["EventCode=4768 PreAuthType=0 Account=svc-web"],
+                "reasoning": "correct AS-REP mapping",
+                "match_grade": "EXACT",
+            },
+        )
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    out = bo.run_expert_model(
+        "ctx",
+        expert_model="expert-model",
+        context_text="",
+        tool_results=[
+            bo.ToolResult(
+                query="q",
+                provenance="matched-exact",
+                raw_summary="EventCode=4768 PreAuthType=0 Account=svc-web",
+            )
+        ],
+        use_barrier_tools=True,
+    )
+    assert out.verdict == "CONFIRMED"
+    assert out.technique_ids == ["T1558.004"]
 
 
 def test_barrier_tool_schemas_shape_static():

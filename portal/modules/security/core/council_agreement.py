@@ -30,7 +30,12 @@ class AgreementResult:
     rationale: str = ""
 
 
-def compute_agreement(members: list[SectionOutput], *, quorum: float = 0.5) -> AgreementResult:
+def compute_agreement(
+    members: list[SectionOutput],
+    *,
+    quorum: float = 0.5,
+    min_participation: float = 0.67,
+) -> AgreementResult:
     """Deterministic consensus over council members' section outputs.
 
     quorum is the member-fraction a technique must reach to be CONFIRMED-eligible.
@@ -38,6 +43,7 @@ def compute_agreement(members: list[SectionOutput], *, quorum: float = 0.5) -> A
     technique reaches quorum) routes to ANOMALOUS_UNCLASSIFIED with the union of
     near-miss / SIMILAR neighbours — novelty from disagreement.
     """
+    roster = len(members)
     concluders = [m for m in members if m.is_conclusion()]
     if not concluders:
         # Budget/convergence failure, NOT a benign finding (2026-07-23 design
@@ -54,13 +60,31 @@ def compute_agreement(members: list[SectionOutput], *, quorum: float = 0.5) -> A
             rationale="no member reached a conclusion — investigation incomplete, escalate",
         )
 
-    n = len(concluders)
     votes: Counter = Counter()
     for m in concluders:
         for t in set(m.technique_ids):
             votes[t] += 1
     similar_union = sorted({s for m in concluders for s in m.similar_to})
 
+    # V4C / P5-SEC-COUNCIL-001: a member that never concludes still occupied
+    # a council seat and must count against both participation and quorum.
+    # Excluding non-voters turned a lone survivor into an automatic 1/1 vote.
+    participation = len(concluders) / roster if roster else 0.0
+    if participation < min_participation:
+        observed_agreement = round(max(votes.values()) / roster, 3) if votes and roster else 0.0
+        return AgreementResult(
+            verdict="ANOMALOUS_UNCLASSIFIED",
+            agreement=observed_agreement,
+            dissent=dict(votes),
+            needs_arbiter=True,
+            similar_to=similar_union,
+            rationale=(
+                f"council participation {len(concluders)}/{roster} below floor "
+                f"{min_participation} — cross-check compromised, escalate"
+            ),
+        )
+
+    n = roster
     if votes:
         top, top_votes = votes.most_common(1)[0]
         frac = top_votes / n
