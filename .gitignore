@@ -92,6 +92,13 @@ portal/modules/security/core/results/*.bak
 # results/ — same ephemeral-artifact rationale as that directory's *.json
 # pattern above, just a different location).
 /ABLATION_DECISION.json
+
+# Raw ablation/bakeoff run-artifacts that slipped through the *.json-only
+# gap above — same ephemeral rationale, different extensions/prefixes.
+portal/modules/security/core/results/*.raw.jsonl
+portal/modules/security/core/results/*.json.log
+portal/modules/security/core/results/ABLATION_REPORT_*.md
+portal/modules/security/core/results/VALIDATION_*.md
 /ABLATION_DECISION.raw.jsonl
 /ABLATION_DECISION*.bak
 
