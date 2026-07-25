@@ -1679,3 +1679,241 @@ def test_council_lead_hunter_uses_mentor_when_configured(monkeypatch):
     ]
     bo.run_blue_orchestration(_episode(), sections=sections, max_rounds=20)
     assert mentor_calls["n"] >= 1
+
+
+# ── V3B: Per-role budgets ────────────────────────────────────────────────
+
+
+def _always_wants_more_json() -> str:
+    import json
+
+    return json.dumps(
+        {
+            "request_more": "still need more",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "",
+            "match_grade": "NONE",
+            "similar_to": [],
+        }
+    )
+
+
+def _confirmed_json() -> str:
+    import json
+
+    return json.dumps(
+        {
+            "verdict": "CONFIRMED",
+            "technique_ids": ["T1558.004"],
+            "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+            "reasoning": "confirmed",
+            "match_grade": "EXACT",
+            "similar_to": [],
+            "request_more": "",
+        }
+    )
+
+
+def _ruled_out_json() -> str:
+    import json
+
+    return json.dumps(
+        {
+            "verdict": "RULED_OUT",
+            "technique_ids": [],
+            "evidence": [],
+            "reasoning": "nothing conclusive",
+            "match_grade": "NONE",
+            "similar_to": [],
+            "request_more": "",
+        }
+    )
+
+
+def _empty_tool_fake(req, *, tool_model, episode, dry_run=False):
+    return bo.ToolResult(query=req.spec, provenance="empty", raw_summary="")
+
+
+def test_max_rounds_alone_reproduces_v2_behavior(monkeypatch):
+    """B1 — the hardest constraint: max_rounds=N alone (no budgets=) must be
+    byte-for-byte identical to V2 across three-section, two-section, and
+    council arms."""
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model in ("expert-model", "council-a", "council-b"):
+            return {"content": _ruled_out_json()}
+        return {"content": _always_wants_more_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    monkeypatch.setattr(bo, "run_tool_model", _empty_tool_fake)
+
+    three_v2 = bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=6)
+    three_v3 = bo.run_blue_orchestration(
+        _episode(), sections=_sections(), max_rounds=6, budgets=None
+    )
+    assert three_v2.verdict == three_v3.verdict == "RULED_OUT"
+    assert three_v2.rounds == three_v3.rounds
+    assert three_v2.trace == three_v3.trace
+
+    two_sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="merged", model="expert-model"),
+    ]
+    two_v2 = bo.run_blue_orchestration(_episode(), sections=two_sections, max_rounds=6)
+    two_v3 = bo.run_blue_orchestration(
+        _episode(), sections=two_sections, max_rounds=6, budgets=None
+    )
+    assert two_v2.verdict == two_v3.verdict
+    assert two_v2.rounds == two_v3.rounds
+    assert two_v2.trace == two_v3.trace
+
+    council_sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="council-a"),
+        bo.SectionSpec(role="reasoning", model="council-b"),
+    ]
+    council_v2 = bo.run_blue_orchestration(_episode(), sections=council_sections, max_rounds=6)
+    council_v3 = bo.run_blue_orchestration(
+        _episode(), sections=council_sections, max_rounds=6, budgets=None
+    )
+    assert council_v2.verdict == council_v3.verdict
+    assert council_v2.rounds == council_v3.rounds
+    assert council_v2.trace == council_v3.trace
+
+
+def test_budgets_hunter_key_overrides_max_rounds_for_hunter_only(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "expert-model":
+            return {"content": _ruled_out_json()}
+        return {"content": _always_wants_more_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    monkeypatch.setattr(bo, "run_tool_model", _empty_tool_fake)
+
+    result = bo.run_blue_orchestration(
+        _episode(), sections=_sections(), max_rounds=6, budgets={"hunter": 3}
+    )
+    # A hunter that never stops requesting more (no stall) is bounded by the
+    # hunter budget (3), not the default max_rounds (6) — well short of it.
+    assert result.rounds <= 4
+    assert result.verdict == "UNRESOLVED"
+
+
+def _always_wants_more_with_hypothesis_json() -> str:
+    """A hunter response with BOTH a hypothesis and a further request — never
+    stalls (technique_ids resets consecutive_no_hypothesis_rounds each round)
+    so the loop's length is governed purely by the round budget, not the
+    stall cap. Isolates the budget-override effect from stall-cap timing."""
+    import json
+
+    return json.dumps(
+        {
+            "request_more": "still need more",
+            "technique_ids": ["T1558.004"],
+            "evidence": ["EventCode=4768"],
+            "reasoning": "still investigating",
+            "match_grade": "EXACT",
+            "similar_to": [],
+        }
+    )
+
+
+def test_budgets_partial_override_falls_back_for_unnamed_roles(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        return {"content": _always_wants_more_with_hypothesis_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    monkeypatch.setattr(bo, "run_tool_model", _empty_tool_fake)
+
+    two_sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="merged", model="expert-model"),
+    ]
+    two_result = bo.run_blue_orchestration(
+        _episode(), sections=two_sections, max_rounds=6, budgets={"hunter": 10}
+    )
+    # "merged" isn't named in budgets -> falls back to max_rounds=6 (B3).
+    assert two_result.rounds <= 7
+
+    three_result = bo.run_blue_orchestration(
+        _episode(), sections=_sections(), max_rounds=6, budgets={"hunter": 10}
+    )
+    # "hunter" IS named -> the three-section arm runs well past max_rounds=6.
+    assert three_result.rounds > 6
+    assert three_result.rounds > two_result.rounds
+
+
+def test_budgets_none_and_max_rounds_only_is_v2_identical(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "expert-model":
+            return {"content": _confirmed_json()}
+        return {"content": _always_wants_more_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(
+            query=req.spec, provenance="matched-exact", raw_summary="EventCode=4768"
+        )
+
+    monkeypatch.setattr(bo, "run_tool_model", fake_run_tool_model)
+
+    v2 = bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=6)
+    v3b = bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=6, budgets=None)
+    assert v2.trace == v3b.trace
+
+
+def test_council_uses_hunter_budget_for_shared_lead_hunt(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model in ("council-a", "council-b"):
+            return {"content": _ruled_out_json()}
+        return {"content": _always_wants_more_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    monkeypatch.setattr(bo, "run_tool_model", _empty_tool_fake)
+
+    sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="council-a"),
+        bo.SectionSpec(role="reasoning", model="council-b"),
+    ]
+    result = bo.run_blue_orchestration(
+        _episode(), sections=sections, max_rounds=6, budgets={"hunter": 2}
+    )
+    hunter_rounds = [t for t in result.trace if t.get("section") == "reasoning"]
+    assert len(hunter_rounds) <= 2
+
+
+def test_multichain_forwards_budgets_to_each_chain(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        return {"content": _ruled_out_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    monkeypatch.setattr(bo, "run_tool_model", _empty_tool_fake)
+
+    budgets = {"hunter": 4}
+    result = bo.run_multichain_orchestration(
+        _multichain_episode(),
+        tool_model="tool-model",
+        chain_models=["chain-a", "chain-b"],
+        budgets=budgets,
+        quorum=0.5,
+    )
+    assert result is not None
+    assert budgets == {"hunter": 4}  # not aliased/mutated by any chain
+
+
+def test_budgets_dict_is_not_mutated_by_orchestration(monkeypatch):
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "expert-model":
+            return {"content": _ruled_out_json()}
+        return {"content": _always_wants_more_json()}
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    monkeypatch.setattr(bo, "run_tool_model", _empty_tool_fake)
+
+    budgets = {"hunter": 3}
+    before = dict(budgets)
+    bo.run_blue_orchestration(_episode(), sections=_sections(), max_rounds=6, budgets=budgets)
+    assert budgets == before

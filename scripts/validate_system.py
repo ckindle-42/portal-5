@@ -2760,6 +2760,9 @@ def main() -> int:
         check_multichain_consolidation_gate,
     )
     v.run("BG. mentor prompt discipline (M1: never prescribes)", check_mentor_discipline)
+    v.run(
+        "BH. budget backward compat (V2 identical when no budgets=)", check_budget_backward_compat
+    )
 
     return v.summary()
 
@@ -3911,6 +3914,97 @@ def check_mentor_discipline() -> tuple[str, str, list[dict]]:
     if bad:
         return ("FAIL", "; ".join(bad), subs)
     return ("PASS", "mentor prompt scans clean (M1 preserved)", subs)
+
+
+def check_budget_backward_compat() -> tuple[str, str, list[dict]]:
+    """BH. V3B: run_blue_orchestration with only max_rounds= (no budgets=)
+    reproduces V2 behavior for a deterministic three-section run.
+
+    Live-functional check — not source-scan. A source scan would pass on a
+    signature that accepts budgets= but silently ignores it; only a
+    functional run catches wiring regressions in _resolve_budget or one of
+    the dispatch functions.
+    """
+    import json
+
+    from portal.modules.security.core import blue_orchestrate as bo
+    from portal.modules.security.core.agentic_blue_eval import Episode
+
+    subs: list[dict] = []
+    bad: list[str] = []
+
+    episode = Episode(
+        scenario="asrep_to_lateral",
+        target_host="dc01",
+        techniques=["T1558.004"],
+        telemetry={"windows:security": ["EventCode=4768 AS-REP event for svc-web"]},
+    )
+    sections = [
+        bo.SectionSpec(role="tool", model="tool-model", needs_tools=True),
+        bo.SectionSpec(role="reasoning", model="reasoning-model"),
+        bo.SectionSpec(role="expert", model="expert-model"),
+    ]
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        if model == "reasoning-model":
+            return {"content": json.dumps({"request_more": "need more", "technique_ids": []})}
+        return {
+            "content": json.dumps(
+                {
+                    "verdict": "CONFIRMED",
+                    "technique_ids": ["T1558.004"],
+                    "evidence": ["EventCode=4768 AS-REP event for svc-web"],
+                    "reasoning": "confirmed",
+                    "match_grade": "EXACT",
+                    "similar_to": [],
+                    "request_more": "",
+                }
+            )
+        }
+
+    def fake_run_tool_model(req, *, tool_model, episode, dry_run=False):
+        return bo.ToolResult(query=req.spec, provenance="matched", raw_summary="EventCode=4768")
+
+    orig_call_model = bo._call_model
+    orig_run_tool_model = bo.run_tool_model
+    bo._call_model = fake_call_model
+    bo.run_tool_model = fake_run_tool_model
+    try:
+        v2 = bo.run_blue_orchestration(episode, sections=sections, max_rounds=6)
+        v3b = bo.run_blue_orchestration(episode, sections=sections, max_rounds=6, budgets=None)
+    finally:
+        bo._call_model = orig_call_model
+        bo.run_tool_model = orig_run_tool_model
+
+    identical = (
+        v2.verdict == v3b.verdict == "CONFIRMED"
+        and v2.rounds == v3b.rounds
+        and v2.trace == v3b.trace
+    )
+    subs.append(
+        {
+            "name": "max_rounds= alone reproduces V2 trace/verdict/rounds (live)",
+            "status": "PASS" if identical else "FAIL",
+            "detail": f"v2.rounds={v2.rounds} v3b.rounds={v3b.rounds} v2.verdict={v2.verdict}",
+        }
+    )
+    if not identical:
+        bad.append("budgets=None with max_rounds=N diverged from V2 (B1 broken)")
+
+    has_hunter_tool_expert = {t.get("section") for t in v2.trace} >= {"tool", "reasoning", "expert"}
+    subs.append(
+        {
+            "name": "trace contains hunter+tool+expert entries",
+            "status": "PASS" if has_hunter_tool_expert else "FAIL",
+            "detail": f"sections={sorted({t.get('section') for t in v2.trace})}",
+        }
+    )
+    if not has_hunter_tool_expert:
+        bad.append("V2-equivalent trace missing expected section entries")
+
+    if bad:
+        return ("FAIL", "; ".join(bad), subs)
+    return ("PASS", "budgets=None is byte-for-byte V2 (B1 preserved)", subs)
 
 
 if __name__ == "__main__":

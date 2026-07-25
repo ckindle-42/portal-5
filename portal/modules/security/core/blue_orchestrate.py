@@ -1206,11 +1206,27 @@ class OrchestrationResult:
     ungrounded_claims: list[str] = field(default_factory=list)
 
 
+def _resolve_budget(
+    role: str,
+    budgets: dict[str, int] | None,
+    max_rounds: int,
+) -> int:
+    """Per-role budget lookup with V2-compat fallback (V3B).
+
+    Contract (B1/B3): if `budgets` is None or lacks the requested role,
+    return `max_rounds` unchanged — V2 behavior byte-for-byte.
+    """
+    if budgets and role in budgets:
+        return int(budgets[role])
+    return max_rounds
+
+
 def run_blue_orchestration(
     episode: Episode,
     *,
     sections: list[SectionSpec],
     max_rounds: int = 6,
+    budgets: dict[str, int] | None = None,
     wall_clock_s: float | None = None,
     check_additional: bool = False,
     dry_run: bool = False,
@@ -1230,6 +1246,12 @@ def run_blue_orchestration(
     broken by a fed arbiter bound to `role="expert"`) decides the verdict.
     Swapping a section's model is a config change to this list, not a
     rewrite of the flow below (§0.1(2)).
+
+    `budgets` (V3B) is an optional per-role round-cap mapping — keys:
+    `hunter`, `expert`, `merged`, `council_member`, `total`. When `budgets`
+    is None or a role is absent from it, that role falls back to
+    `max_rounds` (B1: `max_rounds=N` alone reproduces V2 identically). When
+    both are given, `budgets` wins for any role it names (B3).
     """
     models = {s.role: s.model for s in sections}
     rosters: dict[str, list[str]] = {}
@@ -1252,6 +1274,7 @@ def run_blue_orchestration(
             mentor_model=mentor_roster[0] if mentor_roster else None,
             quorum=quorum,
             max_rounds=max_rounds,
+            budgets=budgets,
             wall_clock_s=wall_clock_s,
             dry_run=dry_run,
         )
@@ -1268,6 +1291,7 @@ def run_blue_orchestration(
             episode,
             models=models,
             max_rounds=max_rounds,
+            budgets=budgets,
             wall_clock_s=wall_clock_s,
             dry_run=dry_run,
         )
@@ -1275,6 +1299,7 @@ def run_blue_orchestration(
         episode,
         models=models,
         max_rounds=max_rounds,
+        budgets=budgets,
         wall_clock_s=wall_clock_s,
         check_additional=check_additional,
         dry_run=dry_run,
@@ -1430,6 +1455,7 @@ def capture_expert_handoff(
     *,
     models: dict[str, str],
     max_rounds: int = 6,
+    budgets: dict[str, int] | None = None,
     wall_clock_s: float | None = None,
     dry_run: bool = False,
 ) -> ExpertHandoff | OrchestrationResult:
@@ -1445,6 +1471,7 @@ def capture_expert_handoff(
     result = _run_three_section(
         episode,
         models=models,
+        budgets=budgets,
         max_rounds=max_rounds,
         wall_clock_s=wall_clock_s,
         check_additional=False,
@@ -1556,6 +1583,7 @@ def capture_hunter_handoff(
     *,
     models: dict[str, str],
     max_rounds: int = 6,
+    budgets: dict[str, int] | None = None,
     wall_clock_s: float | None = None,
     dry_run: bool = False,
 ) -> HunterHandoff | OrchestrationResult:
@@ -1571,6 +1599,7 @@ def capture_hunter_handoff(
         episode,
         models=models,
         max_rounds=max_rounds,
+        budgets=budgets,
         wall_clock_s=wall_clock_s,
         check_additional=False,
         dry_run=dry_run,
@@ -1615,6 +1644,7 @@ def _run_three_section(
     *,
     models: dict[str, str],
     max_rounds: int,
+    budgets: dict[str, int] | None = None,
     wall_clock_s: float | None,
     check_additional: bool,
     dry_run: bool,
@@ -1622,6 +1652,8 @@ def _run_three_section(
     _capture_hunter_only: bool = False,
 ) -> OrchestrationResult | ExpertHandoff | HunterHandoff:
     import time as _time
+
+    hunter_budget = _resolve_budget("hunter", budgets, max_rounds)
 
     ground_truth = set(episode.techniques)
     trigger = _build_trigger(episode)
@@ -1676,7 +1708,7 @@ def _run_three_section(
         return _time.monotonic() - started
 
     def _budget_exhausted() -> bool:
-        if rounds >= max_rounds:
+        if rounds >= hunter_budget:
             return True
         return bool(wall_clock_s and _elapsed() >= wall_clock_s)
 
@@ -1823,7 +1855,7 @@ def _run_three_section(
             # actually honorable, and the Expert doing so anyway forced
             # UNRESOLVED instead of the RULED_OUT/ANOMALOUS_UNCLASSIFIED it
             # had just been told were valid to render right then.
-            rounds_left_after_expert = max_rounds - (rounds + 1)
+            rounds_left_after_expert = hunter_budget - (rounds + 1)
             if rounds_left_after_expert >= 2:
                 ectx += (
                     f"\n\nNote: the hunter has searched {consecutive_no_hypothesis_rounds} "
@@ -1920,6 +1952,7 @@ def _run_two_section(
     *,
     models: dict[str, str],
     max_rounds: int,
+    budgets: dict[str, int] | None = None,
     wall_clock_s: float | None,
     dry_run: bool,
 ) -> OrchestrationResult:
@@ -1927,6 +1960,8 @@ def _run_two_section(
     §6.1's "V1 shape"). One generalist model hunts and concludes itself —
     no separate Hunter-proposes/expert-confirms handoff."""
     import time as _time
+
+    merged_budget = _resolve_budget("merged", budgets, max_rounds)
 
     trigger = _build_trigger(episode)
 
@@ -1945,7 +1980,7 @@ def _run_two_section(
         return _time.monotonic() - started
 
     def _budget_exhausted() -> bool:
-        if rounds >= max_rounds:
+        if rounds >= merged_budget:
             return True
         return bool(wall_clock_s and _elapsed() >= wall_clock_s)
 
@@ -2066,6 +2101,7 @@ def _run_council(
     mentor_model: str | None = None,
     quorum: float,
     max_rounds: int,
+    budgets: dict[str, int] | None = None,
     wall_clock_s: float | None,
     dry_run: bool,
 ) -> OrchestrationResult:
@@ -2088,6 +2124,13 @@ def _run_council(
     different models would have gathered different evidence in the first
     place (a separate question, already explored via ``capture_hunter_handoff``
     model-swap testing).
+
+    ``budgets`` (V3B): the shared lead-hunter phase resolves ``"hunter"``
+    (falling back to ``max_rounds``, B1). ``"council_member"`` is currently
+    unused — each member already gets exactly one call from the shared
+    evidence (V2 behavior), so there's nothing to bound yet; it's accepted
+    here only so future bench-driven tuning doesn't need another signature
+    change.
     """
     import time as _time
 
@@ -2100,6 +2143,7 @@ def _run_council(
         episode,
         models=lead_models,
         max_rounds=max_rounds,
+        budgets=budgets,
         wall_clock_s=wall_clock_s,
         dry_run=dry_run,
     )
@@ -2273,6 +2317,7 @@ def run_multichain_orchestration(
     expert_model: str | None = None,
     quorum: float = 0.5,
     max_rounds: int = 6,
+    budgets: dict[str, int] | None = None,
     wall_clock_s: float | None = None,
     dry_run: bool = False,
 ) -> OrchestrationResult:
@@ -2309,6 +2354,11 @@ def run_multichain_orchestration(
 
     Additive-only (I7): this composes `run_blue_orchestration` (the untouched
     3-section path) N times and never modifies it or the council/2-section arms.
+
+    `budgets` (V3B) is forwarded unchanged to every chain's
+    `run_blue_orchestration` call — each chain applies the SAME per-role
+    budget independently; total cost across chains is `sum(chain budgets)`,
+    not a shared pool split N ways.
     """
     import time as _time
 
@@ -2328,6 +2378,7 @@ def run_multichain_orchestration(
             episode,
             sections=sections,
             max_rounds=max_rounds,
+            budgets=budgets,
             wall_clock_s=wall_clock_s,
             dry_run=dry_run,
         )
