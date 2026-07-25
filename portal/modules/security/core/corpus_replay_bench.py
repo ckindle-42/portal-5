@@ -295,6 +295,17 @@ def main() -> None:
         label = re.sub(r"[^A-Za-z0-9]+", "_", tid).strip("_").lower()
 
         # Arm 1: orchestrated, strong model, full V3 (mentor+budgets+barrier).
+        #
+        # Found live 2026-07-25 (first full 51-cell sweep): hunter=4 exhausts
+        # after exactly 2 hunt-gather cycles (round count hits 4 mid-loop,
+        # inside the "wants_more and not stalled: if _budget_exhausted():
+        # break" branch in _run_three_section) -- before the Hunter's 3rd
+        # call, so the stall cap (3 consecutive no-hypothesis rounds) never
+        # gets a chance to fire and the Expert never gets a single turn.
+        # 14/17 cells ended UNRESOLVED at exactly round=4 with wants_more
+        # still True. This is a bench-budget miscalibration, not a V3
+        # defect -- raised to give the Hunter room to actually reach a
+        # conclusion or the stall handoff.
         cells.append(
             {
                 "label": label,
@@ -304,11 +315,12 @@ def main() -> None:
                 "model_arm": "strong_full_v3",
                 "reasoning_model": REASONING_MODEL,
                 "mentor": True,
-                "budgets": {"hunter": 4, "expert": 2},
+                "budgets": {"hunter": 10, "expert": 2},
                 "barrier_roles": {"reasoning", "expert"},
             }
         )
         # Arm 2: council, strong roster (unfit models excluded), mentor+barrier.
+        # Same fix: hunter=3 was too tight (found live 2026-07-25).
         cells.append(
             {
                 "label": label,
@@ -318,12 +330,14 @@ def main() -> None:
                 "model_arm": "council_strong",
                 "reasoning_model": REASONING_MODEL,
                 "mentor": True,
-                "budgets": {"hunter": 3},
+                "budgets": {"hunter": 8},
                 "barrier_roles": {"reasoning"},
             }
         )
         # Arm 3: orchestrated, WEAK model, mentor -- validates Mentor actually
         # fires against a model that stalls (the strong model never does).
+        # Given a weaker model, more room to actually stall into the mentor
+        # trigger and still reach a conclusion afterward.
         if not args.skip_weak_arm:
             cells.append(
                 {
@@ -334,7 +348,7 @@ def main() -> None:
                     "model_arm": "weak_mentor_validation",
                     "reasoning_model": WEAK_REASONING_MODEL,
                     "mentor": True,
-                    "budgets": {"hunter": 6},
+                    "budgets": {"hunter": 10},
                     "barrier_roles": set(),  # weak model unlikely to support tool calls reliably
                 }
             )
