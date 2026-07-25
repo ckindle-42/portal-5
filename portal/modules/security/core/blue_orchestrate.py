@@ -2561,8 +2561,17 @@ def _run_two_section(
 # telemetry it was given, never emitting a verdict. A warning, not a hard
 # block — the roster is a caller/CLI decision; this only makes the failure
 # mode visible instead of silently eating a wasted round.
+#
+# A second model showed the same evidence-abandonment/non-conclusion class in
+# the completed V4 corpus replay: cogito:32b concluded in only 1/17 council
+# cells (2026-07-25). Its non-voting traces repeatedly re-derived ATT&CK IDs
+# from memory and narrated uncertainty until the output budget ended instead
+# of rendering a grounded vote from the shared evidence. Like the first entry,
+# this remains advisory data: _run_council warns and proceeds when a caller
+# explicitly includes it.
 _COUNCIL_UNFIT_MODELS = {
     "hf.co/HeYujie/Qwen3.5-27B-abliterated-GGUF:Q4_K_M",
+    "cogito:32b",
 }
 
 

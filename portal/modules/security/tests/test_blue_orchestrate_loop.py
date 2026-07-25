@@ -2386,12 +2386,13 @@ def test_barrier_tool_schemas_shape_static():
 
 
 def test_council_unfit_model_warns_but_does_not_block(capsys):
-    bo._warn_if_council_unfit_models(["granite4.1:30b", *bo._COUNCIL_UNFIT_MODELS])
+    result = bo._warn_if_council_unfit_models(["granite4.1:30b", *bo._COUNCIL_UNFIT_MODELS])
     captured = capsys.readouterr()
     assert "council-unfit" in captured.err
+    assert result is None  # advisory warning; caller's roster is not rejected
 
 
 def test_council_fit_roster_produces_no_warning(capsys):
-    bo._warn_if_council_unfit_models(["granite4.1:30b", "cogito:32b"])
+    bo._warn_if_council_unfit_models(["granite4.1:30b", "candidate-fit:latest"])
     captured = capsys.readouterr()
     assert captured.err == ""
