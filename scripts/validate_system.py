@@ -2787,6 +2787,10 @@ def main() -> int:
         "BN. hunt-and-notify scoreboard semantics",
         check_notify_scoreboard_semantics,
     )
+    v.run(
+        "BO. single council quorum implementation",
+        check_single_council_quorum,
+    )
 
     return v.summary()
 
@@ -4450,6 +4454,72 @@ def check_notify_scoreboard_semantics() -> tuple[str, str, list[dict]]:
     if not (anomaly_catch_ok and absent_fairness_ok and ordering_ok):
         return ("FAIL", "hunt-and-notify scoreboard semantics failed", subs)
     return ("PASS", "hunt-and-notify catch and trust semantics preserved", subs)
+
+
+def check_single_council_quorum() -> tuple[str, str, list[dict]]:
+    """BO. Legacy security votes delegate to the platform council primitive."""
+    import inspect
+
+    from portal.modules.security.core import council_agreement as security_council
+    from portal.modules.security.core.analyst_verdict import SectionOutput
+    from portal.platform.inference.router.council import CouncilOpinion, aggregate_opinions
+
+    def member(verdict: str | None, technique: str = "") -> SectionOutput:
+        return SectionOutput(
+            verdict=verdict,
+            technique_ids=[technique] if technique else [],
+            request_more="" if verdict else "need more evidence",
+            section="expert",
+        )
+
+    legacy = security_council.compute_agreement(
+        [member("CONFIRMED", "T1078"), member(None)],
+        quorum=0.5,
+        min_participation=0.67,
+    )
+    platform = aggregate_opinions(
+        [
+            CouncilOpinion("one", "one", "m1", "SUPPORT", valid=True),
+            CouncilOpinion("two", "two", "m2", "ABSTAIN", valid=False),
+        ],
+        minimum_participation=0.67,
+        quorum=0.5,
+    )
+    source = inspect.getsource(security_council.compute_agreement)
+    delegates = "aggregate_opinions(" in source
+    same_floor = (
+        legacy.verdict == "ANOMALOUS_UNCLASSIFIED"
+        and legacy.needs_arbiter
+        and platform.decision == "ESCALATE"
+    )
+    production_lean = "has_council" in inspect.getsource(
+        __import__(
+            "portal.modules.security.core.blue_orchestrate",
+            fromlist=["run_blue_orchestration"],
+        ).run_blue_orchestration
+    )
+    subs = [
+        {
+            "name": "security compatibility path delegates quorum",
+            "status": "PASS" if delegates else "FAIL",
+            "detail": "aggregate_opinions call present"
+            if delegates
+            else "independent quorum found",
+        },
+        {
+            "name": "participation-floor result matches platform ESCALATE",
+            "status": "PASS" if same_floor else "FAIL",
+            "detail": f"security={legacy.verdict} platform={platform.decision}",
+        },
+        {
+            "name": "legacy council remains opt-in, not production workhorse",
+            "status": "PASS" if production_lean else "FAIL",
+            "detail": "dispatch requires an explicit multi-member reasoning roster",
+        },
+    ]
+    if not (delegates and same_floor and production_lean):
+        return ("FAIL", "council reconciliation invariant failed", subs)
+    return ("PASS", "platform aggregate_opinions is the single quorum implementation", subs)
 
 
 if __name__ == "__main__":

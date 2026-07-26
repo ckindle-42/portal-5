@@ -1,8 +1,17 @@
-"""Council of Agreement — cross-check multiple section outputs into one verdict.
+"""Compatibility adapter from legacy security votes to Portal Council Review.
 
-Deterministic consensus backbone (auditable, code-decided like the rest of the
-harness's truth) + an optional fed-expert arbiter for the hard disagreement
-cases. Design intent (BUILD_PROGRAM V2 Appendix C; TASK gated-ablation Part II-A):
+The retired security recall-council remains callable by historical benches and
+the opt-in CLI mode, but it no longer owns quorum math.  Every participation and
+vote threshold is delegated to the platform council primitive
+``portal.platform.inference.router.council.aggregate_opinions``.  This module
+only translates between the detection and review verdict domains:
+
+* a member naming a candidate technique becomes SUPPORT for that candidate;
+* another conclusive member becomes REJECT for that candidate;
+* a non-concluding member becomes a non-participating ABSTAIN;
+* a unanimous RULED_OUT roster becomes SUPPORT for the benign disposition.
+
+The compatibility result retains the security pipeline's historical semantics:
   - techniques agreed by >= quorum of council members -> candidate CONFIRMED
     (still passes blue._cite_or_drop downstream — I2).
   - a shared signal the council cannot agree to map to one known technique ->
@@ -13,8 +22,10 @@ cases. Design intent (BUILD_PROGRAM V2 Appendix C; TASK gated-ablation Part II-A
 
 from __future__ import annotations
 
-from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
+
+from portal.platform.inference.router.council import CouncilOpinion, aggregate_opinions
 
 from .analyst_verdict import SectionOutput
 
@@ -30,6 +41,31 @@ class AgreementResult:
     rationale: str = ""
 
 
+def _platform_opinions(
+    members: list[SectionOutput],
+    *,
+    supports: Callable[[SectionOutput], bool],
+) -> list[CouncilOpinion]:
+    """Translate one binary detection-domain question onto the review contract."""
+    opinions: list[CouncilOpinion] = []
+    for index, member in enumerate(members):
+        concluded = member.is_conclusion()
+        opinions.append(
+            CouncilOpinion(
+                member_id=f"security-seat-{index + 1}",
+                label=f"Security seat {index + 1}",
+                model="legacy-security-council",
+                recommendation=("SUPPORT" if supports(member) else "REJECT")
+                if concluded
+                else "ABSTAIN",
+                confidence=1.0 if concluded else 0.0,
+                valid=concluded,
+                error="" if concluded else "member did not reach a conclusion",
+            )
+        )
+    return opinions
+
+
 def compute_agreement(
     members: list[SectionOutput],
     *,
@@ -43,9 +79,14 @@ def compute_agreement(
     technique reaches quorum) routes to ANOMALOUS_UNCLASSIFIED with the union of
     near-miss / SIMILAR neighbours — novelty from disagreement.
     """
-    roster = len(members)
     concluders = [m for m in members if m.is_conclusion()]
-    if not concluders:
+    participation = aggregate_opinions(
+        _platform_opinions(members, supports=lambda _member: True),
+        minimum_participation=min_participation,
+        quorum=1.0,
+    )
+    roster = participation.roster
+    if participation.participating == 0:
         # Budget/convergence failure, NOT a benign finding (2026-07-23 design
         # review): this previously returned RULED_OUT — telling the SOC "all
         # clear" because no council member managed to conclude, the exact
@@ -60,18 +101,32 @@ def compute_agreement(
             rationale="no member reached a conclusion — investigation incomplete, escalate",
         )
 
-    votes: Counter = Counter()
-    for m in concluders:
-        for t in set(m.technique_ids):
-            votes[t] += 1
+    candidate_techniques = sorted({t for member in concluders for t in member.technique_ids})
+    technique_aggregates = {
+        technique: aggregate_opinions(
+            _platform_opinions(
+                members,
+                supports=lambda member, candidate=technique: candidate in set(member.technique_ids),
+            ),
+            minimum_participation=min_participation,
+            quorum=quorum,
+        )
+        for technique in candidate_techniques
+    }
+    votes = {
+        technique: aggregate.votes["SUPPORT"]
+        for technique, aggregate in technique_aggregates.items()
+    }
     similar_union = sorted({s for m in concluders for s in m.similar_to})
 
-    # V4C / P5-SEC-COUNCIL-001: a member that never concludes still occupied
-    # a council seat and must count against both participation and quorum.
-    # Excluding non-voters turned a lone survivor into an automatic 1/1 vote.
-    participation = len(concluders) / roster if roster else 0.0
-    if participation < min_participation:
-        observed_agreement = round(max(votes.values()) / roster, 3) if votes and roster else 0.0
+    # The platform aggregate is the implementation of record for both the
+    # full-roster denominator and the minimum participation threshold.
+    if participation.participating < participation.required_participation:
+        observed_agreement = (
+            round(max(votes.values()) / participation.roster, 3)
+            if votes and participation.roster
+            else 0.0
+        )
         return AgreementResult(
             verdict="ANOMALOUS_UNCLASSIFIED",
             agreement=observed_agreement,
@@ -79,16 +134,19 @@ def compute_agreement(
             needs_arbiter=True,
             similar_to=similar_union,
             rationale=(
-                f"council participation {len(concluders)}/{roster} below floor "
+                f"council participation {participation.participating}/{roster} below floor "
                 f"{min_participation} — cross-check compromised, escalate"
             ),
         )
 
-    n = roster
     if votes:
-        top, top_votes = votes.most_common(1)[0]
-        frac = top_votes / n
-        agreed = sorted(t for t, v in votes.items() if v / n >= quorum)
+        top_votes = max(votes.values())
+        frac = top_votes / roster
+        agreed = sorted(
+            technique
+            for technique, aggregate in technique_aggregates.items()
+            if aggregate.votes["SUPPORT"] >= aggregate.required_votes
+        )
         if agreed:
             return AgreementResult(
                 verdict="CONFIRMED",
@@ -108,9 +166,15 @@ def compute_agreement(
             rationale="council split — shared signal, no technique at quorum",
         )
 
-    # all concluders were benign
-    benign = sum(m.verdict == "RULED_OUT" for m in concluders)
-    if benign == n:
+    # Ask the same platform primitive whether the full roster supports the
+    # benign disposition.  quorum=1.0 intentionally preserves the old
+    # unanimous-benign rule.
+    benign = aggregate_opinions(
+        _platform_opinions(members, supports=lambda member: member.verdict == "RULED_OUT"),
+        minimum_participation=min_participation,
+        quorum=1.0,
+    )
+    if benign.decision == "SUPPORT":
         return AgreementResult(verdict="RULED_OUT", agreement=1.0, rationale="unanimous benign")
     return AgreementResult(
         verdict="ANOMALOUS_UNCLASSIFIED",
