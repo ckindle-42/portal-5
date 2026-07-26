@@ -97,6 +97,26 @@ logger = logging.getLogger(__name__)
 registry: BackendRegistry | None = None
 _notification_dispatcher: Any = None
 
+
+def _prioritize_hinted_backend(candidates: list[Any], model_hint: str) -> list[Any]:
+    """Move the first backend containing ``model_hint`` to the front.
+
+    Workspace group priority remains the default. A concrete model hint is
+    more specific, though, and streaming previously substituted the first
+    backend's default model even when a later eligible backend contained the
+    requested one. Non-streaming already skips candidates that cannot satisfy
+    the hint; this gives streaming the same served-model behavior.
+    """
+    if not model_hint:
+        return candidates
+    for index, candidate in enumerate(candidates):
+        if model_hint in candidate.models:
+            if index == 0:
+                return candidates
+            return [candidate, *candidates[:index], *candidates[index + 1 :]]
+    return candidates
+
+
 # ── Constants from original router_pipe.py ────────────────────────────────────
 try:
     _PKG_VERSION = importlib.metadata.version("portal-5")
@@ -841,14 +861,17 @@ async def chat_completions(
                 detail="All backends failed — check server logs",
             )
 
-        # Streaming: try first backend. If the stream yields an error chunk early,
-        # fall back to non-streaming with remaining candidates.
-        backend = candidates[0]
         ws_cfg = WORKSPACES.get(workspace_id, {})
         model_hint = ws_cfg.get("model_hint", "")
         _chain = ws_cfg.get("chain") or []
         _secondary_model = ws_cfg.get("secondary_model", "")
         _tertiary_model = ws_cfg.get("tertiary_model", "")
+
+        # Streaming: prefer the eligible backend that can actually serve the
+        # requested model hint. If the stream yields an error chunk early, fall
+        # back to non-streaming with the reordered remaining candidates.
+        candidates = _prioritize_hinted_backend(candidates, model_hint)
+        backend = candidates[0]
 
         # Pick target model from Ollama hint
         if model_hint:
