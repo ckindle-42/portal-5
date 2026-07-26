@@ -40,6 +40,21 @@ from tests.uat.owui_api import _wait_for_response_arrival, owui_get_last_respons
 # ---------------------------------------------------------------------------
 
 
+async def _dismiss_startup_overlays(page) -> None:
+    """Dismiss Open WebUI release/onboarding overlays that cover the composer.
+
+    Open WebUI may show a post-upgrade release-notes dialog after authentication.
+    The chat input remains present in the DOM behind that dialog, so selector
+    readiness alone is insufficient: Playwright finds the composer but cannot
+    click it. Dismissing the explicit acknowledgement button keeps UAT aligned
+    with the first-run operator experience without hiding arbitrary dialogs.
+    """
+    acknowledge = page.locator('button:has-text("Okay, Let\'s Go!")')
+    if await acknowledge.count() > 0 and await acknowledge.first.is_visible():
+        await acknowledge.first.click()
+        await page.wait_for_timeout(250)
+
+
 async def _login(page) -> None:
     await page.goto(OPENWEBUI_URL, wait_until="networkidle", timeout=30000)
     await page.wait_for_selector('input[type="email"]', timeout=15000)
@@ -47,6 +62,7 @@ async def _login(page) -> None:
     await page.fill('input[type="password"]', ADMIN_PASS)
     await page.locator('button[type="submit"], button:has-text("Sign in")').first.click()
     await page.wait_for_selector("textarea, [contenteditable]", timeout=20000)
+    await _dismiss_startup_overlays(page)
 
 
 async def _navigate_to_chat(page, chat_url: str) -> None:
