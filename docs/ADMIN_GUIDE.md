@@ -442,7 +442,7 @@ Results are written to `tests/benchmarks/results/`.
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (22 production, 65 eval, 87 total)
+# Workspace roster (23 production, 65 eval, 88 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -454,6 +454,7 @@ Results are written to `tests/benchmarks/results/`.
 | `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx8k` |
 | `auto-coding` | coding | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
 | `auto-compliance` | compliance | `granite4.1:8b-ctx16k` |
+| `auto-council` | general | `qwen3.6:27b-q4_K_M` |
 | `auto-creative` | media | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` |
 | `auto-daily` | general | `gemma4:26b-a4b-it-qat-ctx8k` |
 | `auto-data` | research | `granite4.1:30b-ctx64k` |
@@ -560,6 +561,7 @@ default.
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx8k` | yes |
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-compliance` | `granite4.1:8b-ctx16k` | yes |
+| `auto-council` | `qwen3.6:27b-q4_K_M` | yes |
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
 | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | yes |
 | `auto-data` | `granite4.1:30b-ctx64k` | yes |

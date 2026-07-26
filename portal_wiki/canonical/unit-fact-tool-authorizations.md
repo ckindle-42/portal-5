@@ -1,20 +1,20 @@
 ---
 id: unit-fact-tool-authorizations
 kind: what
-title: tool authorizations for 22 production workspaces
+title: tool authorizations for 23 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: d16cb24ec652
+  commit: d817f2566213
   section: workspaces[].tools
-last_generated_commit: d16cb24ec652
+last_generated_commit: d817f2566213
 confidence: high
 tags:
 - fact
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1784056264.498743
+updated_at: 1785039775.253567
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -29,6 +29,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-cad` | cad | `execute_python`, `execute_bash`, `sandbox_status`, `read_pdf`, `read_word_document`, `web_search`, `web_fetch`, `remember`, `recall`, `kb_search`, `render_mesh`, `render_openscad`, `convert_cad` |
 | `auto-coding` | coding | `execute_python`, `execute_nodejs`, `execute_bash`, `sandbox_status`, `read_word_document`, `read_pdf`, `remember`, `recall` |
 | `auto-compliance` | compliance | `create_word_document`, `read_pdf`, `kb_search`, `kb_list`, `web_search` |
+| `auto-council` | general | _(none)_ |
 | `auto-creative` | media | _(none)_ |
 | `auto-daily` | general | `web_search`, `web_fetch`, `kb_search`, `kb_list`, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`, `recall`, `generate_music`, `transcribe_audio` |
 | `auto-data` | research | `execute_python`, `create_excel`, `kb_search` |

@@ -64,6 +64,34 @@ class ChainHop(BaseModel):
     user_template: str
 
 
+class CouncilMemberSpec(BaseModel):
+    """One isolated reviewer in a Council Review workspace."""
+
+    id: str
+    label: str
+    model: str
+    system: str
+
+
+class CouncilSpec(BaseModel):
+    """Fan-out review configuration for an opt-in Council workspace."""
+
+    members: list[CouncilMemberSpec] = Field(min_length=2)
+    synthesizer_model: str
+    minimum_participation: float = Field(default=0.66, ge=0.0, le=1.0)
+    quorum: float = Field(default=0.66, gt=0.0, le=1.0)
+    reviewer_max_tokens: int = Field(default=4096, ge=256)
+    synthesizer_max_tokens: int = Field(default=4096, ge=256)
+
+    @model_validator(mode="after")
+    def unique_member_ids(self) -> CouncilSpec:
+        """Member ids are stable evidence references and must be unique."""
+        ids = [member.id for member in self.members]
+        if len(ids) != len(set(ids)):
+            raise ValueError("council member ids must be unique")
+        return self
+
+
 class ToolPreselectSpec(BaseModel):
     """Per-workspace opt-in for query-level tool-schema preselection.
 
@@ -126,6 +154,9 @@ class WorkspaceSpec(BaseModel):
 
     # --- Multi-model chain ---
     chain: list[ChainHop] = Field(default_factory=list)
+
+    # --- Isolated multi-model review ---
+    council: CouncilSpec | None = None
 
     # --- Tool preselection opt-in (P5-FUT-TOOL-PRESELECT) ---
     tool_preselect: ToolPreselectSpec | None = None

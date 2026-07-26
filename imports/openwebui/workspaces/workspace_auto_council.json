@@ -1,0 +1,13 @@
+{
+  "id": "auto-council",
+  "name": "🏛️ Portal Council Review",
+  "meta": {
+    "description": "🏛️ Portal Council Review",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-council",
+    "system": "Submit a decision, plan, proposal, code or architecture review, research brief, policy, or knowledge change. Include the goal, constraints, evidence, and options when available. Portal will run isolated Evidence, Challenger, and Operator/User reviewers, compute participation and quorum in code, and return one recommendation while preserving dissent and missing evidence."
+  }
+}

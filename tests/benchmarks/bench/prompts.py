@@ -103,6 +103,7 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "auto-security": "security",
     "auto-creative": "creative",
     "auto-reasoning": "reasoning",
+    "auto-council": "reasoning",
     "auto-documents": "coding",
     "auto-video": "creative",
     "auto-image": "creative",

@@ -534,6 +534,8 @@ workspace_routing:
   auto-reasoning:
   - reasoning
   - general
+  auto-council:
+  - general
   auto-documents:
   - general
   - coding

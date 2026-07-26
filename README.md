@@ -100,7 +100,7 @@ Everything runs with a single command. No manual configuration.
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
-Portal 5 includes **22 functional workspaces** (plus 65 benchmark workspaces for performance comparison, gated off by default behind the `eval` module — see `coding_task/BUILD_PROGRAM_COLLAPSE_V1.md`; 87 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
+Portal 5 includes **23 functional workspaces** (plus 65 benchmark workspaces for performance comparison, gated off by default behind the `eval` module — see `coding_task/BUILD_PROGRAM_COLLAPSE_V1.md`; 88 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -114,6 +114,7 @@ Portal 5 includes **22 functional workspaces** (plus 65 benchmark workspaces for
 | `auto-daily` | Fast everyday assistant — chat, writing, summarization, planning | web_search, memory, documents |
 | `auto-coding` | One-shot code generation and review (Qwen3-Coder-30B MoE). 7 former sibling workspaces are now `?variant=` query params or a persona's `variant:` field on this base workspace — `laguna` (Laguna-XS.2, self-improvement agentic), `uncensored`, `uncensored-agentic`, `heavy` (Qwen3-Coder-Next 80B, long-horizon), `lite` (AgentWorld 35B), `ornith` (Ornith-1.0 35B), `northmini` (North-Mini-Code) | Code sandbox |
 | `auto-reasoning` | Extended reasoning, complex analysis | — |
+| `auto-council` | Opt-in review: three isolated evidence/challenger/operator seats, full-roster quorum, preserved dissent, and bounded synthesis | — |
 | `auto-research` | Web research and synthesis | web_search, web_fetch |
 | `auto-vision` | Image understanding, visual Q&A (Qwen3-VL 32B) | — |
 | `auto-creative` | Creative writing with voice output | TTS |
