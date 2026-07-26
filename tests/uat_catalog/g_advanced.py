@@ -18,6 +18,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "workspace_tier": "ollama",
         "is_multi_turn": True,
         "skip_if": "no_docx_fixture",
+        "attach_fixture": "sample.docx",
         "prompt": "Summarize the key points of this document in 5 bullet points.",
         "turn2": "What does the document say about access control? Quote the relevant section.",
         "assertions": [

@@ -419,6 +419,21 @@ async def _send_and_wait(
     )
 
 
+async def _attach_file(page, file_path: Path) -> None:
+    """Attach a file to the composer via OWUI's hidden upload input.
+
+    OWUI renders two `input[type=file]` elements: a generic hidden upload
+    input (`multiple`, no `accept` restriction) and `#camera-input` (images
+    only, `capture=environment`). `set_input_files` bypasses the native file
+    picker and fires the same change event the "+" attach button does,
+    triggering OWUI's upload/RAG-processing pipeline without needing to
+    locate or click the attach button itself.
+    """
+    file_input = page.locator('input[type="file"]:not(#camera-input)').first
+    await file_input.set_input_files(str(file_path))
+    await page.wait_for_timeout(3000)  # let OWUI finish upload + processing
+
+
 async def _enable_tool(page, tool_id: str) -> None:
     tool_display_names = {
         "portal_code": "Portal Code",
