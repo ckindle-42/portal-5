@@ -2783,6 +2783,10 @@ def main() -> int:
         "BM. recall attribution boundary (label-blind oracle + World A/B split)",
         check_recall_attribution_boundary,
     )
+    v.run(
+        "BN. hunt-and-notify scoreboard semantics",
+        check_notify_scoreboard_semantics,
+    )
 
     return v.summary()
 
@@ -4385,6 +4389,67 @@ def check_recall_attribution_boundary() -> tuple[str, str, list[dict]]:
     if not (signature_ok and split_ok and boundary_ok):
         return ("FAIL", "recall-attribution boundary or World A/B split failed", subs)
     return ("PASS", "label-blind token oracle and eval-only boundary preserved", subs)
+
+
+def check_notify_scoreboard_semantics() -> tuple[str, str, list[dict]]:
+    """BN. RBP-native scoring preserves catch, fairness, and trust ordering."""
+    from portal.modules.security.core import notify_scoreboard as ns
+    from portal.modules.security.core import recall_attribution as ra
+
+    anomaly = {
+        "label": "anomaly",
+        "technique_expected": "T1558.004",
+        "model_arm": "synthetic",
+        "verdict": "ANOMALOUS_UNCLASSIFIED",
+        "technique_ids": [],
+        "oracle_result": ra.PRESENT,
+    }
+    absent_silence = {
+        **anomaly,
+        "label": "absent-silence",
+        "verdict": "RULED_OUT",
+        "oracle_result": ra.ABSENT,
+    }
+    wrong_confirm = {
+        **anomaly,
+        "label": "wrong-confirm",
+        "verdict": "CONFIRMED",
+        "technique_ids": ["T1053.005"],
+    }
+    scored = ns.score_arm([anomaly, absent_silence, wrong_confirm])
+    axis_1 = scored["axis_1_notify_recall"]
+    axis_2 = scored["axis_2_notification_trustworthiness"]
+
+    anomaly_catch_ok = axis_1["raw"]["notified"] == 2
+    absent_fairness_ok = axis_1["evidence_never_shown"] == 1 and axis_1["real_misses"] == 0
+    ordering_ok = (
+        axis_2["ordinal_ranks"][ns.CONFIRMED_CORRECT]
+        > axis_2["ordinal_ranks"][ns.HONEST_ANOMALY]
+        > axis_2["ordinal_ranks"][ns.CONFIRMED_WRONG]
+    )
+
+    subs = [
+        {
+            "name": "ANOMALOUS_UNCLASSIFIED is an Axis-1 catch",
+            "status": "PASS" if anomaly_catch_ok else "FAIL",
+            "detail": f"notified={axis_1['raw']['notified']}/3",
+        },
+        {
+            "name": "silence on ABSENT evidence is not a real miss",
+            "status": "PASS" if absent_fairness_ok else "FAIL",
+            "detail": (
+                f"absent={axis_1['evidence_never_shown']} real_misses={axis_1['real_misses']}"
+            ),
+        },
+        {
+            "name": "confirmed-wrong ranks below honest anomaly",
+            "status": "PASS" if ordering_ok else "FAIL",
+            "detail": f"ranks={axis_2['ordinal_ranks']}",
+        },
+    ]
+    if not (anomaly_catch_ok and absent_fairness_ok and ordering_ok):
+        return ("FAIL", "hunt-and-notify scoreboard semantics failed", subs)
+    return ("PASS", "hunt-and-notify catch and trust semantics preserved", subs)
 
 
 if __name__ == "__main__":

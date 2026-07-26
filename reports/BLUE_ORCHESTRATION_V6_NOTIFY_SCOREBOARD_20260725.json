@@ -1,0 +1,3466 @@
+{
+  "runs": {
+    "v2": {
+      "arms": {
+        "v2_exact_pre_v3": {
+          "axis_1_notify_recall": {
+            "evidence_never_shown": 11,
+            "fair": {
+              "eligible": 6,
+              "notified": 4,
+              "rate": 0.667
+            },
+            "raw": {
+              "eligible": 17,
+              "notified": 5,
+              "rate": 0.294
+            },
+            "real_misses": 2,
+            "real_misses_by_technique": [
+              {
+                "technique": "T1552",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1557",
+                "verdict": "RULED_OUT"
+              }
+            ]
+          },
+          "axis_2_notification_trustworthiness": {
+            "confirmed_correct": 4,
+            "confirmed_wrong": 0,
+            "honest_anomaly": 1,
+            "notifications": 5,
+            "ordinal_ranks": {
+              "confirmed_correct": 3,
+              "confirmed_wrong": 0,
+              "honest_anomaly": 2,
+              "silence_on_present": 1
+            },
+            "silence_on_present": 2,
+            "trustworthy_notification_rate": 1.0,
+            "trustworthy_notifications": 5
+          },
+          "axis_3_mapping_quality_given_catch": {
+            "caught_cells": 5,
+            "confirm_only_exact_recall": {
+              "confirmed_exact": 4,
+              "eligible": 17,
+              "rate": 0.235
+            },
+            "mapping_categories": {
+              "exact": 4,
+              "incorrect": 0,
+              "parent": 0,
+              "tactic": 0,
+              "unclassified": 1
+            },
+            "mapping_category_rates": {
+              "exact": 0.8,
+              "incorrect": 0.0,
+              "parent": 0.0,
+              "tactic": 0.0,
+              "unclassified": 0.2
+            },
+            "match_grades": {
+              "UNKNOWN": 5
+            },
+            "silent_cells_excluded": 12
+          },
+          "cells": 17,
+          "cells_scored": [
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_004",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.004",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1190",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1190",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1611",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1611",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1552_005",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1552.005",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_003",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.003",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1110_003",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1110.003",
+              "technique_ids": [
+                "T1110.003"
+              ],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1053_005",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1053.005",
+              "technique_ids": [
+                "T1053.005"
+              ],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1595",
+              "mapping_category": "exact",
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1595",
+              "technique_ids": [
+                "T1595"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1083",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1083",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1078",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1078",
+              "technique_ids": [
+                "T1078"
+              ],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1557",
+              "technique_ids": [
+                "T1003"
+              ],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1550_002",
+              "mapping_category": "exact",
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1550.002",
+              "technique_ids": [
+                "T1550.002"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1003_003",
+              "mapping_category": "exact",
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1003.003",
+              "technique_ids": [
+                "T1003.003"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1047",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1047",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1189",
+              "mapping_category": "exact",
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1189",
+              "technique_ids": [
+                "T1189"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1557_001",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1557.001",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "v2_exact_pre_v3",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1552",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            }
+          ],
+          "measurement_gaps": {
+            "notification_precision_on_benign_activity": {
+              "reason": "This corpus contains only real injected attacks and no benign cells.",
+              "status": "UNMEASURABLE",
+              "value": null
+            }
+          }
+        }
+      },
+      "source": "portal/modules/security/core/results/checkpoints/corpus_replay_bench_v2_exact.json",
+      "source_sha256": "6fc90f95e694b162b00d20aa06a27bc35d8b81c4e9f76b47ef1c381705a7ab89"
+    },
+    "v3": {
+      "arms": {
+        "council_strong": {
+          "axis_1_notify_recall": {
+            "evidence_never_shown": 10,
+            "fair": {
+              "eligible": 7,
+              "notified": 3,
+              "rate": 0.429
+            },
+            "raw": {
+              "eligible": 17,
+              "notified": 3,
+              "rate": 0.176
+            },
+            "real_misses": 4,
+            "real_misses_by_technique": [
+              {
+                "technique": "T1189",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1550.002",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1552.005",
+                "verdict": "UNRESOLVED"
+              },
+              {
+                "technique": "T1595",
+                "verdict": "RULED_OUT"
+              }
+            ]
+          },
+          "axis_2_notification_trustworthiness": {
+            "confirmed_correct": 2,
+            "confirmed_wrong": 0,
+            "honest_anomaly": 1,
+            "notifications": 3,
+            "ordinal_ranks": {
+              "confirmed_correct": 3,
+              "confirmed_wrong": 0,
+              "honest_anomaly": 2,
+              "silence_on_present": 1
+            },
+            "silence_on_present": 4,
+            "trustworthy_notification_rate": 1.0,
+            "trustworthy_notifications": 3
+          },
+          "axis_3_mapping_quality_given_catch": {
+            "caught_cells": 3,
+            "confirm_only_exact_recall": {
+              "confirmed_exact": 2,
+              "eligible": 17,
+              "rate": 0.118
+            },
+            "mapping_categories": {
+              "exact": 2,
+              "incorrect": 0,
+              "parent": 0,
+              "tactic": 0,
+              "unclassified": 1
+            },
+            "mapping_category_rates": {
+              "exact": 0.667,
+              "incorrect": 0.0,
+              "parent": 0.0,
+              "tactic": 0.0,
+              "unclassified": 0.333
+            },
+            "match_grades": {
+              "NONE": 2,
+              "SIMILAR": 1
+            },
+            "silent_cells_excluded": 14
+          },
+          "cells": 17,
+          "cells_scored": [
+            {
+              "fair_recall_eligible": false,
+              "label": "t1190",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1190",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "UNRESOLVED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1611",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1611",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "UNRESOLVED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552_005",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1552.005",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "UNRESOLVED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_003",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.003",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_004",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.004",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1110_003",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1110.003",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "UNRESOLVED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1053_005",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1053.005",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1595",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1595",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1083",
+              "mapping_category": "exact",
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1083",
+              "technique_ids": [
+                "T1083"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1078",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1078",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1557",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1550_002",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1550.002",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1003_003",
+              "mapping_category": "exact",
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1003.003",
+              "technique_ids": [
+                "T1003.003"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1047",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1047",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "UNRESOLVED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1189",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1189",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1557_001",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1557.001",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "UNRESOLVED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1552",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1552",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "UNRESOLVED"
+            }
+          ],
+          "measurement_gaps": {
+            "notification_precision_on_benign_activity": {
+              "reason": "This corpus contains only real injected attacks and no benign cells.",
+              "status": "UNMEASURABLE",
+              "value": null
+            }
+          }
+        },
+        "strong_full_v3": {
+          "axis_1_notify_recall": {
+            "evidence_never_shown": 7,
+            "fair": {
+              "eligible": 10,
+              "notified": 4,
+              "rate": 0.4
+            },
+            "raw": {
+              "eligible": 17,
+              "notified": 7,
+              "rate": 0.412
+            },
+            "real_misses": 6,
+            "real_misses_by_technique": [
+              {
+                "technique": "T1047",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1053.005",
+                "verdict": "UNRESOLVED"
+              },
+              {
+                "technique": "T1190",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1552.005",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1557",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1557.001",
+                "verdict": "UNRESOLVED"
+              }
+            ]
+          },
+          "axis_2_notification_trustworthiness": {
+            "confirmed_correct": 3,
+            "confirmed_wrong": 0,
+            "honest_anomaly": 4,
+            "notifications": 7,
+            "ordinal_ranks": {
+              "confirmed_correct": 3,
+              "confirmed_wrong": 0,
+              "honest_anomaly": 2,
+              "silence_on_present": 1
+            },
+            "silence_on_present": 6,
+            "trustworthy_notification_rate": 1.0,
+            "trustworthy_notifications": 7
+          },
+          "axis_3_mapping_quality_given_catch": {
+            "caught_cells": 7,
+            "confirm_only_exact_recall": {
+              "confirmed_exact": 3,
+              "eligible": 17,
+              "rate": 0.176
+            },
+            "mapping_categories": {
+              "exact": 3,
+              "incorrect": 0,
+              "parent": 0,
+              "tactic": 0,
+              "unclassified": 4
+            },
+            "mapping_category_rates": {
+              "exact": 0.429,
+              "incorrect": 0.0,
+              "parent": 0.0,
+              "tactic": 0.0,
+              "unclassified": 0.571
+            },
+            "match_grades": {
+              "SIMILAR": 7
+            },
+            "silent_cells_excluded": 10
+          },
+          "cells": 17,
+          "cells_scored": [
+            {
+              "fair_recall_eligible": true,
+              "label": "t1190",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1190",
+              "technique_ids": [
+                "T1190"
+              ],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1611",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1611",
+              "technique_ids": [
+                "T1611"
+              ],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552_005",
+              "mapping_category": null,
+              "match_grade": "EXACT",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1552.005",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_003",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.003",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_004",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.004",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1110_003",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1110.003",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1053_005",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1053.005",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "UNRESOLVED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1595",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1595",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1083",
+              "mapping_category": "exact",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1083",
+              "technique_ids": [
+                "T1083"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1078",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1078",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1557",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1550_002",
+              "mapping_category": "exact",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1550.002",
+              "technique_ids": [
+                "T1550.002"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1003_003",
+              "mapping_category": "exact",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1003.003",
+              "technique_ids": [
+                "T1003.003"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1047",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1047",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1189",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1189",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557_001",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1557.001",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "UNRESOLVED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1552",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            }
+          ],
+          "measurement_gaps": {
+            "notification_precision_on_benign_activity": {
+              "reason": "This corpus contains only real injected attacks and no benign cells.",
+              "status": "UNMEASURABLE",
+              "value": null
+            }
+          }
+        },
+        "weak_mentor_validation": {
+          "axis_1_notify_recall": {
+            "evidence_never_shown": 8,
+            "fair": {
+              "eligible": 9,
+              "notified": 6,
+              "rate": 0.667
+            },
+            "raw": {
+              "eligible": 17,
+              "notified": 9,
+              "rate": 0.529
+            },
+            "real_misses": 3,
+            "real_misses_by_technique": [
+              {
+                "technique": "T1047",
+                "verdict": "UNRESOLVED"
+              },
+              {
+                "technique": "T1550.002",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1558.003",
+                "verdict": "RULED_OUT"
+              }
+            ]
+          },
+          "axis_2_notification_trustworthiness": {
+            "confirmed_correct": 0,
+            "confirmed_wrong": 2,
+            "honest_anomaly": 7,
+            "notifications": 9,
+            "ordinal_ranks": {
+              "confirmed_correct": 3,
+              "confirmed_wrong": 0,
+              "honest_anomaly": 2,
+              "silence_on_present": 1
+            },
+            "silence_on_present": 3,
+            "trustworthy_notification_rate": 0.778,
+            "trustworthy_notifications": 7
+          },
+          "axis_3_mapping_quality_given_catch": {
+            "caught_cells": 9,
+            "confirm_only_exact_recall": {
+              "confirmed_exact": 0,
+              "eligible": 17,
+              "rate": 0.0
+            },
+            "mapping_categories": {
+              "exact": 0,
+              "incorrect": 1,
+              "parent": 1,
+              "tactic": 0,
+              "unclassified": 7
+            },
+            "mapping_category_rates": {
+              "exact": 0.0,
+              "incorrect": 0.111,
+              "parent": 0.111,
+              "tactic": 0.0,
+              "unclassified": 0.778
+            },
+            "match_grades": {
+              "EXACT": 2,
+              "NONE": 1,
+              "SIMILAR": 6
+            },
+            "silent_cells_excluded": 8
+          },
+          "cells": 17,
+          "cells_scored": [
+            {
+              "fair_recall_eligible": false,
+              "label": "t1190",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1190",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1611",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1611",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552_005",
+              "mapping_category": "unclassified",
+              "match_grade": "NONE",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1552.005",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1558_003",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1558.003",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_004",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.004",
+              "technique_ids": [
+                "T1558.004"
+              ],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1110_003",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1110.003",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1053_005",
+              "mapping_category": "unclassified",
+              "match_grade": "EXACT",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1053.005",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1595",
+              "mapping_category": "incorrect",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1595",
+              "technique_ids": [
+                "T1028.003",
+                "T1068"
+              ],
+              "trustworthiness_class": "confirmed_wrong",
+              "trustworthiness_rank": 0,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1083",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1083",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1078",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1078",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1557",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1557",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1550_002",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1550.002",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1003_003",
+              "mapping_category": "parent",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1003.003",
+              "technique_ids": [
+                "T1003"
+              ],
+              "trustworthiness_class": "confirmed_wrong",
+              "trustworthiness_rank": 0,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1047",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1047",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "UNRESOLVED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1189",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1189",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557_001",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1557.001",
+              "technique_ids": [
+                "T523",
+                "T765C",
+                "T840R",
+                "E3YF10"
+              ],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552",
+              "mapping_category": "unclassified",
+              "match_grade": "EXACT",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1552",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            }
+          ],
+          "measurement_gaps": {
+            "notification_precision_on_benign_activity": {
+              "reason": "This corpus contains only real injected attacks and no benign cells.",
+              "status": "UNMEASURABLE",
+              "value": null
+            }
+          }
+        }
+      },
+      "source": "portal/modules/security/core/results/checkpoints/corpus_replay_bench.json",
+      "source_sha256": "8be8468867a64c1643d5181fa1d6e3cc238392d52b3d10755e50329772dc6265"
+    },
+    "v4": {
+      "arms": {
+        "council_strong": {
+          "axis_1_notify_recall": {
+            "evidence_never_shown": 11,
+            "fair": {
+              "eligible": 6,
+              "notified": 2,
+              "rate": 0.333
+            },
+            "raw": {
+              "eligible": 17,
+              "notified": 8,
+              "rate": 0.471
+            },
+            "real_misses": 4,
+            "real_misses_by_technique": [
+              {
+                "technique": "T1047",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1550.002",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1557",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1595",
+                "verdict": "RULED_OUT"
+              }
+            ]
+          },
+          "axis_2_notification_trustworthiness": {
+            "confirmed_correct": 1,
+            "confirmed_wrong": 0,
+            "honest_anomaly": 7,
+            "notifications": 8,
+            "ordinal_ranks": {
+              "confirmed_correct": 3,
+              "confirmed_wrong": 0,
+              "honest_anomaly": 2,
+              "silence_on_present": 1
+            },
+            "silence_on_present": 4,
+            "trustworthy_notification_rate": 1.0,
+            "trustworthy_notifications": 8
+          },
+          "axis_3_mapping_quality_given_catch": {
+            "caught_cells": 8,
+            "confirm_only_exact_recall": {
+              "confirmed_exact": 1,
+              "eligible": 17,
+              "rate": 0.059
+            },
+            "mapping_categories": {
+              "exact": 1,
+              "incorrect": 0,
+              "parent": 0,
+              "tactic": 0,
+              "unclassified": 7
+            },
+            "mapping_category_rates": {
+              "exact": 0.125,
+              "incorrect": 0.0,
+              "parent": 0.0,
+              "tactic": 0.0,
+              "unclassified": 0.875
+            },
+            "match_grades": {
+              "NONE": 1,
+              "SIMILAR": 7
+            },
+            "silent_cells_excluded": 9
+          },
+          "cells": 17,
+          "cells_scored": [
+            {
+              "fair_recall_eligible": false,
+              "label": "t1190",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1190",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1611",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1611",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1552_005",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1552.005",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_003",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.003",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_004",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.004",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1110_003",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1110.003",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1053_005",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1053.005",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1595",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1595",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1083",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1083",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1078",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1078",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1557",
+              "technique_ids": [
+                "T1557"
+              ],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1550_002",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1550.002",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1003_003",
+              "mapping_category": "exact",
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1003.003",
+              "technique_ids": [
+                "T1003.003"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1047",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1047",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1189",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1189",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1557_001",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1557.001",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1552",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            }
+          ],
+          "measurement_gaps": {
+            "notification_precision_on_benign_activity": {
+              "reason": "This corpus contains only real injected attacks and no benign cells.",
+              "status": "UNMEASURABLE",
+              "value": null
+            }
+          }
+        },
+        "strong_full_v3": {
+          "axis_1_notify_recall": {
+            "evidence_never_shown": 12,
+            "fair": {
+              "eligible": 5,
+              "notified": 5,
+              "rate": 1.0
+            },
+            "raw": {
+              "eligible": 17,
+              "notified": 11,
+              "rate": 0.647
+            },
+            "real_misses": 0,
+            "real_misses_by_technique": []
+          },
+          "axis_2_notification_trustworthiness": {
+            "confirmed_correct": 3,
+            "confirmed_wrong": 0,
+            "honest_anomaly": 8,
+            "notifications": 11,
+            "ordinal_ranks": {
+              "confirmed_correct": 3,
+              "confirmed_wrong": 0,
+              "honest_anomaly": 2,
+              "silence_on_present": 1
+            },
+            "silence_on_present": 0,
+            "trustworthy_notification_rate": 1.0,
+            "trustworthy_notifications": 11
+          },
+          "axis_3_mapping_quality_given_catch": {
+            "caught_cells": 11,
+            "confirm_only_exact_recall": {
+              "confirmed_exact": 3,
+              "eligible": 17,
+              "rate": 0.176
+            },
+            "mapping_categories": {
+              "exact": 3,
+              "incorrect": 0,
+              "parent": 0,
+              "tactic": 0,
+              "unclassified": 8
+            },
+            "mapping_category_rates": {
+              "exact": 0.273,
+              "incorrect": 0.0,
+              "parent": 0.0,
+              "tactic": 0.0,
+              "unclassified": 0.727
+            },
+            "match_grades": {
+              "SIMILAR": 11
+            },
+            "silent_cells_excluded": 6
+          },
+          "cells": 17,
+          "cells_scored": [
+            {
+              "fair_recall_eligible": false,
+              "label": "t1190",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1190",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1611",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1611",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1552_005",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1552.005",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_003",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.003",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_004",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.004",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1110_003",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1110.003",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1053_005",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1053.005",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1595",
+              "mapping_category": "exact",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1595",
+              "technique_ids": [
+                "T1595"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1083",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1083",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1078",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1078",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557",
+              "mapping_category": "exact",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1557",
+              "technique_ids": [
+                "T1557"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1550_002",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1550.002",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1003_003",
+              "mapping_category": "exact",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1003.003",
+              "technique_ids": [
+                "T1003.003"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1047",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1047",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1189",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1189",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1557_001",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1557.001",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1552",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            }
+          ],
+          "measurement_gaps": {
+            "notification_precision_on_benign_activity": {
+              "reason": "This corpus contains only real injected attacks and no benign cells.",
+              "status": "UNMEASURABLE",
+              "value": null
+            }
+          }
+        },
+        "weak_mentor_validation": {
+          "axis_1_notify_recall": {
+            "evidence_never_shown": 9,
+            "fair": {
+              "eligible": 8,
+              "notified": 3,
+              "rate": 0.375
+            },
+            "raw": {
+              "eligible": 17,
+              "notified": 8,
+              "rate": 0.471
+            },
+            "real_misses": 4,
+            "real_misses_by_technique": [
+              {
+                "technique": "T1552",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1552.005",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1557.001",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1611",
+                "verdict": "RULED_OUT"
+              }
+            ]
+          },
+          "axis_2_notification_trustworthiness": {
+            "confirmed_correct": 0,
+            "confirmed_wrong": 1,
+            "honest_anomaly": 7,
+            "notifications": 8,
+            "ordinal_ranks": {
+              "confirmed_correct": 3,
+              "confirmed_wrong": 0,
+              "honest_anomaly": 2,
+              "silence_on_present": 1
+            },
+            "silence_on_present": 4,
+            "trustworthy_notification_rate": 0.875,
+            "trustworthy_notifications": 7
+          },
+          "axis_3_mapping_quality_given_catch": {
+            "caught_cells": 8,
+            "confirm_only_exact_recall": {
+              "confirmed_exact": 0,
+              "eligible": 17,
+              "rate": 0.0
+            },
+            "mapping_categories": {
+              "exact": 0,
+              "incorrect": 0,
+              "parent": 1,
+              "tactic": 0,
+              "unclassified": 7
+            },
+            "mapping_category_rates": {
+              "exact": 0.0,
+              "incorrect": 0.0,
+              "parent": 0.125,
+              "tactic": 0.0,
+              "unclassified": 0.875
+            },
+            "match_grades": {
+              "SIMILAR": 8
+            },
+            "silent_cells_excluded": 9
+          },
+          "cells": 17,
+          "cells_scored": [
+            {
+              "fair_recall_eligible": false,
+              "label": "t1190",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1190",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1611",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1611",
+              "technique_ids": [
+                "T1610",
+                "T1087"
+              ],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552_005",
+              "mapping_category": null,
+              "match_grade": "EXACT",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1552.005",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_003",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.003",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_004",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.004",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1110_003",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1110.003",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1053_005",
+              "mapping_category": null,
+              "match_grade": "NONE",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1053.005",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1595",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1595",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1083",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1083",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1078",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1078",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1557",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1550_002",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1550.002",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1003_003",
+              "mapping_category": "parent",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1003.003",
+              "technique_ids": [
+                "T1003",
+                "T1486"
+              ],
+              "trustworthiness_class": "confirmed_wrong",
+              "trustworthiness_rank": 0,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1047",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1047",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1189",
+              "mapping_category": "unclassified",
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1189",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557_001",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1557.001",
+              "technique_ids": [
+                "T1087"
+              ],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552",
+              "mapping_category": null,
+              "match_grade": "SIMILAR",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1552",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            }
+          ],
+          "measurement_gaps": {
+            "notification_precision_on_benign_activity": {
+              "reason": "This corpus contains only real injected attacks and no benign cells.",
+              "status": "UNMEASURABLE",
+              "value": null
+            }
+          }
+        }
+      },
+      "source": "portal/modules/security/core/results/checkpoints/corpus_replay_bench_v4_closeout.json",
+      "source_sha256": "8bfb406544a903f11def43ecb3c65e4ac66149671ef032e6b8fb507eb1bcbad0"
+    },
+    "v4_v5a_snapshot": {
+      "arms": {
+        "council_strong": {
+          "axis_1_notify_recall": {
+            "evidence_never_shown": 6,
+            "fair": {
+              "eligible": 11,
+              "notified": 6,
+              "rate": 0.545
+            },
+            "raw": {
+              "eligible": 17,
+              "notified": 8,
+              "rate": 0.471
+            },
+            "real_misses": 4,
+            "real_misses_by_technique": [
+              {
+                "technique": "T1047",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1550.002",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1557",
+                "verdict": "RULED_OUT"
+              },
+              {
+                "technique": "T1595",
+                "verdict": "RULED_OUT"
+              }
+            ]
+          },
+          "axis_2_notification_trustworthiness": {
+            "confirmed_correct": 1,
+            "confirmed_wrong": 0,
+            "honest_anomaly": 7,
+            "notifications": 8,
+            "ordinal_ranks": {
+              "confirmed_correct": 3,
+              "confirmed_wrong": 0,
+              "honest_anomaly": 2,
+              "silence_on_present": 1
+            },
+            "silence_on_present": 4,
+            "trustworthy_notification_rate": 1.0,
+            "trustworthy_notifications": 8
+          },
+          "axis_3_mapping_quality_given_catch": {
+            "caught_cells": 8,
+            "confirm_only_exact_recall": {
+              "confirmed_exact": 1,
+              "eligible": 17,
+              "rate": 0.059
+            },
+            "mapping_categories": {
+              "exact": 1,
+              "incorrect": 0,
+              "parent": 0,
+              "tactic": 0,
+              "unclassified": 7
+            },
+            "mapping_category_rates": {
+              "exact": 0.125,
+              "incorrect": 0.0,
+              "parent": 0.0,
+              "tactic": 0.0,
+              "unclassified": 0.875
+            },
+            "match_grades": {
+              "UNKNOWN": 8
+            },
+            "silent_cells_excluded": 9
+          },
+          "cells": 17,
+          "cells_scored": [
+            {
+              "fair_recall_eligible": true,
+              "label": "t1190",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1190",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1611",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1611",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552_005",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1552.005",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_003",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.003",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_004",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.004",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1110_003",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1110.003",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1053_005",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1053.005",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1595",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1595",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1083",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1083",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1078",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1078",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1557",
+              "technique_ids": [
+                "T1557"
+              ],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1550_002",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1550.002",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1003_003",
+              "mapping_category": "exact",
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1003.003",
+              "technique_ids": [
+                "T1003.003"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1047",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1047",
+              "technique_ids": [],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1189",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1189",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1557_001",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1557.001",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "council_strong",
+              "notified": true,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1552",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            }
+          ],
+          "measurement_gaps": {
+            "notification_precision_on_benign_activity": {
+              "reason": "This corpus contains only real injected attacks and no benign cells.",
+              "status": "UNMEASURABLE",
+              "value": null
+            }
+          }
+        },
+        "strong_full_v3": {
+          "axis_1_notify_recall": {
+            "evidence_never_shown": 8,
+            "fair": {
+              "eligible": 9,
+              "notified": 7,
+              "rate": 0.778
+            },
+            "raw": {
+              "eligible": 17,
+              "notified": 11,
+              "rate": 0.647
+            },
+            "real_misses": 0,
+            "real_misses_by_technique": []
+          },
+          "axis_2_notification_trustworthiness": {
+            "confirmed_correct": 3,
+            "confirmed_wrong": 0,
+            "honest_anomaly": 8,
+            "notifications": 11,
+            "ordinal_ranks": {
+              "confirmed_correct": 3,
+              "confirmed_wrong": 0,
+              "honest_anomaly": 2,
+              "silence_on_present": 1
+            },
+            "silence_on_present": 0,
+            "trustworthy_notification_rate": 1.0,
+            "trustworthy_notifications": 11
+          },
+          "axis_3_mapping_quality_given_catch": {
+            "caught_cells": 11,
+            "confirm_only_exact_recall": {
+              "confirmed_exact": 3,
+              "eligible": 17,
+              "rate": 0.176
+            },
+            "mapping_categories": {
+              "exact": 3,
+              "incorrect": 0,
+              "parent": 0,
+              "tactic": 0,
+              "unclassified": 8
+            },
+            "mapping_category_rates": {
+              "exact": 0.273,
+              "incorrect": 0.0,
+              "parent": 0.0,
+              "tactic": 0.0,
+              "unclassified": 0.727
+            },
+            "match_grades": {
+              "UNKNOWN": 11
+            },
+            "silent_cells_excluded": 6
+          },
+          "cells": 17,
+          "cells_scored": [
+            {
+              "fair_recall_eligible": true,
+              "label": "t1190",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1190",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1611",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1611",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552_005",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1552.005",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_003",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.003",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_004",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.004",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1110_003",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1110.003",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1053_005",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1053.005",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1595",
+              "mapping_category": "exact",
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1595",
+              "technique_ids": [
+                "T1595"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1083",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1083",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1078",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1078",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557",
+              "mapping_category": "exact",
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1557",
+              "technique_ids": [
+                "T1557"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1550_002",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1550.002",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1003_003",
+              "mapping_category": "exact",
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1003.003",
+              "technique_ids": [
+                "T1003.003"
+              ],
+              "trustworthiness_class": "confirmed_correct",
+              "trustworthiness_rank": 3,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1047",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1047",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1189",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": false,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1189",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1557_001",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1557.001",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "strong_full_v3",
+              "notified": true,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1552",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            }
+          ],
+          "measurement_gaps": {
+            "notification_precision_on_benign_activity": {
+              "reason": "This corpus contains only real injected attacks and no benign cells.",
+              "status": "UNMEASURABLE",
+              "value": null
+            }
+          }
+        },
+        "weak_mentor_validation": {
+          "axis_1_notify_recall": {
+            "evidence_never_shown": 6,
+            "fair": {
+              "eligible": 11,
+              "notified": 4,
+              "rate": 0.364
+            },
+            "raw": {
+              "eligible": 17,
+              "notified": 8,
+              "rate": 0.471
+            },
+            "real_misses": 1,
+            "real_misses_by_technique": [
+              {
+                "technique": "T1557.001",
+                "verdict": "RULED_OUT"
+              }
+            ]
+          },
+          "axis_2_notification_trustworthiness": {
+            "confirmed_correct": 0,
+            "confirmed_wrong": 1,
+            "honest_anomaly": 7,
+            "notifications": 8,
+            "ordinal_ranks": {
+              "confirmed_correct": 3,
+              "confirmed_wrong": 0,
+              "honest_anomaly": 2,
+              "silence_on_present": 1
+            },
+            "silence_on_present": 1,
+            "trustworthy_notification_rate": 0.875,
+            "trustworthy_notifications": 7
+          },
+          "axis_3_mapping_quality_given_catch": {
+            "caught_cells": 8,
+            "confirm_only_exact_recall": {
+              "confirmed_exact": 0,
+              "eligible": 17,
+              "rate": 0.0
+            },
+            "mapping_categories": {
+              "exact": 0,
+              "incorrect": 0,
+              "parent": 1,
+              "tactic": 0,
+              "unclassified": 7
+            },
+            "mapping_category_rates": {
+              "exact": 0.0,
+              "incorrect": 0.0,
+              "parent": 0.125,
+              "tactic": 0.0,
+              "unclassified": 0.875
+            },
+            "match_grades": {
+              "UNKNOWN": 8
+            },
+            "silent_cells_excluded": 9
+          },
+          "cells": 17,
+          "cells_scored": [
+            {
+              "fair_recall_eligible": true,
+              "label": "t1190",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1190",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1611",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1611",
+              "technique_ids": [
+                "T1610",
+                "T1087"
+              ],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552_005",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1552.005",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_003",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.003",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1558_004",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1558.004",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1110_003",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1110.003",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1053_005",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1053.005",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1595",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1595",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1083",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1083",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1078",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1078",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1557",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": false,
+              "label": "t1550_002",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "ABSENT",
+              "real_miss": false,
+              "technique_expected": "T1550.002",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1003_003",
+              "mapping_category": "parent",
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1003.003",
+              "technique_ids": [
+                "T1003",
+                "T1486"
+              ],
+              "trustworthiness_class": "confirmed_wrong",
+              "trustworthiness_rank": 0,
+              "verdict": "CONFIRMED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1047",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "PRESENT",
+              "real_miss": false,
+              "technique_expected": "T1047",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1189",
+              "mapping_category": "unclassified",
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": true,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1189",
+              "technique_ids": [],
+              "trustworthiness_class": "honest_anomaly",
+              "trustworthiness_rank": 2,
+              "verdict": "ANOMALOUS_UNCLASSIFIED"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1557_001",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "PRESENT",
+              "real_miss": true,
+              "technique_expected": "T1557.001",
+              "technique_ids": [
+                "T1087"
+              ],
+              "trustworthiness_class": "silence_on_present",
+              "trustworthiness_rank": 1,
+              "verdict": "RULED_OUT"
+            },
+            {
+              "fair_recall_eligible": true,
+              "label": "t1552",
+              "mapping_category": null,
+              "match_grade": "UNKNOWN",
+              "model_arm": "weak_mentor_validation",
+              "notified": false,
+              "oracle_result": "INDETERMINATE",
+              "real_miss": false,
+              "technique_expected": "T1552",
+              "technique_ids": [],
+              "trustworthiness_class": null,
+              "trustworthiness_rank": null,
+              "verdict": "RULED_OUT"
+            }
+          ],
+          "measurement_gaps": {
+            "notification_precision_on_benign_activity": {
+              "reason": "This corpus contains only real injected attacks and no benign cells.",
+              "status": "UNMEASURABLE",
+              "value": null
+            }
+          }
+        }
+      },
+      "source": "reports/BLUE_ORCHESTRATION_V5A_ATTRIBUTION_20260725.json",
+      "source_sha256": "dbaffc5d4238b1b9c4342841c55e195437ac8bf4c1269cf29adf81e54e945ee8"
+    }
+  },
+  "schema_version": 1,
+  "semantics": {
+    "axis_1": "CONFIRMED and ANOMALOUS_UNCLASSIFIED are full catches; fair recall excludes oracle-ABSENT cells.",
+    "axis_2": "confirmed-correct > honest-anomaly > silence-on-present > confirmed-wrong (ordinal, not cardinal).",
+    "axis_3": "Exact/parent/tactic/unclassified/incorrect mapping quality is conditional on a catch; silent cells are excluded."
+  }
+}
