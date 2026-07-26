@@ -24,6 +24,8 @@ CONFIRMED_CORRECT = "confirmed_correct"
 HONEST_ANOMALY = "honest_anomaly"
 SILENCE_ON_PRESENT = "silence_on_present"
 CONFIRMED_WRONG = "confirmed_wrong"
+CONFIRMED_ON_BENIGN = "confirmed_on_benign"
+ANOMALY_ON_BENIGN = "anomaly_on_benign"
 
 # Ordinal only: these values encode the required preference ordering and must
 # not be interpreted as cardinal utility.
@@ -49,9 +51,12 @@ def join_oracle(cells: Iterable[dict]) -> list[dict]:
     """Attach the existing V5A oracle result without reimplementing it."""
     joined = []
     for cell in cells:
-        if cell.get("status") != "done" or not cell.get("technique_expected"):
+        if cell.get("status") != "done":
             continue
-        joined.append({**cell, **ra.attribute_cell(cell)})
+        if cell.get("ground_truth") == "benign":
+            joined.append({**cell, "cell_kind": "benign", "oracle_result": ra.ABSENT})
+        elif cell.get("technique_expected"):
+            joined.append({**cell, "cell_kind": "attack", **ra.attribute_cell(cell)})
     return joined
 
 
@@ -95,7 +100,14 @@ def score_cell(cell: dict) -> dict:
     verdict = str(cell.get("verdict") or "").upper()
     notified = verdict in NOTIFY_VERDICTS
     oracle = str(cell.get("oracle_result") or "").upper()
+    benign = cell.get("cell_kind") == "benign" or cell.get("ground_truth") == "benign"
     trustworthiness = _trustworthiness_class(cell)
+    false_flag_kind = None
+    if benign and verdict == "CONFIRMED":
+        false_flag_kind = CONFIRMED_ON_BENIGN
+    elif benign and verdict == "ANOMALOUS_UNCLASSIFIED":
+        false_flag_kind = ANOMALY_ON_BENIGN
+    scored_trustworthiness = None if benign else trustworthiness
     return {
         "label": cell.get("label"),
         "technique_expected": str(cell.get("technique_expected") or "").upper(),
@@ -103,14 +115,20 @@ def score_cell(cell: dict) -> dict:
         "verdict": verdict,
         "technique_ids": [str(item).upper() for item in (cell.get("technique_ids") or []) if item],
         "oracle_result": oracle,
+        "cell_kind": "benign" if benign else "attack",
         "notified": notified,
-        "fair_recall_eligible": oracle != ra.ABSENT,
-        "real_miss": not notified and oracle == ra.PRESENT,
-        "trustworthiness_class": trustworthiness,
+        "fair_recall_eligible": not benign and oracle != ra.ABSENT,
+        "real_miss": not benign and not notified and oracle == ra.PRESENT,
+        "trustworthiness_class": scored_trustworthiness,
         "trustworthiness_rank": (
-            TRUSTWORTHINESS_RANK[trustworthiness] if trustworthiness is not None else None
+            TRUSTWORTHINESS_RANK[scored_trustworthiness]
+            if scored_trustworthiness is not None
+            else None
         ),
-        "mapping_category": _mapping_category(cell),
+        "mapping_category": None if benign else _mapping_category(cell),
+        "false_flag": benign and notified,
+        "false_flag_kind": false_flag_kind,
+        "correct_silence": benign and not notified,
         "match_grade": (
             str(cell["match_grade"]).upper() if cell.get("match_grade") is not None else "UNKNOWN"
         ),
@@ -118,16 +136,18 @@ def score_cell(cell: dict) -> dict:
 
 
 def score_arm(cells: Iterable[dict]) -> dict:
-    """Compute the three axes for one all-attack arm."""
+    """Compute attack quality plus the alert-fatigue axis when negatives exist."""
     scored = [score_cell(cell) for cell in cells]
-    notified = [cell for cell in scored if cell["notified"]]
-    fair_cells = [cell for cell in scored if cell["fair_recall_eligible"]]
+    attack_cells = [cell for cell in scored if cell["cell_kind"] == "attack"]
+    benign_cells = [cell for cell in scored if cell["cell_kind"] == "benign"]
+    notified = [cell for cell in attack_cells if cell["notified"]]
+    fair_cells = [cell for cell in attack_cells if cell["fair_recall_eligible"]]
     fair_notified = [cell for cell in fair_cells if cell["notified"]]
-    real_misses = [cell for cell in scored if cell["real_miss"]]
+    real_misses = [cell for cell in attack_cells if cell["real_miss"]]
 
     trust_counts = Counter(
         cell["trustworthiness_class"]
-        for cell in scored
+        for cell in attack_cells
         if cell["trustworthiness_class"] is not None
     )
     trustworthy_notifications = trust_counts[CONFIRMED_CORRECT] + trust_counts[HONEST_ANOMALY]
@@ -136,21 +156,40 @@ def score_arm(cells: Iterable[dict]) -> dict:
         cell["mapping_category"] for cell in notified if cell["mapping_category"] is not None
     )
     match_grade_counts = Counter(cell["match_grade"] for cell in notified)
+    false_flags = [cell for cell in benign_cells if cell["false_flag"]]
+    correct_silences = [cell for cell in benign_cells if cell["correct_silence"]]
+    false_flag_counts = Counter(cell["false_flag_kind"] for cell in false_flags)
+    alert_fatigue = {
+        "status": "MEASURED" if benign_cells else "UNMEASURABLE",
+        "notification_precision": _rate(len(correct_silences), len(benign_cells)),
+        "correct_silences": len(correct_silences),
+        "benign_cells": len(benign_cells),
+        "false_flags": len(false_flags),
+        "false_flag_rate": _rate(len(false_flags), len(benign_cells)),
+        "false_flag_kinds": {
+            CONFIRMED_ON_BENIGN: false_flag_counts[CONFIRMED_ON_BENIGN],
+            ANOMALY_ON_BENIGN: false_flag_counts[ANOMALY_ON_BENIGN],
+        },
+    }
 
     return {
         "cells": len(scored),
+        "attack_cells": len(attack_cells),
+        "benign_cells": len(benign_cells),
         "axis_1_notify_recall": {
             "raw": {
                 "notified": len(notified),
-                "eligible": len(scored),
-                "rate": _rate(len(notified), len(scored)),
+                "eligible": len(attack_cells),
+                "rate": _rate(len(notified), len(attack_cells)),
             },
             "fair": {
                 "notified": len(fair_notified),
                 "eligible": len(fair_cells),
                 "rate": _rate(len(fair_notified), len(fair_cells)),
             },
-            "evidence_never_shown": sum(cell["oracle_result"] == ra.ABSENT for cell in scored),
+            "evidence_never_shown": sum(
+                cell["oracle_result"] == ra.ABSENT for cell in attack_cells
+            ),
             "real_misses": len(real_misses),
             "real_misses_by_technique": [
                 {
@@ -186,18 +225,25 @@ def score_arm(cells: Iterable[dict]) -> dict:
             "match_grades": dict(sorted(match_grade_counts.items())),
             "confirm_only_exact_recall": {
                 "confirmed_exact": mapping_counts[EXACT],
-                "eligible": len(scored),
-                "rate": _rate(mapping_counts[EXACT], len(scored)),
+                "eligible": len(attack_cells),
+                "rate": _rate(mapping_counts[EXACT], len(attack_cells)),
             },
-            "silent_cells_excluded": len(scored) - len(notified),
+            "silent_cells_excluded": len(attack_cells) - len(notified),
         },
-        "measurement_gaps": {
-            "notification_precision_on_benign_activity": {
-                "status": "UNMEASURABLE",
-                "value": None,
-                "reason": ("This corpus contains only real injected attacks and no benign cells."),
+        "axis_4_alert_fatigue_on_benign": alert_fatigue,
+        "measurement_gaps": (
+            {}
+            if benign_cells
+            else {
+                "notification_precision_on_benign_activity": {
+                    "status": "UNMEASURABLE",
+                    "value": None,
+                    "reason": (
+                        "This corpus contains only real injected attacks and no benign cells."
+                    ),
+                }
             }
-        },
+        ),
         "cells_scored": scored,
     }
 
@@ -223,9 +269,12 @@ def build_result(inputs: Iterable[tuple[str, Path]]) -> dict:
         if isinstance(payload, list):
             cells = join_oracle(payload)
         elif isinstance(payload, dict) and isinstance(payload.get("cells"), list):
-            cells = payload["cells"]
-            if any("oracle_result" not in cell for cell in cells):
-                raise ValueError(f"{path}: attributed cells are missing oracle_result")
+            cells = []
+            for cell in payload["cells"]:
+                if "oracle_result" in cell:
+                    cells.append(cell)
+                else:
+                    cells.extend(join_oracle([cell]))
         else:
             raise ValueError(f"{path}: expected a checkpoint list or result object with cells")
         runs[name] = build_run(
