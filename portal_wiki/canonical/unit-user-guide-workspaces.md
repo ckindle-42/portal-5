@@ -28,6 +28,7 @@ routes your request to the best-suited AI model for that task.
 | 🔵 Portal Blue Team | Incident response, threat detection, defense |
 | ✍️ Portal Creative Writer | Stories, scripts, creative content |
 | 🧠 Portal Deep Reasoner | Complex analysis, long reasoning chains |
+| 🏛️ Portal Council Review | Evidence-backed review of decisions, plans, proposals, and policies |
 | 📄 Portal Document Builder | Create Word/Excel/PowerPoint files |
 | 🎬 Portal Video Creator | Text-to-video generation |
 | 🎵 Portal Music Producer | Generate music and audio |
@@ -37,3 +38,9 @@ routes your request to the best-suited AI model for that task.
 | 🔍 Portal SPL Engineer | Splunk SPL queries and detection searches |
 | ⚖️ Portal Compliance Analyst | NERC CIP gap analysis, policy review, audit prep |
 | 🧪 Portal Mistral Reasoner | Structured reasoning, strategic planning |
+
+Council Review is opt-in because it runs three isolated reviewers and a final
+synthesizer. Give it the goal, constraints, available evidence, and options or
+artifact to review. It returns a code-determined recommendation, reviewer
+participation, dissent, missing evidence, and next actions. A reviewer that
+abstains or returns an invalid response does not silently shrink the quorum.

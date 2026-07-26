@@ -65,6 +65,7 @@ cd portal-5
 | Portal Blue Team | Incident response | sylink:8b (Ollama) — SOC triage, DFIR, ATT&CK |
 | Portal Creative Writer | Stories, scripts | Gemma-4-heretic (Ollama) · Dolphin (Ollama) |
 | Portal Deep Reasoner | Complex analysis | Qwen3.6-27B (Ollama) · DeepSeek-R1 (Ollama) |
+| Portal Council Review | Review decisions, plans, proposals, policies, or research briefs with independent evidence/risk/operator lenses | Three isolated reviewers + deterministic quorum + final synthesizer |
 | Portal Document Builder | Word/Excel/PPT files | Granite-4.1-8B (Ollama) + Documents MCP |
 | Portal Video Creator | Text-to-video | Granite-4.1-8B (Ollama) + Video MCP |
 | Portal Music Producer | Generate music | Qwen3.5-abliterated (Ollama) + Music MCP |

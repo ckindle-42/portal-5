@@ -21,6 +21,7 @@ updated_at: 1784946220.679698
 | `auto-daily` | Fast everyday assistant — chat, writing, summarization, planning | web_search, memory, documents |
 | `auto-coding` | One-shot code generation and review (Qwen3-Coder-30B MoE). 7 former sibling workspaces are now `?variant=` query params or a persona's `variant:` field on this base workspace — `laguna` (Laguna-XS.2, self-improvement agentic), `uncensored`, `uncensored-agentic`, `heavy` (Qwen3-Coder-Next 80B, long-horizon), `lite` (AgentWorld 35B), `ornith` (Ornith-1.0 35B), `northmini` (North-Mini-Code) | Code sandbox |
 | `auto-reasoning` | Extended reasoning, complex analysis | — |
+| `auto-council` | Opt-in review: three isolated evidence/challenger/operator seats, full-roster quorum, preserved dissent, and bounded synthesis | — |
 | `auto-research` | Web research and synthesis | web_search, web_fetch |
 | `auto-vision` | Image understanding, visual Q&A (Qwen3-VL 32B) | — |
 | `auto-creative` | Creative writing with voice output | TTS |

@@ -19,7 +19,7 @@ from typing import Any
 
 import httpx
 from fastapi import Header, HTTPException, Request
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from prometheus_client import generate_latest
 
 from portal.platform.inference.cluster_backends import BackendRegistry
@@ -37,6 +37,10 @@ from portal.platform.inference.router.context_inject import (
     inject_retrieved_context,
 )
 from portal.platform.inference.router.correlation import get_correlation_id
+from portal.platform.inference.router.council import (
+    run_council_review,
+    stream_council_review,
+)
 from portal.platform.inference.router.lifespan import (
     _startup_time,
 )
@@ -728,6 +732,47 @@ async def chat_completions(
                     "Ensure Ollama is running and a model is pulled. "
                     "Check config/backends.yaml."
                 ),
+            )
+
+        council_cfg = WORKSPACES.get(workspace_id, {}).get("council")
+        if council_cfg:
+            logger.info(
+                "Council routing: workspace=%s reviewers=%d stream=%s",
+                workspace_id,
+                len(council_cfg.get("members") or []),
+                stream,
+            )
+            synth_model = str(council_cfg.get("synthesizer_model", "council"))
+            _record_persona(persona, synth_model)
+            if stream:
+                return StreamingResponse(
+                    stream_council_review(
+                        body,
+                        council_cfg,
+                        slot.detach(),
+                        registry=registry,
+                        workspace_id=workspace_id,
+                    ),
+                    media_type="text/event-stream",
+                    headers={"x-portal-route": f"{workspace_id};council;{synth_model}"},
+                )
+
+            completion = await run_council_review(
+                body,
+                council_cfg,
+                registry=registry,
+                workspace_id=workspace_id,
+            )
+            _record_response_time(
+                completion.model,
+                workspace_id,
+                time.monotonic() - start_time,
+            )
+            return JSONResponse(
+                content=completion.data,
+                headers={
+                    "x-portal-route": (f"{workspace_id};{completion.backend_id};{completion.model}")
+                },
             )
 
         if not stream:

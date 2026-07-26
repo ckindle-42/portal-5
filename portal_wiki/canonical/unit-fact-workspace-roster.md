@@ -1,21 +1,21 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 22 production + 65 eval workspaces
+title: 23 production + 65 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 6b767edf6dec
-last_generated_commit: 6b767edf6dec
+  commit: d817f2566213
+last_generated_commit: d817f2566213
 confidence: high
 tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1784608925.440713
+updated_at: 1785039774.963558
 ---
 
-# Workspace roster (22 production, 65 eval, 87 total)
+# Workspace roster (23 production, 65 eval, 88 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -27,6 +27,7 @@ updated_at: 1784608925.440713
 | `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx8k` |
 | `auto-coding` | coding | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
 | `auto-compliance` | compliance | `granite4.1:8b-ctx16k` |
+| `auto-council` | general | `qwen3.6:27b-q4_K_M` |
 | `auto-creative` | media | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` |
 | `auto-daily` | general | `gemma4:26b-a4b-it-qat-ctx8k` |
 | `auto-data` | research | `granite4.1:30b-ctx64k` |

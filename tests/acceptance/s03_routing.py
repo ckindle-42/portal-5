@@ -1,6 +1,6 @@
 """S3a: Workspace routing tests — all production workspaces (Ollama-only).
 
-Covers the 21 production workspaces: 20 auto-* + tools-specialist. bench-*
+Covers the production workspace catalog, including opt-in Council Review. bench-*
 workspaces are intentionally excluded — full-catalog routing and TPS coverage
 is the job of tests/benchmarks/bench_tps.py (--mode pipeline), not the
 acceptance suite. Acceptance asserts functional routing + a content-signal
@@ -63,7 +63,14 @@ async def run() -> None:
         ),
         (
             "Reasoning / analysis",
-            ["auto-reasoning", "auto-research", "auto-data", "auto-compliance", "auto-math"],
+            [
+                "auto-reasoning",
+                "auto-council",
+                "auto-research",
+                "auto-data",
+                "auto-compliance",
+                "auto-math",
+            ],
         ),
         ("Creative / vision / audio", ["auto-creative", "auto-vision", "auto-audio"]),
         ("Tool calling", ["tools-specialist"]),

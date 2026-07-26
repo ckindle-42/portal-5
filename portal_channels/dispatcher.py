@@ -36,6 +36,7 @@ VALID_WORKSPACES = frozenset(
         "auto-security",
         "auto-creative",
         "auto-reasoning",
+        "auto-council",
         "auto-documents",
         "auto-video",
         "auto-image",

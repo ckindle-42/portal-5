@@ -783,6 +783,12 @@ WORKSPACE_PROMPTS = {
         "Solve this step by step: if a train travels at 60mph for 2.5 hours, how far does it go?",
         ["150", "mile", "distance", "60", "2.5"],
     ),
+    "auto-council": (
+        "Review this proposal: deploy directly to production without automated "
+        "tests or a rollback plan. The goal is faster delivery. Recommend whether "
+        "to support, revise, or reject it.",
+        ["Code-determined decision", "Participation", "votes"],
+    ),
     "auto-documents": (
         "Create an outline for a project proposal document.",
         ["introduction", "scope", "timeline", "budget", "section"],

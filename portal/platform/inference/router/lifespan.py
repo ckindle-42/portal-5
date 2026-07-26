@@ -18,6 +18,7 @@ import httpx
 from fastapi import FastAPI
 
 import portal.platform.inference.router.concurrency as _concurrency_mod
+import portal.platform.inference.router.council as _council_mod
 import portal.platform.inference.router.streaming as _streaming_mod
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.router.power import _power_polling_loop
@@ -366,6 +367,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     _routing_mod._http_client = _http_client
     _streaming_mod._http_client = _http_client
+    _council_mod._http_client = _http_client
     registry = BackendRegistry()
     # Push registry + _http_client to modules that cannot capture them at import time.
     # Same pattern as _routing_mod/_streaming_mod above.
