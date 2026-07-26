@@ -14,12 +14,14 @@ import logging
 import math
 import time
 from collections import Counter
+from contextlib import suppress
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
 import httpx
 
 logger = logging.getLogger(__name__)
+_STREAM_HEARTBEAT_S = 15.0
 
 _http_client: httpx.AsyncClient | None = None
 
@@ -484,6 +486,7 @@ async def stream_council_review(
 ) -> Any:
     """SSE wrapper that owns the request slot across the full council run."""
     created = int(time.time())
+    completion_task: asyncio.Task[CouncilCompletion] | None = None
     base = {
         "id": f"chatcmpl-p5-council-{created}",
         "object": "chat.completion.chunk",
@@ -506,12 +509,25 @@ async def stream_council_review(
                 ],
             }
         )
-        completion = await run_council_review(
-            body,
-            council,
-            registry=registry,
-            workspace_id=workspace_id,
+        completion_task = asyncio.create_task(
+            run_council_review(
+                body,
+                council,
+                registry=registry,
+                workspace_id=workspace_id,
+            )
         )
+        while not completion_task.done():
+            done, _pending = await asyncio.wait(
+                {completion_task},
+                timeout=_STREAM_HEARTBEAT_S,
+            )
+            if not done:
+                # SSE comments are invisible to OpenAI-compatible clients but
+                # keep proxies and client read-idle timers alive while the
+                # independent reviewers and synthesis are still running.
+                yield b": portal-council keep-alive\n\n"
+        completion = completion_task.result()
         content = completion.data["choices"][0]["message"]["content"]
         yield _sse(
             {
@@ -533,4 +549,8 @@ async def stream_council_review(
         )
         yield b"data: [DONE]\n\n"
     finally:
+        if completion_task is not None and not completion_task.done():
+            completion_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await completion_task
         slot.release()

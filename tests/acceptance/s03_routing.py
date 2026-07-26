@@ -77,6 +77,15 @@ async def run() -> None:
     ]
 
     test_num = 1
+    # Council review executes three isolated reviewers plus synthesis. The
+    # measured P2 production bench is intentionally much slower than a
+    # single-model workspace, so give that one route a realistic end-to-end
+    # ceiling while retaining the same response and routing assertions.
+    workspace_stream_limits = {
+        "auto-council": (600, 120),
+        "auto-research": (300, 120),
+        "auto-data": (300, 120),
+    }
 
     for group_name, workspaces in PRODUCTION_WORKSPACES:
         print(f"\n  ── {group_name} ({len(workspaces)} workspaces) ──")
@@ -100,9 +109,15 @@ async def run() -> None:
             route_params = _entry[2] if len(_entry) > 2 else None
             t0 = time.time()
             tid = f"S3a-{test_num:02d}"
+            timeout, idle_gap = workspace_stream_limits.get(prompts_label, (180, None))
 
             code, response, model, _route = await _chat_with_model(
-                ws_id, prompt, max_tokens=300, timeout=180, route_params=route_params
+                ws_id,
+                prompt,
+                max_tokens=300,
+                timeout=timeout,
+                route_params=route_params,
+                idle_gap_s=idle_gap,
             )
 
             if code != 200:
