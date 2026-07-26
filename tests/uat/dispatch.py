@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from tests.uat.browser import (
+    _attach_file,
     _download_artifact,
     _enable_tool,
     _login,
@@ -75,6 +76,11 @@ async def _fe_send_and_wait(
         chat_id=chat_id,
         min_messages=min_messages,
     )
+
+
+async def _fe_attach_file(page, file_path: Path) -> None:
+    """Attach a fixture file to the composer before the next send."""
+    await _attach_file(page, file_path)
 
 
 async def _extract_dom_response(page) -> str:

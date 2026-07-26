@@ -18,6 +18,7 @@ from tests.uat.browser import _navigate_to_chat, _send_and_wait
 from tests.uat.calibration import _emit_corpus_row
 from tests.uat.config import MAX_WAIT_NO_PROGRESS, OPENWEBUI_URL, SCREENSHOT_DIR
 from tests.uat.dispatch import (
+    _fe_attach_file,
     _fe_current_chat_url,
     _fe_download_artifact,
     _fe_get_last_response,
@@ -686,6 +687,19 @@ async def run_test(
                 print(f"  [TR pre-stage] staged {_fixture_path.name} → {_uploads}", flush=True)
             else:
                 print(f"  [TR pre-stage] WARN: fixture missing at {_fixture_path}", flush=True)
+
+        # Attach a fixture to the composer for tests exercising OWUI's native
+        # document RAG upload (e.g. A-01) — distinct from pre_stage_audio,
+        # which drops a file into the workspace uploads dir for MCP tools that
+        # auto-detect the most-recently-modified file rather than an actual
+        # chat attachment.
+        if test.get("attach_fixture"):
+            _attach_path = Path(__file__).resolve().parents[1] / "fixtures" / test["attach_fixture"]
+            if _attach_path.exists():
+                await _fe_attach_file(page, _attach_path)
+                print(f"  [TR attach] attached {_attach_path.name} to composer", flush=True)
+            else:
+                print(f"  [TR attach] WARN: fixture missing at {_attach_path}", flush=True)
 
         # Tools are pre-enabled via workspace toolIds seeding — do not toggle them here.
         # Calling _enable_tool would turn them OFF (they default to ON in seeded workspaces).
