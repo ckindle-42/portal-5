@@ -34,7 +34,11 @@ from tests.uat.lifecycle import (
     _unload_running_ollama_models,
     _wait_for_ollama_ps_empty,
 )
-from tests.uat.owui_api import _wait_for_response_arrival, owui_get_last_response
+from tests.uat.owui_api import (
+    _wait_for_response_arrival,
+    owui_get_last_response,
+    owui_response_complete,
+)
 
 # Playwright helpers
 # ---------------------------------------------------------------------------
@@ -269,6 +273,9 @@ async def _wait_for_completion(
         if token and chat_id:
             _cur_api_text = owui_get_last_response(token, chat_id, min_messages=min_messages)
             _cur_api_len = len(_cur_api_text)
+            if _cur_api_text and owui_response_complete(token, chat_id, min_messages=min_messages):
+                _log("stream complete (OWUI API done)")
+                return
             if _cur_api_len > _prev_api_len + 100:
                 # Content actively growing — model still generating; don't let DOM
                 # stability fire prematurely

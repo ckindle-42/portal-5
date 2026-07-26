@@ -272,6 +272,30 @@ def owui_get_last_response(token: str, chat_id: str, min_messages: int = 1) -> s
         return ""
 
 
+def owui_response_complete(token: str, chat_id: str, min_messages: int = 1) -> bool:
+    """Return whether OWUI has explicitly completed the required assistant turn.
+
+    Responses-API chats carry a reliable per-message ``done`` flag even when the
+    frontend's stop icon remains stale. Legacy chats without that flag return
+    False and continue using the existing DOM/stop-button completion signals.
+    """
+    try:
+        r = httpx.get(
+            f"{OPENWEBUI_URL}/api/v1/chats/{chat_id}",
+            headers={"Authorization": f"Bearer {token}", "Accept-Encoding": "identity"},
+            timeout=10,
+        )
+        msgs = r.json().get("chat", {}).get("history", {}).get("messages", {})
+        assistant_msgs = [
+            m for m in msgs.values() if m.get("role") == "assistant" and _assistant_message_text(m)
+        ]
+        if len(assistant_msgs) < min_messages:
+            return False
+        return assistant_msgs[-1].get("done") is True
+    except Exception:
+        return False
+
+
 def owui_get_routed_model(token: str, chat_id: str) -> str:
     """Extract the model actually used from the last assistant message in OWUI chat history.
 
