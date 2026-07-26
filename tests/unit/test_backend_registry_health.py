@@ -236,6 +236,62 @@ defaults: {}
         assert "garbage3" not in reg._candidate_cache
 
 
+class TestSyntheticWorkspaceCandidates:
+    """Variants keep base-workspace backend priority."""
+
+    def test_variant_routes_through_base_workspace_groups(self, tmp_path):
+        cfg = tmp_path / "backends.yaml"
+        cfg.write_text("""
+backends:
+  - id: general
+    type: ollama
+    url: http://x
+    group: general
+    models: [fallback-model]
+  - id: coding
+    type: ollama
+    url: http://x
+    group: coding
+    models: [laguna-model]
+workspace_routing:
+  auto-coding: [coding, general]
+defaults:
+  fallback_group: general
+""")
+        reg = BackendRegistry(config_path=str(cfg))
+
+        candidates = reg.get_backend_candidates("auto-coding::laguna")
+
+        assert [candidate.id for candidate in candidates] == ["coding", "general"]
+        assert "auto-coding" in reg._candidate_cache
+        assert "_unknown" not in reg._candidate_cache
+
+    def test_nested_model_override_still_routes_through_base_workspace(self, tmp_path):
+        cfg = tmp_path / "backends.yaml"
+        cfg.write_text("""
+backends:
+  - id: general
+    type: ollama
+    url: http://x
+    group: general
+    models: [fallback-model]
+  - id: coding
+    type: ollama
+    url: http://x
+    group: coding
+    models: [override-model]
+workspace_routing:
+  auto-coding: [coding, general]
+defaults:
+  fallback_group: general
+""")
+        reg = BackendRegistry(config_path=str(cfg))
+
+        candidates = reg.get_backend_candidates("auto-coding::laguna::model=override-model")
+
+        assert [candidate.id for candidate in candidates] == ["coding", "general"]
+
+
 class TestToolSupportMap:
     """T-16: O(1) model_supports_tools lookup."""
 

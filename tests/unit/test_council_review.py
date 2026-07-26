@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import pytest
@@ -303,6 +304,47 @@ async def test_stream_releases_slot_after_done(monkeypatch: pytest.MonkeyPatch) 
             workspace_id="auto-council",
         )
     ]
+    assert chunks[-1] == b"data: [DONE]\n\n"
+    assert slot.releases == 1
+
+
+@pytest.mark.asyncio
+async def test_stream_emits_invisible_heartbeats_during_long_review(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def slow_review(body, council, *, registry, workspace_id):
+        await asyncio.sleep(0.03)
+        return CouncilCompletion(
+            data={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "**Code-determined decision: SUPPORT**",
+                        }
+                    }
+                ]
+            },
+            backend_id="test-backend",
+            model="synth",
+        )
+
+    monkeypatch.setattr(council_mod, "run_council_review", slow_review)
+    monkeypatch.setattr(council_mod, "_STREAM_HEARTBEAT_S", 0.005)
+    slot = _Slot()
+
+    chunks = [
+        chunk
+        async for chunk in stream_council_review(
+            {"messages": [{"role": "user", "content": "Review this."}]},
+            {},
+            slot,
+            registry=_Registry(),
+            workspace_id="auto-council",
+        )
+    ]
+
+    assert any(chunk == b": portal-council keep-alive\n\n" for chunk in chunks)
     assert chunks[-1] == b"data: [DONE]\n\n"
     assert slot.releases == 1
 

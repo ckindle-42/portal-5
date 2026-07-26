@@ -438,8 +438,22 @@ class BackendRegistry:
         Returns:
             Fresh list copy; safe to mutate. Empty when no backends are healthy.
         """
+        # Variants and bounded model overrides are represented in WORKSPACES
+        # by synthetic ids such as ``auto-coding::laguna`` and
+        # ``auto-coding::model=...``.  Backend groups belong to the base
+        # workspace, while the synthetic id remains necessary to resolve the
+        # variant's model hint and tuning later in the request path.  Treat a
+        # synthetic id whose base is configured as that base for candidate
+        # selection; otherwise preserve the ordinary unknown-id fallback.
+        base_workspace_id = workspace_id.split("::", 1)[0]
+        routing_workspace_id = (
+            base_workspace_id if base_workspace_id in self._ws_group_cache else workspace_id
+        )
+
         # P7-PERF: Check cache first (clamp unknown workspace ids to _unknown)
-        cache_key = workspace_id if workspace_id in self._ws_group_cache else "_unknown"
+        cache_key = (
+            routing_workspace_id if routing_workspace_id in self._ws_group_cache else "_unknown"
+        )
         now = time.time()
         cached = self._candidate_cache.get(cache_key)
         if cached is not None:
@@ -447,7 +461,7 @@ class BackendRegistry:
             if now - cache_time < self._candidate_cache_ttl:
                 return list(candidates)
 
-        groups = self._ws_group_cache.get(workspace_id, [self._fallback_group])
+        groups = self._ws_group_cache.get(routing_workspace_id, [self._fallback_group])
         healthy = self.list_healthy_backends()
         if not healthy:
             return []

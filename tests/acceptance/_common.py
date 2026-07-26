@@ -337,6 +337,7 @@ async def _chat_with_model(
     stream: bool = False,
     tools: list | None = None,
     route_params: dict[str, str] | None = None,
+    idle_gap_s: float | None = None,
 ) -> tuple[int, str, str, str]:
     """Chat request that also returns the model and route header.
 
@@ -359,7 +360,11 @@ async def _chat_with_model(
     """
     msgs: list[dict] = []
     if system:
-        msgs.append({"role": "system", "content": system[:800]})
+        # Callers deliberately select the applicable persona contract (S10c
+        # caps it at 8 KiB). Truncating that contract here silently discarded
+        # the compliance HARD CONSTRAINTS and made the acceptance request
+        # materially different from the production persona request.
+        msgs.append({"role": "system", "content": system})
     msgs.append({"role": "user", "content": prompt})
     body: dict = {"model": workspace, "messages": msgs, "stream": True, "max_tokens": max_tokens}
     if tools:
@@ -371,13 +376,19 @@ async def _chat_with_model(
 
         url = f"{url}?{urlencode(route_params)}"
 
+    stream_options = {
+        "url": url,
+        "body": body,
+        "headers": AUTH,
+        "client": _get_acc_client(),
+        "overall_ceiling_s": float(timeout),
+        "ollama_url": OLLAMA_URL,
+    }
+    if idle_gap_s is not None:
+        stream_options["idle_gap_s"] = idle_gap_s
+
     result = await _stream_chat(
-        url=url,
-        body=body,
-        headers=AUTH,
-        client=_get_acc_client(),
-        overall_ceiling_s=float(timeout),
-        ollama_url=OLLAMA_URL,
+        **stream_options,
     )
 
     if result.status is _StreamStatus.OK:
@@ -1073,7 +1084,28 @@ PERSONA_PROMPTS = {
             "requestAnimationFrame",
         ],
     ),
-    # Security (6 personas)
+    # Purpose-named coding variants exposed to IDE clients
+    "agenticheavy": (
+        "Plan a repository-wide Python API migration with staged edits, tests, and rollback checkpoints.",
+        ["plan", "stage", "test", "migration", "rollback", "verify", "repository"],
+    ),
+    "agenticlite": (
+        "Plan a focused tool-use loop to locate and fix one failing unit test.",
+        ["test", "inspect", "fix", "tool", "verify", "step"],
+    ),
+    "codingagentic": (
+        "Plan the read, edit, and verification loop for fixing a bug in an unfamiliar repository.",
+        ["read", "inspect", "edit", "test", "verify", "repository"],
+    ),
+    "codinguncensored": (
+        "Write a complete C function that safely parses a length-prefixed byte buffer.",
+        ["length", "buffer", "bounds", "size", "return", "function"],
+    ),
+    "codinguncensoredagentic": (
+        "Plan an agentic debugging loop for a low-level memory corruption bug, including verification.",
+        ["debug", "memory", "inspect", "test", "verify", "step"],
+    ),
+    # Security personas
     "cybersecurityspecialist": (
         "Explain zero-trust architecture.",
         ["zero", "trust", "verify", "never", "assume"],
@@ -1107,6 +1139,18 @@ PERSONA_PROMPTS = {
     "splunksplgineer": (
         "Write SPL to detect brute force.",
         ["index", "stats", "count", "fail", "threshold"],
+    ),
+    "purpleteamexec": (
+        "Plan an authorized purple-team credential-stuffing exercise and pair each attack step with detection and response.",
+        ["attack", "detect", "response", "credential", "authorized", "step"],
+    ),
+    "purpleteamlead": (
+        "Pair three credential-stuffing attack techniques with MITRE mappings, detections, and mitigations.",
+        ["attack", "MITRE", "detect", "mitigation", "credential", "T1"],
+    ),
+    "securityuncensored": (
+        "Analyze a stack buffer overflow for an authorized vulnerability-research engagement.",
+        ["buffer", "overflow", "stack", "vulnerability", "exploit", "memory"],
     ),
     # Data (7 personas)
     "dataanalyst": (
