@@ -1392,6 +1392,56 @@ class TestResolveModelOverride:
         assert _resolve_model_override("auto-daily", None) == "auto-daily"
 
 
+class TestStreamingBackendHintPriority:
+    """Streaming selects an eligible backend that actually owns the hint."""
+
+    def test_hinted_backend_moves_ahead_of_group_default(self):
+        from portal.platform.inference.cluster_backends import Backend
+        from portal.platform.inference.router.handlers import _prioritize_hinted_backend
+
+        coding = Backend(
+            id="coding",
+            type="ollama",
+            url="http://coding",
+            group="coding",
+            models=["coding-default"],
+        )
+        general = Backend(
+            id="general",
+            type="ollama",
+            url="http://general",
+            group="general",
+            models=["requested-model"],
+        )
+
+        ordered = _prioritize_hinted_backend([coding, general], "requested-model")
+
+        assert [backend.id for backend in ordered] == ["general", "coding"]
+
+    def test_unknown_hint_preserves_group_priority(self):
+        from portal.platform.inference.cluster_backends import Backend
+        from portal.platform.inference.router.handlers import _prioritize_hinted_backend
+
+        coding = Backend(
+            id="coding",
+            type="ollama",
+            url="http://coding",
+            group="coding",
+            models=["coding-default"],
+        )
+        general = Backend(
+            id="general",
+            type="ollama",
+            url="http://general",
+            group="general",
+            models=["general-default"],
+        )
+
+        ordered = _prioritize_hinted_backend([coding, general], "missing-model")
+
+        assert ordered == [coding, general]
+
+
 class TestWorkspaceToolsConsistency:
     """Tests for workspace tool field integrity."""
 
