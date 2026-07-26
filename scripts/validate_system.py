@@ -2795,6 +2795,10 @@ def main() -> int:
         "BP. council bench scoring semantics",
         check_council_bench_semantics,
     )
+    v.run(
+        "BQ. benign alert-fatigue semantics",
+        check_benign_alert_fatigue,
+    )
 
     return v.summary()
 
@@ -4600,6 +4604,72 @@ def check_council_bench_semantics() -> tuple[str, str, list[dict]]:
     if not (evidence_required and baseline_required and abstention_correct):
         return ("FAIL", "council bench scoring invariant failed", subs)
     return ("PASS", "council bench requires evidence, abstention, and solo delta", subs)
+
+
+def check_benign_alert_fatigue() -> tuple[str, str, list[dict]]:
+    """BQ. Benign notifications are false flags and populate Axis 4."""
+    from portal.modules.security.core import notify_scoreboard as ns
+
+    cells = [
+        {
+            "label": "attack",
+            "status": "done",
+            "cell_kind": "attack",
+            "technique_expected": "T1078",
+            "model_arm": "synthetic",
+            "verdict": "CONFIRMED",
+            "technique_ids": ["T1078"],
+            "oracle_result": "PRESENT",
+        },
+        {
+            "label": "quiet",
+            "status": "done",
+            "ground_truth": "benign",
+            "technique_expected": "",
+            "model_arm": "synthetic",
+            "verdict": "RULED_OUT",
+            "technique_ids": [],
+        },
+        {
+            "label": "false-confirm",
+            "status": "done",
+            "ground_truth": "benign",
+            "technique_expected": "",
+            "model_arm": "synthetic",
+            "verdict": "CONFIRMED",
+            "technique_ids": ["T1053.005"],
+        },
+    ]
+    joined = [cells[0], *ns.join_oracle(cells[1:])]
+    scored = ns.score_arm(joined)
+    fatigue = scored["axis_4_alert_fatigue_on_benign"]
+    populated = fatigue["status"] == "MEASURED" and fatigue["benign_cells"] == 2
+    false_flag = (
+        fatigue["false_flags"] == 1 and fatigue["false_flag_kinds"][ns.CONFIRMED_ON_BENIGN] == 1
+    )
+    both_axes = (
+        scored["axis_1_notify_recall"]["raw"]["rate"] == 1.0 and not scored["measurement_gaps"]
+    )
+    subs = [
+        {
+            "name": "benign cells populate notification precision",
+            "status": "PASS" if populated else "FAIL",
+            "detail": f"axis={fatigue}",
+        },
+        {
+            "name": "NOTIFY on benign is a typed false flag",
+            "status": "PASS" if false_flag else "FAIL",
+            "detail": f"kinds={fatigue['false_flag_kinds']}",
+        },
+        {
+            "name": "combined attack/benign run has both axes",
+            "status": "PASS" if both_axes else "FAIL",
+            "detail": "recall and alert-fatigue are measured",
+        },
+    ]
+    if not (populated and false_flag and both_axes):
+        return ("FAIL", "benign alert-fatigue invariant failed", subs)
+    return ("PASS", "benign precision and false-flag semantics populated", subs)
 
 
 if __name__ == "__main__":
