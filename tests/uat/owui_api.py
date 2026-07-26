@@ -27,6 +27,36 @@ from tests.uat.config import (
 # ---------------------------------------------------------------------------
 
 
+def _assistant_message_text(message: dict) -> str:
+    """Return visible assistant text from legacy or Responses-API chat storage."""
+    content = message.get("content", "")
+    if isinstance(content, list):
+        content = " ".join(
+            str(part.get("text", ""))
+            for part in content
+            if isinstance(part, dict) and part.get("text")
+        )
+    if isinstance(content, str) and content.strip():
+        return content
+
+    # Open WebUI 0.9.6+ stores tool-enabled turns in the Responses API shape:
+    # the legacy assistant ``content`` is empty and visible text lives in
+    # ``output[].content[]`` blocks alongside function calls/results.
+    visible: list[str] = []
+    for item in message.get("output") or []:
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        if item.get("role") not in (None, "assistant"):
+            continue
+        for part in item.get("content") or []:
+            if not isinstance(part, dict):
+                continue
+            text = part.get("text")
+            if part.get("type") in ("output_text", "text") and text:
+                visible.append(str(text))
+    return "\n".join(visible)
+
+
 def owui_token() -> str:
     r = httpx.post(
         f"{OPENWEBUI_URL}/api/v1/auths/signin",
@@ -228,9 +258,7 @@ def owui_get_last_response(token: str, chat_id: str, min_messages: int = 1) -> s
         # Collect all non-empty assistant messages in order.
         non_empty: list[str] = []
         for msg in assistant_msgs:
-            content = msg.get("content", "")
-            if isinstance(content, list):
-                content = " ".join(c.get("text", "") for c in content if isinstance(c, dict))
+            content = _assistant_message_text(msg)
             if content:
                 non_empty.append(content)
         # Guard: for turn-2 in multi-turn tests (min_messages=2), return "" until
