@@ -1,0 +1,155 @@
+{
+  "all_dissent_preserved": true,
+  "all_machine_decisions_preserved": true,
+  "cases": [
+    {
+      "council": {
+        "decision": "REVISE",
+        "dissent": [
+          "challenger"
+        ],
+        "dissent_preserved_in_synthesis": true,
+        "estimated_output_tokens": 2194,
+        "flaw_caught_with_evidence": true,
+        "honest_abstention": false,
+        "latency_s": 408.01,
+        "machine_decision_preserved": true,
+        "model_calls": 4,
+        "participating": 3,
+        "roster": 3
+      },
+      "delta": {
+        "flaw_catch": 0,
+        "latency_s": 367.49
+      },
+      "known_flaw": true,
+      "solo": {
+        "estimated_output_tokens": 351,
+        "flaw_caught_with_evidence": true,
+        "honest_abstention": false,
+        "latency_s": 40.52,
+        "model_calls": 1,
+        "recommendation": "REVISE",
+        "valid": true
+      },
+      "source": "coding_task/TASK CLOSEOUT P5 MODEL CLEANUP 2.md",
+      "task_id": "model-cleanup-safety",
+      "thin_material": false,
+      "title": "Model cleanup plan with a historical safety flaw"
+    },
+    {
+      "council": {
+        "decision": "REVISE",
+        "dissent": [
+          "challenger"
+        ],
+        "dissent_preserved_in_synthesis": true,
+        "estimated_output_tokens": 2194,
+        "flaw_caught_with_evidence": true,
+        "honest_abstention": false,
+        "latency_s": 360.11,
+        "machine_decision_preserved": true,
+        "model_calls": 4,
+        "participating": 3,
+        "roster": 3
+      },
+      "delta": {
+        "flaw_catch": 0,
+        "latency_s": 317.46
+      },
+      "known_flaw": true,
+      "solo": {
+        "estimated_output_tokens": 433,
+        "flaw_caught_with_evidence": true,
+        "honest_abstention": false,
+        "latency_s": 42.65,
+        "model_calls": 1,
+        "recommendation": "REVISE",
+        "valid": true
+      },
+      "source": "coding_task/TASK CLOSEOUT P1 COUNCIL RECONCILE.md",
+      "task_id": "council-quorum-safety",
+      "thin_material": false,
+      "title": "Council quorum proposal with a historical denominator flaw"
+    },
+    {
+      "council": {
+        "decision": "REJECT",
+        "dissent": [],
+        "dissent_preserved_in_synthesis": true,
+        "estimated_output_tokens": 2132,
+        "flaw_caught_with_evidence": false,
+        "honest_abstention": false,
+        "latency_s": 397.64,
+        "machine_decision_preserved": true,
+        "model_calls": 4,
+        "participating": 2,
+        "roster": 3
+      },
+      "delta": {
+        "flaw_catch": 0,
+        "latency_s": 355.86
+      },
+      "known_flaw": false,
+      "solo": {
+        "estimated_output_tokens": 414,
+        "flaw_caught_with_evidence": false,
+        "honest_abstention": false,
+        "latency_s": 41.79,
+        "model_calls": 1,
+        "recommendation": "REVISE",
+        "valid": true
+      },
+      "source": "representative Portal operator request",
+      "task_id": "thin-change-request",
+      "thin_material": true,
+      "title": "Insufficient change request"
+    }
+  ],
+  "cost": {
+    "council_estimated_output_tokens": 6520,
+    "council_latency_s": 1165.76,
+    "latency_multiple": 9.33,
+    "note": "Token counts are explicit character/4 estimates; model-call counts are exact.",
+    "output_token_multiple": 5.44,
+    "solo_estimated_output_tokens": 1198,
+    "solo_latency_s": 124.96
+  },
+  "council_flaw_catches": 2,
+  "council_honest_abstentions": 0,
+  "dead_seats": [],
+  "earns_place_for_blue_borderline": false,
+  "flaw_catch_delta": 0,
+  "isolation": {
+    "detail": "run_council_review fans out one immutable review_material string via asyncio.gather; reviewer calls receive no sibling records. tests/unit/test_council_review.py asserts this payload boundary.",
+    "status": "VERIFIED_BY_RUNTIME_CONTRACT"
+  },
+  "known_flaw_tasks": 2,
+  "recommendation": "Keep council platform-only: it did not beat solo enough to justify its cost.",
+  "run_kind": "live",
+  "schema_version": 1,
+  "seat_participation": {
+    "challenger": {
+      "dead_seat": false,
+      "participated": 3,
+      "rate": 1.0,
+      "tasks": 3
+    },
+    "evidence": {
+      "dead_seat": false,
+      "participated": 3,
+      "rate": 1.0,
+      "tasks": 3
+    },
+    "operator": {
+      "dead_seat": false,
+      "participated": 2,
+      "rate": 0.667,
+      "tasks": 3
+    }
+  },
+  "solo_flaw_catches": 2,
+  "solo_honest_abstentions": 0,
+  "task_count": 3,
+  "thin_material_tasks": 1
+}

@@ -2791,6 +2791,10 @@ def main() -> int:
         "BO. single council quorum implementation",
         check_single_council_quorum,
     )
+    v.run(
+        "BP. council bench scoring semantics",
+        check_council_bench_semantics,
+    )
 
     return v.summary()
 
@@ -4520,6 +4524,82 @@ def check_single_council_quorum() -> tuple[str, str, list[dict]]:
     if not (delegates and same_floor and production_lean):
         return ("FAIL", "council reconciliation invariant failed", subs)
     return ("PASS", "platform aggregate_opinions is the single quorum implementation", subs)
+
+
+def check_council_bench_semantics() -> tuple[str, str, list[dict]]:
+    """BP. Council value is evidence-backed and always compared with solo."""
+    from portal.modules.security.core import council_review_bench as bench
+    from portal.platform.inference.router.council import CouncilOpinion
+
+    task = bench.ReviewTask(
+        "synthetic",
+        "Synthetic flaw",
+        "validator",
+        "No dry-run is planned.",
+        ("dry-run",),
+    )
+    with_evidence = {
+        "findings": [
+            {
+                "claim": "Missing dry-run",
+                "evidence": ["No dry-run is planned."],
+                "action": "Add one.",
+            }
+        ]
+    }
+    without_evidence = {
+        "findings": [{"claim": "Missing dry-run", "evidence": [], "action": "Add one."}]
+    }
+    evidence_required = bench.catches_known_flaw(
+        task, [with_evidence]
+    ) and not bench.catches_known_flaw(task, [without_evidence])
+    baseline_required = False
+    try:
+        bench.summarize([])
+    except ValueError:
+        baseline_required = True
+
+    thin = bench.ReviewTask("thin", "Thin", "validator", "Proceed?", thin_material=True)
+    case = bench.score_case(
+        thin,
+        council_payload={
+            "portal_council": {
+                "aggregate": {"decision": "ESCALATE", "dissent": []},
+                "reviewers": [
+                    {
+                        "member_id": "a",
+                        "participated": False,
+                        "findings": [],
+                    }
+                ],
+            },
+            "choices": [{"message": {"content": "**Code-determined decision: ESCALATE**"}}],
+        },
+        solo_opinion=CouncilOpinion("solo", "Solo", "m", "ABSTAIN", valid=True),
+        council_latency_s=1.0,
+        solo_latency_s=0.5,
+    )
+    abstention_correct = case["council"]["honest_abstention"]
+    subs = [
+        {
+            "name": "flaw catch requires cited evidence",
+            "status": "PASS" if evidence_required else "FAIL",
+            "detail": "unsupported finding rejected",
+        },
+        {
+            "name": "solo baseline is mandatory",
+            "status": "PASS" if baseline_required else "FAIL",
+            "detail": "empty baseline raises ValueError",
+        },
+        {
+            "name": "thin-material ESCALATE scores as honest abstention",
+            "status": "PASS" if abstention_correct else "FAIL",
+            "detail": f"honest_abstention={abstention_correct}",
+        },
+    ]
+    if not (evidence_required and baseline_required and abstention_correct):
+        return ("FAIL", "council bench scoring invariant failed", subs)
+    return ("PASS", "council bench requires evidence, abstention, and solo delta", subs)
 
 
 if __name__ == "__main__":
