@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.uat.browser import _dismiss_startup_overlays
-from tests.uat.owui_api import _assistant_message_text
+from tests.uat.owui_api import _assistant_message_text, owui_response_complete
 
 
 class _FakeButton:
@@ -105,3 +105,60 @@ def test_legacy_content_remains_authoritative() -> None:
     }
 
     assert _assistant_message_text(message) == "Legacy answer"
+
+
+def test_response_complete_uses_explicit_done_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Response:
+        def json(self) -> dict:
+            return {
+                "chat": {
+                    "history": {
+                        "messages": {
+                            "user": {"role": "user", "content": "hello"},
+                            "assistant": {
+                                "role": "assistant",
+                                "content": "",
+                                "done": True,
+                                "output": [
+                                    {
+                                        "type": "message",
+                                        "role": "assistant",
+                                        "content": [
+                                            {"type": "output_text", "text": "Completed answer"}
+                                        ],
+                                    }
+                                ],
+                            },
+                        }
+                    }
+                }
+            }
+
+    monkeypatch.setattr("tests.uat.owui_api.httpx.get", lambda *args, **kwargs: _Response())
+
+    assert owui_response_complete("token", "chat-id") is True
+
+
+def test_response_complete_rejects_inflight_or_missing_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        def json(self) -> dict:
+            return {
+                "chat": {
+                    "history": {
+                        "messages": {
+                            "assistant": {
+                                "role": "assistant",
+                                "content": "Partial",
+                                "done": False,
+                            }
+                        }
+                    }
+                }
+            }
+
+    monkeypatch.setattr("tests.uat.owui_api.httpx.get", lambda *args, **kwargs: _Response())
+
+    assert owui_response_complete("token", "chat-id") is False
+    assert owui_response_complete("token", "chat-id", min_messages=2) is False
