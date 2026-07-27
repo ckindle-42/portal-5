@@ -796,6 +796,15 @@ async def run_test(
                         flush=True,
                     )
                     await _navigate_to_chat(page, chat_url)
+            elif tier == "ollama":
+                # Final attempt also exhausted with no response: the generation
+                # may still be running server-side. Without this unload, the
+                # abandoned generation keeps holding its semaphore permit and
+                # can collide with the NEXT test's first attempt if it reuses
+                # the same backend model (model-change eviction between tests
+                # only fires when the model actually changes, so a same-model
+                # follow-up test would inherit the stuck permit otherwise).
+                unload_all_models()
 
         # Download artifact if expected
         art_ext = test.get("artifact_ext")
