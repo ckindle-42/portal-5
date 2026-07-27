@@ -401,7 +401,19 @@ async def _send_and_wait(
     # the reactive input handler (draft store stays empty → send submits null
     # message). Keyboard events go through the full browser event pipeline and
     # reliably update OWUI's Svelte draft store.
-    await page.keyboard.type(prompt, delay=0)
+    #
+    # Multi-line prompts (code blocks, etc.) are the one exception: keyboard.type()
+    # sends a literal Enter keypress for every '\n', and OWUI's composer submits on
+    # bare Enter — so a multi-line prompt gets prematurely split and sent as several
+    # fragmented messages mid-typing (confirmed live: code blocks never arrived
+    # intact, corrupting tool-validation/code tests). keyboard.insert_text() inserts
+    # the whole string as a single atomic input event — no Enter keypresses, no
+    # code-fence auto-closing side effects from character-by-character typing — and
+    # still reliably updates the Svelte draft store (verified live end-to-end).
+    if "\n" in prompt:
+        await page.keyboard.insert_text(prompt)
+    else:
+        await page.keyboard.type(prompt, delay=0)
     await page.wait_for_timeout(600)  # Svelte async DOM update
     send_btn = page.locator("#send-message-button")
     if await send_btn.count() > 0:
