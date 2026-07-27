@@ -771,6 +771,19 @@ async def run_test(
                 flush=True,
             )
             if attempt < 2:
+                # Force-unload before retrying: the prior attempt's generation may
+                # still be running server-side (the harness gave up client-side,
+                # but never cancelled it). On single-slot workspaces
+                # (max_concurrent=1, e.g. bench-* — see concurrency.py) the still-
+                # running attempt holds the workspace's only permit, so the retry's
+                # request gets an instant HTTP 429 the harness never sees (no
+                # stream ever starts) — a self-collision that guarantees every
+                # retry fails regardless of whether the model would have answered.
+                # Unloading forces Ollama to drop the in-flight generation, which
+                # propagates a disconnect into the pipeline's streaming generator
+                # and releases its semaphore permit before the retry starts.
+                if tier == "ollama":
+                    unload_all_models()
                 # Check backend health before retrying
                 await _wait_for_backend_alive(tier)
                 # Re-navigate to the chat URL before retrying. OWUI calls
