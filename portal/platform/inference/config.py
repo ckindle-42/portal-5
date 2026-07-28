@@ -142,6 +142,13 @@ class WorkspaceSpec(BaseModel):
 
     # --- Model behaviour ---
     system_prompt_append: str | None = None
+    # Workspace-level tool_choice default (persona.tool_choice, when set,
+    # still wins — see _resolve_persona_tool_choice). Use only for a
+    # workspace whose entire purpose depends on a real tool call happening
+    # (see the "required" fields on personas of this same intent) — a
+    # narrow, single-purpose workspace like auto-cad, not a general shared
+    # one like auto-coding/auto-daily/auto.
+    tool_choice: str | None = None
     think: bool | None = None
     emits_reasoning: bool | None = None
     keep_alive: str | None = None

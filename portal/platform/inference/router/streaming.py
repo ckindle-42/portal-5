@@ -798,6 +798,8 @@ async def _stream_from_backend_guarded(
         logger.error("HTTP client not initialised — yielding error chunk")
         yield ("data: " + json.dumps({"error": "Pipeline not ready"}) + "\n\n").encode()
         return
+    _any_content_emitted = False
+    _completion_tokens_seen = 0
     try:
         _usage_recorded = False  # guard: only record TPS once per request
         async with _http_client.stream("POST", url, json=body) as resp:
@@ -864,6 +866,7 @@ async def _stream_from_backend_guarded(
                                 elapsed_seconds=elapsed,
                             )
                             _usage_recorded = True
+                            _completion_tokens_seen = usage_data.get("completion_tokens", 0) or 0
                         except Exception:
                             logger.debug("Could not parse OpenAI usage chunk from stream")
                 # ── C-1 measurement probe (no behavior change) ──────────
@@ -920,6 +923,40 @@ async def _stream_from_backend_guarded(
                         line = f"data: {json.dumps(obj)}"
                     except Exception:
                         pass  # Fall through to raw yield on parse failure
+
+                # Cheap substring check (no JSON parse) for whether this chunk
+                # carried any real content — mirrors the zero-content safety
+                # net already added to the tool-loop path
+                # (_stream_with_tool_loop_impl): a backend can complete with
+                # non-zero completion_tokens yet emit nothing into content or
+                # any reasoning field (observed live: completion_tokens=136,
+                # content="", no reasoning chunk at all). Without this, OWUI
+                # persists a fully empty assistant message with zero
+                # indication anything went wrong.
+                if (
+                    not _any_content_emitted
+                    and '"content":"' in line
+                    and '"content":""' not in line
+                ):
+                    _any_content_emitted = True
+
+                if line.startswith("data:") and line[5:].strip() == "[DONE]":
+                    if _completion_tokens_seen > 0 and not _any_content_emitted:
+                        logger.warning(
+                            "Backend %s completed with %d completion tokens but zero "
+                            "content ever emitted (workspace=%s).",
+                            url,
+                            _completion_tokens_seen,
+                            workspace_id,
+                        )
+                        _record_error(workspace_id, "empty_completion")
+                        yield (
+                            "data: "
+                            + json.dumps(
+                                {"error": "Model returned an empty response — please retry."}
+                            )
+                            + "\n\n"
+                        ).encode()
 
                 yield (line + "\n\n").encode()
     except httpx.TimeoutException:
