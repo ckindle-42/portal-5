@@ -983,6 +983,7 @@ async def chat_completions(
                 backend_body["tool_choice"] = (
                     backend_body.get("tool_choice")
                     or _resolve_persona_tool_choice(persona_data)
+                    or WORKSPACES.get(workspace_id, {}).get("tool_choice")
                     or "auto"
                 )
                 logger.info(

@@ -417,7 +417,17 @@ async def _send_and_wait(
     await page.wait_for_timeout(600)  # Svelte async DOM update
     send_btn = page.locator("#send-message-button")
     if await send_btn.count() > 0:
-        await send_btn.click()
+        try:
+            await send_btn.click(timeout=10000)
+        except Exception:
+            # Button exists in the DOM but never became actionable (visible/
+            # stable/enabled) within the timeout — an intermittent Svelte
+            # rendering race observed across ~26% of tests in a single long
+            # rerun, spanning unrelated personas/models (not prompt-length
+            # dependent). Falls back to the same Enter-key path already used
+            # when the button doesn't exist at all, rather than failing the
+            # whole test on a flaky click.
+            await ta.press("Enter")
     else:
         await ta.press("Enter")
     await _wait_for_completion(

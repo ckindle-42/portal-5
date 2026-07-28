@@ -330,7 +330,10 @@ async def _try_non_streaming(
                         _seen_names.add(_ct_name)
             req_body["tools"] = _tools_arr
             req_body["tool_choice"] = (
-                req_body.get("tool_choice") or _resolve_persona_tool_choice(_persona_data) or "auto"
+                req_body.get("tool_choice")
+                or _resolve_persona_tool_choice(_persona_data)
+                or WORKSPACES.get(workspace_id, {}).get("tool_choice")
+                or "auto"
             )
             logger.info(
                 "Tool-call (non-stream): workspace=%s persona=%s model=%s exposed %d tools (merged)",

@@ -754,6 +754,10 @@ workspaces:
     - web_search
     expose_to_owui: true
     enable_web_search: false
+    # Observed narrating an intent to search BigFix syntax knowledge and
+    # then stopping without completing the search (finish_reason=stop,
+    # zero tool_calls emitted) — force the model to actually follow through.
+    tool_choice: required
   tools-specialist:
     module: general
     name: 🔧 Portal Tool Composer
@@ -958,6 +962,10 @@ workspaces:
     - recall
     expose_to_owui: true
     enable_web_search: true
+    # Observed narrating an intent to search/verify and then stopping
+    # without completing the search (finish_reason=stop, zero tool_calls
+    # emitted) — force the model to actually follow through.
+    tool_choice: required
     owui_system_prompt: |-
       You are a research assistant. Synthesize information from multiple sources. Distinguish primary from secondary sources. Always acknowledge the limits of your knowledge.
   auto-vision:
@@ -1794,6 +1802,11 @@ workspaces:
     temperature: 0.2
     top_p: 0.9
     repeat_penalty: 1.1
+    # Observed hallucinating tool names that don't exist ("write_note",
+    # "render_3d" instead of the real render_openscad) rather than not
+    # calling a tool at all — forcing a real call at least keeps it inside
+    # the actual tool schema instead of free-form fabrication.
+    tool_choice: required
     system_prompt_append: |2-
   
   
