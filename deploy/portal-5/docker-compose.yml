@@ -159,6 +159,7 @@ services:
       - MCP_CAD_RENDER_URL=http://portal5-mcp-cad-render:8926
       - MCP_PIPELINE_URL=http://host.docker.internal:8928
       - TOOL_DISPATCH_TIMEOUT_S=${TOOL_DISPATCH_TIMEOUT_S:-180}
+      - TOOL_REGISTRY_REFRESH_S=${TOOL_REGISTRY_REFRESH_S:-300}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on: []
