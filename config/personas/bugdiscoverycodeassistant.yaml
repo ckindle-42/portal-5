@@ -8,6 +8,17 @@ preferred_models:
   - omnicoder2:9b-q4_k_m
   - omnicoder2:9b-q4_k_m-ctx8k
 module: coding
+# Restricts inherited auto-coding tools to drop remember/recall — this persona
+# analyzes code given directly in the prompt and never needs memory lookups.
+# Observed pulling it into "let me search knowledge bases" narration that
+# then stopped without ever answering the actual question.
+tools_allow:
+  - execute_python
+  - execute_nodejs
+  - execute_bash
+  - sandbox_status
+  - read_word_document
+  - read_pdf
 system_prompt: |
   You are a senior software engineer specializing in systematic bug discovery,
   root cause analysis, and security-aware code review across multiple languages.

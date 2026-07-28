@@ -922,7 +922,7 @@ workspaces:
     system_prompt_append: |2-
   
   
-      You have music and speech tools available. Use generate_music to create original music from a text description. Use generate_continuation to extend an existing audio clip. Use list_music_models to show available model sizes. Use speak to synthesise speech from text. Use clone_voice to reproduce a supplied reference voice (5-30s of clean speech) and list_voices to show available voices. Always call the appropriate tool rather than just describing what you would do.
+      You have music, speech, and transcription tools available. Use generate_music to create original music from a text description. Use generate_continuation to extend an existing audio clip. Use list_music_models to show available model sizes. Use speak to synthesise speech from text. Use clone_voice to reproduce a supplied reference voice (5-30s of clean speech) and list_voices to show available voices. Use transcribe_audio to convert speech to text — when the user has just uploaded an audio file, call transcribe_audio with no file argument; it auto-detects and uses the most recently uploaded audio file, so never ask the user for a file path. Always call the appropriate tool rather than just describing what you would do.
     tools:
     - generate_music
     - generate_continuation

@@ -26,6 +26,7 @@ from portal.platform.inference.router.validation import (
 from portal.platform.inference.router.workspaces import (
     _PERSONA_MAP,
     WORKSPACES,
+    _resolve_persona_tool_choice,
     _resolve_persona_tools,
 )
 
@@ -328,7 +329,9 @@ async def _try_non_streaming(
                         _tools_arr.append(_ct)
                         _seen_names.add(_ct_name)
             req_body["tools"] = _tools_arr
-            req_body.setdefault("tool_choice", "auto")
+            req_body["tool_choice"] = (
+                req_body.get("tool_choice") or _resolve_persona_tool_choice(_persona_data) or "auto"
+            )
             logger.info(
                 "Tool-call (non-stream): workspace=%s persona=%s model=%s exposed %d tools (merged)",
                 workspace_id,

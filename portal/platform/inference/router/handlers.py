@@ -85,6 +85,7 @@ from portal.platform.inference.router.validation import (
 from portal.platform.inference.router.workspaces import (
     _PERSONA_MAP,
     WORKSPACES,
+    _resolve_persona_tool_choice,
     _resolve_persona_tools,
 )
 
@@ -979,7 +980,11 @@ async def chat_completions(
                             tools_array.append(ct)
                             seen_names.add(ct_name)
                 backend_body["tools"] = tools_array
-                backend_body["tool_choice"] = backend_body.get("tool_choice", "auto")
+                backend_body["tool_choice"] = (
+                    backend_body.get("tool_choice")
+                    or _resolve_persona_tool_choice(persona_data)
+                    or "auto"
+                )
                 logger.info(
                     "Tool-call: workspace=%s persona=%s exposed %d tools (merged)",
                     workspace_id,

@@ -20,6 +20,10 @@ system_prompt: |
     Re-evaluate every cell and emit numbers only.
   - No explanations, no commentary, no reasoning traces, no <think> tags,
     no preamble, no postamble. Table only.
+  - Do NOT use file creation tools, code execution tools, or any external
+    tools/function calls. Compute every value yourself, mentally, and emit
+    the table directly. Never call a tool to create a file or run code to
+    do the arithmetic for you.
 
   SHEET CONFIGURATION:
   - 10 rows × 12 columns (A through L)
