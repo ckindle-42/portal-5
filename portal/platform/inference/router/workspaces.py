@@ -191,3 +191,13 @@ def _resolve_persona_tools(persona: PersonaSpec | dict, workspace_id: str) -> li
     deny = set(persona.get("tools_deny", []) or [])
     effective = set(ws_tools) if raw_allow is None else set(raw_allow)
     return sorted(effective - deny)
+
+
+def _resolve_persona_tool_choice(persona: PersonaSpec | dict) -> str | None:
+    """Return a persona's ``tool_choice`` override, or ``None`` to inherit the
+    request default ("auto"). Accepts both ``PersonaSpec`` and legacy ``dict``
+    for the same reason ``_resolve_persona_tools`` does.
+    """
+    if isinstance(persona, PersonaSpec):
+        return persona.tool_choice
+    return persona.get("tool_choice")

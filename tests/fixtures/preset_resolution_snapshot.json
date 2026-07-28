@@ -389,8 +389,6 @@
       "execute_python",
       "read_pdf",
       "read_word_document",
-      "recall",
-      "remember",
       "sandbox_status"
     ],
     "kind": "persona",
@@ -755,8 +753,6 @@
       "execute_python",
       "read_pdf",
       "read_word_document",
-      "recall",
-      "remember",
       "sandbox_status"
     ],
     "kind": "persona",

@@ -7,6 +7,21 @@ preferred_models:
   - omnicoder2:9b-q4_k_m
   - omnicoder2:9b-q4_k_m-ctx8k
 module: coding
+# Restricts inherited auto-coding tools to drop remember/recall — this
+# persona reproduces failures in given test/error context and never needs
+# memory lookups. Observed pulling it into "let me examine recent related
+# knowledge and memory" narration that then stopped without answering.
+# NOTE: the system prompt below describes a live-browser-inspection
+# workflow, but auto-coding has no browser tools authorized at all — that
+# capability/tool-list mismatch is a separate, bigger gap (needs browser MCP
+# tool wiring + testing) not addressed by this narrower fix.
+tools_allow:
+  - execute_python
+  - execute_nodejs
+  - execute_bash
+  - sandbox_status
+  - read_word_document
+  - read_pdf
 system_prompt: |
   You debug failing end-to-end tests by reproducing the failure in a live browser. You combine code analysis with live browser inspection.
 

@@ -225,6 +225,17 @@ class PersonaSpec(BaseModel):
     tools_allow: list[str] | None = None
     tools_deny: list[str] = Field(default_factory=list)
 
+    # Force the model to actually invoke a tool rather than narrate an intent
+    # to (e.g. "Let me search knowledge bases...") and then stop generating
+    # without ever calling one — observed across several tool-reliant
+    # personas in the P4 UAT closeout sweep. None means inherit the request's
+    # default ("auto"); set to "required" only for personas whose entire
+    # purpose depends on a tool call actually happening (see
+    # _resolve_persona_tool_choice in router/workspaces.py). Do not set
+    # broadly — forcing tool use on a persona that legitimately sometimes
+    # needs no tools breaks the tool-free case.
+    tool_choice: str | None = None
+
     # DESIGN_OPENCODE_ADDRESSING_V1.md §3.2: flags a persona as part of the
     # opencode/Claude-Code curated model picker, so /v1/models can advertise
     # it (fixing the divergence between the hand-maintained opencode.jsonc
