@@ -75,6 +75,29 @@ def _test_needs_tool_metrics(test: dict) -> bool:
     return any(a.get("type") == "pipeline_tool_called" for a in specs)
 
 
+def _workspace_is_single_slot(model_slug: str) -> bool:
+    """Return True only if model_slug resolves to a workspace with
+    max_concurrent <= 1 — the only case where an abandoned generation left
+    running server-side can actually block the next request (single-permit
+    semaphore exhaustion; see fixes 899f3a0b/00f001a3). For workspaces with
+    concurrency headroom (the default is 5), a stuck prior attempt never
+    blocks a fresh one, so force-unloading buys no protection — it only
+    costs a needless cold reload when the next test happens to want the
+    same model (observed live: P-D22 exhausted retries on qwen3-coder,
+    forcing T-01 — the very next auto-coding test, same model — to reload
+    it from scratch for nothing).
+    """
+    try:
+        from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
+
+        persona = _PERSONA_MAP.get(model_slug)
+        ws_id = persona.workspace_model if persona else model_slug
+        max_concurrent = WORKSPACES.get(ws_id, {}).get("max_concurrent")
+        return (max_concurrent or 5) <= 1
+    except Exception:
+        return True  # fail safe: unload if we can't determine (prior behavior)
+
+
 # Tier execution order: ollama first, then any, then media_heavy
 _TIER_ORDER = ["ollama", "any", "media_heavy"]
 
@@ -782,7 +805,9 @@ async def run_test(
                 # Unloading forces Ollama to drop the in-flight generation, which
                 # propagates a disconnect into the pipeline's streaming generator
                 # and releases its semaphore permit before the retry starts.
-                if tier == "ollama":
+                # Only applies to single-slot workspaces — see
+                # _workspace_is_single_slot for why this must be conditional.
+                if tier == "ollama" and _workspace_is_single_slot(test["model_slug"]):
                     unload_all_models()
                 # Check backend health before retrying
                 await _wait_for_backend_alive(tier)
@@ -796,7 +821,7 @@ async def run_test(
                         flush=True,
                     )
                     await _navigate_to_chat(page, chat_url)
-            elif tier == "ollama":
+            elif tier == "ollama" and _workspace_is_single_slot(test["model_slug"]):
                 # Final attempt also exhausted with no response: the generation
                 # may still be running server-side. Without this unload, the
                 # abandoned generation keeps holding its semaphore permit and
@@ -804,6 +829,10 @@ async def run_test(
                 # the same backend model (model-change eviction between tests
                 # only fires when the model actually changes, so a same-model
                 # follow-up test would inherit the stuck permit otherwise).
+                # Only applies to single-slot workspaces (see
+                # _workspace_is_single_slot) — for the default concurrency (5)
+                # a stuck prior attempt never blocks a fresh one, so unloading
+                # here only costs a needless cold reload for nothing.
                 unload_all_models()
 
         # Download artifact if expected
