@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import glob
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -86,13 +87,52 @@ def resolve_local_source(repo_root: Path, source: SourceRef) -> tuple[Path, ...]
     return ()
 
 
+def _git_tracked_paths(repo_root: Path) -> frozenset[str] | None:
+    """Return repository-relative paths present in Git's index.
+
+    ``None`` means ``repo_root`` is not a Git worktree, in which case callers
+    may fall back to filesystem-only validation (useful for isolated tests and
+    extracted deployments).  An empty set is a valid result for a Git
+    worktree with no indexed files.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "-z"],
+            cwd=repo_root,
+            capture_output=True,
+            check=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return None
+    return frozenset(
+        path for path in result.stdout.decode("utf-8", errors="surrogateescape").split("\0") if path
+    )
+
+
+def _match_is_tracked(repo_root: Path, match: Path, tracked_paths: frozenset[str]) -> bool:
+    """Return whether a resolved file or directory survives a clean checkout."""
+    try:
+        relative = match.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return False
+    if match.is_dir():
+        prefix = f"{relative.rstrip('/')}/"
+        return any(path.startswith(prefix) for path in tracked_paths)
+    return relative in tracked_paths
+
+
 def audit_units(
     repo_root: Path,
     units: list[KnowledgeUnit] | None = None,
+    *,
+    tracked_paths: frozenset[str] | None = None,
 ) -> list[IntegrityIssue]:
     """Audit canonical bodies and local provenance references."""
     if units is None:
         units = load_all()
+    if tracked_paths is None:
+        tracked_paths = _git_tracked_paths(repo_root)
 
     issues: list[IntegrityIssue] = []
     for unit in units:
@@ -121,12 +161,26 @@ def audit_units(
             if not source_is_repository_local(source):
                 continue
             matches = resolve_local_source(repo_root, source)
+            untracked_matches: tuple[Path, ...] = ()
+            if tracked_paths is not None and matches:
+                untracked_matches = tuple(
+                    match
+                    for match in matches
+                    if not _match_is_tracked(repo_root, match, tracked_paths)
+                )
+                matches = tuple(match for match in matches if match not in untracked_matches)
             if not matches:
+                code = "untracked-source" if untracked_matches else "missing-source"
+                detail = (
+                    "repository-local provenance is excluded from a clean checkout"
+                    if untracked_matches
+                    else "repository-local provenance does not resolve"
+                )
                 issues.append(
                     IntegrityIssue(
                         unit_id=unit.id,
-                        code="missing-source",
-                        detail="repository-local provenance does not resolve",
+                        code=code,
+                        detail=detail,
                         source_path=source.path,
                     )
                 )

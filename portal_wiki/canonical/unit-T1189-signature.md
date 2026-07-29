@@ -18,8 +18,8 @@ tags:
 - T1189
 - technique
 - signature
-created_at: 1785349554.522909
-updated_at: 1785349554.522909
+created_at: 1785351452.881643
+updated_at: 1785351452.881643
 ---
 
 # T1189 — Drive-by compromise — reflected XSS and malicious redirect indicators [KEY: One of the XSS/redirect literals used by this SPL]
@@ -33,8 +33,8 @@ index=portal5_lab sourcetype="web:access" ("%3Cscript" OR "<script" OR "onerror=
 
 ## Exercised By Scenarios
 
-- `web_reflected_xss` — target: 10.10.11.50
-- `web_open_redirect` — target: 10.10.11.50
+- `web_reflected_xss`
+- `web_open_redirect`
 
 ## Per-Source Expected Signatures
 

@@ -7,8 +7,6 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1003.006
 - type: mitre
   path: ATT&CK:T1003.006
-- type: design
-  path: coding_task/F1/DESIGN_SEC_UNIFIED_RBP_FRAMEWORK_V3.md#R3
 last_generated_commit: ''
 confidence: high
 tags:
@@ -16,8 +14,8 @@ tags:
 - DCSync
 - credential-access
 - enriched
-created_at: 1785349554.524557
-updated_at: 1785349554.524557
+created_at: 1785351452.8832178
+updated_at: 1785351452.8832178
 ---
 
 # T1003.006 — DCSync Detection Signature

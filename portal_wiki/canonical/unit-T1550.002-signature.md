@@ -15,8 +15,8 @@ tags:
 - T1550.002
 - technique
 - signature
-created_at: 1785349554.5213828
-updated_at: 1785349554.5213828
+created_at: 1785351452.8801699
+updated_at: 1785351452.8801699
 ---
 
 # T1550.002 — Pass-the-hash — NTLM hash authentication
@@ -30,7 +30,7 @@ index=portal5_lab sourcetype="windows:security" EventCode=4624 LogonType=3 Authe
 
 ## Exercised By Scenarios
 
-- `relay_to_shell` — target: 10.10.11.21
+- `relay_to_shell`
 
 ## Per-Source Expected Signatures
 

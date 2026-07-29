@@ -5,10 +5,6 @@ title: "Media Module \u2014 image/audio/speech generation"
 sources:
 - type: code
   path: portal/modules/media/
-- type: design
-  path: coding_task/BUILD_PROGRAM_MODULARIZATION_ALL_V1.md
-- type: code
-  path: module-state-change:media:cli
 - type: code
   path: module-state-change:media:cli
 last_generated_commit: ''

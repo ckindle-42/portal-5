@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Deterministic projection of 986 canonical units.*
+*Deterministic projection of 985 canonical units.*
 
 ## Architecture Overview
 
@@ -105,4 +105,4 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 - **AGENT_LOOP — Record path (writing enabled, CI-gated)**: 1 source(s)
 
 ---
-*986 knowledge units referenced.*
+*985 knowledge units referenced.*

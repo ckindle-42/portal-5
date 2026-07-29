@@ -17,8 +17,8 @@ tags:
 - T1595
 - technique
 - signature
-created_at: 1785349554.520086
-updated_at: 1785349554.520086
+created_at: 1785351452.8789701
+updated_at: 1785351452.8789701
 ---
 
 # T1595 — Active scanning — vulnerability scanning and directory brute-force
@@ -32,8 +32,8 @@ index=portal5_lab sourcetype="web:access" status=404 | stats count by host, uri_
 
 ## Exercised By Scenarios
 
-- `web_asset_discovery` — target: 10.10.11.50
-- `web_nuclei_scan` — target: 10.10.11.50
+- `web_asset_discovery`
+- `web_nuclei_scan`
 
 ## Per-Source Expected Signatures
 

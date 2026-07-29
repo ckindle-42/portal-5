@@ -20,8 +20,8 @@ tags:
 - T1059.004
 - technique
 - signature
-created_at: 1785349554.5225742
-updated_at: 1785349554.5225742
+created_at: 1785351452.881309
+updated_at: 1785351452.881309
 ---
 
 # T1059.004 — Unix shell — command execution via sh/bash/python on Linux targets
@@ -35,11 +35,11 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="/bin/sh" OR exe="/
 
 ## Exercised By Scenarios
 
-- `mbptl_ctf_full_chain` — target: None
-- `web_to_root` — target: None
-- `ctf_multi_service` — target: None
-- `web_sqli_dump` — target: 10.10.11.50
-- `web_upload_bypass` — target: 10.10.11.50
+- `mbptl_ctf_full_chain`
+- `web_to_root`
+- `ctf_multi_service`
+- `web_sqli_dump`
+- `web_upload_bypass`
 
 ## Per-Source Expected Signatures
 

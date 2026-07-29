@@ -35,6 +35,8 @@ class TestSecuritySeeding:
             ids = [u.id for u in units]
             assert "unit-T1190-signature" in ids
             assert "unit-T1558.003-signature" in ids
+            # Canonical signatures must not depend on local .env target addresses.
+            assert all("— target:" not in unit.body for unit in units)
         finally:
             reset_canonical_dir()
 

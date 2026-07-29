@@ -19,8 +19,8 @@ tags:
 - T1505.003
 - technique
 - signature
-created_at: 1785349554.515299
-updated_at: 1785349554.515299
+created_at: 1785351452.8743281
+updated_at: 1785351452.8743281
 ---
 
 # T1505.003 — Webshell — file-write + subsequent exec correlation
@@ -34,9 +34,9 @@ index=portal5_lab sourcetype="web:access" "uploads" ".php" | join host [search i
 
 ## Exercised By Scenarios
 
-- `mbptl_ctf_full_chain` — target: None
-- `meta3_webdav_upload` — target: 10.10.11.13
-- `mission_vulhub_multi_target` — target: 10.10.11.50
+- `mbptl_ctf_full_chain`
+- `meta3_webdav_upload`
+- `mission_vulhub_multi_target`
 
 ## Per-Source Expected Signatures
 
