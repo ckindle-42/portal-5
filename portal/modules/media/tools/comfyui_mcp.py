@@ -366,7 +366,7 @@ _MODEL_CKPT_MAP = {
 #   - qwen-image-2512-lightning: same T2I graph + distillation LoRA, 8 steps, cfg=1.0
 QWEN_IMAGE_MODEL = os.getenv("QWEN_IMAGE_MODEL", "qwen_image_fp8_e4m3fn.safetensors")
 QWEN_IMAGE_EDIT_MODEL = os.getenv("QWEN_IMAGE_EDIT_MODEL", "qwen_image_edit_2511_bf16.safetensors")
-QWEN_IMAGE_CLIP = os.getenv("QWEN_IMAGE_CLIP", "qwen_2.5_vl_7b.safetensors")
+QWEN_IMAGE_CLIP = os.getenv("QWEN_IMAGE_CLIP", "qwen_2.5_vl_7b_fp8_scaled.safetensors")
 QWEN_IMAGE_VAE = os.getenv("QWEN_IMAGE_VAE", "qwen_image_vae.safetensors")
 QWEN_IMAGE_LIGHTNING_LORA = os.getenv(
     "QWEN_IMAGE_LIGHTNING_LORA", "Qwen-Image-Lightning-8steps-V1.1-bf16.safetensors"

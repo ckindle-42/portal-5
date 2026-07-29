@@ -812,7 +812,7 @@ _launch_pull_qwen_image() {
     LIGHTNING_REPO="lightx2v/Qwen-Image-Lightning"
 
     _pull_flat "$QI_REPO" "split_files/diffusion_models/qwen_image_2512_bf16.safetensors" "diffusion_models"
-    _pull_flat "$QI_REPO" "split_files/text_encoders/qwen_2.5_vl_7b.safetensors" "text_encoders"
+    _pull_flat "$QI_REPO" "split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors" "text_encoders"
     _pull_flat "$QI_REPO" "split_files/vae/qwen_image_vae.safetensors" "vae"
     _pull_flat "$QI_EDIT_REPO" "split_files/diffusion_models/qwen_image_edit_2511_bf16.safetensors" "diffusion_models"
 
