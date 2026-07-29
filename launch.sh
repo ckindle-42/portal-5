@@ -591,6 +591,10 @@ PYEOF
     _launch_download_comfyui_models
     ;;
 
+  pull-wan22)
+    _launch_pull_wan22
+    ;;
+
   apply-mtp-drafts)
     exec python3 -m portal.platform.inference.cli models apply-mtp-drafts "${@:2}"
     ;;
@@ -607,9 +611,9 @@ PYEOF
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
     echo "  install-comfyui       Install ComfyUI natively via git+pip (Apple Silicon)"
     echo "  install-music         Install Music MCP natively via venv (Apple Silicon / MPS)"
-    echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
-  echo "  pull-wan22            Pull Wan 2.2 ComfyUI models (T2V-A14B/TI2V-5B/Animate-14B/S2V-14B, ~80 GB)"
-  echo "  pull-qwen-image       Pull Qwen-Image-2512 family (2512/Edit-2511/Lightning, ~30 GB)"
+    echo "  download-comfyui-models  REMOVED, no implementation (see download-comfyui-models handler)"
+  echo "  pull-wan22            Pull Wan 2.2 TI2V-5B + S2V-14B ComfyUI models (~24 GB; T2V-A14B/Animate-14B not covered, see scripts/lib/services.sh)"
+  echo "  pull-qwen-image       Pull Qwen-Image-2512 family (2512/Edit-2511/Lightning, ~30 GB) — NOT YET IMPLEMENTED"
     echo "  start-speech          Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
     echo "  start-transcribe      Start MLX Transcribe server (mlx-whisper + pyannote diarization, :8924)"

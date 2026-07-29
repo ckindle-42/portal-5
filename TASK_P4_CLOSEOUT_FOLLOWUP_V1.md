@@ -104,19 +104,33 @@ fresh install that relies on this documented command will hit the exact same
 wrong-directory bug as this session, by hand, with no automation to fix at the
 source.
 
-**To do (own follow-up, not blocking Item 2):**
-- [ ] Decide whether to implement `pull-wan22` for real, now that the correct flat
-      download layout is known (`hf download Comfy-Org/Wan_2.2_ComfyUI_Repackaged
+**Decision (2026-07-29): implemented for TI2V-5B + S2V-14B, deferred for
+T2V-A14B/Animate-14B.** `_launch_pull_wan22` in `scripts/lib/services.sh`,
+wired to `./launch.sh pull-wan22`. Also discovered and fixed a related dead
+reference: `download-comfyui-models` called `scripts/download_comfyui_models.py`,
+which was deleted in `ea864cf2` (2026-05-23) on the assumption pull-wan22/
+pull-qwen-image would replace it — neither ever did until now. That handler
+now exits with a clear pointer instead of a bare `ModuleNotFoundError`.
+`pull-qwen-image` remains unimplemented (out of scope, not touched).
+
+- [x] Implement `pull-wan22` using the verified flat download layout (`hf
+      download Comfy-Org/Wan_2.2_ComfyUI_Repackaged
       split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors --local-dir
-      ~/ComfyUI/models/diffusion_models/` — note: pass `--local-dir` at the
-      *model-type-folder* level, not `~/ComfyUI/models/`, and strip the repo's
-      internal `split_files/<type>/` prefix from the destination, or the same bug
-      recurs).
-- [ ] If implemented, also cover S2V-14B (`WAN22_S2V_MODEL`) and T2V-A14B env vars,
-      which reference similar HF repo paths and were not touched this session
-      (T2V-A14B already uses a working subdir convention per its own comment —
-      verify it's actually correct before assuming, don't extrapolate from the
-      TI2V-5B fix without checking).
+      ~/ComfyUI/models/diffusion_models/`, then flatten the resulting
+      `split_files/<type>/` subdir). Covers TI2V-5B (already present) + VAE +
+      shared fp8 text encoder + S2V-14B + its audio encoder.
+- [x] S2V-14B (`WAN22_S2V_MODEL`) fixed to the same flat pattern in both
+      `video_mcp.py` and `docker-compose.yml` — it had the identical nested-path
+      bug as TI2V-5B, just never downloaded/hit yet. Live-verified: ran
+      `./launch.sh pull-wan22`, downloaded S2V-14B (15GB) + audio encoder,
+      confirmed both show up in `/object_info/UNETLoader` and
+      `/object_info/AudioEncoderLoader` with no ComfyUI restart needed.
+- [ ] T2V-A14B and Animate-14B explicitly NOT covered — T2V-A14B uses a
+      different HF repo/layout (`Wan2.2-T2V-A14B/diffusion_pytorch_model_comfyui.safetensors`)
+      that was not re-verified this session (would require a ~24GB download to
+      confirm); Animate-14B is a stub needing custom ComfyUI nodes that aren't
+      installed. Left as a documented gap in the `pull-wan22` help text and
+      code comment rather than silently promised.
 
 ---
 

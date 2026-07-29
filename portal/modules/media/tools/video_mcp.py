@@ -257,9 +257,7 @@ WAN22_TI2V_VAE = os.getenv("WAN22_TI2V_VAE", "wan2.2_vae.safetensors")
 # Sound-to-video: WanSoundImageToVideo conditions on audio + reference image.
 # Requires audio_encoders/wav2vec2_large_english_fp16.safetensors.
 # Download: ./launch.sh pull-wan22
-WAN22_S2V_MODEL = os.getenv(
-    "WAN22_S2V_MODEL", "split_files/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors"
-)
+WAN22_S2V_MODEL = os.getenv("WAN22_S2V_MODEL", "wan2.2_s2v_14B_fp8_scaled.safetensors")
 WAN22_S2V_VAE = os.getenv("WAN22_S2V_VAE", "wan_2.1_vae.safetensors")
 WAN22_S2V_AUDIO_ENCODER = os.getenv(
     "WAN22_S2V_AUDIO_ENCODER", "wav2vec2_large_english_fp16.safetensors"
