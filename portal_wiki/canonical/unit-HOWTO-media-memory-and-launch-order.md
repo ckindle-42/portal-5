@@ -3,8 +3,10 @@ id: unit-HOWTO-media-memory-and-launch-order
 kind: why
 title: Media memory and launch order
 sources:
-- type: design
-  path: coding_task/video_work/TASK_VRAM_ADMISSION_V1.md
+- type: code
+  path: portal/modules/media/tools/_admission.py
+- type: config
+  path: config/portal.yaml
 last_generated_commit: ''
 confidence: high
 tags:

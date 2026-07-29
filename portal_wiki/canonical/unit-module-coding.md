@@ -5,8 +5,6 @@ title: "Coding Module \u2014 agentic coding + sandbox execution"
 sources:
 - type: code
   path: portal/modules/coding/
-- type: design
-  path: coding_task/BUILD_PROGRAM_MODULARIZATION_ALL_V1.md
 last_generated_commit: ''
 confidence: high
 tags:

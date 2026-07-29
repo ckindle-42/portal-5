@@ -19,8 +19,8 @@ tags:
 - T1021.002
 - technique
 - signature
-created_at: 1785349554.518809
-updated_at: 1785349554.518809
+created_at: 1785351452.8777559
+updated_at: 1785351452.8777559
 ---
 
 # T1021.002 — SMB/Windows Admin Shares — remote file copy via SMB
@@ -34,10 +34,10 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="smbclient" OR a0="s
 
 ## Exercised By Scenarios
 
-- `meta3_smb_exploit` — target: 10.10.11.13
-- `meta3_winrm_weakpass` — target: 10.10.11.13
-- `meta3_psexec` — target: 10.10.11.13
-- `mission_meta3_lateral_pivot` — target: 10.10.11.13
+- `meta3_smb_exploit`
+- `meta3_winrm_weakpass`
+- `meta3_psexec`
+- `mission_meta3_lateral_pivot`
 
 ## Per-Source Expected Signatures
 

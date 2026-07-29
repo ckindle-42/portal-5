@@ -74,8 +74,7 @@ def seed_technique_signatures(dry_run: bool = False) -> list[KnowledgeUnit]:
                 ]
             )
             for sc_name in scenarios[:5]:
-                sc = SCENARIOS.get(sc_name, {})
-                body_parts.append(f"- `{sc_name}` — target: {sc.get('target_host', 'N/A')}")
+                body_parts.append(f"- `{sc_name}`")
             body_parts.append("")
 
         # Add OS/source-specific signatures
@@ -243,7 +242,6 @@ These are fundamentally different event types and should never be confused.
             path="portal/modules/security/core/siem/spl_detections.yaml#T1003.006",
         ),
         SourceRef(type="mitre", path="ATT&CK:T1003.006"),
-        SourceRef(type="design", path="coding_task/F1/DESIGN_SEC_UNIFIED_RBP_FRAMEWORK_V3.md#R3"),
     ]
 
     unit = KnowledgeUnit(

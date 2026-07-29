@@ -20,8 +20,8 @@ tags:
 - T1083
 - technique
 - signature
-created_at: 1785349554.520399
-updated_at: 1785349554.520399
+created_at: 1785351452.879251
+updated_at: 1785351452.879251
 ---
 
 # T1083 — File and directory discovery — path traversal and LFI [KEY: One of the path traversal literals used by this SPL]
@@ -35,11 +35,11 @@ index=portal5_lab sourcetype="web:access" ("../" OR "..%2f" OR "etc/passwd" OR "
 
 ## Exercised By Scenarios
 
-- `web_path_traversal` — target: 10.10.11.50
-- `vuln_grafana_lfi` — target: 10.10.11.50
-- `vuln_nginx_lfi` — target: 10.10.11.50
-- `vuln_nexus_rce` — target: 10.10.11.50
-- `vuln_rails_rce` — target: 10.10.11.50
+- `web_path_traversal`
+- `vuln_grafana_lfi`
+- `vuln_nginx_lfi`
+- `vuln_nexus_rce`
+- `vuln_rails_rce`
 
 ## Per-Source Expected Signatures
 

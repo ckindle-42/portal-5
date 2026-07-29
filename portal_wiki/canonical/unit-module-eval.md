@@ -5,8 +5,6 @@ title: "Eval Module \u2014 cross-cutting bench apparatus (off by default)"
 sources:
 - type: code
   path: portal/modules/eval/
-- type: design
-  path: coding_task/BUILD_PROGRAM_MODULARIZATION_ALL_V1.md
 last_generated_commit: ''
 confidence: high
 tags:

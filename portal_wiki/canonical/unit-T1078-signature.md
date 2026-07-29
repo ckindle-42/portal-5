@@ -19,8 +19,8 @@ tags:
 - T1078
 - technique
 - signature
-created_at: 1785349554.520784
-updated_at: 1785349554.520784
+created_at: 1785351452.8795898
+updated_at: 1785351452.8795898
 ---
 
 # T1078 — Valid accounts — default/weak credential usage
@@ -34,11 +34,11 @@ index=portal5_lab sourcetype="web:access" (status=200) | join host [search index
 
 ## Exercised By Scenarios
 
-- `web_nosql_inject` — target: 10.10.11.50
-- `web_idor` — target: 10.10.11.50
-- `meta3_mysql_exploit` — target: 10.10.11.13
-- `meta3_full_chain` — target: 10.10.11.13
-- `meta3_winrm_weakpass` — target: 10.10.11.13
+- `web_nosql_inject`
+- `web_idor`
+- `meta3_mysql_exploit`
+- `meta3_full_chain`
+- `meta3_winrm_weakpass`
 
 ## Per-Source Expected Signatures
 

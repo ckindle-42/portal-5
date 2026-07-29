@@ -18,8 +18,8 @@ tags:
 - T1053.005
 - technique
 - signature
-created_at: 1785349554.518204
-updated_at: 1785349554.518204
+created_at: 1785351452.877162
+updated_at: 1785351452.877162
 ---
 
 # T1053.005 — Scheduled task persistence — Windows Security Event 4698
@@ -33,8 +33,8 @@ index=portal5_lab sourcetype="windows:security" EventCode=4698 | stats count by 
 
 ## Exercised By Scenarios
 
-- `kerberoast_to_da` — target: 10.10.11.21
-- `asrep_to_lateral` — target: 10.10.11.21
+- `kerberoast_to_da`
+- `asrep_to_lateral`
 
 ## Per-Source Expected Signatures
 

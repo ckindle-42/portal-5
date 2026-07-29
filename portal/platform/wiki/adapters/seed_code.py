@@ -32,6 +32,34 @@ def _get_current_commit() -> str:
         return "unknown"
 
 
+def _discover_python_files() -> list[Path]:
+    """Find repository-eligible Python files without indexing ignored scratch data."""
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "ls-files",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "-z",
+                "--",
+                "*.py",
+            ],
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            check=True,
+            timeout=10,
+        )
+        return sorted(
+            _REPO_ROOT / path
+            for path in result.stdout.decode("utf-8", errors="surrogateescape").split("\0")
+            if path
+        )
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return sorted(_REPO_ROOT.rglob("*.py"))
+
+
 def seed_code(dry_run: bool = False) -> list[KnowledgeUnit]:
     """Seed WHAT units from code sources.
 
@@ -42,7 +70,7 @@ def seed_code(dry_run: bool = False) -> list[KnowledgeUnit]:
 
     # Group modules by subsystem
     subsystems: dict[str, list[Path]] = {}
-    for py_file in sorted(_REPO_ROOT.rglob("*.py")):
+    for py_file in _discover_python_files():
         rel = py_file.relative_to(_REPO_ROOT)
         parts = rel.parts
 

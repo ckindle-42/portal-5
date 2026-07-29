@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 986 canonical units.*
+*Deterministic projection of 985 canonical units.*
 
 ## Knowledge Layer
 
@@ -180,7 +180,7 @@
 | `unit-HOWTO-list-available-models` | why | 1 |
 | `unit-HOWTO-list-available-tools` | why | 1 |
 | `unit-HOWTO-list-versions-tags` | why | 1 |
-| `unit-HOWTO-media-memory-and-launch-order` | why | 1 |
+| `unit-HOWTO-media-memory-and-launch-order` | why | 2 |
 | `unit-HOWTO-melody-conditioning` | why | 1 |
 | `unit-HOWTO-mlx-speech-voices-apple-silicon-primary` | why | 1 |
 | `unit-HOWTO-models` | why | 1 |
@@ -400,7 +400,7 @@
 | `unit-SEC_BENCH-what-it-is` | what | 2 |
 | `unit-T1003.001-signature` | mixed | 3 |
 | `unit-T1003.003-signature` | mixed | 3 |
-| `unit-T1003.006-signature` | mixed | 3 |
+| `unit-T1003.006-signature` | mixed | 2 |
 | `unit-T1021.002-signature` | mixed | 5 |
 | `unit-T1046-signature` | mixed | 5 |
 | `unit-T1047-signature` | mixed | 3 |
@@ -526,8 +526,8 @@
 | `unit-backup-restore-what-not-to-back-up` | what | 1 |
 | `unit-backup-restore-what-to-back-up` | what | 1 |
 | `unit-backup-restore-with-compression-faster-for-large-volumes` | what | 1 |
-| `unit-blue-orchestration-v2-capture-gap` | why | 5 |
-| `unit-blue-orchestration-v3-council-of-agreement` | why | 2 |
+| `unit-blue-orchestration-v2-capture-gap` | why | 4 |
+| `unit-blue-orchestration-v3-council-of-agreement` | why | 1 |
 | `unit-claude-1-config-backends-yaml-is-sacred` | why | 1 |
 | `unit-claude-10-git-discipline` | why | 1 |
 | `unit-claude-11-shared-workspace-is-the-only-path-for-user-file` | why | 1 |
@@ -569,7 +569,6 @@
 | `unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio` | what | 1 |
 | `unit-cluster-scale-stage-3-vllm-for-70b-models` | what | 1 |
 | `unit-cluster-scale-stage-4-5-specialized-model-groups` | what | 1 |
-| `unit-code-coding_task` | what | 4 |
 | `unit-code-portal` | what | 5 |
 | `unit-code-portal_channels` | what | 4 |
 | `unit-code-portal_wiki` | what | 4 |
@@ -872,15 +871,15 @@
 | `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m-ctx64k` | what | 1 |
 | `unit-model-catalog-sylink-sylink-8b` | what | 1 |
 | `unit-model-catalog-sylink-sylink-8b-ctx8k` | what | 1 |
-| `unit-module-cad` | mixed | 2 |
-| `unit-module-coding` | mixed | 2 |
-| `unit-module-compliance` | mixed | 2 |
-| `unit-module-documents` | mixed | 2 |
-| `unit-module-eval` | mixed | 2 |
+| `unit-module-cad` | mixed | 1 |
+| `unit-module-coding` | mixed | 1 |
+| `unit-module-compliance` | mixed | 1 |
+| `unit-module-documents` | mixed | 1 |
+| `unit-module-eval` | mixed | 1 |
 | `unit-module-general` | mixed | 2 |
-| `unit-module-media` | mixed | 4 |
-| `unit-module-research` | mixed | 2 |
-| `unit-module-security` | mixed | 2 |
+| `unit-module-media` | mixed | 2 |
+| `unit-module-research` | mixed | 1 |
+| `unit-module-security` | mixed | 1 |
 | `unit-p5-roadmap-future-considerations-not-yet-implemented` | what | 1 |
 | `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | what | 1 |
 | `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | what | 1 |
@@ -995,14 +994,15 @@
 | `unit-user-guide-uploading-documents` | what | 1 |
 | `unit-user-guide-workspaces` | what | 1 |
 
-**Total:** 986 units
+**Total:** 985 units
 
 ## Source Distribution
 
-- **bench-security**: 4 references
-- **code**: 102 references
-- **design**: 445 references
-- **doc**: 488 references
+- **bench-security**: 5 references
+- **code**: 98 references
+- **config**: 1 references
+- **design**: 433 references
+- **doc**: 487 references
 - **mitre**: 31 references
 - **scenario**: 57 references
 - **spl**: 31 references

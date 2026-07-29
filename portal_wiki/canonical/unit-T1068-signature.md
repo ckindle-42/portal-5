@@ -16,8 +16,8 @@ tags:
 - T1068
 - technique
 - signature
-created_at: 1785349554.519487
-updated_at: 1785349554.519487
+created_at: 1785351452.87839
+updated_at: 1785351452.87839
 ---
 
 # T1068 — Exploitation for privilege escalation — kernel/userspace privesc
@@ -31,7 +31,7 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="*/exploit" OR exe=
 
 ## Exercised By Scenarios
 
-- `meta3_linux_privesc` — target: 10.10.11.13
+- `meta3_linux_privesc`
 
 ## Per-Source Expected Signatures
 

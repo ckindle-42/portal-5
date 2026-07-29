@@ -22,8 +22,8 @@ tags:
 - T1110.003
 - technique
 - signature
-created_at: 1785349554.5175328
-updated_at: 1785349554.5175328
+created_at: 1785351452.8765051
+updated_at: 1785351452.8765051
 ---
 
 # T1110.003 — Password spray — multiple 4625/4771 events from single source [DISTINGUISH: T1110.003 = one password across many accounts; T1110.001 = many passwords against one account] [KEY: Many accounts, few attempts per account, single source IP]
@@ -37,9 +37,9 @@ index=portal5_lab sourcetype="windows:security" (EventCode=4625 OR EventCode=477
 
 ## Exercised By Scenarios
 
-- `asrep_to_lateral` — target: 10.10.11.21
-- `meta3_winrm_weakpass` — target: 10.10.11.13
-- `meta3_ssh_brute` — target: 10.10.11.13
+- `asrep_to_lateral`
+- `meta3_winrm_weakpass`
+- `meta3_ssh_brute`
 
 ## Per-Source Expected Signatures
 

@@ -5,26 +5,26 @@ title: portal subsystem (314 files)
 sources:
 - type: code
   path: portal/conftest.py
-  commit: b2e745b62136
+  commit: 10078bd4e96b
 - type: code
   path: portal/modules/cad/tools/cad_render_mcp.py
-  commit: b2e745b62136
+  commit: 10078bd4e96b
 - type: code
   path: portal/modules/coding/tools/code_sandbox_mcp.py
-  commit: b2e745b62136
+  commit: 10078bd4e96b
 - type: code
   path: portal/modules/compliance/__init__.py
-  commit: b2e745b62136
+  commit: 10078bd4e96b
 - type: code
   path: portal/modules/compliance/config/__init__.py
-  commit: b2e745b62136
+  commit: 10078bd4e96b
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - portal
-created_at: 1785349554.438764
-updated_at: 1785349554.438764
+created_at: 1785351452.7986891
+updated_at: 1785351452.7986891
 ---
 
 # portal subsystem

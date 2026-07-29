@@ -18,8 +18,8 @@ tags:
 - T1003.003
 - technique
 - signature
-created_at: 1785349554.521986
-updated_at: 1785349554.521986
+created_at: 1785351452.8807209
+updated_at: 1785351452.8807209
 ---
 
 # T1003.003 — NTDS dump — ntdsutil/ntds.dit extraction for domain credential theft [DISTINGUISH: T1003.003 = NTDS.dit extraction; T1003.001 = local LSASS memory access; T1003.006 = remote AD replication] [KEY: NewProcessName=*ntdsutil* or Message=*ntds.dit*]
@@ -33,7 +33,7 @@ index=portal5_lab sourcetype="windows:security" (EventCode=4688 (NewProcessName=
 
 ## Exercised By Scenarios
 
-- `relay_to_shell` — target: 10.10.11.21
+- `relay_to_shell`
 
 ## Per-Source Expected Signatures
 

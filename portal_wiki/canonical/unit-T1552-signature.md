@@ -21,8 +21,8 @@ tags:
 - T1552
 - technique
 - signature
-created_at: 1785349554.523846
-updated_at: 1785349554.523846
+created_at: 1785351452.8825321
+updated_at: 1785351452.8825321
 ---
 
 # T1552 — Unsecured credentials — SSRF-to-metadata, .env/.git exposure, hardcoded creds [KEY: One of the metadata/credential exposure literals used by this SPL]
@@ -36,9 +36,9 @@ index=portal5_lab sourcetype="web:access" ("169.254.169.254" OR "/latest/meta-da
 
 ## Exercised By Scenarios
 
-- `web_ssrf` — target: 10.10.11.50
-- `vuln_gitlab_rce` — target: 10.10.11.50
-- `vuln_joomla_rce` — target: 10.10.11.50
+- `web_ssrf`
+- `vuln_gitlab_rce`
+- `vuln_joomla_rce`
 
 ## Per-Source Expected Signatures
 

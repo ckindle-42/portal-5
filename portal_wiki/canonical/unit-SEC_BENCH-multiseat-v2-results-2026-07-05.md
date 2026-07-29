@@ -3,8 +3,8 @@ id: unit-SEC_BENCH-multiseat-v2-results-2026-07-05
 kind: mixed
 title: "SEC_BENCH — Multi-Seat Model Bench V2 results (2026-07-05): BugTraceAI-27B, security-slm-1.5b, CyberSecQwen-4B (deferred)"
 sources:
-- type: doc
-  path: coding_task/TASK_SEC_BENCH_MULTISEAT_V2.md
+- type: bench-security
+  path: bench-run:sec-bench-multiseat-v2:2026-07-05
 - type: code
   path: portal/modules/security/core/investigation/agents.py
 - type: code
@@ -22,9 +22,10 @@ updated_at: 1783448400.0
 
 ## Purpose
 
-Real per-seat evaluation of three candidate models against the E2E capture library
-(`EXEC_SEC_E2E_SYSTEM_V1`), per `coding_task/TASK_SEC_BENCH_MULTISEAT_V2.md`. All results isolated to
-`results/candidates/`; `PROMOTE_POLICY: confirm` — nothing here auto-replaces a fleet incumbent.
+Real per-seat evaluation of three candidate models against the E2E capture
+library (`EXEC_SEC_E2E_SYSTEM_V1`). All results were isolated to
+`results/candidates/`; `PROMOTE_POLICY: confirm` — nothing here
+auto-replaces a fleet incumbent.
 
 ## Model A — BugTraceAI-CORE-Ultra-27B (`hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K`)
 

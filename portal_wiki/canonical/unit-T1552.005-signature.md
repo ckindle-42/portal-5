@@ -16,8 +16,8 @@ tags:
 - T1552.005
 - technique
 - signature
-created_at: 1785349554.516172
-updated_at: 1785349554.516172
+created_at: 1785351452.875168
+updated_at: 1785351452.875168
 ---
 
 # T1552.005 — Cloud-metadata SSRF — 169.254.169.254 access signal [KEY: Cloud metadata endpoint literal from the SPL]
@@ -31,7 +31,7 @@ index=portal5_lab sourcetype="web:access" "169.254.169.254" | stats count by hos
 
 ## Exercised By Scenarios
 
-- `cloud_breach` — target: None
+- `cloud_breach`
 
 ## Per-Source Expected Signatures
 

@@ -20,8 +20,8 @@ tags:
 - T1190
 - technique
 - signature
-created_at: 1785349554.514407
-updated_at: 1785349554.514407
+created_at: 1785351452.873486
+updated_at: 1785351452.873486
 ---
 
 # T1190 — Web exploit — access-log signatures (LFI/SQLi/Log4Shell/webshell markers) [KEY: One of the literal exploit markers used by this SPL]
@@ -35,11 +35,11 @@ index=portal5_lab sourcetype="web:access" (passwd OR "../" OR "UNION SELECT" OR 
 
 ## Exercised By Scenarios
 
-- `mbptl_ctf_full_chain` — target: None
-- `web_to_root` — target: None
-- `ctf_multi_service` — target: None
-- `web_sqli_dump` — target: 10.10.11.50
-- `web_graphql_introspect` — target: 10.10.11.50
+- `mbptl_ctf_full_chain`
+- `web_to_root`
+- `ctf_multi_service`
+- `web_sqli_dump`
+- `web_graphql_introspect`
 
 ## Per-Source Expected Signatures
 
