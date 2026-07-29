@@ -1,3 +1,11 @@
+**EXECUTED 2026-07-28:** all 41 models below were deleted via `ollama rm`
+(0 failures). An additional 9 orphans found during the same disk-cleanup
+pass (post-7/21 pulls with zero repo/config references: `dolphin3:8b` and
+8 abliterated/uncensored Qwen3.5/3.6/14B/8B variants) were deleted
+alongside these. `/Volumes/data01` went from 58GB free (98% full) to
+357GB free (81% full). `config/model_inventory.snapshot` regenerated to
+reflect current state.
+
 # Unused Ollama models — confirmed safe to delete (2026-07-21)
 
 Generated during a project-wide disk-usage review (see `P5-FUT-DISK-CLEANUP-001` in
