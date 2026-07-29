@@ -11,8 +11,8 @@ confidence: high
 tags:
 - docs
 - QWEN_TEMPLATE_PROBE
-created_at: 1783195000.889451
-updated_at: 1783195000.889451
+created_at: 1785348275.8189561
+updated_at: 1785348275.8189561
 ---
 
 ```
@@ -51,4 +51,33 @@ options:
   --prefill-step-size PREFILL_STEP_SIZE
                         Tokens per prefill step (default: 2048).
   --max-tokens MAX_TOKENS
-        
+                        Maximum number of tokens to generate.
+  --enable-thinking     Enable thinking mode by default for requests that do
+                        not set enable_thinking explicitly.
+  --kv-bits KV_BITS     Number of bits for KV cache quantization (e.g. 3.5 for
+                        TurboQuant).
+  --kv-quant-scheme {uniform,turboquant}
+                        KV cache quantization backend.
+  --kv-group-size KV_GROUP_SIZE
+                        Group size for uniform KV cache quantization.
+  --max-kv-size MAX_KV_SIZE
+                        Maximum KV cache size in tokens.
+  --quantized-kv-start QUANTIZED_KV_START
+                        Start index for quantized KV cache.
+  --draft-model DRAFT_MODEL
+                        Speculative drafter path or HF id (e.g.
+                        z-lab/Qwen3.5-4B-DFlash, google/gemma-4-31B-it-
+                        assistant).
+  --draft-kind {dflash,mtp}
+                        Drafter family — 'dflash' or 'mtp' (Gemma 4). Default:
+                        auto-detected from the drafter's HF model_type.
+  --draft-block-size DRAFT_BLOCK_SIZE
+                        Override the drafter's configured block size.
+  --top-logprobs-k TOP_LOGPROBS_K
+                        Server-side cap for per-token top_logprobs (0-20,
+                        default 0 = disabled). Maps to the TOP_LOGPROBS_K env
+                        var.
+  --reload              Enable auto-reload for development.
+  --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
+                        Set the logging level (default: INFO).
+```

@@ -353,7 +353,7 @@ case "${1:-up}" in
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
     MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp mcp-cad-render mcp-proxmox mcp-reranker"
-    [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui mcp-video"
+    [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui"
     echo "[portal-5] Rebuilding portal-pipeline..."
     docker compose build portal-pipeline
     echo "[portal-5] Rebuilding MCP images..."
@@ -372,7 +372,7 @@ case "${1:-up}" in
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
     MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp mcp-cad-render mcp-proxmox mcp-reranker"
-    [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui mcp-video"
+    [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui"
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build $MCP_SERVICES
     echo "[portal-5] Building native arm64 PowerShell sandbox image..."
@@ -389,7 +389,7 @@ case "${1:-up}" in
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
     MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp mcp-cad-render"
-    [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui mcp-video"
+    [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui"
     echo "[portal-5] Restarting MCP containers..."
     docker compose restart $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"
@@ -617,7 +617,7 @@ PYEOF
     echo "  install-music         Install Music MCP natively via venv (Apple Silicon / MPS)"
     echo "  download-comfyui-models  REMOVED, no implementation (see download-comfyui-models handler)"
   echo "  pull-wan22            Pull Wan 2.2 TI2V-5B + S2V-14B + T2V-A14B ComfyUI models (~50 GB; Animate-14B not covered, see scripts/lib/services.sh)"
-  echo "  pull-qwen-image       Pull Qwen-Image T2I + Edit-2511 + Lightning LoRA ComfyUI models (~99 GB)"
+  echo "  pull-qwen-image       Pull working Qwen-Image T2I + Edit-2509 + Lightning models (~48 GiB)"
     echo "  start-speech          Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
     echo "  start-transcribe      Start MLX Transcribe server (mlx-whisper + pyannote diarization, :8924)"

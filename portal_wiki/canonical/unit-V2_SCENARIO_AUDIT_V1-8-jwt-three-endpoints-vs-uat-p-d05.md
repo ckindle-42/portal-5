@@ -11,8 +11,8 @@ confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.924624
-updated_at: 1783195000.924624
+created_at: 1785348275.819628
+updated_at: 1785348275.819628
 ---
 
 
@@ -39,4 +39,6 @@ updated_at: 1783195000.924624
 
 **Verdict**: EASIER
 
-**Notes**: Together with async-http-retry-wrapper, this is one of the two scenarios scoring EASIER on all three axes. V2 not only mandates a fenced code block and names assertion-checked elements, but also prescribes the JWT library, token format, and secret-management approach — eliminating design d
+**Notes**: Together with async-http-retry-wrapper, this is one of the two scenarios scoring EASIER on all three axes. V2 not only mandates a fenced code block and names assertion-checked elements, but also prescribes the JWT library, token format, and secret-management approach — eliminating design decisions that UAT required the model to make. UAT's FastAPI vs V2's Flask is a framework difference but does not affect the bias analysis (both name a framework).
+
+---

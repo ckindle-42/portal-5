@@ -2,7 +2,8 @@
 
 <!-- WIKI:GENERATED unit=unit-readme-portal-5-local-ai-platform -->
 A complete, private AI platform that runs on your hardware. Text, code, security
-analysis, images, video, music, documents, and voice — all local, all yours.
+analysis, images, music, documents, and voice — all local, all yours. The
+retained video-generation code is shelved and not part of normal operation.
 
 Connects to Open WebUI, Telegram, and Slack. Routes automatically to the right
 model for each task. No cloud accounts. No usage fees. Inference is fully local —
@@ -68,7 +69,8 @@ your terminal.
 ## What Starts Automatically
 
 <!-- WIKI:GENERATED unit=unit-readme-what-starts-automatically -->
-Everything runs with a single command. No manual configuration.
+`./launch.sh up` starts the core Docker stack. Host-native services start when
+their corresponding launchd service has been installed and enabled.
 
 | Service | What it does | URL |
 |---|---|---|
@@ -76,8 +78,8 @@ Everything runs with a single command. No manual configuration.
 | Portal Pipeline | Intelligent routing, auth, metrics | :9099 (internal) |
 | Ollama | Runs local GGUF models via Metal | :11434 (internal) |
 | SearXNG | Private web search for research | (internal) |
-| ComfyUI | Image and video generation (host-native) | http://localhost:8188 |
-| MCP Servers (14) | ComfyUI (:8910), Video (:8911), Music (:8912), Documents (:8913), Code sandbox (:8914), Whisper (:8915), TTS (:8916), Security (:8919), Memory (:8920), RAG (:8921), Research (:8922), Browser (:8923), CAD render (:8926), Proxmox (:8927) | (internal) |
+| ComfyUI | Image generation (host-native; video is shelved) | http://localhost:8188 |
+| MCP fleet | ComfyUI image (:8910), Music (:8912), Documents (:8913), Code sandbox (:8914), Whisper (:8915), TTS (:8916), Security (:8919), Memory (:8920), RAG (:8921), Research (:8922), Browser (:8923), CAD render (:8926), Proxmox (:8927) | (internal) |
 | Pipeline MCP | Stack introspection + FastContext code explorer for Claude Code / opencode | :8928 (host-native) |
 | MITRE ATT&CK MCP | Technique lookup, data sources, detections — deterministic, not RAG | :8929 (internal) |
 | Detections MCP | SPL library search, validate_syntax, explain_detection | :8932 (internal) |
@@ -123,7 +125,7 @@ Portal 5 includes **23 functional workspaces** (plus 65 benchmark workspaces for
 | `auto-math` | Mathematical problem solving, proofs, calculus | Code sandbox |
 | `auto-audio` | Audio processing and transcription | Transcribe |
 | `auto-music` | Generate music via MusicGen | Music |
-| `auto-video` | Generate video via ComfyUI | Video |
+| `auto-video` | Shelved video workspace; hidden from Open WebUI and not served in normal operation | — |
 | `auto-image` | Generate images via ComfyUI (Flux/SDXL), generation-first | Image |
 | `auto-cad` | 3D CAD model generation — OpenSCAD, CadQuery | CAD render |
 | `auto-spl` | Splunk SPL queries, YARA rules, detection search | — |
@@ -534,7 +536,7 @@ See [MCP Dev Tooling](docs/MCP_DEV_TOOLING.md) for the full guide, workflow exam
 | [User Guide](docs/USER_GUIDE.md) | How to use workspaces, tools, personas |
 | [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security |
 | [Alerts & Notifications](docs/ALERTS.md) | Operational alerts and daily summaries |
-| [ComfyUI Setup](docs/COMFYUI_SETUP.md) | Advanced image/video model configuration |
+| [ComfyUI Setup](docs/COMFYUI_SETUP.md) | Image-model configuration and archived video status |
 | [Fish Speech Setup](docs/FISH_SPEECH_SETUP.md) | Optional voice cloning TTS backend |
 | [Cluster Scaling](docs/CLUSTER_SCALE.md) | Running multiple Ollama instances |
 | [Agent Loop](docs/AGENT_LOOP.md) | Platform-core bounded agent loop (`portal/platform/agent/`) — contracts, discipline, `portal agent` CLI |

@@ -30,7 +30,7 @@ routes your request to the best-suited AI model for that task.
 | 🧠 Portal Deep Reasoner | Complex analysis, long reasoning chains |
 | 🏛️ Portal Council Review | Evidence-backed review of decisions, plans, proposals, and policies |
 | 📄 Portal Document Builder | Create Word/Excel/PowerPoint files |
-| 🎬 Portal Video Creator | Text-to-video generation |
+| 🎬 Portal Video Creator | Shelved; hidden from the model dropdown and not currently in operation |
 | 🎵 Portal Music Producer | Generate music and audio |
 | 🔍 Portal Research Assistant | Research and information synthesis |
 | 👁️ Portal Vision | Image analysis, visual tasks |

@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Generated: 2026-07-26 04:37 UTC*
+*Deterministic projection of 986 canonical units.*
 
 ## Knowledge Layer
 
@@ -69,18 +69,9 @@
 | `unit-CLUSTER_SCALE-stage-3-vllm-for-70b-models` | why | 1 |
 | `unit-CLUSTER_SCALE-stage-4-5-specialized-model-groups` | why | 1 |
 | `unit-COMFYUI_SETUP-choose-a-different-image-model` | why | 1 |
-| `unit-COMFYUI_SETUP-cinematic-quality-t2v-a14b-slower` | why | 1 |
-| `unit-COMFYUI_SETUP-explicit-model-override` | why | 1 |
-| `unit-COMFYUI_SETUP-fast-preset-ti2v-5b-9-min-per-5s-clip` | why | 1 |
 | `unit-COMFYUI_SETUP-flux-images-are-pure-static-tv-noise` | why | 1 |
-| `unit-COMFYUI_SETUP-nsfw-video-wan21-nsfw-backend-download-separately-` | why | 1 |
-| `unit-COMFYUI_SETUP-or-selectively-e-g-only-the-fast-5b-variant-first` | why | 1 |
-| `unit-COMFYUI_SETUP-portal-5-comfyui-setup-guide` | why | 1 |
 | `unit-COMFYUI_SETUP-quick-install-apple-silicon` | why | 1 |
 | `unit-COMFYUI_SETUP-restart` | why | 1 |
-| `unit-COMFYUI_SETUP-step-2-export-comfyui-workflow-templates` | why | 1 |
-| `unit-COMFYUI_SETUP-via-mcp-tool` | why | 1 |
-| `unit-COMFYUI_SETUP-wan-2-2-family-v6-2-addition` | why | 1 |
 | `unit-COMPLIANCE_FALLBACK_POLICY-canonical-baseline` | why | 1 |
 | `unit-COMPLIANCE_FALLBACK_POLICY-compliance-fallback-policy` | why | 1 |
 | `unit-COMPLIANCE_FALLBACK_POLICY-full-sweep` | why | 1 |
@@ -157,7 +148,6 @@
 | `unit-HOWTO-check-in-prometheus` | why | 1 |
 | `unit-HOWTO-check-which-model-ollama-has-loaded-router-should-` | why | 1 |
 | `unit-HOWTO-choose-a-voice` | why | 1 |
-| `unit-HOWTO-comfyui` | why | 1 |
 | `unit-HOWTO-comfyui-mcp-bridge-health-from-inside-container` | why | 1 |
 | `unit-HOWTO-comfyui-runs-natively-on-host-at-http-localhost-81` | why | 1 |
 | `unit-HOWTO-compatible-tools` | why | 1 |
@@ -179,7 +169,6 @@
 | `unit-HOWTO-first-run-downloads-1-5-gb-whisper-large-v3-turbo-` | why | 1 |
 | `unit-HOWTO-force-a-search` | why | 1 |
 | `unit-HOWTO-generate-a-powerpoint` | why | 1 |
-| `unit-HOWTO-generate-a-video` | why | 1 |
 | `unit-HOWTO-generate-a-word-document` | why | 1 |
 | `unit-HOWTO-generate-an-excel-spreadsheet` | why | 1 |
 | `unit-HOWTO-generate-an-image` | why | 1 |
@@ -254,12 +243,10 @@
 | `unit-LAB_SETUP-teardown` | why | 1 |
 | `unit-LAB_SETUP-tier-2-daily-operations` | why | 1 |
 | `unit-LAB_SETUP-update-an-existing-setup-git-pull-vulhub-refresh-c` | why | 1 |
-| `unit-MCP_DEV_TOOLING-adding-a-feature-opencode-with-local-laguna` | why | 1 |
 | `unit-MCP_DEV_TOOLING-auto-coding-agentic-workspace` | why | 1 |
 | `unit-MCP_DEV_TOOLING-checking-what-s-in-vram-before-a-long-task` | why | 1 |
 | `unit-MCP_DEV_TOOLING-debugging-a-failing-mcp-server-claude-code` | why | 1 |
 | `unit-MCP_DEV_TOOLING-dual-mode-portal-vs-stock-no-file-renaming` | why | 1 |
-| `unit-MCP_DEV_TOOLING-fastcontext-repository-explorer` | why | 1 |
 | `unit-MCP_DEV_TOOLING-fixing-a-bug-claude-code` | why | 1 |
 | `unit-MCP_DEV_TOOLING-install-if-missing` | why | 1 |
 | `unit-MCP_DEV_TOOLING-mcp-dev-tooling-claude-code-opencode-integration` | why | 1 |
@@ -360,8 +347,6 @@
 | `unit-SECURITY_BENCH_EXEC-cli-flags-new-as-of-2026-06-24` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-clock-skew-krb-ap-err-skew` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-coverage-report` | why | 1 |
-| `unit-SECURITY_BENCH_EXEC-exec-sequences-36-prompts-with-step-definitions` | why | 1 |
-| `unit-SECURITY_BENCH_EXEC-execution-transport-host-exec-task-sec-live-exec-v` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-file-locations-after-refactor-commit-0dbe1c1` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-gate-d-ablation-silent-model-substitution` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-key-paths` | why | 1 |
@@ -392,7 +377,6 @@
 | `unit-SECURITY_BENCH_EXEC-tier-1-theory-prose-quality-all-workspaces-all-pro` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-tier-2-execution-tool-call-scoring-exec-workspaces` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-tier-2-execution-tool-call-scoring-no-lab-dispatch` | why | 1 |
-| `unit-SECURITY_BENCH_EXEC-tier-3-lab-exec-real-dispatch-against-live-lab` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-tier-3-lab-exec-real-dispatch-all-targets-snapshot` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-vulnerableapp-lxc-112-10-10-11-50-80` | why | 1 |
 | `unit-SECURITY_BENCH_EXEC-what-this-is` | why | 1 |
@@ -405,7 +389,7 @@
 | `unit-SEC_BENCH-execution-transport` | what | 3 |
 | `unit-SEC_BENCH-exercises` | what | 2 |
 | `unit-SEC_BENCH-lab-topology` | what | 2 |
-| `unit-SEC_BENCH-multiseat-v2-results-2026-07-05` | mixed | 4 |
+| `unit-SEC_BENCH-multiseat-v2-results-2026-07-05` | mixed | 3 |
 | `unit-SEC_BENCH-prerequisites` | what | 3 |
 | `unit-SEC_BENCH-quick-start-tiers` | what | 2 |
 | `unit-SEC_BENCH-scoring` | what | 2 |
@@ -547,6 +531,8 @@
 | `unit-claude-1-config-backends-yaml-is-sacred` | why | 1 |
 | `unit-claude-10-git-discipline` | why | 1 |
 | `unit-claude-11-shared-workspace-is-the-only-path-for-user-file` | why | 1 |
+| `unit-claude-12-docs-travel-with-the-work` | why | 1 |
+| `unit-claude-13-fact-units-are-the-discovery-index` | why | 1 |
 | `unit-claude-2-never-modify-open-webui-source` | why | 1 |
 | `unit-claude-3-mcp-servers-are-independent-services` | why | 1 |
 | `unit-claude-4-the-pipeline-is-stateless-with-metrics-persisten` | why | 1 |
@@ -555,23 +541,29 @@
 | `unit-claude-7-all-ports-are-reserved` | why | 1 |
 | `unit-claude-8-single-inference-tier-ollama` | why | 1 |
 | `unit-claude-9-the-dockerfile-split-is-intentional` | why | 1 |
+| `unit-claude-checkpoint-backup-discipline-non-negotiable` | why | 1 |
 | `unit-claude-claude-md-claude-code-guidelines-for-portal-5` | why | 1 |
-| `unit-claude-claude.md-—-claude-code-guidelines-for-p` | why | 1 |
 | `unit-claude-do-not` | why | 1 |
+| `unit-claude-goal-driven-execution` | why | 1 |
 | `unit-claude-known-limitations` | why | 1 |
 | `unit-claude-new-cluster-node` | why | 1 |
 | `unit-claude-new-mcp-tool-server` | why | 1 |
 | `unit-claude-new-persona` | why | 1 |
 | `unit-claude-new-workspace-routing-tier` | why | 1 |
 | `unit-claude-or-directly` | why | 1 |
+| `unit-claude-portal-wiki-canonical-knowledge-layer` | why | 1 |
 | `unit-claude-pre-testing-always-verify-code-freshness` | why | 1 |
 | `unit-claude-project-layout` | why | 1 |
+| `unit-claude-reconcile-the-stale-docs-against-live-code` | why | 1 |
 | `unit-claude-reference-docs` | why | 1 |
-| `unit-claude-tech-stack-&-tooling` | why | 1 |
+| `unit-claude-simplicity-first` | why | 1 |
+| `unit-claude-surgical-changes` | why | 1 |
 | `unit-claude-tech-stack-tooling` | why | 1 |
 | `unit-claude-testing-rules` | why | 1 |
+| `unit-claude-think-before-coding` | why | 1 |
 | `unit-claude-what-portal-5-is` | why | 1 |
 | `unit-claude-what-portal-5-is-not` | why | 1 |
+| `unit-claude-working-style-how-to-make-changes-here` | why | 1 |
 | `unit-claude-zero-setup-requirements` | why | 1 |
 | `unit-cluster-scale-portal-5-cluster-scale-out-guide` | what | 1 |
 | `unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio` | what | 1 |
@@ -580,8 +572,6 @@
 | `unit-code-coding_task` | what | 4 |
 | `unit-code-portal` | what | 5 |
 | `unit-code-portal_channels` | what | 4 |
-| `unit-code-portal_mcp` | what | 5 |
-| `unit-code-portal_pipeline` | what | 5 |
 | `unit-code-portal_wiki` | what | 4 |
 | `unit-code-scripts` | what | 5 |
 | `unit-code-tests` | what | 5 |
@@ -683,7 +673,7 @@
 | `unit-known-limitations-devstral-2509-upgrade-blocked-model-not-published` | what | 1 |
 | `unit-known-limitations-diarized-transcription-task-transcribe-001` | what | 1 |
 | `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | what | 1 |
-| `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | what | 1 |
+| `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | what | 5 |
 | `unit-known-limitations-known-limitations` | what | 1 |
 | `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | what | 1 |
 | `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | what | 1 |
@@ -700,15 +690,18 @@
 | `unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently` | what | 1 |
 | `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | what | 1 |
 | `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | what | 1 |
-| `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | what | 1 |
-| `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | what | 1 |
-| `unit-known-limitations-request-size-cap-relies-on-content-length-only` | what | 1 |
+| `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | what | 3 |
+| `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | what | 3 |
+| `unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps` | what | 1 |
+| `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | what | 1 |
+| `unit-known-limitations-request-size-cap-relies-on-content-length-only` | what | 3 |
 | `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | what | 1 |
 | `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | what | 1 |
 | `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | what | 1 |
 | `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | what | 1 |
 | `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | what | 1 |
 | `unit-known-limitations-voice-cloning-fish-speech-requires-separate-installation` | what | 1 |
+| `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps` | what | 1 |
 | `unit-lab-setup-all-these-should-succeed-after-setup` | what | 1 |
 | `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | what | 1 |
 | `unit-lab-setup-lab-setup-cold-start-runbook` | what | 1 |
@@ -1002,14 +995,14 @@
 | `unit-user-guide-uploading-documents` | what | 1 |
 | `unit-user-guide-workspaces` | what | 1 |
 
-**Total:** 993 units
+**Total:** 986 units
 
 ## Source Distribution
 
 - **bench-security**: 4 references
-- **code**: 103 references
-- **design**: 453 references
-- **doc**: 485 references
+- **code**: 102 references
+- **design**: 445 references
+- **doc**: 488 references
 - **mitre**: 31 references
 - **scenario**: 57 references
 - **spl**: 31 references

@@ -19,6 +19,12 @@ import pytest
 # Add repo root to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+from portal.platform.wiki.audit import (
+    audit_units,
+    resolve_local_source,
+    source_is_repository_local,
+)
+from portal.platform.wiki.maintain import check_staleness
 from portal.platform.wiki.schema import KnowledgeUnit, SourceRef
 from portal.platform.wiki.store import (
     delete_unit,
@@ -53,6 +59,133 @@ class TestSourceRef:
         s = SourceRef(type="spl", path="T1190")
         d = s.to_dict()
         assert "commit" not in d  # empty = omitted
+
+
+class TestWikiIntegrity:
+    """Canonical bodies and repository-local provenance stay trustworthy."""
+
+    def test_rejects_truncated_canonical_body(self, tmp_path):
+        unit = KnowledgeUnit(
+            id="unit-corrupt",
+            kind="what",
+            title="Corrupt",
+            sources=[SourceRef(type="doc", path="README.md")],
+            body="Useful text.\n\n[Content truncated — see full doc]",
+        )
+        (tmp_path / "README.md").write_text("source", encoding="utf-8")
+
+        issues = audit_units(tmp_path, [unit])
+
+        assert [(issue.code, issue.unit_id) for issue in issues] == [
+            ("corrupt-body", "unit-corrupt")
+        ]
+
+    def test_intent_seeder_preserves_sections_over_legacy_cap(self, monkeypatch, tmp_path):
+        from portal.platform.wiki.adapters import seed_intent
+
+        long_body = "full canonical intent " * 150
+        (tmp_path / "CLAUDE.md").write_text(
+            f"# Long Section\n\n{long_body}",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(seed_intent, "_REPO_ROOT", tmp_path)
+
+        units = seed_intent.seed_intent(dry_run=True)
+
+        assert len(units) == 1
+        assert units[0].body.strip() == long_body.strip()
+        assert len(units[0].body) > 2000
+
+    def test_resolves_exact_glob_and_bare_filename_sources(self, tmp_path):
+        tool = tmp_path / "portal" / "modules" / "media" / "tools" / "image_mcp.py"
+        tool.parent.mkdir(parents=True)
+        tool.write_text("", encoding="utf-8")
+
+        glob_source = SourceRef(type="code", path="portal/modules/*/tools/*_mcp.py")
+        bare_source = SourceRef(type="scenario", path="image_mcp.py#scenario")
+
+        assert resolve_local_source(tmp_path, glob_source) == (tool,)
+        assert resolve_local_source(tmp_path, bare_source) == (tool,)
+
+    def test_missing_local_source_is_an_issue(self, tmp_path):
+        unit = KnowledgeUnit(
+            id="unit-missing-source",
+            kind="what",
+            title="Missing",
+            sources=[SourceRef(type="code", path="removed/package.py")],
+        )
+
+        issues = audit_units(tmp_path, [unit])
+
+        assert len(issues) == 1
+        assert issues[0].code == "missing-source"
+        assert issues[0].source_path == "removed/package.py"
+
+    def test_ephemeral_source_is_an_issue(self, tmp_path):
+        unit = KnowledgeUnit(
+            id="unit-ephemeral-source",
+            kind="what",
+            title="Ephemeral",
+            sources=[SourceRef(type="bench-security", path="/tmp/result.json")],
+        )
+
+        issues = audit_units(tmp_path, [unit])
+
+        assert len(issues) == 1
+        assert issues[0].code == "ephemeral-source"
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            SourceRef(type="mitre", path="ATT&CK:T1003.006"),
+            SourceRef(type="spl", path="T1190"),
+            SourceRef(type="code", path="module-state-change:media:operator"),
+            SourceRef(type="bench-security", path="bench-run:blue:2026-07-06"),
+            SourceRef(type="url", path="https://example.test/design"),
+        ],
+    )
+    def test_non_file_identifiers_are_not_local_paths(self, source):
+        assert not source_is_repository_local(source)
+
+    def test_authored_doc_unit_is_not_stale_just_because_head_advanced(self, monkeypatch, tmp_path):
+        unit = KnowledgeUnit(
+            id="unit-authored",
+            kind="why",
+            title="Authored",
+            sources=[SourceRef(type="doc", path="README.md", commit="old")],
+            last_generated_commit="old",
+        )
+        monkeypatch.setattr("portal.platform.wiki.maintain.load_all", lambda: [unit])
+
+        assert check_staleness("new", tmp_path, regenerated_units=[]) == []
+
+    def test_changed_derived_body_marks_generated_unit_stale(self, monkeypatch, tmp_path):
+        stored = KnowledgeUnit(
+            id="unit-fact",
+            kind="what",
+            title="Fact",
+            sources=[SourceRef(type="code", path="config/portal.yaml", commit="old")],
+            body="old body",
+            last_generated_commit="old",
+        )
+        fresh = KnowledgeUnit(
+            id="unit-fact",
+            kind="what",
+            title="Fact",
+            sources=[SourceRef(type="code", path="config/portal.yaml", commit="new")],
+            body="new body",
+            last_generated_commit="new",
+        )
+        monkeypatch.setattr("portal.platform.wiki.maintain.load_all", lambda: [stored])
+
+        assert check_staleness("new", tmp_path, regenerated_units=[fresh]) == [
+            {
+                "unit_id": "unit-fact",
+                "kind": "what",
+                "generated_commit": "old",
+                "current_commit": "new",
+            }
+        ]
 
 
 class TestKnowledgeUnit:

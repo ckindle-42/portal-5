@@ -4,7 +4,7 @@ kind: what
 title: 'CORRECTED — was misleading: "granite (raw)" was a selection artifact'
 sources:
 - type: bench-security
-  path: /tmp/agentic_blue_sweep.json
+  path: bench-run:agentic-blue-sweep:2026-07-06
 last_generated_commit: ''
 confidence: high
 tags:

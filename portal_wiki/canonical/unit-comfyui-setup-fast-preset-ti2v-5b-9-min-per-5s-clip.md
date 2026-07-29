@@ -15,4 +15,5 @@ created_at: 1784946220.557384
 updated_at: 1784946220.557384
 ---
 
-python3 scripts/gen-video.py "a woman dancing in a sunlit garden" --preset wan22-fast
+**Unavailable:** TI2V-5B worked in isolation, but video service operation is
+shelved and no preset is exposed.

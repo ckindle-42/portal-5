@@ -1,14 +1,17 @@
 ---
 id: unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body
 kind: what
-title: "KNOWN_LIMITATIONS \u2014 POST /v1/messages (Anthropic-compat endpoint) returns\
-  \ HTTP 200 with a `null` body"
+title: "KNOWN_LIMITATIONS \u2014 POST /v1/messages Null Success Body (Resolved)"
 sources:
 - type: doc
   path: KNOWN_LIMITATIONS.md
   commit: 05e42ec2
   section: POST /v1/messages (Anthropic-compat endpoint) returns HTTP 200 with a `null`
     body
+- type: code
+  path: portal/platform/inference/router/handlers.py
+- type: code
+  path: tests/unit/test_pipeline.py
 last_generated_commit: 05e42ec2
 confidence: high
 tags:
@@ -18,21 +21,15 @@ updated_at: 1784946220.671825
 ---
 
 - **ID**: P5-ANTHROPIC-COMPAT-001
-- **Description**: `handlers.anthropic_messages` (`portal/platform/inference/router/handlers.py:1159`,
-  the endpoint `scripts/cc-local.sh` / Claude Code's `ANTHROPIC_BASE_URL` integration
-  depends on) returns `200 OK` with a literal `null` JSON body for a plain
-  non-streaming request, reproduced with both a base workspace id
-  (`auto-coding`) and a persona slug (`agenticheavy`) — so it's unrelated to
-  the alias-closeout/persona work in this pass, and pre-existing (zero unit
-  test coverage exists for this endpoint; `/v1/chat/completions` itself
-  works correctly for the same model ids, confirmed live). No server-side
-  error is logged.
-- **Impact**: Claude Code via `scripts/cc-local.sh` likely cannot get a real
-  response today — the SDK would receive `null` where it expects an
-  Anthropic Messages response object.
+- **Status**: RESOLVED 2026-07-29.
+- **Former issue**: The non-streaming success path completed after checking the
+  loopback response status but never returned the translated response, so
+  FastAPI serialized Python `None` as `null`.
+- **Resolution**: The handler now returns
+  `openai_response_to_anthropic(resp.json(), model_id)` on HTTP 200. Error
+  propagation and the streaming translation path are unchanged.
+- **Regression coverage**: The endpoint test exercises the ASGI loopback and
+  asserts the complete Anthropic Messages response shape, content, stop reason,
+  model, and token usage.
 - **Discovered**: 2026-07-13, live-verifying `DESIGN_OPENCODE_ADDRESSING_V1.md`'s
   Step 3e CLI-contract migration (`cc-local.sh`'s default model rename).
-- **Not fixed here**: root-causing `anthropic_to_openai_body`/the ASGI-loopback
-  dispatch/`openai_response_to_anthropic` translation chain is a distinct
-  bug outside Stage A's scope (alias/persona addressing, not the Anthropic
-  wire-format translation layer). Needs its own investigation + unit tests.

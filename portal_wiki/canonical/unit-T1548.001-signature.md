@@ -4,7 +4,7 @@ kind: mixed
 title: "T1548.001 \u2014 SUID abuse \u2014 setuid binary execution for privilege escalation"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1548.001
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1548.001
 - type: mitre
   path: ATT&CK:T1548.001
 - type: scenario
@@ -19,8 +19,8 @@ tags:
 - T1548.001
 - technique
 - signature
-created_at: 1785020525.0113962
-updated_at: 1785020525.0113962
+created_at: 1785349554.5191438
+updated_at: 1785349554.5191438
 ---
 
 # T1548.001 — SUID abuse — setuid binary execution for privilege escalation
@@ -34,7 +34,7 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a1="*perm*4000*" OR exe
 
 ## Exercised By Scenarios
 
-- `web_to_root` — target: 10.0.1.140
+- `web_to_root` — target: None
 - `meta3_linux_privesc` — target: 10.10.11.13
 - `meta3_full_chain` — target: 10.10.11.13
 

@@ -7,7 +7,7 @@ title: "T1110.001 \u2014 Password guessing \u2014 repeated authentication failur
   \ account]"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1110.001
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1110.001
 - type: mitre
   path: ATT&CK:T1110.001
 last_generated_commit: ''
@@ -16,8 +16,8 @@ tags:
 - T1110.001
 - technique
 - signature
-created_at: 1785020525.0101042
-updated_at: 1785020525.0101042
+created_at: 1785349554.5179021
+updated_at: 1785349554.5179021
 ---
 
 # T1110.001 — Password guessing — repeated authentication failures against one account [DISTINGUISH: T1110.001 = many passwords against one account; T1110.003 = one password across many accounts] [KEY: Many attempts against one account]

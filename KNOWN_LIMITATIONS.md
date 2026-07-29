@@ -1,7 +1,11 @@
 # Known Limitations
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-known-limitations -->
-Architectural and design constraints that are currently unresolved. Resolved items are not listed here — see git log for history.
+Canonical limitation register. Each entry carries its own current status:
+unresolved entries define active constraints, while resolved, retired, or
+shelved entries preserve the decision and evidence that prevent the same issue
+from being rediscovered or reintroduced. The status inside an entry is
+authoritative; presence in this register alone does not mean the issue is open.
 
 ---
 <!-- /WIKI:GENERATED -->
@@ -133,7 +137,7 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 ### ComfyUI Runs Outside Docker
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-comfyui-runs-outside-docker -->
-- **Description**: ComfyUI runs on the host (not in Docker) to access MPS/CUDA directly. Required for image/video generation performance.
+- **Description**: ComfyUI runs on the host (not in Docker) to access MPS/CUDA directly. This is required for supported image-generation performance; video operation is shelved.
 - **Impact**: Manual setup required outside `./launch.sh up`. On a fresh machine, ComfyUI must be installed separately.
 - **Mitigation**: `./launch.sh install-comfyui` handles setup on supported platforms. See `docs/COMFYUI_SETUP.md`.
 <!-- /WIKI:GENERATED -->
@@ -150,13 +154,13 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 
 ---
 
-### ComfyUI Model Download Commands Are Broken
+### Legacy ComfyUI Model Download Command Is Retired
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-comfyui-model-download-commands-are-broken -->
-- **Description**: `./launch.sh download-comfyui-models` calls `scripts/download_comfyui_models.py`, deleted in commit `ea864cf` ("superseded by pull-wan22 / pull-qwen-image commands in launch.sh") — but neither `pull-wan22` nor `pull-qwen-image` was ever implemented; both were advertised in `launch.sh --help` with no case handler. Found during Slice P media bring-up (`TASK_MEDIA_BRINGUP_V1`).
-- **Update (2026-07-29)**: `pull-wan22` is now implemented (`scripts/lib/services.sh:_launch_pull_wan22`) and live-verified for TI2V-5B, S2V-14B, and T2V-A14B model downloads. **Video generation itself is shelved regardless — see `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps`.** `download-comfyui-models` now exits with a clear pointer instead of `ModuleNotFoundError`. `pull-qwen-image` is still unimplemented (image generation, tracked separately — not shelved).
-- **Impact**: No `launch.sh` subcommand can download Qwen-Image models yet. Separately, the `flux-uncensored` image backend's expected checkpoint (`Flux_v8-NSFW.safetensors`) has no known working source — the old script's repo (`enhanceaiteam/Flux-Uncensored-V2`) 404s, and no other reference to that filename exists in the codebase.
-- **Mitigation**: Use `./launch.sh pull-wan22` for Wan 2.2 model downloads (though see the fp8/MPS unit above before relying on the output — most of what it downloads doesn't currently run on Apple Silicon). Download Qwen-Image directly with `hf download` until `pull-qwen-image` is implemented — see `docs/COMFYUI_SETUP.md#download-models`.
+- **Description**: The legacy `./launch.sh download-comfyui-models` command no longer downloads models because its monolithic script was deleted in commit `ea864cf`; the handler now exits with a clear pointer to the family-specific commands.
+- **Resolution (2026-07-29)**: `pull-qwen-image` and `pull-wan22` both have real handlers. `pull-qwen-image` now downloads the exact image checkpoints verified on Apple Silicon MPS: Qwen-Image-2512 plain FP8, Qwen-Image-Edit-2509 plain FP8, the shared text encoder/VAE, and the Lightning LoRA. Video generation remains shelved even though its archival pull command exists.
+- **Remaining impact**: Operators must use the explicit family command instead of the retired alias. Separately, `flux-uncensored` still has no known working checkpoint source.
+- **Operator action**: Run `./launch.sh pull-qwen-image` for the supported image set. Do not treat `pull-wan22` as enabling video operation; see `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps`.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -171,13 +175,18 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 
 ---
 
-### `pytest portal` Leaves Real Write-Through Test Artifacts
+### `pytest portal` Write-Through Test Artifacts (Resolved)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts -->
-- **Description**: Some `portal/modules/security/tests/` tests write through the real goal/playbook journal path (`portal/modules/security/core/field_journal/`) and checkpoint path (`portal/modules/security/core/results/checkpoints/`) instead of a `tmp_path`-redirected one, violating the `tmp_path` testing rule (`CLAUDE.md` Testing Rules).
-- **Impact**: Running `pytest portal` locally dirties the working tree — new dated entries under `field_journal/` and a modified `field_journal/_index.json`, plus files under `results/checkpoints/`.
-- **Mitigation**: `results/checkpoints/` is gitignored. `field_journal/` holds real committed history so it is intentionally *not* gitignored — run `git status` after `pytest portal` and `git checkout -- portal/modules/security/core/field_journal/_index.json` (plus `git clean` any new dated entries) before staging a commit. See `CLAUDE.md` Testing Rules.
-- **Fix (open)**: Route the journal writer through a fixture-injected path in the offending tests so `pytest portal` is side-effect-free like `pytest tests/unit`.
+- **Status**: RESOLVED 2026-07-29.
+- **Former issue**: Security module tests could write journals and checkpoints
+  into the real runtime tree.
+- **Resolution**: An autouse fixture redirects `JOURNAL_DIR`, `RESULTS_DIR`, and
+  `CHECKPOINT_DIR` into each test's `tmp_path`. The production modules also
+  stopped creating those directories merely by being imported; write
+  functions create their destination lazily.
+- **Regression coverage**: `test_write_isolation.py` writes both artifact types
+  and asserts that their parents are the fixture sandbox.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -186,17 +195,16 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist -->
 - **ID**: P5-EMERGENT-001
-- **Status**: PARTIALLY FIXED 2026-07-16 (live-verification pass, same day as discovery) — three real, root-cause fixes landed; the underlying gap class remains open for the tools not yet aliased.
+- **Status**: PARTIALLY FIXED 2026-07-29 — four root-cause fixes have landed; the underlying gap class remains open for tools not yet safely aliased.
 - **Description**: `capability/index.py`'s curated Capability library (used by `capability.query()` and now the emergent objective loop, `TASK_EMERGENT_SLICE1_PERCEPTION_ENTRY_V1`) has two kinds of `tools` values for many entries — real Kali binary names (`nmap`, `impacket-secretsdump`, `bloodhound-ce-python`, ...) for domain-probe capabilities (`smb_probe`, `ldap_probe`, ...), or an **empty list** for several named-technique capabilities (`ad-certificate-abuse`, `kerberos-delegation`, `oauth-oidc-chain`, `file-upload-bypass`, `smb-enumeration`, and others). `lab.py::_lab_dispatch_inner`'s real live-dispatch path only recognizes a small fixed whitelist of ~15 literal tool names — neither the Kali binary names nor the empty-tools capability IDs originally matched that whitelist, so `SecurityExecutor` (Slice 1.2) dispatched them through the synthetic fallback even when the lab was fully live and reachable. A second, compounding cause was found the same day: `capability.query()`'s `applies_when` predicates (e.g. `smb_probe` requires `open_ports` to contain 445) are gated on a flat `observations["open_ports"]` list that predates `LabPerception` — `PerceptionDelta.to_observation()` didn't populate it, and `run_emergent_engagement` started with `observations={}` (no upfront perception call), so on a cold start every real-tooled AD-probe capability was starved out and only the empty-`tools` capabilities (which have no `applies_when` gate) ever matched.
 - **Fixes landed** (all live-verified against the real Proxmox lab, portal-lab-dc01/srv01/vulhub, sandbox MCP `lab_exec_active:true`):
   1. `--domain-hint` threaded into `run_emergent_engagement`/CLI (was hardcoded `None`).
   2. `lab.py::_lab_dispatch_inner` now aliases the two real Kali binary names verified correct: `"nmap"` → same path as `run_nmap_scan` (confirmed real: 22/80/8080 open on `10.10.11.50`), `"impacket-GetUserSPNs"` → same path as `exploit_service`/Kerberoast (confirmed real: 3 live TGS hashes captured from `lab-srv01.portal.lab`, then a real offline `john`+rockyou.txt crack attempt inside the sandbox — 0/3 cracked, correctly scored `FAILED` not `PROVEN`, since the passwords aren't in the common wordlist).
   3. `PerceptionDelta.to_observation()` now also derives a flat `open_ports` list (`perception._extract_open_ports`, additive) from either shape the real prober can return, and `run_emergent_engagement` gained a `perception` param that seeds real initial observations before the loop starts (`goal_cli._cmd_emergent` wires this by default via the new shared `perception.default_lab_prober`, replacing a near-duplicate that used to live only in `security_mcp.py`). Confirmed live: after this fix the ranker's first pick against the AD domain moved from an empty-`tools` capability (`ad-certificate-abuse`) to a real-tooled one (`smb_probe`/`ldap_probe`'s `bloodhound-ce-python`) — proving the seed closes the starvation, though `bloodhound-ce-python` itself isn't in the alias table yet (see below).
+  4. The platform deterministic fallback now chooses a capability before ranking that capability's tools, consumes both supported history shapes, avoids already-attempted actions while alternatives remain, starts with a recon capability, and progresses to an unattempted oracle-bound action after recon. This fixes the structural dead-end where an empty-`tools` oracle capability could never be selected whenever any other candidate declared a tool.
 - **Still open**: Real Kali binaries seen live but not yet aliased/verified (`bloodhound-ce-python`, `impacket-secretsdump`, `impacket-psexec`, `impacket-wmiexec`, `enum4linux-ng`, `nxc`, `responder`, `impacket-GetNPUsers`, `impacket-dacledit`, `certipy-ad`, `ldap3`, `metasploit`) and the empty-`tools` capabilities (`ad-certificate-abuse`, `kerberos-delegation`, `oauth-oidc-chain`, `file-upload-bypass`, `smb-enumeration`) still dispatch synthetic. Each remaining alias needs its exact CLI invocation verified correct (and, for stateful/destructive ones like `impacket-psexec`/`impacket-wmiexec`/`responder`, reviewed for lab safety) before wiring — not done blind, unlike the two above which were directly confirmed working first.
-- **Impact**: The emergent loop's "no seeded first-move" design means the deterministic ranker can still pick a non-dispatchable capability, producing a synthetic-only trajectory even against a fully live lab, for any tool not yet in the alias table. This still slows G1 corpus sign-off (DESIGN_EMERGENT_LAB_AGENT_V2 §9) accumulating real PROVEN trajectories — every synthetic step is honestly excluded from `emergent_gaps.gaps_from_trajectory` (never contributes a false gap) and every synthetic-derived trajectory is honestly never PROVEN (AX ratchet holds), so this remains a coverage/usefulness gap, not a correctness or honesty regression.
-- **Resolution path (open)**: Continue verifying and aliasing the remaining real binary names one at a time (never batch-guess CLI syntax for tools with real side effects), and separately decide what the empty-`tools` capabilities should actually dispatch to (populate `capability/index.py` or retire them). Pre-existing architecture gap in the "already-built" composition engine (DESIGN_EMERGEN
-
-[Content truncated — see full doc]
+- **Impact**: Deterministic progression is now structurally reachable and non-repeating, but a selected capability can still be non-dispatchable when its real tool has no verified alias or it declares no tool. That produces an honestly synthetic trajectory even against a live lab and still slows G1 corpus sign-off (`DESIGN_EMERGENT_LAB_AGENT_V2` §9). Synthetic steps remain excluded from `emergent_gaps.gaps_from_trajectory`, and synthetic-derived trajectories are never PROVEN (AX ratchet holds), so the remaining issue is coverage/usefulness rather than correctness or honesty.
+- **Resolution path (open)**: Continue verifying and aliasing the remaining real binary names one at a time (never batch-guess CLI syntax for tools with real side effects), and separately decide what the empty-`tools` capabilities should actually dispatch to (populate `capability/index.py` or retire them). Pre-existing architecture gap in the "already-built" composition engine (`DESIGN_EMERGENT_LAB_AGENT_V2` §1's KEEP list assumed this layer was solid); not part of the original Slice 1/2/3 delta, but now partially remediated as part of the same live-verification pass.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -444,65 +452,40 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 
 ---
 
-### Importing the security bench module sets a Linux-only PROMETHEUS_MULTIPROC_DIR host-side
+### Security Bench Import Mutated Host Environment (Resolved)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side -->
 - **ID**: P5-ENV-MULTIPROC-HOSTLEAK-001
-- **Description**: `tests/benchmarks/bench_lab_exec.py` has a module-level
-  `_load_env()` call that runs `os.environ.setdefault(k, v)` for every line
-  in `.env` **at import time**, unconditionally. `portal/modules/security/
-  core/_data.py` imports `bench_lab_exec` at its own module level, so simply
-  importing anything under `portal.modules.security.core` (e.g.
-  `from portal.modules.security.core._data import PER_WORKSPACE_TIMEOUT`)
-  copies `.env`'s `PROMETHEUS_MULTIPROC_DIR=/dev/shm/portal_metrics` (a
-  path that only exists inside the Linux Docker containers) into the
-  process environment on the host. On macOS (no `/dev/shm`), any
-  subsequent code that imports `portal.platform.inference.router.metrics`
-  in the same process — including this security module's own
-  `preinject`/`routing` imports — then crashes with
-  `FileNotFoundError: /dev/shm/portal_metrics/gauge_all_<pid>.db`
-  (prometheus_client's `Gauge.__init__` tries to mmap a file there).
-  Reproduced live while verifying `CLOSEOUT_ALIAS_REMOVAL.md` Holdout 3's
-  `DEFAULT_WORKSPACES`/`PER_WORKSPACE_TIMEOUT` canonicalization.
-- **Impact**: any host-native (non-Docker) Python process that imports both
-  the security bench module and the pipeline's metrics module in the same
-  interpreter — `scripts/validate_system.py`'s AU/AV checks worked around
-  this by stripping the var before their subprocess calls (see their code
-  comments); this is likely also implicated in the `ci_local.sh` hang
-  flagged earlier in this session (`pytest tests/unit portal/modules/
-  security/tests` in a fresh venv) — worth checking first if that's
-  revisited.
-- **Not fixed here**: out of scope for the alias-closeout work. The real
-  fix is either making `bench_lab_exec.py` not mutate global env as an
-  import-time side effect, or making the multiprocess dir path OS-aware
-  (e.g. `tempfile.gettempdir()`-based) rather than hardcoding a Linux path
-  in `.env`.
+- **Status**: RESOLVED 2026-07-29.
+- **Former issue**: importing the security data module transitively loaded
+  `.env` into process-global `os.environ`, including the container-only
+  `PROMETHEUS_MULTIPROC_DIR=/dev/shm/portal_metrics` value.
+- **Resolution**: the security data module, lab-exec benchmark, and shared
+  benchmark config now parse dotenv into private mappings. Explicit process
+  environment still wins, but imports do not add or alter environment keys.
+- **Regression coverage**: a clean subprocess deliberately removes
+  `UNIT_TEST_MODE` and `PROMETHEUS_MULTIPROC_DIR`, imports the security data
+  module, and verifies that no environment key was added or changed.
 <!-- /WIKI:GENERATED -->
 
 ---
 
-### POST /v1/messages (Anthropic-compat endpoint) returns HTTP 200 with a `null` body
+### POST /v1/messages Null Success Body (Resolved)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body -->
 - **ID**: P5-ANTHROPIC-COMPAT-001
-- **Description**: `handlers.anthropic_messages` (`portal/platform/inference/router/handlers.py:1159`,
-  the endpoint `scripts/cc-local.sh` / Claude Code's `ANTHROPIC_BASE_URL` integration
-  depends on) returns `200 OK` with a literal `null` JSON body for a plain
-  non-streaming request, reproduced with both a base workspace id
-  (`auto-coding`) and a persona slug (`agenticheavy`) — so it's unrelated to
-  the alias-closeout/persona work in this pass, and pre-existing (zero unit
-  test coverage exists for this endpoint; `/v1/chat/completions` itself
-  works correctly for the same model ids, confirmed live). No server-side
-  error is logged.
-- **Impact**: Claude Code via `scripts/cc-local.sh` likely cannot get a real
-  response today — the SDK would receive `null` where it expects an
-  Anthropic Messages response object.
+- **Status**: RESOLVED 2026-07-29.
+- **Former issue**: The non-streaming success path completed after checking the
+  loopback response status but never returned the translated response, so
+  FastAPI serialized Python `None` as `null`.
+- **Resolution**: The handler now returns
+  `openai_response_to_anthropic(resp.json(), model_id)` on HTTP 200. Error
+  propagation and the streaming translation path are unchanged.
+- **Regression coverage**: The endpoint test exercises the ASGI loopback and
+  asserts the complete Anthropic Messages response shape, content, stop reason,
+  model, and token usage.
 - **Discovered**: 2026-07-13, live-verifying `DESIGN_OPENCODE_ADDRESSING_V1.md`'s
   Step 3e CLI-contract migration (`cc-local.sh`'s default model rename).
-- **Not fixed here**: root-causing `anthropic_to_openai_body`/the ASGI-loopback
-  dispatch/`openai_response_to_anthropic` translation chain is a distinct
-  bug outside Stage A's scope (alias/persona addressing, not the Anthropic
-  wire-format translation layer). Needs its own investigation + unit tests.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -519,12 +502,19 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 
 ---
 
-### Request-Size Cap Relies on Content-Length Only
+### Request-Size Cap Relied on Content-Length Only (Resolved)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-request-size-cap-relies-on-content-length-only -->
 - **ID**: P5-REQ-SIZE-001
-- **Description**: The pipeline caps requests at 4 MB via `Content-Length` header check. Chunked transfer-encoded requests bypass this cap entirely — Starlette middleware is the proper fix.
-- **Mitigation**: Until Starlette body-size middleware is added, operators should configure upstream proxies (nginx, OWUI) to enforce request-size limits.
+- **Status**: RESOLVED 2026-07-29.
+- **Former issue**: The pipeline enforced its 4 MB cap only through
+  `Content-Length`, so chunked transfer encoding bypassed the limit.
+- **Resolution**: `RequestBodyLimitMiddleware` buffers and bounds the two JSON
+  inference endpoints before route handling, enforcing the same limit against
+  declared and streamed/chunked bodies. Oversize requests return 413 before
+  the handler runs.
+- **Regression coverage**: `tests/unit/test_request_limits.py` sends a chunked
+  async body with no usable `Content-Length` and verifies rejection.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -649,28 +639,18 @@ is the path for these models.
 
 ---
 
-### P5-EMERGENT-002 — Deterministic capability ranker can't reach oracle-bearing capabilities once any tool-declaring recon capability is a candidate
+### P5-EMERGENT-002 — Deterministic capability progression (Resolved)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate -->
+**Status:** RESOLVED 2026-07-29.
+
 Found live during `TASK_SECURITY_ARM_CLOSE_LOOP_V1` Phase 8 (`goal emergent`
-run against the reconciled `10.10.11.50` target, `objective_class=host_foothold`,
-2026-07-16). `portal.platform.agent.decide._decide_via_deterministic_fallback`
-picks a tool first (`rank.select_tools`), then finds the first candidate
-capability whose `tools` list contains that tool
-(`_pick_capability_for_tool`). Recon-phase service-probe capabilities (from
-`capability/index.py`'s `_from_service_probes`) always declare real tools
-(`curl`, `redis-cli`, …); exploit-phase capabilities from `_from_lab_targets`
-and `_from_challenge_classes` — the ones carrying a real `oracle` — always
-declare `tools=[]`. Once ANY tool-declaring capability is among the
-candidates, `available_tools` is non-empty and the ranker takes the
-tools-based branch, which structurally can never select a `tools=[]`
-capability (`_pick_capability_for_tool` only matches on declared tools). The
-loop lands real, live actions (confirmed: `redis_probe` → real `redis-cli`
-PONG against the vulhub redis stack) but then halts on the I4 no-progress
-gate because the ranker keeps re-selecting the same top recon capability
-every turn — no state tracks "already probed this port", and exploit-phase
-capabilities with oracles are never reachable to prove AX (state-oracle
-verdict) end-to-end.
+against `10.10.11.50`, `objective_class=host_foothold`, 2026-07-16). The
+deterministic fallback selected a tool before selecting a capability, so any
+tool-declaring reconnaissance candidate made `tools=[]` exploit capabilities
+with real oracles structurally unreachable. It also ignored action history,
+reselected the same reconnaissance action, and eventually hit the I4
+no-progress gate.
 
 Two real, separate fixes are already applied in this task's run (both
 correctness fixes, not workarounds): (1) `SecurityExecutor.execute` now
@@ -682,17 +662,24 @@ the synthetic catch-all the moment any capability had a declared tool; (2)
 and missed the WEB target's own vulhub ports (6379/8081/8983) — perception
 never discovered those services even though they're live.
 
-**Not fixed here** (deliberately out of scope for a bounded "close the loop"
-task): the ranker's tool-first-then-capability selection order in
-`portal/platform/agent/decide.py`/`rank.py`. That module is
-discipline-agnostic platform code shared by every future agent-loop consumer
-(security is only the first), so changing its selection algorithm needs its
-own design pass — a "prefer exploit-phase / oracle-bearing capabilities once
-recon has already observed the relevant port" policy, or a no-repeat memory
-of already-attempted (capability, target) pairs — rather than a
-security-scoped patch. Until fixed, a live emergent run against a target
-whose exploit-phase capabilities require ports already open in the first
-perception pass will halt at I4 before ever attempting the exploit.
+The platform-level cause is now fixed in
+`portal/platform/agent/decide.py`. The fallback:
+
+1. reads both platform-loop and direct-decision history shapes;
+2. selects a grounded capability before ranking tools within it;
+3. starts with reconnaissance when appropriate;
+4. avoids repeating attempted capabilities while alternatives remain;
+5. progresses after reconnaissance to an oracle-bearing or other non-recon
+   capability; and
+6. can select a grounded `tools=[]` capability directly.
+
+Regression coverage in
+`portal/platform/agent/tests/test_agent_core.py` proves initial
+reconnaissance, progression to an oracle-bearing action, and direct-history
+compatibility. The full local CI mirror and system validator pass. This
+resolves the deterministic reachability defect; live target availability and
+the separately documented unverified tool-alias gap remain independent
+operational constraints.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -723,7 +710,7 @@ perception pass will halt at I4 before ever attempting the exploit.
 
 ---
 
-### Qwen-Image Is Memory-Safe But Produces Black Output on This Apple Silicon MPS Host
+### Qwen-Image Apple Silicon Working Routes and Constraints
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps -->
 - **Memory constraint**: The original Qwen-Image-2512 bf16 diffusion and text-encoder pair needs about 57.4GB of static weights. On this 64GB unified-memory host, Docker and loaded Ollama models can leave far less free memory than the nominal capacity. The first unguarded load exhausted host memory and rebooted the machine.
@@ -731,7 +718,10 @@ perception pass will halt at I4 before ever attempting the exploit.
 - **Black-output root cause and fix**: ComfyUI was launched globally with `--force-fp16`. QwenImage declares only bf16 and float32 as supported inference dtypes, but the global override bypassed that selection. A diagnostic `SaveLatent` showed 16,384/16,384 NaNs before VAE decode, proving that the VAE was not the source of the black image. Removing `--force-fp16` from the generated launcher, launchd plist, and current host launcher restored bf16 compute; the same diagnostic then contained no NaNs.
 - **Verification**: A 256×256 base diagnostic produced finite latents and a non-degenerate image. A 512×512 Lightning generation produced a detailed fox-astronaut poster with correctly rendered `PORTAL FIVE` text and full-range RGB output. The required 1024×1024, 20-step base-model proof also completed with a prompt-matching non-degenerate image.
 - **Why the isolated VAE test failed**: `EmptySD3LatentImage` alone supplies a four-dimensional latent, while Qwen's WanVAE decode path expects the five-dimensional latent produced by the complete Qwen sampling graph. That shape error does not implicate VAE decode in the black-output failure.
-- **Remaining limitation — Qwen-Image-Edit-2511**: The bf16 edit checkpoint is estimated at 60GB, and admission control correctly refuses it even with all ComfyUI models unloaded (53.5GB was the best observed free memory, versus 64GB required with headroom). The two official 20.5GB alternatives are not usable on this MPS stack: `fp8mixed` fails comfy-kitchen dequantization with `Undefined type Float8_e4m3fn`; `int8_convrot` requires CPU fallback for unsupported MPS `aten::_int_mm` and did not complete one 512×512 step after more than three minutes. Keep the bf16 refusal and resume from `TASK_QWEN_IMAGE_EDIT_MPS_VARIANT_V1.md`; the next preferred capability fallback is the official 2509 plain-fp8 edit checkpoint.
+- **Working local edit route**: `qwen-image-edit-2509` uses the official `qwen_image_edit_2509_fp8_e4m3fn.safetensors` checkpoint. A 512×512, 20-step live probe completed in 697.8 seconds and produced a non-degenerate prompt-matching edit. Starting free memory was 44.46GB and the lowest observed value was 10.55GB; the admission estimate is therefore 38GB plus 4GB headroom. Plain FP8 storage expands to bf16 compute but avoids the scaled/mixed dequantization path that fails on MPS.
+- **Edit fidelity**: The 2509 probe correctly changed a white astronaut suit to vivid emerald green and preserved the recognizable fox and setting, but reframed the composition and cropped most source text. Treat it as generative instruction editing, not pixel-preserving retouching.
+- **Remaining limitation — Qwen-Image-Edit-2511**: The bf16 edit checkpoint is estimated at 60GB, and admission control correctly refuses it even with all ComfyUI models unloaded (53.5GB was the best observed free memory, versus 64GB required with headroom). The two official 20.5GB alternatives remain unusable on this MPS stack: `fp8mixed` fails comfy-kitchen dequantization with `Undefined type Float8_e4m3fn`; `int8_convrot` requires CPU fallback for unsupported MPS `aten::_int_mm` and is operationally too slow. They were removed after 2509 passed and can be re-downloaded if MPS support changes. Use a larger or remote CUDA host for 2511.
+- **Serving invariant**: The public 2509 and 2511 names map to their actual checkpoint generations; 2509 is not silently served as 2511. The tool manifest and HTTP dispatch endpoints must retain `image_url` or edit calls cannot reach the workflow.
 - **Launcher invariant**: Do not use a global ComfyUI inference-dtype override. Model families declare different supported compute dtypes, and a global fp16 flag can turn an otherwise safe quantized checkpoint into numerically invalid compute.
 <!-- /WIKI:GENERATED -->
 

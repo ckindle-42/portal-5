@@ -26,6 +26,7 @@ from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import ollama_url
 from portal.platform.inference.router.anthropic_compat import (
     anthropic_to_openai_body,
+    openai_response_to_anthropic,
     openai_stream_to_anthropic_sse,
 )
 from portal.platform.inference.router.auth import _verify_admin_key, _verify_key
@@ -124,7 +125,6 @@ try:
 except importlib.metadata.PackageNotFoundError:
     _PKG_VERSION = "dev"
 
-_MAX_REQUEST_BYTES: int = int(os.environ.get("MAX_REQUEST_BYTES", str(4 * 1024 * 1024)))
 _startup_time_val: float = time.time()
 _mp_registry_cache: Any = None
 _mp_registry_dir_cache: str | None = None
@@ -620,13 +620,6 @@ async def chat_completions(
             healthy backends).
     """
     _verify_key(authorization)
-
-    content_length = int(request.headers.get("content-length", 0))
-    if content_length > _MAX_REQUEST_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Request body too large (max {_MAX_REQUEST_BYTES // 1024 // 1024}MB)",
-        )
 
     slot = RequestSlot()
     await slot.acquire_global()
@@ -1250,13 +1243,6 @@ async def anthropic_messages(
     """
     _verify_key(authorization)
 
-    content_length = int(request.headers.get("content-length", 0))
-    if content_length > _MAX_REQUEST_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Request body too large (max {_MAX_REQUEST_BYTES // 1024 // 1024}MB)",
-        )
-
     try:
         body = await request.json()
     except Exception:
@@ -1311,3 +1297,4 @@ async def anthropic_messages(
         )
     if resp.status_code != 200:
         raise HTTPException(status_code=resp.status_code, detail=resp.text)
+    return openai_response_to_anthropic(resp.json(), model_id)

@@ -4,7 +4,7 @@ kind: mixed
 title: "T1550.002 \u2014 Pass-the-hash \u2014 NTLM hash authentication"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1550.002
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1550.002
 - type: mitre
   path: ATT&CK:T1550.002
 - type: scenario
@@ -15,8 +15,8 @@ tags:
 - T1550.002
 - technique
 - signature
-created_at: 1785020525.0136268
-updated_at: 1785020525.0136268
+created_at: 1785349554.5213828
+updated_at: 1785349554.5213828
 ---
 
 # T1550.002 — Pass-the-hash — NTLM hash authentication

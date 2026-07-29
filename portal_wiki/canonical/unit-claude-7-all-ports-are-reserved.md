@@ -12,8 +12,8 @@ tags:
 - claude
 - architecture
 - law
-created_at: 1783195000.808032
-updated_at: 1783195000.808032
+created_at: 1785348301.194347
+updated_at: 1785348301.194347
 ---
 
 
@@ -33,6 +33,9 @@ updated_at: 1783195000.808032
 | 8925 | MCP Reranker (Qwen3-Reranker-0.6B-mxfp8, MLX-native, two-stage RAG) |
 | 8926 | MCP CAD Render (OpenSCAD / CadQuery 3D model generation) |
 | 8928 | Pipeline MCP (host-native; exposes explore_repository + stack introspection for Claude Code / opencode) |
+| 8929 | MCP MITRE ATT&CK (technique lookup, data sources, detections — deterministic, not RAG) |
+| 8932 | MCP Detections (SPL library search, validate_syntax, explain_detection — bumped from 8930 to avoid an INCALMO_PORT collision, see `.env.example`) |
+| 8931 | MCP Wiki (canonical knowledge layer — search, get_unit, explain — cited answers) |
 | 8188 | ComfyUI |
 | 8088 | SearXNG |
 | 11434 | Ollama |

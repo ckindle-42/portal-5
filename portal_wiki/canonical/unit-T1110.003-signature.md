@@ -7,7 +7,7 @@ title: "T1110.003 \u2014 Password spray \u2014 multiple 4625/4771 events from si
   \ single source IP]"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1110.003
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1110.003
 - type: mitre
   path: ATT&CK:T1110.003
 - type: scenario
@@ -22,8 +22,8 @@ tags:
 - T1110.003
 - technique
 - signature
-created_at: 1785020525.009726
-updated_at: 1785020525.009726
+created_at: 1785349554.5175328
+updated_at: 1785349554.5175328
 ---
 
 # T1110.003 — Password spray — multiple 4625/4771 events from single source [DISTINGUISH: T1110.003 = one password across many accounts; T1110.001 = many passwords against one account] [KEY: Many accounts, few attempts per account, single source IP]

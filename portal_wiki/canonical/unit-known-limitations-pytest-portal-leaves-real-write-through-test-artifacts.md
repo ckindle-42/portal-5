@@ -1,12 +1,16 @@
 ---
 id: unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts
 kind: what
-title: "KNOWN_LIMITATIONS \u2014 `pytest portal` Leaves Real Write-Through Test Artifacts"
+title: "KNOWN_LIMITATIONS \u2014 `pytest portal` Write-Through Artifacts (Resolved)"
 sources:
 - type: doc
   path: KNOWN_LIMITATIONS.md
   commit: 05e42ec2
   section: '`pytest portal` Leaves Real Write-Through Test Artifacts'
+- type: code
+  path: portal/modules/security/tests/conftest.py
+- type: code
+  path: portal/modules/security/tests/test_write_isolation.py
 last_generated_commit: 05e42ec2
 confidence: high
 tags:
@@ -15,7 +19,12 @@ created_at: 1784946220.664905
 updated_at: 1784946220.664905
 ---
 
-- **Description**: Some `portal/modules/security/tests/` tests write through the real goal/playbook journal path (`portal/modules/security/core/field_journal/`) and checkpoint path (`portal/modules/security/core/results/checkpoints/`) instead of a `tmp_path`-redirected one, violating the `tmp_path` testing rule (`CLAUDE.md` Testing Rules).
-- **Impact**: Running `pytest portal` locally dirties the working tree — new dated entries under `field_journal/` and a modified `field_journal/_index.json`, plus files under `results/checkpoints/`.
-- **Mitigation**: `results/checkpoints/` is gitignored. `field_journal/` holds real committed history so it is intentionally *not* gitignored — run `git status` after `pytest portal` and `git checkout -- portal/modules/security/core/field_journal/_index.json` (plus `git clean` any new dated entries) before staging a commit. See `CLAUDE.md` Testing Rules.
-- **Fix (open)**: Route the journal writer through a fixture-injected path in the offending tests so `pytest portal` is side-effect-free like `pytest tests/unit`.
+- **Status**: RESOLVED 2026-07-29.
+- **Former issue**: Security module tests could write journals and checkpoints
+  into the real runtime tree.
+- **Resolution**: An autouse fixture redirects `JOURNAL_DIR`, `RESULTS_DIR`, and
+  `CHECKPOINT_DIR` into each test's `tmp_path`. The production modules also
+  stopped creating those directories merely by being imported; write
+  functions create their destination lazily.
+- **Regression coverage**: `test_write_isolation.py` writes both artifact types
+  and asserts that their parents are the fixture sandbox.

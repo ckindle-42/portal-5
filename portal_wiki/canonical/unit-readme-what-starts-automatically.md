@@ -15,7 +15,8 @@ created_at: 1784946220.678988
 updated_at: 1784946220.678988
 ---
 
-Everything runs with a single command. No manual configuration.
+`./launch.sh up` starts the core Docker stack. Host-native services start when
+their corresponding launchd service has been installed and enabled.
 
 | Service | What it does | URL |
 |---|---|---|
@@ -23,8 +24,8 @@ Everything runs with a single command. No manual configuration.
 | Portal Pipeline | Intelligent routing, auth, metrics | :9099 (internal) |
 | Ollama | Runs local GGUF models via Metal | :11434 (internal) |
 | SearXNG | Private web search for research | (internal) |
-| ComfyUI | Image and video generation (host-native) | http://localhost:8188 |
-| MCP Servers (14) | ComfyUI (:8910), Video (:8911), Music (:8912), Documents (:8913), Code sandbox (:8914), Whisper (:8915), TTS (:8916), Security (:8919), Memory (:8920), RAG (:8921), Research (:8922), Browser (:8923), CAD render (:8926), Proxmox (:8927) | (internal) |
+| ComfyUI | Image generation (host-native; video is shelved) | http://localhost:8188 |
+| MCP fleet | ComfyUI image (:8910), Music (:8912), Documents (:8913), Code sandbox (:8914), Whisper (:8915), TTS (:8916), Security (:8919), Memory (:8920), RAG (:8921), Research (:8922), Browser (:8923), CAD render (:8926), Proxmox (:8927) | (internal) |
 | Pipeline MCP | Stack introspection + FastContext code explorer for Claude Code / opencode | :8928 (host-native) |
 | MITRE ATT&CK MCP | Technique lookup, data sources, detections — deterministic, not RAG | :8929 (internal) |
 | Detections MCP | SPL library search, validate_syntax, explain_detection | :8932 (internal) |

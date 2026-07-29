@@ -15,7 +15,6 @@ created_at: 1784946220.5558279
 updated_at: 1784946220.5558279
 ---
 
-**`./launch.sh pull-wan22` is advertised in `launch.sh --help` but has no implementation**
-(found during Slice P media bring-up) — download directly instead:
-
-```bash
+Video generation is shelved. No Wan weights are required for the supported
+image-only ComfyUI setup. `./launch.sh pull-wan22` remains an explicit archival
+download path for a future re-evaluation; it is not part of normal setup.

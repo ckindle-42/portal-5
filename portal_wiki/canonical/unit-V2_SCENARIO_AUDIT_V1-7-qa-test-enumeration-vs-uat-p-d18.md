@@ -11,8 +11,8 @@ confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.924361
-updated_at: 1783195000.924361
+created_at: 1785348275.819625
+updated_at: 1785348275.819625
 ---
 
 
@@ -40,4 +40,6 @@ updated_at: 1783195000.924361
 
 **Verdict**: MIXED
 
-**Notes**: V2 adds a count floor ("at least 8"), bracket-format tagging that exactly matches assertion checks, and per-test field specification. V2 also introduces C
+**Notes**: V2 adds a count floor ("at least 8"), bracket-format tagging that exactly matches assertion checks, and per-test field specification. V2 also introduces ClamAV as a concrete security target, making the security test dimension easier to enumerate than UAT's abstract prompt.
+
+---

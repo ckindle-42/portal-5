@@ -12,8 +12,8 @@ tags:
 - claude
 - architecture
 - law
-created_at: 1783195000.80879
-updated_at: 1783195000.80879
+created_at: 1785348301.1943538
+updated_at: 1785348301.1943538
 ---
 
 

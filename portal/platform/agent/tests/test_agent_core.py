@@ -18,6 +18,7 @@ class FakeCap:
     id: str
     tools: list[str]
     oracle: str | None = None
+    phase: str = ""
 
 
 class FakeProvider:
@@ -81,6 +82,66 @@ def test_model_turn_is_never_load_bearing():
     prov = FakeProvider([FakeCap("cap.a", ["exploit_smb"])])
     d = decide_next_action(_goal(), {}, [], provider=prov, model_turn=lambda *a: None)
     assert d["outcome"] == "proposed"  # fell through to deterministic ranker
+
+
+def test_deterministic_fallback_starts_with_reconnaissance():
+    prov = FakeProvider(
+        [
+            FakeCap("exploit", [], oracle="owned", phase="exploit"),
+            FakeCap("smb_probe", ["nmap"], phase="recon"),
+        ]
+    )
+
+    decision = decide_next_action(_goal(), {}, [], provider=prov)
+
+    assert decision["action"] == "smb_probe"
+    assert decision["tool"] == "nmap"
+
+
+def test_deterministic_fallback_progresses_to_oracle_after_recon():
+    prov = FakeProvider(
+        [
+            FakeCap("smb_probe", ["nmap"], phase="recon"),
+            FakeCap("certificate_abuse", [], oracle="domain_admin", phase="exploit"),
+        ]
+    )
+    history = [
+        {
+            "iteration": 0,
+            "decision": {"action": "smb_probe", "tool": "nmap"},
+            "result": {"observation_delta": {"open_ports": [445]}},
+        }
+    ]
+
+    decision = decide_next_action(
+        _goal(),
+        {"open_ports": [445]},
+        history,
+        provider=prov,
+    )
+
+    assert decision["action"] == "certificate_abuse"
+    assert decision["tool"] == "certificate_abuse"
+    assert decision["expected_oracle"] == "domain_admin"
+
+
+def test_deterministic_fallback_understands_direct_decision_history():
+    prov = FakeProvider(
+        [
+            FakeCap("first", ["scan"]),
+            FakeCap("second", ["check"]),
+        ]
+    )
+
+    decision = decide_next_action(
+        _goal(),
+        {},
+        [{"action": "first", "tool": "scan"}],
+        provider=prov,
+    )
+
+    assert decision["action"] == "second"
+    assert decision["tool"] == "check"
 
 
 def test_loop_completes_on_stop_condition():

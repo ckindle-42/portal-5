@@ -4,7 +4,7 @@ kind: mixed
 title: "T1046 \u2014 Network service discovery \u2014 port scanning and SNMP enumeration"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1046
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1046
 - type: mitre
   path: ATT&CK:T1046
 - type: scenario
@@ -19,8 +19,8 @@ tags:
 - T1046
 - technique
 - signature
-created_at: 1785020525.016507
-updated_at: 1785020525.016507
+created_at: 1785349554.524184
+updated_at: 1785349554.524184
 ---
 
 # T1046 — Network service discovery — port scanning and SNMP enumeration

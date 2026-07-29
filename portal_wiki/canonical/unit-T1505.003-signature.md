@@ -4,7 +4,7 @@ kind: mixed
 title: "T1505.003 \u2014 Webshell \u2014 file-write + subsequent exec correlation"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1505.003
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1505.003
 - type: mitre
   path: ATT&CK:T1505.003
 - type: scenario
@@ -19,8 +19,8 @@ tags:
 - T1505.003
 - technique
 - signature
-created_at: 1785020525.007422
-updated_at: 1785020525.007422
+created_at: 1785349554.515299
+updated_at: 1785349554.515299
 ---
 
 # T1505.003 — Webshell — file-write + subsequent exec correlation
@@ -34,7 +34,7 @@ index=portal5_lab sourcetype="web:access" "uploads" ".php" | join host [search i
 
 ## Exercised By Scenarios
 
-- `mbptl_ctf_full_chain` — target: 10.0.1.140
+- `mbptl_ctf_full_chain` — target: None
 - `meta3_webdav_upload` — target: 10.10.11.13
 - `mission_vulhub_multi_target` — target: 10.10.11.50
 

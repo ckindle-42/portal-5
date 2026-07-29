@@ -1,7 +1,7 @@
 ---
 id: unit-known-limitations-comfyui-model-download-commands-are-broken
 kind: what
-title: "KNOWN_LIMITATIONS \u2014 ComfyUI Model Download Commands Are Broken"
+title: "KNOWN_LIMITATIONS \u2014 Legacy ComfyUI Model Download Command Is Retired"
 sources:
 - type: doc
   path: KNOWN_LIMITATIONS.md
@@ -15,7 +15,7 @@ created_at: 1784946220.663956
 updated_at: 1784946220.663956
 ---
 
-- **Description**: `./launch.sh download-comfyui-models` calls `scripts/download_comfyui_models.py`, deleted in commit `ea864cf` ("superseded by pull-wan22 / pull-qwen-image commands in launch.sh") — but neither `pull-wan22` nor `pull-qwen-image` was ever implemented; both were advertised in `launch.sh --help` with no case handler. Found during Slice P media bring-up (`TASK_MEDIA_BRINGUP_V1`).
-- **Update (2026-07-29)**: `pull-wan22` is now implemented (`scripts/lib/services.sh:_launch_pull_wan22`) and live-verified for TI2V-5B, S2V-14B, and T2V-A14B model downloads. **Video generation itself is shelved regardless — see `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps`.** `download-comfyui-models` now exits with a clear pointer instead of `ModuleNotFoundError`. `pull-qwen-image` is still unimplemented (image generation, tracked separately — not shelved).
-- **Impact**: No `launch.sh` subcommand can download Qwen-Image models yet. Separately, the `flux-uncensored` image backend's expected checkpoint (`Flux_v8-NSFW.safetensors`) has no known working source — the old script's repo (`enhanceaiteam/Flux-Uncensored-V2`) 404s, and no other reference to that filename exists in the codebase.
-- **Mitigation**: Use `./launch.sh pull-wan22` for Wan 2.2 model downloads (though see the fp8/MPS unit above before relying on the output — most of what it downloads doesn't currently run on Apple Silicon). Download Qwen-Image directly with `hf download` until `pull-qwen-image` is implemented — see `docs/COMFYUI_SETUP.md#download-models`.
+- **Description**: The legacy `./launch.sh download-comfyui-models` command no longer downloads models because its monolithic script was deleted in commit `ea864cf`; the handler now exits with a clear pointer to the family-specific commands.
+- **Resolution (2026-07-29)**: `pull-qwen-image` and `pull-wan22` both have real handlers. `pull-qwen-image` now downloads the exact image checkpoints verified on Apple Silicon MPS: Qwen-Image-2512 plain FP8, Qwen-Image-Edit-2509 plain FP8, the shared text encoder/VAE, and the Lightning LoRA. Video generation remains shelved even though its archival pull command exists.
+- **Remaining impact**: Operators must use the explicit family command instead of the retired alias. Separately, `flux-uncensored` still has no known working checkpoint source.
+- **Operator action**: Run `./launch.sh pull-qwen-image` for the supported image set. Do not treat `pull-wan22` as enabling video operation; see `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps`.

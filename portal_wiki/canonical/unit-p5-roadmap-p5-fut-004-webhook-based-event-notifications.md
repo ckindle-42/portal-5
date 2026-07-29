@@ -15,7 +15,7 @@ created_at: 1784946220.590606
 updated_at: 1784946220.590606
 ---
 
-IMPLEMENTED: `WebhookChannel` (`portal_pipeline/notifications/channels/webhook.py`) sends
+IMPLEMENTED: `WebhookChannel` (`portal/platform/inference/notifications/channels/webhook.py`) sends
 JSON POST to any user-defined HTTP endpoint on all alert and daily summary events.
 Configure via `WEBHOOK_URL` and optional `WEBHOOK_HEADERS` (JSON object) env vars.
 Live-verified: a `config_error` test event was confirmed delivered to a listening endpoint.

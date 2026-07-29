@@ -5,7 +5,7 @@ title: "T1611 \u2014 Container escape \u2014 host auditd + docker events [KEY: n
   \ mount, /proc/1, or privileged from the SPL]"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1611
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1611
 - type: mitre
   path: ATT&CK:T1611
 last_generated_commit: ''
@@ -14,8 +14,8 @@ tags:
 - T1611
 - technique
 - signature
-created_at: 1785020525.0080278
-updated_at: 1785020525.0080278
+created_at: 1785349554.515904
+updated_at: 1785349554.515904
 ---
 
 # T1611 — Container escape — host auditd + docker events [KEY: nsenter, mount, /proc/1, or privileged from the SPL]

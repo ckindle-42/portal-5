@@ -15,13 +15,16 @@ created_at: 1784946220.555469
 updated_at: 1784946220.555469
 ---
 
-Wan 2.2 is the MoE successor to Wan 2.1 (27B total / 14B active per step). Four variants are supported as parallel ComfyUI workflows. The Wan 2.1 NSFW pipeline is unchanged and remains the default for NSFW-tagged requests.
+Wan 2.2 video generation is shelved on this Apple Silicon host. The table is
+retained only as an archival implementation inventory; none of these variants
+is exposed as a supported Portal operation.
 
-| Variant | Model ID | Size | Best for |
-|---|---|---|---|
-| `wan22-t2v-a14b` | `wan22-t2v-a14b` | 27B/14B-active | Cinematic-quality text-to-video |
-| `wan22-ti2v-5b` | `wan22-ti2v-5b` | 5B | Fast single-GPU text/image-to-video (~9 min per 5s clip) |
-| `wan22-animate-14b` | `wan22-animate-14b` | 14B | Character animation / replacement (**NEW capability**) |
-| `wan22-s2v-14b` | `wan22-s2v-14b` | 14B | Speech-driven video generation (**NEW capability**) |
+| Variant | Implementation state | Operating state |
+|---|---|---|
+| `wan22-t2v-a14b` | Workflow corrected; available FP8 checkpoints fail on MPS | SHELVED |
+| `wan22-ti2v-5b` | Verified working in isolation | SHELVED by project decision |
+| `wan22-animate-14b` | Stub only | NOT SUPPORTED |
+| `wan22-s2v-14b` | FP8 checkpoint fails on MPS | SHELVED |
 
-All four are Apache 2.0 licensed.
+See `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps`
+for the evidence and revisit conditions.

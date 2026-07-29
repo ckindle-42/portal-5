@@ -33,6 +33,7 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     # Rationale, incident history: unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps
     "comfyui:qwen-image-2512": 38.0,  # fp8 diffusion 20.4 + fp8_scaled text encoder 9.4 + vae 0.25 static + margin
     "comfyui:qwen-image-2512-lightning": 39.0,  # same base weights (QWEN_IMAGE_MODEL, fp8) + ~0.85GB LoRA
+    "comfyui:qwen-image-edit-2509": 38.0,  # plain fp8 storage expands to bf16 compute; live 512px peak used ~34GB
     "comfyui:qwen-image-edit-2511": 60.0,  # bf16 diffusion 40.8 (no smaller variant yet) + fp8_scaled text encoder 9.4 + vae 0.25 static + margin
 }
 

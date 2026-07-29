@@ -94,6 +94,7 @@ def _mock_torch():
     nn_module.functional = functional
 
     torch_mock.tensor = fake_tensor
+    torch_mock.Tensor = FakeTensor
     torch_mock.argmax = fake_argmax
     torch_mock.no_grad = lambda: _NoGradContext()
     torch_mock.nn = nn_module

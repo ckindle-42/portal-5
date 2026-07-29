@@ -15,6 +15,6 @@ created_at: 1784946220.663147
 updated_at: 1784946220.663147
 ---
 
-- **Description**: ComfyUI runs on the host (not in Docker) to access MPS/CUDA directly. Required for image/video generation performance.
+- **Description**: ComfyUI runs on the host (not in Docker) to access MPS/CUDA directly. This is required for supported image-generation performance; video operation is shelved.
 - **Impact**: Manual setup required outside `./launch.sh up`. On a fresh machine, ComfyUI must be installed separately.
 - **Mitigation**: `./launch.sh install-comfyui` handles setup on supported platforms. See `docs/COMFYUI_SETUP.md`.

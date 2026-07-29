@@ -15,12 +15,12 @@ created_at: 1784946220.591037
 updated_at: 1784946220.591037
 ---
 
-IMPLEMENTED in v6.0.0 (`portal_pipeline/router_pipe.py`). `_route_with_llm()` uses
-`hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` as a semantic intent classifier, replacing keyword-based
-workspace detection for the primary routing path.
+IMPLEMENTED in v6.0.0. `_route_with_llm()` now lives in
+`portal/platform/inference/router/routing.py` and uses the model selected by
+`LLM_ROUTER_MODEL` as the primary semantic intent classifier.
 
 **What was built:**
-- `_route_with_llm()` in `router_pipe.py` — Ollama grammar-enforced JSON output (guaranteed valid workspace ID + confidence)
+- `_route_with_llm()` in `router/routing.py` — Ollama grammar-enforced JSON output (guaranteed valid workspace ID + confidence)
 - `temperature: 0`, `num_predict: 20`, `num_ctx: 512` — deterministic, fast; `keep_alive: "-1"` keeps model loaded
 - Falls back to `_detect_workspace()` on `confidence < 0.5` or timeout
 - `config/routing_descriptions.json` — operator-editable workspace capability descriptions
@@ -30,8 +30,8 @@ workspace detection for the primary routing path.
 **Configuration (`.env`):**
 ```
 LLM_ROUTER_ENABLED=true
-LLM_ROUTER_MODEL=hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF
+LLM_ROUTER_MODEL=hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M
 LLM_ROUTER_CONFIDENCE_THRESHOLD=0.5
-LLM_ROUTER_TIMEOUT_MS=500
-LLM_ROUTER_OLLAMA_URL=http://localhost:11434
+LLM_ROUTER_TIMEOUT_MS=1000
+LLM_ROUTER_OLLAMA_URL=http://host.docker.internal:11434
 ```

@@ -571,6 +571,7 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     # Rationale, incident history: unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps
     "comfyui:qwen-image-2512": 38.0,  # fp8 diffusion 20.4 + fp8_scaled text encoder 9.4 + vae 0.25 static + margin
     "comfyui:qwen-image-2512-lightning": 39.0,  # same base weights (QWEN_IMAGE_MODEL, fp8) + ~0.85GB LoRA
+    "comfyui:qwen-image-edit-2509": 38.0,  # plain fp8 storage expands to bf16 compute; live 512px peak used ~34GB
     "comfyui:qwen-image-edit-2511": 60.0,  # bf16 diffusion 40.8 (no smaller variant yet) + fp8_scaled text encoder 9.4 + vae 0.25 static + margin
 }
 
@@ -585,6 +586,9 @@ def derive_media_memory_budget(commit: str, save: bool = True) -> KnowledgeUnit:
         "gate only covered the text/VLM inference tier). Used by the Tier 1 pre-flight admission "
         "check (`portal/modules/media/tools/_admission.py`) to refuse a job before it OOMs "
         "instead of after.",
+        "",
+        "The `video:*` row is retained for the archived `video_mcp` code path; video service "
+        "operation is shelved. Active ComfyUI operation is image-only.",
         "",
         "| Backend:model | Estimated GB |",
         "|---|---|",
@@ -668,10 +672,15 @@ _DERIVERS = (
 )
 
 
+def derive_facts(commit: str | None = None, *, save: bool = False) -> list[KnowledgeUnit]:
+    """Derive all fact units in memory, optionally saving the result."""
+    commit = commit or _get_current_commit()
+    return [deriver(commit, save=save) for deriver in _DERIVERS]
+
+
 def seed_facts(commit: str | None = None) -> list[KnowledgeUnit]:
     """Derive/re-derive all fact units from current config. Idempotent."""
-    commit = commit or _get_current_commit()
-    return [deriver(commit) for deriver in _DERIVERS]
+    return derive_facts(commit, save=True)
 
 
 def check_facts_current(commit: str | None = None) -> list[str]:
@@ -685,8 +694,7 @@ def check_facts_current(commit: str | None = None) -> list[str]:
 
     commit = commit or _get_current_commit()
     drifted: list[str] = []
-    for deriver in _DERIVERS:
-        fresh = deriver(commit, save=False)
+    for fresh in derive_facts(commit, save=False):
         stored = load_unit(fresh.id)
         # KnowledgeUnit.from_markdown() strips the body on load (schema.py),
         # so a save/load round-trip normalizes leading/trailing whitespace —

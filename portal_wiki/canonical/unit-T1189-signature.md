@@ -5,7 +5,7 @@ title: "T1189 \u2014 Drive-by compromise \u2014 reflected XSS and malicious redi
   \ indicators [KEY: One of the XSS/redirect literals used by this SPL]"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1189
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1189
 - type: mitre
   path: ATT&CK:T1189
 - type: scenario
@@ -18,8 +18,8 @@ tags:
 - T1189
 - technique
 - signature
-created_at: 1785020525.015189
-updated_at: 1785020525.015189
+created_at: 1785349554.522909
+updated_at: 1785349554.522909
 ---
 
 # T1189 — Drive-by compromise — reflected XSS and malicious redirect indicators [KEY: One of the XSS/redirect literals used by this SPL]

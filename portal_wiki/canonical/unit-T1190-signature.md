@@ -5,7 +5,7 @@ title: "T1190 \u2014 Web exploit \u2014 access-log signatures (LFI/SQLi/Log4Shel
   \ markers) [KEY: One of the literal exploit markers used by this SPL]"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1190
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1190
 - type: mitre
   path: ATT&CK:T1190
 - type: scenario
@@ -20,8 +20,8 @@ tags:
 - T1190
 - technique
 - signature
-created_at: 1785020525.005383
-updated_at: 1785020525.005383
+created_at: 1785349554.514407
+updated_at: 1785349554.514407
 ---
 
 # T1190 — Web exploit — access-log signatures (LFI/SQLi/Log4Shell/webshell markers) [KEY: One of the literal exploit markers used by this SPL]
@@ -35,9 +35,9 @@ index=portal5_lab sourcetype="web:access" (passwd OR "../" OR "UNION SELECT" OR 
 
 ## Exercised By Scenarios
 
-- `mbptl_ctf_full_chain` — target: 10.0.1.140
-- `web_to_root` — target: 10.0.1.140
-- `ctf_multi_service` — target: 10.0.1.140
+- `mbptl_ctf_full_chain` — target: None
+- `web_to_root` — target: None
+- `ctf_multi_service` — target: None
 - `web_sqli_dump` — target: 10.10.11.50
 - `web_graphql_introspect` — target: 10.10.11.50
 

@@ -2436,7 +2436,7 @@ def check_capability_graph() -> tuple[str, str, list[dict]]:
 
 
 def check_wiki_core() -> tuple[str, str, list[dict]]:
-    """AJ. Wiki core backbone — schema + provenance + core import-clean.
+    """AJ. Wiki core backbone — schema + provenance + integrity + import-clean.
 
     Verifies:
     - KnowledgeUnit schema works (mandatory provenance)
@@ -2470,7 +2470,30 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
         subs.append({"name": "schema + provenance", "status": "FAIL", "detail": str(e)})
         return "FAIL", f"wiki schema failed: {e}", subs
 
-    # Check 2: core import-clean
+    # Check 2: canonical body + repository-local provenance integrity.
+    try:
+        from portal.platform.wiki.audit import audit_units
+
+        integrity_issues = audit_units(REPO_ROOT)
+        assert not integrity_issues, "; ".join(
+            (
+                f"{issue.unit_id}: {issue.code}"
+                + (f" ({issue.source_path})" if issue.source_path else "")
+            )
+            for issue in integrity_issues[:10]
+        )
+        subs.append(
+            {
+                "name": "canonical integrity",
+                "status": "PASS",
+                "detail": "no truncation artifacts or unresolved local provenance",
+            }
+        )
+    except Exception as e:
+        subs.append({"name": "canonical integrity", "status": "FAIL", "detail": str(e)})
+        return "FAIL", f"canonical integrity failed: {e}", subs
+
+    # Check 3: core import-clean
     try:
         import glob as glob_mod
 
@@ -2486,7 +2509,7 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
         subs.append({"name": "core import-clean", "status": "FAIL", "detail": str(e)})
         return "FAIL", f"core import-clean failed: {e}", subs
 
-    # Check 3: MCP tools importable
+    # Check 4: MCP tools importable
     try:
         from portal_wiki.mcp import wiki_explain, wiki_get_unit, wiki_search  # noqa: F401
 
@@ -2497,7 +2520,7 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
 
     return (
         "PASS",
-        "schema validates; core import-clean; MCP tools functional",
+        "schema validates; canonical integrity clean; core import-clean; MCP tools functional",
         subs,
     )
 

@@ -4,7 +4,7 @@ kind: mixed
 title: "T1592 \u2014 Gather victim host info \u2014 service fingerprinting and enumeration"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1592
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1592
 - type: mitre
   path: ATT&CK:T1592
 - type: scenario
@@ -19,8 +19,8 @@ tags:
 - T1592
 - technique
 - signature
-created_at: 1785020525.0120242
-updated_at: 1785020525.0120242
+created_at: 1785349554.5197608
+updated_at: 1785349554.5197608
 ---
 
 # T1592 — Gather victim host info — service fingerprinting and enumeration

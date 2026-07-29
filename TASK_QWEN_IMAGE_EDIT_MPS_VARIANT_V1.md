@@ -3,7 +3,7 @@
 **Task ID:** TASK-QWEN-IMAGE-EDIT-MPS-VARIANT-001
 **Priority:** Normal
 **Category:** Media capability / platform compatibility
-**Status:** Open — resume from the recorded checkpoint
+**Status:** Completed 2026-07-29
 
 ---
 
@@ -27,9 +27,9 @@ unsupported compute dtype.
 
 ## Smaller 2511 checkpoints already tested
 
-Both official artifacts are downloaded under
-`~/ComfyUI/models/diffusion_models/` and can be reused without downloading
-again:
+Both official artifacts were tested and were removed on 2026-07-29 after the
+2509 fallback passed. They can be restored from the recorded source if MPS
+support changes:
 
 1. `qwen_image_edit_2511_fp8mixed.safetensors` (~20.5GB)
    - Source:
@@ -75,23 +75,53 @@ The edit source used by those probes is
 
 ## To do
 
-- [ ] Test `qwen_image_edit_2509_fp8_e4m3fn.safetensors` at 512×512 with the
+- [x] Test `qwen_image_edit_2509_fp8_e4m3fn.safetensors` at 512×512 with the
       existing source image and a visually obvious edit.
-- [ ] Inspect the saved image, pixel statistics, logs, and peak free memory;
+- [x] Inspect the saved image, pixel statistics, logs, and peak free memory;
       successful execution alone is insufficient.
-- [ ] If it passes, add an explicit model route, installer download, admission
+- [x] If it passes, add an explicit model route, installer download, admission
       estimate, unit coverage, and canonical wiki documentation.
-- [ ] If no local route passes, document remote CUDA as the supported 2511
-      execution path and keep local bf16 admission refusal.
-- [ ] Decide whether to retain or remove the two failed 20.5GB checkpoints
+- [x] Keep remote CUDA/larger-host execution as the supported 2511 path and
+      retain the local bf16 admission refusal; the passing local route is 2509.
+- [x] Decide whether to retain or remove the two failed 20.5GB checkpoints
       after the next investigation.
-- [ ] Run the full verification ladder and `bash scripts/ci_local.sh`.
+- [x] Run the full verification ladder and `bash scripts/ci_local.sh`.
 
 ## Definition of Done
 
-- [ ] At least one Qwen image-editing route produces a prompt-matching,
+- [x] At least one Qwen image-editing route produces a prompt-matching,
       non-degenerate edit without unsafe memory pressure.
-- [ ] The public model name accurately identifies the checkpoint generation.
-- [ ] Admission estimates match the verified peak and cannot be bypassed by a
+- [x] The public model name accurately identifies the checkpoint generation.
+- [x] Admission estimates match the verified peak and cannot be bypassed by a
       global dtype or fallback flag.
-- [ ] Installer, tests, task notes, and wiki facts agree.
+- [x] Installer, tests, task notes, and wiki facts agree.
+
+## Resolution
+
+The official `qwen_image_edit_2509_fp8_e4m3fn.safetensors` checkpoint completed
+a real 512×512, 20-step edit on Apple Silicon MPS without `--force-fp16` or
+`PYTORCH_ENABLE_MPS_FALLBACK`. Prompt
+`88992f59-4fa8-425a-8be4-1824d1eef2c3` finished successfully in 697.8 seconds
+and saved `portal__00011_.png`.
+
+The source was the `PORTAL FIVE` fox-astronaut image. The instruction changed
+the white spacesuit to vivid emerald green. The output is a valid,
+non-degenerate RGB image: full 0–255 channel ranges, mean RGB
+`(62.63, 85.15, 68.26)`, channel standard deviations
+`(95.42, 79.25, 61.69)`, and 97,139 unique RGB values. The fox and dark-blue
+setting remained recognizable. The model did reframe the composition and crop
+most of the original text, so this route is instruction editing rather than
+pixel-preserving retouching.
+
+Starting free memory was 44.46GB and the lowest observed value was 10.55GB,
+about 33.91GB consumed at peak. ComfyUI reported the plain-FP8 checkpoint
+expanding to bf16 compute, so the route uses a conservative 38GB estimate plus
+the existing 4GB headroom. The 2511 bf16 route remains at 60GB and is not
+silently repointed.
+
+`qwen-image-edit-2509` is now a distinct public route, the HTTP tool manifest
+advertises `image_url`, and both HTTP dispatch endpoints forward it. The
+Apple-Silicon installer now downloads the working 2512/2509 plain-FP8 set
+instead of the unsafe bf16 pair. The confirmed-broken 2511 `fp8mixed` and
+`int8_convrot` files were removed; both are recoverable from
+`Comfy-Org/Qwen-Image-Edit_ComfyUI`.

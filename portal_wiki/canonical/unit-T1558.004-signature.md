@@ -7,7 +7,7 @@ title: "T1558.004 \u2014 AS-REP Roasting \u2014 Windows Security Event 4768 with
   \ events]"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1558.004
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1558.004
 - type: mitre
   path: ATT&CK:T1558.004
 - type: scenario
@@ -18,8 +18,8 @@ tags:
 - T1558.004
 - technique
 - signature
-created_at: 1785020525.008998
-updated_at: 1785020525.008998
+created_at: 1785349554.516833
+updated_at: 1785349554.516833
 ---
 
 # T1558.004 — AS-REP Roasting — Windows Security Event 4768 without pre-auth [DISTINGUISH: T1558.004 uses EventCode=4768 (AS-REQ) with PreAuthType=0; T1558.003 uses EventCode=4769 (TGS-REQ) with RC4] [KEY: PreAuthType=0 in 4768 events]

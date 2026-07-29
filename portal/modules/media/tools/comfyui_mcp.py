@@ -79,8 +79,17 @@ TOOLS_MANIFEST = [
                 "prompt": {"type": "string", "description": "Text description of the image"},
                 "model": {
                     "type": "string",
-                    "description": "Model: 'flux' (schnell, fast), 'flux-uncensored', 'sdxl'",
+                    "description": (
+                        "Model: 'flux', 'flux-uncensored', 'sdxl', 'qwen-image-2512', "
+                        "'qwen-image-2512-lightning', 'qwen-image-edit-2509', or "
+                        "'qwen-image-edit-2511'"
+                    ),
                     "default": "flux",
+                },
+                "image_url": {
+                    "type": "string",
+                    "description": "Reference image URL/path required by qwen-image-edit models",
+                    "default": "",
                 },
                 "width": {"type": "integer", "default": 1024},
                 "height": {"type": "integer", "default": 1024},
@@ -128,6 +137,11 @@ TOOLS_MANIFEST = [
             "properties": {
                 "prompt": {"type": "string"},
                 "model": {"type": "string", "default": "flux"},
+                "image_url": {
+                    "type": "string",
+                    "description": "Reference image URL/path required by qwen-image-edit models",
+                    "default": "",
+                },
                 "width": {"type": "integer", "default": 1024},
                 "height": {"type": "integer", "default": 1024},
                 "steps": {"type": "integer", "default": 4},
@@ -181,6 +195,7 @@ async def start_image_generation_endpoint(request):
         checkpoint=args.get("checkpoint", ""),
         lora=args.get("lora", ""),
         lora_strength=float(args.get("lora_strength", 1.0)),
+        image_url=args.get("image_url", ""),
     )
     return JSONResponse(result)
 
@@ -217,6 +232,7 @@ async def generate_image_endpoint(request):
         checkpoint=args.get("checkpoint", ""),
         lora=args.get("lora", ""),
         lora_strength=float(args.get("lora_strength", 1.0)),
+        image_url=args.get("image_url", ""),
     )
     return JSONResponse(result)
 
@@ -362,9 +378,13 @@ _MODEL_CKPT_MAP = {
 # unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps.
 # Capabilities vs FLUX:
 #   - qwen-image-2512: top-of-leaderboard text rendering (typography, posters, slides)
-#   - qwen-image-edit-2511: instruction-based image editing (no FLUX equivalent) — requires image_url
+#   - qwen-image-edit-2509: MPS-compatible instruction editing — requires image_url
+#   - qwen-image-edit-2511: newer edit model; bf16 route needs a larger host or remote CUDA
 #   - qwen-image-2512-lightning: same T2I graph + distillation LoRA, 8 steps, cfg=1.0
 QWEN_IMAGE_MODEL = os.getenv("QWEN_IMAGE_MODEL", "qwen_image_fp8_e4m3fn.safetensors")
+QWEN_IMAGE_EDIT_2509_MODEL = os.getenv(
+    "QWEN_IMAGE_EDIT_2509_MODEL", "qwen_image_edit_2509_fp8_e4m3fn.safetensors"
+)
 QWEN_IMAGE_EDIT_MODEL = os.getenv("QWEN_IMAGE_EDIT_MODEL", "qwen_image_edit_2511_bf16.safetensors")
 QWEN_IMAGE_CLIP = os.getenv("QWEN_IMAGE_CLIP", "qwen_2.5_vl_7b_fp8_scaled.safetensors")
 QWEN_IMAGE_VAE = os.getenv("QWEN_IMAGE_VAE", "qwen_image_vae.safetensors")
@@ -477,69 +497,76 @@ _QWEN_IMAGE_2512_LIGHTNING_WORKFLOW: dict = {
     },
 }
 
+
 # Instruction-based image editing. Node layout matches the official
 # qwen_image_edit_2509_basic_example.png workflow: LoadImage[41] feeds
 # TextEncodeQwenImageEditPlus[68]/[69] (which condition on both clip AND vae,
 # unlike plain CLIPTextEncode) alongside the text prompt. Requires image_url.
-_QWEN_IMAGE_EDIT_2511_WORKFLOW: dict = {
-    "12": {
-        "inputs": {"unet_name": QWEN_IMAGE_EDIT_MODEL, "weight_dtype": "default"},
-        "class_type": "UNETLoader",
-    },
-    "61": {
-        "inputs": {"clip_name": QWEN_IMAGE_CLIP, "type": "qwen_image", "device": "default"},
-        "class_type": "CLIPLoader",
-    },
-    "10": {
-        "inputs": {"vae_name": QWEN_IMAGE_VAE},
-        "class_type": "VAELoader",
-    },
-    "67": {
-        "inputs": {"shift": 3.1, "model": ["12", 0]},
-        "class_type": "ModelSamplingAuraFlow",
-    },
-    "41": {
-        "inputs": {"image": "example.png", "upload": "image"},
-        "class_type": "LoadImage",
-    },
-    "68": {
-        "inputs": {"prompt": "", "clip": ["61", 0], "vae": ["10", 0], "image1": ["41", 0]},
-        "class_type": "TextEncodeQwenImageEditPlus",
-    },
-    "69": {
-        "inputs": {"prompt": "", "clip": ["61", 0], "vae": ["10", 0], "image1": ["41", 0]},
-        "class_type": "TextEncodeQwenImageEditPlus",
-    },
-    "66": {
-        "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
-        "class_type": "EmptySD3LatentImage",
-    },
-    "65": {
-        "inputs": {
-            "seed": 1,
-            "steps": 20,
-            "cfg": 4.0,
-            "sampler_name": "euler",
-            "scheduler": "simple",
-            "denoise": 1.0,
-            "model": ["67", 0],
-            "positive": ["68", 0],
-            "negative": ["69", 0],
-            "latent_image": ["66", 0],
+def _qwen_image_edit_workflow(unet_name: str) -> dict:
+    return {
+        "12": {
+            "inputs": {"unet_name": unet_name, "weight_dtype": "default"},
+            "class_type": "UNETLoader",
         },
-        "class_type": "KSampler",
-    },
-    "8": {"inputs": {"samples": ["65", 0], "vae": ["10", 0]}, "class_type": "VAEDecode"},
-    "9": {
-        "inputs": {"filename_prefix": "portal_", "images": ["8", 0]},
-        "class_type": "SaveImage",
-    },
-}
+        "61": {
+            "inputs": {"clip_name": QWEN_IMAGE_CLIP, "type": "qwen_image", "device": "default"},
+            "class_type": "CLIPLoader",
+        },
+        "10": {
+            "inputs": {"vae_name": QWEN_IMAGE_VAE},
+            "class_type": "VAELoader",
+        },
+        "67": {
+            "inputs": {"shift": 3.1, "model": ["12", 0]},
+            "class_type": "ModelSamplingAuraFlow",
+        },
+        "41": {
+            "inputs": {"image": "example.png", "upload": "image"},
+            "class_type": "LoadImage",
+        },
+        "68": {
+            "inputs": {"prompt": "", "clip": ["61", 0], "vae": ["10", 0], "image1": ["41", 0]},
+            "class_type": "TextEncodeQwenImageEditPlus",
+        },
+        "69": {
+            "inputs": {"prompt": "", "clip": ["61", 0], "vae": ["10", 0], "image1": ["41", 0]},
+            "class_type": "TextEncodeQwenImageEditPlus",
+        },
+        "66": {
+            "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
+            "class_type": "EmptySD3LatentImage",
+        },
+        "65": {
+            "inputs": {
+                "seed": 1,
+                "steps": 20,
+                "cfg": 4.0,
+                "sampler_name": "euler",
+                "scheduler": "simple",
+                "denoise": 1.0,
+                "model": ["67", 0],
+                "positive": ["68", 0],
+                "negative": ["69", 0],
+                "latent_image": ["66", 0],
+            },
+            "class_type": "KSampler",
+        },
+        "8": {"inputs": {"samples": ["65", 0], "vae": ["10", 0]}, "class_type": "VAEDecode"},
+        "9": {
+            "inputs": {"filename_prefix": "portal_", "images": ["8", 0]},
+            "class_type": "SaveImage",
+        },
+    }
+
+
+_QWEN_IMAGE_EDIT_2509_WORKFLOW = _qwen_image_edit_workflow(QWEN_IMAGE_EDIT_2509_MODEL)
+_QWEN_IMAGE_EDIT_2511_WORKFLOW = _qwen_image_edit_workflow(QWEN_IMAGE_EDIT_MODEL)
 
 # Public map — used for routing and import verification
 QWEN_IMAGE_WORKFLOWS: dict[str, dict] = {
     "qwen-image-2512": _QWEN_IMAGE_2512_T2I_WORKFLOW,
     "qwen-image-2512-lightning": _QWEN_IMAGE_2512_LIGHTNING_WORKFLOW,
+    "qwen-image-edit-2509": _QWEN_IMAGE_EDIT_2509_WORKFLOW,
     "qwen-image-edit-2511": _QWEN_IMAGE_EDIT_2511_WORKFLOW,
 }
 
@@ -593,9 +620,9 @@ def _build_image_workflow(
     workflow = _get_workflow(model)
     selected_model = model or IMAGE_BACKEND
 
-    if selected_model == "qwen-image-edit-2511":
+    if selected_model in ("qwen-image-edit-2509", "qwen-image-edit-2511"):
         if not image_filename:
-            raise ValueError("qwen-image-edit-2511 requires image_url — provide a reference image")
+            raise ValueError(f"{selected_model} requires image_url — provide a reference image")
         workflow["41"]["inputs"]["image"] = image_filename
         workflow["68"]["inputs"]["prompt"] = prompt
         workflow["69"]["inputs"]["prompt"] = negative_prompt
@@ -795,16 +822,17 @@ async def start_image_generation(
     and use get_image_status(job_id) when they ask for the result.
 
     Args:
-        prompt: Text description of the image (or edit instruction for qwen-image-edit-2511)
+        prompt: Text description of the image (or edit instruction for a qwen-image-edit model)
         model: 'flux' (schnell, fast ~1min), 'sdxl' (~8min), 'flux-uncensored',
                'qwen-image-2512' (best-in-class text rendering, ~20 steps),
                'qwen-image-2512-lightning' (same model, 8-step distilled LoRA, fast),
-               or 'qwen-image-edit-2511' (instruction-based image editing, requires image_url)
+               'qwen-image-edit-2509' (MPS-compatible instruction editing, requires image_url),
+               or 'qwen-image-edit-2511' (newer edit model for larger/CUDA hosts)
         steps: Diffusion steps — flux schnell default 4, flux dev 28, sdxl 35, qwen-image 20
         cfg: Guidance scale (FLUX: 1.0-5.0 maps to FluxGuidance; SDXL: 5.0-10.0; qwen-image: 2.5-4.0)
         checkpoint: Override checkpoint filename (e.g. 'flux1-dev.safetensors')
         lora: LoRA filename to apply (optional)
-        image_url: URL or local path to a reference image (required for qwen-image-edit-2511)
+        image_url: URL or local path to a reference image (required for qwen-image-edit models)
         seed: -1 for random
     """
     refusal = await admit(_media_model_key(model), COMFYUI_URL)
@@ -997,7 +1025,7 @@ async def generate_image(
     chat use, prefer start_image_generation + get_image_status instead.
 
     Args:
-        prompt: Text description of the image to generate (or edit instruction for qwen-image-edit-2511)
+        prompt: Text description of the image to generate (or edit instruction for a qwen-image-edit model)
         width: Image width in pixels (default 1024)
         height: Image height in pixels (default 1024)
         steps: Number of diffusion steps (FLUX default 4, SDXL default 25, qwen-image 20)
@@ -1007,12 +1035,14 @@ async def generate_image(
         model: Model to use - 'flux' (fast), 'flux-uncensored' (uncensored),
                'sdxl' (high quality), 'qwen-image-2512' (best-in-class text
                rendering — typography, posters, slides), 'qwen-image-2512-lightning'
-               (same model, 8-step distilled LoRA, fast), or 'qwen-image-edit-2511'
-               (instruction-based image editing, requires image_url). Defaults to 'flux'.
+               (same model, 8-step distilled LoRA, fast), 'qwen-image-edit-2509'
+               (MPS-compatible instruction editing), or 'qwen-image-edit-2511'
+               (newer edit model for larger/CUDA hosts). Edit models require image_url.
+               Defaults to 'flux'.
         checkpoint: Override checkpoint filename (optional)
         lora: LoRA filename to apply (optional, from models/loras/)
         lora_strength: LoRA strength 0.0-2.0 (default 1.0)
-        image_url: URL or local path to a reference image (required for qwen-image-edit-2511)
+        image_url: URL or local path to a reference image (required for qwen-image-edit models)
     """
     refusal = await admit(_media_model_key(model), COMFYUI_URL)
     if refusal:

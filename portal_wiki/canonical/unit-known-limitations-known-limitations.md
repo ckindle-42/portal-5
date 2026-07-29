@@ -15,6 +15,10 @@ created_at: 1784946220.660347
 updated_at: 1784946220.660347
 ---
 
-Architectural and design constraints that are currently unresolved. Resolved items are not listed here — see git log for history.
+Canonical limitation register. Each entry carries its own current status:
+unresolved entries define active constraints, while resolved, retired, or
+shelved entries preserve the decision and evidence that prevent the same issue
+from being rediscovered or reintroduced. The status inside an entry is
+authoritative; presence in this register alone does not mean the issue is open.
 
 ---

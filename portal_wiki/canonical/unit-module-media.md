@@ -1,7 +1,7 @@
 ---
 id: unit-module-media
 kind: mixed
-title: "Media Module \u2014 image/video/audio/speech generation"
+title: "Media Module \u2014 image/audio/speech generation"
 sources:
 - type: code
   path: portal/modules/media/
@@ -20,16 +20,20 @@ created_at: 1783895633.381192
 updated_at: 1783895633.381192
 ---
 
-# Media Module — image/video/audio/speech generation
+# Media Module — image/audio/speech generation
 
 ## Tools
 
-portal.modules.media.tools: comfyui_mcp (:8910, image), video_mcp (:8911), music_mcp (:8912, host-native), tts_mcp (:8916), whisper_mcp (:8915, STT)
+Active tools: `comfyui_mcp` (:8910, image), `music_mcp` (:8912,
+host-native), `tts_mcp` (:8916), and `whisper_mcp` (:8915, STT).
+`video_mcp` (:8911) is retained as archival code but disabled in normal
+operation.
 
 ## Workspaces
 
 - auto-audio
 - auto-creative
+- auto-image
 - auto-music
 
 ## Module State

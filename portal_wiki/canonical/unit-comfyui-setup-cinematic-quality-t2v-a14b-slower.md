@@ -15,4 +15,5 @@ created_at: 1784946220.557782
 updated_at: 1784946220.557782
 ---
 
-python3 scripts/gen-video.py "a sweeping aerial view of mountain peaks at sunset" --preset wan22-quality
+**Unavailable:** the T2V-A14B FP8 checkpoints fail on Apple Silicon MPS and
+the video service is shelved.

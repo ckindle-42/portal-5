@@ -11,8 +11,8 @@ confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.922961
-updated_at: 1783195000.922961
+created_at: 1785348275.81961
+updated_at: 1785348275.81961
 ---
 
 
@@ -46,4 +46,6 @@ updated_at: 1783195000.922961
 
 **Verdict**: MIXED
 
-**Notes**: V2 adds explicit REPL format instructions that UAT omitted. UAT P-D14's `model_slug: "sqlterminal"` likely carried a system prompt setting REPL context, but the user-facing prompt had no format guidance. V2
+**Notes**: V2 adds explicit REPL format instructions that UAT omitted. UAT P-D14's `model_slug: "sqlterminal"` likely carried a system prompt setting REPL context, but the user-facing prompt had no format guidance. V2 compensates by moving that context into the prompt text. The UAT failure reason was prose output without row counts — V2's "show the result of each statement" addresses this directly.
+
+---

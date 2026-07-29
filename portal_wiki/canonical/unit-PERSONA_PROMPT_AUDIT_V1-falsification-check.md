@@ -11,8 +11,8 @@ confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1783195000.887409
-updated_at: 1783195000.887409
+created_at: 1785348275.818882
+updated_at: 1785348275.818882
 ---
 
 
@@ -28,4 +28,4 @@ Seven CLEAR (3/3) personas failed UAT. This is not a marginal or edge-case falsi
 | softwarequalityassurancetester | 2/5 | Model didn't enumerate test types by category despite both the UAT prompt and system prompt requiring it; the format templates are oriented toward reporting executed tests rather than planning test strategies, causing a shape mismatch |
 | sqlterminal | 1/4 | Model produced prose without query results; same pattern as pythoninterpreter — the "output ONLY" constraint was overridden by the model's default prose tendency |
 
-The common thread across all seven is not format ambiguity but **model capability and instruction-following fidelity**. The model (laguna-xs.2-4bit, a quantized sub-1B-parameter model) frequently defaults to explanatory prose even when explicitly told not to, cannot reliably track multi-s
+The common thread across all seven is not format ambiguity but **model capability and instruction-following fidelity**. The model (laguna-xs.2-4bit, a quantized sub-1B-parameter model) frequently defaults to explanatory prose even when explicitly told not to, cannot reliably track multi-step stateful execution, and cannot reliably produce structured multi-section outputs with specific field formats. The contracts are clear; the model cannot honor them.

@@ -5,7 +5,7 @@ title: "T1053.005 \u2014 Scheduled task persistence \u2014 Windows Security Even
   \ 4698"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1053.005
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1053.005
 - type: mitre
   path: ATT&CK:T1053.005
 - type: scenario
@@ -18,8 +18,8 @@ tags:
 - T1053.005
 - technique
 - signature
-created_at: 1785020525.010454
-updated_at: 1785020525.010454
+created_at: 1785349554.518204
+updated_at: 1785349554.518204
 ---
 
 # T1053.005 — Scheduled task persistence — Windows Security Event 4698

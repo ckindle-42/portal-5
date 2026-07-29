@@ -120,7 +120,7 @@ except ImportError:
 _ENV_KEYS_SKIP_FROM_DOTENV = {"PIPELINE_URL"}
 
 
-def _load_env() -> None:
+def _load_env() -> dict[str, str]:
     # Hermetic-test guard (CLAUDE.md: tests/unit/ must pass with no network
     # access / real config) — same class of bug as bench/config.py's
     # _load_env: this module is imported by nearly every security test, and
@@ -129,7 +129,8 @@ def _load_env() -> None:
     # whole unit-test session's os.environ. tests/unit/conftest.py sets
     # UNIT_TEST_MODE=1 for exactly this hermetic-mode signal.
     if os.environ.get("UNIT_TEST_MODE") == "1":
-        return
+        return {}
+    loaded: dict[str, str] = {}
     env_file = _PROJECT_ROOT / ".env"
     if env_file.exists():
         for line in env_file.read_text().splitlines():
@@ -139,13 +140,20 @@ def _load_env() -> None:
                 k = k.strip()
                 if k in _ENV_KEYS_SKIP_FROM_DOTENV:
                     continue
-                os.environ.setdefault(k, v.strip())
+                loaded.setdefault(k, v.strip())
+    return loaded
 
 
-_load_env()
+_DOTENV = _load_env()
+
+
+def _env(name: str, default: str = "") -> str:
+    """Read process environment first, then the local dotenv snapshot."""
+    return os.environ.get(name, _DOTENV.get(name, default))
+
 
 PIPELINE_URL = "http://localhost:9099"
-PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
+PIPELINE_API_KEY = _env("PIPELINE_API_KEY")
 REQUEST_TIMEOUT = 600.0  # per-chunk httpx read ceiling — event-driven (fires on absent data)
 
 _PORTAL_YAML = (
@@ -250,13 +258,13 @@ EXECUTION_WORKSPACES: frozenset[str] = frozenset(
 RESULTS_DIR = Path(__file__).parent / "results"
 
 # ── Proxmox VM lifecycle (snapshot/restore between chain runs) ────────────────
-_LAB_SNAPSHOT_BEFORE = os.environ.get("LAB_SNAPSHOT_BEFORE", "").lower() == "true"
-_LAB_SNAPSHOT_RESTORE = os.environ.get("LAB_SNAPSHOT_RESTORE", "").lower() == "true"
-_LAB_DC_VMID = os.environ.get("LAB_DC_VMID", "")
-_LAB_SRV_VMID = os.environ.get("LAB_SRV_VMID", "")
-_LAB_WS_VMID = os.environ.get("LAB_WS_VMID", "")
-_LAB_META3_VMID = os.environ.get("LAB_META3_WIN_VMID", "")
-_LAB_MBPTL_VMID = os.environ.get("LAB_MBPTL_LXC_VMID", "")
+_LAB_SNAPSHOT_BEFORE = _env("LAB_SNAPSHOT_BEFORE").lower() == "true"
+_LAB_SNAPSHOT_RESTORE = _env("LAB_SNAPSHOT_RESTORE").lower() == "true"
+_LAB_DC_VMID = _env("LAB_DC_VMID")
+_LAB_SRV_VMID = _env("LAB_SRV_VMID")
+_LAB_WS_VMID = _env("LAB_WS_VMID")
+_LAB_META3_VMID = _env("LAB_META3_WIN_VMID")
+_LAB_MBPTL_VMID = _env("LAB_MBPTL_LXC_VMID")
 # Allowlist for start_lab_target/revert_lab_target — every real lab vmid, nothing
 # else. Some scenario red_prompts contain fictional vmid flavor text (e.g.
 # "vmid=101") for scenario realism; a red model can and does call these tools
@@ -269,8 +277,8 @@ _LAB_MBPTL_VMID = os.environ.get("LAB_MBPTL_LXC_VMID", "")
 _LAB_VALID_VMIDS = {
     v for v in (_LAB_DC_VMID, _LAB_SRV_VMID, _LAB_WS_VMID, _LAB_META3_VMID, _LAB_MBPTL_VMID) if v
 }
-_LAB_CLEAN_SNAPSHOT = os.environ.get("LAB_CLEAN_SNAPSHOT", "baseline-ad")
-_LAB_PROBE_BEFORE = os.environ.get("LAB_PROBE_BEFORE", "").lower() == "true"
+_LAB_CLEAN_SNAPSHOT = _env("LAB_CLEAN_SNAPSHOT", "baseline-ad")
+_LAB_PROBE_BEFORE = _env("LAB_PROBE_BEFORE").lower() == "true"
 
 # ── Blue active response tools (deployed via sandbox MCP to lab) ──────────────
 _BLUE_ACTIVE_TOOLS: list[dict] = [

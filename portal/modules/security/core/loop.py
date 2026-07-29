@@ -27,9 +27,7 @@ from .playbooks import load_playbook, resolve_phases, validate_playbook
 logger = logging.getLogger(__name__)
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 CHECKPOINT_DIR = RESULTS_DIR / "checkpoints"
-CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Hard caps (defensive floor — playbook budget can only be stricter) ────────
 
@@ -502,6 +500,7 @@ def _build_report(state: EngagementState, pb: dict, prior: list[dict], stop_reas
 
 def _write_checkpoint(state: EngagementState, reason: str) -> Path:
     """Write EngagementState to a checkpoint file."""
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
     out = CHECKPOINT_DIR / f"{state.engagement_id}.json"
     data = state.to_dict()
     data["checkpoint_reason"] = reason

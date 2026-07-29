@@ -8,7 +8,7 @@
 
 ## What Portal 5 Is
 
-Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers. Result: local AI platform for text, code, security, images, video, music, documents, voice — all on your hardware, one interface.
+Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers. Result: local AI platform for text, code, security, images, music, documents, voice — all on your hardware, one interface. Video-generation code is retained, but the service is shelved.
 
 **Architecture**: Open WebUI → Portal Pipeline (:9099) → Ollama (:11434) → local models. MCP servers (:8910–8928) provide tools (documents, code sandbox, TTS, research, memory, RAG, browser, proxmox, pipeline introspection).
 
@@ -425,7 +425,7 @@ Before adding new tasks or filing issues, check `KNOWN_LIMITATIONS.md` — some 
 | Model catalog + memory budgets | `config/backends.yaml` (annotated YAML comments) |
 | Persona catalog (currently 138 — `ls config/personas/*.yaml \| wc -l`) | `config/personas/*.yaml` |
 | Notification system setup | `docs/ALERTS.md` |
-| ComfyUI image/video setup | `docs/COMFYUI_SETUP.md` |
+| ComfyUI image setup and archived video status | `docs/COMFYUI_SETUP.md` |
 | Speech pipeline (Kokoro + Qwen3-TTS/ASR) | `docs/HOWTO.md` (§ MLX Speech) |
 | Voice cloning (fish-speech, optional) | `docs/FISH_SPEECH_SETUP.md` |
 | Diarized transcription | `docs/HOWTO.md` (§ Transcription) |

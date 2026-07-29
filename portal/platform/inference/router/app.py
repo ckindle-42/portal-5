@@ -10,6 +10,10 @@ from fastapi.responses import PlainTextResponse
 
 from portal.platform.inference.router import handlers
 from portal.platform.inference.router.lifespan import lifespan
+from portal.platform.inference.router.request_limits import (
+    MAX_REQUEST_BYTES,
+    RequestBodyLimitMiddleware,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +31,9 @@ from portal.platform.inference.router.correlation import (  # noqa: E402
     install_log_filter,
 )
 
+# Middleware is applied in reverse registration order. Keep correlation outermost
+# so even a body-limit rejection receives the request correlation header.
+app.add_middleware(RequestBodyLimitMiddleware, max_bytes=MAX_REQUEST_BYTES)
 app.add_middleware(CorrelationIdMiddleware)
 install_log_filter()
 

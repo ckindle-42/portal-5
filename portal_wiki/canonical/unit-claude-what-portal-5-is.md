@@ -12,12 +12,12 @@ tags:
 - claude
 - architecture
 - law
-created_at: 1783195000.805106
-updated_at: 1783195000.805106
+created_at: 1785348301.194298
+updated_at: 1785348301.194298
 ---
 
 
-Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers. Result: local AI platform for text, code, security, images, video, music, documents, voice — all on your hardware, one interface.
+Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers. Result: local AI platform for text, code, security, images, music, documents, voice — all on your hardware, one interface. Video-generation code is retained, but the service is shelved.
 
 **Architecture**: Open WebUI → Portal Pipeline (:9099) → Ollama (:11434) → local models. MCP servers (:8910–8928) provide tools (documents, code sandbox, TTS, research, memory, RAG, browser, proxmox, pipeline introspection).
 

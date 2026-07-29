@@ -67,7 +67,7 @@ cd portal-5
 | Portal Deep Reasoner | Complex analysis | Qwen3.6-27B (Ollama) · DeepSeek-R1 (Ollama) |
 | Portal Council Review | Review decisions, plans, proposals, policies, or research briefs with independent evidence/risk/operator lenses | Three isolated reviewers + deterministic quorum + final synthesizer |
 | Portal Document Builder | Word/Excel/PPT files | Granite-4.1-8B (Ollama) + Documents MCP |
-| Portal Video Creator | Text-to-video | Granite-4.1-8B (Ollama) + Video MCP |
+| Portal Video Creator | Shelved; not shown in the dropdown | Video MCP is disabled |
 | Portal Music Producer | Generate music | Qwen3.5-abliterated (Ollama) + Music MCP |
 | Portal Research Assistant | Web research | Gemma-4-26B-A4B-IT (Ollama) · Tongyi-DeepResearch (Ollama) |
 | Portal Vision | Image analysis | Gemma-4-26B-A4B-IT (Ollama) · Qwen3-VL (Ollama) |
@@ -88,21 +88,32 @@ cd portal-5
 <!-- WIKI:GENERATED unit=unit-HOWTO-4-personas -->
 **What:** Pre-configured specialist prompts that shape the AI's behavior.
 
-**How:** Select a persona from the model dropdown (alongside workspaces).
+**How:** Select a persona from the model dropdown alongside workspaces.
 
-**Available personas (96 production + 54 benchmark = 150 total):**
+**Available personas:** use `unit-fact-persona-roster` for the generated live
+count, module ownership, workspace binding, and model pins. Do not maintain a
+second handwritten roster here.
 
-| Category | Count | Personas |
-|----------|-------|----------|
-| Development | 24 | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, Codebase WIKI Documentation, Creative Coder, DevOps Automator, DevOps Engineer, E2E Debugger, E2E Test Author, Ethereum Developer, Form Filler, Fullstack Developer, GitHub Expert, Go Engineer, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Rust Engineer, Senior Frontend Dev, Senior Software Engineer, Software QA Tester, TypeScript Engineer, UX/UI Developer |
-| Data | 10 | Dashboard Architect, Data Analyst, Data Extractor, Data Scientist, Database Architect, Excel Sheet, Machine Learning Engineer, Phi-4 STEM Analyst, Research Analyst, Statistician |
-| General | 9 | Agent Orchestrator, Business Analyst, Daily Driver, Interview Coach, IT Expert, Personal Assistant, Product Manager, Tech Reviewer, Web Navigator |
-| Research | 7 | Fact Checker, Gemma Research Analyst, Knowledge Base Navigator, Market Analyst, Paywalled Researcher, SuperGemma4 Uncensored Researcher, Web Researcher |
-| Security | 7 | Blue Team Defender, Cyber Security Specialist, Network Engineer, Penetration Tester, Red Team Operator, Splunk Detection Author, Splunk SPL Engineer |
-| Vision | 7 | Chart Analyst, Code Screenshot Reader, Diagram Reader, Gemma 4 Edge Vision, Gemma 4 JANG Unfiltered Vision, OCR Specialist, Whiteboard Converter |
-| Compliance | 7 | CIP Policy Writer, Compliance Analyst (Multi-Framework), GDPR DPO, HIPAA Privacy Officer, NERC CIP Compliance Analyst, PCI-DSS Assessor, SOC 2 Auditor |
-| Writing | 6 | Creative Writer, Documentation Architect, Hermes Narrative Writer, Proofreader, Tech Writer, Transcript Analyst |
-| Reasoning | 4 | GPT-OSS Analyst, Magistral Strategist, Math Reasone
+To inspect the live module breakdown:
+
+```bash
+python3 -m portal.platform.inference.cli module list
+```
+
+**Example — red team:**
+
+1. Select `Red Team Operator`.
+2. Ask for an attack-surface analysis or lab-scoped exercise.
+3. Its `workspace_model: auto-security` and `variant: redteam` select the
+   corresponding security route.
+
+**Verify personas exposed by the pipeline:**
+
+```bash
+curl -s http://localhost:9099/v1/models \
+  -H "Authorization: Bearer ${PIPELINE_API_KEY}" \
+  | python3 -c "import sys,json; [print(m['name']) for m in json.load(sys.stdin)['data']]"
+```
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -326,7 +337,7 @@ later (see the KNOWN_LIMITATIONS entry for what would need to change).
     ├── transcripts/        ← Diarized transcripts (mlx-transcribe, whisper)
     ├── documents/          ← Word/Excel/PowerPoint (documents MCP)
     ├── images/             ← ComfyUI outputs
-    ├── videos/             ← Video MCP outputs
+    ├── videos/             ← Retained archival video-output category
     ├── music/              ← Music MCP outputs
     └── speech/             ← TTS outputs
 ```
@@ -345,7 +356,8 @@ later (see the KNOWN_LIMITATIONS entry for what would need to change).
 
 **Use from MCP code (new modules):**
 ```python
-from portal_mcp.core import get_uploads_dir, get_generated_dir, resolve_upload_path
+from portal.platform.mcp_host import get_uploads_dir, get_generated_dir, resolve_upload_path
+```
 <!-- /WIKI:GENERATED -->
 
 ---

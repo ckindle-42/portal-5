@@ -5,7 +5,7 @@ title: "T1203 \u2014 Exploitation for client execution \u2014 binary overflow an
   \ service exploitation"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1203
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1203
 - type: mitre
   path: ATT&CK:T1203
 - type: scenario
@@ -18,8 +18,8 @@ tags:
 - T1203
 - technique
 - signature
-created_at: 1785020525.0155342
-updated_at: 1785020525.0155342
+created_at: 1785349554.523226
+updated_at: 1785349554.523226
 ---
 
 # T1203 — Exploitation for client execution — binary overflow and service exploitation
@@ -33,8 +33,8 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a0="*overflow*" OR a0="
 
 ## Exercised By Scenarios
 
-- `mbptl_ctf_full_chain` — target: 10.0.1.140
-- `ctf_multi_service` — target: 10.0.1.140
+- `mbptl_ctf_full_chain` — target: None
+- `ctf_multi_service` — target: None
 
 ## Per-Source Expected Signatures
 

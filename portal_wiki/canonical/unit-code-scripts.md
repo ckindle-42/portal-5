@@ -5,26 +5,26 @@ title: scripts subsystem (49 files)
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: 3b30fbb1f95d
+  commit: b2e745b62136
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py
-  commit: 3b30fbb1f95d
+  commit: b2e745b62136
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
-  commit: 3b30fbb1f95d
+  commit: b2e745b62136
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-readiness.py
-  commit: 3b30fbb1f95d
+  commit: b2e745b62136
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-switch-benchmark.py
-  commit: 3b30fbb1f95d
+  commit: b2e745b62136
 last_generated_commit: ''
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1785020524.927957
-updated_at: 1785020524.927957
+created_at: 1785349554.440035
+updated_at: 1785349554.440035
 ---
 
 # scripts subsystem
