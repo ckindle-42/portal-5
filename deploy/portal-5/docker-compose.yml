@@ -639,7 +639,7 @@ services:
       - OUTPUT_DIR=/app/data/generated
       - VIDEO_BACKEND=${VIDEO_BACKEND:-wan22}
       - WAN22_TI2V_MODEL=${WAN22_TI2V_MODEL:-wan2.2_ti2v_5B_fp16.safetensors}
-      - WAN22_S2V_MODEL=${WAN22_S2V_MODEL:-split_files/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors}
+      - WAN22_S2V_MODEL=${WAN22_S2V_MODEL:-wan2.2_s2v_14B_fp8_scaled.safetensors}
       - WAN22_CLIP_FP8=${WAN22_CLIP_FP8:-umt5_xxl_fp8_e4m3fn_scaled.safetensors}
       - WAN22_TI2V_VAE=${WAN22_TI2V_VAE:-wan2.2_vae.safetensors}
       - WAN21_NSFW_MODEL=${WAN21_NSFW_MODEL:-nsfw_wan_14b_e15.safetensors}

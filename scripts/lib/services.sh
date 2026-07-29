@@ -690,29 +690,75 @@ _launch_stop_transcribe() {
 }
 
 _launch_download_comfyui_models() {
+    echo "  ❌ download-comfyui-models has no implementation." >&2
+    echo "     scripts/download_comfyui_models.py was removed in ea864cf2 (2026-05-23)," >&2
+    echo "     with the intent that pull-wan22/pull-qwen-image would replace it." >&2
+    echo "     Use ./launch.sh pull-wan22 for Wan 2.2 video models." >&2
+    exit 1
+}
+
+# Wan 2.2 TI2V-5B + S2V-14B — flat filenames in ComfyUI's actually-scanned
+# models/<type>/ folders. Comfy-Org/Wan_2.2_ComfyUI_Repackaged nests these
+# under split_files/<type>/ internally; --local-dir must target the
+# model-type-folder itself (not models/) and the split_files/<type>/ prefix
+# must be stripped from the destination, or ComfyUI never sees the files
+# (see KNOWN_LIMITATIONS.md / TASK_P4_CLOSEOUT_FOLLOWUP_V1.md Item 2/3).
+#
+# T2V-A14B and Animate-14B are NOT covered here: T2V-A14B uses a different
+# HF repo/layout (Wan2.2-T2V-A14B/diffusion_pytorch_model_comfyui.safetensors,
+# already the working default in video_mcp.py) that was not re-verified this
+# session, and Animate-14B is a stub requiring custom ComfyUI nodes that
+# aren't installed. Both are left as a documented gap, not silently promised.
+_launch_pull_wan22() {
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
-    IMAGE_MODEL="${IMAGE_MODEL:-flux-schnell}"
-    VIDEO_MODEL="${VIDEO_MODEL:-wan2.2}"
-    HF_TOKEN="${HF_TOKEN:-}"
 
-    echo "=== Downloading ComfyUI models ==="
-    echo "  Image model: $IMAGE_MODEL"
-    echo "  Video model: $VIDEO_MODEL"
-    echo "  Models dir:  $COMFYUI_DIR/models/checkpoints"
-    echo ""
+    if [ ! -d "$COMFYUI_DIR" ]; then
+        echo "  ❌ $COMFYUI_DIR not found. Run ./launch.sh install-comfyui first." >&2
+        exit 1
+    fi
 
-    # Ensure huggingface_hub is available
-    if ! python3 -c "import huggingface_hub" &>/dev/null; then
-        echo "  Installing huggingface_hub..."
+    if ! command -v hf &>/dev/null; then
+        echo "  Installing huggingface_hub CLI..."
         pip install "huggingface_hub>=0.28" --quiet --break-system-packages 2>/dev/null || \
             python3 -m pip install "huggingface_hub>=0.28" --quiet
     fi
 
-    IMAGE_MODEL="$IMAGE_MODEL" \
-    VIDEO_MODEL="$VIDEO_MODEL" \
-    HF_TOKEN="$HF_TOKEN" \
-    MODELS_DIR="$COMFYUI_DIR/models/checkpoints" \
-    python3 "$PORTAL_ROOT/scripts/download_comfyui_models.py"
+    echo "=== Pulling Wan 2.2 TI2V-5B + S2V-14B (ComfyUI-flat layout) ==="
+    echo "  Target: $COMFYUI_DIR/models/{diffusion_models,vae,text_encoders,audio_encoders}/"
+    echo ""
+
+    REPO="Comfy-Org/Wan_2.2_ComfyUI_Repackaged"
+    declare -a FILES=(
+        "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors:diffusion_models"
+        "split_files/vae/wan2.2_vae.safetensors:vae"
+        "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors:text_encoders"
+        "split_files/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors:diffusion_models"
+        "split_files/audio_encoders/wav2vec2_large_english_fp16.safetensors:audio_encoders"
+    )
+
+    for entry in "${FILES[@]}"; do
+        repo_path="${entry%%:*}"
+        model_type="${entry##*:}"
+        dest_dir="$COMFYUI_DIR/models/$model_type"
+        filename="${repo_path##*/}"
+        mkdir -p "$dest_dir"
+        if [ -f "$dest_dir/$filename" ]; then
+            echo "  ✅ $model_type/$filename already present, skipping"
+            continue
+        fi
+        echo "  Downloading $repo_path -> $dest_dir/"
+        hf download "$REPO" "$repo_path" --local-dir "$dest_dir"
+        # hf download preserves the repo-internal split_files/<type>/ prefix
+        # as real subdirectories under --local-dir; flatten it.
+        if [ -f "$dest_dir/$repo_path" ]; then
+            mv "$dest_dir/$repo_path" "$dest_dir/$filename"
+            rm -rf "$dest_dir/split_files"
+        fi
+    done
+
+    echo ""
+    echo "Done. Restart ComfyUI (or wait for its live model-folder re-scan) and verify:"
+    echo "  curl -s localhost:8188/object_info/UNETLoader | grep wan2.2"
 }
 
