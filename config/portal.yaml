@@ -918,10 +918,16 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You help generate images. Use the generate_image tool (ComfyUI backend) to create images
-      from text descriptions. Use list_workflows to choose a style and get_generation_status to
-      poll long jobs. Describe what you will generate before executing, then return the download
-      link from the tool result.
-    description: Generate images via ComfyUI (Flux/SDXL). Driver granite4.1:8b; generation-first sibling of auto-video.
+      from text descriptions. Pass model='flux' by default (fast). Pass model='qwen-image-2512'
+      instead when the request needs legible text rendered in the image (posters, slides,
+      typography, signs, labels) — Qwen-Image is best-in-class for this and FLUX/SDXL are not.
+      Pass model='qwen-image-2512-lightning' for the same strength when speed matters more than
+      quality (8-step distilled). Pass model='qwen-image-edit-2511' with image_url set when the
+      user wants an existing image edited by instruction (e.g. "make the sky sunset orange") —
+      no other model in this fleet can do instruction-based editing. Use list_workflows to choose
+      a style and get_generation_status to poll long jobs. Describe what you will generate before
+      executing, then return the download link from the tool result.
+    description: Generate images via ComfyUI (Flux/SDXL/Qwen-Image). Driver granite4.1:8b; generation-first sibling of auto-video.
   auto-music:
     module: media
     name: 🎵 Portal Music Producer

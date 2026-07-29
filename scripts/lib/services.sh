@@ -702,15 +702,14 @@ _launch_download_comfyui_models() {
 # nests these under split_files/<type>/ internally; --local-dir must target
 # the model-type-folder itself (not models/) and the split_files/<type>/
 # prefix must be stripped from the destination, or ComfyUI never sees the
-# files (see KNOWN_LIMITATIONS.md / TASK_P4_CLOSEOUT_FOLLOWUP_V1.md Item 2/3).
+# files (see unit-known-limitations-comfyui-model-download-commands-are-broken).
 #
 # T2V-A14B is a two-expert MoE (high-noise + low-noise, ~13GB each) — there is
-# no single merged file. Confirmed 2026-07-29 against the official ComfyUI
-# example workflow; a prior version of this script/video_mcp.py assumed a
-# single-file repo layout that was never live-verified and does not exist.
+# no single merged file, matching ComfyUI's official reference workflow.
 #
 # Animate-14B is NOT covered: stub requiring SAM2/DWPreprocessor/CLIPVision
-# custom ComfyUI nodes that aren't installed. Documented gap, not promised.
+# custom ComfyUI nodes that aren't installed. Documented gap, not promised —
+# see unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps.
 _launch_pull_wan22() {
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
@@ -764,5 +763,71 @@ _launch_pull_wan22() {
     echo ""
     echo "Done. Restart ComfyUI (or wait for its live model-folder re-scan) and verify:"
     echo "  curl -s localhost:8188/object_info/UNETLoader | grep wan2.2"
+}
+
+# Qwen-Image family (T2I, Edit-2511, Lightning distillation LoRA) — same
+# flat-layout / split_files-flatten handling as pull-wan22. Uses plain bf16
+# checkpoints, not the official examples' default fp8_e4m3fn/fp8_scaled ones:
+# the fp8_scaled Wan2.2 checkpoints crash on this host's Apple Silicon MPS
+# stack (see KNOWN_LIMITATIONS.md), so this sidesteps the same bug class
+# rather than re-discovering it here too. ~99GB total.
+_launch_pull_qwen_image() {
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
+
+    if [ ! -d "$COMFYUI_DIR" ]; then
+        echo "  ❌ $COMFYUI_DIR not found. Run ./launch.sh install-comfyui first." >&2
+        exit 1
+    fi
+
+    if ! command -v hf &>/dev/null; then
+        echo "  Installing huggingface_hub CLI..."
+        pip install "huggingface_hub>=0.28" --quiet --break-system-packages 2>/dev/null || \
+            python3 -m pip install "huggingface_hub>=0.28" --quiet
+    fi
+
+    echo "=== Pulling Qwen-Image T2I + Edit-2511 + Lightning LoRA (ComfyUI-flat layout) ==="
+    echo "  Target: $COMFYUI_DIR/models/{diffusion_models,text_encoders,vae,loras}/"
+    echo ""
+
+    _pull_flat() {
+        local repo="$1" repo_path="$2" model_type="$3"
+        local dest_dir="$COMFYUI_DIR/models/$model_type"
+        local filename="${repo_path##*/}"
+        mkdir -p "$dest_dir"
+        if [ -f "$dest_dir/$filename" ]; then
+            echo "  ✅ $model_type/$filename already present, skipping"
+            return
+        fi
+        echo "  Downloading $repo_path -> $dest_dir/"
+        hf download "$repo" "$repo_path" --local-dir "$dest_dir"
+        if [ -f "$dest_dir/$repo_path" ]; then
+            mv "$dest_dir/$repo_path" "$dest_dir/$filename"
+            rm -rf "$dest_dir/split_files"
+        fi
+    }
+
+    QI_REPO="Comfy-Org/Qwen-Image_ComfyUI"
+    QI_EDIT_REPO="Comfy-Org/Qwen-Image-Edit_ComfyUI"
+    LIGHTNING_REPO="lightx2v/Qwen-Image-Lightning"
+
+    _pull_flat "$QI_REPO" "split_files/diffusion_models/qwen_image_2512_bf16.safetensors" "diffusion_models"
+    _pull_flat "$QI_REPO" "split_files/text_encoders/qwen_2.5_vl_7b.safetensors" "text_encoders"
+    _pull_flat "$QI_REPO" "split_files/vae/qwen_image_vae.safetensors" "vae"
+    _pull_flat "$QI_EDIT_REPO" "split_files/diffusion_models/qwen_image_edit_2511_bf16.safetensors" "diffusion_models"
+
+    LORA_DEST="$COMFYUI_DIR/models/loras"
+    LORA_FILE="Qwen-Image-Lightning-8steps-V1.1-bf16.safetensors"
+    mkdir -p "$LORA_DEST"
+    if [ -f "$LORA_DEST/$LORA_FILE" ]; then
+        echo "  ✅ loras/$LORA_FILE already present, skipping"
+    else
+        echo "  Downloading $LORA_FILE -> $LORA_DEST/"
+        hf download "$LIGHTNING_REPO" "$LORA_FILE" --local-dir "$LORA_DEST"
+    fi
+
+    echo ""
+    echo "Done. Verify:"
+    echo "  curl -s localhost:8188/object_info/UNETLoader | grep qwen"
 }
 

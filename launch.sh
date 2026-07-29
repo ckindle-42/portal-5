@@ -595,6 +595,10 @@ PYEOF
     _launch_pull_wan22
     ;;
 
+  pull-qwen-image)
+    _launch_pull_qwen_image
+    ;;
+
   apply-mtp-drafts)
     exec python3 -m portal.platform.inference.cli models apply-mtp-drafts "${@:2}"
     ;;
@@ -613,7 +617,7 @@ PYEOF
     echo "  install-music         Install Music MCP natively via venv (Apple Silicon / MPS)"
     echo "  download-comfyui-models  REMOVED, no implementation (see download-comfyui-models handler)"
   echo "  pull-wan22            Pull Wan 2.2 TI2V-5B + S2V-14B + T2V-A14B ComfyUI models (~50 GB; Animate-14B not covered, see scripts/lib/services.sh)"
-  echo "  pull-qwen-image       Pull Qwen-Image-2512 family (2512/Edit-2511/Lightning, ~30 GB) — NOT YET IMPLEMENTED"
+  echo "  pull-qwen-image       Pull Qwen-Image T2I + Edit-2511 + Lightning LoRA ComfyUI models (~99 GB)"
     echo "  start-speech          Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
     echo "  start-transcribe      Start MLX Transcribe server (mlx-whisper + pyannote diarization, :8924)"

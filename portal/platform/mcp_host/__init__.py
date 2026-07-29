@@ -5,6 +5,7 @@ prefer these helpers over re-implementing path logic. See workspace.py.
 """
 
 from portal.platform.mcp_host.workspace import (
+    assert_public_http_url,
     get_generated_dir,
     get_uploads_dir,
     get_workspace_root,
@@ -12,6 +13,7 @@ from portal.platform.mcp_host.workspace import (
 )
 
 __all__ = [
+    "assert_public_http_url",
     "get_generated_dir",
     "get_uploads_dir",
     "get_workspace_root",

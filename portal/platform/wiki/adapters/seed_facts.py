@@ -568,6 +568,10 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     "music:small": 2.0,
     "music:medium": 6.0,
     "music:large": 12.0,
+    # Rationale, incident history: unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps
+    "comfyui:qwen-image-2512": 45.0,  # fp8 diffusion 20.4 + bf16 text encoder 16.6 + vae 0.25 static + margin
+    "comfyui:qwen-image-2512-lightning": 46.0,  # same base weights (QWEN_IMAGE_MODEL, fp8) + ~0.85GB LoRA
+    "comfyui:qwen-image-edit-2511": 68.0,  # bf16 diffusion+encoder+vae = 57.7GB static; no safe smaller variant yet, deliberately estimated to be refused
 }
 
 
