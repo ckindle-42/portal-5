@@ -33,7 +33,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 from urllib.parse import urlparse
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -344,10 +344,8 @@ async def _execute_tool(
 
 _port = int(os.environ.get("BROWSER_MCP_PORT", "8923"))
 
-mcp = FastMCP(
+mcp = MCPServer(
     "Portal Browser Tools",
-    host="0.0.0.0",
-    port=_port,
     instructions="Playwright browser automation: navigate, click, fill forms, screenshot, and inspect page content.",
 )
 
@@ -675,4 +673,4 @@ async def browser_list_profiles() -> dict:
 # ── Entrypoint ───────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

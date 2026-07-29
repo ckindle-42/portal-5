@@ -1347,14 +1347,9 @@ def main() -> None:
     def _write_checkpoint() -> None:
         """Persist progress so far to .partial.json after each scenario.
 
-        checkpoint_path only ever threaded into run_bench() (the theory/
-        workspace-prompt path) — every --all-scenarios/--purple run passes
-        --skip-workspace-bench, so that path never ran and this checkpoint was
-        always dead for exactly the runs that take hours (found live
-        2026-07-03: multiple crashes this session lost an entire run's
-        already-computed results because the only write happens at the very
-        end). Best-effort — a checkpoint write failure must never crash the
-        run it's trying to protect.
+        Scenario sweeps bypass the workspace-benchmark checkpoint path, so they
+        need this independent checkpoint. Best-effort writes must never crash
+        the run they are protecting.
         """
         if not checkpoint_path:
             return

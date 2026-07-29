@@ -14,11 +14,11 @@ import re
 from urllib.parse import urlparse
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
-mcp = FastMCP("research", host="0.0.0.0")
+mcp = MCPServer("research")
 
 SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://localhost:8088")
 BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY", "")
@@ -263,8 +263,7 @@ async def web_fetch_endpoint(request):
 
 def main():
     port = int(os.environ.get("RESEARCH_MCP_PORT", "8922"))
-    mcp.settings.port = port
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":

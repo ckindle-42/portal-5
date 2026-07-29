@@ -3,6 +3,7 @@
 **Task ID:** TASK-MCP-V2-MIGRATION-001
 **Priority:** Low (v1.x still receives security patches upstream)
 **Category:** Dependency upgrade
+**Status:** Completed 2026-07-29
 
 ---
 
@@ -35,26 +36,44 @@ not a drop-in rename, consult the real migration guide before touching code:
 
 ## To do
 
-- [ ] Read the migration guide fully; enumerate every breaking change that
+- [x] Read the migration guide fully; enumerate every breaking change that
       touches how we use the SDK (tool registration decorators, transport
       setup, request/response types — whatever the guide flags).
-- [ ] Port all 22 `mcp.server.fastmcp` import sites.
-- [ ] Bump `pyproject.toml` pins from `<2.0.0` to the new v2 floor.
-- [ ] Regenerate `uv.lock` (`uv lock`) — expect this to also pick up transitive
+- [x] Port all current `mcp.server.fastmcp` import sites.
+- [x] Bump `pyproject.toml` pins from `<2.0.0` to the new v2 floor.
+- [x] Regenerate `uv.lock` (`uv lock`) — expect this to also pick up transitive
       dependency drift unrelated to mcp itself (observed during the v1 pin fix:
       a full `uv lock` touched ~30 unrelated packages because the lock hadn't
       been refreshed recently) — review that diff for anything suspicious
       before committing, don't just accept it wholesale.
-- [ ] Full verification ladder: `pytest tests/unit/ -q && ruff check . && ruff
+- [x] Full verification ladder: `pytest tests/unit/ -q && ruff check . && ruff
       format --check .`, then `bash scripts/ci_local.sh`.
-- [ ] Each MCP server is a standalone process (Rule 3) — smoke-test at least one
+- [x] Each MCP server is a standalone process (Rule 3) — smoke-test at least one
       of each kind (host-native FastAPI+FastMCP app, vendored server) live, not
       just via unit-test mocks.
 
 ## Definition of Done
 
-- [ ] All MCP servers running on mcp v2, `<2.0.0` pin removed / replaced with a
+- [x] All MCP servers running on mcp v2, `<2.0.0` pin removed / replaced with a
       v2 floor.
-- [ ] Full verification ladder green.
-- [ ] `uv.lock` diff reviewed and clean of unrelated churn (or unrelated churn
+- [x] Full verification ladder green.
+- [x] `uv.lock` diff reviewed and clean of unrelated churn (or unrelated churn
       explicitly accepted and noted why).
+
+## Resolution
+
+The current tree contained 21 production SDK import sites plus the smoke-test
+site. The two `portal_mcp/{filesystem,scrapling}` paths named in the original
+inventory do not import the Python MCP SDK, so there was nothing to port there.
+All real sites now use `MCPServer`; constructor transport settings moved to
+`run()` or `streamable_http_app()` as required by v2.
+
+The v2 pin is consistent across `pyproject.toml`, Docker build paths, and the
+MusicGen installer. The obsolete `portal_mcp` import shim and third-party
+`fastmcp` dependency were removed. Lockfile changes are limited to the v2
+dependency graph, `idna` resolution, and the declared-but-previously-unlocked
+pytest-xdist development dependency.
+
+Live v2 clients negotiated protocol `2026-07-28` and listed tools from both the
+mounted Pipeline FastAPI+MCP application (11 tools) and the standalone code
+sandbox server (5 tools).

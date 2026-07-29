@@ -64,8 +64,9 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ## Portal Pipeline MCP (`portal-pipeline`, `:8928`)
 
 <!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-portal-pipeline-mcp-portal-pipeline-8928 -->
-A host-native FastMCP server started automatically by `./launch.sh up`. It gives coding
-tools live introspection of the running Portal 5 stack and an AI-powered code explorer.
+A host-native MCP SDK v2 server mounted in FastAPI and started automatically by
+`./launch.sh up`. It gives coding tools live introspection of the running Portal
+5 stack and an AI-powered code explorer.
 <!-- /WIKI:GENERATED -->
 
 ---

@@ -105,8 +105,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 .venv/bin/python main.py \
     --listen 0.0.0.0 \
-    --port 8188 \
-    --force-fp16
+    --port 8188
 COMFY_START
     chmod +x "$COMFYUI_DIR/start.sh"
 
@@ -127,7 +126,6 @@ COMFY_START
         <string>0.0.0.0</string>
         <string>--port</string>
         <string>8188</string>
-        <string>--force-fp16</string>
     </array>
     <key>WorkingDirectory</key>
     <string>$COMFYUI_DIR</string>
@@ -229,8 +227,7 @@ _launch_install_music() {
         "httpx>=0.26.0" \
         "pyyaml>=6.0.1" \
         "starlette>=0.35.0" \
-        "mcp>=1.0.0" \
-        "fastmcp>=0.4.0"
+        "mcp>=2.0.0,<3.0.0"
     echo "  ✅ Dependencies installed"
 
     # ── HuggingFace cache dir ─────────────────────────────────────────────────
@@ -830,4 +827,3 @@ _launch_pull_qwen_image() {
     echo "Done. Verify:"
     echo "  curl -s localhost:8188/object_info/UNETLoader | grep qwen"
 }
-

@@ -18,10 +18,10 @@ import os
 import uuid
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
-mcp = FastMCP("code-sandbox", host="0.0.0.0")
+mcp = MCPServer("code-sandbox")
 
 
 @mcp.custom_route("/health", methods=["GET"])
@@ -610,7 +610,7 @@ async def execute_nodejs_endpoint(request):
 async def execute_bash_endpoint(request):
     body = await request.json()
     args = body.get("arguments", {})
-    # Accept both 'code' (FastMCP schema) and 'command' (legacy/GLM tool call format)
+    # Accept the MCP schema and the legacy GLM argument name.
     code = args.get("code") or args.get("command", "")
     if not code:
         return JSONResponse({"error": "code is required"}, status_code=400)
@@ -657,5 +657,4 @@ async def sandbox_status_endpoint(request):
 
 if __name__ == "__main__":
     port = int(os.getenv("SANDBOX_MCP_PORT", "8914"))
-    mcp.settings.port = port
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

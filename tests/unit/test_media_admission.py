@@ -7,11 +7,20 @@ model-size table.
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from portal.modules.media.tools import _admission
+
+REPO = Path(__file__).resolve().parents[2]
+
+
+def test_comfyui_launcher_does_not_override_model_inference_dtype():
+    services = (REPO / "scripts/lib/services.sh").read_text()
+    installer = services.split("_launch_install_comfyui()", 1)[1].split("\n}", 1)[0]
+    assert "--force-fp16" not in installer
 
 
 class TestMediaModelMemoryDict:

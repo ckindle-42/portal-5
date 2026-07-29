@@ -13,7 +13,7 @@ import os
 import sys
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -21,12 +21,10 @@ logger = logging.getLogger(__name__)
 # ── MCP Server Setup ─────────────────────────────────────────────────────────
 _port = int(os.environ.get("DETECTIONS_MCP_PORT") or os.environ.get("MCP_PORT", "8932"))
 
-mcp = FastMCP(
+mcp = MCPServer(
     "Portal SPL Detection Tools",
-    host="0.0.0.0",
     instructions="Queryable SPL detection library: search, validate, explain, "
     "and diff detections against hypotheses. Structured, not RAG.",
-    port=_port,
 )
 
 # ── Lazy imports for bench_security ──────────────────────────────────────────
@@ -304,4 +302,4 @@ def spl_diff_hypothesis(technique_id: str, observed_signal: str) -> dict:
 # ── Serve ────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

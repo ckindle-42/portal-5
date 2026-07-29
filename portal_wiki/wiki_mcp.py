@@ -12,7 +12,7 @@ import logging
 import os
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -20,13 +20,11 @@ logger = logging.getLogger(__name__)
 # ── MCP Server Setup ─────────────────────────────────────────────────────────
 _port = int(os.environ.get("WIKI_MCP_PORT") or os.environ.get("MCP_PORT", "8931"))
 
-mcp = FastMCP(
+mcp = MCPServer(
     "Portal Wiki Tools",
-    host="0.0.0.0",
     instructions="Canonical knowledge layer — search, get_unit, explain. "
     "Every answer cites its source. Use for architecture questions, "
     "technique signatures, design rationale lookup.",
-    port=_port,
 )
 
 # ── Ensure canonical dir is set ──────────────────────────────────────────────
@@ -154,4 +152,4 @@ def wiki_explain(query: str) -> dict:
 # ── Serve ────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

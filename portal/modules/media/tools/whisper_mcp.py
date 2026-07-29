@@ -11,10 +11,10 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
-mcp = FastMCP("whisper-transcription", host="0.0.0.0")
+mcp = MCPServer("whisper-transcription")
 
 
 @mcp.custom_route("/health", methods=["GET"])
@@ -426,5 +426,4 @@ async def transcribe_with_speakers(
 
 if __name__ == "__main__":
     port = int(os.getenv("WHISPER_MCP_PORT", "8915"))
-    mcp.settings.port = port
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

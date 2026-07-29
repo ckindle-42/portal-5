@@ -196,43 +196,18 @@ EXPECTED_SIGNALS: dict[str, tuple[str, list[str]]] = {
 # number, a session token), and some techniques are provable via more than
 # one real evidence channel depending on target OS/exploit class.
 #
-# Found live 2026-07-24: 18 vulhub-LXC scenarios declared "T1059" (bare --
-# EXPECTED_SIGNALS' only entry for it is windows:security EventCode=4688,
-# collected via linux:auditd's `ausearch -m EXECVE` on Linux targets) --
-# confirmed live that linux:auditd can never produce telemetry from this LXC
-# (Linux kernel audit is a single host-wide facility a container sharing the
-# host kernel can't independently own; installing/starting auditd there fails
-# immediately with "Operation not permitted" even with cap_audit_control
-# present). But real, observable command-execution evidence DOES exist for
-# most of these scenarios by design: reading their own red_prompt AND each
-# CVE's real vulhub README (e.g. struts2 S2-045 verifies via a reflected OGNL
-# math-eval header, ThinkPHP/Elasticsearch/Solr/GeoServer/Confluence/Drupal
-# all explicitly run `id` and the exploit class reflects its stdout directly
-# into the HTTP response body/JSON field) -- that's real, independently
-# captured evidence (web:access full-haystack container logs, and now the
-# network:packet capture), it just isn't literal-substring-matchable since
-# the exact uid/gid numbers vary by container.
+# Vulhub LXCs cannot own the host-wide Linux audit facility, so command
+# execution must also be recognizable through independently captured response
+# and packet evidence. Reflected `id` output is strong evidence, but its
+# uid/gid values vary and cannot be represented by literal example lines.
 ADDITIONAL_SIGNAL_PATTERNS: dict[str, list[str]] = {
     "T1059": [
         # `id` command output reflected into a response/log/packet capture --
         # e.g. "uid=0(root) gid=0(root) groups=0(root)". Effectively unfakeable
         # by coincidental web content; every Class-A scenario's prompt (see
-        # exec_chain.py's 2026-07-24 comment block) explicitly runs `id` as
-        # its own documented verification step.
-        #
-        # A self-callback pattern (target curls back to a listener in our own
-        # attack container) was tried and abandoned 2026-07-24 for scenarios
-        # whose real vulhub-documented technique is blind: it required
-        # Docker-published inbound ports reachable from the lab network, and
-        # Docker Desktop for Mac's own proxy/vpnkit layer resets genuinely
-        # externally-LAN-sourced connections to published ports (confirmed
-        # live, independent of macOS's Application Firewall and pf, both
-        # checked clean). Rather than keep working around that, every
-        # previously-blind scenario was swapped for a different real vulhub
-        # CVE whose own documented exploit reflects command output directly
-        # in the response (see exec_chain.py: vuln_hugegraph_rce,
-        # vuln_druid_rce, vuln_shellshock_rce, vuln_jimureport_rce,
-        # vuln_ajreport_rce, vuln_spring4shell_rce, vuln_docker_api_rce).
+        # exec_chain.py) explicitly runs `id` as its documented verification
+        # step. Blind callback-only CVEs are excluded because the lab network
+        # cannot reliably reach Docker Desktop published listener ports.
         r"uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\)",
     ],
 }
@@ -251,27 +226,10 @@ def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> 
     are never silently credited as found, and never count against the capture
     either; they're an honest gap in verification coverage, not a pass/fail.
 
-    A prior version of this function had a "broader attack evidence" fallback:
-    if a technique's specific keywords didn't match, or it had no
-    `EXPECTED_SIGNALS` entry at all, it fell back to checking whether ANY of
-    ~35 generic words ("error", "failed", "denied", "exception",
-    "unauthorized"...) appeared ANYWHERE in the capture's combined telemetry —
-    and if so, credited EVERY missing/unchecked technique as "found",
-    regardless of which technique it was or whether that word had anything to
-    do with it. Found live 2026-07-22 (GATE-D ablation Part II-A, prompted by
-    a user architecture question about whether captures are genuinely
-    replayable): `meta3_ssh_brute`'s capture — which has NO SSH telemetry
-    source at all, only thin FTP auth-failure noise, web-scan noise, and
-    generic Windows process events — was certified `coverage: 1.0, valid:
-    true, found: [T1110.003, T1078, T1059]` purely because one FTP `530`
-    failure line matched "denied"/"failed" once. Checked across all 422
-    on-disk captures with this fallback still active: 352 (83.4%) showed
-    `coverage: 1.00` — a near-universal rubber stamp, not a real quality
-    signal. This gate exists specifically so downstream consumers (the
-    89-scenario ablation corpus, any future re-ablation) can trust that a
-    capture marked valid actually contains evidence of what it claims to —
-    the whole point of "capture once, replay for blue/purple forever" is
-    that the capture is trustworthy without needing a fresh live check.
+    Generic attack words cannot prove a specific technique: a token such as
+    "failed" in unrelated FTP telemetry must not satisfy missing SSH or process
+    evidence. Downstream replay and ablation consumers rely on this gate to
+    certify technique-specific evidence without repeating a live capture.
     """
     try:
         from portal.modules.security.core.exec_chain import SCENARIOS
@@ -315,18 +273,9 @@ def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> 
         # pooled across every example (OR across lines is fine — two example
         # lines are two legitimate variants of the same technique).
         #
-        # Found live 2026-07-23 (first scenario of the post-fix recapture run,
-        # kerberoast_to_da): pooling every field=value token across all lines
-        # and accepting ANY single one anywhere in the telemetry let a bare,
-        # generic token from one technique's example (e.g. T1053.005's
-        # "Account=administrator") false-match a completely unrelated real
-        # event (a Kerberoasting 4769 line that also happens to involve the
-        # administrator account) — and a bare "EventCode=4662" (used for many
-        # unrelated Windows auditing operations) false-matched T1003.006/DCSync
-        # without its actually-discriminating
-        # "Properties=Replication-Dir-Replication-Right" value ever appearing.
-        # Both non-Kerberoasting ground-truth techniques were credited as
-        # "found" purely from these coincidental generic-token overlaps.
+        # Match every field from one example line together. Pooling fields
+        # across examples lets generic values such as Account=administrator or
+        # EventCode=4662 falsely prove an unrelated technique.
         has_signal = False
         for line in expected_lines:
             line_tokens = {tok for tok in line.split() if "=" in tok}

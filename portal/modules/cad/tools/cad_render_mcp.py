@@ -22,7 +22,7 @@ import subprocess  # noqa: S404 — openscad invocation is argument-controlled, 
 import uuid
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import FileResponse, JSONResponse
 
 from portal.platform.mcp_host.workspace import get_generated_dir
@@ -30,7 +30,7 @@ from portal.platform.mcp_host.workspace import get_generated_dir
 logger = logging.getLogger(__name__)
 
 port = int(os.getenv("CAD_RENDER_MCP_PORT", "8926"))
-mcp = FastMCP("cad-render", host="0.0.0.0")
+mcp = MCPServer("cad-render")
 
 PUBLIC_URL = os.getenv("CAD_RENDER_PUBLIC_URL", f"http://localhost:{port}/files/models3d").rstrip(
     "/"
@@ -402,5 +402,4 @@ async def convert_cad(input_path: str, to_format: str) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.settings.port = port
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

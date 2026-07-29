@@ -535,17 +535,9 @@ async def _stream_with_tool_loop_impl(
                 }
                 yield f"data: {json.dumps(_fb_chunk)}\n\n".encode()
 
-        # Zero-content safety net: the backend completed the hop with no visible
-        # content AND no reasoning tokens to fall back on (the branch above only
-        # fires when _think_content_buf has something). Previously this fell
-        # through to a silent stream close — OWUI persists an empty assistant
-        # message with no error indication, indistinguishable from a genuinely
-        # blank answer. Confirmed live during the P4 UAT sweep: several tool-use
-        # turns (memory-write, code-exec, video-gen) came back fully empty with
-        # nothing logged server-side and clean reproduction on retry — consistent
-        # with an occasional truly-empty completion from the backend under
-        # sustained load, not a deterministic parsing bug. Surface it explicitly
-        # instead of guessing silently.
+        # Surface a backend completion with neither visible content nor reasoning
+        # tokens. A silent stream close would leave OWUI with an empty assistant
+        # message that is indistinguishable from a rendering or transport failure.
         if not _content_emitted and not _think_content_buf and finish_reason != "tool_calls":
             logger.warning(
                 "Streaming hop %d/%d: backend returned zero content and zero "

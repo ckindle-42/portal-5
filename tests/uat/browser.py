@@ -405,11 +405,10 @@ async def _send_and_wait(
     # Multi-line prompts (code blocks, etc.) are the one exception: keyboard.type()
     # sends a literal Enter keypress for every '\n', and OWUI's composer submits on
     # bare Enter — so a multi-line prompt gets prematurely split and sent as several
-    # fragmented messages mid-typing (confirmed live: code blocks never arrived
-    # intact, corrupting tool-validation/code tests). keyboard.insert_text() inserts
+    # fragmented messages mid-typing. keyboard.insert_text() inserts
     # the whole string as a single atomic input event — no Enter keypresses, no
     # code-fence auto-closing side effects from character-by-character typing — and
-    # still reliably updates the Svelte draft store (verified live end-to-end).
+    # still updates the Svelte draft store.
     if "\n" in prompt:
         await page.keyboard.insert_text(prompt)
     else:

@@ -14,12 +14,12 @@ import time
 import uuid
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 from portal.modules.media.tools._admission import admit
 
-mcp = FastMCP("comfyui-generation", host="0.0.0.0")
+mcp = MCPServer("comfyui-generation")
 
 
 def _media_model_key(model: str | None) -> str:
@@ -1101,9 +1101,8 @@ async def get_generation_status(job_id: str) -> dict:
 
 if __name__ == "__main__":
     port = int(os.getenv("COMFYUI_MCP_PORT", "8910"))
-    mcp.settings.port = port
     try:
-        mcp.run(transport="streamable-http")
+        mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
     finally:
         # Clean up shared httpx client on shutdown
         asyncio.run(_close_client())

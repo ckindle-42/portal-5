@@ -19,10 +19,10 @@ import urllib.parse
 from typing import Any
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
-mcp = FastMCP("proxmox", host="0.0.0.0")
+mcp = MCPServer("proxmox")
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -1052,5 +1052,4 @@ async def list_tools(request):
 
 if __name__ == "__main__":
     port = int(os.getenv("PROXMOX_MCP_PORT", "8927"))
-    mcp.settings.port = port
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

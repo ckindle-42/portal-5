@@ -10,7 +10,7 @@ free already crashes the box.
 
 No historical per-model GB table exists for ComfyUI/media backends (the retired
 MLX-proxy admission gate, commit 91f13a9, only covered the old text/VLM inference
-tier). These estimates are session-observed (Slice P, 2026-07-14) and mirrored from
+tier). These estimates are measured peak working sets and mirrored from
 `unit-fact-media-memory-budget` (portal/platform/wiki/adapters/seed_facts.py) — kept
 as a separate copy here rather than imported, matching Rule 3 (MCP modules are
 independent services, zero cross-imports from platform internals).
@@ -23,11 +23,9 @@ import os
 MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     "comfyui:flux-schnell": 27.2,  # checkpoint 22 + vae 0.32 + clip_l 0.235 + t5xxl_fp8 4.6
     "comfyui:sdxl": 6.5,  # single self-contained checkpoint
-    # Corrected 38.2 -> 55.0 after a second live lockup during this same session's
-    # verification test: a *tiny* job (9 frames, 5 steps) still crashed free RAM from
-    # ~45GB to ~60MB. Static weight size (unet 27 + clip 11 + vae 0.24 = 38.2GB) does
-    # not capture real peak usage — diffusion activation/buffer overhead pushes this
-    # backend close to the entire 64GB unified pool regardless of frame count.
+    # Static weights total about 38.2GB, but diffusion activation and buffer
+    # overhead push the measured peak close to the full 64GB unified pool even
+    # for a tiny 9-frame, 5-step job.
     "video:wan21-nsfw": 55.0,
     "music:small": 2.0,
     "music:medium": 6.0,

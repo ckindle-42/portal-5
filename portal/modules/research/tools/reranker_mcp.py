@@ -12,7 +12,7 @@ Tools:
 import logging
 import os
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 # Lazy references — populated on first call to rerank().
@@ -25,7 +25,7 @@ except ImportError:
     generate = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
-mcp = FastMCP("reranker", host="0.0.0.0")
+mcp = MCPServer("reranker")
 
 RERANKER_MODEL = os.environ.get("RERANKER_MODEL", "mlx-community/Qwen3-Reranker-0.6B-mxfp8")
 
@@ -108,5 +108,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("RERANKER_MCP_PORT", "8925"))
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logger.info(f"Starting reranker MCP on port {port}")
-    mcp.settings.port = port
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

@@ -20,7 +20,7 @@ import re
 from typing import Any
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -103,7 +103,7 @@ _FASTCONTEXT_TOOLS = [
     },
 ]
 
-mcp = FastMCP("portal-pipeline")
+mcp = MCPServer("portal-pipeline")
 
 
 def _pipeline_headers() -> dict[str, str]:
@@ -1032,4 +1032,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger.info("Pipeline MCP server starting on port %d", PORT)
     logger.info("Proxying pipeline at %s", PIPELINE_URL)
-    uvicorn.run(mcp.streamable_http_app(), host="0.0.0.0", port=PORT)
+    uvicorn.run(mcp.streamable_http_app(host="0.0.0.0"), host="0.0.0.0", port=PORT)
