@@ -239,19 +239,19 @@ WAN22_T2V_VAE = os.getenv("WAN22_T2V_VAE", "wan_2.1_vae.safetensors")
 
 # ── Wan 2.2 shared fp8 text encoder (TI2V-5B and S2V-14B) ────────────────────
 # From Comfy-Org/Wan_2.1_ComfyUI_repackaged (same encoder, different packaging).
-# Download: ./launch.sh pull-wan22
-WAN22_CLIP_FP8 = os.getenv(
-    "WAN22_CLIP_FP8", "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
-)
+# Download directly into models/text_encoders/ (flat, no HF-repo-path nesting —
+# see KNOWN_LIMITATIONS.md / project_comfyui_unetloader_empty_open memory: a
+# --local-dir ~/ComfyUI/models/ download preserves the repo's internal
+# "split_files/<type>/" prefix as a real subfolder ComfyUI never scans).
+WAN22_CLIP_FP8 = os.getenv("WAN22_CLIP_FP8", "umt5_xxl_fp8_e4m3fn_scaled.safetensors")
 
 # ── Wan 2.2 TI2V-5B env vars ─────────────────────────────────────────────────
 # Image-to-video: Wan22ImageToVideoLatent conditions on a start frame.
 # Single-file ComfyUI format from Comfy-Org/Wan_2.2_ComfyUI_Repackaged.
-# Download: ./launch.sh pull-wan22
-WAN22_TI2V_MODEL = os.getenv(
-    "WAN22_TI2V_MODEL", "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors"
-)
-WAN22_TI2V_VAE = os.getenv("WAN22_TI2V_VAE", "split_files/vae/wan2.2_vae.safetensors")
+# Download directly into models/diffusion_models/ and models/vae/ (flat — see
+# WAN22_CLIP_FP8 note above).
+WAN22_TI2V_MODEL = os.getenv("WAN22_TI2V_MODEL", "wan2.2_ti2v_5B_fp16.safetensors")
+WAN22_TI2V_VAE = os.getenv("WAN22_TI2V_VAE", "wan2.2_vae.safetensors")
 
 # ── Wan 2.2 S2V-14B env vars ─────────────────────────────────────────────────
 # Sound-to-video: WanSoundImageToVideo conditions on audio + reference image.

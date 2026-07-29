@@ -556,9 +556,21 @@ async def _stream_with_tool_loop_impl(
                 finish_reason,
             )
             _record_error(workspace_id, "empty_completion")
-            yield (
-                f"data: {json.dumps({'error': 'Model returned an empty response — please retry.'})}\n\n"
-            ).encode()
+            _empty_chunk = {
+                "id": request_id,
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "model": workspace_id,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"content": "⚠️ Model returned an empty response — please retry."},
+                        "finish_reason": "stop",
+                    }
+                ],
+            }
+            yield f"data: {json.dumps(_empty_chunk)}\n\n".encode()
+            yield b"data: [DONE]\n\n"
             return
 
         # After stream completes, check if tool calls were emitted
@@ -950,13 +962,22 @@ async def _stream_from_backend_guarded(
                             workspace_id,
                         )
                         _record_error(workspace_id, "empty_completion")
-                        yield (
-                            "data: "
-                            + json.dumps(
-                                {"error": "Model returned an empty response — please retry."}
-                            )
-                            + "\n\n"
-                        ).encode()
+                        _empty_chunk = {
+                            "id": f"chatcmpl-{workspace_id}",
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": workspace_id,
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": {
+                                        "content": "⚠️ Model returned an empty response — please retry."
+                                    },
+                                    "finish_reason": "stop",
+                                }
+                            ],
+                        }
+                        yield f"data: {json.dumps(_empty_chunk)}\n\n".encode()
 
                 yield (line + "\n\n").encode()
     except httpx.TimeoutException:
