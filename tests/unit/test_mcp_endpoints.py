@@ -3,7 +3,7 @@
 Tests for OpenAI-compatible HTTP endpoints on MCP servers.
 These are the endpoints Open WebUI uses for native TTS and STT.
 
-Requires: mcp>=1.0.0 (in pyproject.toml [dev] group)
+Requires: mcp>=2.0.0 (in pyproject.toml [dev] group)
 All tests should PASS after 'pip install -e .[dev,mcp]'
 Tests SKIP (not ERROR) when mcp/kokoro/faster-whisper are not installed.
 """
@@ -19,7 +19,7 @@ sys.path.insert(0, ".")
 # Previously these imports fired inside fixtures, causing ERROR instead of SKIP.
 # Note: we guard on portal.modules.media.tools.tts_mcp (the actual server module),
 # NOT the external fastmcp pip wheel.
-# Imports go through the upstream mcp.server.fastmcp package (M4 de-vendor).
+# Imports go through the upstream MCP Python SDK (M4 de-vendor).
 portal_mcp_gen = pytest.importorskip(
     "portal.modules.media.tools.tts_mcp",
     reason="portal_mcp.generation not importable — run: pip install -e '.[dev,mcp]'",

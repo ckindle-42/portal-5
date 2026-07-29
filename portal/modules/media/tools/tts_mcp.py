@@ -17,14 +17,14 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import FileResponse, JSONResponse, Response
 
 from portal.modules.media.tools.utils import get_torch_device
 
 logger = logging.getLogger(__name__)
 port = int(os.getenv("TTS_MCP_PORT", "8916"))
-mcp = FastMCP("tts-generation", host="0.0.0.0")
+mcp = MCPServer("tts-generation")
 
 PUBLIC_URL = os.getenv("TTS_PUBLIC_URL", f"http://localhost:{port}/files/tts").rstrip("/")
 
@@ -521,5 +521,4 @@ async def list_voices() -> dict:
 
 if __name__ == "__main__":
     port = int(os.getenv("TTS_MCP_PORT", "8916"))
-    mcp.settings.port = port
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

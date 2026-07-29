@@ -196,7 +196,7 @@ If something seems to require modifying Open WebUI internals, find the extension
 
 ### 3 — MCP Servers Are Independent Services
 
-Each MCP server (`portal/modules/*/tools/*_mcp.py`, `portal/platform/{mcp_host,memory}/`, or a vendored server in `portal_mcp/{filesystem,scrapling}/`) is a standalone FastAPI+FastMCP app. They have zero imports from `portal.platform.inference` or `portal_channels/`. They are registered in Open WebUI as Tool Servers. They do not know about each other.
+Each MCP server (`portal/modules/*/tools/*_mcp.py`, `portal/platform/{mcp_host,memory}/`, or a vendored server in `portal_mcp/{filesystem,scrapling}/`) is a standalone service using the MCP SDK v2 `MCPServer` API (mounted in FastAPI where needed). They have zero imports from `portal.platform.inference` or `portal_channels/`. They are registered in Open WebUI as Tool Servers. They do not know about each other.
 
 ### 4 — The Pipeline Is Stateless (with metrics persistence)
 

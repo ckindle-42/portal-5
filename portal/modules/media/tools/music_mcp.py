@@ -18,13 +18,13 @@ import re
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import FileResponse, JSONResponse
 
 from portal.modules.media.tools._admission import admit
 
 port = int(os.getenv("MUSIC_MCP_PORT", "8912"))
-mcp = FastMCP("music-generation", host="0.0.0.0")
+mcp = MCPServer("music-generation")
 
 PUBLIC_URL = os.getenv("MUSIC_PUBLIC_URL", f"http://localhost:{port}/files/music").rstrip("/")
 
@@ -507,5 +507,4 @@ async def list_music_models() -> dict:
 
 if __name__ == "__main__":
     port = int(os.getenv("MUSIC_MCP_PORT", "8912"))
-    mcp.settings.port = port
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

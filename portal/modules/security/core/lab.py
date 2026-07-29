@@ -741,11 +741,9 @@ def _lab_dispatch_inner(fn_name: str, fn_args: dict, dry_run: bool = False) -> s
         if dry_run:
             return f"[DRY-RUN] webshell_exec: {cmd_arg}"
         # cmd_arg is raw model text (often contains spaces/slashes/quotes) — must be
-        # percent-encoded before it's inserted into a URL query string. Un-encoded, curl
-        # rejects any command with a space with exit code 3 (malformed URL) and never even
-        # reaches the server, which silently looked identical to a failed exploit (empty
-        # output). Confirmed live 2026-07-02: "id"/"whoami" (no spaces) worked, "cat
-        # /etc/passwd" and nearly everything else came back empty until pre-encoded here.
+        # percent-encoded before it is inserted into a URL query string. Otherwise
+        # curl rejects commands containing spaces as malformed URLs before they
+        # reach the server.
         cmd_encoded = urllib.parse.quote(cmd_arg, safe="")
         # Discover webshell from latest book listing, then exec command
         cmd = f"""

@@ -3,6 +3,7 @@
 **Task ID:** TASK-QWEN-IMAGE-BLACK-OUTPUT-001
 **Priority:** Normal (blocks the feature from actually being usable)
 **Category:** Bug — correctness, not memory safety
+**Status:** Completed 2026-07-29
 
 ---
 
@@ -59,37 +60,55 @@ CUDA/MPS numerical divergence).
 
 ## To do
 
-- [ ] Get ComfyUI/PyTorch/MPS version info and check for known issues
+- [x] Get ComfyUI/PyTorch/MPS version info and check for known issues
       upstream (comfyanonymous/ComfyUI GitHub issues) — "Qwen-Image black
       output Apple Silicon" or "WanVAE MPS" are reasonable search starting
       points.
-- [ ] If no known fix: trace `comfy/sd.py`'s VAE decode path for the
+- [x] If no known fix: trace `comfy/sd.py`'s VAE decode path for the
       `WanVAE`/Qwen-Image case, compare against the CUDA code path, look for
       an MPS-unsupported op (common culprits: certain conv3d configurations,
       certain dtype casts, certain reduction ops) that silently produces
       zeros instead of erroring on MPS.
-- [ ] Try decoding through a *different* VAE class if ComfyUI exposes one
+- [x] Try decoding through a *different* VAE class if ComfyUI exposes one
       for Qwen-Image specifically (vs. the shared WanVAE codepath) — may not
       exist; check the node's actual Python source
       (`comfy/ldm/...`/`comfy_extras/...` for the relevant VAE class).
-- [ ] Consider whether `--force-fp16` (a flag already passed to this host's
+- [x] Consider whether `--force-fp16` (a flag already passed to this host's
       ComfyUI launch — see `~/ComfyUI/start.sh` / the launchd plist) is
       relevant — the earlier working TI2V-5B video generation used the same
       flag successfully with a *different* VAE (`wan2.2_vae.safetensors`,
       not zero-output), so this flag alone isn't sufficient explanation, but
       worth checking if TI2V-5B's VAE takes a different code path than
       Qwen-Image's WanVAE-class handling.
-- [ ] Once root-caused: fix, then re-run the full end-to-end verification
+- [x] Once root-caused: fix, then re-run the full end-to-end verification
       (real prompt, 1024x1024, 20 steps) and confirm the output is a real,
       non-degenerate image (not just "did not crash").
-- [ ] Update `unit-known-limitations-qwen-image-bf16-crashes-on-apple-
+- [x] Update `unit-known-limitations-qwen-image-bf16-crashes-on-apple-
       silicon-mps` (or supersede it) once resolved.
 
 ## Definition of Done
 
-- [ ] Root cause identified for the all-black output.
-- [ ] Fix applied and verified: a real `qwen-image-2512` generation produces
+- [x] Root cause identified for the all-black output.
+- [x] Fix applied and verified: a real `qwen-image-2512` generation produces
       a non-degenerate image matching the prompt.
-- [ ] `qwen-image-2512-lightning` and `qwen-image-edit-2511` spot-checked
+- [x] `qwen-image-2512-lightning` and `qwen-image-edit-2511` spot-checked
       too — they share the same VAE/diffusion architecture, so the same bug
       likely affects them, but this hasn't been directly confirmed.
+
+## Resolution
+
+The VAE lead was a false correlation. With `--force-fp16`, a `SaveLatent`
+diagnostic found every sampled latent value was NaN before VAE decode. ComfyUI's
+QwenImage model declaration supports bf16 and float32 inference, not fp16; the
+global launcher flag overrode that model-specific selection. Removing the flag
+from the installer-generated launcher, launchd plist, and current host launcher
+restored bf16 compute and finite latents.
+
+The base and Lightning models now generate real prompt-matching images.
+Qwen-Image-Edit-2511 was checked at its intended safety boundary: its bf16
+checkpoint remains estimated at 60GB and admission control refuses it under the
+host's available memory. Both official 20.5GB alternatives were then tested:
+`fp8mixed` hits the known comfy-kitchen MPS fp8 dequantization error, while
+`int8_convrot` needs CPU fallback for an unsupported MPS integer matmul and is
+not operationally usable. Follow-up options and exact prompt IDs are recorded in
+`TASK_QWEN_IMAGE_EDIT_MPS_VARIANT_V1.md`.

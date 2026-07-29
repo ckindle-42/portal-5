@@ -12,7 +12,7 @@ import logging
 import os
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -20,12 +20,10 @@ logger = logging.getLogger(__name__)
 # ── MCP Server Setup ─────────────────────────────────────────────────────────
 _port = int(os.environ.get("MITRE_MCP_PORT") or os.environ.get("MCP_PORT", "8929"))
 
-mcp = FastMCP(
+mcp = MCPServer(
     "Portal MITRE ATT&CK Tools",
-    host="0.0.0.0",
     instructions="Deterministic MITRE ATT&CK, D3FEND, and CWE lookup tools. "
     "Structured data, not RAG — query by technique ID, get precise results.",
-    port=_port,
 )
 
 # ── ATT&CK Data Store ────────────────────────────────────────────────────────
@@ -454,4 +452,4 @@ def mitre_techniques_list(tactic: str = "") -> dict:
 # ── Serve ────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

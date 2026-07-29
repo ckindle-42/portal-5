@@ -184,7 +184,7 @@ async def register_tool_servers_async(client: httpx.AsyncClient, token: str) -> 
             print(f"  Skip (exists): {server['name']}")
             skipped += 1
         else:
-            # FastMCP 3.x uses MCP protocol (SSE) not OpenAPI schema discovery.
+            # These tool servers use MCP transport, not OpenAPI schema discovery.
             # info.id is required by OWUI 0.9.x to generate stable tool IDs
             # (server:mcp:{info.id}) used in workspace model toolIds.
             server_id = server.get("id", "")

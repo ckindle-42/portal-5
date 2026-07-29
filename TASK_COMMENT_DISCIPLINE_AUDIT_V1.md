@@ -3,6 +3,7 @@
 **Task ID:** TASK-COMMENT-DISCIPLINE-001
 **Priority:** Low (quality/maintainability, not correctness)
 **Category:** Codebase hygiene
+**Status:** Completed 2026-07-29
 
 ---
 
@@ -54,27 +55,38 @@ the historical narrative embedded in it.
 
 ## To do
 
-- [ ] Full grep pass across `portal/`, `scripts/`, `tests/` for narrative/
+- [x] Full grep pass across `portal/`, `scripts/`, `tests/` for narrative/
       incident-history comment patterns (dates, "confirmed", "prior version",
       "this session", "discovered", "root cause", "it turns out", etc.) —
       broader than the single pass that found the examples above.
-- [ ] For each hit: decide whether the narrative content is (a) genuinely
+- [x] For each hit: decide whether the narrative content is (a) genuinely
       durable and belongs in a `portal_wiki/canonical/` unit (rendered into
       the relevant doc), (b) already covered by an existing wiki unit and can
       just be trimmed/cross-referenced, or (c) truly ephemeral and can be
       deleted outright (e.g. a session-scoped debugging note with no lasting
       relevance).
-- [ ] Trim each comment to durable WHY-only content (what CLAUDE.md's comment
+- [x] Trim each comment to durable WHY-only content (what CLAUDE.md's comment
       guidance actually asks for), moving narrative to the wiki where it adds
       real value.
-- [ ] Full verification ladder: `pytest tests/unit/ -q && ruff check . &&
+- [x] Full verification ladder: `pytest tests/unit/ -q && ruff check . &&
       ruff format --check .`, then `bash scripts/ci_local.sh`.
-- [ ] `python3 scripts/doc_ledger.py status` after any doc/wiki changes.
+- [x] `python3 scripts/doc_ledger.py status` after any doc/wiki changes.
 
 ## Definition of Done
 
-- [ ] Comment audit complete (or explicitly scoped down with reasoning if the
+- [x] Comment audit complete (or explicitly scoped down with reasoning if the
       full sweep turns out to be much larger than expected — this could be a
       multi-session effort given the security module's size).
-- [ ] Full verification ladder green.
-- [ ] Doc ledger clean.
+- [x] Full verification ladder green.
+- [x] Doc ledger clean.
+
+## Resolution
+
+The broad search included dates, incident-language patterns, and the narrower
+pattern that produced the examples above. Dated benchmark fixtures, model
+retirement rationale, and test provenance were retained when the date or
+observation is part of the durable contract. Twelve clear session-history
+comments were rewritten to state only the invariant or failure mode they
+protect. The original narrow pattern now has no code-comment hits; the one
+remaining “this session” phrase is user-facing tool documentation describing
+the current ComfyUI history, not development-session narration.

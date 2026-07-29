@@ -589,9 +589,9 @@ async def http_transcribe(
 
 # ── MCP wrapper ────────────────────────────────────────────────────────────────
 
-from mcp.server.fastmcp import FastMCP  # noqa: E402
+from mcp.server import MCPServer  # noqa: E402
 
-mcp = FastMCP("mlx-transcribe", host=HOST, streamable_http_path="/")
+mcp = MCPServer("mlx-transcribe")
 
 
 @mcp.tool()
@@ -669,7 +669,7 @@ async def transcribe_with_speakers(
 # Initialize session manager (must happen after tool definitions, before app start).
 # streamable_http_app() lazily creates _session_manager; we surface it so the
 # parent lifespan (_lifespan above) can run the task group.
-_mcp_sub_app = mcp.streamable_http_app()
+_mcp_sub_app = mcp.streamable_http_app(host=HOST, streamable_http_path="/")
 _mcp_session_manager = mcp.session_manager  # noqa: F821 — defined above
 app.mount("/mcp", _mcp_sub_app)
 

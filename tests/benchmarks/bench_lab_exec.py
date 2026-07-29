@@ -166,7 +166,7 @@ def _proxmox_mcp_call(
 ) -> dict[str, Any]:
     """Call a proxmox_mcp tool via the Proxmox MCP server (:8927).
 
-    Uses the same FastMCP SSE protocol as _mcp_call (sandbox). Returns
+    Uses the same MCP Streamable HTTP protocol as _mcp_call (sandbox). Returns
     {ok, output, elapsed_s} for consistency with the sandbox API.
     """
     base = f"http://localhost:{PROXMOX_MCP_PORT}/mcp"
@@ -388,7 +388,7 @@ def lab_teardown(targets: list[str] | None = None, dry_run: bool = False) -> boo
 def _mcp_call(code: str, timeout: int = 120, dry_run: bool = False) -> dict[str, Any]:
     """Call execute_bash on the sandbox MCP and return {ok, output, elapsed_s}.
 
-    FastMCP always returns text/event-stream. We stream both the init and the
+    The server returns text/event-stream. We stream both the init and the
     tool/call responses, consuming all SSE data: lines until the stream closes,
     then take the last JSON payload that contains a result or error key.
     """

@@ -16,11 +16,11 @@ import uuid
 import httpx
 import lancedb
 import pyarrow as pa
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
-mcp = FastMCP("memory", host="0.0.0.0")
+mcp = MCPServer("memory")
 
 LANCE_DIR = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
 MEMORY_TABLE = "memory"
@@ -276,8 +276,7 @@ async def clear_memories_endpoint(request):
 
 def main():
     port = int(os.environ.get("MEMORY_MCP_PORT", "8920"))
-    mcp.settings.port = port
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":

@@ -13,11 +13,11 @@ import re
 import uuid
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import FileResponse, JSONResponse
 
 port = int(os.getenv("DOCUMENTS_MCP_PORT", "8913"))
-mcp = FastMCP("document-tools", host="0.0.0.0", port=port)
+mcp = MCPServer("document-tools")
 
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -845,4 +845,4 @@ def read_pdf(
 
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

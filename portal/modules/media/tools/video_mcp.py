@@ -15,14 +15,14 @@ import time
 import uuid
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 from portal.modules.media.tools._admission import admit
 
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("video-generation", host="0.0.0.0")
+mcp = MCPServer("video-generation")
 
 # Configurable timeout: VIDEO_TIMEOUT env var (seconds, default 3600 = 1 hr).
 # 9 frames × 50 steps on Apple Silicon MPS ≈ 30-40 min; 1hr gives safe headroom.
@@ -1583,8 +1583,7 @@ async def invoke_tool(request):
 
 if __name__ == "__main__":
     port = int(os.getenv("VIDEO_MCP_PORT", "8911"))
-    mcp.settings.port = port
     try:
-        mcp.run(transport="streamable-http")
+        mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
     finally:
         asyncio.run(_close_client())

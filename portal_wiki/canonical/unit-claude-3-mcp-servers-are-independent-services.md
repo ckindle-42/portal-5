@@ -17,4 +17,7 @@ updated_at: 1783195000.806709
 ---
 
 
-Each `portal_mcp/` server is a standalone FastAPI+FastMCP app. They have zero imports from `portal_pipeline/` or `portal_channels/`. They are registered in Open WebUI as Tool Servers. They do not know about each other.
+Each MCP server is a standalone service using the MCP SDK v2 `MCPServer` API,
+mounted in FastAPI where needed. Servers do not import the inference platform or
+channel adapters, are registered independently in Open WebUI, and do not depend
+on one another.

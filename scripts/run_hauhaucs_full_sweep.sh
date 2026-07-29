@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
 # Per-scenario driver for the HauhauCS full red-capture sweep.
 #
-# The two --all-scenarios attempts (one long-lived process running all 89
-# scenarios sequentially) both failed catastrophically partway through with
-# instant "[Errno 61] Connection refused" on every subsequent scenario, while
-# every single-scenario invocation this session succeeded. Looping scenarios
-# as separate process invocations avoids whatever resource exhaustion/leak
-# hits a long-lived process, at the cost of per-process startup overhead.
+# Run each scenario in a fresh process so a persistent connection failure or
+# resource leak cannot poison every remaining scenario in a long-lived sweep.
+# This trades process startup overhead for failure isolation.
 set -uo pipefail
 
 cd /Users/chris/projects/portal-5

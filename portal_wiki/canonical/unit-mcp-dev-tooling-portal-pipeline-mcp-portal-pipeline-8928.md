@@ -15,5 +15,6 @@ created_at: 1784946220.571575
 updated_at: 1784946220.571575
 ---
 
-A host-native FastMCP server started automatically by `./launch.sh up`. It gives coding
-tools live introspection of the running Portal 5 stack and an AI-powered code explorer.
+A host-native MCP SDK v2 server mounted in FastAPI and started automatically by
+`./launch.sh up`. It gives coding tools live introspection of the running Portal
+5 stack and an AI-powered code explorer.

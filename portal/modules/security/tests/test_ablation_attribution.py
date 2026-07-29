@@ -249,17 +249,11 @@ def test_hunter_miss_when_real_retrieval_is_topically_unrelated_to_ground_truth(
     NOT evidence the hunter "saw" that ground truth — it's evidence of
     something else entirely. This must classify HUNTER_MISS, not HANDOFF_LOSS.
 
-    A prior version of this test asserted the opposite (HANDOFF_LOSS), on the
-    theory that any real structural retrieval should generalize to cover
-    genuinely novel patterns a marker table can't recognize. Quantified live
-    against the full 89-scenario ablation corpus (2026-07-22): that structural
-    shortcut fired on 267/267 (100%) of both the 2-section and 3-section arms'
-    records regardless of topical relevance, making HUNTER_MISS structurally
-    unreachable for those arms (0.0% in both) while masking a real ~24-49%
-    HUNTER_MISS rate and a real ~8-13% HALLUCINATION rate underneath it. Ground
-    truth here is always a real classified MITRE ID, so ID/parent-substring
-    text matching already generalizes reasonably without that shortcut's
-    false-positive cost — see `_trace_mentions_any`'s docstring."""
+    Treating any structurally valid retrieval as relevant would make
+    HUNTER_MISS unreachable and hide unrelated or hallucinated evidence.
+    Ground truth is a classified MITRE ID, so ID, parent-ID, or known-marker
+    matching supplies the required topical link. See `_trace_mentions_any`.
+    """
     out = classify(
         arm="3section",
         scenario="s8",

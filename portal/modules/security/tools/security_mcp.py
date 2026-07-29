@@ -10,9 +10,7 @@ import logging
 import os
 
 import torch
-
-# Vendored FastMCP
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -48,11 +46,9 @@ def _ensure_model():
 # ── MCP Server Setup ─────────────────────────────────────────────────────────
 _port = int(os.environ.get("SECURITY_MCP_PORT") or os.environ.get("MCP_PORT", "8919"))
 
-mcp = FastMCP(
+mcp = MCPServer(
     "Portal Security Tools",
-    host="0.0.0.0",
     instructions="Vulnerability severity classification and security analysis tools",
-    port=_port,
 )
 
 # Pre-warm the VLAI model at startup so the first tool call doesn't stall.
@@ -212,4 +208,4 @@ def lab_perception(hosts: list[str]) -> dict:
 
 # ── Serve ────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)
