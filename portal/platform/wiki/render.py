@@ -15,7 +15,6 @@ narrative prose outside markers is human-owned and untouched.
 from __future__ import annotations
 
 import re
-import time
 from pathlib import Path
 
 from portal.platform.wiki.migration import doc_is_migrated
@@ -232,7 +231,7 @@ def render_admin_guide(output_dir: Path | None = None) -> Path:
         "",
         "# Portal 5 Admin Guide",
         "",
-        f"*Generated: {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}*",
+        f"*Deterministic projection of {len(units)} canonical units.*",
         "",
         "## Architecture Overview",
         "",
@@ -281,7 +280,7 @@ def render_architecture_map(output_dir: Path | None = None) -> Path:
         "",
         "# Portal 5 Architecture Map",
         "",
-        f"*Generated: {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}*",
+        f"*Deterministic projection of {len(units)} canonical units.*",
         "",
         "## Knowledge Layer",
         "",

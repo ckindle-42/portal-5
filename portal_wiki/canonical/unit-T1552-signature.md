@@ -6,7 +6,7 @@ title: "T1552 \u2014 Unsecured credentials \u2014 SSRF-to-metadata, .env/.git ex
   \ this SPL]"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1552
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1552
 - type: mitre
   path: ATT&CK:T1552
 - type: scenario
@@ -21,8 +21,8 @@ tags:
 - T1552
 - technique
 - signature
-created_at: 1785020525.016157
-updated_at: 1785020525.016157
+created_at: 1785349554.523846
+updated_at: 1785349554.523846
 ---
 
 # T1552 — Unsecured credentials — SSRF-to-metadata, .env/.git exposure, hardcoded creds [KEY: One of the metadata/credential exposure literals used by this SPL]

@@ -167,7 +167,7 @@ RESULTS_FILE = str(RESULTS_DIR / f"bench_tps_{datetime.now(UTC).strftime('%Y%m%d
 _ENV_KEYS_SKIP_FROM_DOTENV = {"PIPELINE_URL"}  # Compose-internal hostname; bench runs host-side
 
 
-def _load_env() -> None:
+def _load_env() -> dict[str, str]:
     # Hermetic-test guard (CLAUDE.md: tests/unit/ must pass with no network
     # access / real config): tests/unit/test_adhoc_probe.py transitively
     # imports this module (bench/adhoc_probe.py -> bench/config.py), and this
@@ -178,7 +178,8 @@ def _load_env() -> None:
     # those keys with different expectations. tests/unit/conftest.py already
     # sets UNIT_TEST_MODE=1 for exactly this kind of hermetic-mode signal.
     if os.environ.get("UNIT_TEST_MODE") == "1":
-        return
+        return {}
+    loaded: dict[str, str] = {}
     env_file = PROJECT_ROOT / ".env"
     if env_file.exists():
         for line in env_file.read_text().splitlines():
@@ -188,9 +189,10 @@ def _load_env() -> None:
                 k = k.strip()
                 if k in _ENV_KEYS_SKIP_FROM_DOTENV:
                     continue
-                os.environ.setdefault(k, v.strip())
+                loaded.setdefault(k, v.strip())
+    return loaded
 
 
-_load_env()
+_DOTENV = _load_env()
 
-PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
+PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", _DOTENV.get("PIPELINE_API_KEY", ""))

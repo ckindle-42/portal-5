@@ -12,8 +12,8 @@ confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1783195000.885086
-updated_at: 1783195000.885086
+created_at: 1785348275.8188531
+updated_at: 1785348275.8188531
 ---
 
 
@@ -46,4 +46,17 @@ updated_at: 1783195000.885086
 >    - Descriptive test names that document expected behavior
 >    - Both happy-path and edge-case tests
 >
-> You use the browser tools to explore live pages and inspect their accessibility trees. This helps you write accu
+> You use the browser tools to explore live pages and inspect their accessibility trees. This helps you write accurate selectors and understand the real DOM structure.
+>
+> Your test code should be production-ready: no TODOs, no placeholders, no "add your selector here."
+
+**Axis scores**:
+- Output-format prescription: N — The prompt says "Generate a complete Playwright test file (TypeScript) with: [list of characteristics]" but never specifies that the response must be ONLY a fenced code block, or that code must precede prose, or any explicit format instruction. The characteristics describe what the code should contain, not how the reply should be structured.
+- Output-content constraints: Y — Must include Playwright selectors (specifically accessibility-based: getByRole, getByLabel, getByText, getByPlaceholder), explicit waits, descriptive test names, both happy-path and edge-case tests. "Production-ready: no TODOs, no placeholders."
+- Behavior boundary: Y — "ALWAYS use these [accessibility-based selectors], never CSS selectors or XPath" is an explicit restrictively-bounded behavioral rule. "Your test code should be production-ready: no TODOs, no placeholders, no 'add your selector here'" is a clear output boundary.
+
+**Verdict**: PARTIAL
+
+**Notes**: The prompt knows WHAT the output should contain (Playwright code with specific selector types, both test paths) but never says HOW to format the reply (fenced code block, no prose, etc.). The model produced prose that mentioned error paths but didn't generate a code block or include Playwright primitives. The format gap here is plausible as a contributing factor: if the prompt had said "Reply ONLY with the test file in a fenced TypeScript code block, no prose," the model might have been forced to output code that would have triggered the selector and code-block assertions.
+
+---

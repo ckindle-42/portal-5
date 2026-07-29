@@ -29,7 +29,6 @@ from .self_index import _complete_result_files, _run_timestamp_key
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 CANARY_DIR = RESULTS_DIR / "canary_baselines"
-CANARY_DIR.mkdir(parents=True, exist_ok=True)
 
 TRACKED_METRICS = (
     "blue_f1",
@@ -356,7 +355,9 @@ def _canary_baseline_path(model: str) -> Path:
 
 def save_canary_baseline(model: str, *, ollama_url: str = "http://localhost:11434") -> dict:
     snapshot = run_canary_probe(model, ollama_url=ollama_url)
-    _canary_baseline_path(model).write_text(json.dumps(snapshot, indent=2))
+    baseline_path = _canary_baseline_path(model)
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    baseline_path.write_text(json.dumps(snapshot, indent=2))
     return snapshot
 
 

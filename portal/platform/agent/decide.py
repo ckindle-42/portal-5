@@ -29,11 +29,43 @@ _NO_APPLICABLE: dict[str, Any] = {
 }
 
 
-def _pick_capability_for_tool(tool: str, candidates: list[Any]) -> Any:
-    for cap in candidates:
-        if tool in cap.tools:
-            return cap
-    return candidates[0]
+def _attempted_actions(history: list[dict]) -> set[str]:
+    """Read action ids from both platform-loop and direct decision histories."""
+    attempted: set[str] = set()
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        decision = entry.get("decision") if isinstance(entry.get("decision"), dict) else entry
+        action = decision.get("action") or decision.get("tool")
+        if isinstance(action, str) and action:
+            attempted.add(action)
+    return attempted
+
+
+def _select_capability(candidates: list[Any], history: list[dict]) -> tuple[Any, str]:
+    """Choose capability progression before ranking tools within that capability."""
+    attempted = _attempted_actions(history)
+    unattempted = [cap for cap in candidates if cap.id not in attempted]
+    if not unattempted:
+        return candidates[0], "all grounded capabilities attempted; retrying top match"
+
+    attempted_recon = any(
+        cap.id in attempted and getattr(cap, "phase", "") == "recon" for cap in candidates
+    )
+    if attempted_recon:
+        oracle_candidates = [cap for cap in unattempted if getattr(cap, "oracle", None)]
+        if oracle_candidates:
+            return oracle_candidates[0], "progressing from reconnaissance to an oracle-bound action"
+        non_recon = [cap for cap in unattempted if getattr(cap, "phase", "") != "recon"]
+        if non_recon:
+            return non_recon[0], "progressing beyond completed reconnaissance"
+
+    if not history:
+        recon_candidates = [cap for cap in unattempted if getattr(cap, "phase", "") == "recon"]
+        if recon_candidates:
+            return recon_candidates[0], "initial reconnaissance coverage"
+
+    return unattempted[0], "next unattempted grounded capability"
 
 
 def decide_next_action(
@@ -63,20 +95,24 @@ def decide_next_action(
         decision = model_turn(goal, observations, history, candidates)
 
     if decision is None:
-        decision = _decide_via_deterministic_fallback(observations, candidates)
+        decision = _decide_via_deterministic_fallback(observations, candidates, history)
 
     return decision
 
 
-def _decide_via_deterministic_fallback(observations: dict[str, Any], candidates: list[Any]) -> dict:
-    available_tools = sorted({t for c in candidates for t in c.tools})
+def _decide_via_deterministic_fallback(
+    observations: dict[str, Any],
+    candidates: list[Any],
+    history: list[dict],
+) -> dict:
+    top, progression_reason = _select_capability(candidates, history)
+    available_tools = sorted(top.tools)
     if not available_tools:
-        top = candidates[0]
         return {
             "action": top.id,
             "tool": top.id,
             "args": {},
-            "reason": "top-ranked capability match (no declared tools)",
+            "reason": f"{progression_reason} (capability has no declared tool)",
             "confidence": 0.5,
             "expected_oracle": getattr(top, "oracle", None),
             "expected_observation_delta": {"technique_attempted": top.id},
@@ -87,13 +123,15 @@ def _decide_via_deterministic_fallback(observations: dict[str, Any], candidates:
     ranked = rank.select_tools(observations, available_tools)
     chosen = ranked[0] if ranked else None
     chosen_tool = chosen.name if chosen else available_tools[0]
-    top = _pick_capability_for_tool(chosen_tool, candidates)
 
     return {
         "action": top.id,
         "tool": chosen_tool,
         "args": {},
-        "reason": f"deterministic fallback: {chosen.reason if chosen else 'top-ranked capability match'}",
+        "reason": (
+            f"deterministic fallback: {progression_reason}; "
+            f"{chosen.reason if chosen else 'top-ranked tool match'}"
+        ),
         "confidence": chosen.score if chosen else 0.5,
         "expected_oracle": getattr(top, "oracle", None),
         "expected_observation_delta": {"technique_attempted": top.id},

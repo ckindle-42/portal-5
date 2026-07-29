@@ -6,11 +6,9 @@ sources:
 - type: doc
   path: coding_task/TASK_SEC_BENCH_MULTISEAT_V2.md
 - type: code
-  path: tests/benchmarks/bench_security/results/candidates/
+  path: portal/modules/security/core/investigation/agents.py
 - type: code
-  path: tests/benchmarks/bench_security/investigation/agents.py
-- type: code
-  path: tests/benchmarks/bench_security/unknown_defense.py
+  path: portal/modules/security/core/unknown_defense.py
 last_generated_commit: 3c7d4825cce8be60c904f2144212d2c2a1d65792
 confidence: high
 tags:

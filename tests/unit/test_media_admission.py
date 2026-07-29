@@ -23,6 +23,81 @@ def test_comfyui_launcher_does_not_override_model_inference_dtype():
     assert "--force-fp16" not in installer
 
 
+def test_qwen_installer_uses_verified_mps_checkpoints():
+    services = (REPO / "scripts/lib/services.sh").read_text()
+    installer = services.split("_launch_pull_qwen_image()", 1)[1]
+    assert "qwen_image_fp8_e4m3fn.safetensors" in installer
+    assert "qwen_image_edit_2509_fp8_e4m3fn.safetensors" in installer
+    assert "qwen_image_2512_bf16.safetensors" not in installer
+    assert "qwen_image_edit_2511_bf16.safetensors" not in installer
+
+
+def test_routine_rebuilds_do_not_restart_shelved_video_service():
+    launch = (REPO / "launch.sh").read_text()
+    assert "mcp-video" not in launch
+
+
+def test_qwen_edit_2509_route_builds_distinct_workflow():
+    from portal.modules.media.tools import comfyui_mcp
+
+    workflow, seed = comfyui_mcp._build_image_workflow(
+        prompt="make the suit green",
+        width=512,
+        height=512,
+        steps=20,
+        cfg=4.0,
+        negative_prompt="",
+        seed=2509,
+        model="qwen-image-edit-2509",
+        checkpoint="",
+        lora="",
+        lora_strength=1.0,
+        image_filename="source.png",
+    )
+
+    assert seed == 2509
+    assert workflow["12"]["inputs"]["unet_name"] == ("qwen_image_edit_2509_fp8_e4m3fn.safetensors")
+    assert workflow["41"]["inputs"]["image"] == "source.png"
+    assert workflow["68"]["inputs"]["prompt"] == "make the suit green"
+    assert workflow["66"]["inputs"]["width"] == 512
+    assert workflow["66"]["inputs"]["height"] == 512
+
+
+@pytest.mark.asyncio
+async def test_http_dispatch_forwards_image_url():
+    from portal.modules.media.tools import comfyui_mcp
+
+    for tool_name in ("start_image_generation", "generate_image"):
+        manifest = next(tool for tool in comfyui_mcp.TOOLS_MANIFEST if tool["name"] == tool_name)
+        assert "image_url" in manifest["parameters"]["properties"]
+
+    request = AsyncMock()
+    request.json.return_value = {
+        "arguments": {
+            "prompt": "make the suit green",
+            "model": "qwen-image-edit-2509",
+            "image_url": "/workspace/uploads/source.png",
+        }
+    }
+    with patch.object(
+        comfyui_mcp,
+        "start_image_generation",
+        AsyncMock(return_value={"success": True, "job_id": "test-job"}),
+    ) as start:
+        await comfyui_mcp.start_image_generation_endpoint(request)
+
+    assert start.await_args.kwargs["image_url"] == "/workspace/uploads/source.png"
+
+    with patch.object(
+        comfyui_mcp,
+        "generate_image",
+        AsyncMock(return_value={"success": True, "filename": "test.png"}),
+    ) as generate:
+        await comfyui_mcp.generate_image_endpoint(request)
+
+    assert generate.await_args.kwargs["image_url"] == "/workspace/uploads/source.png"
+
+
 class TestMediaModelMemoryDict:
     def test_dict_exists_and_nonempty(self):
         assert isinstance(_admission.MEDIA_MODEL_MEMORY_GB, dict)
@@ -42,6 +117,9 @@ class TestMediaModelMemoryDict:
 
     def test_headroom_constant_exists(self):
         assert _admission.MEMORY_HEADROOM_GB >= 0
+
+    def test_qwen_edit_2509_uses_measured_estimate(self):
+        assert _admission.MEDIA_MODEL_MEMORY_GB["comfyui:qwen-image-edit-2509"] == 38.0
 
 
 class TestEstimateJobGb:

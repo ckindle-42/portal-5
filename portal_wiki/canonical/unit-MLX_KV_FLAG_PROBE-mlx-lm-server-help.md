@@ -11,8 +11,8 @@ confidence: high
 tags:
 - docs
 - MLX_KV_FLAG_PROBE
-created_at: 1783195000.87846
-updated_at: 1783195000.87846
+created_at: 1785348275.8185651
+updated_at: 1785348275.8185651
 ---
 
 ```
@@ -49,4 +49,42 @@ options:
   --host HOST           Host for the HTTP server (default: 127.0.0.1)
   --port PORT           Port for the HTTP server (default: 8080)
   --allowed-origins ALLOWED_ORIGINS
-                        Allowed origins (defa
+                        Allowed origins (default: *)
+  --draft-model DRAFT_MODEL
+                        A model to be used for speculative decoding.
+  --num-draft-tokens NUM_DRAFT_TOKENS
+                        Number of tokens to draft when using speculative
+                        decoding.
+  --trust-remote-code   Enable trusting remote code for tokenizer
+  --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
+                        Set the logging level (default: INFO)
+  --chat-template CHAT_TEMPLATE
+                        Specify a chat template for the tokenizer
+  --use-default-chat-template
+                        Use the default chat template
+  --temp TEMP           Default sampling temperature (default: 0.0)
+  --top-p TOP_P         Default nucleus sampling top-p (default: 1.0)
+  --top-k TOP_K         Default top-k sampling (default: 0, disables top-k)
+  --min-p MIN_P         Default min-p sampling (default: 0.0, disables min-p)
+  --max-tokens MAX_TOKENS
+                        Default maximum number of tokens to generate (default:
+                        512)
+  --chat-template-args CHAT_TEMPLATE_ARGS
+                        A JSON formatted string of arguments for the
+                        tokenizer's apply_chat_template, e.g.
+                        '{"enable_thinking":false}'
+  --decode-concurrency DECODE_CONCURRENCY
+                        When a request is batchable then decode that many
+                        requests in parallel
+  --prompt-concurrency PROMPT_CONCURRENCY
+                        When a request is batchable then process that many
+                        prompts in parallel
+  --prefill-step-size PREFILL_STEP_SIZE
+                        Step size for prefill processing (default: 2048)
+  --prompt-cache-size PROMPT_CACHE_SIZE
+                        Maximum number of distinct KV caches to hold in the
+                        prompt cache
+  --prompt-cache-bytes PROMPT_CACHE_BYTES
+                        Maximum size in bytes of the KV caches
+  --pipeline            Use pipelining instead of tensor parallelism
+```

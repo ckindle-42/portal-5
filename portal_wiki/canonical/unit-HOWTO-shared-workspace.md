@@ -28,7 +28,7 @@ updated_at: 1783195000.857887
     ├── transcripts/        ← Diarized transcripts (mlx-transcribe, whisper)
     ├── documents/          ← Word/Excel/PowerPoint (documents MCP)
     ├── images/             ← ComfyUI outputs
-    ├── videos/             ← Video MCP outputs
+    ├── videos/             ← Retained archival video-output category
     ├── music/              ← Music MCP outputs
     └── speech/             ← TTS outputs
 ```
@@ -47,4 +47,5 @@ updated_at: 1783195000.857887
 
 **Use from MCP code (new modules):**
 ```python
-from portal_mcp.core import get_uploads_dir, get_generated_dir, resolve_upload_path
+from portal.platform.mcp_host import get_uploads_dir, get_generated_dir, resolve_upload_path
+```

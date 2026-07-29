@@ -17,4 +17,4 @@ created_at: 1784946220.5550752
 updated_at: 1784946220.5550752
 ---
 
-```
+Do not set `VIDEO_BACKEND` or start `mcp-video`; video operation is shelved.

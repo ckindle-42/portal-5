@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 JOURNAL_DIR = Path(__file__).resolve().parent / "field_journal"
-JOURNAL_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _sorted_entries() -> list[Path]:
@@ -47,6 +46,7 @@ def write_entry(entry: dict) -> Path:
     except ImportError:
         pass
 
+    JOURNAL_DIR.mkdir(parents=True, exist_ok=True)
     ts_str = entry.get("ts", datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ"))
     date_part = ts_str[:10]
     category = entry.get("scenario_category", "unknown")
@@ -59,6 +59,7 @@ def write_entry(entry: dict) -> Path:
 
 def rebuild_index() -> Path:
     """Regenerate field_journal/_index.json: by category, top pitfalls, cumulative stats."""
+    JOURNAL_DIR.mkdir(parents=True, exist_ok=True)
     entries = _sorted_entries()
     by_category: dict[str, list[str]] = {}
     all_pitfalls: list[dict] = []

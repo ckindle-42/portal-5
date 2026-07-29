@@ -5,7 +5,7 @@ title: "T1068 \u2014 Exploitation for privilege escalation \u2014 kernel/userspa
   \ privesc"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1068
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1068
 - type: mitre
   path: ATT&CK:T1068
 - type: scenario
@@ -16,8 +16,8 @@ tags:
 - T1068
 - technique
 - signature
-created_at: 1785020525.011741
-updated_at: 1785020525.011741
+created_at: 1785349554.519487
+updated_at: 1785349554.519487
 ---
 
 # T1068 — Exploitation for privilege escalation — kernel/userspace privesc

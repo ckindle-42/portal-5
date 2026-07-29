@@ -30,7 +30,7 @@ updated_at: 1784946220.679698
 | `auto-math` | Mathematical problem solving, proofs, calculus | Code sandbox |
 | `auto-audio` | Audio processing and transcription | Transcribe |
 | `auto-music` | Generate music via MusicGen | Music |
-| `auto-video` | Generate video via ComfyUI | Video |
+| `auto-video` | Shelved video workspace; hidden from Open WebUI and not served in normal operation | — |
 | `auto-image` | Generate images via ComfyUI (Flux/SDXL), generation-first | Image |
 | `auto-cad` | 3D CAD model generation — OpenSCAD, CadQuery | CAD render |
 | `auto-spl` | Splunk SPL queries, YARA rules, detection search | — |

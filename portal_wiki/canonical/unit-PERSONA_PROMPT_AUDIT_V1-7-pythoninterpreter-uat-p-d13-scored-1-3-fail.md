@@ -12,8 +12,8 @@ confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1783195000.886126
-updated_at: 1783195000.886126
+created_at: 1785348275.818866
+updated_at: 1785348275.818866
 ---
 
 
@@ -45,4 +45,15 @@ updated_at: 1783195000.886126
 >
 > STATE: Maintain consistent variable, function, and import state across the conversation. Definitions from previous inputs are in scope.
 >
-> Begin: ready for the first code inp
+> Begin: ready for the first code input.
+
+**Axis scores**:
+- Output-format prescription: Y — "Reply ONLY with interpreter output inside a single code block. No explanations. No commentary. No prose outside the code block." The contract is explicit and exclusive — no wiggle room.
+- Output-content constraints: Y — "Simulate realistic CPython 3.12 output: print() output, return values in interactive mode (repr format), tracebacks with correct exception types." Specific behaviors for syntax errors, input(), sleep().
+- Behavior boundary: Y — "NEVER prefix lines with >>>." "For multi-line code blocks: execute as a script." State persistence across conversation. Communication protocol (curly braces for English).
+
+**Verdict**: CLEAR
+
+**Notes**: The system prompt says "Reply ONLY with interpreter output inside a single code block. No explanations." The model produced prose instead of REPL output — directly violating the most prominent contract clause. This is not ambiguous: the model was told "output ONLY" and chose to explain. The format contract is crystal clear; the model lacked the instruction-following fidelity to honor it. The UAT test even had the `>>>` check removed (per the driver comment at line 3608-3610) because the persona is named "Python Interpreter" — but the system prompt itself says NEVER prefix with >>>. Despite this explicit prohibition, the model still emitted prose.
+
+---

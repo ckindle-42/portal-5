@@ -12,11 +12,11 @@ tags:
 - claude
 - architecture
 - law
-created_at: 1783195000.8069649
-updated_at: 1783195000.8069649
+created_at: 1785348301.194335
+updated_at: 1785348301.194335
 ---
 
 
-`portal_pipeline/router_pipe.py` is stateless for conversation routing — no database, no session state, no memory. Conversation history lives in Open WebUI's database. Cross-session memory uses Open WebUI's native memory feature.
+`portal/platform/inference/router_pipe.py` (facade for `portal/platform/inference/router/app.py`'s `app`) is stateless for conversation routing — no database, no session state, no memory. Conversation history lives in Open WebUI's database. Cross-session memory uses Open WebUI's native memory feature.
 
 The pipeline does persist operational metrics (request counts, TPS, errors) to `/app/data/metrics_state.json` for telemetry only — it does not affect routing decisions.

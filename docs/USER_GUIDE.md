@@ -27,7 +27,7 @@ routes your request to the best-suited AI model for that task.
 | 🧠 Portal Deep Reasoner | Complex analysis, long reasoning chains |
 | 🏛️ Portal Council Review | Evidence-backed review of decisions, plans, proposals, and policies |
 | 📄 Portal Document Builder | Create Word/Excel/PowerPoint files |
-| 🎬 Portal Video Creator | Text-to-video generation |
+| 🎬 Portal Video Creator | Shelved; hidden from the model dropdown and not currently in operation |
 | 🎵 Portal Music Producer | Generate music and audio |
 | 🔍 Portal Research Assistant | Research and information synthesis |
 | 👁️ Portal Vision | Image analysis, visual tasks |
@@ -62,8 +62,7 @@ In a chat, click the **+** icon to enable tools:
 - **Portal Code** — execute code in an isolated sandbox
 - **Portal TTS** — convert text to speech
 - **Portal Whisper** — transcribe audio files (with speaker diarization on Apple Silicon)
-- **Portal ComfyUI** — generate images via FLUX.1 / SDXL
-- **Portal Video** — generate short video clips via ComfyUI
+- **Portal ComfyUI** — generate or edit images with the installed Qwen-Image models
 - **Portal Music** — generate audio clips via MusicGen
 <!-- /WIKI:GENERATED -->
 

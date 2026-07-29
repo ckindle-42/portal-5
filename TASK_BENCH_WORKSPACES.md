@@ -1,6 +1,15 @@
 # TASK: Add Coding Capability Benchmark Workspaces
 
-**Task ID:** TASK-BENCH-001  
+**Status:** SUPERSEDED / ARCHIVED — DO NOT EXECUTE
+**Disposition:** The original nine-workspace task was completed historically,
+then its `portal_pipeline`/MLX architecture was retired and the evaluation fleet
+was rebuilt from `config/portal.yaml`. The unchecked boxes below are the
+preserved original specification, not outstanding work. Current workspace
+facts come from `unit-fact-workspace-roster` and current model bindings from
+`unit-fact-model-bindings`; edit `config/portal.yaml` and run `sync-config` for
+machine-derived changes.
+
+**Task ID:** TASK-BENCH-001
 **Version target:** v6.0.4  
 **Priority:** Normal  
 **Category:** Feature / Architecture  

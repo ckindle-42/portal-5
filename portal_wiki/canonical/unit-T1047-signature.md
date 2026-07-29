@@ -4,7 +4,7 @@ kind: mixed
 title: "T1047 \u2014 WMI execution \u2014 remote command execution via WMI/cimv2"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1047
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1047
 - type: mitre
   path: ATT&CK:T1047
 - type: scenario
@@ -15,8 +15,8 @@ tags:
 - T1047
 - technique
 - signature
-created_at: 1785020525.014549
-updated_at: 1785020525.014549
+created_at: 1785349554.5222971
+updated_at: 1785349554.5222971
 ---
 
 # T1047 — WMI execution — remote command execution via WMI/cimv2

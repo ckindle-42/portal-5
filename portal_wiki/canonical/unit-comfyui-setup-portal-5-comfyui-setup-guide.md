@@ -15,5 +15,7 @@ created_at: 1784946220.552777
 updated_at: 1784946220.552777
 ---
 
-ComfyUI handles image and video generation. It runs natively on the host
-for Metal GPU access on Apple Silicon.
+ComfyUI handles image generation and runs natively on the host for Metal GPU
+access on Apple Silicon. Portal's video-generation service is shelved; any
+video workflow material retained below is archival and not part of the
+supported operating setup.

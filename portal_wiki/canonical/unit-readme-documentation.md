@@ -22,7 +22,7 @@ updated_at: 1784946220.691113
 | [User Guide](docs/USER_GUIDE.md) | How to use workspaces, tools, personas |
 | [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security |
 | [Alerts & Notifications](docs/ALERTS.md) | Operational alerts and daily summaries |
-| [ComfyUI Setup](docs/COMFYUI_SETUP.md) | Advanced image/video model configuration |
+| [ComfyUI Setup](docs/COMFYUI_SETUP.md) | Image-model configuration and archived video status |
 | [Fish Speech Setup](docs/FISH_SPEECH_SETUP.md) | Optional voice cloning TTS backend |
 | [Cluster Scaling](docs/CLUSTER_SCALE.md) | Running multiple Ollama instances |
 | [Agent Loop](docs/AGENT_LOOP.md) | Platform-core bounded agent loop (`portal/platform/agent/`) — contracts, discipline, `portal agent` CLI |

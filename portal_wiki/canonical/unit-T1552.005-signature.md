@@ -5,7 +5,7 @@ title: "T1552.005 \u2014 Cloud-metadata SSRF \u2014 169.254.169.254 access signa
   \ [KEY: Cloud metadata endpoint literal from the SPL]"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1552.005
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1552.005
 - type: mitre
   path: ATT&CK:T1552.005
 - type: scenario
@@ -16,8 +16,8 @@ tags:
 - T1552.005
 - technique
 - signature
-created_at: 1785020525.008306
-updated_at: 1785020525.008306
+created_at: 1785349554.516172
+updated_at: 1785349554.516172
 ---
 
 # T1552.005 — Cloud-metadata SSRF — 169.254.169.254 access signal [KEY: Cloud metadata endpoint literal from the SPL]
@@ -31,7 +31,7 @@ index=portal5_lab sourcetype="web:access" "169.254.169.254" | stats count by hos
 
 ## Exercised By Scenarios
 
-- `cloud_breach` — target: 10.0.1.140
+- `cloud_breach` — target: None
 
 ## Per-Source Expected Signatures
 

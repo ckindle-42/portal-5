@@ -16,10 +16,6 @@ created_at: 1784946220.554705
 updated_at: 1784946220.554705
 ---
 
-```bash
-hf download NSFW-API/NSFW_Wan_14b nsfw_wan_14b_e15.safetensors \
-    --local-dir ~/ComfyUI/models/diffusion_models/
-hf download zootkitty/nsfw_wan_umt5-xxl_bf16_fixed nsfw_wan_umt5-xxl_bf16_fixed.safetensors \
-    --local-dir ~/ComfyUI/models/text_encoders/
-hf download ratoenien/wan_2.1_vae wan_2.1_vae.safetensors \
-    --local-dir ~/ComfyUI/models/vae/
+**Shelved:** `wan21-nsfw` is not a configured production backend and its
+weights are not part of the supported image-only installation. Do not download
+or enable it during normal setup.

@@ -11,8 +11,8 @@ confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.92324
-updated_at: 1783195000.92324
+created_at: 1785348275.819614
+updated_at: 1785348275.819614
 ---
 
 
@@ -59,4 +59,6 @@ updated_at: 1783195000.92324
 
 **Verdict**: MIXED
 
-**Notes**: V2 names the exact bugs the model must flag. UAT says "Audit completely" without hinting at specific issues. 
+**Notes**: V2 names the exact bugs the model must flag. UAT says "Audit completely" without hinting at specific issues. Notably, this scenario still FAILED for Laguna under V2 despite the prompt help — suggesting the model's audit depth is genuinely limited. But the prompt bias is clear: V2's "required elements" section is a checklist that eliminates the discovery burden.
+
+---

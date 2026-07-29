@@ -5,7 +5,7 @@ title: "T1059.004 \u2014 Unix shell \u2014 command execution via sh/bash/python 
   \ Linux targets"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1059.004
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1059.004
 - type: mitre
   path: ATT&CK:T1059.004
 - type: scenario
@@ -20,8 +20,8 @@ tags:
 - T1059.004
 - technique
 - signature
-created_at: 1785020525.014837
-updated_at: 1785020525.014837
+created_at: 1785349554.5225742
+updated_at: 1785349554.5225742
 ---
 
 # T1059.004 — Unix shell — command execution via sh/bash/python on Linux targets
@@ -35,9 +35,9 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="/bin/sh" OR exe="/
 
 ## Exercised By Scenarios
 
-- `mbptl_ctf_full_chain` — target: 10.0.1.140
-- `web_to_root` — target: 10.0.1.140
-- `ctf_multi_service` — target: 10.0.1.140
+- `mbptl_ctf_full_chain` — target: None
+- `web_to_root` — target: None
+- `ctf_multi_service` — target: None
 - `web_sqli_dump` — target: 10.10.11.50
 - `web_upload_bypass` — target: 10.10.11.50
 

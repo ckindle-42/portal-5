@@ -5,7 +5,7 @@ title: "T1557.001 \u2014 LLMNR/NBT-NS poisoning \u2014 Responder/capture events 
   \ Windows network"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1557.001
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1557.001
 - type: mitre
   path: ATT&CK:T1557.001
 - type: scenario
@@ -16,8 +16,8 @@ tags:
 - T1557.001
 - technique
 - signature
-created_at: 1785020525.015865
-updated_at: 1785020525.015865
+created_at: 1785349554.523541
+updated_at: 1785349554.523541
 ---
 
 # T1557.001 — LLMNR/NBT-NS poisoning — Responder/capture events on Windows network

@@ -55,7 +55,7 @@ def seed_intent(dry_run: bool = False) -> list[KnowledgeUnit]:
                     kind="why",
                     title=f"CLAUDE.md — {section_title}",
                     sources=[SourceRef(type="design", path="CLAUDE.md", section=section_title)],
-                    body=section_body[:2000],
+                    body=section_body,
                     tags=["claude", "architecture", "law"],
                 )
                 units.append(unit)
@@ -82,7 +82,7 @@ def seed_intent(dry_run: bool = False) -> list[KnowledgeUnit]:
                     kind="why",
                     title=f"{doc_path.stem} — {section_title}",
                     sources=[SourceRef(type="design", path=rel, section=section_title)],
-                    body=section_body[:2000],
+                    body=section_body,
                     tags=["docs", doc_path.stem],
                 )
                 units.append(unit)

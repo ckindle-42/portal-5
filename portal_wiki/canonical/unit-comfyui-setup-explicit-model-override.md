@@ -15,4 +15,4 @@ created_at: 1784946220.558147
 updated_at: 1784946220.558147
 ---
 
-python3 scripts/gen-video.py "your prompt" --model wan22-t2v-a14b --steps 40
+Video model overrides are unavailable while `mcp-video` is shelved.

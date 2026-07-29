@@ -4,7 +4,7 @@ kind: mixed
 title: "T1078 \u2014 Valid accounts \u2014 default/weak credential usage"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1078
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1078
 - type: mitre
   path: ATT&CK:T1078
 - type: scenario
@@ -19,8 +19,8 @@ tags:
 - T1078
 - technique
 - signature
-created_at: 1785020525.013047
-updated_at: 1785020525.013047
+created_at: 1785349554.520784
+updated_at: 1785349554.520784
 ---
 
 # T1078 — Valid accounts — default/weak credential usage

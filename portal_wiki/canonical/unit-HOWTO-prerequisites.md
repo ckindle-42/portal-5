@@ -16,7 +16,6 @@ updated_at: 1783195000.844207
 ---
 
 
-Wan2.2 model must be downloaded:
-
-```bash
-./launch.sh download-comfyui-models
+Video generation is shelved and has no supported prerequisites. Do not
+download Wan weights for normal Portal operation. For image generation, follow
+the Qwen-Image setup in `docs/COMFYUI_SETUP.md`.

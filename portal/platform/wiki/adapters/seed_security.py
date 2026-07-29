@@ -158,7 +158,10 @@ def seed_technique_signatures(dry_run: bool = False) -> list[KnowledgeUnit]:
 
         # Build sources list
         sources = [
-            SourceRef(type="spl", path=f"siem/spl_detections.yaml#{tid}"),
+            SourceRef(
+                type="spl",
+                path=f"portal/modules/security/core/siem/spl_detections.yaml#{tid}",
+            ),
             SourceRef(type="mitre", path=f"ATT&CK:{tid}"),
         ]
         for sc_name in scenarios[:3]:
@@ -235,7 +238,10 @@ These are fundamentally different event types and should never be confused.
 """
 
     sources = [
-        SourceRef(type="spl", path="siem/spl_detections.yaml#T1003.006"),
+        SourceRef(
+            type="spl",
+            path="portal/modules/security/core/siem/spl_detections.yaml#T1003.006",
+        ),
         SourceRef(type="mitre", path="ATT&CK:T1003.006"),
         SourceRef(type="design", path="coding_task/F1/DESIGN_SEC_UNIFIED_RBP_FRAMEWORK_V3.md#R3"),
     ]

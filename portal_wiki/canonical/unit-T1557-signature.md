@@ -4,7 +4,7 @@ kind: mixed
 title: "T1557 \u2014 Adversary-in-the-middle \u2014 NTLM relay and LLMNR/NBT-NS poisoning"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1557
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1557
 - type: mitre
   path: ATT&CK:T1557
 last_generated_commit: ''
@@ -13,8 +13,8 @@ tags:
 - T1557
 - technique
 - signature
-created_at: 1785020525.0133739
-updated_at: 1785020525.0133739
+created_at: 1785349554.5211189
+updated_at: 1785349554.5211189
 ---
 
 # T1557 — Adversary-in-the-middle — NTLM relay and LLMNR/NBT-NS poisoning

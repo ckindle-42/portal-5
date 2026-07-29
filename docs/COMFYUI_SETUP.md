@@ -1,8 +1,10 @@
 # Portal 5 — ComfyUI Setup Guide
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-portal-5-comfyui-setup-guide -->
-ComfyUI handles image and video generation. It runs natively on the host
-for Metal GPU access on Apple Silicon.
+ComfyUI handles image generation and runs natively on the host for Metal GPU
+access on Apple Silicon. Portal's video-generation service is shelved; any
+video workflow material retained below is archival and not part of the
+supported operating setup.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -23,11 +25,15 @@ and registers it as a launchd service that auto-starts on login.
 ## Download Models
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-download-models -->
-**`./launch.sh download-comfyui-models` is currently broken** — the script it called
-(`scripts/download_comfyui_models.py`) was deleted in commit `ea864cf` ("superseded by
-pull-wan22 / pull-qwen-image"), but those replacement subcommands were never implemented
-in `launch.sh` (found during Slice P media bring-up, `TASK_MEDIA_BRINGUP_V1`). Until one of
-them is rebuilt, download models directly with `hf download` / `huggingface-cli download`.
+Use `./launch.sh pull-qwen-image` to download the image-generation set verified on
+Apple Silicon MPS: Qwen-Image-2512 plain FP8, Qwen-Image-Edit-2509 plain FP8,
+the shared FP8-scaled text encoder and VAE, and the Lightning LoRA (about 48 GiB
+total). The command installs files in ComfyUI's flat model layout and skips files
+already present.
+
+`./launch.sh download-comfyui-models` is a retired legacy alias because its old
+monolithic downloader was deleted. Use the explicit family command above. Video
+generation is shelved and is not part of the supported ComfyUI setup.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -81,41 +87,40 @@ Set `IMAGE_BACKEND=sdxl` in `.env`.
 
 ---
 
-### Video: wan21-nsfw (currently configured `VIDEO_BACKEND` in `.env`)
+### Archived video backend: wan21-nsfw (shelved)
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-video-wan21-nsfw-currently-configured-video-backend-in-env -->
-```bash
-hf download NSFW-API/NSFW_Wan_14b nsfw_wan_14b_e15.safetensors \
-    --local-dir ~/ComfyUI/models/diffusion_models/
-hf download zootkitty/nsfw_wan_umt5-xxl_bf16_fixed nsfw_wan_umt5-xxl_bf16_fixed.safetensors \
-    --local-dir ~/ComfyUI/models/text_encoders/
-hf download ratoenien/wan_2.1_vae wan_2.1_vae.safetensors \
-    --local-dir ~/ComfyUI/models/vae/
+**Shelved:** `wan21-nsfw` is not a configured production backend and its
+weights are not part of the supported image-only installation. Do not download
+or enable it during normal setup.
 <!-- /WIKI:GENERATED -->
 
 ---
 
-# Then set VIDEO_BACKEND=wan21-nsfw in .env and restart: docker compose restart mcp-video
+### Archived activation step — do not enable
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-then-set-video-backend-wan21-nsfw-in-env-and-restart-docker-compose-restart-mcp-video -->
-```
+Do not set `VIDEO_BACKEND` or start `mcp-video`; video operation is shelved.
 <!-- /WIKI:GENERATED -->
 
 ---
 
-## Wan 2.2 Family (v6.2 addition)
+## Wan 2.2 Family (archived; service shelved)
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-wan-2-2-family-v6-2-addition -->
-Wan 2.2 is the MoE successor to Wan 2.1 (27B total / 14B active per step). Four variants are supported as parallel ComfyUI workflows. The Wan 2.1 NSFW pipeline is unchanged and remains the default for NSFW-tagged requests.
+Wan 2.2 video generation is shelved on this Apple Silicon host. The table is
+retained only as an archival implementation inventory; none of these variants
+is exposed as a supported Portal operation.
 
-| Variant | Model ID | Size | Best for |
-|---|---|---|---|
-| `wan22-t2v-a14b` | `wan22-t2v-a14b` | 27B/14B-active | Cinematic-quality text-to-video |
-| `wan22-ti2v-5b` | `wan22-ti2v-5b` | 5B | Fast single-GPU text/image-to-video (~9 min per 5s clip) |
-| `wan22-animate-14b` | `wan22-animate-14b` | 14B | Character animation / replacement (**NEW capability**) |
-| `wan22-s2v-14b` | `wan22-s2v-14b` | 14B | Speech-driven video generation (**NEW capability**) |
+| Variant | Implementation state | Operating state |
+|---|---|---|
+| `wan22-t2v-a14b` | Workflow corrected; available FP8 checkpoints fail on MPS | SHELVED |
+| `wan22-ti2v-5b` | Verified working in isolation | SHELVED by project decision |
+| `wan22-animate-14b` | Stub only | NOT SUPPORTED |
+| `wan22-s2v-14b` | FP8 checkpoint fails on MPS | SHELVED |
 
-All four are Apache 2.0 licensed.
+See `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps`
+for the evidence and revisit conditions.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -123,26 +128,19 @@ All four are Apache 2.0 licensed.
 ### Step 1 — Pull the weights (opt-in, ~80GB total)
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-step-1-pull-the-weights-opt-in-80gb-total -->
-**`./launch.sh pull-wan22` is advertised in `launch.sh --help` but has no implementation**
-(found during Slice P media bring-up) — download directly instead:
-
-```bash
+Video generation is shelved. No Wan weights are required for the supported
+image-only ComfyUI setup. `./launch.sh pull-wan22` remains an explicit archival
+download path for a future re-evaluation; it is not part of normal setup.
 <!-- /WIKI:GENERATED -->
 
 ---
 
-# TI2V-5B (fast, image-to-video): single-file ComfyUI-native repackaging
+### TI2V-5B archival status
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-ti2v-5b-fast-image-to-video-single-file-comfyui-native-repackaging -->
-hf download Comfy-Org/Wan_2.2_ComfyUI_Repackaged \
-    split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors \
-    split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors \
-    split_files/vae/wan2.2_vae.safetensors \
-    --local-dir ~/ComfyUI/models
-```
-
-T2V-A14B's weight source is not yet pinned down (see `WAN22_T2V_UNET` comment in
-`video_mcp.py` — "requires separate download, not yet in pull-wan22").
+**Shelved:** TI2V-5B was verified working, but the project chose not to expose
+a lone partial video family. Its retained weights and workflow are archival,
+not a supported setup step.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -150,32 +148,10 @@ T2V-A14B's weight source is not yet pinned down (see `WAN22_T2V_UNET` comment in
 ### Step 2 — Export ComfyUI workflow templates
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-step-2-export-comfyui-workflow-templates -->
-`wan22-t2v-a14b` and `wan22-ti2v-5b` already have real (non-stub) workflow dicts in
-`portal/modules/media/tools/video_mcp.py` — no export needed for those two. Only
-`wan22-animate-14b` and `wan22-s2v-14b` remain stubs; for those, export via ComfyUI:
-
-1. Open ComfyUI → Workflow → Browse Templates → Video
-2. Load the template ("Wan2.2-Animate-14B", "Wan2.2-S2V-14B")
-3. Verify the model loads and runs a test prompt
-4. Export as JSON and use the node graph to populate the corresponding `_WAN22_*_WORKFLOW` dict in `portal/modules/media/tools/video_mcp.py`
-
-Calling `wan22-animate-14b` or `wan22-s2v-14b` before that export will raise a `RuntimeError`
-with instructions. `wan22-ti2v-5b` requires an `image_url` start-frame (image-to-video, not
-pure text-to-video) — `wan22-t2v-a14b` does not.
-
-**Memory warning:** on Apple Silicon, ComfyUI does not reliably evict a previously-loaded
-model's weights when a new workflow loads a different model family. Loading Flux/SDXL
-(~7–27GB) and then a Wan 14B video model back-to-back in the same ComfyUI process without a
-restart between them can exhaust unified memory and swap simultaneously (observed twice:
-swap at 66.7GB/67.6GB used, system-locking, and separately a *tiny* job crashing free RAM
-from ~45GB to ~60MB — the 14B backend's real peak usage runs well above its ~39GB on-disk
-weight size, close to the entire 64GB pool regardless of frame count) — restart ComfyUI
-(`launchctl kickstart -k gui/$(id -u)/com.portal5.comfyui`) between large model-family
-switches. `TASK_VRAM_ADMISSION_V1` (Slice 7) added a pre-flight admission check
-(`portal/modules/media/tools/_admission.py`) that refuses an oversized job with a structured
-error before it OOMs — see `unit-fact-media-memory-budget` / `unit-HOWTO-media-memory-and-
-launch-order`; it does not replace restarting ComfyUI between families (Tier 2 cross-engine
-coordination with Ollama is explicitly not built).
+No video workflow export is required for the supported image-only setup.
+Archived workflow code remains in `portal/modules/media/tools/video_mcp.py`
+for a future re-evaluation, but `mcp-video` is disabled and the unfinished
+Animate/S2V paths are not supported operations.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -188,37 +164,37 @@ coordination with Ollama is explicitly not built).
 
 ---
 
-# Fast preset (TI2V-5B, ~9 min per 5s clip)
+### Fast preset (unavailable)
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-fast-preset-ti2v-5b-9-min-per-5s-clip -->
-python3 scripts/gen-video.py "a woman dancing in a sunlit garden" --preset wan22-fast
+**Unavailable:** TI2V-5B worked in isolation, but video service operation is
+shelved and no preset is exposed.
 <!-- /WIKI:GENERATED -->
 
 ---
 
-# Cinematic quality (T2V-A14B, slower)
+### Cinematic preset (unavailable)
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-cinematic-quality-t2v-a14b-slower -->
-python3 scripts/gen-video.py "a sweeping aerial view of mountain peaks at sunset" --preset wan22-quality
+**Unavailable:** the T2V-A14B FP8 checkpoints fail on Apple Silicon MPS and
+the video service is shelved.
 <!-- /WIKI:GENERATED -->
 
 ---
 
-# Explicit model override
+### Video model override (unavailable)
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-explicit-model-override -->
-python3 scripts/gen-video.py "your prompt" --model wan22-t2v-a14b --steps 40
+Video model overrides are unavailable while `mcp-video` is shelved.
 <!-- /WIKI:GENERATED -->
 
 ---
 
-# Via MCP tool
+### Video MCP tool (unavailable)
 
 <!-- WIKI:GENERATED unit=unit-comfyui-setup-via-mcp-tool -->
-curl -X POST http://localhost:8911/tools/start_video_generation \
-  -H "Content-Type: application/json" \
-  -d '{"arguments": {"prompt": "your prompt", "model": "wan22-ti2v-5b", "steps": 30}}'
-```
+There is no supported video MCP call. Port `8911` is disabled in normal
+operation; use the image tools on `mcp-comfyui` (`8910`).
 <!-- /WIKI:GENERATED -->
 
 ---

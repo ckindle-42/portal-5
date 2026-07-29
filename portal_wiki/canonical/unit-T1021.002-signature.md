@@ -4,7 +4,7 @@ kind: mixed
 title: "T1021.002 \u2014 SMB/Windows Admin Shares \u2014 remote file copy via SMB"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1021.002
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1021.002
 - type: mitre
   path: ATT&CK:T1021.002
 - type: scenario
@@ -19,8 +19,8 @@ tags:
 - T1021.002
 - technique
 - signature
-created_at: 1785020525.0110521
-updated_at: 1785020525.0110521
+created_at: 1785349554.518809
+updated_at: 1785349554.518809
 ---
 
 # T1021.002 — SMB/Windows Admin Shares — remote file copy via SMB

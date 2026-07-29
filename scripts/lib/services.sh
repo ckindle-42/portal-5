@@ -762,12 +762,10 @@ _launch_pull_wan22() {
     echo "  curl -s localhost:8188/object_info/UNETLoader | grep wan2.2"
 }
 
-# Qwen-Image family (T2I, Edit-2511, Lightning distillation LoRA) — same
-# flat-layout / split_files-flatten handling as pull-wan22. Uses plain bf16
-# checkpoints, not the official examples' default fp8_e4m3fn/fp8_scaled ones:
-# the fp8_scaled Wan2.2 checkpoints crash on this host's Apple Silicon MPS
-# stack (see KNOWN_LIMITATIONS.md), so this sidesteps the same bug class
-# rather than re-discovering it here too. ~99GB total.
+# Qwen-Image family (T2I, MPS-compatible Edit-2509, Lightning distillation
+# LoRA) — same flat-layout / split_files-flatten handling as pull-wan22.
+# These are the exact checkpoints verified on this Apple Silicon host. Plain
+# fp8 storage works; the scaled/mixed fp8 2511 checkpoint does not. ~48GiB total.
 _launch_pull_qwen_image() {
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
@@ -783,7 +781,7 @@ _launch_pull_qwen_image() {
             python3 -m pip install "huggingface_hub>=0.28" --quiet
     fi
 
-    echo "=== Pulling Qwen-Image T2I + Edit-2511 + Lightning LoRA (ComfyUI-flat layout) ==="
+    echo "=== Pulling Qwen-Image T2I + Edit-2509 + Lightning LoRA (ComfyUI-flat layout) ==="
     echo "  Target: $COMFYUI_DIR/models/{diffusion_models,text_encoders,vae,loras}/"
     echo ""
 
@@ -808,10 +806,10 @@ _launch_pull_qwen_image() {
     QI_EDIT_REPO="Comfy-Org/Qwen-Image-Edit_ComfyUI"
     LIGHTNING_REPO="lightx2v/Qwen-Image-Lightning"
 
-    _pull_flat "$QI_REPO" "split_files/diffusion_models/qwen_image_2512_bf16.safetensors" "diffusion_models"
+    _pull_flat "$QI_REPO" "split_files/diffusion_models/qwen_image_fp8_e4m3fn.safetensors" "diffusion_models"
     _pull_flat "$QI_REPO" "split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors" "text_encoders"
     _pull_flat "$QI_REPO" "split_files/vae/qwen_image_vae.safetensors" "vae"
-    _pull_flat "$QI_EDIT_REPO" "split_files/diffusion_models/qwen_image_edit_2511_bf16.safetensors" "diffusion_models"
+    _pull_flat "$QI_EDIT_REPO" "split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors" "diffusion_models"
 
     LORA_DEST="$COMFYUI_DIR/models/loras"
     LORA_FILE="Qwen-Image-Lightning-8steps-V1.1-bf16.safetensors"

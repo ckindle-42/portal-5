@@ -4,7 +4,7 @@ kind: mixed
 title: "T1210 \u2014 SMB/service exploitation \u2014 lateral movement via SMB"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1210
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1210
 - type: mitre
   path: ATT&CK:T1210
 - type: scenario
@@ -15,8 +15,8 @@ tags:
 - T1210
 - technique
 - signature
-created_at: 1785020525.010783
-updated_at: 1785020525.010783
+created_at: 1785349554.518529
+updated_at: 1785349554.518529
 ---
 
 # T1210 — SMB/service exploitation — lateral movement via SMB

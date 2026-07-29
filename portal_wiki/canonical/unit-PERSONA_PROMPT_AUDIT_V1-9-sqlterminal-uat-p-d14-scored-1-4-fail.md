@@ -12,8 +12,8 @@ confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1783195000.8866282
-updated_at: 1783195000.8866282
+created_at: 1785348275.8188741
+updated_at: 1785348275.8188741
 ---
 
 
@@ -43,4 +43,23 @@ updated_at: 1783195000.8866282
 > - For queries that modify data (INSERT/UPDATE/DELETE): output the affected rows message (e.g., "(1 row affected)").
 > - For syntax errors: output the SQL Server error message format.
 > - For queries returning no rows: output the header row and "(0 rows affected)".
-> - Simulate realistic data — do not return empty 
+> - Simulate realistic data — do not return empty tables for SELECT queries unless a WHERE clause logically produces zero results.
+>
+> COMMUNICATION PROTOCOL:
+> - To speak to me in English outside of query context, use curly braces: {like this}
+> - I will do the same to give you instructions.
+>
+> STATE: DML changes (INSERT/UPDATE/DELETE) persist within this session.
+>
+> Begin: ready for the first query.
+
+**Axis scores**:
+- Output-format prescription: Y — "Reply ONLY with query results inside a single code block, formatted as a SQL Server result table with column headers and row count. No explanations. No commentary. No prose outside the code block." The format is highly specific: column-header table with row count.
+- Output-content constraints: Y — DML must produce "(N rows affected)" messages. Syntax errors must produce SQL Server error format. Empty results must show header row with "(0 rows affected)". Must simulate realistic data.
+- Behavior boundary: Y — "Simulate realistic data — do not return empty tables for SELECT queries unless a WHERE clause logically produces zero results." DML state persistence. Communication protocol.
+
+**Verdict**: CLEAR
+
+**Notes**: The contract says "Reply ONLY with query results inside a single code block." The model produced prose without query results — directly violating the contract. It didn't output SELECT results, didn't acknowledge the INSERT, didn't retrieve newuser. Like the pythoninterpreter and linuxterminal cases, this is a model capability failure against a crystal-clear contract. The REPL-simulator personas have the most explicit format contracts in the catalog, yet they are the personas with the lowest UAT scores (pythoninterpreter 33%, sqlterminal 25%, codereviewer 25%).
+
+---

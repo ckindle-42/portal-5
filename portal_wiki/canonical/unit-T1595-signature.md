@@ -4,7 +4,7 @@ kind: mixed
 title: "T1595 \u2014 Active scanning \u2014 vulnerability scanning and directory brute-force"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1595
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1595
 - type: mitre
   path: ATT&CK:T1595
 - type: scenario
@@ -17,8 +17,8 @@ tags:
 - T1595
 - technique
 - signature
-created_at: 1785020525.012361
-updated_at: 1785020525.012361
+created_at: 1785349554.520086
+updated_at: 1785349554.520086
 ---
 
 # T1595 — Active scanning — vulnerability scanning and directory brute-force

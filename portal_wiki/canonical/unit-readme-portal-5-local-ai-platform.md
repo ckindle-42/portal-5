@@ -16,7 +16,8 @@ updated_at: 1784946220.67769
 ---
 
 A complete, private AI platform that runs on your hardware. Text, code, security
-analysis, images, video, music, documents, and voice — all local, all yours.
+analysis, images, music, documents, and voice — all local, all yours. The
+retained video-generation code is shelved and not part of normal operation.
 
 Connects to Open WebUI, Telegram, and Slack. Routes automatically to the right
 model for each task. No cloud accounts. No usage fees. Inference is fully local —

@@ -63,7 +63,7 @@ RESULTS_DIR = Path(__file__).parent / "results"
 _ENV_KEYS_SKIP_FROM_DOTENV = {"PIPELINE_URL"}  # Compose-internal hostname; bench runs host-side
 
 
-def _load_env() -> None:
+def _load_env() -> dict[str, str]:
     # Hermetic-test guard (CLAUDE.md: tests/unit/ must pass with no network
     # access / real config) — same class of bug as bench/config.py's
     # _load_env (see its comment): scripts/bench_supervisor.py lazily
@@ -73,7 +73,8 @@ def _load_env() -> None:
     # session via setdefault. tests/unit/conftest.py sets UNIT_TEST_MODE=1
     # for exactly this hermetic-mode signal.
     if os.environ.get("UNIT_TEST_MODE") == "1":
-        return
+        return {}
+    loaded: dict[str, str] = {}
     env_file = _ROOT / ".env"
     if env_file.exists():
         for line in env_file.read_text().splitlines():
@@ -83,43 +84,50 @@ def _load_env() -> None:
                 k = k.strip()
                 if k in _ENV_KEYS_SKIP_FROM_DOTENV:
                     continue
-                os.environ.setdefault(k, v.strip())
+                loaded.setdefault(k, v.strip())
+    return loaded
 
 
-_load_env()
+_DOTENV = _load_env()
 
-SANDBOX_PORT = int(os.environ.get("SANDBOX_HOST_PORT", "8914"))
-LAB_EXEC = os.environ.get("SANDBOX_LAB_EXEC", "").lower() == "true"
-DC = os.environ.get("LAB_TARGET_DC", "")
-SRV = os.environ.get("LAB_TARGET_SRV", "")
-WEB = os.environ.get("LAB_TARGET_WEB", "10.10.11.50")  # lab-vulhub LXC
+
+def _env(name: str, default: str = "") -> str:
+    """Read process environment first, then the local dotenv snapshot."""
+    return os.environ.get(name, _DOTENV.get(name, default))
+
+
+SANDBOX_PORT = int(_env("SANDBOX_HOST_PORT", "8914"))
+LAB_EXEC = _env("SANDBOX_LAB_EXEC").lower() == "true"
+DC = _env("LAB_TARGET_DC")
+SRV = _env("LAB_TARGET_SRV")
+WEB = _env("LAB_TARGET_WEB", "10.10.11.50")  # lab-vulhub LXC
 DOMAIN = "portal.lab"
 ADMIN_PASS = "LabAdmin1!"
 SVC_BACKUP_PASS = "Backup123!"
 
 # Proxmox lifecycle — optional; if not set, bench assumes VMs are already running
-PROXMOX_URL = os.environ.get("PROXMOX_URL", "https://10.0.0.203:8006")
-PROXMOX_TOKEN_ID = os.environ.get("PROXMOX_TOKEN_ID", "")
-PROXMOX_TOKEN_SECRET = os.environ.get("PROXMOX_TOKEN_SECRET", "")
-PROXMOX_VERIFY_SSL = os.environ.get("PROXMOX_VERIFY_SSL", "false").lower() == "true"
-PROXMOX_NODE = os.environ.get("PROXMOX_DEFAULT_NODE", "")
-PROXMOX_TASK_TIMEOUT = int(os.environ.get("PROXMOX_TASK_TIMEOUT", "120"))
+PROXMOX_URL = _env("PROXMOX_URL", "https://10.0.0.203:8006")
+PROXMOX_TOKEN_ID = _env("PROXMOX_TOKEN_ID")
+PROXMOX_TOKEN_SECRET = _env("PROXMOX_TOKEN_SECRET")
+PROXMOX_VERIFY_SSL = _env("PROXMOX_VERIFY_SSL", "false").lower() == "true"
+PROXMOX_NODE = _env("PROXMOX_DEFAULT_NODE")
+PROXMOX_TASK_TIMEOUT = int(_env("PROXMOX_TASK_TIMEOUT", "120"))
 
-LAB_DC_VMID = os.environ.get("LAB_DC_VMID", "")
-LAB_SRV_VMID = os.environ.get("LAB_SRV_VMID", "")
-LAB_WS_VMID = os.environ.get("LAB_WS_VMID", "")
-LAB_CLEAN_SNAPSHOT = os.environ.get("LAB_CLEAN_SNAPSHOT", "baseline-ad")
+LAB_DC_VMID = _env("LAB_DC_VMID")
+LAB_SRV_VMID = _env("LAB_SRV_VMID")
+LAB_WS_VMID = _env("LAB_WS_VMID")
+LAB_CLEAN_SNAPSHOT = _env("LAB_CLEAN_SNAPSHOT", "baseline-ad")
 
-LAB_VULHUB_VMID = os.environ.get("LAB_VULHUB_VMID", "")
-LAB_VULHUB_SNAPSHOT = os.environ.get("LAB_VULHUB_SNAPSHOT", "clean")
-LAB_META3_VMID = os.environ.get("LAB_META3_VMID", "")
-LAB_META3 = os.environ.get("LAB_TARGET_META3_WIN", os.environ.get("LAB_META3", "10.10.11.10"))
-LAB_META3_SNAPSHOT = os.environ.get("LAB_META3_SNAPSHOT", "clean")
-LAB_MBPTL_LXC_VMID = os.environ.get("LAB_MBPTL_LXC_VMID", "")
-MBPTL_HOST = os.environ.get("LAB_MBPTL_HOST", "")
-MBPTL_SNAPSHOT = os.environ.get("LAB_MBPTL_SNAPSHOT", "clean")
+LAB_VULHUB_VMID = _env("LAB_VULHUB_VMID")
+LAB_VULHUB_SNAPSHOT = _env("LAB_VULHUB_SNAPSHOT", "clean")
+LAB_META3_VMID = _env("LAB_META3_VMID")
+LAB_META3 = _env("LAB_TARGET_META3_WIN", _env("LAB_META3", "10.10.11.10"))
+LAB_META3_SNAPSHOT = _env("LAB_META3_SNAPSHOT", "clean")
+LAB_MBPTL_LXC_VMID = _env("LAB_MBPTL_LXC_VMID")
+MBPTL_HOST = _env("LAB_MBPTL_HOST")
+MBPTL_SNAPSHOT = _env("LAB_MBPTL_SNAPSHOT", "clean")
 
-PROXMOX_MCP_PORT = int(os.environ.get("PROXMOX_MCP_HOST_PORT", "8927"))
+PROXMOX_MCP_PORT = int(_env("PROXMOX_MCP_HOST_PORT", "8927"))
 _PROXMOX_AVAILABLE = bool(LAB_DC_VMID)
 
 # ── Target table — built from env; entry present only when its VMID/host is set ─

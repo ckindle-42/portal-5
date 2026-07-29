@@ -12,8 +12,8 @@ tags:
 - claude
 - architecture
 - law
-created_at: 1783195000.808287
-updated_at: 1783195000.808287
+created_at: 1785348301.194349
+updated_at: 1785348301.194349
 ---
 
 
@@ -23,4 +23,4 @@ The MLX inference proxy (formerly :8081/:18081/:18082) was retired in commit `3a
 
 **MLX is NOT gone from the project — only from chat inference.** It still serves: speech/TTS+ASR (`scripts/mlx-speech.py`, :8918), diarized transcription (`scripts/mlx-transcribe.py`, :8924), embeddings (:8917), and the RAG reranker (:8925, `mlx-community/Qwen3-Reranker-0.6B-mxfp8`). Do not remove those when "cleaning up MLX."
 
-Never add `transformers` or `torch` to `portal_pipeline/` — it runs lean. Full model catalog with memory budgets is in `config/backends.yaml`.
+Never add `transformers` or `torch` to `portal/platform/inference/` — it runs lean. Full model catalog with memory budgets is in `config/backends.yaml`.

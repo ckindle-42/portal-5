@@ -4,7 +4,7 @@ kind: mixed
 title: "T1610 \u2014 Container deploy \u2014 docker-daemon events"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1610
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1610
 - type: mitre
   path: ATT&CK:T1610
 last_generated_commit: ''
@@ -13,8 +13,8 @@ tags:
 - T1610
 - technique
 - signature
-created_at: 1785020525.007759
-updated_at: 1785020525.007759
+created_at: 1785349554.515645
+updated_at: 1785349554.515645
 ---
 
 # T1610 — Container deploy — docker-daemon events

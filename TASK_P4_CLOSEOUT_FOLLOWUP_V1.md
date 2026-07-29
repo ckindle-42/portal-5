@@ -1,5 +1,6 @@
 # TASK: P4 Closeout Follow-Up — Video Test, Streaming Fix Verification, Pull-Wan22 Gap
 
+**Status:** Completed 2026-07-29; video operation subsequently shelved
 **Task ID:** TASK-P4-FOLLOWUP-001
 **Priority:** Normal
 **Category:** Verification / Bug fix follow-through
@@ -38,10 +39,10 @@ against a live stream — no request has actually hit either safety-net branch s
 edit.
 
 **To do:**
-- [ ] Run `./scripts/smoke_stream.sh` against the live stack — **mandatory per
+- [x] Run `./scripts/smoke_stream.sh` against the live stack — **mandatory per
       CLAUDE.md Rule/Testing-Rules before this can be committed**, this was skipped
       intentionally this session.
-- [ ] If possible, force a real empty-completion trip (e.g. replay the exact P-W04
+- [x] If possible, force a real empty-completion trip (e.g. replay the exact P-W04
       prompt from `tests/uat_catalog/g_auto_docs.py` through the full pipeline —
       `techwriter` persona / `auto-documents` workspace / `granite4.1:8b-ctx16k`,
       not raw Ollama) and confirm the visible warning now appears in OWUI instead of
@@ -49,7 +50,7 @@ edit.
       and `/v1/chat/completions`) did NOT reproduce the original empty-completion
       symptom — it may need real pipeline load/context to trigger, so this may need
       a few attempts or may simply not recur outside the original UAT conditions.
-- [ ] Once verified, this change is ready to commit (not committed yet — pending
+- [x] Once verified, this change is ready to commit (not committed yet — pending
       this gate).
 
 ---
@@ -132,12 +133,13 @@ now exits with a clear pointer instead of a bare `ModuleNotFoundError`.
       `./launch.sh pull-wan22`, downloaded S2V-14B (15GB) + audio encoder,
       confirmed both show up in `/object_info/UNETLoader` and
       `/object_info/AudioEncoderLoader` with no ComfyUI restart needed.
-- [ ] T2V-A14B and Animate-14B explicitly NOT covered — T2V-A14B uses a
+- [x] T2V-A14B and Animate-14B explicitly NOT covered — T2V-A14B uses a
       different HF repo/layout (`Wan2.2-T2V-A14B/diffusion_pytorch_model_comfyui.safetensors`)
       that was not re-verified this session (would require a ~24GB download to
       confirm); Animate-14B is a stub needing custom ComfyUI nodes that aren't
       installed. Left as a documented gap in the `pull-wan22` help text and
-      code comment rather than silently promised.
+      code comment rather than silently promised. This deferral was closed by
+      the later decision to shelve video operation; it is not an active task.
 
 ---
 

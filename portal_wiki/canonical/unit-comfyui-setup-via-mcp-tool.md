@@ -15,7 +15,5 @@ created_at: 1784946220.5584798
 updated_at: 1784946220.5584798
 ---
 
-curl -X POST http://localhost:8911/tools/start_video_generation \
-  -H "Content-Type: application/json" \
-  -d '{"arguments": {"prompt": "your prompt", "model": "wan22-ti2v-5b", "steps": 30}}'
-```
+There is no supported video MCP call. Port `8911` is disabled in normal
+operation; use the image tools on `mcp-comfyui` (`8910`).

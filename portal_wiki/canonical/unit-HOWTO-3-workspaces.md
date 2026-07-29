@@ -32,7 +32,7 @@ updated_at: 1783195000.839686
 | Portal Deep Reasoner | Complex analysis | Qwen3.6-27B (Ollama) · DeepSeek-R1 (Ollama) |
 | Portal Council Review | Review decisions, plans, proposals, policies, or research briefs with independent evidence/risk/operator lenses | Three isolated reviewers + deterministic quorum + final synthesizer |
 | Portal Document Builder | Word/Excel/PPT files | Granite-4.1-8B (Ollama) + Documents MCP |
-| Portal Video Creator | Text-to-video | Granite-4.1-8B (Ollama) + Video MCP |
+| Portal Video Creator | Shelved; not shown in the dropdown | Video MCP is disabled |
 | Portal Music Producer | Generate music | Qwen3.5-abliterated (Ollama) + Music MCP |
 | Portal Research Assistant | Web research | Gemma-4-26B-A4B-IT (Ollama) · Tongyi-DeepResearch (Ollama) |
 | Portal Vision | Image analysis | Gemma-4-26B-A4B-IT (Ollama) · Qwen3-VL (Ollama) |

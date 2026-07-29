@@ -5,7 +5,7 @@ title: 'Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-08 11:5
   UTC)'
 sources:
 - type: bench-security
-  path: /tmp/agentic_blue_sweep.json
+  path: bench-run:agentic-blue-sweep:2026-07-08
 last_generated_commit: ''
 confidence: high
 tags:

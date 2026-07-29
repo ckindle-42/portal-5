@@ -4,7 +4,7 @@ kind: mixed
 title: "T1059 \u2014 Command execution \u2014 auditd execve of shells/interpreters"
 sources:
 - type: spl
-  path: siem/spl_detections.yaml#T1059
+  path: portal/modules/security/core/siem/spl_detections.yaml#T1059
 - type: mitre
   path: ATT&CK:T1059
 - type: scenario
@@ -19,8 +19,8 @@ tags:
 - T1059
 - technique
 - signature
-created_at: 1785020525.007047
-updated_at: 1785020525.007047
+created_at: 1785349554.5149498
+updated_at: 1785349554.5149498
 ---
 
 # T1059 — Command execution — auditd execve of shells/interpreters

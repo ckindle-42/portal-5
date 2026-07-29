@@ -111,4 +111,6 @@ host's available memory. Both official 20.5GB alternatives were then tested:
 `fp8mixed` hits the known comfy-kitchen MPS fp8 dequantization error, while
 `int8_convrot` needs CPU fallback for an unsupported MPS integer matmul and is
 not operationally usable. Follow-up options and exact prompt IDs are recorded in
-`TASK_QWEN_IMAGE_EDIT_MPS_VARIANT_V1.md`.
+`TASK_QWEN_IMAGE_EDIT_MPS_VARIANT_V1.md`. That follow-up is now resolved:
+the honestly named `qwen-image-edit-2509` plain-FP8 route completed a real
+20-step edit on this host; the constrained 2511 route remains unchanged.

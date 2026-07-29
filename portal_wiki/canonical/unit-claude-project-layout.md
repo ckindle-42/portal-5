@@ -12,34 +12,96 @@ tags:
 - claude
 - architecture
 - law
-created_at: 1783195000.805677
-updated_at: 1783195000.805677
+created_at: 1785348301.194319
+updated_at: 1785348301.194319
 ---
 
 
+As of `BUILD_PROGRAM_MODULARIZATION_ALL_V1` (M0-M8), the codebase is organized by discipline module under `portal/modules/`, with cross-cutting infrastructure under `portal/platform/`. `portal_mcp/` now holds only externally-vendored MCP servers that were never moved (`filesystem/`, `scrapling/`). `portal_wiki/` is the wiki's git-versioned data home (`canonical/`) plus its CLI/MCP-tool entrypoints; the wiki engine itself lives at `portal/platform/wiki/`.
+
 ```
 portal-5/
-├── portal_pipeline/              # FastAPI Pipeline server (:9099)
-│   ├── cluster_backends.py       # BackendRegistry — Ollama (+ vLLM-compatible), health-aware
-│   ├── router_pipe.py            # FastAPI app, @app routes, lifespan, auth, option injection
-│   ├── __main__.py               # Uvicorn entrypoint (multi-worker)
-│   ├── router/                   # Decomposed pipeline modules (facade-exported by router_pipe.py)
-│   │   ├── anthropic_compat.py  # /v1/messages ↔ OpenAI format bridge (Claude Code local mode)
-│   │   ├── concurrency.py        # 3 semaphores + RequestSlot (single-owner lifecycle)
-│   │   ├── metrics.py            # CollectorRegistry + all Prometheus collectors
-│   │   ├── monitor.py            # Metal GPU memory + Ollama model state primitives
-│   │   ├── power.py              # powermetrics polling, energy/cost, usage recording
-│   │   ├── routing.py            # LLM router + keyword workspace detection
-│   │   ├── state.py              # State persistence + per-event recorders
-│   │   ├── streaming.py          # SSE streaming: _stream_from_backend_guarded, tool loop, preamble
-│   │   ├── thinking.py           # Shared <think>…</think> strip + reasoning passthrough
-│   │   ├── tools.py              # MCP tool dispatch (_dispatch_tool_call)
-│   │   └── workspaces.py         # WORKSPACES dict, persona map, workspace tool helpers
-│   ├── cli.py                    # Typed operator CLI (portal config show, …) — entry: portal
-│   ├── tool_registry.py          # Tool discovery (polls MCP /tools), advertisement, dispatch
-│   └── notifications/            # Operational alerts + daily summaries
-│       ├── dispatcher.py         # Event bus: fans out to all configured channels
-│       ├── events.py             # AlertEvent / SummaryEvent / EventType
-│       ├── scheduler.py          # APScheduler daily summary
-│       └── channels/             # Slack, Telegram, Email, Pushover, Webhook
-├── portal_mcp/                   # MCP Tool Serve
+├── portal/
+│   ├── modules/                  # One dir per discipline — code + tools + tests together
+│   │   ├── security/             # RBP (Red/Blue/Purple) bench engine — largest module
+│   │   │   ├── core/             # RBP engine, capability graph, growth loop, intake
+│   │   │   ├── tools/            # security_mcp.py, proxmox_mcp.py (MCP servers)
+│   │   │   ├── knowledge/        # SPL library, scenario facades
+│   │   │   ├── config/           # Security-specific config
+│   │   │   ├── cli/              # `portal security ...` subcommands
+│   │   │   ├── adapters/         # Wiki write-back adapters
+│   │   │   ├── eval/             # Security-specific eval harness
+│   │   │   └── tests/            # Mirrors this module's tree
+│   │   ├── coding/tools/         # code_sandbox_mcp.py (:8914)
+│   │   ├── media/tools/          # comfyui_mcp, video_mcp, music_mcp, tts_mcp, whisper_mcp
+│   │   ├── cad/tools/            # cad_render_mcp.py (:8926)
+│   │   ├── documents/tools/      # document_mcp.py (:8913)
+│   │   ├── research/tools/       # web_search_mcp, rag_mcp, reranker_mcp, browser_mcp
+│   │   ├── compliance/config/    # Config-only module (compliance personas + routing)
+│   │   ├── general/               # Config-only module (vendored filesystem/fetch/git/docker)
+│   │   └── eval/persona_matrix/  # Cross-cutting persona coverage sweep — off by default
+│   └── platform/                  # Cross-cutting infra, not owned by any one discipline
+│       ├── inference/             # FastAPI Pipeline server (:9099) — formerly portal_pipeline/
+│       │   ├── cluster_backends.py  # BackendRegistry — Ollama (+ vLLM-compatible), health-aware
+│       │   ├── router_pipe.py       # Backwards-compat facade — re-exports router/app.py's `app`
+│       │   ├── sync_config.py       # Generates backends.yaml/.mcp.json/OWUI presets/modules manifest from portal.yaml
+│       │   ├── tool_registry.py     # Tool discovery (polls MCP /tools), advertisement, dispatch
+│       │   ├── router/              # Decomposed pipeline modules
+│       │   │   ├── app.py           # FastAPI app + route decorators
+│       │   │   ├── handlers.py      # Route handler bodies (incl. Gate 4 module-disabled 404)
+│       │   │   ├── routing.py       # LLM router + keyword workspace detection
+│       │   │   ├── streaming.py     # SSE streaming: tool loop, preamble
+│       │   │   └── workspaces.py    # WORKSPACES dict, persona map, workspace tool helpers
+│       │   ├── cli/                 # Typed operator CLI (portal config show, …) — entry: portal
+│       │   ├── notifications/       # Operational alerts + daily summaries
+│       │   └── tool_preselect/      # Query-level tool-schema preselection (P5-FUT-TOOL-PRESELECT, flag-off by default)
+│       ├── wiki/                    # Wiki engine (schema, store, writeback, render, maintain)
+│       │   └── adapters/            # Portal-specific wiki wiring (module toggle resolver, growth writeback)
+│       ├── agent/                    # Discipline-agnostic agent loop core (goal/decide/rank/loop/writeback) — see docs/AGENT_LOOP.md; security is the first consumer
+│       ├── mcp_host/                 # Pipeline MCP (:8928) + shared MCP workspace helpers (workspace.py: resolve_upload_path, get_generated_dir, _VALID_CATEGORIES)
+│       └── memory/                   # Cross-session memory store MCP (:8920)
+├── portal_mcp/                   # Externally-vendored MCP servers only (never moved)
+│   ├── filesystem/                # Vendored filesystem MCP server
+│   └── scrapling/                 # Vendored scraping MCP server
+├── portal_wiki/                  # Wiki data + CLI/MCP entrypoints (engine is portal/platform/wiki/)
+│   └── canonical/                 # Git-versioned knowledge unit markdown files
+├── config/
+│   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
+│   ├── portal.yaml               # Single source of truth for workspaces + mcp_fleet
+│   ├── modules.generated.yaml    # Module enable/disable snapshot (generated by sync-config)
+│   ├── personas/                 # Persona YAML files → Open WebUI model presets (see Rule 5)
+│   ├── routing_descriptions.json # LLM router workspace descriptions
+│   └── routing_examples.json     # LLM router few-shot examples
+├── deploy/portal-5/
+│   └── docker-compose.yml        # THE launch definition — all services
+├── scripts/
+│   ├── lib/                      # Shell function libraries sourced by launch.sh dispatcher
+│   │   ├── util.sh               # Shared utilities (color, env, health checks)
+│   │   ├── models.sh             # Model pull/refresh/import wrappers
+│   │   ├── services.sh           # Service start/stop/status wrappers
+│   │   ├── lab.sh                # Lab-exec wrappers
+│   │   ├── backup.sh             # Backup/restore wrappers
+│   │   └── users.sh              # User management wrappers
+│   ├── ci/                       # Pre-commit CI guard scripts
+│   │   ├── check_generated_fresh.py       # Fail if sync-config produces a diff
+│   │   ├── check_no_identical_sources.py  # Warn on deploy/↔portal_mcp/ duplicates
+│   │   └── check_pyproject_no_dup.py      # Fail on duplicate dep pins
+│   ├── doc_ledger.py              # Doc-currency ledger CLI (status/check/stamp) — see Rule 12
+│   ├── openwebui_init.py         # Auto-seeds Open WebUI on first fresh volume
+│   ├── mlx-speech.py             # Host-native MLX speech server (TTS + ASR, port :8918)
+│   ├── embedding-server.py       # Host-native ARM64 embedding server (fallback)
+│   ├── pipeline-entrypoint.sh    # Docker entrypoint for portal-pipeline
+│   ├── smoke_stream.sh           # Live streaming gate (also run by ./launch.sh test)
+│   └── ...                       # See scripts/ for full list
+├── tests/
+│   ├── unit/                     # pytest unit tests — no Docker required
+│   ├── acceptance/               # Acceptance test section modules (s*.py) + shared infra
+│   ├── uat/                      # UAT driver modules (runner/cli/browser/grading/results)
+│   └── benchmarks/               # Inference benchmarks (Ollama TPS, positional recall, coding shootout)
+├── Dockerfile.pipeline           # Lean image for portal-pipeline service
+├── Dockerfile.mcp                # Image for portal/modules/*/tools + portal_mcp services
+├── launch.sh                     # Thin dispatcher — sources scripts/lib/*.sh, delegates to portal CLI
+└── .env.example                  # All configurable values with defaults
+```
+
+---

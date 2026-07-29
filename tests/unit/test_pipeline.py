@@ -26,6 +26,7 @@ def _make_fake_backend():
     be.type = "ollama"
     reg.list_healthy_backends.return_value = [be]
     reg.list_backends.return_value = [be]
+    reg.get_backend_candidates.return_value = [be]
     reg.workspace_routes = {}
     return reg
 
@@ -259,6 +260,50 @@ class TestPipelineAPI:
             assert resp.status_code in (503, 502)
         finally:
             handlers_mod.registry = old_reg
+
+    def test_anthropic_non_streaming_success_returns_message(self, client, monkeypatch):
+        from fastapi.responses import JSONResponse
+
+        import portal.platform.inference.router.handlers as handlers_mod
+
+        async def fake_non_streaming(*_args, **_kwargs):
+            return JSONResponse(
+                {
+                    "id": "chatcmpl-test",
+                    "choices": [
+                        {
+                            "message": {"role": "assistant", "content": "local answer"},
+                            "finish_reason": "stop",
+                        }
+                    ],
+                    "usage": {"prompt_tokens": 3, "completion_tokens": 2},
+                },
+                headers={"x-portal-route": "auto-daily;test-backend;test-model"},
+            )
+
+        monkeypatch.setattr(handlers_mod, "_try_non_streaming", fake_non_streaming)
+
+        response = client.post(
+            "/v1/messages",
+            json={
+                "model": "auto-daily",
+                "max_tokens": 32,
+                "messages": [{"role": "user", "content": "hello"}],
+            },
+            headers=HEADERS,
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "id": "chatcmpl-test",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "local answer"}],
+            "model": "auto-daily",
+            "stop_reason": "end_turn",
+            "stop_sequence": None,
+            "usage": {"input_tokens": 3, "output_tokens": 2},
+        }
 
 
 class TestMetricsEndpoint:
