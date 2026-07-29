@@ -52,12 +52,13 @@ mcp_fleet:
     port: 8910
     expose_to_pipeline: true
     expose_to_ide: true
-  - id: video
-    module: media
-    name: portal-video
-    port: 8911
-    expose_to_pipeline: true
-    expose_to_ide: true
+  # id: video (portal-video, :8911) intentionally removed from the fleet
+  # 2026-07-29 -- video generation is shelved, not operated. See
+  # KNOWN_LIMITATIONS.md "Wan 2.2 fp8_scaled Checkpoints Crash on Apple
+  # Silicon MPS". The service definition stays in deploy/portal-5/docker-
+  # compose.yml and portal/modules/media/tools/video_mcp.py is untouched --
+  # only fleet registration (tool advertisement, validate_system.py's
+  # liveness expectation) is removed. Re-add here if video is revisited.
   - id: music
     module: media
     name: portal-music
@@ -877,7 +878,15 @@ workspaces:
   auto-video:
     module: media
     name: 🎬 Portal Video Creator
-    description: Generate videos via ComfyUI / Wan2.2
+    description: >-
+      Generate videos via ComfyUI / Wan2.2. SHELVED 2026-07-29: mcp-video is
+      stopped, not part of default ./launch.sh up. Wan2.2 fp8_scaled
+      checkpoints crash on this host's Apple Silicon MPS stack (see
+      KNOWN_LIMITATIONS.md "Wan 2.2 fp8_scaled Checkpoints Crash on Apple
+      Silicon MPS"); only TI2V-5B works and that alone wasn't judged worth
+      operating. Kept defined, not deleted, in case this becomes fixable
+      later. expose_to_owui is false on purpose -- do not flip it back on
+      without re-verifying generation actually works end to end first.
     model_hint: granite4.1:8b-ctx16k
     context_limit: 16384
     temperature: 0.8
@@ -887,7 +896,7 @@ workspaces:
     - generate_video
     - generate_image
     - list_video_models
-    expose_to_owui: true
+    expose_to_owui: false
     enable_web_search: false
     owui_system_prompt: |-
       You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing.

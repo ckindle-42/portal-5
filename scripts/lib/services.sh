@@ -697,18 +697,20 @@ _launch_download_comfyui_models() {
     exit 1
 }
 
-# Wan 2.2 TI2V-5B + S2V-14B — flat filenames in ComfyUI's actually-scanned
-# models/<type>/ folders. Comfy-Org/Wan_2.2_ComfyUI_Repackaged nests these
-# under split_files/<type>/ internally; --local-dir must target the
-# model-type-folder itself (not models/) and the split_files/<type>/ prefix
-# must be stripped from the destination, or ComfyUI never sees the files
-# (see KNOWN_LIMITATIONS.md / TASK_P4_CLOSEOUT_FOLLOWUP_V1.md Item 2/3).
+# Wan 2.2 TI2V-5B + S2V-14B + T2V-A14B — flat filenames in ComfyUI's
+# actually-scanned models/<type>/ folders. Comfy-Org/Wan_2.2_ComfyUI_Repackaged
+# nests these under split_files/<type>/ internally; --local-dir must target
+# the model-type-folder itself (not models/) and the split_files/<type>/
+# prefix must be stripped from the destination, or ComfyUI never sees the
+# files (see KNOWN_LIMITATIONS.md / TASK_P4_CLOSEOUT_FOLLOWUP_V1.md Item 2/3).
 #
-# T2V-A14B and Animate-14B are NOT covered here: T2V-A14B uses a different
-# HF repo/layout (Wan2.2-T2V-A14B/diffusion_pytorch_model_comfyui.safetensors,
-# already the working default in video_mcp.py) that was not re-verified this
-# session, and Animate-14B is a stub requiring custom ComfyUI nodes that
-# aren't installed. Both are left as a documented gap, not silently promised.
+# T2V-A14B is a two-expert MoE (high-noise + low-noise, ~13GB each) — there is
+# no single merged file. Confirmed 2026-07-29 against the official ComfyUI
+# example workflow; a prior version of this script/video_mcp.py assumed a
+# single-file repo layout that was never live-verified and does not exist.
+#
+# Animate-14B is NOT covered: stub requiring SAM2/DWPreprocessor/CLIPVision
+# custom ComfyUI nodes that aren't installed. Documented gap, not promised.
 _launch_pull_wan22() {
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
@@ -724,7 +726,7 @@ _launch_pull_wan22() {
             python3 -m pip install "huggingface_hub>=0.28" --quiet
     fi
 
-    echo "=== Pulling Wan 2.2 TI2V-5B + S2V-14B (ComfyUI-flat layout) ==="
+    echo "=== Pulling Wan 2.2 TI2V-5B + S2V-14B + T2V-A14B (ComfyUI-flat layout) ==="
     echo "  Target: $COMFYUI_DIR/models/{diffusion_models,vae,text_encoders,audio_encoders}/"
     echo ""
 
@@ -735,6 +737,8 @@ _launch_pull_wan22() {
         "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors:text_encoders"
         "split_files/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors:diffusion_models"
         "split_files/audio_encoders/wav2vec2_large_english_fp16.safetensors:audio_encoders"
+        "split_files/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors:diffusion_models"
+        "split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors:diffusion_models"
     )
 
     for entry in "${FILES[@]}"; do

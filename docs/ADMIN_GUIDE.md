@@ -596,7 +596,7 @@ default.
 ### MCP Fleet
 
 <!-- WIKI:GENERATED unit=unit-fact-mcp-fleet -->
-# MCP fleet (24 servers)
+# MCP fleet (23 servers)
 
 | ID | Name | Port |
 |---|---|---|
@@ -605,7 +605,6 @@ default.
 | `git` | git |  |
 | `docker` | docker |  |
 | `comfyui` | portal-comfyui | 8910 |
-| `video` | portal-video | 8911 |
 | `music` | portal-music | 8912 |
 | `documents` | portal-documents | 8913 |
 | `execution` | portal-sandbox | 8914 |

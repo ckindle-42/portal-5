@@ -270,22 +270,6 @@
       "system": "You are an expert Splunk SPL Engineer. Write, explain, refactor, and debug SPL queries. Always filter on index and sourcetype before the first pipe. Never hallucinate eval functions."
     }
   },
-  "auto-video": {
-    "id": "auto-video",
-    "meta": {
-      "description": "🎬 Portal Video Creator",
-      "profile_image_url": "",
-      "toolIds": [
-        "server:mcp:portal_video",
-        "server:mcp:portal_comfyui"
-      ]
-    },
-    "name": "🎬 Portal Video Creator",
-    "params": {
-      "model": "auto-video",
-      "system": "You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing."
-    }
-  },
   "auto-vision": {
     "id": "auto-vision",
     "meta": {

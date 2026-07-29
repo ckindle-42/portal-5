@@ -223,18 +223,23 @@ WAN21_NSFW_CLIP = os.getenv("WAN21_NSFW_CLIP", "nsfw_wan_umt5-xxl_bf16_fixed.saf
 WAN21_NSFW_VAE = os.getenv("WAN21_NSFW_VAE", "wan_2.1_vae.safetensors")
 
 # ── Wan 2.2 T2V-A14B model env vars ─────────────────────────────────────────
-# After ./launch.sh pull-wan22, the HuggingFace repo downloads to
-# ~/ComfyUI/models/diffusion_models/Wan2.2-T2V-A14B/ which includes
-# diffusion_pytorch_model_comfyui.safetensors (ComfyUI merged format, ~24GB).
-# UNETLoader resolves relative to models/diffusion_models/ — use the subdir path.
-# Text encoder falls back to the NSFW umt5 (same architecture, works for SFW too).
-# Override WAN22_T2V_CLIP to umt5_xxl_fp8_e4m3fn_scaled.safetensors for true
-# Wan 2.2 standard model (requires separate download — not yet in pull-wan22).
-WAN22_T2V_UNET = os.getenv(
-    "WAN22_T2V_UNET",
-    "Wan2.2-T2V-A14B/diffusion_pytorch_model_comfyui.safetensors",
+# T2V-A14B is a two-expert MoE (high-noise model for the first half of
+# denoising steps, low-noise model for the second half) — there is no single
+# merged checkpoint. Confirmed against the official ComfyUI example workflow
+# (comfyanonymous.github.io/ComfyUI_examples/wan22/text_to_video_wan22_14B.json,
+# 2026-07-29): two UNETLoaders feeding two chained KSamplerAdvanced nodes.
+# A prior version of this file assumed a single merged
+# "Wan2.2-T2V-A14B/diffusion_pytorch_model_comfyui.safetensors" file that does
+# not exist in any maintained repo — that was never live-verified and was
+# wrong. Files: split_files/diffusion_models/wan2.2_t2v_{high,low}_noise_14B_fp8_scaled.safetensors
+# from Comfy-Org/Wan_2.2_ComfyUI_Repackaged (flat layout via pull-wan22, ~13GB each).
+WAN22_T2V_HIGH_NOISE_MODEL = os.getenv(
+    "WAN22_T2V_HIGH_NOISE_MODEL", "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
 )
-WAN22_T2V_CLIP = os.getenv("WAN22_T2V_CLIP", "nsfw_wan_umt5-xxl_bf16_fixed.safetensors")
+WAN22_T2V_LOW_NOISE_MODEL = os.getenv(
+    "WAN22_T2V_LOW_NOISE_MODEL", "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"
+)
+WAN22_T2V_CLIP = os.getenv("WAN22_T2V_CLIP", "umt5_xxl_fp8_e4m3fn_scaled.safetensors")
 WAN22_T2V_VAE = os.getenv("WAN22_T2V_VAE", "wan_2.1_vae.safetensors")
 
 # ── Wan 2.2 shared fp8 text encoder (TI2V-5B and S2V-14B) ────────────────────
@@ -576,80 +581,85 @@ _WAN21_NSFW_T2V_WORKFLOW: dict = {
 
 # Wan 2.2 T2V-A14B — node layout mirrors NSFW T2V for re-use of patching logic.
 # shift=8.0 is the Wan 2.2 default (vs 9.8 for NSFW fine-tune); CFGGuider same.
+# Wan 2.2 T2V-A14B — two-expert MoE text-to-video. Node layout matches the
+# official text_to_video_wan22_14B.json template (node IDs preserved):
+# UNETLoader[37](high) -> ModelSamplingSD3[54] -> KSamplerAdvanced[57] (steps
+# 0..boundary, add_noise=enable, leftover_noise=enable) -> latent ->
+# UNETLoader[56](low) -> ModelSamplingSD3[55] -> KSamplerAdvanced[58] (steps
+# boundary..end, add_noise=disable) -> VAEDecode[8] -> CreateVideo/SaveVideo.
 _WAN22_T2V_A14B_WORKFLOW: dict = {
-    "1": {
-        "inputs": {"unet_name": WAN22_T2V_UNET, "weight_dtype": "default"},
+    "37": {
+        "inputs": {"unet_name": WAN22_T2V_HIGH_NOISE_MODEL, "weight_dtype": "default"},
         "class_type": "UNETLoader",
     },
-    "2": {
+    "56": {
+        "inputs": {"unet_name": WAN22_T2V_LOW_NOISE_MODEL, "weight_dtype": "default"},
+        "class_type": "UNETLoader",
+    },
+    "54": {
+        "inputs": {"model": ["37", 0], "shift": 8.0},
+        "class_type": "ModelSamplingSD3",
+    },
+    "55": {
+        "inputs": {"model": ["56", 0], "shift": 8.0},
+        "class_type": "ModelSamplingSD3",
+    },
+    "38": {
         "inputs": {"clip_name": WAN22_T2V_CLIP, "type": "wan"},
         "class_type": "CLIPLoader",
     },
-    "3": {
+    "39": {
         "inputs": {"vae_name": WAN22_T2V_VAE},
         "class_type": "VAELoader",
     },
-    "4": {
-        "inputs": {"text": "", "clip": ["2", 0]},
-        "class_type": "CLIPTextEncode",
-    },
-    "5": {
+    "6": {"inputs": {"text": "", "clip": ["38", 0]}, "class_type": "CLIPTextEncode"},
+    "7": {"inputs": {"text": "", "clip": ["38", 0]}, "class_type": "CLIPTextEncode"},
+    "61": {
         "inputs": {"width": 1280, "height": 720, "length": 41, "batch_size": 1},
         "class_type": "EmptyHunyuanLatentVideo",
     },
-    "6": {
-        "inputs": {"model": ["1", 0], "shift": 8.0},
-        "class_type": "ModelSamplingSD3",
+    "57": {
+        "inputs": {
+            "model": ["54", 0],
+            "positive": ["6", 0],
+            "negative": ["7", 0],
+            "latent_image": ["61", 0],
+            "add_noise": "enable",
+            "noise_seed": 1,
+            "steps": 20,
+            "cfg": 6.0,
+            "sampler_name": "uni_pc",
+            "scheduler": "simple",
+            "start_at_step": 0,
+            "end_at_step": 10,
+            "return_with_leftover_noise": "enable",
+        },
+        "class_type": "KSamplerAdvanced",
     },
-    "7": {
-        "inputs": {"sampler_name": "uni_pc"},
-        "class_type": "KSamplerSelect",
+    "58": {
+        "inputs": {
+            "model": ["55", 0],
+            "positive": ["6", 0],
+            "negative": ["7", 0],
+            "latent_image": ["57", 0],
+            "add_noise": "disable",
+            "noise_seed": 0,
+            "steps": 20,
+            "cfg": 6.0,
+            "sampler_name": "uni_pc",
+            "scheduler": "simple",
+            "start_at_step": 10,
+            "end_at_step": 10000,
+            "return_with_leftover_noise": "disable",
+        },
+        "class_type": "KSamplerAdvanced",
     },
     "8": {
-        "inputs": {
-            "model": ["6", 0],
-            "scheduler": "simple",
-            "steps": 30,
-            "denoise": 1.0,
-        },
-        "class_type": "BasicScheduler",
-    },
-    "9": {
-        "inputs": {"noise_seed": 1},
-        "class_type": "RandomNoise",
-    },
-    "10": {
-        "inputs": {
-            "model": ["6", 0],
-            "positive": ["4", 0],
-            "negative": ["15", 0],
-            "cfg": 6.0,
-        },
-        "class_type": "CFGGuider",
-    },
-    "11": {
-        "inputs": {
-            "noise": ["9", 0],
-            "guider": ["10", 0],
-            "sampler": ["7", 0],
-            "sigmas": ["8", 0],
-            "latent_image": ["5", 0],
-        },
-        "class_type": "SamplerCustomAdvanced",
-    },
-    "12": {
-        "inputs": {
-            "samples": ["11", 0],
-            "vae": ["3", 0],
-            "tile_size": 256,
-            "overlap": 64,
-            "temporal_size": 64,
-            "temporal_overlap": 8,
-        },
-        "class_type": "VAEDecodeTiled",
+        "inputs": {"samples": ["58", 0], "vae": ["39", 0]},
+        "class_type": "VAEDecode",
     },
     "13": {
-        "inputs": {"images": ["12", 0], "fps": 8.0},
+        "inputs": {"images": ["8", 0], "fps": 8.0},
         "class_type": "CreateVideo",
     },
     "14": {
@@ -660,10 +670,6 @@ _WAN22_T2V_A14B_WORKFLOW: dict = {
             "codec": "auto",
         },
         "class_type": "SaveVideo",
-    },
-    "15": {
-        "inputs": {"text": "", "clip": ["2", 0]},
-        "class_type": "CLIPTextEncode",
     },
 }
 
@@ -743,11 +749,16 @@ _WAN22_TI2V_5B_WORKFLOW: dict = {
 _WAN22_ANIMATE_14B_WORKFLOW: dict = {
     "_stub": True,
     "_stub_message": (
-        "Wan 2.2 Animate-14B requires SAM2 segmentation, DWPreprocessor, and CLIPVision "
-        "custom ComfyUI nodes plus a community KJ-format model "
-        "(Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors). "
-        "Too many non-standard dependencies to wire automatically. "
-        "Use the ComfyUI template: video_wan2_2_14B_animate.json (installed in ComfyUI venv)."
+        "Wan 2.2 Animate-14B requires SAM2 segmentation and DWPreprocessor custom "
+        "ComfyUI nodes plus a reference/driving video pipeline, none of which are "
+        "installed (confirmed live 2026-07-29: /object_info has no SAM2 or DWPose "
+        "nodes; ~/ComfyUI/custom_nodes/ has neither package; no local copy of a "
+        "video_wan2_2_14B_animate.json template exists despite a prior claim it "
+        "was 'installed in ComfyUI venv' -- that claim was false, corrected here). "
+        "Installing the missing custom nodes means running third-party code inside "
+        "ComfyUI -- a deliberate call for an operator to make, not something to "
+        "silently add. Too many non-standard, unverified dependencies to wire "
+        "automatically."
     ),
 }
 
@@ -1151,17 +1162,25 @@ def _build_video_workflow(
     workflow = _get_workflow(model)
 
     if model == "wan22-t2v-a14b":
-        # Same node layout as wan21-nsfw (nodes 4/5/6/7/8/9/10/13/15)
-        workflow["4"]["inputs"]["text"] = prompt
-        workflow["15"]["inputs"]["text"] = negative_prompt
-        workflow["5"]["inputs"]["width"] = width
-        workflow["5"]["inputs"]["height"] = height
-        workflow["5"]["inputs"]["length"] = frames
-        workflow["6"]["inputs"]["shift"] = shift
-        workflow["7"]["inputs"]["sampler_name"] = sampler
-        workflow["8"]["inputs"]["steps"] = steps
-        workflow["9"]["inputs"]["noise_seed"] = seed
-        workflow["10"]["inputs"]["cfg"] = cfg
+        # Two-expert MoE: high-noise KSamplerAdvanced[57] handles steps
+        # 0..boundary, low-noise KSamplerAdvanced[58] handles boundary..steps.
+        workflow["6"]["inputs"]["text"] = prompt
+        workflow["7"]["inputs"]["text"] = negative_prompt
+        workflow["61"]["inputs"]["width"] = width
+        workflow["61"]["inputs"]["height"] = height
+        workflow["61"]["inputs"]["length"] = frames
+        workflow["54"]["inputs"]["shift"] = shift
+        workflow["55"]["inputs"]["shift"] = shift
+        boundary = max(1, steps // 2)
+        workflow["57"]["inputs"]["steps"] = steps
+        workflow["57"]["inputs"]["end_at_step"] = boundary
+        workflow["57"]["inputs"]["cfg"] = cfg
+        workflow["57"]["inputs"]["sampler_name"] = sampler
+        workflow["57"]["inputs"]["noise_seed"] = seed
+        workflow["58"]["inputs"]["steps"] = steps
+        workflow["58"]["inputs"]["start_at_step"] = boundary
+        workflow["58"]["inputs"]["cfg"] = cfg
+        workflow["58"]["inputs"]["sampler_name"] = sampler
         workflow["13"]["inputs"]["fps"] = float(fps)
         return workflow, seed
 

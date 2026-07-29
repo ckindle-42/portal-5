@@ -34,10 +34,6 @@
       "type": "http",
       "url": "http://localhost:8910/mcp"
     },
-    "portal-video": {
-      "type": "http",
-      "url": "http://localhost:8911/mcp"
-    },
     "portal-music": {
       "type": "http",
       "url": "http://localhost:8912/mcp"
