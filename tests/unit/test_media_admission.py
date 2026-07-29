@@ -112,3 +112,20 @@ class TestAdmit:
         ):
             refusal = await _admission.admit("video:wan21-nsfw")
         assert refusal is None
+
+
+class TestMediaModelMemoryDictInSyncWithWikiFact:
+    """_admission.py's docstring explains MEDIA_MODEL_MEMORY_GB is deliberately
+    NOT imported from seed_facts.py (Rule 3: MCP modules stay independent) but
+    kept as a manually-synced copy instead. Regression test for drift going
+    uncaught — see unit-known-limitations-qwen-image-bf16-crashes-on-apple-
+    silicon-mps."""
+
+    def test_tables_match(self):
+        import portal.platform.wiki.adapters.seed_facts as seed_facts
+
+        assert seed_facts.MEDIA_MODEL_MEMORY_GB == _admission.MEDIA_MODEL_MEMORY_GB, (
+            "portal/modules/media/tools/_admission.py's MEDIA_MODEL_MEMORY_GB "
+            "has drifted from portal/platform/wiki/adapters/seed_facts.py's copy "
+            "— update both together."
+        )

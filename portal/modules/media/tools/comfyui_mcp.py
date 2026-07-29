@@ -355,53 +355,185 @@ _MODEL_CKPT_MAP = {
     "flux-uncensored": "Flux_v8-NSFW.safetensors",
 }
 
-# ── Qwen-Image-2512 family (PHASE_PLAN_MODEL_REFRESH_V7_V2) ──────────────────
-# Stub dicts — populated by exporting from ComfyUI template browser.
-# ComfyUI → Workflow → Browse Templates → Image → "Qwen-Image-2512 T2I" etc.
-# Required model pulls: ./launch.sh pull-qwen-image (~30 GB total)
-#   models/diffusion_models/Qwen-Image-2512/       — 20B MMDiT BF16
-#   models/diffusion_models/Qwen-Image-Edit-2511/  — edit variant
-#   models/diffusion_models/Qwen-Image-2512-Lightning/ — 8-step distilled
+# ── Qwen-Image family (PHASE_PLAN_MODEL_REFRESH_V7_V2) ───────────────────────
+# Node graphs match ComfyUI's official example workflows (comfyanonymous.
+# github.io/ComfyUI_examples/qwen_image/). Memory sizing rationale, incident
+# history, and per-model MEDIA_MODEL_MEMORY_GB estimates:
+# unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps.
 # Capabilities vs FLUX:
-#   - Qwen-Image-2512: top-of-leaderboard text rendering (typography, posters, slides)
-#   - Qwen-Image-Edit-2511: instruction-based image editing (no FLUX equivalent)
-#   - Lightning: ~30s at 8 steps, CFG-distilled
-#
-# VAE: Wan2.1-VAE (shared with Wan video pipeline)
-# Text encoder: Qwen2.5-VL
+#   - qwen-image-2512: top-of-leaderboard text rendering (typography, posters, slides)
+#   - qwen-image-edit-2511: instruction-based image editing (no FLUX equivalent) — requires image_url
+#   - qwen-image-2512-lightning: same T2I graph + distillation LoRA, 8 steps, cfg=1.0
+QWEN_IMAGE_MODEL = os.getenv("QWEN_IMAGE_MODEL", "qwen_image_fp8_e4m3fn.safetensors")
+QWEN_IMAGE_EDIT_MODEL = os.getenv("QWEN_IMAGE_EDIT_MODEL", "qwen_image_edit_2511_bf16.safetensors")
+QWEN_IMAGE_CLIP = os.getenv("QWEN_IMAGE_CLIP", "qwen_2.5_vl_7b.safetensors")
+QWEN_IMAGE_VAE = os.getenv("QWEN_IMAGE_VAE", "qwen_image_vae.safetensors")
+QWEN_IMAGE_LIGHTNING_LORA = os.getenv(
+    "QWEN_IMAGE_LIGHTNING_LORA", "Qwen-Image-Lightning-8steps-V1.1-bf16.safetensors"
+)
 
+# Text-to-image. Node layout matches the official qwen_image_basic_example.png
+# workflow (node IDs preserved): UNETLoader[37] -> ModelSamplingAuraFlow[66] ->
+# KSampler[3] <- CLIPTextEncode[6]/[7] <- CLIPLoader[38]; EmptySD3LatentImage[58]
+# -> KSampler[3] -> VAEDecode[8] <- VAELoader[39] -> SaveImage[60].
 _QWEN_IMAGE_2512_T2I_WORKFLOW: dict = {
-    "_stub": True,
-    "_stub_message": (
-        "Qwen-Image-2512 T2I workflow not yet exported from ComfyUI. "
-        "In ComfyUI: Workflow → Browse Templates → Image → 'Qwen-Image-2512 T2I', "
-        "load it, then export JSON and replace this dict. "
-        "Required model: models/diffusion_models/Qwen-Image-2512/ (pull-qwen-image). "
-        "Strengths: text rendering, typography, posters — better than FLUX for text-in-image."
-    ),
+    "37": {
+        "inputs": {"unet_name": QWEN_IMAGE_MODEL, "weight_dtype": "default"},
+        "class_type": "UNETLoader",
+    },
+    "38": {
+        "inputs": {"clip_name": QWEN_IMAGE_CLIP, "type": "qwen_image", "device": "default"},
+        "class_type": "CLIPLoader",
+    },
+    "39": {
+        "inputs": {"vae_name": QWEN_IMAGE_VAE},
+        "class_type": "VAELoader",
+    },
+    "66": {
+        "inputs": {"shift": 3.1, "model": ["37", 0]},
+        "class_type": "ModelSamplingAuraFlow",
+    },
+    "6": {"inputs": {"text": "", "clip": ["38", 0]}, "class_type": "CLIPTextEncode"},
+    "7": {"inputs": {"text": "", "clip": ["38", 0]}, "class_type": "CLIPTextEncode"},
+    "58": {
+        "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
+        "class_type": "EmptySD3LatentImage",
+    },
+    "3": {
+        "inputs": {
+            "seed": 1,
+            "steps": 20,
+            "cfg": 2.5,
+            "sampler_name": "euler",
+            "scheduler": "simple",
+            "denoise": 1.0,
+            "model": ["66", 0],
+            "positive": ["6", 0],
+            "negative": ["7", 0],
+            "latent_image": ["58", 0],
+        },
+        "class_type": "KSampler",
+    },
+    "8": {"inputs": {"samples": ["3", 0], "vae": ["39", 0]}, "class_type": "VAEDecode"},
+    "60": {
+        "inputs": {"filename_prefix": "portal_", "images": ["8", 0]},
+        "class_type": "SaveImage",
+    },
 }
 
+# Same graph as T2I with a LoraLoaderModelOnly[67] inserted between
+# UNETLoader[37] and ModelSamplingAuraFlow[66] — lightx2v's official
+# distillation LoRA, 8 steps / cfg=1.0 (vs base T2I's 20 steps / cfg=2.5).
 _QWEN_IMAGE_2512_LIGHTNING_WORKFLOW: dict = {
-    "_stub": True,
-    "_stub_message": (
-        "Qwen-Image-2512-Lightning workflow not yet exported from ComfyUI. "
-        "In ComfyUI: Workflow → Browse Templates → Image → 'Qwen-Image-2512-Lightning', "
-        "load it (or duplicate T2I workflow with 8 steps + lightning weights), "
-        "then export JSON and replace this dict. "
-        "Required model: models/diffusion_models/Qwen-Image-2512-Lightning/ (pull-qwen-image). "
-        "~30s per image at 8 steps, CFG-distilled."
-    ),
+    "37": {
+        "inputs": {"unet_name": QWEN_IMAGE_MODEL, "weight_dtype": "default"},
+        "class_type": "UNETLoader",
+    },
+    "67": {
+        "inputs": {
+            "lora_name": QWEN_IMAGE_LIGHTNING_LORA,
+            "strength_model": 1.0,
+            "model": ["37", 0],
+        },
+        "class_type": "LoraLoaderModelOnly",
+    },
+    "38": {
+        "inputs": {"clip_name": QWEN_IMAGE_CLIP, "type": "qwen_image", "device": "default"},
+        "class_type": "CLIPLoader",
+    },
+    "39": {
+        "inputs": {"vae_name": QWEN_IMAGE_VAE},
+        "class_type": "VAELoader",
+    },
+    "66": {
+        "inputs": {"shift": 3.1, "model": ["67", 0]},
+        "class_type": "ModelSamplingAuraFlow",
+    },
+    "6": {"inputs": {"text": "", "clip": ["38", 0]}, "class_type": "CLIPTextEncode"},
+    "7": {"inputs": {"text": "", "clip": ["38", 0]}, "class_type": "CLIPTextEncode"},
+    "58": {
+        "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
+        "class_type": "EmptySD3LatentImage",
+    },
+    "3": {
+        "inputs": {
+            "seed": 1,
+            "steps": 8,
+            "cfg": 1.0,
+            "sampler_name": "euler",
+            "scheduler": "simple",
+            "denoise": 1.0,
+            "model": ["66", 0],
+            "positive": ["6", 0],
+            "negative": ["7", 0],
+            "latent_image": ["58", 0],
+        },
+        "class_type": "KSampler",
+    },
+    "8": {"inputs": {"samples": ["3", 0], "vae": ["39", 0]}, "class_type": "VAEDecode"},
+    "60": {
+        "inputs": {"filename_prefix": "portal_", "images": ["8", 0]},
+        "class_type": "SaveImage",
+    },
 }
 
+# Instruction-based image editing. Node layout matches the official
+# qwen_image_edit_2509_basic_example.png workflow: LoadImage[41] feeds
+# TextEncodeQwenImageEditPlus[68]/[69] (which condition on both clip AND vae,
+# unlike plain CLIPTextEncode) alongside the text prompt. Requires image_url.
 _QWEN_IMAGE_EDIT_2511_WORKFLOW: dict = {
-    "_stub": True,
-    "_stub_message": (
-        "Qwen-Image-Edit-2511 workflow not yet exported from ComfyUI. "
-        "In ComfyUI: Workflow → Browse Templates → Image → 'Qwen-Image-Edit-2511', "
-        "load it, then export JSON and replace this dict. "
-        "Required model: models/diffusion_models/Qwen-Image-Edit-2511/ (pull-qwen-image). "
-        "NEW CAPABILITY: instruction-based image editing (no FLUX equivalent)."
-    ),
+    "12": {
+        "inputs": {"unet_name": QWEN_IMAGE_EDIT_MODEL, "weight_dtype": "default"},
+        "class_type": "UNETLoader",
+    },
+    "61": {
+        "inputs": {"clip_name": QWEN_IMAGE_CLIP, "type": "qwen_image", "device": "default"},
+        "class_type": "CLIPLoader",
+    },
+    "10": {
+        "inputs": {"vae_name": QWEN_IMAGE_VAE},
+        "class_type": "VAELoader",
+    },
+    "67": {
+        "inputs": {"shift": 3.1, "model": ["12", 0]},
+        "class_type": "ModelSamplingAuraFlow",
+    },
+    "41": {
+        "inputs": {"image": "example.png", "upload": "image"},
+        "class_type": "LoadImage",
+    },
+    "68": {
+        "inputs": {"prompt": "", "clip": ["61", 0], "vae": ["10", 0], "image1": ["41", 0]},
+        "class_type": "TextEncodeQwenImageEditPlus",
+    },
+    "69": {
+        "inputs": {"prompt": "", "clip": ["61", 0], "vae": ["10", 0], "image1": ["41", 0]},
+        "class_type": "TextEncodeQwenImageEditPlus",
+    },
+    "66": {
+        "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
+        "class_type": "EmptySD3LatentImage",
+    },
+    "65": {
+        "inputs": {
+            "seed": 1,
+            "steps": 20,
+            "cfg": 4.0,
+            "sampler_name": "euler",
+            "scheduler": "simple",
+            "denoise": 1.0,
+            "model": ["67", 0],
+            "positive": ["68", 0],
+            "negative": ["69", 0],
+            "latent_image": ["66", 0],
+        },
+        "class_type": "KSampler",
+    },
+    "8": {"inputs": {"samples": ["65", 0], "vae": ["10", 0]}, "class_type": "VAEDecode"},
+    "9": {
+        "inputs": {"filename_prefix": "portal_", "images": ["8", 0]},
+        "class_type": "SaveImage",
+    },
 }
 
 # Public map — used for routing and import verification
@@ -450,6 +582,7 @@ def _build_image_workflow(
     checkpoint: str,
     lora: str,
     lora_strength: float,
+    image_filename: str = "",
 ) -> tuple[dict, int]:
     """Build the ComfyUI workflow dict. Returns (workflow, resolved_seed)."""
     import copy
@@ -460,9 +593,30 @@ def _build_image_workflow(
     workflow = _get_workflow(model)
     selected_model = model or IMAGE_BACKEND
 
-    # Qwen-Image-2512 family — workflow nodes populated after ComfyUI export
-    # _get_workflow() raises RuntimeError for stubs; reaching here means real workflow
-    if selected_model in QWEN_IMAGE_WORKFLOWS:
+    if selected_model == "qwen-image-edit-2511":
+        if not image_filename:
+            raise ValueError("qwen-image-edit-2511 requires image_url — provide a reference image")
+        workflow["41"]["inputs"]["image"] = image_filename
+        workflow["68"]["inputs"]["prompt"] = prompt
+        workflow["69"]["inputs"]["prompt"] = negative_prompt
+        workflow["66"]["inputs"]["width"] = width
+        workflow["66"]["inputs"]["height"] = height
+        workflow["65"]["inputs"]["seed"] = seed
+        workflow["65"]["inputs"]["steps"] = min(max(steps, 1), 50)
+        workflow["65"]["inputs"]["cfg"] = cfg
+        return workflow, seed
+
+    if selected_model in ("qwen-image-2512", "qwen-image-2512-lightning"):
+        workflow["6"]["inputs"]["text"] = prompt
+        workflow["7"]["inputs"]["text"] = negative_prompt
+        workflow["58"]["inputs"]["width"] = width
+        workflow["58"]["inputs"]["height"] = height
+        workflow["3"]["inputs"]["seed"] = seed
+        # Lightning is CFG-distilled at a fixed 8-step/cfg=1.0 operating point —
+        # honor caller-provided steps/cfg only for the non-distilled base T2I.
+        if selected_model == "qwen-image-2512":
+            workflow["3"]["inputs"]["steps"] = min(max(steps, 1), 50)
+            workflow["3"]["inputs"]["cfg"] = cfg
         return workflow, seed
 
     if selected_model == "sdxl":
@@ -553,6 +707,41 @@ def _eta_human(seconds: int) -> str:
     return f"~{round(seconds / 60)} min"
 
 
+async def _upload_image_to_comfyui(image_url: str) -> str:
+    """Fetch image from a public URL or an already-uploaded workspace file, upload to ComfyUI, return filename."""
+    import mimetypes
+
+    from portal.platform.mcp_host import assert_public_http_url, resolve_upload_path
+
+    client = await _get_client()
+    if image_url.startswith(("http://", "https://")):
+        assert_public_http_url(image_url)
+        resp = await client.get(image_url)
+        resp.raise_for_status()
+        data = resp.content
+        fname = image_url.split("/")[-1].split("?")[0] or "upload.png"
+    else:
+        # Local paths are never trusted verbatim (Rule 11) — only files already
+        # inside the shared workspace uploads dir can be read, resolved by
+        # exact filename / UUID prefix, not by attacker-supplied absolute path.
+        resolved = resolve_upload_path(image_url)
+        if resolved is None:
+            raise ValueError(
+                f"image_url must be an http(s) URL or an existing upload filename, not: {image_url!r}"
+            )
+        with open(resolved, "rb") as fh:
+            data = fh.read()
+        fname = resolved.name
+    content_type = mimetypes.guess_type(fname)[0] or "image/png"
+    upload_resp = await client.post(
+        f"{COMFYUI_URL}/upload/image",
+        files={"image": (fname, data, content_type)},
+        data={"type": "input", "overwrite": "true"},
+    )
+    upload_resp.raise_for_status()
+    return upload_resp.json()["name"]
+
+
 async def _submit_comfyui(workflow: dict) -> tuple[str | None, dict | None]:
     """Submit workflow to ComfyUI. Returns (prompt_id, None) or (None, error_dict)."""
     client_id = str(uuid.uuid4())
@@ -596,6 +785,7 @@ async def start_image_generation(
     checkpoint: str = "",
     lora: str = "",
     lora_strength: float = 1.0,
+    image_url: str = "",
 ) -> dict:
     """
     Start image generation and return immediately with a job_id.
@@ -605,30 +795,44 @@ async def start_image_generation(
     and use get_image_status(job_id) when they ask for the result.
 
     Args:
-        prompt: Text description of the image
-        model: 'flux' (schnell, fast ~1min), 'sdxl' (~8min), or 'flux-uncensored'
-        steps: Diffusion steps — flux schnell default 4, flux dev 28, sdxl 35
-        cfg: Guidance scale (FLUX: 1.0-5.0 maps to FluxGuidance; SDXL: 5.0-10.0)
+        prompt: Text description of the image (or edit instruction for qwen-image-edit-2511)
+        model: 'flux' (schnell, fast ~1min), 'sdxl' (~8min), 'flux-uncensored',
+               'qwen-image-2512' (best-in-class text rendering, ~20 steps),
+               'qwen-image-2512-lightning' (same model, 8-step distilled LoRA, fast),
+               or 'qwen-image-edit-2511' (instruction-based image editing, requires image_url)
+        steps: Diffusion steps — flux schnell default 4, flux dev 28, sdxl 35, qwen-image 20
+        cfg: Guidance scale (FLUX: 1.0-5.0 maps to FluxGuidance; SDXL: 5.0-10.0; qwen-image: 2.5-4.0)
         checkpoint: Override checkpoint filename (e.g. 'flux1-dev.safetensors')
         lora: LoRA filename to apply (optional)
+        image_url: URL or local path to a reference image (required for qwen-image-edit-2511)
         seed: -1 for random
     """
     refusal = await admit(_media_model_key(model), COMFYUI_URL)
     if refusal:
         return refusal
-    workflow, seed = _build_image_workflow(
-        prompt,
-        width,
-        height,
-        steps,
-        cfg,
-        negative_prompt,
-        seed,
-        model,
-        checkpoint,
-        lora,
-        lora_strength,
-    )
+    image_filename = ""
+    if image_url:
+        try:
+            image_filename = await _upload_image_to_comfyui(image_url)
+        except Exception as e:
+            return {"success": False, "error": f"Image upload failed: {e}"}
+    try:
+        workflow, seed = _build_image_workflow(
+            prompt,
+            width,
+            height,
+            steps,
+            cfg,
+            negative_prompt,
+            seed,
+            model,
+            checkpoint,
+            lora,
+            lora_strength,
+            image_filename,
+        )
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
     prompt_id, err = await _submit_comfyui(workflow)
     if err:
         return err
@@ -783,44 +987,59 @@ async def generate_image(
     checkpoint: str = "",
     lora: str = "",
     lora_strength: float = 1.0,
+    image_url: str = "",
 ) -> dict:
     """
-    Generate an image using FLUX.1 or SDXL via ComfyUI. Blocks until complete.
+    Generate an image using FLUX.1, SDXL, or Qwen-Image via ComfyUI. Blocks until complete.
     Returns a URL to the generated image file.
 
     WARNING: Takes 1-40 minutes depending on model and steps. For Open WebUI /
     chat use, prefer start_image_generation + get_image_status instead.
 
     Args:
-        prompt: Text description of the image to generate
+        prompt: Text description of the image to generate (or edit instruction for qwen-image-edit-2511)
         width: Image width in pixels (default 1024)
         height: Image height in pixels (default 1024)
-        steps: Number of diffusion steps (FLUX default 4, SDXL default 25)
-        cfg: CFG scale (FLUX default 1.0, SDXL default 7.5)
-        negative_prompt: Things to avoid in the image (SDXL only)
+        steps: Number of diffusion steps (FLUX default 4, SDXL default 25, qwen-image 20)
+        cfg: CFG scale (FLUX default 1.0, SDXL default 7.5, qwen-image 2.5-4.0)
+        negative_prompt: Things to avoid in the image (SDXL/qwen-image only)
         seed: Random seed, -1 for random
         model: Model to use - 'flux' (fast), 'flux-uncensored' (uncensored),
-               'sdxl' (high quality). Defaults to 'flux'.
+               'sdxl' (high quality), 'qwen-image-2512' (best-in-class text
+               rendering — typography, posters, slides), 'qwen-image-2512-lightning'
+               (same model, 8-step distilled LoRA, fast), or 'qwen-image-edit-2511'
+               (instruction-based image editing, requires image_url). Defaults to 'flux'.
         checkpoint: Override checkpoint filename (optional)
         lora: LoRA filename to apply (optional, from models/loras/)
         lora_strength: LoRA strength 0.0-2.0 (default 1.0)
+        image_url: URL or local path to a reference image (required for qwen-image-edit-2511)
     """
     refusal = await admit(_media_model_key(model), COMFYUI_URL)
     if refusal:
         return refusal
-    workflow, seed = _build_image_workflow(
-        prompt,
-        width,
-        height,
-        steps,
-        cfg,
-        negative_prompt,
-        seed,
-        model,
-        checkpoint,
-        lora,
-        lora_strength,
-    )
+    image_filename = ""
+    if image_url:
+        try:
+            image_filename = await _upload_image_to_comfyui(image_url)
+        except Exception as e:
+            return {"success": False, "error": f"Image upload failed: {e}"}
+    try:
+        workflow, seed = _build_image_workflow(
+            prompt,
+            width,
+            height,
+            steps,
+            cfg,
+            negative_prompt,
+            seed,
+            model,
+            checkpoint,
+            lora,
+            lora_strength,
+            image_filename,
+        )
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
     prompt_id, err = await _submit_comfyui(workflow)
     if err:
         return err

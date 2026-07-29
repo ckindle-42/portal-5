@@ -225,14 +225,10 @@ WAN21_NSFW_VAE = os.getenv("WAN21_NSFW_VAE", "wan_2.1_vae.safetensors")
 # ── Wan 2.2 T2V-A14B model env vars ─────────────────────────────────────────
 # T2V-A14B is a two-expert MoE (high-noise model for the first half of
 # denoising steps, low-noise model for the second half) — there is no single
-# merged checkpoint. Confirmed against the official ComfyUI example workflow
-# (comfyanonymous.github.io/ComfyUI_examples/wan22/text_to_video_wan22_14B.json,
-# 2026-07-29): two UNETLoaders feeding two chained KSamplerAdvanced nodes.
-# A prior version of this file assumed a single merged
-# "Wan2.2-T2V-A14B/diffusion_pytorch_model_comfyui.safetensors" file that does
-# not exist in any maintained repo — that was never live-verified and was
-# wrong. Files: split_files/diffusion_models/wan2.2_t2v_{high,low}_noise_14B_fp8_scaled.safetensors
-# from Comfy-Org/Wan_2.2_ComfyUI_Repackaged (flat layout via pull-wan22, ~13GB each).
+# merged checkpoint, matching ComfyUI's official text_to_video_wan22_14B.json
+# reference workflow. Files: split_files/diffusion_models/
+# wan2.2_t2v_{high,low}_noise_14B_fp8_scaled.safetensors from
+# Comfy-Org/Wan_2.2_ComfyUI_Repackaged (flat layout via pull-wan22, ~13GB each).
 WAN22_T2V_HIGH_NOISE_MODEL = os.getenv(
     "WAN22_T2V_HIGH_NOISE_MODEL", "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
 )
@@ -751,14 +747,12 @@ _WAN22_ANIMATE_14B_WORKFLOW: dict = {
     "_stub_message": (
         "Wan 2.2 Animate-14B requires SAM2 segmentation and DWPreprocessor custom "
         "ComfyUI nodes plus a reference/driving video pipeline, none of which are "
-        "installed (confirmed live 2026-07-29: /object_info has no SAM2 or DWPose "
-        "nodes; ~/ComfyUI/custom_nodes/ has neither package; no local copy of a "
-        "video_wan2_2_14B_animate.json template exists despite a prior claim it "
-        "was 'installed in ComfyUI venv' -- that claim was false, corrected here). "
-        "Installing the missing custom nodes means running third-party code inside "
-        "ComfyUI -- a deliberate call for an operator to make, not something to "
-        "silently add. Too many non-standard, unverified dependencies to wire "
-        "automatically."
+        "installed, and has no official ComfyUI reference workflow to build "
+        "against (see unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-"
+        "on-apple-silicon-mps for the video-generation shelving decision this "
+        "falls under). Installing the missing custom nodes means running "
+        "third-party code inside ComfyUI -- a deliberate operator call, not "
+        "something to silently add."
     ),
 }
 
@@ -1072,19 +1066,29 @@ async def _submit_comfyui(workflow: dict) -> tuple[str | None, dict | None]:
 
 
 async def _upload_image_to_comfyui(image_url: str) -> str:
-    """Fetch image from URL or local path, upload to ComfyUI, return filename."""
+    """Fetch image from a public URL or an already-uploaded workspace file, upload to ComfyUI, return filename."""
     import mimetypes
+
+    from portal.platform.mcp_host import assert_public_http_url, resolve_upload_path
 
     client = await _get_client()
     if image_url.startswith(("http://", "https://")):
+        assert_public_http_url(image_url)
         resp = await client.get(image_url)
         resp.raise_for_status()
         data = resp.content
         fname = image_url.split("/")[-1].split("?")[0] or "upload.png"
     else:
-        with open(image_url, "rb") as fh:
+        # Local paths are never trusted verbatim (Rule 11) — only files
+        # already inside the shared workspace uploads dir can be read.
+        resolved = resolve_upload_path(image_url)
+        if resolved is None:
+            raise ValueError(
+                f"image_url must be an http(s) URL or an existing upload filename, not: {image_url!r}"
+            )
+        with open(resolved, "rb") as fh:
             data = fh.read()
-        fname = os.path.basename(image_url)
+        fname = resolved.name
     content_type = mimetypes.guess_type(fname)[0] or "image/png"
     upload_resp = await client.post(
         f"{COMFYUI_URL}/upload/image",
@@ -1096,19 +1100,27 @@ async def _upload_image_to_comfyui(image_url: str) -> str:
 
 
 async def _upload_audio_to_comfyui(audio_url: str) -> str:
-    """Fetch audio from URL or local path, make available to ComfyUI, return filename."""
+    """Fetch audio from a public URL or an already-uploaded workspace file, make available to ComfyUI, return filename."""
     import mimetypes
+
+    from portal.platform.mcp_host import assert_public_http_url, resolve_upload_path
 
     client = await _get_client()
     if audio_url.startswith(("http://", "https://")):
+        assert_public_http_url(audio_url)
         resp = await client.get(audio_url)
         resp.raise_for_status()
         data = resp.content
         fname = audio_url.split("/")[-1].split("?")[0] or "upload.mp3"
     else:
-        with open(audio_url, "rb") as fh:
+        resolved = resolve_upload_path(audio_url)
+        if resolved is None:
+            raise ValueError(
+                f"audio_url must be an http(s) URL or an existing upload filename, not: {audio_url!r}"
+            )
+        with open(resolved, "rb") as fh:
             data = fh.read()
-        fname = os.path.basename(audio_url)
+        fname = resolved.name
     content_type = mimetypes.guess_type(fname)[0] or "audio/mpeg"
 
     # Try /upload/audio (ComfyUI 0.3.x+)

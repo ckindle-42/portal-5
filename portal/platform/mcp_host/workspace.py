@@ -66,6 +66,36 @@ def get_generated_dir(category: str) -> Path:
     return p
 
 
+def assert_public_http_url(url: str) -> None:
+    """Reject URLs resolving to loopback/link-local/private/reserved addresses.
+
+    Media MCPs (comfyui, video, whisper, ...) let an LLM tool call pass a
+    remote URL (image_url, audio_url, ...) that gets server-side fetched — a
+    prompt-injected model could otherwise be steered into requesting
+    http://169.254.169.254/... (cloud metadata SSRF) or any other internal-only
+    service reachable from the container. Callers must also leave
+    httpx.AsyncClient's default follow_redirects=False in place; this check
+    only covers the request URL itself, not any redirect target.
+    """
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"URL must be http(s), got: {url!r}")
+    if not parsed.hostname:
+        raise ValueError(f"URL has no hostname: {url!r}")
+    try:
+        addrs = socket.getaddrinfo(parsed.hostname, None)
+    except socket.gaierror as e:
+        raise ValueError(f"URL hostname does not resolve: {parsed.hostname!r} ({e})") from e
+    for _family, _type, _proto, _canonname, sockaddr in addrs:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            raise ValueError(f"URL resolves to a non-public address: {parsed.hostname} -> {ip}")
+
+
 def resolve_upload_path(file_id_or_name: str) -> Path | None:
     """Resolve an OWUI upload reference to an absolute path on disk.
 
@@ -87,6 +117,17 @@ def resolve_upload_path(file_id_or_name: str) -> Path | None:
     _url_match = _re.search(r"/files/([^/]+)/", file_id_or_name)
     if _url_match:
         file_id_or_name = _url_match.group(1)
+
+    # Reduce to a bare filename before any lookup. Without this, an absolute
+    # path (e.g. "/etc/passwd") silently discards `uploads` entirely when
+    # joined with `/` (pathlib: Path("/a") / "/b" == Path("/b")), and a
+    # "../"-laden argument could escape the uploads dir via glob/iterdir too
+    # — this is an LLM-controlled tool argument (prompt injection can steer
+    # what gets passed here), so treat it as untrusted input, not a trusted
+    # identifier.
+    file_id_or_name = os.path.basename(file_id_or_name)
+    if not file_id_or_name:
+        return None
 
     # Direct match (exact stored filename)
     direct = uploads / file_id_or_name
