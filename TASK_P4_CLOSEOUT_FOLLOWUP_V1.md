@@ -72,26 +72,33 @@ relevant ComfyUI model-type listings). `video_mcp.py` syntax-checked clean. The
 actual video generation call has **never been made** — this is still an untested
 code path end to end.
 
-**To do:**
-- [ ] Restart ComfyUI (`launchctl kickstart -k gui/$(id -u)/com.portal5.comfyui`)
-      as a clean-state precaution before the real test, even though live re-scan
-      already picked up the files without one.
-- [ ] Re-verify `/object_info/UNETLoader`, `/object_info/VAELoader`,
-      `/object_info/CLIPLoader` still show the three Wan2.2 files post-restart.
-- [ ] Prepare/select a start-frame image — **required input** for `wan22-ti2v-5b`
-      per `video_mcp.py`'s own tool description (image-to-video, not text-to-video).
-- [ ] Run one `start_video_generation` call (`mcp__portal-video__start_video_generation`,
-      `model=wan22-ti2v-5b`) and poll `get_video_status` to completion or failure.
-- [ ] Watch ComfyUI's logs during the run for the pre-existing objc duplicate-class
-      warning (`cv2` and `av` both bundle a `libavdevice` dylib registering the same
-      class names — ComfyUI's own log calls this a risk for "spurious casting
-      failures and mysterious crashes"). It has never actually triggered a failure
-      yet, but if the generation crashes oddly, this is the first thing to check —
-      likely needs pinning one of `cv2`/`av`'s bundled ffmpeg libs.
-- [ ] On success: close out P4 task #10, fold into the closeout report.
-- [ ] On failure: capture full ComfyUI error/log output before touching anything
-      else (don't restart/clear state reflexively — that's how the previous root
-      cause took two sessions to find).
+**Result (2026-07-29): SUCCESS.** First end-to-end Wan2.2 TI2V-5B generation.
+
+- [x] Restarted ComfyUI clean before the test (`launchctl kickstart -k`).
+- [x] Re-verified `/object_info/UNETLoader`/`VAELoader`/`CLIPLoader` post-restart
+      — all three Wan2.2 files present.
+- [x] Generated a start-frame image via `mcp__portal-comfyui__generate_image`
+      (FLUX, puppy-in-meadow). Hit two path-resolution snags getting it to
+      `start_video_generation`: the host `/tmp` path isn't visible inside the
+      `mcp-video` container, and the host `~/AI_Output/uploads/` path isn't
+      either — the container only sees its own mount point. Fix: place the file
+      under the shared workspace and pass the **container-side** path,
+      `/workspace/uploads/<file>` (Rule 11) — not the host path in either form.
+- [x] Ran `start_video_generation(model=wan22-ti2v-5b)` — but it initially
+      failed ComfyUI validation with the exact old nested `split_files/<type>/`
+      paths for all three TI2V-5B files, even though `video_mcp.py`'s source was
+      already fixed. Root cause: `docker-compose.yml`'s `mcp-video` environment
+      block hardcoded the old wrong paths as env var defaults, which override
+      the (correctly fixed) Python-level `os.getenv(...)` defaults at container
+      start — the earlier fix never actually took effect in the running
+      container. Fixed at the source (commit 68e3e97d) and force-recreated the
+      container; retried and the job started cleanly (ETA ~23 min).
+- [x] Watched for the objc duplicate-class warning during the run — it fired
+      (690 occurrences in the log, consistent with prior runs) but did **not**
+      cause a crash or failure. No action needed at this time.
+- [x] On success: downloaded and verified the output — valid H.264 MP4,
+      1024×576, 8fps, 5.125s (41 frames as requested), `portal_ti2v__00001_.mp4`.
+      Closes P4 task #10.
 
 ---
 
@@ -136,8 +143,12 @@ now exits with a clear pointer instead of a bare `ModuleNotFoundError`.
 
 ## Definition of Done
 
-- [ ] Item 1: `smoke_stream.sh` green, streaming.py fix committed.
-- [ ] Item 2: one successful (or clearly diagnosed-failed) Wan2.2 TI2V-5B generation,
-      P4 task #10 closed either way.
-- [ ] Item 3: explicit decision recorded (implement now / defer / not worth it) —
-      doesn't need to be done, just decided.
+- [x] Item 1: `smoke_stream.sh` green, streaming.py fix committed (53cfe938).
+- [x] Item 2: successful Wan2.2 TI2V-5B generation (2026-07-29), P4 task #10 closed.
+- [x] Item 3: implemented for TI2V-5B + S2V-14B (572c0792), T2V-A14B/Animate-14B
+      explicitly deferred with reasons recorded above.
+
+All three items closed 2026-07-29. Also fixed along the way, outside the
+original scope but discovered while executing it: unpinned `mcp` SDK
+dependency broke CI when upstream published a breaking 2.0.0 release
+(3dc92bf6, migration tracked in `TASK_MCP_V2_MIGRATION_V1.md`).
