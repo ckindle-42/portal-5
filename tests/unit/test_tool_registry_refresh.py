@@ -156,7 +156,7 @@ class TestDispatchTimeoutHandling:
             description="desc",
             parameters={},
             server_id="video",
-            server_url=MCP_SERVERS["video"],
+            server_url=MCP_SERVERS["music"],
             healthy=True,
         )
 
@@ -185,7 +185,7 @@ class TestDispatchTimeoutHandling:
             description="desc",
             parameters={},
             server_id="video",
-            server_url=MCP_SERVERS["video"],
+            server_url=MCP_SERVERS["music"],
             healthy=True,
         )
 
@@ -241,7 +241,7 @@ class TestCustomTimeoutFromDiscovery:
             description="desc",
             parameters={},
             server_id="video",
-            server_url=MCP_SERVERS["video"],
+            server_url=MCP_SERVERS["music"],
             healthy=True,
             custom_timeout_s=120.0,
         )

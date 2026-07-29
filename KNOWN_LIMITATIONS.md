@@ -153,9 +153,10 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 ### ComfyUI Model Download Commands Are Broken
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-comfyui-model-download-commands-are-broken -->
-- **Description**: `./launch.sh download-comfyui-models` calls `scripts/download_comfyui_models.py`, deleted in commit `ea864cf` ("superseded by pull-wan22 / pull-qwen-image commands in launch.sh") — but neither `pull-wan22` nor `pull-qwen-image` was ever implemented; both are advertised in `launch.sh --help` with no case handler. Found during Slice P media bring-up (`TASK_MEDIA_BRINGUP_V1`).
-- **Impact**: No `launch.sh` subcommand can download ComfyUI image/video models. Separately, the `flux-uncensored` image backend's expected checkpoint (`Flux_v8-NSFW.safetensors`) has no known working source — the old script's repo (`enhanceaiteam/Flux-Uncensored-V2`) 404s, and no other reference to that filename exists in the codebase.
-- **Mitigation**: Download directly with `hf download` / `huggingface-cli download` — see `docs/COMFYUI_SETUP.md#download-models` for the exact working commands (flux-schnell, sdxl, wan21-nsfw). Rebuilding `pull-wan22`/`pull-qwen-image` (or restoring the deleted script) is open work.
+- **Description**: `./launch.sh download-comfyui-models` calls `scripts/download_comfyui_models.py`, deleted in commit `ea864cf` ("superseded by pull-wan22 / pull-qwen-image commands in launch.sh") — but neither `pull-wan22` nor `pull-qwen-image` was ever implemented; both were advertised in `launch.sh --help` with no case handler. Found during Slice P media bring-up (`TASK_MEDIA_BRINGUP_V1`).
+- **Update (2026-07-29)**: `pull-wan22` is now implemented (`scripts/lib/services.sh:_launch_pull_wan22`) and live-verified for TI2V-5B, S2V-14B, and T2V-A14B model downloads. **Video generation itself is shelved regardless — see `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps`.** `download-comfyui-models` now exits with a clear pointer instead of `ModuleNotFoundError`. `pull-qwen-image` is still unimplemented (image generation, tracked separately — not shelved).
+- **Impact**: No `launch.sh` subcommand can download Qwen-Image models yet. Separately, the `flux-uncensored` image backend's expected checkpoint (`Flux_v8-NSFW.safetensors`) has no known working source — the old script's repo (`enhanceaiteam/Flux-Uncensored-V2`) 404s, and no other reference to that filename exists in the codebase.
+- **Mitigation**: Use `./launch.sh pull-wan22` for Wan 2.2 model downloads (though see the fp8/MPS unit above before relying on the output — most of what it downloads doesn't currently run on Apple Silicon). Download Qwen-Image directly with `hf download` until `pull-qwen-image` is implemented — see `docs/COMFYUI_SETUP.md#download-models`.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -706,6 +707,17 @@ perception pass will halt at I4 before ever attempting the exploit.
 | `Harness-1` (full capability) | n/a | Requires Chroma vector DB + external search state harness. Standalone model (gpt-oss-20B fine-tune) added to V8 bench-harness1. |
 
 *Last updated: 2026-06-10*
+<!-- /WIKI:GENERATED -->
+
+---
+
+### Wan 2.2 fp8_scaled Checkpoints Crash on Apple Silicon MPS (Video Generation Shelved)
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps -->
+- **Description**: Every Wan 2.2 ComfyUI checkpoint published as `*_fp8_scaled.safetensors` (Comfy-Org/Wan_2.2_ComfyUI_Repackaged) crashes at inference time on this host's Apple Silicon MPS + PyTorch 2.13 + comfy_kitchen stack with `RuntimeError: Undefined type Float8_e4m3fn`, thrown from `comfy_kitchen/backends/eager/quantization.py`'s `dequantize_per_tensor_fp8` when it calls `.to(dtype=torch.float8_e4m3fn)`. Confirmed live 2026-07-29 against both `wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors` / `wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors` (T2V-A14B) and `wan2.2_s2v_14B_fp8_scaled.safetensors` (S2V-14B), each with all three `UNETLoader` `weight_dtype` options (`default`, `fp8_e4m3fn`, `fp8_e4m3fn_fast`) — same failure every time, ~5-16s into execution (model-load/first-linear-layer, not deep into sampling). `wan2.2_ti2v_5B_fp16.safetensors` (TI2V-5B) is unaffected because it is full fp16, not fp8-quantized — it generated successfully end to end (`portal_ti2v__00001_.mp4`, verified valid H.264/1024x576/8fps/5.125s).
+- **Impact**: T2V-A14B and S2V-14B are unusable on this hardware via their `_fp8_scaled` checkpoints. The only working alternative is full fp16/bf16 (`wan2.2_t2v_{high,low}_noise_14B_fp16.safetensors` ~28.6GB each, `wan2.2_s2v_14B_bf16.safetensors` ~32.6GB — roughly 90GB combined, against this project's usual quantized-only model policy; this is a genuine hardware blocker rather than a quality tradeoff, but was not pursued — see Decision below). `video_mcp.py`'s `_WAN22_T2V_A14B_WORKFLOW` was also independently found to be architecturally wrong before this — it assumed a single merged checkpoint file that never existed in any maintained repo; fixed to the real two-expert MoE graph (two `UNETLoader` + two chained `KSamplerAdvanced`, node IDs matching ComfyUI's official `text_to_video_wan22_14B.json` reference workflow) in the same session, independent of the fp8 finding.
+- **Decision (2026-07-29)**: Video generation is shelved for this project — Portal 5 will only operate ComfyUI **image** generation (flux/sdxl via `mcp-comfyui`), not video (`mcp-video`). The `mcp-video` container was stopped (`docker compose stop mcp-video`); it is not part of the default `./launch.sh up` set (already `profiles: [comfyui]` gated) and will not be restarted as part of normal operation. The video workflow code (TI2V-5B working, T2V-A14B workflow now architecturally correct but fp8-blocked, S2V-14B same fp8 block, Animate-14B stubbed) is left in place — designed, not deleted — in case Ollama/PyTorch/comfy_kitchen MPS support for fp8 improves later, but nothing video-related should be treated as in operation.
+- **Mitigation**: None pursued. If video generation is revisited: (1) check whether a newer PyTorch/comfy_kitchen release fixes MPS float8_e4m3fn support before re-attempting fp8_scaled checkpoints, (2) if not, the fp16/bf16 download is the fallback, sized above.
 <!-- /WIKI:GENERATED -->
 
 ---

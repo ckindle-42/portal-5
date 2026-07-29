@@ -612,7 +612,7 @@ PYEOF
     echo "  install-comfyui       Install ComfyUI natively via git+pip (Apple Silicon)"
     echo "  install-music         Install Music MCP natively via venv (Apple Silicon / MPS)"
     echo "  download-comfyui-models  REMOVED, no implementation (see download-comfyui-models handler)"
-  echo "  pull-wan22            Pull Wan 2.2 TI2V-5B + S2V-14B ComfyUI models (~24 GB; T2V-A14B/Animate-14B not covered, see scripts/lib/services.sh)"
+  echo "  pull-wan22            Pull Wan 2.2 TI2V-5B + S2V-14B + T2V-A14B ComfyUI models (~50 GB; Animate-14B not covered, see scripts/lib/services.sh)"
   echo "  pull-qwen-image       Pull Qwen-Image-2512 family (2512/Edit-2511/Lightning, ~30 GB) — NOT YET IMPLEMENTED"
     echo "  start-speech          Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
