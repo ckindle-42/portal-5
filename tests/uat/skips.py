@@ -30,6 +30,11 @@ def evaluate_skip_conditions() -> dict:
     # placeholder elsewhere in the file (PIPELINE_API_KEY, GRAFANA_PASSWORD, the
     # comment on line 3 of .env.example, etc.), falsely flagging both bot
     # predicates as "not configured" even with valid tokens set.
+    # Video is shelved (absent from mcp_fleet). Image generation is NOT — it is an
+    # operated capability, so a comfyui outage must stay a real failure, never a
+    # skip. Derived from config + live probe, never hardcoded, so re-registering
+    # video would re-arm its tests automatically.
+    conditions["video_shelved"] = _fleet_member_state("video") in ("shelved", "gated")
     conditions["no_bot_telegram"] = not _env_var_set(env_content, "TELEGRAM_BOT_TOKEN")
     conditions["no_bot_slack"] = not _env_var_set(env_content, "SLACK_BOT_TOKEN")
     fixtures = Path(__file__).resolve().parents[1] / "fixtures"
@@ -67,6 +72,46 @@ def _env_var_set(env_content: str, key: str) -> bool:
         raw = raw.split("#", 1)[0]
     val = raw.strip().strip('"').strip("'")
     return bool(val) and val != "CHANGEME"
+
+
+def _fleet_member_state(fleet_id: str, *, probe: bool = True) -> str:
+    """Classify an MCP fleet member: live | shelved | gated | down.
+
+    Live reality wins over declaration: if the port answers, the member is live
+    regardless of what portal.yaml says, so bringing a profile up re-arms its
+    tests automatically.
+
+    - shelved: absent from mcp_fleet entirely (video, removed 2026-07-29).
+    - gated:   declared for tool advertisement but `default_enabled: false`.
+    - down:    declared, expected live, not answering. This is a REAL failure and
+               deliberately not a skip reason -- masking it would hide an outage.
+               `comfyui` classifies here, by design: images are operated.
+    """
+    import yaml
+
+    cfg = Path(__file__).resolve().parents[2] / "config" / "portal.yaml"
+    try:
+        data = yaml.safe_load(cfg.read_text()) or {}
+    except (OSError, yaml.YAMLError):
+        return "live"  # cannot prove otherwise -- leave tests armed
+    entry = None
+    for server in data.get("mcp_fleet") or []:
+        if isinstance(server, dict) and server.get("id") == fleet_id:
+            entry = server
+            break
+    if entry is None:
+        return "shelved"
+    port = entry.get("port")
+    if probe and port:
+        for endpoint in ("/ready", "/health"):
+            try:
+                if httpx.get(f"http://localhost:{port}{endpoint}", timeout=2).status_code == 200:
+                    return "live"
+            except Exception:
+                continue
+    if entry.get("default_enabled", True) is False:
+        return "gated"
+    return "down"
 
 
 def _bot_container_running(container_name: str) -> tuple[bool, str]:

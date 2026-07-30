@@ -9,7 +9,7 @@
 - **PASS**: 156
 - **WARN**: 11
 - **FAIL**: 27
-- **SKIP**: 31
+- **SKIP**: 32
 - **BLOCKED**: 0
 - **MANUAL**: 1
 
@@ -336,3 +336,4 @@ All routing checks passed — every test was served by its intended primary mode
 
 All routing checks passed — every test was served by its intended primary model.
 | 1 | PASS | [WS-23 Uncensored Coder — Python Argparse CLI](via-dispatcher://auto-coding) | `auto-coding` | 3/3(100%) Code block present=✓(code block present); argparse used=✓(found: ['argparse', 'ArgumentParser', 'add_parser', 'add_subparsers']); Subcommands present=✓(found: ['init', 'run', 'status']) | 81.1s |
+| 1 | SKIP | [WS-11 Video Creator — Storm Timelapse](http://localhost:8080/c/46ac602a-04e8-4a11-b4a4-a80a3f03a7f1) | `auto-video` | 0/0  | 0.0s |
