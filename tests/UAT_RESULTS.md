@@ -6,7 +6,7 @@
 
 ## Summary
 
-- **PASS**: 155
+- **PASS**: 156
 - **WARN**: 11
 - **FAIL**: 27
 - **SKIP**: 31
@@ -335,3 +335,4 @@ All routing checks passed — every test was served by its intended primary mode
 | No actual model returned | 0 |
 
 All routing checks passed — every test was served by its intended primary model.
+| 1 | PASS | [WS-23 Uncensored Coder — Python Argparse CLI](via-dispatcher://auto-coding) | `auto-coding` | 3/3(100%) Code block present=✓(code block present); argparse used=✓(found: ['argparse', 'ArgumentParser', 'add_parser', 'add_subparsers']); Subcommands present=✓(found: ['init', 'run', 'status']) | 81.1s |
