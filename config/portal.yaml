@@ -52,6 +52,12 @@ mcp_fleet:
     port: 8910
     expose_to_pipeline: true
     expose_to_ide: true
+    # mcp-comfyui is profile-gated off by default in docker-compose.yml
+    # ("ComfyUI proven too slow for interactive use on Apple Silicon" --
+    # re-enable with --profile comfyui). Unlike the shelved `video` entry
+    # above, it stays declared here for tool advertisement even when not
+    # live, so validate_system.py's BC check must not fail liveness on it.
+    default_enabled: false
   # id: video (portal-video, :8911) intentionally removed from the fleet
   # 2026-07-29 -- video generation is shelved, not operated. See
   # KNOWN_LIMITATIONS.md "Wan 2.2 fp8_scaled Checkpoints Crash on Apple

@@ -3492,7 +3492,11 @@ def check_fleet_health_reality() -> tuple[str, str, list[dict]]:
 
     portal_cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
     fleet = portal_cfg.get("mcp_fleet") or []
-    ports = [(e.get("id") or e.get("name"), e.get("port")) for e in fleet if e.get("port")]
+    ports = [
+        (e.get("id") or e.get("name"), e.get("port"), e.get("default_enabled", True))
+        for e in fleet
+        if e.get("port")
+    ]
 
     def _up(port: int) -> bool:
         for ep in ("/ready", "/health"):
@@ -3503,17 +3507,25 @@ def check_fleet_health_reality() -> tuple[str, str, list[dict]]:
                 continue
         return False
 
-    subs = [{"name": f"{name} :{port}", "status": "", "detail": ""} for name, port in ports]
-    results = {name: _up(port) for name, port in ports}
+    subs = [{"name": f"{name} :{port}", "status": "", "detail": ""} for name, port, _ in ports]
+    results = {name: _up(port) for name, port, _ in ports}
 
     if not any(results.values()):
         return ("WARN", "stack appears down — skipping fleet health (not a failure)", [])
 
-    down = [f"{name}:{port}" for name, port in ports if not results[name]]
+    # default_enabled: false fleet members (e.g. comfyui, profile-gated off
+    # in docker-compose.yml) stay declared for tool advertisement but must
+    # not fail liveness — they're expected down unless their profile is on.
+    down = [f"{name}:{port}" for name, port, enabled in ports if enabled and not results[name]]
     for sub in subs:
         name = sub["name"].split(" :")[0]
-        sub["status"] = "PASS" if results.get(name) else "FAIL"
-        sub["detail"] = "UP" if results.get(name) else "DOWN (stack otherwise up)"
+        enabled = next(e for n, _p, e in ports if n == name)
+        if results.get(name):
+            sub["status"], sub["detail"] = "PASS", "UP"
+        elif not enabled:
+            sub["status"], sub["detail"] = "WARN", "DOWN (default_enabled: false — expected)"
+        else:
+            sub["status"], sub["detail"] = "FAIL", "DOWN (stack otherwise up)"
 
     if down:
         return (

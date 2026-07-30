@@ -300,6 +300,15 @@ class McpServer(BaseModel):
     expose_to_ide: bool = True
     aliases: list[str] = Field(default_factory=list)
     command: McpServerCommand | None = None
+    default_enabled: bool = Field(
+        default=True,
+        description=(
+            "False for fleet members that stay declared for tool advertisement "
+            "but are profile-gated off by default in docker-compose.yml (e.g. "
+            "comfyui). validate_system.py's fleet-health check must not treat "
+            "these as down when unreachable."
+        ),
+    )
 
 
 class PortalConfig(BaseModel):

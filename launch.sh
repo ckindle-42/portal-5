@@ -402,7 +402,7 @@ case "${1:-up}" in
   clean)
     cd "$COMPOSE_DIR"
     echo "[portal-5] Stopping services..."
-    docker compose down
+    docker compose --profile telegram --profile slack down
 
     echo "[portal-5] Removing Open WebUI data volume..."
     # Remove only the open-webui-data volume — NOT ollama-models
@@ -418,7 +418,7 @@ case "${1:-up}" in
     ;;
   clean-all)
     cd "$COMPOSE_DIR"
-    docker compose down -v --remove-orphans 2>/dev/null || true
+    docker compose --profile telegram --profile slack down -v --remove-orphans 2>/dev/null || true
     docker volume rm portal-5_ollama-models 2>/dev/null || true
     echo "[portal-5] Full clean complete (all volumes removed including Ollama models)."
     echo "WARNING: Models will re-download on next up (several GB)."
