@@ -19,6 +19,6 @@ updated_at: 1785348301.19429
 
 **Project**: Portal 5 — Open WebUI Intelligence Layer  
 **Repository**: https://github.com/ckindle-42/portal-5  
-**Version**: 7.6.0
+**Version**: 8.0.0
 
 ---

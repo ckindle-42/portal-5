@@ -4,112 +4,65 @@ All notable changes to Portal 5 will be documented in this file.
 
 ## [Unreleased]
 
-### Fixed
-- **Coding-tool in-pipeline path**: pipeline-mcp (`:8928`) now exposes its 7 tools over the
-  REST contract (`GET /tools`, `POST /tools/{name}`) the ToolRegistry uses, and is
-  registered in `MCP_SERVERS`. The `auto-coding-agentic` workspace can now actually call
-  `explore_repository` (its mandated first tool) instead of getting "not in registry".
-  opencode/Claude Code (JSON-RPC path) unaffected. `launch.sh` now exports
-  `PIPELINE_MCP_PORT`. Added `tests/unit/test_pipeline_mcp_rest.py`.
+## [8.0.0] — 2026-07-29
+
+Major release. Four independently major-justifying changes since 7.6.0: `video` removed
+from the MCP fleet (consumer-visible tool-advertisement removal), the MCP Python SDK
+migrated v1→v2 (`pyproject.toml` now pins `mcp>=2.0.0,<3.0.0`), MLX retired from chat
+inference leaving Ollama as the sole inference tier, and the two council implementations
+reconciled to one. ~50 Ollama models (~709GB) and ~42GB of broken Wan2.2 `fp8_scaled`
+weights were also reclaimed from disk.
 
 ### Added
-- **Claude Code / opencode integration** — Portal 5 now works as a local AI backend and tool
-  provider for AI coding assistants. Two files at the repo root activate automatically:
-  - **`.mcp.json`** — 6 MCP servers: `filesystem`, `fetch`, `git`, `docker`,
-    `portal-sandbox` (execute_bash/python), `portal-pipeline` (stack introspection + explorer)
-  - **`opencode.jsonc`** — points opencode at portal-pipeline (:9099) as a fully local
-    OpenAI-compat provider; all 95 workspaces available as models; cloud providers disabled
-- **Pipeline MCP server** (`portal_mcp/platform/pipeline_mcp.py`, `:8928`, host-native) —
-  FastMCP service exposing 7 tools to coding tools: `get_pipeline_status`, `list_workspaces`,
-  `get_loaded_models`, `get_metrics_summary`, `get_workspace_recommendation`,
-  `trigger_backend_warmup`, and `explore_repository` (FastContext subagent).
-  Started automatically by `./launch.sh up`.
-- **FastContext repository explorer** — `explore_repository(query)` runs
-  `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF` (Microsoft, 2.5 GB) as a subagent that
-  issues parallel READ/GLOB/GREP calls and returns compact file+line citations. Reduces the main
-  coding agent's exploration token burn by ~50-60% (SWE-bench data). FastContext notes in
-  `config/backends.yaml` updated to reflect its role as a tool-use subagent.
-- **`auto-coding-agentic` workspace** — new Devstral-24B workspace tuned for the Portal 5
-  self-improvement loop: `explore_repository` as first tool, agentic read→explore→edit→verify
-  system prompt, `keep_alive: 15m`. Lighter than `auto-agentic` (no media tools). 95 workspaces
-  total (was 94).
-- **Port 8928** reserved for Pipeline MCP. Port table updated in `CLAUDE.md`, `.env.example`,
-  `imports/openwebui/mcp-servers.json`.
-- **`docs/MCP_DEV_TOOLING.md`** rewritten — full guide covering both tools, FastContext
-  integration, workflow examples for bug fixing / feature addition / MCP server debugging.
-- **`README.md`** updated — workspace count (19 → 30), full workspace table, MCP server list
-  (12 → 14 + pipeline MCP), coding tool integration section.
-
-- **`auto-purpleteam-exec`** — new 4-hop execution-mode purple team workspace. Primary model
-  (JANG-CRACK) has `execute_bash`, `execute_python`, `web_search` tools; runs live attack
-  commands and passes real execution output through Foundation-Sec-8B → Qwen3-Coder-30B →
-  Qwen3.6-27B chain for detection artifacts and IR playbook. Distinct from `auto-purpleteam-deep`
-  (simulation only, no tools).
-- **Tool-loop-aware chain hops** (`portal_pipeline/router/streaming.py`): `_stream_with_chain`
-  now supports per-hop `tools` key. Tool-enabled hops route through `_stream_with_tool_loop_impl`
-  (semaphore-free generator) so a chain can mix plain generation hops with full tool-loop hops.
-- **Bench workspaces**: `bench-vibethinker-3b`, `bench-vibethinker-3b-ablated`,
-  `bench-diffusiongemma`, `bench-gemma4-31b-crack` (Gemma-4-31B-JANG_4M-CRACK). Workspace count
-  91 → 94.
-- **VibeThinker-3B bench results** (2026-06-17): avg=0.938 reasoning, 39s — matches
-  phi4-mini-reasoning (3.8B) at identical score with 46% lower latency. Viable as fast thinking
-  hop in chains. VibeThinker-3B-Ablated: avg=0.775 security (vs 1.000 reference); gap too large
-  for production red-team use, bench-only status confirmed.
-- **UAT catalog**: new `g_auto_pentest.py` (WS-08, WS-09, P-PT01), `g_auto_purpleteam.py`
-  (WS-PT01, WS-PT02, WS-PE01) covering penetration testing and purple team execution workspaces.
-- **Acceptance tests**: S6-05 (auto-redteam-deep), S6-06 (auto-pentest / JANG-CRACK),
-  S6-07 (auto-purpleteam-exec) added to `tests/acceptance/s06_security_workspaces.py`.
-- **bench_security.py DEFAULT_WORKSPACES** expanded: added `auto-redteam-deep` and
-  `auto-purpleteam-exec` to default run set.
-- **`bench/prompts.py` WORKSPACE_PROMPT_MAP** backfilled for all workspaces added since TC-6:
-  `auto-bigfix`, `auto-cad`, `auto-redteam-deep`, `auto-pentest`, `auto-purpleteam-deep`,
-  `auto-purpleteam-exec`; new bench workspaces `bench-vibethinker-3b`, `bench-vibethinker-3b-ablated`,
-  `bench-gemma4-31b-crack`, `bench-supergemma4`, `bench-c3d-v0`, `bench-fastcontext`,
-  `bench-diffusiongemma`, `bench-qwopus-coder-mtp-v2`.
-- **backends.yaml**: JANG-CRACK added to `ollama-security` group (duplicate entry pattern, same
-  as supergemma4) so hint validator correctly resolves `auto-pentest` model_hint.
+- **RBP program closeout, P1–P5** — security-arm reconciliation across council quorum
+  (P1), platform-council-vs-solo benching (P2), benign alert-fatigue measurement (P3),
+  disk reclamation (P5, ~709GB/50 models), and this closeout gate (P4). The 66.7%
+  benign false-flag rate measured in P3 is a known, shipped limitation — see
+  `KNOWN_LIMITATIONS.md`, not fixed in this release.
+- **Spine code-coverage ratchet** (`portal/platform/wiki/coverage.py`,
+  `validate_system.py` check **BR**) — the code→spine authority inversion the doc-generation
+  arc designed but never landed. Measures the fraction of eligible Python surfaces cited by
+  a non-aggregate wiki unit (aggregate `unit-code-*` citations excluded from the numerator to
+  avoid grading the generator against its own output), pins the current uncovered set as a
+  baseline, and fails CI only on *growth* of that set. New code can no longer land with zero
+  spine coverage unnoticed.
+- **UAT dispatcher host-side resolution** — `tests/uat/config.py`/`skips.py` now rewrite
+  `.env`'s compose-internal `PIPELINE_URL` to `localhost` when run host-side, recovering
+  31 `via_dispatcher` UAT cases that had silently reported SKIP (never actually executed)
+  since the containerized-bot hostname never resolved from the host driver.
+- **Fleet-member state classification** (`tests/uat/skips.py::_fleet_member_state`) —
+  classifies an MCP fleet member as live/shelved/gated/down from `config/portal.yaml` plus
+  a live port probe, replacing hardcoded skip conditions. WS-11 (video) now reports
+  `SKIP: video_shelved` instead of a permanent, unwinnable FAIL.
 
 ### Changed
-- **`auto-pentest` primary model** upgraded: `xploiter/pentester:v2` (Phi-2 1.6B, no tools) →
-  `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:Q4_K_M` (31B, bench score 0.933 vs prior
-  supergemma4 0.867, audit-tools verified `finish_reason=tool_calls`). `execute_bash`,
-  `execute_python`, `web_search` tools now active for live PoC validation.
-- **`auto-redteam`** tools cleared (`tools: []`). Previously had 5 tools active; qwen3.5-abliterated
-  was attempting tool calls instead of generating structured red team content, collapsing scores
-  (0.10–0.46 → 0.915 after fix). Red team simulation workspaces intentionally have no tools.
-- **`auto-redteam-deep`** — SuperGemma4-26B-uncensored promoted as primary (bench_security 0.915,
-  6.7 ATT&CK IDs avg, 0 disclaimers).
-- **Security workspace tool philosophy** clarified across three tiers:
-  - *Simulation* (`auto-redteam`, `auto-redteam-deep`, `auto-purpleteam-deep`): `tools: []` — pure generation
-  - *Research* (`auto-security`): `web_search`, `kb_search`
-  - *Execution* (`auto-pentest`, `auto-purpleteam-exec`): `execute_bash`, `execute_python`, `web_search`
-- **LLM intent router — three-tier model selection** (`portal_pipeline/router/routing.py`,
-  `.env.example`, `deploy/portal-5/docker-compose.yml`): router bench across 17 candidates
-  promoted a three-tier scheme. PRIMARY `hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`
-  (82.2% acc / 77.8% sec / ~840ms / 5.3GB) replaces the prior QuantFactory abliterated default;
-  STANDBY `llama3.2:3b` (75.3% / 66.7% / ~433ms) and FALLBACK `qwen2.5:1.5b`
-  (67.1% / 77.8% / ~339ms) selectable via env without code change. `LLM_ROUTER_TIMEOUT_MS`
-  default raised 500 → 1000 to fit PRIMARY warm latency; `OLLAMA_MAX_LOADED_MODELS` raised
-  2 → 3 so the router stays warm alongside two inference models under full fleet load.
+- **Image generation ungated, video generation shelved onto its own compose profile** —
+  `mcp-comfyui` (FLUX/Qwen-Image) now starts unconditionally with the rest of the stack;
+  video was the actual blocker (Wan2.2 T2V-A14B `fp8_scaled` crashes on Apple Silicon MPS),
+  but shared a compose profile with images, so gating video silently took image generation
+  down with it. `mcp-video` now has its own `video` profile so shelving it can never gate
+  images again. `validate_system.py`'s BC fleet-health check now PASSes on genuine comfyui
+  liveness rather than a `default_enabled: false` excuse.
+- **MCP Python SDK v1 → v2** across all MCP tool servers (`portal/modules/*/tools/*_mcp.py`,
+  `portal/platform/{mcp_host,memory}/`). `pyproject.toml` pins `mcp>=2.0.0,<3.0.0`.
+- **Ollama-only inference, steady state** — the MLX inference proxy (formerly
+  :8081/:18081/:18082) stays retired; MLX continues to serve speech/TTS+ASR (:8918),
+  diarized transcription (:8924), embeddings (:8917), and the RAG reranker (:8925).
+- **Council implementations reconciled to one** — the platform council and security-arm
+  council paths, previously two independent implementations, now share one quorum/scoring
+  path (checks BE/BL/BO/BP).
+- **Disk footprint** — ~709GB / 50 models reclaimed 2026-07-28 (see
+  `config/UNUSED_MODELS_20260721.md`), plus ~42GB of broken Wan2.2 `fp8_scaled` weights
+  2026-07-29. No workspace, backend group, or persona `model_pin` referenced a reclaimed
+  weight; every KEEP model verified present and loadable at release time.
+- Fleet/workspace/persona counts as of this release: 88 workspaces, 23 MCP fleet members,
+  138 personas (`ls config/personas/*.yaml | wc -l`).
 
 ### Fixed
-- **`keep_alive` hard override** (`portal_pipeline/router_pipe.py`): workspace-declared `keep_alive`
-  now uses direct assignment instead of `setdefault`. Open WebUI was sending its own `keep_alive`
-  value in request bodies, silently overriding workspace config (bench `5m`/production `10-15m`
-  settings ignored). Large models were pinned in VRAM indefinitely, blocking subsequent bench runs.
-  Workspace value wins when declared; OWUI value still wins when no workspace `keep_alive` is set.
-- **UAT driver modularized** (TASK_UAT_MODULARIZE_V1): `tests/portal5_uat_driver.py`
-  (4,540 lines) decomposed into the `tests/uat/` package (17 modules), mirroring
-  the landed `tests/benchmarks/bench/` pattern; the driver file is now a thin
-  entry-point shim with the full public surface re-exported. CLI invocation,
-  behavior, and test catalog unchanged. Unit-test monkeypatch targets repointed
-  to owning modules.
-- **UAT routing telemetry** — `run_test` referenced the undefined name
-  `pipeline_backend` inside a swallowed exception path, so `_ROUTING_LOG` was
-  never populated and the Routing Summary never emitted; now resolved via
-  `_get_backend_from_pipeline_logs`. Also fixed the undefined `silent_ollama`
-  reference in `_write_routing_summary`'s all-clear branch (latent NameError),
-  and the driver's `--help`/script invocation no longer requires `PYTHONPATH=`.
+- **native MCP launchers invoked bare `python3`**, which resolved to whatever was first on
+  `$PATH` and could pick up an incompatible global `mcp` package after the SDK v2 migration,
+  crash-looping silently on import. Host-native launchers now pin `.venv/bin/python3`.
+- Slack/Telegram bot containers now tear down cleanly on `./launch.sh down`.
 
 ## [7.5.0] — 2026-06-11
 

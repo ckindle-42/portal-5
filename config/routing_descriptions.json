@@ -1,5 +1,5 @@
 {
-  "_version": "2.0",
+  "_version": "2.1",
   "_note": "Workspace capability descriptions used by the LLM intent router (P5-FUT-006). Edit to tune routing accuracy. Version bumped when workspaces added/changed. Bumped to 2.0 by alias-retirement Phase 7 (DESIGN_ROUTER_CANONICALIZATION_V1.md): the 10 pre-collapse alias entries (auto-agentic, auto-blueteam, auto-redteam, auto-redteam-deep, auto-pentest, auto-purpleteam, auto-purpleteam-deep, auto-purpleteam-exec, auto-mistral, auto-phi4) are retired — their intent is folded into the base descriptions below, and a post-classification keyword pass (_infer_variant in routing.py, using _CODING_VARIANT_SIGNALS/_SECURITY_VARIANT_SIGNALS) recovers the specific variant the LLM used to select directly. The LLM now only ever classifies into a canonical base workspace id.",
   "auto": "General conversation, questions that do not clearly fit any specialist workspace, greetings, casual chat.",
   "auto-audio": "Audio analysis, podcast summarization, speech transcription, voice notes. Does NOT generate audio — use auto-music or auto-video for generation.",
@@ -11,6 +11,7 @@
   "auto-daily": "Everyday personal assistant tasks, quick factual questions, scheduling, email drafting, summaries, general productivity. Also covers STEM reasoning, chain-of-thought, mathematics, science, and rigorous multi-step technical analysis requests.",
   "auto-data": "Data analysis, statistics, visualization guidance, exploratory data analysis, data cleaning strategies, metric interpretation, business intelligence.",
   "auto-documents": "Creating Word documents, Excel spreadsheets, PowerPoint presentations, and diarized audio transcripts (with speaker labels) using MCP tool servers.",
+  "auto-image": "Generating images via ComfyUI/FLUX/Qwen-Image, describing image concepts, visual composition, diagrams, artwork, photos, illustrations, isometric/technical drawings.",
   "auto-math": "Mathematics, equations, symbolic computation, calculus, linear algebra, probability, statistics, numerical methods, step-by-step solutions.",
   "auto-music": "Generating music and audio tracks via AudioCraft/MusicGen, describing musical ideas, composition, beat generation.",
   "auto-reasoning": "Complex multi-step analysis, research synthesis, pros/cons evaluation, trade-off comparison, detailed breakdowns, deep dives, step-by-step explanations of complex topics. Also covers structured strategic reasoning, business analysis, and planning with explicit thinking-mode requests (e.g. Magistral/Mistral-lineage model requests) — these are the same discipline, strategic analysis under extended reasoning.",

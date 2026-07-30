@@ -19,7 +19,7 @@ updated_at: 1784946220.5889852
 Portal 5 v7 Roadmap
 ===================
 Last updated: 2026-06-25
-Version: 7.6.0 (production-ready)
+Version: 8.0.0 (production-ready)
 
 LEGEND: P1=Critical, P2=High, P3=Medium
 STATUS: DONE, BLOCKED, CANCELED
