@@ -32,6 +32,11 @@ def _get_current_commit() -> str:
         return "unknown"
 
 
+def discover_python_files() -> list[Path]:
+    """Public alias — the coverage gate shares this eligibility definition."""
+    return _discover_python_files()
+
+
 def _discover_python_files() -> list[Path]:
     """Find repository-eligible Python files without indexing ignored scratch data."""
     try:

@@ -2822,6 +2822,10 @@ def main() -> int:
         "BQ. benign alert-fatigue semantics",
         check_benign_alert_fatigue,
     )
+    v.run(
+        "BR. spine code coverage ratchet (new code must carry a covering unit)",
+        check_spine_code_coverage,
+    )
 
     return v.summary()
 
@@ -4705,6 +4709,81 @@ def check_benign_alert_fatigue() -> tuple[str, str, list[dict]]:
     if not (populated and false_flag and both_axes):
         return ("FAIL", "benign alert-fatigue invariant failed", subs)
     return ("PASS", "benign precision and false-flag semantics populated", subs)
+
+
+def check_spine_code_coverage() -> tuple[str, str, list[dict]]:
+    """BR. Code drives the spine: no new code surface may land without a covering unit.
+
+    The spine already propagates forward (unit changes regenerate docs). This is the
+    converse gate. It is a ratchet, not a cliff: `config/spine_coverage_baseline.yaml`
+    pins today's uncovered surfaces, and only *growth* of that set fails. Aggregate
+    `unit-code-*` citations are excluded from the numerator — counting a generator's
+    own output as coverage is the circularity the doc-generation arc already paid for.
+    """
+    from portal.platform.wiki.coverage import (
+        BASELINE_RELPATH,
+        compute_coverage,
+        load_baseline,
+        ratchet_violations,
+        retired_baseline_entries,
+    )
+
+    baseline_path = REPO_ROOT / BASELINE_RELPATH
+    if not baseline_path.exists():
+        return (
+            "FAIL",
+            f"missing {BASELINE_RELPATH} — regenerate it before this gate can hold",
+            [
+                {
+                    "name": "baseline present",
+                    "status": "FAIL",
+                    "detail": f"{BASELINE_RELPATH} not found",
+                }
+            ],
+        )
+
+    report = compute_coverage(REPO_ROOT)
+    baseline = load_baseline(REPO_ROOT)
+    violations = ratchet_violations(report, baseline, REPO_ROOT)
+    retired = retired_baseline_entries(report, baseline, REPO_ROOT)
+
+    subs = [
+        {
+            "name": "no new uncovered code surface",
+            "status": "PASS" if not violations else "FAIL",
+            "detail": (
+                "every code surface is baselined or covered"
+                if not violations
+                else f"{len(violations)} new uncovered: {', '.join(violations[:8])}"
+            ),
+        },
+        {
+            "name": "coverage measured",
+            "status": "PASS",
+            "detail": (
+                f"{len(report.covered)}/{len(report.eligible)} surfaces "
+                f"({report.pct:.1f}%) cited by a non-aggregate unit"
+            ),
+        },
+        {
+            "name": "baseline is current",
+            "status": "PASS" if not retired else "WARN",
+            "detail": (
+                "no stale entries"
+                if not retired
+                else f"{len(retired)} entries now covered or deleted — re-pin to bank the gain"
+            ),
+        },
+    ]
+    if violations:
+        return (
+            "FAIL",
+            f"{len(violations)} code surface(s) landed with no covering wiki unit",
+            subs,
+        )
+    if retired:
+        return ("WARN", f"baseline has {len(retired)} stale entries — re-pin", subs)
+    return ("PASS", f"code coverage ratchet held at {report.pct:.1f}%", subs)
 
 
 if __name__ == "__main__":
