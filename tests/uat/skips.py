@@ -6,10 +6,11 @@ phase C).
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import httpx
+
+from tests.uat import config
 
 # Skip condition detection
 # ---------------------------------------------------------------------------
@@ -120,8 +121,11 @@ async def _run_via_dispatcher(
     ``request.query_params.get("variant"/"model")`` directly off its own
     incoming request.
     """
-    api_key = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
-    pipeline_url = os.environ.get("PIPELINE_URL", "http://localhost:9099")
+    # config.PIPELINE_URL, not os.environ — .env's compose-internal hostname is
+    # unresolvable host-side. Attribute access (not a from-import) keeps this
+    # monkeypatchable, matching config.RESULTS_FILE's documented convention.
+    api_key = config.PIPELINE_API_KEY
+    pipeline_url = config.PIPELINE_URL
     payload = {
         "model": workspace,
         "messages": [{"role": "user", "content": prompt}],

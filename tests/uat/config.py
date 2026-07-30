@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from dotenv import load_dotenv
 
@@ -18,10 +19,46 @@ from dotenv import load_dotenv
 if os.environ.get("UNIT_TEST_MODE") != "1":
     load_dotenv()
 
+# Compose-internal hostnames are unresolvable from the host, and this driver runs
+# host-side. `.env` ships PIPELINE_URL=http://portal-pipeline:9099 (see
+# .env.example:197) for the containerized bots; load_dotenv() puts that value in
+# os.environ, so `os.environ.get("PIPELINE_URL", "http://localhost:9099")` never
+# reaches its localhost default and every via_dispatcher test died with
+# "ConnectError: nodename nor servname provided" — 31 cases reported as SKIP and
+# therefore never actually executed. Same class of bug, same fix as
+# tests/benchmarks/bench_lab_exec.py's _ENV_KEYS_SKIP_FROM_DOTENV.
+_COMPOSE_ONLY_HOSTS = frozenset(
+    {
+        "portal-pipeline",
+        "portal5-pipeline",
+        "portal-5-pipeline",
+        "host.docker.internal",
+    }
+)
+
+
+def _host_side_url(raw: str, fallback: str) -> str:
+    """Rewrite a compose-internal hostname to localhost, preserving port and path.
+
+    Anything else — real hostnames, IPs, an already-correct localhost URL — is
+    returned untouched, so an operator who deliberately points the driver at a
+    remote pipeline keeps that behavior.
+    """
+    if not raw:
+        return fallback
+    parts = urlsplit(raw)
+    if not parts.hostname or parts.hostname not in _COMPOSE_ONLY_HOSTS:
+        return raw
+    netloc = "localhost" if parts.port is None else f"localhost:{parts.port}"
+    return urlunsplit((parts.scheme or "http", netloc, parts.path, parts.query, parts.fragment))
+
+
 # Config
 # ---------------------------------------------------------------------------
 
 OPENWEBUI_URL = os.environ.get("OPENWEBUI_URL", "http://localhost:8080")
+PIPELINE_URL = _host_side_url(os.environ.get("PIPELINE_URL", ""), "http://localhost:9099")
+PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
 ADMIN_EMAIL = os.environ.get("OPENWEBUI_ADMIN_EMAIL", "admin@portal.local")
 ADMIN_PASS = os.environ.get("OPENWEBUI_ADMIN_PASSWORD", "")
 
