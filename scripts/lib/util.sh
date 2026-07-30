@@ -164,6 +164,13 @@ _ensure_native_services() {
     ARCH=$(uname -m)
     echo "[portal-5] Checking native services..."
 
+    # Native launchers below must use the project's own venv, not a bare
+    # `python3` — that resolves to whatever's first on PATH (e.g. Homebrew's
+    # global Python), which lacks this project's pinned `mcp`/`portal` deps
+    # and makes these services crash-loop silently on import errors.
+    local PY="$PORTAL_ROOT/.venv/bin/python3"
+    [ -x "$PY" ] || PY="python3"
+
     # ── Ollama ───────────────────────────────────────────────────────────────
     if command -v ollama &>/dev/null; then
         if ! curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
@@ -244,7 +251,7 @@ _ensure_native_services() {
 
     # ── MLX Speech (Apple Silicon native only) ──────────────────────────────
     if [ "$ARCH" = "arm64" ]; then
-        if python3 -c "import mlx_audio" &>/dev/null 2>&1; then
+        if "$PY" -c "import mlx_audio" &>/dev/null 2>&1; then
             local SPEECH_PID_FILE="/tmp/portal-mlx-speech.pid"
             local SPEECH_SCRIPT="$PORTAL_ROOT/scripts/mlx-speech.py"
             if [ -f "$SPEECH_PID_FILE" ] && kill -0 "$(cat "$SPEECH_PID_FILE")" 2>/dev/null; then
@@ -252,7 +259,7 @@ _ensure_native_services() {
             elif [ -f "$SPEECH_SCRIPT" ]; then
                 echo "[portal-5]   MLX Speech installed but not running — starting..."
                 mkdir -p "$HOME/.portal5/logs"
-                nohup python3 "$SPEECH_SCRIPT" \
+                nohup "$PY" "$SPEECH_SCRIPT" \
                     >> "$HOME/.portal5/logs/mlx-speech.log" 2>&1 &
                 echo $! > "$SPEECH_PID_FILE"
                 echo "[portal-5]   ✅ MLX Speech started on :${MLX_SPEECH_PORT:-8918}"
@@ -269,7 +276,7 @@ _ensure_native_services() {
         elif [ -f "$TRANSCRIBE_SCRIPT" ]; then
             echo "[portal-5]   MLX Transcribe not running — starting..."
             mkdir -p "$HOME/.portal5/logs"
-            nohup python3 "$TRANSCRIBE_SCRIPT" \
+            nohup "$PY" "$TRANSCRIBE_SCRIPT" \
                 >> "$HOME/.portal5/logs/mlx-transcribe.log" 2>&1 &
             echo $! > "$TRANSCRIBE_PID_FILE"
             echo "[portal-5]   ✅ MLX Transcribe started on :${MLX_TRANSCRIBE_PORT:-8924}"
@@ -293,7 +300,7 @@ _ensure_native_services() {
         OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}" \
         PIPELINE_MCP_REPO_ROOT="$PORTAL_ROOT" \
         PIPELINE_MCP_PORT="${PIPELINE_MCP_PORT:-8928}" \
-        nohup python3 -m "$PIPELINE_MCP_MODULE" \
+        nohup "$PY" -m "$PIPELINE_MCP_MODULE" \
             >> "$HOME/.portal5/logs/pipeline-mcp.log" 2>&1 &
         echo $! > "$PIPELINE_MCP_PID_FILE"
         echo "[portal-5]   ✅ Pipeline MCP started on :${PIPELINE_MCP_PORT:-8928}"
@@ -311,7 +318,7 @@ _ensure_native_services() {
         mkdir -p "$HOME/.portal5/logs"
         PYTHONPATH="$PORTAL_ROOT" \
         MITRE_MCP_PORT="${MITRE_MCP_PORT:-8929}" \
-        nohup python3 -m portal.modules.security.tools.mitre_mcp \
+        nohup "$PY" -m portal.modules.security.tools.mitre_mcp \
             >> "$HOME/.portal5/logs/mitre-mcp.log" 2>&1 &
         echo $! > "$MITRE_MCP_PID_FILE"
         echo "[portal-5]   ✅ MITRE MCP started on :${MITRE_MCP_PORT:-8929}"
@@ -327,7 +334,7 @@ _ensure_native_services() {
         mkdir -p "$HOME/.portal5/logs"
         PYTHONPATH="$PORTAL_ROOT" \
         DETECTIONS_MCP_PORT="${DETECTIONS_MCP_PORT:-8932}" \
-        nohup python3 -m portal.modules.security.tools.detections_mcp \
+        nohup "$PY" -m portal.modules.security.tools.detections_mcp \
             >> "$HOME/.portal5/logs/detections-mcp.log" 2>&1 &
         echo $! > "$DETECTIONS_MCP_PID_FILE"
         echo "[portal-5]   ✅ Detections MCP started on :${DETECTIONS_MCP_PORT:-8932}"
@@ -345,7 +352,7 @@ _ensure_native_services() {
         PYTHONPATH="$PORTAL_ROOT" \
         OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}" \
         WIKI_MCP_PORT="${WIKI_MCP_PORT:-8931}" \
-        nohup python3 -m portal_wiki.wiki_mcp \
+        nohup "$PY" -m portal_wiki.wiki_mcp \
             >> "$HOME/.portal5/logs/wiki-mcp.log" 2>&1 &
         echo $! > "$WIKI_MCP_PID_FILE"
         echo "[portal-5]   ✅ Wiki MCP started on :${WIKI_MCP_PORT:-8931}"
@@ -355,8 +362,14 @@ _ensure_native_services() {
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
 _do_down() {
     # ── Stop Docker stack ─────────────────────────────────────────────────
+    # --profile telegram/slack must be passed even when those tokens aren't
+    # configured: `down` only tears down services in the active profile set,
+    # so without these flags the profiled portal-slack/portal-telegram
+    # containers are silently left running/exited and orphaned across a
+    # Docker daemon restart (stale network reference, fails to start on
+    # next `up`). Safe to pass unconditionally — a no-op if absent.
     cd "$COMPOSE_DIR"
-    docker compose down
+    docker compose --profile telegram --profile slack down
     echo "[portal-5] Docker stack stopped."
 
     # ── Stop native macOS services (ComfyUI, Music MCP, Speech) ──────────────

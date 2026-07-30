@@ -62,7 +62,7 @@ _launch_restore() {
     [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || { echo "Aborted."; exit 0; }
 
     # Stop stack before restore
-    cd "$COMPOSE_DIR" && docker compose down 2>/dev/null; cd - > /dev/null
+    cd "$COMPOSE_DIR" && docker compose --profile telegram --profile slack down 2>/dev/null; cd - > /dev/null
 
     # Restore Open WebUI data
     if [ -f "${BACKUP_PATH}/openwebui-data.tar.gz" ]; then
