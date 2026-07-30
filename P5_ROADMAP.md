@@ -33,7 +33,6 @@ they are not kept in the active queue.
 | P5-FUT-MODEL-CHAINWALK | P2 | Live `preferred_models` chain-walk | OPEN | Add cached Ollama availability, bounded chain resolution, and a served-chain-position metric. |
 | P5-FUT-RBP-MCP-SECURITY | P2 | MCP Security Assessment challenge class | DESIGN NEEDED | Define malicious/instrumented MCP lab fixtures and scoring for tool-layer compromise. |
 | P5-FUT-RBP-LLM-SECURITY-EXPAND | P2 | Expand OWASP LLM Top 10 coverage | DESIGN NEEDED | Extend `portal/modules/security/core/llm_redteam.py` beyond the current thin probe set and replace substring-only grading. |
-| P5-FUT-DISK-CLEANUP-001 | P2 | Delete confirmed-unused Ollama models | VERIFY THEN EXECUTE | Reconcile `config/UNUSED_MODELS_20260721.md` against the live loaded set before deletion. |
 | P5-FUT-ABLATION-CAPTURE-PERSIST | P2 | Persist Expert/Hunter handoffs in the corpus driver | OPEN | Save each handoff beside the existing raw verdict so future model-swap studies do not require a full rerun. |
 <!-- /WIKI:GENERATED -->
 
