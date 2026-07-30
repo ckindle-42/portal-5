@@ -586,17 +586,19 @@ services:
       start_period: 120s
       retries: 3
 
-  # ── MCP: ComfyUI Bridge (image/video via ComfyUI) ────────────────────────────
-  # Disabled by default — ComfyUI proven too slow for interactive use on Apple Silicon.
-  # Re-enable: ./launch.sh up --profile comfyui
-  # Requires: ComfyUI running at COMFYUI_URL + models downloaded via launch.sh pull-wan22
+  # ── MCP: ComfyUI Bridge (image generation) ───────────────────────────────────
+  # Enabled by default — image generation is an operated capability.
+  # History: this was gated because *video* was the blocker (Wan2.2 T2V-A14B
+  # fp8_scaled crashes on Apple Silicon MPS), and mcp-comfyui shared a profile
+  # with mcp-video, so gating video took images down with it. Image generation
+  # itself was never the problem. Video now has its own profile; see below.
+  # Requires: ComfyUI running at COMFYUI_URL (host-native launchd on this host).
   mcp-comfyui:
     build:
       context: ../..
       dockerfile: Dockerfile.mcp
     container_name: portal5-mcp-comfyui
     restart: unless-stopped
-    profiles: [comfyui]
     ports:
       - "127.0.0.1:${COMFYUI_MCP_HOST_PORT:-8910}:8910"
     environment:
@@ -620,15 +622,18 @@ services:
       retries: 3
 
   # ── MCP: Video Generation (via ComfyUI Wan2.2) ────────────────────────────
-  # Disabled by default — see mcp-comfyui comment above.
-  # Re-enable: ./launch.sh up --profile comfyui
+  # SHELVED 2026-07-29 — T2V-A14B fp8_scaled crashes on Apple Silicon MPS; see
+  # KNOWN_LIMITATIONS.md. Removed from portal.yaml's mcp_fleet so no tools are
+  # advertised. Definition retained deliberately. Own profile (not `comfyui`) so
+  # shelving video never gates the operated image lane.
+  # Re-enable if revisited: ./launch.sh up --profile video
   mcp-video:
     build:
       context: ../..
       dockerfile: Dockerfile.mcp
     container_name: portal5-mcp-video
     restart: unless-stopped
-    profiles: [comfyui]
+    profiles: [video]
     ports:
       - "127.0.0.1:${VIDEO_MCP_HOST_PORT:-8911}:8911"
     environment:
