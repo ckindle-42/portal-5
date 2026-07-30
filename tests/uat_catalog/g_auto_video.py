@@ -18,7 +18,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "workspace_tier": "media_heavy",
         "media_kind": "video",
         "artifact_ext": "mp4",
-        "skip_if": "no_comfyui",
+        "skip_if": ["no_comfyui", "video_shelved"],
         "force_unload_before": True,
         "prompt": (
             "Generate a 3-second video: a timelapse of storm clouds building over a city skyline, "
