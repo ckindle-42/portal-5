@@ -1,0 +1,24 @@
+{
+  "proposed_id": "proposed-unit-wiki-spine-coverage-gate-1785380311",
+  "unit_id": "unit-wiki-spine-coverage-gate",
+  "kind": "mixed",
+  "title": "Spine code-coverage gate (portal/platform/wiki/coverage.py)",
+  "sources": [
+    {
+      "type": "code",
+      "path": "portal/platform/wiki/coverage.py"
+    }
+  ],
+  "body": "## What\n\n`portal/platform/wiki/coverage.py` measures code-surface coverage for the wiki\nspine: the fraction of eligible Python files cited by at least one non-aggregate\ncanonical unit. It is the data source for `validate_system.py`'s check **BR**\n(spine code coverage ratchet).\n\n## Why\n\nThe spine's single-write-point discipline already guarantees the forward\ndirection \u2014 a unit change regenerates its downstream docs. It never guaranteed\nthe converse: that new code arrives with a unit describing it. This module\nmeasures the converse.\n\n`unit-code-<subsystem>` aggregate units (auto-seeded by `adapters/seed_code.py`)\nare excluded from the coverage numerator. Those units cite only the first five\nfiles of a subsystem while titling themselves with the full file count \u2014\ncounting them as coverage would grade the generator against its own output,\nthe same circularity the doc-generation arc paid for elsewhere.\n\nA 100% coverage assertion is unreachable today (46/605 eligible files, 7.6%,\nmeasured when this module landed), so the gate is a ratchet, not a cliff:\n`config/spine_coverage_baseline.yaml` pins the current uncovered set, and only\ngrowth of that set fails CI. The baseline may shrink freely as units are added.\n",
+  "tags": [
+    "wiki",
+    "coverage",
+    "validate-system",
+    "BR"
+  ],
+  "proposed_by": "TASK_P4_P5_CLOSEOUT_V8_CUT_V1-phase6",
+  "proposed_at": 1785380311.887251,
+  "status": "confirmed",
+  "auto_confirm": true,
+  "supersede": false
+}

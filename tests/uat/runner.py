@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import time
 from pathlib import Path
 
 import httpx
 
-from tests.uat import state
+from tests.uat import config, state
 from tests.uat.browser import _navigate_to_chat, _send_and_wait
 from tests.uat.calibration import _emit_corpus_row
 from tests.uat.config import MAX_WAIT_NO_PROGRESS, OPENWEBUI_URL, SCREENSHOT_DIR
@@ -45,7 +46,13 @@ from tests.uat.skips import _bot_container_running, _run_via_dispatcher
 # Model cascade ordering
 # ---------------------------------------------------------------------------
 
-_PIPELINE_METRICS_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099") + "/metrics"
+# config.PIPELINE_URL, not os.environ — same class of bug fixed in
+# tests/uat/skips.py: .env's compose-internal hostname is unresolvable
+# host-side, which silently broke every pipeline_tool_called assertion
+# (the bare except below caught the connection failure and returned 0.0
+# unconditionally, before and after, making every delta trivially 0
+# regardless of whether a tool was actually dispatched).
+_PIPELINE_METRICS_URL = config.PIPELINE_URL + "/metrics"
 
 
 def _snapshot_tool_calls() -> float:
@@ -67,6 +74,44 @@ def _snapshot_tool_calls() -> float:
         return total
     except Exception:
         return 0.0
+
+
+_ERROR_TYPE_RE = re.compile(r'error_type="([^"]+)"')
+
+
+def _snapshot_pipeline_errors(workspace: str) -> dict[str, float]:
+    """Return {error_type: count} from portal_errors_total for one workspace.
+
+    Used to distinguish a confirmed backend-reported failure (empty_completion,
+    tool_parse_failure, stream_error, etc. — see streaming.py's _record_error
+    calls) from a merely-slow response, so the empty-response retry loop can
+    name the actual cause instead of guessing "backend instability."
+    """
+    counts: dict[str, float] = {}
+    try:
+        resp = httpx.get(_PIPELINE_METRICS_URL, timeout=5)
+        needle = f'workspace="{workspace}"'
+        for ln in resp.text.splitlines():
+            if not ln.startswith("portal_errors_total{") or needle not in ln:
+                continue
+            m = _ERROR_TYPE_RE.search(ln)
+            if not m:
+                continue
+            try:
+                counts[m.group(1)] = counts.get(m.group(1), 0.0) + float(ln.rsplit(" ", 1)[-1])
+            except ValueError:
+                pass
+    except Exception:
+        pass
+    return counts
+
+
+def _new_pipeline_error_type(before: dict[str, float], after: dict[str, float]) -> str:
+    """Return the first error_type whose count grew from ``before`` to ``after``, else ""."""
+    for error_type, count in after.items():
+        if count > before.get(error_type, 0.0):
+            return error_type
+    return ""
 
 
 def _test_needs_tool_metrics(test: dict) -> bool:
@@ -738,8 +783,12 @@ async def run_test(
         _needs_metrics = _test_needs_tool_metrics(test)
         _tool_calls_before = _snapshot_tool_calls() if _needs_metrics else 0.0
         _tool_calls_after = _tool_calls_before
+        _confirmed_error_type = ""
+        _confirmed_error_types: list[str] = []
         for attempt in range(3):
             attempts_used = attempt + 1
+            _errors_before_attempt = _snapshot_pipeline_errors(model)
+            _confirmed_error_type = ""
             await _fe_send_and_wait(
                 page,
                 test["prompt"],
@@ -778,6 +827,20 @@ async def run_test(
                 response_text = await _fe_get_last_response(page, token, chat_id)
                 if response_text:
                     break
+                # Check whether the pipeline already reported a confirmed error
+                # for this hop (streaming.py's zero-content safety net / tool-parse
+                # guard, see _record_error call sites) rather than waiting out the
+                # full poll cap for a response that will never arrive: OWUI renders
+                # the pipeline's `error` SSE chunk as a toast, not message content,
+                # so _fe_get_last_response never sees it — without this check the
+                # harness burns the whole poll window guessing at "backend
+                # instability" instead of naming what the pipeline already knows.
+                _errors_now = _snapshot_pipeline_errors(model)
+                _confirmed_error_type = _new_pipeline_error_type(
+                    _errors_before_attempt, _errors_now
+                )
+                if _confirmed_error_type:
+                    break
                 elapsed_now = time.time() - t0
                 print(
                     f"  [{test_id}] polling for response… ({elapsed_now:.0f}s)",
@@ -789,8 +852,15 @@ async def run_test(
             # No timer-based hard cap here — browser.py's max_wait_no_progress
             # (900s with zero progress) and backend-dead detection are the ceilings.
             # A timer cap here aborts slow-but-streaming models (3a false failures).
+            _cause = (
+                f"confirmed: {_confirmed_error_type}"
+                if _confirmed_error_type
+                else "cause unconfirmed"
+            )
+            if _confirmed_error_type:
+                _confirmed_error_types.append(_confirmed_error_type)
             print(
-                f"  [{test_id}] empty response on attempt {attempt + 1}/3 ({elapsed_now:.0f}s)",
+                f"  [{test_id}] empty response on attempt {attempt + 1}/3 ({elapsed_now:.0f}s, {_cause})",
                 flush=True,
             )
             if attempt < 2:
@@ -909,11 +979,16 @@ async def run_test(
         # zips assertions with spec and truncates extras, so this row is
         # informational only and does not affect grading.
         if attempts_used > 1:
+            _cause_detail = (
+                f"confirmed: {', '.join(_confirmed_error_types)}"
+                if _confirmed_error_types
+                else "backend instability signal, cause unconfirmed"
+            )
             assertions_result.append(
                 (
                     f"Recovery: passed on attempt {attempts_used}/3",
                     True,
-                    f"{attempts_used - 1} retries needed (backend instability signal)",
+                    f"{attempts_used - 1} retries needed ({_cause_detail})",
                 )
             )
 
