@@ -1,0 +1,28 @@
+{
+  "proposed_id": "proposed-unit-known-limitations-spine-code-coverage-ratchet-1785381155",
+  "unit_id": "unit-known-limitations-spine-code-coverage-ratchet",
+  "kind": "what",
+  "title": "Spine Code-Surface Coverage Is Partial (Ratchet, Not a Cliff)",
+  "sources": [
+    {
+      "type": "doc",
+      "path": "KNOWN_LIMITATIONS.md",
+      "section": "Spine Code-Surface Coverage Is Partial (Ratchet, Not a Cliff)"
+    },
+    {
+      "type": "code",
+      "path": "portal/platform/wiki/coverage.py"
+    }
+  ],
+  "body": "- **ID**: P5-SPINE-COVERAGE-001\n- **Description**: `validate_system.py` check **BR** (spine code coverage ratchet) measures the\n  fraction of eligible Python code surfaces cited by at least one non-aggregate wiki unit.\n  At the time this gate landed (v8.0.0), coverage was **7.7%** (47 of 607 eligible files).\n  Aggregate `unit-code-*` units (auto-seeded by `seed_code.py`, which cites only the first\n  five files of a subsystem while titling itself with the full count) are deliberately\n  excluded from the numerator \u2014 counting them would grade the generator against its own\n  output, the same circularity the doc-generation arc paid for elsewhere.\n- **Impact**: The vast majority of the codebase has no unit describing it. The spine's\n  single-write-point discipline guarantees the *forward* direction (a unit change\n  regenerates its docs); it does not by itself guarantee that new code arrives documented.\n- **Mitigation shipped**: The gate is a ratchet, not a cliff. `config/spine_coverage_baseline.yaml`\n  pins the current uncovered set; CI (check BR) fails only when that set *grows* \u2014 new code\n  cannot land with zero coverage unnoticed, and the debt can only shrink as units are written\n  and the baseline is re-pinned.\n- **Not pursued in this release**: Backfilling coverage for the existing ~560 uncovered\n  surfaces. That is ongoing debt-paydown work, not a release blocker \u2014 the ratchet is what\n  prevents it from growing while it is paid down.\n",
+  "tags": [
+    "known-limitations",
+    "coverage",
+    "release"
+  ],
+  "proposed_by": "TASK_P4_P5_CLOSEOUT_V8_CUT_V1-phase7",
+  "proposed_at": 1785381155.3527381,
+  "status": "confirmed",
+  "auto_confirm": true,
+  "supersede": false
+}

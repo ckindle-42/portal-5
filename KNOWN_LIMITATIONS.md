@@ -726,3 +726,123 @@ operational constraints.
 <!-- /WIKI:GENERATED -->
 
 ---
+
+### Spine Code-Surface Coverage Is Partial (Ratchet, Not a Cliff)
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-spine-code-coverage-ratchet -->
+- **ID**: P5-SPINE-COVERAGE-001
+- **Status**: OPEN — an active problem to pay down, not an accepted steady state. The ratchet
+  is a floor that stops it from growing, not a reason to stop working on it.
+- **Description**: `validate_system.py` check **BR** (spine code coverage ratchet) measures the
+  fraction of eligible Python code surfaces cited by at least one non-aggregate wiki unit.
+  At the time this gate landed (v8.0.0), coverage was **7.7%** (47 of 607 eligible files).
+  Aggregate `unit-code-*` units (auto-seeded by `seed_code.py`, which cites only the first
+  five files of a subsystem while titling itself with the full count) are deliberately
+  excluded from the numerator — counting them would grade the generator against its own
+  output, the same circularity the doc-generation arc paid for elsewhere.
+- **Impact**: The vast majority of the codebase has no unit describing it. The spine's
+  single-write-point discipline guarantees the *forward* direction (a unit change
+  regenerates its docs); it does not by itself guarantee that new code arrives documented.
+- **Mitigation shipped**: The gate is a ratchet, not a cliff. `config/spine_coverage_baseline.yaml`
+  pins the current uncovered set; CI (check BR) fails only when that set *grows* — new code
+  cannot land with zero coverage unnoticed. This prevents the debt from getting worse; it does
+  not pay it down.
+- **Next action**: Backfill coverage for the ~560 currently-uncovered surfaces (write covering
+  units, re-pin the baseline down as each batch lands). Not completed in v8.0.0's release
+  window — tracked as ongoing work, not closed out or deprioritized indefinitely.
+<!-- /WIKI:GENERATED -->
+
+---
+
+### LLM Router Model Evicted by Single Inference Request (Open — Root Cause Unconfirmed)
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-router-model-eviction-single-request -->
+- **ID**: P5-ROUTER-EVICTION-001
+- **Status**: OPEN — root cause unconfirmed. Do not treat as accepted/wontfix.
+- **Description**: The LLM intent-router model (`LLM_ROUTER_MODEL`), loaded with
+  `keep_alive: -1` specifically to stay pinned in memory (see
+  `_warmup_llm_router` in `lifespan.py`), gets evicted by Ollama after exactly
+  **one** subsequent completion request to a different inference model —
+  reproduced twice in a clean, minimal test: fresh pipeline restart → router
+  model confirmed loaded and pinned "Forever" via `ollama ps` → one single
+  `/v1/chat/completions` request → `ollama ps` shows only the inference model,
+  router gone. Both models were ~5-6GB (≈11GB combined), nowhere near this
+  host's 64GB unified memory or a 5-model `OLLAMA_MAX_LOADED_MODELS` cap.
+- **Ruled out**: `OLLAMA_MAX_LOADED_MODELS` was found completely absent from
+  the actual host-native Ollama service's launchd plist
+  (`/Library/LaunchDaemons/com.portal5.ollama.plist`) — the `.env` value only
+  ever applied to the unused, optional Dockerized Ollama profile. This was a
+  real, separate config gap and has been fixed (plist now sets
+  `OLLAMA_MAX_LOADED_MODELS=5` and `OLLAMA_NUM_PARALLEL=4`, matching `.env`).
+  **Fixing it did not resolve the eviction** — reproduced again afterward with
+  only 2 of 5 slots in use. Not a testing-methodology artifact either: the
+  reproduction is a single clean two-step transition (restart, one request),
+  not an accumulation of the session's earlier heavy multi-model churn.
+- **Impact**: Every real "auto"-routed request pays the LLM router's full
+  cold-load latency (2.7-4s observed) rather than the documented ~840ms warm
+  figure, because the router is never actually warm when a real request
+  arrives — the previous request's inference model always evicted it. This
+  is a real, live tax on router accuracy/latency tradeoffs project-wide, and
+  a plausible contributing factor (not sole cause) in some of the extreme
+  multi-thousand-second "backend instability" retry patterns observed during
+  the v8.0.0 UAT sweep on `auto`-prefixed workspaces.
+- **Not accepted as a hardware limitation**: Apple Silicon's unified memory
+  architecture should not require this behavior at these memory sizes.
+  Suspected but unconfirmed: an Ollama/Metal backend GPU-residency
+  constraint that evicts prior models on new-model load regardless of
+  `keep_alive` or slot-count settings — needs direct investigation (GPU
+  memory telemetry during the transition, Ollama scheduler source/issue
+  tracker, or a version bisect) before being called root-caused.
+- **Mitigation shipped**: None yet — `LLM_ROUTER_TIMEOUT_MS` is set to
+  `1000ms` (the project's own bench-validated value for a *warm* router),
+  which does not cover the observed cold-load time. Raising the timeout
+  further would mask the real problem with added latency on every request;
+  not done pending root cause.
+- **Next action**: Investigate Ollama's Metal backend model-residency/eviction
+  behavior directly (e.g. instrumented GPU memory sampling across a
+  load/evict transition, or an Ollama version bisect) rather than tuning
+  config further.
+<!-- /WIKI:GENERATED -->
+
+---
+
+### Model Narrates a Fake Tool Call Instead of Invoking the Real One (Open)
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-narrated-tool-call-instead-of-real-dispatch -->
+- **ID**: P5-TOOL-NARRATION-001
+- **Status**: OPEN — active problem, not accepted flakiness.
+- **Description**: Under a multi-tool payload, a tool-capable model sometimes narrates a
+  plausible-looking pseudo tool-call in plain text — e.g.
+  `<function=execute_python>...</function></tool_call>` (note the mismatched/absent opening
+  `<tool_call>` tag) — instead of emitting Ollama's real structured `tool_calls` field. The
+  pipeline's `_dispatch_tool_call` (`portal/platform/inference/router/tools.py`) only ever
+  reads the model's native `tool_calls` array, so this narrated text passes straight through
+  to the user as if it were a normal, successful answer.
+- **Reproduced directly** (bypassing the harness/pipeline entirely, isolating the model): the
+  same model + prompt + a single-tool payload against Ollama's `/api/chat` succeeds every
+  time with a clean `tool_calls` response. The exact same request with the workspace's full
+  multi-tool payload (4+ tools) fails intermittently — 4 repeated identical calls: 3 succeeded
+  with real `tool_calls`, 1 narrated fake text. This is genuine sampling-driven unreliability
+  that worsens with more tools in context, not a wiring or schema bug.
+- **Affected UAT cases at v8.0.0**: `T-01`/`T-02`/`T-03` (Code Sandbox exact-execution,
+  `auto-coding`, `qwen3-coder`) and the Document Generation family (`T-04`/`T-05`/`T-06`/`WS-10`,
+  `auto-documents`, `granite4.1`) both show this pattern — the latter confirmed NOT a document-
+  tooling regression (the real `create_word_document` tool works perfectly when dispatched
+  directly; see the MCP v2 migration audit) but the same narration-instead-of-dispatch failure
+  under retry/backend-instability conditions.
+- **Why not fixed here**: A live-content fix requires the streaming pipeline
+  (`portal/platform/inference/router/streaming.py`) to detect the pattern in the model's
+  *content* stream and treat it as a dispatch failure — but content is forwarded to the client
+  chunk-by-chunk as it streams, before the full text (and therefore the pattern) is knowable.
+  Detecting this safely means buffering full content before forwarding, a real architectural
+  change to a delicate hot path this project explicitly gates behind a live `smoke_stream.sh`
+  run before any commit — not something to improvise mid-session.
+- **Next action**: Design a proper fix before implementing: options include (a) buffering
+  content for pattern-detection only on tool-enabled workspaces (bounded scope, still a real
+  streaming-behavior change needing the live gate), (b) a narrower `tool_choice` scope for
+  requests that specifically require tool execution rather than blanket-forcing it workspace-
+  wide, or (c) generation-parameter tuning to reduce narration likelihood. Needs a deliberate
+  design decision, not a one-line patch.
+<!-- /WIKI:GENERATED -->
+
+---

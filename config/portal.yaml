@@ -769,7 +769,6 @@ workspaces:
     temperature: 0.6
     top_p: 0.95
     repeat_penalty: 1.0
-    max_concurrent: 1
     tools:
     - execute_python
     - remember

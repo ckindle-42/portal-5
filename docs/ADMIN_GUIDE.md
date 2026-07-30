@@ -1,4 +1,4 @@
-# Portal 7.6.0 — Admin Guide
+# Portal 8.0.0 — Admin Guide
 
 ## First Login
 
