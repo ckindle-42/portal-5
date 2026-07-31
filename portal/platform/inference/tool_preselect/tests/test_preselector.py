@@ -80,6 +80,33 @@ class TestOllamaOutcomes:
             assert subset.issubset(_TOOLS_8)
 
     @pytest.mark.asyncio
+    async def test_payload_caps_num_ctx(self):
+        """P5-ROUTER-EVICTION-001: keep_alive='5m' with no num_ctx still lets
+        Ollama default to the model's full context x OLLAMA_NUM_PARALLEL
+        slots for the keep_alive window, which can evict other pinned
+        models. The payload must always cap num_ctx.
+        """
+        with patch(
+            "portal.platform.inference.tool_preselect.preselector._client",
+            new_callable=MagicMock,
+        ) as mock_client_fn:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=_mock_response("1\n2\n3"))
+            mock_client_fn.return_value = mock_client
+
+            with patch("portal.platform.inference.tool_registry.tool_registry") as mock_reg:
+                mock_reg.get.return_value = None
+                await preselect(
+                    effective_tools=_TOOLS_8,
+                    user_turn_content="test query",
+                    workspace_id="ws",
+                    workspace_config={"tool_preselect": {"enabled": True, "k": 3}},
+                )
+
+            _, kwargs = mock_client.post.await_args
+            assert "num_ctx" in kwargs["json"]["options"]
+
+    @pytest.mark.asyncio
     async def test_timeout_falls_back(self):
         with patch(
             "portal.platform.inference.tool_preselect.preselector._client",
