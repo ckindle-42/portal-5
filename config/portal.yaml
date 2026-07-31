@@ -816,7 +816,7 @@ workspaces:
     name: 🏛️ Portal Council Review
     description: |-
       Opt-in multi-model review for decisions, plans, code/design proposals, research briefs, policies, and knowledge changes. Three isolated reviewers inspect evidence, risks, and operational usefulness; code enforces participation and quorum before a fourth model synthesizes one recommendation with dissent and missing evidence preserved.
-    model_hint: qwen3.6:27b-q4_K_M
+    model_hint: qwen3.6:27b-q4_K_M-ctx16k
     context_limit: 16384
     predict_limit: 4096
     temperature: 0.2
@@ -845,7 +845,7 @@ workspaces:
         model: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
         system: |-
           You are the Operator and User Advocate. Judge whether the proposal is executable, maintainable, appropriately scoped, and useful to the person receiving it. Identify unclear ownership, missing verification, operational burden, and concrete next steps.
-      synthesizer_model: qwen3.6:27b-q4_K_M
+      synthesizer_model: qwen3.6:27b-q4_K_M-ctx16k
     expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-

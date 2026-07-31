@@ -5,21 +5,21 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: d817f2566213
+  commit: fcb54c248055
 - type: code
   path: config/portal.yaml
-  commit: d817f2566213
+  commit: fcb54c248055
 - type: code
   path: config/personas/
-  commit: d817f2566213
-last_generated_commit: d817f2566213
+  commit: fcb54c248055
+last_generated_commit: fcb54c248055
 confidence: high
 tags:
 - fact
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1785039775.139761
+updated_at: 1785470593.58891
 ---
 
 # Model bindings (reachability-resolved)
@@ -39,7 +39,7 @@ default.
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx8k` | yes |
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-compliance` | `granite4.1:8b-ctx16k` | yes |
-| `auto-council` | `qwen3.6:27b-q4_K_M` | yes |
+| `auto-council` | `qwen3.6:27b-q4_K_M-ctx16k` | yes |
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
 | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | yes |
 | `auto-data` | `granite4.1:30b-ctx64k` | yes |

@@ -454,7 +454,7 @@ Results are written to `tests/benchmarks/results/`.
 | `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx8k` |
 | `auto-coding` | coding | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
 | `auto-compliance` | compliance | `granite4.1:8b-ctx16k` |
-| `auto-council` | general | `qwen3.6:27b-q4_K_M` |
+| `auto-council` | general | `qwen3.6:27b-q4_K_M-ctx16k` |
 | `auto-creative` | media | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` |
 | `auto-daily` | general | `gemma4:26b-a4b-it-qat-ctx8k` |
 | `auto-data` | research | `granite4.1:30b-ctx64k` |
@@ -561,7 +561,7 @@ default.
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx8k` | yes |
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
 | `auto-compliance` | `granite4.1:8b-ctx16k` | yes |
-| `auto-council` | `qwen3.6:27b-q4_K_M` | yes |
+| `auto-council` | `qwen3.6:27b-q4_K_M-ctx16k` | yes |
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
 | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | yes |
 | `auto-data` | `granite4.1:30b-ctx64k` | yes |
@@ -628,7 +628,7 @@ default.
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (190 model ids across 6 backend groups)
+# Model catalog (191 model ids across 6 backend groups)
 
 ## coding (39)
 
@@ -685,7 +685,7 @@ default.
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (74)
+## general (75)
 
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
@@ -758,6 +758,7 @@ default.
 - `qwen3-coder-next:latest`
 - `qwen3-coder:30b-a3b-q4_K_M`
 - `qwen3.6:27b-q4_K_M`
+- `qwen3.6:27b-q4_K_M-ctx16k`
 - `qwen3.6:35b-a3b-q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
