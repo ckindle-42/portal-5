@@ -31,6 +31,11 @@ logger = logging.getLogger(__name__)
 _TIMEOUT_S = 2.0
 _KEEP_ALIVE = "5m"
 _MAX_TOKENS = 200
+# Caps the warmed runner's reserved KV-cache. Without this, Ollama defaults
+# to the model's full context window x OLLAMA_NUM_PARALLEL slots, which can
+# reserve tens of GiB and force the scheduler to evict other pinned models
+# for the keep_alive window (see P5-ROUTER-EVICTION-001).
+_NUM_CTX = 4096
 
 _http_client: httpx.AsyncClient | None = None
 
@@ -115,6 +120,7 @@ async def preselect(
                 "top_p": 1.0,
                 "top_k": 1,
                 "num_predict": _MAX_TOKENS,
+                "num_ctx": _NUM_CTX,
             },
         }
 

@@ -186,7 +186,13 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
             "prompt": "ok",
             "stream": False,
             "keep_alive": -1,  # int not string — Ollama 0.30.8+ rejects "-1"
-            "options": {"num_predict": 1},
+            # num_ctx caps the warmed runner's reserved KV-cache. Without it,
+            # Ollama defaults to the model's full context window multiplied
+            # by OLLAMA_NUM_PARALLEL slots — for an uncapped model this can
+            # reserve tens of GiB pinned forever (keep_alive: -1), forcing
+            # the scheduler to evict everything else on the next load. Same
+            # bug and fix as the router warmup below (P5-ROUTER-EVICTION-001).
+            "options": {"num_predict": 1, "num_ctx": 8192},
         }
 
         resp = await _http_client.post(warmup_url, json=warmup_payload)
@@ -225,6 +231,14 @@ async def _warmup_llm_router() -> None:
     model. Without the pin, the router would re-cold-load every
     time a large inference model displaced it.
 
+    ``options.num_ctx`` must match the 2048 used by the real routing
+    call in ``_route_with_llm`` (``routing.py``). Omitting it here
+    let Ollama default the warmed runner to the model's full context
+    (multiplied by ``OLLAMA_NUM_PARALLEL`` slots), reserving tens of
+    GiB for a 3B-class model and forcing the scheduler to evict the
+    router under normal memory pressure — the same eviction symptom
+    this warmup exists to prevent.
+
     Skipped when ``LLM_ROUTER_ENABLED=false`` — the keyword-fallback
     router (``_detect_workspace``) handles those deployments and
     requires no warmup.
@@ -245,7 +259,7 @@ async def _warmup_llm_router() -> None:
                 "prompt": "ok",
                 "stream": False,
                 "keep_alive": -1,
-                "options": {"num_predict": 1},
+                "options": {"num_predict": 1, "num_ctx": 2048},
             },
         )
         if resp.status_code == 200:

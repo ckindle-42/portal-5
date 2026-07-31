@@ -66,7 +66,17 @@ async def _run(args: argparse.Namespace) -> int:
         "stream": False,
         "think": args.think,
         "keep_alive": "5m",
-        "options": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "num_predict": 200},
+        # num_ctx caps the probed runner's reserved KV-cache — without it,
+        # Ollama defaults to the candidate model's full context window x
+        # OLLAMA_NUM_PARALLEL slots, which can evict other pinned models for
+        # the keep_alive window (see P5-ROUTER-EVICTION-001).
+        "options": {
+            "temperature": 0.0,
+            "top_p": 1.0,
+            "top_k": 1,
+            "num_predict": 200,
+            "num_ctx": 4096,
+        },
     }
 
     t0 = time.monotonic()

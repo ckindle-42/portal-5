@@ -74,3 +74,38 @@ updated_at: 1785458075
   bench-validated warm-router value. The pipeline does not re-warm after every
   request or silently disable semantic routing; those mitigations would evict
   useful inference models or reduce routing accuracy.
+- **2026-07-30 follow-up — the Ollama upgrade was necessary but not
+  sufficient**: a live reproduction on this same `v0.32.5` host still evicted
+  the router under real `auto`-routed traffic. Root cause was a second,
+  distinct bug living in the same file: `_warmup_llm_router` and
+  `_warmup_auto_model` (`lifespan.py`) both pin their model with
+  `keep_alive: -1` but omitted `options.num_ctx`. Ollama then defaults the
+  warmed runner's reserved context to the model's full context window
+  multiplied by `OLLAMA_NUM_PARALLEL` slots (`4`) — for the router
+  (`gemma-4-E4B`, 131072 max context) that is `131072 x 4 = 524288` tokens of
+  reserved KV-cache, tens of GiB, for a 3B-class model. `_warmup_auto_model`
+  had the identical gap warming `baronllm:q6_k` (also 131072 max context, no
+  Modelfile cap), pinned forever with no cap at all. Either reservation alone
+  is large enough to force the scheduler to evict everything else on the next
+  model load — this is what reproduced live even after the version fix.
+- **Fix**: both warmup calls now set `options.num_ctx` — `2048` for the
+  router (matching the real classification call in `_route_with_llm`,
+  `routing.py`) and `8192` for the auto-model warmup (matching the `auto`
+  workspace's `context_limit`). Regression tests:
+  `TestRouterWarmupContext::test_warmup_sets_same_num_ctx_as_routing_call` and
+  `::test_auto_model_warmup_caps_num_ctx` in `tests/unit/test_pipeline.py`.
+- **Live re-verification**: after rebuilding and restarting
+  `portal5-pipeline`, `/api/ps` showed the router (2048 ctx), `baronllm`
+  (8192 ctx), and the inference model (8192 ctx) all resident simultaneously
+  across three consecutive live `auto`-routed `/v1/chat/completions`
+  requests — no eviction.
+- **Not isolated — two more sites fixed the same way**:
+  `tool_preselect/preselector.py` and `tool_preselect/cli_probe.py` had the
+  same missing-`num_ctx` shape (lower severity — `keep_alive: "5m"`
+  self-expiring rather than `-1` permanent pin, and `preselector.py` has no
+  call sites in the live request path as of this check, per
+  `handlers.py`/`non_streaming.py`/`validation.py`). Both now set
+  `options.num_ctx` (`4096`) on their `/api/generate` payloads. Regression
+  tests: `TestOllamaOutcomes::test_payload_caps_num_ctx` in
+  `portal/platform/inference/tool_preselect/tests/test_preselector.py`.
+  `cli_probe.py` is operator-invoked only, no automated coverage needed.

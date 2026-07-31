@@ -1730,3 +1730,73 @@ class TestInjectOllamaOptions:
         assert body["keep_alive"] == "30m", (
             "setdefault must not override a caller-supplied keep_alive value"
         )
+
+
+class TestRouterWarmupContext:
+    """P5-ROUTER-EVICTION-001 regression: the startup warmup call for the LLM
+    router must cap num_ctx the same way the real routing call does.
+
+    Omitting num_ctx lets Ollama default the warmed runner to the model's
+    full context window multiplied by OLLAMA_NUM_PARALLEL slots, reserving
+    tens of GiB for a small router model and forcing the scheduler to evict
+    it under normal memory pressure — reproduced live 2026-07-30.
+    """
+
+    @pytest.mark.asyncio
+    async def test_warmup_sets_same_num_ctx_as_routing_call(self, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        import portal.platform.inference.router.lifespan as lifespan_mod
+        from portal.platform.inference.router.routing import _LLM_ROUTER_MODEL
+
+        monkeypatch.setattr(lifespan_mod, "_LLM_ROUTER_ENABLED", True)
+        fake_client = MagicMock()
+        fake_response = MagicMock(status_code=200)
+        fake_client.post = AsyncMock(return_value=fake_response)
+        monkeypatch.setattr(lifespan_mod, "_http_client", fake_client)
+
+        await lifespan_mod._warmup_llm_router()
+
+        assert fake_client.post.await_count == 1
+        _, kwargs = fake_client.post.await_args
+        payload = kwargs["json"]
+        assert payload["model"] == _LLM_ROUTER_MODEL
+        assert payload["options"]["num_ctx"] == 2048, (
+            "warmup num_ctx must match the 2048 used by _route_with_llm in "
+            "routing.py, or the warmed runner reserves the model's full "
+            "context window and gets evicted under memory pressure"
+        )
+
+    @pytest.mark.asyncio
+    async def test_auto_model_warmup_caps_num_ctx(self, monkeypatch):
+        """Sibling bug: _warmup_auto_model pins backend.models[0] with
+        keep_alive=-1. That model is picked for disk-cache warmth, not for
+        having a baked -ctx tag (e.g. 'auto' resolves to baronllm:q6_k,
+        max context 131072, no Modelfile cap) — so it needs the same
+        num_ctx guard as the router warmup, or it reserves the model's
+        full context forever.
+        """
+        from unittest.mock import AsyncMock
+
+        import portal.platform.inference.router.lifespan as lifespan_mod
+
+        fake_client = MagicMock()
+        fake_response = MagicMock(status_code=200)
+        fake_client.post = AsyncMock(return_value=fake_response)
+        monkeypatch.setattr(lifespan_mod, "_http_client", fake_client)
+
+        fake_backend = MagicMock(models=["baronllm:q6_k"], url="http://fake:11434")
+        fake_registry = MagicMock()
+        fake_registry.get_backend_for_workspace = MagicMock(return_value=fake_backend)
+
+        await lifespan_mod._warmup_auto_model(fake_registry)
+
+        assert fake_client.post.await_count == 1
+        _, kwargs = fake_client.post.await_args
+        payload = kwargs["json"]
+        assert payload["model"] == "baronllm:q6_k"
+        assert "num_ctx" in payload["options"], (
+            "auto-model warmup must cap num_ctx — an unbaked model pinned "
+            "with keep_alive=-1 and no cap reserves its full context window "
+            "(possibly 131072+ tokens x OLLAMA_NUM_PARALLEL slots) forever"
+        )
