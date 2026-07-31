@@ -131,7 +131,9 @@ class ArmResult:
 
 
 def load_episode(scenario: str) -> Episode | None:
-    """Load the most recent capture for a scenario."""
+    """Load the newest integrity-valid capture for a scenario."""
+    from .siem.capture_store import canonical_target_host, capture_replay_issues
+
     if not _CAPTURE_DIR.exists():
         return None
     captures = sorted(
@@ -139,9 +141,17 @@ def load_episode(scenario: str) -> Episode | None:
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
-    if not captures:
+    data: dict | None = None
+    for capture in captures:
+        try:
+            candidate = json.loads(capture.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not capture_replay_issues(candidate, require_pcap=True):
+            data = candidate
+            break
+    if data is None:
         return None
-    data = json.loads(captures[0].read_text())
 
     # Ground truth comes from SCENARIOS dict, not the capture file
     techniques = data.get("detect_ground_truth", [])
@@ -155,8 +165,11 @@ def load_episode(scenario: str) -> Episode | None:
             pass
 
     return Episode(
-        scenario=data.get("scenario", scenario),
-        target_host=data.get("target_host", ""),
+        # Keep the answer-key-bearing catalog name out of the model-visible
+        # trigger (for example, ``vuln_shellshock_rce`` names the exploit).
+        # run_eval retains the real scenario outside the Episode for scoring.
+        scenario="captured_episode",
+        target_host=canonical_target_host(data),
         techniques=techniques,
         telemetry=data.get("telemetry", {}),
         captured_at=data.get("captured_at", 0.0),
@@ -1308,6 +1321,9 @@ def run_eval(
         "ground_truth": sorted(ground_truth),
         "episode_captured_at": episode.captured_at,
         "arms": scores,
+        "data_mode": "lab-exercise-replay",
+        "evidence_origin": "live:portal:red",
+        "answer_key_visibility": "scorer_only",
     }
 
 

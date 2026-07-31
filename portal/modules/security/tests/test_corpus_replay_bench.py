@@ -300,6 +300,9 @@ class TestRunCellWiring:
         )
 
         assert record["status"] == "done"
+        assert record["data_mode"] == "external-labeled"
+        assert record["evidence_origin"] == "corpus:*"
+        assert record["answer_key_visibility"] == "scorer_only"
         assert captured["budgets"] == {"hunter": 4, "expert": 2}
         roles = [s.role for s in captured["sections"]]
         assert "mentor" in roles

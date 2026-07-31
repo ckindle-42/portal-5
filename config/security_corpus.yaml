@@ -1,0 +1,42 @@
+schema_version: 1
+answer_key_visibility: scorer_only
+
+# These lanes are scored separately.  A technique-level corpus hit can extend
+# detection coverage, but only portal_live can prove an end-to-end lab scenario.
+sources:
+  portal_live:
+    data_mode: lab-exercise
+    evidence_origin: "live:portal:red"
+    labeled: true
+    scenario_proof: true
+    require_schema_version: 2
+    require_episode_id: true
+    require_validity: true
+    require_pcap: true
+
+  public_labeled:
+    data_mode: external-labeled
+    evidence_origin: "corpus:*"
+    labeled: true
+    scenario_proof: false
+    require_live_probe: true
+
+  caldera_live:
+    data_mode: live-emulation
+    evidence_origin: "live:caldera:*"
+    labeled: false
+    scenario_proof: false
+    purpose: discovery
+
+  benign:
+    data_mode: benign
+    evidence_origin: "benign:*"
+    labeled: true
+    scenario_proof: false
+    purpose: precision
+
+gates:
+  require_source_stratified_results: true
+  require_live_scenario_proof: true
+  require_external_probe: true
+  allow_external_scenario_substitution: false
