@@ -7,8 +7,8 @@
 # never GROW: a new uncovered surface fails CI. Do not hand-edit to silence
 # the gate — that defeats the authority inversion it exists to enforce.
 eligible_count: 610
-covered_count: 96
-coverage_pct: 15.7
+covered_count: 97
+coverage_pct: 15.9
 uncovered:
   - deploy/playwright-mcp/browser_mcp.py
   - portal/conftest.py
@@ -372,7 +372,6 @@ uncovered:
   - tests/conftest.py
   - tests/expected_models.py
   - tests/fixtures/capability_context/sample_module.py
-  - tests/frontend/test_reasoning_display.py
   - tests/frontends/__init__.py
   - tests/integration/test_wiki_self_improving_cycle.py
   - tests/lib/__init__.py

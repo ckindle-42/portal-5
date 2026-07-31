@@ -51,6 +51,7 @@ OWUI_PASSWORD = os.environ.get("OPENWEBUI_ADMIN_PASSWORD", "")
 
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
+_SYNTHETIC_TEST_API_KEY = "test-pipeline-key-for-unit-tests"
 
 # A question short enough to answer quickly but that reliably enters thinking mode
 # /think forces Qwen3/AEON into explicit thinking mode regardless of workspace config
@@ -89,8 +90,8 @@ def test_pipeline_reasoning_response():
     This is the ground truth — if this fails, it's a pipeline/model issue,
     not a frontend rendering issue.
     """
-    if not PIPELINE_API_KEY:
-        pytest.skip("PIPELINE_API_KEY not set")
+    if not PIPELINE_API_KEY or PIPELINE_API_KEY == _SYNTHETIC_TEST_API_KEY:
+        pytest.skip("live PIPELINE_API_KEY not set")
 
     with httpx.Client(timeout=RESPONSE_TIMEOUT_S) as client:
         resp = client.post(

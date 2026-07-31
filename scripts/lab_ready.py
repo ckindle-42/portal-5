@@ -244,6 +244,13 @@ def _check_srv_reachable() -> str:
 
 
 def _check_port_reachable(host: str, port: int) -> str:
+    """Probe TCP from the real disposable attack-container boundary.
+
+    GNU ``timeout`` exits 125 when launched as PID 1 in this image even though
+    the same connection succeeds below a wrapper shell. Netcat provides its
+    own bounded connect timeout and therefore reports the service outcome
+    directly instead of a container-init artifact.
+    """
     try:
         r = __import__("subprocess").run(
             [
@@ -256,11 +263,12 @@ def _check_port_reachable(host: str, port: int) -> str:
                 "--net",
                 "bridge",
                 "portal5-attack:latest",
-                "timeout",
+                "nc",
+                "-z",
+                "-w",
                 "3",
-                "bash",
-                "-c",
-                f"echo > /dev/tcp/{host}/{port}",
+                host,
+                str(port),
             ],
             capture_output=True,
             text=True,

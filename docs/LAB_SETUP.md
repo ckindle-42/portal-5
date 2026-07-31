@@ -129,6 +129,11 @@ inside DinD, rejects false entries, rejects an image built from an older
 contract hash, and executes the contract's runtime checks. This catches tools
 that are installed but unusable under the container's default capabilities.
 Theory-only exercises are intentionally outside this image contract.
+
+Static target connectivity is probed with `nc -z -w 3` inside a fresh nested
+attack container. Do not replace this with a direct PID-1 invocation of GNU
+`timeout`: that returns 125 in the current image even when the same TCP
+connection succeeds, producing a false-red readiness board.
 <!-- /WIKI:GENERATED -->
 
 ---
