@@ -17,8 +17,8 @@ tags:
 - T1003.001
 - technique
 - signature
-created_at: 1785351452.880429
-updated_at: 1785351452.880429
+created_at: 1785503864.9292989
+updated_at: 1785503864.9292989
 ---
 
 # T1003.001 — LSASS dump — credential dumping via lsass.exe memory access [DISTINGUISH: T1003.001 = local LSASS memory access; T1003.003 = NTDS.dit extraction; T1003.006 = remote AD replication] [KEY: TargetImage=*lsass* or NewProcessName=*lsass*]

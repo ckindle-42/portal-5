@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Deterministic projection of 990 canonical units.*
+*Deterministic projection of 994 canonical units.*
 
 ## Architecture Overview
 
@@ -91,13 +91,13 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 - **10 security canonical variants**: 1 source(s)
 - **110 MCP tools across 23 servers**: 1 source(s)
 - **138 personas**: 6 source(s)
-- **190 model ids, 6 backend groups**: 1 source(s)
+- **191 model ids, 6 backend groups**: 1 source(s)
 - **23 MCP fleet servers**: 1 source(s)
 - **23 production + 65 eval workspaces**: 1 source(s)
 - **25/25 docs migrated (100.0%)**: 1 source(s)
 - **ADMIN_GUIDE — Debugging crashes**: 1 source(s)
 - **ADMIN_GUIDE — Pull Additional Models**: 1 source(s)
-- **AGENT_LOOP — Agent Loop (platform core)**: 1 source(s)
+- **AGENT_LOOP — Agent Loop (platform core)**: 9 source(s)
 - **AGENT_LOOP — Consumers**: 1 source(s)
 - **AGENT_LOOP — Contracts (the "key" modules implement)**: 1 source(s)
 - **AGENT_LOOP — Discipline (borrowed from the Campaign Supervisor)**: 1 source(s)
@@ -105,4 +105,4 @@ launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
 - **AGENT_LOOP — Record path (writing enabled, CI-gated)**: 1 source(s)
 
 ---
-*990 knowledge units referenced.*
+*994 knowledge units referenced.*

@@ -16,8 +16,8 @@ tags:
 - T1110.001
 - technique
 - signature
-created_at: 1785351452.876858
-updated_at: 1785351452.876858
+created_at: 1785503864.925159
+updated_at: 1785503864.925159
 ---
 
 # T1110.001 — Password guessing — repeated authentication failures against one account [DISTINGUISH: T1110.001 = many passwords against one account; T1110.003 = one password across many accounts] [KEY: Many attempts against one account]

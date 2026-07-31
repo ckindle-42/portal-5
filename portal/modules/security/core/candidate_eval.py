@@ -31,7 +31,7 @@ CANDIDATE_EVAL_SCENARIOS: list[str] = [
     "kerberoast_to_da",  # AD — Kerberoast → lateral → exfil
     "web_sqli_dump",  # web injection — sqlmap via execute_bash
     "web_deserial_rce",  # web RCE — deserialization via execute_bash
-    "meta3_full_chain",  # linux/host — full Metasploitable3 chain
+    "meta3_full_chain",  # Windows host — full Metasploitable3 chain
     "web_ssrf",  # SSRF/OOB — cloud metadata via execute_bash
     "ctf_multi_service",  # multi-service — web + binary overflow
 ]

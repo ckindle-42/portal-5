@@ -69,7 +69,9 @@ CURATED_TECHNIQUES: dict[str, str] = {
     "T1595": "web:access",
     "T1083": "web:access",
     "T1078": "web:access",
-    "T1557": "windows:security",
+    # T1557 intentionally omitted: the retained corpus cell contains only
+    # successful 4624 network-logon volume. That is not an AiTM discriminator
+    # and no longer satisfies the correlated 4624+5140 multi-target rule.
     "T1550.002": "windows:security",
     "T1003.003": "windows:security",
     "T1047": "windows:security",

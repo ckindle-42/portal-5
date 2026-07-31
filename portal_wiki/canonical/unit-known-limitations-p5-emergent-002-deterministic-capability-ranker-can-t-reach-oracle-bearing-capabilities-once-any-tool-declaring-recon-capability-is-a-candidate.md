@@ -8,6 +8,14 @@ sources:
   path: KNOWN_LIMITATIONS.md
   commit: 05e42ec2
   section: "P5-EMERGENT-002 \u2014 Deterministic capability progression (Resolved)"
+- type: code
+  path: portal/platform/agent/decide.py
+- type: code
+  path: portal/platform/agent/tests/test_agent_core.py
+- type: code
+  path: portal/modules/security/core/lab.py
+- type: code
+  path: portal/modules/security/core/objective_executor.py
 last_generated_commit: 05e42ec2
 confidence: high
 tags:

@@ -18,6 +18,9 @@ def _reload(monkeypatch, **env):
         "SANDBOX_ALLOW_NETWORK",
         "SANDBOX_LAB_IMAGE",
         "LAB_TARGET_DC",
+        "LAB_TARGET_META3_WIN",
+        "LAB_META3_USER",
+        "LAB_META3_PASS",
     ):
         monkeypatch.delenv(k, raising=False)
     for k, v in env.items():
@@ -54,5 +57,17 @@ def test_lab_exec_injects_target_env(monkeypatch):
         monkeypatch,
         SANDBOX_LAB_EXEC="true",
         LAB_TARGET_DC="10.0.0.10",
+        LAB_TARGET_META3_WIN="10.0.0.13",
+        LAB_META3_USER="meta3-user",
+        LAB_META3_PASS="meta3-pass",
     )
     assert m.SANDBOX_LAB_TARGET_DC == "10.0.0.10"
+    assert m.SANDBOX_LAB_TARGET_META3 == "10.0.0.13"
+    assert m.SANDBOX_LAB_META3_USER == "meta3-user"
+    assert m.SANDBOX_LAB_META3_PASS == "meta3-pass"
+
+
+def test_lab_exec_meta3_credentials_have_documented_defaults(monkeypatch):
+    m = _reload(monkeypatch, SANDBOX_LAB_EXEC="true")
+    assert m.SANDBOX_LAB_META3_USER == "vagrant"
+    assert m.SANDBOX_LAB_META3_PASS == "vagrant"

@@ -11,14 +11,16 @@ sources:
   path: exec_chain.py#web_asset_discovery
 - type: scenario
   path: exec_chain.py#web_nuclei_scan
+- type: scenario
+  path: exec_chain.py#meta3_full_chain
 last_generated_commit: ''
 confidence: high
 tags:
 - T1595
 - technique
 - signature
-created_at: 1785351452.8789701
-updated_at: 1785351452.8789701
+created_at: 1785503864.927628
+updated_at: 1785503864.927628
 ---
 
 # T1595 — Active scanning — vulnerability scanning and directory brute-force
@@ -34,6 +36,7 @@ index=portal5_lab sourcetype="web:access" status=404 | stats count by host, uri_
 
 - `web_asset_discovery`
 - `web_nuclei_scan`
+- `meta3_full_chain`
 
 ## Per-Source Expected Signatures
 

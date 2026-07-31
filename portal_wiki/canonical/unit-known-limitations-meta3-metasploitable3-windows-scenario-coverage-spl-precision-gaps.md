@@ -9,51 +9,79 @@ sources:
   commit: 05e42ec2
   section: "meta3 (Metasploitable3-Windows) \u2014 Scenario Coverage + SPL Precision\
     \ Gaps"
+- type: code
+  path: portal/modules/security/core/candidate_eval.py
+- type: code
+  path: portal/modules/security/core/exec_chain.py
+- type: code
+  path: Dockerfile.attack
+- type: code
+  path: portal/modules/coding/tools/code_sandbox_mcp.py
+- type: config
+  path: config/portal.yaml
+- type: code
+  path: portal/modules/security/core/siem/spl_detections.py
+- type: config
+  path: portal/modules/security/core/siem/spl_detections.yaml
+- type: code
+  path: portal/modules/security/tests/test_coverage_expand.py
+- type: code
+  path: portal/modules/security/tests/test_spl_variants.py
+- type: code
+  path: tests/unit/test_lab_exec_posture.py
 last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
+- security
+- resolved
 created_at: 1784946220.6623669
-updated_at: 1784946220.6623669
+updated_at: 1785500996
 ---
 
 - **ID**: P5-SEC-META3-001
-- **Description**: As of commit `cdf080e` (2026-07-04), meta3 (vmid 113, `portal-lab-meta3-win2k8`,
-  10.10.11.10) has a real, working evidence pipeline — IIS logs (`web:access`), FTP logs
-  (`ftp:access`), and Process Creation events (`windows:security`, 4688 auditing enabled
-  live on the box) all collect, ship, and confirm-index correctly. Two gaps remain,
-  found while building that pipeline:
-  1. **Scenario coverage.** The current 7 `meta3_*` scenarios (`exec_chain.py::SCENARIOS`)
-     cover only a subset of meta3's documented vulnerable services. Cross-referenced against
-     https://github.com/rapid7/metasploitable3/wiki/Vulnerabilities: still unscripted —
-     GlassFish deploy RCE (CVE-2011-0807, admin/sploit creds, port 4848/8080/8181), Struts
-     (CVE-2016-3087) and Tomcat manager (CVE-2009-3843/4189, sploit/sploit creds, port 8282),
-     Jenkins unauthenticated script console (port 8484), ManageEngine (CVE-2015-8249, port
-     8020), Apache Axis2 (CVE-2010-0219, via Tomcat), WebDAV HTTP PUT shell upload (port
-     8585), PHPMyAdmin (CVE-2013-3238, port 8585), Ruby on Rails web console (CVE-2015-3224,
-     port 3000), JMX (CVE-2015-2342, port 1617), WordPress NinjaForms (CVE-2016-1209, port
-     8585), `psexec` weak-password (port 445/139), RDP standard-auth (port 3389). WinRM
-     weak-password (port 5985, `vagrant`/`vagrant`) is confirmed live-reachable and is
-     already incidentally exercised by our own collection code — a dedicated scenario for it
-     would need to be distinguishable from monitoring traffic in the resulting evidence.
-  2. **SPL query precision.** `siem/spl_detections.yaml`'s SPL for meta3's own
-     `detect_ground_truth` techniques doesn't match meta3's actual traffic shape yet:
-     `T1059`/`T1059.004`/`T1548.001`/`T1068`/`T1210`/`T1021.002` are all written against
-     `sourcetype="linux:auditd"` fields (copied from the vulhub/Linux template), which will
-     never match the `windows:security` 4688 process-creation data now genuinely available
-     for meta3 — needs Windows-appropriate SPL (`EventCode=4688`, `NewProcessName=`,
-     `CommandLine=`, `Account=`) added, likely as OS-aware variants rather than blind
-     replacement, since the same technique IDs are also scored against true Linux vulhub
-     targets. `T1190`'s existing SPL (payload-substring matching: `passwd`, `../`,
-     `UNION SELECT`, `jndi:`, `.php`, `cmd=`) also doesn't match meta3's actual traffic —
-     verified live via `--replay-captured-red` on `meta3_full_chain`: real `web:access` data
-     is shipped and indexed, but none of meta3's exploit traffic (plain `GET /`, JSON-body
-     `POST /_search`, out-of-band FTP backdoor trigger) contains those literal substrings, so
-     it still reports `synthetic-fallback` despite genuine live data being present.
-- **Operator action**: Treat as a content-authoring task (new `exec_chain.py::SCENARIOS`
-  entries with `target_host=_LAB_META3`, `detect_ground_truth`, `red_prompt` tool_hints; new
-  or OS-variant SPL entries in `siem/spl_detections.yaml`), not a plumbing fix — the
-  collection/shipping/replay infrastructure itself is confirmed working end-to-end. meta3 has
-  a documented history of crashing under load (`qmpstatus: internal-error`, recovered via
-  hard stop+start) even from routine investigation traffic, not just live exploitation —
-  budget for that when scripting new scenarios against it.
+- **Status**: RESOLVED 2026-07-31 for catalog coverage and SPL content.
+- **Reconciliation**: The original limitation described seven scenarios and
+  target `10.10.11.10`. The current spine identifies vmid 113 at
+  `10.10.11.13`, and the repository had already expanded to 21 `meta3_*`
+  scenarios plus Windows-aware SPL variants for `T1059`, `T1548.001`,
+  `T1068`, `T1210`, `T1021.002`, and IIS-aware `T1190`. Those landed changes
+  made most of the old open list stale.
+- **Scenario completion**: Cross-checking the current 21-scenario catalog
+  against Rapid7's Metasploitable3 vulnerability wiki left three documented
+  Windows surfaces. `meta3_phpmyadmin_rce` now covers CVE-2013-3238 on 8585
+  with Metasploit's canonical `exploit/multi/http/phpmyadmin_preg_replace`
+  module and blank root credential;
+  `meta3_rails_console_rce` covers CVE-2015-3224 on 3000 with the exact
+  `exploit/multi/http/rails_web_console_v2_code_exec` module after a bounded
+  exposed-console preflight; and
+  `meta3_rdp_standard_auth` covers RDP on 3389 with a non-interactive standard
+  credential check. The catalog now has 24 scenarios.
+- **Legacy correction**: Four historical entries had been copied from a Linux
+  target even though `_LAB_META3` is Windows. FTP no longer attempts the
+  vsftpd port-6200 backdoor, MySQL no longer loads `udf.so`,
+  `meta3_linux_privesc` performs bounded Windows token inspection while
+  retaining its ID for result compatibility, and `meta3_full_chain` no longer
+  reads `/etc`, searches SUID files, or uses a Unix shell technique. Regression
+  coverage rejects those Linux-only payload markers anywhere in the meta3
+  catalog.
+- **SPL completion**: The existing OS-aware variants are retained, and
+  `T1021.001` now adds the missing Windows RDP signature
+  (`EventCode=4624`, `LogonType=10`). `T1557` was also hardened separately:
+  generic 4624 volume is no longer enough; its rule requires correlated NTLM
+  network logons and privileged-share access across multiple targets.
+- **Validation**: The focused scenario, SPL-variant, and corpus suites pass.
+  The attack image now installs `metasploit-framework`, fails its build if
+  `msfconsole` or either required module is absent, and records all three
+  capabilities in its image manifest. A fresh image build and load into the
+  lab's DinD runtime reported Framework 6.4.146-dev, true manifest entries,
+  and successfully loaded both modules with their expected option sets.
+  The sandbox now also injects the Meta3 target and credential contract into
+  each lab-exec container; the FTP and RDP scenarios consume those variables
+  instead of embedding credentials in commands.
+  `nxc rdp` remains installed for the non-interactive RDP check. Metasploit is
+  available to these explicit, bounded scenario steps; it remains deliberately
+  excluded from the emergent objective loop's read-only binary allowlist.
+  New exploit scenarios are catalog/test verified but have not been fired
+  against vmid 113 in this change set; the VM's documented instability still
+  requires bounded live runs and recovery planning before such execution.

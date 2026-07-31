@@ -941,7 +941,9 @@ TECHNIQUE_EVENT_ID_MARKERS: dict[str, list[str]] = {
     "T1110.003": ["4625", "4771"],  # Password spray
     "T1053.005": ["4698"],  # Scheduled task
     "T1047": ["4688", "5861"],  # WMI
-    "T1557": ["4624"],  # AiTM
+    # T1557 deliberately has no single-event marker. A generic 4624 is shared
+    # with normal administration and pass-the-hash; AiTM requires the
+    # correlated 4624+5140 multi-target signature in spl_detections.yaml.
     "T1550.002": ["4624"],  # Pass-the-hash
 }
 

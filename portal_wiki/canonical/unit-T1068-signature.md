@@ -8,16 +8,14 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1068
 - type: mitre
   path: ATT&CK:T1068
-- type: scenario
-  path: exec_chain.py#meta3_linux_privesc
 last_generated_commit: ''
 confidence: high
 tags:
 - T1068
 - technique
 - signature
-created_at: 1785351452.87839
-updated_at: 1785351452.87839
+created_at: 1785503864.927048
+updated_at: 1785503864.927048
 ---
 
 # T1068 — Exploitation for privilege escalation — kernel/userspace privesc
@@ -28,10 +26,6 @@ updated_at: 1785351452.87839
 ```spl
 index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="*/exploit" OR exe="*/privesc" OR a1="*CVE*") | stats count by host, exe
 ```
-
-## Exercised By Scenarios
-
-- `meta3_linux_privesc`
 
 ## Per-Source Expected Signatures
 

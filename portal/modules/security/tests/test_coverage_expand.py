@@ -10,6 +10,8 @@ Verifies:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 import yaml
 
@@ -28,6 +30,23 @@ _META3_SCENARIOS = [
     "meta3_linux_privesc",
     "meta3_elasticsearch_rce",
     "meta3_full_chain",
+    "meta3_winrm_weakpass",
+    "meta3_tomcat_manager",
+    "meta3_jenkins_rce",
+    "meta3_glassfish_deploy",
+    "meta3_struts_rce",
+    "meta3_iis_http",
+    "meta3_psexec",
+    "meta3_ssh_brute",
+    "meta3_manageengine",
+    "meta3_axis2_deploy",
+    "meta3_webdav_upload",
+    "meta3_snmp_enum",
+    "meta3_jmx_rce",
+    "meta3_wordpress_ninja",
+    "meta3_phpmyadmin_rce",
+    "meta3_rails_console_rce",
+    "meta3_rdp_standard_auth",
 ]
 
 _VULHUB_EXPANSION_SCENARIOS = [
@@ -124,6 +143,48 @@ class TestMeta3Scenarios:
             f"meta3 scenario '{name}' needs at least 1 technique in detect_ground_truth"
         )
 
+    def test_catalog_has_no_linux_only_payloads(self):
+        """The Win2k8 catalog must not retain Metasploitable2/Linux payloads."""
+        prompts = "\n".join(
+            str(scenario["red_prompt"])
+            for name, scenario in SCENARIOS.items()
+            if name.startswith("meta3_")
+        ).lower()
+        for invalid in ("port 6200", "udf.so", "/etc/passwd", "/etc/shadow"):
+            assert invalid not in prompts, f"Linux-only meta3 payload remains: {invalid}"
+
+    def test_documented_windows_surface_coverage(self):
+        assert {
+            "meta3_phpmyadmin_rce",
+            "meta3_rails_console_rce",
+            "meta3_rdp_standard_auth",
+        }.issubset(SCENARIOS)
+
+    def test_rdp_technique_has_detection(self):
+        assert "T1021.001" in techniques_covered()
+
+    def test_new_surface_steps_use_installed_sandbox_tools(self):
+        """The attack image contract includes canonical modules and RDP."""
+        ftp = SCENARIOS["meta3_ftp_backdoor"]["red_prompt"]
+        phpmyadmin = SCENARIOS["meta3_phpmyadmin_rce"]["red_prompt"]
+        rails = SCENARIOS["meta3_rails_console_rce"]["red_prompt"]
+        rdp = SCENARIOS["meta3_rdp_standard_auth"]["red_prompt"]
+        assert "msfconsole" in phpmyadmin
+        assert "phpmyadmin_preg_replace" in phpmyadmin
+        assert "msfconsole" in rails
+        assert "rails_web_console_v2_code_exec" in rails
+        assert "nxc rdp" in rdp
+        for prompt in (ftp, rdp):
+            assert "$LAB_META3_USER" in prompt
+            assert "$LAB_META3_PASS" in prompt
+
+    def test_attack_image_installs_required_meta3_tools(self):
+        dockerfile = (Path(__file__).resolve().parents[4] / "Dockerfile.attack").read_text()
+        assert "metasploit-framework" in dockerfile
+        assert "command -v msfconsole" in dockerfile
+        assert "phpmyadmin_preg_replace.rb" in dockerfile
+        assert "rails_web_console_v2_code_exec.rb" in dockerfile
+
 
 # ── Vulhub expansion scenario structure ──────────────────────────────────────
 
@@ -209,8 +270,6 @@ class TestSPLDetectionCoverage:
 
     def test_spl_detections_valid_yaml(self):
         """spl_detections.yaml must be valid YAML with required fields."""
-        from pathlib import Path
-
         yaml_path = (
             Path(__file__).resolve().parents[4]
             / "portal/modules/security/core/siem/spl_detections.yaml"
@@ -230,13 +289,13 @@ class TestCoverageCount:
     """Verify scenario counts and coverage targets."""
 
     def test_total_scenario_count(self):
-        """Should have 30 (original) + 7 (meta3) + 36 (vulhub) = ~73 scenarios."""
+        """The expanded scenario catalog remains broad."""
         assert len(SCENARIOS) >= 70, f"Expected >=70 scenarios, got {len(SCENARIOS)}"
 
     def test_meta3_no_longer_zero(self):
-        """meta3 must have at least 5 scenarios."""
+        """All 24 reconciled Windows scenarios are present."""
         meta3_count = sum(1 for k in SCENARIOS if k.startswith("meta3_"))
-        assert meta3_count >= 5, f"meta3 has {meta3_count} scenarios, expected >=5"
+        assert meta3_count >= 24, f"meta3 has {meta3_count} scenarios, expected >=24"
 
     def test_vulhub_breadth(self):
         """Vulhub scenarios should cover >=30 categories."""

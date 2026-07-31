@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from portal.modules.security.core.exec_chain import (
     _BASH_TECHNIQUE_SIGNALS,
     CHAIN_TOOLS_BASE,
@@ -151,6 +153,53 @@ class TestLabDispatchRouting:
             mock_call.assert_called_once()
         assert "synthetic" not in result
         assert "krb5tgs" in result
+
+    @pytest.mark.parametrize(
+        ("tool_name", "expected_command"),
+        [
+            ("bloodhound-ce-python", "-c DCOnly --zip"),
+            ("enum4linux-ng", "enum4linux-ng -A 10.10.11.21"),
+            ("nxc", "nxc smb 10.10.11.21 -u '' -p '' --shares"),
+            ("impacket-GetNPUsers", "-usersfile /tmp/portal5-asrep-users.txt"),
+        ],
+    )
+    def test_read_only_emergent_aliases_dispatch_verified_commands(
+        self, tool_name, expected_command
+    ):
+        from portal.modules.security.core.lab import lab_dispatch
+
+        with patch(
+            "portal.modules.security.core.lab._lab_mcp_call",
+            return_value={"ok": True, "output": "verified read-only output", "elapsed_s": 0.5},
+        ) as mock_call:
+            result = lab_dispatch(
+                tool_name,
+                {"target": "10.10.11.21"},
+                dry_run=False,
+            )
+
+        command = mock_call.call_args.args[0]
+        assert expected_command in command
+        assert "synthetic" not in result
+        assert "verified read-only output" in result
+
+    def test_getnpusers_alias_is_bounded_to_known_lab_accounts(self):
+        from portal.modules.security.core.lab import lab_dispatch
+
+        with patch(
+            "portal.modules.security.core.lab._lab_mcp_call",
+            return_value={"ok": True, "output": "$krb5asrep$...", "elapsed_s": 0.5},
+        ) as mock_call:
+            lab_dispatch(
+                "impacket-GetNPUsers",
+                {"target": "10.10.11.21"},
+                dry_run=False,
+            )
+
+        command = mock_call.call_args.args[0]
+        assert "arya.stark\\nned.stark" in command
+        assert "-no-pass" in command
+        assert "-dc-ip 10.10.11.21" in command
 
     def test_execute_python_dry_run(self):
         from portal.modules.security.core.lab import lab_dispatch

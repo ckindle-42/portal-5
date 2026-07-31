@@ -16,8 +16,8 @@ tags:
 - T1557.001
 - technique
 - signature
-created_at: 1785351452.882245
-updated_at: 1785351452.882245
+created_at: 1785503864.931202
+updated_at: 1785503864.931202
 ---
 
 # T1557.001 — LLMNR/NBT-NS poisoning — Responder/capture events on Windows network

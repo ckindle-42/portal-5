@@ -78,6 +78,18 @@ class TestSPLVariants:
         sources = [v["source"] for v in variants]
         assert "web:access:iis" in sources, "T1190 missing IIS variant"
 
+    def test_t1557_requires_correlated_windows_evidence(self):
+        """Successful network-logon volume alone cannot establish AiTM."""
+        _invalidate_cache()
+        spl = spl_for("T1557", source="windows:security")
+        assert spl is not None
+        assert "EventCode=4624" in spl
+        assert "EventCode=5140" in spl
+        assert 'AuthenticationPackageName="NTLM"' in spl
+        assert "privileged_share_access>0" in spl
+        assert "target_count>1" in spl
+        assert "where count > 5" not in spl
+
     def test_techniques_covered_unchanged(self):
         """Adding variants doesn't change the technique count."""
         _invalidate_cache()

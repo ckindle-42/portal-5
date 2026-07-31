@@ -317,6 +317,31 @@ T1210:
       spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4624 LogonType=3 (AuthenticationPackageName="NTLM" OR AuthenticationPackageName="Negotiate") | stats count by IpAddress, Account, Logon_Type'
       expected_signal: "Network logon (4624) via NTLM — lateral movement indicator"
 
+T1021.001:
+  description: "Remote Desktop Protocol — successful remote-interactive Windows logon"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "lateral-movement"
+      source: "portal-mitre-mcp:T1021.001"
+    - framework: nist-800-53
+      control: "AC-17"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R4"
+      source: "NERC CIP standard (public)"
+  spl: 'index=portal5_lab sourcetype="windows:security" EventCode=4624 LogonType=10 (AuthenticationPackageName="Negotiate" OR AuthenticationPackageName="NTLM") | stats count by Account, IpAddress, WorkstationName'
+  expected_signal: "Successful RDP remote-interactive logon (4624 LogonType 10)"
+  distinguishing_features:
+    event_code: 4624
+    logon_type: 10
+    key_indicator: "EventCode=4624 with LogonType=10"
+    discriminator_tokens:
+      - "LogonType=10"
+    sibling_ids: ["T1021.002"]
+    sibling_diff: "T1021.001 uses remote-interactive LogonType 10; T1021.002 uses SMB share access EventCode 5140"
+
 T1021.002:
   description: "SMB/Windows Admin Shares — remote file copy via SMB"
   matrix:
@@ -465,7 +490,7 @@ T1078:
   expected_signal: "Authenticated sessions using default/weak credentials"
 
 T1557:
-  description: "Adversary-in-the-middle — NTLM relay and LLMNR/NBT-NS poisoning"
+  description: "Adversary-in-the-middle — correlated NTLM network logon and privileged-share access across multiple Windows targets"
   matrix:
     - enterprise
   compliance_mapping:
@@ -481,8 +506,21 @@ T1557:
     - framework: nerc-cip
       requirement: "CIP-007-6 R4"
       source: "NERC CIP standard (public)"
-  spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=4624 LogonType=3) | stats count by IpAddress, Account | where count > 5'
-  expected_signal: "Multiple network logons from relay attack source"
+  spl: 'index=portal5_lab sourcetype="windows:security" ((EventCode=4624 LogonType=3 AuthenticationPackageName="NTLM") OR (EventCode=5140 (ShareName="*\\ADMIN$" OR ShareName="*\\C$"))) | eval relay_account=coalesce(Account, SubjectUserName), relay_ip=coalesce(IpAddress, SourceAddress) | stats count(eval(EventCode=4624)) as network_logons count(eval(EventCode=5140)) as privileged_share_access dc(host) as target_count values(ShareName) as shares by relay_ip, relay_account | where network_logons>0 AND privileged_share_access>0 AND target_count>1'
+  expected_signal: "Same source/account produces NTLM network logons and privileged-share access across multiple Windows targets"
+  spl_variants:
+    - source: "windows:security"
+      spl: 'index=portal5_lab sourcetype="windows:security" ((EventCode=4624 LogonType=3 AuthenticationPackageName="NTLM") OR (EventCode=5140 (ShareName="*\\ADMIN$" OR ShareName="*\\C$"))) | eval relay_account=coalesce(Account, SubjectUserName), relay_ip=coalesce(IpAddress, SourceAddress) | stats count(eval(EventCode=4624)) as network_logons count(eval(EventCode=5140)) as privileged_share_access dc(host) as target_count values(ShareName) as shares by relay_ip, relay_account | where network_logons>0 AND privileged_share_access>0 AND target_count>1'
+      expected_signal: "Correlated multi-target NTLM logon and privileged-share access"
+  distinguishing_features:
+    event_codes: [4624, 5140]
+    key_indicator: "NTLM LogonType 3 plus ADMIN$/C$ access from the same source/account across more than one target"
+    discriminator_tokens:
+      - "AuthenticationPackageName=NTLM"
+      - "ShareName"
+      - "target_count"
+    sibling_ids: ["T1557.001", "T1550.002"]
+    sibling_diff: "T1557 requires multi-target correlation with privileged-share access; T1557.001 requires name-resolution poison/Responder evidence; T1550.002 is NTLM authentication without the relay correlation"
 
 T1550.002:
   description: "Pass-the-hash — NTLM hash authentication"

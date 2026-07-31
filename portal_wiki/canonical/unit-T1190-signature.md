@@ -20,8 +20,8 @@ tags:
 - T1190
 - technique
 - signature
-created_at: 1785351452.873486
-updated_at: 1785351452.873486
+created_at: 1785503864.9216661
+updated_at: 1785503864.9216661
 ---
 
 # T1190 — Web exploit — access-log signatures (LFI/SQLi/Log4Shell/webshell markers) [KEY: One of the literal exploit markers used by this SPL]

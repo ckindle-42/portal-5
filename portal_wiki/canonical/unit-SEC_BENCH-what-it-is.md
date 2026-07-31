@@ -9,6 +9,42 @@ sources:
 - type: code
   path: portal/modules/security/core/
   commit: d869257b
+- type: code
+  path: portal/modules/security/core/__init__.py
+- type: code
+  path: portal/modules/security/core/_data.py
+- type: code
+  path: portal/modules/security/core/_config.py
+- type: code
+  path: portal/modules/security/core/scoring.py
+- type: code
+  path: portal/modules/security/core/lab.py
+- type: code
+  path: portal/modules/security/core/blue.py
+- type: code
+  path: portal/modules/security/core/chain.py
+- type: code
+  path: portal/modules/security/core/cli.py
+- type: code
+  path: portal/modules/security/core/matrix.py
+- type: code
+  path: portal/modules/security/core/capability/__init__.py
+- type: code
+  path: portal/modules/security/core/goal.py
+- type: code
+  path: portal/modules/security/core/goal_decide.py
+- type: code
+  path: portal/modules/security/core/goal_eval.py
+- type: code
+  path: portal/modules/security/core/goal_cli.py
+- type: code
+  path: portal/modules/security/core/drift_gate.py
+- type: code
+  path: portal/modules/security/core/drift_cli.py
+- type: code
+  path: portal/modules/security/core/loop.py
+- type: code
+  path: portal/modules/security/core/loop_cli.py
 last_generated_commit: d869257b
 confidence: high
 tags:

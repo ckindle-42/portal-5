@@ -109,6 +109,36 @@ class TestQuery:
         results = query({}, domain="ad", limit=100)
         assert any(c.source == "challenge_class" for c in results)
 
+    def test_live_dispatchable_query_retires_unbound_capability_sources(self):
+        results = query(
+            {"open_ports": [389, 445]},
+            domain="ad",
+            limit=100,
+            live_dispatchable_only=True,
+        )
+
+        assert results
+        assert all(c.source == "service_probe" for c in results)
+        assert not {
+            "ad-certificate-abuse",
+            "kerberos-delegation",
+            "oauth-oidc-chain",
+            "file-upload-bypass",
+            "smb-enumeration",
+        } & {c.id for c in results}
+
+    def test_live_dispatchable_query_keeps_semantic_probe_without_declared_tool(self):
+        results = query(
+            {"open_ports": [445]},
+            domain="ad",
+            limit=100,
+            live_dispatchable_only=True,
+        )
+
+        meta3_probe = next(c for c in results if c.id == "meta3_smb_probe")
+        assert meta3_probe.tools == []
+        assert meta3_probe.source == "service_probe"
+
     def test_goal_filter_substring(self):
         results = query({}, goal="kerberos", limit=100)
         assert len(results) > 0

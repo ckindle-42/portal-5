@@ -18,7 +18,8 @@
 #   Password     — hashcat, john, hydra, rockyou.txt (decompressed), seclists
 #   Web          — curl, ffuf, redis-cli
 #   Databases    — mysql (default-mysql-client)
-#   Exploit      — AutoBlue-MS17-010 (python), marshalsec jar (log4shell)
+#   Exploit      — Metasploit Framework, AutoBlue-MS17-010 (python),
+#                    marshalsec jar (log4shell)
 #   Java         — default-jdk-headless (marshalsec + javac for compiling RCE
 #                    payload classes, e.g. fastjson/CVE-2021-44228's TouchFile.java
 #                    -- a JRE alone has no javac; found live 2026-07-23 checking
@@ -67,6 +68,7 @@ RUN apt-get update \
         hashcat \
         hydra \
         wordlists \
+        metasploit-framework \
     && rm -rf /var/lib/apt/lists/* \
     # Decompress rockyou.txt so tools reference it directly (no gunzip pipe)
     && gunzip -k /usr/share/wordlists/rockyou.txt.gz 2>/dev/null || true
@@ -117,11 +119,14 @@ RUN set -e; \
     command -v john >/dev/null; \
     command -v hashcat >/dev/null; \
     command -v hydra >/dev/null; \
+    command -v msfconsole >/dev/null; \
     command -v java >/dev/null; \
     command -v javac >/dev/null; \
     test -f /usr/share/wordlists/rockyou.txt; \
     test -d /usr/share/seclists; \
     test -f /opt/AutoBlue-MS17-010/eternalblue_exploit7.py; \
+    test -f /usr/share/metasploit-framework/modules/exploits/multi/http/phpmyadmin_preg_replace.rb; \
+    test -f /usr/share/metasploit-framework/modules/exploits/multi/http/rails_web_console_v2_code_exec.rb; \
     python3 -c "import impacket; print('impacket ok')"
 
 # ── RE / Firmware tools (best-effort) ──────────────────────────────────────
@@ -164,7 +169,7 @@ RUN pip3 install --no-cache-dir zsteg 2>/dev/null || echo "WARNING: zsteg unavai
 # once, whenever it was originally cached, and broke the instant an upstream
 # layer's cache was invalidated (found live, 2026-07-17, adding default-mysql-
 # client above invalidated this layer for the first time in weeks).
-RUN python3 -c "import shutil, json, os; tools = ['nmap','nxc','certipy-ad','responder','bloodhound-ce-python','impacket-secretsdump','impacket-GetUserSPNs','enum4linux-ng','evil-winrm','showmount','ffuf','redis-cli','mysql','john','hashcat','hydra','java','javac','binwalk','radare2','jadx','apktool','foremost','exiftool','steghide','sqlmap','gobuster','nikto','gdb','awscli','kubectl']; manifest = {t: shutil.which(t) is not None for t in tools}; manifest['rockyou'] = os.path.exists('/usr/share/wordlists/rockyou.txt'); manifest['AutoBlue'] = os.path.exists('/opt/AutoBlue-MS17-010/eternalblue_exploit7.py'); manifest['POC_CVE-2023-21839'] = os.path.exists('/opt/POC_CVE-2023-21839'); manifest['pwntools'] = True; open('/opt/portal5-attack.manifest.json','w').write(json.dumps(manifest,indent=2)); print('manifest: {} / {} tools present'.format(sum(1 for v in manifest.values() if v), len(manifest)))" 2>/dev/null || echo "WARNING: manifest gen failed"
+RUN python3 -c "import shutil, json, os; tools = ['nmap','nxc','certipy-ad','responder','bloodhound-ce-python','impacket-secretsdump','impacket-GetUserSPNs','enum4linux-ng','evil-winrm','showmount','ffuf','redis-cli','mysql','john','hashcat','hydra','msfconsole','java','javac','binwalk','radare2','jadx','apktool','foremost','exiftool','steghide','sqlmap','gobuster','nikto','gdb','awscli','kubectl']; manifest = {t: shutil.which(t) is not None for t in tools}; manifest['rockyou'] = os.path.exists('/usr/share/wordlists/rockyou.txt'); manifest['AutoBlue'] = os.path.exists('/opt/AutoBlue-MS17-010/eternalblue_exploit7.py'); manifest['POC_CVE-2023-21839'] = os.path.exists('/opt/POC_CVE-2023-21839'); manifest['msf_phpmyadmin_preg_replace'] = os.path.exists('/usr/share/metasploit-framework/modules/exploits/multi/http/phpmyadmin_preg_replace.rb'); manifest['msf_rails_web_console_v2'] = os.path.exists('/usr/share/metasploit-framework/modules/exploits/multi/http/rails_web_console_v2_code_exec.rb'); manifest['pwntools'] = True; open('/opt/portal5-attack.manifest.json','w').write(json.dumps(manifest,indent=2)); print('manifest: {} / {} tools present'.format(sum(1 for v in manifest.values() if v), len(manifest)))" 2>/dev/null || echo "WARNING: manifest gen failed"
 
 # execute_bash invokes ["sh", "/code"]; execute_python invokes ["python", "/code"].
 CMD ["sh"]

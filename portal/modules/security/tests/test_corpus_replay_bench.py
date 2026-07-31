@@ -139,6 +139,10 @@ class TestCouncilRosterExcludesUnfitModels:
         valid_sourcetypes = {"windows:security", "web:access", "linux:auditd"}
         assert set(crb.CURATED_TECHNIQUES.values()) <= valid_sourcetypes
 
+    def test_weak_t1557_cell_is_not_curated(self):
+        """A corpus cell containing only EventCode 4624 is not AiTM proof."""
+        assert "T1557" not in crb.CURATED_TECHNIQUES
+
     def test_cogito_is_tracked_from_v4_participation_evidence(self):
         assert "cogito:32b" in _COUNCIL_UNFIT_MODELS
 

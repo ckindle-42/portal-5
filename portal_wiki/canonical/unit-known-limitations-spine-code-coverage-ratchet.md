@@ -15,7 +15,7 @@ tags:
 - coverage
 - release
 created_at: 1785381155.353122
-updated_at: 1785459600
+updated_at: 1785500996
 ---
 
 - **ID**: P5-SPINE-COVERAGE-001
@@ -35,10 +35,15 @@ updated_at: 1785459600
   pins the current uncovered set; CI (check BR) fails only when that set *grows* — new code
   cannot land with zero coverage unnoticed. This prevents the debt from getting worse; it does
   not pay it down.
-- **Current measurement (2026-07-30)**: **10.2%** (62 of 609 eligible files), with 547
-  uncovered. The host-native MCP lifecycle, corpus-visibility, benign-corpus, and emergent
-  alias audit units added coverage for their implementation, tests, launcher paths, and
-  validator; the baseline was re-pinned downward to bank the gains.
-- **Next action**: Backfill coverage for the 547 currently-uncovered surfaces (write covering
+- **Current measurement (2026-07-31)**: **14.9%** (91 of 609 eligible files), with 518
+  uncovered. The latest continuation added twenty-one exact citations in two
+  bounded audits. The security-bench structure and sub-component units now
+  cite the ten package, CLI, capability-rendering, goal-evaluation, and
+  perception modules their bodies describe. The platform-agent unit now maps
+  its seven core modules plus its hermetic regression suite, while the emergent
+  resolution unit cites the gap and trajectory-honesty implementations it
+  relies on. Meta3's sandbox-environment regression also joined its owning
+  limitation unit. The baseline was re-pinned downward after each audit.
+- **Next action**: Backfill coverage for the 518 currently-uncovered surfaces (write covering
   units, re-pin the baseline down as each batch lands). Not completed in v8.0.0's release
   window — tracked as ongoing work, not closed out or deprioritized indefinitely.
