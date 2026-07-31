@@ -168,6 +168,7 @@ from portal.platform.inference.router.streaming import (  # noqa: F401
 # Tools (router/tools.py)
 from portal.platform.inference.router.tools import (  # noqa: F401
     _dispatch_tool_call,
+    _select_explicit_required_tool,
 )
 
 # Validation (router/validation.py)

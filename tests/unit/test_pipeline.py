@@ -1538,6 +1538,79 @@ class TestDispatchToolCall:
         assert "not available" in result["content"]
 
 
+class TestExplicitRequiredToolSelection:
+    """Explicit side-effect requests narrow multi-tool payloads deterministically."""
+
+    @pytest.mark.parametrize(
+        ("prompt", "expected"),
+        [
+            (
+                "Run this code:\n\nfrom collections import Counter\nprint(Counter('aba'))",
+                "execute_python",
+            ),
+            (
+                'Run this bash command and show exact output: printf "ok\\n"',
+                "execute_bash",
+            ),
+            (
+                'Create a Word document named "Change Plan" and save as a .docx file.',
+                "create_word_document",
+            ),
+            (
+                'Create an Excel workbook named "Incident Tracker".',
+                "create_excel",
+            ),
+            (
+                'Create a 5-slide PowerPoint titled "Zero Trust".',
+                "create_powerpoint",
+            ),
+        ],
+    )
+    def test_selects_single_explicit_tool(self, prompt, expected):
+        from portal.platform.inference.router_pipe import _select_explicit_required_tool
+
+        available = {
+            "execute_python",
+            "execute_bash",
+            "execute_nodejs",
+            "create_word_document",
+            "create_excel",
+            "create_powerpoint",
+            "remember",
+        }
+        assert (
+            _select_explicit_required_tool([{"role": "user", "content": prompt}], available)
+            == expected
+        )
+
+    @pytest.mark.parametrize(
+        "prompt",
+        [
+            "Write a Python function that validates an email address.",
+            "Write a getting-started document for a junior developer.",
+            "Read this Word document and summarize it.",
+        ],
+    )
+    def test_leaves_non_side_effect_requests_on_auto(self, prompt):
+        from portal.platform.inference.router_pipe import _select_explicit_required_tool
+
+        available = {"execute_python", "create_word_document", "read_word_document"}
+        assert (
+            _select_explicit_required_tool([{"role": "user", "content": prompt}], available) is None
+        )
+
+    def test_never_selects_tool_outside_whitelist(self):
+        from portal.platform.inference.router_pipe import _select_explicit_required_tool
+
+        assert (
+            _select_explicit_required_tool(
+                [{"role": "user", "content": "Run this bash command: printf ok"}],
+                {"execute_python"},
+            )
+            is None
+        )
+
+
 class TestPersonasHaveToolFields:
     """Verify M2+M3 persona YAMLs have correct tool fields."""
 

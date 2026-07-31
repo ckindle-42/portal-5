@@ -1,28 +1,32 @@
 ---
 id: unit-known-limitations-router-model-eviction-single-request
 kind: what
-title: "LLM Router Model Evicted by Single Inference Request (Open \u2014 Root Cause\
-  \ Unconfirmed)"
+title: LLM Router Model Evicted by Single Inference Request (Resolved)
 sources:
 - type: doc
   path: KNOWN_LIMITATIONS.md
-  section: "LLM Router Model Evicted by Single Inference Request (Open \u2014 Root\
-    \ Cause Unconfirmed)"
+  section: LLM Router Model Evicted by Single Inference Request (Resolved)
 - type: code
   path: portal/platform/inference/router/lifespan.py
+- type: code
+  path: scripts/lib/util.sh
+- type: doc
+  path: https://github.com/ollama/ollama/commit/9eef4a7195dc8ad246e697a5251a8df344a56880
+  section: mlx keep loaded model memory resident
 last_generated_commit: ''
 confidence: high
 tags:
 - known-limitations
 - router
 - ollama
-- open
+- resolved
 created_at: 1785451451.3742568
-updated_at: 1785451451.3742568
+updated_at: 1785458075
 ---
 
 - **ID**: P5-ROUTER-EVICTION-001
-- **Status**: OPEN — root cause unconfirmed. Do not treat as accepted/wontfix.
+- **Status**: RESOLVED 2026-07-30 — fixed upstream in the supported Ollama line and
+  regression-probed on this host.
 - **Description**: The LLM intent-router model (`LLM_ROUTER_MODEL`), loaded with
   `keep_alive: -1` specifically to stay pinned in memory (see
   `_warmup_llm_router` in `lifespan.py`), gets evicted by Ollama after exactly
@@ -50,19 +54,23 @@ updated_at: 1785451451.3742568
   a plausible contributing factor (not sole cause) in some of the extreme
   multi-thousand-second "backend instability" retry patterns observed during
   the v8.0.0 UAT sweep on `auto`-prefixed workspaces.
-- **Not accepted as a hardware limitation**: Apple Silicon's unified memory
-  architecture should not require this behavior at these memory sizes.
-  Suspected but unconfirmed: an Ollama/Metal backend GPU-residency
-  constraint that evicts prior models on new-model load regardless of
-  `keep_alive` or slot-count settings — needs direct investigation (GPU
-  memory telemetry during the transition, Ollama scheduler source/issue
-  tracker, or a version bisect) before being called root-caused.
-- **Mitigation shipped**: None yet — `LLM_ROUTER_TIMEOUT_MS` is set to
-  `1000ms` (the project's own bench-validated value for a *warm* router),
-  which does not cover the observed cold-load time. Raising the timeout
-  further would mask the real problem with added latency on every request;
-  not done pending root cause.
-- **Next action**: Investigate Ollama's Metal backend model-residency/eviction
-  behavior directly (e.g. instrumented GPU memory sampling across a
-  load/evict transition, or an Ollama version bisect) rather than tuning
-  config further.
+- **Root cause and upstream fix**: Ollama commit
+  `9eef4a7195dc8ad246e697a5251a8df344a56880` ("mlx: keep loaded model memory
+  resident"), released in `v0.32.4`, configures Metal residency after the MLX
+  runner materializes model weights. This directly addresses the missing
+  residency behavior suspected in the original finding. A version bisect was
+  not performed, but the upstream change and the post-upgrade reproduction
+  agree on the failure mechanism.
+- **Regression proof**: On the current `v0.32.5` server, a clean
+  router-load → `/v1/chat/completions` inference transition left both the
+  5.3GB router model and a 5.6GB inference model present in `/api/ps`, each
+  fully resident in Metal memory. Repeating through the OpenAI-compatible
+  endpoint no longer evicts the router.
+- **Repository fix**: Portal's Apple-Silicon launch preflight now treats
+  Ollama `v0.32.4` as the supported minimum and warns before launch on older
+  servers. The previous `0.30.7+` requirement allowed the known-bad residency
+  behavior back into supported deployments.
+- **No latency workaround added**: `LLM_ROUTER_TIMEOUT_MS` remains at the
+  bench-validated warm-router value. The pipeline does not re-warm after every
+  request or silently disable semantic routing; those mitigations would evict
+  useful inference models or reduce routing accuracy.

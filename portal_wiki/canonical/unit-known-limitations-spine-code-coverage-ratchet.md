@@ -15,7 +15,7 @@ tags:
 - coverage
 - release
 created_at: 1785381155.353122
-updated_at: 1785381155.353122
+updated_at: 1785459600
 ---
 
 - **ID**: P5-SPINE-COVERAGE-001
@@ -35,6 +35,10 @@ updated_at: 1785381155.353122
   pins the current uncovered set; CI (check BR) fails only when that set *grows* — new code
   cannot land with zero coverage unnoticed. This prevents the debt from getting worse; it does
   not pay it down.
-- **Next action**: Backfill coverage for the ~560 currently-uncovered surfaces (write covering
+- **Current measurement (2026-07-30)**: **10.2%** (62 of 609 eligible files), with 547
+  uncovered. The host-native MCP lifecycle, corpus-visibility, benign-corpus, and emergent
+  alias audit units added coverage for their implementation, tests, launcher paths, and
+  validator; the baseline was re-pinned downward to bank the gains.
+- **Next action**: Backfill coverage for the 547 currently-uncovered surfaces (write covering
   units, re-pin the baseline down as each batch lands). Not completed in v8.0.0's release
   window — tracked as ongoing work, not closed out or deprioritized indefinitely.

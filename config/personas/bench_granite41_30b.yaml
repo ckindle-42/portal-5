@@ -3,9 +3,9 @@ slug: bench-granite41-30b
 category: benchmark
 workspace_model: bench-granite41-30b
 preferred_models:
-  - granite4.1:30b
+  - granite4.1:30b-ctx16k
 module: eval
-# Routes to: granite4.1:30b (Ollama, IBM Research, dense 30B Q4_K_M, ~17GB)
+# Routes to: granite4.1:30b-ctx16k (Ollama, IBM Research, dense 30B Q4_K_M, ~17GB)
 # IBM Granite 4.1 is dense decoder-only, NO reasoning chain by design.
 # Strengths: leaderboard #1 BFCL V3 (73.7), IFEval 89.7, GSM8K 94.2, EvalPlus
 # 82.7. ISO-certified with cryptographic signatures — distinct posture for
@@ -13,7 +13,7 @@ module: eval
 # than Laguna 33B-A3B, GLM-4.7-Flash 30B-A3B, Qwen3-Coder-30B-A3B at the
 # same param count. Bench measures CC-01 creative-coding behavior.
 # BENCHMARK NOTE: Granite is moderated. Verify model loaded:
-# `ollama ps | grep granite4.1:30b`. Allow ~30s cold-load on first call.
+# `ollama ps | grep granite4.1:30b-ctx16k`. Allow ~30s cold-load on first call.
 prompt_template: creative_coder
 tags:
   - benchmark

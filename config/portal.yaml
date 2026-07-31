@@ -703,7 +703,7 @@ workspaces:
           existing blueteam variant''s prod model_hint (granite4.1:8b-ctx8k) is unchanged.'
         expose_to_owui: false
         tool_model: granite4.1:8b-ctx8k
-        reasoning_model: granite4.1:30b
+        reasoning_model: granite4.1:30b-ctx16k
         expert_model: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
         tools:
         - classify_vulnerability
@@ -728,7 +728,7 @@ workspaces:
         expose_to_owui: false
         tool_model: granite4.1:8b-ctx8k
         council_models:
-        - granite4.1:30b
+        - granite4.1:30b-ctx16k
         - mistral-small3.2:24b
         - qwen3.6:27b-q4_K_M
         expert_model: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
@@ -832,7 +832,7 @@ workspaces:
       members:
       - id: evidence
         label: Evidence Auditor
-        model: granite4.1:30b
+        model: granite4.1:30b-ctx16k
         system: |-
           You are the Evidence Auditor. Determine which material claims are supported, contradicted, stale, ambiguous, or missing necessary evidence. Check internal consistency and distinguish observed facts from inference. Do not judge style unless it obscures evidence.
       - id: challenger
@@ -1167,7 +1167,8 @@ workspaces:
     name: 🔬 Bench · Granite-4.1 8B (IBM)
     description: |-
       Benchmark: granite4.1:8b (Ollama, IBM Research, dense 8B no-think, ~5.3GB Q4_K_M — Apache 2.0, ISO-certified. BFCL V3 68.3, IFEval 87.1, GSM8K 92.5. Predictable-latency tool calling without reasoning chains.)
-    model_hint: granite4.1:8b
+    model_hint: granite4.1:8b-ctx8k
+    context_limit: 8192
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
@@ -1184,7 +1185,8 @@ workspaces:
     name: 🔬 Bench · Granite-4.1 30B (IBM)
     description: |-
       Benchmark: granite4.1:30b (Ollama, IBM Research, dense 30B no-think, ~17GB Q4_K_M — Apache 2.0, ISO-certified, cryptographic signatures. BFCL V3 73.7 (#1 on IBM chart), IFEval 89.7, GSM8K 94.2, EvalPlus 82.7. Trained with GRC data curation — fits compliance/audit workflows.)
-    model_hint: granite4.1:30b
+    model_hint: granite4.1:30b-ctx16k
+    context_limit: 16384
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m

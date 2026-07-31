@@ -7,12 +7,20 @@ sources:
   path: KNOWN_LIMITATIONS.md
   commit: 05e42ec2
   section: Ollama /v1 ignores options.num_ctx and options.num_batch
+- type: code
+  path: config/portal.yaml
+- type: code
+  path: portal/modules/security/core/benign_corpus_bench.py
+- type: code
+  path: portal/modules/security/core/corpus_replay_bench.py
+- type: code
+  path: portal/modules/security/tests/test_benign_corpus_bench.py
 last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
 created_at: 1784946220.6741362
-updated_at: 1784946220.6741362
+updated_at: 1785460800
 ---
 
 - **ID**: P5-OLLAMA-OPTIONS-001
@@ -21,5 +29,13 @@ updated_at: 1784946220.6741362
   - `num_batch` injection is inert — set PARAMETER num_batch in Modelfiles for prefill tuning
   - `predict_limit` is mapped to OpenAI `max_tokens` (top-level, honored) as a workaround
 - **Roadmap note:** P5-FUT: evaluate `/api/chat` as `chat_url` — it honors the Ollama-native parameter set but requires changing all payload/response shapes.
+- **2026-07-30 mitigation proof**: A benign-corpus replay demonstrated the
+  operational consequence on current Ollama: raw `granite4.1:30b` loaded at
+  131,072 tokens and about 91 GB, while raw `granite4.1:8b` loaded at 131,072
+  tokens and about 51 GB. The security evaluation workspaces now use baked
+  `granite4.1:30b-ctx16k` and `granite4.1:8b-ctx8k` tags and explicit workspace
+  IDs. Live pipeline route-identity probes returned those exact tags; Ollama
+  reported contexts 16,384 and 8,192 respectively. This mitigates these
+  operated workspaces but does not resolve the general `/v1` limitation.
 
 ---

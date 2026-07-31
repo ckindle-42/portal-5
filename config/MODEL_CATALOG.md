@@ -1020,6 +1020,14 @@ Context-capped derived tag of `granite4.1:30b` (`PARAMETER num_ctx 65536` baked 
 
 ---
 
+### `granite4.1:30b-ctx16k`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-granite4-1-30b-ctx16k -->
+Context-capped derived tag of `granite4.1:30b` (`PARAMETER num_ctx 16384` baked in via `portal models apply-params`, P5-SEC-BENIGN-CORPUS-001 / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+<!-- /WIKI:GENERATED -->
+
+---
+
 ### `granite4.1:8b-ctx16k`
 
 <!-- WIKI:GENERATED unit=unit-model-catalog-granite4-1-8b-ctx16k -->

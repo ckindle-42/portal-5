@@ -628,7 +628,7 @@ default.
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (188 model ids across 6 backend groups)
+# Model catalog (190 model ids across 6 backend groups)
 
 ## coding (39)
 
@@ -685,7 +685,7 @@ default.
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (73)
+## general (74)
 
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
@@ -703,6 +703,7 @@ default.
 - `glm-4.7-flash:Q4_K_M`
 - `gpt-oss:20b`
 - `granite4.1:30b`
+- `granite4.1:30b-ctx16k`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`
@@ -761,11 +762,12 @@ default.
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
 
-## reasoning (22)
+## reasoning (23)
 
 - `deepseek-r1:32b-q4_k_m`
 - `gpt-oss:20b`
 - `granite4.1:30b`
+- `granite4.1:30b-ctx16k`
 - `granite4.1:30b-ctx64k`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`

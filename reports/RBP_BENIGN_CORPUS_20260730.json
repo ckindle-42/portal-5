@@ -1,0 +1,1491 @@
+{
+  "attack_source": "portal/modules/security/core/results/checkpoints/corpus_replay_bench_v4_closeout.json",
+  "benign_cells": [
+    {
+      "elapsed_s": 141.99,
+      "evidence_origin": "corpus:p5-negative:p5n001",
+      "ground_truth": "benign",
+      "label": "p5n001",
+      "match_grade": "SIMILAR",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "windows:security",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "granite4.1:30b-ctx16k",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_h2ycc965', 'type': 'function', 'function': {'name': 'request_more', 'arguments': '{\"what\":\"Windows Security event logs for workstation-17 showing EventCode 4624 (successful logon) and related fields such as LogonType, AccountName, SourceNetworkInformation to identify any suspicious or unexpected login attempts.\"}'}}]}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "EventCode=4624 LogonType=2 TargetUserName=jsmith AuthenticationPackageName=Negotiate Status=0x0 WorkstationName=WS17",
+          "model": "granite4.1:8b",
+          "provenance": "matched-exact",
+          "query": "Windows Security event logs for workstation-17 showing EventCode 4624 (successful logon) and related fields such as LogonType, AccountName, SourceNetworkInformation to identify any suspicious or unexpected login attempts.",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "NONE",
+          "model": "granite4.1:30b-ctx16k",
+          "raw": "{\n  \"request_more\": \"Windows Security event logs for workstation-17 showing EventCode 4688 (process creation) entries that include NewProcessName and ParentProcessName to detect command\u2011line injection or suspicious process launches.\",\n  \"technique_ids\": [],\n  \"evidence\": [],\n  \"reasoning\": \"The only telemetry we have is a single successful logon event (EventCode 4624) with expected values. While local interactive logons are normal, confirming whether this account subsequently executed any suspicious commands or processes would help rule out T1078 (Valid Accounts). To evaluate that hypothesis we need process\u2011creation logs (EventCode 4688) showing new process names and parent relationships.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": []\n}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: windows:security 3 (4634\u00d71, 4672\u00d71, 4624\u00d71)\nRepresentative records:\n[windows:security] EventCode=4634 LogonType=2 TargetUserName=jsmith\n[windows:security] EventCode=4672 SubjectUserName=jsmith PrivilegeList=SeChangeNotifyPrivilege\n[windows:security] EventCode=4624 LogonType=2 TargetUserName=jsmith AuthenticationPackageName=Negotiate Status=0x0 WorkstationName=WS17",
+          "model": "granite4.1:8b",
+          "provenance": "live-broad-fallback",
+          "query": "Windows Security event logs for workstation-17 showing EventCode 4688 (process creation) entries that include NewProcessName and ParentProcessName to detect command\u2011line injection or suspicious process launches.",
+          "round": 3,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "granite4.1:30b-ctx16k",
+          "raw": "{\n  \"request_more\": \"Windows Security event logs for workstation-17 showing EventCode 4688 (Process Creation) with NewProcessName and CommandLine fields covering recent activity within the past 2 hours to identify any suspicious commands or elevated process launches.\",\n  \"technique_ids\": [],\n  \"evidence\": [],\n  \"reasoning\": \"The retrieved events are all standard logon/account\u2011privilege change records (4624, 4634, 4672) that indicate a normal interactive login and typical privilege adjustments. No EventCode=4688 process\u2011creation entries were returned, which would be required to evaluate the Valid Accounts hypothesis (T1078). To confirm or rule out any misuse of valid credentials we need concrete evidence of subsequent command execution or suspicious processes.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": []\n}",
+          "round": 4,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "granite4.1:8b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_rn5foukp', 'type': 'function', 'function': {'name': 'emit_verdict', 'arguments': '{\"match_grade\":\"NONE\",\"similar_to\":[],\"verdict\":\"RULED_OUT\",\"technique_ids\":[],\"evidence\":[],\"reasoning\":\"All retrieved Windows Security events (4624, 4634, 4672) indicate standard interactive logon and privilege adjustments for user jsmith on workstation-17. No EventCode=4688 process creation entries were present to assess command-line execution or suspicious process launches that would map to MITRE technique T1078 (Valid Accounts). Consequently, there is no evidence to support the hypothesis regarding credential misuse, making the detection ruled out.\"}'}}]}",
+          "round": 5,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    },
+    {
+      "elapsed_s": 123.56,
+      "evidence_origin": "corpus:p5-negative:p5n002",
+      "ground_truth": "benign",
+      "label": "p5n002",
+      "match_grade": "SIMILAR",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "windows:security",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_7zu4rd00', 'type': 'function', 'function': {'name': 'request_more', 'arguments': '{\"what\":\"Windows Security event logs for ad-dc-01 with EventCode 4776 (kerberos authentication request) and any associated fields such as SubjectUserName, TargetUserName, Status, KeyVersion, etc.\"}'}}]}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: windows:security 3 (4624\u00d71, 4769\u00d71, 4768\u00d71)\nRepresentative records:\n[windows:security] EventCode=4624 LogonType=3 TargetUserName=svc_backup WorkstationName=BACKUP01 Status=0x0\n[windows:security] EventCode=4769 TargetUserName=svc_backup ServiceName=cifs/fileserver TicketEncryptionType=0x12 Status=0x0\n[windows:security] EventCode=4768 TargetUserName=svc_backup PreAuthType=2 Status=0x0 TicketEncryptionType=0x12 IpAddress=10.10.20.15",
+          "model": "bench-granite41-8b",
+          "provenance": "live-broad-fallback",
+          "query": "Windows Security event logs for ad-dc-01 with EventCode 4776 (kerberos authentication request) and any associated fields such as SubjectUserName, TargetUserName, Status, KeyVersion, etc.",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"Windows Security event logs for ad-dc-01 with EventCode 4776 (Kerberos authentication request) including fields SubjectUserName, TargetUserName, TicketEncryptionType, Status, etc., to confirm or rule out Kerberos abuse techniques.\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[windows:security] EventCode=4624 LogonType=3 TargetUserName=svc_backup WorkstationName=BACKUP01 Status=0x0\",\n    \"[windows:security] EventCode=4769 TargetUserName=svc_backup ServiceName=cifs/fileserver TicketEncryptionType=0x12 Status=0x0\",\n    \"[windows:security] EventCode=4768 TargetUserName=svc_backup PreAuthType=2 Status=0x0 TicketEncryptionType=0x12 IpAddress=10.10.20.15\"\n  ],\n  \"reasoning\": \"The current events (4624, 4769, 4768) indicate standard logon and service ticket activities for the svc_backup account but do not include any EventCode 4776 records that would show direct Kerberos authentication attempts or pre\u2011authentication failures often associated with techniques such as T1098 (Account Manipulation), T1558 (Steal or Forge Kerberos Tickets), or other credential\u2011access methods. Without evidence of abnormal TicketEncryptionType mismatches, unusual PreAuthType values, repeated failed logon attempts, anomalous IP addresses, or unexpected service requests typical of Pass\u2011the\u2011Ticket/Pass\u2011the\u2011Hash abuse, we cannot confidently map the observed telemetry to a specific MITRE technique.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [\"T1098\", \"T1558\"]\n}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: windows:security 3 (4624\u00d71, 4769\u00d71, 4768\u00d71)\nRepresentative records:\n[windows:security] EventCode=4624 LogonType=3 TargetUserName=svc_backup WorkstationName=BACKUP01 Status=0x0\n[windows:security] EventCode=4769 TargetUserName=svc_backup ServiceName=cifs/fileserver TicketEncryptionType=0x12 Status=0x0\n[windows:security] EventCode=4768 TargetUserName=svc_backup PreAuthType=2 Status=0x0 TicketEncryptionType=0x12 IpAddress=10.10.20.15",
+          "model": "bench-granite41-8b",
+          "provenance": "live-broad-fallback",
+          "query": "Windows Security event logs for ad-dc-01 with EventCode 4776 (Kerberos authentication request) including fields SubjectUserName, TargetUserName, TicketEncryptionType, Status, etc., to confirm or rule out Kerberos abuse techniques.",
+          "round": 3,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"Windows Security event logs for ad-dc-01 with EventCode 4776 (Kerberos authentication request) and any related fields such as SubjectUserName, TargetUserName, TicketEncryptionType, PreAuthType, Status, etc., to verify the presence or absence of Kerberos abuse patterns.\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[windows:security] EventCode=4624 LogonType=3 TargetUserName=svc_backup WorkstationName=BACKUP01 Status=0x0\",\n    \"[windows:security] EventCode=4769 TargetUserName=svc_backup ServiceName=cifs/fileserver TicketEncryptionType=0x12 Status=0x0\",\n    \"[windows:security] EventCode=4768 TargetUserName=svc_backup PreAuthType=2 Status=0x0 TicketEncryptionType=0x12 IpAddress=10.10.20.15\"\n  ],\n  \"reasoning\": \"The observed events show typical logon (4624), service ticket issuance (4769), and pre\u2011authentication activity (4768) for the svc_backup account, but no EventCode\u202f4776 Kerberos authentication request records are present. Without those 4776 entries we cannot identify any abnormal TicketEncryptionType mismatches, repeated failed attempts, or unusual source IPs that would indicate credential access techniques like T1098 (Account Manipulation), T1558 (Steal or Forge Kerberos Tickets), or Pass\u2011the\u2011Ticket/Pass\u2011the\u2011Hash abuse. Therefore the current telemetry does not provide sufficient evidence to map to a specific MITRE technique.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [\"T1098\", \"T1558\"]\n}",
+          "round": 4,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-8b",
+          "raw": "{\n  \"verdict\": \"RULED_OUT\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[windows:security] EventCode=4624 LogonType=3 TargetUserName=svc_backup WorkstationName=BACKUP01 Status=0x0\",\n    \"[windows:security] EventCode=4769 TargetUserName=svc_backup ServiceName=cifs/fileserver TicketEncryptionType=0x12 Status=0x0\",\n    \"[windows:security] EventCode=4768 TargetUserName=svc_backup PreAuthType=2 Status=0x0 TicketEncryptionType=0x12 IpAddress=10.10.20.15\"\n  ],\n  \"reasoning\": \"None of the observed Windows Security events include EventCode\\u202f4776, which is required to detect Kerberos authentication request anomalies tied to credential\\u2011access techniques such as 'Steal or Forge Kerberos Tickets' (T1558) or 'Pass\\u2011the\\u2011Ticket/Pass\\u2011the\\u2011Hash'. The events present are standard logon and service ticket activities for the svc_backup account, showing no abnormal TicketEncryptionType mismatches, failed pre\\u2011authentication attempts, or unexpected source IPs that would indicate malicious Kerberos abuse. Consequently, there is insufficient evidence to confirm any MITRE technique, leading to a ruled\\u2011out verdict.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [\"T1558\", \"T1075\"]\n}\n<br>\n**Note:** No further telemetry requests are needed; the absence of EventCode\u202f4776 fully disambiguates the hypothesis.",
+          "round": 5,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    },
+    {
+      "elapsed_s": 75.67,
+      "evidence_origin": "corpus:p5-negative:p5n003",
+      "ground_truth": "benign",
+      "label": "p5n003",
+      "match_grade": "SIMILAR",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "web:access",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_dmqxg9ub', 'type': 'function', 'function': {'name': 'request_more', 'arguments': '{\"what\":\"web:access logs entries for host web-prod-02 (scenario p5n003) including timestamps, request methods, URLs, response codes and client IP\"}'}}]}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: web:access 3\nRepresentative records:\n[web:access] 10.10.30.21 - api_user [26/Jul/2026:04:10:04 +0000] \"GET /api/v1/users/42 HTTP/1.1\" 200 96 \"-\" \"portal-client/5.0\"\n[web:access] 10.10.30.21 - api_user [26/Jul/2026:04:10:03 +0000] \"GET /api/v1/users?page=1&limit=25 HTTP/1.1\" 200 842 \"-\" \"portal-client/5.0\"\n[web:access] 10.10.30.12 - monitor [26/Jul/2026:04:10:01 +0000] \"GET /health HTTP/1.1\" 200 18 \"-\" \"kube-probe/1.34\"",
+          "model": "bench-granite41-8b",
+          "provenance": "matched-exact",
+          "query": "web:access logs entries for host web-prod-02 (scenario p5n003) including timestamps, request methods, URLs, response codes and client IP",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"Windows Security event logs for host web-prod-02 covering EventCode 4624 (successful logon), 4672 (special privilege use), 4660/4663 (object access) within the timeframe of the alert\",\n  \"technique_ids\": [],\n  \"evidence\": [],\n  \"reasoning\": \"The provided web:access logs show only routine API retrievals and a health\u2011check request. No anomalous patterns, unexpected user agents, or suspicious endpoints are present that would indicate specific MITRE techniques such as credential dumping (T1003), data exfiltration over alternative protocol (T1048), lateral movement (T1021), etc. To rule out or confirm any technique involving privileged access, account misuse, or authentication anomalies we need Windows Security event log telemetry from the same host and timeframe.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": []\n}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: web:access 3\nRepresentative records:\n[web:access] 10.10.30.21 - api_user [26/Jul/2026:04:10:04 +0000] \"GET /api/v1/users/42 HTTP/1.1\" 200 96 \"-\" \"portal-client/5.0\"\n[web:access] 10.10.30.21 - api_user [26/Jul/2026:04:10:03 +0000] \"GET /api/v1/users?page=1&limit=25 HTTP/1.1\" 200 842 \"-\" \"portal-client/5.0\"\n[web:access] 10.10.30.12 - monitor [26/Jul/2026:04:10:01 +0000] \"GET /health HTTP/1.1\" 200 18 \"-\" \"kube-probe/1.34\"",
+          "model": "bench-granite41-8b",
+          "provenance": "live-broad-fallback",
+          "query": "Windows Security event logs for host web-prod-02 covering EventCode 4624 (successful logon), 4672 (special privilege use), 4660/4663 (object access) within the timeframe of the alert",
+          "round": 3,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"Splunk log entries for host web-prod-02 covering privileged process execution (e.g., EventCode 4688, PowerShell command logs, suspicious file accesses) within the alert timeframe\",\n  \"technique_ids\": [],\n  \"evidence\": [],\n  \"reasoning\": \"Both the Windows Security event logs and the web:access logs retrieved so far contain only baseline activity\u2014routine API calls, health\u2011check probes, and standard successful logons. No entries exhibit indicators of MITRE techniques such as credential dumping (T1003), lateral movement via SMB/winrm (T1021), file deletion or manipulation (T1087/T1112), abnormal authentication methods (T1078), or suspicious outbound connections that would suggest exfiltration (T1041). To evaluate whether any privileged actions, unusual command executions, or hidden credential usage are occurring on the host, we need additional contextual telemetry from Splunk that captures process\u2011creation events, PowerShell transcripts, and object\u2011access logs around the same time window.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": []\n}",
+          "round": 4,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-8b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_wqqzel2x', 'type': 'function', 'function': {'name': 'emit_verdict', 'arguments': '{\"technique_ids\":[],\"evidence\":[],\"reasoning\":\"The gathered web:access logs show only standard API calls and health checks with normal response codes (200) and no unusual user agents, IPs, or endpoints that would indicate malicious activity. The Windows Security event logs contain typical successful logons without flags for special privilege use or object access anomalies. No patterns matching known MITRE ATT\\\\u0026CK techniques such as Credential Dumping (T1003), Lateral Movement via SMB (T1021), Data Exfiltration (T1041), or Proxy usage are observed. Consequently, there is insufficient evidence to support any malicious technique hypothesis, leading to a ruled-out conclusion.\",\"match_grade\":\"NONE\",\"similar_to\":[],\"verdict\":\"RULED_OUT\"}'}}]}",
+          "round": 5,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    },
+    {
+      "elapsed_s": 131.23,
+      "evidence_origin": "corpus:p5-negative:p5n004",
+      "ground_truth": "benign",
+      "label": "p5n004",
+      "match_grade": "SIMILAR",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "web:access",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"web:access logs for host web-prod-02 showing request method, URL path, query parameters, User-Agent strings, and any anomalous status codes (e.g., 401/403) around the time of alert p5n004\",\n  \"technique_ids\": [],\n  \"evidence\": [],\n  \"reasoning\": \"The trigger provides only an alert identifier (p5n004) on web-prod-02 with no accompanying telemetry. To assess whether any MITRE techniques such as T1071.001 (Web Protocols), T1110 (Brute Force), or T1499 (Endpoint Denial of Service) are in play, we need concrete details from the web server access logs: request methods, URIs accessed, status codes returned, and client identifiers (User\u2011Agent/IP). Without these data points we cannot map any observed behavior to a specific technique. Therefore, I must first obtain the relevant log entries before forming or ruling out any hypothesis.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": []\n}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: web:access 3\nRepresentative records:\n[web:access] 10.10.30.12 - monitor [26/Jul/2026:04:12:06 +0000] \"GET /ready HTTP/1.1\" 200 18 \"-\" \"kube-probe/1.34\"\n[web:access] 10.10.30.33 - analyst [26/Jul/2026:04:12:04 +0000] \"GET /reports/quarterly-summary.pdf HTTP/1.1\" 200 48211 \"https://portal/search\" \"Mozilla/5.0\"\n[web:access] 10.10.30.33 - analyst [26/Jul/2026:04:12:01 +0000] \"POST /search HTTP/1.1\" 200 1337 \"https://portal/search\" \"Mozilla/5.0\" query=\"quarterly report\"",
+          "model": "bench-granite41-8b",
+          "provenance": "matched-exact",
+          "query": "web:access logs for host web-prod-02 showing request method, URL path, query parameters, User-Agent strings, and any anomalous status codes (e.g., 401/403) around the time of alert p5n004",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"Windows Security event logs for web-prod-02 around the alert time (e.g., EventCode 4624 login attempts, 4738 account changes) to detect potential credential\u2011access or privilege\u2011escalation activity\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[web:access] 10.10.30.12 - monitor [26/Jul/2026:04:12:06 +0000] \\\"GET /ready HTTP/1.1\\\" 200 18 \\\"-\\\" \\\"kube-probe/1.34\\\"\",\n    \"[web:access] 10.10.30.33 - analyst [26/Jul/2026:04:12:04 +0000] \\\"GET /reports/quarterly-summary.pdf HTTP/1.1\\\" 200 48211 \\\"https://portal/search\\\" \\\"Mozilla/5.0\\\"\",\n    \"[web:access] 10.10.30.33 - analyst [26/Jul/2026:04:12:01 +0000] \\\"POST /search HTTP/1.1\\\" 200 1337 \\\"https://portal/search\\\" \\\"Mozilla/5.0\\\" query=\\\"quarterly report\\\"\"\n  ],\n  \"reasoning\": \"The provided web\u2011access logs show three normal\u2011looking requests (a health\u2011check GET, a PDF download, and a search POST) all returning status 200 with legitimate User\u2011Agent strings. None of the entries exhibit signs of forced browsing, path traversal, excess query parameters, credential leakage, or denial\u2011of\u2011service patterns that would map to specific MITRE techniques such as T1071.001 (Web Protocols), T1110 (Brute Force), T1499 (Endpoint DoS), or similar.\\n\\nBecause the telemetry alone does not reveal anomalous behavior indicative of a compromise, we need additional context\u2014particularly authentication\u2011related events from Windows Security logs\u2014to determine whether any credential\u2011access (e.g., techniques around account discovery, password dumping) might be occurring. Without that supplementary data we cannot confirm nor rule out any technique with certainty.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": []\n}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: web:access 3\nRepresentative records:\n[web:access] 10.10.30.12 - monitor [26/Jul/2026:04:12:06 +0000] \"GET /ready HTTP/1.1\" 200 18 \"-\" \"kube-probe/1.34\"\n[web:access] 10.10.30.33 - analyst [26/Jul/2026:04:12:04 +0000] \"GET /reports/quarterly-summary.pdf HTTP/1.1\" 200 48211 \"https://portal/search\" \"Mozilla/5.0\"\n[web:access] 10.10.30.33 - analyst [26/Jul/2026:04:12:01 +0000] \"POST /search HTTP/1.1\" 200 1337 \"https://portal/search\" \"Mozilla/5.0\" query=\"quarterly report\"",
+          "model": "bench-granite41-8b",
+          "provenance": "live-broad-fallback",
+          "query": "Windows Security event logs for web-prod-02 around the alert time (e.g., EventCode 4624 login attempts, 4738 account changes) to detect potential credential\u2011access or privilege\u2011escalation activity",
+          "round": 3,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"Windows Security event logs for web-prod-02 showing EventCode 4624 (logon) and EventCode 4738 (account change) around the alert timestamp to verify if any suspicious login attempts or privilege modifications occurred\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[web:access] 10.10.30.12 - monitor [26/Jul/2026:04:12:06 +0000] \\\"GET /ready HTTP/1.1\\\" 200 18 \\\"-\\\" \\\"kube-probe/1.34\\\"\",\n    \"[web:access] 10.10.30.33 - analyst [26/Jul/2026:04:12:04 +0000] \\\"GET /reports/quarterly-summary.pdf HTTP/1.1\\\" 200 48211 \\\"https://portal/search\\\" \\\"Mozilla/5.0\\\"\",\n    \"[web:access] 10.10.30.33 - analyst [26/Jul/2026:04:12:01 +0000] \\\"POST /search HTTP/1.1\\\" 200 1337 \\\"https://portal/search\\\" \\\"Mozilla/5.0\\\" query=\\\"quarterly report\\\"\"\n  ],\n  \"reasoning\": \"Both the web\u2011access logs and the attempted Windows Security event log retrieval returned only generic access entries; no authentication events (EventCode\u202f4624, 4738) or anomalous status codes were observed. Because we lack any evidence of failed/abnormal logons, credential dumping, privilege escalation, or other malicious activity that would map to a specific MITRE technique, additional targeted telemetry\u2014particularly login\u2011related event logs\u2014is required before any hypothesis can be responsibly evaluated.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": []\n}",
+          "round": 4,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-8b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_0fqcphds', 'type': 'function', 'function': {'name': 'emit_verdict', 'arguments': '{\"match_grade\":\"NONE\",\"similar_to\":[],\"verdict\":\"RULED_OUT\",\"technique_ids\":[],\"evidence\":[],\"reasoning\":\"The web-access logs and attempted Windows Security event log retrieval contain only normal request entries with HTTP 200 status codes, no anomalous status responses (e.g., 401/403), and no login or account modification events. No activity matches known MITRE techniques such as T1071.001 (Web Protocols), T1110 (Brute Force), T1499 (Endpoint DoS), or credential-access techniques (T1003, T1606). Therefore, malicious activity cannot be confirmed, and the hypothesis is ruled out.\"}'}}]}",
+          "round": 5,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    },
+    {
+      "elapsed_s": 77.74,
+      "evidence_origin": "corpus:p5-negative:p5n005",
+      "ground_truth": "benign",
+      "label": "p5n005",
+      "match_grade": "SIMILAR",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "linux:auditd",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_ca9fv2qg', 'type': 'function', 'function': {'name': 'request_more', 'arguments': '{\"what\":\"auditd log entries for linux-app-03 (scenario p5n005) containing EventCode or fields indicating suspicious activities such as execve syscall with payload, file access changes, privilege escalation attempts, and any anomalies that could map to T1553.004, T1562.001, T1027\"}'}}]}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: linux:auditd 3\nRepresentative records:\n[linux:auditd] type=USER_END msg=audit(1785039310.100:4403): pid=8221 uid=0 auid=1001 ses=44 res=success\n[linux:auditd] type=EXECVE msg=audit(1785039301.120:4402): argc=2 a0=\"/usr/bin/apt-get\" a1=\"update\"\n[linux:auditd] type=USER_CMD msg=audit(1785039301.100:4401): pid=8221 uid=1001 auid=1001 ses=44 subj=unconfined msg=\"cwd=/home/admin cmd=/usr/bin/sudo /usr/bin/apt-get update terminal=pts/2 res=success\"",
+          "model": "bench-granite41-8b",
+          "provenance": "live-broad-fallback",
+          "query": "auditd log entries for linux-app-03 (scenario p5n005) containing EventCode or fields indicating suspicious activities such as execve syscall with payload, file access changes, privilege escalation attempts, and any anomalies that could map to T1553.004, T1562.001, T1027",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\"request_more\": \"Additional auditd records showing attempts to modify file permissions or ownership that could indicate privilege escalation (T1553.004), evidence of unauthorized service creation or modification relevant to T1562.001, and any network flow data indicating lateral movement (e.g., unusual SSH/SMB connections from linux-app-03) related to T1027.\", \"technique_ids\": [], \"evidence\": [], \"reasoning\": \"The current auditd logs only show benign administrative actions: a successful user command invoking 'sudo apt-get update' and standard USER_END/USER_CMD entries. No indicators of privilege escalation, unauthorized service manipulation, or lateral movement are present in the provided records.\", \"match_grade\": \"NONE\", \"similar_to\": []}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "[linux:auditd] type=USER_END msg=audit(1785039310.100:4403): pid=8221 uid=0 auid=1001 ses=44 res=success\n[linux:auditd] type=USER_CMD msg=audit(1785039301.100:4401): pid=8221 uid=1001 auid=1001 ses=44 subj=unconfined msg=\"cwd=/home/admin cmd=/usr/bin/sudo /usr/bin/apt-get update terminal=pts/2 res=success\"\nNo matching Windows events. 0 total Windows events available. Try a broader query.\n3 events: linux:auditd 3\nRepresentative records:\n[linux:auditd] type=USER_END msg=audit(1785039310.100:4403): pid=8221 uid=0 auid=1001 ses=44 res=success\n[linux:auditd] type=EXECVE msg=audit(1785039301.120:4402): argc=2 a0=\"/usr/bin/apt-get\" a1=\"update\"\n[linux:auditd] type=USER_CMD msg=audit(1785039301.100:4401): pid=8221 uid=1001 auid=1001 ses=44 subj=unconfined msg=\"cwd=/home/admin cmd=/usr/bin/sudo /usr/bin/apt-get update terminal=pts/2 res=success\"",
+          "model": "bench-granite41-8b",
+          "provenance": "matched-exact",
+          "query": "Additional auditd records showing attempts to modify file permissions or ownership that could indicate privilege escalation (T1553.004), evidence of unauthorized service creation or modification relevant to T1562.001, and any network flow data indicating lateral movement (e.g., unusual SSH/SMB connections from linux-app-03) related to T1027.",
+          "round": 3,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\"request_more\": \"Network flow data showing outbound connections from linux-app-03 to other hosts on non-standard ports or unusual protocols that could indicate lateral movement (T1027) or remote service abuse.\", \"technique_ids\": [], \"evidence\": [], \"reasoning\": \"The auditd logs only capture benign administrative actions (sudo apt-get update, normal USER_END/USER_CMD events). No evidence of privilege escalation attempts (file permission changes), unauthorized service modification/manipulation, or lateral movement is present. To fully assess T1553.004, T1562.001, and especially T1027, network telemetry indicating remote connections from linux-app-03 to other systems would be required.\", \"match_grade\": \"NONE\", \"similar_to\": []}",
+          "round": 4,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-8b",
+          "raw": "{\"verdict\": \"RULED_OUT\", \"technique_ids\": [], \"evidence\": [], \"reasoning\": \"The auditd logs provided contain only benign administrative activities: execution of `apt-get update` via sudo and standard USER_END/USER_CMD events. No indicators of privilege escalation (e.g., chown/chmod changes), unauthorized service manipulation, or lateral movement (e.g., network connections) are present. Consequently, there is insufficient evidence to support any MITRE ATT&CK technique hypotheses.\", \"match_grade\": \"NONE\", \"similar_to\": []}\n",
+          "round": 5,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    },
+    {
+      "elapsed_s": 122.03,
+      "evidence_origin": "corpus:p5-negative:p5n006",
+      "ground_truth": "benign",
+      "label": "p5n006",
+      "match_grade": "SIMILAR",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "linux:auditd",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_9nv4tjsk', 'type': 'function', 'function': {'name': 'request_more', 'arguments': '{\"what\":\"auditd log entries for linux-app-03 showing any suspicious system call activity or privilege escalation events (e.g., EventCode 4000 type EXECVE with command-line indicating sudo, setuid binary usage, unusual file access patterns). Specifically need raw auditd records covering PID, UID/GID changes, syscalls like open, execve, and any permission\u2011denial messages.\"}'}}]}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: linux:auditd 3\nRepresentative records:\n[linux:auditd] type=SERVICE_START msg=audit(1785039410.100:4503): pid=1 uid=0 auid=4294967295 msg=\"unit=backup.service comm=systemd res=success\"\n[linux:auditd] type=SYSCALL msg=audit(1785039401.110:4502): arch=c000003e syscall=59 success=yes exe=\"/usr/bin/tar\" key=\"nightly-backup\" auid=0 uid=0\n[linux:auditd] type=EXECVE msg=audit(1785039401.100:4501): argc=4 a0=\"/usr/bin/tar\" a1=\"-czf\" a2=\"/var/backups/app.tgz\" a3=\"/srv/app\" auid=0 uid=0",
+          "model": "bench-granite41-8b",
+          "provenance": "live-broad-fallback",
+          "query": "auditd log entries for linux-app-03 showing any suspicious system call activity or privilege escalation events (e.g., EventCode 4000 type EXECVE with command-line indicating sudo, setuid binary usage, unusual file access patterns). Specifically need raw auditd records covering PID, UID/GID changes, syscalls like open, execve, and any permission\u2011denial messages.",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\"request_more\": \"\", \"technique_ids\": [], \"evidence\": [\"[linux:auditd] type=SERVICE_START msg=audit(1785039410.100:4503): pid=1 uid=0 auid=4294967295 msg=\\\"unit=backup.service comm=systemd res=success\\\"\", \"[linux:auditd] type=SYSCALL msg=audit(1785039401.110:4502): arch=c000003e syscall=59 success=yes exe=\\\"/usr/bin/tar\\\" key=\\\"nightly-backup\\\" auid=0 uid=0\", \"[linux:auditd] type=EXECVE msg=audit(1785039401.100:4501): argc=4 a0=\\\"/usr/bin/tar\\\" a1=\\\"-czf\\\" a2=\\\"/var/backups/app.tgz\\\" a3=\\\"/srv/app\\\" auid=0 uid=0\"], \"reasoning\": \"The gathered auditd entries show routine system administration actions (service start, tar archive creation) performed by the root user (uid=0). There are no indicators of unauthorized privilege escalation, unexpected binaries execution, suspicious command\u2011line arguments, or anomalous network activity. Without evidence of non\u2011standard behavior, such as use of setuid wrappers, sudo calls from non\u2011root accounts, or abnormal syscall patterns, there is insufficient basis to hypothesize any malicious technique (e.g., T1068, T1055). Therefore the current telemetry does not support proposing a specific MITRE technique.\", \"match_grade\": \"NONE\", \"similar_to\": []}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: linux:auditd 3\nRepresentative records:\n[linux:auditd] type=SERVICE_START msg=audit(1785039410.100:4503): pid=1 uid=0 auid=4294967295 msg=\"unit=backup.service comm=systemd res=success\"\n[linux:auditd] type=SYSCALL msg=audit(1785039401.110:4502): arch=c000003e syscall=59 success=yes exe=\"/usr/bin/tar\" key=\"nightly-backup\" auid=0 uid=0\n[linux:auditd] type=EXECVE msg=audit(1785039401.100:4501): argc=4 a0=\"/usr/bin/tar\" a1=\"-czf\" a2=\"/var/backups/app.tgz\" a3=\"/srv/app\" auid=0 uid=0",
+          "model": "bench-granite41-8b",
+          "provenance": "live-broad-fallback",
+          "query": "{\"request_more\": \"\", \"technique_ids\": [], \"evidence\": [\"[linux:auditd] type=SERVICE_START msg=audit(1785039410.100:4503): pid=1 uid=0 auid=4294967295 msg=\\\"unit=backup.service comm=systemd res=success\\\"\", \"[linux:auditd] type=SYSCALL msg=audit(1785039401.110:4502): arch=c000003e syscall=59 success=yes exe=\\\"/usr/bin/tar\\\" key=\\\"nightly-backup\\\" auid=0 uid=0\", \"[linux:auditd] type=EXECVE msg=audit(",
+          "round": 3,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\"request_more\": \"\", \"technique_ids\": [], \"evidence\": [\"[linux:auditd] type=SERVICE_START msg=audit(1785039410.100:4503): pid=1 uid=0 auid=4294967295 msg=\\\"unit=backup.service comm=systemd res=success\\\"\", \"[linux:auditd] type=SYSCALL msg=audit(1785039401.110:4502): arch=c000003e syscall=59 success=yes exe=\\\"/usr/bin/tar\\\" key=\\\"nightly-backup\\\" auid=0 uid=0\", \"[linux:auditd] type=EXECVE msg=audit(1785039401.100:4501): argc=4 a0=\\\"/usr/bin/tar\\\" a1=\\\"-czf\\\" a2=\\\"/var/backups/app.tgz\\\" a3=\\\"/srv/app\\\" auid=0 uid=0\"], \"reasoning\": \"The collected auditd records consist solely of standard system\u2011administration activities (service start, tar archive creation) executed by the root user (uid=0). There are no indicators of unauthorized privilege escalation, execution of suspicious binaries, use of sudo or setuid wrappers, abnormal command\u2011line arguments, or anomalous network traffic. Consequently, none of the observable events map directly to a malicious MITRE ATT&CK technique such as T1068 (Abuse Elevation Control Mechanism) or T1055 (Process Injection). Without additional evidence showing non\u2011standard behavior, we cannot propose any specific technique.\", \"match_grade\": \"NONE\", \"similar_to\": []}",
+          "round": 4,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-8b",
+          "raw": "**Conclusion**\n\nThe collected auditd records only describe typical, legitimate administrative actions performed by root (`uid=0`) on `linux-app-03`. There is no observable evidence of unauthorized privilege escalation, suspicious command execution (such as sudo or set\u2011uid binaries), unusual file accesses, or any behavior that would map to a known MITRE ATT&CK technique. Consequently, we cannot support the hunter\u2019s hypothesis with concrete telemetry.\n\n**Verdict:** RULED_OUT  \n**Technique IDs:** [] (none applicable)  \n**Evidence:**  \n- `[linux:auditd] type=SERVICE_START ... unit=backup.service comm=systemd res=success`  \n- `[linux:auditd] type=SYSCALL ... exe=\"/usr/bin/tar\"`  \n- `[linux:auditd] type=EXECVE ... a0=\"/usr/bin/tar\" a1=\"-czf\" a2=\"/var/backups/app.tgz\"`  \n\n**Reasoning:** The only events captured are routine service start and tar archive creation activities, all executed by the root user. No indicators of malicious activity (e.g., use of `sudo`, execution of set\u2011uid executables, abnormal syscall patterns) appear in the logs. Therefore, the hypothesis lacks supporting evidence.\n\n**Match Grade:** NONE  \n**Similar to:** []  \n\n**Request for More Telemetry:** None \u2013 all relevant auditd fields have been examined and no additional data would change the conclusion.  \n\n```json\n{\n  \"verdict\": \"RULED_OUT\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[linux:auditd] type=SERVICE_START msg=audit(1785039410.100:4503): pid=1 uid=0 auid=4294967295 msg=\\\"unit=backup.service comm=systemd res=success\\\"\",\n    \"[linux:auditd] type=SYSCALL msg=audit(1785039401.110:4502): arch=c000003e syscall=59 success=yes exe=\\\"/usr/bin/tar\\\" key=\\\"nightly-backup\\\" auid=0 uid=0\",\n    \"[linux:auditd] type=EXECVE msg=audit(1785039410.100:4501): argc=4 a0=\\\"/usr/bin/tar\\\" a1=\\\"-czf\\\" a2=\\\"/var/backups/app.tgz\\\" a3=\\\"/srv/app\\\" auid=0 uid=0\"\n  ],\n  \"reasoning\": \"The collected auditd entries show only standard administrative actions by root. No suspicious patterns (e.g., sudo usage, set\u2011uid binaries, abnormal file access) are present to support any malicious technique.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [],\n  \"request_more\": \"\"\n}\n```",
+          "round": 5,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    },
+    {
+      "elapsed_s": 122.05,
+      "evidence_origin": "corpus:p5-negative:p5n007",
+      "ground_truth": "benign",
+      "label": "p5n007",
+      "match_grade": "SIMILAR",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "windows:security",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_cwnj1q8b', 'type': 'function', 'function': {'name': 'request_more', 'arguments': '{\"what\":\"Windows Security event logs for workstation-22 including EventCode 4624 (logon), 4648 (logoff), 4672 (special logon), 4776 (account lockout), and any scripts or command-line evidence indicating Command and Scripting Interpreter usage.\"}'}}]}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: windows:security 3 (4699\u00d71, 4688\u00d71, 4698\u00d71)\nRepresentative records:\n[windows:security] EventCode=4699 TaskName=\\Microsoft\\Windows\\EnterpriseMgmt\\HealthCheck SubjectUserName=SCCM-SERVER$ Result=maintenance-complete ChangeTicket=CHG-2026-0712\n[windows:security] EventCode=4688 NewProcessName=C:\\Windows\\System32\\deviceenroller.exe ParentProcessName=C:\\Windows\\System32\\svchost.exe CommandLine=deviceenroller.exe /c /AutoEnrollMDM Signature=Microsoft SubjectUserName=SYSTEM\n[windows:security] EventCode=4698 TaskName=\\Microsoft\\Windows\\EnterpriseMgmt\\HealthCheck Author=SYSTEM SubjectUserName=SCCM-SERVER$ TaskContent=deviceenroller.exe Schedule=PT1H ChangeTicket=CHG-2026-0712",
+          "model": "bench-granite41-8b",
+          "provenance": "live-broad-fallback",
+          "query": "Windows Security event logs for workstation-22 including EventCode 4624 (logon), 4648 (logoff), 4672 (special logon), 4776 (account lockout), and any scripts or command-line evidence indicating Command and Scripting Interpreter usage.",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"Windows Security event logs for workstation-22 including EventCode 4624 (successful logon), 4776 (account lockout), and any Process Command Line events indicating T1059 usage, especially PowerShell or cmd.exe execution.\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[windows:security] EventCode=4699 TaskName=\\\\Microsoft\\\\Windows\\\\EnterpriseMgmt\\\\HealthCheck SubjectUserName=SCCM-SERVER$ Result=maintenance-complete ChangeTicket=CHG-2026-0712\",\n    \"[windows:security] EventCode=4688 NewProcessName=C:\\\\Windows\\\\System32\\\\deviceenroller.exe ParentProcessName=C:\\\\Windows\\\\System32\\\\svchost.exe CommandLine=deviceenroller.exe /c /AutoEnrollMDM Signature=Microsoft SubjectUserName=SYSTEM\",\n    \"[windows:security] EventCode=4698 TaskName=\\\\Microsoft\\\\Windows\\\\EnterpriseMgmt\\\\HealthCheck Author=SYSTEM SubjectUserName=SCCM-SERVER$ TaskContent=deviceenroller.exe Schedule=PT1H ChangeTicket=CHG-2026-0712\"\n  ],\n  \"reasoning\": \"The gathered events consist solely of scheduled\u2011task creation/registration (4699, 4688, 4698) related to the legitimate 'deviceenroller.exe' process. There are no explicit logon records in EventCode\\u00a04624 or any indication of command\u2011line execution that would map directly to T1059 (e.g., PowerShell, cmd.exe). Without evidence showing a new interactive user session (4624), an account lockout (4776), or direct script/command launch activity, we cannot confirm misuse of scheduled tasks for defense evasion or credential dumping. Therefore additional telemetry is needed to either observe suspicious logon/account behavior (which would hint at techniques such as T1078) or command\u2011line execution that maps to Process Discovery/Execution.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [\"T1059.001\", \"T1053.005\"]\n}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: windows:security 3 (4699\u00d71, 4688\u00d71, 4698\u00d71)\nRepresentative records:\n[windows:security] EventCode=4699 TaskName=\\Microsoft\\Windows\\EnterpriseMgmt\\HealthCheck SubjectUserName=SCCM-SERVER$ Result=maintenance-complete ChangeTicket=CHG-2026-0712\n[windows:security] EventCode=4688 NewProcessName=C:\\Windows\\System32\\deviceenroller.exe ParentProcessName=C:\\Windows\\System32\\svchost.exe CommandLine=deviceenroller.exe /c /AutoEnrollMDM Signature=Microsoft SubjectUserName=SYSTEM\n[windows:security] EventCode=4698 TaskName=\\Microsoft\\Windows\\EnterpriseMgmt\\HealthCheck Author=SYSTEM SubjectUserName=SCCM-SERVER$ TaskContent=deviceenroller.exe Schedule=PT1H ChangeTicket=CHG-2026-0712",
+          "model": "bench-granite41-8b",
+          "provenance": "live-broad-fallback",
+          "query": "Windows Security event logs for workstation-22 including EventCode 4624 (successful logon), 4776 (account lockout), and any Process Command Line events indicating T1059 usage, especially PowerShell or cmd.exe execution.",
+          "round": 3,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"Windows Security event logs for workstation-22 including Process Command Line events (EventCode 4688) with CommandLine fields containing known command\u2011line utilities such as powershell.exe or cmd.exe, plus any EventCode 4624 successful logon entries showing interactive vs. remote sessions.\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[windows:security] EventCode=4699 TaskName=\\\\Microsoft\\\\Windows\\\\EnterpriseMgmt\\\\HealthCheck SubjectUserName=SCCM-SERVER$ Result=maintenance-complete ChangeTicket=CHG-2026-0712\",\n    \"[windows:security] EventCode=4688 NewProcessName=C:\\\\Windows\\\\System32\\\\deviceenroller.exe ParentProcessName=C:\\\\Windows\\\\System32\\\\svchost.exe CommandLine=deviceenroller.exe /c /AutoEnrollMDM Signature=Microsoft SubjectUserName=SYSTEM\",\n    \"[windows:security] EventCode=4698 TaskName=\\\\Microsoft\\\\Windows\\\\EnterpriseMgmt\\\\HealthCheck Author=SYSTEM SubjectUserName=SCCM-SERVER$ TaskContent=deviceenroller.exe Schedule=PT1H ChangeTicket=CHG-2026-0712\"\n  ],\n  \"reasoning\": \"All observed events are routine system\u2011maintenance task registrations (4699, 4688, 4698) involving the legitimate deviceenroller.exe process. No evidence of suspicious command\u2011line execution (e.g., PowerShell or cmd.exe), no interactive logon records (EventCode\\u00a04624), and no account lockout anomalies (EventCode\\u00a04776). Without these additional signals we cannot confirm any T1059, T1078, or other MITRE techniques. Further telemetry is required to detect abnormal command\u2011line activity or anomalous logons that would indicate malicious use of scheduled tasks.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [\"T1059.001\", \"T1053.005\"]\n}",
+          "round": 4,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-8b",
+          "raw": "{\n  \"verdict\": \"RULED_OUT\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[windows:security] EventCode=4699 TaskName=\\\\Microsoft\\\\Windows\\\\EnterpriseMgmt\\\\HealthCheck SubjectUserName=SCCM-SERVER$ Result=maintenance-complete ChangeTicket=CHG-2026-0712\",\n    \"[windows:security] EventCode=4688 NewProcessName=C:\\\\Windows\\\\System32\\\\deviceenroller.exe ParentProcessName=C:\\\\Windows\\\\System32\\\\svchost.exe CommandLine=deviceenroller.exe /c /AutoEnrollMDM Signature=Microsoft SubjectUserName=SYSTEM\",\n    \"[windows:security] EventCode=4698 TaskName=\\\\Microsoft\\\\Windows\\\\EnterpriseMgmt\\\\HealthCheck Author=SYSTEM SubjectUserName=SCCM-SERVER$ TaskContent=deviceenroller.exe Schedule=PT1H ChangeTicket=CHG-2026-0712\"\n  ],\n  \"reasoning\": \"The collected events are solely routine scheduled\u2011task registrations (EventCode\u202f4699, 4688, 4698) involving the legitimate 'deviceenroller.exe' process. There is no evidence of suspicious command\u2011line execution (e.g., PowerShell or cmd.exe), no interactive logon records (EventCode\u202f4624), and no account\u2011lockout anomalies (EventCode\u202f4776). Consequently, there is insufficient telemetry to support any MITRE ATT&CK technique such as T1059 (Command and Scripting Interpreter) or T1078 (Valid Accounts). All observed activity aligns with normal enterprise MDM maintenance tasks.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [\"T1053.005\", \"T1098\"]\n}",
+          "round": 5,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    },
+    {
+      "elapsed_s": 118.08,
+      "evidence_origin": "corpus:p5-negative:p5n008",
+      "ground_truth": "benign",
+      "label": "p5n008",
+      "match_grade": "SIMILAR",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "windows:security",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_q1n2fiht', 'type': 'function', 'function': {'name': 'request_more', 'arguments': '{\"what\":\"Windows Security event logs for workstation-23 (scenario: p5n008) including EventCode 4624 (logon), 4672 (special logon), 4688 (process creation), 4690 (scheduled task), and any related fields such as SubjectUserName, TargetUserName, LogonType, ProcessId, ParentProcessId, CommandLine.\"}'}}]}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "EventCode=4688 NewProcessName=C:\\Windows\\System32\\wbem\\WmiPrvSE.exe ParentProcessName=C:\\Windows\\System32\\svchost.exe CommandLine=WmiPrvSE.exe -secured -Embedding Initiator=SCCM InventoryJob=INV-8842\nEventCode=4624 LogonType=3 TargetUserName=SCCM-SERVER$ AuthenticationPackageName=Kerberos IpAddress=10.10.40.20 Status=0x0 Purpose=approved-inventory",
+          "model": "bench-granite41-8b",
+          "provenance": "matched-exact",
+          "query": "Windows Security event logs for workstation-23 (scenario: p5n008) including EventCode 4624 (logon), 4672 (special logon), 4688 (process creation), 4690 (scheduled task), and any related fields such as SubjectUserName, TargetUserName, LogonType, ProcessId, ParentProcessId, CommandLine.",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{\"request_more\": \"Windows Security event logs for workstation-23 showing any EventCode 4690 scheduled\u2011task creation events (or other process\u2011creation/events involving suspicious/unknown executables) that could indicate potential abuse of privileged task execution.\", \"technique_ids\": [], \"evidence\": [], \"reasoning\": \"The provided telemetry shows a legitimate WMI process launch (EventCode 4688) initiated by the SCCM InventoryJob and a network logon using Kerberos to an approved inventory server (EventCode 4624). These are standard, sanctioned administrative actions. No evidence of unauthorized use, anomalous parent/child relationships, or suspicious command lines is present. To assess for technique T1053.005 (Scheduled Task) \u2013 which would require creation/modification of a task by an unexpected principal or with abnormal parameters \u2013 additional data on scheduled\u2011task events (EventCode 4690) and any other process creations that deviate from baseline behavior are needed.\", \"match_grade\": \"NONE\", \"similar_to\": []}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: windows:security 3 (4634\u00d71, 4688\u00d71, 4624\u00d71)\nRepresentative records:\n[windows:security] EventCode=4634 LogonType=3 TargetUserName=SCCM-SERVER$ SessionResult=success InventoryJob=INV-8842\n[windows:security] EventCode=4688 NewProcessName=C:\\Windows\\System32\\wbem\\WmiPrvSE.exe ParentProcessName=C:\\Windows\\System32\\svchost.exe CommandLine=WmiPrvSE.exe -secured -Embedding Initiator=SCCM InventoryJob=INV-8842\n[windows:security] EventCode=4624 LogonType=3 TargetUserName=SCCM-SERVER$ AuthenticationPackageName=Kerberos IpAddress=10.10.40.20 Status=0x0 Purpose=approved-inventory",
+          "model": "bench-granite41-8b",
+          "provenance": "live-broad-fallback",
+          "query": "Windows Security event logs for workstation-23 showing any EventCode 4690 scheduled\u2011task creation events (or other process\u2011creation/events involving suspicious/unknown executables) that could indicate potential abuse of privileged task execution.",
+          "round": 3,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\"request_more\": \"\", \"technique_ids\": [], \"evidence\": [\"EventCode=4688 NewProcessName=C:\\\\Windows\\\\System32\\\\wbem\\\\WmiPrvSE.exe ParentProcessName=C:\\\\Windows\\\\System32\\\\svchost.exe CommandLine=WmiPrvSE.exe -secured -Embedding Initiator=SCCM InventoryJob=INV-8842\", \"EventCode=4624 LogonType=3 TargetUserName=SCCM-SERVER$ AuthenticationPackageName=Kerberos IpAddress=10.10.40.20 Status=0x0 Purpose=approved-inventory\"], \"reasoning\": \"All observed events (4688, 4624) are consistent with legitimate SCCM inventory operations: a WMI process launched by svchost under the SCCM InventoryJob and a Kerberos logon to an approved inventory server. No scheduled-task creation (EventCode 4690) or other anomalous process activity was detected that would indicate unauthorized use of privileged mechanisms.\", \"match_grade\": \"NONE\", \"similar_to\": [\"T1053.005\"]}",
+          "round": 4,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-8b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_r70uk1jf', 'type': 'function', 'function': {'name': 'emit_verdict', 'arguments': '{\"similar_to\":[],\"verdict\":\"RULED_OUT\",\"technique_ids\":[],\"evidence\":[\"EventCode=4688 NewProcessName=C:\\\\\\\\Windows\\\\\\\\System32\\\\\\\\wbem\\\\\\\\WmiPrvSE.exe ParentProcessName=C:\\\\\\\\Windows\\\\\\\\System32\\\\\\\\svchost.exe CommandLine=WmiPrvSE.exe -secured -Embedding Initiator=SCCM InventoryJob=INV-8842\",\"EventCode=4624 LogonType=3 TargetUserName=SCCM-SERVER$ AuthenticationPackageName=Kerberos IpAddress=10.10.40.20 Status=0x0 Purpose=approved-inventory\"],\"reasoning\":\"All observed activities align with legitimate SCCM inventory operations: a WMI process launched by svchost under the SCCM InventoryJob and a Kerberos-authenticated logon to an approved inventory server. No suspicious scheduled-task creation (EventCode 4690) or anomalous command lines were detected, ruling out unauthorized use.\",\"match_grade\":\"NONE\"}'}}]}",
+          "round": 5,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    },
+    {
+      "elapsed_s": 68.26,
+      "evidence_origin": "corpus:p5-negative:p5n009",
+      "ground_truth": "benign",
+      "label": "p5n009",
+      "match_grade": "SIMILAR",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "web:access",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_68jjhqeg', 'type': 'function', 'function': {'name': 'request_more', 'arguments': '{\"what\":\"web:access logs for host docs-prod-01 (scenario p5n009) including timestamps, source IP, request method, URI, user agent, response code\"}'}}]}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: web:access 3\nRepresentative records:\n[web:access] 10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:03 +0000] \"GET /robots.txt HTTP/1.1\" 200 94 \"-\" \"qa-link-checker/2.1\" run=QA-443\n[web:access] 10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:02 +0000] \"GET /docs/retired-endpoint HTTP/1.1\" 404 211 \"-\" \"qa-link-checker/2.1\" run=QA-443\n[web:access] 10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:01 +0000] \"GET /docs/migration-v7 HTTP/1.1\" 200 18231 \"-\" \"qa-link-checker/2.1\" run=QA-443",
+          "model": "bench-granite41-8b",
+          "provenance": "matched-exact",
+          "query": "web:access logs for host docs-prod-01 (scenario p5n009) including timestamps, source IP, request method, URI, user agent, response code",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"\",\n  \"technique_ids\": [\"T1083\"],\n  \"evidence\": [\n    \"[web:access] 10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:01 +0000] \\\"GET /docs/migration-v7 HTTP/1.1\\\" 200 18231 \\\"-\\\" \\\"qa-link-checker/2.1\\\" run=QA-443\",\n    \"[web:access] 10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:02 +0000] \\\"GET /docs/retired-endpoint HTTP/1.1\\\" 404 211 \\\"-\\\" \\\"qa-link-checker/2.1\\\" run=QA-443\"\n  ],\n  \"reasoning\": \"The logs show a user agent \\\"qa-link-checker/2.1\\\" and an explicit query parameter `run=QA-443`, indicating that the HTTP requests are being issued by known QA automation (a link\u2011checking job). The purpose of these requests is to retrieve documentation pages (/docs/*) \u2013 consistent with typical content enumeration or asset discovery activities often performed during assessments. Because the activity can be fully explained by authorized QA processes and there is no indication of malicious intent (e.g., abnormal user, unauthorized credentials, unusual payload sizes beyond expected document size), this behavior aligns with legitimate, documented operations rather than adversarial misuse.\",\n  \"match_grade\": \"EXACT\",\n  \"similar_to\": []\n}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": "CONFIRMED",
+          "wants_more": false
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-8b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_eh1hbysi', 'type': 'function', 'function': {'name': 'emit_verdict', 'arguments': '{\"match_grade\":\"EXACT\",\"similar_to\":[],\"verdict\":\"RULED_OUT\",\"technique_ids\":[],\"evidence\":[\"[web:access] 10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:01 +0000] \\\\\"GET /docs/migration-v7 HTTP/1.1\\\\\" 200 18231 \\\\\"-\\\\\" \\\\\"qa-link-checker/2.1\\\\\" run=QA-443\",\"[web:access] 10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:02 +0000] \\\\\"GET /docs/retired-endpoint HTTP/1.1\\\\\" 404 211 \\\\\"-\\\\\" \\\\\"qa-link-checker/2.1\\\\\" run=QA-443\",\"[web:access] 10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:03 +0000] \\\\\"GET /robots.txt HTTP/1.1\\\\\" 200 94 \\\\\"-\\\\\" \\\\\"qa-link-checker/2.1\\\\\" run=QA-443\"],\"reasoning\":\"The logs unambiguously indicate that the activity originates from a known QA automation (user agent qa-link-checker/2.1 with query parameter run=QA-443). The request URLs target legitimate documentation endpoints (/docs/* and /robots.txt) and are returned with expected HTTP status codes (200, 404). No indicators of malicious intent such as unusual payloads, unauthorized credentials, or abnormal timing patterns are present. Therefore, the activity is consistent with authorized asset discovery within a QA assessment rather than adversarial behavior.\"}'}}]}",
+          "round": 3,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    },
+    {
+      "elapsed_s": 72.43,
+      "evidence_origin": "corpus:p5-negative:p5n010",
+      "ground_truth": "benign",
+      "label": "p5n010",
+      "match_grade": "SIMILAR",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "web:access",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_91nmtow5', 'type': 'function', 'function': {'name': 'request_more', 'arguments': '{\"what\":\"web:access logs for api-prod-04 (scenario p5n010) showing request method, URI, user-agent, response code and timestamp\"}'}}]}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: web:access 3\nRepresentative records:\n[web:access] 10.10.60.12 - monitor [30/Jul/2026:03:20:05 +0000] \"GET /ready HTTP/1.1\" 200 18 \"-\" \"kube-probe/1.34\"\n[web:access] 10.10.60.11 - deploy_bot [30/Jul/2026:03:20:03 +0000] \"GET /api/admin/cache/status HTTP/1.1\" 200 76 \"-\" \"portal-deployer/8.0\" auth=mtls change=CHG-2026-0730\n[web:access] 10.10.60.11 - deploy_bot [30/Jul/2026:03:20:01 +0000] \"POST /api/admin/cache/warm HTTP/1.1\" 202 38 \"-\" \"portal-deployer/8.0\" auth=mtls change=CHG-2026-0730",
+          "model": "bench-granite41-8b",
+          "provenance": "matched-exact",
+          "query": "web:access logs for api-prod-04 (scenario p5n010) showing request method, URI, user-agent, response code and timestamp",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"\",\n  \"technique_ids\": [\"T1071.001\", \"T1110\"],\n  \"evidence\": [\n    \"[web:access] 10.10.60.12 - monitor [30/Jul/2026:03:20:05 +0000] \\\"GET /ready HTTP/1.1\\\" 200 18 \\\"-\\\" \\\"kube-probe/1.34\\\"\",\n    \"[web:access] 10.10.60.11 - deploy_bot [30/Jul/2026:03:20:03 +0000] \\\"GET /api/admin/cache/status HTTP/1.1\\\" 200 76 \\\"-\\\" \\\"portal-deployer/8.0\\\" auth=mtls change=CHG-2026-0730\",\n    \"[web:access] 10.10.60.11 - deploy_bot [30/Jul/2026:03:20:01 +0000] \\\"POST /api/admin/cache/warm HTTP/1.1\\\" 202 38 \\\"-\\\" \\\"portal-deployer/8.0\\\" auth=mtls change=CHG-2026-0730\"\n  ],\n  \"reasoning\": \"The logs show standard health\u2011check traffic (GET /ready) from a known monitoring probe and automated deployment activity via the 'deploy_bot' principal, using an internal user\u2011agent ('portal-deployer/8.0'), authenticated with mTLS, and explicitly tied to a change ticket (CHG-2026-0730). Both patterns are typical of legitimate operational workflows rather than adversarial actions. The presence of clear automation identifiers, mutual TLS authentication, and contextual change\u2011ticket metadata strongly suggests authorized use.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [\"T1071.001\", \"T1110\"]\n}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": "CONFIRMED",
+          "wants_more": false
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-8b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_zu6egal3', 'type': 'function', 'function': {'name': 'emit_verdict', 'arguments': '{\"verdict\":\"RULED_OUT\",\"technique_ids\":[],\"evidence\":[\"[web:access] 10.10.60.12 - monitor [30/Jul/2026:03:20:05 +0000] \\\\\"GET /ready HTTP/1.1\\\\\" 200 18 \\\\\"-\\\\\" \\\\\"kube-probe/1.34\\\\\"\",\"[web:access] 10.10.60.11 - deploy_bot [30/Jul/2026:03:20:03 +0000] \\\\\"GET /api/admin/cache/status HTTP/1.1\\\\\" 200 76 \\\\\"-\\\\\" \\\\\"portal-deployer/8.0\\\\\" auth=mtls change=CHG-2026-0730\",\"[web:access] 10.10.60.11 - deploy_bot [30/Jul/2026:03:20:01 +0000] \\\\\"POST /api/admin/cache/warm HTTP/1.1\\\\\" 202 38 \\\\\"-\\\\\" \\\\\"portal-deployer/8.0\\\\\" auth=mtls change=CHG-2026-0730\"],\"reasoning\":\"The logs show standard health-check traffic from a known monitoring probe and automated deployment activity performed by an internal \\'deploy_bot\\' principal. These activities are authenticated via mutual TLS, include explicit change tickets (CHG-2026-0730), and use well-known user agents (\\'kube-probe/1.34\\', \\'portal-deployer/8.0\\'). No anomalous patterns or unauthorized credentials are observed, indicating legitimate operational activity rather than adversarial technique usage.\",\"match_grade\":\"NONE\",\"similar_to\":[]}'}}]}",
+          "round": 3,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    },
+    {
+      "elapsed_s": 75.08,
+      "evidence_origin": "corpus:p5-negative:p5n011",
+      "ground_truth": "benign",
+      "label": "p5n011",
+      "match_grade": "SIMILAR",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "linux:auditd",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_pkpr2gwt', 'type': 'function', 'function': {'name': 'request_more', 'arguments': '{\"what\":\"auditd log entries for linux-api-05 showing Execve syscalls (type=EXECVE) with command lines and related metadata such as UID, EUID, auid, and any associated process IDs\"}'}}]}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "[linux:auditd] type=SERVICE_START msg=audit(1785381903.100:4603): pid=1 uid=0 auid=4294967295 msg=\"unit=portal-api.service comm=systemd res=success\" change_ticket=CHG-2026-0729\n[linux:auditd] type=EXECVE msg=audit(1785381901.120:4602): argc=3 a0=\"/usr/bin/systemctl\" a1=\"restart\" a2=\"portal-api.service\" auid=1002 uid=0 automation=ansible\n[linux:auditd] type=USER_CMD msg=audit(1785381901.100:4601): pid=9221 uid=1002 auid=1002 ses=51 msg=\"cwd=/srv/api cmd=/usr/bin/sudo /usr/bin/systemctl restart portal-api.service terminal=pts/1 res=success\" change_ticket=CHG-2026-0729",
+          "model": "bench-granite41-8b",
+          "provenance": "matched-exact",
+          "query": "auditd log entries for linux-api-05 showing Execve syscalls (type=EXECVE) with command lines and related metadata such as UID, EUID, auid, and any associated process IDs",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"\",\n  \"technique_ids\": [\"T1014\", \"T1548.004\"],\n  \"evidence\": [\n    \"[linux:auditd] type=EXECVE msg=audit(1785381901.120:4602): argc=3 a0=\\\"/usr/bin/systemctl\\\" a1=\\\"restart\\\" a2=\\\"portal-api.service\\\" auid=1002 uid=0 automation=ansible\",\n    \"[linux:auditd] type=USER_CMD msg=audit(1785381901.100:4601): pid=9221 uid=1002 auid=1002 ses=51 msg=\\\"cwd=/srv/api cmd=/usr/bin/sudo /usr/bin/systemctl restart portal-api.service terminal=pts/1 res=success\\\" change_ticket=CHG-2026-0729\"\n  ],\n  \"reasoning\": \"The auditd logs capture two orchestrated actions: (1) a systemctl command executed via sudo by user UID 1002, invoking a service restart; and (2) an identical systemctl invocation marked with `automation=ansible`. Both actions target the same service (portal-api.service). The presence of a change ticket (CHG-2026-0729) in both records ties these events to an authorized maintenance operation rather than unsanctioned activity. In ATT&CK, restarting or stopping critical services can be subsumed under Impact techniques such as T1489 (Service Stop), but the logs do not show a *stop*; they only reflect a restart driven by legitimate automation. The sudo usage aligns with privilege\u2011escalation primitive T1548.004, yet it is executed within an authorized context (change ticket) and therefore serves a benign operational purpose. Consequently, while the telemetry exhibits classic technique\u2011shaped signatures, there is no affirmative indication of adversarial or unauthorized intent; all observed activity can be fully explained by approved change\u2011management automation.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [\"T1014\", \"T1548.004\"]\n}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": "CONFIRMED",
+          "wants_more": false
+        },
+        {
+          "match_grade": "SIMILAR",
+          "model": "bench-granite41-8b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_ru1mmgjd', 'type': 'function', 'function': {'name': 'emit_verdict', 'arguments': '{\"reasoning\":\"The auditd logs show two events performing a legitimate systemctl restart of the portal-api service via sudo and marked with an Ansible automation flag. Both entries are associated with a valid change ticket (CHG-2026-0729), indicating authorized maintenance activity. No malicious intent or unauthorized privilege escalation is evident; thus, the observed behavior aligns with approved operational actions.\",\"match_grade\":\"NONE\",\"similar_to\":[],\"verdict\":\"RULED_OUT\",\"technique_ids\":[],\"evidence\":[\"[linux:auditd] type=EXECVE msg=audit(1785381901.120:4602): argc=3 a0=\\\\\"/usr/bin/systemctl\\\\\" a1=\\\\\"restart\\\\\" a2=\\\\\"portal-api.service\\\\\" auid=1002 uid=0 automation=ansible\",\"[linux:auditd] type=USER_CMD msg=audit(1785381901.100:4601): pid=9221 uid=1002 auid=1002 ses=51 msg=\\\\\"cwd=/srv/api cmd=/usr/bin/sudo /usr/bin/systemctl restart portal-api.service terminal=pts/1 res=success\\\\\" change_ticket=CHG-2026-0729\"]}'}}]}",
+          "round": 3,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    },
+    {
+      "elapsed_s": 141.78,
+      "evidence_origin": "corpus:p5-negative:p5n012",
+      "ground_truth": "benign",
+      "label": "p5n012",
+      "match_grade": "EXACT",
+      "mode": "orchestrated",
+      "model_arm": "strong_full_v3",
+      "provenance_fields": [
+        "evidence_origin",
+        "host",
+        "source",
+        "sourcetype"
+      ],
+      "sourcetype": "linux:auditd",
+      "status": "done",
+      "technique_expected": "",
+      "technique_ids": [],
+      "trace": [
+        {
+          "match_grade": "NONE",
+          "model": "bench-granite41-30b",
+          "raw": "{'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call_oz2snetf', 'type': 'function', 'function': {'name': 'request_more', 'arguments': '{\"what\":\"linux:auditd audit trail entries for k8s-worker-04 (scenario p5n012) including EXECVE actions, file accesses, user ID mappings, and any anomalous syscall patterns\"}'}}]}",
+          "round": 0,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "3 events: linux:auditd 3\nRepresentative records:\n[linux:auditd] type=SERVICE_START msg=audit(1785382002.100:4703): pid=1 uid=0 auid=4294967295 msg=\"unit=kubelet.service comm=systemd res=success\" node_role=worker\n[linux:auditd] type=SYSCALL msg=audit(1785382001.110:4702): arch=c000003e syscall=165 success=yes exe=\"/usr/bin/mount\" key=\"kubernetes-csi\" uid=0 auid=4294967295 container_runtime=containerd\n[linux:auditd] type=EXECVE msg=audit(1785382001.100:4701): argc=5 a0=\"/usr/bin/nsenter\" a1=\"--mount=/proc/1/ns/mnt\" a2=\"--\" a3=\"/usr/bin/mount\" a4=\"/var/lib/kubelet/pods\" uid=0 auid=4294967295 comm=kubelet purpose=csi-volume-reconcile",
+          "model": "bench-granite41-8b",
+          "provenance": "live-broad-fallback",
+          "query": "linux:auditd audit trail entries for k8s-worker-04 (scenario p5n012) including EXECVE actions, file accesses, user ID mappings, and any anomalous syscall patterns",
+          "round": 1,
+          "section": "tool"
+        },
+        {
+          "match_grade": "EXACT",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"Additional auditd entries covering any subsequent EXECVE or SYSCALL events on k8s-worker-04 after timestamp 1785382001 that may indicate privilege\u2011escalation, lateral movement, or exfiltration actions (e.g., suid changes, unexpected container runtime invocations, network socket usage).\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[linux:auditd] type=SERVICE_START msg=audit(1785382002.100:4703): pid=1 uid=0 auid=4294967295 msg=\\\"unit=kubelet.service comm=systemd res=success\\\" node_role=worker\",\n    \"[linux:auditd] type=SYSCALL msg=audit(1785382001.110:4702): arch=c000003e syscall=165 success=yes exe=\\\"/usr/bin/mount\\\" key=\\\"kubernetes-csi\\\" uid=0 auid=4294967295 container_runtime=containerd\",\n    \"[linux:auditd] type=EXECVE msg=audit(1785382001.100:4701): argc=5 a0=\\\"/usr/bin/nsenter\\\" a1=\\\"--mount=/proc/1/ns/mnt\\\" a2=\\\"--\\\" a3=\\\"/usr/bin/mount\\\" a4=\\\"/var/lib/kubelet/pods\\\" uid=0 auid=4294967295 comm=kubelet purpose=csi-volume-reconcile\"\n  ],\n  \"reasoning\": \"The three captured auditd records show system\u2011service start (kubelet), a low\u2011level syscall to mount using container runtime 'containerd', and an EXECVE of nsenter followed by mount within the kubelet process context. While these activities are typical for Kubernetes worker node operations, they do not on their own demonstrate unauthorized privilege escalation, credential theft, or exfiltration \u2013 core indicators required to definitively map to a specific MITRE ATT&CK technique (e.g., T1083 Privilege Escalation). To rule out or confirm such techniques we need further telemetry that might reveal abnormal uid changes, unexpected root\u2011level commands outside kubelet workflow, or network\u2011related syscalls indicative of data exfiltration. Without this additional context the evidence remains inconclusive.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [\"T1059.001\", \"T1021.002\", \"T1046\"]\n}",
+          "round": 2,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "content": "[linux:auditd] type=SYSCALL msg=audit(1785382001.110:4702): arch=c000003e syscall=165 success=yes exe=\"/usr/bin/mount\" key=\"kubernetes-csi\" uid=0 auid=4294967295 container_runtime=containerd\n[linux:auditd] type=EXECVE msg=audit(1785382001.100:4701): argc=5 a0=\"/usr/bin/nsenter\" a1=\"--mount=/proc/1/ns/mnt\" a2=\"--\" a3=\"/usr/bin/mount\" a4=\"/var/lib/kubelet/pods\" uid=0 auid=4294967295 comm=kubelet purpose=csi-volume-reconcile",
+          "model": "bench-granite41-8b",
+          "provenance": "matched-exact",
+          "query": "Additional auditd entries covering any subsequent EXECVE or SYSCALL events on k8s-worker-04 after timestamp 1785382001 that may indicate privilege\u2011escalation, lateral movement, or exfiltration actions (e.g., suid changes, unexpected container runtime invocations, network socket usage).",
+          "round": 3,
+          "section": "tool"
+        },
+        {
+          "match_grade": "EXACT",
+          "model": "bench-granite41-30b",
+          "raw": "{\n  \"request_more\": \"Auditd entries showing any changes to file permissions (e.g., chmod, chown), use of sudo/su commands, network socket syscalls (connect, bind) or other outbound traffic indicators on k8s-worker-04 after timestamp 1785382001.\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[linux:auditd] type=SERVICE_START msg=audit(1785382002.100:4703): pid=1 uid=0 auid=4294967295 msg=\\\"unit=kubelet.service comm=systemd res=success\\\" node_role=worker\",\n    \"[linux:auditd] type=SYSCALL msg=audit(1785382001.110:4702): arch=c000003e syscall=165 success=yes exe=\\\"/usr/bin/mount\\\" key=\\\"kubernetes-csi\\\" uid=0 auid=4294967295 container_runtime=containerd\",\n    \"[linux:auditd] type=EXECVE msg=audit(1785382001.100:4701): argc=5 a0=\\\"/usr/bin/nsenter\\\" a1=\\\"--mount=/proc/1/ns/mnt\\\" a2=\\\"--\\\" a3=\\\"/usr/bin/mount\\\" a4=\\\"/var/lib/kubelet/pods\\\" uid=0 auid=4294967295 comm=kubelet purpose=csi-volume-reconcile\"\n  ],\n  \"reasoning\": \"The collected auditd records reflect normal Kubernetes worker node operations: kubelet service start, use of nsenter to mount CSI volumes, and a container runtime\u2011initiated mount syscall. None of these events demonstrate unauthorized privilege escalation (e.g., uid changes beyond root), credential misuse (sudo/su activity), or exfiltration indicators such as outbound network socket syscalls. To definitively assess techniques like Privilege Escalation (T1058/T1059) or Data Exfiltration (T1041), additional telemetry that captures permission modifications, elevation commands, or network traffic is required.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [\"T1059.001\", \"T1021.002\", \"T1046\"]\n}",
+          "round": 4,
+          "section": "reasoning",
+          "verdict": null,
+          "wants_more": true
+        },
+        {
+          "match_grade": "EXACT",
+          "model": "bench-granite41-8b",
+          "raw": "{\n  \"verdict\": \"RULED_OUT\",\n  \"technique_ids\": [],\n  \"evidence\": [\n    \"[linux:auditd] type=SERVICE_START msg=audit(1785382002.100:4703): pid=1 uid=0 auid=4294967295 msg=\\\"unit=kubelet.service comm=systemd res=success\\\" node_role=worker\",\n    \"[linux:auditd] type=SYSCALL msg=audit(1785382001.110:4702): arch=c000003e syscall=165 success=yes exe=\\\"/usr/bin/mount\\\" key=\\\"kubernetes-csi\\\" uid=0 auid=4294967295 container_runtime=containerd\",\n    \"[linux:auditd] type=EXECVE msg=audit(1785382001.100:4701): argc=5 a0=\\\"/usr/bin/nsenter\\\" a1=\\\"--mount=/proc/1/ns/mnt\\\" a2=\\\"--\\\" a3=\\\"/usr/bin/mount\\\" a4=\\\"/var/lib/kubelet/pods\\\" uid=0 auid=4294967295 comm=kubelet purpose=csi-volume-reconcile\"\n  ],\n  \"reasoning\": \"The auditd records capture standard Kubernetes worker node activities: initiation of the kubelet service, container runtime\u2011initiated mount operations via nsenter, and a syscall to perform mounting. None of these events exhibit abnormal privilege escalation (e.g., uid changes beyond root), credential misuse (sudo/su activity), or exfiltration indicators such as outbound network socket syscalls. Without records showing permission alterations, elevation commands, or network traffic, we cannot map the behavior to any MITRE ATT&CK technique related to persistence, lateral movement, privilege escalation, or data exfiltration.\",\n  \"match_grade\": \"NONE\",\n  \"similar_to\": [],\n  \"request_more\": \"Auditd entries demonstrating file\u2011permission changes (chown/chmod), use of sudo/su for elevation, or network socket syscalls (connect/bind) on k8s-worker-04 after timestamp 1785382001.\"\n}",
+          "round": 5,
+          "section": "expert",
+          "verdict": "RULED_OUT",
+          "wants_more": false
+        }
+      ],
+      "verdict": "RULED_OUT"
+    }
+  ],
+  "benign_scope": "expanded representative subset (4 cells per sourcetype; 12 total)",
+  "benign_source": "portal/modules/security/core/results/checkpoints/benign_corpus_closeout.json",
+  "provenance_guard": {
+    "answer_key_model_visible": false,
+    "same_index": "portal5_lab",
+    "same_metadata_fields": [
+      "evidence_origin",
+      "host",
+      "source",
+      "sourcetype"
+    ],
+    "same_origin_shape": "corpus:<source>:<opaque-label>",
+    "same_transport": "portal.modules.security.core.siem.hec_ship.ship_batch"
+  },
+  "run_kind": "live",
+  "schema_version": 1,
+  "scoreboard": {
+    "attack_cells": 17,
+    "axis_1_notify_recall": {
+      "evidence_never_shown": 12,
+      "fair": {
+        "eligible": 5,
+        "notified": 5,
+        "rate": 1.0
+      },
+      "raw": {
+        "eligible": 17,
+        "notified": 11,
+        "rate": 0.647
+      },
+      "real_misses": 0,
+      "real_misses_by_technique": []
+    },
+    "axis_2_notification_trustworthiness": {
+      "confirmed_correct": 3,
+      "confirmed_wrong": 0,
+      "honest_anomaly": 8,
+      "notifications": 11,
+      "ordinal_ranks": {
+        "confirmed_correct": 3,
+        "confirmed_wrong": 0,
+        "honest_anomaly": 2,
+        "silence_on_present": 1
+      },
+      "silence_on_present": 0,
+      "trustworthy_notification_rate": 1.0,
+      "trustworthy_notifications": 11
+    },
+    "axis_3_mapping_quality_given_catch": {
+      "caught_cells": 11,
+      "confirm_only_exact_recall": {
+        "confirmed_exact": 3,
+        "eligible": 17,
+        "rate": 0.176
+      },
+      "mapping_categories": {
+        "exact": 3,
+        "incorrect": 0,
+        "parent": 0,
+        "tactic": 0,
+        "unclassified": 8
+      },
+      "mapping_category_rates": {
+        "exact": 0.273,
+        "incorrect": 0.0,
+        "parent": 0.0,
+        "tactic": 0.0,
+        "unclassified": 0.727
+      },
+      "match_grades": {
+        "SIMILAR": 11
+      },
+      "silent_cells_excluded": 6
+    },
+    "axis_4_alert_fatigue_on_benign": {
+      "benign_cells": 12,
+      "correct_silences": 12,
+      "false_flag_kinds": {
+        "anomaly_on_benign": 0,
+        "confirmed_on_benign": 0
+      },
+      "false_flag_rate": 0.0,
+      "false_flags": 0,
+      "notification_precision": 1.0,
+      "status": "MEASURED"
+    },
+    "benign_cells": 12,
+    "cells": 29,
+    "cells_scored": [
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1190",
+        "mapping_category": "unclassified",
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": true,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1190",
+        "technique_ids": [],
+        "trustworthiness_class": "honest_anomaly",
+        "trustworthiness_rank": 2,
+        "verdict": "ANOMALOUS_UNCLASSIFIED"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1611",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1611",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1552_005",
+        "mapping_category": "unclassified",
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": true,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1552.005",
+        "technique_ids": [],
+        "trustworthiness_class": "honest_anomaly",
+        "trustworthiness_rank": 2,
+        "verdict": "ANOMALOUS_UNCLASSIFIED"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1558_003",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1558.003",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1558_004",
+        "mapping_category": "unclassified",
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": true,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1558.004",
+        "technique_ids": [],
+        "trustworthiness_class": "honest_anomaly",
+        "trustworthiness_rank": 2,
+        "verdict": "ANOMALOUS_UNCLASSIFIED"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1110_003",
+        "mapping_category": "unclassified",
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": true,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1110.003",
+        "technique_ids": [],
+        "trustworthiness_class": "honest_anomaly",
+        "trustworthiness_rank": 2,
+        "verdict": "ANOMALOUS_UNCLASSIFIED"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1053_005",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1053.005",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": true,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1595",
+        "mapping_category": "exact",
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": true,
+        "oracle_result": "PRESENT",
+        "real_miss": false,
+        "technique_expected": "T1595",
+        "technique_ids": [
+          "T1595"
+        ],
+        "trustworthiness_class": "confirmed_correct",
+        "trustworthiness_rank": 3,
+        "verdict": "CONFIRMED"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": true,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1083",
+        "mapping_category": "unclassified",
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": true,
+        "oracle_result": "PRESENT",
+        "real_miss": false,
+        "technique_expected": "T1083",
+        "technique_ids": [],
+        "trustworthiness_class": "honest_anomaly",
+        "trustworthiness_rank": 2,
+        "verdict": "ANOMALOUS_UNCLASSIFIED"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1078",
+        "mapping_category": "unclassified",
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": true,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1078",
+        "technique_ids": [],
+        "trustworthiness_class": "honest_anomaly",
+        "trustworthiness_rank": 2,
+        "verdict": "ANOMALOUS_UNCLASSIFIED"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": true,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1557",
+        "mapping_category": "exact",
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": true,
+        "oracle_result": "PRESENT",
+        "real_miss": false,
+        "technique_expected": "T1557",
+        "technique_ids": [
+          "T1557"
+        ],
+        "trustworthiness_class": "confirmed_correct",
+        "trustworthiness_rank": 3,
+        "verdict": "CONFIRMED"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1550_002",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1550.002",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": true,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1003_003",
+        "mapping_category": "exact",
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": true,
+        "oracle_result": "PRESENT",
+        "real_miss": false,
+        "technique_expected": "T1003.003",
+        "technique_ids": [
+          "T1003.003"
+        ],
+        "trustworthiness_class": "confirmed_correct",
+        "trustworthiness_rank": 3,
+        "verdict": "CONFIRMED"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1047",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1047",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1189",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1189",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1557_001",
+        "mapping_category": "unclassified",
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": true,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "T1557.001",
+        "technique_ids": [],
+        "trustworthiness_class": "honest_anomaly",
+        "trustworthiness_rank": 2,
+        "verdict": "ANOMALOUS_UNCLASSIFIED"
+      },
+      {
+        "cell_kind": "attack",
+        "correct_silence": false,
+        "fair_recall_eligible": true,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "t1552",
+        "mapping_category": "unclassified",
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": true,
+        "oracle_result": "PRESENT",
+        "real_miss": false,
+        "technique_expected": "T1552",
+        "technique_ids": [],
+        "trustworthiness_class": "honest_anomaly",
+        "trustworthiness_rank": 2,
+        "verdict": "ANOMALOUS_UNCLASSIFIED"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n001",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n002",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n003",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n004",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n005",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n006",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n007",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n008",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n009",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n010",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n011",
+        "mapping_category": null,
+        "match_grade": "SIMILAR",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      },
+      {
+        "cell_kind": "benign",
+        "correct_silence": true,
+        "fair_recall_eligible": false,
+        "false_flag": false,
+        "false_flag_kind": null,
+        "label": "p5n012",
+        "mapping_category": null,
+        "match_grade": "EXACT",
+        "model_arm": "strong_full_v3",
+        "notified": false,
+        "oracle_result": "ABSENT",
+        "real_miss": false,
+        "technique_expected": "",
+        "technique_ids": [],
+        "trustworthiness_class": null,
+        "trustworthiness_rank": null,
+        "verdict": "RULED_OUT"
+      }
+    ],
+    "measurement_gaps": {}
+  }
+}

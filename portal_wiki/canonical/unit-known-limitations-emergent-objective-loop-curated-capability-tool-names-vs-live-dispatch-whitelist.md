@@ -9,12 +9,22 @@ sources:
   commit: 05e42ec2
   section: "Emergent Objective Loop \u2014 Curated Capability Tool Names vs Live-Dispatch\
     \ Whitelist"
+- type: code
+  path: portal/modules/security/core/lab.py
+- type: code
+  path: portal/modules/security/core/objective_executor.py
+- type: code
+  path: portal/modules/security/core/capability/index.py
+- type: code
+  path: portal/modules/security/tests/test_kali_enable.py
+- type: code
+  path: portal/modules/security/tests/test_objective_executor.py
 last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
 created_at: 1784946220.665378
-updated_at: 1784946220.665378
+updated_at: 1785460800
 ---
 
 - **ID**: P5-EMERGENT-001
@@ -28,3 +38,27 @@ updated_at: 1784946220.665378
 - **Still open**: Real Kali binaries seen live but not yet aliased/verified (`bloodhound-ce-python`, `impacket-secretsdump`, `impacket-psexec`, `impacket-wmiexec`, `enum4linux-ng`, `nxc`, `responder`, `impacket-GetNPUsers`, `impacket-dacledit`, `certipy-ad`, `ldap3`, `metasploit`) and the empty-`tools` capabilities (`ad-certificate-abuse`, `kerberos-delegation`, `oauth-oidc-chain`, `file-upload-bypass`, `smb-enumeration`) still dispatch synthetic. Each remaining alias needs its exact CLI invocation verified correct (and, for stateful/destructive ones like `impacket-psexec`/`impacket-wmiexec`/`responder`, reviewed for lab safety) before wiring — not done blind, unlike the two above which were directly confirmed working first.
 - **Impact**: Deterministic progression is now structurally reachable and non-repeating, but a selected capability can still be non-dispatchable when its real tool has no verified alias or it declares no tool. That produces an honestly synthetic trajectory even against a live lab and still slows G1 corpus sign-off (`DESIGN_EMERGENT_LAB_AGENT_V2` §9). Synthetic steps remain excluded from `emergent_gaps.gaps_from_trajectory`, and synthetic-derived trajectories are never PROVEN (AX ratchet holds), so the remaining issue is coverage/usefulness rather than correctness or honesty.
 - **Resolution path (open)**: Continue verifying and aliasing the remaining real binary names one at a time (never batch-guess CLI syntax for tools with real side effects), and separately decide what the empty-`tools` capabilities should actually dispatch to (populate `capability/index.py` or retire them). Pre-existing architecture gap in the "already-built" composition engine (`DESIGN_EMERGENT_LAB_AGENT_V2` §1's KEEP list assumed this layer was solid); not part of the original Slice 1/2/3 delta, but now partially remediated as part of the same live-verification pass.
+- **Continuation checkpoint (2026-07-30)**: The current
+  `SecurityExecutor` dispatches the semantic capability `action` instead of
+  the selected binary `tool`. That correctly makes `smb_probe`, `ldap_probe`,
+  and other `_LAB_SERVICE_PROBES` real, but it also means the ranker's curated
+  binary selection is not used. Live, lab-scoped probes verified exact,
+  non-mutating invocations for `bloodhound-ce-python` (`-c DCOnly --zip`),
+  `enum4linux-ng -A`, anonymous `nxc smb --shares`, and
+  `impacket-GetNPUsers` with a bounded users file. No alias code for those four
+  has landed yet.
+- **Safety finding**: `certipy-ad find` is not read-only in this lab; it
+  started/used the Windows Remote Registry dependency while retrieving CA
+  configuration. DFS and Remote Registry were returned to their observed
+  running state after the probe. Keep Certipy out of the safe allowlist.
+  `impacket-secretsdump`, `impacket-psexec`, `impacket-wmiexec`,
+  `impacket-dacledit`, `responder`, and `metasploit` also remain deferred
+  because they dump credentials, execute remotely, modify ACLs, poison
+  traffic, or select arbitrary exploit modules.
+- **Exact resume point**: Add an explicit read-only alias allowlist for the
+  four verified tools (plus the already-supported `nmap` and
+  `impacket-GetUserSPNs`), have `SecurityExecutor` dispatch the selected
+  binary only when it is in that allowlist and otherwise retain action-level
+  fallback, and add regression tests proving `curl`/unsafe selections still
+  use the safe capability probe. Then live-run one AD emergent step and update
+  this unit with the measured dispatch.

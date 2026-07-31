@@ -10,6 +10,21 @@ else
     _USE_JQ=false
 fi
 
+OLLAMA_MIN_VERSION="0.32.4"
+
+_version_at_least() {
+    local have="$1" need="$2"
+    local have_major have_minor have_patch need_major need_minor need_patch
+    IFS=. read -r have_major have_minor have_patch <<< "$have"
+    IFS=. read -r need_major need_minor need_patch <<< "$need"
+    have_major=${have_major:-0}; have_minor=${have_minor:-0}; have_patch=${have_patch:-0}
+    need_major=${need_major:-0}; need_minor=${need_minor:-0}; need_patch=${need_patch:-0}
+    [ "$have_major" -gt "$need_major" ] ||
+        { [ "$have_major" -eq "$need_major" ] && [ "$have_minor" -gt "$need_minor" ]; } ||
+        { [ "$have_major" -eq "$need_major" ] && [ "$have_minor" -eq "$need_minor" ] &&
+          [ "$have_patch" -ge "$need_patch" ]; }
+}
+
 # Usage: _jq_get <json_string> <jq_filter> <python_fallback_expr> [default]
 # Example: _jq_get "$JSON" '.status // "?"' "d.get('status','?')"
 _json_get() {
@@ -122,7 +137,14 @@ _check_hardware() {
         echo "  ✅ Platform: Apple Silicon — Metal acceleration available"
         if command -v ollama &>/dev/null && curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
             OLLAMA_VER=$(ollama --version 2>/dev/null | head -1 || echo "installed")
-            echo "  ✅ Ollama: native ($OLLAMA_VER) — Metal GPU active"
+            OLLAMA_SEMVER=$(printf "%s" "$OLLAMA_VER" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+            if [ -n "$OLLAMA_SEMVER" ] && _version_at_least "$OLLAMA_SEMVER" "$OLLAMA_MIN_VERSION"; then
+                echo "  ✅ Ollama: native ($OLLAMA_VER) — Metal GPU active"
+            else
+                echo "  ⚠️  Ollama ${OLLAMA_SEMVER:-unknown} is below required ${OLLAMA_MIN_VERSION}"
+                echo "     Upgrade the active server before launch; older MLX builds can evict pinned models"
+                WARN=1
+            fi
         elif command -v ollama &>/dev/null; then
             echo "  ⚠️  Ollama installed but not running — start it: brew services start ollama"
             WARN=1
@@ -155,6 +177,76 @@ _check_hardware() {
         echo "[portal-5] ⚠️  System requirements warning — see above"
         echo "           Press Enter to continue anyway, or Ctrl+C to abort"
         read -r _
+    fi
+}
+
+# ── Durable host-native MCP supervision ──────────────────────────────────────
+_ensure_native_mcp_service() {
+    local service="$1" label="$2" port="$3" log_name="$4"
+    local wrapper="$PORTAL_ROOT/scripts/native-mcp-service.sh"
+    local log_dir="$HOME/.portal5/logs"
+    local pid_file="/tmp/portal-${service}.pid"
+
+    if curl -fsS "http://localhost:${port}/health" &>/dev/null 2>&1; then
+        echo "[portal-5]   ✅ ${service}: running on :${port}"
+        return 0
+    fi
+
+    mkdir -p "$log_dir"
+    chmod +x "$wrapper"
+
+    if [ "$(uname -s)" = "Darwin" ]; then
+        local agent_dir="$HOME/Library/LaunchAgents"
+        local plist="$agent_dir/${label}.plist"
+        local domain="gui/$(id -u)"
+        mkdir -p "$agent_dir"
+
+        cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${label}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>${wrapper}</string>
+        <string>${service}</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PORTAL_ROOT</key>
+        <string>${PORTAL_ROOT}</string>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>${PORTAL_ROOT}</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>${log_dir}/${log_name}.log</string>
+    <key>StandardErrorPath</key>
+    <string>${log_dir}/${log_name}.log</string>
+</dict>
+</plist>
+PLIST
+
+        launchctl bootout "${domain}/${label}" 2>/dev/null || true
+        if launchctl bootstrap "$domain" "$plist"; then
+            rm -f "$pid_file"
+            echo "[portal-5]   ✅ ${service}: launchd supervision enabled on :${port}"
+        else
+            echo "[portal-5]   ⚠️  ${service}: launchd registration failed; see ${log_dir}/${log_name}.log"
+            return 1
+        fi
+    else
+        nohup "$wrapper" "$service" >> "$log_dir/${log_name}.log" 2>&1 &
+        echo $! > "$pid_file"
+        echo "[portal-5]   ✅ ${service}: started on :${port} (PID $!)"
     fi
 }
 
@@ -269,17 +361,10 @@ _ensure_native_services() {
 
     # ── MLX Transcribe (Apple Silicon native only) ───────────────────────────
     if [ "$ARCH" = "arm64" ]; then
-        local TRANSCRIBE_PID_FILE="/tmp/portal-mlx-transcribe.pid"
-        local TRANSCRIBE_SCRIPT="$PORTAL_ROOT/scripts/mlx-transcribe.py"
-        if [ -f "$TRANSCRIBE_PID_FILE" ] && kill -0 "$(cat "$TRANSCRIBE_PID_FILE")" 2>/dev/null; then
-            echo "[portal-5]   ✅ MLX Transcribe: running (PID $(cat "$TRANSCRIBE_PID_FILE"))"
-        elif [ -f "$TRANSCRIBE_SCRIPT" ]; then
-            echo "[portal-5]   MLX Transcribe not running — starting..."
-            mkdir -p "$HOME/.portal5/logs"
-            nohup "$PY" "$TRANSCRIBE_SCRIPT" \
-                >> "$HOME/.portal5/logs/mlx-transcribe.log" 2>&1 &
-            echo $! > "$TRANSCRIBE_PID_FILE"
-            echo "[portal-5]   ✅ MLX Transcribe started on :${MLX_TRANSCRIBE_PORT:-8924}"
+        if [ -f "$PORTAL_ROOT/scripts/mlx-transcribe.py" ]; then
+            _ensure_native_mcp_service \
+                "mlx-transcribe" "com.portal5.mlx-transcribe" \
+                "${MLX_TRANSCRIBE_PORT:-8924}" "mlx-transcribe"
         fi
     fi
 
@@ -287,76 +372,30 @@ _ensure_native_services() {
     # Exposes get_pipeline_status, list_workspaces, get_loaded_models,
     # explore_repository (FastContext subagent), and get_metrics_summary
     # to coding tools (Claude Code, opencode) via .mcp.json.
-    local PIPELINE_MCP_PID_FILE="/tmp/portal-pipeline-mcp.pid"
-    local PIPELINE_MCP_MODULE="portal.platform.mcp_host.pipeline_mcp"
-    if [ -f "$PIPELINE_MCP_PID_FILE" ] && kill -0 "$(cat "$PIPELINE_MCP_PID_FILE")" 2>/dev/null; then
-        echo "[portal-5]   ✅ Pipeline MCP: running (PID $(cat "$PIPELINE_MCP_PID_FILE"))"
-    else
-        echo "[portal-5]   Pipeline MCP not running — starting..."
-        mkdir -p "$HOME/.portal5/logs"
-        PYTHONPATH="$PORTAL_ROOT" \
-        PIPELINE_API_KEY="${PIPELINE_API_KEY:-}" \
-        PIPELINE_URL="${PIPELINE_URL:-http://localhost:9099}" \
-        OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}" \
-        PIPELINE_MCP_REPO_ROOT="$PORTAL_ROOT" \
-        PIPELINE_MCP_PORT="${PIPELINE_MCP_PORT:-8928}" \
-        nohup "$PY" -m "$PIPELINE_MCP_MODULE" \
-            >> "$HOME/.portal5/logs/pipeline-mcp.log" 2>&1 &
-        echo $! > "$PIPELINE_MCP_PID_FILE"
-        echo "[portal-5]   ✅ Pipeline MCP started on :${PIPELINE_MCP_PORT:-8928}"
-    fi
+    _ensure_native_mcp_service \
+        "pipeline-mcp" "com.portal5.pipeline-mcp" \
+        "${PIPELINE_MCP_PORT:-8928}" "pipeline-mcp"
 
     # ── MITRE ATT&CK MCP (host-native, :8929) ────────────────────────────────
     # Reads tests/benchmarks/bench_security/siem/spl_detections.py via a
     # repo-relative sys.path hack — not packaged into Dockerfile.mcp, so this
     # must run against the host checkout rather than as a container.
-    local MITRE_MCP_PID_FILE="/tmp/portal-mitre-mcp.pid"
-    if [ -f "$MITRE_MCP_PID_FILE" ] && kill -0 "$(cat "$MITRE_MCP_PID_FILE")" 2>/dev/null; then
-        echo "[portal-5]   ✅ MITRE MCP: running (PID $(cat "$MITRE_MCP_PID_FILE"))"
-    else
-        echo "[portal-5]   MITRE MCP not running — starting..."
-        mkdir -p "$HOME/.portal5/logs"
-        PYTHONPATH="$PORTAL_ROOT" \
-        MITRE_MCP_PORT="${MITRE_MCP_PORT:-8929}" \
-        nohup "$PY" -m portal.modules.security.tools.mitre_mcp \
-            >> "$HOME/.portal5/logs/mitre-mcp.log" 2>&1 &
-        echo $! > "$MITRE_MCP_PID_FILE"
-        echo "[portal-5]   ✅ MITRE MCP started on :${MITRE_MCP_PORT:-8929}"
-    fi
+    _ensure_native_mcp_service \
+        "mitre-mcp" "com.portal5.mitre-mcp" \
+        "${MITRE_MCP_PORT:-8929}" "mitre-mcp"
 
     # ── Detections MCP (host-native, :8932) ──────────────────────────────────
     # Same tests/benchmarks/ dependency as MITRE MCP above.
-    local DETECTIONS_MCP_PID_FILE="/tmp/portal-detections-mcp.pid"
-    if [ -f "$DETECTIONS_MCP_PID_FILE" ] && kill -0 "$(cat "$DETECTIONS_MCP_PID_FILE")" 2>/dev/null; then
-        echo "[portal-5]   ✅ Detections MCP: running (PID $(cat "$DETECTIONS_MCP_PID_FILE"))"
-    else
-        echo "[portal-5]   Detections MCP not running — starting..."
-        mkdir -p "$HOME/.portal5/logs"
-        PYTHONPATH="$PORTAL_ROOT" \
-        DETECTIONS_MCP_PORT="${DETECTIONS_MCP_PORT:-8932}" \
-        nohup "$PY" -m portal.modules.security.tools.detections_mcp \
-            >> "$HOME/.portal5/logs/detections-mcp.log" 2>&1 &
-        echo $! > "$DETECTIONS_MCP_PID_FILE"
-        echo "[portal-5]   ✅ Detections MCP started on :${DETECTIONS_MCP_PORT:-8932}"
-    fi
+    _ensure_native_mcp_service \
+        "detections-mcp" "com.portal5.detections-mcp" \
+        "${DETECTIONS_MCP_PORT:-8932}" "detections-mcp"
 
     # ── Wiki MCP (host-native, :8931) ─────────────────────────────────────────
     # Reads portal_wiki/canonical/ via a repo-relative path and calls Ollama
     # directly for wiki_explain — not packaged into Dockerfile.mcp.
-    local WIKI_MCP_PID_FILE="/tmp/portal-wiki-mcp.pid"
-    if [ -f "$WIKI_MCP_PID_FILE" ] && kill -0 "$(cat "$WIKI_MCP_PID_FILE")" 2>/dev/null; then
-        echo "[portal-5]   ✅ Wiki MCP: running (PID $(cat "$WIKI_MCP_PID_FILE"))"
-    else
-        echo "[portal-5]   Wiki MCP not running — starting..."
-        mkdir -p "$HOME/.portal5/logs"
-        PYTHONPATH="$PORTAL_ROOT" \
-        OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}" \
-        WIKI_MCP_PORT="${WIKI_MCP_PORT:-8931}" \
-        nohup "$PY" -m portal_wiki.wiki_mcp \
-            >> "$HOME/.portal5/logs/wiki-mcp.log" 2>&1 &
-        echo $! > "$WIKI_MCP_PID_FILE"
-        echo "[portal-5]   ✅ Wiki MCP started on :${WIKI_MCP_PORT:-8931}"
-    fi
+    _ensure_native_mcp_service \
+        "wiki-mcp" "com.portal5.wiki-mcp" \
+        "${WIKI_MCP_PORT:-8931}" "wiki-mcp"
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -412,7 +451,11 @@ _do_down() {
         fi
 
         # MLX Transcribe (:8924)
-        if [ -f /tmp/portal-mlx-transcribe.pid ] && kill -0 "$(cat /tmp/portal-mlx-transcribe.pid)" 2>/dev/null; then
+        if launchctl print "gui/$(id -u)/com.portal5.mlx-transcribe" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.mlx-transcribe" 2>/dev/null || true
+            rm -f /tmp/portal-mlx-transcribe.pid
+            echo "[portal-5] MLX Transcribe stopped (launchd)."
+        elif [ -f /tmp/portal-mlx-transcribe.pid ] && kill -0 "$(cat /tmp/portal-mlx-transcribe.pid)" 2>/dev/null; then
             kill "$(cat /tmp/portal-mlx-transcribe.pid)" 2>/dev/null || true
             rm -f /tmp/portal-mlx-transcribe.pid
             echo "[portal-5] MLX Transcribe stopped."
@@ -421,7 +464,11 @@ _do_down() {
         fi
 
         # Pipeline MCP (:8928)
-        if [ -f /tmp/portal-pipeline-mcp.pid ] && kill -0 "$(cat /tmp/portal-pipeline-mcp.pid)" 2>/dev/null; then
+        if launchctl print "gui/$(id -u)/com.portal5.pipeline-mcp" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.pipeline-mcp" 2>/dev/null || true
+            rm -f /tmp/portal-pipeline-mcp.pid
+            echo "[portal-5] Pipeline MCP stopped (launchd)."
+        elif [ -f /tmp/portal-pipeline-mcp.pid ] && kill -0 "$(cat /tmp/portal-pipeline-mcp.pid)" 2>/dev/null; then
             kill "$(cat /tmp/portal-pipeline-mcp.pid)" 2>/dev/null || true
             rm -f /tmp/portal-pipeline-mcp.pid
             echo "[portal-5] Pipeline MCP stopped."
@@ -430,7 +477,11 @@ _do_down() {
         fi
 
         # MITRE MCP (:8929)
-        if [ -f /tmp/portal-mitre-mcp.pid ] && kill -0 "$(cat /tmp/portal-mitre-mcp.pid)" 2>/dev/null; then
+        if launchctl print "gui/$(id -u)/com.portal5.mitre-mcp" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.mitre-mcp" 2>/dev/null || true
+            rm -f /tmp/portal-mitre-mcp.pid
+            echo "[portal-5] MITRE MCP stopped (launchd)."
+        elif [ -f /tmp/portal-mitre-mcp.pid ] && kill -0 "$(cat /tmp/portal-mitre-mcp.pid)" 2>/dev/null; then
             kill "$(cat /tmp/portal-mitre-mcp.pid)" 2>/dev/null || true
             rm -f /tmp/portal-mitre-mcp.pid
             echo "[portal-5] MITRE MCP stopped."
@@ -439,7 +490,11 @@ _do_down() {
         fi
 
         # Detections MCP (:8932)
-        if [ -f /tmp/portal-detections-mcp.pid ] && kill -0 "$(cat /tmp/portal-detections-mcp.pid)" 2>/dev/null; then
+        if launchctl print "gui/$(id -u)/com.portal5.detections-mcp" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.detections-mcp" 2>/dev/null || true
+            rm -f /tmp/portal-detections-mcp.pid
+            echo "[portal-5] Detections MCP stopped (launchd)."
+        elif [ -f /tmp/portal-detections-mcp.pid ] && kill -0 "$(cat /tmp/portal-detections-mcp.pid)" 2>/dev/null; then
             kill "$(cat /tmp/portal-detections-mcp.pid)" 2>/dev/null || true
             rm -f /tmp/portal-detections-mcp.pid
             echo "[portal-5] Detections MCP stopped."
@@ -448,7 +503,11 @@ _do_down() {
         fi
 
         # Wiki MCP (:8931)
-        if [ -f /tmp/portal-wiki-mcp.pid ] && kill -0 "$(cat /tmp/portal-wiki-mcp.pid)" 2>/dev/null; then
+        if launchctl print "gui/$(id -u)/com.portal5.wiki-mcp" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.wiki-mcp" 2>/dev/null || true
+            rm -f /tmp/portal-wiki-mcp.pid
+            echo "[portal-5] Wiki MCP stopped (launchd)."
+        elif [ -f /tmp/portal-wiki-mcp.pid ] && kill -0 "$(cat /tmp/portal-wiki-mcp.pid)" 2>/dev/null; then
             kill "$(cat /tmp/portal-wiki-mcp.pid)" 2>/dev/null || true
             rm -f /tmp/portal-wiki-mcp.pid
             echo "[portal-5] Wiki MCP stopped."
@@ -766,8 +825,12 @@ print(d.get('system',{}).get('comfyui_version','?'))
         fi
 
         # MLX Transcribe service status
-        if [ -f /tmp/portal-mlx-transcribe.pid ] && kill -0 "$(cat /tmp/portal-mlx-transcribe.pid)" 2>/dev/null; then
-            printf "    ✅  %-28s %s\n" "MLX Transcribe" "running (PID $(cat /tmp/portal-mlx-transcribe.pid), :8924)"
+        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${MLX_TRANSCRIBE_PORT:-8924}/health', timeout=2)" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "MLX Transcribe" ":${MLX_TRANSCRIBE_PORT:-8924}"
+        elif launchctl print "gui/$(id -u)/com.portal5.mlx-transcribe" &>/dev/null 2>&1; then
+            printf "    ⏳  %-28s %s\n" "MLX Transcribe" "starting (launchd-managed)"
+        elif [ -f /tmp/portal-mlx-transcribe.pid ] && kill -0 "$(cat /tmp/portal-mlx-transcribe.pid)" 2>/dev/null; then
+            printf "    ⏳  %-28s %s\n" "MLX Transcribe" "starting (PID $(cat /tmp/portal-mlx-transcribe.pid))"
         elif [ -f scripts/mlx-transcribe.py ]; then
             printf "    ❌  %-28s %s\n" "MLX Transcribe" "installed but not running — ./launch.sh start-transcribe"
         fi

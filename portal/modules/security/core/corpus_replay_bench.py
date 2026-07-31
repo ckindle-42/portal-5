@@ -79,10 +79,10 @@ CURATED_TECHNIQUES: dict[str, str] = {
 }
 
 # Strong baseline (best live recall per prior GATE-D sweeps).
-TOOL_MODEL = "granite4.1:8b"
-REASONING_MODEL = "granite4.1:30b"
-EXPERT_MODEL = "granite4.1:8b"
-MENTOR_MODEL = "granite4.1:8b"
+TOOL_MODEL = "bench-granite41-8b"
+REASONING_MODEL = "bench-granite41-30b"
+EXPERT_MODEL = "bench-granite41-8b"
+MENTOR_MODEL = "bench-granite41-8b"
 
 # Deliberately weaker/smaller model for the dedicated Mentor-firing
 # validation arm — the strong baseline above converges in 1 tool round and
@@ -92,7 +92,9 @@ WEAK_REASONING_MODEL = "hf.co/Nguuma/security-slm-unsloth-1.5b:latest"
 
 # Council roster — deliberately excludes _COUNCIL_UNFIT_MODELS (data, not
 # eviction; see blue_orchestrate.py). Add candidates here as they're vetted.
-COUNCIL_MODELS = [m for m in ("granite4.1:30b", "cogito:32b") if m not in _COUNCIL_UNFIT_MODELS]
+COUNCIL_MODELS = [
+    m for m in ("bench-granite41-30b", "cogito:32b") if m not in _COUNCIL_UNFIT_MODELS
+]
 
 OUT_PATH = Path(
     os.environ.get(
@@ -164,9 +166,38 @@ def _corpus_episode(technique_id: str, sourcetype: str) -> Episode | None:
     lines = [r["fields"].get("_raw", "") for r in rows if r["fields"].get("_raw")]
     if not lines:
         return None
-    label = re.sub(r"[^A-Za-z0-9]+", "_", technique_id).strip("_").lower()
+    # Correlation detections can derive the only discriminating evidence in
+    # their SPL pipeline rather than carrying it on any individual raw event.
+    # Example: T1110.003 computes ``distinct_accounts`` with ``stats dc()``.
+    # Preserve those label-blind aggregate rows alongside the raw sample so
+    # the Retriever can show the same evidence the production detection used.
+    full_spl = str(detections[technique_id]["spl"])
+    _head, separator, pipeline = full_spl.partition("|")
+    if separator:
+        aggregate_search = (
+            f"search {_head.strip()} evidence_origin=corpus:* | {pipeline.strip()} | head 8"
+        )
+        aggregate_rows = backend._run_search(aggregate_search, "0", "now")
+        aggregate_lines: list[str] = []
+        seen_aggregates: set[str] = set()
+        for row in aggregate_rows:
+            fields = {
+                str(key): value
+                for key, value in (row.get("fields") or {}).items()
+                if key != "_raw" and value not in (None, "")
+            }
+            if not fields:
+                continue
+            line = " ".join(f"{key}={value}" for key, value in sorted(fields.items()))
+            if line not in seen_aggregates:
+                aggregate_lines.append(line)
+                seen_aggregates.add(line)
+        lines = aggregate_lines + lines
     return Episode(
-        scenario=f"corpus_{label}",
+        # The cell record carries the expected technique for eval scoring, but
+        # the production orchestration sees this Episode. Keep its scenario
+        # opaque so _build_trigger cannot leak the answer-key label to models.
+        scenario="corpus_replay",
         target_host="lab-corpus-splunk",
         techniques=[technique_id],
         telemetry={sourcetype: lines},
@@ -308,6 +339,11 @@ def main() -> None:
         help="Skip the dedicated Mentor-firing validation arm (WEAK_REASONING_MODEL)",
     )
     parser.add_argument(
+        "--strong-only",
+        action="store_true",
+        help="Run only the orchestrated strong arm (skip council and weak validation arms)",
+    )
+    parser.add_argument(
         "--rerun-council",
         action="store_true",
         help="When resuming, rerun council cells while retaining unaffected solo cells",
@@ -378,24 +414,25 @@ def main() -> None:
         )
         # Arm 2: council, strong roster (unfit models excluded), mentor+barrier.
         # Same fix: hunter=3 was too tight (found live 2026-07-25).
-        cells.append(
-            {
-                "label": label,
-                "technique_id": tid,
-                "sourcetype": sourcetype,
-                "mode": "council",
-                "model_arm": "council_strong",
-                "reasoning_model": REASONING_MODEL,
-                "mentor": True,
-                "budgets": {"hunter": 8},
-                "barrier_roles": {"reasoning"},
-            }
-        )
+        if not args.strong_only:
+            cells.append(
+                {
+                    "label": label,
+                    "technique_id": tid,
+                    "sourcetype": sourcetype,
+                    "mode": "council",
+                    "model_arm": "council_strong",
+                    "reasoning_model": REASONING_MODEL,
+                    "mentor": True,
+                    "budgets": {"hunter": 8},
+                    "barrier_roles": {"reasoning"},
+                }
+            )
         # Arm 3: orchestrated, WEAK model, mentor -- validates Mentor actually
         # fires against a model that stalls (the strong model never does).
         # Given a weaker model, more room to actually stall into the mentor
         # trigger and still reach a conclusion afterward.
-        if not args.skip_weak_arm:
+        if not args.skip_weak_arm and not args.strong_only:
             cells.append(
                 {
                     "label": label,

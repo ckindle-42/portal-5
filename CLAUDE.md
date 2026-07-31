@@ -12,7 +12,7 @@ Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack.
 
 **Architecture**: Open WebUI → Portal Pipeline (:9099) → Ollama (:11434) → local models. MCP servers (:8910–8928) provide tools (documents, code sandbox, TTS, research, memory, RAG, browser, proxmox, pipeline introspection).
 
-**Inference**: Single tier — **Ollama** (GGUF models, Ollama 0.30.7+ with native MLX Metal backend on Apple Silicon). The MLX inference proxy was retired in commit 3a0c58e; Ollama now matches or beats standalone mlx_lm throughput while removing the dual-stack operational overhead. Host-native, not Docker. NOTE: MLX is still used outside inference — for speech (mlx-speech :8918), diarized transcription (mlx-transcribe :8924), embeddings (:8917), and reranking (:8925). Those are audio/retrieval runtimes, not the chat inference tier.
+**Inference**: Single tier — **Ollama** (GGUF models, Ollama 0.32.4+ with native MLX Metal backend on Apple Silicon). The 0.32.4 floor carries the upstream Metal-residency fix that keeps pinned models resident across multi-model serving. The MLX inference proxy was retired in commit 3a0c58e; Ollama now matches or beats standalone mlx_lm throughput while removing the dual-stack operational overhead. Host-native, not Docker. NOTE: MLX is still used outside inference — for speech (mlx-speech :8918), diarized transcription (mlx-transcribe :8924), embeddings (:8917), and reranking (:8925). Those are audio/retrieval runtimes, not the chat inference tier.
 
 **Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command.
 
@@ -68,97 +68,6 @@ These rules bias toward caution over speed. For trivial tasks, use judgment.
 - Transform tasks into verifiable goals before coding: "fix the bug" → "write a test that reproduces it, then make it pass"; "refactor X" → "tests pass before and after".
 - For multi-step tasks, state a brief plan with a verification check per step.
 - The verification ladder is already fixed by this project — per-commit gate (`pytest tests/unit/ -q && ruff check . && ruff format --check .`), final gate (`bash scripts/ci_local.sh`), live streaming gate where required (`./scripts/smoke_stream.sh`), and doc reconciliation (Rule 12). A task isn't done until the applicable gates are green.
-
----
-
-## Project Layout
-
-As of `BUILD_PROGRAM_MODULARIZATION_ALL_V1` (M0-M8), the codebase is organized by discipline module under `portal/modules/`, with cross-cutting infrastructure under `portal/platform/`. `portal_mcp/` now holds only externally-vendored MCP servers that were never moved (`filesystem/`, `scrapling/`). `portal_wiki/` is the wiki's git-versioned data home (`canonical/`) plus its CLI/MCP-tool entrypoints; the wiki engine itself lives at `portal/platform/wiki/`.
-
-```
-portal-5/
-├── portal/
-│   ├── modules/                  # One dir per discipline — code + tools + tests together
-│   │   ├── security/             # RBP (Red/Blue/Purple) bench engine — largest module
-│   │   │   ├── core/             # RBP engine, capability graph, growth loop, intake
-│   │   │   ├── tools/            # security_mcp.py, proxmox_mcp.py (MCP servers)
-│   │   │   ├── knowledge/        # SPL library, scenario facades
-│   │   │   ├── config/           # Security-specific config
-│   │   │   ├── cli/              # `portal security ...` subcommands
-│   │   │   ├── adapters/         # Wiki write-back adapters
-│   │   │   ├── eval/             # Security-specific eval harness
-│   │   │   └── tests/            # Mirrors this module's tree
-│   │   ├── coding/tools/         # code_sandbox_mcp.py (:8914)
-│   │   ├── media/tools/          # comfyui_mcp, video_mcp, music_mcp, tts_mcp, whisper_mcp
-│   │   ├── cad/tools/            # cad_render_mcp.py (:8926)
-│   │   ├── documents/tools/      # document_mcp.py (:8913)
-│   │   ├── research/tools/       # web_search_mcp, rag_mcp, reranker_mcp, browser_mcp
-│   │   ├── compliance/config/    # Config-only module (compliance personas + routing)
-│   │   ├── general/               # Config-only module (vendored filesystem/fetch/git/docker)
-│   │   └── eval/persona_matrix/  # Cross-cutting persona coverage sweep — off by default
-│   └── platform/                  # Cross-cutting infra, not owned by any one discipline
-│       ├── inference/             # FastAPI Pipeline server (:9099) — formerly portal_pipeline/
-│       │   ├── cluster_backends.py  # BackendRegistry — Ollama (+ vLLM-compatible), health-aware
-│       │   ├── router_pipe.py       # Backwards-compat facade — re-exports router/app.py's `app`
-│       │   ├── sync_config.py       # Generates backends.yaml/.mcp.json/OWUI presets/modules manifest from portal.yaml
-│       │   ├── tool_registry.py     # Tool discovery (polls MCP /tools), advertisement, dispatch
-│       │   ├── router/              # Decomposed pipeline modules
-│       │   │   ├── app.py           # FastAPI app + route decorators
-│       │   │   ├── handlers.py      # Route handler bodies (incl. Gate 4 module-disabled 404)
-│       │   │   ├── routing.py       # LLM router + keyword workspace detection
-│       │   │   ├── streaming.py     # SSE streaming: tool loop, preamble
-│       │   │   └── workspaces.py    # WORKSPACES dict, persona map, workspace tool helpers
-│       │   ├── cli/                 # Typed operator CLI (portal config show, …) — entry: portal
-│       │   ├── notifications/       # Operational alerts + daily summaries
-│       │   └── tool_preselect/      # Query-level tool-schema preselection (P5-FUT-TOOL-PRESELECT, flag-off by default)
-│       ├── wiki/                    # Wiki engine (schema, store, writeback, render, maintain)
-│       │   └── adapters/            # Portal-specific wiki wiring (module toggle resolver, growth writeback)
-│       ├── agent/                    # Discipline-agnostic agent loop core (goal/decide/rank/loop/writeback) — see docs/AGENT_LOOP.md; security is the first consumer
-│       ├── mcp_host/                 # Pipeline MCP (:8928) + shared MCP workspace helpers (workspace.py: resolve_upload_path, get_generated_dir, _VALID_CATEGORIES)
-│       └── memory/                   # Cross-session memory store MCP (:8920)
-├── portal_mcp/                   # Externally-vendored MCP servers only (never moved)
-│   ├── filesystem/                # Vendored filesystem MCP server
-│   └── scrapling/                 # Vendored scraping MCP server
-├── portal_wiki/                  # Wiki data + CLI/MCP entrypoints (engine is portal/platform/wiki/)
-│   └── canonical/                 # Git-versioned knowledge unit markdown files
-├── config/
-│   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
-│   ├── portal.yaml               # Single source of truth for workspaces + mcp_fleet
-│   ├── modules.generated.yaml    # Module enable/disable snapshot (generated by sync-config)
-│   ├── personas/                 # Persona YAML files → Open WebUI model presets (see Rule 5)
-│   ├── routing_descriptions.json # LLM router workspace descriptions
-│   └── routing_examples.json     # LLM router few-shot examples
-├── deploy/portal-5/
-│   └── docker-compose.yml        # THE launch definition — all services
-├── scripts/
-│   ├── lib/                      # Shell function libraries sourced by launch.sh dispatcher
-│   │   ├── util.sh               # Shared utilities (color, env, health checks)
-│   │   ├── models.sh             # Model pull/refresh/import wrappers
-│   │   ├── services.sh           # Service start/stop/status wrappers
-│   │   ├── lab.sh                # Lab-exec wrappers
-│   │   ├── backup.sh             # Backup/restore wrappers
-│   │   └── users.sh              # User management wrappers
-│   ├── ci/                       # Pre-commit CI guard scripts
-│   │   ├── check_generated_fresh.py       # Fail if sync-config produces a diff
-│   │   ├── check_no_identical_sources.py  # Warn on deploy/↔portal_mcp/ duplicates
-│   │   └── check_pyproject_no_dup.py      # Fail on duplicate dep pins
-│   ├── doc_ledger.py              # Doc-currency ledger CLI (status/check/stamp) — see Rule 12
-│   ├── openwebui_init.py         # Auto-seeds Open WebUI on first fresh volume
-│   ├── mlx-speech.py             # Host-native MLX speech server (TTS + ASR, port :8918)
-│   ├── embedding-server.py       # Host-native ARM64 embedding server (fallback)
-│   ├── pipeline-entrypoint.sh    # Docker entrypoint for portal-pipeline
-│   ├── smoke_stream.sh           # Live streaming gate (also run by ./launch.sh test)
-│   └── ...                       # See scripts/ for full list
-├── tests/
-│   ├── unit/                     # pytest unit tests — no Docker required
-│   ├── acceptance/               # Acceptance test section modules (s*.py) + shared infra
-│   ├── uat/                      # UAT driver modules (runner/cli/browser/grading/results)
-│   └── benchmarks/               # Inference benchmarks (Ollama TPS, positional recall, coding shootout)
-├── Dockerfile.pipeline           # Lean image for portal-pipeline service
-├── Dockerfile.mcp                # Image for portal/modules/*/tools + portal_mcp services
-├── launch.sh                     # Thin dispatcher — sources scripts/lib/*.sh, delegates to portal CLI
-└── .env.example                  # All configurable values with defaults
-```
 
 ---
 
@@ -266,7 +175,7 @@ Port assignments are enforced in `.env.example`. Do not reassign without updatin
 
 ### 8 — Single Inference Tier: Ollama
 
-Portal 5 runs one inference backend: **Ollama** (port 11434, Ollama 0.30.7+ with native MLX Metal backend on Apple Silicon). GGUF models, pulled via `ollama pull` or `hf.co/`, registered in `config/backends.yaml` under backend groups (general / coding / security / reasoning / vision / creative).
+Portal 5 runs one inference backend: **Ollama** (port 11434, Ollama 0.32.4+ with native MLX Metal backend on Apple Silicon). The minimum includes the upstream Metal-residency fix needed for pinned router and inference models to remain loaded together. GGUF models, pulled via `ollama pull` or `hf.co/`, registered in `config/backends.yaml` under backend groups (general / coding / security / reasoning / vision / creative).
 
 The MLX inference proxy (formerly :8081/:18081/:18082) was retired in commit `3a0c58e` — Ollama's MLX Metal backend reaches parity on this hardware without the thread-patch maintenance, admission-control complexity, and dual-stack overhead.
 
@@ -297,17 +206,15 @@ User-uploaded files and cross-MCP artifacts live at `${AI_OUTPUT_DIR}` (default 
 
 ### 12 — Docs Travel With The Work
 
-Documentation is coupled to code the same way Rule 6 couples workspaces to `portal.yaml`: **mechanically, and CI-gated.** Every living doc is bound in `docs/.doc_ledger.yaml` to the source paths that determine its correctness, plus the commit it was last reconciled against. A doc is *stale* the moment a bound source changes past that commit.
+Documentation is coupled to code the same way Rule 6 couples workspaces to `portal.yaml`: **mechanically, where mechanization exists.** The old commit-stamp ledger (`docs/.doc_ledger.yaml`, check **`AK. doc currency`**) is retired — the ledger is empty and AK is a no-op now. Doc currency for *generated* content lives in check **`AW. wiki facts current`** (`scripts/validate_system.py`): it diffs each fact-unit (`kind: what`) against live config and every `WIKI:GENERATED` block against its unit, so a fact-unit or rendered block can't silently drift.
 
-**The rule:** when your change touches a subsystem, reconcile the docs bound to it **in the same task**, then re-stamp. Do not defer doc updates to "later" — later is how the docs rotted in the first place.
+Authored knowledge (`kind: why` / HOWTO units) is **not** auto-checked against source by design (`portal/platform/wiki/maintain.py`: "advancing HEAD alone does not make an authored canonical unit stale") — staleness there is caught by reading, not tooling.
 
-```bash
-python3 scripts/doc_ledger.py status              # what drifted
-# ...reconcile the stale docs against live code...
-python3 scripts/doc_ledger.py stamp <doc>         # or stamp-all after a full pass
-```
+**The rule:** when your change touches a subsystem, update the fact-unit or authored unit that covers it **in the same task** — don't defer it. For a fact-unit, just re-run `./launch.sh sync-config` (Rule 6) and AW will catch anything you missed. For an authored WHY/HOWTO unit, edit `portal_wiki/canonical/unit-*.md` directly; there is no stamp step.
 
-Enforcement: `scripts/validate_system.py` check **`AK. doc currency`** fails when any bound source changed since a doc's stamp. `bash scripts/ci_local.sh` will be red until docs are reconciled. The re-runnable remediation is `TASK_DOC_AUDIT_AGENT_V*.md` — the doc-side analogue of the validate/test harness.
+**Never hardcode counts/ports/check-letters as prose** (persona counts, workspace counts, port tables, validate check letters). Derive them from an extractor at reconcile time; a hardcoded persona count written from memory is drift waiting to happen.
+
+Note: `scripts/validate_system.py` (all 73 checks, including AW) runs automatically on every commit via the `validate-system` pre-commit hook — it is **not** part of `scripts/ci_local.sh`, which stays narrow (ruff + pytest only, per Testing Rules).
 
 **Never hardcode counts/ports/check-letters as prose** (persona counts, workspace counts, port tables, validate check letters). Derive them from an extractor at reconcile time; a hardcoded persona count written from memory is drift waiting to happen.
 
@@ -329,7 +236,7 @@ edit anchor `count==1` against HEAD before editing. See `unit-HOWTO-discovery-wi
 - **`pytest portal` (the module-tree suite under `portal/modules/*/tests/`) is known to leave real write-through artifacts** in `portal/modules/security/core/field_journal/` (dated entries + `_index.json`) and `portal/modules/security/core/results/checkpoints/` — some security-module tests write through the real goal/playbook journal path instead of a `tmp_path`-redirected one. `results/checkpoints/` is gitignored; `field_journal/` holds real committed history so it is **not** gitignored — after running `pytest portal` locally, run `git status` and `git checkout -- portal/modules/security/core/field_journal/_index.json` (plus `git clean` any new dated entry files) before staging a commit, so test side effects never ride along with real changes. Fixing this at the source (route the journal writer through a fixture-injected path in the offending tests) is open, tracked in `KNOWN_LIMITATIONS.md`.
 - Run before every commit: `pytest tests/unit/ -q && ruff check . && ruff format --check .`
 - **The final verify step of any task is `bash scripts/ci_local.sh`**, not a narrow per-file pytest. This mirrors CI's `.github/workflows/unit-tests.yml` exactly (clean env, editable install, same pytest invocation) — it catches the "works locally, fails CI" gap before the push. A task isn't done until the ci-parity gate is green.
-- Pre-commit hooks (`.pre-commit-config.yaml`) enforce: ruff lint+format, generated-artifact freshness (`sync-config` idempotent), no duplicate dep pins, **pytest unit suite**. Install once: `pip install pre-commit && pre-commit install`.
+- Pre-commit hooks (`.pre-commit-config.yaml`) enforce on every commit: ruff lint+format, generated-artifact freshness (`sync-config` idempotent), no duplicate dep pins, **pytest unit suite**. A separate, heavier hook — `validate-system` (`scripts/validate_system.py`, all 73 lettered checks, ~60s) — runs at **push** time, scoped to commits that touch `portal/`, `config/`, `portal_wiki/`, `scripts/`, `deploy/`, or `tests/`. Install once: `pip install pre-commit && pre-commit install && pre-commit install --hook-type pre-push` (the second install call is required for the pre-push stage hook to actually fire — `pre-commit install` alone only wires up the pre-commit stage).
 - Unit tests also run on every PR and push to `main` via `.github/workflows/unit-tests.yml`.
 - **Any change touching `portal/platform/inference/router/streaming.py` or the streaming paths of `router_pipe.py` MUST run `./scripts/smoke_stream.sh` against the live stack before commit** — unit mocks cannot detect dependency-contract mismatches (FX1, `34be1eb`). Also runs as part of `./launch.sh test`.
 
@@ -358,38 +265,6 @@ The UAT driver, acceptance test v6, and bench_tps all print a freshness warning 
 - Any point where the next command could destroy data from a run that took more than a few minutes to produce
 
 The failure mode this guards against: backing up *some* runs and not others out of momentum or urgency, then losing exactly the run you didn't back up. Treat the backup step as part of the launch sequence itself (write it into the same command block that clears the old checkpoint), not a separate judgment call to remember. If you skip it and then need to clear the checkpoint, back it up in that same moment before proceeding — never clear first and back up "after."
-
----
-
-## Adding New Capabilities
-
-### New MCP Tool Server
-1. Create `portal/modules/<discipline>/tools/<name>_mcp.py` (or `portal/platform/<area>/` for a cross-cutting server — see Rule 6)
-2. Add service to `deploy/portal-5/docker-compose.yml` on an unused port (Rule 7)
-3. Add the server to `config/portal.yaml` under `mcp_fleet:` with the canonical `id`, `name`, `port`, and flags
-4. Run `./launch.sh sync-config` — regenerates `.mcp.json` and OWUI tool preset stubs
-5. Add tool JSON to `imports/openwebui/tools/portal_<name>.json`
-6. `openwebui_init.py` picks up new tool servers automatically from the fleet
-7. Reconcile bound docs and re-stamp: `python3 scripts/doc_ledger.py status` → fix → stamp
-
-### New Persona
-1. Create `config/personas/<slug>.yaml` with: `name`, `slug`, `module`, `workspace_model`, `category`, and one of `system_prompt`/`prompt_template`
-2. `openwebui_init.py` creates the Open WebUI model preset on next seed
-3. No other changes needed
-4. Reconcile bound docs and re-stamp: `python3 scripts/doc_ledger.py status` → fix → stamp
-
-### New Workspace Routing Tier
-1. Add the workspace entry to `config/portal.yaml` under `workspaces:`
-2. Run `./launch.sh sync-config` — regenerates `backends.yaml workspace_routing`, OWUI preset JSON, and `.mcp.json`
-3. Verify: `python3 -m pytest tests/unit/test_generated_artifacts_fresh.py -q`
-4. Do NOT hand-edit `backends.yaml workspace_routing` or `imports/openwebui/workspaces/` — those are generated
-5. Reconcile bound docs and re-stamp: `python3 scripts/doc_ledger.py status` → fix → stamp
-
-### New Cluster Node
-1. Edit `config/backends.yaml` — add backend entry, assign to group
-2. `docker compose restart portal-pipeline`
-3. Done. No code changes.
-4. Reconcile bound docs and re-stamp: `python3 scripts/doc_ledger.py status` → fix → stamp
 
 ---
 
@@ -439,7 +314,7 @@ Before adding new tasks or filing issues, check `KNOWN_LIMITATIONS.md` — some 
 
 The project has a self-maintaining knowledge backbone (`portal_wiki/`) that agents can query for cited, grounded answers instead of re-reading source.
 
-**For agents:** use `wiki.search`, `wiki.get_unit`, `wiki.explain` (via `portal_wiki.mcp`) to look up architecture decisions, technique signatures, subsystem overviews, and design rationale. Every answer cites its source — never trust a wiki claim without its citation.
+**For agents:** use `wiki.search`, `wiki.get_unit`, `wiki.explain` (via `portal_wiki.mcp`) to look up architecture decisions, technique signatures, subsystem overviews, and design rationale. Every answer cites its source — never trust a wiki claim without its citation. Task-specific "how do I add X" checklists (new MCP server, persona, workspace tier, cluster node) live in `unit-HOWTO-adding-new-capabilities` — query it rather than looking here.
 
 **For operators:** `portal_wiki/canonical/` contains the source-of-truth knowledge units (markdown + frontmatter). Edit the canonical unit, not rendered views. Views are generated to `docs/generated/` and marked `<!-- GENERATED -->`.
 

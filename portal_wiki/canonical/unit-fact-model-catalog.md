@@ -1,21 +1,21 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 188 model ids, 6 backend groups
+title: 190 model ids, 6 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 6b767edf6dec
-last_generated_commit: 6b767edf6dec
+  commit: 48aa40a11f2b
+last_generated_commit: 48aa40a11f2b
 confidence: high
 tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1784608925.6861372
+updated_at: 1785461306.090013
 ---
 
-# Model catalog (188 model ids across 6 backend groups)
+# Model catalog (190 model ids across 6 backend groups)
 
 ## coding (39)
 
@@ -72,7 +72,7 @@ updated_at: 1784608925.6861372
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (73)
+## general (74)
 
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
@@ -90,6 +90,7 @@ updated_at: 1784608925.6861372
 - `glm-4.7-flash:Q4_K_M`
 - `gpt-oss:20b`
 - `granite4.1:30b`
+- `granite4.1:30b-ctx16k`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`
@@ -148,11 +149,12 @@ updated_at: 1784608925.6861372
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
 
-## reasoning (22)
+## reasoning (23)
 
 - `deepseek-r1:32b-q4_k_m`
 - `gpt-oss:20b`
 - `granite4.1:30b`
+- `granite4.1:30b-ctx16k`
 - `granite4.1:30b-ctx64k`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`

@@ -45,9 +45,9 @@ CURATED_TECHNIQUES: dict[str, str] = {
     "T1552": "web:access",
 }
 
-TOOL_MODEL = "granite4.1:8b"
-REASONING_MODEL = "granite4.1:30b"
-EXPERT_MODEL = "granite4.1:8b"
+TOOL_MODEL = "bench-granite41-8b"
+REASONING_MODEL = "bench-granite41-30b"
+EXPERT_MODEL = "bench-granite41-8b"
 
 
 def _code_commit() -> str:

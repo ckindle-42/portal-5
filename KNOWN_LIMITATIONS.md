@@ -112,26 +112,42 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-rbp-benign-corpus-alert-fatigue -->
 - **ID**: P5-SEC-BENIGN-CORPUS-001
-- **Description**: The 2026-07-26 closeout added six live, backdated benign
-  cells (two each for `windows:security`, `web:access`, and `linux:auditd`)
-  through the same HEC/index/provenance path as attack corpus data. The strong
-  V4 arm correctly stayed silent on 2/6 and emitted four
-  `ANOMALOUS_UNCLASSIFIED` notifications: measured notification precision
-  33.3% and false-flag rate 66.7%. There were no confident wrong
-  `CONFIRMED` verdicts.
-- **Impact**: The scoreboard's previously blank alert-fatigue axis is now
-  measured, but the result is not production-trustworthy on this negative
-  subset. Honest anomaly escalation is safer than a false confirmation, yet
-  each notification still consumes analyst attention.
-- **Boundary**: Six plausibly confusable cells are a representative closeout
-  subset, not an exhaustive sample of normal enterprise behavior. The 33.3%
-  precision estimate must not be extrapolated beyond these fixtures; broader
-  hosts, identities, time windows, applications, and routine administrative
-  workflows remain unmeasured.
-- **Resolution path**: Expand the benign corpus before changing verdict
-  behavior, then use the typed false-flag breakdown to tune evidence and
-  discriminator quality. Preserve the rule that any NOTIFY on benign activity
-  remains a false flag, even when the verdict is an honest anomaly.
+- **Status**: RESOLVED 2026-07-30 for the representative corpus.
+- **Former issue**: The 2026-07-26 six-cell closeout stayed silent on only 2/6
+  benign cases and emitted four `ANOMALOUS_UNCLASSIFIED` notifications:
+  notification precision 33.3% and false-flag rate 66.7%.
+- **Expansion**: The live negative corpus now contains twelve cells, balanced
+  at four each for `windows:security`, `web:access`, and `linux:auditd`.
+  Added cases cover approved scheduled-task maintenance, SCCM/WMI inventory,
+  QA link checking, mTLS deployment automation, change-ticketed service
+  restart, and Kubernetes CSI `nsenter`/mount reconciliation. They use the same
+  HEC/index/sourcetype/provenance shape as attack corpus records, while the
+  benign answer key remains outside model-visible telemetry.
+- **Root cause**: Before grounding, the expanded run scored 8/12 correct
+  silences, two honest anomaly false flags, and two confident wrong confirms.
+  All four misses treated the mere occurrence of a dual-use ATT&CK-shaped
+  primitive as malicious while ignoring explicit operational context in the
+  cited record.
+- **Resolution**: Shared Hunter, Expert, merged-role, and barrier-tool verdict
+  contracts now require evidence of adversarial or unauthorized use in
+  addition to a dual-use primitive. Change tickets, known automation/service
+  identities, vendor paths, mTLS, purpose-specific agents, and coherent
+  completion sequences are material counter-evidence. They are not automatic
+  allow rules: an unexplained deviation or contradiction still escalates.
+- **Measured proof**: The final live checkpoint produced 12/12
+  `RULED_OUT`, notification precision 100%, false-flag rate 0%, zero anomaly
+  flags, and zero confident wrong confirms. The full pre-grounding checkpoint
+  is retained byte-for-byte for comparison.
+- **Attack regression**: A fresh strong-arm replay notified on 4/5 previously
+  model-visible attack cells. The non-notify was T1557 evidence containing only
+  EventCode 4624 counts; its old notification depended on an invented
+  EventCode 4738 and an incorrect technique description. This exposes the
+  threshold-only T1557 SPL as weak evidence for the later Windows-aware SPL
+  item rather than justifying a hallucinated alert.
+- **Boundary**: Twelve plausibly confusable cells remain a representative
+  subset, not an exhaustive estimate of normal enterprise behavior. Broader
+  hosts, identities, time windows, applications, and routine workflows remain
+  unmeasured; any future NOTIFY on benign activity remains a false flag.
 <!-- /WIKI:GENERATED -->
 
 ### ComfyUI Runs Outside Docker
@@ -205,6 +221,30 @@ authoritative; presence in this register alone does not mean the issue is open.
 - **Still open**: Real Kali binaries seen live but not yet aliased/verified (`bloodhound-ce-python`, `impacket-secretsdump`, `impacket-psexec`, `impacket-wmiexec`, `enum4linux-ng`, `nxc`, `responder`, `impacket-GetNPUsers`, `impacket-dacledit`, `certipy-ad`, `ldap3`, `metasploit`) and the empty-`tools` capabilities (`ad-certificate-abuse`, `kerberos-delegation`, `oauth-oidc-chain`, `file-upload-bypass`, `smb-enumeration`) still dispatch synthetic. Each remaining alias needs its exact CLI invocation verified correct (and, for stateful/destructive ones like `impacket-psexec`/`impacket-wmiexec`/`responder`, reviewed for lab safety) before wiring — not done blind, unlike the two above which were directly confirmed working first.
 - **Impact**: Deterministic progression is now structurally reachable and non-repeating, but a selected capability can still be non-dispatchable when its real tool has no verified alias or it declares no tool. That produces an honestly synthetic trajectory even against a live lab and still slows G1 corpus sign-off (`DESIGN_EMERGENT_LAB_AGENT_V2` §9). Synthetic steps remain excluded from `emergent_gaps.gaps_from_trajectory`, and synthetic-derived trajectories are never PROVEN (AX ratchet holds), so the remaining issue is coverage/usefulness rather than correctness or honesty.
 - **Resolution path (open)**: Continue verifying and aliasing the remaining real binary names one at a time (never batch-guess CLI syntax for tools with real side effects), and separately decide what the empty-`tools` capabilities should actually dispatch to (populate `capability/index.py` or retire them). Pre-existing architecture gap in the "already-built" composition engine (`DESIGN_EMERGENT_LAB_AGENT_V2` §1's KEEP list assumed this layer was solid); not part of the original Slice 1/2/3 delta, but now partially remediated as part of the same live-verification pass.
+- **Continuation checkpoint (2026-07-30)**: The current
+  `SecurityExecutor` dispatches the semantic capability `action` instead of
+  the selected binary `tool`. That correctly makes `smb_probe`, `ldap_probe`,
+  and other `_LAB_SERVICE_PROBES` real, but it also means the ranker's curated
+  binary selection is not used. Live, lab-scoped probes verified exact,
+  non-mutating invocations for `bloodhound-ce-python` (`-c DCOnly --zip`),
+  `enum4linux-ng -A`, anonymous `nxc smb --shares`, and
+  `impacket-GetNPUsers` with a bounded users file. No alias code for those four
+  has landed yet.
+- **Safety finding**: `certipy-ad find` is not read-only in this lab; it
+  started/used the Windows Remote Registry dependency while retrieving CA
+  configuration. DFS and Remote Registry were returned to their observed
+  running state after the probe. Keep Certipy out of the safe allowlist.
+  `impacket-secretsdump`, `impacket-psexec`, `impacket-wmiexec`,
+  `impacket-dacledit`, `responder`, and `metasploit` also remain deferred
+  because they dump credentials, execute remotely, modify ACLs, poison
+  traffic, or select arbitrary exploit modules.
+- **Exact resume point**: Add an explicit read-only alias allowlist for the
+  four verified tools (plus the already-supported `nmap` and
+  `impacket-GetUserSPNs`), have `SecurityExecutor` dispatch the selected
+  binary only when it is in that allowlist and otherwise retain action-level
+  fallback, and add regression tests proving `curl`/unsafe selections still
+  use the safe capability probe. Then live-run one AD emergent step and update
+  this unit with the measured dispatch.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -561,6 +601,14 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
   - `num_batch` injection is inert — set PARAMETER num_batch in Modelfiles for prefill tuning
   - `predict_limit` is mapped to OpenAI `max_tokens` (top-level, honored) as a workaround
 - **Roadmap note:** P5-FUT: evaluate `/api/chat` as `chat_url` — it honors the Ollama-native parameter set but requires changing all payload/response shapes.
+- **2026-07-30 mitigation proof**: A benign-corpus replay demonstrated the
+  operational consequence on current Ollama: raw `granite4.1:30b` loaded at
+  131,072 tokens and about 91 GB, while raw `granite4.1:8b` loaded at 131,072
+  tokens and about 51 GB. The security evaluation workspaces now use baked
+  `granite4.1:30b-ctx16k` and `granite4.1:8b-ctx8k` tags and explicit workspace
+  IDs. Live pipeline route-identity probes returned those exact tags; Ollama
+  reported contexts 16,384 and 8,192 respectively. This mitigates these
+  operated workspaces but does not resolve the general `/v1` limitation.
 
 ---
 <!-- /WIKI:GENERATED -->
@@ -747,18 +795,23 @@ operational constraints.
   pins the current uncovered set; CI (check BR) fails only when that set *grows* — new code
   cannot land with zero coverage unnoticed. This prevents the debt from getting worse; it does
   not pay it down.
-- **Next action**: Backfill coverage for the ~560 currently-uncovered surfaces (write covering
+- **Current measurement (2026-07-30)**: **10.2%** (62 of 609 eligible files), with 547
+  uncovered. The host-native MCP lifecycle, corpus-visibility, benign-corpus, and emergent
+  alias audit units added coverage for their implementation, tests, launcher paths, and
+  validator; the baseline was re-pinned downward to bank the gains.
+- **Next action**: Backfill coverage for the 547 currently-uncovered surfaces (write covering
   units, re-pin the baseline down as each batch lands). Not completed in v8.0.0's release
   window — tracked as ongoing work, not closed out or deprioritized indefinitely.
 <!-- /WIKI:GENERATED -->
 
 ---
 
-### LLM Router Model Evicted by Single Inference Request (Open — Root Cause Unconfirmed)
+### LLM Router Model Evicted by Single Inference Request (Resolved)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-router-model-eviction-single-request -->
 - **ID**: P5-ROUTER-EVICTION-001
-- **Status**: OPEN — root cause unconfirmed. Do not treat as accepted/wontfix.
+- **Status**: RESOLVED 2026-07-30 — fixed upstream in the supported Ollama line and
+  regression-probed on this host.
 - **Description**: The LLM intent-router model (`LLM_ROUTER_MODEL`), loaded with
   `keep_alive: -1` specifically to stay pinned in memory (see
   `_warmup_llm_router` in `lifespan.py`), gets evicted by Ollama after exactly
@@ -786,31 +839,35 @@ operational constraints.
   a plausible contributing factor (not sole cause) in some of the extreme
   multi-thousand-second "backend instability" retry patterns observed during
   the v8.0.0 UAT sweep on `auto`-prefixed workspaces.
-- **Not accepted as a hardware limitation**: Apple Silicon's unified memory
-  architecture should not require this behavior at these memory sizes.
-  Suspected but unconfirmed: an Ollama/Metal backend GPU-residency
-  constraint that evicts prior models on new-model load regardless of
-  `keep_alive` or slot-count settings — needs direct investigation (GPU
-  memory telemetry during the transition, Ollama scheduler source/issue
-  tracker, or a version bisect) before being called root-caused.
-- **Mitigation shipped**: None yet — `LLM_ROUTER_TIMEOUT_MS` is set to
-  `1000ms` (the project's own bench-validated value for a *warm* router),
-  which does not cover the observed cold-load time. Raising the timeout
-  further would mask the real problem with added latency on every request;
-  not done pending root cause.
-- **Next action**: Investigate Ollama's Metal backend model-residency/eviction
-  behavior directly (e.g. instrumented GPU memory sampling across a
-  load/evict transition, or an Ollama version bisect) rather than tuning
-  config further.
+- **Root cause and upstream fix**: Ollama commit
+  `9eef4a7195dc8ad246e697a5251a8df344a56880` ("mlx: keep loaded model memory
+  resident"), released in `v0.32.4`, configures Metal residency after the MLX
+  runner materializes model weights. This directly addresses the missing
+  residency behavior suspected in the original finding. A version bisect was
+  not performed, but the upstream change and the post-upgrade reproduction
+  agree on the failure mechanism.
+- **Regression proof**: On the current `v0.32.5` server, a clean
+  router-load → `/v1/chat/completions` inference transition left both the
+  5.3GB router model and a 5.6GB inference model present in `/api/ps`, each
+  fully resident in Metal memory. Repeating through the OpenAI-compatible
+  endpoint no longer evicts the router.
+- **Repository fix**: Portal's Apple-Silicon launch preflight now treats
+  Ollama `v0.32.4` as the supported minimum and warns before launch on older
+  servers. The previous `0.30.7+` requirement allowed the known-bad residency
+  behavior back into supported deployments.
+- **No latency workaround added**: `LLM_ROUTER_TIMEOUT_MS` remains at the
+  bench-validated warm-router value. The pipeline does not re-warm after every
+  request or silently disable semantic routing; those mitigations would evict
+  useful inference models or reduce routing accuracy.
 <!-- /WIKI:GENERATED -->
 
 ---
 
-### Model Narrates a Fake Tool Call Instead of Invoking the Real One (Open)
+### Model Narrates a Fake Tool Call Instead of Invoking the Real One (Resolved)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-narrated-tool-call-instead-of-real-dispatch -->
 - **ID**: P5-TOOL-NARRATION-001
-- **Status**: OPEN — active problem, not accepted flakiness.
+- **Status**: RESOLVED 2026-07-30.
 - **Description**: Under a multi-tool payload, a tool-capable model sometimes narrates a
   plausible-looking pseudo tool-call in plain text — e.g.
   `<function=execute_python>...</function></tool_call>` (note the mismatched/absent opening
@@ -830,19 +887,18 @@ operational constraints.
   tooling regression (the real `create_word_document` tool works perfectly when dispatched
   directly; see the MCP v2 migration audit) but the same narration-instead-of-dispatch failure
   under retry/backend-instability conditions.
-- **Why not fixed here**: A live-content fix requires the streaming pipeline
-  (`portal/platform/inference/router/streaming.py`) to detect the pattern in the model's
-  *content* stream and treat it as a dispatch failure — but content is forwarded to the client
-  chunk-by-chunk as it streams, before the full text (and therefore the pattern) is knowable.
-  Detecting this safely means buffering full content before forwarding, a real architectural
-  change to a delicate hot path this project explicitly gates behind a live `smoke_stream.sh`
-  run before any commit — not something to improvise mid-session.
-- **Next action**: Design a proper fix before implementing: options include (a) buffering
-  content for pattern-detection only on tool-enabled workspaces (bounded scope, still a real
-  streaming-behavior change needing the live gate), (b) a narrower `tool_choice` scope for
-  requests that specifically require tool execution rather than blanket-forcing it workspace-
-  wide, or (c) generation-parameter tuning to reduce narration likelihood. Needs a deliberate
-  design decision, not a one-line patch.
+- **Resolution**: The pipeline now recognizes explicit side-effect requests before model
+  dispatch. `_select_explicit_required_tool()` maps conservative execution and artifact-creation
+  intents to one tool only (Python/Bash/Node execution or Word/Excel/PowerPoint creation), but
+  only when that tool is already in the resolved workspace/persona whitelist. Both streaming
+  and non-streaming paths then expose only that schema and set `tool_choice=required`.
+- **Why this fix**: The direct reproduction proved the same model was reliable with one tool
+  and intermittent with the full multi-tool payload. Deterministic narrowing removes the
+  ambiguity at its source without buffering the streaming hot path and without forcing tools
+  for ordinary code-writing, prose-documentation, or document-reading prompts.
+- **Safety boundary**: Client `tool_choice=none`, `portal_no_tools`, and non-matching prompts
+  retain their prior behavior. A selected tool must be allow-listed; the selector never grants
+  a capability. Unit coverage includes the affected UAT prompt shapes and negative cases.
 <!-- /WIKI:GENERATED -->
 
 ---

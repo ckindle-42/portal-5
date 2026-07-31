@@ -3,16 +3,16 @@ slug: bench-granite41-8b
 category: benchmark
 workspace_model: bench-granite41-8b
 preferred_models:
-  - granite4.1:8b
+  - granite4.1:8b-ctx8k
 module: eval
-# Routes to: granite4.1:8b (Ollama, IBM Research, dense 8B Q4_K_M, ~5.3GB)
+# Routes to: granite4.1:8b-ctx8k (Ollama, IBM Research, dense 8B Q4_K_M, ~5.3GB)
 # IBM Granite 4.1 is dense decoder-only, NO reasoning chain by design.
 # Strengths: tool calling (BFCL V3 68.3), instruction following (IFEval 87.1),
 # math (GSM8K 92.5). Weakness vs. coder leaders: lower SWE-bench / EvalPlus
 # than Laguna / Qwen3-Coder. Bench measures CC-01 creative-coding behavior.
 # BENCHMARK NOTE: Granite is moderated — expect refusals on edgy creative
 # coding requests (rare with CC-01). Verify model loaded by checking
-# `ollama ps | grep granite4.1:8b`.
+# `ollama ps | grep granite4.1:8b-ctx8k`.
 prompt_template: creative_coder
 tags:
   - benchmark

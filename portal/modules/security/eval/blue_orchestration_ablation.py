@@ -64,7 +64,7 @@ from portal.modules.security.eval.ablation_attribution import (
 
 # Locked V2 trio (b576439) — see task Appendix.
 TOOL_MODEL = "granite4.1:8b-ctx8k"
-REASONING_MODEL = "granite4.1:30b"
+REASONING_MODEL = "bench-granite41-30b"
 EXPERT_MODEL = "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0"
 # 2-section "V1 shape": one generalist both hunts and concludes. Reuse the
 # reasoning model in that dual role — no separate merged-model config exists
