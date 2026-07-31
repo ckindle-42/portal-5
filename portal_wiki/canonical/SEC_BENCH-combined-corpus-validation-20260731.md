@@ -9,6 +9,12 @@ sources:
   path: portal/modules/security/core/corpus_coverage.py
 - type: code
   path: portal/modules/security/core/blue_orchestrate.py
+- type: code
+  path: portal/modules/security/core/exec_chain.py
+- type: code
+  path: portal/modules/security/core/siem/capture_enrichment.py
+- type: code
+  path: scripts/security_replay_verify.py
 - type: config
   path: config/security_corpus.yaml
 last_generated_commit: ''
@@ -25,12 +31,25 @@ created_at: 1785540000.0
 updated_at: 1785540000.0
 ---
 
-The live-probed combined-corpus gate passed before this run. Eleven of 93 lab
-scenarios had replayable, scenario-valid Portal captures. The live lane covered
-5 target techniques, the external labeled lane covered 16, and their union
-covered 18 of 29. This means the available data is safe to use for detection
-design; it does not mean blue quality passed, and external data remains
-ineligible as lab-scenario proof.
+The live-probed combined-corpus gate passed before this run. The planning
+catalog contains 93 scenarios, but only 73 are backed lab exercises: 20 theory
+or generic web/cloud entries have no deployed replay target and are explicitly
+excluded, with reasons, by the corpus contract. Twelve of the 73 have
+schema-v2, episode-scoped, scenario-valid Portal captures with real PCAPs.
+The live lane covers 5 target techniques, the current live-probed external
+labeled lane intersects 14, and their union covers 16 of the 25 backed target
+techniques. This means the available data is safe to use for detection design;
+it does not mean blue quality passed, and external data remains ineligible as
+lab-scenario proof.
+
+All twelve scoreable captures were shipped through the production replay path
+and independently confirmed indexed in Splunk. The twelfth is
+`vuln_struts2_rce`: its first recapture exposed a malformed command payload,
+and its corrected capture now requires both the S2-045 sandbox-bypass request
+and correlated `X-Cmd-Output: uid=... gid=...` response evidence. Detection-only
+`X-Test` output, an exploit-shaped request without command proof, and identity
+output without the exploit request are all negative controls and cannot certify
+T1190.
 
 The source-stratified strong three-section validation produced:
 
@@ -76,9 +95,9 @@ Detection design proceeds in this order:
 5. Design the Windows/AD discriminators for T1558.003, T1558.004, T1110.003,
    T1078, T1550.002, and T1557.001; then convert T1053.005, T1083, and T1552
    from anomaly-only outcomes to classified findings.
-6. Acquire or produce valid data before scoring the remaining coverage gaps:
-   T1003.001, T1003.006, T1021.002, T1059.004, T1078.004, T1203, T1210,
-   T1505.003, T1537, T1548.001, and T1592.
+6. Acquire or produce valid data before scoring the remaining backed coverage
+   gaps: T1003.001, T1003.006, T1021.002, T1059.004, T1203, T1210,
+   T1505.003, T1548.001, and T1592.
 
 Spine-coverage expansion remains deferred until this design and validation
 backlog is complete.

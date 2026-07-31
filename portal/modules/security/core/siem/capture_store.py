@@ -44,6 +44,28 @@ def capture_replay_warnings(data: dict) -> list[str]:
     return []
 
 
+def capture_ground_truth_status(data: dict) -> dict:
+    """Revalidate immutable telemetry against the current scenario contract.
+
+    Stored validity is an audit record of the validator that existed when the
+    capture was written.  Blue scoring needs the current catalog and current
+    signal rules, otherwise a later ground-truth change can silently leave an
+    old capture certified for labels its telemetry never proved.
+    """
+    scenario = str(data.get("scenario") or "")
+    try:
+        from portal.modules.security.core.exec_chain import SCENARIOS
+
+        known_scenario = scenario in SCENARIOS
+    except Exception:
+        known_scenario = False
+    if known_scenario:
+        from .capture_enrichment import validate_capture_signals
+
+        return validate_capture_signals(scenario, data.get("telemetry") or {})
+    return dict(data.get("validity") or {})
+
+
 def capture_replay_issues(data: dict, *, require_pcap: bool = False) -> list[str]:
     """Return integrity failures that make a saved red capture unsafe to replay.
 
@@ -60,9 +82,16 @@ def capture_replay_issues(data: dict, *, require_pcap: bool = False) -> list[str
         issues.append("MISSING_EPISODE_ID")
     if not any((data.get("telemetry") or {}).values()):
         issues.append("NO_OBSERVED_TELEMETRY")
-    validity = data.get("validity") or {}
+    validity = capture_ground_truth_status(data)
     if not validity.get("checked") or not validity.get("valid"):
-        issues.append("CAPTURE_GROUND_TRUTH_INVALID")
+        # Current validation results do not carry the historical ``checked``
+        # flag; a non-empty checked-technique count is the equivalent proof.
+        currently_checked = validity.get("techniques_checked", 0) > 0
+        if not currently_checked or not validity.get("valid"):
+            issues.append("CAPTURE_GROUND_TRUTH_INVALID")
+    unchecked = sorted(validity.get("unchecked") or [])
+    if unchecked:
+        issues.append(f"UNVERIFIED_GROUND_TRUTH:{','.join(unchecked)}")
     if require_pcap:
         pcap_path = data.get("pcap_path")
         pcap_exists = bool(pcap_path and Path(str(pcap_path)).is_file())

@@ -14,6 +14,8 @@ sources:
 - type: code
   path: scripts/security_corpus_report.py
 - type: code
+  path: scripts/security_replay_verify.py
+- type: code
   path: portal/modules/security/tests/test_corpus_coverage.py
 - type: code
   path: tests/unit/test_security_corpus_contract.py
@@ -68,3 +70,10 @@ pass: external data must be probed successfully after a reset. Blue/purple
 result records carry `data_mode`, `evidence_origin`, and
 `answer_key_visibility`, so metrics can be compared per source before any
 combined summary is used for detection design.
+
+The 93-entry scenario catalog is not itself the live denominator. The corpus
+contract explicitly identifies theory or unbacked exercises that have no
+deployed target contract; they remain visible, with reasons, but cannot count
+as missing or valid lab replay. `security_replay_verify.py --live` re-ships
+every scoreable capture and requires Splunk indexing confirmation, closing the
+gap between a locally valid JSON artifact and a capture blue can actually query.

@@ -341,6 +341,13 @@ class TestVulhubExpansionScenarios:
         has = any(ind in prompt for ind in kali_indicators)
         assert has, f"Scenario '{name}' red_prompt has no Kali tool reference"
 
+    def test_struts_command_proof_uses_live_tested_payload_contract(self):
+        prompt = SCENARIOS["vuln_struts2_rce"]["red_prompt"]
+        assert "getExcludedPackageNames().clear()" in prompt
+        assert "getExcludedPropertyNames" not in prompt
+        assert "X-Cmd-Output" in prompt
+        assert "uid/gid output" in prompt
+
 
 # ── SPL detection coverage ───────────────────────────────────────────────────
 

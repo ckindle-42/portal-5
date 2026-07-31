@@ -20,6 +20,8 @@ import gzip
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks"))
 
@@ -183,3 +185,49 @@ class TestValidateCaptureSignals:
         result = validate_capture_signals("meta3_phpmyadmin_rce", telemetry)
         assert result["valid"] is True
         assert result["found"] == ["T1190", "T1078", "T1059"]
+
+    def test_rdp_requires_protocol_traffic_and_correlated_successful_logon(self):
+        telemetry = {
+            "windows:security": [
+                "EventCode=4624 LogonType=3 Account=vagrant IpAddress=- LogonProcessName=NtLmSsp"
+            ],
+            "network:packet": ["IP 172.17.0.2.39582 > 10.10.11.13.3389: Flags [S], length 0"],
+        }
+        result = validate_capture_signals("meta3_rdp_standard_auth", telemetry)
+        assert result["valid"] is True
+        assert result["found"] == ["T1021.001", "T1078"]
+        assert result["unchecked"] == []
+
+    def test_rdp_does_not_credit_open_port_without_successful_logon(self):
+        telemetry = {
+            "network:packet": ["IP 172.17.0.2.39582 > 10.10.11.13.3389: Flags [S], length 0"]
+        }
+        result = validate_capture_signals("meta3_rdp_standard_auth", telemetry)
+        assert "T1021.001" in result["missing"]
+
+    def test_struts_requires_exploit_payload_and_correlated_command_proof(self):
+        telemetry = {
+            "web:access": [
+                "content type header is %{(#ognlUtil.getExcludedPackageNames().clear())}",
+            ],
+            "red:tool": ["HTTP/1.1 200 OK X-Cmd-Output: uid=0(root) gid=0(root) groups=0(root)"],
+        }
+        result = validate_capture_signals("vuln_struts2_rce", telemetry)
+        assert result["valid"] is True
+        assert result["found"] == ["T1190", "T1059"]
+
+    @pytest.mark.parametrize(
+        "telemetry",
+        [
+            {"web:access": ["Struts2 Showcase X-Test: vulnerable HTTP/1.1 200 OK"]},
+            {
+                "web:access": [
+                    "content type header is %{(#ognlUtil.getExcludedPackageNames().clear())}"
+                ]
+            },
+            {"red:tool": ["X-Cmd-Output: uid=0(root) gid=0(root) groups=0(root)"]},
+        ],
+    )
+    def test_struts_does_not_credit_partial_or_detection_only_evidence(self, telemetry):
+        result = validate_capture_signals("vuln_struts2_rce", telemetry)
+        assert "T1190" in result["missing"]
