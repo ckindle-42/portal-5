@@ -19,7 +19,13 @@ import urllib.parse
 from typing import Any
 
 import httpx
-from mcp.server import MCPServer
+
+try:
+    # Portal's pinned MCP v2 SDK exports MCPServer directly. Newer upstream
+    # releases expose the same decorator/run surface as FastMCP instead.
+    from mcp.server import MCPServer
+except ImportError:  # pragma: no cover - depends on installed MCP SDK generation
+    from mcp.server.fastmcp import FastMCP as MCPServer
 from starlette.responses import JSONResponse
 
 mcp = MCPServer("proxmox")
@@ -1052,4 +1058,12 @@ async def list_tools(request):
 
 if __name__ == "__main__":
     port = int(os.getenv("PROXMOX_MCP_PORT", "8927"))
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
+    # MCP SDK v2 accepts host/port on run(); current upstream FastMCP keeps
+    # them in server settings. Support both so an SDK upgrade cannot make the
+    # control plane unstartable while its API helpers still appear healthy.
+    if hasattr(mcp, "settings"):
+        mcp.settings.host = "0.0.0.0"
+        mcp.settings.port = port
+        mcp.run(transport="streamable-http")
+    else:  # pragma: no cover - exercised by the pinned MCP v2 runtime
+        mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

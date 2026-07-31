@@ -177,7 +177,7 @@ class TestMeta3Scenarios:
         assert "phpmyadmin_preg_replace" in phpmyadmin
         assert "msfconsole" in rails
         assert "rails_web_console_v2_code_exec" in rails
-        assert "nxc rdp" in rdp
+        assert "impacket-rdp_check" in rdp
         for prompt in (ftp, rdp):
             assert "$LAB_META3_USER" in prompt
             assert "$LAB_META3_PASS" in prompt

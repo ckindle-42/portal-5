@@ -228,8 +228,10 @@ def _published_port(compose_path: str) -> int | None:
 
     if not candidates:
         return None
-    if len(candidates) == 1:
-        return candidates[0]
+    # Probe even a single published port. TCP accept alone is not application
+    # readiness: the nested Docker daemon exposes 2375 several seconds before
+    # its HTTP API can answer, causing immediate capture attempts to fail with
+    # resets/timeouts despite cmd_up reporting reachable.
     return _pick_http_port(candidates) or candidates[0]
 
 
@@ -630,6 +632,177 @@ def _poll_reachable_port(
     return None
 
 
+def _ensure_meta3_rails_service(target_ip: str) -> bool:
+    """Materialize and persist the Rails/web-console service shipped in Meta3.
+
+    The Windows image contains Rails 4.1.1 and web-console 2.1.2 but no startup
+    registration, so port 3000 disappears after every clean boot. Install an
+    idempotent ONSTART task around the bundled vulnerable dummy application.
+    """
+    import base64
+    import subprocess
+
+    user = os.environ.get("LAB_META3_USER", "vagrant")
+    password = os.environ.get("LAB_META3_PASS", "vagrant")
+    ps = r"""
+$wd='C:\tools\ruby23\lib\ruby\gems\2.3.0\gems\web-console-2.1.2\test\dummy'
+$app="$wd\config\application.rb"
+if (Test-Path $app) {
+  (Get-Content $app) | Where-Object {$_ -notmatch '^Bundler\.require'} | Set-Content $app
+  @('@echo off',('cd /d "'+$wd+'"'),'C:\tools\ruby23\bin\rails.bat server -b 0.0.0.0 -p 3000 >> C:\rails3000.log 2>&1') | Set-Content C:\startup\portal-rails.cmd
+  netsh advfirewall firewall add rule name=Portal5-Rails3000 dir=in action=allow protocol=TCP localport=3000 | Out-Null
+  schtasks /Create /F /SC ONSTART /RU SYSTEM /TN Portal5Rails3000 /TR C:\startup\portal-rails.cmd | Out-Null
+  schtasks /Run /TN Portal5Rails3000 | Out-Null
+}
+"""
+    encoded = base64.b64encode(ps.encode("utf-16-le")).decode()
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "exec",
+                "portal5-dind",
+                "docker",
+                "run",
+                "--rm",
+                "--net",
+                "bridge",
+                "portal5-attack:latest",
+                "nxc",
+                "winrm",
+                target_ip,
+                "-u",
+                user,
+                "-p",
+                password,
+                "-X",
+                f"powershell -NoProfile -EncodedCommand {encoded}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _ensure_meta3_phpmyadmin_service(target_ip: str) -> bool:
+    """Install the scenario's vulnerable phpMyAdmin build and expose it.
+
+    The stock Meta3 image currently carries phpMyAdmin 3.4.10.1 and restricts
+    its Apache alias to localhost. CVE-2013-3238 requires phpMyAdmin 3.5.x
+    before 3.5.8.1, so merely relaxing the ACL would create a reachable but
+    non-matching target. Materialize 3.5.8 from the upstream release archive,
+    retain Meta3's existing database configuration, and make the Apache alias
+    idempotently point at that version. The files and service configuration
+    persist across reboots, preventing a clean VM start from recreating the
+    capture gap.
+    """
+    import base64
+    import subprocess
+
+    user = os.environ.get("LAB_META3_USER", "vagrant")
+    password = os.environ.get("LAB_META3_PASS", "vagrant")
+    ps = r"""
+$ErrorActionPreference='Stop'
+$apps='C:\wamp\apps'
+$dst="$apps\phpmyadmin3.5.8"
+$zip='C:\Windows\Temp\phpMyAdmin-3.5.8-all-languages.zip'
+$src="$apps\phpMyAdmin-3.5.8-all-languages"
+$old="$apps\phpmyadmin3.4.10.1"
+$changed=$false
+if (-not (Test-Path "$dst\index.php")) {
+  [Net.ServicePointManager]::SecurityProtocol = 3072
+  (New-Object Net.WebClient).DownloadFile('https://files.phpmyadmin.net/phpMyAdmin/3.5.8/phpMyAdmin-3.5.8-all-languages.zip',$zip)
+  if (Test-Path $src) { Remove-Item -Recurse -Force $src }
+  & 'C:\ProgramData\chocolatey\bin\7z.exe' x -y $zip ('-o'+$apps) | Out-Null
+  Move-Item $src $dst
+  if (Test-Path "$old\config.inc.php") { Copy-Item "$old\config.inc.php" "$dst\config.inc.php" -Force }
+  $changed=$true
+}
+$cfgPath="$dst\config.inc.php"
+$cfgText=Get-Content $cfgPath -Raw
+$cfgUpdated=$cfgText.Replace("['auth_type'] = 'config'","['auth_type'] = 'cookie'")
+if ($cfgUpdated -notmatch 'blowfish_secret') {
+  $cfgUpdated=$cfgUpdated -replace '\?>', "`$cfg['blowfish_secret'] = 'portal5-lab-cookie-secret';`r`n?>"
+}
+if ($cfgUpdated -ne $cfgText) { Set-Content $cfgPath $cfgUpdated -Encoding ASCII; $changed=$true }
+$alias='C:\wamp\alias\phpmyadmin.conf'
+$conf=(Get-Content $alias -Raw)
+$updated=$conf -replace 'phpmyadmin3\.4\.10\.1','phpmyadmin3.5.8'
+$updated=$updated -replace '(?im)^\s*Deny from all\s*$',''
+$updated=$updated -replace '(?im)^\s*Allow from 127\.0\.0\.1\s*$','  Allow from all'
+if ($updated -ne $conf) { Set-Content $alias $updated -Encoding ASCII; $changed=$true }
+netsh advfirewall firewall add rule name=Portal5-phpMyAdmin8585 dir=in action=allow protocol=TCP localport=8585 | Out-Null
+if ($changed) { Restart-Service wampapache -Force }
+"""
+    encoded = base64.b64encode(ps.encode("utf-16-le")).decode()
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "exec",
+                "portal5-dind",
+                "docker",
+                "run",
+                "--rm",
+                "--net",
+                "bridge",
+                "portal5-attack:latest",
+                "nxc",
+                "winrm",
+                target_ip,
+                "-u",
+                user,
+                "-p",
+                password,
+                "-X",
+                f"powershell -NoProfile -EncodedCommand {encoded}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _meta3_http_contains(
+    target_ip: str, port: int, path: str, marker: str, *, header: str | None = None
+) -> bool:
+    """Verify service identity from the same nested runtime used by attacks."""
+    import subprocess
+
+    # A matching vulnerable endpoint may intentionally return 500 (Rails'
+    # development exception page), so inspect the body instead of making HTTP
+    # status itself the semantic readiness decision.
+    command = ["curl", "-sS", "--max-time", "10"]
+    if header:
+        command.extend(["-H", header])
+    command.append(f"http://{target_ip}:{port}{path}")
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "exec",
+                "portal5-dind",
+                "docker",
+                "run",
+                "--rm",
+                "portal5-attack:latest",
+                *command,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        return result.returncode == 0 and marker.lower() in result.stdout.lower()
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int = 2) -> dict:
     """Verify a scenario's external target is up; heal via existing primitives if not.
 
@@ -681,6 +854,50 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
         discovered = discover_host_by_mac(*mapping)
         if discovered:
             host = discovered
+
+    # A listening Apache port is insufficient for this scenario: the stock VM
+    # answers 8585 while serving the wrong phpMyAdmin version behind a
+    # localhost-only ACL. Repair the semantic target contract before the
+    # generic TCP readiness shortcut can incorrectly accept it.
+    if (
+        not env
+        and scenario.get("name") == "meta3_phpmyadmin_rce"
+        and declared_port == 8585
+        and not dry_run
+    ):
+        repaired = _ensure_meta3_phpmyadmin_service(host)
+        port = _poll_reachable_port(host, 60, ports=[8585]) if repaired else None
+        matching = port and _meta3_http_contains(
+            host, 8585, "/phpmyadmin/js/messages.php", "pmaversion = '3.5.8'"
+        )
+        if matching:
+            return {
+                "ready": True,
+                "healed": True,
+                "host": host,
+                "port": port,
+                "reason": "verified matching Meta3 phpMyAdmin service",
+            }
+
+    if (
+        not env
+        and scenario.get("name") == "meta3_rails_console_rce"
+        and declared_port == 3000
+        and not dry_run
+    ):
+        repaired = _ensure_meta3_rails_service(host)
+        port = _poll_reachable_port(host, 45, ports=[3000]) if repaired else None
+        matching = port and _meta3_http_contains(
+            host, 3000, "/missing404", "web-console", header="X-Forwarded-For: 0000::1"
+        )
+        if matching:
+            return {
+                "ready": True,
+                "healed": True,
+                "host": host,
+                "port": port,
+                "reason": "verified matching Meta3 Rails service",
+            }
 
     # VERIFY: is it up, and on WHAT port?
     port = _resolve_live_port(host, env) if env else _probe_any_reachable_port(host, probe_ports)

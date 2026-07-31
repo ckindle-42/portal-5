@@ -16,6 +16,7 @@ credited either way.
 
 from __future__ import annotations
 
+import gzip
 import sys
 from pathlib import Path
 
@@ -23,6 +24,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks"))
 
 from portal.modules.security.core.siem.capture_enrichment import validate_capture_signals
+from portal.modules.security.core.siem.network_capture import _decode_http_stream
+
+
+def test_gzip_http_response_is_decoded_for_capture_validation():
+    body = b'{"result":{"data":["uid=0(root) gid=0(root) groups=0(root)\\n"]}}'
+    compressed = gzip.compress(body)
+    stream = (
+        b"HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Length: "
+        + str(len(compressed)).encode()
+        + b"\r\n\r\n"
+        + compressed
+    )
+    assert _decode_http_stream(stream) == [body.decode()]
 
 
 class TestValidateCaptureSignals:
@@ -145,3 +159,27 @@ class TestValidateCaptureSignals:
         assert result["found"] == ["T1558.003"]
         assert set(result["missing"]) == {"T1003.006", "T1053.005"}
         assert result["valid"] is False
+
+    def test_meta3_rails_reflected_windows_identity_proves_execution(self):
+        telemetry = {
+            "network:packet": [
+                "PUT /__web_console/repl_sessions/abc HTTP/1.1",
+                'HTTP/1.1 200 OK {"output":"=> \\"nt authority\\\\\\\\system\\\\n\\""}',
+            ]
+        }
+        result = validate_capture_signals("meta3_rails_console_rce", telemetry)
+        assert result["valid"] is True
+        assert result["found"] == ["T1190", "T1059"]
+
+    def test_phpmyadmin_requires_login_exploit_and_reflected_identity(self):
+        telemetry = {
+            "network:packet": [
+                "POST /phpmyadmin/index.php HTTP/1.1",
+                "pma_username=root&pma_password=",
+                "POST /phpmyadmin/db_structure.php HTTP/1.1",
+                "nt authority\\local service",
+            ]
+        }
+        result = validate_capture_signals("meta3_phpmyadmin_rce", telemetry)
+        assert result["valid"] is True
+        assert result["found"] == ["T1190", "T1078", "T1059"]

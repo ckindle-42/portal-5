@@ -192,6 +192,11 @@ RUN pip3 install --no-cache-dir zsteg 2>/dev/null || echo "WARNING: zsteg unavai
 # ── Authoritative lab-exercise contract and build manifest ──────────────────
 # The verifier fails the build when any executable lab dependency is absent.
 # Theory-only prompts intentionally do not participate in this contract.
+# Kali grants nmap cap_net_admin in addition to the capabilities it actually
+# needs here. Docker's default bounding set excludes NET_ADMIN, so Linux rejects
+# execve with EPERM even for `nmap --version`. Narrow the file capability set so
+# nmap is executable in the same unprivileged runtime used by execute_bash.
+RUN setcap cap_net_raw,cap_net_bind_service=eip /usr/lib/nmap/nmap
 COPY config/attack_image_contract.json /opt/portal5-attack.contract.json
 COPY scripts/verify_attack_image.py /usr/local/bin/verify-portal5-attack
 RUN chmod +x /usr/local/bin/verify-portal5-attack \

