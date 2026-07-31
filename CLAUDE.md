@@ -214,9 +214,7 @@ Authored knowledge (`kind: why` / HOWTO units) is **not** auto-checked against s
 
 **Never hardcode counts/ports/check-letters as prose** (persona counts, workspace counts, port tables, validate check letters). Derive them from an extractor at reconcile time; a hardcoded persona count written from memory is drift waiting to happen.
 
-Note: `scripts/validate_system.py` (all 73 checks, including AW) runs automatically on every commit via the `validate-system` pre-commit hook — it is **not** part of `scripts/ci_local.sh`, which stays narrow (ruff + pytest only, per Testing Rules).
-
-**Never hardcode counts/ports/check-letters as prose** (persona counts, workspace counts, port tables, validate check letters). Derive them from an extractor at reconcile time; a hardcoded persona count written from memory is drift waiting to happen.
+Note: `scripts/validate_system.py` (all 73 checks, including AW) runs at **push** time via the `validate-system` pre-commit hook, scoped to commits touching `portal/`, `config/`, `portal_wiki/`, `scripts/`, `deploy/`, or `tests/` — it is **not** part of `scripts/ci_local.sh`, which stays narrow (ruff + pytest only, per Testing Rules).
 
 ### 13 — Fact-Units Are the Discovery Index
 
