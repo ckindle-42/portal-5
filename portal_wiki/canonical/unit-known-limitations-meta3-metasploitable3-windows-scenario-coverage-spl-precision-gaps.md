@@ -15,6 +15,16 @@ sources:
   path: portal/modules/security/core/exec_chain.py
 - type: code
   path: Dockerfile.attack
+- type: config
+  path: config/attack_image_contract.json
+- type: code
+  path: scripts/verify_attack_image.py
+- type: code
+  path: scripts/graphql-cop
+- type: code
+  path: scripts/lab_ready.py
+- type: code
+  path: portal/modules/security/core/_data.py
 - type: code
   path: portal/modules/coding/tools/code_sandbox_mcp.py
 - type: config
@@ -36,7 +46,7 @@ tags:
 - security
 - resolved
 created_at: 1784946220.6623669
-updated_at: 1785500996
+updated_at: 1785505564
 ---
 
 - **ID**: P5-SEC-META3-001
@@ -79,6 +89,12 @@ updated_at: 1785500996
   The sandbox now also injects the Meta3 target and credential contract into
   each lab-exec container; the FTP and RDP scenarios consume those variables
   instead of embedding credentials in commands.
+  The follow-up image audit expanded this from three Meta3 checks to an
+  authoritative lab-exercise contract. WebDAV, GraphQL, Nuclei, relay proxy,
+  SNMP, and SSH helpers are now hard image requirements; smuggler and ysoserial
+  support files are pinned. The Windows FTP, MySQL, and full-compromise
+  `EXEC_SEQUENCES` were reconciled with their scenario contracts, and stale
+  target-local Windows commands were moved behind remote-capable clients.
   `nxc rdp` remains installed for the non-interactive RDP check. Metasploit is
   available to these explicit, bounded scenario steps; it remains deliberately
   excluded from the emergent objective loop's read-only binary allowlist.

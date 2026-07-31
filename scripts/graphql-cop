@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /opt/graphql-cop/.venv/bin/python /opt/graphql-cop/graphql-cop.py "$@"

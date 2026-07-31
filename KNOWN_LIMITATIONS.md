@@ -104,6 +104,12 @@ authoritative; presence in this register alone does not mean the issue is open.
   The sandbox now also injects the Meta3 target and credential contract into
   each lab-exec container; the FTP and RDP scenarios consume those variables
   instead of embedding credentials in commands.
+  The follow-up image audit expanded this from three Meta3 checks to an
+  authoritative lab-exercise contract. WebDAV, GraphQL, Nuclei, relay proxy,
+  SNMP, and SSH helpers are now hard image requirements; smuggler and ysoserial
+  support files are pinned. The Windows FTP, MySQL, and full-compromise
+  `EXEC_SEQUENCES` were reconciled with their scenario contracts, and stale
+  target-local Windows commands were moved behind remote-capable clients.
   `nxc rdp` remains installed for the non-interactive RDP check. Metasploit is
   available to these explicit, bounded scenario steps; it remains deliberately
   excluded from the emergent objective loop's read-only binary allowlist.

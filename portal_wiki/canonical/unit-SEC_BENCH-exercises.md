@@ -19,7 +19,14 @@ created_at: 1784945480.186122
 updated_at: 1784945480.186122
 ---
 
-## EXEC_SEQUENCES — 36 prompts with step definitions
+## Execution modes — 33 executable prompts plus theory-only exercises
+
+`PROMPTS` contains both theory exercises and executable lab exercises.
+`EXEC_SEQUENCES` is the lab-exercise boundary: only its 33 entries may dispatch
+commands in the disposable attack image. `cron_privesc`, `container_escape`,
+and `kernel_exploit_chain` remain useful theory prompts, but are deliberately
+excluded because their target-local commands would otherwise inspect or modify
+the attack container instead of the intended target.
 
 Each step carries: `time_budget_s`, `fallback_techniques`, `depends_on`, `stealth_event_ids`, `condition`, `output_keywords`, `success_indicators`.
 
@@ -28,5 +35,10 @@ Key AD-focused prompts: `kerberoasting`, `asrep_roasting`, `bloodhound_ad_recon`
 Web-focused prompts: `sqli_manual`, `web_shell_upload`, `ssrf_exploitation`, `lfi_to_rce`, `tomcat_manager`, `log4shell_rce`.
 
 Metasploitable3 prompts: `ftp_backdoor`, `mysql_udf_privesc`, `glassfish_deploy`, `es_script_rce`, `iis_webdav_scanner`, `meta3_full_compromise`.
+
+The historical FTP and MySQL IDs are retained for result compatibility, but
+their executable steps now match Metasploitable3 Windows: IIS FTP credential
+validation and bounded MySQL metadata access. They do not dispatch the Linux
+vsftpd port-6200 or UDF shared-object techniques.
 
 Cross-target chains: `web_to_dc_pivot`, `htb_responder_chain`, `htb_lfi_log_poison`, `htb_sqli_to_shell`.

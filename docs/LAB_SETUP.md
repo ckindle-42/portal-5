@@ -111,7 +111,7 @@ Default preserves downloads (`--purge-downloads` is opt-in) so the next `lab up`
 | Component | Required | What it checks |
 |---|---|---|
 | attack_image | Yes | portal5-attack built |
-| attack_manifest | No | `/opt/portal5-attack.manifest.json` present |
+| attack_manifest | Yes | Manifest is complete and its SHA-256 matches the current lab-exercise contract |
 | vulhub_cloned | Yes | `$LAB_DIR/vulhub/.git` exists |
 | challenge_dirs | Yes | `$LAB_DIR/challenges/` materialized |
 | telemetry | No | Wazuh/WinEvent reachable on 10.10.11.21:55000 |
@@ -121,6 +121,13 @@ Default preserves downloads (`--purge-downloads` is opt-in) so the next `lab up`
 Returns non-zero if a **required** component is RED. **Do not bench a lab that fails
 lab-ready.** Best-effort components (extended arsenal, optional telemetry) warn but don't
 block.
+
+The image build runs `scripts/verify_attack_image.py` against
+`config/attack_image_contract.json`; any absent required command or support file
+fails the image build. At runtime, `lab-ready` reads the manifest from the image
+inside DinD, rejects false entries, and rejects an image built from an older
+contract hash. Theory-only exercises are intentionally outside this image
+contract.
 <!-- /WIKI:GENERATED -->
 
 ---
