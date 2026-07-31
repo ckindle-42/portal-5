@@ -6,9 +6,9 @@
 # This list may SHRINK freely (write a covering unit, then re-pin). It may
 # never GROW: a new uncovered surface fails CI. Do not hand-edit to silence
 # the gate — that defeats the authority inversion it exists to enforce.
-eligible_count: 610
-covered_count: 97
-coverage_pct: 15.9
+eligible_count: 614
+covered_count: 103
+coverage_pct: 16.8
 uncovered:
   - deploy/playwright-mcp/browser_mcp.py
   - portal/conftest.py
@@ -30,7 +30,6 @@ uncovered:
   - portal/modules/security/core/__main__.py
   - portal/modules/security/core/_sweep_driver.py
   - portal/modules/security/core/ability_port.py
-  - portal/modules/security/core/agentic_blue_eval.py
   - portal/modules/security/core/analyst_verdict.py
   - portal/modules/security/core/bench_integration.py
   - portal/modules/security/core/capability_graph.py
@@ -69,7 +68,6 @@ uncovered:
   - portal/modules/security/core/self_index.py
   - portal/modules/security/core/siem/__init__.py
   - portal/modules/security/core/siem/blue_triage.py
-  - portal/modules/security/core/siem/capture_store.py
   - portal/modules/security/core/siem/hec_ship.py
   - portal/modules/security/core/siem/index_wait.py
   - portal/modules/security/core/siem/spl_backend.py

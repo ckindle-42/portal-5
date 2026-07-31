@@ -340,10 +340,13 @@ class TestQueryLiveDecoupledFromLabExec:
             "target_host": None,
         }
         cfg = BenchConfig()
-        blue_mod.run_purple_tests(
+        results = blue_mod.run_purple_tests(
             ["red-m"], ["blue-m"], scenario, cfg, lab_exec=False, replay_captured_red=True
         )
         assert captured_kwargs.get("query_live") is True
+        assert results[0]["data_mode"] == "lab-exercise-replay"
+        assert results[0]["evidence_origin"] == "live:portal:red"
+        assert results[0]["answer_key_visibility"] == "scorer_only"
 
 
 class TestBlueModeNotClobberedByQueryProvenance:

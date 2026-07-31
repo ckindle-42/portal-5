@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 from portal.modules.security.core._config import BenchConfig
@@ -22,6 +23,9 @@ def test_replay_never_ships_counterfactual_transcript(tmp_path, monkeypatch):
         counterfactual_telemetry={"transcript:command": ['{"command":"curl /answer-key-payload"}']},
         episode_id="ep-plane-test",
     )
+    saved = json.loads(Path(path).read_text())
+    saved["validity"].update({"checked": True, "valid": True, "coverage": 1.0})
+    Path(path).write_text(json.dumps(saved))
 
     shipped: list[tuple[str, list[str]]] = []
 
@@ -58,6 +62,64 @@ def test_legacy_unscoped_capture_is_not_replayable(tmp_path):
     result = replay_capture(path)
     assert result["ok"] is False
     assert result["error"] == "LEGACY_CAPTURE_UNSCOPED"
+
+
+def test_hollow_episode_scoped_capture_is_not_replayable(tmp_path):
+    from portal.modules.security.core.siem.capture_store import replay_capture
+
+    path = tmp_path / "hollow.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "scenario": "hollow",
+                "target_host": "10.0.0.10",
+                "episode_id": "ep-hollow",
+                "telemetry": {"web:access": ["exploit request without execution proof"]},
+                "validity": {"checked": True, "valid": False, "coverage": 0.0},
+            }
+        )
+    )
+    result = replay_capture(path)
+    assert result["ok"] is False
+    assert result["error"] == "CAPTURE_GROUND_TRUTH_INVALID"
+
+
+def test_replay_normalizes_stale_target_metadata(tmp_path, monkeypatch):
+    from portal.modules.security.core.exec_chain import SCENARIOS
+    from portal.modules.security.core.siem.capture_store import replay_capture
+
+    monkeypatch.setitem(SCENARIOS["meta3_rdp_standard_auth"], "target_host", "10.10.11.13")
+
+    path = tmp_path / "meta3.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "scenario": "meta3_rdp_standard_auth",
+                "target_host": "10.10.11.10",
+                "episode_id": "ep-meta3",
+                "telemetry": {"windows:security": ["EventCode=4624 LogonType=10"]},
+                "validity": {"checked": True, "valid": True, "coverage": 1.0},
+            }
+        )
+    )
+    shipped_hosts: list[str] = []
+
+    def _ship(events, *, host, **kwargs):
+        shipped_hosts.append(host)
+        return {"ok": True}
+
+    with (
+        patch("portal.modules.security.core.siem.hec_ship.ship_batch", _ship),
+        patch("portal.modules.security.core.siem.index_wait.wait_indexed", return_value=True),
+    ):
+        result = replay_capture(path)
+
+    assert result["ok"] is True
+    assert result["target_host"] == "10.10.11.13"
+    assert shipped_hosts == ["10.10.11.13"]
+    assert result["integrity_warnings"] == ["STALE_TARGET_METADATA:10.10.11.10->10.10.11.13"]
 
 
 def test_hec_indexes_origin_and_episode_fields():

@@ -80,6 +80,10 @@ CURATED_TECHNIQUES: dict[str, str] = {
     "T1552": "web:access",
 }
 
+CORPUS_DATA_MODE = "external-labeled"
+CORPUS_EVIDENCE_ORIGIN = "corpus:*"
+CORPUS_ANSWER_KEY_VISIBILITY = "scorer_only"
+
 # Strong baseline (best live recall per prior GATE-D sweeps).
 TOOL_MODEL = "bench-granite41-8b"
 REASONING_MODEL = "bench-granite41-30b"
@@ -269,6 +273,9 @@ def _run_cell(
             "mode": mode,
             "model_arm": model_arm,
             "status": "skipped_no_corpus_data",
+            "data_mode": CORPUS_DATA_MODE,
+            "evidence_origin": CORPUS_EVIDENCE_ORIGIN,
+            "answer_key_visibility": CORPUS_ANSWER_KEY_VISIBILITY,
         }
 
     if mode == "orchestrated":
@@ -326,6 +333,9 @@ def _run_cell(
         "mentor_invocations": len(mentor_entries),
         "scoring_recall": scoring_recall,
         "trace": result.trace,
+        "data_mode": CORPUS_DATA_MODE,
+        "evidence_origin": CORPUS_EVIDENCE_ORIGIN,
+        "answer_key_visibility": CORPUS_ANSWER_KEY_VISIBILITY,
     }
 
 

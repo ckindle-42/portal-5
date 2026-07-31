@@ -2085,7 +2085,7 @@ def load_latest_red_capture(scenario_name: str) -> tuple[dict | None, str | None
     and the capture contains observed telemetry. Legacy, transcript-only, and
     independently-selected artifacts are intentionally ignored.
     """
-    from .siem.capture_store import list_captures, list_evidence
+    from .siem.capture_store import capture_replay_issues, list_captures, list_evidence
 
     red_by_episode: dict[str, dict] = {}
     for path in list_evidence("red", scenario_name):
@@ -2099,11 +2099,7 @@ def load_latest_red_capture(scenario_name: str) -> tuple[dict | None, str | None
         with contextlib.suppress(OSError, json.JSONDecodeError):
             data = json.loads(path.read_text())
             episode_id = data.get("episode_id")
-            if (
-                data.get("schema_version") == 2
-                and episode_id in red_by_episode
-                and any((data.get("telemetry") or {}).values())
-            ):
+            if episode_id in red_by_episode and not capture_replay_issues(data):
                 return red_by_episode[episode_id], str(path)
     return None, None
 
@@ -2149,6 +2145,9 @@ def run_purple_tests(
                     "anomaly_status": "no-baseline",
                     "investigation": None,
                     "telemetry_collection_error": "NO_REPLAYABLE_EPISODE",
+                    "data_mode": "lab-exercise-replay",
+                    "evidence_origin": "live:portal:red",
+                    "answer_key_visibility": "scorer_only",
                 }
                 for bm in blue_models
             ]
@@ -2175,6 +2174,9 @@ def run_purple_tests(
                     "" if replay.get("ok") else replay.get("error", "REPLAY_SHIPPED_NOTHING")
                 ),
                 "network_capture_error": "",
+                "data_mode": "lab-exercise-replay",
+                "evidence_origin": "live:portal:red",
+                "answer_key_visibility": "scorer_only",
             }
         )
     else:
@@ -2254,6 +2256,9 @@ def run_purple_tests(
                     "indexed_confirmed": indexed_confirmed,
                     "telemetry_error": telemetry_error,
                     "network_capture_error": network_error,
+                    "data_mode": "lab-exercise",
+                    "evidence_origin": "live:portal:red",
+                    "answer_key_visibility": "scorer_only",
                 }
             )
 
@@ -2294,6 +2299,9 @@ def run_purple_tests(
                     "telemetry_indexed_confirmed": run["indexed_confirmed"],
                     "telemetry_collection_error": telemetry_error,
                     "network_capture_error": run["network_capture_error"],
+                    "data_mode": run["data_mode"],
+                    "evidence_origin": run["evidence_origin"],
+                    "answer_key_visibility": run["answer_key_visibility"],
                 }
             )
             results.append(rec)

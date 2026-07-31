@@ -692,6 +692,9 @@ class TestCaptureStore:
             telemetry_origins={"web:access": "observed_target_log"},
             episode_id="ep-replay-test",
         )
+        saved = json.loads(Path(path).read_text())
+        saved["validity"].update({"checked": True, "valid": True, "coverage": 1.0})
+        Path(path).write_text(json.dumps(saved))
         assert path is not None
         saved = json.loads(Path(path).read_text())
         assert saved["scenario"] == "web_sqli_dump"
@@ -740,6 +743,9 @@ class TestCaptureStore:
             telemetry_origins={"web:access": "observed_target_log"},
             episode_id="ep-replay-test",
         )
+        saved = json.loads(Path(path).read_text())
+        saved["validity"].update({"checked": True, "valid": True, "coverage": 1.0})
+        Path(path).write_text(json.dumps(saved))
         with (
             patch(
                 "portal.modules.security.core.siem.hec_ship.ship_batch",
@@ -769,6 +775,9 @@ class TestCaptureStore:
             telemetry_origins={"web:access": "observed_target_log"},
             episode_id="ep-replay-dry",
         )
+        saved = json.loads(Path(path).read_text())
+        saved["validity"].update({"checked": True, "valid": True, "coverage": 1.0})
+        Path(path).write_text(json.dumps(saved))
         with patch(
             "portal.modules.security.core.siem.hec_ship.ship_batch",
             return_value={"ok": True, "dry_run": True, "count": 1},

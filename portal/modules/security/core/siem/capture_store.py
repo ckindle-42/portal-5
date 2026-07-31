@@ -19,6 +19,63 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
 CAPTURE_DIR = _PROJECT_ROOT / "portal" / "modules" / "security" / "core" / "results" / "captures"
 
+LIVE_CAPTURE_MODE = "lab-exercise"
+LIVE_CAPTURE_ORIGIN = "live:portal:red"
+ANSWER_KEY_VISIBILITY = "scorer_only"
+
+
+def canonical_target_host(data: dict) -> str:
+    """Resolve stale capture metadata through the current scenario catalog."""
+    scenario = str(data.get("scenario") or "")
+    try:
+        from portal.modules.security.core.exec_chain import SCENARIOS
+
+        configured = SCENARIOS.get(scenario, {}).get("target_host")
+    except Exception:
+        configured = None
+    return str(configured or data.get("target_host") or "")
+
+
+def capture_replay_warnings(data: dict) -> list[str]:
+    stored = str(data.get("target_host") or "")
+    canonical = canonical_target_host(data)
+    if stored and canonical and stored != canonical:
+        return [f"STALE_TARGET_METADATA:{stored}->{canonical}"]
+    return []
+
+
+def capture_replay_issues(data: dict, *, require_pcap: bool = False) -> list[str]:
+    """Return integrity failures that make a saved red capture unsafe to replay.
+
+    Replay is a scoring input, so merely having non-empty telemetry is not
+    sufficient.  A replayable capture must be episode-scoped and must have
+    passed the scenario-specific ground-truth validator.  PCAP is optional for
+    ordinary replay, but combined-corpus readiness requires it as independent
+    network evidence.
+    """
+    issues: list[str] = []
+    if data.get("schema_version") != 2:
+        issues.append("LEGACY_CAPTURE_UNSCOPED")
+    if not data.get("episode_id"):
+        issues.append("MISSING_EPISODE_ID")
+    if not any((data.get("telemetry") or {}).values()):
+        issues.append("NO_OBSERVED_TELEMETRY")
+    validity = data.get("validity") or {}
+    if not validity.get("checked") or not validity.get("valid"):
+        issues.append("CAPTURE_GROUND_TRUTH_INVALID")
+    if require_pcap:
+        pcap_path = data.get("pcap_path")
+        pcap_exists = bool(pcap_path and Path(str(pcap_path)).is_file())
+        if pcap_path and not pcap_exists:
+            # Captures are committed with their PCAPs, but older payloads store
+            # an absolute path from the machine that produced them.  Resolve by
+            # basename after a clone rather than declaring portable evidence
+            # missing.
+            pcap_exists = (CAPTURE_DIR / "pcap" / Path(str(pcap_path)).name).is_file()
+        if not pcap_exists:
+            issues.append("MISSING_PCAP")
+    return issues
+
 
 def save_capture(
     *,
@@ -72,6 +129,7 @@ def save_capture(
     except Exception:
         pass  # don't let validation errors block saving
 
+    target_host = canonical_target_host({"scenario": scenario, "target_host": target_host})
     payload = {
         "scenario": scenario,
         "target_host": target_host,
@@ -79,6 +137,9 @@ def save_capture(
         "collected_since_epoch": since_epoch,
         "captured_at": time.time(),
         "schema_version": 2,
+        "data_mode": LIVE_CAPTURE_MODE,
+        "evidence_origin": LIVE_CAPTURE_ORIGIN,
+        "answer_key_visibility": ANSWER_KEY_VISIBILITY,
         "episode_id": episode_id,
         "telemetry": telemetry,
         "telemetry_origins": telemetry_origins or {},
@@ -163,14 +224,17 @@ def replay_capture(
     p = Path(path)
     data = json.loads(p.read_text())
     scenario = data["scenario"]
-    target_host = data["target_host"]
+    target_host = canonical_target_host(data)
     telemetry = data["telemetry"]
     telemetry_origins = data.get("telemetry_origins") or {}
     episode_id = data.get("episode_id")
-    if data.get("schema_version") != 2 or not episode_id:
+    integrity_issues = capture_replay_issues(data)
+    if integrity_issues:
         return {
             "ok": False,
-            "error": "LEGACY_CAPTURE_UNSCOPED",
+            "error": integrity_issues[0],
+            "integrity_issues": integrity_issues,
+            "integrity_warnings": capture_replay_warnings(data),
             "scenario": scenario,
             "target_host": target_host,
             "shipped": 0,
@@ -178,18 +242,6 @@ def replay_capture(
             "episode_id": episode_id,
             "replayed_from": str(p),
         }
-    if not any(telemetry.values()):
-        return {
-            "ok": False,
-            "error": "NO_OBSERVED_TELEMETRY",
-            "scenario": scenario,
-            "target_host": target_host,
-            "shipped": 0,
-            "indexed_confirmed": None,
-            "episode_id": episode_id,
-            "replayed_from": str(p),
-        }
-
     replay_start = event_time if event_time is not None else time.time()
     shipped = 0
     for sourcetype, lines in telemetry.items():
@@ -232,4 +284,5 @@ def replay_capture(
         "episode_id": episode_id,
         "replay_start": replay_start,
         "replayed_from": str(p),
+        "integrity_warnings": capture_replay_warnings(data),
     }
