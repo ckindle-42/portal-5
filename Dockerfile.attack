@@ -69,6 +69,14 @@ RUN apt-get update \
         hydra \
         wordlists \
         metasploit-framework \
+        cadaver \
+        davtest \
+        net-tools \
+        nuclei \
+        proxychains4 \
+        snmp \
+        sshpass \
+        sudo \
     && rm -rf /var/lib/apt/lists/* \
     # Decompress rockyou.txt so tools reference it directly (no gunzip pipe)
     && gunzip -k /usr/share/wordlists/rockyou.txt.gz 2>/dev/null || true
@@ -91,6 +99,25 @@ RUN mkdir -p /opt/marshalsec \
     && wget -q -O /opt/marshalsec/marshalsec-0.0.3-SNAPSHOT-all.jar \
        https://github.com/mbechler/marshalsec/releases/download/0.0.3-SNAPSHOT/marshalsec-0.0.3-SNAPSHOT-all.jar \
     || echo "WARNING: marshalsec download failed — log4shell server step will need manual setup"
+
+# ── GraphQL, request-smuggling, and Java deserialization helpers ─────────────
+# Pin source revisions/artifact hashes so a moving upstream branch cannot
+# silently change the executable lab contract.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/dolevf/graphql-cop.git /opt/graphql-cop \
+    && git -C /opt/graphql-cop checkout 2b7e086efae672f28b419c7fcdfe6b48d846c9dc \
+    && python3 -m venv /opt/graphql-cop/.venv \
+    && /opt/graphql-cop/.venv/bin/pip install --no-cache-dir -r /opt/graphql-cop/requirements.txt
+COPY scripts/graphql-cop /usr/local/bin/graphql-cop
+RUN chmod +x /usr/local/bin/graphql-cop
+RUN git clone https://github.com/defparam/smuggler.git /opt/smuggler \
+    && git -C /opt/smuggler checkout 2be871e6151ce85167a277fab21c74c851d8b20b
+RUN mkdir -p /opt/ysoserial \
+    && wget -q -O /opt/ysoserial/ysoserial.jar \
+       https://github.com/frohoff/ysoserial/releases/download/v0.0.6/ysoserial-all.jar \
+    && echo "2c9bddd6a1a4ec66c1078ea97dacb61eb66d1c41aec7b6d21e3c72214ce170f1  /opt/ysoserial/ysoserial.jar" | sha256sum -c -
 
 # ── Tool verification ─────────────────────────────────────────────────────────
 # Use command -v (existence check) — nmap and cap-requiring binaries fail
@@ -162,14 +189,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     || echo "WARNING: gdb unavailable"
 RUN pip3 install --no-cache-dir zsteg 2>/dev/null || echo "WARNING: zsteg unavailable"
 
-# ── Build manifest (tool → present) ────────────────────────────────────────
-# Single-line python3 -c: a prior multi-line-quoted-string form here relied on
-# Docker layer caching to mask that it was never valid standalone Dockerfile
-# RUN syntax (no line-continuation backslashes) — it only ever executed fresh
-# once, whenever it was originally cached, and broke the instant an upstream
-# layer's cache was invalidated (found live, 2026-07-17, adding default-mysql-
-# client above invalidated this layer for the first time in weeks).
-RUN python3 -c "import shutil, json, os; tools = ['nmap','nxc','certipy-ad','responder','bloodhound-ce-python','impacket-secretsdump','impacket-GetUserSPNs','enum4linux-ng','evil-winrm','showmount','ffuf','redis-cli','mysql','john','hashcat','hydra','msfconsole','java','javac','binwalk','radare2','jadx','apktool','foremost','exiftool','steghide','sqlmap','gobuster','nikto','gdb','awscli','kubectl']; manifest = {t: shutil.which(t) is not None for t in tools}; manifest['rockyou'] = os.path.exists('/usr/share/wordlists/rockyou.txt'); manifest['AutoBlue'] = os.path.exists('/opt/AutoBlue-MS17-010/eternalblue_exploit7.py'); manifest['POC_CVE-2023-21839'] = os.path.exists('/opt/POC_CVE-2023-21839'); manifest['msf_phpmyadmin_preg_replace'] = os.path.exists('/usr/share/metasploit-framework/modules/exploits/multi/http/phpmyadmin_preg_replace.rb'); manifest['msf_rails_web_console_v2'] = os.path.exists('/usr/share/metasploit-framework/modules/exploits/multi/http/rails_web_console_v2_code_exec.rb'); manifest['pwntools'] = True; open('/opt/portal5-attack.manifest.json','w').write(json.dumps(manifest,indent=2)); print('manifest: {} / {} tools present'.format(sum(1 for v in manifest.values() if v), len(manifest)))" 2>/dev/null || echo "WARNING: manifest gen failed"
+# ── Authoritative lab-exercise contract and build manifest ──────────────────
+# The verifier fails the build when any executable lab dependency is absent.
+# Theory-only prompts intentionally do not participate in this contract.
+COPY config/attack_image_contract.json /opt/portal5-attack.contract.json
+COPY scripts/verify_attack_image.py /usr/local/bin/verify-portal5-attack
+RUN chmod +x /usr/local/bin/verify-portal5-attack \
+    && verify-portal5-attack /opt/portal5-attack.contract.json \
+       --manifest /opt/portal5-attack.manifest.json
 
 # execute_bash invokes ["sh", "/code"]; execute_python invokes ["python", "/code"].
 CMD ["sh"]

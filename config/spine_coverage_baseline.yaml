@@ -6,9 +6,9 @@
 # This list may SHRINK freely (write a covering unit, then re-pin). It may
 # never GROW: a new uncovered surface fails CI. Do not hand-edit to silence
 # the gate — that defeats the authority inversion it exists to enforce.
-eligible_count: 609
-covered_count: 91
-coverage_pct: 14.9
+eligible_count: 610
+covered_count: 94
+coverage_pct: 15.4
 uncovered:
   - deploy/playwright-mcp/browser_mcp.py
   - portal/conftest.py
@@ -281,7 +281,6 @@ uncovered:
   - scripts/gen-video.py
   - scripts/lab_bots_install.py
   - scripts/lab_discover.py
-  - scripts/lab_ready.py
   - scripts/lab_setup.py
   - scripts/lab_splunkbase_install.py
   - scripts/migrate_to_portal_yaml.py
@@ -485,7 +484,6 @@ uncovered:
   - tests/unit/test_expected_models.py
   - tests/unit/test_generated_artifacts_fresh.py
   - tests/unit/test_hint_validator.py
-  - tests/unit/test_lab_setup.py
   - tests/unit/test_mcp_endpoints.py
   - tests/unit/test_mcp_fleet_single_source.py
   - tests/unit/test_mcp_vendor_smoke.py

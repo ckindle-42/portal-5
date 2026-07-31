@@ -7,6 +7,8 @@ snapshots, disk space. Returns non-zero if a REQUIRED component is missing.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import sys
 from pathlib import Path
@@ -21,6 +23,11 @@ CHECKS: dict[str, dict] = {
         "required": True,
         "host": "local",
         "desc": "Attack image (portal5-attack) present",
+    },
+    "attack_manifest": {
+        "required": True,
+        "host": "local",
+        "desc": "Attack image satisfies current lab-exercise tool contract",
     },
     "vulhub_clone": {
         "required": True,
@@ -62,10 +69,35 @@ def _check_attack_image() -> str:
 
 
 def _check_attack_manifest() -> str:
-    manifest = Path("/opt/portal5-attack.manifest.json")
-    if manifest.exists():
-        return "GREEN"
-    return "AMBER"
+    """Reject absent, incomplete, or stale manifests in the actual DinD image."""
+    import subprocess
+
+    contract_path = REPO_ROOT / "config" / "attack_image_contract.json"
+    expected_hash = hashlib.sha256(contract_path.read_bytes()).hexdigest()
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "exec",
+                "portal5-dind",
+                "docker",
+                "run",
+                "--rm",
+                "portal5-attack:latest",
+                "cat",
+                "/opt/portal5-attack.manifest.json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        manifest = json.loads(result.stdout) if result.returncode == 0 else {}
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return "RED"
+    if manifest.get("contract_sha256") != expected_hash or manifest.get("ready") is not True:
+        return "RED"
+    checks = [*manifest.get("tools", {}).values(), *manifest.get("files", {}).values()]
+    return "GREEN" if checks and all(value is True for value in checks) else "RED"
 
 
 def _check_vulhub() -> str:

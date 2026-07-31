@@ -10,11 +10,15 @@ Verifies:
 
 from __future__ import annotations
 
+import json
+import re
+import shlex
 from pathlib import Path
 
 import pytest
 import yaml
 
+from portal.modules.security.core._data import EXEC_SEQUENCES
 from portal.modules.security.core.exec_chain import SCENARIOS
 from portal.modules.security.core.siem.spl_detections import (
     techniques_covered,
@@ -184,6 +188,101 @@ class TestMeta3Scenarios:
         assert "command -v msfconsole" in dockerfile
         assert "phpmyadmin_preg_replace.rb" in dockerfile
         assert "rails_web_console_v2_code_exec.rb" in dockerfile
+
+
+class TestLabExerciseImageContract:
+    """Executable exercises and the attack image are one enforced contract."""
+
+    @staticmethod
+    def _contract() -> dict:
+        root = Path(__file__).resolve().parents[4]
+        return json.loads((root / "config" / "attack_image_contract.json").read_text())
+
+    @staticmethod
+    def _exec_command_heads() -> set[str]:
+        heads: set[str] = set()
+        for sequence in EXEC_SEQUENCES.values():
+            for step in sequence:
+                if not isinstance(step, dict) or step.get("tool") != "execute_bash":
+                    continue
+                lexer = shlex.shlex(
+                    step.get("tool_hint", ""), posix=True, punctuation_chars="|&;()<>"
+                )
+                lexer.whitespace_split = True
+                try:
+                    tokens = list(lexer)
+                except ValueError:
+                    continue
+                expect_command = True
+                for token in tokens:
+                    if token in {"&&", "||", ";", "|"}:
+                        expect_command = True
+                        continue
+                    if token in {"&", ">", ">>", "<", "<<", ">&", "(", ")"}:
+                        continue
+                    if expect_command and token.isdigit():
+                        continue
+                    if not expect_command:
+                        continue
+                    if token in {"for", "do", "then"}:
+                        continue
+                    if token in {"done", "fi"}:
+                        expect_command = False
+                        continue
+                    if "=" in token and token.split("=", 1)[0].replace("_", "").isalnum():
+                        continue
+                    heads.add(token.rsplit("/", 1)[-1])
+                    expect_command = False
+        return heads
+
+    def test_contract_is_lab_exercise_only(self):
+        assert self._contract()["mode"] == "lab-exercise"
+        for theory_only in ("cron_privesc", "container_escape", "kernel_exploit_chain"):
+            assert theory_only not in EXEC_SEQUENCES
+
+    def test_all_executable_sequence_command_heads_are_declared(self):
+        shell_syntax = {"echo", "export", "false", "null", "sleep", "true", "web_search"}
+        undeclared = self._exec_command_heads() - set(self._contract()["tools"]) - shell_syntax
+        assert not undeclared, f"lab commands absent from image contract: {sorted(undeclared)}"
+
+    def test_scenario_entry_commands_are_declared(self):
+        command_heads = {
+            command.rsplit("/", 1)[-1]
+            for scenario in SCENARIOS.values()
+            for command in re.findall(r"cmd='([A-Za-z0-9_./-]+)", scenario["red_prompt"])
+        }
+        shell_syntax = {"echo", "for"}
+        undeclared = command_heads - set(self._contract()["tools"]) - shell_syntax
+        assert not undeclared, f"scenario commands absent from image contract: {sorted(undeclared)}"
+
+    def test_previously_missing_tools_are_hard_requirements(self):
+        required = {
+            "cadaver",
+            "davtest",
+            "graphql-cop",
+            "nuclei",
+            "proxychains",
+            "snmpwalk",
+            "sshpass",
+        }
+        assert required.issubset(self._contract()["tools"])
+
+    def test_stale_target_mismatches_cannot_return_to_execution(self):
+        corpus = "\n".join(
+            step.get("tool_hint", "")
+            for sequence in EXEC_SEQUENCES.values()
+            for step in sequence
+            if isinstance(step, dict)
+        ).lower()
+        for stale in (
+            "port 6200",
+            "udf.so",
+            "secretsdump.py administrator:<pass>",
+            "/usr/share/wordlists/dirb/common.txt",
+            "pspy64",
+            "docker run -v /:/host",
+        ):
+            assert stale not in corpus
 
 
 # ── Vulhub expansion scenario structure ──────────────────────────────────────
