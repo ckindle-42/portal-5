@@ -735,17 +735,20 @@ class TestCaptureStore:
 
         monkeypatch.setattr(capture_store, "CAPTURE_DIR", tmp_path)
         path = capture_store.save_capture(
-            scenario="web_sqli_dump",
+            scenario="vuln_struts2_rce",
             target_host="10.10.11.50",
             kind="web",
             since_epoch=1000.0,
-            telemetry={"web:access": ["GET /?id=1 UNION SELECT 200"]},
+            telemetry={
+                "web:access": [
+                    "content type header is "
+                    "%{(#ognlUtil.getExcludedPackageNames().clear())} "
+                    "X-Cmd-Output: uid=0(root) gid=0(root) groups=0(root)"
+                ]
+            },
             telemetry_origins={"web:access": "observed_target_log"},
             episode_id="ep-replay-test",
         )
-        saved = json.loads(Path(path).read_text())
-        saved["validity"].update({"checked": True, "valid": True, "coverage": 1.0})
-        Path(path).write_text(json.dumps(saved))
         with (
             patch(
                 "portal.modules.security.core.siem.hec_ship.ship_batch",
@@ -760,7 +763,7 @@ class TestCaptureStore:
         assert result["ok"] is True
         assert result["shipped"] == 1
         assert result["indexed_confirmed"] is True
-        assert result["scenario"] == "web_sqli_dump"
+        assert result["scenario"] == "vuln_struts2_rce"
 
     def test_replay_capture_dry_run_skips_indexed_check(self, tmp_path, monkeypatch):
         from portal.modules.security.core.siem import capture_store

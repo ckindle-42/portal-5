@@ -18,7 +18,12 @@ def _valid_capture(tmp_path, scenario: str):
                 "scenario": scenario,
                 "target_host": "10.10.11.9",
                 "episode_id": "ep-valid",
-                "telemetry": {"web:access": ["observed attack"]},
+                "telemetry": {
+                    "web:access": [
+                        "GET /victim.cgi User-Agent: () { :;}",
+                        "uid=0(root) gid=0(root) groups=0(root)",
+                    ]
+                },
                 "validity": {"checked": True, "valid": True, "coverage": 1.0},
                 "pcap_path": str(pcap),
             }
@@ -134,3 +139,30 @@ def test_agentic_blue_loader_uses_valid_capture_not_newest_hollow(tmp_path, monk
     assert episode.scenario == "captured_episode"
     assert episode.target_host == "10.10.11.50"
     assert episode.techniques == ["T1190", "T1059"]
+
+
+def test_report_identifies_catalog_as_lab_exercises(tmp_path, monkeypatch):
+    capture = _valid_capture(tmp_path, "vuln_shellshock_rce")
+    monkeypatch.setattr(
+        coverage,
+        "list_captures",
+        lambda scenario=None: [capture] if scenario == "vuln_shellshock_rce" else [],
+    )
+    report = coverage.build_coverage_report(
+        external_techniques={"T1190"}, external_validation="live-probed"
+    )
+    assert report["scenario_coverage"]["data_mode"] == "lab-exercise"
+
+
+def test_theory_and_unbacked_scenarios_do_not_inflate_lab_denominator(tmp_path, monkeypatch):
+    monkeypatch.setattr(coverage, "list_captures", lambda scenario=None: [])
+    report = coverage.build_coverage_report(
+        external_techniques={"T1190"}, external_validation="live-probed"
+    )
+    scenarios = report["scenario_coverage"]
+    assert scenarios["catalog_total"] == 93
+    assert scenarios["total"] == 73
+    assert len(scenarios["excluded_from_lab_replay"]) == 20
+    assert "cloud_breach" in scenarios["excluded_from_lab_replay"]
+    assert "web_graphql_introspect" in scenarios["excluded_from_lab_replay"]
+    assert "web_to_root" not in scenarios["excluded_from_lab_replay"]

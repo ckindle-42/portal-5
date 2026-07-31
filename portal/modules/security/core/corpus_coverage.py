@@ -18,6 +18,7 @@ from .corpus_replay_bench import CURATED_TECHNIQUES
 from .exec_chain import SCENARIOS
 from .siem.capture_store import (
     CAPTURE_DIR,
+    capture_ground_truth_status,
     capture_replay_issues,
     capture_replay_warnings,
     list_captures,
@@ -63,7 +64,7 @@ def _latest_live_status(scenario: str, *, require_pcap: bool) -> dict[str, Any]:
             newest_issues = issues
         if not issues and data is not None:
             valid_path = str(path)
-            techniques = list(SCENARIOS[scenario].get("detect_ground_truth") or [])
+            techniques = list(capture_ground_truth_status(data).get("found") or [])
             warnings = capture_replay_warnings(data)
             break
     return {
@@ -90,10 +91,17 @@ def build_coverage_report(
     contract = load_source_contract(contract_path)
     source_cfg = contract["sources"]
     require_pcap = bool(source_cfg["portal_live"].get("require_pcap"))
+    excluded = dict(contract.get("scenario_scope", {}).get("excluded_from_lab_replay") or {})
+    unknown_exclusions = sorted(set(excluded) - set(SCENARIOS))
+    if unknown_exclusions:
+        raise ValueError(f"unknown excluded security scenarios: {unknown_exclusions}")
+    scoped_scenarios = {
+        name: scenario for name, scenario in SCENARIOS.items() if name not in excluded
+    }
 
     scenario_status: dict[str, dict[str, Any]] = {}
     live_techniques: set[str] = set()
-    for name in sorted(SCENARIOS):
+    for name in sorted(scoped_scenarios):
         status = _latest_live_status(name, require_pcap=require_pcap)
         scenario_status[name] = status
         if status["valid_capture"]:
@@ -103,7 +111,7 @@ def build_coverage_report(
     external = set(external_techniques) if external_techniques is not None else declared_external
     target_techniques = {
         technique
-        for scenario in SCENARIOS.values()
+        for scenario in scoped_scenarios.values()
         for technique in scenario.get("detect_ground_truth") or []
     }
     combined = live_techniques | external
@@ -134,9 +142,12 @@ def build_coverage_report(
         "answer_key_visibility": contract["answer_key_visibility"],
         "external_validation": external_validation,
         "scenario_coverage": {
-            "total": len(SCENARIOS),
+            "data_mode": "lab-exercise",
+            "catalog_total": len(SCENARIOS),
+            "total": len(scoped_scenarios),
+            "excluded_from_lab_replay": excluded,
             "live_valid": len(valid_scenarios),
-            "live_invalid_or_missing": len(SCENARIOS) - len(valid_scenarios),
+            "live_invalid_or_missing": len(scoped_scenarios) - len(valid_scenarios),
             "valid_scenarios": valid_scenarios,
             "details": scenario_status,
             "note": "External data is never counted as scenario-level live proof.",

@@ -1,6 +1,34 @@
 schema_version: 1
 answer_key_visibility: scorer_only
 
+# SCENARIOS is a mixed planning catalog. These entries remain useful theory
+# exercises, but there is no deployed target contract that can produce honest
+# live telemetry for them today. They are reported explicitly and excluded
+# from the lab-replay denominator; moving one into the lab lane requires a
+# real target plus capture validator, not merely deleting it from this list.
+scenario_scope:
+  excluded_from_lab_replay:
+    cloud_breach: cloud emulator and cloud-provider telemetry are not deployed
+    web_asset_discovery: generic endpoint has no deployed target contract
+    web_cache_deception: generic endpoint has no deployed target contract
+    web_cors: generic endpoint has no deployed target contract
+    web_deserial_rce: generic endpoint has no deployed target contract
+    web_forced_error: generic endpoint has no deployed target contract
+    web_graphql_introspect: generic endpoint has no deployed target contract
+    web_header_injection: generic endpoint has no deployed target contract
+    web_idor: generic endpoint has no deployed target contract
+    web_nosql_inject: generic endpoint has no deployed target contract
+    web_nuclei_scan: generic endpoint has no deployed target contract
+    web_open_redirect: generic endpoint has no deployed target contract
+    web_path_traversal: generic endpoint has no deployed target contract
+    web_reflected_xss: generic endpoint has no deployed target contract
+    web_smuggling: generic endpoint has no deployed target contract
+    web_sqli_dump: generic endpoint has no deployed target contract
+    web_ssrf: generic endpoint has no deployed target contract
+    web_ssti: generic endpoint has no deployed target contract
+    web_ssti_stored: generic endpoint has no deployed target contract
+    web_upload_bypass: generic endpoint has no deployed target contract
+
 # These lanes are scored separately.  A technique-level corpus hit can extend
 # detection coverage, but only portal_live can prove an end-to-end lab scenario.
 sources:

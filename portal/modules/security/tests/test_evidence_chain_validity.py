@@ -85,6 +85,27 @@ def test_hollow_episode_scoped_capture_is_not_replayable(tmp_path):
     assert result["error"] == "CAPTURE_GROUND_TRUTH_INVALID"
 
 
+def test_known_scenario_revalidates_stale_stored_validity(tmp_path):
+    from portal.modules.security.core.siem.capture_store import replay_capture
+
+    path = tmp_path / "stale-validity.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "scenario": "vuln_shellshock_rce",
+                "target_host": "10.10.11.50",
+                "episode_id": "ep-stale-validity",
+                "telemetry": {"web:access": ["GET /ordinary HTTP/1.1 200"]},
+                "validity": {"checked": True, "valid": True, "coverage": 1.0},
+            }
+        )
+    )
+    result = replay_capture(path)
+    assert result["ok"] is False
+    assert result["error"] == "CAPTURE_GROUND_TRUTH_INVALID"
+
+
 def test_replay_normalizes_stale_target_metadata(tmp_path, monkeypatch):
     from portal.modules.security.core.exec_chain import SCENARIOS
     from portal.modules.security.core.siem.capture_store import replay_capture
@@ -99,7 +120,14 @@ def test_replay_normalizes_stale_target_metadata(tmp_path, monkeypatch):
                 "scenario": "meta3_rdp_standard_auth",
                 "target_host": "10.10.11.10",
                 "episode_id": "ep-meta3",
-                "telemetry": {"windows:security": ["EventCode=4624 LogonType=10"]},
+                "telemetry": {
+                    "windows:security": [
+                        "EventCode=4624 LogonType=10 Account=vagrant LogonProcessName=User32"
+                    ],
+                    "network:packet": [
+                        "IP 172.17.0.2.39582 > 10.10.11.10.3389: Flags [S], length 0"
+                    ],
+                },
                 "validity": {"checked": True, "valid": True, "coverage": 1.0},
             }
         )
@@ -118,7 +146,7 @@ def test_replay_normalizes_stale_target_metadata(tmp_path, monkeypatch):
 
     assert result["ok"] is True
     assert result["target_host"] == "10.10.11.13"
-    assert shipped_hosts == ["10.10.11.13"]
+    assert shipped_hosts == ["10.10.11.13", "10.10.11.13"]
     assert result["integrity_warnings"] == ["STALE_TARGET_METADATA:10.10.11.10->10.10.11.13"]
 
 

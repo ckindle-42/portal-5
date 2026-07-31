@@ -132,7 +132,11 @@ class ArmResult:
 
 def load_episode(scenario: str) -> Episode | None:
     """Load the newest integrity-valid capture for a scenario."""
-    from .siem.capture_store import canonical_target_host, capture_replay_issues
+    from .siem.capture_store import (
+        canonical_target_host,
+        capture_ground_truth_status,
+        capture_replay_issues,
+    )
 
     if not _CAPTURE_DIR.exists():
         return None
@@ -153,16 +157,10 @@ def load_episode(scenario: str) -> Episode | None:
     if data is None:
         return None
 
-    # Ground truth comes from SCENARIOS dict, not the capture file
-    techniques = data.get("detect_ground_truth", [])
-    if not techniques:
-        try:
-            from portal.modules.security.core.exec_chain import SCENARIOS
-
-            sc = SCENARIOS.get(scenario, {})
-            techniques = sc.get("detect_ground_truth", [])
-        except Exception:
-            pass
+    # Score only labels independently revalidated against this capture's
+    # observed telemetry. capture_replay_issues already rejects any declared
+    # scenario label that remains unchecked or missing.
+    techniques = list(capture_ground_truth_status(data).get("found") or [])
 
     return Episode(
         # Keep the answer-key-bearing catalog name out of the model-visible
