@@ -9,18 +9,14 @@ sources:
   path: ATT&CK:T1548.001
 - type: scenario
   path: exec_chain.py#web_to_root
-- type: scenario
-  path: exec_chain.py#meta3_linux_privesc
-- type: scenario
-  path: exec_chain.py#meta3_full_chain
 last_generated_commit: ''
 confidence: high
 tags:
 - T1548.001
 - technique
 - signature
-created_at: 1785351452.878062
-updated_at: 1785351452.878062
+created_at: 1785503864.926759
+updated_at: 1785503864.926759
 ---
 
 # T1548.001 — SUID abuse — setuid binary execution for privilege escalation
@@ -35,8 +31,6 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (a1="*perm*4000*" OR exe
 ## Exercised By Scenarios
 
 - `web_to_root`
-- `meta3_linux_privesc`
-- `meta3_full_chain`
 
 ## Per-Source Expected Signatures
 

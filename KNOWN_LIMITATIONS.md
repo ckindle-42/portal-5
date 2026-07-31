@@ -65,45 +65,51 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps -->
 - **ID**: P5-SEC-META3-001
-- **Description**: As of commit `cdf080e` (2026-07-04), meta3 (vmid 113, `portal-lab-meta3-win2k8`,
-  10.10.11.10) has a real, working evidence pipeline — IIS logs (`web:access`), FTP logs
-  (`ftp:access`), and Process Creation events (`windows:security`, 4688 auditing enabled
-  live on the box) all collect, ship, and confirm-index correctly. Two gaps remain,
-  found while building that pipeline:
-  1. **Scenario coverage.** The current 7 `meta3_*` scenarios (`exec_chain.py::SCENARIOS`)
-     cover only a subset of meta3's documented vulnerable services. Cross-referenced against
-     https://github.com/rapid7/metasploitable3/wiki/Vulnerabilities: still unscripted —
-     GlassFish deploy RCE (CVE-2011-0807, admin/sploit creds, port 4848/8080/8181), Struts
-     (CVE-2016-3087) and Tomcat manager (CVE-2009-3843/4189, sploit/sploit creds, port 8282),
-     Jenkins unauthenticated script console (port 8484), ManageEngine (CVE-2015-8249, port
-     8020), Apache Axis2 (CVE-2010-0219, via Tomcat), WebDAV HTTP PUT shell upload (port
-     8585), PHPMyAdmin (CVE-2013-3238, port 8585), Ruby on Rails web console (CVE-2015-3224,
-     port 3000), JMX (CVE-2015-2342, port 1617), WordPress NinjaForms (CVE-2016-1209, port
-     8585), `psexec` weak-password (port 445/139), RDP standard-auth (port 3389). WinRM
-     weak-password (port 5985, `vagrant`/`vagrant`) is confirmed live-reachable and is
-     already incidentally exercised by our own collection code — a dedicated scenario for it
-     would need to be distinguishable from monitoring traffic in the resulting evidence.
-  2. **SPL query precision.** `siem/spl_detections.yaml`'s SPL for meta3's own
-     `detect_ground_truth` techniques doesn't match meta3's actual traffic shape yet:
-     `T1059`/`T1059.004`/`T1548.001`/`T1068`/`T1210`/`T1021.002` are all written against
-     `sourcetype="linux:auditd"` fields (copied from the vulhub/Linux template), which will
-     never match the `windows:security` 4688 process-creation data now genuinely available
-     for meta3 — needs Windows-appropriate SPL (`EventCode=4688`, `NewProcessName=`,
-     `CommandLine=`, `Account=`) added, likely as OS-aware variants rather than blind
-     replacement, since the same technique IDs are also scored against true Linux vulhub
-     targets. `T1190`'s existing SPL (payload-substring matching: `passwd`, `../`,
-     `UNION SELECT`, `jndi:`, `.php`, `cmd=`) also doesn't match meta3's actual traffic —
-     verified live via `--replay-captured-red` on `meta3_full_chain`: real `web:access` data
-     is shipped and indexed, but none of meta3's exploit traffic (plain `GET /`, JSON-body
-     `POST /_search`, out-of-band FTP backdoor trigger) contains those literal substrings, so
-     it still reports `synthetic-fallback` despite genuine live data being present.
-- **Operator action**: Treat as a content-authoring task (new `exec_chain.py::SCENARIOS`
-  entries with `target_host=_LAB_META3`, `detect_ground_truth`, `red_prompt` tool_hints; new
-  or OS-variant SPL entries in `siem/spl_detections.yaml`), not a plumbing fix — the
-  collection/shipping/replay infrastructure itself is confirmed working end-to-end. meta3 has
-  a documented history of crashing under load (`qmpstatus: internal-error`, recovered via
-  hard stop+start) even from routine investigation traffic, not just live exploitation —
-  budget for that when scripting new scenarios against it.
+- **Status**: RESOLVED 2026-07-31 for catalog coverage and SPL content.
+- **Reconciliation**: The original limitation described seven scenarios and
+  target `10.10.11.10`. The current spine identifies vmid 113 at
+  `10.10.11.13`, and the repository had already expanded to 21 `meta3_*`
+  scenarios plus Windows-aware SPL variants for `T1059`, `T1548.001`,
+  `T1068`, `T1210`, `T1021.002`, and IIS-aware `T1190`. Those landed changes
+  made most of the old open list stale.
+- **Scenario completion**: Cross-checking the current 21-scenario catalog
+  against Rapid7's Metasploitable3 vulnerability wiki left three documented
+  Windows surfaces. `meta3_phpmyadmin_rce` now covers CVE-2013-3238 on 8585
+  with Metasploit's canonical `exploit/multi/http/phpmyadmin_preg_replace`
+  module and blank root credential;
+  `meta3_rails_console_rce` covers CVE-2015-3224 on 3000 with the exact
+  `exploit/multi/http/rails_web_console_v2_code_exec` module after a bounded
+  exposed-console preflight; and
+  `meta3_rdp_standard_auth` covers RDP on 3389 with a non-interactive standard
+  credential check. The catalog now has 24 scenarios.
+- **Legacy correction**: Four historical entries had been copied from a Linux
+  target even though `_LAB_META3` is Windows. FTP no longer attempts the
+  vsftpd port-6200 backdoor, MySQL no longer loads `udf.so`,
+  `meta3_linux_privesc` performs bounded Windows token inspection while
+  retaining its ID for result compatibility, and `meta3_full_chain` no longer
+  reads `/etc`, searches SUID files, or uses a Unix shell technique. Regression
+  coverage rejects those Linux-only payload markers anywhere in the meta3
+  catalog.
+- **SPL completion**: The existing OS-aware variants are retained, and
+  `T1021.001` now adds the missing Windows RDP signature
+  (`EventCode=4624`, `LogonType=10`). `T1557` was also hardened separately:
+  generic 4624 volume is no longer enough; its rule requires correlated NTLM
+  network logons and privileged-share access across multiple targets.
+- **Validation**: The focused scenario, SPL-variant, and corpus suites pass.
+  The attack image now installs `metasploit-framework`, fails its build if
+  `msfconsole` or either required module is absent, and records all three
+  capabilities in its image manifest. A fresh image build and load into the
+  lab's DinD runtime reported Framework 6.4.146-dev, true manifest entries,
+  and successfully loaded both modules with their expected option sets.
+  The sandbox now also injects the Meta3 target and credential contract into
+  each lab-exec container; the FTP and RDP scenarios consume those variables
+  instead of embedding credentials in commands.
+  `nxc rdp` remains installed for the non-interactive RDP check. Metasploit is
+  available to these explicit, bounded scenario steps; it remains deliberately
+  excluded from the emergent objective loop's read-only binary allowlist.
+  New exploit scenarios are catalog/test verified but have not been fired
+  against vmid 113 in this change set; the VM's documented instability still
+  requires bounded live runs and recovery planning before such execution.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -144,6 +150,12 @@ authoritative; presence in this register alone does not mean the issue is open.
   EventCode 4738 and an incorrect technique description. This exposes the
   threshold-only T1557 SPL as weak evidence for the later Windows-aware SPL
   item rather than justifying a hallucinated alert.
+- **T1557 follow-through (2026-07-31)**: The threshold-only rule is retired.
+  The Windows rule now requires correlated NTLM network logons and privileged
+  ADMIN$/C$ share access from the same source/account across more than one
+  target. The old 4624-only cell is removed from the curated attack corpus,
+  and the blue evidence mapper no longer treats one generic 4624 marker as
+  sufficient T1557 coverage.
 - **Boundary**: Twelve plausibly confusable cells remain a representative
   subset, not an exhaustive estimate of normal enterprise behavior. Broader
   hosts, identities, time windows, applications, and routine workflows remain
@@ -211,25 +223,25 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist -->
 - **ID**: P5-EMERGENT-001
-- **Status**: PARTIALLY FIXED 2026-07-29 — four root-cause fixes have landed; the underlying gap class remains open for tools not yet safely aliased.
+- **Status**: RESOLVED 2026-07-31 for the live emergent dispatch boundary. Verified read-only binaries can dispatch; unbound and stateful/destructive capabilities cannot enter a live trajectory.
 - **Description**: `capability/index.py`'s curated Capability library (used by `capability.query()` and now the emergent objective loop, `TASK_EMERGENT_SLICE1_PERCEPTION_ENTRY_V1`) has two kinds of `tools` values for many entries — real Kali binary names (`nmap`, `impacket-secretsdump`, `bloodhound-ce-python`, ...) for domain-probe capabilities (`smb_probe`, `ldap_probe`, ...), or an **empty list** for several named-technique capabilities (`ad-certificate-abuse`, `kerberos-delegation`, `oauth-oidc-chain`, `file-upload-bypass`, `smb-enumeration`, and others). `lab.py::_lab_dispatch_inner`'s real live-dispatch path only recognizes a small fixed whitelist of ~15 literal tool names — neither the Kali binary names nor the empty-tools capability IDs originally matched that whitelist, so `SecurityExecutor` (Slice 1.2) dispatched them through the synthetic fallback even when the lab was fully live and reachable. A second, compounding cause was found the same day: `capability.query()`'s `applies_when` predicates (e.g. `smb_probe` requires `open_ports` to contain 445) are gated on a flat `observations["open_ports"]` list that predates `LabPerception` — `PerceptionDelta.to_observation()` didn't populate it, and `run_emergent_engagement` started with `observations={}` (no upfront perception call), so on a cold start every real-tooled AD-probe capability was starved out and only the empty-`tools` capabilities (which have no `applies_when` gate) ever matched.
 - **Fixes landed** (all live-verified against the real Proxmox lab, portal-lab-dc01/srv01/vulhub, sandbox MCP `lab_exec_active:true`):
   1. `--domain-hint` threaded into `run_emergent_engagement`/CLI (was hardcoded `None`).
   2. `lab.py::_lab_dispatch_inner` now aliases the two real Kali binary names verified correct: `"nmap"` → same path as `run_nmap_scan` (confirmed real: 22/80/8080 open on `10.10.11.50`), `"impacket-GetUserSPNs"` → same path as `exploit_service`/Kerberoast (confirmed real: 3 live TGS hashes captured from `lab-srv01.portal.lab`, then a real offline `john`+rockyou.txt crack attempt inside the sandbox — 0/3 cracked, correctly scored `FAILED` not `PROVEN`, since the passwords aren't in the common wordlist).
-  3. `PerceptionDelta.to_observation()` now also derives a flat `open_ports` list (`perception._extract_open_ports`, additive) from either shape the real prober can return, and `run_emergent_engagement` gained a `perception` param that seeds real initial observations before the loop starts (`goal_cli._cmd_emergent` wires this by default via the new shared `perception.default_lab_prober`, replacing a near-duplicate that used to live only in `security_mcp.py`). Confirmed live: after this fix the ranker's first pick against the AD domain moved from an empty-`tools` capability (`ad-certificate-abuse`) to a real-tooled one (`smb_probe`/`ldap_probe`'s `bloodhound-ce-python`) — proving the seed closes the starvation, though `bloodhound-ce-python` itself isn't in the alias table yet (see below).
+  3. `PerceptionDelta.to_observation()` now also derives a flat `open_ports` list (`perception._extract_open_ports`, additive) from either shape the real prober can return, and `run_emergent_engagement` gained a `perception` param that seeds real initial observations before the loop starts (`goal_cli._cmd_emergent` wires this by default via the new shared `perception.default_lab_prober`, replacing a near-duplicate that used to live only in `security_mcp.py`). Confirmed live: after this fix the ranker's first pick against the AD domain moved from an empty-`tools` capability (`ad-certificate-abuse`) to a real-tooled one (`smb_probe`/`ldap_probe`'s `bloodhound-ce-python`) — proving the seed closes the starvation and motivating the audited allowlist in item 5.
   4. The platform deterministic fallback now chooses a capability before ranking that capability's tools, consumes both supported history shapes, avoids already-attempted actions while alternatives remain, starts with a recon capability, and progresses to an unattempted oracle-bound action after recon. This fixes the structural dead-end where an empty-`tools` oracle capability could never be selected whenever any other candidate declared a tool.
-- **Still open**: Real Kali binaries seen live but not yet aliased/verified (`bloodhound-ce-python`, `impacket-secretsdump`, `impacket-psexec`, `impacket-wmiexec`, `enum4linux-ng`, `nxc`, `responder`, `impacket-GetNPUsers`, `impacket-dacledit`, `certipy-ad`, `ldap3`, `metasploit`) and the empty-`tools` capabilities (`ad-certificate-abuse`, `kerberos-delegation`, `oauth-oidc-chain`, `file-upload-bypass`, `smb-enumeration`) still dispatch synthetic. Each remaining alias needs its exact CLI invocation verified correct (and, for stateful/destructive ones like `impacket-psexec`/`impacket-wmiexec`/`responder`, reviewed for lab safety) before wiring — not done blind, unlike the two above which were directly confirmed working first.
-- **Impact**: Deterministic progression is now structurally reachable and non-repeating, but a selected capability can still be non-dispatchable when its real tool has no verified alias or it declares no tool. That produces an honestly synthetic trajectory even against a live lab and still slows G1 corpus sign-off (`DESIGN_EMERGENT_LAB_AGENT_V2` §9). Synthetic steps remain excluded from `emergent_gaps.gaps_from_trajectory`, and synthetic-derived trajectories are never PROVEN (AX ratchet holds), so the remaining issue is coverage/usefulness rather than correctness or honesty.
-- **Resolution path (open)**: Continue verifying and aliasing the remaining real binary names one at a time (never batch-guess CLI syntax for tools with real side effects), and separately decide what the empty-`tools` capabilities should actually dispatch to (populate `capability/index.py` or retire them). Pre-existing architecture gap in the "already-built" composition engine (`DESIGN_EMERGENT_LAB_AGENT_V2` §1's KEEP list assumed this layer was solid); not part of the original Slice 1/2/3 delta, but now partially remediated as part of the same live-verification pass.
-- **Continuation checkpoint (2026-07-30)**: The current
-  `SecurityExecutor` dispatches the semantic capability `action` instead of
-  the selected binary `tool`. That correctly makes `smb_probe`, `ldap_probe`,
-  and other `_LAB_SERVICE_PROBES` real, but it also means the ranker's curated
-  binary selection is not used. Live, lab-scoped probes verified exact,
-  non-mutating invocations for `bloodhound-ce-python` (`-c DCOnly --zip`),
-  `enum4linux-ng -A`, anonymous `nxc smb --shares`, and
-  `impacket-GetNPUsers` with a bounded users file. No alias code for those four
-  has landed yet.
+  5. `SecurityExecutor` now honors the ranker's selected binary only through one explicit read-only allowlist: `nmap`, `impacket-GetUserSPNs`, `bloodhound-ce-python`, `enum4linux-ng`, `nxc`, and `impacket-GetNPUsers`. The four new aliases use the previously live-audited command shapes: BloodHound `DCOnly` collection, `enum4linux-ng -A`, anonymous NetExec SMB share enumeration, and a GetNPUsers check bounded to the two known lab accounts. Every non-allowlisted selection retains the semantic capability probe. Regression coverage proves `curl`, Certipy, secretsdump, psexec, wmiexec, Responder, and Metasploit cannot override that fallback.
+  6. The live `_SecurityCapabilityProvider` now queries with `live_dispatchable_only=True`. That retains semantic service probes (including probes whose catalog `tools` list is empty but whose action has a concrete `lab.py` route) and retires every unbound challenge-class/lab-target entry from live selection. Catalog queries and dry-run planning remain unchanged. The five named empty-tool examples can no longer produce synthetic live steps.
+- **Intentional exclusions**: Stateful/destructive or otherwise unaudited binaries (`impacket-secretsdump`, `impacket-psexec`, `impacket-wmiexec`, `responder`, `impacket-dacledit`, `certipy-ad`, `ldap3`, `metasploit`) remain deliberately unaliased. Unbound challenge-class and lab-target capabilities remain visible in the catalog and dry-run planner but are not live-dispatchable.
+- **Residual boundary**: The live emergent loop can now perform honest reconnaissance but will not advance into an exploit capability until that capability receives a separately audited executor binding. It may therefore halt blocked after exhausting applicable probes. That is the intended truthful behavior: no synthetic exploit is represented as live progress, and future capability expansion must land with its dispatch and rollback contract.
+- **Resolution**: The selected-binary path is explicit and allowlisted, unsafe selections retain safe action-level fallback, and capabilities with no concrete live binding are retired from the live provider. Synthetic steps remain excluded from `emergent_gaps.gaps_from_trajectory`, and synthetic-derived trajectories can never be PROVEN (AX ratchet).
+- **Live completion checkpoint (2026-07-31)**: A bounded one-action AD
+  emergent verification seeded fresh perception against `10.10.11.21`,
+  observed ports 53/80/88/135/389/445/464/636/3268, and deterministically
+  selected `smb_probe` with `bloodhound-ce-python`. `SecurityExecutor`
+  dispatched the selected allowlisted binary. The `DCOnly` collection
+  completed successfully and returned 13 users, 53 groups, 3 computers, 2
+  GPOs, 5 OUs, and 0 trusts before compressing the sandbox-local output.
 - **Safety finding**: `certipy-ad find` is not read-only in this lab; it
   started/used the Windows Remote Registry dependency while retrieving CA
   configuration. DFS and Remote Registry were returned to their observed
@@ -238,13 +250,11 @@ authoritative; presence in this register alone does not mean the issue is open.
   `impacket-dacledit`, `responder`, and `metasploit` also remain deferred
   because they dump credentials, execute remotely, modify ACLs, poison
   traffic, or select arbitrary exploit modules.
-- **Exact resume point**: Add an explicit read-only alias allowlist for the
-  four verified tools (plus the already-supported `nmap` and
-  `impacket-GetUserSPNs`), have `SecurityExecutor` dispatch the selected
-  binary only when it is in that allowlist and otherwise retain action-level
-  fallback, and add regression tests proving `curl`/unsafe selections still
-  use the safe capability probe. Then live-run one AD emergent step and update
-  this unit with the measured dispatch.
+- **Future extension rule**: A retired capability may return to live emergent
+  selection only with a separately audited semantic executor binding. Keep
+  the stateful/destructive tool set out of the allowlist unless a future task
+  explicitly defines containment, rollback, and live-verification
+  requirements for that tool.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -795,11 +805,16 @@ operational constraints.
   pins the current uncovered set; CI (check BR) fails only when that set *grows* — new code
   cannot land with zero coverage unnoticed. This prevents the debt from getting worse; it does
   not pay it down.
-- **Current measurement (2026-07-30)**: **10.2%** (62 of 609 eligible files), with 547
-  uncovered. The host-native MCP lifecycle, corpus-visibility, benign-corpus, and emergent
-  alias audit units added coverage for their implementation, tests, launcher paths, and
-  validator; the baseline was re-pinned downward to bank the gains.
-- **Next action**: Backfill coverage for the 547 currently-uncovered surfaces (write covering
+- **Current measurement (2026-07-31)**: **14.9%** (91 of 609 eligible files), with 518
+  uncovered. The latest continuation added twenty-one exact citations in two
+  bounded audits. The security-bench structure and sub-component units now
+  cite the ten package, CLI, capability-rendering, goal-evaluation, and
+  perception modules their bodies describe. The platform-agent unit now maps
+  its seven core modules plus its hermetic regression suite, while the emergent
+  resolution unit cites the gap and trajectory-honesty implementations it
+  relies on. Meta3's sandbox-environment regression also joined its owning
+  limitation unit. The baseline was re-pinned downward after each audit.
+- **Next action**: Backfill coverage for the 518 currently-uncovered surfaces (write covering
   units, re-pin the baseline down as each batch lands). Not completed in v8.0.0's release
   window — tracked as ongoing work, not closed out or deprioritized indefinitely.
 <!-- /WIKI:GENERATED -->

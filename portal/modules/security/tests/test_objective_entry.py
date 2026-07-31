@@ -199,6 +199,37 @@ def test_flag_on_threads_domain_hint_into_provider_query(monkeypatch):
     assert "ad" in seen_domains
 
 
+def test_flag_on_default_provider_retires_unbound_live_capabilities(monkeypatch):
+    """The live entry point must request only concretely dispatchable
+    capabilities; catalog/dry-run query behavior remains broader."""
+    monkeypatch.setenv("PORTAL_EMERGENT", "1")
+    seen_live_flags = []
+
+    class _RecordingProvider:
+        def __init__(self, *, live_dispatchable_only=False):
+            seen_live_flags.append(live_dispatchable_only)
+
+        def query(self, observations, *, domain=None, goal=None, limit=8):
+            return [_FakeCapability()]
+
+    monkeypatch.setattr(
+        "portal.modules.security.core.goal_decide._SecurityCapabilityProvider",
+        _RecordingProvider,
+    )
+    executor = _FakeExecutor(
+        [{"observation_delta": {"changed": True}, "oracle_result": None, "raw": "ok"}]
+    )
+
+    run_emergent_engagement(
+        targets=["10.10.11.21"],
+        domain_hint="ad",
+        executor=executor,
+        no_progress_k=1,
+    )
+
+    assert seen_live_flags == [True]
+
+
 def test_flag_on_seeds_initial_observations_from_perception(monkeypatch):
     """A live-verification finding: without a perception seed, the first
     decide-turn sees empty observations, which starves any capability whose

@@ -20,6 +20,9 @@ from .goal import EngagementGoal
 class _SecurityCapabilityProvider:
     """Adapts security's capability.query to the platform CapabilityProvider."""
 
+    def __init__(self, *, live_dispatchable_only: bool = False):
+        self._live_dispatchable_only = live_dispatchable_only
+
     def query(
         self,
         observations: dict[str, Any],
@@ -29,8 +32,19 @@ class _SecurityCapabilityProvider:
         limit: int = 8,
     ) -> list[Capability]:
         if goal is not None:
-            return query(observations, domain=domain, goal=goal, limit=limit)
-        return query(observations, domain=domain, limit=limit)
+            return query(
+                observations,
+                domain=domain,
+                goal=goal,
+                limit=limit,
+                live_dispatchable_only=self._live_dispatchable_only,
+            )
+        return query(
+            observations,
+            domain=domain,
+            limit=limit,
+            live_dispatchable_only=self._live_dispatchable_only,
+        )
 
 
 def _decide_via_model(

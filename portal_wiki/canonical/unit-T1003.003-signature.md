@@ -18,8 +18,8 @@ tags:
 - T1003.003
 - technique
 - signature
-created_at: 1785351452.8807209
-updated_at: 1785351452.8807209
+created_at: 1785503864.929618
+updated_at: 1785503864.929618
 ---
 
 # T1003.003 — NTDS dump — ntdsutil/ntds.dit extraction for domain credential theft [DISTINGUISH: T1003.003 = NTDS.dit extraction; T1003.001 = local LSASS memory access; T1003.006 = remote AD replication] [KEY: NewProcessName=*ntdsutil* or Message=*ntds.dit*]

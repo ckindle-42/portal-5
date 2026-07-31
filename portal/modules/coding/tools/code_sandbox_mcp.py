@@ -154,6 +154,9 @@ SANDBOX_LAB_TARGET_NETWORK = os.getenv("LAB_TARGET_NETWORK", "")
 SANDBOX_LAB_TARGET_DC = os.getenv("LAB_TARGET_DC", "")
 SANDBOX_LAB_TARGET_WS = os.getenv("LAB_TARGET_WS", "")
 SANDBOX_LAB_TARGET_SRV = os.getenv("LAB_TARGET_SRV", "")
+SANDBOX_LAB_TARGET_META3 = os.getenv("LAB_TARGET_META3_WIN", "")
+SANDBOX_LAB_META3_USER = os.getenv("LAB_META3_USER", "vagrant")
+SANDBOX_LAB_META3_PASS = os.getenv("LAB_META3_PASS", "vagrant")
 # vulhub's own clone ships a real, working poc.py/exploit.py alongside ~38 of
 # its ~1,234 environments' READMEs (scripts/lab_setup.py clones it to
 # $LAB_DIR/vulhub) -- these are the exact scripts vulhub's own documentation
@@ -328,6 +331,9 @@ async def _run_in_docker(
                     ("LAB_TARGET_DC", SANDBOX_LAB_TARGET_DC),
                     ("LAB_TARGET_WS", SANDBOX_LAB_TARGET_WS),
                     ("LAB_TARGET_SRV", SANDBOX_LAB_TARGET_SRV),
+                    ("LAB_TARGET_META3_WIN", SANDBOX_LAB_TARGET_META3),
+                    ("LAB_META3_USER", SANDBOX_LAB_META3_USER),
+                    ("LAB_META3_PASS", SANDBOX_LAB_META3_PASS),
                 )
                 if v
                 for arg in ("--env", f"{k}={v}")

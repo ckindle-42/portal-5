@@ -15,8 +15,8 @@ tags:
 - T1550.002
 - technique
 - signature
-created_at: 1785351452.8801699
-updated_at: 1785351452.8801699
+created_at: 1785503864.929021
+updated_at: 1785503864.929021
 ---
 
 # T1550.002 — Pass-the-hash — NTLM hash authentication

@@ -46,6 +46,63 @@ def test_execute_dispatches_real_tool(monkeypatch):
     assert result["raw"] == "OK: scan complete"
 
 
+@pytest.mark.parametrize(
+    "selected_tool",
+    [
+        "bloodhound-ce-python",
+        "enum4linux-ng",
+        "impacket-GetNPUsers",
+        "impacket-GetUserSPNs",
+        "nmap",
+        "nxc",
+    ],
+)
+def test_execute_dispatches_only_allowlisted_read_only_binary(monkeypatch, selected_tool):
+    calls = []
+    monkeypatch.setattr(
+        "portal.modules.security.core.lab.lab_dispatch",
+        lambda name, args, dry_run=False: calls.append((name, args, dry_run)) or "OK",
+    )
+
+    result = SecurityExecutor().execute(
+        _decision(action="ldap_probe", tool=selected_tool),
+        {"observations": {}, "history": []},
+    )
+
+    assert calls == [(selected_tool, {"target": "10.10.11.5"}, False)]
+    assert result["observation_delta"]["last_action"] == "ldap_probe"
+    assert result["observation_delta"]["last_tool"] == selected_tool
+
+
+@pytest.mark.parametrize(
+    "selected_tool",
+    [
+        "curl",
+        "certipy-ad",
+        "impacket-secretsdump",
+        "impacket-psexec",
+        "impacket-wmiexec",
+        "responder",
+        "metasploit",
+    ],
+)
+def test_execute_non_allowlisted_binary_retains_capability_fallback(monkeypatch, selected_tool):
+    calls = []
+    monkeypatch.setattr(
+        "portal.modules.security.core.lab.lab_dispatch",
+        lambda name, args, dry_run=False: calls.append((name, args, dry_run)) or "UP",
+    )
+
+    result = SecurityExecutor().execute(
+        _decision(action="smb_probe", tool=selected_tool),
+        {"observations": {}, "history": []},
+    )
+
+    assert calls == [("smb_probe", {"target": "10.10.11.5"}, False)]
+    assert result["observation_delta"]["last_action"] == "smb_probe"
+    assert result["observation_delta"]["last_tool"] == "smb_probe"
+
+
 def test_scope_guard_fires_before_dispatch(monkeypatch):
     calls = []
     monkeypatch.setattr(

@@ -11,14 +11,34 @@ sources:
   path: portal/modules/security/core/capability/
   commit: ddb1cc61
 - type: code
+  path: portal/modules/security/core/capability/index.py
+- type: code
+  path: portal/modules/security/core/capability/cli.py
+- type: code
+  path: portal/modules/security/core/capability/render.py
+- type: code
+  path: portal/modules/security/core/capability/tool_inventory.py
+- type: code
   path: portal/modules/security/core/goal.py
   commit: ddb1cc61
+- type: code
+  path: portal/modules/security/core/goal_decide.py
+- type: code
+  path: portal/modules/security/core/goal_eval.py
 - type: code
   path: portal/modules/security/core/drift_gate.py
   commit: ddb1cc61
 - type: code
+  path: portal/modules/security/core/drift_cli.py
+- type: code
   path: portal/modules/security/core/loop.py
   commit: ddb1cc61
+- type: code
+  path: portal/modules/security/core/perception.py
+- type: code
+  path: portal/modules/security/core/objective_executor.py
+- type: code
+  path: portal/modules/security/core/objective_entry.py
 last_generated_commit: ddb1cc61
 confidence: high
 tags:

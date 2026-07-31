@@ -216,6 +216,7 @@ def query(
     domain: str | None = None,
     goal: str | None = None,
     limit: int = 12,
+    live_dispatchable_only: bool = False,
 ) -> list[Capability]:
     """THE retrieval call the decide step uses. Returns capabilities whose
     `applies_when` matches `observations`, optionally filtered by
@@ -226,6 +227,12 @@ def query(
     simple substring match) — Stage 2 (goal-driven decide) is the
     consumer that will make real use of it; kept minimal here since this
     task is read-only indexing, not the reasoning layer itself.
+
+    `live_dispatchable_only` is the hard boundary for the emergent live
+    executor. Today, only service-probe capabilities have a concrete semantic
+    dispatch path in lab.py. Challenge-class and lab-target entries remain
+    available to catalog queries and dry-run planning, but cannot enter a live
+    trajectory until a separately audited executor binding lands.
     """
     from portal.modules.security.core.capability.tool_inventory import verify_tools_present
 
@@ -234,6 +241,8 @@ def query(
         candidates = [c for c in candidates if c.phase == phase]
     if domain is not None:
         candidates = [c for c in candidates if c.domain == domain]
+    if live_dispatchable_only:
+        candidates = [c for c in candidates if c.source == "service_probe"]
     if goal:
         goal_lower = goal.lower()
         candidates = [

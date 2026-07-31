@@ -10,17 +10,17 @@ sources:
 - type: scenario
   path: exec_chain.py#web_ssti
 - type: scenario
-  path: exec_chain.py#meta3_elasticsearch_rce
+  path: exec_chain.py#meta3_linux_privesc
 - type: scenario
-  path: exec_chain.py#meta3_tomcat_manager
+  path: exec_chain.py#meta3_elasticsearch_rce
 last_generated_commit: ''
 confidence: high
 tags:
 - T1059
 - technique
 - signature
-created_at: 1785351452.8739882
-updated_at: 1785351452.8739882
+created_at: 1785503864.922167
+updated_at: 1785503864.922167
 ---
 
 # T1059 — Command execution — auditd execve of shells/interpreters
@@ -35,10 +35,10 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe=/bin/sh OR exe=/bin
 ## Exercised By Scenarios
 
 - `web_ssti`
+- `meta3_linux_privesc`
 - `meta3_elasticsearch_rce`
+- `meta3_full_chain`
 - `meta3_tomcat_manager`
-- `meta3_jenkins_rce`
-- `meta3_struts_rce`
 
 ## Per-Source Expected Signatures
 

@@ -12,15 +12,15 @@ sources:
 - type: scenario
   path: exec_chain.py#web_idor
 - type: scenario
-  path: exec_chain.py#meta3_mysql_exploit
+  path: exec_chain.py#meta3_ftp_backdoor
 last_generated_commit: ''
 confidence: high
 tags:
 - T1078
 - technique
 - signature
-created_at: 1785351452.8795898
-updated_at: 1785351452.8795898
+created_at: 1785503864.928332
+updated_at: 1785503864.928332
 ---
 
 # T1078 — Valid accounts — default/weak credential usage
@@ -36,9 +36,9 @@ index=portal5_lab sourcetype="web:access" (status=200) | join host [search index
 
 - `web_nosql_inject`
 - `web_idor`
+- `meta3_ftp_backdoor`
 - `meta3_mysql_exploit`
-- `meta3_full_chain`
-- `meta3_winrm_weakpass`
+- `meta3_linux_privesc`
 
 ## Per-Source Expected Signatures
 

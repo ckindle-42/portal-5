@@ -14,9 +14,15 @@ sources:
 - type: code
   path: portal/modules/security/core/corpus_replay_bench.py
 - type: code
+  path: portal/modules/security/core/siem/spl_detections.py
+- type: code
   path: portal/modules/security/tests/test_benign_corpus_bench.py
 - type: code
   path: portal/modules/security/tests/test_blue_orchestrate_toolleg.py
+- type: code
+  path: portal/modules/security/tests/test_corpus_replay_bench.py
+- type: code
+  path: portal/modules/security/tests/test_spl_variants.py
 - type: doc
   path: reports/RBP_BENIGN_CORPUS_20260730.md
 - type: doc
@@ -28,7 +34,7 @@ tags:
 - security
 - resolved
 created_at: 1785067200.0
-updated_at: 1785460800
+updated_at: 1785500996
 ---
 
 - **ID**: P5-SEC-BENIGN-CORPUS-001
@@ -64,6 +70,12 @@ updated_at: 1785460800
   EventCode 4738 and an incorrect technique description. This exposes the
   threshold-only T1557 SPL as weak evidence for the later Windows-aware SPL
   item rather than justifying a hallucinated alert.
+- **T1557 follow-through (2026-07-31)**: The threshold-only rule is retired.
+  The Windows rule now requires correlated NTLM network logons and privileged
+  ADMIN$/C$ share access from the same source/account across more than one
+  target. The old 4624-only cell is removed from the curated attack corpus,
+  and the blue evidence mapper no longer treats one generic 4624 marker as
+  sufficient T1557 coverage.
 - **Boundary**: Twelve plausibly confusable cells remain a representative
   subset, not an exhaustive estimate of normal enterprise behavior. Broader
   hosts, identities, time windows, applications, and routine workflows remain

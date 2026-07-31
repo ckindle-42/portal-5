@@ -19,8 +19,8 @@ tags:
 - T1592
 - technique
 - signature
-created_at: 1785351452.8786528
-updated_at: 1785351452.8786528
+created_at: 1785503864.927294
+updated_at: 1785503864.927294
 ---
 
 # T1592 — Gather victim host info — service fingerprinting and enumeration

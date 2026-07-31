@@ -4,6 +4,18 @@
 `portal/platform/agent/` is the discipline-agnostic agent loop: a bounded,
 grounded, writeback-capable engine that any module drives with its own action
 space. It is **platform core** — always present, never a toggleable module.
+
+- `goal.py` rejects execution without explicit scope and iteration, wall-clock,
+  and lab-action budgets.
+- `interfaces.py` defines structural capability-provider and executor contracts,
+  keeping platform core independent of `portal.modules.*`.
+- `decide.py` retrieves grounded candidates before choosing an action;
+  `rank.py` supplies the deterministic tool and parameter fallback.
+- `loop.py` enforces budgets, stop conditions, confidence gates, and honest
+  blocked outcomes while folding each executor result into observations.
+- `writeback.py` can propose a cited wiki unit, but never confirms or merges it.
+- `tests/test_agent_core.py` exercises those contracts hermetically without a
+  live pipeline or network.
 <!-- /WIKI:GENERATED -->
 
 ---

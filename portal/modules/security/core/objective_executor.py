@@ -22,6 +22,22 @@ from portal.modules.security.core.perception import LabPerception, assert_in_lab
 
 _TARGET_ARG_KEYS = ("target", "target_host", "host", "source_host")
 
+# Concrete Kali binaries whose exact invocation has been live-verified as
+# read-only against the Portal lab. SecurityExecutor may dispatch the ranker's
+# selected binary only when it appears here; every other selection retains the
+# semantic capability-level fallback below. Keep this deliberately small:
+# adding a tool is an execution-policy change, not a catalog-only change.
+_READ_ONLY_TOOL_DISPATCH_ALLOWLIST = frozenset(
+    {
+        "bloodhound-ce-python",
+        "enum4linux-ng",
+        "impacket-GetNPUsers",
+        "impacket-GetUserSPNs",
+        "nmap",
+        "nxc",
+    }
+)
+
 
 def _extract_target(args: dict[str, Any]) -> str | None:
     for key in _TARGET_ARG_KEYS:
@@ -54,17 +70,17 @@ class SecurityExecutor:
         from portal.modules.security.core import lab
         from portal.modules.security.core import oracles as oracle_mod
 
-        # portal.platform.agent.decide's "action" is the semantic capability id
-        # (e.g. "redis_probe"); "tool" is the concrete tool BINARY name (e.g.
-        # "curl") drawn from config/tool_catalog.yaml once a capability has any
-        # declared tools. lab.lab_dispatch's fn_name routing is keyed on
-        # action-level names (run_nmap_scan, check_cve, the "{service}_probe"
-        # convention, etc.), not raw binaries — dispatching on "tool" here
-        # silently fell through to the generic synthetic catch-all the moment a
-        # capability had a declared tool (found live during the P5-EMERGENT-001
-        # follow-up: redis_probe/http_8081_probe never landed once tool_catalog
-        # gave them a real "curl"/"redis-cli" tool name).
-        tool = decision.get("action") or decision.get("tool") or ""
+        # `action` is the semantic capability id (e.g. "ldap_probe"); `tool`
+        # is the concrete binary selected from config/tool_catalog.yaml. Only
+        # binaries with a live-verified, read-only lab alias may override the
+        # capability dispatch. Everything else—including benign but generic
+        # tools such as curl and stateful/offensive tools such as certipy-ad or
+        # impacket-secretsdump—retains the safe capability-level probe.
+        action = str(decision.get("action") or "")
+        selected_tool = str(decision.get("tool") or "")
+        dispatch_tool = (
+            selected_tool if selected_tool in _READ_ONLY_TOOL_DISPATCH_ALLOWLIST else action
+        )
         args = dict(decision.get("args") or {})
         target = _extract_target(args) or (
             self._default_targets[0] if self._default_targets else None
@@ -74,11 +90,15 @@ class SecurityExecutor:
         if target:
             assert_in_lab(target)  # I1: reject before any action leaves the box
 
-        raw = lab.lab_dispatch(tool, args, dry_run=self._dry_run)
+        raw = lab.lab_dispatch(dispatch_tool, args, dry_run=self._dry_run)
 
         oracle_id = decision.get("expected_oracle")
         oracle_result: bool | None = None
-        delta: dict[str, Any] = {"last_tool": tool, "last_target": target}
+        delta: dict[str, Any] = {
+            "last_action": action,
+            "last_tool": dispatch_tool,
+            "last_target": target,
+        }
         if oracle_id:
             observations = dict(state.get("observations") or {})
             verdict = oracle_mod.verify_finding(

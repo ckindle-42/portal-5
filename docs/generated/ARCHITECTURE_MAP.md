@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 990 canonical units.*
+*Deterministic projection of 994 canonical units.*
 
 ## Knowledge Layer
 
@@ -128,6 +128,7 @@
 | `unit-HOWTO-add-a-second-mac-studio` | why | 1 |
 | `unit-HOWTO-add-a-vllm-node-for-70b-models` | why | 1 |
 | `unit-HOWTO-add-to-crontab-crontab-e` | why | 1 |
+| `unit-HOWTO-adding-new-capabilities` | why | 4 |
 | `unit-HOWTO-adjust-thresholds` | why | 1 |
 | `unit-HOWTO-admin-user` | why | 1 |
 | `unit-HOWTO-alert-types` | why | 1 |
@@ -395,19 +396,20 @@
 | `unit-SEC_BENCH-scoring` | what | 2 |
 | `unit-SEC_BENCH-single-prompt-tests` | what | 1 |
 | `unit-SEC_BENCH-source-material` | what | 2 |
-| `unit-SEC_BENCH-sub-components` | what | 5 |
+| `unit-SEC_BENCH-sub-components` | what | 15 |
 | `unit-SEC_BENCH-verification` | what | 1 |
-| `unit-SEC_BENCH-what-it-is` | what | 2 |
+| `unit-SEC_BENCH-what-it-is` | what | 20 |
 | `unit-T1003.001-signature` | mixed | 3 |
 | `unit-T1003.003-signature` | mixed | 3 |
 | `unit-T1003.006-signature` | mixed | 2 |
+| `unit-T1021.001-signature` | mixed | 3 |
 | `unit-T1021.002-signature` | mixed | 5 |
 | `unit-T1046-signature` | mixed | 5 |
 | `unit-T1047-signature` | mixed | 3 |
 | `unit-T1053.005-signature` | mixed | 4 |
 | `unit-T1059-signature` | mixed | 5 |
 | `unit-T1059.004-signature` | mixed | 5 |
-| `unit-T1068-signature` | mixed | 3 |
+| `unit-T1068-signature` | mixed | 2 |
 | `unit-T1078-signature` | mixed | 5 |
 | `unit-T1083-signature` | mixed | 5 |
 | `unit-T1110.001-signature` | mixed | 2 |
@@ -417,7 +419,7 @@
 | `unit-T1203-signature` | mixed | 4 |
 | `unit-T1210-signature` | mixed | 3 |
 | `unit-T1505.003-signature` | mixed | 5 |
-| `unit-T1548.001-signature` | mixed | 5 |
+| `unit-T1548.001-signature` | mixed | 3 |
 | `unit-T1550.002-signature` | mixed | 3 |
 | `unit-T1552-signature` | mixed | 5 |
 | `unit-T1552.005-signature` | mixed | 3 |
@@ -426,7 +428,7 @@
 | `unit-T1558.003-signature` | mixed | 5 |
 | `unit-T1558.004-signature` | mixed | 3 |
 | `unit-T1592-signature` | mixed | 5 |
-| `unit-T1595-signature` | mixed | 4 |
+| `unit-T1595-signature` | mixed | 5 |
 | `unit-T1610-signature` | mixed | 2 |
 | `unit-T1611-signature` | mixed | 2 |
 | `unit-UAT_CALIBRATION-notes` | why | 1 |
@@ -466,7 +468,7 @@
 | `unit-V2_SCENARIO_AUDIT_V1-scenarios-from-uat-pass-predecessors-6-of-15` | why | 1 |
 | `unit-V2_SCENARIO_AUDIT_V1-summary` | why | 1 |
 | `unit-V2_SCENARIO_AUDIT_V1-v2-scenario-audit-bias-check-vs-uat-prompts` | why | 1 |
-| `unit-agent-loop-agent-loop-platform-core` | what | 1 |
+| `unit-agent-loop-agent-loop-platform-core` | what | 9 |
 | `unit-agent-loop-consumers` | what | 1 |
 | `unit-agent-loop-contracts-the-key-modules-implement` | what | 1 |
 | `unit-agent-loop-discipline-borrowed-from-the-campaign-supervisor` | what | 1 |
@@ -671,11 +673,11 @@
 | `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | what | 1 |
 | `unit-known-limitations-devstral-2509-upgrade-blocked-model-not-published` | what | 1 |
 | `unit-known-limitations-diarized-transcription-task-transcribe-001` | what | 1 |
-| `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | what | 1 |
+| `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | what | 14 |
 | `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | what | 5 |
 | `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | what | 5 |
 | `unit-known-limitations-known-limitations` | what | 1 |
-| `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | what | 1 |
+| `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | what | 11 |
 | `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | what | 1 |
 | `unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration` | what | 1 |
 | `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | what | 1 |
@@ -684,7 +686,7 @@
 | `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | what | 1 |
 | `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 5 |
 | `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | what | 1 |
-| `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | what | 1 |
+| `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | what | 5 |
 | `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | what | 1 |
 | `unit-known-limitations-p5-mlx-eval-002-ollama-s-official-gemma4-mlx-tags-are-not-drop-in-swaps` | what | 1 |
 | `unit-known-limitations-p5-mlx-eval-003-hf-hosted-mlx-models-are-currently-unreachable-by-the-pipeline` | what | 1 |
@@ -694,7 +696,7 @@
 | `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | what | 3 |
 | `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | what | 3 |
 | `unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps` | what | 1 |
-| `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | what | 8 |
+| `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | what | 11 |
 | `unit-known-limitations-request-size-cap-relies-on-content-length-only` | what | 3 |
 | `unit-known-limitations-router-model-eviction-single-request` | what | 4 |
 | `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | what | 1 |
@@ -771,6 +773,7 @@
 | `unit-model-catalog-glm-4-7-flash-q4-k-m` | what | 1 |
 | `unit-model-catalog-gpt-oss-20b` | what | 1 |
 | `unit-model-catalog-granite4-1-30b` | what | 1 |
+| `unit-model-catalog-granite4-1-30b-ctx16k` | what | 1 |
 | `unit-model-catalog-granite4-1-30b-ctx64k` | what | 1 |
 | `unit-model-catalog-granite4-1-8b` | what | 1 |
 | `unit-model-catalog-granite4-1-8b-ctx16k` | what | 1 |
@@ -861,6 +864,7 @@
 | `unit-model-catalog-portal5-qwen3-6-27b-mtp-q8-0-drafted` | what | 1 |
 | `unit-model-catalog-qwen3-6-27b-mtp-q4-k-m` | what | 1 |
 | `unit-model-catalog-qwen3-6-27b-q4-k-m` | what | 1 |
+| `unit-model-catalog-qwen3-6-27b-q4-k-m-ctx16k` | what | 1 |
 | `unit-model-catalog-qwen3-6-27b-q8-0` | what | 1 |
 | `unit-model-catalog-qwen3-6-35b-a3b-q4-k-m` | what | 1 |
 | `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m` | what | 1 |
@@ -999,15 +1003,15 @@
 | `unit-user-guide-workspaces` | what | 1 |
 | `unit-wiki-spine-coverage-gate` | mixed | 1 |
 
-**Total:** 990 units
+**Total:** 994 units
 
 ## Source Distribution
 
 - **bench-security**: 5 references
-- **code**: 124 references
-- **config**: 1 references
+- **code**: 192 references
+- **config**: 3 references
 - **design**: 433 references
-- **doc**: 494 references
-- **mitre**: 31 references
-- **scenario**: 57 references
-- **spl**: 31 references
+- **doc**: 496 references
+- **mitre**: 32 references
+- **scenario**: 56 references
+- **spl**: 32 references

@@ -7,8 +7,8 @@
 # never GROW: a new uncovered surface fails CI. Do not hand-edit to silence
 # the gate — that defeats the authority inversion it exists to enforce.
 eligible_count: 609
-covered_count: 62
-coverage_pct: 10.2
+covered_count: 91
+coverage_pct: 14.9
 uncovered:
   - deploy/playwright-mcp/browser_mcp.py
   - portal/conftest.py
@@ -28,17 +28,11 @@ uncovered:
   - portal/modules/security/cli/__init__.py
   - portal/modules/security/config/__init__.py
   - portal/modules/security/core/__main__.py
-  - portal/modules/security/core/_config.py
   - portal/modules/security/core/_sweep_driver.py
   - portal/modules/security/core/ability_port.py
   - portal/modules/security/core/agentic_blue_eval.py
   - portal/modules/security/core/analyst_verdict.py
   - portal/modules/security/core/bench_integration.py
-  - portal/modules/security/core/candidate_eval.py
-  - portal/modules/security/core/capability/__init__.py
-  - portal/modules/security/core/capability/cli.py
-  - portal/modules/security/core/capability/render.py
-  - portal/modules/security/core/capability/tool_inventory.py
   - portal/modules/security/core/capability_graph.py
   - portal/modules/security/core/capsules.py
   - portal/modules/security/core/cloud_bench.py
@@ -51,13 +45,8 @@ uncovered:
   - portal/modules/security/core/cred_bench.py
   - portal/modules/security/core/ctf_bench.py
   - portal/modules/security/core/decision_engine.py
-  - portal/modules/security/core/drift_cli.py
-  - portal/modules/security/core/emergent_gaps.py
   - portal/modules/security/core/episode.py
   - portal/modules/security/core/field_journal.py
-  - portal/modules/security/core/goal_cli.py
-  - portal/modules/security/core/goal_decide.py
-  - portal/modules/security/core/goal_eval.py
   - portal/modules/security/core/growth_loop.py
   - portal/modules/security/core/intake.py
   - portal/modules/security/core/investigation/__init__.py
@@ -65,15 +54,12 @@ uncovered:
   - portal/modules/security/core/investigation/case_notebook.py
   - portal/modules/security/core/investigation/evidence.py
   - portal/modules/security/core/llm_redteam.py
-  - portal/modules/security/core/loop_cli.py
   - portal/modules/security/core/model_survey.py
   - portal/modules/security/core/multichain.py
   - portal/modules/security/core/notify_scoreboard.py
   - portal/modules/security/core/oast_bench.py
-  - portal/modules/security/core/objective_entry.py
   - portal/modules/security/core/objective_oracles.py
   - portal/modules/security/core/oracles.py
-  - portal/modules/security/core/perception.py
   - portal/modules/security/core/playbooks.py
   - portal/modules/security/core/re_firmware.py
   - portal/modules/security/core/recall_attribution.py
@@ -89,12 +75,10 @@ uncovered:
   - portal/modules/security/core/siem/index_wait.py
   - portal/modules/security/core/siem/network_capture.py
   - portal/modules/security/core/siem/spl_backend.py
-  - portal/modules/security/core/siem/spl_detections.py
   - portal/modules/security/core/stage2_propose.py
   - portal/modules/security/core/telemetry.py
   - portal/modules/security/core/toolcall_reliability.py
   - portal/modules/security/core/trace.py
-  - portal/modules/security/core/trajectory_score.py
   - portal/modules/security/core/validate_captures.py
   - portal/modules/security/core/validation.py
   - portal/modules/security/eval/__init__.py
@@ -119,7 +103,6 @@ uncovered:
   - portal/modules/security/tests/test_candidate_eval.py
   - portal/modules/security/tests/test_candidate_eval_incumbent.py
   - portal/modules/security/tests/test_capability_graph.py
-  - portal/modules/security/tests/test_capability_index.py
   - portal/modules/security/tests/test_capsules.py
   - portal/modules/security/tests/test_capture_enrichment.py
   - portal/modules/security/tests/test_ci_parity.py
@@ -127,7 +110,6 @@ uncovered:
   - portal/modules/security/tests/test_compliance_report.py
   - portal/modules/security/tests/test_continuous_eval.py
   - portal/modules/security/tests/test_council_agreement.py
-  - portal/modules/security/tests/test_coverage_expand.py
   - portal/modules/security/tests/test_drift_gate.py
   - portal/modules/security/tests/test_emergent_gaps.py
   - portal/modules/security/tests/test_emergent_recall.py
@@ -147,7 +129,6 @@ uncovered:
   - portal/modules/security/tests/test_matrix.py
   - portal/modules/security/tests/test_multichain.py
   - portal/modules/security/tests/test_notify_scoreboard.py
-  - portal/modules/security/tests/test_objective_entry.py
   - portal/modules/security/tests/test_oracles.py
   - portal/modules/security/tests/test_perception_scope.py
   - portal/modules/security/tests/test_playbooks.py
@@ -163,7 +144,6 @@ uncovered:
   - portal/modules/security/tests/test_security_mcp.py
   - portal/modules/security/tests/test_self_index.py
   - portal/modules/security/tests/test_selfindex_fidelity.py
-  - portal/modules/security/tests/test_spl_variants.py
   - portal/modules/security/tests/test_splunk_blue.py
   - portal/modules/security/tests/test_stage2_propose.py
   - portal/modules/security/tests/test_subtechnique_gate.py
@@ -180,14 +160,6 @@ uncovered:
   - portal/modules/security/tests/test_validation.py
   - portal/modules/security/tests/test_web_exec_coverage.py
   - portal/modules/security/tools/__init__.py
-  - portal/platform/agent/__init__.py
-  - portal/platform/agent/decide.py
-  - portal/platform/agent/goal.py
-  - portal/platform/agent/interfaces.py
-  - portal/platform/agent/loop.py
-  - portal/platform/agent/rank.py
-  - portal/platform/agent/tests/test_agent_core.py
-  - portal/platform/agent/writeback.py
   - portal/platform/inference/__init__.py
   - portal/platform/inference/__main__.py
   - portal/platform/inference/cli/__init__.py
@@ -513,7 +485,6 @@ uncovered:
   - tests/unit/test_expected_models.py
   - tests/unit/test_generated_artifacts_fresh.py
   - tests/unit/test_hint_validator.py
-  - tests/unit/test_lab_exec_posture.py
   - tests/unit/test_lab_setup.py
   - tests/unit/test_mcp_endpoints.py
   - tests/unit/test_mcp_fleet_single_source.py
