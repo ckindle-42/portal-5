@@ -33,6 +33,7 @@
     "impacket-getST",
     "impacket-ntlmrelayx",
     "impacket-psexec",
+    "impacket-rdp_check",
     "impacket-rbcd",
     "impacket-secretsdump",
     "impacket-ticketer",
@@ -74,6 +75,10 @@
     "wget",
     "whoami"
   ],
+  "runtime_checks": {
+    "nmap --version": "Nmap version",
+    "impacket-rdp_check -h": "usage:"
+  },
   "files": [
     "/opt/AutoBlue-MS17-010/eternalblue_exploit7.py",
     "/opt/POC_CVE-2023-21839/CVE-2023-21839.py",

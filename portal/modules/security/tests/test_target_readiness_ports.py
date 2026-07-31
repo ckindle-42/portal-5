@@ -59,12 +59,14 @@ class TestPublishedPort:
         )
         return f'{{"Publishers":[{publishers}]}}\n'
 
-    def test_single_port_returned_without_http_probe(self):
+    def test_single_port_waits_for_http_readiness(self):
         from scripts.lab_targets import _published_port
 
         def fake_host_exec(cmd, timeout=15):
-            assert "curl" not in cmd, "must not probe when there's only one candidate port"
-            return {"ok": True, "output": self._ps_json_output([8090])}
+            if "ps --format json" in cmd:
+                return {"ok": True, "output": self._ps_json_output([8090])}
+            assert "curl" in cmd and ":8090/" in cmd
+            return {"ok": True, "output": "200"}
 
         with patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec):
             assert _published_port("/opt/vulhub/x/docker-compose.yml") == 8090
@@ -193,6 +195,58 @@ class TestEnsureTargetReady:
         assert result["healed"] is False
         assert result["port"] is None
         assert "target-unrecoverable" in result["reason"]
+
+    @patch("scripts.lab_targets._poll_reachable_port", return_value=8585)
+    @patch("scripts.lab_targets._meta3_http_contains", return_value=True)
+    @patch("scripts.lab_targets._ensure_meta3_phpmyadmin_service", return_value=True)
+    @patch("scripts.lab_targets._probe_any_reachable_port", return_value=None)
+    def test_phpmyadmin_version_mismatch_is_persistently_repaired(
+        self, mock_probe, mock_repair, mock_http, mock_poll
+    ):
+        from scripts.lab_targets import ensure_target_ready
+
+        scenario = _make_scenario(
+            key="meta3_phpmyadmin_rce",
+            target_host="10.10.11.10",
+            vulhub_env=None,
+        )
+        scenario["target_port"] = 8585
+        result = ensure_target_ready(scenario, dry_run=False, retries=1)
+        assert result["ready"] is True
+        assert result["healed"] is True
+        assert result["port"] == 8585
+        assert "matching Meta3 phpMyAdmin" in result["reason"]
+        mock_repair.assert_called_once_with("10.10.11.10")
+        mock_http.assert_called_once_with(
+            "10.10.11.10", 8585, "/phpmyadmin/js/messages.php", "pmaversion = '3.5.8'"
+        )
+
+    @patch("scripts.lab_targets._poll_reachable_port", return_value=3000)
+    @patch("scripts.lab_targets._meta3_http_contains", return_value=True)
+    @patch("scripts.lab_targets._ensure_meta3_rails_service", return_value=True)
+    @patch("scripts.lab_targets._probe_any_reachable_port", return_value=None)
+    def test_rails_port_requires_the_expected_web_console_service(
+        self, mock_probe, mock_repair, mock_http, mock_poll
+    ):
+        from scripts.lab_targets import ensure_target_ready
+
+        scenario = _make_scenario(
+            key="meta3_rails_console_rce",
+            target_host="10.10.11.10",
+            vulhub_env=None,
+        )
+        scenario["target_port"] = 3000
+        result = ensure_target_ready(scenario, dry_run=False, retries=1)
+        assert result["ready"] is True
+        assert result["port"] == 3000
+        mock_repair.assert_called_once_with("10.10.11.10")
+        mock_http.assert_called_once_with(
+            "10.10.11.10",
+            3000,
+            "/missing404",
+            "web-console",
+            header="X-Forwarded-For: 0000::1",
+        )
 
 
 # ── Phase 2: Port injection ─────────────────────────────────────────────────

@@ -14,6 +14,22 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _load_env() -> None:
+    """Load repository lab configuration before deriving readiness constants."""
+    env_file = REPO_ROOT / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+_load_env()
 LAB_DIR = os.environ.get("LAB_DIR", os.path.expanduser("~/AI_Output/lab"))
 
 CHECKS: dict[str, dict] = {
@@ -65,7 +81,41 @@ CHECKS: dict[str, dict] = {
 
 
 def _check_attack_image() -> str:
-    return "GREEN"  # Docker image existence checked at runtime
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "exec",
+                "portal5-dind",
+                "docker",
+                "image",
+                "inspect",
+                "portal5-attack:latest",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        return "GREEN" if result.returncode == 0 else "RED"
+    except (OSError, subprocess.SubprocessError):
+        return "RED"
+
+
+def _check_dind() -> str:
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", "portal5-dind"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return "GREEN" if result.returncode == 0 and result.stdout.strip() == "true" else "RED"
+    except (OSError, subprocess.SubprocessError):
+        return "RED"
 
 
 def _check_attack_manifest() -> str:
@@ -96,11 +146,24 @@ def _check_attack_manifest() -> str:
         return "RED"
     if manifest.get("contract_sha256") != expected_hash or manifest.get("ready") is not True:
         return "RED"
-    checks = [*manifest.get("tools", {}).values(), *manifest.get("files", {}).values()]
+    checks = [
+        *manifest.get("tools", {}).values(),
+        *manifest.get("files", {}).values(),
+        *manifest.get("runtime_checks", {}).values(),
+    ]
     return "GREEN" if checks and all(value is True for value in checks) else "RED"
 
 
-def _check_vulhub() -> str:
+def _check_vulhub_clone() -> str:
+    try:
+        from scripts.lab_host import _host_exec
+
+        root = os.environ.get("LAB_VULHUB_HOST_ROOT", "/opt/vulhub")
+        result = _host_exec(f"test -d {root}/.git && echo EXISTS", timeout=15)
+        if result.get("ok") and "EXISTS" in result.get("output", ""):
+            return "GREEN"
+    except Exception:
+        pass
     p = Path(LAB_DIR) / "vulhub" / ".git"
     return "GREEN" if p.exists() else "RED"
 
@@ -156,27 +219,20 @@ def _check_lab_vulhub_running() -> str:
     return _proxmox_vm_running(112)
 
 
-def _proxmox_vm_running(vmid: int) -> str:
-    import subprocess
-
+def _proxmox_vm_running(vmid: int, kind: str = "qemu") -> str:
     try:
-        r = subprocess.run(
-            [
-                "curl",
-                "-sk",
-                f"{os.environ.get('PROXMOX_URL', 'https://10.10.11.5:8006')}/api2/json/nodes/proxmox3/qemu/{vmid}/status/current",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        import json
+        from scripts.lab_host import _proxmox_exec
 
-        d = json.loads(r.stdout)
-        status = d.get("data", {}).get("status", "")
-        return "GREEN" if status == "running" else "RED"
+        command = "pct status" if kind == "lxc" else "qm status"
+        result = _proxmox_exec(f"{command} {vmid}", timeout=15)
+        status = result.get("output", "").lower()
+        return "GREEN" if result.get("ok") and "running" in status else "RED"
     except Exception:
         return "AMBER"
+
+
+def _check_web_reachable() -> str:
+    return _check_port_reachable(os.environ.get("LAB_TARGET_WEB", "10.10.11.50"), 8080)
 
 
 def _check_dc_reachable() -> str:
@@ -216,21 +272,19 @@ def _check_port_reachable(host: str, port: int) -> str:
 
 
 def _check_snapshots() -> str:
-    for vmid in [110, 111]:
+    try:
+        from scripts.lab_host import _proxmox_exec
+    except Exception:
+        return "AMBER"
+    vmids = [
+        os.environ.get("LAB_DC_VMID", "110"),
+        os.environ.get("LAB_SRV_VMID", "111"),
+    ]
+    for vmid in vmids:
         try:
-            r = __import__("subprocess").run(
-                [
-                    "curl",
-                    "-sk",
-                    f"{os.environ.get('PROXMOX_URL', 'https://10.10.11.5:8006')}/api2/json/nodes/proxmox3/qemu/{vmid}/snapshot",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            data = __import__("json").loads(r.stdout)
-            snaps = [s for s in data.get("data", []) if s.get("name") not in ("current",)]
-            if not snaps:
+            result = _proxmox_exec(f"qm listsnapshot {int(vmid)}", timeout=15)
+            lines = [line for line in result.get("output", "").splitlines() if line.strip()]
+            if not result.get("ok") or len(lines) < 2:
                 return "AMBER"
         except Exception:
             return "AMBER"

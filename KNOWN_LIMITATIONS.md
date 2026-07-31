@@ -110,12 +110,13 @@ authoritative; presence in this register alone does not mean the issue is open.
   support files are pinned. The Windows FTP, MySQL, and full-compromise
   `EXEC_SEQUENCES` were reconciled with their scenario contracts, and stale
   target-local Windows commands were moved behind remote-capable clients.
-  `nxc rdp` remains installed for the non-interactive RDP check. Metasploit is
+  `impacket-rdp_check` is runtime-verified for the non-interactive RDP check. Metasploit is
   available to these explicit, bounded scenario steps; it remains deliberately
   excluded from the emergent objective loop's read-only binary allowlist.
-  New exploit scenarios are catalog/test verified but have not been fired
-  against vmid 113 in this change set; the VM's documented instability still
-  requires bounded live runs and recovery planning before such execution.
+  All three added Meta3 scenarios were fired in bounded live runs against vmid
+  113 on 2026-07-31 and produced 100%-valid scenario-specific captures. Target
+  readiness now discovers DHCP drift by MAC and persistently repairs the Rails
+  and vulnerable phpMyAdmin services after clean boots.
 <!-- /WIKI:GENERATED -->
 
 ---

@@ -126,3 +126,26 @@ class TestAttackManifest:
         assert result["ready"] is False
         assert result["tools"]["definitely-not-a-real-command"] is False
         assert result["files"][str(tmp_path / "missing")] is False
+
+    def test_contract_verifier_executes_runtime_smoke_checks(self, tmp_path):
+        from scripts.verify_attack_image import verify
+
+        contract = tmp_path / "contract.json"
+        contract.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "mode": "lab-exercise",
+                    "tools": ["python3"],
+                    "files": [],
+                    "runtime_checks": {
+                        "python3 --version": "Python",
+                        "python3 -c 'print(123)'": "not-present",
+                    },
+                }
+            )
+        )
+        result = verify(contract)
+        assert result["runtime_checks"]["python3 --version"] is True
+        assert result["runtime_checks"]["python3 -c 'print(123)'"] is False
+        assert result["ready"] is False

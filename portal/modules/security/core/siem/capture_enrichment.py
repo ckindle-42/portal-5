@@ -212,6 +212,47 @@ ADDITIONAL_SIGNAL_PATTERNS: dict[str, list[str]] = {
     ],
 }
 
+# Technique evidence is often scenario-specific. A generic T1190 example for
+# SQL injection cannot validate an observed Shellshock, Gremlin, or Spring
+# data-binding request. These signatures are deliberately scoped by scenario
+# so an ordinary request in one capture cannot certify an unrelated exploit.
+SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
+    "meta3_phpmyadmin_rce": {
+        "T1190": [r"/phpmyadmin/(?:js/messages\.php|index\.php)"],
+        "T1078": [r"(?:username|pma_username)(?:=|%3D)root"],
+        "T1059": [r"nt authority\\+(?:local service|system)"],
+    },
+    "meta3_rails_console_rce": {
+        "T1190": [r"/missing404", r"web_console"],
+        # The bounded Ruby payload executes ``whoami`` on the Windows target.
+        # web-console returns the command's stdout in its JSON response, so
+        # this is observed execution evidence rather than an attack-ledger
+        # assertion. Keep it scenario-scoped to avoid crediting unrelated
+        # Windows banners with command execution.
+        "T1059": [r"nt authority\\+system"],
+    },
+    "meta3_rdp_standard_auth": {
+        "T1078": [
+            r"EventCode=4624.*LogonType=10",
+            # impacket-rdp_check performs protocol-level credential validation
+            # without opening a desktop; Server 2008 R2 records that bounded
+            # validation as a network logon for the documented account.
+            r"EventCode=4624.*LogonType=3.*Account=vagrant.*LogonProcessName=NtLmSsp",
+        ]
+    },
+    "vuln_adminer_ssrf_recon": {
+        "T1190": [r"auth(?:%5B|\[)driver(?:%5D|\])=elastic"],
+        "T1046": [r"10\.10\.11\.21(?::|%3A)(?:5985|31337)"],
+    },
+    "vuln_ajreport_rce": {"T1190": [r"/dataSetParam/verification;swagger-ui/"]},
+    "vuln_docker_api_rce": {"T1190": [r"POST /containers/create"]},
+    "vuln_druid_rce": {"T1190": [r"/druid/indexer/v1/sampler"]},
+    "vuln_hugegraph_rce": {"T1190": [r"POST /gremlin"]},
+    "vuln_jimureport_rce": {"T1190": [r"/jmreport/queryFieldBySql"]},
+    "vuln_shellshock_rce": {"T1190": [r"/victim\.cgi", r"User-Agent: \(\) \{ :;\}"]},
+    "vuln_spring4shell_rce": {"T1190": [r"class\.module\.classLoader", r"/tomcatwar\.jsp"]},
+}
+
 
 def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> dict:
     """Validate that a capture has TECHNIQUE-SPECIFIC signals for its ground
@@ -262,7 +303,10 @@ def validate_capture_signals(scenario: str, telemetry: dict[str, list[str]]) -> 
     unchecked = []
     for technique in gt:
         expected = EXPECTED_SIGNALS.get(technique)
-        extra_patterns = ADDITIONAL_SIGNAL_PATTERNS.get(technique, [])
+        extra_patterns = [
+            *ADDITIONAL_SIGNAL_PATTERNS.get(technique, []),
+            *SCENARIO_SIGNAL_PATTERNS.get(scenario, {}).get(technique, []),
+        ]
         if not expected and not extra_patterns:
             unchecked.append(technique)
             continue
