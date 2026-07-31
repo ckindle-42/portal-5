@@ -13,7 +13,7 @@ tags:
 - architecture
 - law
 created_at: 1785348301.194298
-updated_at: 1785348301.194298
+updated_at: 1785458075
 ---
 
 
@@ -21,7 +21,7 @@ Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack.
 
 **Architecture**: Open WebUI → Portal Pipeline (:9099) → Ollama (:11434) → local models. MCP servers (:8910–8928) provide tools (documents, code sandbox, TTS, research, memory, RAG, browser, proxmox, pipeline introspection).
 
-**Inference**: Single tier — **Ollama** (GGUF models, Ollama 0.30.7+ with native MLX Metal backend on Apple Silicon). The MLX inference proxy was retired in commit 3a0c58e; Ollama now matches or beats standalone mlx_lm throughput while removing the dual-stack operational overhead. Host-native, not Docker. NOTE: MLX is still used outside inference — for speech (mlx-speech :8918), diarized transcription (mlx-transcribe :8924), embeddings (:8917), and reranking (:8925). Those are audio/retrieval runtimes, not the chat inference tier.
+**Inference**: Single tier — **Ollama** (GGUF models, Ollama 0.32.4+ with native MLX Metal backend on Apple Silicon). The 0.32.4 floor carries the upstream Metal-residency fix that keeps pinned models resident across multi-model serving. The MLX inference proxy was retired in commit 3a0c58e; Ollama now matches or beats standalone mlx_lm throughput while removing the dual-stack operational overhead. Host-native, not Docker. NOTE: MLX is still used outside inference — for speech (mlx-speech :8918), diarized transcription (mlx-transcribe :8924), embeddings (:8917), and reranking (:8925). Those are audio/retrieval runtimes, not the chat inference tier.
 
 **Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command.
 

@@ -652,31 +652,28 @@ _launch_start_transcribe() {
       echo "⚠️  HF_TOKEN not set — diarization will fail on first call."
       echo "   Set in .env after accepting pyannote model licenses on HuggingFace."
     fi
-    # mlx-transcribe.py imports portal.platform.mcp_host.workspace, so it needs this
-    # project's own venv interpreter — bare `python3` resolves to the system/Homebrew
-    # interpreter, whose site-packages can have an unrelated same-named "portal"
-    # package installed (found live: __editable__.portal-1.4.0.pth pointing at an
-    # unrelated project), which silently shadows this repo's portal package and
-    # breaks the import with a misleading "No module named 'portal.platform'".
-    TRANSCRIBE_PY="python3"
-    [ -x "$PORTAL_ROOT/.venv/bin/python3" ] && TRANSCRIBE_PY="$PORTAL_ROOT/.venv/bin/python3"
     echo "Starting MLX Transcribe (port 8924)..."
-    nohup "$TRANSCRIBE_PY" "$PORTAL_ROOT/scripts/mlx-transcribe.py" >> "$LOG_FILE" 2>&1 &
-    echo $! > "$PID_FILE"
+    _ensure_native_mcp_service \
+      "mlx-transcribe" "com.portal5.mlx-transcribe" \
+      "${MLX_TRANSCRIBE_PORT:-8924}" "mlx-transcribe"
     sleep 2
-    if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-      echo "✅ MLX Transcribe started (PID $(cat "$PID_FILE"))"
+    if curl -fsS "http://localhost:${MLX_TRANSCRIBE_PORT:-8924}/health" &>/dev/null; then
+      echo "✅ MLX Transcribe is healthy"
       echo "   Log: $LOG_FILE"
     else
       echo "❌ Failed to start. Check $LOG_FILE"
-      rm -f "$PID_FILE"
       exit 1
     fi
 }
 
 _launch_stop_transcribe() {
     PID_FILE="/tmp/portal-mlx-transcribe.pid"
-    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+    if [ "$(uname -s)" = "Darwin" ] &&
+       launchctl print "gui/$(id -u)/com.portal5.mlx-transcribe" &>/dev/null 2>&1; then
+      launchctl bootout "gui/$(id -u)/com.portal5.mlx-transcribe" 2>/dev/null || true
+      rm -f "$PID_FILE"
+      echo "MLX Transcribe stopped (launchd)"
+    elif [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
       kill "$(cat "$PID_FILE")" 2>/dev/null || true
       rm -f "$PID_FILE"
       echo "MLX Transcribe stopped"

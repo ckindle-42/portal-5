@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 985 canonical units.*
+*Deterministic projection of 990 canonical units.*
 
 ## Knowledge Layer
 
@@ -672,15 +672,17 @@
 | `unit-known-limitations-devstral-2509-upgrade-blocked-model-not-published` | what | 1 |
 | `unit-known-limitations-diarized-transcription-task-transcribe-001` | what | 1 |
 | `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | what | 1 |
+| `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | what | 5 |
 | `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | what | 5 |
 | `unit-known-limitations-known-limitations` | what | 1 |
 | `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | what | 1 |
 | `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | what | 1 |
 | `unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration` | what | 1 |
 | `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | what | 1 |
+| `unit-known-limitations-narrated-tool-call-instead-of-real-dispatch` | what | 5 |
 | `unit-known-limitations-no-built-in-multi-user-rate-limiting` | what | 1 |
 | `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | what | 1 |
-| `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 1 |
+| `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 5 |
 | `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | what | 1 |
 | `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | what | 1 |
 | `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | what | 1 |
@@ -692,12 +694,14 @@
 | `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | what | 3 |
 | `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | what | 3 |
 | `unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps` | what | 1 |
-| `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | what | 1 |
+| `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | what | 8 |
 | `unit-known-limitations-request-size-cap-relies-on-content-length-only` | what | 3 |
+| `unit-known-limitations-router-model-eviction-single-request` | what | 4 |
 | `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | what | 1 |
 | `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | what | 1 |
+| `unit-known-limitations-spine-code-coverage-ratchet` | what | 2 |
 | `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | what | 1 |
-| `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | what | 1 |
+| `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | what | 6 |
 | `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | what | 1 |
 | `unit-known-limitations-voice-cloning-fish-speech-requires-separate-installation` | what | 1 |
 | `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps` | what | 1 |
@@ -993,16 +997,17 @@
 | `unit-user-guide-tools-mcp-servers` | what | 1 |
 | `unit-user-guide-uploading-documents` | what | 1 |
 | `unit-user-guide-workspaces` | what | 1 |
+| `unit-wiki-spine-coverage-gate` | mixed | 1 |
 
-**Total:** 985 units
+**Total:** 990 units
 
 ## Source Distribution
 
 - **bench-security**: 5 references
-- **code**: 98 references
+- **code**: 124 references
 - **config**: 1 references
 - **design**: 433 references
-- **doc**: 487 references
+- **doc**: 494 references
 - **mitre**: 31 references
 - **scenario**: 57 references
 - **spl**: 31 references

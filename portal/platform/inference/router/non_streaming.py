@@ -18,7 +18,10 @@ from fastapi.responses import JSONResponse
 
 from portal.platform.inference.router.metrics import _hint_fallback_total
 from portal.platform.inference.router.power import _record_usage
-from portal.platform.inference.router.tools import _dispatch_tool_call
+from portal.platform.inference.router.tools import (
+    _dispatch_tool_call,
+    _select_explicit_required_tool,
+)
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
     _model_supports_tools,
@@ -312,6 +315,20 @@ async def _try_non_streaming(
     if _ns_tools and _model_supports_tools(target_model):
         from portal.platform.inference.tool_registry import tool_registry  # noqa: PLC0415
 
+        _required_tool = None
+        if req_body.get("tool_choice") in (None, "auto"):
+            _required_tool = _select_explicit_required_tool(
+                req_body.get("messages", []), set(_ns_tools)
+            )
+        if _required_tool:
+            _ns_tools = [_required_tool]
+            req_body["tool_choice"] = "required"
+            logger.info(
+                "Tool-call (non-stream): workspace=%s explicit side-effect intent "
+                "selected required tool=%s",
+                workspace_id,
+                _required_tool,
+            )
         await tool_registry.refresh()
         _tools_arr = tool_registry.get_openai_tools(_ns_tools)
         # Merge client-injected tools with workspace tools — same logic as the
@@ -319,7 +336,7 @@ async def _try_non_streaming(
         # blue/purple) that inject domain-specific tools via body["tools"]
         # had them silently discarded and replaced with only the workspace's
         # own registered tools (found 2026-07-05).
-        _client_tools = body.get("tools", [])
+        _client_tools = [] if _required_tool else body.get("tools", [])
         if _tools_arr:
             if _client_tools:
                 _seen_names = {t.get("function", {}).get("name") for t in _tools_arr}

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 
 from portal.platform.inference.router.metrics import (
@@ -19,6 +20,83 @@ from portal.platform.inference.router.metrics import (
 from portal.platform.inference.router.state import _record_error
 
 logger = logging.getLogger(__name__)
+
+
+_CREATE_ACTION_RE = re.compile(r"\b(?:build|create|generate|make|produce|save)\b")
+_RUN_ACTION_RE = re.compile(r"\b(?:execute|run)\b")
+
+
+def _last_user_content(messages: list[dict]) -> str:
+    """Return the last user turn as plain text, including multimodal text parts."""
+    for message in reversed(messages):
+        if message.get("role") != "user":
+            continue
+        content = message.get("content", "")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return " ".join(
+                str(part.get("text", ""))
+                for part in content
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
+        return str(content)
+    return ""
+
+
+def _select_explicit_required_tool(messages: list[dict], effective_tools: set[str]) -> str | None:
+    """Select one allow-listed tool when the user explicitly requires its side effect.
+
+    A single-tool schema plus ``tool_choice=required`` avoids the model failure
+    where a multi-tool payload produces a narrated pseudo-call in content instead
+    of a native ``tool_calls`` result. Matching is deliberately conservative:
+    general coding or document-writing prompts retain the full tool set and
+    ``tool_choice=auto``.
+    """
+    text = _last_user_content(messages).lower()
+    if not text:
+        return None
+
+    candidates: list[tuple[str, bool]] = [
+        (
+            "create_powerpoint",
+            bool(_CREATE_ACTION_RE.search(text))
+            and any(term in text for term in ("powerpoint", "power point", ".pptx", "slide deck")),
+        ),
+        (
+            "create_excel",
+            bool(_CREATE_ACTION_RE.search(text))
+            and any(term in text for term in ("excel", ".xlsx", "spreadsheet", "workbook")),
+        ),
+        (
+            "create_word_document",
+            bool(_CREATE_ACTION_RE.search(text))
+            and any(term in text for term in ("word document", ".docx")),
+        ),
+        (
+            "execute_bash",
+            bool(_RUN_ACTION_RE.search(text))
+            and any(term in text for term in ("bash", "shell command", "```sh", "```shell")),
+        ),
+        (
+            "execute_nodejs",
+            bool(_RUN_ACTION_RE.search(text))
+            and any(term in text for term in ("node.js", "nodejs", "javascript", "```js")),
+        ),
+        (
+            "execute_python",
+            bool(_RUN_ACTION_RE.search(text))
+            and (
+                "python" in text
+                or "```py" in text
+                or re.search(r"(?m)^\s*(?:from\s+\S+\s+import|import\s+\S+)", text) is not None
+            ),
+        ),
+    ]
+    for tool_name, matched in candidates:
+        if matched and tool_name in effective_tools:
+            return tool_name
+    return None
 
 
 async def _dispatch_tool_call(

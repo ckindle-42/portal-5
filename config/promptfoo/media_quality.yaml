@@ -7,7 +7,7 @@ providers:
     config:
       temperature: 0
       num_predict: 512
-  - id: ollama:chat:granite4.1:8b
+  - id: ollama:chat:granite4.1:8b-ctx16k
     label: auto-video
     config:
       temperature: 0

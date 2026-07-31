@@ -38,9 +38,9 @@ class TestCorpusEpisode:
         assert episode.telemetry["windows:security"] == [
             "EventCode=4768 Account=hacker2 PreAuthType=0"
         ]
-        # Blue must never see the corpus label anywhere except ground truth —
-        # the scenario/target fields are corpus-provenance metadata, not a hint.
-        assert episode.scenario == "corpus_t1558_004"
+        # Blue must never see the corpus label anywhere except ground truth.
+        assert episode.scenario == "corpus_replay"
+        assert "1558" not in episode.scenario
         assert episode.target_host == "lab-corpus-splunk"
 
     def test_returns_none_when_rows_have_no_raw_field(self, monkeypatch):
@@ -49,6 +49,29 @@ class TestCorpusEpisode:
             crb.SplunkBackend, "_run_search", lambda self, search, earliest, latest: rows
         )
         assert crb._corpus_episode("T1558.004", "windows:security") is None
+
+    def test_preserves_label_blind_correlation_aggregate(self, monkeypatch):
+        raw_rows = [_fake_row("EventCode=4625 Account=user-a IpAddress=10.0.0.5")]
+        aggregate_rows = [
+            {
+                "_time": 0.0,
+                "host": "",
+                "raw": "{}",
+                "fields": {"IpAddress": "10.0.0.5", "distinct_accounts": "5"},
+            }
+        ]
+
+        def fake_search(self, search, earliest, latest):
+            return aggregate_rows if "| stats " in search else raw_rows
+
+        monkeypatch.setattr(crb.SplunkBackend, "_run_search", fake_search)
+        episode = crb._corpus_episode("T1110.003", "windows:security")
+        assert episode is not None
+        assert episode.telemetry["windows:security"] == [
+            "IpAddress=10.0.0.5 distinct_accounts=5",
+            "EventCode=4625 Account=user-a IpAddress=10.0.0.5",
+        ]
+        assert "T1110.003" not in "\n".join(episode.telemetry["windows:security"])
 
 
 class TestCheckpointBackupDiscipline:

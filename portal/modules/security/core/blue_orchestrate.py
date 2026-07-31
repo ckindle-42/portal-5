@@ -23,6 +23,7 @@ from .agentic_blue_eval import (
     _call_model,
     _find_balanced_json_objects,
     _query_real_telemetry,
+    _summarize_telemetry,
 )
 from .analyst_verdict import SectionOutput
 from .blue import (
@@ -76,6 +77,20 @@ _TOOL_SECTION_SYSTEM_PROMPT = (
     "Do not interpret or conclude anything; just gather evidence."
 )
 
+_VERDICT_GROUNDING_POLICY = (
+    "ATT&CK describes adversary techniques; it does not make every occurrence of a "
+    "dual-use primitive malicious. CONFIRMED requires cited evidence of both "
+    "technique-shaped activity and adversarial or unauthorized use. A command, HTTP "
+    "request, WMI process, sudo invocation, or scheduled task alone is insufficient. "
+    "Treat explicit operational context—such as change tickets, known automation or "
+    "service identities, vendor-signed paths, mTLS, health/deployment/QA user agents, "
+    "and coherent success/completion sequences—as material counter-evidence, though "
+    "not proof by itself. If that context explains the activity and no cited evidence "
+    "contradicts it, use RULED_OUT. Use ANOMALOUS_UNCLASSIFIED only for a cited, "
+    "unexplained deviation or conflict; do not escalate solely because legitimate "
+    "activity could theoretically be abused or optional corroboration is unavailable."
+)
+
 
 def _retrieval_tool_schemas() -> list[dict]:
     from .agentic_blue_eval import _SEARCH_TOOLS
@@ -97,7 +112,9 @@ _BARRIER_TOOL_SCHEMAS = [
             "name": "emit_verdict",
             "description": (
                 "Emit a conclusive verdict. Use CONFIRMED when the evidence "
-                "supports a specific known MITRE technique; use RULED_OUT "
+                "supports a specific known MITRE technique in an adversarial "
+                "or unauthorized context; a dual-use primitive alone is not "
+                "enough. Use RULED_OUT "
                 "when the evidence, examined honestly, does not support the "
                 "hypothesis being investigated. If you saw signal but cannot "
                 "map it exactly to a known technique, do NOT emit CONFIRMED — "
@@ -153,7 +170,9 @@ _BARRIER_TOOL_SCHEMAS = [
                 "Emit ANOMALOUS_UNCLASSIFIED — signal was present in the "
                 "evidence but you cannot map it exactly to a known technique. "
                 "This is a first-class success outcome for this investigation, "
-                "not a fallback. Use this when you see something worth "
+                "not a fallback. Use this only for a cited unexplained "
+                "deviation or conflict, not merely because legitimate dual-use "
+                "activity could theoretically be abused. Use it when you see something worth "
                 "surfacing to a human analyst that does not fit a known "
                 "signature — the emerging-threat case."
             ),
@@ -412,6 +431,12 @@ def _stringify_query_args(args: dict) -> dict:
 
 
 _BROAD_SUMMARY_RE = re.compile(r"^\d+ events: ")
+_NO_MATCH_RE = re.compile(
+    r"^No matching .+\. \d+ total .+ available\. Try a broader query\.$",
+    re.DOTALL,
+)
+_BROAD_PREVIEW_EVENT_LIMIT = 4
+_BROAD_PREVIEW_CHAR_LIMIT = 4000
 
 # Real MITRE ATT&CK technique IDs are Txxxx or Txxxx.xxx — nothing looser.
 # This is NOT a claim that every real technique is enumerable or that an
@@ -513,6 +538,37 @@ def _freetext_narrow(args: dict, episode: Episode) -> str | None:
     return "\n".join(matches[:50])[:2500]
 
 
+def _broad_retrieval_preview(episode: Episode) -> str:
+    """Return a bounded broad-query summary plus representative raw records.
+
+    Count-only summaries hid the only discriminating fields in small captured
+    episodes. That made a corpus cell selected by its production SPL reach the
+    Hunter as merely ``8 events: windows:security 8``. A broad query now keeps
+    its compact facet summary while exposing at most four unlabeled records,
+    bounded by the same 4K ToolResult limit used by the orchestration trace.
+    """
+    summary = _summarize_telemetry(episode)
+    samples: list[str] = []
+    for source_type, lines in episode.telemetry.items():
+        for line in lines:
+            samples.append(f"[{source_type}] {line}")
+            if len(samples) >= _BROAD_PREVIEW_EVENT_LIMIT:
+                break
+        if len(samples) >= _BROAD_PREVIEW_EVENT_LIMIT:
+            break
+    if not samples:
+        return summary
+    return (f"{summary}\nRepresentative records:\n" + "\n".join(samples))[
+        :_BROAD_PREVIEW_CHAR_LIMIT
+    ]
+
+
+def _retrieval_result_has_evidence(result: str) -> bool:
+    """Whether a Retriever result contains evidence rather than a miss notice."""
+    text = str(result or "").strip()
+    return bool(text) and _NO_MATCH_RE.fullmatch(text) is None
+
+
 def _dispatch_tool_call(name: str, args: dict, episode: Episode) -> str:
     """Answer one tool call against the episode's captured telemetry.
 
@@ -529,6 +585,7 @@ def _dispatch_tool_call(name: str, args: dict, episode: Episode) -> str:
         narrowed = _freetext_narrow(args, episode)
         if narrowed:
             return narrowed
+        return _broad_retrieval_preview(episode)
     return result
 
 
@@ -592,7 +649,9 @@ def run_tool_model(
                 continue
             result_text = _dispatch_tool_call(name, args, episode)
             rows.append({"tool": name, "args": args, "result": result_text})
-        empty = not rows or all(not r.get("result", "").strip() for r in rows)
+        empty = not rows or all(
+            not _retrieval_result_has_evidence(r.get("result", "")) for r in rows
+        )
 
     provenance = "matched-exact"
     if empty:
@@ -601,7 +660,7 @@ def run_tool_model(
             # bypassing keyword filtering (mirrors _query_real_telemetry's own
             # "no keywords -> summary" broadening, already landed f10fbee).
             has_any_telemetry = any(episode.telemetry.values())
-            broad_text = _query_real_telemetry("query_splunk", episode, {})
+            broad_text = _broad_retrieval_preview(episode)
             if has_any_telemetry and broad_text.strip():
                 rows = [{"tool": "query_splunk", "args": {}, "result": broad_text}]
                 provenance = "live-broad-fallback"
@@ -633,7 +692,8 @@ _HUNTER_OUTPUT_FORMAT_INSTRUCTIONS = (
     "cite a detail (an account name, an encryption type, a tool name) just because it's typical "
     "of the technique you suspect; if the telemetry doesn't show it, that detail doesn't belong "
     "in `evidence`. If request_more is non-empty, name the exact gap (which EventCode/field/"
-    "technique you still need to see) — never a generic re-ask for 'more logs'."
+    "technique you still need to see) — never a generic re-ask for 'more logs'.\n\n"
+    + _VERDICT_GROUNDING_POLICY
 )
 
 
@@ -830,7 +890,8 @@ _EXPERT_SYSTEM_PROMPT = (
     "tools and cannot fetch more data — you must decide based on what is given to you. A "
     "hunter analyst has proposed hypotheses and gathered evidence; your job is to confirm, "
     "refute, or reclassify them as a security expert would, grounding every conclusion "
-    "strictly in the evidence provided. Never invent supporting evidence that isn't there."
+    "strictly in the evidence provided. Never invent supporting evidence that isn't there. "
+    + _VERDICT_GROUNDING_POLICY
 )
 
 _EXPERT_OUTPUT_FORMAT_INSTRUCTIONS = (
@@ -1384,7 +1445,8 @@ _MERGED_SYSTEM_PROMPT = (
     + "\n\nUnlike a hunter proposing hypotheses to someone else, you are the "
     "sole analyst here: you both investigate and render the conclusive "
     "verdict yourself. Ground every conclusion strictly in evidence given to "
-    "you or gathered on your request — never invent supporting evidence."
+    "you or gathered on your request — never invent supporting evidence.\n\n"
+    + _VERDICT_GROUNDING_POLICY
 )
 
 _MERGED_OUTPUT_FORMAT_INSTRUCTIONS = (

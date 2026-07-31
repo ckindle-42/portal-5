@@ -26,7 +26,8 @@ def test_dry_run_narrow_empty_broadens_and_tags_live_broad_fallback():
     req = bo.build_tool_request("look for anything unusual")
     result = bo.run_tool_model(req, tool_model="unused", episode=ep, dry_run=True)
     assert result.provenance == "live-broad-fallback"
-    assert "4768" in result.raw_summary or result.rows
+    assert "4768" in result.raw_summary
+    assert "Representative records:" in result.raw_summary
 
 
 def test_dry_run_prefer_broad_false_stays_empty():
@@ -90,6 +91,53 @@ def test_live_tool_call_ignores_non_retrieval_tool_calls(monkeypatch):
     # model's call -> the empty-result path broadens instead (prefer_broad default).
     assert all(r["tool"] != "report_detection" for r in result.rows)
     assert result.provenance == "live-broad-fallback"
+
+
+def test_targeted_miss_broadens_to_model_visible_raw_evidence(monkeypatch):
+    """A non-empty 'No matching' notice is not evidence and must broaden.
+
+    The V5 corpus audit found 11/12 affected raw episodes contained their
+    expected discriminator, but the model-visible trace held only this miss
+    notice or a count summary.
+    """
+    ep = _episode(
+        {
+            "windows:security": [
+                "EventCode=4698 TaskName=Updater Account=svc-task",
+                "EventCode=4624 unrelated logon",
+            ]
+        }
+    )
+
+    def fake_call_model(model, messages, tools=None, max_tokens=2000, extra_options=None):
+        return {
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "query_windows_events",
+                        "arguments": {"event_ids": [4769]},
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(bo, "_call_model", fake_call_model)
+    result = bo.run_tool_model(
+        bo.build_tool_request("check Kerberos ticket events"),
+        tool_model="m",
+        episode=ep,
+    )
+    assert result.provenance == "live-broad-fallback"
+    assert "EventCode=4698" in result.raw_summary
+    assert "No matching Windows events" not in result.raw_summary
+
+
+def test_broad_preview_is_bounded_and_label_blind():
+    events = [f"EventCode=4688 sequence={i} command=whoami" for i in range(20)]
+    preview = bo._broad_retrieval_preview(_episode({"windows:security": events}))
+    assert "20 events:" in preview
+    assert preview.count("[windows:security]") == bo._BROAD_PREVIEW_EVENT_LIMIT
+    assert "T1558.004" not in preview
 
 
 def test_live_tool_call_with_string_encoded_arguments_does_not_crash(monkeypatch):
@@ -201,3 +249,14 @@ def test_retrieval_tool_schemas_excludes_report_detection():
     names = {s["function"]["name"] for s in schemas}
     assert "report_detection" not in names
     assert names == set(bo._RETRIEVAL_TOOL_NAMES)
+
+
+def test_verdict_prompts_treat_authorized_dual_use_as_counter_evidence():
+    policy = bo._VERDICT_GROUNDING_POLICY
+    assert "dual-use primitive" in policy
+    assert "change tickets" in policy
+    assert "use RULED_OUT" in policy
+    assert "could theoretically be abused" in policy
+    assert policy in bo._HUNTER_OUTPUT_FORMAT_INSTRUCTIONS
+    assert policy in bo._EXPERT_SYSTEM_PROMPT
+    assert policy in bo._MERGED_SYSTEM_PROMPT

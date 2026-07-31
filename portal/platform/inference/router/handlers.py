@@ -79,6 +79,7 @@ from portal.platform.inference.router.streaming import (
     _stream_with_secondary_chain,
     _stream_with_tool_loop,
 )
+from portal.platform.inference.router.tools import _select_explicit_required_tool
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
     _model_supports_tools,
@@ -958,12 +959,25 @@ async def chat_completions(
         if _has_tools:
             from portal.platform.inference.tool_registry import tool_registry
 
+            _required_tool = None
+            if backend_body.get("tool_choice") in (None, "auto"):
+                _required_tool = _select_explicit_required_tool(
+                    backend_body.get("messages", []), set(effective_tools)
+                )
+            if _required_tool:
+                effective_tools = [_required_tool]
+                backend_body["tool_choice"] = "required"
+                logger.info(
+                    "Tool-call: workspace=%s explicit side-effect intent selected required tool=%s",
+                    workspace_id,
+                    _required_tool,
+                )
             await tool_registry.refresh()
             tools_array = tool_registry.get_openai_tools(effective_tools)
             # Merge client-injected tools with workspace tools — clients
             # (e.g. bench blue/purple) may inject domain-specific tools
             # that complement the workspace tools, not replace them.
-            client_tools = backend_body.get("tools", [])
+            client_tools = [] if _required_tool else backend_body.get("tools", [])
             if tools_array:
                 if client_tools:
                     seen_names = {t.get("function", {}).get("name") for t in tools_array}

@@ -98,6 +98,8 @@ backends:
     supports_tools: false
   - id: granite4.1:30b
     supports_tools: false
+  - id: granite4.1:30b-ctx16k
+    supports_tools: false
   - id: qwen3.6:27b-q4_K_M
     supports_tools: false
   - id: portal5/qwen3.6-27b-mtp:q8_0-drafted
@@ -390,6 +392,8 @@ backends:
     # Reference: UAT 20260627 + commit 7fee599 regression analysis.
     supports_tools: false
   - id: granite4.1:30b
+    supports_tools: true
+  - id: granite4.1:30b-ctx16k
     supports_tools: true
   - id: granite4.1:30b-ctx64k
     supports_tools: true

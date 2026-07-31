@@ -6,9 +6,9 @@
 # This list may SHRINK freely (write a covering unit, then re-pin). It may
 # never GROW: a new uncovered surface fails CI. Do not hand-edit to silence
 # the gate — that defeats the authority inversion it exists to enforce.
-eligible_count: 608
-covered_count: 49
-coverage_pct: 8.1
+eligible_count: 609
+covered_count: 62
+coverage_pct: 10.2
 uncovered:
   - deploy/playwright-mcp/browser_mcp.py
   - portal/conftest.py
@@ -34,11 +34,9 @@ uncovered:
   - portal/modules/security/core/agentic_blue_eval.py
   - portal/modules/security/core/analyst_verdict.py
   - portal/modules/security/core/bench_integration.py
-  - portal/modules/security/core/benign_corpus_bench.py
   - portal/modules/security/core/candidate_eval.py
   - portal/modules/security/core/capability/__init__.py
   - portal/modules/security/core/capability/cli.py
-  - portal/modules/security/core/capability/index.py
   - portal/modules/security/core/capability/render.py
   - portal/modules/security/core/capability/tool_inventory.py
   - portal/modules/security/core/capability_graph.py
@@ -48,7 +46,6 @@ uncovered:
   - portal/modules/security/core/commands/run.py
   - portal/modules/security/core/compliance_report.py
   - portal/modules/security/core/continuous_eval.py
-  - portal/modules/security/core/corpus_replay_bench.py
   - portal/modules/security/core/council_agreement.py
   - portal/modules/security/core/council_review_bench.py
   - portal/modules/security/core/cred_bench.py
@@ -67,7 +64,6 @@ uncovered:
   - portal/modules/security/core/investigation/bench_investigation.py
   - portal/modules/security/core/investigation/case_notebook.py
   - portal/modules/security/core/investigation/evidence.py
-  - portal/modules/security/core/lab.py
   - portal/modules/security/core/llm_redteam.py
   - portal/modules/security/core/loop_cli.py
   - portal/modules/security/core/model_survey.py
@@ -75,7 +71,6 @@ uncovered:
   - portal/modules/security/core/notify_scoreboard.py
   - portal/modules/security/core/oast_bench.py
   - portal/modules/security/core/objective_entry.py
-  - portal/modules/security/core/objective_executor.py
   - portal/modules/security/core/objective_oracles.py
   - portal/modules/security/core/oracles.py
   - portal/modules/security/core/perception.py
@@ -116,13 +111,11 @@ uncovered:
   - portal/modules/security/tests/test_bench_investigation.py
   - portal/modules/security/tests/test_bench_scoring.py
   - portal/modules/security/tests/test_bench_security_lab_gate.py
-  - portal/modules/security/tests/test_benign_corpus_bench.py
   - portal/modules/security/tests/test_blue_grounding.py
   - portal/modules/security/tests/test_blue_linux.py
   - portal/modules/security/tests/test_blue_orchestrate_expert.py
   - portal/modules/security/tests/test_blue_orchestrate_loop.py
   - portal/modules/security/tests/test_blue_orchestrate_reasoning.py
-  - portal/modules/security/tests/test_blue_orchestrate_toolleg.py
   - portal/modules/security/tests/test_candidate_eval.py
   - portal/modules/security/tests/test_candidate_eval_incumbent.py
   - portal/modules/security/tests/test_capability_graph.py
@@ -133,7 +126,6 @@ uncovered:
   - portal/modules/security/tests/test_compliance_mapping.py
   - portal/modules/security/tests/test_compliance_report.py
   - portal/modules/security/tests/test_continuous_eval.py
-  - portal/modules/security/tests/test_corpus_replay_bench.py
   - portal/modules/security/tests/test_council_agreement.py
   - portal/modules/security/tests/test_coverage_expand.py
   - portal/modules/security/tests/test_drift_gate.py
@@ -146,7 +138,6 @@ uncovered:
   - portal/modules/security/tests/test_growth_writeback.py
   - portal/modules/security/tests/test_investigation_agents.py
   - portal/modules/security/tests/test_investigation_evidence.py
-  - portal/modules/security/tests/test_kali_enable.py
   - portal/modules/security/tests/test_lab_targets.py
   - portal/modules/security/tests/test_labexec_coverage.py
   - portal/modules/security/tests/test_live_exec.py
@@ -157,7 +148,6 @@ uncovered:
   - portal/modules/security/tests/test_multichain.py
   - portal/modules/security/tests/test_notify_scoreboard.py
   - portal/modules/security/tests/test_objective_entry.py
-  - portal/modules/security/tests/test_objective_executor.py
   - portal/modules/security/tests/test_oracles.py
   - portal/modules/security/tests/test_perception_scope.py
   - portal/modules/security/tests/test_playbooks.py
@@ -235,7 +225,6 @@ uncovered:
   - portal/platform/inference/router/council.py
   - portal/platform/inference/router/metrics.py
   - portal/platform/inference/router/monitor.py
-  - portal/platform/inference/router/non_streaming.py
   - portal/platform/inference/router/power.py
   - portal/platform/inference/router/preinject.py
   - portal/platform/inference/router/routing.py
@@ -338,7 +327,6 @@ uncovered:
   - scripts/update_grafana_uat.py
   - scripts/update_workspace_tools.py
   - scripts/v2_corpus_baseline.py
-  - scripts/validate_system.py
   - scripts/verify_proxmox_mcp.py
   - tests/__init__.py
   - tests/acceptance/_common.py

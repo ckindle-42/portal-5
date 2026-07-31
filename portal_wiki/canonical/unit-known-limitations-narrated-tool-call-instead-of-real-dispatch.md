@@ -1,25 +1,31 @@
 ---
 id: unit-known-limitations-narrated-tool-call-instead-of-real-dispatch
 kind: what
-title: Model Narrates a Fake Tool Call Instead of Invoking the Real One (Open)
+title: Model Narrates a Fake Tool Call Instead of Invoking the Real One (Resolved)
 sources:
 - type: doc
   path: KNOWN_LIMITATIONS.md
-  section: Model Narrates a Fake Tool Call Instead of Invoking the Real One (Open)
+  section: Model Narrates a Fake Tool Call Instead of Invoking the Real One (Resolved)
 - type: code
   path: portal/platform/inference/router/tools.py
+- type: code
+  path: portal/platform/inference/router/handlers.py
+- type: code
+  path: portal/platform/inference/router/non_streaming.py
+- type: code
+  path: tests/unit/test_pipeline.py
 last_generated_commit: ''
 confidence: high
 tags:
 - known-limitations
 - tool-calling
-- open
+- resolved
 created_at: 1785451583.192746
-updated_at: 1785451583.192746
+updated_at: 1785458075
 ---
 
 - **ID**: P5-TOOL-NARRATION-001
-- **Status**: OPEN — active problem, not accepted flakiness.
+- **Status**: RESOLVED 2026-07-30.
 - **Description**: Under a multi-tool payload, a tool-capable model sometimes narrates a
   plausible-looking pseudo tool-call in plain text — e.g.
   `<function=execute_python>...</function></tool_call>` (note the mismatched/absent opening
@@ -39,16 +45,15 @@ updated_at: 1785451583.192746
   tooling regression (the real `create_word_document` tool works perfectly when dispatched
   directly; see the MCP v2 migration audit) but the same narration-instead-of-dispatch failure
   under retry/backend-instability conditions.
-- **Why not fixed here**: A live-content fix requires the streaming pipeline
-  (`portal/platform/inference/router/streaming.py`) to detect the pattern in the model's
-  *content* stream and treat it as a dispatch failure — but content is forwarded to the client
-  chunk-by-chunk as it streams, before the full text (and therefore the pattern) is knowable.
-  Detecting this safely means buffering full content before forwarding, a real architectural
-  change to a delicate hot path this project explicitly gates behind a live `smoke_stream.sh`
-  run before any commit — not something to improvise mid-session.
-- **Next action**: Design a proper fix before implementing: options include (a) buffering
-  content for pattern-detection only on tool-enabled workspaces (bounded scope, still a real
-  streaming-behavior change needing the live gate), (b) a narrower `tool_choice` scope for
-  requests that specifically require tool execution rather than blanket-forcing it workspace-
-  wide, or (c) generation-parameter tuning to reduce narration likelihood. Needs a deliberate
-  design decision, not a one-line patch.
+- **Resolution**: The pipeline now recognizes explicit side-effect requests before model
+  dispatch. `_select_explicit_required_tool()` maps conservative execution and artifact-creation
+  intents to one tool only (Python/Bash/Node execution or Word/Excel/PowerPoint creation), but
+  only when that tool is already in the resolved workspace/persona whitelist. Both streaming
+  and non-streaming paths then expose only that schema and set `tool_choice=required`.
+- **Why this fix**: The direct reproduction proved the same model was reliable with one tool
+  and intermittent with the full multi-tool payload. Deterministic narrowing removes the
+  ambiguity at its source without buffering the streaming hot path and without forcing tools
+  for ordinary code-writing, prose-documentation, or document-reading prompts.
+- **Safety boundary**: Client `tool_choice=none`, `portal_no_tools`, and non-matching prompts
+  retain their prior behavior. A selected tool must be allow-listed; the selector never grants
+  a capability. Unit coverage includes the affected UAT prompt shapes and negative cases.

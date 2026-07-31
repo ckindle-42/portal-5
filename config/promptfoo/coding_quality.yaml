@@ -12,7 +12,7 @@ providers:
     config:
       temperature: 0
       num_predict: 2048
-  - id: ollama:chat:granite4.1:8b
+  - id: ollama:chat:granite4.1:8b-ctx8k
     label: tools-specialist
     config:
       temperature: 0

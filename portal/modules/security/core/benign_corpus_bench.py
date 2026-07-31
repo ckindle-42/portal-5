@@ -20,9 +20,9 @@ from portal.modules.security.core.notify_scoreboard import build_run, join_oracl
 from portal.modules.security.core.siem.hec_ship import ship_batch
 from portal.modules.security.core.siem.spl_backend import SplunkBackend
 
-TOOL_MODEL = "granite4.1:8b"
-REASONING_MODEL = "granite4.1:30b"
-EXPERT_MODEL = "granite4.1:8b"
+TOOL_MODEL = "bench-granite41-8b"
+REASONING_MODEL = "bench-granite41-30b"
+EXPERT_MODEL = "bench-granite41-8b"
 MODEL_ARM = "strong_full_v3"
 ATTACK_CHECKPOINT = Path(
     "portal/modules/security/core/results/checkpoints/corpus_replay_bench_v4_closeout.json"
@@ -93,6 +93,66 @@ BENIGN_CELLS: tuple[dict[str, Any], ...] = (
             'type=EXECVE msg=audit(1785039401.100:4501): argc=4 a0="/usr/bin/tar" a1="-czf" a2="/var/backups/app.tgz" a3="/srv/app" auid=0 uid=0',
             'type=SYSCALL msg=audit(1785039401.110:4502): arch=c000003e syscall=59 success=yes exe="/usr/bin/tar" key="nightly-backup" auid=0 uid=0',
             'type=SERVICE_START msg=audit(1785039410.100:4503): pid=1 uid=0 auid=4294967295 msg="unit=backup.service comm=systemd res=success"',
+        ],
+    },
+    {
+        "cell_id": "p5n007",
+        "sourcetype": "windows:security",
+        "host": "workstation-22",
+        "events": [
+            r"EventCode=4698 TaskName=\Microsoft\Windows\EnterpriseMgmt\HealthCheck Author=SYSTEM SubjectUserName=SCCM-SERVER$ TaskContent=deviceenroller.exe Schedule=PT1H ChangeTicket=CHG-2026-0712",
+            r"EventCode=4688 NewProcessName=C:\Windows\System32\deviceenroller.exe ParentProcessName=C:\Windows\System32\svchost.exe CommandLine=deviceenroller.exe /c /AutoEnrollMDM Signature=Microsoft SubjectUserName=SYSTEM",
+            r"EventCode=4699 TaskName=\Microsoft\Windows\EnterpriseMgmt\HealthCheck SubjectUserName=SCCM-SERVER$ Result=maintenance-complete ChangeTicket=CHG-2026-0712",
+        ],
+    },
+    {
+        "cell_id": "p5n008",
+        "sourcetype": "windows:security",
+        "host": "workstation-23",
+        "events": [
+            r"EventCode=4624 LogonType=3 TargetUserName=SCCM-SERVER$ AuthenticationPackageName=Kerberos IpAddress=10.10.40.20 Status=0x0 Purpose=approved-inventory",
+            r"EventCode=4688 NewProcessName=C:\Windows\System32\wbem\WmiPrvSE.exe ParentProcessName=C:\Windows\System32\svchost.exe CommandLine=WmiPrvSE.exe -secured -Embedding Initiator=SCCM InventoryJob=INV-8842",
+            r"EventCode=4634 LogonType=3 TargetUserName=SCCM-SERVER$ SessionResult=success InventoryJob=INV-8842",
+        ],
+    },
+    {
+        "cell_id": "p5n009",
+        "sourcetype": "web:access",
+        "host": "docs-prod-01",
+        "events": [
+            '10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:01 +0000] "GET /docs/migration-v7 HTTP/1.1" 200 18231 "-" "qa-link-checker/2.1" run=QA-443',
+            '10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:02 +0000] "GET /docs/retired-endpoint HTTP/1.1" 404 211 "-" "qa-link-checker/2.1" run=QA-443',
+            '10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:03 +0000] "GET /robots.txt HTTP/1.1" 200 94 "-" "qa-link-checker/2.1" run=QA-443',
+        ],
+    },
+    {
+        "cell_id": "p5n010",
+        "sourcetype": "web:access",
+        "host": "api-prod-04",
+        "events": [
+            '10.10.60.11 - deploy_bot [30/Jul/2026:03:20:01 +0000] "POST /api/admin/cache/warm HTTP/1.1" 202 38 "-" "portal-deployer/8.0" auth=mtls change=CHG-2026-0730',
+            '10.10.60.11 - deploy_bot [30/Jul/2026:03:20:03 +0000] "GET /api/admin/cache/status HTTP/1.1" 200 76 "-" "portal-deployer/8.0" auth=mtls change=CHG-2026-0730',
+            '10.10.60.12 - monitor [30/Jul/2026:03:20:05 +0000] "GET /ready HTTP/1.1" 200 18 "-" "kube-probe/1.34"',
+        ],
+    },
+    {
+        "cell_id": "p5n011",
+        "sourcetype": "linux:auditd",
+        "host": "linux-api-05",
+        "events": [
+            'type=USER_CMD msg=audit(1785381901.100:4601): pid=9221 uid=1002 auid=1002 ses=51 msg="cwd=/srv/api cmd=/usr/bin/sudo /usr/bin/systemctl restart portal-api.service terminal=pts/1 res=success" change_ticket=CHG-2026-0729',
+            'type=EXECVE msg=audit(1785381901.120:4602): argc=3 a0="/usr/bin/systemctl" a1="restart" a2="portal-api.service" auid=1002 uid=0 automation=ansible',
+            'type=SERVICE_START msg=audit(1785381903.100:4603): pid=1 uid=0 auid=4294967295 msg="unit=portal-api.service comm=systemd res=success" change_ticket=CHG-2026-0729',
+        ],
+    },
+    {
+        "cell_id": "p5n012",
+        "sourcetype": "linux:auditd",
+        "host": "k8s-worker-04",
+        "events": [
+            'type=EXECVE msg=audit(1785382001.100:4701): argc=5 a0="/usr/bin/nsenter" a1="--mount=/proc/1/ns/mnt" a2="--" a3="/usr/bin/mount" a4="/var/lib/kubelet/pods" uid=0 auid=4294967295 comm=kubelet purpose=csi-volume-reconcile',
+            'type=SYSCALL msg=audit(1785382001.110:4702): arch=c000003e syscall=165 success=yes exe="/usr/bin/mount" key="kubernetes-csi" uid=0 auid=4294967295 container_runtime=containerd',
+            'type=SERVICE_START msg=audit(1785382002.100:4703): pid=1 uid=0 auid=4294967295 msg="unit=kubelet.service comm=systemd res=success" node_role=worker',
         ],
     },
 )
@@ -191,12 +251,18 @@ def _run_cell(cell: dict[str, Any], telemetry: list[str]) -> dict[str, Any]:
     }
 
 
-def run_bench(*, resume: bool = True) -> list[dict[str, Any]]:
+def run_bench(*, resume: bool = True, rerun_cells: set[str] | None = None) -> list[dict[str, Any]]:
     """Replay the indexed negative cells through the unchanged strong blue arm."""
+    if rerun_cells and not resume:
+        raise ValueError("targeted reruns require the retained checkpoint")
     results = json.loads(OUT_PATH.read_text()) if resume and OUT_PATH.exists() else []
+    if rerun_cells:
+        results = [record for record in results if record.get("label") not in rerun_cells]
     done = {record["label"] for record in results if record.get("status") == "done"}
     backend = SplunkBackend()
     for cell in BENIGN_CELLS:
+        if rerun_cells and cell["cell_id"] not in rerun_cells:
+            continue
         if cell["cell_id"] in done:
             continue
         telemetry = _wait_for_cell(backend, cell)
@@ -221,6 +287,7 @@ def run_bench(*, resume: bool = True) -> list[dict[str, Any]]:
 
 def build_score(benign_records: list[dict[str, Any]]) -> dict[str, Any]:
     """Combine retained V4 attack evidence with the live benign negatives."""
+    benign_records = sorted(benign_records, key=lambda record: str(record.get("label", "")))
     attacks = json.loads(ATTACK_CHECKPOINT.read_text())
     attack_arm = [
         record
@@ -239,7 +306,7 @@ def build_score(benign_records: list[dict[str, Any]]) -> dict[str, Any]:
         "run_kind": "live",
         "attack_source": str(ATTACK_CHECKPOINT),
         "benign_source": str(OUT_PATH),
-        "benign_scope": "representative subset (2 cells per sourcetype; 6 total)",
+        "benign_scope": "expanded representative subset (4 cells per sourcetype; 12 total)",
         "provenance_guard": {
             "same_transport": "portal.modules.security.core.siem.hec_ship.ship_batch",
             "same_index": SplunkBackend().index,
@@ -258,7 +325,7 @@ def render_markdown(result: dict[str, Any]) -> str:
     recall = board["axis_1_notify_recall"]
     fatigue = board["axis_4_alert_fatigue_on_benign"]
     lines = [
-        "# RBP Benign Corpus and Alert-Fatigue Closeout — 2026-07-26",
+        "# RBP Benign Corpus and Alert-Fatigue Closeout — 2026-07-30",
         "",
         "## Outcome",
         "",
@@ -293,14 +360,14 @@ def render_markdown(result: dict[str, Any]) -> str:
             "",
             "## Fairness and provenance",
             "",
-            "- Windows Security, web access, and Linux auditd each contribute two "
+            "- Windows Security, web access, and Linux auditd each contribute four "
             "plausibly confusable routine-activity cells.",
             "- Cells use the production `ship_batch` HEC primitive, `portal5_lab` "
             "index, attack-corpus sourcetypes, and the same `corpus:*` provenance "
             "field shape. No `episode_id` or ground-truth field is shipped.",
             "- The blue arm receives raw telemetry only. The `ground_truth=benign` "
             "label exists solely in the evaluation checkpoint.",
-            "- Coverage is a six-cell representative subset, not an exhaustive "
+            "- Coverage is a twelve-cell representative subset, not an exhaustive "
             "estimate of all normal enterprise behavior; the measured precision "
             "must not be extrapolated beyond this corpus.",
             "",
@@ -319,9 +386,18 @@ def main() -> None:
         help="Re-score the retained live attack and benign checkpoints",
     )
     parser.add_argument("--no-resume", action="store_true")
+    parser.add_argument(
+        "--rerun-cell",
+        action="append",
+        choices=[str(cell["cell_id"]) for cell in BENIGN_CELLS],
+        default=[],
+        help="Replace one retained cell with a fresh live result (repeatable)",
+    )
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--report-out", type=Path)
     args = parser.parse_args()
+    if args.no_resume and args.rerun_cell:
+        parser.error("--rerun-cell cannot be combined with --no-resume")
 
     if args.ship:
         print(json.dumps(ship_corpus(dry_run=False), indent=2), flush=True)
@@ -332,7 +408,14 @@ def main() -> None:
         print(json.dumps(ship_corpus(dry_run=True), indent=2), flush=True)
         return
 
-    records = run_bench(resume=not args.no_resume) if args.run else json.loads(OUT_PATH.read_text())
+    records = (
+        run_bench(
+            resume=not args.no_resume,
+            rerun_cells=set(args.rerun_cell) or None,
+        )
+        if args.run
+        else json.loads(OUT_PATH.read_text())
+    )
     result = build_score(records)
     if args.json_out:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
