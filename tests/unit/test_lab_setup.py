@@ -35,6 +35,19 @@ class TestLabReady:
 
         assert any(c["required"] for c in CHECKS.values())
 
+    def test_port_probe_uses_pid1_safe_netcat(self, monkeypatch):
+        from scripts import lab_ready
+
+        observed = {}
+
+        def fake_run(args, **kwargs):
+            observed["args"] = args
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+        assert lab_ready._check_port_reachable("10.10.11.21", 445) == "GREEN"
+        assert observed["args"][-6:] == ["nc", "-z", "-w", "3", "10.10.11.21", "445"]
+
 
 class TestLabTargets:
     def test_list_outputs_catalog(self):

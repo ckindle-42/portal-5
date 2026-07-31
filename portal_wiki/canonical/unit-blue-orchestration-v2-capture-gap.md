@@ -19,6 +19,8 @@ sources:
   path: portal/modules/security/tools/proxmox_mcp.py
 - type: code
   path: scripts/verify_attack_image.py
+- type: test
+  path: tests/frontend/test_reasoning_display.py
 - type: config
   path: config/attack_image_contract.json
 last_generated_commit: ''
@@ -73,6 +75,12 @@ latest capture has schema-v2 episode scope, a real PCAP, embedded
 - Technique validation uses scenario-specific evidence signatures. An exploit
   request by itself cannot certify command execution.
 
-The broader `lab-ready` board still reports the DC, SRV, and Web static
-connectivity checks as red from the nested sandbox. That is a separate lab
-infrastructure-health item, not one of these eleven capture gaps.
+The follow-up `lab-ready` audit is also closed. DC, SRV, and Web were reachable;
+the old probe launched GNU `timeout` as PID 1, which returned 125 before its
+child connection result could be trusted. The gate now uses netcat's native
+bounded connect from the same disposable attack-container boundary. All
+required readiness components are green as of 2026-07-31.
+
+The authenticated, non-browser frontend reasoning baseline was rerun against
+the live pipeline with its configured API key and passed. The earlier 401 was
+test-environment credential substitution, not a pipeline reasoning failure.
