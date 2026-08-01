@@ -543,6 +543,24 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
             r"Executed command via wmiexec",
         ],
     },
+    "relay_to_shell": {
+        # Real windows:security evidence for the relayed logon (EventCode=
+        # 4624/4776 on SRV) is structurally shallow here: collect.py's
+        # Pass 2 detailed-event fetch only requests Message/Account detail
+        # for a fixed _attack_ids list (4769/4768/4662/4698/4625/4771/4688/
+        # 4702/4770/5140) that doesn't include 4624 or 4776, so those two
+        # only ever arrive via Pass 1's compact EventCode+TimeCreated form
+        # -- no Account=/AuthenticationPackageName=/IpAddress= fields to
+        # match against. ntlmrelayx's own tool-output text reliably lands in
+        # network:packet via the same loopback-capture leak seen in other
+        # recipes (capture_recipes.py's relay_to_shell comment), and is
+        # unambiguous proof of both techniques, so both patterns target it.
+        "T1557.001": [r"Authenticating connection from PORTAL\.LAB\\?/?ADMINISTRATOR.*?SUCCEED"],
+        "T1003.002": [
+            r"Dumping local SAM hashes",
+            r"Administrator:500:[0-9a-f]{32}:[0-9a-f]{32}:::",
+        ],
+    },
 }
 
 

@@ -572,6 +572,32 @@ T1003.001:
     sibling_ids: ["T1003.003", "T1003.006"]
     sibling_diff: "T1003.001 = local LSASS memory access; T1003.003 = NTDS.dit extraction; T1003.006 = remote AD replication"
 
+T1003.002:
+  description: "SAM dump — remote Security Account Manager hash extraction via RemoteRegistry"
+  matrix:
+    - enterprise
+  compliance_mapping:
+    - framework: mitre-attack
+      tactic: "credential-access"
+      source: "portal-mitre-mcp:T1003.002"
+    - framework: nist-800-53
+      control: "IA-5"
+      source: "NIST SP 800-53 Rev 5"
+    - framework: nerc-cip
+      requirement: "CIP-007-6 R5"
+      source: "NERC CIP standard (public)"
+  spl: 'index=portal5_lab sourcetype="windows:security" (EventCode=7036 ServiceName="Remote Registry" State=running) OR (EventCode=5145 ShareName="*\\IPC$" RelativeTargetName="*winreg*") | stats count by host, Account'
+  expected_signal: "RemoteRegistry service started remotely, immediately followed by SAM hive access — the live-relay/remote-auth precondition for a SAM dump"
+  distinguishing_features:
+    event_codes: [7036, 5145]
+    key_indicator: "ServiceName=\"Remote Registry\" State=running, or IPC$ winreg pipe access"
+    discriminator_tokens:
+      - "Remote Registry"
+      - "winreg"
+      - "IPC$"
+    sibling_ids: ["T1003.001", "T1003.003", "T1003.006"]
+    sibling_diff: "T1003.002 = local SAM hive on a non-DC host via RemoteRegistry; T1003.001 = local LSASS memory access; T1003.003 = NTDS.dit extraction on the DC; T1003.006 = remote AD replication"
+
 T1003.003:
   description: "NTDS dump — ntdsutil/ntds.dit extraction for domain credential theft"
   matrix:

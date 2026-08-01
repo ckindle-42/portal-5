@@ -59,6 +59,7 @@ SAMPLE_EVIDENCE = {
     "kerberoast_to_da": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB EventCode=4662 Properties=Control Access Account=arya.stark EventCode=4698 TaskName=\\PortalProofTask Account=Administrator",
     "asrep_to_lateral": "EventCode=4768 PreAuthType=0 Account=arya.stark arya.stark ned.stark EventCode=4698 TaskName=\\PortalProofTask",
     "ad_full_compromise": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB EventCode=4662 Properties=Control Access Account=arya.stark Process lsass.exe was successfully dumped IP 172.17.0.2.41740 > 10.10.11.21.135: Flags [.]",
+    "relay_to_shell": "Authenticating connection from PORTAL.LAB/ADMINISTRATOR@127.0.0.1 against smb://10.10.11.33 SUCCEED [1] Dumping local SAM hashes (uid:rid:lmhash:nthash) Administrator:500:aad3b435b51404eeaad3b435b51404ee:2111619b60bd5a8936ae1e414649ed57:::",
 }
 
 REQUEST_ONLY_EVIDENCE = {
@@ -108,6 +109,7 @@ REQUEST_ONLY_EVIDENCE = {
     "kerberoast_to_da": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
     "asrep_to_lateral": "EventCode=4768 PreAuthType=0 Account=arya.stark",
     "ad_full_compromise": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
+    "relay_to_shell": "Servers started, waiting for connections",
 }
 
 
