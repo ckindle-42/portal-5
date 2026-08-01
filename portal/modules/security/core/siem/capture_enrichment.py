@@ -297,8 +297,15 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
         "T1059": [r"X-Cmd-Response:\s*uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\)"],
     },
     "vuln_drupal_rce": {
+        # curl --data-urlencode 'mail[#post_render][]=exec' only URL-encodes the
+        # VALUE side of a name=value pair; because this string has no bare '='
+        # before the payload, curl treats the whole thing as a literal body
+        # segment and sends '#' unencoded on the wire (confirmed live 2026-07-31
+        # against a real capture: 'mail[#post_render][]=exec', never '%23').
+        # The old pattern required %23 unconditionally and could never match a
+        # real capture.
         "T1190": [
-            r"user/register.*mail(?:%5B|\[)%23post_render(?:%5D|\])(?:%5B|\[)(?:%5D|\])=exec"
+            r"user/register.*mail(?:%5B|\[)(?:%23|#)post_render(?:%5D|\])(?:%5B|\[)(?:%5D|\])=exec"
         ],
         "T1059": [r"uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\)"],
     },
@@ -401,6 +408,84 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
     "vuln_jackson_deserial": {
         "T1190": [r"(?s)POST /exploit.*?TemplatesImpl.*?transletBytecodes"],
         "T1059": [r"PORTAL_TARGET_POSTCONDITION:jackson-rce:/tmp/prove1.txt"],
+    },
+    # ── Metasploitable3-Windows (meta3) ─────────────────────────────────────
+    # meta3's telemetry collector (siem/collect.py, kind="meta3") only pulls
+    # Windows Security events over WinRM -- there is no IIS/FTP host-log tail
+    # (the docstring mentioning one is aspirational/unimplemented) -- so the
+    # only real evidence source for these scenarios is the decoded FTP/SSH/SMB/
+    # WinRM/MySQL/SNMP protocol dialogue in network:packet. Patterns below are
+    # taken from an actual live capture (2026-08-01), not guessed.
+    "meta3_ftp_backdoor": {
+        "T1078": [r"(?s)USER vagrant.*?PASS vagrant.*?230 User logged in"],
+    },
+    "meta3_ssh_brute": {
+        "T1110.003": [r"vagrant-2008r2\\vagrant"],
+        "T1078": [r"vagrant-2008r2\\vagrant"],
+        "T1059": [r"vagrant-2008r2\\vagrant"],
+    },
+    "meta3_winrm_weakpass": {
+        "T1110.003": [r"vagrant-2008[Rr]2\\vagrant:vagrant"],
+        "T1021.002": [r"Pwn3d!"],
+        "T1078": [r"Pwn3d!"],
+    },
+    "meta3_smb_exploit": {
+        "T1210": [r"Pwn3d!"],
+        "T1021.002": [r"Pwn3d!"],
+    },
+    "meta3_psexec": {
+        "T1021.002": [r"Executed command via wmiexec"],
+        "T1078": [r"vagrant-2008r2\\vagrant"],
+        "T1059": [r"Executed command via wmiexec.*?vagrant-2008r2\\vagrant"],
+    },
+    "meta3_snmp_enum": {
+        "T1592": [r"Windows Version 6\.1"],
+        "T1046": [r"(?s)public.*?iso\.3\.6\.1\.2\.1"],
+    },
+    "meta3_mysql_exploit": {
+        "T1078": [r"(?s)5\.5\.20.*?wordpress"],
+    },
+    "meta3_linux_privesc": {
+        "T1078": [r"vagrant-2008r2\\vagrant"],
+        "T1059": [
+            r"(?s)Executed command \(shell type: powershell\).*?vagrant-2008r2\\vagrant.*?True"
+        ],
+    },
+    "meta3_tomcat_manager": {
+        "T1190": [r"(?s)GET /manager/html HTTP/1\.1.*?Tomcat Web Application Manager"],
+        "T1078": [r"(?s)GET /manager/html HTTP/1\.1.*?Tomcat Web Application Manager"],
+        "T1059": [r"nt authority\\system"],
+    },
+    "meta3_elasticsearch_rce": {
+        "T1190": [r"(?s)script_fields.*?Runtime\.getRuntime\(\)\.exec"],
+        "T1059": [r"nt authority"],
+    },
+    "meta3_jenkins_rce": {
+        "T1190": [r"scriptText"],
+        "T1059": [r"nt authority"],
+    },
+    "meta3_webdav_upload": {
+        "T1190": [r"PUT /uploads/portalproof\.php HTTP/1\.1"],
+        "T1505.003": [r"nt authority"],
+    },
+    "meta3_wordpress_ninja": {
+        # Both techniques rely on the postcondition marker (see capture_recipes.py
+        # meta3_wordpress_ninja): msfconsole's real exploit request never
+        # appeared in network:packet's capped sample (found live 2026-08-01),
+        # unlike the direct-curl recipes, so PORTAL_TARGET_POSTCONDITION is the
+        # only reliable evidence channel here for both techniques.
+        "T1190": [r"nftmp-[A-Za-z0-9]+\.php", r"PORTAL_TARGET_POSTCONDITION:wordpress-ninja:"],
+        "T1059": [r"nt authority"],
+    },
+    "meta3_full_chain": {
+        # T1595/T1078 rely on the postcondition marker (see capture_recipes.py
+        # meta3_full_chain) -- nmap's and WinRM's own output fell outside
+        # network:packet's capped sample in a combined multi-step command,
+        # confirmed live 2026-08-01 (not flaky: reproduced twice).
+        "T1595": [r"Elasticsearch REST API", r"PORTAL_TARGET_POSTCONDITION:full-chain:"],
+        "T1078": [r"vagrant-2008[Rr]2\\vagrant"],
+        "T1059": [r"nt authority"],
+        "T1190": [r"(?s)script_fields.*?Runtime\.getRuntime\(\)\.exec"],
     },
 }
 

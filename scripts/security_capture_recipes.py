@@ -62,36 +62,57 @@ def run_recipe(name: str, *, dry_run: bool = False) -> dict:
         result.update({"recipe_success": True, "command": command})
         return result
 
-    started = time.time()
-    capture = start_network_capture(episode_id, str(host))
     output = ""
     observed_telemetry: dict[str, list[str]] = {}
     postcondition_success = not CAPTURE_RECIPES[name].postcondition_command
     postcondition_output = ""
     host_setup_success = not CAPTURE_RECIPES[name].host_setup_command
     host_setup_output = ""
+    if CAPTURE_RECIPES[name].host_setup_command:
+        # Target-establishment (install wizards, user/repo provisioning, readiness
+        # polling) must complete BEFORE the capture window opens. Found live
+        # 2026-07-31: running setup inside the capture window buried the actual
+        # exploit request under 20+ install-wizard requests in the same
+        # container's access log, and the T1190 evidence-selection pass never
+        # surfaced it — a "recipe_success: true" capture came back
+        # CAPTURE_GROUND_TRUTH_INVALID. Setup is a precondition, not part of the
+        # attack episode; it must never share the episode's telemetry window.
+        setup = _host_exec(
+            render_host_command(
+                CAPTURE_RECIPES[name].host_setup_command,
+                host=str(host),
+                port=int(port),
+            ),
+            timeout=30,
+        )
+        host_setup_output = setup.get("output", "").strip()
+        host_setup_success = bool(
+            setup.get("ok")
+            and re.search(CAPTURE_RECIPES[name].host_setup_pattern, host_setup_output)
+        )
+        if not host_setup_success:
+            result.update(
+                {
+                    "error": f"HOST_SETUP_FAILED: {host_setup_output}",
+                    "host_setup_success": False,
+                    "host_setup_output": host_setup_output,
+                }
+            )
+            if scenario.get("vulhub_env"):
+                with suppress(Exception):
+                    result["teardown"] = cmd_down(str(scenario["vulhub_env"]))
+            return result
+
+    started = time.time()
+    capture = start_network_capture(episode_id, str(host))
     try:
-        if CAPTURE_RECIPES[name].host_setup_command:
-            setup = _host_exec(
-                render_host_command(
-                    CAPTURE_RECIPES[name].host_setup_command,
-                    host=str(host),
-                    port=int(port),
-                ),
-                timeout=30,
-            )
-            host_setup_output = setup.get("output", "").strip()
-            host_setup_success = bool(
-                setup.get("ok")
-                and re.search(CAPTURE_RECIPES[name].host_setup_pattern, host_setup_output)
-            )
-            if not host_setup_success:
-                raise RuntimeError(f"HOST_SETUP_FAILED: {host_setup_output}")
         output = lab_dispatch("execute_bash", {"cmd": command}, dry_run=False)
         if CAPTURE_RECIPES[name].postcondition_command:
             for _attempt in range(5):
                 probe = _host_exec(
-                    render_postcondition_command(CAPTURE_RECIPES[name], port=int(port)),
+                    render_postcondition_command(
+                        CAPTURE_RECIPES[name], port=int(port), host=str(host)
+                    ),
                     timeout=30,
                 )
                 postcondition_output = probe.get("output", "").strip()
