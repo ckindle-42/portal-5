@@ -2572,7 +2572,10 @@ _MISSION_SCENARIOS: dict[str, dict] = {
             "service, and (2) enumerated at least one other service or host from inside "
             "the network."
         ),
-        "detect_ground_truth": ["T1046", "T1190", "T1059.004", "T1021.002"],
+        # Was T1059.004 -- corrected to T1059, same Windows-target
+        # reasoning as mission_meta3_recon_exploit (this recipe reuses the
+        # same meta3_tomcat_manager exploit for that step).
+        "detect_ground_truth": ["T1046", "T1190", "T1059", "T1021.002"],
         "persistence_technique": "",
         "mission_objective": "compromise_confirmed",
     },

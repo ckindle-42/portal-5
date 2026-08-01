@@ -657,6 +657,18 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
             r"PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof"
         ],
     },
+    "mission_meta3_lateral_pivot": {
+        # T1046/T1190/T1059 reuse mission_meta3_recon_exploit's patterns
+        # (same nmap scan + same meta3_tomcat_manager exploit, re-declared
+        # here since SCENARIO_SIGNAL_PATTERNS is keyed per scenario).
+        # T1021.002 reuses meta3_psexec's own pattern verbatim -- SMB (445)
+        # is a genuinely different service from Tomcat (8282), matching
+        # this mission's "reach an additional service" objective.
+        "T1046": [r"8282/tcp open\s+libelle"],
+        "T1190": [r"(?s)GET /manager/html HTTP/1\.1.*?Tomcat Web Application Manager"],
+        "T1059": [r"nt authority\\system"],
+        "T1021.002": [r"Executed command via wmiexec"],
+    },
 }
 
 
