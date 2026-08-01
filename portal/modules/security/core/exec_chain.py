@@ -649,7 +649,14 @@ SCENARIOS: dict[str, dict] = {
     "web_to_root": {
         "name": "web_to_root",
         "difficulty": "easy",
-        "target_host": _MBPTL_HOST_ENV or None,
+        # Was `_MBPTL_HOST_ENV or None` -- found live 2026-08-01: LAB_MBPTL_HOST
+        # is unset in this environment (same missing-target-host bug already
+        # fixed for the AD scenarios), so target_host resolved to None and the
+        # gate never ran. The real MBPTL host is reachable and live-verified
+        # at 10.0.1.140 (matches collect.py/blue.py's own fallback default),
+        # so hardcode it the same way _LAB_DC/_LAB_SRV are hardcoded elsewhere.
+        "target_host": _MBPTL_HOST_ENV or "10.0.1.140",
+        "target_port": 80,
         "vulhub_env": None,
         "red_order": [
             "web_request",

