@@ -669,6 +669,23 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
         "T1059": [r"nt authority\\system"],
         "T1021.002": [r"Executed command via wmiexec"],
     },
+    "mission_vulhub_multi_target": {
+        # Two distinct services' evidence, either one sufficient for T1190
+        # (OR logic across list entries): laravel's Ignition RCE request
+        # (reusing vuln_laravel_rce's own postcondition marker pattern,
+        # renamed mvmt-laravel-rce to avoid colliding with a concurrent run
+        # of that scenario) or nacos's user-creation request (reusing
+        # vuln_nacos_rce's own pattern, renamed mvmtproof). T1059 keys on
+        # laravel's postcondition marker (the `touch` command it ran);
+        # T1078 reuses vuln_nacos_rce's own pattern verbatim (creating a
+        # new admin account is real valid-account abuse).
+        "T1190": [
+            r"(?s)(?:POST|PUT) /_ignition/execute-solution.*?PORTAL_TARGET_POSTCONDITION:mvmt-laravel-rce:/tmp/portal-mvmt-laravel-proof",
+            r"(?s)User-Agent: Nacos-Server.*?/nacos/v1/auth/users.*?mvmtproof",
+        ],
+        "T1059": [r"PORTAL_TARGET_POSTCONDITION:mvmt-laravel-rce:/tmp/portal-mvmt-laravel-proof"],
+        "T1078": [r"(?s)/nacos/v1/auth/users/login.*?nacos.*?(?:accessToken|globalAdmin)"],
+    },
 }
 
 

