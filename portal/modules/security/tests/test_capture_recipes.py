@@ -56,6 +56,8 @@ SAMPLE_EVIDENCE = {
     "meta3_full_chain": "Elasticsearch REST API 1.1.1 vagrant-2008R2\\vagrant:vagrant (Pwn3d!) script_fields Runtime.getRuntime().exec nt authority\\local service",
     "meta3_iis_http": "PUT portalproof.aspx GET /portalproof.aspx?c=whoami iis apppool\\defaultapppool",
     "meta3_struts_rce": "DEFAULT_MEMBER_ACCESS ProcessBuilder ognl.OgnlContext nt authority\\system",
+    "kerberoast_to_da": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB EventCode=4662 Properties=Control Access Account=arya.stark EventCode=4698 TaskName=\\PortalProofTask Account=Administrator",
+    "asrep_to_lateral": "EventCode=4768 PreAuthType=0 Account=arya.stark arya.stark ned.stark EventCode=4698 TaskName=\\PortalProofTask",
 }
 
 REQUEST_ONLY_EVIDENCE = {
@@ -102,6 +104,8 @@ REQUEST_ONLY_EVIDENCE = {
     "meta3_full_chain": "Elasticsearch REST API 1.1.1 vagrant-2008R2\\vagrant:vagrant (Pwn3d!)",
     "meta3_iis_http": "PUT portalproof.aspx GET /portalproof.aspx?c=whoami",
     "meta3_struts_rce": "DEFAULT_MEMBER_ACCESS ProcessBuilder ognl.OgnlContext",
+    "kerberoast_to_da": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
+    "asrep_to_lateral": "EventCode=4768 PreAuthType=0 Account=arya.stark",
 }
 
 

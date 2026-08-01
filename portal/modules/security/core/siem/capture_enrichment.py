@@ -495,6 +495,41 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
         "T1190": [r"(?s)DEFAULT_MEMBER_ACCESS.*?ProcessBuilder"],
         "T1059": [r"nt authority"],
     },
+    # ── AD (DC/SRV, portal.lab) ──────────────────────────────────────────────
+    # T1558.003's generic EXPECTED_SIGNALS entry already matches this domain's
+    # real 4769 events verbatim (confirmed live 2026-08-01) -- no override
+    # needed. T1003.006 and T1053.005 do need overrides: DCSync's real 4662
+    # event says "Properties=Control Access", not the generic entry's
+    # "Properties=Replication-Dir-Replication-Right ObjectClass=domainDNS"
+    # (this domain's audit policy doesn't expand the replication GUID to a
+    # friendly property name), and the scheduled task lands on SRV
+    # (10.10.11.33), not the DC -- kerberoast_to_da's single target_host
+    # means blue.py only collects the DC's Security log, so a real EventCode
+    # 4698 is never in telemetry for this scenario; the nxc/wmiexec success
+    # text is the only evidence channel for T1053.005 here.
+    "kerberoast_to_da": {
+        "T1003.006": [r"EventCode=4662 Properties=Control Access Account=arya\.stark"],
+        # Real 4698 text (confirmed live 2026-08-01): "EventCode=4698
+        # TaskName=\PortalProofTask Account=Administrator" -- the generic
+        # EXPECTED_SIGNALS entry expects a specific TaskName/TaskContent this
+        # domain's own audit log doesn't produce (no TaskContent field at all
+        # in this Server 2022 event format).
+        "T1053.005": [r"EventCode=4698 TaskName=\\PortalProofTask"],
+    },
+    "asrep_to_lateral": {
+        # Generic T1558.004 wants "Account=svc_nopreauth@PORTAL.LAB" -- this
+        # domain's real event omits the @PORTAL.LAB suffix and obviously uses
+        # a different account name (confirmed live 2026-08-01).
+        "T1558.004": [r"EventCode=4768 PreAuthType=0 Account=arya\.stark"],
+        # nxc's own spray-result text (Pwn3d!/STATUS_LOGON_FAILURE) never
+        # landed in captured telemetry through either channel, same as
+        # kerberoast_to_da's persistence text -- but the raw NTLM auth
+        # negotiation for each attempted account IS real wire traffic; both
+        # arya.stark and ned.stark appearing (in spray order) is genuine
+        # multi-account spray evidence, not staged.
+        "T1110.003": [r"(?s)arya\.stark.*?ned\.stark"],
+        "T1053.005": [r"EventCode=4698 TaskName=\\PortalProofTask"],
+    },
 }
 
 

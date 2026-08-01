@@ -268,6 +268,19 @@ def collect_target(
     if dry_run:
         return {"web:access": ["[dry-run] GET /?x=${jndi:ldap://...} 200"]}
 
+    # Found live 2026-08-01: `since` used to be assigned only inside the
+    # web/container/linux branch below, but the separate windows/ad branch
+    # further down also references it. Any scenario whose kind is PURELY
+    # "windows"/"ad" (every DC/SRV-only AD scenario -- kerberoast_to_da,
+    # asrep_to_lateral, ad_full_compromise, relay_to_shell) hit an
+    # UnboundLocalError that collect_and_ship_scenario_telemetry's caller
+    # silently swallows, producing empty windows:security telemetry for
+    # every one of them despite the collection code otherwise working
+    # (confirmed live: the same Get-WinEvent query succeeds when run
+    # directly). Assigning it once, unconditionally, fixes every AD-only
+    # scenario at once rather than duplicating the line into the second branch.
+    since = int(since_epoch)
+
     if kind in ("web", "container", "linux"):
         import base64
 
@@ -283,7 +296,6 @@ def collect_target(
             b64 = base64.b64encode(script.encode()).decode()
             return _exec_fn(f'sh -c "echo {b64} | base64 -d | sh"', timeout=timeout)
 
-        since = int(since_epoch)
         if kind in ("web", "container"):
             # FULL HAYSTACK: collect ALL docker container logs from the host.
             # A SOC analyst sees everything — all containers, all services —
