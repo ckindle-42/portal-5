@@ -530,6 +530,19 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
         "T1110.003": [r"(?s)arya\.stark.*?ned\.stark"],
         "T1053.005": [r"EventCode=4698 TaskName=\\PortalProofTask"],
     },
+    "ad_full_compromise": {
+        "T1003.006": [r"EventCode=4662 Properties=Control Access Account=arya\.stark"],
+        # nxc's procdump module (real procdump64.exe run on the DC) as the
+        # final command in the recipe -- see capture_recipes.py for the full
+        # story of the three approaches tried and why this combination
+        # (procdump last for T1003.001 text, port-135 wire evidence for
+        # T1047) is what actually survives into captured telemetry.
+        "T1003.001": [r"[Ss]uccessfully dumped"],
+        "T1047": [
+            r"IP \d+\.\d+\.\d+\.\d+\.\d+ > \d+\.\d+\.\d+\.\d+\.135:",
+            r"Executed command via wmiexec",
+        ],
+    },
 }
 
 

@@ -58,6 +58,7 @@ SAMPLE_EVIDENCE = {
     "meta3_struts_rce": "DEFAULT_MEMBER_ACCESS ProcessBuilder ognl.OgnlContext nt authority\\system",
     "kerberoast_to_da": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB EventCode=4662 Properties=Control Access Account=arya.stark EventCode=4698 TaskName=\\PortalProofTask Account=Administrator",
     "asrep_to_lateral": "EventCode=4768 PreAuthType=0 Account=arya.stark arya.stark ned.stark EventCode=4698 TaskName=\\PortalProofTask",
+    "ad_full_compromise": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB EventCode=4662 Properties=Control Access Account=arya.stark Process lsass.exe was successfully dumped IP 172.17.0.2.41740 > 10.10.11.21.135: Flags [.]",
 }
 
 REQUEST_ONLY_EVIDENCE = {
@@ -106,6 +107,7 @@ REQUEST_ONLY_EVIDENCE = {
     "meta3_struts_rce": "DEFAULT_MEMBER_ACCESS ProcessBuilder ognl.OgnlContext",
     "kerberoast_to_da": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
     "asrep_to_lateral": "EventCode=4768 PreAuthType=0 Account=arya.stark",
+    "ad_full_compromise": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
 }
 
 
