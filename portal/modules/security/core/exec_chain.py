@@ -544,6 +544,7 @@ SCENARIOS: dict[str, dict] = {
     "kerberoast_to_da": {
         "name": "kerberoast_to_da",
         "target_host": _LAB_DC,
+        "target_port": 88,
         "vulhub_env": None,
         "red_order": [
             "start_lab_target",
@@ -562,6 +563,7 @@ SCENARIOS: dict[str, dict] = {
     "asrep_to_lateral": {
         "name": "asrep_to_lateral",
         "target_host": _LAB_DC,
+        "target_port": 88,
         "vulhub_env": None,
         "red_order": [
             "start_lab_target",

