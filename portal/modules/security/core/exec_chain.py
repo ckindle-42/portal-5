@@ -2615,7 +2615,11 @@ _MISSION_SCENARIOS: dict[str, dict] = {
             "succeed when you can: (1) enumerate domain objects, and (2) prove credential "
             "theft or domain compromise (hash dump, ticket extraction, DCSync, etc.)."
         ),
-        "detect_ground_truth": ["T1558.003", "T1003.006", "T1078", "T1059.004"],
+        # Was T1059.004 (Unix Shell) -- corrected to T1059 2026-08-01, same
+        # Windows-target reasoning as mission_meta3_recon_exploit and
+        # kerberoast_to_da/ad_full_compromise's own wmiexec proof (real
+        # evidence is a Windows cmd.exe/wmiexec exec, not a Unix shell).
+        "detect_ground_truth": ["T1558.003", "T1003.006", "T1078", "T1059"],
         "persistence_technique": "",
         "mission_objective": "compromise_confirmed",
     },

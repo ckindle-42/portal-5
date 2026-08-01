@@ -623,6 +623,27 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
         "T1190": [r"(?s)GET /manager/html HTTP/1\.1.*?Tomcat Web Application Manager"],
         "T1059": [r"nt authority\\system"],
     },
+    "mission_ad_enumerate_exploit": {
+        # T1558.003/T1003.006 reuse kerberoast_to_da's chain verbatim (no
+        # override needed here -- T1558.003 matches the generic
+        # EXPECTED_SIGNALS entry, T1003.006 needs kerberoast_to_da's own
+        # override, already registered under that scenario key above and
+        # unrelated to this one -- this scenario's own DACL-abuse chain
+        # produces the identical real EventCode=4662 line, so it is
+        # re-declared here rather than assumed shared).
+        # T1078/T1059 (was T1059.004): the DC's windows:security collector
+        # only fetches detailed Account=/LogonProcessName= fields for a
+        # fixed EventCode list that does not include 4624 (same structural
+        # gap documented for relay_to_shell), so the generic T1078 pattern
+        # (which expects those fields) can never match here -- nxc's own
+        # login confirmation banner ("[+] portal.lab\administrator:...
+        # (Pwn3d!)") is the real, reliable proof of valid-account usage
+        # instead, with "Executed command via wmiexec" for the resulting
+        # command execution.
+        "T1003.006": [r"EventCode=4662 Properties=Control Access Account=arya\.stark"],
+        "T1078": [r"\[\+\] portal\.lab\\administrator:.*?\(Pwn3d!\)"],
+        "T1059": [r"Executed command via wmiexec"],
+    },
 }
 
 
