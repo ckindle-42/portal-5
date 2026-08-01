@@ -102,6 +102,70 @@ class TestPublishedPort:
         ):
             assert _published_port("/opt/vulhub/redis/docker-compose.yml") == 6379
 
+    def test_scenario_owned_container_port_avoids_auxiliary_listener(self):
+        from scripts.lab_targets import _published_port
+
+        def fake_host_exec(cmd, timeout=15):
+            if "config --services" in cmd:
+                return {"ok": True, "output": "web\n"}
+            if "port web 8081" in cmd:
+                return {"ok": True, "output": "0.0.0.0:8086\n"}
+            if "curl" in cmd and ":8086/" in cmd:
+                return {"ok": True, "output": "200"}
+            raise AssertionError(cmd)
+
+        with patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec):
+            assert (
+                _published_port(
+                    "/opt/vulhub/nexus/docker-compose.yml",
+                    preferred_container_port=8081,
+                )
+                == 8086
+            )
+
+    def test_scenario_owned_binary_port_does_not_require_http(self):
+        from scripts.lab_targets import _published_port
+
+        def fake_host_exec(cmd, timeout=15):
+            if "config --services" in cmd:
+                return {"ok": True, "output": "redis\n"}
+            if "port redis 6379" in cmd:
+                return {"ok": True, "output": "0.0.0.0:6382\n"}
+            raise AssertionError(cmd)
+
+        with patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec):
+            assert (
+                _published_port(
+                    "/opt/vulhub/redis/docker-compose.yml",
+                    preferred_container_port=6379,
+                    preferred_http=False,
+                )
+                == 6382
+            )
+
+    def test_unpublished_matching_port_does_not_mask_published_service(self):
+        from scripts.lab_targets import _published_port
+
+        def fake_host_exec(cmd, timeout=15):
+            if "config --services" in cmd:
+                return {"ok": True, "output": "zookeeper\nprovider\n"}
+            if "port zookeeper 8080" in cmd:
+                return {"ok": True, "output": "0.0.0.0:0\n"}
+            if "port provider 8080" in cmd:
+                return {"ok": True, "output": "0.0.0.0:8086\n"}
+            if "curl" in cmd and ":8086/" in cmd:
+                return {"ok": True, "output": "500"}
+            raise AssertionError(cmd)
+
+        with patch("scripts.lab_targets._host_exec", side_effect=fake_host_exec):
+            assert (
+                _published_port(
+                    "/opt/vulhub/dubbo/docker-compose.yml",
+                    preferred_container_port=8080,
+                )
+                == 8086
+            )
+
     def test_retries_across_a_wait_window_before_falling_back(self):
         """Regression: called immediately after `docker compose up -d`
         returns, before the app has actually finished starting — a JVM's

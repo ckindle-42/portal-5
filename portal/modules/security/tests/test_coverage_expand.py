@@ -348,6 +348,14 @@ class TestVulhubExpansionScenarios:
         assert "X-Cmd-Output" in prompt
         assert "uid/gid output" in prompt
 
+    def test_documentation_assisted_exploits_retain_an_execution_turn(self):
+        for name, scenario in SCENARIOS.items():
+            if "check its README.md" not in scenario["red_prompt"]:
+                continue
+            assert len(scenario["red_order"]) >= 4, (
+                f"{name} can exhaust its chain reading the bundled exploit documentation"
+            )
+
 
 # ── SPL detection coverage ───────────────────────────────────────────────────
 

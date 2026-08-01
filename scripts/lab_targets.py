@@ -160,7 +160,12 @@ def _pick_http_port(
     return None
 
 
-def _published_port(compose_path: str) -> int | None:
+def _published_port(
+    compose_path: str,
+    preferred_container_port: int | None = None,
+    *,
+    preferred_http: bool = True,
+) -> int | None:
     """Ask Docker for the actual published host port(s) — never guess from a hardcoded
     default. A raw vulhub path's real port can differ from any catalog assumption (e.g.
     fastjson/1.2.47-rce publishes 8090, not the common 8080).
@@ -172,6 +177,34 @@ def _published_port(compose_path: str) -> int | None:
     published port is not reliably the application port (debug/metrics ports are
     often published too, sometimes listed first).
     """
+    if preferred_container_port:
+        services = _host_exec(
+            f"docker compose -f {compose_path} config --services 2>/dev/null", timeout=10
+        )
+        for service in services.get("output", "").splitlines():
+            service = service.strip()
+            if not service:
+                continue
+            port_result = _host_exec(
+                f"docker compose -f {compose_path} port {service} {preferred_container_port} 2>/dev/null",
+                timeout=10,
+            )
+            for token in port_result.get("output", "").split():
+                if ":" not in token:
+                    continue
+                try:
+                    mapped = int(token.rsplit(":", 1)[-1])
+                except ValueError:
+                    continue
+                # Compose reports an unpublished container-only listener as
+                # 0.0.0.0:0.  It is not a routable mapping and must not win
+                # ahead of another service that publishes the same target
+                # port (Dubbo's zookeeper exposes 8080 internally while the
+                # provider publishes it on the host).
+                if mapped <= 0:
+                    continue
+                return (_pick_http_port([mapped]) or mapped) if preferred_http else mapped
+
     candidates: list[int] = []
 
     def _add(port: int) -> None:
@@ -322,7 +355,14 @@ def _remap_conflicting_ports(compose_path: str) -> str | None:
     return override_path if w.get("ok") else None
 
 
-def cmd_up(target_id: str, dry_run: bool = False, max_concurrent: int = 3) -> dict:
+def cmd_up(
+    target_id: str,
+    dry_run: bool = False,
+    max_concurrent: int = 3,
+    *,
+    preferred_container_port: int | None = None,
+    preferred_http: bool = True,
+) -> dict:
     """Bring up a target by catalog id or raw vulhub path — real docker compose on LXC 112."""
     target = _find_target(target_id)
     if target:
@@ -363,7 +403,11 @@ def cmd_up(target_id: str, dry_run: bool = False, max_concurrent: int = 3) -> di
         }
 
     host = target.get("host", LAB_VULHUB_HOST) if target else LAB_VULHUB_HOST
-    mapped = _published_port(compose_path)
+    mapped = _published_port(
+        compose_path,
+        preferred_container_port,
+        preferred_http=preferred_http,
+    )
     if mapped is None:
         # Fallback: catalog-declared or guessed port, dynamically remapped if in use.
         port = target.get("port", 8080) if target else 8080
@@ -490,7 +534,13 @@ def cmd_list() -> list[dict]:
     ]
 
 
-def _resolve_live_port(host: str, env: str | None) -> int | None:
+def _resolve_live_port(
+    host: str,
+    env: str | None,
+    preferred_container_port: int | None = None,
+    *,
+    preferred_http: bool = True,
+) -> int | None:
     """Determine the live published port for a target.
 
     For vulhub envs, uses _published_port on the compose file.
@@ -498,7 +548,11 @@ def _resolve_live_port(host: str, env: str | None) -> int | None:
     """
     if env:
         compose_path = _host_compose_path(env)
-        return _published_port(compose_path)
+        return _published_port(
+            compose_path,
+            preferred_container_port,
+            preferred_http=preferred_http,
+        )
     # Non-vulhub: no port discovery available here; caller probes directly
     return None
 
@@ -825,6 +879,8 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
     # applies to the static-host path (env=None) -- vulhub_env already
     # resolves its own real published port via cmd_up, unrelated to this list.
     declared_port = scenario.get("target_port")
+    target_service_port = scenario.get("target_service_port")
+    target_service_http = scenario.get("target_service_protocol", "http") == "http"
     probe_ports = [declared_port] if declared_port and not env else None
 
     # No external target (AD-only scenarios, etc.) — always "ready"
@@ -900,7 +956,16 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
             }
 
     # VERIFY: is it up, and on WHAT port?
-    port = _resolve_live_port(host, env) if env else _probe_any_reachable_port(host, probe_ports)
+    port = (
+        _resolve_live_port(
+            host,
+            env,
+            target_service_port,
+            preferred_http=target_service_http,
+        )
+        if env
+        else _probe_any_reachable_port(host, probe_ports)
+    )
     if port and _wait_reachable(host, port, timeout_s=5):
         return {
             "ready": True,
@@ -913,7 +978,12 @@ def ensure_target_ready(scenario: dict, *, dry_run: bool = False, retries: int =
     # HEAL
     for attempt in range(retries):
         if env:
-            up = cmd_up(env, dry_run=dry_run)
+            up = cmd_up(
+                env,
+                dry_run=dry_run,
+                preferred_container_port=target_service_port,
+                preferred_http=target_service_http,
+            )
             port = up.get("port")
             if port and _wait_reachable(host, port, timeout_s=60):
                 return {

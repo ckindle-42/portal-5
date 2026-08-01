@@ -31,19 +31,19 @@ created_at: 1785540000.0
 updated_at: 1785540000.0
 ---
 
-The live-probed combined-corpus gate passed before this run. The planning
+The live-probed combined-corpus gate passed at this stopping point. The planning
 catalog contains 93 scenarios, but only 73 are backed lab exercises: 20 theory
 or generic web/cloud entries have no deployed replay target and are explicitly
-excluded, with reasons, by the corpus contract. Twelve of the 73 have
+excluded, with reasons, by the corpus contract. Thirty-six of the 73 now have
 schema-v2, episode-scoped, scenario-valid Portal captures with real PCAPs.
-The live lane covers 5 target techniques, the current live-probed external
-labeled lane intersects 14, and their union covers 16 of the 25 backed target
+The live lane covers 9 target techniques, the current live-probed external
+labeled lane intersects 14, and their union covers 18 of the 25 backed target
 techniques. This means the available data is safe to use for detection design;
 it does not mean blue quality passed, and external data remains ineligible as
 lab-scenario proof.
 
-All twelve scoreable captures were shipped through the production replay path
-and independently confirmed indexed in Splunk. The twelfth is
+The first twelve scoreable captures were shipped through the production replay
+path and independently confirmed indexed in Splunk. The twelfth is
 `vuln_struts2_rce`: its first recapture exposed a malformed command payload,
 and its corrected capture now requires both the S2-045 sandbox-bypass request
 and correlated `X-Cmd-Output: uid=... gid=...` response evidence. Detection-only
@@ -101,3 +101,37 @@ Detection design proceeds in this order:
 
 Spine-coverage expansion remains deferred until this design and validation
 backlog is complete.
+
+## Stopping point and resume order
+
+The deterministic recipe lane has certified the current Vulhub batch through
+`vuln_laravel_rce`. The last capture proves both T1190 and T1059 with a
+correlated Ignition request and an independent target-side file postcondition.
+The attack image contract was hardened at the same boundary so an empty support
+artifact can no longer pass verification.
+
+Thirty-seven backed lab exercises remain without a valid current capture.
+Resume in this order:
+
+1. Reconcile target setup and proof contracts for `vuln_drupal_rce`,
+   `vuln_gitea_rce`, and `vuln_phpmyadmin_rce`.
+2. Decide whether `vuln_confluence_rce` has a reproducible initialized,
+   licensed lab target. Keep it in the lab denominator only if that target
+   contract can be satisfied; otherwise classify it explicitly as theory.
+3. Add deterministic recipes and recapture the legacy VM families:
+   `ad_full_compromise`, `asrep_to_lateral`, `ctf_multi_service`,
+   `kerberoast_to_da`, `mbptl_ctf_full_chain`, `relay_to_shell`, and
+   `web_to_root`; the remaining Meta3 scenarios (`meta3_axis2_deploy`,
+   `meta3_elasticsearch_rce`, `meta3_ftp_backdoor`, `meta3_full_chain`,
+   `meta3_glassfish_deploy`, `meta3_iis_http`, `meta3_jenkins_rce`,
+   `meta3_jmx_rce`, `meta3_linux_privesc`, `meta3_manageengine`,
+   `meta3_mysql_exploit`, `meta3_psexec`, `meta3_smb_exploit`,
+   `meta3_snmp_enum`, `meta3_ssh_brute`, `meta3_struts_rce`,
+   `meta3_tomcat_manager`, `meta3_web_exploit`, `meta3_webdav_upload`,
+   `meta3_winrm_weakpass`, and `meta3_wordpress_ninja`); and the mission
+   scenarios (`mission_ad_enumerate_exploit`, `mission_meta3_lateral_pivot`,
+   `mission_meta3_recon_exploit`, `mission_vulhub_multi_target`, and
+   `mission_vulhub_web_exploit`).
+4. Re-run live replay for every valid capture, regenerate the source-stratified
+   corpus report, and only then resume the six-step detection-design backlog
+   above. Spine-coverage expansion remains deferred.

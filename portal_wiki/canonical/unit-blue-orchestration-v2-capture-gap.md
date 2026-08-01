@@ -57,10 +57,12 @@ latest capture has schema-v2 episode scope, a real PCAP, embedded
 
 ## Recurrence controls
 
-- The lab-exercise image contract now requires 71 commands, 13 support files,
-  and executable runtime checks for `nmap` and `impacket-rdp_check`. Presence
-  on disk alone is not accepted. `nmap` capabilities are compatible with the
-  default container bounding set.
+- The lab-exercise image contract now requires 74 commands and 15 support
+  files. It includes PHP/phpggc, a pinned Java-8-built marshalsec artifact, and
+  the Laravel Ignition module used by deterministic capture recipes. Required
+  files must be non-empty, and executable runtime checks cover `nmap` and
+  `impacket-rdp_check`; presence on disk alone is not accepted. `nmap`
+  capabilities are compatible with the default container bounding set.
 - Theory remains separate: only the 33 `EXEC_SEQUENCES` lab exercises drive
   the image contract. Theory-only target-local exercises do not dispatch into
   the attack container.

@@ -15,7 +15,9 @@ def verify(contract_path: Path) -> dict:
     raw = contract_path.read_bytes()
     contract = json.loads(raw)
     tools = {name: shutil.which(name) is not None for name in contract["tools"]}
-    files = {name: Path(name).exists() for name in contract["files"]}
+    files = {
+        name: Path(name).is_file() and Path(name).stat().st_size > 0 for name in contract["files"]
+    }
     runtime_checks = {}
     for command, expected in contract.get("runtime_checks", {}).items():
         try:
