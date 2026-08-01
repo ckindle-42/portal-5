@@ -54,6 +54,8 @@ SAMPLE_EVIDENCE = {
     "meta3_webdav_upload": "PUT /uploads/portalproof.php HTTP/1.1 201 Created nt authority\\local service",
     "meta3_wordpress_ninja": "Uploading payload to /wordpress/wp-content/uploads/nftmp-abc123.php nt authority\\local service",
     "meta3_full_chain": "Elasticsearch REST API 1.1.1 vagrant-2008R2\\vagrant:vagrant (Pwn3d!) script_fields Runtime.getRuntime().exec nt authority\\local service",
+    "meta3_iis_http": "PUT portalproof.aspx GET /portalproof.aspx?c=whoami iis apppool\\defaultapppool",
+    "meta3_struts_rce": "DEFAULT_MEMBER_ACCESS ProcessBuilder ognl.OgnlContext nt authority\\system",
 }
 
 REQUEST_ONLY_EVIDENCE = {
@@ -98,6 +100,8 @@ REQUEST_ONLY_EVIDENCE = {
     "meta3_webdav_upload": "PUT /uploads/portalproof.php HTTP/1.1",
     "meta3_wordpress_ninja": "Uploading payload to /wordpress/wp-content/uploads/nftmp-abc123.php",
     "meta3_full_chain": "Elasticsearch REST API 1.1.1 vagrant-2008R2\\vagrant:vagrant (Pwn3d!)",
+    "meta3_iis_http": "PUT portalproof.aspx GET /portalproof.aspx?c=whoami",
+    "meta3_struts_rce": "DEFAULT_MEMBER_ACCESS ProcessBuilder ognl.OgnlContext",
 }
 
 

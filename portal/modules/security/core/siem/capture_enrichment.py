@@ -487,6 +487,14 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
         "T1059": [r"nt authority"],
         "T1190": [r"(?s)script_fields.*?Runtime\.getRuntime\(\)\.exec"],
     },
+    "meta3_iis_http": {
+        "T1190": [r"portalproof\.aspx"],
+        "T1059": [r"apppool"],
+    },
+    "meta3_struts_rce": {
+        "T1190": [r"(?s)DEFAULT_MEMBER_ACCESS.*?ProcessBuilder"],
+        "T1059": [r"nt authority"],
+    },
 }
 
 
