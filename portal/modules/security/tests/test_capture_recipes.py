@@ -60,6 +60,7 @@ SAMPLE_EVIDENCE = {
     "asrep_to_lateral": "EventCode=4768 PreAuthType=0 Account=arya.stark arya.stark ned.stark EventCode=4698 TaskName=\\PortalProofTask",
     "ad_full_compromise": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB EventCode=4662 Properties=Control Access Account=arya.stark Process lsass.exe was successfully dumped IP 172.17.0.2.41740 > 10.10.11.21.135: Flags [.]",
     "relay_to_shell": "Authenticating connection from PORTAL.LAB/ADMINISTRATOR@127.0.0.1 against smb://10.10.11.33 SUCCEED [1] Dumping local SAM hashes (uid:rid:lmhash:nthash) Administrator:500:aad3b435b51404eeaad3b435b51404ee:2111619b60bd5a8936ae1e414649ed57:::",
+    "web_to_root": "Error: Unknown column 'password' in 'order clause' GET /administrator/uploads/8acf41856d3c0a1ac58932f1d1900d70.php?e=id%3b+cat+%2fflag%2froot.txt HTTP/1.1 uid=0(root) gid=0(root) groups=0(root),33(www-data) MBPTL-9{74ac6fef30abfc98e8532548b9742050}",
 }
 
 REQUEST_ONLY_EVIDENCE = {
@@ -110,6 +111,7 @@ REQUEST_ONLY_EVIDENCE = {
     "asrep_to_lateral": "EventCode=4768 PreAuthType=0 Account=arya.stark",
     "ad_full_compromise": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
     "relay_to_shell": "Servers started, waiting for connections",
+    "web_to_root": "GET /detail.php?id=1 HTTP/1.1",
 }
 
 

@@ -561,6 +561,25 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
             r"Administrator:500:[0-9a-f]{32}:[0-9a-f]{32}:::",
         ],
     },
+    "web_to_root": {
+        # Found live 2026-08-01: real evidence lands in two different
+        # channels depending on which port the traffic hit. The initial
+        # SQLi (sqlmap's column-count probing on port 80, detail.php) lands
+        # in network:http-decoded as a real reflected MySQL error --
+        # "Unknown column 'password' in 'order clause'" -- not a generic
+        # syntax-error string, so it can't be confused with an unrelated
+        # scenario's SQLi. The webshell command execution and its result
+        # (port 8080, /administrator/uploads/<hash>.php) land in raw
+        # network:packet as the literal wire GET request and response body
+        # -- the actual "id; cat /flag/root.txt" command in the URL query
+        # string and "uid=0(root)" in the response, real proof of both the
+        # Unix-shell command execution and the SUID-root privilege
+        # escalation it produced (capture_recipes.py's web_to_root comment
+        # has the full bahs/BASH_ENV story).
+        "T1190": [r"Unknown column 'password' in 'order clause'"],
+        "T1059.004": [r"GET /administrator/uploads/[0-9a-f]{32}\.php\?e=id"],
+        "T1548.001": [r"uid=0\(root\) gid=0\(root\) groups=0\(root\)"],
+    },
 }
 
 
