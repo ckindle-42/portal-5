@@ -759,6 +759,7 @@ SCENARIOS: dict[str, dict] = {
         # comment): with no target_host, $TARGET_HOST never resolves and the
         # prompt's hand-typed fictional IPs were all the model had.
         "target_host": _LAB_DC,
+        "target_port": 88,
         "vulhub_env": None,
         "red_order": [
             "start_lab_target",
