@@ -62,7 +62,7 @@ as missing or valid lab replay. `security_replay_verify.py --live` re-ships
 every scoreable capture and requires Splunk indexing confirmation, closing the
 gap between a locally valid JSON artifact and a capture blue can actually query.
 
-At the 2026-07-31 stopping point, 36 of the 73 backed lab exercises have a
+At the 2026-07-31 stopping point, 36 of the 72 backed lab exercises have a
 valid live capture. The combined live-probed gate is ready for blue/purple
 validation and detection design: the live lane covers 9 target techniques,
 the external labeled lane covers 14, and their union covers 18 of the 25

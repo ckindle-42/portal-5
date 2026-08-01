@@ -1952,8 +1952,19 @@ def collect_and_ship_scenario_telemetry(
     # AD scenarios hit DC + workstation + file server — we need telemetry from each.
     _mbptl_host = os.environ.get("LAB_MBPTL_HOST", "10.0.1.140")
     target_hosts: list[tuple[str, str]] = []  # (host, kind)
+    # meta3 routes by scenario name, not IP equality against the static _LAB_META3
+    # default. Found live 2026-08-01: ensure_target_ready's MAC-based discovery
+    # (scripts/lab_targets.py, needed because meta3's DHCP lease drifts across
+    # reboots -- see its own docstring) overwrites scenario["target_host"] with
+    # the CURRENT real IP before this function ever sees it. Once that IP no
+    # longer matches the stale _LAB_META3 default, every meta3_* capture silently
+    # fell into the generic "web" branch below, which hardcodes _host_exec to the
+    # vulhub LXC (host 112) -- a container that has nothing to do with the meta3
+    # VM. The capture still "succeeded" (recipe_success: true) but its web:access
+    # telemetry was some unrelated vulhub container's docker log, not meta3's IIS/
+    # FTP logs, and the scenario came back CAPTURE_GROUND_TRUTH_INVALID every time.
     if target_host:
-        if target_host == _LAB_META3:
+        if target_host == _LAB_META3 or str(scenario.get("name", "")).startswith("meta3_"):
             target_hosts.append((target_host, "meta3"))
         elif target_host in (_LAB_DC, _LAB_SRV):
             target_hosts.append((target_host, "windows"))

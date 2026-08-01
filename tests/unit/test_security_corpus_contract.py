@@ -15,6 +15,7 @@ def test_security_corpus_contract_separates_sources_and_hides_answer_keys():
     assert contract["gates"]["allow_external_scenario_substitution"] is False
     assert all(source["data_mode"] != "theory" for source in contract["sources"].values())
     excluded = contract["scenario_scope"]["excluded_from_lab_replay"]
-    assert len(excluded) == 20
+    assert len(excluded) == 21
     assert "cloud_breach" in excluded
+    assert "vuln_confluence_rce" in excluded
     assert "web_to_root" not in excluded

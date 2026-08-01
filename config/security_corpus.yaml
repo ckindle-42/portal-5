@@ -9,6 +9,7 @@ answer_key_visibility: scorer_only
 scenario_scope:
   excluded_from_lab_replay:
     cloud_breach: cloud emulator and cloud-provider telemetry are not deployed
+    vuln_confluence_rce: exploit is behind Confluence's setup wizard, which requires a real license key issued by Atlassian (external third party) -- not scriptable into a deterministic offline recipe
     web_asset_discovery: generic endpoint has no deployed target contract
     web_cache_deception: generic endpoint has no deployed target contract
     web_cors: generic endpoint has no deployed target contract
