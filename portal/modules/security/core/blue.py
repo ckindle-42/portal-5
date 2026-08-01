@@ -1899,6 +1899,8 @@ def collect_and_ship_scenario_telemetry(
     red_tool_calls: list[dict] | None = None,
     episode_id: str | None = None,
     network_telemetry: dict[str, list[str]] | None = None,
+    observed_telemetry: dict[str, list[str]] | None = None,
+    observed_telemetry_origins: dict[str, str] | None = None,
     pcap_path: str | None = None,
 ) -> tuple[str | None, bool | None, str]:
     """Collect a scenario's real target telemetry and ship it to Splunk, stamped
@@ -1993,6 +1995,7 @@ def collect_and_ship_scenario_telemetry(
                     kind,
                     since_epoch=scenario_start,
                     dry_run=dry_run,
+                    target_port=scenario.get("gate_port"),
                     lxc_id=_lxc,
                 )
                 for st, lines in tele.items():
@@ -2005,6 +2008,13 @@ def collect_and_ship_scenario_telemetry(
             if lines:
                 merged_tele.setdefault(st, []).extend(lines)
                 telemetry_origins[st] = OBSERVED_PACKET
+
+        for st, lines in (observed_telemetry or {}).items():
+            if lines:
+                merged_tele.setdefault(st, []).extend(lines)
+                telemetry_origins[st] = (observed_telemetry_origins or {}).get(
+                    st, OBSERVED_TARGET_LOG
+                )
 
         # Retain red's command ledger as a separate counterfactual plane. It is
         # saved for audit but never merged with or shipped as observed telemetry.

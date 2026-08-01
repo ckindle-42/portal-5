@@ -217,6 +217,32 @@ ADDITIONAL_SIGNAL_PATTERNS: dict[str, list[str]] = {
 # data-binding request. These signatures are deliberately scoped by scenario
 # so an ordinary request in one capture cannot certify an unrelated exploit.
 SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
+    "vuln_activemq_deserial": {
+        "T1190": [
+            r"(?s)org\.springframework\.context\.support\.ClassPathXmlApplicationContext.*?PORTAL_TARGET_POSTCONDITION:activemq-rce:/tmp/activeMQ-RCE-success"
+        ],
+        "T1059": [r"PORTAL_TARGET_POSTCONDITION:activemq-rce:/tmp/activeMQ-RCE-success"],
+    },
+    "vuln_fastjson_rce": {
+        "T1190": [
+            r"(?s)com\.sun\.rowset\.JdbcRowSetImpl.*?rmi://.*?PORTAL_TARGET_POSTCONDITION:fastjson-rmi-callback"
+        ],
+    },
+    "vuln_weblogic_rce": {
+        "T1190": [r"(?s)ldap://.*?PORTAL_TARGET_POSTCONDITION:weblogic-ldap-callback"],
+    },
+    "vuln_laravel_rce": {
+        "T1190": [
+            r"(?s)(?:POST|PUT) /_ignition/execute-solution.*?PORTAL_TARGET_POSTCONDITION:laravel-rce:/tmp/portal-laravel-proof"
+        ],
+        "T1059": [r"PORTAL_TARGET_POSTCONDITION:laravel-rce:/tmp/portal-laravel-proof"],
+    },
+    "vuln_wordpress_rce": {
+        "T1190": [
+            r"(?s)/wp-login\.php\?action=lostpassword.*?spool_directory.*?PORTAL_TARGET_POSTCONDITION:wordpress-rce:/tmp/portal-wordpress-proof"
+        ],
+        "T1059": [r"PORTAL_TARGET_POSTCONDITION:wordpress-rce:/tmp/portal-wordpress-proof"],
+    },
     "meta3_phpmyadmin_rce": {
         "T1190": [r"/phpmyadmin/(?:js/messages\.php|index\.php)"],
         "T1078": [r"(?:username|pma_username)(?:=|%3D)root"],
@@ -265,6 +291,116 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
         "T1190": [
             r"(?s)(?=.*getExcludedPackageNames\(\)\.clear\(\))(?=.*X-Cmd-Output:\s*uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\))"
         ]
+    },
+    "vuln_confluence_rce": {
+        "T1190": [r"ServletActionContext.*setHeader.*X-Cmd-Response"],
+        "T1059": [r"X-Cmd-Response:\s*uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\)"],
+    },
+    "vuln_drupal_rce": {
+        "T1190": [
+            r"user/register.*mail(?:%5B|\[)%23post_render(?:%5D|\])(?:%5B|\[)(?:%5D|\])=exec"
+        ],
+        "T1059": [r"uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\)"],
+    },
+    "vuln_solr_rce": {
+        "T1190": [
+            r"(?s)/solr/.*/config.*params.resource.loader.enabled.*?/solr/.*/select.*v\.template=custom"
+        ],
+        "T1059": [r"uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\)"],
+    },
+    "vuln_grafana_lfi": {
+        "T1083": [r"(?s)/public/plugins/alertlist/\.\./.*?/etc/passwd.*?root:x:0:0:"],
+        "T1190": [r"(?s)/public/plugins/alertlist/\.\./.*?/etc/passwd.*?root:x:0:0:"],
+    },
+    "vuln_tomcat_deploy": {
+        "T1190": [r"(?s)PUT /portal-proof\.jsp/.*?GET /portal-proof\.jsp.*?uid=\d+\("],
+        "T1505.003": [r"(?s)PUT /portal-proof\.jsp/.*?GET /portal-proof\.jsp.*?uid=\d+\("],
+        "T1059.004": [r"uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\)"],
+    },
+    "vuln_couchdb_rce": {
+        "T1190": [
+            r'(?s)PUT /_users/org\.couchdb\.user:portalproof.*?"roles":\["_admin"\],"roles":\[\].*?"ok":true'
+        ],
+        "T1078": [r"(?s)Authorization: Basic .*?GET /_all_dbs.*?_users"],
+    },
+    "vuln_elasticsearch_rce": {
+        "T1190": [
+            r"(?s)/_search\?pretty.*?script_fields.*?Runtime\.getRuntime\(\)\.exec.*?uid=\d+\("
+        ],
+        "T1059": [r"uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\)"],
+    },
+    "vuln_redis_unauth": {
+        "T1190": [r"(?s)INFO.*?redis_version:.*?CONFIG.*?GET.*?dir"],
+    },
+    "vuln_nacos_rce": {
+        "T1190": [r"(?s)User-Agent: Nacos-Server.*?/nacos/v1/auth/users.*?portalproof"],
+        "T1078": [r"(?s)/nacos/v1/auth/users/login.*?nacos.*?(?:accessToken|globalAdmin)"],
+    },
+    "vuln_gitea_rce": {
+        "T1190": [r"(?s)/info/lfs/objects.*?\.\.\.\.\.\./\.\./\.\./etc/passwd.*?root:x:0:0:"],
+    },
+    "vuln_joomla_rce": {
+        "T1190": [r"/api/index\.php/v1/config/application\?public=true"],
+        "T1552": [
+            r'(?s)/api/index\.php/v1/config/application\?public=true.*?"(?:password|db|user)"'
+        ],
+    },
+    "vuln_nexus_rce": {
+        "T1083": [r"(?s)%2F\.\.%2F\.\.%2F.*?etc%2Fpasswd.*?root:x:0:0:"],
+        "T1190": [r"(?s)%2F\.\.%2F\.\.%2F.*?etc%2Fpasswd.*?root:x:0:0:"],
+    },
+    "vuln_django_sqli": {
+        "T1190": [
+            r"(?s)/\?date=xxxx(?:%27|')xxxx.*?(?:syntax error|ProgrammingError|unterminated)"
+        ],
+    },
+    "vuln_thinkphp_rce": {
+        "T1190": [
+            r"(?s)POST /index\.php\?s=captcha.*?_method=__construct.*?filter(?:%5B|\[)(?:%5D|\])=system.*?uid=\d+\("
+        ],
+        "T1059": [r"uid=\d+\([\w.-]+\)\s*gid=\d+\([\w.-]+\)"],
+    },
+    "vuln_rails_rce": {
+        "T1083": [r"(?s)GET /robots.*?Accept: \.\./.*?/etc/passwd\{\{.*?root:x:0:0:"],
+        "T1190": [r"(?s)GET /robots.*?Accept: \.\./.*?/etc/passwd\{\{.*?root:x:0:0:"],
+    },
+    "vuln_phpmyadmin_rce": {
+        "T1190": [r"(?s)/index\.php\?target=db_sql\.php%253f/\.\./.*?/etc/passwd.*?root:x:0:0:"],
+    },
+    "vuln_nginx_lfi": {
+        "T1083": [
+            r"(?s)Range: bytes=-\d+,-922337203685\d+.*?(?:KEY:|HTTP/1\.[01] 200|Content-Type:)"
+        ],
+        "T1190": [
+            r"(?s)Range: bytes=-\d+,-922337203685\d+.*?(?:KEY:|HTTP/1\.[01] 200|Content-Type:)"
+        ],
+    },
+    "vuln_zabbix_rce": {
+        "T1190": [
+            r"(?s)/(?:latest|jsrpc)\.php.*?updatexml(?:%28|\()0(?:%2C|,)concat(?:%28|\()0xa(?:%2C|,)(?:user|database|version)(?:%28%29|\(\))(?:%29|\)),0(?:%29|\)).*?(?:XPATH syntax error|root@|zabbix@)"
+        ],
+    },
+    "vuln_spring_actuator": {
+        "T1190": [
+            r"(?s)selector:T\(java\.lang\.Runtime\)\.getRuntime\(\)\.exec\('touch /tmp/success'\).*?/app/hello"
+        ],
+        "T1059": [r"PORTAL_TARGET_POSTCONDITION:spring-rce:/tmp/success"],
+    },
+    "vuln_gitlab_rce": {
+        "T1190": [r"(?s)POST /uploads/user.*?AT&TFORM"],
+        "T1059": [r"PORTAL_TARGET_POSTCONDITION:gitlab-rce:/tmp/portal-gitlab-proof"],
+    },
+    "vuln_dubbo_rce": {
+        "T1190": [r"POST /org\.vulhub\.api\.CalcService"],
+        "T1059": [r"PORTAL_TARGET_POSTCONDITION:dubbo-rce:/tmp/portal-dubbo-proof"],
+    },
+    "vuln_shiro_deserial": {
+        "T1190": [r"Cookie: rememberMe=[A-Za-z0-9+/=]{100,}"],
+        "T1059": [r"PORTAL_TARGET_POSTCONDITION:shiro-rce:/tmp/portal-shiro-proof"],
+    },
+    "vuln_jackson_deserial": {
+        "T1190": [r"(?s)POST /exploit.*?TemplatesImpl.*?transletBytecodes"],
+        "T1059": [r"PORTAL_TARGET_POSTCONDITION:jackson-rce:/tmp/prove1.txt"],
     },
 }
 

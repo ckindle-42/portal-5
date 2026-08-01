@@ -25,6 +25,18 @@
 #                    -- a JRE alone has no javac; found live 2026-07-23 checking
 #                    vulhub source material against this image's real tool list)
 #
+# marshalsec's upstream build contract requires Java 8. Build it in a pinned
+# Java-8 stage so Kali rolling's newer JDK cannot silently produce a broken or
+# missing helper.
+FROM maven:3.8-eclipse-temurin-8 AS marshalsec-builder
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/mbechler/marshalsec.git /src \
+    && git -C /src checkout 243c5aa878b7385ca91c6c17c31eef6dc39f6a6b \
+    && mvn -q -f /src/pom.xml clean package -DskipTests \
+    && test -s /src/target/marshalsec-0.0.3-SNAPSHOT-all.jar
+
 # Kali rolling ships native linux/arm64 — no QEMU emulation on Apple Silicon.
 FROM kalilinux/kali-rolling
 
@@ -52,6 +64,7 @@ RUN apt-get update \
         openssh-client \
         python3 \
         python3-pip \
+        php-cli \
         default-jdk-headless \
         netexec \
         impacket-scripts \
@@ -94,11 +107,10 @@ RUN git clone --depth 1 https://github.com/houqe/POC_CVE-2023-21839 /opt/POC_CVE
     || echo "WARNING: POC_CVE-2023-21839 clone failed — weblogic RCE step will need manual setup"
 
 # ── marshalsec (log4shell LDAP redirect server) ───────────────────────────────
-# Pre-built jar; java must be installed above for runtime.
-RUN mkdir -p /opt/marshalsec \
-    && wget -q -O /opt/marshalsec/marshalsec-0.0.3-SNAPSHOT-all.jar \
-       https://github.com/mbechler/marshalsec/releases/download/0.0.3-SNAPSHOT/marshalsec-0.0.3-SNAPSHOT-all.jar \
-    || echo "WARNING: marshalsec download failed — log4shell server step will need manual setup"
+# The former download URL returned an empty file. Copy the Java-8-built jar and
+# fail if it is not a real artifact.
+COPY --from=marshalsec-builder /src/target/marshalsec-0.0.3-SNAPSHOT-all.jar /opt/marshalsec/marshalsec-0.0.3-SNAPSHOT-all.jar
+RUN test -s /opt/marshalsec/marshalsec-0.0.3-SNAPSHOT-all.jar
 
 # ── GraphQL, request-smuggling, and Java deserialization helpers ─────────────
 # Pin source revisions/artifact hashes so a moving upstream branch cannot
@@ -118,6 +130,8 @@ RUN mkdir -p /opt/ysoserial \
     && wget -q -O /opt/ysoserial/ysoserial.jar \
        https://github.com/frohoff/ysoserial/releases/download/v0.0.6/ysoserial-all.jar \
     && echo "2c9bddd6a1a4ec66c1078ea97dacb61eb66d1c41aec7b6d21e3c72214ce170f1  /opt/ysoserial/ysoserial.jar" | sha256sum -c -
+RUN git clone https://github.com/ambionics/phpggc.git /opt/phpggc \
+    && git -C /opt/phpggc checkout f8aebde3a1abb88b02042fd12a71b4c61d6cfe2c
 
 # ── Tool verification ─────────────────────────────────────────────────────────
 # Use command -v (existence check) — nmap and cap-requiring binaries fail
@@ -149,9 +163,11 @@ RUN set -e; \
     command -v msfconsole >/dev/null; \
     command -v java >/dev/null; \
     command -v javac >/dev/null; \
+    command -v php >/dev/null; \
     test -f /usr/share/wordlists/rockyou.txt; \
     test -d /usr/share/seclists; \
     test -f /opt/AutoBlue-MS17-010/eternalblue_exploit7.py; \
+    test -f /opt/phpggc/phpggc; \
     test -f /usr/share/metasploit-framework/modules/exploits/multi/http/phpmyadmin_preg_replace.rb; \
     test -f /usr/share/metasploit-framework/modules/exploits/multi/http/rails_web_console_v2_code_exec.rb; \
     python3 -c "import impacket; print('impacket ok')"
