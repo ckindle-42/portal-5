@@ -610,6 +610,19 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
         "T1059.004": [r"uid=33\(www-data\) gid=33\(www-data\)"],
         "T1203": [r"BOF:uid=65534\(nobody\)"],
     },
+    "mission_meta3_recon_exploit": {
+        # Deterministic proof for a mission scenario that's otherwise
+        # open-ended/model-directed (see this scenario's own comment in
+        # capture_recipes.py). T1190/T1059 reuse meta3_tomcat_manager's
+        # exact evidence (its recipe is called verbatim here); T1046 is new
+        # -- nmap's own compact port-list output leaks into network:packet
+        # the same way other recipes' tool-output does, and this exact
+        # "8282/tcp open  libelle" line is unique to a real scan of this
+        # host (libelle is nmap's own service-name guess for that port).
+        "T1046": [r"8282/tcp open\s+libelle"],
+        "T1190": [r"(?s)GET /manager/html HTTP/1\.1.*?Tomcat Web Application Manager"],
+        "T1059": [r"nt authority\\system"],
+    },
 }
 
 

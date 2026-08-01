@@ -2545,7 +2545,13 @@ _MISSION_SCENARIOS: dict[str, dict] = {
             "or equivalent proof of access). Document every step — what you tried, what "
             "worked, what didn't."
         ),
-        "detect_ground_truth": ["T1046", "T1190", "T1059.004"],
+        # Was T1059.004 (Command and Scripting Interpreter: Unix Shell) --
+        # corrected to plain T1059 2026-08-01: the target here is meta3's
+        # Windows side (Tomcat on 8282, real exploit runs cmd.exe), same
+        # correction meta3_tomcat_manager's own SCENARIO_SIGNAL_PATTERNS
+        # already made (T1059, not T1059.004) for the identical evidence
+        # ("nt authority\\system" from a Windows shell, not a Unix one).
+        "detect_ground_truth": ["T1046", "T1190", "T1059"],
         "persistence_technique": "",
         "mission_objective": "compromise_confirmed",
     },
