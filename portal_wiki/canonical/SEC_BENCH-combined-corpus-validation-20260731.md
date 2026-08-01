@@ -28,7 +28,7 @@ tags:
 - provenance
 - validation
 created_at: 1785540000.0
-updated_at: 1785540000.0
+updated_at: 1785634440.0
 ---
 
 The live-probed combined-corpus gate passed at this stopping point. The planning
@@ -110,8 +110,46 @@ correlated Ignition request and an independent target-side file postcondition.
 The attack image contract was hardened at the same boundary so an empty support
 artifact can no longer pass verification.
 
-Thirty-seven backed lab exercises remain without a valid current capture.
-Resume in this order:
+**Update 2026-08-01: items 1–3 below are done.** Item 1 (Drupal/Gitea/
+phpMyAdmin target setup) and item 2 (Confluence theory classification) were
+completed and pushed in an earlier pass. Item 3 (legacy VM + mission recapture)
+is now complete: all 7 legacy-VM scenarios, 16 of 21 Meta3 scenarios (4
+deferred, see below), and all 5 mission scenarios were live-verified through
+`scripts/security_capture_recipes.py`, certified on 2 consecutive runs each,
+and pushed to `main` (commits `896ed501`…`30db5863`). Several pre-existing
+infra bugs were root-caused and fixed along the way rather than worked around:
+`collect.py`'s `since` UnboundLocalError (silently broke all AD-only
+`windows:security` collection), `blue.py`'s meta3 DHCP-drift telemetry
+mis-routing, and multiple missing-`target_host`/missing-`vulhub_env` scenario
+definitions that had never actually resolved a real target. A recurring
+ground-truth correction also surfaced repeatedly: several scenarios declared
+`T1059.004` (Unix Shell) for evidence that was actually a Windows `cmd.exe`/
+PowerShell exec (real ID: `T1059`) — corrected wherever found, following the
+precedent `meta3_tomcat_manager`'s own signal patterns had already set.
+
+Four Meta3 scenarios remain deferred as structurally blocked, not merely
+unattempted:
+- `meta3_axis2_deploy` — a live msf deploy with an untested default payload
+  crashed the Meta3 VM outright; axis2:axis2 creds are confirmed
+  check-vulnerable, but no safe retry (a payload confirmed to have a
+  reachable LHOST) has been attempted since.
+- `meta3_glassfish_deploy` — no working admin credential found despite
+  extensive guessing and reading the SHA-256-hashed admin-keyfile.
+- `meta3_manageengine` — persistent 503 confirmed structural: Apache's
+  mod_jk AJP proxy to the Tomcat backend is broken even from loopback on the
+  target itself, with all proxy modules commented out in `httpd.conf`.
+- `meta3_web_exploit` — vague multi-port scenario with no technique beyond
+  what `meta3_iis_http` already covers; no distinct exploit to recapture.
+
+**What remains: item 4.** Re-run live replay for every valid capture,
+regenerate the source-stratified corpus report, and only then resume the
+six-step detection-design backlog above (still fully unstarted). Spine-coverage
+expansion remains deferred until that backlog is complete. The four deferred
+Meta3 scenarios above should be revisited opportunistically but are not
+blocking item 4.
+
+<!-- Original resume order, kept for reference; the numbered items above are
+     resolved as of 2026-08-01 except where noted. -->
 
 1. Reconcile target setup and proof contracts for `vuln_drupal_rce`,
    `vuln_gitea_rce`, and `vuln_phpmyadmin_rce`.
