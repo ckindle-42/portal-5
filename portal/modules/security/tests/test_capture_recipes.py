@@ -66,6 +66,7 @@ SAMPLE_EVIDENCE = {
     "mission_meta3_recon_exploit": "8282/tcp open  libelle GET /manager/html HTTP/1.1 Tomcat Web Application Manager nt authority\\system",
     "mission_ad_enumerate_exploit": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB EventCode=4662 Properties=Control Access Account=arya.stark [+] portal.lab\\administrator:LabAdmin1! (Pwn3d!) [+] Executed command via wmiexec",
     "mission_vulhub_web_exploit": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof",
+    "mission_meta3_lateral_pivot": "8282/tcp open  libelle GET /manager/html HTTP/1.1 Tomcat Web Application Manager nt authority\\system Executed command via wmiexec",
 }
 
 REQUEST_ONLY_EVIDENCE = {
@@ -122,6 +123,7 @@ REQUEST_ONLY_EVIDENCE = {
     "mission_meta3_recon_exploit": "8282/tcp open  libelle",
     "mission_ad_enumerate_exploit": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
     "mission_vulhub_web_exploit": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt",
+    "mission_meta3_lateral_pivot": "8282/tcp open  libelle",
 }
 
 

