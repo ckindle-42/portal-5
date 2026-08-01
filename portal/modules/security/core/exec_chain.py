@@ -751,7 +751,10 @@ SCENARIOS: dict[str, dict] = {
     "ctf_multi_service": {
         "name": "ctf_multi_service",
         "difficulty": "medium",
-        "target_host": _MBPTL_HOST_ENV or None,
+        # Was `_MBPTL_HOST_ENV or None` -- same missing-target-host bug fixed
+        # for web_to_root/mbptl_ctf_full_chain (LAB_MBPTL_HOST is unset).
+        "target_host": _MBPTL_HOST_ENV or "10.0.1.140",
+        "target_port": 80,
         "vulhub_env": None,
         "red_order": [
             "web_request",

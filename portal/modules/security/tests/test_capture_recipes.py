@@ -62,6 +62,7 @@ SAMPLE_EVIDENCE = {
     "relay_to_shell": "Authenticating connection from PORTAL.LAB/ADMINISTRATOR@127.0.0.1 against smb://10.10.11.33 SUCCEED [1] Dumping local SAM hashes (uid:rid:lmhash:nthash) Administrator:500:aad3b435b51404eeaad3b435b51404ee:2111619b60bd5a8936ae1e414649ed57:::",
     "web_to_root": "Error: Unknown column 'password' in 'order clause' GET /administrator/uploads/8acf41856d3c0a1ac58932f1d1900d70.php?e=id%3b+cat+%2fflag%2froot.txt HTTP/1.1 uid=0(root) gid=0(root) groups=0(root),33(www-data) MBPTL-9{74ac6fef30abfc98e8532548b9742050}",
     "mbptl_ctf_full_chain": "Error: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' LIMIT 1' at line 1 GET /administrator/uploads/5fe5d2768352f434ae1168a500ff0a75.php?c=id HTTP/1.1 uid=33(www-data) gid=33(www-data) groups=33(www-data) BOF:uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup) MBPTL-17{03762a502a18e260a47da040eaae38fa}",
+    "ctf_multi_service": "Error: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' LIMIT 1' at line 1 uid=33(www-data) gid=33(www-data) groups=33(www-data) BOF:uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup) MBPTL-17{03762a502a18e260a47da040eaae38fa}",
 }
 
 REQUEST_ONLY_EVIDENCE = {
@@ -114,6 +115,7 @@ REQUEST_ONLY_EVIDENCE = {
     "relay_to_shell": "Servers started, waiting for connections",
     "web_to_root": "GET /detail.php?id=1 HTTP/1.1",
     "mbptl_ctf_full_chain": "GET /detail.php?id=1 HTTP/1.1",
+    "ctf_multi_service": "GET /detail.php?id=1 HTTP/1.1",
 }
 
 
