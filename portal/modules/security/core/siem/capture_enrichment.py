@@ -644,6 +644,19 @@ SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = {
         "T1078": [r"\[\+\] portal\.lab\\administrator:.*?\(Pwn3d!\)"],
         "T1059": [r"Executed command via wmiexec"],
     },
+    "mission_vulhub_web_exploit": {
+        # Reuses vuln_laravel_rce's own exploit and postcondition marker
+        # pattern verbatim (renamed to mission-laravel-rce/portal-mission-
+        # laravel-proof to avoid colliding with that scenario's own capture
+        # if both run in the same window) -- see that scenario's entry for
+        # why T1059 (not T1059.004) is the right ID for this evidence.
+        "T1190": [
+            r"(?s)(?:POST|PUT) /_ignition/execute-solution.*?PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof"
+        ],
+        "T1059": [
+            r"PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof"
+        ],
+    },
 }
 
 
