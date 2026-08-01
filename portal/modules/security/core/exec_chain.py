@@ -597,7 +597,10 @@ SCENARIOS: dict[str, dict] = {
     "mbptl_ctf_full_chain": {
         "name": "mbptl_ctf_full_chain",
         "difficulty": "hard",
-        "target_host": _MBPTL_HOST_ENV or None,
+        # Was `_MBPTL_HOST_ENV or None` -- same missing-target-host bug fixed
+        # for web_to_root (LAB_MBPTL_HOST is unset in this environment).
+        "target_host": _MBPTL_HOST_ENV or "10.0.1.140",
+        "target_port": 80,
         "vulhub_env": None,
         "red_order": [
             "web_request",
