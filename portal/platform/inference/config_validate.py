@@ -19,6 +19,7 @@ _BOOL_KEYS = (
     "auto_rag",
     "memory_writeback",
     "memory_writeback_all",
+    "inject_temporal_context",
 )
 
 

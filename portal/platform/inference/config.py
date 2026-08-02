@@ -168,6 +168,17 @@ class WorkspaceSpec(BaseModel):
     # --- Tool preselection opt-in (P5-FUT-TOOL-PRESELECT) ---
     tool_preselect: ToolPreselectSpec | None = None
 
+    # --- Proactive context injection (router/context_inject.py) ---
+    # Per-workspace opt-ins for auto memory recall / RAG retrieval / writeback /
+    # temporal context. Absent = disabled (context_inject treats missing as
+    # False). These keys existed in portal.yaml (auto-daily) but were silently
+    # dropped by the schema — keep them flowing to the runtime WORKSPACES dict.
+    inject_memory: bool | None = None
+    auto_rag: bool | None = None
+    memory_writeback: bool | None = None
+    memory_writeback_all: bool | None = None
+    inject_temporal_context: bool | None = None
+
     # --- Open WebUI projection (portal.yaml-only fields, not in WORKSPACES dict) ---
     expose_to_owui: bool = True
     enable_web_search: bool = False
