@@ -1,0 +1,22 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-02T23:05:56.911350+00:00",
+  "models": [
+    "Qwen3.6-27B-oQ8-mtp"
+  ],
+  "gates": [
+    "mtp"
+  ],
+  "results": [
+    {
+      "test": "mtp",
+      "model": "Qwen3.6-27B-oQ8-mtp",
+      "error": "mtp toggle not honored: server state=unknown, expected inactive",
+      "gate": "mtp",
+      "engine": "omlx"
+    }
+  ]
+}

@@ -129,3 +129,41 @@ stability probe (TASK_OMLX_MTP_STABILITY_V1.md).
   probe; Path A (mlx-lm PR #990) still viable upstream alternative
 - P5-MTP-001: MEDIUM — MTP gate passes (1.55×-1.65×), integration design
   pending stability probe results
+
+---
+
+## Re-evaluation v3 2026-08-02 (P5-FUT-013 Phase-0)
+
+**Trigger:** oMLX matured from v0.3.12 (May) to v0.5.4 — continuous batching,
+rewritten paged cache stack (hot RAM + cold SSD, 256-token blocks), Lightning
+MTP/DFlash with published ~2× code-decode numbers on Portal 5's fleet families,
+multi-model EnginePool with pinning/TTL/LRU/memory guard, VLM serving,
+tool-call parsers for the Qwen/Gemma families, xgrammar structured output.
+
+**Scope:** Six-gate Phase-0 against production primaries, quant-matched, with
+same-session Ollama GGUF baselines (the correct comparator now that mlx-proxy
+is retired). New harness: `tests/benchmarks/bench_omlx_v3.py` (protocol shapes
+preserved from the deleted bench_omlx.py).
+
+**Results files:**
+- `tests/benchmarks/results/omlx_v3_reeval_20260802T221435Z.md` (full analysis)
+- `tests/benchmarks/results/omlx_v3_*_20260802T*.json` (10 gate artifacts)
+
+**Headline:** All six gates PASS. KV-cache cancel trigger cleared on
+agentic-length prefixes (3.5–7.0× warm TTFT speedup, direct `cached_tokens`
+evidence; the legacy short-prefix cell stays flat because the paged cache
+works on 256-token blocks — part of the original RETIRE verdict was a
+methodology artifact). Decode 1.32–1.46× over production GGUF before
+speculation, 2.2–2.5× with verified Lightning MTP. Tool calling parses on
+Qwen + Gemma (Llama-family does not). Grammar works on all families with one
+reproducible gemma livelock on unconstrained→constrained transitions.
+Continuous batching 1.6–3.1× with zero failures.
+
+**Decision: PROCEED to Phase 1** — dual-backend integration, oMLX as the
+Apple-Silicon primary tier, Ollama retained as fallback tier (GGUF-only
+fine-tunes, unprobed vision, crash refugees, Linux hosts). Scope guards and
+watch-items are in the results MD (xgrammar brew patch gap, restart-by-port,
+gemma livelock upstream filing, dead-symlink cleanup, version pinning).
+
+**Disposition of production inference:** unchanged until Phase 1 lands;
+Ollama remains sole production engine at HEAD.

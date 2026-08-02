@@ -1,0 +1,115 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-02T22:56:49.327025+00:00",
+  "models": [
+    "Qwen3.6-27B-oQ8-mtp"
+  ],
+  "gates": [
+    "mtp"
+  ],
+  "results": [
+    {
+      "test": "mtp",
+      "model": "Qwen3.6-27B-oQ8-mtp",
+      "verdicts": {
+        "short": {
+          "speedup": 0.22,
+          "pass": false
+        },
+        "medium": {
+          "speedup": 1.2,
+          "pass": false
+        },
+        "long": {
+          "speedup": 0.67,
+          "pass": false
+        }
+      },
+      "cells": [
+        {
+          "elapsed_s": 7.942,
+          "ttft_s": 7.942,
+          "completion_tokens": 128,
+          "prompt_tokens": 69,
+          "cached_tokens": 0,
+          "tps": 16.1,
+          "decode_tps": 839113.1,
+          "tool_calls": null,
+          "response_preview": "\nHere's a thinking process:\n\n1.  **Understand User Request:**\n   - **Task:** Write a Python function to compute the Fibonacci sequence up to N=100.\n   - **Methods:** Both recursion and memoization.\n  ",
+          "mtp_enabled": false,
+          "size": "short"
+        },
+        {
+          "elapsed_s": 25.631,
+          "ttft_s": 25.63,
+          "completion_tokens": 512,
+          "prompt_tokens": 69,
+          "cached_tokens": 0,
+          "tps": 20.0,
+          "decode_tps": 753818.0,
+          "tool_calls": null,
+          "response_preview": "\nHere's a thinking process:\n\n1.  **Understand User Request:**\n   - **Task:** Write a Python function that computes the Fibonacci sequence up to N=100 using both recursion and memoization.\n   - **Requi",
+          "mtp_enabled": false,
+          "size": "medium"
+        },
+        {
+          "elapsed_s": 103.929,
+          "ttft_s": 103.928,
+          "completion_tokens": 2048,
+          "prompt_tokens": 69,
+          "cached_tokens": 0,
+          "tps": 19.7,
+          "decode_tps": 2970087.4,
+          "tool_calls": null,
+          "response_preview": "\nHere's a thinking process:\n\n1.  **Understand User Request:**\n   - **Task:** Write a Python function to compute Fibonacci sequence up to N=100.\n   - **Methods:** Both recursion and memoization.\n   - *",
+          "mtp_enabled": false,
+          "size": "long"
+        },
+        {
+          "elapsed_s": 6.68,
+          "ttft_s": 6.679,
+          "completion_tokens": 128,
+          "prompt_tokens": 69,
+          "cached_tokens": 0,
+          "tps": 19.2,
+          "decode_tps": 184371.6,
+          "tool_calls": null,
+          "response_preview": "\nHere's a thinking process:\n\n1.  **Understand User Request:**\n   - **Task:** Write a Python function to compute Fibonacci sequence up to N=100.\n   - **Methods:** Both recursion and memoization.\n   - *",
+          "mtp_enabled": true,
+          "size": "short"
+        },
+        {
+          "elapsed_s": 27.23,
+          "ttft_s": 27.229,
+          "completion_tokens": 512,
+          "prompt_tokens": 69,
+          "cached_tokens": 0,
+          "tps": 18.8,
+          "decode_tps": 902667.1,
+          "tool_calls": null,
+          "response_preview": "\nHere's a thinking process:\n\n1.  **Understand User Request:**\n   - **Task:** Write a Python function that computes the Fibonacci sequence up to N=100.\n   - **Methods:** Both recursion and memoization.",
+          "mtp_enabled": true,
+          "size": "medium"
+        },
+        {
+          "elapsed_s": 102.337,
+          "ttft_s": 102.336,
+          "completion_tokens": 2048,
+          "prompt_tokens": 69,
+          "cached_tokens": 0,
+          "tps": 20.0,
+          "decode_tps": 1996426.3,
+          "tool_calls": null,
+          "response_preview": "\nHere's a thinking process:\n\n1.  **Understand User Request:**\n   - **Task:** Write a Python function that computes the Fibonacci sequence up to N=100 using both recursion and memoization.\n   - **Requi",
+          "mtp_enabled": true,
+          "size": "long"
+        }
+      ],
+      "gate": "mtp",
+      "engine": "omlx"
+    }
+  ]
+}

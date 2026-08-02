@@ -1,0 +1,54 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-02T22:14:12.874996+00:00",
+  "models": [
+    "Llama-3.2-3B-Instruct-8bit"
+  ],
+  "gates": [
+    "kv",
+    "tps",
+    "tools",
+    "grammar",
+    "concurrent"
+  ],
+  "results": [
+    {
+      "test": "kv_cache_ttft",
+      "model": "Llama-3.2-3B-Instruct-8bit",
+      "error": "warmup failed",
+      "gate": "kv",
+      "engine": "omlx"
+    },
+    {
+      "test": "tps",
+      "model": "Llama-3.2-3B-Instruct-8bit",
+      "error": "warmup failed",
+      "gate": "tps",
+      "engine": "omlx"
+    },
+    {
+      "test": "tools",
+      "model": "Llama-3.2-3B-Instruct-8bit",
+      "error": "warmup failed",
+      "gate": "tools",
+      "engine": "omlx"
+    },
+    {
+      "test": "grammar",
+      "model": "Llama-3.2-3B-Instruct-8bit",
+      "error": "warmup failed",
+      "gate": "grammar",
+      "engine": "omlx"
+    },
+    {
+      "test": "concurrent",
+      "model": "Llama-3.2-3B-Instruct-8bit",
+      "error": "warmup failed",
+      "gate": "concurrent",
+      "engine": "omlx"
+    }
+  ]
+}

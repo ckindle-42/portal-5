@@ -1,0 +1,144 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "ollama",
+  "url": "http://localhost:11434",
+  "started": "2026-08-02T22:48:56.992049+00:00",
+  "models": [
+    "qwen3-coder:30b-a3b-q4_K_M"
+  ],
+  "gates": [
+    "tps"
+  ],
+  "results": [
+    {
+      "test": "tps",
+      "model": "qwen3-coder:30b-a3b-q4_K_M",
+      "avg_tps": 9.2,
+      "avg_decode_tps": 9.8,
+      "runs_success": 9,
+      "runs_total": 9,
+      "runs": [
+        {
+          "elapsed_s": 53.99,
+          "ttft_s": 5.758,
+          "completion_tokens": 200,
+          "prompt_tokens": 59,
+          "cached_tokens": null,
+          "tps": 3.7,
+          "decode_tps": 4.1,
+          "tool_calls": null,
+          "response_preview": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of tuples.\n    \n    Given a ",
+          "prompt_category": "coding",
+          "run": 1
+        },
+        {
+          "elapsed_s": 28.003,
+          "ttft_s": 0.448,
+          "completion_tokens": 200,
+          "prompt_tokens": 59,
+          "cached_tokens": null,
+          "tps": 7.1,
+          "decode_tps": 7.3,
+          "tool_calls": null,
+          "response_preview": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of tuples.\n    \n    Given a ",
+          "prompt_category": "coding",
+          "run": 2
+        },
+        {
+          "elapsed_s": 21.413,
+          "ttft_s": 0.441,
+          "completion_tokens": 200,
+          "prompt_tokens": 59,
+          "cached_tokens": null,
+          "tps": 9.3,
+          "decode_tps": 9.5,
+          "tool_calls": null,
+          "response_preview": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of tuples.\n    \n    Given a ",
+          "prompt_category": "coding",
+          "run": 3
+        },
+        {
+          "elapsed_s": 28.855,
+          "ttft_s": 7.144,
+          "completion_tokens": 200,
+          "prompt_tokens": 56,
+          "cached_tokens": null,
+          "tps": 6.9,
+          "decode_tps": 9.2,
+          "tool_calls": null,
+          "response_preview": "To identify the bottleneck, I need to calculate the capacity of each resource and compare it to the demand.\n\n**Given information:**\n- Arrival rate: 30 patients/hour\n- 8 beds\n- 3 doctors\n- 12 nurses\n- ",
+          "prompt_category": "reasoning",
+          "run": 1
+        },
+        {
+          "elapsed_s": 14.843,
+          "ttft_s": 0.557,
+          "completion_tokens": 200,
+          "prompt_tokens": 56,
+          "cached_tokens": null,
+          "tps": 13.5,
+          "decode_tps": 14.0,
+          "tool_calls": null,
+          "response_preview": "To identify the primary bottleneck, I need to calculate the capacity of each resource and compare it to the demand.\n\n**Given Information:**\n- Patients arriving per hour: 30\n- Beds: 8\n- Doctors: 3\n- Nu",
+          "prompt_category": "reasoning",
+          "run": 2
+        },
+        {
+          "elapsed_s": 13.84,
+          "ttft_s": 0.345,
+          "completion_tokens": 200,
+          "prompt_tokens": 56,
+          "cached_tokens": null,
+          "tps": 14.5,
+          "decode_tps": 14.8,
+          "tool_calls": null,
+          "response_preview": "To identify the bottleneck, I need to calculate the capacity of each resource and compare it to the demand.\n\n**Given information:**\n- 30 patients arrive per hour\n- 8 beds\n- 3 doctors\n- 12 nurses\n- Ave",
+          "prompt_category": "reasoning",
+          "run": 3
+        },
+        {
+          "elapsed_s": 37.161,
+          "ttft_s": 5.781,
+          "completion_tokens": 200,
+          "prompt_tokens": 39,
+          "cached_tokens": null,
+          "tps": 5.4,
+          "decode_tps": 6.4,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 OSI model layers from bottom to top with their layer numbers, standard names, and example protocols:\n\n1. **Layer 1** - **Physical Layer** - **Ethernet (IEEE 802.3)**\n2. **Layer 2** - **",
+          "prompt_category": "general",
+          "run": 1
+        },
+        {
+          "elapsed_s": 21.744,
+          "ttft_s": 0.434,
+          "completion_tokens": 200,
+          "prompt_tokens": 39,
+          "cached_tokens": null,
+          "tps": 9.2,
+          "decode_tps": 9.4,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 OSI model layers from bottom to top with their layer numbers, standard names, and example protocols:\n\n1. **Layer 1** - **Physical Layer** - Example: **Ethernet (IEEE 802.3)**\n\n2. **Laye",
+          "prompt_category": "general",
+          "run": 2
+        },
+        {
+          "elapsed_s": 15.377,
+          "ttft_s": 0.425,
+          "completion_tokens": 200,
+          "prompt_tokens": 39,
+          "cached_tokens": null,
+          "tps": 13.0,
+          "decode_tps": 13.4,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 OSI model layers from bottom to top with their numbers, names, and example protocols:\n\n1. **Layer 1** - **Physical Layer** - Example: **Ethernet (IEEE 802.3)**\n\n2. **Layer 2** - **Data ",
+          "prompt_category": "general",
+          "run": 3
+        }
+      ],
+      "gate": "tps",
+      "engine": "ollama"
+    }
+  ]
+}

@@ -1,0 +1,306 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-02T22:19:39.576473+00:00",
+  "models": [
+    "Llama-3.2-3B-Instruct-8bit"
+  ],
+  "gates": [
+    "kv",
+    "tps",
+    "tools",
+    "grammar",
+    "concurrent"
+  ],
+  "results": [
+    {
+      "test": "kv_cache_ttft",
+      "model": "Llama-3.2-3B-Instruct-8bit",
+      "short": {
+        "cold_ttft_s": 0.351,
+        "warm_ttft_avg_s": 0.424,
+        "ttft_speedup_x": 0.83,
+        "warm_cached_tokens": [
+          0,
+          0
+        ],
+        "rounds": [
+          {
+            "elapsed_s": 3.28,
+            "ttft_s": 0.351,
+            "completion_tokens": 200,
+            "prompt_tokens": 191,
+            "cached_tokens": 0,
+            "tps": 61.0,
+            "decode_tps": 68.3,
+            "tool_calls": null,
+            "response_preview": "Here's an example implementation using a list comprehension to create a dictionary:\n\n```python\nfrom collections import namedtuple\n\n# Define a named tuple\nPerson = namedtuple('Person', ['name', 'age'])",
+            "round": 1,
+            "round_label": "cold"
+          },
+          {
+            "elapsed_s": 3.335,
+            "ttft_s": 0.42,
+            "completion_tokens": 200,
+            "prompt_tokens": 191,
+            "cached_tokens": 0,
+            "tps": 60.0,
+            "decode_tps": 68.6,
+            "tool_calls": null,
+            "response_preview": "**Tuple to Dictionary Conversion Function**\n======================================\n\nThe following function uses the `namedtuple` function from the `collections` module to convert a list of 2-tuples in",
+            "round": 2,
+            "round_label": "warm-1"
+          },
+          {
+            "elapsed_s": 3.344,
+            "ttft_s": 0.428,
+            "completion_tokens": 200,
+            "prompt_tokens": 191,
+            "cached_tokens": 0,
+            "tps": 59.8,
+            "decode_tps": 68.6,
+            "tool_calls": null,
+            "response_preview": "### Converting List of Tuples to Dictionary\n\n```python\nfrom collections import namedtuple\n\ndef tuples_to_dict(tuples):\n    \"\"\"\n    Convert a list of 2-tuples into a dictionary.\n\n    Args:\n        tupl",
+            "round": 3,
+            "round_label": "warm-2"
+          }
+        ]
+      },
+      "verdict": "PASS",
+      "agentic_long": {
+        "cold_ttft_s": 2.845,
+        "warm_ttft_avg_s": 0.405,
+        "ttft_speedup_x": 7.02,
+        "warm_cached_tokens": [
+          2816,
+          2816
+        ],
+        "rounds": [
+          {
+            "elapsed_s": 5.627,
+            "ttft_s": 2.845,
+            "completion_tokens": 172,
+            "prompt_tokens": 2914,
+            "cached_tokens": 0,
+            "tps": 30.6,
+            "decode_tps": 61.8,
+            "tool_calls": null,
+            "response_preview": "```python\nfrom collections import namedtuple\n\ndef tuples_to_dict(tuples_list):\n    Person = namedtuple('Person', ['name', 'age'])\n    return {Person(*t): {'name': t[0], 'age': t[1]} for t in tuples_li",
+            "round": 1,
+            "round_label": "cold"
+          },
+          {
+            "elapsed_s": 2.785,
+            "ttft_s": 0.408,
+            "completion_tokens": 148,
+            "prompt_tokens": 2914,
+            "cached_tokens": 2816,
+            "tps": 53.1,
+            "decode_tps": 62.3,
+            "tool_calls": null,
+            "response_preview": "```python\nfrom collections import namedtuple\n\ndef tuple_list_to_dict(tuples_list):\n    # Create a namedtuple type\n    Person = namedtuple('Person', ['name', 'age'])\n\n    # Use a dictionary comprehensi",
+            "round": 2,
+            "round_label": "warm-1"
+          },
+          {
+            "elapsed_s": 3.639,
+            "ttft_s": 0.403,
+            "completion_tokens": 200,
+            "prompt_tokens": 2914,
+            "cached_tokens": 2816,
+            "tps": 55.0,
+            "decode_tps": 61.8,
+            "tool_calls": null,
+            "response_preview": "```python\nimport collections\n\ndef tuples_to_dict(tuples_list):\n    return collections.namedtuple('TupleDict', tuples_list[0][1:])[tuples_list]\n\n# example usage:\ntuples_list = [(1, 'a', 2), (3, 'b', 4)",
+            "round": 3,
+            "round_label": "warm-2"
+          }
+        ],
+        "verdict": "PASS"
+      },
+      "gate": "kv",
+      "engine": "omlx"
+    },
+    {
+      "test": "tps",
+      "model": "Llama-3.2-3B-Instruct-8bit",
+      "avg_tps": 61.8,
+      "avg_decode_tps": 69.0,
+      "runs_success": 9,
+      "runs_total": 9,
+      "runs": [
+        {
+          "elapsed_s": 3.189,
+          "ttft_s": 0.261,
+          "completion_tokens": 200,
+          "prompt_tokens": 87,
+          "cached_tokens": 0,
+          "tps": 62.7,
+          "decode_tps": 68.3,
+          "tool_calls": null,
+          "response_preview": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of intervals.\n\n    Args:\n   ",
+          "prompt_category": "coding",
+          "run": 1
+        },
+        {
+          "elapsed_s": 3.211,
+          "ttft_s": 0.295,
+          "completion_tokens": 200,
+          "prompt_tokens": 87,
+          "cached_tokens": 0,
+          "tps": 62.3,
+          "decode_tps": 68.6,
+          "tool_calls": null,
+          "response_preview": "Here's a Python function that merges overlapping intervals using a sorting approach.\n\n```python\ndef merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:\n    \"\"\"\n    This functio",
+          "prompt_category": "coding",
+          "run": 2
+        },
+        {
+          "elapsed_s": 3.207,
+          "ttft_s": 0.294,
+          "completion_tokens": 200,
+          "prompt_tokens": 87,
+          "cached_tokens": 0,
+          "tps": 62.4,
+          "decode_tps": 68.7,
+          "tool_calls": null,
+          "response_preview": "```python\ndef merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of tuples.\n\n    Args:\n    intervals: A list of tuples, where",
+          "prompt_category": "coding",
+          "run": 3
+        },
+        {
+          "elapsed_s": 3.218,
+          "ttft_s": 0.296,
+          "completion_tokens": 200,
+          "prompt_tokens": 81,
+          "cached_tokens": 0,
+          "tps": 62.2,
+          "decode_tps": 68.4,
+          "tool_calls": null,
+          "response_preview": "To identify the primary bottleneck in the emergency room, we need to calculate the maximum capacity of the ER and compare it to the number of patients arriving per hour.\n\n1. Calculate the maximum capa",
+          "prompt_category": "reasoning",
+          "run": 1
+        },
+        {
+          "elapsed_s": 3.208,
+          "ttft_s": 0.292,
+          "completion_tokens": 200,
+          "prompt_tokens": 81,
+          "cached_tokens": 0,
+          "tps": 62.3,
+          "decode_tps": 68.6,
+          "tool_calls": null,
+          "response_preview": "To identify the primary bottleneck, we need to analyze the number of resources available and the capacity of the system.\n\n1. Beds: The ER has 8 beds, which means it can accommodate a maximum of 8 pati",
+          "prompt_category": "reasoning",
+          "run": 2
+        },
+        {
+          "elapsed_s": 3.203,
+          "ttft_s": 0.298,
+          "completion_tokens": 200,
+          "prompt_tokens": 81,
+          "cached_tokens": 0,
+          "tps": 62.4,
+          "decode_tps": 68.8,
+          "tool_calls": null,
+          "response_preview": "To identify the primary bottleneck in the hospital emergency room, we need to analyze the capacity of each resource and compare it with the demand.\n\nLet's break down the capacity and demand:\n\n1. Beds:",
+          "prompt_category": "reasoning",
+          "run": 3
+        },
+        {
+          "elapsed_s": 3.206,
+          "ttft_s": 0.305,
+          "completion_tokens": 200,
+          "prompt_tokens": 67,
+          "cached_tokens": 0,
+          "tps": 62.4,
+          "decode_tps": 68.9,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 OSI model layers listed from bottom to top, along with the layer number, standard name, and an example protocol:\n\n1. Layer 1: Physical Layer\n   Standard Name: Physical Layer (Phys)\n   E",
+          "prompt_category": "general",
+          "run": 1
+        },
+        {
+          "elapsed_s": 1.594,
+          "ttft_s": 0.309,
+          "completion_tokens": 92,
+          "prompt_tokens": 67,
+          "cached_tokens": 0,
+          "tps": 57.7,
+          "decode_tps": 71.6,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 OSI (Open Systems Interconnection) model layers from bottom to top, along with their standard names and examples of protocols:\n\n1. Layer 1: Physical Layer\n   - Layer 2: Data Link Layer\n",
+          "prompt_category": "general",
+          "run": 2
+        },
+        {
+          "elapsed_s": 3.214,
+          "ttft_s": 0.311,
+          "completion_tokens": 200,
+          "prompt_tokens": 67,
+          "cached_tokens": 0,
+          "tps": 62.2,
+          "decode_tps": 68.9,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 OSI model layers, listed from bottom to top, along with their standard names and example protocols:\n\n1. Layer 1: Physical Layer\n   - Standard Name: Physical Layer (PHY)\n   - Example Pro",
+          "prompt_category": "general",
+          "run": 3
+        }
+      ],
+      "gate": "tps",
+      "engine": "omlx"
+    },
+    {
+      "test": "tools",
+      "model": "Llama-3.2-3B-Instruct-8bit",
+      "outcome": "text_only",
+      "detail": "tool JSON in content: {\"name\": \"get_current_time\", \"parameters\": {\"city\": \"Paris\"}}",
+      "verdict": "FAIL",
+      "raw": {
+        "elapsed_s": 0.528,
+        "ttft_s": 0.379,
+        "completion_tokens": 17,
+        "prompt_tokens": 198,
+        "cached_tokens": 0,
+        "tps": 32.2,
+        "decode_tps": 114.1,
+        "tool_calls": null,
+        "response_preview": "{\"name\": \"get_current_time\", \"parameters\": {\"city\": \"Paris\"}}"
+      },
+      "gate": "tools",
+      "engine": "omlx"
+    },
+    {
+      "test": "grammar",
+      "model": "Llama-3.2-3B-Instruct-8bit",
+      "verdict": "FAIL",
+      "detail": "unparseable: ```json\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"workspace\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"auto",
+      "raw": {
+        "elapsed_s": 1.199,
+        "ttft_s": 0.352,
+        "completion_tokens": 64,
+        "prompt_tokens": 192,
+        "cached_tokens": 0,
+        "tps": 53.4,
+        "decode_tps": 75.5,
+        "tool_calls": null,
+        "response_preview": "```json\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"workspace\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"auto-coding\",\n        \"auto-research\",\n        \"auto-daily\"\n      ]\n    },\n    \"conf"
+      },
+      "gate": "grammar",
+      "engine": "omlx"
+    },
+    {
+      "test": "concurrent",
+      "model": "Llama-3.2-3B-Instruct-8bit",
+      "serial_s": 12.78,
+      "parallel_s": 4.11,
+      "speedup_x": 3.11,
+      "failures": 0,
+      "verdict": "PASS",
+      "gate": "concurrent",
+      "engine": "omlx"
+    }
+  ]
+}
