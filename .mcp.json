@@ -12,12 +12,16 @@
     "fetch": {
       "command": "uvx",
       "args": [
+        "--with",
+        "mcp<2.0.0",
         "mcp-fetch"
       ]
     },
     "git": {
       "command": "uvx",
       "args": [
+        "--with",
+        "mcp<2.0.0",
         "mcp-server-git",
         "--repository",
         "${HOME}/projects/portal-5"
