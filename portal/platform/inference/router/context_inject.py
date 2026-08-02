@@ -23,12 +23,12 @@ import logging
 import os
 from typing import Any
 
-from portal.platform.inference import tool_registry
 from portal.platform.inference.router.metrics import (
     _auto_context_inject_total,
     _auto_context_latency_seconds,
 )
 from portal.platform.inference.router.workspaces import WORKSPACES
+from portal.platform.inference.tool_registry import tool_registry
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +189,11 @@ async def writeback_memory(workspace_id: str, messages: list[dict], cid: str) ->
         return
     result = await _dispatch_bounded(
         "remember",
-        {"text": text, "category": "auto_writeback", "tags": [workspace_id]},
+        # category must be one of the memory server's enum values
+        # (preference|fact|project_context|conversation_summary) — the original
+        # "auto_writeback" was never live-tested and is rejected. Provenance is
+        # carried by the "auto_writeback" tag instead.
+        {"text": text, "category": "fact", "tags": [workspace_id, "auto_writeback"]},
         cid,
     )
     outcome = "error" if (isinstance(result, dict) and "error" in result) else "stored"

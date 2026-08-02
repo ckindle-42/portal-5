@@ -68,3 +68,38 @@ def test_writeback_all_captures_everything(monkeypatch):
     monkeypatch.setitem(WORKSPACES, "ws-aggr", {"memory_writeback_all": True})
     msgs = [{"role": "user", "content": "the capital of France is Paris"}]
     assert ci._salient_user_text(msgs, "ws-aggr") is not None
+
+
+def test_writeback_dispatch_args_match_memory_contract(monkeypatch):
+    """The remember tool's category is an enum (preference|fact|
+    project_context|conversation_summary); the original "auto_writeback"
+    category was silently rejected by the memory server once the feature
+    finally went live. Guard the dispatch contract."""
+    from portal.platform.inference.router.workspaces import WORKSPACES
+    from portal.platform.inference.tool_registry import tool_registry
+
+    captured = {}
+
+    async def fake_dispatch(tool, args, request_id=None):
+        captured["tool"] = tool
+        captured["args"] = args
+        return {"ok": True}
+
+    monkeypatch.setattr(tool_registry, "dispatch", fake_dispatch)
+    monkeypatch.setattr(ci, "_AUTO_MEMORY_WRITEBACK_ENABLED", True)
+    monkeypatch.setitem(WORKSPACES, "ws-wb", {"memory_writeback": True})
+
+    asyncio.run(
+        ci.writeback_memory(
+            "ws-wb", [{"role": "user", "content": "remember that my callsign is X"}], "cid"
+        )
+    )
+    assert captured["tool"] == "remember"
+    assert captured["args"]["category"] in (
+        "preference",
+        "fact",
+        "project_context",
+        "conversation_summary",
+    )
+    assert "ws-wb" in captured["args"]["tags"]
+    assert "auto_writeback" in captured["args"]["tags"]
