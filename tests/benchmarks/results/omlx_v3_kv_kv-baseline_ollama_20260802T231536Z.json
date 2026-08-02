@@ -1,0 +1,120 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "ollama",
+  "url": "http://localhost:11434",
+  "started": "2026-08-02T23:15:36.287379+00:00",
+  "models": [
+    "gemma4:e4b-it-qat"
+  ],
+  "gates": [
+    "kv"
+  ],
+  "results": [
+    {
+      "test": "kv_cache_ttft",
+      "model": "gemma4:e4b-it-qat",
+      "short": {
+        "cold_ttft_s": null,
+        "warm_ttft_avg_s": null,
+        "ttft_speedup_x": null,
+        "warm_cached_tokens": [],
+        "rounds": [
+          {
+            "elapsed_s": 4.167,
+            "ttft_s": null,
+            "completion_tokens": 200,
+            "prompt_tokens": 172,
+            "cached_tokens": null,
+            "tps": 48.0,
+            "decode_tps": null,
+            "tool_calls": null,
+            "response_preview": "",
+            "round": 1,
+            "round_label": "cold"
+          },
+          {
+            "elapsed_s": 3.951,
+            "ttft_s": null,
+            "completion_tokens": 200,
+            "prompt_tokens": 172,
+            "cached_tokens": null,
+            "tps": 50.6,
+            "decode_tps": null,
+            "tool_calls": null,
+            "response_preview": "",
+            "round": 2,
+            "round_label": "warm-1"
+          },
+          {
+            "elapsed_s": 3.984,
+            "ttft_s": null,
+            "completion_tokens": 200,
+            "prompt_tokens": 172,
+            "cached_tokens": null,
+            "tps": 50.2,
+            "decode_tps": null,
+            "tool_calls": null,
+            "response_preview": "",
+            "round": 3,
+            "round_label": "warm-2"
+          }
+        ]
+      },
+      "verdict": "FAIL",
+      "agentic_long": {
+        "cold_ttft_s": 7.395,
+        "warm_ttft_avg_s": 2.118,
+        "ttft_speedup_x": 3.49,
+        "warm_cached_tokens": [
+          null,
+          null
+        ],
+        "rounds": [
+          {
+            "elapsed_s": 8.329,
+            "ttft_s": 7.395,
+            "completion_tokens": 200,
+            "prompt_tokens": 3092,
+            "cached_tokens": null,
+            "tps": 24.0,
+            "decode_tps": 214.2,
+            "tool_calls": null,
+            "response_preview": "I can certainly write that for you. Here is a Python function to convert a list of 2-tuples into a dictionary.\n\n```python\ndef list_of_tuples_to_dict(list_of_pairs):\n  ",
+            "round": 1,
+            "round_label": "cold"
+          },
+          {
+            "elapsed_s": 4.123,
+            "ttft_s": 1.794,
+            "completion_tokens": 200,
+            "prompt_tokens": 3092,
+            "cached_tokens": null,
+            "tps": 48.5,
+            "decode_tps": 85.9,
+            "tool_calls": null,
+            "response_preview": "Here is the Python implementation:\n\n```python\nfrom typing import List, Tuple, Dict\n\ndef tuple_list_to_dict(data: List[Tuple], key_index: int = 0) -> Dict:\n    \"\"\"\n    Converts a list of tuples into a ",
+            "round": 2,
+            "round_label": "warm-1"
+          },
+          {
+            "elapsed_s": 4.102,
+            "ttft_s": 2.442,
+            "completion_tokens": 200,
+            "prompt_tokens": 3092,
+            "cached_tokens": null,
+            "tps": 48.8,
+            "decode_tps": 120.5,
+            "tool_calls": null,
+            "response_preview": "This is a straightforward task that can be solved very concisely in Python. The built-in `dict()` function accepts an iterable of two-element iterables (like tuples) and maps the first element to the ",
+            "round": 3,
+            "round_label": "warm-2"
+          }
+        ],
+        "verdict": "FAIL"
+      },
+      "gate": "kv",
+      "engine": "ollama"
+    }
+  ]
+}

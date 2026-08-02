@@ -1,0 +1,316 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-02T22:35:32.842540+00:00",
+  "models": [
+    "gemma-4-e4b-it-4bit"
+  ],
+  "gates": [
+    "kv",
+    "tps",
+    "tools",
+    "grammar",
+    "concurrent"
+  ],
+  "results": [
+    {
+      "test": "kv_cache_ttft",
+      "model": "gemma-4-e4b-it-4bit",
+      "short": {
+        "cold_ttft_s": 0.459,
+        "warm_ttft_avg_s": 0.891,
+        "ttft_speedup_x": 0.52,
+        "warm_cached_tokens": [
+          0,
+          0
+        ],
+        "rounds": [
+          {
+            "elapsed_s": 3.19,
+            "ttft_s": 0.459,
+            "completion_tokens": 200,
+            "prompt_tokens": 171,
+            "cached_tokens": 0,
+            "tps": 62.7,
+            "decode_tps": 73.2,
+            "tool_calls": null,
+            "response_preview": "This is a very common and practical task. The input is a list where each element is a pair, and we want to transform this into a key-value mapping (a dictionary).\n\nHere is the complete, robust Python ",
+            "round": 1,
+            "round_label": "cold"
+          },
+          {
+            "elapsed_s": 3.62,
+            "ttft_s": 0.891,
+            "completion_tokens": 200,
+            "prompt_tokens": 171,
+            "cached_tokens": 0,
+            "tps": 55.3,
+            "decode_tps": 73.3,
+            "tool_calls": null,
+            "response_preview": "Here is a complete, robust, and well-documented Python function that achieves this conversion.\n\n### Python Implementation\n\n```python\nfrom typing import List, Tuple, Dict\n\ndef list_of_2tuples_to_dict(d",
+            "round": 2,
+            "round_label": "warm-1"
+          },
+          {
+            "elapsed_s": 3.618,
+            "ttft_s": 0.89,
+            "completion_tokens": 200,
+            "prompt_tokens": 171,
+            "cached_tokens": 0,
+            "tps": 55.3,
+            "decode_tps": 73.3,
+            "tool_calls": null,
+            "response_preview": "This is a classic use case where the structure of the input naturally maps to the key-value pairs of a dictionary.\n\nHere is the complete, robust implementation, followed by a detailed explanation.\n\n##",
+            "round": 3,
+            "round_label": "warm-2"
+          }
+        ]
+      },
+      "verdict": "PASS",
+      "agentic_long": {
+        "cold_ttft_s": 2.8,
+        "warm_ttft_avg_s": 0.79,
+        "ttft_speedup_x": 3.54,
+        "warm_cached_tokens": [
+          3072,
+          3072
+        ],
+        "rounds": [
+          {
+            "elapsed_s": 5.687,
+            "ttft_s": 2.8,
+            "completion_tokens": 200,
+            "prompt_tokens": 3091,
+            "cached_tokens": 0,
+            "tps": 35.2,
+            "decode_tps": 69.3,
+            "tool_calls": null,
+            "response_preview": "Here is a Python function that takes a list of 2-tuples (where each tuple is `(key, value)`) and returns a dictionary.\n\nI will write the code and then verify it with an example.\n\nHere is the implement",
+            "round": 1,
+            "round_label": "cold"
+          },
+          {
+            "elapsed_s": 3.647,
+            "ttft_s": 0.79,
+            "completion_tokens": 200,
+            "prompt_tokens": 3091,
+            "cached_tokens": 3072,
+            "tps": 54.8,
+            "decode_tps": 70.0,
+            "tool_calls": null,
+            "response_preview": "Here is a Python function that accomplishes that. It takes a list where each element is a 2-tuple (e.g., `[('key1', 'value1'), ('key2', 'value2')]`) and returns a dictionary.\n\nI will first write the c",
+            "round": 2,
+            "round_label": "warm-1"
+          },
+          {
+            "elapsed_s": 3.654,
+            "ttft_s": 0.791,
+            "completion_tokens": 200,
+            "prompt_tokens": 3091,
+            "cached_tokens": 3072,
+            "tps": 54.7,
+            "decode_tps": 69.9,
+            "tool_calls": null,
+            "response_preview": "Here is a Python function that takes a list of 2-tuples (where each tuple is `(key, value)`) and returns a dictionary.\n\nI will implement and verify this now.\n\n```python\ndef list_of_2tuples_to_dict(lis",
+            "round": 3,
+            "round_label": "warm-2"
+          }
+        ],
+        "verdict": "PASS"
+      },
+      "gate": "kv",
+      "engine": "omlx"
+    },
+    {
+      "test": "tps",
+      "model": "gemma-4-e4b-it-4bit",
+      "avg_tps": 64.9,
+      "avg_decode_tps": 73.9,
+      "runs_success": 9,
+      "runs_total": 9,
+      "runs": [
+        {
+          "elapsed_s": 3.038,
+          "ttft_s": 0.317,
+          "completion_tokens": 200,
+          "prompt_tokens": 61,
+          "cached_tokens": 0,
+          "tps": 65.8,
+          "decode_tps": 73.5,
+          "tool_calls": null,
+          "response_preview": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merges a list of overlapping intervals into a new list of non-over",
+          "prompt_category": "coding",
+          "run": 1
+        },
+        {
+          "elapsed_s": 3.059,
+          "ttft_s": 0.347,
+          "completion_tokens": 200,
+          "prompt_tokens": 61,
+          "cached_tokens": 0,
+          "tps": 65.4,
+          "decode_tps": 73.7,
+          "tool_calls": null,
+          "response_preview": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merges a list of overlapping intervals.\n\n    Given a list of inter",
+          "prompt_category": "coding",
+          "run": 2
+        },
+        {
+          "elapsed_s": 3.058,
+          "ttft_s": 0.347,
+          "completion_tokens": 200,
+          "prompt_tokens": 61,
+          "cached_tokens": 0,
+          "tps": 65.4,
+          "decode_tps": 73.8,
+          "tool_calls": null,
+          "response_preview": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merges overlapping intervals in a list of intervals.\n\n    The inpu",
+          "prompt_category": "coding",
+          "run": 3
+        },
+        {
+          "elapsed_s": 3.059,
+          "ttft_s": 0.348,
+          "completion_tokens": 200,
+          "prompt_tokens": 57,
+          "cached_tokens": 0,
+          "tps": 65.4,
+          "decode_tps": 73.8,
+          "tool_calls": null,
+          "response_preview": "Here's how to identify the primary bottleneck:\n\n## 1. Analyze Patient Arrival Rate (Demand)\n\n* **Arrival Rate ($\\lambda$):** 30 patients per hour\n\n## 2. Analyze Resource Capacity (Supply)\n\nWe need to ",
+          "prompt_category": "reasoning",
+          "run": 1
+        },
+        {
+          "elapsed_s": 3.063,
+          "ttft_s": 0.345,
+          "completion_tokens": 200,
+          "prompt_tokens": 57,
+          "cached_tokens": 0,
+          "tps": 65.3,
+          "decode_tps": 73.6,
+          "tool_calls": null,
+          "response_preview": "Here's how to identify the primary bottleneck in this scenario:\n\n**1. Analyze the Arrival Rate (Demand):**\n\n* **Patient Arrival Rate ($\\lambda$):** 30 patients per hour.\n\n**2. Analyze the Service Capa",
+          "prompt_category": "reasoning",
+          "run": 2
+        },
+        {
+          "elapsed_s": 3.063,
+          "ttft_s": 0.347,
+          "completion_tokens": 200,
+          "prompt_tokens": 57,
+          "cached_tokens": 0,
+          "tps": 65.3,
+          "decode_tps": 73.6,
+          "tool_calls": null,
+          "response_preview": "Here's how to identify the primary bottleneck in this scenario:\n\n**1. Analyze the Rates and Capacities:**\n\nWe need to compare the arrival rate of patients to the service rate of the available resource",
+          "prompt_category": "reasoning",
+          "run": 3
+        },
+        {
+          "elapsed_s": 2.364,
+          "ttft_s": 0.35,
+          "completion_tokens": 150,
+          "prompt_tokens": 40,
+          "cached_tokens": 0,
+          "tps": 63.5,
+          "decode_tps": 74.5,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 layers of the OSI model, listed from bottom to top, with the required details for each:\n\n| Layer Number | Layer Name | Example Protocol |\n| :---: | :--- | :--- |\n| 1 | Physical Layer | ",
+          "prompt_category": "general",
+          "run": 1
+        },
+        {
+          "elapsed_s": 2.557,
+          "ttft_s": 0.346,
+          "completion_tokens": 164,
+          "prompt_tokens": 40,
+          "cached_tokens": 0,
+          "tps": 64.1,
+          "decode_tps": 74.2,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 layers of the OSI model listed from bottom to top, including the layer number, standard name, and one example protocol for each:\n\n| Layer Number | Standard Name | Example Protocol |\n| :",
+          "prompt_category": "general",
+          "run": 2
+        },
+        {
+          "elapsed_s": 2.478,
+          "ttft_s": 0.351,
+          "completion_tokens": 158,
+          "prompt_tokens": 40,
+          "cached_tokens": 0,
+          "tps": 63.8,
+          "decode_tps": 74.3,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 OSI model layers listed from bottom to top, along with the requested details for each:\n\n| Layer Number | Layer Name | Example Protocol |\n| :---: | :--- | :--- |\n| 1 | Physical Layer | E",
+          "prompt_category": "general",
+          "run": 3
+        }
+      ],
+      "gate": "tps",
+      "engine": "omlx"
+    },
+    {
+      "test": "tools",
+      "model": "gemma-4-e4b-it-4bit",
+      "outcome": "tool_call",
+      "detail": "structured tool_calls: ['get_current_time']",
+      "verdict": "PASS",
+      "raw": {
+        "elapsed_s": 0.495,
+        "ttft_s": null,
+        "completion_tokens": 16,
+        "prompt_tokens": 81,
+        "cached_tokens": 0,
+        "tps": 32.3,
+        "decode_tps": null,
+        "tool_calls": [
+          {
+            "index": 0,
+            "id": "call_66c652d8",
+            "type": "function",
+            "function": {
+              "name": "get_current_time",
+              "arguments": "{\"city\": \"Paris\"}"
+            }
+          }
+        ],
+        "response_preview": ""
+      },
+      "gate": "tools",
+      "engine": "omlx"
+    },
+    {
+      "test": "grammar",
+      "model": "gemma-4-e4b-it-4bit",
+      "verdict": "FAIL",
+      "detail": "unparseable: {\n  \"workspace\": \"auto-coding\"",
+      "raw": {
+        "elapsed_s": 1.263,
+        "ttft_s": 0.329,
+        "completion_tokens": 64,
+        "prompt_tokens": 40,
+        "cached_tokens": 0,
+        "tps": 50.7,
+        "decode_tps": 68.5,
+        "tool_calls": null,
+        "response_preview": "{\n  \"workspace\": \"auto-coding\"\n  \n    \n  \n    \n    \n    \n    \n    \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n"
+      },
+      "gate": "grammar",
+      "engine": "omlx"
+    },
+    {
+      "test": "concurrent",
+      "model": "gemma-4-e4b-it-4bit",
+      "serial_s": 12.23,
+      "parallel_s": 5.47,
+      "speedup_x": 2.23,
+      "failures": 0,
+      "verdict": "PASS",
+      "gate": "concurrent",
+      "engine": "omlx"
+    }
+  ]
+}

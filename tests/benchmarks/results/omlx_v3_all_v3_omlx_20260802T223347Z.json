@@ -1,0 +1,316 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-02T22:33:47.117902+00:00",
+  "models": [
+    "Qwen3-Coder-30B-A3B-Instruct-4bit"
+  ],
+  "gates": [
+    "kv",
+    "tps",
+    "tools",
+    "grammar",
+    "concurrent"
+  ],
+  "results": [
+    {
+      "test": "kv_cache_ttft",
+      "model": "Qwen3-Coder-30B-A3B-Instruct-4bit",
+      "short": {
+        "cold_ttft_s": 0.648,
+        "warm_ttft_avg_s": 0.837,
+        "ttft_speedup_x": 0.77,
+        "warm_cached_tokens": [
+          0,
+          0
+        ],
+        "rounds": [
+          {
+            "elapsed_s": 2.835,
+            "ttft_s": 0.648,
+            "completion_tokens": 200,
+            "prompt_tokens": 168,
+            "cached_tokens": 0,
+            "tps": 70.5,
+            "decode_tps": 91.4,
+            "tool_calls": null,
+            "response_preview": "```python\ndef tuples_to_dict(tuple_list):\n    \"\"\"\n    Convert a list of 2-tuples to a dictionary.\n    \n    Args:\n        tuple_list: List of tuples with exactly 2 elements each\n        Each tuple shou",
+            "round": 1,
+            "round_label": "cold"
+          },
+          {
+            "elapsed_s": 3.028,
+            "ttft_s": 0.837,
+            "completion_tokens": 200,
+            "prompt_tokens": 168,
+            "cached_tokens": 0,
+            "tps": 66.0,
+            "decode_tps": 91.3,
+            "tool_calls": null,
+            "response_preview": "```python\ndef tuples_to_dict(tuple_list):\n    \"\"\"\n    Convert a list of 2-tuples into a dictionary.\n    \n    Args:\n        tuple_list: List of tuples where each tuple has exactly 2 elements\n          ",
+            "round": 2,
+            "round_label": "warm-1"
+          },
+          {
+            "elapsed_s": 3.026,
+            "ttft_s": 0.836,
+            "completion_tokens": 200,
+            "prompt_tokens": 168,
+            "cached_tokens": 0,
+            "tps": 66.1,
+            "decode_tps": 91.3,
+            "tool_calls": null,
+            "response_preview": "I'll write a Python function that converts a list of 2-tuples into a dictionary.\n\n```python\ndef tuples_to_dict(tuple_list):\n    \"\"\"\n    Convert a list of 2-tuples into a dictionary.\n    \n    Args:\n   ",
+            "round": 3,
+            "round_label": "warm-2"
+          }
+        ]
+      },
+      "verdict": "PASS",
+      "agentic_long": {
+        "cold_ttft_s": 3.889,
+        "warm_ttft_avg_s": 0.883,
+        "ttft_speedup_x": 4.4,
+        "warm_cached_tokens": [
+          2816,
+          2816
+        ],
+        "rounds": [
+          {
+            "elapsed_s": 5.822,
+            "ttft_s": 3.889,
+            "completion_tokens": 146,
+            "prompt_tokens": 2961,
+            "cached_tokens": 0,
+            "tps": 25.1,
+            "decode_tps": 75.5,
+            "tool_calls": null,
+            "response_preview": "I'll create a Python function that converts a list of 2-tuples into a dictionary.\n\n```python\ndef tuples_to_dict(tuple_list):\n    \"\"\"Convert list of 2-tuples to dictionary.\"\"\"\n    return dict(tuple_lis",
+            "round": 1,
+            "round_label": "cold"
+          },
+          {
+            "elapsed_s": 2.496,
+            "ttft_s": 0.907,
+            "completion_tokens": 122,
+            "prompt_tokens": 2961,
+            "cached_tokens": 2816,
+            "tps": 48.9,
+            "decode_tps": 76.8,
+            "tool_calls": null,
+            "response_preview": "```python\ndef tuples_to_dict(tuples_list):\n    \"\"\"Convert list of 2-tuples to dictionary.\"\"\"\n    return dict(tuples_list)\n\n# Example usage:\n# pairs = [('a', 1), ('b', 2), ('c', 3)]\n# result = tuples_t",
+            "round": 2,
+            "round_label": "warm-1"
+          },
+          {
+            "elapsed_s": 3.522,
+            "ttft_s": 0.858,
+            "completion_tokens": 200,
+            "prompt_tokens": 2961,
+            "cached_tokens": 2816,
+            "tps": 56.8,
+            "decode_tps": 75.1,
+            "tool_calls": null,
+            "response_preview": "TOOL: execute_python\n```python\ndef tuples_to_dict(tuples_list):\n    \"\"\"Convert list of 2-tuples to dictionary.\"\"\"\n    return dict(tuples_list)\n\n# Test\ntest_data = [('a', 1), ('b', 2), ('c', 3)]\nresult",
+            "round": 3,
+            "round_label": "warm-2"
+          }
+        ],
+        "verdict": "PASS"
+      },
+      "gate": "kv",
+      "engine": "omlx"
+    },
+    {
+      "test": "tps",
+      "model": "Qwen3-Coder-30B-A3B-Instruct-4bit",
+      "avg_tps": 78.0,
+      "avg_decode_tps": 91.4,
+      "runs_success": 9,
+      "runs_total": 9,
+      "runs": [
+        {
+          "elapsed_s": 2.599,
+          "ttft_s": 0.395,
+          "completion_tokens": 200,
+          "prompt_tokens": 59,
+          "cached_tokens": 0,
+          "tps": 77.0,
+          "decode_tps": 90.8,
+          "tool_calls": null,
+          "response_preview": "```python\ndef merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of intervals.\n    \n    Two intervals are considered overlapp",
+          "prompt_category": "coding",
+          "run": 1
+        },
+        {
+          "elapsed_s": 2.585,
+          "ttft_s": 0.397,
+          "completion_tokens": 200,
+          "prompt_tokens": 59,
+          "cached_tokens": 0,
+          "tps": 77.4,
+          "decode_tps": 91.4,
+          "tool_calls": null,
+          "response_preview": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of intervals.\n    \n    An in",
+          "prompt_category": "coding",
+          "run": 2
+        },
+        {
+          "elapsed_s": 2.586,
+          "ttft_s": 0.392,
+          "completion_tokens": 200,
+          "prompt_tokens": 59,
+          "cached_tokens": 0,
+          "tps": 77.3,
+          "decode_tps": 91.2,
+          "tool_calls": null,
+          "response_preview": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of intervals.\n    \n    Two i",
+          "prompt_category": "coding",
+          "run": 3
+        },
+        {
+          "elapsed_s": 2.587,
+          "ttft_s": 0.392,
+          "completion_tokens": 200,
+          "prompt_tokens": 56,
+          "cached_tokens": 0,
+          "tps": 77.3,
+          "decode_tps": 91.1,
+          "tool_calls": null,
+          "response_preview": "To identify the bottleneck, I need to calculate the capacity of each resource and compare it to demand.\n\n**Given information:**\n- 30 patients arrive per hour\n- 8 beds\n- 3 doctors\n- 12 nurses\n- Average",
+          "prompt_category": "reasoning",
+          "run": 1
+        },
+        {
+          "elapsed_s": 2.585,
+          "ttft_s": 0.383,
+          "completion_tokens": 200,
+          "prompt_tokens": 56,
+          "cached_tokens": 0,
+          "tps": 77.4,
+          "decode_tps": 90.8,
+          "tool_calls": null,
+          "response_preview": "To identify the bottleneck, I need to calculate the capacity of each resource and compare it to demand.\n\n**Given information:**\n- 30 patients arrive per hour\n- 8 beds available\n- 3 doctors\n- 12 nurses",
+          "prompt_category": "reasoning",
+          "run": 2
+        },
+        {
+          "elapsed_s": 2.587,
+          "ttft_s": 0.397,
+          "completion_tokens": 200,
+          "prompt_tokens": 56,
+          "cached_tokens": 0,
+          "tps": 77.3,
+          "decode_tps": 91.3,
+          "tool_calls": null,
+          "response_preview": "To identify the bottleneck, I need to calculate the capacity of each resource type and compare it to demand.\n\n**Given data:**\n- 30 patients per hour arrive\n- 8 beds available\n- 3 doctors available\n- 1",
+          "prompt_category": "reasoning",
+          "run": 3
+        },
+        {
+          "elapsed_s": 2.515,
+          "ttft_s": 0.346,
+          "completion_tokens": 200,
+          "prompt_tokens": 39,
+          "cached_tokens": 0,
+          "tps": 79.5,
+          "decode_tps": 92.2,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 OSI model layers from bottom to top with their key details:\n\n**1. Physical Layer (Layer 1**\n- **Layer Number:** 1\n- **Standard Name:** Physical Layer\n- **Example Protocol:** Ethernet (I",
+          "prompt_category": "general",
+          "run": 1
+        },
+        {
+          "elapsed_s": 2.511,
+          "ttft_s": 0.349,
+          "completion_tokens": 200,
+          "prompt_tokens": 39,
+          "cached_tokens": 0,
+          "tps": 79.6,
+          "decode_tps": 92.5,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 OSI model layers from bottom to top with their information:\n\n1. **Layer 1: Physical Layer**\n   - Standard Name: Physical Layer\n   - Example Protocol: Ethernet (IEEE 802.3) or Ethernet (",
+          "prompt_category": "general",
+          "run": 2
+        },
+        {
+          "elapsed_s": 2.532,
+          "ttft_s": 0.351,
+          "completion_tokens": 200,
+          "prompt_tokens": 39,
+          "cached_tokens": 0,
+          "tps": 79.0,
+          "decode_tps": 91.7,
+          "tool_calls": null,
+          "response_preview": "Here are the 7 OSI model layers from bottom to top with their standard names and example protocols:\n\n**Layer 1: Physical Layer**\n- Number: Layer 1\n- Standard Name: Physical Layer\n- Example Protocol: E",
+          "prompt_category": "general",
+          "run": 3
+        }
+      ],
+      "gate": "tps",
+      "engine": "omlx"
+    },
+    {
+      "test": "tools",
+      "model": "Qwen3-Coder-30B-A3B-Instruct-4bit",
+      "outcome": "tool_call",
+      "detail": "structured tool_calls: ['get_current_time']",
+      "verdict": "PASS",
+      "raw": {
+        "elapsed_s": 0.765,
+        "ttft_s": null,
+        "completion_tokens": 22,
+        "prompt_tokens": 298,
+        "cached_tokens": 0,
+        "tps": 28.7,
+        "decode_tps": null,
+        "tool_calls": [
+          {
+            "index": 0,
+            "id": "call_755f41a7",
+            "type": "function",
+            "function": {
+              "name": "get_current_time",
+              "arguments": "{\"city\": \"Paris\"}"
+            }
+          }
+        ],
+        "response_preview": ""
+      },
+      "gate": "tools",
+      "engine": "omlx"
+    },
+    {
+      "test": "grammar",
+      "model": "Qwen3-Coder-30B-A3B-Instruct-4bit",
+      "verdict": "PASS",
+      "detail": "parsed JSON: {'workspace': 'auto-research', 'confidence': 0.95}",
+      "raw": {
+        "elapsed_s": 0.553,
+        "ttft_s": 0.357,
+        "completion_tokens": 22,
+        "prompt_tokens": 39,
+        "cached_tokens": 0,
+        "tps": 39.8,
+        "decode_tps": 112.0,
+        "tool_calls": null,
+        "response_preview": "{\n  \"workspace\": \"auto-research\",\n  \"confidence\": 0.95\n}"
+      },
+      "gate": "grammar",
+      "engine": "omlx"
+    },
+    {
+      "test": "concurrent",
+      "model": "Qwen3-Coder-30B-A3B-Instruct-4bit",
+      "serial_s": 10.25,
+      "parallel_s": 6.38,
+      "speedup_x": 1.61,
+      "failures": 0,
+      "verdict": "PASS",
+      "gate": "concurrent",
+      "engine": "omlx"
+    }
+  ]
+}
