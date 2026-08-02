@@ -302,3 +302,29 @@ def test_portal_config_models_default_empty_list() -> None:
         }
     )
     assert cfg.models == []
+
+
+def test_context_inject_flags_reach_runtime_dict() -> None:
+    """auto-daily's inject_memory/auto_rag/memory_writeback must reach the runtime
+    WORKSPACES dict. The M1 pydantic migration silently dropped these keys
+    (WorkspaceSpec never declared them, extra=ignore), leaving
+    router/context_inject.py permanently inert in production while
+    config_validate.py still blessed them. Regression guard: the schema must
+    carry them through, and non-declaring workspaces must not gain the keys."""
+    from portal.platform.inference.config import get_workspace_dict
+
+    ws = get_workspace_dict(load_portal_config(_force_reload=True))
+    daily = ws["auto-daily"]
+    assert daily.get("inject_memory") is True
+    assert daily.get("auto_rag") is True
+    assert daily.get("memory_writeback") is True
+
+    coding = ws["auto-coding"]
+    for key in (
+        "inject_memory",
+        "auto_rag",
+        "memory_writeback",
+        "memory_writeback_all",
+        "inject_temporal_context",
+    ):
+        assert key not in coding
