@@ -29,7 +29,7 @@ mcp_fleet:
     expose_to_ide: true
     command:
       type: local
-      command: ["uvx", "mcp-fetch"]
+      command: ["uvx", "--with", "mcp<2.0.0", "mcp-fetch"]
   - id: git
     module: general
     name: git
@@ -37,7 +37,7 @@ mcp_fleet:
     expose_to_ide: true
     command:
       type: local
-      command: ["uvx", "mcp-server-git", "--repository", "${HOME}/projects/portal-5"]
+      command: ["uvx", "--with", "mcp<2.0.0", "mcp-server-git", "--repository", "${HOME}/projects/portal-5"]
   - id: docker
     module: general
     name: docker
