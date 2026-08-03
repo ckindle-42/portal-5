@@ -917,9 +917,14 @@ async def chat_completions(
 
         backend_body = {**body, "model": target_model}
 
-        # Inject keep_alive + num_batch for Ollama.
+        # Per-engine option injection: keep_alive/num_batch/options for
+        # Ollama; plain-OpenAI max_tokens/stream_options for oMLX.
         if backend.type == "ollama":
             backend_body = _inject_ollama_options(backend_body, workspace_id)
+        elif backend.type == "omlx":
+            from portal.platform.inference.router.validation import _inject_omlx_options
+
+            backend_body = _inject_omlx_options(backend_body, workspace_id)
 
         # Resolve effective tool list for this request (M2)
         persona_data = _PERSONA_MAP.get(persona, {})
