@@ -540,7 +540,7 @@
       "tests/uat/skips.py",
       "tests/uat/state.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "scripts",
