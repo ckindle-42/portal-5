@@ -73,6 +73,28 @@ def test_unknown_probe_raises_rather_than_passing_quietly():
         claims_mod.probe("no.such.probe", REPO_ROOT)
 
 
+def test_workspace_names_returns_ids_not_display_labels():
+    """`workspaces` is a mapping id -> spec and `name` inside it is a display
+    label. Reading `name` would zero the bench count, since that is a prefix
+    match on the id."""
+    names = claims_mod._workspace_names(REPO_ROOT)
+    assert any(n.startswith("bench-") for n in names)
+    assert not any(n.startswith(("\U0001f916", "\U0001f513")) for n in names)
+
+
+def test_workspace_names_rejects_an_unexpected_config_shape(tmp_path):
+    """A future restructure to a list of dicts must fail loudly. The previous
+    implementation would have silently returned display labels instead."""
+    import yaml
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "portal.yaml").write_text(
+        yaml.dump({"workspaces": [{"name": "display only"}]}), encoding="utf-8"
+    )
+    with pytest.raises(TypeError, match="must be a mapping"):
+        claims_mod._workspace_names(tmp_path)
+
+
 # ── claim evaluation ─────────────────────────────────────────────────────────
 
 
