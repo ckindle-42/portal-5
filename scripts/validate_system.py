@@ -4850,6 +4850,7 @@ def check_spine_code_coverage() -> tuple[str, str, list[dict]]:
     from portal.platform.wiki.coverage import (
         BASELINE_RELPATH,
         compute_coverage,
+        gate_failing_coverage_units,
         load_baseline,
         ratchet_violations,
         retired_baseline_entries,
@@ -4873,6 +4874,7 @@ def check_spine_code_coverage() -> tuple[str, str, list[dict]]:
     baseline = load_baseline(REPO_ROOT)
     violations = ratchet_violations(report, baseline, REPO_ROOT)
     retired = retired_baseline_entries(report, baseline, REPO_ROOT)
+    offenders = gate_failing_coverage_units(REPO_ROOT)
 
     subs = [
         {
@@ -4885,11 +4887,21 @@ def check_spine_code_coverage() -> tuple[str, str, list[dict]]:
             ),
         },
         {
+            "name": "every coverage-carrying unit passes the quality gate",
+            "status": "PASS" if not offenders else "FAIL",
+            "detail": (
+                "no gate-failing unit is the sole citation for a surface"
+                if not offenders
+                else f"{len(offenders)} gate-failing unit(s) sole-cite a surface: "
+                f"{', '.join(offenders[:6])}"
+            ),
+        },
+        {
             "name": "coverage measured",
             "status": "PASS",
             "detail": (
                 f"{len(report.covered)}/{len(report.eligible)} surfaces "
-                f"({report.pct:.1f}%) cited by a non-aggregate unit"
+                f"({report.pct:.1f}%) cited by a gate-passing non-aggregate unit"
             ),
         },
         {
@@ -4902,12 +4914,13 @@ def check_spine_code_coverage() -> tuple[str, str, list[dict]]:
             ),
         },
     ]
-    if violations:
-        return (
-            "FAIL",
-            f"{len(violations)} code surface(s) landed with no covering wiki unit",
-            subs,
-        )
+    if violations or offenders:
+        parts = []
+        if violations:
+            parts.append(f"{len(violations)} code surface(s) landed with no covering unit")
+        if offenders:
+            parts.append(f"{len(offenders)} gate-failing unit(s) sole-cite a surface")
+        return ("FAIL", "; ".join(parts), subs)
     if retired:
         return ("WARN", f"baseline has {len(retired)} stale entries — re-pin", subs)
     return ("PASS", f"code coverage ratchet held at {report.pct:.1f}%", subs)
