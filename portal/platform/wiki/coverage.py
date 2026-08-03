@@ -172,11 +172,16 @@ def gate_failing_coverage_units(repo_root: Path | None = None, units=None) -> tu
 
         units = load_all()
     passing = _gate_passing_ids(units, root)
+    eligible = set(discover_code_surfaces(root))
     by_unit: dict[str, set[str]] = {}
     for unit in units:
         if unit.id.startswith(_AGGREGATE_ID_PREFIX):
             continue
-        by_unit[unit.id] = _cited_paths_of(unit, root)
+        # Only a citation to an *eligible code surface* can claim coverage. A unit
+        # citing an ATT&CK technique id, a `bench-run:` identifier, or a directory
+        # is not claiming a code surface, so it is not an offender no matter how
+        # it scores.
+        by_unit[unit.id] = _cited_paths_of(unit, root) & eligible
     offenders: set[str] = set()
     for uid, paths in by_unit.items():
         if uid in passing:

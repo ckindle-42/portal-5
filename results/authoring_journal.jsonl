@@ -102,7 +102,7 @@
 {"surface": "portal/platform/wiki/store.py", "unit_id": "unit-wiki-store", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
 {"surface": "portal/platform/wiki/maintain.py", "unit_id": "unit-wiki-maintain", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
 {"surface": "portal/platform/wiki/writeback.py", "unit_id": "unit-wiki-writeback", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
-{"surface": "portal/platform/wiki/audit.py", "unit_id": "unit-wiki-audit", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
+{"surface": "portal/platform/wiki/audit.py", "unit_id": "unit-wiki-audit", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": ["reworded to avoid reproducing the audit module's own corruption markers"]}
 {"surface": "portal/platform/wiki/interfaces.py", "unit_id": "unit-wiki-interfaces", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
 {"surface": "portal/platform/wiki/provenance_ledger.py", "unit_id": "unit-wiki-provenance-ledger", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
 {"surface": "portal/platform/wiki/quality.py", "unit_id": "unit-wiki-quality", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
@@ -198,19 +198,19 @@
 {"surface": "tests/comfyui/_common.py", "unit_id": "unit-comfyui-common", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
 {"surface": "tests/comfyui/runner.py", "unit_id": "unit-comfyui-runner", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
 {"surface": "tests/comfyui/results.py", "unit_id": "unit-comfyui-results", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c00_prereqs.py", "unit_id": "unit-comfyui-c00", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c01_direct_api.py", "unit_id": "unit-comfyui-c01", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c02_mcp_health.py", "unit_id": "unit-comfyui-c02", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c03_model_discovery.py", "unit_id": "unit-comfyui-c03", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c04_flux_schnell.py", "unit_id": "unit-comfyui-c04", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c07_param_sweep.py", "unit_id": "unit-comfyui-c07", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c08_video_wan22.py", "unit_id": "unit-comfyui-c08", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c09_pipeline_roundtrip.py", "unit_id": "unit-comfyui-c09", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c10_output_validation.py", "unit_id": "unit-comfyui-c10", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c11_lora_coverage.py", "unit_id": "unit-comfyui-c11", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": []}
+{"surface": "tests/comfyui/c00_prereqs.py", "unit_id": "unit-comfyui-c00", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c00_*.py"]}
+{"surface": "tests/comfyui/c01_direct_api.py", "unit_id": "unit-comfyui-c01", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c01_*.py"]}
+{"surface": "tests/comfyui/c02_mcp_health.py", "unit_id": "unit-comfyui-c02", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c02_*.py"]}
+{"surface": "tests/comfyui/c03_model_discovery.py", "unit_id": "unit-comfyui-c03", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c03_*.py"]}
+{"surface": "tests/comfyui/c04_flux_schnell.py", "unit_id": "unit-comfyui-c04", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c04_*.py"]}
+{"surface": "tests/comfyui/c07_param_sweep.py", "unit_id": "unit-comfyui-c07", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c07_*.py"]}
+{"surface": "tests/comfyui/c08_video_wan22.py", "unit_id": "unit-comfyui-c08", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c08_*.py"]}
+{"surface": "tests/comfyui/c09_pipeline_roundtrip.py", "unit_id": "unit-comfyui-c09", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c09_*.py"]}
+{"surface": "tests/comfyui/c10_output_validation.py", "unit_id": "unit-comfyui-c10", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c10_*.py"]}
+{"surface": "tests/comfyui/c11_lora_coverage.py", "unit_id": "unit-comfyui-c11", "verdict": "PASS", "attempt": 1, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c11_*.py"]}
 {"surface": "tests/comfyui/cli.py", "unit_id": "unit-comfyui-cli", "verdict": "PASS", "attempt": 2, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c05_flux_dev.py", "unit_id": "unit-comfyui-c05", "verdict": "PASS", "attempt": 2, "commit": "441fd2a1", "corrections": []}
-{"surface": "tests/comfyui/c06_sdxl.py", "unit_id": "unit-comfyui-c06", "verdict": "PASS", "attempt": 2, "commit": "441fd2a1", "corrections": []}
+{"surface": "tests/comfyui/c05_flux_dev.py", "unit_id": "unit-comfyui-c05", "verdict": "PASS", "attempt": 2, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c05_*.py"]}
+{"surface": "tests/comfyui/c06_sdxl.py", "unit_id": "unit-comfyui-c06", "verdict": "PASS", "attempt": 2, "commit": "441fd2a1", "corrections": ["corrected cited source path to the real section file tests/comfyui/c06_*.py"]}
 {"surface": "tests/uat/__init__.py", "unit_id": "unit-uat-init", "verdict": "PASS", "attempt": 1, "commit": "85bb65bd", "corrections": []}
 {"surface": "tests/uat/config.py", "unit_id": "unit-uat-config", "verdict": "PASS", "attempt": 1, "commit": "85bb65bd", "corrections": []}
 {"surface": "tests/uat/state.py", "unit_id": "unit-uat-state", "verdict": "PASS", "attempt": 1, "commit": "85bb65bd", "corrections": []}
