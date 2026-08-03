@@ -6,9 +6,9 @@
 # This list may SHRINK freely (write a covering unit, then re-pin). It may
 # never GROW: a new uncovered surface fails CI. Do not hand-edit to silence
 # the gate — that defeats the authority inversion it exists to enforce.
-eligible_count: 614
-covered_count: 103
-coverage_pct: 16.8
+eligible_count: 625
+covered_count: 117
+coverage_pct: 18.7
 uncovered:
   - deploy/playwright-mcp/browser_mcp.py
   - portal/conftest.py
@@ -170,7 +170,6 @@ uncovered:
   - portal/platform/inference/cli/sync.py
   - portal/platform/inference/cli/update.py
   - portal/platform/inference/cli/workspace.py
-  - portal/platform/inference/cluster_backends.py
   - portal/platform/inference/config.py
   - portal/platform/inference/config_validate.py
   - portal/platform/inference/notifications/__init__.py
@@ -199,7 +198,6 @@ uncovered:
   - portal/platform/inference/router/state.py
   - portal/platform/inference/router/streaming.py
   - portal/platform/inference/router/thinking.py
-  - portal/platform/inference/router/validation.py
   - portal/platform/inference/router/workspaces.py
   - portal/platform/inference/router_pipe.py
   - portal/platform/inference/sync_config.py
@@ -283,7 +281,6 @@ uncovered:
   - scripts/mlx-speech.py
   - scripts/mlx-transcribe.py
   - scripts/openwebui_init.py
-  - scripts/persona_intent_audit.py
   - scripts/portal5-powermetrics.py
   - scripts/reconcile_security_arm.py
   - scripts/routing_regression.py
