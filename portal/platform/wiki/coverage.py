@@ -34,6 +34,28 @@ BASELINE_RELPATH = "config/spine_coverage_baseline.yaml"
 _AGGREGATE_ID_PREFIX = "unit-code-"
 _EXCLUDED_PATH_PARTS = frozenset({"__pycache__", "results", "node_modules"})
 
+# Assessed once per unit-set so the identifier-universe walk (~3.6 s) is not
+# repeated for every unit. Keyed by repo root + unit ids; invalidated when new
+# units land or a different unit set is assessed.
+_gate_passing_cache: dict[tuple[Path, frozenset[str]], frozenset[str]] = {}
+
+
+def _gate_passing_ids(units, repo_root: Path) -> frozenset[str]:
+    """Unit ids that pass the authored-quality gate, cached per unit-set."""
+    key = (repo_root, frozenset(u.id for u in units))
+    if key in _gate_passing_cache:
+        return _gate_passing_cache[key]
+    from portal.platform.wiki.quality import assess
+
+    passing = set(assess(units, repo_root).passing)
+    _gate_passing_cache[key] = frozenset(passing)
+    return _gate_passing_cache[key]
+
+
+def reset_gate_cache() -> None:
+    """Drop the assessed-unit cache (tests, or after new units are authored)."""
+    _gate_passing_cache.clear()
+
 
 @dataclass(frozen=True)
 class CoverageReport:
@@ -97,34 +119,87 @@ def _normalize_source_path(raw: str) -> str:
 
 
 def covered_surfaces(units, repo_root: Path | None = None) -> frozenset[str]:
-    """Repo-relative paths cited by at least one non-aggregate unit.
+    """Repo-relative paths cited by at least one non-aggregate, gate-passing unit.
+
+    A citation counts as coverage only when the citing unit passes `quality.assess`
+    (see `quality.py` for the checks). A unit that fails the gate is not coverage —
+    the gate is the definition, not a review step afterwards.
 
     Glob citations are expanded so a unit that legitimately cites `portal/foo/*.py`
     covers each match — coverage should never be understated by citation style.
     """
     root = repo_root or _REPO_ROOT
+    passing = _gate_passing_ids(units, root)
     covered: set[str] = set()
     for unit in units:
-        if unit.id.startswith(_AGGREGATE_ID_PREFIX):
+        if unit.id.startswith(_AGGREGATE_ID_PREFIX) or unit.id not in passing:
             continue
-        for source in unit.sources:
-            path = _normalize_source_path(source.path)
-            if not path or path.startswith("/"):
-                continue
-            if any(ch in path for ch in "*?["):
-                try:
-                    for match in root.glob(path):
-                        if match.is_file():
-                            covered.add(str(match.relative_to(root)))
-                except (OSError, ValueError):
-                    continue
-            else:
-                covered.add(path)
+        covered |= _cited_paths_of(unit, root)
     return frozenset(covered)
 
 
+def _cited_paths_of(unit, repo_root: Path) -> set[str]:
+    """Repo-relative paths a single unit cites (globs expanded)."""
+    out: set[str] = set()
+    for source in unit.sources:
+        path = _normalize_source_path(source.path)
+        if not path or path.startswith("/"):
+            continue
+        if any(ch in path for ch in "*?["):
+            try:
+                for match in repo_root.glob(path):
+                    if match.is_file():
+                        out.add(str(match.relative_to(repo_root)))
+            except (OSError, ValueError):
+                continue
+        else:
+            out.add(path)
+    return out
+
+
+def gate_failing_coverage_units(repo_root: Path | None = None, units=None) -> tuple[str, ...]:
+    """Units that fail the quality gate yet are the only citation for a surface.
+
+    A unit that fails `quality.assess` cannot carry coverage — but a failing unit
+    whose citation is redundant (another gate-passing unit covers the same
+    surface) is harmless noise. This returns the units that are actually
+    *claiming* coverage through a citation nothing else covers: the offender set
+    BR names on a hard fail.
+    """
+    root = repo_root or _REPO_ROOT
+    if units is None:
+        from portal.platform.wiki.store import load_all
+
+        units = load_all()
+    passing = _gate_passing_ids(units, root)
+    by_unit: dict[str, set[str]] = {}
+    for unit in units:
+        if unit.id.startswith(_AGGREGATE_ID_PREFIX):
+            continue
+        by_unit[unit.id] = _cited_paths_of(unit, root)
+    offenders: set[str] = set()
+    for uid, paths in by_unit.items():
+        if uid in passing:
+            continue
+        for path in paths:
+            others = [
+                other
+                for other, other_paths in by_unit.items()
+                if other != uid and other in passing and path in other_paths
+            ]
+            if not others:
+                offenders.add(uid)
+                break
+    return tuple(sorted(offenders))
+
+
 def compute_coverage(repo_root: Path | None = None, units=None) -> CoverageReport:
-    """Measure code-surface coverage. Loads all canonical units when not supplied."""
+    """Measure code-surface coverage. Loads all canonical units when not supplied.
+
+    A surface is covered only when a *gate-passing* non-aggregate unit cites it —
+    the quality gate is part of the definition of coverage, so a citation from a
+    unit that fails `quality.assess` does not count.
+    """
     root = repo_root or _REPO_ROOT
     if units is None:
         from portal.platform.wiki.store import load_all
