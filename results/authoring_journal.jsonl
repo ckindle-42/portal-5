@@ -64,3 +64,8 @@
 {"surface": "portal/platform/inference/notifications/channels/telegram.py", "unit_id": "unit-notifications-channel-telegram", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
 {"surface": "portal/platform/inference/notifications/channels/email.py", "unit_id": "unit-notifications-channel-email", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
 {"surface": "portal/platform/inference/notifications/channels/pushover.py", "unit_id": "unit-notifications-channel-pushover", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
+{"surface": "portal/modules/security/core/siem/__init__.py", "unit_id": "unit-security-siem-surface", "verdict": "PASS", "attempt": 1, "commit": "b6f05201", "corrections": []}
+{"surface": "portal/modules/security/core/siem/hec_ship.py", "unit_id": "unit-security-siem-hec-ship", "verdict": "PASS", "attempt": 1, "commit": "b6f05201", "corrections": []}
+{"surface": "portal/modules/security/core/siem/spl_backend.py", "unit_id": "unit-security-siem-spl-backend", "verdict": "PASS", "attempt": 1, "commit": "b6f05201", "corrections": []}
+{"surface": "portal/modules/security/core/siem/index_wait.py", "unit_id": "unit-security-siem-index-wait", "verdict": "PASS", "attempt": 1, "commit": "b6f05201", "corrections": []}
+{"surface": "portal/modules/security/core/siem/blue_triage.py", "unit_id": "unit-security-siem-blue-triage", "verdict": "PASS", "attempt": 1, "commit": "b6f05201", "corrections": []}

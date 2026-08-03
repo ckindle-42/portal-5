@@ -278,7 +278,7 @@
       "portal/modules/security/core/siem/index_wait.py",
       "portal/modules/security/core/siem/spl_backend.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/inference/tool_preselect/tests",
