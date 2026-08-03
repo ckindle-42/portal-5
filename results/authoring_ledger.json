@@ -167,7 +167,7 @@
       "portal/platform/wiki/tests/test_migration.py",
       "portal/platform/wiki/tests/test_render.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal_channels",
@@ -183,7 +183,7 @@
       "tests/routing/build_corpus.py",
       "tests/routing/measure.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/unit/router",
@@ -191,7 +191,7 @@
       "tests/unit/router/test_context_inject.py",
       "tests/unit/router/test_correlation.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/security/eval",

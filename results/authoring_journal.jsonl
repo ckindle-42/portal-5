@@ -22,3 +22,9 @@
 {"surface": "portal_channels/__init__.py", "unit_id": "unit-channels-namespace", "verdict": "PASS", "attempt": 1, "commit": "5b73259d", "corrections": []}
 {"surface": "portal/modules/security/core/commands/__init__.py", "unit_id": "unit-security-commands-namespace", "verdict": "PASS", "attempt": 1, "commit": "5b73259d", "corrections": []}
 {"surface": "portal/modules/security/core/commands/run.py", "unit_id": "unit-security-commands-run", "verdict": "PASS", "attempt": 1, "commit": "5b73259d", "corrections": []}
+{"surface": "portal/platform/wiki/tests/test_render.py", "unit_id": "unit-wiki-tests-render", "verdict": "PASS", "attempt": 1, "commit": "dfa74e2e", "corrections": []}
+{"surface": "portal/platform/wiki/tests/test_migration.py", "unit_id": "unit-wiki-tests-migration", "verdict": "PASS", "attempt": 1, "commit": "dfa74e2e", "corrections": []}
+{"surface": "tests/routing/build_corpus.py", "unit_id": "unit-routing-build-corpus", "verdict": "PASS", "attempt": 1, "commit": "dfa74e2e", "corrections": []}
+{"surface": "tests/routing/measure.py", "unit_id": "unit-routing-measure", "verdict": "PASS", "attempt": 1, "commit": "dfa74e2e", "corrections": []}
+{"surface": "tests/unit/router/test_context_inject.py", "unit_id": "unit-router-test-context-inject", "verdict": "PASS", "attempt": 1, "commit": "dfa74e2e", "corrections": []}
+{"surface": "tests/unit/router/test_correlation.py", "unit_id": "unit-router-test-correlation", "verdict": "PASS", "attempt": 1, "commit": "dfa74e2e", "corrections": []}
