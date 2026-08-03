@@ -289,7 +289,7 @@
       "portal/platform/inference/tool_preselect/tests/test_preselector.py",
       "portal/platform/inference/tool_preselect/tests/test_state.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/inference/notifications/channels",
@@ -354,7 +354,7 @@
       "portal/platform/inference/tool_preselect/prompts.py",
       "portal/platform/inference/tool_preselect/state.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/wiki",
