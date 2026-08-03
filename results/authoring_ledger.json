@@ -209,7 +209,7 @@
       "portal/platform/mcp_host/pipeline_mcp.py",
       "portal/platform/mcp_host/workspace.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "scripts/ci",

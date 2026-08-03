@@ -33,3 +33,6 @@
 {"surface": "scripts/ci/check_generated_fresh.py", "unit_id": "unit-ci-generated-fresh", "verdict": "PASS", "attempt": 1, "commit": "96146826", "corrections": []}
 {"surface": "scripts/ci/check_no_identical_sources.py", "unit_id": "unit-ci-identical-sources", "verdict": "PASS", "attempt": 1, "commit": "96146826", "corrections": []}
 {"surface": "scripts/ci/check_pyproject_no_dup.py", "unit_id": "unit-ci-pyproject-no-dup", "verdict": "PASS", "attempt": 1, "commit": "96146826", "corrections": []}
+{"surface": "portal/platform/mcp_host/__init__.py", "unit_id": "unit-mcp-host-core", "verdict": "PASS", "attempt": 1, "commit": "ee7ca08a", "corrections": []}
+{"surface": "portal/platform/mcp_host/workspace.py", "unit_id": "unit-mcp-host-workspace", "verdict": "PASS", "attempt": 1, "commit": "ee7ca08a", "corrections": []}
+{"surface": "portal/platform/mcp_host/pipeline_mcp.py", "unit_id": "unit-mcp-host-pipeline-mcp", "verdict": "PASS", "attempt": 1, "commit": "ee7ca08a", "corrections": []}
