@@ -112,6 +112,73 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_drift(args: argparse.Namespace) -> int:
+    """Drift census — the re-runnable form of the code-to-doc audit.
+
+    Read-only unless `--pin-baseline` is passed. Exit code reflects the ratchet:
+    non-zero when a claim fails or unbaselined drift exists, so this doubles as
+    a pre-commit probe without going through the full validate harness.
+    """
+    import json as _json
+
+    from portal.platform.wiki.claims import evaluate_claims
+    from portal.platform.wiki.drift import (
+        BASELINE_RELPATH,
+        broken_path_refs,
+        census,
+        pin_health,
+        render_baseline,
+    )
+    from portal.platform.wiki.store import load_all, set_canonical_dir
+
+    repo_root = Path(__file__).resolve().parent.parent
+    set_canonical_dir(repo_root / "portal_wiki" / "canonical")
+
+    if args.pin_baseline:
+        units = load_all()
+        pins = pin_health(repo_root, units)
+        refs = broken_path_refs(repo_root)
+        target = repo_root / BASELINE_RELPATH
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(render_baseline(pins, refs), encoding="utf-8")
+        print(f"Pinned baseline → {BASELINE_RELPATH}")
+        print(
+            f"  phantom_pins={len(pins.phantom)} unpinned={len(pins.unpinned)} "
+            f"broken_refs={len(refs)}"
+        )
+        return 0
+
+    report = census(repo_root)
+    if args.json:
+        print(_json.dumps(report, indent=2, default=str))
+    else:
+        print("Portal Wiki drift census")
+        print(f"  units                 : {report['units_total']}")
+        print(f"  generated doc blocks  : {report['generated_blocks']}")
+        print(f"  claims declared       : {report['claims_declared']}")
+        print(f"  claim violations      : {len(report['claim_violations'])}")
+        for line in report["claim_violations"]:
+            print(f"      ! {line}")
+        pins = report["pins"]
+        print(
+            f"  pins                  : {pins['fresh']} fresh / {pins['stale']} stale / "
+            f"{pins['phantom']} phantom / {pins['unpinned']} unpinned of {pins['total']}"
+        )
+        print(f"  broken doc path refs  : {len(report['broken_path_refs'])}")
+        for line in report["broken_path_refs"]:
+            print(f"      ! {line}")
+        print(f"  undeclared numeric    : {report['undeclared_numeric_units']} unit(s) (debt)")
+        for key, items in report["ratchet"].items():
+            if items:
+                print(f"  RATCHET {key}: {len(items)} unbaselined")
+                for item in items[:10]:
+                    print(f"      ! {item}")
+
+    units = load_all()
+    unbaselined = any(report["ratchet"].values())
+    return 1 if (evaluate_claims(units, repo_root) or unbaselined) else 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Portal Wiki CLI")
     sub = parser.add_subparsers(dest="command")
@@ -127,12 +194,23 @@ def main() -> int:
     # status
     sub.add_parser("status", help="Wiki status report")
 
+    # drift
+    drift_p = sub.add_parser("drift", help="Drift census: claims, pins, doc path refs")
+    drift_p.add_argument("--json", action="store_true", help="Emit the raw census as JSON")
+    drift_p.add_argument(
+        "--pin-baseline",
+        action="store_true",
+        help="Rewrite config/spine_drift_baseline.yaml from current findings",
+    )
+
     args = parser.parse_args()
 
     if args.command == "render":
         return cmd_render(args)
     elif args.command == "status":
         return cmd_status(args)
+    elif args.command == "drift":
+        return cmd_drift(args)
     else:
         parser.print_help()
         return 1

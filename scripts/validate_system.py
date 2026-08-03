@@ -2826,8 +2826,135 @@ def main() -> int:
         "BR. spine code coverage ratchet (new code must carry a covering unit)",
         check_spine_code_coverage,
     )
+    v.run(
+        "BS. spine drift census (claims hold + pins resolvable + doc refs exist)",
+        check_spine_drift,
+    )
 
     return v.summary()
+
+
+def check_spine_drift() -> tuple[str, str, list[dict]]:
+    """BS. The spine's content is true, not merely self-consistent.
+
+    AW proves a generated block equals its unit's body; BR proves a new code
+    surface is cited by some unit. Neither asks whether the body is *correct*.
+    At the commit this gate landed, both were green while README asserted 60
+    benchmark workspaces against a live 65 and 22 MCP servers against a live 21.
+
+    Three axes, two enforcement modes:
+      claims     — declared unit assertions vs live probes. HARD FAIL, never
+                   baselinable: a unit that states a wrong number is a bug.
+      pins       — `last_generated_commit` must resolve to a real commit.
+                   Ratcheted: 461 units were pinned to 05e42ec2, a SHA absent
+                   from all 1904 commits, so the field was decoration.
+      doc refs   — repo-relative paths named in Tier-1 docs must exist.
+                   Ratcheted.
+    """
+    from portal.platform.wiki.claims import claim_count, evaluate_claims
+    from portal.platform.wiki.drift import (
+        BASELINE_RELPATH,
+        broken_path_refs,
+        pin_health,
+        ratchet_violations,
+        retired_baseline_entries,
+    )
+    from portal.platform.wiki.store import load_all
+
+    baseline_path = REPO_ROOT / BASELINE_RELPATH
+    if not baseline_path.exists():
+        return (
+            "FAIL",
+            f"missing {BASELINE_RELPATH} — regenerate it before this gate can hold",
+            [
+                {
+                    "name": "baseline present",
+                    "status": "FAIL",
+                    "detail": f"{BASELINE_RELPATH} absent",
+                }
+            ],
+        )
+
+    units = load_all()
+    violations = evaluate_claims(units, REPO_ROOT)
+    pins = pin_health(REPO_ROOT, units)
+    refs = broken_path_refs(REPO_ROOT)
+    new = ratchet_violations(pins, refs, REPO_ROOT)
+    retired = retired_baseline_entries(pins, refs, REPO_ROOT)
+
+    subs: list[dict] = [
+        {
+            "name": "declared claims hold against live probes",
+            "status": "PASS" if not violations else "FAIL",
+            "detail": (
+                f"{claim_count(units)} claim(s) declared, all hold"
+                if not violations
+                else "; ".join(str(v) for v in violations[:8])
+            ),
+        },
+        {
+            "name": "no new phantom pin",
+            "status": "PASS" if not new["phantom_pins"] else "FAIL",
+            "detail": (
+                "every unresolvable pin is baselined"
+                if not new["phantom_pins"]
+                else f"{len(new['phantom_pins'])} new: {', '.join(new['phantom_pins'][:6])}"
+            ),
+        },
+        {
+            "name": "no newly unpinned unit",
+            "status": "PASS" if not new["unpinned"] else "FAIL",
+            "detail": (
+                "every unpinned unit is baselined"
+                if not new["unpinned"]
+                else f"{len(new['unpinned'])} new: {', '.join(new['unpinned'][:6])}"
+            ),
+        },
+        {
+            "name": "no new broken doc reference",
+            "status": "PASS" if not new["broken_refs"] else "FAIL",
+            "detail": (
+                "every dead path reference is baselined"
+                if not new["broken_refs"]
+                else f"{len(new['broken_refs'])} new: {', '.join(new['broken_refs'][:6])}"
+            ),
+        },
+        {
+            "name": "pin census measured",
+            "status": "PASS",
+            "detail": (
+                f"{len(pins.fresh)} fresh / {len(pins.stale)} stale / "
+                f"{len(pins.phantom)} phantom / {len(pins.unpinned)} unpinned "
+                f"of {pins.total}"
+            ),
+        },
+        {
+            "name": "baseline is current",
+            "status": "PASS" if not any(retired.values()) else "WARN",
+            "detail": (
+                "no stale entries"
+                if not any(retired.values())
+                else ", ".join(f"{k}: {len(v)}" for k, v in retired.items() if v)
+                + " now clean — re-pin to bank the gain"
+            ),
+        },
+    ]
+
+    hard = bool(violations) or any(new.values())
+    if hard:
+        return (
+            "FAIL",
+            f"{len(violations)} claim violation(s), "
+            f"{len(new['phantom_pins'])} new phantom pin(s), "
+            f"{len(new['unpinned'])} newly unpinned, "
+            f"{len(new['broken_refs'])} new broken doc ref(s)",
+            subs,
+        )
+    return (
+        "PASS",
+        f"{claim_count(units)} claim(s) hold; no new phantom pins, unpinned units, or dead refs",
+        subs,
+    )
 
 
 def check_agent_core() -> tuple[str, str, list[dict]]:
