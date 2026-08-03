@@ -36,3 +36,6 @@
 {"surface": "portal/platform/mcp_host/__init__.py", "unit_id": "unit-mcp-host-core", "verdict": "PASS", "attempt": 1, "commit": "ee7ca08a", "corrections": []}
 {"surface": "portal/platform/mcp_host/workspace.py", "unit_id": "unit-mcp-host-workspace", "verdict": "PASS", "attempt": 1, "commit": "ee7ca08a", "corrections": []}
 {"surface": "portal/platform/mcp_host/pipeline_mcp.py", "unit_id": "unit-mcp-host-pipeline-mcp", "verdict": "PASS", "attempt": 1, "commit": "ee7ca08a", "corrections": []}
+{"surface": "tests/toolpreselect/scenario_gen.py", "unit_id": "unit-toolpreselect-scenario-gen", "verdict": "PASS", "attempt": 1, "commit": "7c9c4031", "corrections": []}
+{"surface": "tests/toolpreselect/run_bench.py", "unit_id": "unit-toolpreselect-run-bench", "verdict": "PASS", "attempt": 1, "commit": "7c9c4031", "corrections": []}
+{"surface": "tests/toolpreselect/baseline_prefill_bench.py", "unit_id": "unit-toolpreselect-baseline-prefill", "verdict": "PASS", "attempt": 1, "commit": "7c9c4031", "corrections": []}
