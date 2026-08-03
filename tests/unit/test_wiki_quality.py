@@ -139,6 +139,33 @@ def test_substance_floor_catches_a_unit_without_explanation():
     _assert_flagged([_unit("fake-p", body)], "fake-p", "substance")
 
 
+def test_api_overlap_catches_a_unit_that_merely_restates_the_surface():
+    """A unit whose prose is dominated by the AST projection's own vocabulary is
+    a projection, not an explanation. `derive_body` makes this comparison real —
+    without it the substance check would only enforce the word floor."""
+    body = (
+        "compute_coverage measures code surface coverage and returns a CoverageReport "
+        "with eligible covered and uncovered paths. covered_surfaces reads the cited "
+        "source paths of each unit and adds them to the covered set. discover_code_surfaces "
+        "enumerates eligible python code surfaces with a git ls-files call. load_baseline "
+        "reads the pinned uncovered set and render_baseline serializes it. ratchet_violations "
+        "returns uncovered surfaces absent from the baseline. retired_baseline_entries "
+        "returns baseline entries that are now covered or deleted. Result of a coverage "
+        "computation. All path tuples are repo-relative, sorted.\n\n"
+        "## Why\n\nThe gate must count only citations that pass quality, so a new "
+        "surface cannot be certified covered by a unit that merely names it."
+    )
+    unit = KnowledgeUnit(
+        id="fake-overlap",
+        kind="mixed",
+        title="fake-overlap",
+        sources=[SourceRef(type="code", path="portal/platform/wiki/coverage.py")],
+        body=body,
+        tags=["authored-v1"],
+    )
+    _assert_flagged([unit], "fake-overlap", "substance")
+
+
 # ── claim-binding ────────────────────────────────────────────────────────────
 
 
