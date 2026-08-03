@@ -657,7 +657,7 @@
       "tests/uat_catalog/g_tools_specialist.py",
       "tests/uat_catalog/g_vision_personas.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/security/core",
