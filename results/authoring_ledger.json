@@ -706,7 +706,7 @@
       "portal/modules/security/core/validate_captures.py",
       "portal/modules/security/core/validation.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/unit",
