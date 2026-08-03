@@ -70,6 +70,13 @@
     "status": "PENDING"
   },
   {
+    "batch": "portal/modules/security/core/capability",
+    "surfaces": [
+      "portal/modules/security/core/capability/__init__.py"
+    ],
+    "status": "PENDING"
+  },
+  {
     "batch": "portal/modules/security/knowledge",
     "surfaces": [
       "portal/modules/security/knowledge/__init__.py"
@@ -323,19 +330,6 @@
     "status": "PENDING"
   },
   {
-    "batch": "portal/platform/wiki",
-    "surfaces": [
-      "portal/platform/wiki/audit.py",
-      "portal/platform/wiki/interfaces.py",
-      "portal/platform/wiki/maintain.py",
-      "portal/platform/wiki/provenance_ledger.py",
-      "portal/platform/wiki/schema.py",
-      "portal/platform/wiki/store.py",
-      "portal/platform/wiki/writeback.py"
-    ],
-    "status": "PENDING"
-  },
-  {
     "batch": "tests/lib",
     "surfaces": [
       "tests/lib/__init__.py",
@@ -363,6 +357,20 @@
     "status": "PENDING"
   },
   {
+    "batch": "portal/platform/wiki",
+    "surfaces": [
+      "portal/platform/wiki/audit.py",
+      "portal/platform/wiki/interfaces.py",
+      "portal/platform/wiki/maintain.py",
+      "portal/platform/wiki/provenance_ledger.py",
+      "portal/platform/wiki/quality.py",
+      "portal/platform/wiki/schema.py",
+      "portal/platform/wiki/store.py",
+      "portal/platform/wiki/writeback.py"
+    ],
+    "status": "PENDING"
+  },
+  {
     "batch": "scripts/_archive/mlx-retired-3a0c58e",
     "surfaces": [
       "scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py",
@@ -383,6 +391,7 @@
       "portal/platform/wiki/adapters/git_source.py",
       "portal/platform/wiki/adapters/modules.py",
       "portal/platform/wiki/adapters/portal_inference.py",
+      "portal/platform/wiki/adapters/seed_api.py",
       "portal/platform/wiki/adapters/seed_code.py",
       "portal/platform/wiki/adapters/seed_intent.py",
       "portal/platform/wiki/adapters/seed_security.py",
@@ -653,13 +662,16 @@
   {
     "batch": "portal/modules/security/core",
     "surfaces": [
+      "portal/modules/security/core/__init__.py",
       "portal/modules/security/core/__main__.py",
+      "portal/modules/security/core/_config.py",
       "portal/modules/security/core/_sweep_driver.py",
       "portal/modules/security/core/ability_port.py",
       "portal/modules/security/core/analyst_verdict.py",
       "portal/modules/security/core/bench_integration.py",
       "portal/modules/security/core/capability_graph.py",
       "portal/modules/security/core/capsules.py",
+      "portal/modules/security/core/cli.py",
       "portal/modules/security/core/cloud_bench.py",
       "portal/modules/security/core/compliance_report.py",
       "portal/modules/security/core/continuous_eval.py",
@@ -673,6 +685,7 @@
       "portal/modules/security/core/growth_loop.py",
       "portal/modules/security/core/intake.py",
       "portal/modules/security/core/llm_redteam.py",
+      "portal/modules/security/core/loop_cli.py",
       "portal/modules/security/core/model_survey.py",
       "portal/modules/security/core/multichain.py",
       "portal/modules/security/core/notify_scoreboard.py",
@@ -763,6 +776,7 @@
       "tests/unit/test_uat_grading.py",
       "tests/unit/test_uat_metrics_url.py",
       "tests/unit/test_wiki_core.py",
+      "tests/unit/test_wiki_quality.py",
       "tests/unit/test_wiki_seed_security.py",
       "tests/unit/test_wiki_writeback.py",
       "tests/unit/test_workspace.py"
