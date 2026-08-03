@@ -2929,6 +2929,16 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
             ),
         },
         {
+            "name": "no stale authored-v1 unit (enforced)",
+            "status": "PASS" if not pins.authored_stale else "FAIL",
+            "detail": (
+                "every authored-v1 unit's cited source is current at its pin"
+                if not pins.authored_stale
+                else f"{len(pins.authored_stale)} authored-v1 unit(s) stale: "
+                f"{', '.join(pins.authored_stale[:6])}"
+            ),
+        },
+        {
             "name": "baseline is current",
             "status": "PASS" if not any(retired.values()) else "WARN",
             "detail": (
@@ -2940,11 +2950,12 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
         },
     ]
 
-    hard = bool(violations) or any(new.values())
+    hard = bool(violations) or bool(pins.authored_stale) or any(new.values())
     if hard:
         return (
             "FAIL",
             f"{len(violations)} claim violation(s), "
+            f"{len(pins.authored_stale)} stale authored-v1 unit(s), "
             f"{len(new['phantom_pins'])} new phantom pin(s), "
             f"{len(new['unpinned'])} newly unpinned, "
             f"{len(new['broken_refs'])} new broken doc ref(s)",
@@ -2952,7 +2963,8 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
         )
     return (
         "PASS",
-        f"{claim_count(units)} claim(s) hold; no new phantom pins, unpinned units, or dead refs",
+        f"{claim_count(units)} claim(s) hold; no stale authored units, "
+        f"phantom pins, unpinned units, or dead refs",
         subs,
     )
 
