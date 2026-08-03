@@ -471,7 +471,7 @@
       "tests/recall_scorer.py",
       "tests/uat_dashboard.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/comfyui",

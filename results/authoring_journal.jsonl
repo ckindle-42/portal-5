@@ -182,3 +182,16 @@
 {"surface": "tests/benchmarks/capability_lib.py", "unit_id": "unit-bench-capability-lib", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
 {"surface": "tests/benchmarks/coding_shootout_analyze.py", "unit_id": "unit-bench-shootout-analyze", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
 {"surface": "tests/benchmarks/test_empty_retry.py", "unit_id": "unit-bench-empty-retry", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
+{"surface": "tests/__init__.py", "unit_id": "unit-tests-init", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/common.py", "unit_id": "unit-tests-common", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/conftest.py", "unit_id": "unit-tests-conftest", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/expected_models.py", "unit_id": "unit-tests-expected-models", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/memory_guard.py", "unit_id": "unit-tests-memory-guard", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/persona_matrix_diff.py", "unit_id": "unit-tests-persona-matrix-diff", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/portal5_acceptance_comfyui.py", "unit_id": "unit-tests-acceptance-comfyui-shim", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/portal5_acceptance_v6.py", "unit_id": "unit-tests-acceptance-v6-shim", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/portal5_persona_matrix.py", "unit_id": "unit-tests-persona-matrix-shim", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/portal5_uat_driver.py", "unit_id": "unit-tests-uat-driver-shim", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/quality_signals.py", "unit_id": "unit-tests-quality-signals", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/recall_scorer.py", "unit_id": "unit-tests-recall-scorer", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
+{"surface": "tests/uat_dashboard.py", "unit_id": "unit-tests-uat-dashboard", "verdict": "PASS", "attempt": 1, "commit": "4900007a", "corrections": []}
