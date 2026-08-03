@@ -340,7 +340,7 @@
       "tests/lib/results.py",
       "tests/lib/stream_wait.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/inference/tool_preselect",
