@@ -8,6 +8,7 @@ sources:
   commit: 15488af29d39
   section: mcp_fleet
 last_generated_commit: 15488af29d39
+claims: []
 confidence: high
 tags:
 - fact

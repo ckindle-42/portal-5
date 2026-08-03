@@ -13,6 +13,7 @@ sources:
   path: config/personas/
   commit: bcd2259aae00
 last_generated_commit: bcd2259aae00
+claims: []
 confidence: high
 tags:
 - fact
