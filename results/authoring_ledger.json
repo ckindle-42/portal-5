@@ -434,7 +434,7 @@
       "tests/benchmarks/bench/results_io.py",
       "tests/benchmarks/bench/runners.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/inference/cli",

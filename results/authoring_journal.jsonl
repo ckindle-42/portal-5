@@ -160,3 +160,14 @@
 {"surface": "tests/lib/coding_fixtures.py", "unit_id": "unit-tests-lib-coding-fixtures", "verdict": "PASS", "attempt": 1, "commit": "f2f2516d", "corrections": []}
 {"surface": "tests/lib/compliance_assertions.py", "unit_id": "unit-tests-lib-compliance-assertions", "verdict": "PASS", "attempt": 1, "commit": "f2f2516d", "corrections": []}
 {"surface": "tests/lib/compliance_fixtures.py", "unit_id": "unit-tests-lib-compliance-fixtures", "verdict": "PASS", "attempt": 1, "commit": "f2f2516d", "corrections": []}
+{"surface": "tests/benchmarks/bench/__init__.py", "unit_id": "unit-bench-init", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
+{"surface": "tests/benchmarks/bench/adhoc_probe.py", "unit_id": "unit-bench-adhoc-probe", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
+{"surface": "tests/benchmarks/bench/cli.py", "unit_id": "unit-bench-cli", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
+{"surface": "tests/benchmarks/bench/discovery.py", "unit_id": "unit-bench-discovery", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
+{"surface": "tests/benchmarks/bench/lifecycle.py", "unit_id": "unit-bench-lifecycle", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
+{"surface": "tests/benchmarks/bench/measure.py", "unit_id": "unit-bench-measure", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
+{"surface": "tests/benchmarks/bench/notify.py", "unit_id": "unit-bench-notify", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
+{"surface": "tests/benchmarks/bench/prompts.py", "unit_id": "unit-bench-prompts", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
+{"surface": "tests/benchmarks/bench/report.py", "unit_id": "unit-bench-report", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
+{"surface": "tests/benchmarks/bench/results_io.py", "unit_id": "unit-bench-results-io", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
+{"surface": "tests/benchmarks/bench/runners.py", "unit_id": "unit-bench-runners", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
