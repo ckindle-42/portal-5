@@ -8,6 +8,7 @@ sources:
   commit: bcd2259aae00
   section: render_report
 last_generated_commit: bcd2259aae00
+claims: []
 confidence: high
 tags:
 - fact

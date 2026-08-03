@@ -22,6 +22,7 @@ sources:
   path: config/personas/bench_devstral.yaml
   commit: 468525e61329
 last_generated_commit: 468525e61329
+claims: []
 confidence: high
 tags:
 - fact

@@ -7,6 +7,7 @@ sources:
   path: config/portal.yaml
   commit: fcb54c248055
 last_generated_commit: fcb54c248055
+claims: []
 confidence: high
 tags:
 - fact

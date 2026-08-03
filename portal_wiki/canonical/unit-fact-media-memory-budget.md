@@ -8,6 +8,7 @@ sources:
   commit: b2e745b62136
   section: MEDIA_MODEL_MEMORY_GB
 last_generated_commit: b2e745b62136
+claims: []
 confidence: high
 tags:
 - fact

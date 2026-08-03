@@ -8,6 +8,7 @@ sources:
   commit: abef7f69f4b1
   section: workspaces.auto-security.variants
 last_generated_commit: abef7f69f4b1
+claims: []
 confidence: high
 tags:
 - fact

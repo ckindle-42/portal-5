@@ -8,6 +8,7 @@ sources:
   commit: d817f2566213
   section: workspaces[].tools
 last_generated_commit: d817f2566213
+claims: []
 confidence: high
 tags:
 - fact

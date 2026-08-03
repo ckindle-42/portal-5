@@ -7,6 +7,7 @@ sources:
   path: config/backends.yaml
   commit: bcd2259aae00
 last_generated_commit: bcd2259aae00
+claims: []
 confidence: high
 tags:
 - fact
