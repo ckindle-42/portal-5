@@ -50,3 +50,7 @@
 {"surface": "tests/scripts/cc_challenge_matrix.py", "unit_id": "unit-tests-scripts-cc-matrix", "verdict": "PASS", "attempt": 1, "commit": "dc13b2d5", "corrections": []}
 {"surface": "tests/scripts/game_challenge_analyze.py", "unit_id": "unit-tests-scripts-game-analyze", "verdict": "PASS", "attempt": 1, "commit": "dc13b2d5", "corrections": []}
 {"surface": "tests/scripts/regen_section_table.py", "unit_id": "unit-tests-scripts-regen-section-table", "verdict": "PASS", "attempt": 1, "commit": "dc13b2d5", "corrections": []}
+{"surface": "portal/modules/security/core/investigation/__init__.py", "unit_id": "unit-security-investigation-surface", "verdict": "PASS", "attempt": 1, "commit": "573a2377", "corrections": []}
+{"surface": "portal/modules/security/core/investigation/evidence.py", "unit_id": "unit-security-investigation-evidence", "verdict": "PASS", "attempt": 1, "commit": "573a2377", "corrections": []}
+{"surface": "portal/modules/security/core/investigation/case_notebook.py", "unit_id": "unit-security-investigation-notebook", "verdict": "PASS", "attempt": 1, "commit": "573a2377", "corrections": []}
+{"surface": "portal/modules/security/core/investigation/bench_investigation.py", "unit_id": "unit-security-investigation-bench", "verdict": "PASS", "attempt": 1, "commit": "573a2377", "corrections": []}

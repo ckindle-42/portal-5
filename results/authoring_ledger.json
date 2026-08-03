@@ -237,7 +237,7 @@
       "portal/modules/security/core/investigation/case_notebook.py",
       "portal/modules/security/core/investigation/evidence.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/inference/notifications",
