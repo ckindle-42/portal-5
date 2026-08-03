@@ -327,7 +327,7 @@
       "portal/platform/inference/sync_config.py",
       "portal/platform/inference/tool_registry.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/lib",
@@ -452,7 +452,7 @@
       "portal/platform/inference/cli/update.py",
       "portal/platform/inference/cli/workspace.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests",
