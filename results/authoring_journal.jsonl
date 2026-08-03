@@ -18,3 +18,7 @@
 {"surface": "portal_channels/telegram/bot.py", "unit_id": "unit-channels-telegram-adapter", "verdict": "PASS", "attempt": 1, "commit": "c23c27d9", "corrections": []}
 {"surface": "scripts/_archive/analyze_bench_v5.py", "unit_id": "unit-archive-v5-ladder-analysis", "verdict": "PASS", "attempt": 1, "commit": "c23c27d9", "corrections": []}
 {"surface": "tests/fixtures/capability_context/sample_module.py", "unit_id": "unit-fixture-capability-context-sample", "verdict": "PASS", "attempt": 1, "commit": "c23c27d9", "corrections": []}
+{"surface": "portal_channels/dispatcher.py", "unit_id": "unit-channels-dispatcher", "verdict": "PASS", "attempt": 1, "commit": "5b73259d", "corrections": []}
+{"surface": "portal_channels/__init__.py", "unit_id": "unit-channels-namespace", "verdict": "PASS", "attempt": 1, "commit": "5b73259d", "corrections": []}
+{"surface": "portal/modules/security/core/commands/__init__.py", "unit_id": "unit-security-commands-namespace", "verdict": "PASS", "attempt": 1, "commit": "5b73259d", "corrections": []}
+{"surface": "portal/modules/security/core/commands/run.py", "unit_id": "unit-security-commands-run", "verdict": "PASS", "attempt": 1, "commit": "5b73259d", "corrections": []}

@@ -159,7 +159,7 @@
       "portal/modules/security/core/commands/__init__.py",
       "portal/modules/security/core/commands/run.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/wiki/tests",
@@ -175,7 +175,7 @@
       "portal_channels/__init__.py",
       "portal_channels/dispatcher.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/routing",
