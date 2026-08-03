@@ -516,7 +516,7 @@
       "portal/platform/inference/router/thinking.py",
       "portal/platform/inference/router/workspaces.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/uat",
