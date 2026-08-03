@@ -22,53 +22,35 @@ fresh run can pick it up cold. Evidence paths are cited inline.
 
 ## A. Immediate (this week)
 
-### A1. Commit session work + live-verify context_inject end-to-end
-- **What:** commit the landed diff (two logical commits: `test(benchmarks): oMLX
-  v3 Phase-0 re-evaluation — all gates pass` and `fix(pipeline): restore
-  WorkspaceSpec context-injection fields dropped by schema`); then rebuild the
-  pipeline image and live-probe auto-daily.
-- **Why:** unit proof is done, but the pipeline container (image 2026-07-30)
-  runs pre-fix code; the feature has never fired live. CLAUDE.md pre-testing
-  rule: no stale-image conclusions.
-- **Where:** `portal/platform/inference/router/context_inject.py`,
-  `handlers.py:724-726` (Phase 8 calls), `non_streaming.py:455-458` (writeback).
-- **How:** `docker compose build portal-pipeline && docker compose up -d
-  portal-pipeline`; send an auto-daily chat containing "remember that my
-  callsign is BlueFox-7"; then a second session asking "what is my callsign?";
-  confirm `recall`/`kb_search`/`remember` dispatches in pipeline logs and
-  `_auto_context_inject_total{source="memory|rag|writeback"}` increments on
-  :9099/metrics.
-- **Watch:** auto-daily behavior change is INTENTIONAL but real — memory/RAG
-  blocks now appear in its system context. If injection misbehaves live, the
-  kill switch is `AUTO_MEMORY_ENABLED=false` / `AUTO_RAG_ENABLED=false` env on
-  the pipeline (no revert needed).
-- **Effort:** ~1h including rebuild.
+### A1. ✅ DONE (2026-08-02) — committed + live-verified end-to-end
+- Commits: `6c0c7440` (Phase-0 artifacts), `b7e09c07` (schema fields),
+  `b54113d9` (two latent contract failures found by the live probe:
+  module-vs-instance `tool_registry` import masked by never-raises;
+  `auto_writeback` category rejected by memory-server enum → now `fact` +
+  provenance tag).
+- Live proof on the rebuilt pipeline: writeback `stored`, recall `hit` with
+  the injected block visibly consumed by the model ("Looking at the 'Relevant
+  context from prior sessions'..."), rag dispatching (miss = empty KB),
+  metrics flowing on :9099/metrics.
+- **Residual tuning item:** first recall after idle can exceed the 1.5s
+  `AUTO_CONTEXT_TIMEOUT_MS` (cold embedding server) and the tool circuit
+  breaker then suppresses the immediate follow-up — both self-recover.
+  Consider warming :8917 at pipeline startup or raising the timeout to ~3s.
 
-### A2. Phase-0 leftovers (cheap, do before Phase 1)
-- **Dead symlinks:** 24 dangling symlinks in `/Volumes/data01/omlx-models`
-  (targets in cleaned `~/.cache/huggingface`). Remove or re-point; they are
-  inert but pollute discovery. ~10 min.
-- **File upstream with oMLX:** (a) gemma-4-e4b grammar livelock —
-  unconstrained→constrained request sequence emits infinite whitespace,
-  100% reproducible, self-recovering (curl repro in session log); (b) xgrammar
-  brew post-install gap — `patch_xgrammar` did not leave a working install
-  (jundot/omlx#1005 follow-up: RECORD missing + rpath absent after
-  `brew reinstall --with-grammar`; manual fix steps in the results MD).
-- **Gate-6 probes (opportunistic, models already on disk):**
-  - `Qwen3-VL-32B-Instruct-8bit` on oMLX VLMEngine vs production `auto-vision`
-    GGUF — decides whether vision migrates in Phase 1.
-  - `supergemma4-26b-abliterated-multimodal-mlx-4bit` (P5-MLX-EVAL-005 says no
-    working text-only MLX conversion — but it is VLM-shaped and oMLX serves
-    VLMs; if it loads, auto-security redteam variants become migratable).
-  - `Phi-4-reasoning-plus-MLX-4bit` vs the GGUF crash refugee
-    (P5-MODEL-PHI4REASONING-001) — could un-block the phi4stemanalyst persona.
-  - Acceptance: each probe = load via VLM/Batched engine + 3 standard prompts +
-    tool probe; record in `tests/benchmarks/results/omlx_v3_gate6_*.json`.
-- **Housekeeping:** `~/.omlx/model_settings.json` currently `mtp_enabled:true`
-  (matches backup; fine). Any `brew upgrade omlx` MUST re-verify
-  `import xgrammar` + `GrammarCompiler initialized` log line (see results MD
-  anomaly #1). Kill oMLX by PORT (`lsof -ti :8085`), never `pkill -f "omlx
-  serve"` (process is `omlx-server`).
+### A2. ✅ DONE (2026-08-02) — Phase-0 leftovers
+- Dead symlinks: 23 removed from `/Volumes/data01/omlx-models`.
+- Upstream filings DRAFTED (not posted — public attribution):
+  `tests/benchmarks/results/UPSTREAM_DRAFTS_omlx_20260802.md`
+  (gemma grammar livelock; brew xgrammar patch gap). Post with
+  `gh issue create -R jundot/omlx ...` when ready.
+- Gate-6 probes: Qwen3-VL-32B vision **PASS** (auto-vision migratable);
+  supergemma4 VLM-shaped **PASS** incl. tool_calls (P5-MLX-EVAL-005 retired
+  on the oMLX path — redteam/purpleteam variants migratable);
+  Phi-4-reasoning-plus **FAIL** (degenerate output, template mismatch —
+  phi4stemanalyst stays on pool default). Details appended to the reeval MD.
+- Housekeeping note: kill oMLX by PORT (`lsof -ti :8085`), never
+  `pkill -f "omlx serve"` (process is `omlx-server`). Any `brew upgrade omlx`
+  must re-verify `import xgrammar` + `GrammarCompiler initialized` log line.
 
 ---
 
@@ -96,8 +78,10 @@ Full context: `OMLX_DECISION.md` §"Re-evaluation v3" +
 ### B2. Shadow then shift — auto-coding first
 - Route `auto-coding` (+ `laguna` variant — oMLX natively accelerates Laguna)
   to oMLX with Ollama as second candidate. Compare Prometheus TTFT/TPS per
-  backend for ~1 week of real use. Then `auto-security` migratable variants
-  (not the two GGUF-only fine-tunes, not Llama-family).
+  backend for ~1 week of real use. Then `auto-vision` (Gate-6 PASS) and
+  `auto-security` migratable variants — including redteam/purpleteam
+  (supergemma4 Gate-6 PASS on the VLM engine). Still excluded: Llama-family,
+  phi4-reasoning (Gate-6 FAIL), qwen3-coder-next (unprobed).
 - Migrate the 6 Ollama-native `/api/chat` call sites in security core
   (`blue.py:1304`, `exec_chain.py:4089/4445`, `refusal.py`, `drift_gate.py`,
   `agentic_blue_eval.py`) to `/v1/chat/completions` with configurable base URL.
@@ -115,8 +99,11 @@ Full context: `OMLX_DECISION.md` §"Re-evaluation v3" +
   instance (gemma livelock needs an unconstrained→constrained transition that
   router-only workloads never produce — verified in Gate 4).
 - **Do NOT migrate:** Llama-family models (tool output doesn't parse — Gate 3),
-  the two P5-MLX-EVAL-005 fine-tunes (until Gate-6 VLM probe), phi4-reasoning
-  (until Gate-6 probe), qwen3-coder-next (GGUF sharded bug; MLX exists — probe).
+  phi4-reasoning (Gate-6 FAIL — degenerate output), qwen3-coder-next (GGUF
+  sharded bug; MLX conversion deleted with the July cleanup — re-download and
+  probe before deciding), gemma-4-abliterated E2B-qat (the other
+  P5-MLX-EVAL-005 fine-tune — same VLM-shape theory as supergemma4 but
+  unprobed; its conversion was also deleted).
 - Version-pin omlx; upgrades gated through `bench_omlx_v3.py` + `smoke_stream.sh`.
 
 ### B4. Exploit the new capabilities
