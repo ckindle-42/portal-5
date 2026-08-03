@@ -1,1 +1,8 @@
 {"surface": "deploy/playwright-mcp/browser_mcp.py", "unit_id": "unit-browser-mcp-http-wrapper", "verdict": "PASS", "attempt": 1, "commit": "9751c754", "corrections": []}
+{"surface": "portal/conftest.py", "unit_id": "unit-portal-conftest", "verdict": "PASS", "attempt": 1, "commit": "1a0e2df4", "corrections": []}
+{"surface": "portal/modules/compliance/__init__.py", "unit_id": "unit-compliance-module-config-only", "verdict": "PASS", "attempt": 1, "commit": "1a0e2df4", "corrections": []}
+{"surface": "portal/modules/compliance/config/__init__.py", "unit_id": "unit-compliance-config-workspace-pointers", "verdict": "PASS", "attempt": 1, "commit": "1a0e2df4", "corrections": []}
+{"surface": "portal/modules/general/__init__.py", "unit_id": "unit-general-module-vendored-tools", "verdict": "PASS", "attempt": 1, "commit": "1a0e2df4", "corrections": []}
+{"surface": "portal/modules/general/config/__init__.py", "unit_id": "unit-general-config-workspace-pointers", "verdict": "PASS", "attempt": 1, "commit": "1a0e2df4", "corrections": []}
+{"surface": "portal/modules/general/tools/__init__.py", "unit_id": "unit-general-tools-vendored-fleet", "verdict": "PASS", "attempt": 1, "commit": "1a0e2df4", "corrections": []}
+{"surface": "portal/modules/media/tools/utils.py", "unit_id": "unit-media-tools-torch-device", "verdict": "PASS", "attempt": 1, "commit": "1a0e2df4", "corrections": []}
