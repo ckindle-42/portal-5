@@ -153,3 +153,10 @@
 {"surface": "portal/platform/inference/router/streaming.py", "unit_id": "unit-router-streaming", "verdict": "PASS", "attempt": 1, "commit": "a234187e", "corrections": []}
 {"surface": "portal/platform/inference/router/thinking.py", "unit_id": "unit-router-thinking", "verdict": "PASS", "attempt": 1, "commit": "a234187e", "corrections": []}
 {"surface": "portal/platform/inference/router/workspaces.py", "unit_id": "unit-router-workspaces", "verdict": "PASS", "attempt": 1, "commit": "a234187e", "corrections": []}
+{"surface": "tests/lib/__init__.py", "unit_id": "unit-tests-lib-init", "verdict": "PASS", "attempt": 1, "commit": "f2f2516d", "corrections": []}
+{"surface": "tests/lib/results.py", "unit_id": "unit-tests-lib-results", "verdict": "PASS", "attempt": 1, "commit": "f2f2516d", "corrections": []}
+{"surface": "tests/lib/stream_wait.py", "unit_id": "unit-tests-lib-stream-wait", "verdict": "PASS", "attempt": 1, "commit": "f2f2516d", "corrections": []}
+{"surface": "tests/lib/coding_assertions.py", "unit_id": "unit-tests-lib-coding-assertions", "verdict": "PASS", "attempt": 1, "commit": "f2f2516d", "corrections": []}
+{"surface": "tests/lib/coding_fixtures.py", "unit_id": "unit-tests-lib-coding-fixtures", "verdict": "PASS", "attempt": 1, "commit": "f2f2516d", "corrections": []}
+{"surface": "tests/lib/compliance_assertions.py", "unit_id": "unit-tests-lib-compliance-assertions", "verdict": "PASS", "attempt": 1, "commit": "f2f2516d", "corrections": []}
+{"surface": "tests/lib/compliance_fixtures.py", "unit_id": "unit-tests-lib-compliance-fixtures", "verdict": "PASS", "attempt": 1, "commit": "f2f2516d", "corrections": []}
