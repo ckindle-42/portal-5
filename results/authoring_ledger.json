@@ -257,7 +257,7 @@
       "portal_wiki/mcp.py",
       "portal_wiki/wiki_mcp.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/scripts",
@@ -267,7 +267,7 @@
       "tests/scripts/game_challenge_analyze.py",
       "tests/scripts/regen_section_table.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/security/core/siem",

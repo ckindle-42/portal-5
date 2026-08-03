@@ -42,3 +42,11 @@
 {"surface": "portal/modules/security/eval/__init__.py", "unit_id": "unit-security-eval-surface", "verdict": "PASS", "attempt": 1, "commit": "1d62c01d", "corrections": []}
 {"surface": "portal/modules/security/eval/ablation_attribution.py", "unit_id": "unit-security-eval-ablation-attribution", "verdict": "PASS", "attempt": 1, "commit": "1d62c01d", "corrections": []}
 {"surface": "portal/modules/security/eval/blue_orchestration_ablation.py", "unit_id": "unit-security-eval-blue-ablation", "verdict": "PASS", "attempt": 1, "commit": "1d62c01d", "corrections": []}
+{"surface": "portal_wiki/__init__.py", "unit_id": "unit-portal-wiki-init", "verdict": "PASS", "attempt": 1, "commit": "dc13b2d5", "corrections": []}
+{"surface": "portal_wiki/__main__.py", "unit_id": "unit-portal-wiki-main", "verdict": "PASS", "attempt": 1, "commit": "dc13b2d5", "corrections": []}
+{"surface": "portal_wiki/mcp.py", "unit_id": "unit-portal-wiki-mcp", "verdict": "PASS", "attempt": 1, "commit": "dc13b2d5", "corrections": []}
+{"surface": "portal_wiki/wiki_mcp.py", "unit_id": "unit-portal-wiki-wiki-mcp", "verdict": "PASS", "attempt": 1, "commit": "dc13b2d5", "corrections": []}
+{"surface": "tests/scripts/capability_probe.py", "unit_id": "unit-tests-scripts-capability-probe", "verdict": "PASS", "attempt": 1, "commit": "dc13b2d5", "corrections": []}
+{"surface": "tests/scripts/cc_challenge_matrix.py", "unit_id": "unit-tests-scripts-cc-matrix", "verdict": "PASS", "attempt": 1, "commit": "dc13b2d5", "corrections": []}
+{"surface": "tests/scripts/game_challenge_analyze.py", "unit_id": "unit-tests-scripts-game-analyze", "verdict": "PASS", "attempt": 1, "commit": "dc13b2d5", "corrections": []}
+{"surface": "tests/scripts/regen_section_table.py", "unit_id": "unit-tests-scripts-regen-section-table", "verdict": "PASS", "attempt": 1, "commit": "dc13b2d5", "corrections": []}
