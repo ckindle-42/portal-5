@@ -227,7 +227,7 @@
       "tests/toolpreselect/run_bench.py",
       "tests/toolpreselect/scenario_gen.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/security/core/investigation",
