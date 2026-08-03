@@ -247,7 +247,7 @@
       "portal/platform/inference/notifications/events.py",
       "portal/platform/inference/notifications/scheduler.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal_wiki",
@@ -301,7 +301,7 @@
       "portal/platform/inference/notifications/channels/telegram.py",
       "portal/platform/inference/notifications/channels/webhook.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/eval/persona_matrix",

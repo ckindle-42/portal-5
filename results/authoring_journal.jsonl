@@ -54,3 +54,13 @@
 {"surface": "portal/modules/security/core/investigation/evidence.py", "unit_id": "unit-security-investigation-evidence", "verdict": "PASS", "attempt": 1, "commit": "573a2377", "corrections": []}
 {"surface": "portal/modules/security/core/investigation/case_notebook.py", "unit_id": "unit-security-investigation-notebook", "verdict": "PASS", "attempt": 1, "commit": "573a2377", "corrections": []}
 {"surface": "portal/modules/security/core/investigation/bench_investigation.py", "unit_id": "unit-security-investigation-bench", "verdict": "PASS", "attempt": 1, "commit": "573a2377", "corrections": []}
+{"surface": "portal/platform/inference/notifications/__init__.py", "unit_id": "unit-notifications-init", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
+{"surface": "portal/platform/inference/notifications/events.py", "unit_id": "unit-notifications-events", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
+{"surface": "portal/platform/inference/notifications/dispatcher.py", "unit_id": "unit-notifications-dispatcher", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
+{"surface": "portal/platform/inference/notifications/scheduler.py", "unit_id": "unit-notifications-scheduler", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
+{"surface": "portal/platform/inference/notifications/channels/__init__.py", "unit_id": "unit-notifications-channels-init", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
+{"surface": "portal/platform/inference/notifications/channels/webhook.py", "unit_id": "unit-notifications-channel-webhook", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
+{"surface": "portal/platform/inference/notifications/channels/slack.py", "unit_id": "unit-notifications-channel-slack", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
+{"surface": "portal/platform/inference/notifications/channels/telegram.py", "unit_id": "unit-notifications-channel-telegram", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
+{"surface": "portal/platform/inference/notifications/channels/email.py", "unit_id": "unit-notifications-channel-email", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
+{"surface": "portal/platform/inference/notifications/channels/pushover.py", "unit_id": "unit-notifications-channel-pushover", "verdict": "PASS", "attempt": 1, "commit": "7b309b21", "corrections": []}
