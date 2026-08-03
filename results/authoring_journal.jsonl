@@ -98,3 +98,11 @@
 {"surface": "scripts/_archive/mlx-retired-3a0c58e/patch-mlx-templates.py", "unit_id": "unit-archive-mlx-patch-templates", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
 {"surface": "scripts/_archive/mlx-retired-3a0c58e/patch-mlx-threads.py", "unit_id": "unit-archive-mlx-patch-threads", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
 {"surface": "scripts/_archive/mlx-retired-3a0c58e/smoke_test_mlx.py", "unit_id": "unit-archive-mlx-smoke-test", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
+{"surface": "portal/platform/wiki/schema.py", "unit_id": "unit-wiki-schema", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
+{"surface": "portal/platform/wiki/store.py", "unit_id": "unit-wiki-store", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
+{"surface": "portal/platform/wiki/maintain.py", "unit_id": "unit-wiki-maintain", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
+{"surface": "portal/platform/wiki/writeback.py", "unit_id": "unit-wiki-writeback", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
+{"surface": "portal/platform/wiki/audit.py", "unit_id": "unit-wiki-audit", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
+{"surface": "portal/platform/wiki/interfaces.py", "unit_id": "unit-wiki-interfaces", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
+{"surface": "portal/platform/wiki/provenance_ledger.py", "unit_id": "unit-wiki-provenance-ledger", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
+{"surface": "portal/platform/wiki/quality.py", "unit_id": "unit-wiki-quality", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
