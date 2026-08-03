@@ -89,3 +89,12 @@
 {"surface": "portal/modules/eval/persona_matrix/sweep.py", "unit_id": "unit-persona-matrix-sweep", "verdict": "PASS", "attempt": 1, "commit": "7954fafc", "corrections": []}
 {"surface": "portal/modules/eval/persona_matrix/render.py", "unit_id": "unit-persona-matrix-render", "verdict": "PASS", "attempt": 1, "commit": "7954fafc", "corrections": []}
 {"surface": "portal/modules/eval/persona_matrix/cli.py", "unit_id": "unit-persona-matrix-cli", "verdict": "PASS", "attempt": 1, "commit": "7954fafc", "corrections": []}
+{"surface": "scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py", "unit_id": "unit-archive-mlx-laguna-model", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
+{"surface": "scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py", "unit_id": "unit-archive-mlx-proxy", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
+{"surface": "scripts/_archive/mlx-retired-3a0c58e/mlx-readiness.py", "unit_id": "unit-archive-mlx-readiness", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
+{"surface": "scripts/_archive/mlx-retired-3a0c58e/mlx-switch-benchmark.py", "unit_id": "unit-archive-mlx-switch-bench", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
+{"surface": "scripts/_archive/mlx-retired-3a0c58e/mlx-tool-parser-laguna.py", "unit_id": "unit-archive-mlx-tool-parser", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
+{"surface": "scripts/_archive/mlx-retired-3a0c58e/mlx-watchdog.py", "unit_id": "unit-archive-mlx-watchdog", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
+{"surface": "scripts/_archive/mlx-retired-3a0c58e/patch-mlx-templates.py", "unit_id": "unit-archive-mlx-patch-templates", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
+{"surface": "scripts/_archive/mlx-retired-3a0c58e/patch-mlx-threads.py", "unit_id": "unit-archive-mlx-patch-threads", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
+{"surface": "scripts/_archive/mlx-retired-3a0c58e/smoke_test_mlx.py", "unit_id": "unit-archive-mlx-smoke-test", "verdict": "PASS", "attempt": 1, "commit": "2d2e9c0f", "corrections": []}
