@@ -69,3 +69,16 @@
 {"surface": "portal/modules/security/core/siem/spl_backend.py", "unit_id": "unit-security-siem-spl-backend", "verdict": "PASS", "attempt": 1, "commit": "b6f05201", "corrections": []}
 {"surface": "portal/modules/security/core/siem/index_wait.py", "unit_id": "unit-security-siem-index-wait", "verdict": "PASS", "attempt": 1, "commit": "b6f05201", "corrections": []}
 {"surface": "portal/modules/security/core/siem/blue_triage.py", "unit_id": "unit-security-siem-blue-triage", "verdict": "PASS", "attempt": 1, "commit": "b6f05201", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/__init__.py", "unit_id": "unit-tool-preselect-init", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/config.py", "unit_id": "unit-tool-preselect-config", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/prompts.py", "unit_id": "unit-tool-preselect-prompts", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/parser.py", "unit_id": "unit-tool-preselect-parser", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/state.py", "unit_id": "unit-tool-preselect-state", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/metrics.py", "unit_id": "unit-tool-preselect-metrics", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/preselector.py", "unit_id": "unit-tool-preselect-preselector", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/cli_probe.py", "unit_id": "unit-tool-preselect-cli-probe", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/tests/test_config.py", "unit_id": "unit-tool-preselect-test-config", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/tests/test_metrics.py", "unit_id": "unit-tool-preselect-test-metrics", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/tests/test_parser.py", "unit_id": "unit-tool-preselect-test-parser", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/tests/test_preselector.py", "unit_id": "unit-tool-preselect-test-preselector", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/platform/inference/tool_preselect/tests/test_state.py", "unit_id": "unit-tool-preselect-test-state", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
