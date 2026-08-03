@@ -493,7 +493,7 @@
       "tests/comfyui/results.py",
       "tests/comfyui/runner.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/inference/router",
