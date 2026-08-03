@@ -180,20 +180,33 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
                 backend.id,
             )
             return
-        warmup_url = f"{backend.url.rstrip('/')}/api/generate"
-        warmup_payload = {
-            "model": backend.models[0],
-            "prompt": "ok",
-            "stream": False,
-            "keep_alive": -1,  # int not string — Ollama 0.30.8+ rejects "-1"
-            # num_ctx caps the warmed runner's reserved KV-cache. Without it,
-            # Ollama defaults to the model's full context window multiplied
-            # by OLLAMA_NUM_PARALLEL slots — for an uncapped model this can
-            # reserve tens of GiB pinned forever (keep_alive: -1), forcing
-            # the scheduler to evict everything else on the next load. Same
-            # bug and fix as the router warmup below (P5-ROUTER-EVICTION-001).
-            "options": {"num_predict": 1, "num_ctx": 8192},
-        }
+        if backend.type == "omlx":
+            # oMLX has no /api/generate (Ollama-native) and no keep_alive
+            # concept — its own EnginePool owns residency/pinning (B3
+            # scope). Warm it through the same OpenAI-compatible endpoint
+            # normal traffic uses instead.
+            warmup_url = f"{backend.url.rstrip('/')}/v1/chat/completions"
+            warmup_payload = {
+                "model": backend.models[0],
+                "messages": [{"role": "user", "content": "ok"}],
+                "max_tokens": 1,
+                "stream": False,
+            }
+        else:
+            warmup_url = f"{backend.url.rstrip('/')}/api/generate"
+            warmup_payload = {
+                "model": backend.models[0],
+                "prompt": "ok",
+                "stream": False,
+                "keep_alive": -1,  # int not string — Ollama 0.30.8+ rejects "-1"
+                # num_ctx caps the warmed runner's reserved KV-cache. Without it,
+                # Ollama defaults to the model's full context window multiplied
+                # by OLLAMA_NUM_PARALLEL slots — for an uncapped model this can
+                # reserve tens of GiB pinned forever (keep_alive: -1), forcing
+                # the scheduler to evict everything else on the next load. Same
+                # bug and fix as the router warmup below (P5-ROUTER-EVICTION-001).
+                "options": {"num_predict": 1, "num_ctx": 8192},
+            }
 
         resp = await _http_client.post(warmup_url, json=warmup_payload)
         if resp.status_code == 200:

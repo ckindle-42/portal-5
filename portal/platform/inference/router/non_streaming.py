@@ -251,9 +251,12 @@ async def _try_non_streaming(
     ws_cfg = WORKSPACES.get(workspace_id, {})
     model_hint = ws_cfg.get("model_hint", "")
 
-    # Pick target model from Ollama hint
-    if model_hint and model_hint in backend.models:
-        target_model = model_hint
+    # Pick target model from the workspace's model_hint, translating through
+    # the backend's aliases (e.g. GGUF hint -> oMLX native id) when the hint
+    # isn't served under its literal name.
+    _resolved_hint = backend.resolve_model(model_hint) if model_hint else None
+    if model_hint and _resolved_hint is not None:
+        target_model = _resolved_hint
     elif model_hint and enforce_hint:
         logger.debug(
             "Backend %s lacks hinted model %s for workspace=%s — skipping",

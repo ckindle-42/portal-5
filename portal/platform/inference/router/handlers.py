@@ -102,18 +102,24 @@ _notification_dispatcher: Any = None
 
 
 def _prioritize_hinted_backend(candidates: list[Any], model_hint: str) -> list[Any]:
-    """Move the first backend containing ``model_hint`` to the front.
+    """Move the first backend able to serve ``model_hint`` to the front.
 
     Workspace group priority remains the default. A concrete model hint is
     more specific, though, and streaming previously substituted the first
     backend's default model even when a later eligible backend contained the
     requested one. Non-streaming already skips candidates that cannot satisfy
     the hint; this gives streaming the same served-model behavior.
+
+    Uses ``resolve_model`` rather than a plain ``in candidate.models`` check
+    so a backend that serves the hint under an aliased native id (e.g. the
+    oMLX entry translating a GGUF hint to its own model directory name)
+    still matches — a bare membership check would always skip it in favor
+    of the Ollama backend that carries the literal hint string.
     """
     if not model_hint:
         return candidates
     for index, candidate in enumerate(candidates):
-        if model_hint in candidate.models:
+        if candidate.resolve_model(model_hint) is not None:
             if index == 0:
                 return candidates
             return [candidate, *candidates[:index], *candidates[index + 1 :]]
@@ -868,10 +874,13 @@ async def chat_completions(
         candidates = _prioritize_hinted_backend(candidates, model_hint)
         backend = candidates[0]
 
-        # Pick target model from Ollama hint
+        # Pick target model from the workspace's model_hint, translating
+        # through the backend's aliases (e.g. GGUF hint -> oMLX native id)
+        # when the hint isn't served under its literal name.
         if model_hint:
-            if model_hint in backend.models:
-                target_model = model_hint
+            resolved_hint = backend.resolve_model(model_hint)
+            if resolved_hint is not None:
+                target_model = resolved_hint
             else:
                 if not backend.models:
                     logger.warning(

@@ -1320,4 +1320,10 @@ MLX conversion (mlx-community, 8-bit) of Llama-3.2-3B-Instruct, the cross-eval c
 MLX conversion (lmstudio-community, 4-bit) of Phi-4-reasoning-plus, probed as a candidate for the GGUF crash refugee (P5-MODEL-PHI4REASONING-001). Phase-0 Gate-6: loads on oMLX but output is degenerate (special-token leakage, incoherent) with the default chat template — NOT production-viable as-probed. Registered in backends.yaml with a do-not-migrate note pending template investigation.
 <!-- /WIKI:GENERATED -->
 
+### `Laguna-XS.2-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-laguna-xs-2-4bit -->
+MLX conversion (mlx-community, 4-bit) of poolside/Laguna-XS.2, served by the oMLX evaluation backend. Ships `modeling_laguna.py`/`configuration_laguna.py` custom-code — the architecture mlx_lm never upstreamed (the retired MLX proxy needed a hand-written plugin for this reason, `scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py`); oMLX serves it natively via HF `trust_remote_code`. Registered in both the no-traffic `omlx-local` holding group and the live `group: coding` `omlx-coding` entry (PUNCHLIST B2, priority 10), aliased from the production hint `laguna-xs.2:Q4_K_M-ctx64k`. No Phase-0 bench numbers yet — not covered by the 2026-08-02 gate run; added post-hoc for the B2 shadow-then-shift.
+<!-- /WIKI:GENERATED -->
+
 ---
