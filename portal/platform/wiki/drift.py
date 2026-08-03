@@ -77,6 +77,7 @@ class PinHealth:
     phantom: tuple[str, ...] = ()
     unpinned: tuple[str, ...] = ()
     stale_detail: dict[str, int] = field(default_factory=dict)
+    authored_stale: tuple[str, ...] = ()
 
     @property
     def total(self) -> int:
@@ -112,6 +113,7 @@ def pin_health(repo_root: Path | None = None, units=None) -> PinHealth:
     stale: list[str] = []
     phantom: list[str] = []
     unpinned: list[str] = []
+    authored_stale: list[str] = []
     detail: dict[str, int] = {}
     rev_ok: dict[str, bool] = {}
 
@@ -130,6 +132,12 @@ def pin_health(repo_root: Path | None = None, units=None) -> PinHealth:
             continue
         out = _git(root, "log", "--oneline", f"{pin}..HEAD", "--", *paths).stdout.strip()
         if out:
+            # Authored-v1 units carry the enforceable staleness contract: their
+            # cited source moving is a FAIL, not a report. They are tracked
+            # separately so BS can hard-fail on them while legacy units keep the
+            # report-only doctrine and their baseline entry.
+            if "authored-v1" in (unit.tags or []):
+                authored_stale.append(unit.id)
             stale.append(unit.id)
             detail[unit.id] = len(out.splitlines())
         else:
@@ -141,6 +149,7 @@ def pin_health(repo_root: Path | None = None, units=None) -> PinHealth:
         phantom=tuple(sorted(phantom)),
         unpinned=tuple(sorted(unpinned)),
         stale_detail=detail,
+        authored_stale=tuple(sorted(authored_stale)),
     )
 
 

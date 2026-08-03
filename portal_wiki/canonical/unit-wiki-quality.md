@@ -53,3 +53,15 @@ to cited files produced false rejections on first calibration. The authored
 checks (structure floor, substance floor, claim-binding) apply only to units
 tagged `authored-v1`; the legacy corpus predates the convention and is
 exempt, which is itself a documented calibration decision.
+
+An authored-v1 unit carries an enforceable staleness contract that legacy units
+do not: `BS` hard-fails when the unit's cited source has a commit after its
+`last_generated_commit` pin. Clearing that failure is a read-first procedure,
+not a re-pin. Read the diff (`git log <pin>..HEAD -- <cited source>`), update
+the affected sections of the unit to match what the code now does, re-assess
+against the quality gate, and only then re-pin to the current commit. The
+re-pin is the last step, not the first — a rubber-stamp re-pin that skips the
+reading is how the 461 phantom pins happened, and it would defeat the entire
+purpose of the staleness contract. The drift census's `portal_wiki drift`
+command surfaces exactly which units are stale and which probes they failed,
+so clearing starts from the census output.
