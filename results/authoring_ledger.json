@@ -109,14 +109,14 @@
     "surfaces": [
       "portal_channels/slack/bot.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal_channels/telegram",
     "surfaces": [
       "portal_channels/telegram/bot.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal_mcp",
@@ -130,14 +130,14 @@
     "surfaces": [
       "scripts/_archive/analyze_bench_v5.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/fixtures/capability_context",
     "surfaces": [
       "tests/fixtures/capability_context/sample_module.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/frontends",
