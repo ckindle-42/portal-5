@@ -28,3 +28,8 @@
 {"surface": "tests/routing/measure.py", "unit_id": "unit-routing-measure", "verdict": "PASS", "attempt": 1, "commit": "dfa74e2e", "corrections": []}
 {"surface": "tests/unit/router/test_context_inject.py", "unit_id": "unit-router-test-context-inject", "verdict": "PASS", "attempt": 1, "commit": "dfa74e2e", "corrections": []}
 {"surface": "tests/unit/router/test_correlation.py", "unit_id": "unit-router-test-correlation", "verdict": "PASS", "attempt": 1, "commit": "dfa74e2e", "corrections": []}
+{"surface": "tests/frontends/__init__.py", "unit_id": "unit-tests-frontends-namespace", "verdict": "PASS", "attempt": 1, "commit": "96146826", "corrections": []}
+{"surface": "tests/integration/test_wiki_self_improving_cycle.py", "unit_id": "unit-tests-integration-wiki-cycle", "verdict": "PASS", "attempt": 1, "commit": "96146826", "corrections": []}
+{"surface": "scripts/ci/check_generated_fresh.py", "unit_id": "unit-ci-generated-fresh", "verdict": "PASS", "attempt": 1, "commit": "96146826", "corrections": []}
+{"surface": "scripts/ci/check_no_identical_sources.py", "unit_id": "unit-ci-identical-sources", "verdict": "PASS", "attempt": 1, "commit": "96146826", "corrections": []}
+{"surface": "scripts/ci/check_pyproject_no_dup.py", "unit_id": "unit-ci-pyproject-no-dup", "verdict": "PASS", "attempt": 1, "commit": "96146826", "corrections": []}

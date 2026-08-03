@@ -144,14 +144,14 @@
     "surfaces": [
       "tests/frontends/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/integration",
     "surfaces": [
       "tests/integration/test_wiki_self_improving_cycle.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/security/core/commands",
@@ -218,7 +218,7 @@
       "scripts/ci/check_no_identical_sources.py",
       "scripts/ci/check_pyproject_no_dup.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/toolpreselect",
