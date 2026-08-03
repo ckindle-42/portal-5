@@ -60,49 +60,49 @@
     "surfaces": [
       "portal/modules/security/cli/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/security/config",
     "surfaces": [
       "portal/modules/security/config/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/security/core/capability",
     "surfaces": [
       "portal/modules/security/core/capability/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/security/knowledge",
     "surfaces": [
       "portal/modules/security/knowledge/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/security/tools",
     "surfaces": [
       "portal/modules/security/tools/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/memory",
     "surfaces": [
       "portal/platform/memory/memory_mcp.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/storage",
     "surfaces": [
       "portal/platform/storage/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal_channels/slack",
@@ -123,7 +123,7 @@
     "surfaces": [
       "portal_mcp/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "scripts/_archive",

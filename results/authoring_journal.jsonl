@@ -6,3 +6,11 @@
 {"surface": "portal/modules/general/config/__init__.py", "unit_id": "unit-general-config-workspace-pointers", "verdict": "PASS", "attempt": 1, "commit": "1a0e2df4", "corrections": []}
 {"surface": "portal/modules/general/tools/__init__.py", "unit_id": "unit-general-tools-vendored-fleet", "verdict": "PASS", "attempt": 1, "commit": "1a0e2df4", "corrections": []}
 {"surface": "portal/modules/media/tools/utils.py", "unit_id": "unit-media-tools-torch-device", "verdict": "PASS", "attempt": 1, "commit": "1a0e2df4", "corrections": []}
+{"surface": "portal/modules/security/cli/__init__.py", "unit_id": "unit-security-cli-pass-through", "verdict": "PASS", "attempt": 1, "commit": "b0aa6770", "corrections": []}
+{"surface": "portal/modules/security/config/__init__.py", "unit_id": "unit-security-config-reserved", "verdict": "PASS", "attempt": 1, "commit": "b0aa6770", "corrections": []}
+{"surface": "portal/modules/security/core/capability/__init__.py", "unit_id": "unit-security-capability-index", "verdict": "PASS", "attempt": 1, "commit": "b0aa6770", "corrections": []}
+{"surface": "portal/modules/security/knowledge/__init__.py", "unit_id": "unit-security-knowledge-surface", "verdict": "PASS", "attempt": 1, "commit": "b0aa6770", "corrections": []}
+{"surface": "portal/modules/security/tools/__init__.py", "unit_id": "unit-security-tools-mcp-surface", "verdict": "PASS", "attempt": 1, "commit": "b0aa6770", "corrections": []}
+{"surface": "portal/platform/storage/__init__.py", "unit_id": "unit-platform-storage-config-facade", "verdict": "PASS", "attempt": 1, "commit": "b0aa6770", "corrections": []}
+{"surface": "portal_mcp/__init__.py", "unit_id": "unit-portal-mcp-namespace", "verdict": "PASS", "attempt": 1, "commit": "b0aa6770", "corrections": []}
+{"surface": "portal/platform/memory/memory_mcp.py", "unit_id": "unit-memory-mcp-lancedb", "verdict": "PASS", "attempt": 1, "commit": "b0aa6770", "corrections": []}
