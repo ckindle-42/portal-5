@@ -615,7 +615,7 @@
       "tests/acceptance/s60_tool_calling.py",
       "tests/acceptance/s70_information_access.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/uat_catalog",
