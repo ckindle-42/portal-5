@@ -54,16 +54,23 @@ def _load_portal_yaml(root: Path) -> dict:
 
 
 def _workspace_names(root: Path) -> list[str]:
-    data = _load_portal_yaml(root)
-    out: list[str] = []
-    for entry in data.get("workspaces") or []:
-        if isinstance(entry, dict):
-            name = entry.get("name")
-            if name:
-                out.append(str(name))
-        else:
-            out.append(str(entry))
-    return out
+    """Workspace *ids*, which are the mapping keys in `config/portal.yaml`.
+
+    The `name` field inside each entry is a display label ("🤖 Portal Auto
+    Router"), not an id, so it must never be used here — `workspaces.bench` counts
+    the `bench-` id prefix and would silently return 0 if fed display labels.
+    An earlier version iterated `workspaces` as though it were a list of dicts;
+    that produced the right answer only because iterating a dict yields its keys.
+    The shape is asserted rather than guessed so a future restructure fails loudly
+    instead of quietly zeroing the bench count.
+    """
+    workspaces = _load_portal_yaml(root).get("workspaces")
+    if isinstance(workspaces, dict):
+        return [str(k) for k in workspaces]
+    raise TypeError(
+        f"config/portal.yaml `workspaces` must be a mapping of id -> spec, "
+        f"got {type(workspaces).__name__}"
+    )
 
 
 def _probe_workspaces_total(root: Path) -> int:
