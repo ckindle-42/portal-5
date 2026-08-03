@@ -305,6 +305,10 @@ async def _try_non_streaming(
     req_body = {**body, "model": target_model, "stream": False}
     if backend.type == "ollama":
         req_body = _inject_ollama_options(req_body, workspace_id)
+    elif backend.type == "omlx":
+        from portal.platform.inference.router.validation import _inject_omlx_options
+
+        req_body = _inject_omlx_options(req_body, workspace_id)
 
     # Inject tool schemas — same logic as the streaming path. Required when
     # _try_non_streaming is used as a fallback after a streaming attempt fails
@@ -475,26 +479,23 @@ async def _try_non_streaming(
         )
         return None
     except httpx.TimeoutException:
-        # Before cascading, check whether the model is still running in Ollama.
+        # Before cascading, check whether the engine is still running the model.
         # A timeout on a reasoning model mid-generation is not a backend failure.
-        _ollama_base = backend.chat_url.split("/v1/")[0]
         logger.warning(
-            "Backend %s timed out for workspace=%s (%.0fs) — checking /api/ps",
+            "Backend %s timed out for workspace=%s (%.0fs) — probing engine state",
             backend.id,
             workspace_id,
             _req_timeout,
         )
-        _model_still_running = False
-        try:
-            from portal.platform.inference.router.monitor import wait_for_model_loaded as _wfml
+        from portal.platform.inference.router.backend_introspect import (
+            model_still_running as _msr,
+        )
 
-            _model_still_running = await _wfml(timeout_s=60.0, ollama_url=_ollama_base)
-        except Exception:
-            pass
+        _model_still_running = await _msr(backend.chat_url, timeout_s=60.0)
 
         if _model_still_running:
             logger.warning(
-                "Backend %s: model present in /api/ps — retrying once with %.0fs timeout",
+                "Backend %s: engine reports model still running — retrying once with %.0fs timeout",
                 backend.id,
                 _req_timeout,
             )
@@ -508,7 +509,7 @@ async def _try_non_streaming(
             )
         else:
             logger.warning(
-                "Backend %s: model absent from /api/ps — cascading to next candidate",
+                "Backend %s: engine unreachable or no model running — cascading to next candidate",
                 backend.id,
             )
         return None

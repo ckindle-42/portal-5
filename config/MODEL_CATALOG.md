@@ -1273,3 +1273,51 @@ Context-capped derived tag of `sylink/sylink:8b` (`PARAMETER num_ctx 8192` baked
 <!-- /WIKI:GENERATED -->
 
 ---
+
+---
+
+## oMLX evaluation backend (P5-FUT-013 Phase 1)
+
+### `Qwen3-Coder-30B-A3B-Instruct-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-qwen3-coder-30b-a3b-instruct-4bit -->
+MLX conversion (mlx-community, 4-bit) of Qwen3-Coder-30B-A3B-Instruct served by the oMLX evaluation backend (`omlx-local`, P5-FUT-013 Phase 1). Phase-0 probes: decode 91.4 t/s vs 62.8 for the production GGUF `-ctx16k` tag (1.46x), agentic-prefix warm TTFT 4.5x with verified cache hits, structured `tool_calls` PASS, JSON-schema PASS, 4-way concurrency 1.61x. See `tests/benchmarks/results/omlx_v3_reeval_20260802T221435Z.md`.
+<!-- /WIKI:GENERATED -->
+
+### `gemma-4-e4b-it-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-gemma-4-e4b-it-4bit -->
+MLX conversion (mlx-community, 4-bit) of gemma-4-e4b-it served by the oMLX evaluation backend. Phase-0 probes: decode ~74 t/s vs ~49 for GGUF `gemma4:e4b-it-qat` (~1.4x), warm TTFT 3.5x, structured `tool_calls` PASS via Gemma `<start_function_call>` parsing, JSON-schema PASS with one reproducible livelock on unconstrained-to-constrained request transitions (self-recovering; filed upstream draft).
+<!-- /WIKI:GENERATED -->
+
+### `supergemma4-26b-abliterated-multimodal-mlx-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-supergemma4-26b-abliterated-multimodal-mlx-4bit -->
+VLM-shaped MLX conversion (Jiunsong, 4-bit) of the supergemma4-26b abliterated fine-tune, served by oMLX's VLM engine. P5-MLX-EVAL-005 recorded that every MLX conversion of this fine-tune crashes text-only `mlx_lm`; oMLX's VLMEngine serves it — Phase-0 Gate-6: coherent generation + structured `tool_calls` PASS. Migration candidate for auto-security redteam/purpleteam variants.
+<!-- /WIKI:GENERATED -->
+
+### `Qwen3-VL-32B-Instruct-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-qwen3-vl-32b-instruct-4bit -->
+MLX conversion (mlx-community, 4-bit) of Qwen3-VL-32B-Instruct served by oMLX's VLM engine. Phase-0 Gate-6 vision probe PASS (7.7s load, correct image understanding via OpenAI image_url parts). Migration candidate for `auto-vision` (production primary is the GGUF `qwen3-vl:32b` family).
+<!-- /WIKI:GENERATED -->
+
+### `Qwen3.6-27B-oQ8-mtp`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-qwen3-6-27b-oq8-mtp -->
+oQ-quantized Qwen3.6-27B with a merged Lightning MTP head (built during the 2026-05-28 re-eval), served by the oMLX evaluation backend. Phase-0 Gate-2b with toggle verified against the server log: MTP off 8.1-8.4 t/s, on 18.0-20.5 t/s = 2.22-2.47x speedup at 82-95% draft acceptance. Reference artifact for Phase-4 MTP enablement on coding/security primaries.
+<!-- /WIKI:GENERATED -->
+
+### `Llama-3.2-3B-Instruct-8bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-llama-3-2-3b-instruct-8bit -->
+MLX conversion (mlx-community, 8-bit) of Llama-3.2-3B-Instruct, the cross-eval continuity model (2026-04-25 bake-off, 2026-05-28 re-eval, 2026-08-02 Phase-0). Phase-0: 62 t/s decode, 7.0x warm TTFT, JSON-schema PASS; tool calling FAILS (bare JSON in content, oMLX's Llama parser gap vs Ollama/llama.cpp) — do not migrate Llama-family models until this parses.
+<!-- /WIKI:GENERATED -->
+
+### `Phi-4-reasoning-plus-MLX-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-phi-4-reasoning-plus-mlx-4bit -->
+MLX conversion (lmstudio-community, 4-bit) of Phi-4-reasoning-plus, probed as a candidate for the GGUF crash refugee (P5-MODEL-PHI4REASONING-001). Phase-0 Gate-6: loads on oMLX but output is degenerate (special-token leakage, incoherent) with the default chat template — NOT production-viable as-probed. Registered in backends.yaml with a do-not-migrate note pending template investigation.
+<!-- /WIKI:GENERATED -->
+
+---

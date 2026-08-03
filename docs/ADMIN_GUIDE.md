@@ -628,7 +628,7 @@ default.
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (191 model ids across 6 backend groups)
+# Model catalog (198 model ids across 7 backend groups)
 
 ## coding (39)
 
@@ -762,6 +762,16 @@ default.
 - `qwen3.6:35b-a3b-q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
+
+## omlx (7)
+
+- `Llama-3.2-3B-Instruct-8bit`
+- `Phi-4-reasoning-plus-MLX-4bit`
+- `Qwen3-Coder-30B-A3B-Instruct-4bit`
+- `Qwen3-VL-32B-Instruct-4bit`
+- `Qwen3.6-27B-oQ8-mtp`
+- `gemma-4-e4b-it-4bit`
+- `supergemma4-26b-abliterated-multimodal-mlx-4bit`
 
 ## reasoning (23)
 

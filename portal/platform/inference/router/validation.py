@@ -194,3 +194,37 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
         body.setdefault("think", ws_think)
 
     return body
+
+
+def _inject_omlx_options(body: dict, workspace_id: str = "") -> dict:
+    """Per-request injection for ``type == "omlx"`` backends (P5-FUT-013 Phase 1).
+
+    oMLX speaks plain OpenAI — there is no ``options`` sub-dict, no
+    ``keep_alive`` (model residency is server-side: EnginePool pinning/TTL),
+    and no ``num_ctx``/``num_batch`` (context and prefill chunking are
+    server-side per-model settings, replacing the Ollama ``-ctxNk`` derived
+    tags). What remains worth injecting per request:
+
+    * ``max_tokens`` from ``predict_limit`` — output cap (OpenAI standard).
+    * ``stream_options.include_usage`` — TPS accounting, same as Ollama path.
+    * ``temperature`` / ``top_p`` as top-level OpenAI fields when the
+      workspace declares them (caller values always win via setdefault).
+
+    Body is copied at entry; the original is never mutated.
+    """
+    body = dict(body)
+    ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
+
+    predict_limit = ws_cfg_local.get("predict_limit")
+    if predict_limit:
+        body.setdefault("max_tokens", predict_limit)
+
+    if body.get("stream", True):
+        body.setdefault("stream_options", {})["include_usage"] = True
+
+    for key in ("temperature", "top_p"):
+        val = ws_cfg_local.get(key)
+        if val is not None:
+            body.setdefault(key, val)
+
+    return body

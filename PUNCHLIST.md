@@ -59,21 +59,64 @@ fresh run can pick it up cold. Evidence paths are cited inline.
 Full context: `OMLX_DECISION.md` §"Re-evaluation v3" +
 `tests/benchmarks/results/omlx_v3_reeval_20260802T221435Z.md` (scope guards).
 
-### B1. Registry plumbing (no traffic shift)
-- Add `type: "omlx"` to `cluster_backends.py` (health via `/v1/models`; do NOT
-  resurrect the retired `mlx-apple-silicon` type or `mlx_metadata` — regression
-  guards in `tests/unit/test_pipeline.py` must stay green). Generalize
-  `health_url` to an optional per-backend YAML override.
-- Per-model optional `backend:` field in `backends.yaml` so candidate chains
-  span engines (oMLX primary → Ollama fallback using existing failover).
-- Replace ollama-only option injection (`handlers.py:920`,
-  `non_streaming.py:306`) with per-type injection; oMLX requests get
-  `stream_options.include_usage` only.
-- `BackendIntrospector` seam for the `/api/ps` timeout-disambiguation
-  (`streaming.py:475/978`, `non_streaming.py:497`, `monitor.py`): Ollama impl =
-  `/api/ps`; oMLX impl = admin active-models API, else local in-flight tracking.
-- **Acceptance:** unit tests for type parsing/health/candidate selection;
-  `pytest tests/unit -q` green; no production traffic routed to oMLX yet.
+### B1. ✅ DONE (2026-08-02) — Registry plumbing, no traffic shift
+- `Backend` (`cluster_backends.py`): `type: "omlx"` (health → `/v1/models`),
+  `health_path:` override, `priority:` (within-group ordering — the
+  oMLX-primary/Ollama-fallback mechanism; all-zero = legacy shuffle),
+  `aliases:` (canonical hint → engine-native id) + `resolve_model()`.
+- `_inject_omlx_options` (`validation.py`): plain-OpenAI surface only
+  (max_tokens/stream_options/temperature/top_p; no `options` sub-dict, no
+  keep_alive). Dispatch at `handlers.py:920` + `non_streaming.py:306`.
+- `router/backend_introspect.py`: `model_still_running(url)` seam replaces
+  hardcoded `/api/ps` at 3 timeout sites (streaming ×2, non_streaming ×1);
+  type resolved via lifespan registry singleton, unknown → legacy Ollama
+  probe. oMLX semantic: reachable ⇒ busy, unreachable ⇒ down (admin-API
+  loaded-state is B3 scope).
+- `config/backends.yaml`: `omlx-local` registered in **holding group `omlx`**
+  (no workspace_routing reference → tier-3 fallback only, no traffic shift).
+  7 models with Phase-0 probe evidence; Phi-4 marked do-not-migrate.
+- Guardrails honored: group named `omlx` NOT `mlx` (retirement guard
+  `test_backend_registry_loads_all_groups` intact); 7 `unit-model-catalog-*`
+  units + MODEL_CATALOG.md section created (parity test intact);
+  `mlx_metadata`/`_MLX_PROXY_HEALTH_URL` still absent (3a0c58e guards intact).
+- Gates: 873 unit ✅ (13 new in `tests/unit/test_omlx_backend.py`),
+  ruff ✅, pipeline rebuilt (7/7 backends healthy incl. omlx-local),
+  `smoke_stream.sh` ✅, `ci_local.sh` 2652 ✅.
+
+### B2. NEXT — Shadow then shift, auto-coding first (NOT STARTED)
+Resume notes — everything needed to pick this up:
+- **Design decision made in B1:** engine selection is per-group
+  `priority:` + per-model `aliases:` on backend entries; workspaces keep ONE
+  `model_hint` (the GGUF tag), the oMLX entry for that group carries
+  `aliases: {<gguf-hint>: <omlx-native-id>}` and higher priority. When oMLX
+  is unhealthy, candidates fall to Ollama automatically with the existing
+  `_hint_fallback` metric firing honestly.
+- **Concrete first move:** add `group: coding` oMLX entry (same URL as
+  omlx-local or fold into one entry per group — mirror the ollama-* pattern
+  of one entry per group per engine), `priority: 10`,
+  `aliases: {"qwen3-coder:30b-a3b-q4_K_M-ctx16k": "Qwen3-Coder-30B-A3B-Instruct-4bit",
+  "laguna-xs.2:Q4_K_M-ctx64k": <laguna MLX id once downloaded>}`.
+- **Hint-resolution check:** handlers resolve `model_hint in backend.models`
+  BEFORE prioritize — must switch to `backend.resolve_model(hint)` so aliases
+  match (B1 added the method; call sites are `handlers.py:~868-905` and
+  `_prioritize_hinted_backend` at `handlers.py:104`). Then target_model =
+  resolved native id.
+- **Laguna prerequisite:** no Laguna MLX conversion is on disk (deleted in
+  July cleanup) — download before aliasing the laguna variant.
+- **Watch:** oMLX EnginePool + pipeline `keep_alive` warmup calls
+  (`lifespan.py:183-261`) — warmup posts to `/api/generate` (Ollama-native);
+  oMLX workspaces must skip Ollama warmup or get an oMLX warmup path
+  (plain chat completion). Check `_LLM_ROUTER_OLLAMA_URL` usages.
+- **Then:** ~1 week of real-use metrics comparison (Prometheus per-backend
+  TTFT/TPS), then auto-vision (Gate-6 ✅) + auto-security migratable variants
+  (supergemma4 ✅, redteam/purpleteam).
+- **Security core migration (paired with B2):** 6 `/api/chat` call sites →
+  `/v1/chat/completions` with configurable base URL:
+  `blue.py:1304`, `exec_chain.py:4089/4445`, `refusal.py:38/120`,
+  `drift_gate.py:313`, `agentic_blue_eval.py:288`, `core/__init__.py:167`,
+  `intake.py:78` (the last two use `/api/generate`).
+- **Acceptance:** parity-or-better live metrics; `smoke_stream.sh` green;
+  per-model rollback = one-line YAML (delete the alias).
 
 ### B2. Shadow then shift — auto-coding first
 - Route `auto-coding` (+ `laguna` variant — oMLX natively accelerates Laguna)

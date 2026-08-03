@@ -470,19 +470,17 @@ async def _stream_with_tool_loop_impl(
 
                     yield (line + "\n\n").encode()
         except httpx.TimeoutException:
-            _ollama_base = backend_url.split("/v1/")[0]
             logger.warning(
-                "Tool-loop backend %s timed out (workspace=%s, hop=%d) — checking /api/ps",
+                "Tool-loop backend %s timed out (workspace=%s, hop=%d) — probing engine state",
                 backend_url,
                 workspace_id,
                 hop,
             )
-            try:
-                from portal.platform.inference.router.monitor import wait_for_model_loaded as _wfml
+            from portal.platform.inference.router.backend_introspect import (
+                model_still_running as _msr,
+            )
 
-                _still_running = await _wfml(timeout_s=5.0, poll_s=5.0, ollama_url=_ollama_base)
-            except Exception:
-                _still_running = False
+            _still_running = await _msr(backend_url, timeout_s=5.0)
             if _still_running:
                 logger.warning(
                     "Backend %s: model still in /api/ps after stream timeout — "
@@ -973,18 +971,16 @@ async def _stream_from_backend_guarded(
 
                 yield (line + "\n\n").encode()
     except httpx.TimeoutException:
-        _ollama_base = url.split("/v1/")[0]
         logger.warning(
-            "Backend %s timed out during stream (workspace=%s) — checking /api/ps",
+            "Backend %s timed out during stream (workspace=%s) — probing engine state",
             url,
             workspace_id,
         )
-        try:
-            from portal.platform.inference.router.monitor import wait_for_model_loaded as _wfml
+        from portal.platform.inference.router.backend_introspect import (
+            model_still_running as _msr,
+        )
 
-            _still_running = await _wfml(timeout_s=5.0, poll_s=5.0, ollama_url=_ollama_base)
-        except Exception:
-            _still_running = False
+        _still_running = await _msr(url, timeout_s=5.0)
         if _still_running:
             logger.warning(
                 "Backend %s: model still in /api/ps after stream timeout — "

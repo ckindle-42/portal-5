@@ -488,6 +488,33 @@ backends:
     supports_tools: false
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
+# oMLX evaluation backend (P5-FUT-013 Phase 1, 2026-08-02).
+# Registered in holding group "omlx" — no workspace_routing entry references it,
+# so the only way traffic reaches it is the tier-3 absolute-fallback net.
+# Group/priority/aliases for production workspaces are wired per-workspace in
+# Phase 2 (PUNCHLIST B2). supports_tools values from live probes:
+# coder/gemma tool_call PASS, supergemma4 (VLM engine) tool_call PASS,
+# Qwen3-VL vision PASS, Phi-4-reasoning-plus degenerate-output FAIL
+# (registered but do-not-migrate until template issue resolves).
+- group: omlx
+  id: omlx-local
+  models:
+  - id: Qwen3-Coder-30B-A3B-Instruct-4bit
+    supports_tools: true
+  - id: gemma-4-e4b-it-4bit
+    supports_tools: true
+  - id: supergemma4-26b-abliterated-multimodal-mlx-4bit
+    supports_tools: true
+  - id: Qwen3-VL-32B-Instruct-4bit
+    supports_tools: false
+  - id: Qwen3.6-27B-oQ8-mtp
+    supports_tools: false
+  - id: Llama-3.2-3B-Instruct-8bit
+    supports_tools: false
+  - id: Phi-4-reasoning-plus-MLX-4bit
+    supports_tools: false
+  type: omlx
+  url: ${OMLX_URL:-http://host.docker.internal:8085}
 defaults:
   fallback_group: general
   health_check_interval: 15

@@ -5,10 +5,17 @@ are reachable right now." It is loaded once per pipeline process from
 ``config/backends.yaml`` and instantiated as a singleton in
 ``router_pipe.lifespan``; no other code constructs a ``BackendRegistry``.
 
-Two backend types are supported:
+Three backend types are supported:
 
 * ``ollama``           — health probed via ``/api/tags``.
 * ``openai_compatible``— vLLM and similar; health probed via ``/health``.
+* ``omlx``             — oMLX on Apple Silicon (OpenAI-compatible serving,
+  MLX-format models); health probed via ``/v1/models``. Distinct from the
+  retired in-house MLX proxy (3a0c58e): this is a third-party server spoken
+  to over plain HTTP, with no custom process/watchdog management here.
+
+A per-backend ``health_path:`` YAML key overrides the type-derived probe path
+when an operator needs it (e.g. a proxy fronting the server).
 
 Operator workflow: adding a cluster node is a YAML edit and a pipeline restart
 — never a code change. Workspace-to-group routing lives in the same YAML under
@@ -76,6 +83,23 @@ def _expand_env(val: Any) -> Any:
     if isinstance(val, list):
         return [_expand_env(item) for item in val]
     return val
+
+
+def _priority_ordered(backends: list[Backend]) -> list[Backend]:
+    """Sort by descending ``priority``, shuffling within equal priorities.
+
+    All-zero priority lists (every pre-omlx config) shuffle exactly as before —
+    the field is a no-op until an operator sets it.
+    """
+    by_priority: dict[int, list[Backend]] = {}
+    for b in backends:
+        by_priority.setdefault(b.priority, []).append(b)
+    out: list[Backend] = []
+    for prio in sorted(by_priority, reverse=True):
+        tier = by_priority[prio]
+        random.shuffle(tier)
+        out.extend(tier)
+    return out
 
 
 def _default_config_path() -> str:
@@ -147,7 +171,7 @@ class Backend:
     """
 
     id: str
-    type: str  # "ollama" | "openai_compatible"
+    type: str  # "ollama" | "openai_compatible" | "omlx"
     url: str
     group: str  # e.g., "general", "coding", "creative"
     models: list[str]
@@ -159,6 +183,20 @@ class Backend:
     # are bare strings (legacy format) — those models default to supports_tools=False
     # via model_supports_tools(). See TASK_TOOL_SUPPORT_AUDIT_V1 §A2-A4.
     ollama_metadata: list[dict] = field(default_factory=list)
+    # Optional explicit health-probe path override (``health_path:`` in YAML).
+    # Wins over the type-derived default in ``health_url``.
+    health_path: str | None = None
+    # Candidate-ordering weight within a group (``priority:`` in YAML, default 0).
+    # Higher priority candidates are tried first; equal priorities shuffle for
+    # load balancing. This is how an operator expresses "oMLX primary, Ollama
+    # fallback" inside one group without touching workspace routing.
+    priority: int = 0
+    # Optional hint-translation map (``aliases:`` in YAML): canonical hint id
+    # (e.g. the Ollama GGUF tag a workspace's model_hint names) -> this
+    # backend's native model id (e.g. the oMLX directory name). Lets a
+    # workspace keep a single model_hint while engines are swapped underneath
+    # it — the swap stays a config/backends.yaml edit (CLAUDE.md Rule 1).
+    aliases: dict[str, str] = field(default_factory=dict)
 
     @property
     def chat_url(self) -> str:
@@ -174,13 +212,34 @@ class Backend:
     def health_url(self) -> str:
         """Return the URL to probe for liveness, dispatched by backend ``type``.
 
+        * explicit ``health_path`` — always wins when set.
         * ``ollama`` → ``/api/tags`` — proves the daemon is up and the model
           registry is responsive in one round-trip.
+        * ``omlx`` → ``/v1/models`` — proves the server is up and its model
+          registry is responsive (oMLX has no /health; /v1/models is the
+          canonical liveness surface).
         * any other → ``/health`` — vLLM's canonical liveness path.
         """
+        if self.health_path:
+            return f"{self.url.rstrip('/')}{self.health_path}"
         if self.type == "ollama":
             return f"{self.url.rstrip('/')}/api/tags"
+        if self.type == "omlx":
+            return f"{self.url.rstrip('/')}/v1/models"
         return f"{self.url.rstrip('/')}/health"
+
+    def resolve_model(self, model_hint: str) -> str | None:
+        """Translate a workspace model hint to this backend's native model id.
+
+        Returns the hint unchanged when it is served directly, the alias target
+        when the hint is aliased to a native id, or ``None`` when this backend
+        cannot serve the hint at all.
+        """
+        if not model_hint:
+            return None
+        if model_hint in self.models:
+            return model_hint
+        return self.aliases.get(model_hint)
 
 
 class BackendRegistry:
@@ -328,15 +387,21 @@ class BackendRegistry:
                 group=be.get("group", "general"),
                 models=flat_models,
                 ollama_metadata=ollama_meta,
+                health_path=be.get("health_path"),
+                priority=int(be.get("priority", 0) or 0),
+                aliases={str(k): str(v) for k, v in (be.get("aliases") or {}).items()},
             )
             self._backends[backend.id] = backend
             logger.info(
-                "Registered backend: %s (%s) in group '%s' (%d models, %d with metadata)",
+                "Registered backend: %s (%s) in group '%s' (%d models, %d with metadata, "
+                "priority=%d, %d aliases)",
                 backend.id,
                 backend.type,
                 backend.group,
                 len(flat_models),
                 len(ollama_meta),
+                backend.priority,
+                len(backend.aliases),
             )
 
         # Load workspace routing
@@ -469,11 +534,13 @@ class BackendRegistry:
         result: list[Backend] = []
         seen: set[str] = set()
 
-        # Collect backends by group priority, shuffled within each group
+        # Collect backends by group priority, ordered within each group by
+        # descending Backend.priority (engine preference, e.g. oMLX primary /
+        # Ollama fallback), shuffled only among equal priorities for balancing.
         for group in groups:
             group_backends = [b for b in healthy if b.group == group and b.id not in seen]
             if group_backends:
-                random.shuffle(group_backends)
+                group_backends = _priority_ordered(group_backends)
                 result.extend(group_backends)
                 seen.update(b.id for b in group_backends)
 
