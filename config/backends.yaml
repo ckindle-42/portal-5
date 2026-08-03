@@ -513,6 +513,30 @@ backends:
     supports_tools: false
   - id: Phi-4-reasoning-plus-MLX-4bit
     supports_tools: false
+  - id: Laguna-XS.2-4bit
+    supports_tools: true
+  type: omlx
+  url: ${OMLX_URL:-http://host.docker.internal:8085}
+# oMLX shadow-then-shift for the coding group (PUNCHLIST B2, 2026-08-02).
+# Same URL/engine as omlx-local; separate entry because it's the live
+# `group: coding` candidate (auto-coding workspace_routing) rather than the
+# no-traffic holding group above. priority: 10 makes oMLX the preferred
+# candidate ahead of the Ollama entries in this group (default priority 0);
+# when oMLX is unhealthy, get_backend_candidates falls back to Ollama
+# automatically and `_hint_fallback` fires honestly. aliases translate the
+# GGUF model_hint each workspace already carries to this backend's native
+# oMLX directory name — no workspace_routing or persona change needed.
+- group: coding
+  id: omlx-coding
+  models:
+  - id: Qwen3-Coder-30B-A3B-Instruct-4bit
+    supports_tools: true
+  - id: Laguna-XS.2-4bit
+    supports_tools: true
+  priority: 10
+  aliases:
+    qwen3-coder:30b-a3b-q4_K_M-ctx16k: Qwen3-Coder-30B-A3B-Instruct-4bit
+    laguna-xs.2:Q4_K_M-ctx64k: Laguna-XS.2-4bit
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 defaults:

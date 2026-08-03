@@ -245,3 +245,38 @@ class TestBackendIntrospect:
 
         monkeypatch.setattr(validation, "registry", None)
         assert bi._backend_type_for_url("http://anything") == "ollama"
+
+
+class TestAutoCodingOmlxShadowRouting:
+    """PUNCHLIST B2: auto-coding's `coding` group carries both omlx-coding
+    (priority 10) and ollama-coding (priority 0) against the real
+    config/backends.yaml. Guards against alias/priority drift breaking the
+    shadow-then-shift routing without a config-load error to flag it.
+    """
+
+    @pytest.fixture
+    def coding_candidates(self):
+        reg = BackendRegistry(config_path="config/backends.yaml")
+        for b in reg.list_backends():
+            if b.group == "coding":
+                b.healthy = True
+        return [c for c in reg.get_backend_candidates("auto-coding") if c.group == "coding"]
+
+    def test_omlx_coding_outranks_ollama_coding(self, coding_candidates):
+        assert [c.id for c in coding_candidates] == ["omlx-coding", "ollama-coding"]
+
+    @pytest.mark.parametrize(
+        ("hint", "native_id"),
+        [
+            ("qwen3-coder:30b-a3b-q4_K_M-ctx16k", "Qwen3-Coder-30B-A3B-Instruct-4bit"),
+            ("laguna-xs.2:Q4_K_M-ctx64k", "Laguna-XS.2-4bit"),
+        ],
+    )
+    def test_production_hints_resolve_and_prioritize_omlx(self, coding_candidates, hint, native_id):
+        from portal.platform.inference.router.handlers import _prioritize_hinted_backend
+
+        omlx = next(c for c in coding_candidates if c.id == "omlx-coding")
+        assert omlx.resolve_model(hint) == native_id
+
+        ordered = _prioritize_hinted_backend(coding_candidates, hint)
+        assert ordered[0].id == "omlx-coding"

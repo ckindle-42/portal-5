@@ -628,10 +628,12 @@ default.
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (198 model ids across 7 backend groups)
+# Model catalog (201 model ids across 7 backend groups)
 
-## coding (39)
+## coding (41)
 
+- `Laguna-XS.2-4bit`
+- `Qwen3-Coder-30B-A3B-Instruct-4bit`
 - `devstral-small-2`
 - `devstral-small-2:latest-ctx8k`
 - `devstral:24b`
@@ -763,8 +765,9 @@ default.
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
 
-## omlx (7)
+## omlx (8)
 
+- `Laguna-XS.2-4bit`
 - `Llama-3.2-3B-Instruct-8bit`
 - `Phi-4-reasoning-plus-MLX-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`

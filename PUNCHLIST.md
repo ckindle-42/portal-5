@@ -83,40 +83,74 @@ Full context: `OMLX_DECISION.md` §"Re-evaluation v3" +
   ruff ✅, pipeline rebuilt (7/7 backends healthy incl. omlx-local),
   `smoke_stream.sh` ✅, `ci_local.sh` 2652 ✅.
 
-### B2. NEXT — Shadow then shift, auto-coding first (NOT STARTED)
-Resume notes — everything needed to pick this up:
-- **Design decision made in B1:** engine selection is per-group
-  `priority:` + per-model `aliases:` on backend entries; workspaces keep ONE
-  `model_hint` (the GGUF tag), the oMLX entry for that group carries
-  `aliases: {<gguf-hint>: <omlx-native-id>}` and higher priority. When oMLX
-  is unhealthy, candidates fall to Ollama automatically with the existing
-  `_hint_fallback` metric firing honestly.
-- **Concrete first move:** add `group: coding` oMLX entry (same URL as
-  omlx-local or fold into one entry per group — mirror the ollama-* pattern
-  of one entry per group per engine), `priority: 10`,
-  `aliases: {"qwen3-coder:30b-a3b-q4_K_M-ctx16k": "Qwen3-Coder-30B-A3B-Instruct-4bit",
-  "laguna-xs.2:Q4_K_M-ctx64k": <laguna MLX id once downloaded>}`.
-- **Hint-resolution check:** handlers resolve `model_hint in backend.models`
-  BEFORE prioritize — must switch to `backend.resolve_model(hint)` so aliases
-  match (B1 added the method; call sites are `handlers.py:~868-905` and
-  `_prioritize_hinted_backend` at `handlers.py:104`). Then target_model =
-  resolved native id.
-- **Laguna prerequisite:** no Laguna MLX conversion is on disk (deleted in
-  July cleanup) — download before aliasing the laguna variant.
-- **Watch:** oMLX EnginePool + pipeline `keep_alive` warmup calls
-  (`lifespan.py:183-261`) — warmup posts to `/api/generate` (Ollama-native);
-  oMLX workspaces must skip Ollama warmup or get an oMLX warmup path
-  (plain chat completion). Check `_LLM_ROUTER_OLLAMA_URL` usages.
-- **Then:** ~1 week of real-use metrics comparison (Prometheus per-backend
-  TTFT/TPS), then auto-vision (Gate-6 ✅) + auto-security migratable variants
-  (supergemma4 ✅, redteam/purpleteam).
-- **Security core migration (paired with B2):** 6 `/api/chat` call sites →
-  `/v1/chat/completions` with configurable base URL:
-  `blue.py:1304`, `exec_chain.py:4089/4445`, `refusal.py:38/120`,
-  `drift_gate.py:313`, `agentic_blue_eval.py:288`, `core/__init__.py:167`,
-  `intake.py:78` (the last two use `/api/generate`).
-- **Acceptance:** parity-or-better live metrics; `smoke_stream.sh` green;
-  per-model rollback = one-line YAML (delete the alias).
+### B2. ✅ DONE (2026-08-02) — Shadow then shift, auto-coding first
+- Downloaded `mlx-community/Laguna-XS.2-4bit` (ships `modeling_laguna.py`/
+  `configuration_laguna.py` custom-code — oMLX serves it via HF
+  `trust_remote_code`, unlike the retired mlx_lm proxy which needed a
+  hand-written plugin) to `/Volumes/data01/omlx-models/Laguna-XS.2-4bit`.
+  Live-verified: coherent generation + clean `tool_calls`.
+- `config/backends.yaml`: new `omlx-coding` entry, `group: coding`,
+  `priority: 10`, `aliases:` for both the base hint
+  (`qwen3-coder:30b-a3b-q4_K_M-ctx16k` → `Qwen3-Coder-30B-A3B-Instruct-4bit`)
+  and the `laguna` variant hint (`laguna-xs.2:Q4_K_M-ctx64k` →
+  `Laguna-XS.2-4bit`). `Laguna-XS.2-4bit` also added to the `omlx-local`
+  holding group + MODEL_CATALOG.md/wiki unit (parity test intact).
+- Hint resolution switched from `model_hint in backend.models` to
+  `backend.resolve_model()` at both call sites: `handlers.py`
+  (`_prioritize_hinted_backend` + streaming target-model pick) and
+  `non_streaming.py` (~line 255). Regression tests added in
+  `tests/unit/test_omlx_backend.py::TestAutoCodingOmlxShadowRouting`,
+  verified against the real `config/backends.yaml`.
+- `lifespan.py::_warmup_auto_model` now branches on `backend.type`: oMLX
+  gets a `/v1/chat/completions` warmup (no `/api/generate`, no
+  `keep_alive` — oMLX's own EnginePool owns residency, B3 scope); Ollama
+  path unchanged. `_warmup_llm_router` untouched — router model stays on
+  Ollama per B3.
+- No workspace_routing change needed — B1's per-group-priority design
+  meant `auto-coding` (`[coding, general]`) picked up `omlx-coding`
+  automatically once it existed in the `coding` group.
+- **Live end-to-end verified** through the real pipeline (not just oMLX
+  directly): `POST /v1/chat/completions {"model": "auto-coding", ...}`
+  returned `"model": "Qwen3-Coder-30B-A3B-Instruct-4bit"` — the oMLX
+  native id — confirming alias resolution + priority routing work through
+  the full request path, not just in unit tests.
+- Gates: 2655 unit ✅ (2688 collected, 34 skipped) via `ci_local.sh`,
+  ruff ✅, `smoke_stream.sh` ✅, pipeline rebuilt + restarted with 8/8
+  backends healthy (`ollama-{general,coding,security,reasoning,vision,
+  creative}` + `omlx-local` + `omlx-coding`).
+- **Finding (not a blocker, but read before the 1-week metrics window):**
+  `Qwen3-Coder-30B-A3B-Instruct-4bit` hit the same
+  "unconstrained→constrained livelock on cold load" bug class already
+  documented for gemma in Phase-0 (upstream draft filed,
+  `tests/benchmarks/results/UPSTREAM_DRAFTS_omlx_20260802.md`) — the
+  *first* tool-schema-bearing request after a fresh model load produced
+  garbled/off-topic output (repro: real `auto-coding` tool set + system
+  prompt against a cold-loaded model). Immediately re-running the
+  identical request 4x came back coherent every time — self-recovering,
+  same as the gemma case. The current oMLX warmup (this session's fix,
+  above) does NOT include tool schemas, so it doesn't pre-trigger this —
+  a real user's first tool-using `auto-coding` request after an idle
+  eviction could still hit it. Follow-up candidate: extend warmup to
+  include a representative tool schema for oMLX coding-group backends,
+  or accept the risk given it self-recovers (mirrors the accepted gemma
+  precedent) and file a second upstream draft alongside the gemma one.
+- **Watch during the metrics window:** DinD/mcp-sandbox and 5 MCP tool
+  servers (execution, music, mitre, detections, wiki, research) needed a
+  cold `docker compose up -d` after this session's Docker Desktop restart
+  and briefly failed tool discovery (DNS not-yet-ready) — self-resolved
+  on retry, unrelated to B2 code, but worth a `/health/all` check if
+  early metrics look off.
+- **Still open (unchanged from original notes):**
+  - Security core migration (6 `/api/chat` call sites →
+    `/v1/chat/completions` with configurable base URL): `blue.py:1304`,
+    `exec_chain.py:4089/4445`, `refusal.py:38/120`, `drift_gate.py:313`,
+    `agentic_blue_eval.py:288`, `core/__init__.py:167`, `intake.py:78`
+    (the last two use `/api/generate`).
+  - ~1 week of real-use Prometheus per-backend TTFT/TPS comparison before
+    expanding to `auto-vision` (Gate-6 ✅) and `auto-security` migratable
+    variants (supergemma4 ✅, redteam/purpleteam).
+  - Rollback = one-line YAML (delete the `omlx-coding` entry or its
+    aliases) — not exercised, but the mechanism is unchanged from B1.
 
 ### B2. Shadow then shift — auto-coding first
 - Route `auto-coding` (+ `laguna` variant — oMLX natively accelerates Laguna)

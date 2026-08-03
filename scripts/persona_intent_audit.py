@@ -103,7 +103,12 @@ def _discipline_of_module(module: str) -> str:
 
 
 def _group_models() -> dict[str, set[str]]:
-    """group name (e.g. "reasoning") -> set of model ids it declares."""
+    """group name (e.g. "reasoning") -> set of model ids it declares.
+
+    Multiple backend entries can share one group name (P5-FUT-013 B2: an
+    oMLX entry and an Ollama entry both declaring `group: coding`) — union
+    across entries rather than letting the later one clobber the earlier.
+    """
     import yaml
 
     from portal.platform.inference.cluster_backends import DEFAULT_CONFIG_PATH
@@ -113,7 +118,9 @@ def _group_models() -> dict[str, set[str]]:
     groups: dict[str, set[str]] = {}
     for be in cfg.get("backends", []):
         name = be.get("group") or (be.get("id") or be.get("name") or "").replace("ollama-", "")
-        groups[name] = {m.get("id") if isinstance(m, dict) else m for m in be.get("models", [])}
+        groups.setdefault(name, set()).update(
+            m.get("id") if isinstance(m, dict) else m for m in be.get("models", [])
+        )
     return groups
 
 

@@ -48,11 +48,21 @@ def _load_yaml(path: Path) -> dict:
 
 
 def _group_models(backends_cfg: dict) -> dict[str, set[str]]:
-    """backend group name (e.g. "reasoning") -> set of model ids it declares."""
+    """backend group name (e.g. "reasoning") -> set of model ids it declares.
+
+    Multiple backend entries can share one group name (P5-FUT-013 B2: an
+    oMLX entry and an Ollama entry both declaring `group: coding`, engine
+    preference expressed via `priority:` rather than a separate group) — a
+    plain assignment here would let the later entry silently clobber the
+    earlier one's models instead of the group representing everything
+    reachable through it. Union across entries instead.
+    """
     groups: dict[str, set[str]] = {}
     for be in backends_cfg.get("backends", []):
         name = be.get("group") or (be.get("id") or be.get("name") or "").replace("ollama-", "")
-        groups[name] = {m.get("id") if isinstance(m, dict) else m for m in be.get("models", [])}
+        groups.setdefault(name, set()).update(
+            m.get("id") if isinstance(m, dict) else m for m in be.get("models", [])
+        )
     return groups
 
 

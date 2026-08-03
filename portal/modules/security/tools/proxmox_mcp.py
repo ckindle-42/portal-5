@@ -1058,12 +1058,10 @@ async def list_tools(request):
 
 if __name__ == "__main__":
     port = int(os.getenv("PROXMOX_MCP_PORT", "8927"))
-    # MCP SDK v2 accepts host/port on run(); current upstream FastMCP keeps
-    # them in server settings. Support both so an SDK upgrade cannot make the
-    # control plane unstartable while its API helpers still appear healthy.
-    if hasattr(mcp, "settings"):
-        mcp.settings.host = "0.0.0.0"
-        mcp.settings.port = port
-        mcp.run(transport="streamable-http")
-    else:  # pragma: no cover - exercised by the pinned MCP v2 runtime
-        mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
+    # Same direct-kwargs pattern every other MCP server in this repo uses.
+    # A prior attempt to also support host/port via mcp.settings (for a
+    # hypothetical future SDK) broke startup outright: the pinned MCP SDK's
+    # Settings model has no "host" field, so hasattr(mcp, "settings") was
+    # True but the assignment raised. mcp.run(..., host=..., port=...) is
+    # what actually works against the pinned runtime.
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
