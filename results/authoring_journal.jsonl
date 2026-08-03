@@ -14,3 +14,7 @@
 {"surface": "portal/platform/storage/__init__.py", "unit_id": "unit-platform-storage-config-facade", "verdict": "PASS", "attempt": 1, "commit": "b0aa6770", "corrections": []}
 {"surface": "portal_mcp/__init__.py", "unit_id": "unit-portal-mcp-namespace", "verdict": "PASS", "attempt": 1, "commit": "b0aa6770", "corrections": []}
 {"surface": "portal/platform/memory/memory_mcp.py", "unit_id": "unit-memory-mcp-lancedb", "verdict": "PASS", "attempt": 1, "commit": "b0aa6770", "corrections": []}
+{"surface": "portal_channels/slack/bot.py", "unit_id": "unit-channels-slack-adapter", "verdict": "PASS", "attempt": 1, "commit": "c23c27d9", "corrections": []}
+{"surface": "portal_channels/telegram/bot.py", "unit_id": "unit-channels-telegram-adapter", "verdict": "PASS", "attempt": 1, "commit": "c23c27d9", "corrections": []}
+{"surface": "scripts/_archive/analyze_bench_v5.py", "unit_id": "unit-archive-v5-ladder-analysis", "verdict": "PASS", "attempt": 1, "commit": "c23c27d9", "corrections": []}
+{"surface": "tests/fixtures/capability_context/sample_module.py", "unit_id": "unit-fixture-capability-context-sample", "verdict": "PASS", "attempt": 1, "commit": "c23c27d9", "corrections": []}
