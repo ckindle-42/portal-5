@@ -11,49 +11,49 @@
     "surfaces": [
       "portal/conftest.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/compliance",
     "surfaces": [
       "portal/modules/compliance/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/compliance/config",
     "surfaces": [
       "portal/modules/compliance/config/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/general",
     "surfaces": [
       "portal/modules/general/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/general/config",
     "surfaces": [
       "portal/modules/general/config/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/general/tools",
     "surfaces": [
       "portal/modules/general/tools/__init__.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/media/tools",
     "surfaces": [
       "portal/modules/media/tools/utils.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/modules/security/cli",
