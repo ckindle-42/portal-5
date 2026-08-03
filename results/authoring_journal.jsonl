@@ -39,3 +39,6 @@
 {"surface": "tests/toolpreselect/scenario_gen.py", "unit_id": "unit-toolpreselect-scenario-gen", "verdict": "PASS", "attempt": 1, "commit": "7c9c4031", "corrections": []}
 {"surface": "tests/toolpreselect/run_bench.py", "unit_id": "unit-toolpreselect-run-bench", "verdict": "PASS", "attempt": 1, "commit": "7c9c4031", "corrections": []}
 {"surface": "tests/toolpreselect/baseline_prefill_bench.py", "unit_id": "unit-toolpreselect-baseline-prefill", "verdict": "PASS", "attempt": 1, "commit": "7c9c4031", "corrections": []}
+{"surface": "portal/modules/security/eval/__init__.py", "unit_id": "unit-security-eval-surface", "verdict": "PASS", "attempt": 1, "commit": "1d62c01d", "corrections": []}
+{"surface": "portal/modules/security/eval/ablation_attribution.py", "unit_id": "unit-security-eval-ablation-attribution", "verdict": "PASS", "attempt": 1, "commit": "1d62c01d", "corrections": []}
+{"surface": "portal/modules/security/eval/blue_orchestration_ablation.py", "unit_id": "unit-security-eval-blue-ablation", "verdict": "PASS", "attempt": 1, "commit": "1d62c01d", "corrections": []}

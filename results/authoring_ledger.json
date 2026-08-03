@@ -200,7 +200,7 @@
       "portal/modules/security/eval/ablation_attribution.py",
       "portal/modules/security/eval/blue_orchestration_ablation.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/mcp_host",
