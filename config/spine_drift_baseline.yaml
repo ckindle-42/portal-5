@@ -9,7 +9,7 @@
 # asserts a wrong number is a bug, not debt.
 phantom_pin_count: 461
 unpinned_count: 492
-broken_ref_count: 17
+broken_ref_count: 16
 phantom_pins:
   - unit-DESIGN_WIKI-migration-procedure
   - unit-agent-loop-agent-loop-platform-core
@@ -968,7 +968,6 @@ unpinned:
 broken_refs:
   - P5_ROADMAP.md::scripts/mlx-proxy.py
   - P5_ROADMAP.md::tests/unit/test_mlx_proxy.py
-  - README.md::coding_task/BUILD_PROGRAM_COLLAPSE_V1.md
   - config/MODEL_CATALOG.md::portal/auto-agentic-ornith
   - config/MODEL_CATALOG.md::tests/benchmarks/bench_security/results
   - config/MODEL_CATALOG.md::tests/benchmarks/bench_security/results/candidates

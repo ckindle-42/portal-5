@@ -8,6 +8,9 @@ sources:
   commit: 05e42ec2
   section: Coding Tool Integration (Claude Code / opencode)
 last_generated_commit: 05e42ec2
+claims:
+- probe: mcpjson.servers
+  pattern: currently {value} MCP servers
 confidence: high
 tags:
 - docs
@@ -18,7 +21,7 @@ updated_at: 1784946220.6907141
 Portal 5 ships first-class support for AI coding assistants. Two config files at the repo root
 activate automatically when either tool opens this project:
 
-- **`.mcp.json`** — currently 22 MCP servers (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`): filesystem, git, docker, fetch, portal-sandbox (execute_bash),
+- **`.mcp.json`** — currently 21 MCP servers (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`): filesystem, git, docker, fetch, portal-sandbox (execute_bash),
   portal-pipeline (FastContext code explorer + stack introspection), plus the other portal-* tool servers
 - **`opencode.jsonc`** — points opencode at portal-pipeline (:9099) as a fully local AI backend;
   a curated 20-entry picker (9 bare base-workspace ids + 11 persona slugs — variant-carrying entries

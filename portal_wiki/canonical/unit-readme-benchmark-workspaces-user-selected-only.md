@@ -8,6 +8,9 @@ sources:
   commit: 05e42ec2
   section: Benchmark Workspaces (user-selected only)
 last_generated_commit: 05e42ec2
+claims:
+- probe: workspaces.bench
+  pattern: currently {value} workspaces
 confidence: high
 tags:
 - docs
@@ -16,7 +19,7 @@ updated_at: 1784946220.6800451
 ---
 
 These pin a specific model for direct performance comparison. Not intended for daily use.
-Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"` for the current full list (currently 60 workspaces).
+Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"` for the current full list (currently 65 workspaces).
 
 | Workspace | Pinned model |
 |---|---|
@@ -53,6 +56,6 @@ Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPA
 | `bench-qwen3-coder-next-abliterated` | Huihui Qwen3-Coder-Next abliterated Q4_K_M |
 | `bench-sylink` | sylink:8b (SOC triage, DFIR, ATT&CK) |
 | `bench-vulnllm-r7b` | VulnLLM-R-7B Q4_K_M |
-| *(+ 15 more)* | Security exec chain, LFM micro, MTP, security bench lanes |
+| *(+ 32 more)* | Security exec chain, LFM micro, MTP, security bench lanes |
 
 ---
