@@ -205,6 +205,8 @@ def check_substance(unit, repo_root: Path | None = None) -> QualityIssue | None:
     if not dwords:
         return None
     uwords = [w.lower() for w in words]
+    if not uwords:
+        return None
     overlap = sum(1 for w in uwords if w in dwords) / len(uwords)
     if overlap > MAX_API_OVERLAP:
         return QualityIssue(
