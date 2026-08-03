@@ -400,7 +400,7 @@
       "portal/platform/wiki/adapters/writeback_investigation.py",
       "portal/platform/wiki/adapters/writeback_module.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/benchmarks",
