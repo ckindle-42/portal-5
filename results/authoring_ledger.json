@@ -368,7 +368,7 @@
       "portal/platform/wiki/store.py",
       "portal/platform/wiki/writeback.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "scripts/_archive/mlx-retired-3a0c58e",
