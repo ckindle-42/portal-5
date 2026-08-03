@@ -106,3 +106,14 @@
 {"surface": "portal/platform/wiki/interfaces.py", "unit_id": "unit-wiki-interfaces", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
 {"surface": "portal/platform/wiki/provenance_ledger.py", "unit_id": "unit-wiki-provenance-ledger", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
 {"surface": "portal/platform/wiki/quality.py", "unit_id": "unit-wiki-quality", "verdict": "PASS", "attempt": 1, "commit": "4ca84409", "corrections": []}
+{"surface": "portal/platform/wiki/adapters/git_source.py", "unit_id": "unit-wiki-adapter-git-source", "verdict": "PASS", "attempt": 1, "commit": "66aa9fda", "corrections": []}
+{"surface": "portal/platform/wiki/adapters/modules.py", "unit_id": "unit-wiki-adapter-modules", "verdict": "PASS", "attempt": 1, "commit": "66aa9fda", "corrections": []}
+{"surface": "portal/platform/wiki/adapters/portal_inference.py", "unit_id": "unit-wiki-adapter-portal-inference", "verdict": "PASS", "attempt": 1, "commit": "66aa9fda", "corrections": []}
+{"surface": "portal/platform/wiki/adapters/seed_api.py", "unit_id": "unit-wiki-adapter-seed-api", "verdict": "PASS", "attempt": 1, "commit": "66aa9fda", "corrections": []}
+{"surface": "portal/platform/wiki/adapters/seed_code.py", "unit_id": "unit-wiki-adapter-seed-code", "verdict": "PASS", "attempt": 1, "commit": "66aa9fda", "corrections": []}
+{"surface": "portal/platform/wiki/adapters/seed_intent.py", "unit_id": "unit-wiki-adapter-seed-intent", "verdict": "PASS", "attempt": 1, "commit": "66aa9fda", "corrections": []}
+{"surface": "portal/platform/wiki/adapters/seed_security.py", "unit_id": "unit-wiki-adapter-seed-security", "verdict": "PASS", "attempt": 1, "commit": "66aa9fda", "corrections": []}
+{"surface": "portal/platform/wiki/adapters/writeback_bench.py", "unit_id": "unit-wiki-adapter-writeback-bench", "verdict": "PASS", "attempt": 1, "commit": "66aa9fda", "corrections": []}
+{"surface": "portal/platform/wiki/adapters/writeback_gap.py", "unit_id": "unit-wiki-adapter-writeback-gap", "verdict": "PASS", "attempt": 1, "commit": "66aa9fda", "corrections": []}
+{"surface": "portal/platform/wiki/adapters/writeback_investigation.py", "unit_id": "unit-wiki-adapter-writeback-investigation", "verdict": "PASS", "attempt": 1, "commit": "66aa9fda", "corrections": []}
+{"surface": "portal/platform/wiki/adapters/writeback_module.py", "unit_id": "unit-wiki-adapter-writeback-module", "verdict": "PASS", "attempt": 1, "commit": "66aa9fda", "corrections": []}
