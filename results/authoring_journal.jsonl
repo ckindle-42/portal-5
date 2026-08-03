@@ -171,3 +171,14 @@
 {"surface": "tests/benchmarks/bench/report.py", "unit_id": "unit-bench-report", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
 {"surface": "tests/benchmarks/bench/results_io.py", "unit_id": "unit-bench-results-io", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
 {"surface": "tests/benchmarks/bench/runners.py", "unit_id": "unit-bench-runners", "verdict": "PASS", "attempt": 1, "commit": "4283b625", "corrections": []}
+{"surface": "tests/benchmarks/bench_candidates_v10.py", "unit_id": "unit-bench-candidates-v10", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
+{"surface": "tests/benchmarks/bench_capability.py", "unit_id": "unit-bench-capability", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
+{"surface": "tests/benchmarks/bench_mbptl.py", "unit_id": "unit-bench-mbptl", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
+{"surface": "tests/benchmarks/bench_mlx_hf.py", "unit_id": "unit-bench-mlx-hf", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
+{"surface": "tests/benchmarks/bench_router.py", "unit_id": "unit-bench-router", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
+{"surface": "tests/benchmarks/bench_router_conditions.py", "unit_id": "unit-bench-router-conditions", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
+{"surface": "tests/benchmarks/bench_security.py", "unit_id": "unit-bench-security", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
+{"surface": "tests/benchmarks/bench_tps.py", "unit_id": "unit-bench-tps", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
+{"surface": "tests/benchmarks/capability_lib.py", "unit_id": "unit-bench-capability-lib", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
+{"surface": "tests/benchmarks/coding_shootout_analyze.py", "unit_id": "unit-bench-shootout-analyze", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}
+{"surface": "tests/benchmarks/test_empty_retry.py", "unit_id": "unit-bench-empty-retry", "verdict": "PASS", "attempt": 1, "commit": "f09fdb85", "corrections": []}

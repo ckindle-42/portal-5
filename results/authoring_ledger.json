@@ -417,7 +417,7 @@
       "tests/benchmarks/coding_shootout_analyze.py",
       "tests/benchmarks/test_empty_retry.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/benchmarks/bench",
