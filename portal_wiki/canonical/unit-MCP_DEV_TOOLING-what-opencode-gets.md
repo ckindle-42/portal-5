@@ -7,6 +7,11 @@ sources:
   path: docs/MCP_DEV_TOOLING.md
   section: What opencode gets
 last_generated_commit: ''
+claims:
+- probe: workspaces.total
+  pattern: '{value} workspaces'
+- probe: mcpjson.servers
+  pattern: '{value} MCP servers'
 confidence: high
 tags:
 - docs
@@ -15,12 +20,11 @@ created_at: 1783195000.87217
 updated_at: 1783195000.87217
 ---
 
-
 - **Fully local inference** — all completions go through portal-pipeline (:9099) to Ollama
   on your hardware. No tokens leave the machine.
-- **94 workspaces as models** — `opencode models` lists every Portal 5 workspace. Default:
+- **88 workspaces as models** — `opencode models` lists every Portal 5 workspace. Default:
   `portal/auto-coding-agentic` (Laguna-XS.2 33B-A3B with FastContext explore loop).
-- **All 19 MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
+- **All 21 MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
   filesystem, git, docker, sandbox, pipeline, and all 15 portal-* tool servers.
 - **Cloud providers disabled** — `anthropic`, `openai`, `google`, `bedrock`, `vertex` are
   all disabled to prevent accidental cloud use.

@@ -7,6 +7,9 @@ sources:
   path: docs/MCP_DEV_TOOLING.md
   section: Tools
 last_generated_commit: ''
+claims:
+- probe: workspaces.total
+  pattern: '{value} workspaces'
 confidence: high
 tags:
 - docs
@@ -15,11 +18,10 @@ created_at: 1783195000.871441
 updated_at: 1783195000.871441
 ---
 
-
 | Tool | What it does |
 |---|---|
 | `get_pipeline_status` | Pipeline health, workspace count, version |
-| `list_workspaces` | All 94 workspaces with names/descriptions; accepts optional filter string |
+| `list_workspaces` | All 88 workspaces with names/descriptions; accepts optional filter string |
 | `get_loaded_models` | Which Ollama models are in VRAM, their sizes, expiry times |
 | `get_metrics_summary` | Request totals, tool call counts, error rates, TPS from Prometheus |
 | `get_workspace_recommendation` | Given a task description, returns the best workspace ID with reasoning |

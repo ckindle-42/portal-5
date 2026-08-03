@@ -102,7 +102,7 @@ their corresponding launchd service has been installed and enabled.
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
-Portal 5 includes **23 functional workspaces** (plus 65 benchmark workspaces for performance comparison, gated off by default behind the `eval` module — see `coding_task/BUILD_PROGRAM_COLLAPSE_V1.md`; 88 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
+Portal 5 includes **23 functional workspaces** (plus 65 benchmark workspaces for performance comparison, gated off by default behind the `eval` module; 88 total — `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -143,7 +143,7 @@ Portal 5 includes **23 functional workspaces** (plus 65 benchmark workspaces for
 
 <!-- WIKI:GENERATED unit=unit-readme-benchmark-workspaces-user-selected-only -->
 These pin a specific model for direct performance comparison. Not intended for daily use.
-Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"` for the current full list (currently 60 workspaces).
+Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"` for the current full list (currently 65 workspaces).
 
 | Workspace | Pinned model |
 |---|---|
@@ -180,7 +180,7 @@ Run `python3 -c "from portal.platform.inference.router.workspaces import WORKSPA
 | `bench-qwen3-coder-next-abliterated` | Huihui Qwen3-Coder-Next abliterated Q4_K_M |
 | `bench-sylink` | sylink:8b (SOC triage, DFIR, ATT&CK) |
 | `bench-vulnllm-r7b` | VulnLLM-R-7B Q4_K_M |
-| *(+ 15 more)* | Security exec chain, LFM micro, MTP, security bench lanes |
+| *(+ 32 more)* | Security exec chain, LFM micro, MTP, security bench lanes |
 
 ---
 <!-- /WIKI:GENERATED -->
@@ -492,7 +492,7 @@ By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allo
 Portal 5 ships first-class support for AI coding assistants. Two config files at the repo root
 activate automatically when either tool opens this project:
 
-- **`.mcp.json`** — currently 22 MCP servers (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`): filesystem, git, docker, fetch, portal-sandbox (execute_bash),
+- **`.mcp.json`** — currently 21 MCP servers (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`): filesystem, git, docker, fetch, portal-sandbox (execute_bash),
   portal-pipeline (FastContext code explorer + stack introspection), plus the other portal-* tool servers
 - **`opencode.jsonc`** — points opencode at portal-pipeline (:9099) as a fully local AI backend;
   a curated 20-entry picker (9 bare base-workspace ids + 11 persona slugs — variant-carrying entries
