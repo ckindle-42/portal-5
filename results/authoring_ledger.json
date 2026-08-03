@@ -577,7 +577,7 @@
       "scripts/v2_corpus_baseline.py",
       "scripts/verify_proxmox_mcp.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "tests/acceptance",
