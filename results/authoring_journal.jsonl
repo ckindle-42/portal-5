@@ -82,3 +82,10 @@
 {"surface": "portal/platform/inference/tool_preselect/tests/test_parser.py", "unit_id": "unit-tool-preselect-test-parser", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
 {"surface": "portal/platform/inference/tool_preselect/tests/test_preselector.py", "unit_id": "unit-tool-preselect-test-preselector", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
 {"surface": "portal/platform/inference/tool_preselect/tests/test_state.py", "unit_id": "unit-tool-preselect-test-state", "verdict": "PASS", "attempt": 1, "commit": "50d41b55", "corrections": []}
+{"surface": "portal/modules/eval/persona_matrix/__init__.py", "unit_id": "unit-persona-matrix-init", "verdict": "PASS", "attempt": 1, "commit": "7954fafc", "corrections": []}
+{"surface": "portal/modules/eval/persona_matrix/_common.py", "unit_id": "unit-persona-matrix-common", "verdict": "PASS", "attempt": 1, "commit": "7954fafc", "corrections": []}
+{"surface": "portal/modules/eval/persona_matrix/loaders.py", "unit_id": "unit-persona-matrix-loaders", "verdict": "PASS", "attempt": 1, "commit": "7954fafc", "corrections": []}
+{"surface": "portal/modules/eval/persona_matrix/ollama_client.py", "unit_id": "unit-persona-matrix-ollama-client", "verdict": "PASS", "attempt": 1, "commit": "7954fafc", "corrections": []}
+{"surface": "portal/modules/eval/persona_matrix/sweep.py", "unit_id": "unit-persona-matrix-sweep", "verdict": "PASS", "attempt": 1, "commit": "7954fafc", "corrections": []}
+{"surface": "portal/modules/eval/persona_matrix/render.py", "unit_id": "unit-persona-matrix-render", "verdict": "PASS", "attempt": 1, "commit": "7954fafc", "corrections": []}
+{"surface": "portal/modules/eval/persona_matrix/cli.py", "unit_id": "unit-persona-matrix-cli", "verdict": "PASS", "attempt": 1, "commit": "7954fafc", "corrections": []}

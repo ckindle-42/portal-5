@@ -314,7 +314,7 @@
       "portal/modules/eval/persona_matrix/render.py",
       "portal/modules/eval/persona_matrix/sweep.py"
     ],
-    "status": "PENDING"
+    "status": "DONE"
   },
   {
     "batch": "portal/platform/inference",
