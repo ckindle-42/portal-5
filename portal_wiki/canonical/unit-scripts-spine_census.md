@@ -5,13 +5,12 @@ title: "Script \u2014 spine_census"
 sources:
 - type: code
   path: scripts/spine_census.py
-  commit: 396e4d374796b040d06dc1c3c56eb0a3f2fe8757
-last_generated_commit: 396e4d374796b040d06dc1c3c56eb0a3f2fe8757
+last_generated_commit: 02c6e8b29d4babc2b7a8a2afe3855beb3b64866c
 claims: []
 confidence: high
 tags:
-- authored-v1
 - scripts
+- verified-v1
 created_at: 1785880000.0
 updated_at: 1785880000.0
 ---
