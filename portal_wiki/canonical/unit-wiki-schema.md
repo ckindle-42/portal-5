@@ -5,8 +5,8 @@ title: "Wiki schema \u2014 KnowledgeUnit + frontmatter round-trip contract"
 sources:
 - type: code
   path: portal/platform/wiki/schema.py
-  commit: 4ca84409
-last_generated_commit: 4ca84409
+  commit: 649301d0f61c5bfcf00996b57c976122dd4f8e02
+last_generated_commit: 649301d0f61c5bfcf00996b57c976122dd4f8e02
 claims: []
 confidence: high
 tags:
