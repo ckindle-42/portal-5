@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 1005 canonical units.*
+*Deterministic projection of 975 canonical units.*
 
 ## Knowledge Layer
 
@@ -117,38 +117,8 @@
 | `unit-T1595-signature` | mixed | 3 |
 | `unit-T1610-signature` | mixed | 2 |
 | `unit-T1611-signature` | mixed | 2 |
-| `unit-acceptance-cli` | mixed | 1 |
-| `unit-acceptance-common` | mixed | 1 |
-| `unit-acceptance-results` | mixed | 1 |
 | `unit-acceptance-runner` | mixed | 1 |
-| `unit-acceptance-s00_startup` | mixed | 1 |
-| `unit-acceptance-s01_static_config` | mixed | 1 |
-| `unit-acceptance-s02_services` | mixed | 1 |
 | `unit-acceptance-s03_routing` | mixed | 1 |
-| `unit-acceptance-s04_documents` | mixed | 1 |
-| `unit-acceptance-s05_health` | mixed | 1 |
-| `unit-acceptance-s06_security_workspaces` | mixed | 1 |
-| `unit-acceptance-s07_music` | mixed | 1 |
-| `unit-acceptance-s08_tts` | mixed | 1 |
-| `unit-acceptance-s09_stt` | mixed | 1 |
-| `unit-acceptance-s10_personas_ollama` | mixed | 1 |
-| `unit-acceptance-s10c_compliance_personas` | mixed | 1 |
-| `unit-acceptance-s12_web_search` | mixed | 1 |
-| `unit-acceptance-s13_rag_embedding` | mixed | 1 |
-| `unit-acceptance-s15_shared_workspace` | mixed | 1 |
-| `unit-acceptance-s16_security_mcp` | mixed | 1 |
-| `unit-acceptance-s17_cad_render` | mixed | 1 |
-| `unit-acceptance-s18_lab_exec` | mixed | 1 |
-| `unit-acceptance-s21_llm_router` | mixed | 1 |
-| `unit-acceptance-s23_model_diversity` | mixed | 1 |
-| `unit-acceptance-s30_image_video` | mixed | 1 |
-| `unit-acceptance-s31_video_gen` | mixed | 1 |
-| `unit-acceptance-s40_metrics` | mixed | 1 |
-| `unit-acceptance-s41_production_hardening` | mixed | 1 |
-| `unit-acceptance-s42_browser_automation` | mixed | 1 |
-| `unit-acceptance-s50_negative` | mixed | 1 |
-| `unit-acceptance-s60_tool_calling` | mixed | 1 |
-| `unit-acceptance-s70_information_access` | mixed | 1 |
 | `unit-agent-loop-agent-loop-platform-core` | what | 9 |
 | `unit-agent-loop-consumers` | what | 5 |
 | `unit-agent-loop-contracts-the-key-modules-implement` | what | 2 |
@@ -1014,10 +984,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 1005 units
+**Total:** 975 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1966 references
+- **code**: 1936 references
 - **mitre**: 32 references
