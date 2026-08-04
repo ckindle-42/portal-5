@@ -12,7 +12,7 @@ discipline:
     is generated output; no code determines its truth")
   - no `WIKI:GENERATED` doc block may reference the id
   - no live unit's body may link the id
-  - no cited source may be a live `.py`/`.yaml`/`.json`/`.sh`
+  - no cited source may be a live file or directory
 
 The last refusal is overridable only with `--superseded-by <unit-id>`; the
 command then verifies the named survivor exists and cites every code path the
@@ -31,10 +31,50 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 _ARCHIVE_INDEX = "INDEX.md"
 
-# Extensions that make a source a *live code/config* source the archive must
-# not strand. Anything else (a doc, a URL, a technique id, a bench-run id) is
-# not a code source.
-_CODE_EXTENSIONS = (".py", ".yaml", ".yml", ".json", ".sh", ".toml")
+# What makes a source a *live* source is that the file is on disk — not that its
+# extension appears on a list. An extension allowlist missed `opencode.jsonc`,
+# `.env.example`, `config/cloudflared/config.yml.example`, `Dockerfile.mcp`,
+# `Dockerfile.attack`, and `.gitignore`, all of which are cited by live units and
+# all of which determine something. A unit citing any of them could have been
+# archived without `--superseded-by`, stranding real grounding.
+#
+# Generated markdown is excluded, because a doc the spine writes cannot be what
+# makes the spine true. Hand-authored markdown such as `CLAUDE.md` is input and
+# counts. The test is the marker itself rather than a path list, so a doc added to
+# TIER1_DOCS later is covered without editing this module.
+#
+# Line-anchored: CLAUDE.md *describes* the marker in prose ("blocks rendered from
+# `<!-- WIKI:GENERATED unit=<id> -->`"), and a substring test read that mention as
+# proof the file was generated — misclassifying the one hand-authored doc in the
+# repo. A generated doc carries the marker as an actual comment at line start.
+#
+# Identifiers that look like paths but are not files — `ATT&CK:T1003.001`,
+# bench-run ids — fail the existence test and are correctly not sources.
+_GENERATED_DOC_RE = re.compile(r"^<!--\s*WIKI:GENERATED\s+unit=", re.MULTILINE)
+
+
+def is_live_source(raw: str, root: Path) -> bool:
+    """True when this source path is a real, non-generated file or directory."""
+    if not raw or raw.startswith(("http://", "https://", "/")):
+        return False
+    # A machine-derived fact unit may cite a glob rather than one path —
+    # `unit-fact-tool-registry` cites `portal/modules/*/tools/*_mcp.py`. Resolving it
+    # is the difference between "no live source" and "eleven live sources".
+    if any(ch in raw for ch in "*?["):
+        return any(root.glob(raw))
+    target = root / raw
+    if not target.exists():
+        return False
+    if target.is_dir():
+        return True
+    if target.suffix.lower() in (".md", ".markdown"):
+        try:
+            return not _GENERATED_DOC_RE.search(
+                target.read_text(encoding="utf-8", errors="replace")
+            )
+        except OSError:
+            return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -100,9 +140,7 @@ def check_archivable(unit, repo_root: Path | None = None) -> list[str]:
     #    like a file citation would be.
     for src in unit.sources:
         raw = (src.path or "").split("#", 1)[0].strip()
-        if not raw or raw.startswith(("http://", "https://", "/")):
-            continue
-        if (raw.endswith(_CODE_EXTENSIONS) or (root / raw).is_dir()) and (root / raw).exists():
+        if is_live_source(raw, root):
             refusals.append(
                 f"cites live source {raw} — a code/config path determines its truth; "
                 f"re-ground it or pass --superseded-by <survivor>"
@@ -142,7 +180,7 @@ def verify_superseded(unit, survivor_id: str, repo_root: Path | None = None) -> 
     missing = [
         (s.path or "").split("#", 1)[0].strip()
         for s in unit.sources
-        if (s.path or "").endswith(_CODE_EXTENSIONS)
+        if is_live_source((s.path or "").split("#", 1)[0].strip(), root)
         and (s.path or "").split("#", 1)[0].strip() not in live_paths
     ]
     if missing:
