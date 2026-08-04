@@ -5,9 +5,9 @@ title: tool authorizations for 23 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: d817f2566213
+  commit: baca992c674a
   section: workspaces[].tools
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+last_generated_commit: baca992c674a
 claims: []
 confidence: high
 tags:
@@ -15,7 +15,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1785039775.253567
+updated_at: 1785829024.702958
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -47,3 +47,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-video` | media | `generate_video`, `generate_image`, `list_video_models` |
 | `auto-vision` | general | `transcribe_audio`, `generate_image`, `list_workflows`, `get_generation_status` |
 | `tools-specialist` | general | `execute_python`, `remember`, `recall` |
+
+## Why
+
+The authorizations table is the per-workspace `tools:` whitelist in `config/portal.yaml`, which is exactly what the pipeline enforces at dispatch time. A trailing `!` marks an authorized tool with no matching registration in `unit-fact-tool-registry`, so the table doubles as a reachability check between what a workspace is allowed to call and what any MCP server actually exposes.

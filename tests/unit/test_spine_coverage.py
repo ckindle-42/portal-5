@@ -1,7 +1,9 @@
 """Spine code-coverage gate — hermetic tests for the code→spine authority inversion.
 
 These prove the gate's semantics on a synthetic tree, never against the live repo:
-a coverage gate that only works on one repository state is not a gate.
+a coverage gate that only works on one repository state is not a gate. The baseline
+ratchet was retired in TASK_WIKI_ZERO_DEBT_V1 — the gate is now an absolute 100%
+assertion, so a unit must pass the quality gate to confer coverage.
 """
 
 from __future__ import annotations
@@ -14,20 +16,98 @@ from portal.platform.wiki.coverage import (
     compute_coverage,
     covered_surfaces,
     discover_code_surfaces,
-    load_baseline,
-    ratchet_violations,
-    render_baseline,
-    retired_baseline_entries,
 )
 from portal.platform.wiki.schema import KnowledgeUnit, SourceRef
 
+_BODY_BY_ID: dict[str, str] = {
+    "unit-alpha-behavior": (
+        "alpha.py is the entry module in this synthetic tree, wiring the "
+        "request path and owning the dispatch decision that the coverage gate "
+        "attributes to a unit explaining it rather than a bare citation.\n\n"
+        "## Why\n\n"
+        "alpha.py carries the load-bearing routing decision for the whole "
+        "synthetic tree, and a covering unit is what lets the spine prove the "
+        "surface is understood instead of merely listed by a citation."
+    ),
+    "unit-portal-surface": (
+        "portal surfaces are enumerated by glob, and the gate expands each "
+        "match so a directory-wide citation never understates coverage.\n\n"
+        "## Why\n\n"
+        "A glob citation legitimately covers every file it matches, so the "
+        "gate must count all of them or the reported coverage ratio silently "
+        "understates what is actually documented."
+    ),
+    "unit-alpha-why": (
+        "alpha.py is cited with a line fragment, and the gate strips the "
+        "fragment so the citation resolves to the file itself.\n\n"
+        "## Why\n\n"
+        "A section anchor names the file plus a location, and coverage is "
+        "about the file itself, never about a specific line inside it, so "
+        "the fragment must not break the citation."
+    ),
+    "unit-alpha": (
+        "alpha.py is the only covered surface in this scenario, so the gate "
+        "reports the other two files as uncovered and the ratio reflects it.\n\n"
+        "## Why\n\n"
+        "One covering unit for one file is the minimal green case that the "
+        "absolute coverage gate must accept without any baseline allowance "
+        "for the remaining surfaces."
+    ),
+    "unit-beta": (
+        "beta.py handles the secondary routing lane, and its placement here "
+        "is what the gate needs to prove the surface is understood.\n\n"
+        "## Why\n\n"
+        "beta.py is a distinct file from alpha.py, so a distinct unit must "
+        "cover it or the absolute gate must report it uncovered without "
+        "waiting for a baseline re-pin."
+    ),
+    "unit-gamma": (
+        "gamma.py under sub lives on the nested path and carries the "
+        "innermost dispatch, so the covering unit records its role for the "
+        "spine authority inversion.\n\n"
+        "## Why\n\n"
+        "gamma.py sits one directory deeper than the others, and nesting must "
+        "never exempt a surface from the coverage requirement that the "
+        "absolute gate enforces across the whole tree."
+    ),
+    "unit-junk": (
+        "A citation to an absolute path or an empty string names no "
+        "repository-local file, so the gate must ignore it entirely rather "
+        "than treat it as a surface.\n\n"
+        "## Why\n\n"
+        "An absolute path and a blank source both resolve to nothing inside "
+        "the repository, so neither can be counted as coverage for any file."
+    ),
+    "unit-delta": (
+        "delta.py is added after the first scenario to prove the gate reacts "
+        "to a newly landed surface that has no covering unit.\n\n"
+        "## Why\n\n"
+        "A new file with no unit must be reported uncovered by the absolute "
+        "gate, because there is no baseline left to absorb new debt once the "
+        "coverage set reaches one hundred percent."
+    ),
+}
+
 
 def _unit(unit_id: str, *paths: str) -> KnowledgeUnit:
+    """A gate-passing unit: 40+ prose words, a `## Why` section, no figures."""
     return KnowledgeUnit(
         id=unit_id,
         kind="what",
         title=unit_id,
         sources=[SourceRef(type="code", path=p) for p in paths],
+        body=_BODY_BY_ID.get(
+            unit_id,
+            (
+                f"{unit_id} is a synthetic unit whose body explains the cited "
+                "surface and the rationale behind it, with enough prose to "
+                "count as a real explanation of the file it covers.\n\n"
+                "## Why\n\n"
+                f"{unit_id} exists to give the coverage gate a gate-passing "
+                "unit to attribute a surface to, which is the whole point of "
+                "the authority inversion under test."
+            ),
+        ),
     )
 
 
@@ -92,51 +172,36 @@ def test_absolute_and_empty_citations_are_ignored(tree: Path) -> None:
     assert covered_surfaces(units, tree) == frozenset()
 
 
-def test_ratchet_is_green_against_its_own_baseline(tree: Path) -> None:
+def test_absolute_gate_reports_every_uncovered_surface(tree: Path) -> None:
+    """No baseline to absorb an uncovered surface — it is reported directly."""
     report = compute_coverage(tree, [_unit("unit-alpha", "portal/alpha.py")])
-    (tree / "config").mkdir(exist_ok=True)
-    (tree / "config" / "spine_coverage_baseline.yaml").write_text(render_baseline(report))
-    assert load_baseline(tree) == frozenset(report.uncovered)
-    assert ratchet_violations(report, repo_root=tree) == ()
+    assert set(report.uncovered) == {"portal/beta.py", "portal/sub/gamma.py"}
+    assert report.pct == pytest.approx(100.0 / 3)
 
 
-def test_ratchet_fires_on_new_uncovered_surface(tree: Path) -> None:
-    """Red-to-green proof: pin a baseline, add uncovered code, gate must fire."""
-    units = [_unit("unit-alpha", "portal/alpha.py")]
-    baseline_report = compute_coverage(tree, units)
-    (tree / "config" / "spine_coverage_baseline.yaml").write_text(render_baseline(baseline_report))
-    assert ratchet_violations(baseline_report, repo_root=tree) == ()
-
-    (tree / "portal" / "delta.py").write_text("w = 4\n")
-    after = compute_coverage(tree, units)
-    assert ratchet_violations(after, repo_root=tree) == ("portal/delta.py",)
-
-    covered_now = compute_coverage(tree, [*units, _unit("unit-delta", "portal/delta.py")])
-    assert ratchet_violations(covered_now, repo_root=tree) == ()
+def test_gate_passes_when_every_surface_is_covered(tree: Path) -> None:
+    units = [
+        _unit("unit-alpha", "portal/alpha.py"),
+        _unit("unit-beta", "portal/beta.py"),
+        _unit("unit-gamma", "portal/sub/gamma.py"),
+    ]
+    report = compute_coverage(tree, units)
+    assert report.uncovered == ()
+    assert report.pct == 100.0
 
 
-def test_missing_baseline_means_every_uncovered_surface_violates(tree: Path) -> None:
-    report = compute_coverage(tree, [_unit("unit-alpha", "portal/alpha.py")])
-    assert load_baseline(tree) == frozenset()
-    assert len(ratchet_violations(report, repo_root=tree)) == len(report.uncovered)
-
-
-def test_retired_entries_are_reported_so_debt_can_be_repinned(tree: Path) -> None:
-    report = compute_coverage(tree, [_unit("unit-alpha", "portal/alpha.py")])
-    stale = frozenset({*report.uncovered, "portal/deleted.py"})
-    assert retired_baseline_entries(report, stale) == ("portal/deleted.py",)
-
-
-def test_baseline_render_is_deterministic_and_parses(tree: Path) -> None:
-    import yaml
-
-    report = compute_coverage(tree, [_unit("unit-alpha", "portal/alpha.py")])
-    first = render_baseline(report)
-    assert first == render_baseline(report)
-    parsed = yaml.safe_load(first)
-    assert parsed["eligible_count"] == 3
-    assert parsed["covered_count"] == 1
-    assert parsed["uncovered"] == list(report.uncovered)
+def test_gate_failing_unit_confers_no_coverage(tree: Path) -> None:
+    """A unit that fails the quality gate cannot carry coverage for a surface."""
+    weak = KnowledgeUnit(
+        id="unit-weak",
+        kind="what",
+        title="unit-weak",
+        sources=[SourceRef(type="code", path="portal/alpha.py")],
+        body="too short",
+    )
+    report = compute_coverage(tree, [weak])
+    assert report.covered == ()
+    assert "portal/alpha.py" in report.uncovered
 
 
 def test_empty_tree_reports_full_coverage_not_division_error(tmp_path: Path) -> None:

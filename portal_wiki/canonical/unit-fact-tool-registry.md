@@ -5,8 +5,8 @@ title: 110 MCP tools across 23 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: 15488af29d39
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+  commit: baca992c674a
+last_generated_commit: baca992c674a
 claims: []
 confidence: high
 tags:
@@ -14,10 +14,10 @@ tags:
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1785293198.394881
+updated_at: 1785829024.760969
 ---
 
-# MCP tool registry (110 tools across 23 servers)
+# MCP tool registry
 
 What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_route("/tools/<name>")` for servers that only expose that route form (memory, rag, web-search). Join with `unit-fact-tool-authorizations` to spot reachability gaps.
 
@@ -46,3 +46,7 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 | `tts` | `clone_voice`, `list_voices`, `speak` |
 | `whisper` | `transcribe_audio`, `transcribe_with_speakers` |
 | `wiki` | _(unresolved — server file not found)_ |
+
+## Why
+
+The registry is parsed directly from the MCP server source files: `@mcp.tool()` decorated functions, or `@mcp.custom_route("/tools/<name>")` registrations for servers that only expose that route form. Joining it with the per-workspace authorizations unit exposes which authorized tools are unreachable because no server registers them.

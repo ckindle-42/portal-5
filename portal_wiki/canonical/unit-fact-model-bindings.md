@@ -5,14 +5,14 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: bcd2259aae00
+  commit: baca992c674a
 - type: code
   path: config/portal.yaml
-  commit: bcd2259aae00
+  commit: baca992c674a
 - type: code
   path: config/personas/
-  commit: bcd2259aae00
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+  commit: baca992c674a
+last_generated_commit: baca992c674a
 claims: []
 confidence: high
 tags:
@@ -20,7 +20,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1785722390.616228
+updated_at: 1785829024.575975
 ---
 
 # Model bindings (reachability-resolved)
@@ -70,3 +70,7 @@ default.
 | `magistralstrategist` | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` | yes |
 
 **0 reachability gap(s)** — clean.
+
+## Why
+
+Model bindings are the reachability-resolved view of what each workspace `model_hint` and persona `model_pin` actually serve: a hint is reachable only when the workspace's routing groups in `config/backends.yaml` contain the model. The gap count is the live measure of how many bindings silently fall back to the pool default, and is regenerated from the same config the router reads.

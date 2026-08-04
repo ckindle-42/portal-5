@@ -48,7 +48,7 @@ repos:
         entry: ruff format --check
         types: [python]
 
-      # Guard: full system validation — 73 checks (imports, routes, config,
+      # Guard: full system validation — 74 checks (imports, routes, config,
       # wiki/fact-unit currency, security-bench subsystem integrity, etc).
       # Takes ~60s, so it runs at push time (not per-commit) and only when
       # a change actually touches the surface it checks.

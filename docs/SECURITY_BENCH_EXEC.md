@@ -15,6 +15,10 @@ sec-bench `--workspaces` targets, addressed as `auto-security::<variant>`:
 - `auto-security::redteam`
 - `auto-security::redteam-deep`
 - `auto-security::uncensored`
+
+## Why
+
+The canonical variant set is the `variants` map on the `auto-security` workspace in `config/portal.yaml`. Each entry is an `auto-security::<variant>` id that `sec-bench --workspaces` targets; the pipeline resolves the variant to a model pool the same way a `?variant=` hint on any workspace does. Deriving the list from config keeps the documented target set and the live routing surface aligned.
 <!-- /WIKI:GENERATED -->
 
 ---

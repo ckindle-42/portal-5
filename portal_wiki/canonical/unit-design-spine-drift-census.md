@@ -9,9 +9,7 @@ sources:
   path: portal/platform/wiki/drift.py
 - type: code
   path: tests/unit/test_spine_drift.py
-- type: code
-  path: config/spine_drift_baseline.yaml
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: baca992c674a3cbb36a619e8f62e7e88b8fccfff
 claims:
 - probe: validate.checks
   pattern: '{value} validate checks'
@@ -27,14 +25,16 @@ updated_at: 1785825842.272556
 
 Three gates guarded the spine and none of them objected while README asserted 60
 benchmark workspaces against a live 65 and 22 MCP servers against a live 21:
-`AW` passes by comparing a generated block with its own unit body, `BR` passes by
+ `AW` passes by comparing a generated block with its own unit body, `BR` passes by
 proving a new code surface is cited by *some* unit without asking whether the
-citation is true, and `AK` reports SKIP because the doc ledger binds zero docs —
+citation is true, and the retired `AK` ledger check bound zero docs —
 honestly, but leaving no doc-currency signal in the harness at all.
 Of 567 generated blocks across 25 Tier-1 docs, 7 came from a machine-derived
 `unit-fact-*` unit; the remaining 560 were authored prose with no executable link
-to code. Check `BS` closes that gap, bringing the harness to 75 validate checks
-(`BT` later asserting archived units stay unreachable from the live store).
+to code. Check `BS` closes that gap, bringing the harness to 74 validate checks
+(`BT` later asserting archived units stay unreachable from the live store; the
+doc-ledger `AK` check was removed once the ledger was emptied in
+TASK_WIKI_ZERO_DEBT_V1).
 
 A **claim** binds a figure in a unit body to a live probe. The claim names the
 probe and a `pattern` containing `{value}`; the probe result is substituted and

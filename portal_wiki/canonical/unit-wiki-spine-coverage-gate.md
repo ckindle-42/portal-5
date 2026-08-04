@@ -40,7 +40,9 @@ files of a subsystem while titling themselves with the full file count —
 counting them as coverage would grade the generator against its own output,
 the same circularity the doc-generation arc paid for elsewhere.
 
-A 100% coverage assertion is unreachable today (46/605 eligible files, 7.6%,
-measured when this module landed), so the gate is a ratchet, not a cliff:
-`config/spine_coverage_baseline.yaml` pins the current uncovered set, and only
-growth of that set fails CI. The baseline may shrink freely as units are added.
+A 100% coverage assertion was unreachable when this module landed (46/605
+eligible files, 7.6%), so the gate started as a ratchet pinning the current
+uncovered set, with only growth failing CI. TASK_WIKI_ZERO_DEBT_V1 drove the
+uncovered set to empty, deleted the baseline, and made the gate absolute: every
+eligible surface must be cited by a gate-passing non-aggregate unit, with no
+baseline to absorb a newly added file.

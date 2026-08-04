@@ -5,16 +5,18 @@ title: 23 MCP fleet servers
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 15488af29d39
+  commit: baca992c674a
   section: mcp_fleet
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
-claims: []
+last_generated_commit: baca992c674a
+claims:
+- probe: mcp.fleet.entries
+  pattern: MCP fleet ({value} servers)
 confidence: high
 tags:
 - fact
 - mcp
 created_at: 1784000421.477582
-updated_at: 1785293198.2694578
+updated_at: 1785832318.5980108
 ---
 
 # MCP fleet (23 servers)
@@ -44,3 +46,7 @@ updated_at: 1785293198.2694578
 | `mitre` | portal-mitre | 8929 |
 | `wiki` | portal-wiki | 8931 |
 | `detections` | portal-detections | 8932 |
+
+## Why
+
+The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single source for every MCP tool server the pipeline can dispatch to. Each entry carries the server id, display name, and reserved port, so the wiki fleet roster is the same list the tool registry and the Open WebUI tool-server wiring are built from.

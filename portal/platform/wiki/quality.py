@@ -102,13 +102,6 @@ _EXTERNAL_OK = re.compile(
 AUTHORED_TAG = "authored-v1"
 VERIFIED_TAG = "verified-v1"
 
-# The quality gate treats authored-v1 and verified-v1 identically: both are
-# hand-verified unit classes that must carry the full structure contract. The
-# distinction is provenance (authored-v1 = written with the gate; verified-v1
-# = legacy unit re-grounded against code in TASK_WIKI_ZERO_DEBT_V1), not
-# obligation.
-_STRICT_TAGS = frozenset({AUTHORED_TAG, VERIFIED_TAG})
-
 _UNIVERSE: set[str] | None = None
 
 
@@ -189,14 +182,14 @@ def check_grounding(unit, repo_root: Path | None = None) -> QualityIssue | None:
 def check_substance(unit, repo_root: Path | None = None) -> QualityIssue | None:
     """Prose floor, plus proof the unit says more than the AST already does.
 
-    The word floor applies to units tagged `authored-v1`. Calibration found
-    legitimately terse legacy units — `unit-SEC_BENCH-prerequisites` says what it
-    needs in 26 words — and decovering them would move the 117 baseline this task
-    is measured against. The API-overlap ceiling applies to every unit, because
-    restating a projection is never adequate regardless of when it was written.
+    The word floor applies to every live unit. The tag distinction was retired in
+    TASK_WIKI_ZERO_DEBT_V1: after the legacy corpus was re-grounded against code,
+    there is no ungrounded prose left to exempt, so the floor is universal. The
+    API-overlap ceiling applies to every unit regardless, because restating a
+    projection is never adequate.
     """
     words = prose_words(unit.body)
-    if _STRICT_TAGS & set(unit.tags or []) and len(words) < MIN_PROSE_WORDS:
+    if len(words) < MIN_PROSE_WORDS:
         return QualityIssue(
             unit.id, "substance", f"{len(words)} prose words, floor is {MIN_PROSE_WORDS}"
         )
@@ -229,13 +222,10 @@ def check_substance(unit, repo_root: Path | None = None) -> QualityIssue | None:
 def check_structure(unit) -> QualityIssue | None:
     """A `## Why` section with real content — the part no projection can supply.
 
-    Applies only to units tagged `authored-v1`. The pre-existing corpus has no
-    `## Why` convention: calibration found 69 of 70 hand-authored units without
-    one, so enforcing it retroactively would condemn work that is fine. The
-    convention starts with the units this task writes and is enforced there.
+    Applies to every live unit. The tag distinction was retired in
+    TASK_WIKI_ZERO_DEBT_V1: the re-grounded corpus adopted the `## Why` convention
+    throughout, so there is no legacy prose left to exempt from it.
     """
-    if not (_STRICT_TAGS & set(unit.tags or [])):
-        return None
     why = why_section(unit.body)
     if not why:
         return QualityIssue(unit.id, "structure", "no `## Why` section")
@@ -260,16 +250,14 @@ def check_claim_binding(unit) -> QualityIssue | None:
     This is the "grounded in facts" requirement made mechanical. `BS` already
     evaluates declared claims against live probes; what it cannot do is notice a
     figure that was never declared. README said 60 benchmark workspaces against a
-    live 65 for exactly that reason. An `authored-v1` unit that states a countable
-    platform figure and declares no claim for it is not grounded — it is a number
-    that will be wrong later with nothing to catch it.
+    live 65 for exactly that reason. A unit that states a countable platform
+    figure and declares no claim for it is not grounded — it is a number that
+    will be wrong later with nothing to catch it.
 
-    Applies only to `authored-v1`. The legacy corpus has 38 such figures, most of
-    them regex false positives or facts about a dated past, and promoting that
-    backlog to a hard failure here would block this task on unrelated debt.
+    Applies to every live unit. The legacy-corpus exemption was retired in
+    TASK_WIKI_ZERO_DEBT_V1 once the re-grounded store bound or reworded every
+    figure.
     """
-    if not (_STRICT_TAGS & set(unit.tags or [])):
-        return None
     prose = _FENCE_RE.sub(" ", unit.body)
     hits = [m.group(0).strip() for m in _QUANTITY_RE.finditer(prose)]
     if not hits:

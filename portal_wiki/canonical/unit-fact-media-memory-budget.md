@@ -5,9 +5,9 @@ title: memory budget for 10 media backend/model combinations
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_facts.py
-  commit: b2e745b62136
+  commit: baca992c674a
   section: MEDIA_MODEL_MEMORY_GB
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+last_generated_commit: baca992c674a
 claims: []
 confidence: high
 tags:
@@ -15,7 +15,7 @@ tags:
 - media
 - memory
 created_at: 1784057641.950119
-updated_at: 1785347858.7766259
+updated_at: 1785829024.7618072
 ---
 
 # Media backend memory budget (Tier 0, cross-engine VRAM admission)
@@ -36,3 +36,7 @@ The `video:*` row is retained for the archived `video_mcp` code path; video serv
 | `music:medium` | 6.0 |
 | `music:small` | 2.0 |
 | `video:wan21-nsfw` | 55.0 |
+
+## Why
+
+The budget is the `MEDIA_MODEL_MEMORY_GB` table in this seeder, the session-observed peak unified-memory estimate the Tier-1 admission check in `_admission.py` consults to refuse a media job before it OOMs. Keeping it here rather than in a runtime config makes the numbers part of the reviewed, versioned wiki instead of an unreviewed setting.

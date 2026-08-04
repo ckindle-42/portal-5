@@ -405,3 +405,4 @@
 - `unit-readme-update-single-command-git-pull-rebuild-model-refresh-re-seed` | 2026-08-04 | 97b85a5b4384209107aa2e6b3e7d009679ba5096 | consolidated into unit-HOWTO-quick-reference-cli-commands, which lists the same launch.sh update commands; the README block was removed as redundant
 - `unit-readme-enable-slack-bot` | 2026-08-04 | 97b85a5b4384209107aa2e6b3e7d009679ba5096 | consolidated into unit-HOWTO-17-slack-bot, which documents the same Slack bot setup and is now cited from README.md
 - `unit-readme-enable-telegram-bot` | 2026-08-04 | 97b85a5b4384209107aa2e6b3e7d009679ba5096 | consolidated into unit-HOWTO-16-telegram-bot, which documents the same Telegram bot setup and is now cited from README.md
+- `unit-scripts-doc_ledger` | 2026-08-04 | baca992c674a3cbb36a619e8f62e7e88b8fccfff | scripts/doc_ledger.py was deleted in TASK_WIKI_ZERO_DEBT_V1 (empty ledger made check AK a no-op); nothing in the codebase determines this unit's truth anymore

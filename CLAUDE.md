@@ -206,7 +206,7 @@ User-uploaded files and cross-MCP artifacts live at `${AI_OUTPUT_DIR}` (default 
 
 ### 12 — Docs Travel With The Work
 
-Documentation is coupled to code the same way Rule 6 couples workspaces to `portal.yaml`: **mechanically, where mechanization exists.** The old commit-stamp ledger (`docs/.doc_ledger.yaml`, check **`AK. doc currency`**) is retired — the ledger is empty and AK is a no-op now. Doc currency for *generated* content lives in check **`AW. wiki facts current`** (`scripts/validate_system.py`): it diffs each fact-unit (`kind: what`) against live config and every `WIKI:GENERATED` block against its unit, so a fact-unit or rendered block can't silently drift.
+Documentation is coupled to code the same way Rule 6 couples workspaces to `portal.yaml`: **mechanically, where mechanization exists.** The old commit-stamp ledger (`docs/.doc_ledger.yaml`, check **`AK. doc currency`**) was deleted in TASK_WIKI_ZERO_DEBT_V1 — the ledger was empty and AK was a no-op. Doc currency for *generated* content lives in check **`AW. wiki facts current`** (`scripts/validate_system.py`): it diffs each fact-unit (`kind: what`) against live config and every `WIKI:GENERATED` block against its unit, so a fact-unit or rendered block can't silently drift. Check **`BS. spine drift census`** hard-fails on any phantom pin, unpinned unit, stale unit, dead doc reference, or claim violation — there is no baseline left to tolerate debt.
 
 Authored knowledge (`kind: why` / HOWTO units) is **not** auto-checked against source by design (`portal/platform/wiki/maintain.py`: "advancing HEAD alone does not make an authored canonical unit stale") — staleness there is caught by reading, not tooling.
 

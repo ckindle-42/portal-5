@@ -31,14 +31,13 @@ def _load_validate():
         "check_routing_regression",  # AU — served-model baseline
         "check_wiki_core",  # AJ — schema + provenance + import-clean
         "check_wiki_facts_current",  # AW — fact-units vs live config
-        "check_doc_currency",  # AK — bound docs vs their sources
+        "check_spine_code_coverage",  # BR — every surface covered (absolute)
+        "check_spine_drift",  # BS — claims hold, pins real, no dead refs (absolute)
+        "check_archive_reachability",  # BT — archived units unreachable
     ],
 )
 def test_spine_gate(fn_name):
     mod = _load_validate()
     status, detail, _subs = getattr(mod, fn_name)()
-    # check_doc_currency SKIPs on an empty ledger by design (doc_ledger.py's
-    # all_status() contract) — CLAUDE.md is exempt and no other doc is
-    # commit-stamp-governed once migrated onto the content-hash gate (AW).
-    ok = {"PASS"} if fn_name != "check_doc_currency" else {"PASS", "SKIP"}
+    ok = {"PASS"}
     assert status in ok, f"{fn_name}: {status} — {detail}"

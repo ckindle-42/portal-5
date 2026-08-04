@@ -508,6 +508,10 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `webnavigator` | general | `auto` | — |
 | `webresearcher` | research | `auto-research` | — |
 | `whiteboardconverter` | general | `auto-vision` | — |
+
+## Why
+
+The roster is derived from the persona YAML files under `config/personas/`, one per specialist, so the count and the slug/module/workspace bindings always reflect what the pipeline can actually route to. Personas are seeded into Open WebUI as model presets by the same files, so the wiki roster and the served roster cannot drift apart.
 <!-- /WIKI:GENERATED -->
 
 ### Workspaces
@@ -610,6 +614,10 @@ Router quality is a measured property, not an assumption — the bench pins the 
 - `bench-sylink-8b`
 - `bench-vulnllm-r-7b`
 - `bench-vulnllm-r7b`
+
+## Why
+
+The roster is the workspace mapping in `config/portal.yaml`, split into the production workspaces that acceptance/UAT exercises and the eval/bench workspaces gated behind `PORTAL_ENABLE_EVAL=1`. The counts and the per-workspace model hints come straight from that file, so the roster cannot disagree with what routing serves.
 <!-- /WIKI:GENERATED -->
 
 ### Model Bindings (reachability-resolved)
@@ -662,6 +670,10 @@ default.
 | `magistralstrategist` | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` | yes |
 
 **0 reachability gap(s)** — clean.
+
+## Why
+
+Model bindings are the reachability-resolved view of what each workspace `model_hint` and persona `model_pin` actually serve: a hint is reachable only when the workspace's routing groups in `config/backends.yaml` contain the model. The gap count is the live measure of how many bindings silently fall back to the pool default, and is regenerated from the same config the router reads.
 <!-- /WIKI:GENERATED -->
 
 ### MCP Fleet
@@ -694,6 +706,10 @@ default.
 | `mitre` | portal-mitre | 8929 |
 | `wiki` | portal-wiki | 8931 |
 | `detections` | portal-detections | 8932 |
+
+## Why
+
+The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single source for every MCP tool server the pipeline can dispatch to. Each entry carries the server id, display name, and reserved port, so the wiki fleet roster is the same list the tool registry and the Open WebUI tool-server wiring are built from.
 <!-- /WIKI:GENERATED -->
 
 ### Model Catalog
@@ -922,4 +938,8 @@ default.
 - `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M`
 - `qwen3-vl:32b`
 - `qwen3-vl:32b-ctx8k`
+
+## Why
+
+The catalog groups every model id registered in `config/backends.yaml` by its routing group, which is the same grouping `workspace_routing` uses to resolve which backends a workspace can draw from. Deriving the catalog from the backend file keeps the documented model inventory and the actually-served pool identical.
 <!-- /WIKI:GENERATED -->

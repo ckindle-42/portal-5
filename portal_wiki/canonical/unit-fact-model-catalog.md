@@ -5,15 +5,17 @@ title: 201 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: bcd2259aae00
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
-claims: []
+  commit: baca992c674a
+last_generated_commit: baca992c674a
+claims:
+- probe: backends.groups.count
+  pattern: '{value} backend groups)'
 confidence: high
 tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1785722390.6852238
+updated_at: 1785832318.6138759
 ---
 
 # Model catalog (201 model ids across 7 backend groups)
@@ -239,3 +241,7 @@ updated_at: 1785722390.6852238
 - `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M`
 - `qwen3-vl:32b`
 - `qwen3-vl:32b-ctx8k`
+
+## Why
+
+The catalog groups every model id registered in `config/backends.yaml` by its routing group, which is the same grouping `workspace_routing` uses to resolve which backends a workspace can draw from. Deriving the catalog from the backend file keeps the documented model inventory and the actually-served pool identical.

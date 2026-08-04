@@ -5,30 +5,32 @@ title: 138 personas
 sources:
 - type: code
   path: config/personas/
-  commit: 468525e61329
+  commit: baca992c674a
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: 468525e61329
+  commit: baca992c674a
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: 468525e61329
+  commit: baca992c674a
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: 468525e61329
+  commit: baca992c674a
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: 468525e61329
+  commit: baca992c674a
 - type: code
   path: config/personas/bench_devstral.yaml
-  commit: 468525e61329
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
-claims: []
+  commit: baca992c674a
+last_generated_commit: baca992c674a
+claims:
+- probe: personas.count
+  pattern: Persona roster ({value} personas)
 confidence: high
 tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1784000421.217775
+updated_at: 1785832318.298213
 ---
 
 # Persona roster (138 personas)
@@ -173,3 +175,7 @@ updated_at: 1784000421.217775
 | `webnavigator` | general | `auto` | — |
 | `webresearcher` | research | `auto-research` | — |
 | `whiteboardconverter` | general | `auto-vision` | — |
+
+## Why
+
+The roster is derived from the persona YAML files under `config/personas/`, one per specialist, so the count and the slug/module/workspace bindings always reflect what the pipeline can actually route to. Personas are seeded into Open WebUI as model presets by the same files, so the wiki roster and the served roster cannot drift apart.

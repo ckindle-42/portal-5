@@ -44,13 +44,13 @@ Granularity is a management choice, not a data-model property, so the rule exist
 ### Discovery and termination
 
 <!-- WIKI:GENERATED unit=unit-DESIGN_WIKI-discovery-termination -->
-The migration loop repeatedly calls `discover_unmigrated_docs()` and halts when the returned list is empty. The candidate set is computed at runtime as the union of the `TIER1_DOCS` tuple and the paths still present in `docs/.doc_ledger.yaml` (via `_ledger_doc_paths`); it is never chosen by hand on each run. Results are processed highest-priority first: `priority` is a git-churn count over the last 30 commits touching the file, plus a fixed boost for high-value seed docs, sorted descending.
+The migration loop repeatedly calls `discover_unmigrated_docs()` and halts when the returned list is empty. The candidate set is computed at runtime as the `TIER1_DOCS` tuple unioned with any paths still present in a legacy ledger file (via `_ledger_doc_paths`); it is never chosen by hand on each run. Results are processed highest-priority first: `priority` is a git-churn count over the last 30 commits touching the file, plus a fixed boost for high-value seed docs, sorted descending.
 
-Every doc migration is an atomic green slice. After a single doc migrates the repo is fully working, the doc is generated and round-trip proven, and its ledger entry can be pruned; the loop may stop after any commit and resume later with no cleanup. `render_report()` supplies the standing dashboard as `{migrated, unmigrated, gamed, blocks_total, coverage_pct, human_ratio}`. A graduated doc is retired from the ledger by `doc_ledger.py prune` (`prune_migrated`), so when discovery returns empty the ledger is empty too, and content-hash currency (validate check AW) governs from then on.
+Every doc migration is an atomic green slice. After a single doc migrates the repo is fully working, the doc is generated and round-trip proven; the loop may stop after any commit and resume later with no cleanup. `render_report()` supplies the standing dashboard as `{migrated, unmigrated, gamed, blocks_total, coverage_pct, human_ratio}`. Content-hash currency (validate check AW) diffs every generated block against its unit body, so the candidate discovery set collapses to the Tier-1 set once the legacy commit-stamp ledger is gone.
 
 ## Why
 
-Mechanical termination exists so migration is never an open-ended rewrite campaign. Because each doc commits atomically and the candidate set is derived from git churn plus the ledger, an operator can interrupt the loop at any commit, resume later, and still find every intermediate state passes the migration gate. The ledger retirement matters as much as the loop: once AW diffs generated blocks against unit bodies directly, the commit-stamp model is redundant, and a shrinking ledger is simply the discovery surface collapsing to the Tier-1 set.
+Mechanical termination exists so migration is never an open-ended rewrite campaign. Because each doc commits atomically and the candidate set is derived from git churn plus the Tier-1 tuple, an operator can interrupt the loop at any commit, resume later, and still find every intermediate state passes the migration gate. The legacy commit-stamp ledger (the `docs`-tree ledger file and its `scripts`-tree pruning script) was deleted in TASK_WIKI_ZERO_DEBT_V1 once its empty state made the `AK` doc-currency check a no-op; AW diffs generated blocks against unit bodies directly, so the commit-stamp model is redundant and the discovery surface is just the Tier-1 set.
 <!-- /WIKI:GENERATED -->
 
 ### Migration coverage
@@ -88,7 +88,11 @@ Total generated blocks across migrated docs: 556
 - `tests/PORTAL5_BENCH_EXECUTE_V4.md`
 - `tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md`
 
-## Unmigrated docs (commit-stamp ledger)
+## Unmigrated docs
+
+## Why
+
+The migration numbers come from `render_report()` in `portal/platform/wiki/render.py`, which classifies every Tier-1 doc as migrated, unmigrated, or gamed and counts the generated blocks. Deriving the coverage figure from that same function keeps the documented migration state and the one the renderer actually computes identical.
 <!-- /WIKI:GENERATED -->
 
 ## Migration procedure
@@ -100,12 +104,11 @@ For each doc `D` returned by `discover_unmigrated_docs()`, processed highest pri
 2. Decompose `D` into section-level units, reserving fact-atom decomposition for values that are reused or independently volatile (see the section-granularity unit).
 3. Convert `D` into a shell whose substance is `WIKI:GENERATED` blocks plus `WIKI:HUMAN-OWNED` fences for the irreducible judgment.
 4. Render through `sync-config`, which invokes `render_all_generated_blocks`, then prove round-trip: an edit to the unit propagates and a hand-edit inside a generated fence is clobbered.
-5. Retire `D` from `docs/.doc_ledger.yaml` via `doc_ledger.py prune` (`prune_migrated`).
-6. Verify the per-commit gate is green, commit, then re-discover and continue.
+5. Verify the per-commit gate is green, commit, then re-discover and continue.
 
 Each doc lands as one atomic commit, the repo is green after every commit, and the loop is resumable at any point without cleanup.
 
 ## Why
 
-The procedure is a fixed loop body because a migration that cannot be verified at each step silently degrades into docs-are-the-source authoring. Rendering through `sync-config` and proving propagation and clobbering closes the loop before the ledger prune: a doc is only de-ledgered after its shell demonstrably tracks its units. The atomic-commit rule keeps every intermediate state buildable, which is what makes the loop safe to interrupt and resume.
+The procedure is a fixed loop body because a migration that cannot be verified at each step silently degrades into docs-are-the-source authoring. Rendering through `sync-config` and proving propagation and clobbering closes the loop. The atomic-commit rule keeps every intermediate state buildable, which is what makes the loop safe to interrupt and resume. The legacy commit-stamp ledger (the `docs`-tree ledger file and its `scripts`-tree pruning script) was deleted in TASK_WIKI_ZERO_DEBT_V1 once its empty state made `AK` a no-op; discovery now collapses to the Tier-1 set and AW diffs generated blocks against unit bodies directly.
 <!-- /WIKI:GENERATED -->
