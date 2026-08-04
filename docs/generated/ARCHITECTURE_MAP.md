@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 810 canonical units.*
+*Deterministic projection of 744 canonical units.*
 
 ## Knowledge Layer
 
@@ -145,15 +145,6 @@
 | `unit-alerts-timezone-for-the-schedule-default-utc` | what | 4 |
 | `unit-alerts-troubleshooting` | what | 5 |
 | `unit-alerts-webhook` | what | 3 |
-| `unit-archive-mlx-laguna-model` | mixed | 1 |
-| `unit-archive-mlx-patch-templates` | mixed | 1 |
-| `unit-archive-mlx-patch-threads` | mixed | 1 |
-| `unit-archive-mlx-proxy` | mixed | 1 |
-| `unit-archive-mlx-readiness` | mixed | 1 |
-| `unit-archive-mlx-smoke-test` | mixed | 1 |
-| `unit-archive-mlx-switch-bench` | mixed | 1 |
-| `unit-archive-mlx-tool-parser` | mixed | 1 |
-| `unit-archive-mlx-watchdog` | mixed | 1 |
 | `unit-archive-v5-ladder-analysis` | mixed | 1 |
 | `unit-backup-restore-1-open-webui-data` | what | 3 |
 | `unit-backup-restore-1-open-webui-data-critical` | what | 2 |
@@ -201,22 +192,7 @@
 | `unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio` | what | 3 |
 | `unit-cluster-scale-stage-3-vllm-for-70b-models` | what | 2 |
 | `unit-cluster-scale-stage-4-5-specialized-model-groups` | what | 2 |
-| `unit-comfyui-c00` | mixed | 1 |
-| `unit-comfyui-c01` | mixed | 1 |
-| `unit-comfyui-c02` | mixed | 1 |
-| `unit-comfyui-c03` | mixed | 1 |
-| `unit-comfyui-c04` | mixed | 1 |
-| `unit-comfyui-c05` | mixed | 1 |
-| `unit-comfyui-c06` | mixed | 1 |
-| `unit-comfyui-c07` | mixed | 1 |
-| `unit-comfyui-c08` | mixed | 1 |
-| `unit-comfyui-c09` | mixed | 1 |
-| `unit-comfyui-c10` | mixed | 1 |
-| `unit-comfyui-c11` | mixed | 1 |
-| `unit-comfyui-cli` | mixed | 1 |
 | `unit-comfyui-common` | mixed | 1 |
-| `unit-comfyui-results` | mixed | 1 |
-| `unit-comfyui-runner` | mixed | 1 |
 | `unit-comfyui-setup-cinematic-quality-t2v-a14b-slower` | what | 2 |
 | `unit-comfyui-setup-download-models` | what | 1 |
 | `unit-comfyui-setup-explicit-model-override` | what | 2 |
@@ -565,16 +541,6 @@
 | `unit-module-media` | mixed | 5 |
 | `unit-module-research` | mixed | 4 |
 | `unit-module-security` | mixed | 5 |
-| `unit-notifications-channel-email` | mixed | 1 |
-| `unit-notifications-channel-pushover` | mixed | 1 |
-| `unit-notifications-channel-slack` | mixed | 1 |
-| `unit-notifications-channel-telegram` | mixed | 1 |
-| `unit-notifications-channel-webhook` | mixed | 1 |
-| `unit-notifications-channels-init` | mixed | 1 |
-| `unit-notifications-dispatcher` | mixed | 1 |
-| `unit-notifications-events` | mixed | 1 |
-| `unit-notifications-init` | mixed | 1 |
-| `unit-notifications-scheduler` | mixed | 1 |
 | `unit-p5-roadmap-future-considerations-not-yet-implemented` | what | 5 |
 | `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | what | 2 |
 | `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | what | 5 |
@@ -602,20 +568,9 @@
 | `unit-persona-matrix-ci-persona-matrix-ci-operations` | what | 2 |
 | `unit-persona-matrix-ci-pipeline-shape` | what | 3 |
 | `unit-persona-matrix-ci-regression-triage-workflow` | what | 5 |
-| `unit-persona-matrix-cli` | mixed | 1 |
-| `unit-persona-matrix-common` | mixed | 1 |
-| `unit-persona-matrix-init` | mixed | 1 |
-| `unit-persona-matrix-loaders` | mixed | 1 |
-| `unit-persona-matrix-ollama-client` | mixed | 1 |
-| `unit-persona-matrix-render` | mixed | 1 |
-| `unit-persona-matrix-sweep` | mixed | 1 |
 | `unit-platform-storage-config-facade` | mixed | 1 |
 | `unit-portal-conftest` | mixed | 1 |
 | `unit-portal-mcp-namespace` | mixed | 1 |
-| `unit-portal-wiki-init` | mixed | 1 |
-| `unit-portal-wiki-main` | mixed | 1 |
-| `unit-portal-wiki-mcp` | mixed | 1 |
-| `unit-portal-wiki-wiki-mcp` | mixed | 1 |
 | `unit-portal5-acceptance-execute-v9-autonomous-monitoring-loop-required-default` | what | 4 |
 | `unit-portal5-acceptance-execute-v9-coverage-current` | what | 5 |
 | `unit-portal5-acceptance-execute-v9-failure-playbook` | what | 4 |
@@ -722,69 +677,48 @@
 | `unit-security-commands-namespace` | mixed | 1 |
 | `unit-security-commands-run` | mixed | 1 |
 | `unit-security-config-reserved` | mixed | 1 |
-| `unit-security-investigation-bench` | mixed | 1 |
-| `unit-security-investigation-evidence` | mixed | 1 |
-| `unit-security-investigation-notebook` | mixed | 1 |
-| `unit-security-investigation-surface` | mixed | 1 |
 | `unit-security-knowledge-surface` | mixed | 1 |
-| `unit-security-siem-blue-triage` | mixed | 1 |
-| `unit-security-siem-hec-ship` | mixed | 1 |
-| `unit-security-siem-index-wait` | mixed | 1 |
-| `unit-security-siem-spl-backend` | mixed | 1 |
-| `unit-security-siem-spl-detections` | what | 1 |
-| `unit-security-siem-surface` | mixed | 1 |
 | `unit-security-tools-mcp-surface` | mixed | 1 |
 | `unit-surface-acceptance` | mixed | 1 |
+| `unit-surface-archive-mlx` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 2 |
+| `unit-surface-comfyui-tests` | mixed | 1 |
+| `unit-surface-inference` | mixed | 1 |
+| `unit-surface-inference-cli` | mixed | 1 |
+| `unit-surface-investigation` | mixed | 1 |
+| `unit-surface-mcp-host` | mixed | 1 |
+| `unit-surface-notifications` | mixed | 2 |
+| `unit-surface-persona-matrix` | mixed | 1 |
+| `unit-surface-portal-wiki` | mixed | 1 |
+| `unit-surface-router` | mixed | 1 |
 | `unit-surface-scripts` | mixed | 1 |
 | `unit-surface-scripts-ci` | mixed | 1 |
 | `unit-surface-sec-core` | mixed | 1 |
 | `unit-surface-sec-tests` | mixed | 1 |
 | `unit-surface-security-eval` | mixed | 1 |
+| `unit-surface-siem` | mixed | 1 |
 | `unit-surface-tests-harness` | mixed | 2 |
+| `unit-surface-tests-scripts` | mixed | 1 |
 | `unit-surface-tests-unit` | mixed | 1 |
+| `unit-surface-tool-preselect` | mixed | 2 |
 | `unit-surface-toolpreselect-tests` | mixed | 1 |
+| `unit-surface-uat` | mixed | 1 |
 | `unit-surface-uat-catalog` | mixed | 1 |
+| `unit-surface-wiki` | mixed | 1 |
+| `unit-surface-wiki-adapters` | mixed | 1 |
 | `unit-tests-frontend-test-reasoning-display` | what | 1 |
 | `unit-tests-frontends-namespace` | mixed | 1 |
 | `unit-tests-integration-wiki-cycle` | mixed | 1 |
 | `unit-tests-memory-guard` | mixed | 1 |
-| `unit-tests-scripts-capability-probe` | mixed | 1 |
-| `unit-tests-scripts-cc-matrix` | mixed | 1 |
-| `unit-tests-scripts-game-analyze` | mixed | 1 |
 | `unit-tests-scripts-regen-section-table` | mixed | 1 |
 | `unit-tests-unit-test-security-corpus-contract` | what | 1 |
 | `unit-tests-unit-test-wiki-search-ranking` | what | 2 |
-| `unit-tool-preselect-cli-probe` | mixed | 1 |
-| `unit-tool-preselect-config` | mixed | 1 |
-| `unit-tool-preselect-init` | mixed | 1 |
-| `unit-tool-preselect-metrics` | mixed | 1 |
-| `unit-tool-preselect-parser` | mixed | 1 |
-| `unit-tool-preselect-preselector` | mixed | 1 |
-| `unit-tool-preselect-prompts` | mixed | 1 |
-| `unit-tool-preselect-state` | mixed | 1 |
-| `unit-tool-preselect-test-config` | mixed | 1 |
-| `unit-tool-preselect-test-metrics` | mixed | 1 |
-| `unit-tool-preselect-test-parser` | mixed | 1 |
-| `unit-tool-preselect-test-preselector` | mixed | 1 |
-| `unit-tool-preselect-test-state` | mixed | 1 |
-| `unit-uat-browser` | mixed | 1 |
-| `unit-uat-calibration` | mixed | 1 |
-| `unit-uat-cli` | mixed | 1 |
 | `unit-uat-config` | mixed | 1 |
-| `unit-uat-dispatch` | mixed | 1 |
-| `unit-uat-freshness` | mixed | 1 |
-| `unit-uat-grading` | mixed | 1 |
 | `unit-uat-health` | mixed | 1 |
 | `unit-uat-init` | mixed | 1 |
 | `unit-uat-lifecycle` | mixed | 1 |
-| `unit-uat-monitor` | mixed | 1 |
-| `unit-uat-notify` | mixed | 1 |
 | `unit-uat-owui_api` | mixed | 1 |
 | `unit-uat-results` | mixed | 1 |
-| `unit-uat-routing` | mixed | 1 |
-| `unit-uat-runner` | mixed | 1 |
-| `unit-uat-skips` | mixed | 1 |
 | `unit-uat-state` | mixed | 1 |
 | `unit-user-guide-cross-session-memory` | what | 4 |
 | `unit-user-guide-getting-access` | what | 2 |
@@ -819,10 +753,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 810 units
+**Total:** 744 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1771 references
+- **code**: 1707 references
 - **mitre**: 32 references
