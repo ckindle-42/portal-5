@@ -93,12 +93,16 @@ def check_archivable(unit, repo_root: Path | None = None) -> list[str]:
                 f"remove the link before archiving"
             )
 
-    # 3. Live code sources: any cited source is a live code/config file.
+    # 3. Live code sources: any cited source is a live code/config file or
+    #    directory. A directory citation (e.g. `unit-module-*` citing
+    #    `portal/modules/<name>/`) is a live code source too — the module toggle
+    #    reads those units as config, so archiving them must be refused exactly
+    #    like a file citation would be.
     for src in unit.sources:
         raw = (src.path or "").split("#", 1)[0].strip()
         if not raw or raw.startswith(("http://", "https://", "/")):
             continue
-        if raw.endswith(_CODE_EXTENSIONS) and (root / raw).exists():
+        if (raw.endswith(_CODE_EXTENSIONS) or (root / raw).is_dir()) and (root / raw).exists():
             refusals.append(
                 f"cites live source {raw} — a code/config path determines its truth; "
                 f"re-ground it or pass --superseded-by <survivor>"
@@ -108,27 +112,53 @@ def check_archivable(unit, repo_root: Path | None = None) -> list[str]:
 
 
 def verify_superseded(unit, survivor_id: str, repo_root: Path | None = None) -> str | None:
-    """The `--superseded-by` override: the survivor must exist and cover every
-    code path the archived unit cited. Returns None on success, else the refusal."""
-    del repo_root
-    from portal.platform.wiki.store import load_unit
+    """The `--superseded-by` override: the survivor must exist and the code paths
+    the archived unit cited must remain covered by the live store (the named
+    survivor plus other live units). Returns None on success, else the refusal.
+
+    A unit is safely superseded when every code/config path it cited is still
+    cited by at least one live unit — the aggregate `unit-code-*` stubs cite
+    five files each, every one of which now has its own covering unit, so no
+    path loses grounding when the stub is archived.
+    """
+    root = repo_root or _REPO_ROOT
+    from portal.platform.wiki.store import load_all, load_unit
 
     survivor = load_unit(survivor_id)
     if survivor is None:
         return f"--superseded-by {survivor_id}: survivor unit does not exist"
-    survivor_paths = {(s.path or "").split("#", 1)[0].strip() for s in survivor.sources if s.path}
+    live_paths: set[str] = set()
+    for u in load_all():
+        if u.id == unit.id:
+            continue
+        for s in u.sources:
+            raw = (s.path or "").split("#", 1)[0].strip()
+            if not raw:
+                continue
+            if any(ch in raw for ch in "*?["):
+                live_paths.update(_expand_glob(root, raw))
+            else:
+                live_paths.add(raw)
     missing = [
         (s.path or "").split("#", 1)[0].strip()
         for s in unit.sources
         if (s.path or "").endswith(_CODE_EXTENSIONS)
-        and (s.path or "").split("#", 1)[0].strip() not in survivor_paths
+        and (s.path or "").split("#", 1)[0].strip() not in live_paths
     ]
     if missing:
         return (
-            f"--superseded-by {survivor_id}: survivor does not cite "
-            f"{', '.join(sorted(set(missing))[:5])}"
+            f"--superseded-by {survivor_id}: {', '.join(sorted(set(missing))[:5])} "
+            f"cited by no live unit — the archive would strand them"
         )
     return None
+
+
+def _expand_glob(root: Path, pattern: str) -> set[str]:
+    """Expand a glob source path to matching repo-relative files."""
+    try:
+        return {str(m.relative_to(root)) for m in root.glob(pattern) if m.is_file()}
+    except (OSError, ValueError):
+        return set()
 
 
 def archive_unit(

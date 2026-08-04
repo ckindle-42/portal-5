@@ -87,7 +87,7 @@ def test_refuses_live_code_source(tmp_path):
     assert load_archived() == []
 
 
-def test_superseded_by_requires_survivor_covering_all_code_paths(tmp_path):
+def test_superseded_by_requires_live_coverage(tmp_path):
     code = tmp_path / "config"
     code.mkdir()
     (code / "portal.yaml").write_text("x: 1")
@@ -101,7 +101,8 @@ def test_superseded_by_requires_survivor_covering_all_code_paths(tmp_path):
             ],
         )
     )
-    # Survivor cites only one of the two paths — must refuse.
+    # Survivor cites only one of the two paths, and no other live unit cites the
+    # second — archiving would strand config/backends.yaml.
     save_unit(
         _unit(
             "unit-survivor",
@@ -110,19 +111,46 @@ def test_superseded_by_requires_survivor_covering_all_code_paths(tmp_path):
     )
     ok, msg = archive_unit("unit-coded", "reason", tmp_path, superseded_by="unit-survivor")
     assert ok is False
-    assert "does not cite" in msg
+    assert "cited by no live unit" in msg
     assert load_archived() == []
 
 
-def test_superseded_by_ok_when_survivor_covers_all(tmp_path):
+def test_superseded_by_ok_when_live_store_covers_all(tmp_path):
     code = tmp_path / "config"
     code.mkdir()
     (code / "portal.yaml").write_text("x: 1")
+    (code / "backends.yaml").write_text("x: 1")
     save_unit(_unit("unit-coded", sources=[SourceRef(type="code", path="config/portal.yaml")]))
+    # The survivor covers the path, so the archive is safe.
     save_unit(_unit("unit-survivor", sources=[SourceRef(type="code", path="config/portal.yaml")]))
     ok, msg = archive_unit("unit-coded", "reason", tmp_path, superseded_by="unit-survivor")
     assert ok is True
     assert load_archived()[0].id == "unit-coded"
+
+
+def test_aggregate_superseded_when_files_each_covered(tmp_path):
+    code = tmp_path / "config"
+    code.mkdir()
+    (code / "a.yaml").write_text("x: 1")
+    (code / "b.yaml").write_text("x: 1")
+    # Aggregate cites five files, like a unit-code-* stub.
+    save_unit(
+        _unit(
+            "unit-code-portal",
+            sources=[
+                SourceRef(type="code", path="config/a.yaml"),
+                SourceRef(type="code", path="config/b.yaml"),
+            ],
+        )
+    )
+    # Every cited file now has its own covering unit.
+    save_unit(_unit("unit-a", sources=[SourceRef(type="code", path="config/a.yaml")]))
+    save_unit(_unit("unit-b", sources=[SourceRef(type="code", path="config/b.yaml")]))
+    ok, msg = archive_unit(
+        "unit-code-portal", "superseded file-by-file", tmp_path, superseded_by="unit-a"
+    )
+    assert ok is True
+    assert load_archived()[0].id == "unit-code-portal"
 
 
 def test_refuses_when_survivor_does_not_exist(tmp_path):

@@ -1,12 +1,12 @@
 ---
 id: unit-wiki-store
 kind: mixed
-title: "Wiki store \u2014 git-backed canonical unit persistence"
+title: "Wiki store \u2014 git-backed canonical + archive unit persistence"
 sources:
 - type: code
   path: portal/platform/wiki/store.py
-  commit: 4ca84409
-last_generated_commit: 4ca84409
+  commit: 831274f5
+last_generated_commit: 831274f5
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,8 @@ updated_at: 1785797299.6082618
 The store module is the git-backed persistence layer for canonical units:
 each unit is one markdown file under `portal_wiki/canonical/`, and the store
 provides save, load, list, and delete over that directory. It is deliberately
-portable — git-versioned, no database lock-in.
+portable — git-versioned, no database lock-in. A parallel archive store under
+`portal_wiki/archive/` keeps retired units readable but out of the working set.
 
 ## Why
 
@@ -35,8 +36,12 @@ rather than crashing, so one corrupt unit does not take down every consumer.
 
 `save_unit` writes a unit's markdown; `load_unit` reads one by id (None if
 absent); `load_all` reads every unit sorted by filename; `list_ids` returns
-the id list; `delete_unit` removes a file. `set_canonical_dir` and
-`reset_canonical_dir` manage the directory override.
+the id list; `delete_unit` removes a file. `load_archived` reads the archive
+store the same way, so archaeology and the archive command can reach retired
+units while `load_all` never sees them — search, coverage, drift, quality,
+and render all operate on the live set alone. `set_canonical_dir` /
+`reset_canonical_dir` and `set_archive_dir` / `reset_archive_dir` manage the
+two directory overrides.
 
 ## Gotchas
 

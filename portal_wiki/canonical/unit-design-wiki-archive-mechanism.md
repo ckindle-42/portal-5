@@ -1,7 +1,8 @@
 ---
 id: unit-design-wiki-archive-mechanism
 kind: mixed
-title: "DESIGN — wiki archive mechanism (retained on disk, out of the working set)"
+title: "DESIGN \u2014 wiki archive mechanism (retained on disk, out of the working\
+  \ set)"
 sources:
 - type: code
   path: portal/platform/wiki/archive.py
@@ -11,12 +12,14 @@ sources:
   path: portal_wiki/__main__.py
 - type: code
   path: tests/unit/test_wiki_archive.py
-last_generated_commit: ''
+last_generated_commit: 831274f592bf390ce1e599b7569a310e9250369a
+claims: []
 confidence: high
 tags:
 - wiki
 - archive
 - design
+- verified-v1
 created_at: 1785700000.0
 updated_at: 1785700000.0
 ---
