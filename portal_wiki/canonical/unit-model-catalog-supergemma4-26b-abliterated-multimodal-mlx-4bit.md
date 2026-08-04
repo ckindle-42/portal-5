@@ -1,18 +1,22 @@
 ---
 id: unit-model-catalog-supergemma4-26b-abliterated-multimodal-mlx-4bit
 kind: what
-title: "MODEL_CATALOG — `supergemma4-26b-abliterated-multimodal-mlx-4bit`"
+title: "MODEL_CATALOG \u2014 `supergemma4-26b-abliterated-multimodal-mlx-4bit`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 29bdbca4
-  section: '`supergemma4-26b-abliterated-multimodal-mlx-4bit`'
-last_generated_commit: 29bdbca4
+- type: code
+  path: config/backends.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1785716664.2314298
 updated_at: 1785716664.2314298
 ---
 
-VLM-shaped MLX conversion (Jiunsong, 4-bit) of the supergemma4-26b abliterated fine-tune, served by oMLX's VLM engine. P5-MLX-EVAL-005 recorded that every MLX conversion of this fine-tune crashes text-only `mlx_lm`; oMLX's VLMEngine serves it — Phase-0 Gate-6: coherent generation + structured `tool_calls` PASS. Migration candidate for auto-security redteam/purpleteam variants.
+`supergemma4-26b-abliterated-multimodal-mlx-4bit` is a VLM-shaped 4-bit MLX conversion of the abliterated supergemma4-26b fine-tune, registered in `config/backends.yaml` under `group: omlx` (`omlx-local`) with `supports_tools: true`. The group's live-probe notes attribute the tool_call PASS to the VLM engine because the fine-tune crashes text-only `mlx_lm`; oMLX's VLM engine is the only serving path. Phase-0 Gate-6 confirmed coherent generation plus structured `tool_calls`. It is an evaluation candidate for the auto-security redteam and purpleteam variants, which remain on the GGUF `supergemma4-26b-uncensored:Q4_K_M` family for production.
+
+## Why
+
+This model's `supports_tools: true` is meaningful only together with the serving-path constraint: native tool calling works exclusively through the VLM engine because text-only `mlx_lm` crashes on the fine-tune. Grounding the flag to the `omlx-local` entry and the engine requirement prevents the model from being mis-assumed safe to serve elsewhere, and marks its role as evaluation candidate rather than production.

@@ -3,16 +3,22 @@ id: unit-model-catalog-gemma4-31b-it-qat
 kind: what
 title: "MODEL_CATALOG \u2014 `gemma4:31b-it-qat`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`gemma4:31b-it-qat`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.6394749
 updated_at: 1784946220.6394749
 ---
 
-Gemma 4 31B Dense QAT (~18GB, Apache 2.0, 256K ctx, vision+text, QAT: near-BF16 quality). Quality 1.00 in bench 2026-06-21 (vs q4_K_M quality 0.00 — q4_K_M removed from ollama-general). In ollama-vision group; bench-gemma4-31b-qat workspace for explicit access. supports_tools=false until --audit-tools verification. (TASK_MODEL_REFRESH_V8 A5)
+`gemma4:31b-it-qat` is registered in `config/backends.yaml` under the `vision` group with `supports_tools: true` and under the `general` group with `supports_tools: false` (bench-only intake). `config/portal.yaml` binds it as the `bench-gemma4-31b-qat` workspace `model_hint`, describing a 31B Dense QAT (~18GB, 256K ctx, vision+text, QAT near-BF16). A 2026-06-21 bench scored quality 1.00 versus the q4_K_M variant's 0.00, and the q4_K_M entry was removed from the `general` group.
+
+## Why
+
+The `vision` group registration in `config/backends.yaml` asserts `supports_tools: true` (the general group keeps it false for bench-only intake), and `config/portal.yaml` supplies the `bench-gemma4-31b-qat` binding. The quality comparison and the q4_K_M removal are institutional notes explaining why the QAT variant is the registered one.

@@ -3,16 +3,22 @@ id: unit-model-catalog-sylink-sylink-8b-ctx8k
 kind: what
 title: "MODEL_CATALOG \u2014 `sylink/sylink:8b-ctx8k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`sylink/sylink:8b-ctx8k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.658734
 updated_at: 1784946220.658734
 ---
 
-Context-capped derived tag of `sylink/sylink:8b` (`PARAMETER num_ctx 8192` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`sylink/sylink:8b-ctx8k` is the context-capped derivation of `sylink/sylink:8b` with `PARAMETER num_ctx 8192` baked into the tag. `config/backends.yaml` registers it under `group: security` (`ollama-security`) with `supports_tools: false`, inheriting the base model's no-native-tool-calling posture. Unlike the base tag, which `config/portal.yaml` references as the `model_hint` of the `bench-sylink-8b` and `bench-sylink` eval workspaces, the `-ctx8k` tag currently has no live `model_hint`; the auto-security `blueteam` variant points at `granite4.1:8b-ctx8k` instead. The tag is retained to satisfy backends.yaml and `config/MODEL_CATALOG.md` parity, enforced by `tests/unit/test_model_catalog_parity.py`, for a future workspace that wants the 8K-capped SYLink.
+
+## Why
+
+The `-ctx8k` tag is the rare case of a declared backend model with no production consumer: every workspace that would use SYLink at 8K context either retired the model from the lane or moved to `granite4.1:8b-ctx8k`. Grounding to the security-group entry and to the absence of a portal.yaml `model_hint` documents both that the tag is real and that nothing routes to it, so a future promotion is a deliberate decision rather than an assumption.

@@ -3,16 +3,22 @@ id: unit-model-catalog-lfm2-5-8b
 kind: what
 title: "MODEL_CATALOG \u2014 `lfm2.5:8b`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`lfm2.5:8b`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.6207669
 updated_at: 1784946220.6207669
 ---
 
-Liquid AI LFM2.5-8B-A1B (~5GB Q4, Apache 2.0). Hybrid architecture: gated short convolutions + GQA (NOT a pure transformer — adds architecture diversity to security group). Fleet bench 2026-06-20: 1.00/1.00 both scenarios, depth 10, 78.5 TPS, quality general:1.0. Purpose-built for agentic/tool-use per model card. Fast general security assistant. Also in ollama-general. Cross-listed here for security group access.
+`lfm2.5:8b` is Liquid AI's LFM2.5-8B-A1B (~5GB Q4, Apache 2.0), the only non-transformer model in the fleet — a hybrid of gated short convolutions and GQA rather than a pure attention stack. `config/backends.yaml` registers it in `group: general` and `group: security`, both with `supports_tools: true`, which is the cross-listing that gives the security lane a tool-capable generalist. `config/portal.yaml` pins it as the `bench-lfm25-8b` `model_hint` and cites the family in the auto-music description. The 2026-06-20 fleet bench scored it 1.00/1.00 on both scenarios at depth 10 with 78.5 TPS and general quality 1.0.
+
+## Why
+
+This unit moves the LFM2.5 registration claim from doc prose to the two backends.yaml groups that actually list the id and to the bench workspace that consumes it. The supports_tools flag is verified true on both groups, and the auto-music description ties the same family to the music lane, which is the cross-listing fact worth preserving.

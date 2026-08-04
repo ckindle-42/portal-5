@@ -3,16 +3,22 @@ id: unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-ctx64k
 kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.648853
 updated_at: 1784946220.648853
 ---
 
-Context-capped derived tag of `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` (`PARAMETER num_ctx 65536` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k` is the 64K-context derived tag of Ornith-1.0-35B. `config/backends.yaml` registers the `-ctx64k` tag in the `coding` group with `supports_tools: true`; the base `Q4_K_M` id appears in both `general` (false) and `coding` (true), so the capped tag keeps the coding-group tool capability while extending the window. `config/portal.yaml` selects this exact tag as the `model_hint` for the `ornith` variant of `auto-coding`, whose description records the 2026-06-30 promotion from `bench-ornith-35b` on strong tool-chain and SWE-handoff probe markers. `PARAMETER num_ctx 65536` is baked in via `portal models apply-params` because Ollama ignores request-time `options.num_ctx`. The base id remains `bench-ornith-35b`'s `model_hint`.
+
+## Why
+
+The old body was the shared derived-tag template. Re-grounding distinguishes it with the tag's actual config footprint: `config/backends.yaml` places the `-ctx64k` id in `coding` (with its base split across `general`/`coding`), and `config/portal.yaml` shows the `ornith` variant of `auto-coding` consuming it as `model_hint`. The promotion and probe-marker facts are retained because the variant description records them; the template prose is replaced by config-derived specifics.

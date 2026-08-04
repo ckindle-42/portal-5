@@ -1,18 +1,24 @@
 ---
 id: unit-model-catalog-laguna-xs-2-4bit
 kind: what
-title: "MODEL_CATALOG — `Laguna-XS.2-4bit`"
+title: "MODEL_CATALOG \u2014 `Laguna-XS.2-4bit`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: bcd2259a
-  section: '`Laguna-XS.2-4bit`'
-last_generated_commit: bcd2259a
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1785900000.0
 updated_at: 1785900000.0
 ---
 
-MLX conversion (mlx-community, 4-bit) of poolside/Laguna-XS.2, served by the oMLX evaluation backend. Ships `modeling_laguna.py`/`configuration_laguna.py` custom-code — the architecture mlx_lm never upstreamed (the retired MLX proxy needed a hand-written plugin for this reason, `scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py`); oMLX serves it natively via HF `trust_remote_code`. Registered in both the no-traffic `omlx-local` holding group and the live `group: coding` `omlx-coding` entry (PUNCHLIST B2, priority 10), aliased from the production hint `laguna-xs.2:Q4_K_M-ctx64k`. No Phase-0 bench numbers yet — not covered by the 2026-08-02 gate run; added post-hoc for the B2 shadow-then-shift.
+`Laguna-XS.2-4bit` is the 4-bit MLX conversion of poolside/Laguna-XS.2 served by the oMLX evaluation backend. `config/backends.yaml` registers it twice: in the no-traffic `omlx-local` holding entry (group `omlx`) and in the live `omlx-coding` entry (group `coding`, `priority: 10`), both with `supports_tools: true`. The `omlx-coding` `aliases` block maps the production GGUF hint `laguna-xs.2:Q4_K_M-ctx64k` onto this oMLX name, so `config/portal.yaml`'s auto-coding laguna variant keeps serving that hint without a workspace change. The conversion ships `modeling_laguna.py`/`configuration_laguna.py` custom code that mlx_lm never upstreamed; oMLX loads it natively. No Phase-0 bench numbers cover it yet — added post-hoc for the B2 shadow-then-shift.
+
+## Why
+
+This unit grounds the oMLX Laguna entry to the two backends.yaml registrations that actually serve it and to the aliases block that ties it to the GGUF hint used by portal.yaml's auto-coding laguna variant. The retired MLX proxy plugin is dropped as a source because oMLX now loads the custom code natively; the alias relationship is the load-bearing fact for production routing.

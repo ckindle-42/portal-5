@@ -3,16 +3,22 @@ id: unit-model-catalog-huihui-ai-baronllm-abliterated
 kind: what
 title: "MODEL_CATALOG \u2014 `huihui_ai/baronllm-abliterated`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`huihui_ai/baronllm-abliterated`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.641821
 updated_at: 1784946220.641821
 ---
 
-No-restrictions creative. Tool-calling confirmed 2026-06-20 via corrected template (TASK_TOOLCALL_FIX_LOCKIN_V1) — see the security-group entry and the P5-TOOL-001 resolution in KNOWN_LIMITATIONS.md.
+`huihui_ai/baronllm-abliterated` is the no-restrictions creative BaronLLM fork, a Llama-3.1-8B-lineage abliteration trained on 53K cybersec examples across 200+ domains. `config/backends.yaml` registers it under both the `security` and `creative` groups with `supports_tools: true`. `config/portal.yaml` uses it as the lineage behind the `auto-security` uncensored variant (which routes the `:latest-ctx8k` tag) and documents in the `bench-baronllm-q6k` and `bench-qwable-35b` descriptions that it was dropped from auto-security in 2026-07-16 for tool-call unreliability at valid_rate 0.25 — a finding scoped to MCP tool-calling, not the no-tools reasoning path. Tool-calling was originally confirmed via the corrected template.
+
+## Why
+
+The `security` and `creative` dual registration with `supports_tools: true` is asserted directly by `config/backends.yaml`, and `config/portal.yaml` supplies the drop-from-auto-security correction plus the uncensored-variant lineage. The institutional knowledge about the reliability-gate finding is preserved because the portal descriptions are exactly where that reversal is recorded, and it reconciles the true flag with the withdrawal.

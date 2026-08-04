@@ -3,16 +3,22 @@ id: unit-model-catalog-gemma4-26b-a4b-it-qat-ctx8k
 kind: what
 title: "MODEL_CATALOG \u2014 `gemma4:26b-a4b-it-qat-ctx8k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`gemma4:26b-a4b-it-qat-ctx8k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.644711
 updated_at: 1784946220.644711
 ---
 
-Context-capped derived tag of `gemma4:26b-a4b-it-qat` (`PARAMETER num_ctx 8192` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`gemma4:26b-a4b-it-qat-ctx8k` is the context-bounded version of `gemma4:26b-a4b-it-qat`, holding an 8192-token window. `config/backends.yaml` registers it under the `vision` group with `supports_tools: true`. `config/portal.yaml` selects it as the `auto-daily` workspace `model_hint`, so the daily-driver lane reaches the QAT model through this capped tag. The limit is applied via `portal models apply-params` because the chat-completions API does not honor request-time context parameters, making a derived id necessary.
+
+## Why
+
+The `vision` group entry in `config/backends.yaml` carries the `supports_tools: true` value, and the `auto-daily` `model_hint` in `config/portal.yaml` is why the workspace resolves to this tag. The two files jointly establish the registration and the consuming workspace, which is the grounding this unit needs.

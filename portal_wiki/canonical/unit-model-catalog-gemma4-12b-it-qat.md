@@ -3,16 +3,22 @@ id: unit-model-catalog-gemma4-12b-it-qat
 kind: what
 title: "MODEL_CATALOG \u2014 `gemma4:12b-it-qat`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`gemma4:12b-it-qat`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.6387851
 updated_at: 1784946220.6387851
 ---
 
-Gemma 4 12B Unified QAT (~7GB, Apache 2.0, 256K ctx, encoder-free audio+image+text, QAT near-BF16, configurable thinking, native function calling). First encoder-free audio model in fleet. Released June 3, 2026. PROMOTED to auto-audio production model_hint. supports_tools=true per Gemma4 family; audit pending empirical confirmation (not yet run -- behavior consistent with tool use in production).
+`gemma4:12b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-12b` workspace `model_hint` and names it in the `auto-audio` description as the first encoder-free audio model in the fleet (12B Unified QAT, ~7GB, 256K ctx, native function calling); the `auto-audio` workspace itself serves the derived `gemma4:12b-it-qat-ctx8k` tag. Released June 3, 2026; promoted to the `auto-audio` lane via its derived tag.
+
+## Why
+
+The vision-group registration asserts `supports_tools: true` while the general group keeps it false, and `config/portal.yaml` shows the base id is the `bench-gemma4-12b` `model_hint` while `auto-audio` uses the ctx8k derived tag. The encoder-free audio promotion is grounded in the `auto-audio` description, so the unit cites both config files rather than the prose catalog.

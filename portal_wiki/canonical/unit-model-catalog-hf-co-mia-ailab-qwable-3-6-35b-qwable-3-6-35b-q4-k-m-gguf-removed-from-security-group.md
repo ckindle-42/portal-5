@@ -4,17 +4,22 @@ kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf`\
   \ \u2014 REMOVED from security group"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: "`hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` \u2014 REMOVED\
-    \ from security group"
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.620333
 updated_at: 1784946220.620333
 ---
 
-Qwable-3.6-35B MoE (~21GB, MIT). SUPERSEDED in bench chain and auto-pentest by gemma-4-abliterated:E2b-qat (2026-06-25). REMOVED from `ollama-security` group 2026-06-30 per SECURITY_FLEET_REVIEW_2026-06.md (security chain coverage 0.64, below 2/2 WIN threshold) — config had drifted from the documented decision; corrected here. Confirmed substituted by `qwen3-coder:30b-a3b-q4_K_M` in the 2026-06-29 chain rerun. Still present in `ollama-coding` group (separate decision, untouched). Confirmed tool-use 2026-06-18.
+This unit records the removal of Qwable-3.6-35B MoE from the security group and its substitution by `qwen3-coder:30b-a3b-q4_K_M`, the model_id this entry is anchored to. `config/backends.yaml` confirms the substitution target in the `coding` group with `supports_tools: true` and in the `general` group with `supports_tools: false`; Qwable itself (`hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf`) is present only in `coding` (true) and absent from `security` — mechanically proving the removal. `config/portal.yaml`'s `bench-qwable-35b` records the retirement (0.64 security-chain coverage below the 2/2 WIN threshold) and the fleet `ollama rm`. `qwen3-coder:30b-a3b-q4_K_M` is additionally the `model_hint` for `auto-coding`, `auto-security`, `auto-bigfix`, and `auto-cad`.
+
+## Why
+
+The doc claimed the config had drifted from the documented removal decision; re-grounding verifies the current state directly — `config/backends.yaml` places Qwable in `coding` only, never `security`, and lists the substitute `qwen3-coder:30b-a3b-q4_K_M` with its own flags. `config/portal.yaml` corroborates the retirement through `bench-qwable-35b`. The substitute-anchored model_id comes from the mapping; the body now states exactly what the two config files declare about both models.

@@ -3,16 +3,22 @@ id: unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx16k
 kind: what
 title: "MODEL_CATALOG \u2014 `qwen3-coder:30b-a3b-q4_K_M-ctx16k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`qwen3-coder:30b-a3b-q4_K_M-ctx16k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.657137
 updated_at: 1784946220.657137
 ---
 
-Context-capped derived tag of `qwen3-coder:30b-a3b-q4_K_M` (`PARAMETER num_ctx 16384` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`qwen3-coder:30b-a3b-q4_K_M-ctx16k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 16384` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`; the `omlx-coding` `aliases` block maps it to the oMLX `Qwen3-Coder-30B-A3B-Instruct-4bit` model. `config/portal.yaml` pins it as the `auto-coding` workspace `model_hint` with `context_limit: 16384`, and the auto-bigfix workspace uses the same tag. Base model detail lives in the parent unit.
+
+## Why
+
+The ctx16k variant is the tag the auto-coding and auto-bigfix lanes actually serve, so the grounding is the coding-group registration plus those two `model_hint` pins with their matching `context_limit`. The omlx alias is recorded because it lets the same GGUF hint reach the oMLX backend. The bake-in mechanism is stated because the endpoint cannot take the context bound per request.

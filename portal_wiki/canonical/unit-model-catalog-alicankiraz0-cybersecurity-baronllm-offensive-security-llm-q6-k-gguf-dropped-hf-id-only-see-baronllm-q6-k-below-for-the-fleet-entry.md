@@ -4,22 +4,22 @@ kind: what
 title: "MODEL_CATALOG \u2014 `AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF`\
   \ \u2014 DROPPED (hf_id only \u2014 see `baronllm:q6_k` below for the fleet entry)"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: "`AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF`\
-    \ \u2014 DROPPED (hf_id only \u2014 see `baronllm:q6_k` below for the fleet entry)"
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.627518
 updated_at: 1784946220.627518
 ---
 
-Red EXPLOIT-slot candidate. Historically blocked — `ollama pull hf.co/...` fails on this gated repo
-regardless of `HF_TOKEN` ("realm host huggingface.co does not match original host hf.co", still true
-as of 2026-07-21). Un-blocked for the GATE-D Expert-candidate pool by downloading via
-`huggingface_hub.hf_hub_download` (correctly handles gated-repo auth) and `ollama create` with a
-local Modelfile — see `baronllm:q6_k` below for the fleet entry. `portal models pull` still can't do
-this automatically; the workaround is a one-off manual step, not scripted.
+The Hugging Face repo `AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF` exists in `config/portal.yaml`'s model pull registry as a gated entry whose `ollama_name` is `baronllm:q6_k`; the fleet entry itself is registered in `config/backends.yaml` under the `security` backend group with `supports_tools: false`. The DROPPED note records that `ollama pull hf.co/...` fails on this gated repo regardless of `HF_TOKEN` because of a realm-host mismatch, still true as of 2026-07-21. The workaround is a one-off manual step: download via `huggingface_hub.hf_hub_download` (which handles gated-repo auth) and `ollama create` with a local Modelfile. `portal models pull` cannot automate this path, so the registry entry documents it inline rather than scripting it.
+
+## Why
+
+This unit is grounded in both config files because the gated source id and the served model id live in different places: `config/portal.yaml` maps the Hugging Face repo to `baronllm:q6_k` and flags it `gated`, while `config/backends.yaml` registers the fleet model in the `security` group with `supports_tools: false`. The DROPPED historical note is kept as institutional context, but every reachable claim now traces to the registry and backend entries that actually define the model.

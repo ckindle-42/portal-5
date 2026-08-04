@@ -3,16 +3,20 @@ id: unit-model-catalog-gemma4-e2b-it-qat-ctx8k
 kind: what
 title: "MODEL_CATALOG \u2014 `gemma4:e2b-it-qat-ctx8k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`gemma4:e2b-it-qat-ctx8k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.645519
 updated_at: 1784946220.645519
 ---
 
-Context-capped derived tag of `gemma4:e2b-it-qat` (`PARAMETER num_ctx 8192` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`gemma4:e2b-it-qat-ctx8k` is the bounded-context sibling of `gemma4:e2b-it-qat`, carrying an 8192-token ceiling baked through `portal models apply-params`. `config/backends.yaml` places it in the `vision` group with `supports_tools: true`. The reason for a distinct tag is that the `/v1/chat/completions` API discards request-time context limits, so per-workspace bounds must be compiled into the model name itself. `config/portal.yaml` does not reference this id; only the backend registry holds it.
+
+## Why
+
+Grounding comes from the `vision` group registration in `config/backends.yaml` alone, because no workspace in `config/portal.yaml` lists this tag. The unit documents the parent's full profile elsewhere and restricts its own scope to the derived-id registration and the context-cap mechanism, which keeps every claim checkable against the cited file.

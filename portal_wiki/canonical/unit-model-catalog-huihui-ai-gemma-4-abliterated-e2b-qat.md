@@ -3,16 +3,22 @@ id: unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat
 kind: what
 title: "MODEL_CATALOG \u2014 `huihui_ai/gemma-4-abliterated:E2b-qat`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`huihui_ai/gemma-4-abliterated:E2b-qat`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.6199071
 updated_at: 1784946220.6199071
 ---
 
-Gemma4-E2B QAT abliterated (~3GB, huihui_ai, Gemma4 base). auto-pentest PRIMARY (promoted 2026-06-25) + bench-exec-exploit PRIMARY. Thinking model — strips <think> blocks in pipeline output. Head-to-head vs baronllm 2026-06-25 (stripped final answer): composite 0.70 vs 0.50, header 0.83 vs 0.50, MITRE 1.4 vs 0.5 avg, zero refusals/disclaimers. Exec chain: 80.0% EXPLOIT slot (108/135), 71.6 t/s, zero zero-tool chains. Replaces Qwable-35B in bench chain (21GB → 3GB, +7.6pp) and baronllm on auto-pentest (8B → 2B, +0.20 composite). audit-tools 2026-06-24: tool_call confirmed.
+`huihui_ai/gemma-4-abliterated:E2b-qat` is a ~3GB QAT abliterated Gemma4 model, registered in `config/backends.yaml` under the `security` group with `supports_tools: true` and under the `general` group with `supports_tools: false`. `config/portal.yaml` binds it as the `bench-e2b-pentest` and `bench-exec-reasoning` `model_hint`s, where it was the 2026-06-24 exec-chain winner at 80% EXPLOIT-slot fill and 71.6 t/s, replacing Qwable-35B. The `auto-security` pentest variant description records that its earlier auto-pentest promotion was superseded on 2026-07-16: re-tested under the corrected reliability methodology it failed the gate at valid_rate 0.50-0.67, so the pentest lane now routes a different model. The head-to-head win and the memory savings remain historical context.
+
+## Why
+
+The `security`-group `supports_tools: true` versus `general`-group `false` split is asserted directly by `config/backends.yaml`, and `config/portal.yaml` supplies both the bench bindings and the supersession note in the pentest variant description. The promotion-and-reversal history is preserved because the portal description records exactly why the model was promoted and then demoted, which the registry flags alone would not convey.

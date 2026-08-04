@@ -3,18 +3,22 @@ id: unit-model-catalog-meta-secalign-8b-q4-k-m-latest
 kind: what
 title: "MODEL_CATALOG \u2014 `meta-secalign-8b-q4_k_m:latest`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`meta-secalign-8b-q4_k_m:latest`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.62993
 updated_at: 1784946220.62993
 ---
 
-Same model as `meta-secalign-8b-q4_k_m` above — `bench-meta-secalign-8b`'s `model_hint` needed the
-explicit `:latest` Ollama defaults an untagged pull to (found 2026-07-18 fixing GATE-D ablation hint
-validation; the untagged form never actually resolved against `ollama list`'s tagged id).
+`meta-secalign-8b-q4_k_m:latest` is the explicit-`:latest`-tagged sibling of `meta-secalign-8b-q4_k_m`, added during the 2026-07-18 GATE-D ablation hint-validation fix when the untagged hint never resolved against `ollama list`'s tagged id. `config/backends.yaml` registers it in `group: general` with `supports_tools: false`; the security-group entry carries the untagged id instead. `config/portal.yaml` pins this exact `:latest` spelling as the `bench-meta-secalign-8b` workspace `model_hint`. Same weights as the base id; only the tag string differs, and the tag string is what hint validation and the bench workspace require.
+
+## Why
+
+This unit exists because the tag spelling is load-bearing: the untagged hint failed hint validation, so the `:latest` form is what `config/portal.yaml`'s bench workspace actually consumes. Grounding to the general-group registration (supports_tools false) and the bench `model_hint` shows why the suffixed id is registered at all — a routing fix, not a distinct model.

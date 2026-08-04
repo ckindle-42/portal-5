@@ -1,17 +1,24 @@
 ---
 id: unit-model-catalog-qwen3-6-27b-q4-k-m-ctx16k
 kind: what
-title: "MODEL_CATALOG — `qwen3.6:27b-q4_K_M-ctx16k`"
+title: "MODEL_CATALOG \u2014 `qwen3.6:27b-q4_K_M-ctx16k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  section: '`qwen3.6:27b-q4_K_M-ctx16k`'
-last_generated_commit: ''
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1785470000
 updated_at: 1785470000
 ---
 
-Context-capped derived tag of `qwen3.6:27b-q4_K_M` (`PARAMETER num_ctx 16384` baked in via `portal models apply-params`, P5-ROUTER-EVICTION-001 follow-up). `auto-council` was the only workspace with `context_limit` set but no baked `-ctx` tag; its base model's max context is 262144, so leaving it uncapped meant every real request reserved `262144 x OLLAMA_NUM_PARALLEL` tokens of KV-cache, large enough to evict the rest of the fleet. Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`qwen3.6:27b-q4_K_M-ctx16k` is the derived tag of `qwen3.6:27b-q4_K_M` with `PARAMETER num_ctx 16384` baked in via the `apply-params` command, created as a P5-ROUTER-EVICTION-001 follow-up. `config/backends.yaml` registers it in `group: general` with `supports_tools: false`. `config/portal.yaml` pins it as the `auto-council` workspace `model_hint` with `context_limit: 16384` and uses it as the council `synthesizer_model`. Because the base's native 262144-token context would reserve enormous KV cache and evict the fleet, the council lane needed a dedicated capped id rather than a request-time option the endpoint ignores.
+
+## Why
+
+Grounding anchors the tag to the general-group registration and to the auto-council wiring in portal.yaml — the `model_hint`, the matching `context_limit`, and the `synthesizer_model` role. The eviction rationale is kept because it is the institutional reason this derived id exists at all; the tag is not a parity artifact but the fix for a specific routing problem.

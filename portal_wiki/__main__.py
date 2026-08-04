@@ -226,6 +226,75 @@ def cmd_archive(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_re_ground(args: argparse.Namespace) -> int:
+    """Re-ground a unit: replace its sources with verified code/config paths,
+    re-pin to HEAD, tag verified-v1, and refuse to save unless the quality gate
+    passes. This is the mechanical half of TASK_WIKI_ZERO_DEBT_V1 Phase 3 — the
+    operator still reads the code; this command proves the result is pinned,
+    re-sourced, and gate-clean.
+    """
+    from portal.platform.wiki.quality import assess
+    from portal.platform.wiki.schema import SourceRef
+    from portal.platform.wiki.store import (
+        load_unit,
+        reset_canonical_dir,
+        save_unit,
+        set_canonical_dir,
+    )
+
+    repo_root = Path(__file__).resolve().parent.parent
+    set_canonical_dir(repo_root / "portal_wiki" / "canonical")
+    import subprocess as _sp
+
+    unit = load_unit(args.unit_id)
+    if unit is None:
+        print(f"no live unit {args.unit_id}")
+        reset_canonical_dir()
+        return 2
+
+    if not args.source:
+        print(
+            "Usage: python3 -m portal_wiki re-ground <unit-id> --source <path> [--source <path>...]"
+        )
+        reset_canonical_dir()
+        return 2
+
+    new_sources = []
+    for raw in args.source:
+        path = raw.split("#", 1)[0].strip()
+        if path.startswith(("http://", "https://", "/")):
+            print(f"refused: {raw} is not a repo-relative path")
+            reset_canonical_dir()
+            return 1
+        if not (repo_root / path).exists():
+            print(f"refused: source {path} does not exist")
+            reset_canonical_dir()
+            return 1
+        new_sources.append(SourceRef(type="code", path=raw))
+
+    head_sha = _sp.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo_root, capture_output=True, text=True
+    ).stdout.strip()
+    unit.sources = new_sources
+    unit.last_generated_commit = head_sha
+    tags = [t for t in (unit.tags or []) if t not in ("authored-v1", "verified-v1")]
+    tags.append("verified-v1")
+    unit.tags = sorted(set(tags))
+
+    issues = list(assess([unit], repo_root).issues)
+    if issues:
+        print(f"refused: {len(issues)} quality issue(s) — fix the body, not the pin")
+        for i in issues[:10]:
+            print(f"  ! {i}")
+        reset_canonical_dir()
+        return 1
+
+    save_unit(unit)
+    print(f"re-grounded {args.unit_id} -> {head_sha[:8]} ({len(new_sources)} code source(s))")
+    reset_canonical_dir()
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Portal Wiki CLI")
     sub = parser.add_subparsers(dest="command")
@@ -267,6 +336,15 @@ def main() -> int:
         help="Verify no live unit or doc block references an archived unit",
     )
 
+    # re-ground
+    rg_p = sub.add_parser(
+        "re-ground", help="Re-source a unit to code/config, re-pin, tag verified-v1"
+    )
+    rg_p.add_argument("unit_id", help="Unit id to re-ground")
+    rg_p.add_argument(
+        "--source", action="append", default=[], help="Code/config source path (repeatable)"
+    )
+
     args = parser.parse_args()
 
     if args.command == "render":
@@ -277,6 +355,8 @@ def main() -> int:
         return cmd_drift(args)
     elif args.command == "archive":
         return cmd_archive(args)
+    elif args.command == "re-ground":
+        return cmd_re_ground(args)
     else:
         parser.print_help()
         return 1

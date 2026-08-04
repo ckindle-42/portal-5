@@ -3,16 +3,22 @@ id: unit-model-catalog-hf-co-fdtn-ai-foundation-sec-8b-reasoning-q8-0-gguf-q8-0
 kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.63576
 updated_at: 1784946220.63576
 ---
 
-Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Cisco fdtn-ai, Llama-3.1-8B cybersec continued-pretrain + reasoning, Apache 2.0). Native <think>. MOVED from security group to reasoning (SECURITY_FLEET_REVIEW_2026-06) — training is security reasoning/analysis, not agentic tool-calling; 400 error on all tool probes confirmed in Run A 2026-06-21. Correctly serves auto-blueteam analytical work (DFIR, threat modeling, ATT&CK analysis) through reasoning group pathway. supports_tools=false.
+`hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0` is Cisco's Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Llama-3.1-8B cybersec continued-pretrain + reasoning, Apache 2.0, native `<think>`). `config/backends.yaml` registers it in the `reasoning` group only, with `supports_tools: false` — matching the documented 400 error on all tool probes from the 2026-06-21 Run A; it is not present in the security group. `config/portal.yaml` uses it as the `model_hint` for `bench-foundation-sec-8b-reasoning` (the GATE-D ablation's locked V2-trio Expert model) and as the `expert_model` for the `blueteam-council` and `blueteam-orchestrated` variants of `auto-security`, where the no-tools reasoning model renders analytical verdicts.
+
+## Why
+
+The doc body claimed it was "MOVED from security group to reasoning"; re-grounding confirms the move mechanically — `config/backends.yaml` has it only under `reasoning`, never under `security`. The `supports_tools: false` flag and the 400-error probe note are consistent with the config and its comments. `config/portal.yaml`'s use as blueteam `expert_model` and bench `model_hint` proves the analytical-serving role the doc asserted, grounding every claim in the two config files.

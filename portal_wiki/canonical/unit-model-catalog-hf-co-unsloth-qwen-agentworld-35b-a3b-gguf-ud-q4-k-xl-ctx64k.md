@@ -3,16 +3,22 @@ id: unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl-ctx
 kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.651444
 updated_at: 1784946220.651444
 ---
 
-Context-capped derived tag of `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL` (`PARAMETER num_ctx 65536` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag of the AgentWorld world model, and it is the id `config/portal.yaml` actually serves: the `auto-agentic` lite variant carries it as its `model_hint` with a 65536 context limit for tool-calling, MCP, SWE, and env-simulation work where the full 80B model is unnecessary. `config/backends.yaml` registers it under both `general` and `coding` with `supports_tools: true`, matching the base tag. The `PARAMETER num_ctx 65536` is baked in because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base tag's entry.
+
+## Why
+
+The distinguishing fact is routing: `config/portal.yaml` resolves the `auto-agentic` lite variant to this exact `-ctx64k` tag, not the base id, and `config/backends.yaml` confirms the dual-group `supports_tools: true`. The num_ctx mechanism is preserved because the long context window is the reason this derived tag was created, and it can only be encoded in the model id.

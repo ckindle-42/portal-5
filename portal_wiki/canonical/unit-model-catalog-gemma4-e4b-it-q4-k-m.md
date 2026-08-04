@@ -3,16 +3,22 @@ id: unit-model-catalog-gemma4-e4b-it-q4-k-m
 kind: what
 title: "MODEL_CATALOG \u2014 `gemma4:e4b-it-q4_K_M`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`gemma4:e4b-it-q4_K_M`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.63768
 updated_at: 1784946220.63768
 ---
 
-Gemma 4 E4B standard Q4 (~5GB). CORRECTED NOTES: supports audio+image+video input and thinking mode (<|think|> token). Per-Layer Embeddings (PLE) give representational depth well above 4B weight count. supports_tools=true: audit-tools 2026-06-18 confirmed tool_call. queue for --audit-tools re-verification (Gemma4 family supports function calling). Retained as production vision fallback; bench-gemma4-e4b-qat benchmarks the QAT upgrade (TASK_MODEL_REFRESH_V8 A18).
+`gemma4:e4b-it-q4_K_M` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e4b` workspace `model_hint`, describing it as a Google MoE with 4B active (~9.6GB, 128K ctx, vision+thinking+tools) and a daily-driver candidate. The catalog's corrected notes record audio+image+video input and thinking mode, with per-layer embeddings giving representational depth beyond the 4B weight count; an audit-tools run on 2026-06-18 confirmed tool_call. It is retained as the production vision fallback while the QAT variant is benchmarked.
+
+## Why
+
+Both the `general` and `vision` group registrations in `config/backends.yaml` assert `supports_tools: true`, matching the audit-tools confirmation, and `config/portal.yaml` supplies the `bench-gemma4-e4b` binding with the ~9.6GB size and daily-driver framing. The corrected input-mode and PLE notes are kept as institutional knowledge that explains the model's role as vision fallback.

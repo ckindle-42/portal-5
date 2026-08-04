@@ -3,16 +3,22 @@ id: unit-model-catalog-phi4-mini
 kind: what
 title: "MODEL_CATALOG \u2014 `phi4-mini`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`phi4-mini`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.602825
 updated_at: 1784946220.602825
 ---
 
-Microsoft Phi-4-Mini (Feb 2025, MIT, 3.8B, ~2.5GB Q4, 128K ctx). Synthetic-data training: multilingual, function calling, reasoning, math. Outperforms Llama 3.2 3B and Qwen 2.5 3B on reasoning/math. Ultra-lightweight daily fallback candidate. bench-phi4-mini target (TASK_MODEL_REFRESH_V8 A6). supports_tools=true per official model card. DO NOT PULL :math variant — bench 2026-06-21 shows quality 0.67 vs base 1.00 at same TPS.
+`phi4-mini` is Microsoft Phi-4-Mini (Feb 2025, MIT, 3.8B, ~2.5GB Q4, 128K ctx), trained on synthetic data for multilingual, function-calling, reasoning, and math tasks, outperforming Llama 3.2 3B and Qwen 2.5 3B on reasoning and math. `config/backends.yaml` registers it in `group: general` with `supports_tools: true`. `config/portal.yaml` does not pin the base id directly; the auto-math workspace serves the reasoning sibling `phi4-mini-reasoning:latest-ctx24k` as its `model_hint`. The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.67 quality versus the base's 1.00 at equal TPS.
+
+## Why
+
+Grounding anchors the model to the general-group registration whose supports_tools true flag the config carries, and honestly records that no portal.yaml workspace uses the base id — auto-math consumes the reasoning sibling instead. The ultra-lightweight daily-fallback intent is kept from the catalog because the registration exists precisely to make that fallback available.

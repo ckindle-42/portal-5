@@ -3,16 +3,22 @@ id: unit-model-catalog-granite4-1-30b-ctx64k
 kind: what
 title: "MODEL_CATALOG \u2014 `granite4.1:30b-ctx64k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`granite4.1:30b-ctx64k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.6461928
 updated_at: 1784946220.6461928
 ---
 
-Context-capped derived tag of `granite4.1:30b` (`PARAMETER num_ctx 65536` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`granite4.1:30b-ctx64k` is the long-context variant of `granite4.1:30b` with a 65536-token window. `config/backends.yaml` lists it under the `reasoning` group with `supports_tools: true`; unlike the ctx16k sibling it does not appear in the `general` group. `config/portal.yaml` binds it as the `auto-data` workspace `model_hint`, the data-analysis lane that needs the larger context. The window is compiled into the tag with `portal models apply-params` because request-time context options are discarded by the API.
+
+## Why
+
+The `reasoning` group registration in `config/backends.yaml` and the `auto-data` `model_hint` in `config/portal.yaml` are the two config facts that give this 64K variant its identity. The unit cites both files because the long window exists specifically for that workspace, and the absence from `general` is itself a registry fact worth recording.
