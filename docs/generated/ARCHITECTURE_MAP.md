@@ -675,7 +675,7 @@
 | `unit-tests-memory-guard` | mixed | 1 |
 | `unit-tests-scripts-regen-section-table` | mixed | 1 |
 | `unit-tests-unit-test-security-corpus-contract` | what | 1 |
-| `unit-tests-unit-test-wiki-search-ranking` | what | 2 |
+| `unit-tests-unit-test-wiki-search-ranking` | what | 1 |
 | `unit-uat-config` | mixed | 1 |
 | `unit-uat-health` | mixed | 1 |
 | `unit-uat-init` | mixed | 1 |
@@ -705,5 +705,5 @@
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1654 references
+- **code**: 1653 references
 - **mitre**: 32 references
