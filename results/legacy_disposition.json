@@ -14,7 +14,8 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED",
+    "archive_after": "SEC_BENCH-agentic-blue-winning-20260706"
   },
   {
     "unit_id": "SEC_BENCH-agentic-blue-deltas-20260707",
@@ -31,7 +32,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "SEC_BENCH-agentic-blue-deltas-20260708",
@@ -48,7 +49,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "SEC_BENCH-agentic-blue-winning-20260706",
@@ -65,7 +66,8 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED",
+    "archive_after": "SEC_BENCH-agentic-blue-winning-20260706"
   },
   {
     "unit_id": "SEC_BENCH-combined-corpus-validation-20260731",
@@ -87,7 +89,7 @@
     "dated": true,
     "aggregate": false,
     "superseded": false,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
@@ -103,7 +105,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-ADMIN_GUIDE-add-a-cluster-node",
@@ -253,7 +255,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-ADMIN_GUIDE-first-login",
@@ -373,7 +375,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-ADMIN_GUIDE-pull-additional-models",
@@ -523,7 +525,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-ADMIN_GUIDE-vram-eviction-and-cold-load-conditions-bench-3-rou",
@@ -538,7 +540,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-ALERTS-optional-json-object-for-additional-headers-e-g-au",
@@ -553,7 +555,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-1-open-webui-data",
@@ -568,7 +570,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-3-mcp-data-if-applicable",
@@ -583,7 +585,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-add-to-crontab-crontab-e",
@@ -598,7 +600,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-backup-config-directory",
@@ -613,7 +615,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-backup-portal-5-data",
@@ -628,7 +630,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-backup-retention",
@@ -643,7 +645,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-cleanup-old-backups-run-daily",
@@ -658,7 +660,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-complete-system-recovery",
@@ -673,7 +675,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-config-excluding-env-for-security-back-that-up-man",
@@ -688,7 +690,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-manual-backup",
@@ -703,7 +705,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-mcp-data-if-exists",
@@ -718,7 +720,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-migration-to-new-host",
@@ -733,7 +735,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-open-webui-data",
@@ -748,7 +750,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-or-just-config-excluding-env-for-security",
@@ -763,7 +765,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-or-manually",
@@ -778,7 +780,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-portal-6-0-0-backup-restore-guide",
@@ -793,7 +795,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-restore-from-backup",
@@ -808,7 +810,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-security-notes",
@@ -823,7 +825,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-what-not-to-back-up",
@@ -838,7 +840,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-what-to-back-up",
@@ -853,7 +855,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-BACKUP_RESTORE-with-compression-faster-for-large-volumes",
@@ -868,7 +870,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-CLUSTER_SCALE-portal-5-cluster-scale-out-guide",
@@ -883,7 +885,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-CLUSTER_SCALE-stage-1-stage-2-add-a-second-mac-studio",
@@ -898,7 +900,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-CLUSTER_SCALE-stage-3-vllm-for-70b-models",
@@ -913,7 +915,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-CLUSTER_SCALE-stage-4-5-specialized-model-groups",
@@ -928,7 +930,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMFYUI_SETUP-choose-a-different-image-model",
@@ -943,7 +945,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMFYUI_SETUP-flux-images-are-pure-static-tv-noise",
@@ -958,7 +960,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMFYUI_SETUP-quick-install-apple-silicon",
@@ -973,7 +975,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMFYUI_SETUP-restart",
@@ -988,7 +990,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMPLIANCE_FALLBACK_POLICY-canonical-baseline",
@@ -1003,7 +1005,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMPLIANCE_FALLBACK_POLICY-compliance-fallback-policy",
@@ -1018,7 +1020,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMPLIANCE_FALLBACK_POLICY-full-sweep",
@@ -1033,7 +1035,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMPLIANCE_FALLBACK_POLICY-granite-4-1-initial-expectation",
@@ -1048,7 +1050,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMPLIANCE_FALLBACK_POLICY-granite-required-sweep-fails-if-granite-has-been-r",
@@ -1063,7 +1065,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMPLIANCE_FALLBACK_POLICY-out-of-scope",
@@ -1078,7 +1080,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMPLIANCE_FALLBACK_POLICY-threshold-policy",
@@ -1093,7 +1095,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-COMPLIANCE_FALLBACK_POLICY-what-compliance-fallback-means",
@@ -1108,7 +1110,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-DESIGN_WIKI-discovery-termination",
@@ -1204,7 +1206,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-clone-fish-speech-repository",
@@ -1219,7 +1221,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-download-the-1-4-model-recommended",
@@ -1234,7 +1236,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-fish-speech-not-installed",
@@ -1249,7 +1251,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-fish-speech-presets",
@@ -1264,7 +1266,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-install-dependencies-requires-pytorch-with-mps-sup",
@@ -1279,7 +1281,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-kokoro-onnx-voices-zero-setup-fallback",
@@ -1294,7 +1296,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-model-download-failures",
@@ -1309,7 +1311,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-model-downloads",
@@ -1324,7 +1326,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-mps-gpu-not-available",
@@ -1339,7 +1341,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-portal-5-integration",
@@ -1354,7 +1356,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-portal-6-0-0-fish-speech-setup-guide",
@@ -1369,7 +1371,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-running-fish-speech",
@@ -1384,7 +1386,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-start-api-server-on-port-5005",
@@ -1399,7 +1401,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-test-tts-mcp-directly",
@@ -1414,7 +1416,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-FISH_SPEECH_SETUP-voice-cloning",
@@ -1429,7 +1431,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-1-quick-start",
@@ -1790,7 +1792,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-add-a-second-mac-studio",
@@ -1805,7 +1807,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-add-a-vllm-node-for-70b-models",
@@ -1820,7 +1822,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-add-to-crontab-crontab-e",
@@ -1835,7 +1837,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-adding-new-capabilities",
@@ -1852,7 +1854,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
@@ -1868,7 +1870,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-admin-user",
@@ -1883,7 +1885,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-alert-types",
@@ -1898,7 +1900,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-all-services-should-show-healthy-or-running",
@@ -1913,7 +1915,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-approve-pending-users",
@@ -1928,7 +1930,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-ask-a-research-question",
@@ -1943,7 +1945,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-assign-specialized-nodes",
@@ -1958,7 +1960,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-authentication",
@@ -1973,7 +1975,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-available-metrics",
@@ -1988,7 +1990,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-backup-configuration",
@@ -2003,7 +2005,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-backup-open-webui-data-critical",
@@ -2018,7 +2020,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-base-url",
@@ -2033,7 +2035,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-blue-team-auto-blueteam",
@@ -2048,7 +2050,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-channels",
@@ -2063,7 +2065,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-chat-blocking",
@@ -2078,7 +2080,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-chat-streaming",
@@ -2093,7 +2095,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-check-container-is-running",
@@ -2108,7 +2110,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-check-in-prometheus",
@@ -2123,7 +2125,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-check-which-model-ollama-has-loaded-router-should-",
@@ -2138,7 +2140,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-choose-a-voice",
@@ -2153,7 +2155,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-comfyui-mcp-bridge-health-from-inside-container",
@@ -2168,7 +2170,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-comfyui-runs-natively-on-host-at-http-localhost-81",
@@ -2183,7 +2185,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-compatible-tools",
@@ -2198,7 +2200,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-configure-channels",
@@ -2213,7 +2215,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-content-aware-routing-llm-based-intent-classificat",
@@ -2228,7 +2230,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-create-a-persistent-knowledge-base",
@@ -2243,7 +2245,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-cross-session-memory",
@@ -2258,7 +2260,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-data",
@@ -2273,7 +2275,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-defensive-security-auto-security",
@@ -2288,7 +2290,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-diarization-loaded-voxtral-loaded-become-true-afte",
@@ -2303,7 +2305,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-diarized-transcription-speaker-labeled-transcripts",
@@ -2333,7 +2335,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-discovery-with-fact-units",
@@ -2347,7 +2349,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": false,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
@@ -2363,7 +2365,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-enable",
@@ -2378,7 +2380,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-end-to-end-test",
@@ -2393,7 +2395,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-endpoints",
@@ -2408,7 +2410,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-execute-code-in-sandbox",
@@ -2423,7 +2425,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-first-run-downloads-1-5-gb-whisper-large-v3-turbo-",
@@ -2438,7 +2440,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-force-a-search",
@@ -2453,7 +2455,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-generate-a-powerpoint",
@@ -2468,7 +2470,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-generate-a-word-document",
@@ -2483,7 +2485,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-generate-an-excel-spreadsheet",
@@ -2498,7 +2500,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-generate-an-image",
@@ -2513,7 +2515,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-generate-code",
@@ -2528,7 +2530,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-generate-music",
@@ -2543,7 +2545,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-grafana-dashboard",
@@ -2558,7 +2560,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-lancedb-search-modes-indexing-rollback-rag-mcp-892",
@@ -2573,7 +2575,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-lifecycle",
@@ -2588,7 +2590,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-list-available-models",
@@ -2603,7 +2605,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-list-available-tools",
@@ -2618,7 +2620,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-list-versions-tags",
@@ -2633,7 +2635,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-media-memory-and-launch-order",
@@ -2664,7 +2666,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-mlx-speech-voices-apple-silicon-primary",
@@ -2679,7 +2681,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-models",
@@ -2694,7 +2696,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-music",
@@ -2709,7 +2711,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-offensive-security-simulation-auto-redteam-auto-re",
@@ -2724,7 +2726,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-on-new-host",
@@ -2739,7 +2741,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-only-needed-once-takes-20-min-on-a-1-gbps-connecti",
@@ -2754,7 +2756,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-open-webui-models-come-through-the-pipeline-at-909",
@@ -2769,7 +2771,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-or-check-inside-docker",
@@ -2784,7 +2786,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-penetration-testing-with-execution-auto-pentest",
@@ -2799,7 +2801,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-pipeline-is-exposing-metrics",
@@ -2814,7 +2816,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-portal-6-0-3-how-to-guide",
@@ -2829,7 +2831,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-prerequisites",
@@ -2844,7 +2846,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-prometheus-is-scraping-the-pipeline",
@@ -2859,7 +2861,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-purple-team-chains",
@@ -2874,7 +2876,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-quick-reference-cli-commands",
@@ -2904,7 +2906,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-read-a-file-dropped-by-the-user-in-owui-chat",
@@ -2919,7 +2921,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-restart-pipeline-to-pick-up-new-env-vars",
@@ -2934,7 +2936,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-restore-data",
@@ -2949,7 +2951,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-returns-status-ok-service-mlx-speech",
@@ -2964,7 +2966,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-returns-status-ok-service-music-mcp",
@@ -2979,7 +2981,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-roll-back",
@@ -2994,7 +2996,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-searxng-is-running-internally-on-port-8088",
@@ -3009,7 +3011,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-setup",
@@ -3024,7 +3026,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-shared-workspace",
@@ -3054,7 +3056,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-should-show-healthy",
@@ -3069,7 +3071,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-should-show-notificationscheduler-attached-to-pipe",
@@ -3084,7 +3086,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-speak-text",
@@ -3099,7 +3101,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-standard-user",
@@ -3114,7 +3116,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-style-control-qwen3-tts-customvoice",
@@ -3129,7 +3131,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-supported-formats",
@@ -3144,7 +3146,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-testing",
@@ -3159,7 +3161,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-transcribe-an-audio-file",
@@ -3174,7 +3176,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-upload-a-document",
@@ -3189,7 +3191,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-usage",
@@ -3204,7 +3206,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-user-roles",
@@ -3219,7 +3221,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-users-you-ai-output-generated-transcripts-transcri",
@@ -3234,7 +3236,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-users",
@@ -3249,7 +3251,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-using-the-openai-python-sdk",
@@ -3264,7 +3266,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-voice-design",
@@ -3279,7 +3281,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-voxtral-multilingual-no-speaker-labels",
@@ -3294,7 +3296,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-voxtral-multilingual-transcription",
@@ -3309,7 +3311,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-when-chat-drop-still-doesn-t-work-the-runner-scrip",
@@ -3324,7 +3326,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-workflow-a-is-finally-working-what-changed",
@@ -3339,7 +3341,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-HOWTO-write-your-tool-s-output",
@@ -3354,7 +3356,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_REACHABILITY_DIAGNOSTIC_2026-06-30-conclusion",
@@ -3369,7 +3371,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_REACHABILITY_DIAGNOSTIC_2026-06-30-forced-run-diagnostic-step-4c-4d",
@@ -3384,7 +3386,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_REACHABILITY_DIAGNOSTIC_2026-06-30-gate-behavior-step-4a-4b",
@@ -3399,7 +3401,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_REACHABILITY_DIAGNOSTIC_2026-06-30-lab-reachability-diagnostic-2026-06-30",
@@ -3414,7 +3416,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_REACHABILITY_DIAGNOSTIC_2026-06-30-recommendation",
@@ -3429,7 +3431,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_REACHABILITY_DIAGNOSTIC_2026-06-30-root-cause-analysis",
@@ -3444,7 +3446,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_SETUP-all-these-should-succeed-after-setup",
@@ -3459,7 +3461,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_SETUP-lab-setup-cold-start-runbook",
@@ -3474,7 +3476,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_SETUP-lane-targets",
@@ -3489,7 +3491,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_SETUP-on-demand-targets-from-lab-targets-yaml",
@@ -3504,7 +3506,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_SETUP-readiness-gate",
@@ -3519,7 +3521,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_SETUP-reference",
@@ -3534,7 +3536,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_SETUP-teardown",
@@ -3549,7 +3551,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_SETUP-tier-2-daily-operations",
@@ -3564,7 +3566,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-LAB_SETUP-update-an-existing-setup-git-pull-vulhub-refresh-c",
@@ -3579,7 +3581,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-auto-coding-agentic-workspace",
@@ -3594,7 +3596,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-checking-what-s-in-vram-before-a-long-task",
@@ -3609,7 +3611,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-debugging-a-failing-mcp-server-claude-code",
@@ -3624,7 +3626,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-dual-mode-portal-vs-stock-no-file-renaming",
@@ -3639,7 +3641,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-fixing-a-bug-claude-code",
@@ -3654,7 +3656,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-install-if-missing",
@@ -3669,7 +3671,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-mcp-dev-tooling-claude-code-opencode-integration",
@@ -3684,7 +3686,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-mcp-servers-mcp-json",
@@ -3699,7 +3701,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-mode-a-cloud-intelligence-portal-tools-default-cc-",
@@ -3714,7 +3716,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-mode-b-local-model-intelligence-portal-tools-cc-lo",
@@ -3729,7 +3731,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-mode-c-stock-cloud-zero-portal-mcp-cc-stock-sh",
@@ -3744,7 +3746,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-opencode-integration-opencode-jsonc",
@@ -3759,7 +3761,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-portal-pipeline-mcp-portal-pipeline-8928",
@@ -3774,7 +3776,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-prerequisites",
@@ -3789,7 +3791,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-prometheus-fetch-patterns",
@@ -3804,7 +3806,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-security-boundaries",
@@ -3819,7 +3821,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-tools",
@@ -3834,7 +3836,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-what-opencode-gets",
@@ -3849,7 +3851,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MCP_DEV_TOOLING-workspace-selection",
@@ -3864,7 +3866,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_CHANGES_2026-04-26-1-mlx-lm-0-31-2-mlx-0-31-2-worker-thread-gpu-strea",
@@ -3879,7 +3881,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_CHANGES_2026-04-26-2-mlx-lm-0-31-2-server-puts-content-in-reasoning-f",
@@ -3894,7 +3896,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_CHANGES_2026-04-26-2-speculative-decoding-broken-arrayscache-not-trim",
@@ -3909,7 +3911,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_CHANGES_2026-04-26-3-homebrew-mlx-0-31-2-python-bindings-incomplete",
@@ -3924,7 +3926,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_CHANGES_2026-04-26-4-gemma4-architecture-requires-mlx-lm-0-31-2",
@@ -3939,7 +3941,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_CHANGES_2026-04-26-upgrades-applied",
@@ -3954,7 +3956,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_CHANGES_2026-04-26-what-needs-fixing-in-portal-5",
@@ -3969,7 +3971,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_CHANGES_2026-04-26-what-needs-fixing-upstream",
@@ -3984,7 +3986,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_KV_FLAG_PROBE-decision-matrix",
@@ -3999,7 +4001,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_KV_FLAG_PROBE-interpretation-for-task-kv-proxy-v1",
@@ -4014,7 +4016,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_KV_FLAG_PROBE-mlx-kv-flag-capability-probe",
@@ -4029,7 +4031,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_KV_FLAG_PROBE-mlx-lm-server-help",
@@ -4044,7 +4046,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MLX_KV_FLAG_PROBE-mlx-vlm-server-help",
@@ -4059,7 +4061,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MTP_BENCH_20260528-mtp-a-b-bench-results-2026-05-28",
@@ -4074,7 +4076,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MTP_BENCH_20260528-notes",
@@ -4089,7 +4091,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-MTP_BENCH_20260528-results",
@@ -4104,7 +4106,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_MATRIX_CI-baseline-lifecycle",
@@ -4119,7 +4121,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_MATRIX_CI-big-model-coverage",
@@ -4134,7 +4136,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_MATRIX_CI-ci-vs-local-run-boundary",
@@ -4149,7 +4151,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_MATRIX_CI-mlx-coverage-policy",
@@ -4164,7 +4166,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_MATRIX_CI-out-of-scope-for-ci",
@@ -4179,7 +4181,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_MATRIX_CI-persona-matrix-ci-operations",
@@ -4194,7 +4196,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_MATRIX_CI-pipeline-shape",
@@ -4209,7 +4211,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_MATRIX_CI-regression-triage-workflow",
@@ -4224,7 +4226,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-1-codereviewer-uat-p-d04-scored-1-4-fail",
@@ -4239,7 +4241,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-2-e2edebugger-uat-p-b04-scored-2-3-fail",
@@ -4254,7 +4256,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-3-e2etestauthor-uat-p-b01-scored-2-5-fail",
@@ -4269,7 +4271,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-4-ethereumdeveloper-uat-p-d10-scored-2-5-fail",
@@ -4284,7 +4286,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-5-fullstacksoftwaredeveloper-uat-p-d05-scored-2-5-",
@@ -4299,7 +4301,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-6-linuxterminal-uat-p-d12-scored-2-4-fail",
@@ -4314,7 +4316,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-7-pythoninterpreter-uat-p-d13-scored-1-3-fail",
@@ -4329,7 +4331,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-8-softwarequalityassurancetester-uat-p-d18-scored-",
@@ -4344,7 +4346,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-9-sqlterminal-uat-p-d14-scored-1-4-fail",
@@ -4359,7 +4361,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-caveats",
@@ -4374,7 +4376,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-falsification-check",
@@ -4389,7 +4391,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-hypothesis-under-test",
@@ -4404,7 +4406,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-next-step",
@@ -4419,7 +4421,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-patterns-by-task-shape",
@@ -4434,7 +4436,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-persona-system-prompt-audit-format-clarity-check",
@@ -4449,7 +4451,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-summary",
@@ -4464,7 +4466,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-PERSONA_PROMPT_AUDIT_V1-verdict-distribution",
@@ -4479,7 +4481,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-QWEN_TEMPLATE_PROBE-interpretation-for-task-qwen-template-proxy-v1",
@@ -4494,7 +4496,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-QWEN_TEMPLATE_PROBE-mlx-lm-server-help",
@@ -4509,7 +4511,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-QWEN_TEMPLATE_PROBE-mlx-vlm-server-help",
@@ -4524,7 +4526,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-QWEN_TEMPLATE_PROBE-per-model-template-state",
@@ -4539,7 +4541,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-QWEN_TEMPLATE_PROBE-qwen-template-probe",
@@ -4554,7 +4556,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-QWEN_TEMPLATE_PROBE-server-flag-support",
@@ -4569,7 +4571,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-1-adaptive-retry-with-fallback-techniques",
@@ -4584,7 +4586,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-1-real-execution-is-happening",
@@ -4599,7 +4601,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-10-dynamic-cve-research-dynamic-cve",
@@ -4614,7 +4616,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-11-sequence-adherence-fixed",
@@ -4629,7 +4631,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-12-success-gating-success-indicators",
@@ -4644,7 +4646,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-13-false-positive-testing-false-positive-test",
@@ -4659,7 +4661,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-14-defense-efficacy-testing-defense-efficacy",
@@ -4674,7 +4676,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-15-detection-latency",
@@ -4689,7 +4691,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-16-defense-verification-verify-defense",
@@ -4704,7 +4706,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-17-rescore-rescore-file",
@@ -4719,7 +4721,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-18-retry-failed-retry-failed-file-retry-prompts-pr",
@@ -4734,7 +4736,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-19-full-output-capture",
@@ -4749,7 +4751,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-2-attack-image-in-dind",
@@ -4764,7 +4766,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-2-cross-prompt-artifact-chaining",
@@ -4779,7 +4781,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-2-models-are-hitting-real-ips",
@@ -4794,7 +4796,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-20-proven-scoring-lab-exec-mode",
@@ -4809,7 +4811,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-21-library-container-matrix-matrix-matrix-all",
@@ -4824,7 +4826,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-22-linux-web-telemetry-adapter-seam",
@@ -4839,7 +4841,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-3-blue-active-response",
@@ -4854,7 +4856,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-3-stealth-scoring-appears",
@@ -4869,7 +4871,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-4-blue-active-response-appears-with-blue-active",
@@ -4884,7 +4886,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-4-step-dependency-dag",
@@ -4899,7 +4901,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-5-cross-prompt-artifact-chaining",
@@ -4914,7 +4916,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-5-lab-service-auto-discovery",
@@ -4929,7 +4931,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-5-security-models-loaded",
@@ -4944,7 +4946,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-6-lab-probe-report",
@@ -4959,7 +4961,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-6-stealth-scoring",
@@ -4974,7 +4976,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-7-proxmox-vm-snapshot-restore",
@@ -4989,7 +4991,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-8-per-step-time-budgets-speed-scoring",
@@ -5004,7 +5006,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-9-conditional-branching",
@@ -5019,7 +5021,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-adding-a-new-lab-target",
@@ -5034,7 +5036,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-architecture-invariant",
@@ -5049,7 +5051,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-benchconfig-replacing-mutable-globals",
@@ -5064,7 +5066,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-blue-purple-on-web-classes",
@@ -5079,7 +5081,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-chain-structure-3-models-2-rounds-6-turns",
@@ -5094,7 +5096,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-cli-flags-new-as-of-2026-06-24",
@@ -5109,7 +5111,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-clock-skew-krb-ap-err-skew",
@@ -5124,7 +5126,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-coverage-report",
@@ -5139,7 +5141,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-file-locations-after-refactor-commit-0dbe1c1",
@@ -5154,7 +5156,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-gate-d-ablation-silent-model-substitution",
@@ -5169,7 +5171,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-key-paths",
@@ -5184,7 +5186,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-lab-topology",
@@ -5199,7 +5201,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-lab-validation-status",
@@ -5214,7 +5216,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-metasploitable3-target-added-2026-06-24",
@@ -5229,7 +5231,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-metasploitable3-win2k8-vmid-113-10-10-11-10",
@@ -5244,7 +5246,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-models-hallucinate-htb-ips",
@@ -5259,7 +5261,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-nmap-requires-privileges",
@@ -5274,7 +5276,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-optional-for-proxmox-vm-lifecycle-snapshot-restore",
@@ -5289,7 +5291,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-plan-no-docker-needed",
@@ -5304,7 +5306,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-probe-lab-services-only",
@@ -5319,7 +5321,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-quick-reachability-test-from-within-dind",
@@ -5334,7 +5336,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-re-run-only-what-failed",
@@ -5349,7 +5351,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-re-run-specific-prompts",
@@ -5364,7 +5366,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-required-in-env",
@@ -5379,7 +5381,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-result-based-scoring-1-3-4-and-2-2-4",
@@ -5394,7 +5396,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-run-specific-classes-lab-must-be-up",
@@ -5409,7 +5411,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-scoring",
@@ -5424,7 +5426,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-security-bench-real-execution-runbook",
@@ -5439,7 +5441,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-single-prompt-against-metasploitable3",
@@ -5454,7 +5456,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-single-prompt-against-vulnerableapp",
@@ -5469,7 +5471,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-single-prompt-lab-exec-for-debugging-one-chain",
@@ -5484,7 +5486,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-small-models-do-exploratory-commands",
@@ -5499,7 +5501,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-smbclient-fails-with-run-samba-read-only-filesyste",
@@ -5514,7 +5516,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-source-material",
@@ -5529,7 +5531,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-tier-1-theory-fast-no-lab-needed",
@@ -5544,7 +5546,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-tier-1-theory-prose-quality-all-workspaces-all-pro",
@@ -5559,7 +5561,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-tier-2-execution-tool-call-scoring-exec-workspaces",
@@ -5574,7 +5576,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-tier-2-execution-tool-call-scoring-no-lab-dispatch",
@@ -5589,7 +5591,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-tier-3-lab-exec-real-dispatch-all-targets-snapshot",
@@ -5604,7 +5606,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-vulnerableapp-lxc-112-10-10-11-50-80",
@@ -5619,7 +5621,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SECURITY_BENCH_EXEC-what-this-is",
@@ -5634,7 +5636,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-SEC_BENCH-architecture-invariant",
@@ -5649,7 +5651,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "VERIFY",
     "status": "PENDING"
   },
   {
@@ -5682,7 +5684,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "VERIFY",
     "status": "PENDING"
   },
   {
@@ -5731,7 +5733,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "VERIFY",
     "status": "PENDING"
   },
   {
@@ -5780,7 +5782,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "VERIFY",
     "status": "PENDING"
   },
   {
@@ -6015,7 +6017,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "VERIFY",
     "status": "PENDING"
   },
   {
@@ -6191,7 +6193,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "VERIFY",
     "status": "PENDING"
   },
   {
@@ -6257,7 +6259,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "VERIFY",
     "status": "PENDING"
   },
   {
@@ -6495,7 +6497,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "VERIFY",
     "status": "PENDING"
   },
   {
@@ -6625,7 +6627,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "VERIFY",
     "status": "PENDING"
   },
   {
@@ -6643,7 +6645,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "VERIFY",
     "status": "PENDING"
   },
   {
@@ -6659,7 +6661,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-UAT_CALIBRATION-step-1-capture-responses",
@@ -6674,7 +6676,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-UAT_CALIBRATION-step-2-review-and-tag",
@@ -6689,7 +6691,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-UAT_CALIBRATION-step-3-generate-signals",
@@ -6704,7 +6706,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-UAT_CALIBRATION-step-4-integrate",
@@ -6719,7 +6721,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-UAT_CALIBRATION-uat-calibration-workflow",
@@ -6734,7 +6736,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-USER_GUIDE-cross-session-memory",
@@ -6749,7 +6751,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-USER_GUIDE-getting-access",
@@ -6764,7 +6766,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-USER_GUIDE-how-it-works",
@@ -6779,7 +6781,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-USER_GUIDE-knowledge-base-document-rag",
@@ -6794,7 +6796,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-USER_GUIDE-personas",
@@ -6809,7 +6811,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-USER_GUIDE-supported-formats",
@@ -6824,7 +6826,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-USER_GUIDE-tips",
@@ -6839,7 +6841,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-USER_GUIDE-tools-mcp-servers",
@@ -6854,7 +6856,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-USER_GUIDE-uploading-documents",
@@ -6869,7 +6871,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-USER_GUIDE-workspaces",
@@ -6884,7 +6886,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-1-async-http-retry-wrapper-vs-uat-ws-02",
@@ -6899,7 +6901,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-10-js-console-strict-output-uat-p-d11-pass-regress",
@@ -6914,7 +6916,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-11-github-destructive-warning-uat-p-d09-pass-regre",
@@ -6929,7 +6931,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-12-bug-classification-by-type-uat-p-d02-pass-regre",
@@ -6944,7 +6946,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-13-code-review-pr-scope-uat-p-d03-pass-regression-",
@@ -6959,7 +6961,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-14-k8s-manifest-complete-uat-p-d07-pass-regression",
@@ -6974,7 +6976,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-15-creative-particle-system-uat-p-d20-pass-regress",
@@ -6989,7 +6991,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-2-sql-stateful-multi-statement-vs-uat-p-d14",
@@ -7004,7 +7006,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-3-code-review-with-confidence-vs-uat-p-d04",
@@ -7019,7 +7021,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-4-e2e-playwright-login-test-vs-uat-p-b01",
@@ -7034,7 +7036,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-5-linux-terminal-stateful-vs-uat-p-d12",
@@ -7049,7 +7051,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-6-python-repl-traceback-vs-uat-p-d13",
@@ -7064,7 +7066,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-7-qa-test-enumeration-vs-uat-p-d18",
@@ -7079,7 +7081,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-8-jwt-three-endpoints-vs-uat-p-d05",
@@ -7094,7 +7096,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-9-e2e-debugger-root-cause-vs-uat-p-b04",
@@ -7109,7 +7111,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-bias-axis-distribution",
@@ -7124,7 +7126,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-caveats",
@@ -7139,7 +7141,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-scenarios-from-uat-fail-predecessors-9-of-15",
@@ -7154,7 +7156,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-scenarios-from-uat-pass-predecessors-6-of-15",
@@ -7169,7 +7171,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-summary",
@@ -7184,7 +7186,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-V2_SCENARIO_AUDIT_V1-v2-scenario-audit-bias-check-vs-uat-prompts",
@@ -7199,7 +7201,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-agent-loop-agent-loop-platform-core",
@@ -8161,7 +8163,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-10-git-discipline",
@@ -8176,7 +8178,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-11-shared-workspace-is-the-only-path-for-user-file",
@@ -8191,7 +8193,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-12-docs-travel-with-the-work",
@@ -8206,7 +8208,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-13-fact-units-are-the-discovery-index",
@@ -8221,7 +8223,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-2-never-modify-open-webui-source",
@@ -8236,7 +8238,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-3-mcp-servers-are-independent-services",
@@ -8251,7 +8253,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-4-the-pipeline-is-stateless-with-metrics-persisten",
@@ -8266,7 +8268,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-5-personas-live-in-config-personas",
@@ -8281,7 +8283,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-6-config-portal-yaml-is-the-single-source-of-truth",
@@ -8296,7 +8298,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-7-all-ports-are-reserved",
@@ -8311,7 +8313,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-8-single-inference-tier-ollama",
@@ -8326,7 +8328,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-9-the-dockerfile-split-is-intentional",
@@ -8341,7 +8343,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-checkpoint-backup-discipline-non-negotiable",
@@ -8356,7 +8358,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-claude-md-claude-code-guidelines-for-portal-5",
@@ -8371,7 +8373,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-do-not",
@@ -8386,7 +8388,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-goal-driven-execution",
@@ -8401,7 +8403,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-known-limitations",
@@ -8416,7 +8418,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-new-cluster-node",
@@ -8431,7 +8433,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-new-mcp-tool-server",
@@ -8446,7 +8448,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-new-persona",
@@ -8461,7 +8463,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-new-workspace-routing-tier",
@@ -8476,7 +8478,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-or-directly",
@@ -8491,7 +8493,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-portal-wiki-canonical-knowledge-layer",
@@ -8506,7 +8508,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-pre-testing-always-verify-code-freshness",
@@ -8521,7 +8523,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-project-layout",
@@ -8536,7 +8538,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-reconcile-the-stale-docs-against-live-code",
@@ -8551,7 +8553,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-reference-docs",
@@ -8566,7 +8568,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-simplicity-first",
@@ -8581,7 +8583,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-surgical-changes",
@@ -8596,7 +8598,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-tech-stack-tooling",
@@ -8611,7 +8613,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-testing-rules",
@@ -8626,7 +8628,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-think-before-coding",
@@ -8641,7 +8643,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-what-portal-5-is-not",
@@ -8656,7 +8658,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-what-portal-5-is",
@@ -8671,7 +8673,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-working-style-how-to-make-changes-here",
@@ -8686,7 +8688,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-claude-zero-setup-requirements",
@@ -8701,7 +8703,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED"
   },
   {
     "unit_id": "unit-cluster-scale-portal-5-cluster-scale-out-guide",
@@ -8780,7 +8782,8 @@
     "aggregate": true,
     "superseded": false,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED",
+    "archive_via_superseded_by": true
   },
   {
     "unit_id": "unit-code-portal_channels",
@@ -8798,7 +8801,8 @@
     "aggregate": true,
     "superseded": true,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED",
+    "archive_via_superseded_by": true
   },
   {
     "unit_id": "unit-code-portal_wiki",
@@ -8816,7 +8820,8 @@
     "aggregate": true,
     "superseded": true,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED",
+    "archive_via_superseded_by": true
   },
   {
     "unit_id": "unit-code-scripts",
@@ -8835,7 +8840,8 @@
     "aggregate": true,
     "superseded": true,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED",
+    "archive_via_superseded_by": true
   },
   {
     "unit_id": "unit-code-tests",
@@ -8854,7 +8860,8 @@
     "aggregate": true,
     "superseded": true,
     "disposition": "ARCHIVE",
-    "status": "PENDING"
+    "status": "ARCHIVED",
+    "archive_via_superseded_by": true
   },
   {
     "unit_id": "unit-comfyui-setup-cinematic-quality-t2v-a14b-slower",
@@ -9837,7 +9844,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "VERIFY",
     "status": "PENDING"
   },
   {
@@ -13665,7 +13672,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": false,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
@@ -13680,7 +13687,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": false,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
@@ -13695,7 +13702,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": false,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
@@ -13710,7 +13717,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": false,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
@@ -13725,7 +13732,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": false,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
@@ -13741,7 +13748,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": true,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
@@ -13759,7 +13766,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": false,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
@@ -13774,7 +13781,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": false,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
@@ -13789,7 +13796,7 @@
     "dated": false,
     "aggregate": false,
     "superseded": false,
-    "disposition": "ARCHIVE",
+    "disposition": "REGROUND",
     "status": "PENDING"
   },
   {
