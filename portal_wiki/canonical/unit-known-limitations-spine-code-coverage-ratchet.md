@@ -7,7 +7,7 @@ sources:
   path: portal/platform/wiki/coverage.py
 - type: code
   path: scripts/validate_system.py
-last_generated_commit: acde5492415793b5fc5f483e99a2ffd3baa994a2
+last_generated_commit: cb5f261a17412c46a46ec83804e8207933de7b67
 claims: []
 confidence: high
 tags:
