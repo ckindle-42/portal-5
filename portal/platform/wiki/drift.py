@@ -182,11 +182,22 @@ def _gitignored_paths(root: Path, candidates: list[str]) -> frozenset[str]:
     answer to "should this exist here", so ask git rather than guessing with
     more regex: a hand-maintained allowlist drifts the moment a path is renamed,
     `git check-ignore` never does.
+
+    `_PATH_RE` never captures a trailing `/` (its final char class excludes it),
+    so a doc's `foo/bar/` reference reaches here as `foo/bar`. For a directory-
+    only `.gitignore` pattern (`foo/bar/`), `git check-ignore` only matches a
+    slash-less query reliably when that path happens to already exist on disk
+    as a directory — true in a checkout that has run the harness, false in a
+    fresh clone (exactly where this check must be trustworthy). Querying both
+    the bare candidate and its `/`-suffixed form sidesteps that disk-state
+    dependency entirely.
     """
     if not candidates:
         return frozenset()
-    out = _git(root, "check-ignore", "--stdin", input="\n".join(candidates))
-    return frozenset(out.stdout.splitlines())
+    queries = [q for cand in candidates for q in (cand, f"{cand}/")]
+    out = _git(root, "check-ignore", "--stdin", input="\n".join(queries))
+    hit = set(out.stdout.splitlines())
+    return frozenset(cand for cand in candidates if cand in hit or f"{cand}/" in hit)
 
 
 def broken_path_refs(repo_root: Path | None = None) -> tuple[str, ...]:
