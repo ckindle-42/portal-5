@@ -4828,51 +4828,89 @@ def check_benign_alert_fatigue() -> tuple[str, str, list[dict]]:
 
 
 def check_spine_code_coverage() -> tuple[str, str, list[dict]]:
-    """BR. Code drives the spine: every code surface carries a covering unit.
+    """BR. Manifest-driven spine coverage: surfaces documented, files covered.
 
-    The spine already propagates forward (unit changes regenerate docs). This is the
-    converse gate, now absolute: since TASK_WIKI_ZERO_DEBT_V1, 100% of eligible code
-    surfaces are cited by a gate-passing non-aggregate unit, so the baseline ratchet
-    is gone and any uncovered surface is an unconditional FAIL. Aggregate
-    `unit-code-*` citations remain excluded from the numerator — counting a
-    generator's own output as coverage is the circularity the doc-generation arc
-    already paid for.
+    The per-file era ended in TASK_PORTAL_SIMPLIFY_V1 Phase R3. Before it, the
+    coverage gate walked the filesystem and required a hand-authored unit per
+    eligible `.py` file — which set knowledge granularity by file, not by
+    subsystem, and made documentation mass grow in lockstep with code mass
+    forever. The regrain collapsed ~570 per-file mirrors into ~30 subsystem
+    surfaces, and coverage now means something narrower but stronger:
+
+    Part 1 — every declared surface in `config/spine_surfaces.yaml` has a
+    covering unit that exists, passes the quality gate, and cites paths
+    matching the surface's globs.
+    Part 2 — every eligible `.py` file falls under some declared surface glob.
+    New code inside a documented surface costs nothing; new code outside one
+    must force a manifest entry — a deliberate act with a named owner. Code can
+    still never arrive silently undocumented; it just no longer costs a
+    hand-authored unit per file. The wiki engine (`portal/platform/wiki/`)
+    stays per-file as the extraction-guarantee boundary (check AJ), so a new
+    file there must be deliberately registered.
     """
-    from portal.platform.wiki.coverage import compute_coverage, gate_failing_coverage_units
+    from portal.platform.wiki.coverage import (
+        generate_surface_manifest,
+        load_surface_manifest,
+        surface_manifest_uncovered,
+    )
 
-    report = compute_coverage(REPO_ROOT)
-    offenders = gate_failing_coverage_units(REPO_ROOT)
+    part1, part2 = surface_manifest_uncovered(REPO_ROOT)
+
+    # Manifest freshness: the committed manifest must equal a fresh generation
+    # from the live unit set, or it has silently drifted from the landed
+    # boundaries (mirror of the sync-config idempotence guard for this file).
+    committed = load_surface_manifest(REPO_ROOT)
+    fresh = generate_surface_manifest(REPO_ROOT)
+    manifest_drifted = _surface_manifests_differ(committed, fresh)
 
     subs = [
         {
-            "name": "every code surface covered",
-            "status": "PASS" if not report.uncovered else "FAIL",
+            "name": "every declared surface has a covering unit",
+            "status": "PASS" if not part1 else "FAIL",
             "detail": (
-                f"{len(report.covered)}/{len(report.eligible)} surfaces "
-                f"({report.pct:.1f}%) cited by a gate-passing non-aggregate unit"
-                if not report.uncovered
-                else f"{len(report.uncovered)} uncovered: {', '.join(report.uncovered[:8])}"
+                f"{len(committed)} declared surface(s) documented by a "
+                "gate-passing unit citing their globs"
+                if not part1
+                else f"{len(part1)} surface(s) without a valid covering unit"
             ),
         },
         {
-            "name": "every coverage-carrying unit passes the quality gate",
-            "status": "PASS" if not offenders else "FAIL",
+            "name": "every eligible file falls under a declared surface",
+            "status": "PASS" if not part2 else "FAIL",
             "detail": (
-                "no gate-failing unit is the sole citation for a surface"
-                if not offenders
-                else f"{len(offenders)} gate-failing unit(s) sole-cite a surface: "
-                f"{', '.join(offenders[:6])}"
+                "every eligible .py file matched by a declared surface glob"
+                if not part2
+                else f"{len(part2)} eligible file(s) under no declared surface: "
+                f"{', '.join(part2[:6])}"
+            ),
+        },
+        {
+            "name": "manifest is current with the landed boundaries",
+            "status": "PASS" if not manifest_drifted else "FAIL",
+            "detail": (
+                "config/spine_surfaces.yaml matches a fresh generation"
+                if not manifest_drifted
+                else "config/spine_surfaces.yaml is stale — re-run "
+                "`python3 -m portal.platform.wiki.coverage --write-manifest`"
             ),
         },
     ]
-    if report.uncovered or offenders:
+    if part1 or part2 or manifest_drifted:
         parts = []
-        if report.uncovered:
-            parts.append(f"{len(report.uncovered)} code surface(s) uncovered")
-        if offenders:
-            parts.append(f"{len(offenders)} gate-failing unit(s) sole-cite a surface")
+        if part1:
+            parts.append(f"{len(part1)} surface(s) without a valid covering unit")
+        if part2:
+            parts.append(f"{len(part2)} eligible file(s) under no declared surface")
+        if manifest_drifted:
+            parts.append("manifest is stale")
         return ("FAIL", "; ".join(parts), subs)
-    return ("PASS", "code coverage 100% — every surface cited by a gate-passing unit", subs)
+    return ("PASS", "manifest coverage 100% — every surface documented, every file covered", subs)
+
+
+def _surface_manifests_differ(committed: list[dict], fresh: list[dict]) -> bool:
+    """Compare two surface manifests by name -> (globs, unit), order-insensitive."""
+    key = lambda s: (s["name"], tuple(s["globs"]), s["unit"])  # noqa: E731
+    return sorted(map(key, committed)) != sorted(map(key, fresh))
 
 
 if __name__ == "__main__":

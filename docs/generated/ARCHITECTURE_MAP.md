@@ -699,7 +699,7 @@
 | `unit-wiki-provenance-ledger` | mixed | 1 |
 | `unit-wiki-quality` | mixed | 1 |
 | `unit-wiki-schema` | mixed | 1 |
-| `unit-wiki-spine-coverage-gate` | mixed | 2 |
+| `unit-wiki-spine-coverage-gate` | mixed | 3 |
 | `unit-wiki-store` | mixed | 1 |
 | `unit-wiki-tests-migration` | mixed | 1 |
 | `unit-wiki-tests-render` | mixed | 1 |
@@ -710,5 +710,5 @@
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1658 references
+- **code**: 1659 references
 - **mitre**: 32 references

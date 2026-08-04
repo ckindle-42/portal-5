@@ -6,8 +6,10 @@ sources:
 - type: code
   path: portal/platform/wiki/coverage.py
 - type: code
+  path: config/spine_surfaces.yaml
+- type: code
   path: portal/platform/wiki/adapters/seed_code.py
-last_generated_commit: 6afb262648d307376dfb4f839eeed69c02112d04
+last_generated_commit: acde5492415793b5fc5f483e99a2ffd3baa994a2
 claims: []
 confidence: high
 tags:
@@ -22,10 +24,10 @@ updated_at: 1785380311.8876002
 
 ## What
 
-`portal/platform/wiki/coverage.py` measures code-surface coverage for the wiki
-spine: the fraction of eligible Python files cited by at least one non-aggregate
-canonical unit. It is the data source for `validate_system.py`'s check **BR**
-(spine code coverage ratchet).
+`portal/platform/wiki/coverage.py` implements the code→spine authority
+inversion: the guarantee that new code arrives documented, not just that
+documentation tracks code. It is the data source for `validate_system.py`'s
+check **BR** (spine code coverage ratchet).
 
 ## Why
 
@@ -34,15 +36,25 @@ direction — a unit change regenerates its downstream docs. It never guaranteed
 the converse: that new code arrives with a unit describing it. This module
 measures the converse.
 
-`unit-code-<subsystem>` aggregate units (auto-seeded by `adapters/seed_code.py`)
-are excluded from the coverage numerator. Those units cite only the first five
-files of a subsystem while titling themselves with the full file count —
-counting them as coverage would grade the generator against its own output,
-the same circularity the doc-generation arc paid for elsewhere.
+The gate went through two eras. It started as a ratchet pinning the uncovered
+set (46/605 eligible files when it landed, 7.6%), then
+TASK_WIKI_ZERO_DEBT_V1 drove the uncovered set to zero and made it absolute:
+every eligible surface cited by a gate-passing non-aggregate unit, no baseline.
 
-A 100% coverage assertion was unreachable when this module landed (46/605
-eligible files, 7.6%), so the gate started as a ratchet pinning the current
-uncovered set, with only growth failing CI. TASK_WIKI_ZERO_DEBT_V1 drove the
-uncovered set to empty, deleted the baseline, and made the gate absolute: every
-eligible surface must be cited by a gate-passing non-aggregate unit, with no
-baseline to absorb a newly added file.
+TASK_PORTAL_SIMPLIFY_V1 Phase R3 ended the per-file era. The absolute gate
+rewarded a hand-authored unit per file, so knowledge accumulated at file
+granularity and documentation mass grew in lockstep with code mass. The regrain
+collapsed ~570 per-file mirrors into ~30 subsystem surfaces and coverage became
+manifest-driven: `config/spine_surfaces.yaml` names each surface, the globs
+that define it, and the unit that documents it. The gate asserts two parts —
+every declared surface has a gate-passing unit citing paths matching its globs,
+and every eligible `.py` file falls under some declared surface. New code inside
+a documented surface costs nothing; new code outside one forces a deliberate
+manifest entry. Code can still never arrive silently undocumented; it just no
+longer costs a hand-authored unit per file. The wiki engine stays per-file as
+the extraction-guarantee boundary (check AJ), verified by the R3 adversarial
+probe: a new file under `portal/platform/wiki/` fails BR until registered.
+
+`unit-code-<subsystem>` aggregate units (auto-seeded by `adapters/seed_code.py`)
+remain excluded from coverage — counting a generator's own output would be the
+circularity the doc-generation arc already paid for.
