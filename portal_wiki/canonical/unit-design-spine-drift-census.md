@@ -9,7 +9,7 @@ sources:
   path: portal/platform/wiki/drift.py
 - type: code
   path: tests/unit/test_spine_drift.py
-last_generated_commit: 2bb0179ddd35a16c593a3e50a612847b2c172972
+last_generated_commit: 18c44dc3675cf43e4be7663a7f2c2eb4c3f8b535
 claims:
 - probe: validate.checks
   pattern: '{value} validate checks'
