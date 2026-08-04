@@ -571,3 +571,4 @@
 - `unit-acceptance-s50_negative` | 2026-08-04 | 5d724b6f69f63607e0378e9f7a8306fb0c229121 | Consolidated into unit-surface-acceptance; per-file scope was set by the BR filesystem walk, not by a decision.
 - `unit-acceptance-s60_tool_calling` | 2026-08-04 | 5d724b6f69f63607e0378e9f7a8306fb0c229121 | Consolidated into unit-surface-acceptance; per-file scope was set by the BR filesystem walk, not by a decision.
 - `unit-acceptance-s70_information_access` | 2026-08-04 | 5d724b6f69f63607e0378e9f7a8306fb0c229121 | Consolidated into unit-surface-acceptance; per-file scope was set by the BR filesystem walk, not by a decision.
+- `unit-acceptance-s03_routing` | 2026-08-04 | 3d0a35c43d21334132b309871bc0e2b06c4b2d3b | Consolidated into unit-surface-acceptance; per-file scope was set by the BR filesystem walk, not by a decision.
