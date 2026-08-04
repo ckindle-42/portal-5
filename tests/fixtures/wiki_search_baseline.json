@@ -1,62 +1,52 @@
 {
-  "council quorum": [
-    "unit-blue-orchestration-v3-council-of-agreement",
-    "unit-HOWTO-3-workspaces",
-    "unit-readme-functional-workspaces"
-  ],
-  "workspace routing": [
-    "unit-claude-new-workspace-routing-tier",
-    "unit-fact-tool-authorizations",
-    "unit-fact-workspace-roster"
-  ],
-  "spine drift census": [
-    "unit-design-spine-drift-census",
-    "unit-DESIGN_WIKI-spine-write-point",
-    "unit-SEC_BENCH-sub-components"
-  ],
-  "oMLX backend": [
-    "unit-design-omlx-dual-backend-plumbing",
-    "unit-fact-model-catalog",
-    "unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled"
-  ],
-  "persona roster": [
-    "unit-fact-persona-roster",
-    "unit-PERSONA_MATRIX_CI-baseline-lifecycle",
-    "unit-PERSONA_MATRIX_CI-mlx-coverage-policy"
-  ],
-  "MCP fleet ports": [
-    "unit-fact-mcp-fleet",
-    "unit-claude-6-config-portal-yaml-is-the-single-source-of-truth",
-    "unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit"
-  ],
-  "benchmark workspaces": [
-    "unit-readme-benchmark-workspaces-user-selected-only",
-    "unit-fact-workspace-roster",
-    "unit-SECURITY_BENCH_EXEC-tier-1-theory-prose-quality-all-workspaces-all-pro"
-  ],
-  "doc currency ledger": [
-    "unit-claude-reconcile-the-stale-docs-against-live-code",
-    "unit-design-spine-drift-census",
-    "unit-HOWTO-14-document-rag-knowledge-base"
-  ],
-  "phantom pin": [
-    "unit-design-spine-drift-census",
-    "unit-DESIGN_WIKI-spine-write-point",
-    "unit-T1003.001-signature"
-  ],
-  "alert fatigue benign corpus": [
-    "unit-known-limitations-rbp-benign-corpus-alert-fatigue",
-    "SEC_BENCH-combined-corpus-validation-20260731",
-    "unit-ALERTS-optional-json-object-for-additional-headers-e-g-au"
-  ],
-  "streaming tool loop": [
-    "unit-MCP_DEV_TOOLING-mode-b-local-model-intelligence-portal-tools-cc-lo",
-    "unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist",
-    "unit-MCP_DEV_TOOLING-auto-coding-agentic-workspace"
-  ],
-  "wiki writeback": [
-    "unit-code-portal_wiki",
-    "unit-wiki-spine-coverage-gate",
-    "unit-claude-portal-wiki-canonical-knowledge-layer"
+  "queries": [
+    {
+      "query": "workspace routing",
+      "top_hit": "unit-router-routing"
+    },
+    {
+      "query": "router council",
+      "top_hit": "unit-router-council"
+    },
+    {
+      "query": "router streaming",
+      "top_hit": "unit-router-streaming"
+    },
+    {
+      "query": "wiki writeback",
+      "top_hit": "unit-wiki-writeback"
+    },
+    {
+      "query": "doc ledger",
+      "top_hit": "unit-HOWTO-14-document-rag-knowledge-base"
+    },
+    {
+      "query": "spine drift census",
+      "top_hit": "unit-design-spine-drift-census"
+    },
+    {
+      "query": "MCP tool registry",
+      "top_hit": "unit-fact-tool-registry"
+    },
+    {
+      "query": "persona roster",
+      "top_hit": "unit-fact-persona-roster"
+    },
+    {
+      "query": "backup restore",
+      "top_hit": "unit-HOWTO-19-backup-restore"
+    },
+    {
+      "query": "technique signature",
+      "top_hit": "unit-T1003.001-signature"
+    },
+    {
+      "query": "comfyui setup",
+      "top_hit": "unit-comfyui-setup-portal-5-comfyui-setup-guide"
+    },
+    {
+      "query": "agent loop",
+      "top_hit": "unit-agent-loop-agent-loop-platform-core"
+    }
   ]
 }
