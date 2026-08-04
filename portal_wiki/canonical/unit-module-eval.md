@@ -4,12 +4,18 @@ kind: mixed
 title: "Eval Module \u2014 cross-cutting bench apparatus (off by default)"
 sources:
 - type: code
-  path: portal/modules/eval/
-last_generated_commit: ''
+  path: portal/modules/eval/persona_matrix/sweep.py
+- type: code
+  path: portal/platform/wiki/adapters/modules.py
+- type: code
+  path: config/portal.yaml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- module
 - eval
+- module
+- verified-v1
 created_at: 1783822263.5599139
 updated_at: 1783822263.5599139
 ---
@@ -44,3 +50,17 @@ explicitly-named cross-cutting harness in the spec.
 ```yaml
 enabled: false
 ```
+
+## Why
+
+The eval module is the one module disabled by default, and that default is
+load-bearing: `portal/platform/wiki/adapters/modules.py` treats a missing
+or `false` `enabled:` field as off (per `DEFAULT_DISABLED_MODULES`), and
+the bench workspaces it owns stay unrouted until an operator flips the
+toggle or sets `PORTAL_ENABLE_EVAL` (mirrored by the adapter's
+`_eval_env_opt_in`). Because bench apparatus is cross-cutting rather than
+owned by one discipline, its activation is an explicit, confirm-gated
+decision — the state change is recorded as a `module-state-change:`
+provenance source by `writeback_module.py`. The unit is sourced to the
+adapter that reads the toggle, the persona-matrix package it gates, and
+`config/portal.yaml` where the bench workspaces are declared.

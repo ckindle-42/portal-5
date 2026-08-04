@@ -3,22 +3,40 @@ id: unit-portal5-bench-sec-execute-v3-served-model-note-new-in-v3
 kind: what
 title: "PORTAL5_BENCH_SEC_EXECUTE_V3 \u2014 Served-model note (new in V3)"
 sources:
-- type: doc
-  path: tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md
-  commit: 05e42ec2
-  section: Served-model note (new in V3)
-last_generated_commit: 05e42ec2
+- type: code
+  path: scripts/execute_preflight.py
+- type: code
+  path: portal/platform/inference/router/handlers.py
+- type: code
+  path: config/personas/glm_coder.yaml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.7091782
 updated_at: 1784946220.7091782
 ---
 
-Two security-adjacent personas were served-model-corrected recently
-(`model_pin`). If the bench qualifies a *persona* (not a bare workspace),
-confirm it's served its pinned model — a security persona benched on the wrong
-model produces a meaningless capability score. The preflight lists all
-`model_pin` personas; cross-check any that appear in your run.
+Persona-level model pins (`model_pin`) are consumed by the pipeline, not the
+bench: `portal/platform/inference/router/handlers.py` Phase 4c applies a
+persona's `model_pin` through `_resolve_model_override` (bounded to the
+`config/backends.yaml` model catalog) so a persona is served the model its
+identity claims. Because the bench forwards workspace strings as the pipeline
+`model` field, a run that qualifies a *persona* rather than a bare workspace is
+only meaningful when that persona is served its pinned model. `scripts/execute_preflight.py`
+prints every persona with a `model_pin` (slug → pin) under its "model_pin
+personas" header; cross-check any persona appearing in your run against that
+live list before trusting its capability score. The currently pinned set is
+coding/vision/reasoning personas (for example `glm_coder`, `gemma_vision`,
+`magistralstrategist`); no security-specific persona currently carries a pin, so
+the original doc's "two security-adjacent personas" phrasing is stale.
 
----
+## Why
+
+A security persona benched on the wrong model produces a capability number that
+means nothing, so the pin check is not cosmetic. Re-grounding replaces the
+doc's unverifiable "two security-adjacent personas" claim with the preflight's
+live enumeration, which is the only ground truth that stays correct as pins move
+between personas over time.

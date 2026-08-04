@@ -3,31 +3,35 @@ id: unit-mcp-dev-tooling-what-opencode-gets
 kind: what
 title: "MCP_DEV_TOOLING \u2014 What opencode gets"
 sources:
-- type: doc
-  path: docs/MCP_DEV_TOOLING.md
-  commit: 05e42ec2
-  section: What opencode gets
-last_generated_commit: 05e42ec2
+- type: code
+  path: opencode.jsonc
+- type: code
+  path: portal/platform/mcp_host/pipeline_mcp.py
+- type: code
+  path: config/portal.yaml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.573175
 updated_at: 1784946220.573175
 ---
 
-- **Fully local inference** — all completions go through portal-pipeline (:9099) to Ollama
-  on your hardware. No tokens leave the machine.
-- **All workspaces + curated personas as models** — `GET /v1/models` (and `opencode models`)
-  lists every base workspace plus every `ide_expose: true` persona
-  (`python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`
-  for the current workspace total). `opencode.jsonc`'s curated picker is a fixed 20-entry
-  subset: 9 bare base-workspace ids + 11 persona slugs. Default: `portal/codingagentic`
-  (persona binding `auto-coding` + `variant: laguna`) — a persona is the friendly named
-  binding of (workspace + variant); see `CLOSEOUT_ALIAS_REMOVAL.md` /
-  `DESIGN_OPENCODE_ADDRESSING_V1.md` for why variants are addressed by persona slug rather
-  than a `base::variant` string in this human-facing picker.
-- **All MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
-  filesystem, git, docker, sandbox, pipeline, and every other portal-* tool server — currently
-  22 total (`python3 -c "import json; print(len(json.load(open('.mcp.json'))['mcpServers']))"`).
-- **Cloud providers disabled** — `anthropic`, `openai`, `google`, `bedrock`, `vertex` are
-  all disabled to prevent accidental cloud use.
+Opening the repo with opencode delivers three things. First, fully local inference:
+every completion goes through the `portal` provider in `opencode.jsonc` to the
+pipeline on :9099 and then to Ollama, so no tokens leave the machine. Second, the
+workspace and persona catalog as models: `GET /v1/models` advertises the base
+workspaces plus the `ide_expose` personas, with a curated subset in the provider
+`models` block and `portal/codingagentic` as the default. Third, the full MCP roster
+declared in the opencode `mcp` block — the same HTTP servers the pipeline exposes.
+Cloud providers are disabled in the same file to prevent accidental cloud use.
+
+## Why
+
+The point of the integration is that an IDE session should inherit the project's
+local-first posture without configuration: local provider, local models, local tools,
+cloud locked out. Stating what opencode actually receives makes it possible to verify
+that posture from the config alone, which is the difference between a claimed local
+setup and a real one.

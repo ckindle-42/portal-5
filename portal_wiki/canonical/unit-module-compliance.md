@@ -4,12 +4,18 @@ kind: mixed
 title: "Compliance Module \u2014 multi-framework compliance mapping (config-only)"
 sources:
 - type: code
-  path: portal/modules/compliance/
-last_generated_commit: ''
+  path: portal/modules/security/core/compliance_report.py
+- type: code
+  path: portal/platform/wiki/adapters/modules.py
+- type: code
+  path: config/portal.yaml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- module
 - compliance
+- module
+- verified-v1
 created_at: 1783821386.790902
 updated_at: 1783821386.790902
 ---
@@ -18,16 +24,31 @@ updated_at: 1783821386.790902
 
 ## Tools
 
-No dedicated MCP server; uses security's compliance_report.py
+No dedicated MCP server of its own; compliance analysis reuses the
+security module's `compliance_report.py` (`portal/modules/security/core/`),
+which the security workspace tool surface already exposes.
 
 ## Workspaces
 
-- auto-compliance
+- `auto-compliance` — compliance mapping workspace, routed by its
+  `module: compliance` tag in `config/portal.yaml`.
 
-Config-only module, same pattern as general — no Portal-owned tool code to relocate.
+Config-only module, same pattern as general — no Portal-owned tool code
+to relocate.
 
 ## Module State
 
 ```yaml
 enabled: true
 ```
+
+## Why
+
+The compliance module is config-only: it owns a workspace but no MCP
+server, so toggling it affects routing (`auto-compliance`) and nothing in
+the fleet. That is exactly why this unit is live config rather than a
+description — `portal/platform/wiki/adapters/modules.py` reads the fenced
+`enabled:` field to gate the workspace, and the module's actual analysis
+capability lives in the security module it depends on. Keeping the unit
+sourced to the adapter plus `config/portal.yaml` makes the toggle's real
+blast radius visible.

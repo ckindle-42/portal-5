@@ -1,25 +1,38 @@
 ---
 id: unit-fish-speech-setup-portal-6-0-0-fish-speech-setup-guide
 kind: what
-title: "FISH_SPEECH_SETUP \u2014 Portal 6.0.0 \u2014 Fish Speech Setup Guide"
+title: "Portal 5 Fish Speech setup \u2014 overview"
 sources:
-- type: doc
-  path: docs/FISH_SPEECH_SETUP.md
-  commit: 05e42ec2
-  section: "Portal 6.0.0 \u2014 Fish Speech Setup Guide"
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/modules/media/tools/tts_mcp.py
+- type: code
+  path: Dockerfile.mcp
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.536432
 updated_at: 1784946220.536432
 ---
 
-Fish Speech is an **optional** TTS backend for Portal 5 that adds high-quality voice
-cloning. It runs outside Docker on the host machine to access GPU/MPS hardware directly.
+Fish Speech is an optional TTS backend for Portal 5 whose only unique feature is
+voice cloning from a reference recording, and it is not the default. The default
+is Kokoro: `TTS_BACKEND` defaults to `kokoro`, `Dockerfile.mcp` installs
+`kokoro-onnx` in the `mcp-tts` container, and `_ensure_kokoro_models` fetches the
+ONNX weights and voices on first use with no operator action. When the optional
+`fish_speech` package is missing, `_get_available_backend` and the `speak` tool
+keep serving through Kokoro, so the system degrades to the built-in backend
+rather than failing. Fish Speech does not run outside Docker; the MCP imports it
+in-process and the service answers on port 8916.
 
-**Default (zero-setup)**: Portal 5 ships with **kokoro-onnx** as the primary TTS backend.
-It downloads its model (~60 MB) automatically on first use — no setup required.
-Fish Speech is only needed if you want voice cloning from reference audio.
+## Why
 
-**Note**: If Fish Speech is not configured, the TTS MCP automatically uses kokoro-onnx.
+This is the umbrella unit for the setup guide, so its job is to state the
+default-versus-optional relationship once and accurately. Getting the container
+boundary right matters here more than anywhere else because the old doc claimed
+Fish Speech runs on the host for MPS, when the current code loads it inside the
+mcp-tts process and leaves host MPS to the separate speech server.

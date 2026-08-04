@@ -3,25 +3,27 @@ id: unit-ADMIN_GUIDE-runtime-vram-vs-file-size-gap
 kind: why
 title: "ADMIN_GUIDE \u2014 Runtime VRAM vs File Size Gap"
 sources:
-- type: design
-  path: docs/ADMIN_GUIDE.md
-  section: Runtime VRAM vs File Size Gap
-last_generated_commit: ''
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: .env.example
+- type: code
+  path: portal/platform/inference/router/routing.py
+- type: code
+  path: portal/platform/inference/router/lifespan.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
 - ADMIN_GUIDE
+- docs
+- verified-v1
 created_at: 1783195000.8168268
 updated_at: 1783195000.8168268
 ---
 
+Ollama allocates the KV cache when a model loads, so a resident model's footprint is routinely larger than its GGUF file size; the gap grows with context length, KV quantization, and `OLLAMA_NUM_BATCH`. `devstral:24b` and `granite4.1:8b` are registered in `config/backends.yaml` (general group), and under large contexts a resident big model can push others — including the router — out of memory. Ollama offloads CPU layers rather than crashing; the evicted model cold-loads on its next request, so the first post-eviction `auto` request falls through to Layer 2 keyword scoring in routing.py. `OLLAMA_KEEP_ALIVE_REQUEST` (default `-1`) and `OLLAMA_MAX_LOADED_MODELS` bound residency, and lifespan.py's `_warmup_llm_router` re-pins the router after eviction.
 
-Ollama allocates KV cache at model-load time. Runtime resident size is **significantly larger** than the model file:
+## Why
 
-| Model | File size | Runtime VRAM | Driver |
-|-------|-----------|--------------|--------|
-| devstral:24b | 14.3 GB | ~25.7 GB | Large default context window |
-| granite4.1:8b | 5.3 GB | ~16.8 GB | Large context + KV q8_0 |
-| OBLITERATED E4B | 5.3 GB | ~5.3 GB | Compact architecture |
-
-**devstral:24b specifically**: its 25.7 GB runtime footprint can cause memory-pressure eviction of other models regardless of `MAX_LOADED_MODELS`. This is expected graceful behavior — Ollama offloads CPU layers rather than crashing (unlike MLX Metal OOM). If devstral evicts the router, Layer 2 keyword scoring handles that one request, then the router reloads. Not a bug.
+File size is the wrong planning number because the KV cache is what actually competes for unified memory, making runtime residency diverge from size. Fleet and slot planning must budget resident footprint, and the graceful offload behavior is what makes an eviction a latency event rather than a crash.

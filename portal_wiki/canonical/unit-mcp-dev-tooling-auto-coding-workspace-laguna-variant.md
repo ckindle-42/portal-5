@@ -3,34 +3,36 @@ id: unit-mcp-dev-tooling-auto-coding-workspace-laguna-variant
 kind: what
 title: "MCP_DEV_TOOLING \u2014 `auto-coding` Workspace \u2014 `laguna` Variant"
 sources:
-- type: doc
-  path: docs/MCP_DEV_TOOLING.md
-  commit: 05e42ec2
-  section: "`auto-coding` Workspace \u2014 `laguna` Variant"
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/portal.yaml
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/personas/codingagentic.yaml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.5778859
 updated_at: 1784946220.5778859
 ---
 
-Built specifically for Portal 5 self-improvement work. Available in Open WebUI and via opencode.
+The `laguna` variant of the `auto-coding` workspace is the default agentic coding lane
+for opencode and Claude Code. `config/portal.yaml` pins its `model_hint` to
+`laguna-xs.2:Q4_K_M-ctx64k`, sets `keep_alive` to 15 minutes and `context_limit` to
+65536, and attaches a `system_prompt_append` that encodes the agentic loop: explore
+with `explore_repository`, read with `read_text_file`, plan, edit with `write_file`,
+verify with `execute_bash` running pytest, then report. The backing model id
+`laguna-xs.2:Q4_K_M` is registered in `config/backends.yaml`, and the `codingagentic`
+persona in `config/personas/codingagentic.yaml` binds this variant for the IDE
+picker with `ide_expose` enabled.
 
-| Property | Value |
-|---|---|
-| **Model** | `laguna-xs.2:Q4_K_M` — Poolside AI 33B-A3B MoE, 68.2% SWE-bench Verified (~19 GB) |
-| **Keep alive** | 15 min |
-| **First tool** | `explore_repository` — FastContext finds exact files/lines before any edit |
-| **Other tools** | `execute_bash`, `execute_python`, `execute_nodejs`, `sandbox_status`, file readers, memory |
+## Why
 
-**Agentic loop baked into system prompt:**
-
-1. `explore_repository` — FastContext locates the relevant files and line ranges
-2. `execute_bash cat -n` — read only the targeted ranges
-3. State the minimal change needed and which files are affected
-4. Make precise, targeted edits
-5. `execute_bash pytest tests/unit/ -q` — verify before reporting done
-6. Report what changed, what passed, what remains
-
----
+A coding model is only as good as the loop it is told to run. Encoding read, plan,
+edit, verify directly in the system prompt removes the guesswork about which tools
+exist and which order to call them, and the persona indirection lets the picker
+address the variant by a stable name rather than by an implementation detail of the
+workspace config.

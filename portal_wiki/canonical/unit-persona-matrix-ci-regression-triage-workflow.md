@@ -3,39 +3,29 @@ id: unit-persona-matrix-ci-regression-triage-workflow
 kind: what
 title: "PERSONA_MATRIX_CI \u2014 Regression triage workflow"
 sources:
-- type: doc
-  path: docs/PERSONA_MATRIX_CI.md
-  commit: 05e42ec2
-  section: Regression triage workflow
-last_generated_commit: 05e42ec2
+- type: code
+  path: tests/persona_matrix_diff.py
+- type: code
+  path: portal/modules/eval/persona_matrix/cli.py
+- type: code
+  path: portal/modules/eval/persona_matrix/sweep.py
+- type: code
+  path: portal/modules/eval/persona_matrix/_common.py
+- type: code
+  path: .github/workflows/persona_matrix_nightly.yml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
+- verified-v1
 created_at: 1784946220.569202
 updated_at: 1784946220.569202
 ---
 
-When CI surfaces a regression:
+When a CI sweep surfaces a regression, the diff names the exact cell: `persona_matrix_diff.py` indexes cells by `(persona, backend, model)` and prints regressions as `persona on backend/model` with the PASS-rate delta in percentage points. To reproduce the cell in isolation, run the driver locally with the substring filters the CLI supports — `--workspace`, `--persona`, `--model`, `--output` (an output path such as one under `/tmp`) — so the sweep executes only that one cell. The JSON report's per-scenario entries carry the assertion `name`, `passed`, `severity`, and `detail` (built by `run_cell` in `sweep.py`), so you can see which assertion flipped from PASS to FAIL.
 
-1. **Identify the regressed cell.** The diff output names exactly
-   `(persona, backend, model)`.
-2. **Run the cell in isolation** locally to reproduce:
-   ```bash
-   python3 tests/portal5_persona_matrix.py \
-       --workspace <ws> \
-       --persona <slug-substring> \
-       --model <model-substring> \
-       --output /tmp/repro.json
-   ```
-3. **Inspect the failing scenarios.** The JSON shows per-scenario
-   `results` with the assertion `name`, `passed`, `severity`, and
-   `detail`. Find which assertion(s) flipped from PASS to FAIL.
-4. **Triage cause.** Three common patterns:
-   - **Model digest drift.** `ollama pull` was re-run and the model
-     behaves differently. Acceptable cause; re-baseline if the new
-     behavior is in spec.
-   - **Persona prompt edit.** Recent persona change inadvertently
-     constrained the model in a way the assertion library catches.
-     Either revise the prompt or relax the assertion.
-   - **Genuine regression.** The model is now worse. Demote per the
-     fallback policy in `docs/<WORKSPACE>_FALLBACK_POLICY.md`.
+The three common causes map to real mechanisms. Model digest drift follows an `ollama pull` that changed model behavior; it surfaces as a regression in the next baseline diff, and re-baselining is the remedy when the new behavior is in spec. A persona system-prompt edit is tracked by the workflow's `config/personas/**` PR path; the fix is either revising the prompt or relaxing the assertion in `tests/lib/`. A genuine regression means the model got worse, and the demotion target is the workspace's `threshold_doc` from `WORKSPACE_REGISTRY` — `docs/COMPLIANCE_FALLBACK_POLICY.md` for `auto-compliance`.
+
+## Why
+
+Triage is the operator-facing complement to the mechanical diff: the diff can only say a cell dropped, never why, so the workflow exists to narrow a whole-matrix failure down to one assertion on one model. Grounding each cause to a concrete mechanism — the diff's cell key, the CLI substring filters, the JSON assertion payload, and the registry's `threshold_doc` — keeps the triage steps runnable against HEAD instead of relying on the doc's prose.

@@ -3,22 +3,33 @@ id: unit-lab-setup-teardown
 kind: what
 title: "LAB_SETUP \u2014 Teardown"
 sources:
-- type: doc
-  path: docs/LAB_SETUP.md
-  commit: 05e42ec2
-  section: Teardown
-last_generated_commit: 05e42ec2
+- type: code
+  path: scripts/lib/lab.sh
+- type: code
+  path: scripts/lab_targets.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.521163
 updated_at: 1784946220.521163
 ---
 
-```bash
-./launch.sh lab-down                        # stop core + on-demand (no footprint)
-./launch.sh lab-teardown                    # lab-down + teardown
-./launch.sh lab-teardown --purge-downloads  # deep reclaim (removes vulhub clone + images)
-```
+Teardown is lighter than the doc advertised: launch.sh implements only lab-down,
+which runs docker compose down across the lab, lab-wazuh, and lab-wazuh-ui
+profiles in `scripts/lib/lab.sh`, stopping the Incalmo C2, Talon SOC, and Wazuh
+containers. There is no lab-teardown command and no --purge-downloads flag, so
+the deep-reclaim options in the doc are not implemented. On-demand vulhub
+targets are stopped individually with `python3 scripts/lab_targets.py down`,
+which resolves the compose file and runs docker compose down for that single
+environment on LXC 112.
 
-Default preserves downloads (`--purge-downloads` is opt-in) so the next `lab up` is instant.
+## Why
+
+The doc promised a teardown command that was never wired into launch.sh, so
+recording only what lab-down actually does keeps the unit honest. The download
+caches under `$LAB_DIR/vulhub` are intentionally untouched by every stop path,
+which is why a later lab-up and the on-demand target engine can come back
+instantly.

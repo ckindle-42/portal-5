@@ -3,18 +3,23 @@ id: unit-persona-matrix-ci-persona-matrix-ci-operations
 kind: what
 title: "PERSONA_MATRIX_CI \u2014 Persona Matrix CI Operations"
 sources:
-- type: doc
-  path: docs/PERSONA_MATRIX_CI.md
-  commit: 05e42ec2
-  section: Persona Matrix CI Operations
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/modules/eval/persona_matrix/_common.py
+- type: code
+  path: .github/workflows/persona_matrix_nightly.yml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
+- verified-v1
 created_at: 1784946220.567051
 updated_at: 1784946220.567051
 ---
 
-Companion to `docs/COMPLIANCE_FALLBACK_POLICY.md`. Where that doc captures
-*what* the matrix measures, this doc captures *how* it runs in CI and what
-operator workflows it supports.
+This unit is the operations surface of the persona-matrix CI: how a sweep is configured, triggered, and consumed by an operator. Configuration is registry-driven — `WORKSPACE_REGISTRY` in `_common.py` maps each sweepable workspace to its assertion module, fixture module, persona categories, and `threshold_doc`. The `auto-compliance` entry binds to `tests.lib.compliance_assertions`, `tests.lib.compliance_fixtures`, the compliance category, and `docs/COMPLIANCE_FALLBACK_POLICY.md`; `auto-coding` binds to the coding assertion and fixture libraries and points at `docs/CODING_FALLBACK_POLICY.md`. The workflow supports three operator flows: baseline creation (run locally, inspect, commit the workspace-scoped JSON), manual dispatch (pick a workspace and the `ollama` backend from the workflow inputs), and artifact retrieval (the `persona_matrix-*` upload with 30-day retention).
+
+CI differs from the fallback-policy docs in an important way: the workflow is policy-free. It only compares a fresh run against the committed baseline through `--baseline-compare`; deciding what behavior is acceptable is delegated to the `threshold_doc` files the registry references, which the gate never reads. Operations are therefore split between the mechanical diff and the human-owned acceptability policy.
+
+## Why
+
+The original unit was pure cross-reference — it described a doc's relationship to another doc, which cannot be verified once the generated source is gone. What is real and checkable is the registry binding that names the compliance fallback policy as a workspace's threshold reference and the workflow triggers that define how an operator drives a run. Rewriting the unit around those concrete surfaces keeps it useful as an operations map instead of a memory of a file.

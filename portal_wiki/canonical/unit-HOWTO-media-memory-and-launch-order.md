@@ -5,15 +5,17 @@ title: Media memory and launch order
 sources:
 - type: code
   path: portal/modules/media/tools/_admission.py
-- type: config
+- type: code
   path: config/portal.yaml
-last_generated_commit: ''
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - HOWTO
+- comfyui
 - media
 - memory
-- comfyui
+- verified-v1
 created_at: 1784057635.351039
 updated_at: 1784057635.351039
 ---
@@ -28,8 +30,9 @@ rows in that fact-unit describe retained archival code; video service operation 
 
 ## Historical incident that established the guard (2026-07-14, Slice P)
 
-Loading Flux (~27GB: checkpoint+CLIP+VAE) and then the wan21-nsfw 14B video backend (~38GB)
-back-to-back in the *same* long-running ComfyUI process, without a restart between them, drove
+Loading Flux (~27GB: checkpoint+CLIP+VAE) and then the wan21-nsfw 14B video
+backend (static weights ~38GB) back-to-back in the *same* long-running ComfyUI
+process, without a restart between them, drove
 swap to 66.7GB/67.6GB used and locked the system — not just RAM pressure, genuine swap-thrashing.
 ComfyUI on MPS does not reliably evict a prior model's weights when a new workflow loads a
 different model family.
@@ -55,3 +58,16 @@ different model family.
    structured error when the estimate plus headroom exceeds free memory — but it cannot see what
    Ollama or another ComfyUI job in flight is using beyond the free-memory snapshot at admission
    time, so steps 1-3 still matter.
+
+## Why
+
+This guidance exists because ComfyUI and Ollama share one unified-memory
+pool with no cross-engine broker, so a large media job can OOM a system
+that looks idle to either stack alone. The incident record and the safe
+co-residency matrix are grounded in the per-backend peak estimates in
+`portal/modules/media/tools/_admission.py` (mirrored from
+`unit-fact-media-memory-budget`), and the launch-order steps follow the
+exact remediation strings that admission check returns in its structured
+refusal error. The co-residency and launch-order advice is therefore
+verifiable against the admission code rather than operator folklore, and
+it will need revisiting the day a Tier 2 cross-engine broker exists.

@@ -4,17 +4,32 @@ kind: what
 title: "COMFYUI_SETUP \u2014 Then set VIDEO_BACKEND=wan21-nsfw in .env and restart:\
   \ docker compose restart mcp-video"
 sources:
-- type: doc
-  path: docs/COMFYUI_SETUP.md
-  commit: 05e42ec2
-  section: 'Then set VIDEO_BACKEND=wan21-nsfw in .env and restart: docker compose
-    restart mcp-video'
-last_generated_commit: 05e42ec2
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+- type: code
+  path: portal/modules/media/tools/video_mcp.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.5550752
 updated_at: 1784946220.5550752
 ---
 
-Do not set `VIDEO_BACKEND` or start `mcp-video`; video operation is shelved.
+Do not perform this procedure. The `mcp-video` service is gated behind the video
+profile, so a plain compose restart of that container in a default stack is a
+no-op, and the fleet table does not advertise it regardless. The `VIDEO_BACKEND`
+variable still exists in the compose environment with a wan22 default, and
+`.env.example` mirrors that default; a wan21-nsfw value selects a legacy backend
+in `video_mcp.py` with an admission budget far above its on-disk weight, but no
+supported workflow leads an operator to set it. The instruction is archival and
+contradicts the current operating posture.
+
+## Why
+
+Documenting the obsolete procedure is necessary so readers understand why it must
+not be followed: the env var and backend code are still present, and only the
+registration and profile gating make them inert. Naming that gap prevents an
+operator from resurrecting a broken lane by following stale instructions.

@@ -3,35 +3,49 @@ id: unit-p5-roadmap-p5-fut-006-llm-based-intent-routing
 kind: what
 title: "P5_ROADMAP \u2014 P5-FUT-006: LLM-Based Intent Routing"
 sources:
-- type: doc
-  path: P5_ROADMAP.md
-  commit: 05e42ec2
-  section: 'P5-FUT-006: LLM-Based Intent Routing'
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/inference/router/routing.py
+- type: code
+  path: .env.example
+- type: code
+  path: config/routing_descriptions.json
+- type: code
+  path: config/routing_examples.json
+- type: code
+  path: tests/unit/test_routing.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.591037
 updated_at: 1784946220.591037
 ---
 
-IMPLEMENTED in v6.0.0. `_route_with_llm()` now lives in
-`portal/platform/inference/router/routing.py` and uses the model selected by
-`LLM_ROUTER_MODEL` as the primary semantic intent classifier.
+P5-FUT-006 is implemented as Layer 1 of auto-routing. `_route_with_llm()`
+(`portal/platform/inference/router/routing.py`) calls the Ollama `/api/generate`
+endpoint with `format: _ROUTER_JSON_SCHEMA`, grammar-enforced JSON that can only
+emit a valid workspace id plus a confidence score. The request uses
+`temperature: 0`, `num_predict: 40`, `num_ctx: 2048`, and `keep_alive: -1` so
+the classifier is deterministic and stays resident. It returns `None` on low
+confidence (below `_LLM_ROUTER_CONFIDENCE_THRESHOLD`, default 0.5), on timeout
+(`_LLM_ROUTER_TIMEOUT_MS`, default 1000), on `LLM_ROUTER_ENABLED=false`, and on
+any parse or HTTP error — the caller then falls back to `_detect_workspace()`,
+the weighted keyword scorer. `bench-*` workspaces are excluded from
+`_VALID_WORKSPACE_IDS`. The model is chosen by `LLM_ROUTER_MODEL` (default
+`hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`); all five env vars
+are in `.env.example`. Operator-editable inputs are
+`config/routing_descriptions.json` (workspace capability descriptions) and
+`config/routing_examples.json` (44 few-shot examples under its `examples` key).
+The router behavior is covered by 32 test functions in
+`tests/unit/test_routing.py`.
 
-**What was built:**
-- `_route_with_llm()` in `router/routing.py` — Ollama grammar-enforced JSON output (guaranteed valid workspace ID + confidence)
-- `temperature: 0`, `num_predict: 20`, `num_ctx: 512` — deterministic, fast; `keep_alive: "-1"` keeps model loaded
-- Falls back to `_detect_workspace()` on `confidence < 0.5` or timeout
-- `config/routing_descriptions.json` — operator-editable workspace capability descriptions
-- `config/routing_examples.json` — 25 few-shot routing examples (operator-editable)
-- 16 unit tests in `tests/unit/test_routing.py` (mocked Ollama)
+## Why
 
-**Configuration (`.env`):**
-```
-LLM_ROUTER_ENABLED=true
-LLM_ROUTER_MODEL=hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M
-LLM_ROUTER_CONFIDENCE_THRESHOLD=0.5
-LLM_ROUTER_TIMEOUT_MS=1000
-LLM_ROUTER_OLLAMA_URL=http://host.docker.internal:11434
-```
+Layer 1 exists because keyword scoring alone cannot reliably separate the more
+similar workspaces in the fleet; grammar-enforced JSON guarantees the model
+answer is structurally valid, and the hard 1000ms timeout plus `keep_alive: -1`
+turn the classifier into a cheap, always-warm first opinion. Routing is
+non-fatal by design — every failure mode degrades to the deterministic keyword
+scorer rather than erroring the request.

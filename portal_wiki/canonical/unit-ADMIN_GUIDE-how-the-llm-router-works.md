@@ -3,22 +3,25 @@ id: unit-ADMIN_GUIDE-how-the-llm-router-works
 kind: why
 title: "ADMIN_GUIDE \u2014 How the LLM Router Works"
 sources:
-- type: design
-  path: docs/ADMIN_GUIDE.md
-  section: How the LLM Router Works
-last_generated_commit: ''
+- type: code
+  path: portal/platform/inference/router/routing.py
+- type: code
+  path: portal/platform/inference/router/lifespan.py
+- type: code
+  path: .env.example
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
 - ADMIN_GUIDE
+- docs
+- verified-v1
 created_at: 1783195000.8151271
 updated_at: 1783195000.8151271
 ---
 
+Every `auto` request goes through two layers in routing.py. Layer 1 `_route_with_llm` sends the last user message to Ollama `/api/generate` with `format: _ROUTER_JSON_SCHEMA` — grammar-enforced JSON returning `{"workspace": ..., "confidence": ...}` — and accepts the result only when confidence is at least `LLM_ROUTER_CONFIDENCE_THRESHOLD`. Layer 2 `_detect_workspace` runs weighted keyword scoring over `_WORKSPACE_ROUTING` and fires on timeout, low confidence, or error. Variant recovery (`_infer_variant`) exists only on Layer 1: with the router down, a defensive intent lands on the `auto-security` base rather than `auto-security::blueteam`, a coarser but not incorrect decision. lifespan.py pre-warms the router model with `keep_alive: -1`.
 
-The pipeline routes every `auto` workspace request through a **two-layer intent classifier**:
+## Why
 
-- **Layer 1 — LLM router** (`portal/platform/inference/router/routing.py`): A small model classifies intent via Ollama `/api/generate` with grammar-enforced JSON output. Result: `{"workspace": "<id>", "confidence": 0.0–1.0}`. Fast, accurate.
-- **Layer 2 — Keyword scoring** (`portal/platform/inference/router/routing.py`): Weighted keyword match. Fires when LLM router times out, returns low confidence, or errors.
-
-**Layer 2 loses security-variant precision.** When the LLM router is down and Layer 2 fallback fires, a message that would have routed to (say) `auto-security::blueteam` on Layer 1 instead lands on the plain `auto-security` base — a silent, coarser routing decision for the duration of the fallback. This is expected behavior, not a bug, but operators should know it: a Layer-1 outage degrades variant precision for defensive/purple intents specifically, not just latency.
+The keyword scorer exists so the router model is never a hard dependency of serving — it is the guaranteed-latency path while the LLM layer buys accuracy. The variant asymmetry is a direct consequence: variant vocabulary lives in `_SECURITY_VARIANT_SIGNALS`, which Layer 2's scorer has no entry for, so an outage degrades variant precision rather than correctness.

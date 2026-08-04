@@ -4,24 +4,46 @@ kind: what
 title: "PORTAL5_BENCH_SEC_EXECUTE_V3 \u2014 Full expanded with live lab execution\
   \ (needs green lab-ready)"
 sources:
-- type: doc
-  path: tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md
-  commit: 05e42ec2
-  section: Full expanded with live lab execution (needs green lab-ready)
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/modules/security/core/cli.py
+- type: code
+  path: portal/modules/security/core/_data.py
+- type: code
+  path: portal/modules/security/core/lab.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.708781
 updated_at: 1784946220.708781
 ---
 
+```bash
 python3 -m portal.modules.security.core --full-expanded --lab-exec
 ```
 
-`--full-expanded` runs every available security bench step: prompt-set
-capability, attack-chain tool sequencing, execution workspaces
-(`auto-security::pentest`, `auto-security::purpleteam-exec` — the
-`EXECUTION_WORKSPACES` set), and blue-detection correlation if Wazuh is up.
+This is the heavy full-suite run. `--full-expanded` adds the expansion steps
+(oracles, CTF, LLM-redteam, validation, journal) to the default
+`DEFAULT_WORKSPACES` bench; it does not by itself run tool-calling chains or
+blue detection. The prompt-set theory pass always runs; the tool-enabled
+execution pass for the two `EXECUTION_WORKSPACES` (`auto-security::pentest`,
+`auto-security::purpleteam-exec`) needs `--exec-eval`; the multi-model
+attack-chain sequencing needs `--exec-chain-models`; and blue-detection
+correlation needs a blue model via `--blue-defender-model` or `--purple`.
+`--lab-exec` switches tool results from synthetic to real MCP sandbox execution
+and, when chain models are requested, triggers the mandatory
+`verify_lab_targets_reachable` gate in `cli.py`, which aborts unless the DC/SRV
+targets respond unless `--force-unreachable-lab` overrides deliberately. A green
+`python3 scripts/lab_ready.py` is the standing precondition. Treat the earlier
+doc's blanket phrasing as aspirational: the bench is flag-composed, not one
+switch.
 
----
+## Why
+
+The original doc claimed `--full-expanded` alone executes chains, execution
+workspaces, and blue correlation; re-grounding shows each of those is a separate
+opt-in flag. Conflating them makes an operator believe a flag-composed suite is
+monolithic, which either over-runs the lab or silently skips the passes they
+intended to run.

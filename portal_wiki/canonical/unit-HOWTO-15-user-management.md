@@ -7,7 +7,8 @@ sources:
   path: docs/HOWTO.md
   commit: ddb1cc61
   section: 15. User Management
-last_generated_commit: ddb1cc61
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs

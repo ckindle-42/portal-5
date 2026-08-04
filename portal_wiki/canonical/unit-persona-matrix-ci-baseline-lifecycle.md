@@ -3,32 +3,25 @@ id: unit-persona-matrix-ci-baseline-lifecycle
 kind: what
 title: "PERSONA_MATRIX_CI \u2014 Baseline lifecycle"
 sources:
-- type: doc
-  path: docs/PERSONA_MATRIX_CI.md
-  commit: 05e42ec2
-  section: Baseline lifecycle
-last_generated_commit: 05e42ec2
+- type: code
+  path: .github/workflows/persona_matrix_nightly.yml
+- type: code
+  path: portal/modules/eval/persona_matrix/cli.py
+- type: code
+  path: portal/modules/eval/persona_matrix/sweep.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
+- verified-v1
 created_at: 1784946220.567778
 updated_at: 1784946220.567778
 ---
 
-1. **First baseline (per workspace).** Operator runs the matrix locally
-   without `--baseline-compare`, inspects results, decides whether the
-   numbers represent acceptable behavior, and commits the JSON to:
-       `tests/benchmarks/results/persona_matrix_baseline_<workspace>.json`
+The persona matrix treats a committed result file as the reference the CI gate diffs against. The workflow's `Determine sweep parameters` step expects that reference at `tests/benchmarks/results/persona_matrix_baseline_<workspace>.json` and, when present, hands it to the sweep via `--baseline-compare`. A first baseline is therefore an operator action: run the driver locally without `--baseline-compare`, inspect the rendered matrix, and commit the JSON under the workspace-scoped name. The workflow never writes this file — its own sweep output goes to a timestamped `persona_matrix_<workspace>_ci_<ts>.json` artifact — so the baseline can only change through an operator-authored commit.
 
-2. **Re-baselining.** Required after any of:
-   - New model added to a backend group on the workspace's chain
-   - Existing model upgraded (Ollama re-pull moves the digest)
-   - Persona system prompt edited
-   - Fixture scenario added/modified
-   - Assertion library threshold/regex changed
-   Process: run the matrix manually, inspect the diff, commit the new
-   baseline if the changes are intentional and acceptable.
+Re-baselining is warranted when the same inputs that fire the workflow change behavior expectations. The PR path filter watches `config/personas/**` (persona system-prompt edits), `config/backends.yaml` (a model added to a workspace chain), `tests/lib/**` (assertion-library threshold or regex changes), and `tests/fixtures/**` (scenario edits). A model re-pull that moves the Ollama digest is not a file change; it surfaces as a regression in the next baseline diff and is the signal to re-baseline when the new behavior is in spec. The quarterly cadence is operator policy, not code — nothing enforces it; the mechanical backstop is the regression threshold (`--regression-threshold`, default 10pp) applied by `persona_matrix_diff.py`'s `compute_regressions`.
 
-3. **Quarterly cadence.** Even with no triggering change, re-baseline
-   quarterly to absorb drift in model behavior from re-pulls,
-   environmental shifts, or assertion-library tuning.
+## Why
+
+The lifecycle exists because the CI gate is a diff, not an absolute judge: the workflow can only decide clean or red against a previously committed reference, so an operator must own when that reference moves. Binding the trigger list to the workflow's PR paths makes "when do I re-baseline" mechanically checkable instead of a memory, while digest-drift and quarterly cases stay human judgment, which is why they are policy rather than enforced in code.

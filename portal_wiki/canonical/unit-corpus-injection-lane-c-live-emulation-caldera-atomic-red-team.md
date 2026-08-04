@@ -4,34 +4,45 @@ kind: what
 title: "corpus_injection \u2014 Lane C \u2014 live emulation (Caldera + Atomic Red\
   \ Team)"
 sources:
-- type: doc
-  path: docs/security/corpus_injection.md
-  commit: 05e42ec2
-  section: "Lane C \u2014 live emulation (Caldera + Atomic Red Team)"
-last_generated_commit: 05e42ec2
+- type: code
+  path: scripts/caldera_emulate.py
+- type: code
+  path: .env.example
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
+- verified-v1
 created_at: 1784946220.586282
 updated_at: 1784946220.586282
 ---
 
-Caldera runs on lab-internal LXC 302 (`portal-lab-caldera`, 10.10.11.60:8888) as
-a systemd unit, on the VLAN-60 lab bridge only. The Atomic Red Team ability
-collection is included via Caldera's bundled `atomic` plugin.
-
-`scripts/caldera_emulate.py` runs an adversary profile and then flows the
-resulting telemetry through the **same** `collect_target → ship_batch →
-wait_indexed` path the bench uses, stamped with the Caldera operation id as
-`episode_id`:
+`scripts/caldera_emulate.py` is the Lane C driver. It talks to Caldera's API
+at `CALDERA_URL` (default `http://10.10.11.60:8888`), lists adversaries and
+checked-in agents, and runs one adversary profile against an agent group. After
+the operation, it flows the resulting telemetry through the same
+`collect_target -> ship_batch -> wait_indexed` path the bench uses, stamped
+with the Caldera operation id as `episode_id` and provenance
+`evidence_origin=live:caldera:<profile>`. Because those events carry an
+`episode_id`, blue and purple consume them exactly like bench telemetry,
+including via `SplunkBackend.query_episode`.
 
 ```bash
 python3 scripts/caldera_emulate.py --list
 python3 scripts/caldera_emulate.py --adversary "Portal5 Linux Discovery" --group red
 ```
 
-The driver refuses to target any host outside `LAB_TARGET_NETWORK`.
+The driver refuses to target any host outside `LAB_TARGET_NETWORK` (default
+`10.10.11.0/24`): `in_lab` rejects non-lab IPs before any operation starts, and
+`resolve_agent_hosts` only returns checked-in agents on the lab network. Known
+lab targets map to collect kinds and LXC ids in `HOST_COLLECTORS`.
 
-Deploying an agent onto a lab target:
+## Why
 
-```bash
+Lane C exists because lanes A and B are dead ends for discovery: every corpus
+event already carries its answer, so it can train detection recall but can
+never surface something the library does not know. Only fresh, unlabeled
+emulation against owned lab targets produces the novel-threat signal that
+`ANOMALOUS_UNCLASSIFIED` discovery needs, and reusing the bench's own
+collect/ship/wait primitives keeps that signal in the exact shape blue already
+consumes.

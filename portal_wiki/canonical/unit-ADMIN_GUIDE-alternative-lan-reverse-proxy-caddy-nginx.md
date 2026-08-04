@@ -3,23 +3,27 @@ id: unit-ADMIN_GUIDE-alternative-lan-reverse-proxy-caddy-nginx
 kind: why
 title: "ADMIN_GUIDE \u2014 Alternative: LAN reverse proxy (Caddy / nginx)"
 sources:
-- type: design
-  path: docs/ADMIN_GUIDE.md
-  section: 'Alternative: LAN reverse proxy (Caddy / nginx)'
-last_generated_commit: ''
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+- type: code
+  path: launch.sh
+- type: code
+  path: scripts/mlx-speech.py
+- type: code
+  path: portal/platform/mcp_host/pipeline_mcp.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
 - ADMIN_GUIDE
+- docs
+- verified-v1
 created_at: 1783195000.814135
 updated_at: 1783195000.814135
 ---
 
+For deployments that skip Cloudflare Tunnel, a Caddy or nginx proxy on the same host plays the same role. Route only the media paths to the loopback services — `/files/{music,tts,video}/*` toward ports 8912/8916/8911 and a ComfyUI hostname toward 8188 — set `PORTAL_PUBLIC_URL` to the proxy's public address, and `launch.sh` derives `MUSIC_PUBLIC_URL`, `TTS_PUBLIC_URL`, `VIDEO_PUBLIC_URL`, and `COMFYUI_PUBLIC_URL` from it. Bindings are per-service in `docker-compose.yml`: the Docker MCP servers bind `127.0.0.1`, but the pipeline API binds `0.0.0.0:9099`, Grafana binds `0.0.0.0:3000`, and the host-native MCP servers (`scripts/mlx-speech.py`, `portal/platform/mcp_host/pipeline_mcp.py`) default to `0.0.0.0`. The proxy must therefore be the only path that exposes those surfaces; never proxy the bare MCP tool APIs.
 
-For deployments that don't use Cloudflare Tunnel, a Caddy or nginx reverse proxy on the same machine can serve the same role. Reverse-proxy `/files/{music,tts,video}/*` and `/comfyui/*` to the corresponding loopback ports, set `PORTAL_PUBLIC_URL` to the proxy's public address, and the same env-var derivation works. A first-class Caddy profile in `docker-compose.yml` is on the roadmap but not yet implemented.
+## Why
 
-**Never expose the MCP ports directly to the internet.** Routing only `/files/{kind}/*` keeps the rest of the MCP API surface private.
-
-The pipeline API (port 9099) and all MCP servers (8910–8932) are always bound to 127.0.0.1 and are not reachable externally under any configuration. Cloudflare Tunnel reaches them via the host loopback only because cloudflared itself runs on the host.
-
-> **Note:** Grafana (port 3000) binds to `0.0.0.0:3000` and **is** reachable from other machines on your network. Grafana requires login (`admin` / `GRAFANA_PASSWORD` from `.env`) and does not expose inference data — but if your LAN is untrusted, restrict it with a firewall rule or set `GF_SERVER_HTTP_ADDR=127.0.0.1` in `docker-compose.yml`.
+The loopback-only posture is enforced per service, not globally, so an operator who assumes "everything is localhost" will misread the network map. The proxy's job is to publish exactly the media-file paths users click in chat and nothing else, which is why the ingress example is path-scoped rather than a blanket pass-through of the whole API plane.

@@ -3,22 +3,23 @@ id: unit-backup-restore-what-to-back-up
 kind: what
 title: "BACKUP_RESTORE \u2014 What to Back Up"
 sources:
-- type: doc
-  path: docs/BACKUP_RESTORE.md
-  commit: 05e42ec2
-  section: What to Back Up
-last_generated_commit: 05e42ec2
+- type: code
+  path: scripts/lib/backup.sh
+- type: code
+  path: .env.example
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
+- verified-v1
 created_at: 1784946220.523835
 updated_at: 1784946220.523835
 ---
 
-| Component | Volume | Critical? | Notes |
-|-----------|--------|-----------|-------|
-| Open WebUI data | `portal-5_open-webui-data` | YES | Users, chat history, settings, workspaces |
-| Ollama models | `portal-5_ollama-models` | NO | Can be re-downloaded, large (10-100GB) |
-| Configuration | `config/` | YES | backends.yaml, personas/ (if customized) |
-| Environment | `.env` | YES | Secrets, API keys |
-| Generated artifacts | `${AI_OUTPUT_DIR:-~/AI_Output}` (host dir, mounted `/workspace`) | MAYBE | Uploads + generated docs/images/videos/music/speech, if any (CLAUDE.md Rule 11) |
+The backup command's artifact set is fixed and covers four things: the `portal-5_open-webui-data` volume with users and chat history, the `portal-5_grafana-data` volume with dashboards and datasources, the `.env` secrets file, and the `config/` plus `imports/` trees. Excluded by design are the `portal-5_ollama-models` weights volume and the host workspace at `${AI_OUTPUT_DIR}`, the latter being recoverable only by manual archive. This is the complete inventory; nothing outside it is snapshotted.
+
+## Why
+
+Publishing the exact inclusion and exclusion set prevents the two failure modes that plague backup systems: assuming a component is covered when it is not, and carrying re-downloadable bulk that slows every run. The list is derived from the literal artifact sequence in `_launch_backup`, so it stays truthful as long as the script does not change.

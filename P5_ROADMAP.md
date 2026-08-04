@@ -1,20 +1,22 @@
 # P5_ROADMAP.md — Portal 5 v7 Future Enhancements
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements -->
-```
-Portal 5 v7 Roadmap
-===================
-Last updated: 2026-06-25
-Version: 8.0.0 (production-ready)
+The roadmap document at the repo root is the tracking file for open Portal 5
+work. Its header states the current release as 8.0.0, which matches the `version`
+field in `pyproject.toml`. Completed work is not kept in the open queue:
+`CHANGELOG.md` records shipped milestones, and the roadmap marks all v5.0 through
+v6.1.0 items as DONE there. The live set of open items, each with its
+implementation or absence in code, is tracked in the roadmap's open-work section
+rather than being repeated in a doc copy here.
 
-LEGEND: P1=Critical, P2=High, P3=Medium
-STATUS: DONE, BLOCKED, CANCELED
-```
+## Why
 
-All v5.0–v6.1.0 items are marked DONE in CHANGELOG.md. This document tracks
-genuinely open future work. Completed items are kept for reference only.
-
----
+This unit exists because the roadmap header was once extracted as if it were a
+fact about the system. The only code-determined facts it contains are the release
+version in `pyproject.toml` and the location of the completed-work record in
+`CHANGELOG.md`; the roadmap itself is a planning artifact, not a fact source, so
+the unit now asserts only those two anchors and does not restate the roadmap
+body.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -22,18 +24,35 @@ genuinely open future work. Completed items are kept for reference only.
 ## Future Considerations (Not Yet Implemented)
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-future-considerations-not-yet-implemented -->
-This table contains only genuinely open work. Completed, canceled, and retired
-items remain available through git history and their dedicated canonical units;
-they are not kept in the active queue.
+This queue lists open roadmap items. Two of them are grounded in current code:
+`P5-FUT-WS-FROM-MODULE` and `P5-FUT-MODEL-CHAINWALK` both hinge on
+`workspace_model` in `config/personas/*.yaml` being the canonical served-model
+selector that `portal/platform/inference/config.py` reads in the serving path,
+while `preferred_models` is advisory metadata that is NOT consumed —
+`scripts/persona_intent_audit.py` documents it as dead metadata — so a live
+chain-walk over `preferred_models` does not exist.
 
-| ID | Priority | Title | Status | Next decision or action |
-|----|----------|-------|--------|-------------------------|
-| P5-FUT-PROMPT-GUARD-INLINE | P3 | Input-side prompt-injection guardrail | OPEN | Scope an input filter under `portal/platform/inference/router/`; coordinate it with the model-layer security controls. |
-| P5-FUT-WS-FROM-MODULE | P3 | Derive served workspace from `module` | DECISION NEEDED | Choose a module-level disambiguator or formally retain `workspace_model` as the canonical selector. |
-| P5-FUT-MODEL-CHAINWALK | P2 | Live `preferred_models` chain-walk | OPEN | Add cached Ollama availability, bounded chain resolution, and a served-chain-position metric. |
-| P5-FUT-RBP-MCP-SECURITY | P2 | MCP Security Assessment challenge class | DESIGN NEEDED | Define malicious/instrumented MCP lab fixtures and scoring for tool-layer compromise. |
-| P5-FUT-RBP-LLM-SECURITY-EXPAND | P2 | Expand OWASP LLM Top 10 coverage | DESIGN NEEDED | Extend `portal/modules/security/core/llm_redteam.py` beyond the current thin probe set and replace substring-only grading. |
-| P5-FUT-ABLATION-CAPTURE-PERSIST | P2 | Persist Expert/Hunter handoffs in the corpus driver | OPEN | Save each handoff beside the existing raw verdict so future model-swap studies do not require a full rerun. |
+The security rows have code anchors for their current state but no implementing
+feature. `P5-FUT-RBP-LLM-SECURITY-EXPAND` would extend the OWASP LLM Top 10 probe
+set in `portal/modules/security/core/llm_redteam.py`. `P5-FUT-RBP-MCP-SECURITY`
+would add an MCP-compromise challenge class; `config/challenge_classes.yaml`
+still marks classes `status: aspirational`. `P5-FUT-ABLATION-CAPTURE-PERSIST`
+touches the corpus driver `portal/modules/security/core/corpus_replay_bench.py`,
+which records verdicts but not Expert/Hunter handoffs. `P5-FUT-PROMPT-GUARD-INLINE`
+has no code footprint: no input-side prompt-injection filter exists in
+`portal/platform/inference/router/`.
+
+Completed, canceled, and retired items are kept out of this queue; they live in
+the referenced code and in git history.
+
+## Why
+
+A roadmap queue is only useful when each entry points at the code that either
+absorbs it or currently stands in for it. `config.py` and `persona_intent_audit.py`
+decide that `workspace_model` is canonical and `preferred_models` is dead, so
+those two items are grounded; the security and prompt-guard rows have no
+implementing code, so their bodies only assert the existing surface that planned
+work would extend, leaving the aspirational status explicit.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -41,7 +60,24 @@ they are not kept in the active queue.
 ### Speculative Decoding / MTP — RETIRED (commit 3a0c58e)
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e -->
-The MLX-proxy speculative-decoding and MTP unblock paths described here were removed with the proxy. See the MOOT rows in the table above. Any future work targets Ollama's native path, not MLX.
+Speculative decoding and MTP support lived in the retired MLX proxy and are not
+part of the current serving stack. The archived
+`scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py` reads the draft-model map
+(`speculative_decoding.draft_models` in `config/backends.yaml`) into
+`DRAFT_MODEL_MAP` and passes `--draft-model` when the draft for a target model is
+present locally; that surface was deleted with the proxy at commit 3a0c58e. The
+archive README confirms the scripts are not runnable at HEAD and that any future
+speculation work targets Ollama's native path rather than MLX — the archive exists
+as reference for the admission-control pattern and the draft-model mapping.
+
+## Why
+
+The MLX-proxy speculative-decoding and MTP unblock paths were removed with the
+proxy because Ollama's native MLX Metal backend reached throughput parity without
+the dual-stack admission and thread-patch complexity. The archived implementation
+is intentionally retained as reference but is not runnable at HEAD, so this unit
+records the removal and the surviving reference rather than describing a live
+feature.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -49,9 +85,24 @@ The MLX-proxy speculative-decoding and MTP unblock paths described here were rem
 ### workspace-clean Utility (LOW priority)
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-workspace-clean-utility-low-priority -->
-`${AI_OUTPUT_DIR}` grows unbounded. Planned command `./launch.sh workspace-clean --age=Nd` deletes generated artifacts older than N days. Not yet implemented.
+A `workspace-clean` command is planned but does not exist: `launch.sh` has no such
+subcommand. What the code does determine is the layout the utility would operate
+on. `portal/platform/mcp_host/workspace.py` resolves the shared workspace root
+from `WORKSPACE_DIR` or `AI_OUTPUT_DIR` (default `~/AI_Output` on the host) and
+creates per-category `generated/` subdirectories on demand, so the generated tree
+grows without any age-based purge. The only time-based cleanup in the repo is the
+speech janitor `_cleanup_stale_audio` in `scripts/mlx-speech.py`, which deletes
+stale audio older than a bounded max age. A general workspace cleaner therefore
+remains open roadmap work with no code footprint yet.
 
----
+## Why
+
+The shared output directory grows unbounded because nothing prunes old generated
+artifacts, and the unit records both the gap and why it stays low priority. The
+only expiry-driven janitor that exists is scoped to one category (`mlx-speech.py`),
+generalizing it to the full workspace is planned but unimplemented, so the body
+asserts the layout the planned command would target and the absence of the command
+in `launch.sh`.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -59,10 +110,30 @@ The MLX-proxy speculative-decoding and MTP unblock paths described here were rem
 ### P5-FUT-004: Webhook-Based Event Notifications
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications -->
-IMPLEMENTED: `WebhookChannel` (`portal/platform/inference/notifications/channels/webhook.py`) sends
-JSON POST to any user-defined HTTP endpoint on all alert and daily summary events.
-Configure via `WEBHOOK_URL` and optional `WEBHOOK_HEADERS` (JSON object) env vars.
-Live-verified: a `config_error` test event was confirmed delivered to a listening endpoint.
+P5-FUT-004 is implemented. `WebhookChannel`
+(`portal/platform/inference/notifications/channels/webhook.py`) is a
+`NotificationChannel` registered in
+`portal/platform/inference/notifications/channels/__init__.py` and POSTs a JSON
+body to `WEBHOOK_URL` for both alert and daily-summary events. `send_alert`
+carries the event type, message, backend id, workspace and timestamp;
+`send_summary` carries request totals, per-workspace counts, backend health,
+uptime, token metrics and average latency. `WEBHOOK_HEADERS`, a JSON object,
+adds extra request headers and is ignored with a warning when unparsable. The
+channel only activates when `WEBHOOK_URL` is set to a value other than "false".
+Both env vars are documented in `.env.example`. The dispatcher
+(`portal/platform/inference/notifications/dispatcher.py`) fans each event out to
+every registered channel asynchronously, so webhook delivery is fire-and-forget
+alongside the Slack, Pushover, Telegram, and Email channels.
+
+## Why
+
+`WebhookChannel` exists because alert delivery needs a generic operator-defined
+sink that needs no external account: a JSON POST to an arbitrary HTTP endpoint
+is the lowest-friction route for custom notification consumers. Keeping the two
+event shapes (`send_alert` / `send_summary`) separate lets a receiver distinguish
+a per-backend failure from the periodic digest without parsing the payload, and
+the header override covers authenticated endpoints without storing credentials
+in the repo.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -70,26 +141,32 @@ Live-verified: a `config_error` test event was confirmed delivered to a listenin
 ### P5-FUT-006: LLM-Based Intent Routing
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-006-llm-based-intent-routing -->
-IMPLEMENTED in v6.0.0. `_route_with_llm()` now lives in
-`portal/platform/inference/router/routing.py` and uses the model selected by
-`LLM_ROUTER_MODEL` as the primary semantic intent classifier.
+P5-FUT-006 is implemented as Layer 1 of auto-routing. `_route_with_llm()`
+(`portal/platform/inference/router/routing.py`) calls the Ollama `/api/generate`
+endpoint with `format: _ROUTER_JSON_SCHEMA`, grammar-enforced JSON that can only
+emit a valid workspace id plus a confidence score. The request uses
+`temperature: 0`, `num_predict: 40`, `num_ctx: 2048`, and `keep_alive: -1` so
+the classifier is deterministic and stays resident. It returns `None` on low
+confidence (below `_LLM_ROUTER_CONFIDENCE_THRESHOLD`, default 0.5), on timeout
+(`_LLM_ROUTER_TIMEOUT_MS`, default 1000), on `LLM_ROUTER_ENABLED=false`, and on
+any parse or HTTP error — the caller then falls back to `_detect_workspace()`,
+the weighted keyword scorer. `bench-*` workspaces are excluded from
+`_VALID_WORKSPACE_IDS`. The model is chosen by `LLM_ROUTER_MODEL` (default
+`hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`); all five env vars
+are in `.env.example`. Operator-editable inputs are
+`config/routing_descriptions.json` (workspace capability descriptions) and
+`config/routing_examples.json` (44 few-shot examples under its `examples` key).
+The router behavior is covered by 32 test functions in
+`tests/unit/test_routing.py`.
 
-**What was built:**
-- `_route_with_llm()` in `router/routing.py` — Ollama grammar-enforced JSON output (guaranteed valid workspace ID + confidence)
-- `temperature: 0`, `num_predict: 20`, `num_ctx: 512` — deterministic, fast; `keep_alive: "-1"` keeps model loaded
-- Falls back to `_detect_workspace()` on `confidence < 0.5` or timeout
-- `config/routing_descriptions.json` — operator-editable workspace capability descriptions
-- `config/routing_examples.json` — 25 few-shot routing examples (operator-editable)
-- 16 unit tests in `tests/unit/test_routing.py` (mocked Ollama)
+## Why
 
-**Configuration (`.env`):**
-```
-LLM_ROUTER_ENABLED=true
-LLM_ROUTER_MODEL=hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M
-LLM_ROUTER_CONFIDENCE_THRESHOLD=0.5
-LLM_ROUTER_TIMEOUT_MS=1000
-LLM_ROUTER_OLLAMA_URL=http://host.docker.internal:11434
-```
+Layer 1 exists because keyword scoring alone cannot reliably separate the more
+similar workspaces in the fleet; grammar-enforced JSON guarantees the model
+answer is structurally valid, and the hard 1000ms timeout plus `keep_alive: -1`
+turn the classifier into a cheap, always-warm first opinion. Routing is
+non-fatal by design — every failure mode degrades to the deterministic keyword
+scorer rather than erroring the request.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -97,25 +174,28 @@ LLM_ROUTER_OLLAMA_URL=http://host.docker.internal:11434
 ### P5-FUT-009: Model-Size-Aware Admission Control (MLX Proxy)
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy -->
-IMPLEMENTED in v6.0.0 (`scripts/mlx-proxy.py`). Note: the MLX proxy was subsequently retired
-at commit 3a0c58e — this note is historical. Ollama's native model-load behavior now handles
-memory pressure via OLLAMA_MAX_LOADED_MODELS and OLLAMA_MEMORY_LIMIT (see Admin Guide).
+P5-FUT-009 shipped in the retired MLX proxy and is now historical. The archived
+`scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py` holds the implementation:
+`MODEL_MEMORY` maps model ids to estimated GB (loaded from the `mlx_models`
+`memory_gb` metadata in `config/backends.yaml`), and `_check_memory_for_model()`
+runs before any model switch, rejecting a load with an HTTP 503 and an
+operator-actionable message when required GB plus `MEMORY_HEADROOM_GB` exceeds
+free memory. The override env vars were `MLX_MEMORY_HEADROOM_GB` (default 10.0)
+and `MLX_MEMORY_UNKNOWN_DEFAULT_GB` (default 20.0). The proxy and its unit tests
+(`tests/unit/test_mlx_proxy.py`) were deleted at commit 3a0c58e, which retired
+the whole MLX inference tier; the archive README documents recovering the tests
+via git. Memory pressure is now managed by Ollama itself through
+`OLLAMA_MAX_LOADED_MODELS` and `OLLAMA_MEMORY_LIMIT` in `.env.example` and
+`deploy/portal-5/docker-compose.yml`.
 
-**What was built:**
-- `MODEL_MEMORY` dict: 16 model tags → estimated GB (sourced from CLAUDE.md catalog)
-- `_check_memory_for_model()`: pre-flight check in `ensure_server()` before any model switch
-- Rejects with HTTP 503 + actionable message (e.g. "Model needs ~46GB, only 30GB free — stop ComfyUI or unload Ollama first")
-- `MEMORY_HEADROOM_GB` env var replaces the hardcoded 10GB floor
-- `MLX_MEMORY_UNKNOWN_DEFAULT_GB` env var controls the assumed size for unrecognized models
-- 9 unit tests in `tests/unit/test_mlx_proxy.py` (mocked memory reads)
+## Why
 
-**Configuration (`.env`):**
-```
-MLX_MEMORY_HEADROOM_GB=10
-MLX_MEMORY_UNKNOWN_DEFAULT_GB=20
-```
-
----
+The admission-control code survives only as reference, but the reason it existed
+has not gone away: on a fixed-memory Mac, a model-switch pre-flight check was the
+difference between a clean swap and an OOM crash. Retiring the proxy moved that
+niche to Ollama's native `OLLAMA_MAX_LOADED_MODELS` cap, while the archived
+implementation remains the documented pattern if a successor engine ever needs a
+memory gate again.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -123,13 +203,30 @@ MLX_MEMORY_UNKNOWN_DEFAULT_GB=20
 ### P5-FUT-013: OMLX Evaluation — CANCELED
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled -->
-Full bake-off completed 2026-04-25. Decision: **RETIRE**. See `OMLX_DECISION.md` for full results. KV cache persistence not functional (warm TTFT 31% *slower* than cold). mlx-proxy retains the production inference role.
+P5-FUT-013 evaluated oMLX as a candidate inference engine and is superseded by
+Phase 1 integration. `OMLX_DECISION.md` records the decision chain: the
+2026-04-25 bake-off RETIRED oMLX because KV-cache persistence was not functional
+(warm TTFT slower than cold); the 2026-05-28 re-evaluation (v0.3.12) kept it
+retired but cleared MTP speedup past the 1.5x gate; and the 2026-08-02 six-gate
+re-evaluation (v0.5.4) passed every gate — KV-cache warm TTFT speedup on
+agentic-length prefixes, decode 1.32-1.46x over production GGUF (2.2-2.5x with
+Lightning MTP), Qwen/Gemma tool calling, grammar with one reproducible gemma
+livelock edge, and batching 1.6-3.1x with zero failures — producing the decision
+PROCEED to Phase 1 dual-backend. Full results are in
+`tests/benchmarks/results/omlx_v3_reeval_20260802T221435Z.md`. Phase 1 is visible
+in `config/backends.yaml`, which registers the `omlx` backend type and two
+backends: `omlx-local` (holding group, no routing reference) and `omlx-coding`
+(the live `group: coding` candidate with `priority: 10` and aliases). Per the
+decision doc, Ollama remains the sole production engine until Phase 1 lands.
 
-**Update 2026-05-28 (TASK_OMLX_REEVAL_V2):** oMLX v0.3.12 full re-evaluation completed. KV cache STILL broken (warm 2× slower than cold on 3B and 30B). MTP speedup clears 1.5× gate (1.55×-1.65×). 30B model now loads (memory fix works). 70B borderline (HTTP 507 on cold load). Decision: PROBE_AGAIN_NARROWLY. Status: REMAINS RETIRED. See OMLX_DECISION.md "Re-evaluation 2026-05-28" section and `tests/benchmarks/results/omlx_reeval_20260528T145902Z.md` for detail. Next re-evaluation trigger: MTP stability probe (TASK_OMLX_MTP_STABILITY_V1).
+## Why
 
-**Update 2026-08-02 (P5-FUT-013 Phase-0 v3):** oMLX v0.5.4 six-gate re-evaluation — ALL GATES PASS. KV cancel trigger cleared on agentic-length prefixes (3.5–7.0× warm TTFT, `cached_tokens` verified; legacy short-prefix cell flat because the paged cache uses 256-token blocks — part of the original RETIRE verdict was methodology). Decode 1.32–1.46× over production GGUF, 2.2–2.5× with verified Lightning MTP. Tool calling: Qwen/Gemma ✅, Llama-family ❌. Grammar ✅ with one reproducible gemma livelock edge. Batching 1.6–3.1×, zero failures. Decision: **PROCEED to Phase 1 (dual-backend; Ollama retained as fallback tier)**. P5-FUT-013 superseded. See OMLX_DECISION.md "Re-evaluation v3 2026-08-02" and `tests/benchmarks/results/omlx_v3_reeval_20260802T221435Z.md`.
-
----
+The oMLX path flipped from RETIRE to PROCEED because part of the original verdict
+was a methodology artifact: the paged KV cache works in 256-token blocks, so
+short prefixes never show a warm-cache win. Re-measuring on agentic-length
+prefixes cleared the cancel trigger, and the dual-backend decision registers
+oMLX in `config/backends.yaml` without disturbing production routing —
+evidence before promotion, the same rule the bench fleet follows.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -137,22 +234,28 @@ Full bake-off completed 2026-04-25. Decision: **RETIRE**. See `OMLX_DECISION.md`
 ### P5-FUT-014-V7: Model Refresh Waterline
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline -->
-TASK_MODEL_REFRESH_V7 (2026-05-27) added 6 bench workspaces (one since
-removed from the fleet): bench-voxtral-realtime, bench-voxtral-tts,
-bench-granite-speech, bench-qwen36-27b-ud, bench-qwen36-35b-a3b-ud.
+TASK_MODEL_REFRESH_V7 (2026-05-27, recorded in `CHANGELOG.md`) added six bench
+workspaces to the fleet. Two survive in current config:
+`bench-qwen36-27b-ud` (in `config/portal.yaml`, `model_hint` qwen3.6:27b-q4_K_M,
+described as a proxy for the not-yet-pulled Unsloth UD quant) and
+`bench-qwen36-35b-a3b-ud` (`model_hint`
+`hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`, agentic-lane candidate C1) —
+both under `module: eval` and gated for promotion (`PROMOTE_POLICY=confirm` in
+`config/backends.yaml`). The three speech candidates from the same intake —
+bench-voxtral-realtime, bench-voxtral-tts, bench-granite-speech — are not
+registered in `config/portal.yaml` and survive only as CHANGELOG records. The
+promotion gates the roadmap lists have code anchors: the CC-01 Asteroids coding
+challenge shootout lives in `tests/uat_catalog/g_benchmark.py` and the
+coding-shootout-v2 analyzer in `tests/benchmarks/coding_shootout_analyze.py`.
 
-**Promotion gates** (each model is bench-only until):
+## Why
 
-1. `bench-qwen36-{27b,35b-a3b}-ud` → replace stock 4-bit in respective
-   bench pins: must show ≥1-point improvement on Creative Coder CC-01
-   AND match-or-improve coding-shootout-v2.
-2. `bench-granite-speech` → new `auto-transcribe-domain` lane: must
-   outperform mlx-whisper-large-v3-turbo on a domain-vocab keyword-biased
-   benchmark.
-3. `bench-voxtral-realtime` / `bench-voxtral-tts` → defer to dedicated
-   P5-FUT-SPEECH-002 speech-shootout task.
-
----
+This unit records which V7 bench candidates actually shipped as config versus
+which were aspirational or already removed. `config/portal.yaml` is the single
+source of truth for what the fleet serves, so the two surviving UD workspaces
+and the absence of the speech bench entries are the facts this unit asserts; the
+promotion gates are future intent, anchored only to the benchmark harnesses that
+would measure them.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -160,26 +263,31 @@ bench-granite-speech, bench-qwen36-27b-ud, bench-qwen36-35b-a3b-ud.
 ### P5-FUT-EMBED-001: EmbeddingGemma Migration Seed
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed -->
-Current production: scripts/embedding-server.py with
-microsoft/harrier-oss-v1-0.6b on :8917 (ARM64). Candidate:
-google/embeddinggemma-300M (outperforms Qwen3-Embedding-0.6B on multiple
-MTEB v2 categories at half the size).
+P5-FUT-EMBED-001 is an open migration. Current production embedding is
+`scripts/embedding-server.py`, which serves a sentence-transformers model —
+`microsoft/harrier-oss-v1-0.6b` by default — on CPU on port 8917; the same
+default is set in `scripts/lib/services.sh` and the launchd wrapper. The RAG MCP
+(`portal/modules/research/tools/rag_mcp.py`) consumes the endpoint via
+`EMBEDDING_URL` (default http://localhost:8917/v1/embeddings) and stores the
+LanceDB index at `LANCE_DIR` (default `/Volumes/data01/portal5_lance`) built from
+sources under `KB_SOURCES_DIR` (default `/Volumes/data01/portal5_kb_sources`),
+which binds the index to the current embedding dimensionality.
+`config/backends.yaml` carries an `embedding_candidates` block listing
+`google/embeddinggemma-300M` and `Qwen/Qwen3-Embedding-0.6B`; the note for the
+Qwen3-Embedding entry says its 4-bit variant is pre-positioned for a future
+swap, so which candidate wins is still open scope. Migration requires
+re-ingesting every RAG source under `KB_SOURCES_DIR`, a shadow-index A/B test,
+and a rollback path with a feature flag in the RAG MCP.
 
-Migration blockers (out of scope for V7):
+## Why
 
-1. LanceDB index at /Volumes/data01/portal5_lance/ is bound to current
-   embedding dimensionality. Switching requires full re-ingestion of
-   every RAG source under /Volumes/data01/portal5_kb_sources/.
-2. Need shadow-index A/B test to validate retrieval quality before flip.
-3. Need rollback procedure (keep Harrier index on disk 14 days post-cutover
-   with a feature flag in RAG MCP to flip back).
-
-Note: mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ is already in the
-default pull list (pre-positioned by an earlier task). Whether the
-migration target is EmbeddingGemma or Qwen3-Embedding is itself part of
-the P5-FUT-EMBED-001 scope.
-
----
+Embedding swap is expensive because the LanceDB index encodes the embedding
+dimensionality: switching models without re-indexing silently breaks retrieval,
+and re-indexing every source is a full-corpus job. The migration therefore needs
+a shadow-index A/B and a rollback window before the Harrier index is retired.
+The code makes the dimension-binding the load-bearing constraint, and the
+`embedding_candidates` block keeps the swap decision in config rather than
+hardcoded.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -187,30 +295,28 @@ the P5-FUT-EMBED-001 scope.
 ### P5-FUT-SPEECH-002: Speech-Model Shootout
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-speech-002-speech-model-shootout -->
-Current production speech stack: mlx-transcribe.py (mlx-whisper-large-v3-turbo
-+ Voxtral-Mini-3B-2507-bf16 lazy-loaded + pyannote 3.1 on MPS, :8924),
-mlx-speech.py (Kokoro 82M + Qwen3-TTS Custom/Design/Base on :8918).
+P5-FUT-SPEECH-002 is planned work. The current production speech stack is
+`scripts/mlx-transcribe.py` — mlx-whisper (`mlx-community/whisper-large-v3-turbo`)
+with pyannote speaker-diarization-3.1 and a lazy-loaded
+`mlx-community/Voxtral-Mini-3B-2507-bf16` multilingual engine, serving on port
+8924 — and `scripts/mlx-speech.py` (`mlx-community/Kokoro-82M-bf16` plus three
+Qwen3-TTS 12Hz-1.7B variants for custom-voice, voice-design, and base/cloning,
+serving on port 8918). The three bench-only speech candidates from
+TASK_MODEL_REFRESH_V7 — Voxtral-Mini-4B-Realtime-2602, Voxtral-4B-TTS-2603, and
+Granite-Speech-4.1-2B — are recorded in `CHANGELOG.md` but are not registered in
+`config/portal.yaml`. The planned shootout would score WER, keyword F1, TTFT, and
+subjective Likert ratings and emit a Pareto frontier for the speech lane.
+`tests/benchmarks/bench_tps.py` is a text TPS harness and would not exercise
+streaming ASR or TTS rendering.
 
-V7 added 3 bench-only candidates:
+## Why
 
-- Voxtral-Mini-4B-Realtime-2602 (streaming ASR, ~570ms TTFT claim)
-- Voxtral-4B-TTS-2603 (20 voices × 9 languages)
-- Granite-Speech-4.1-2B (#1 OpenASR, keyword biasing)
-
-A dedicated speech-shootout task should:
-
-1. Build a probe driver exercising each model with the same audio corpus
-   (multilingual, domain-vocab, streaming-vs-batched).
-2. Score on WER, keyword F1, TTFT, and (for TTS) subjective Likert.
-3. Produce a Pareto frontier for the speech lane equivalent to bench_tps.py
-   for the text lane.
-4. Promote winners to production replacement candidates only after the
-   Pareto shows clear wins.
-
-bench_tps.py is the wrong tool for this — its text-prompt harness does
-not exercise streaming ASR or TTS rendering.
-
----
+Speech evaluation cannot reuse the text benchmark because the artifacts are
+audio: WER and keyword F1 need a shared audio corpus, TTFT measures first audio
+chunk rather than first token, and TTS has no transcript to score. The bench
+candidates are kept out of the serving fleet until the shootout runs, so
+`config/portal.yaml`, which defines the fleet, registers only the production
+speech servers and the roadmap keeps the candidates out of routing.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -218,18 +324,25 @@ not exercise streaming ASR or TTS rendering.
 ## Score History
 
 <!-- WIKI:GENERATED unit=unit-p5-roadmap-score-history -->
-| Date | Score | Notes |
-|------|-------|-------|
-| 2026-03-30 | 100/100 | v5.2.0 — all production items complete |
-| 2026-03-30 | 100/100 | v5.2.1-unreleased — P5-FUT-003 (analytics dashboard) + P5-FUT-004 (webhook channel) implemented, verified live |
-| 2026-04-04 | 100/100 | v5.2.1 — P5-FUT-005 (weighted keyword routing), S18-S22 acceptance tests, persona prompt/signal fixes, documentation updates |
-| 2026-04-07 | 100/100 | P5-FUT-009 (model-size-aware admission control) + P5-FUT-006 (LLM-based intent routing) added to roadmap. P5-FUT-001/002 removed. |
-| 2026-04-07 | 100/100 | v6.0.0 — P5-FUT-006 (LLM intent routing) + P5-FUT-009 (MLX admission control) implemented |
+The roadmap score-history records which P5-FUT items shipped, and each shipped
+item is verifiable in current code. P5-FUT-004 (webhook notifications) is
+implemented in `portal/platform/inference/notifications/channels/webhook.py`.
+P5-FUT-005 (weighted keyword routing) is Layer 2 auto-routing — the
+`_detect_workspace()` function in `portal/platform/inference/router/routing.py`.
+P5-FUT-006 (LLM-based intent routing) is Layer 1 — `_route_with_llm()` in the
+same module. P5-FUT-009 (model-size-aware admission control) shipped in the
+now-retired MLX proxy and survives only in
+`scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py`. The completion scores
+themselves are dated snapshots recorded in `CHANGELOG.md` at each milestone;
+current code is the live status, not the historical score.
 
----
+## Why
 
-*Last updated: 2026-06-25*
-*Part of Portal 5 v7 release documentation*
+A percentage from a past date cannot be re-derived from current code and would go
+stale the moment anything changes, so the unit drops the historical figures. What
+stays true is the mapping of each shipped roadmap item to its implementation, and
+that mapping is asserted here with file paths so the unit remains verifiable
+against the live tree rather than against a snapshot.
 <!-- /WIKI:GENERATED -->
 
 ---

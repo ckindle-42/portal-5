@@ -3,16 +3,27 @@ id: unit-readme-license
 kind: what
 title: "README \u2014 License"
 sources:
-- type: doc
-  path: README.md
-  commit: 05e42ec2
-  section: License
-last_generated_commit: 05e42ec2
+- type: code
+  path: LICENSE
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.692626
 updated_at: 1784946220.692626
 ---
 
-MIT — see [LICENSE](LICENSE)
+Portal 5 is released under the MIT License — see [LICENSE](LICENSE) at the repo
+root for the full text. MIT grants permission to use, copy, modify and distribute
+the code for any purpose, including commercial use, subject to preserving the
+copyright and permission notice.
+
+## Why
+
+MIT was chosen because the project is a local-first enhancement layer on top of
+Open WebUI, and permissive licensing removes friction for operators who want to
+fork or vendor it internally. The individual GGUF models and runtimes it
+orchestrates carry their own licenses (for example gated HuggingFace repos
+require `HF_TOKEN`), which are separate from the project license.

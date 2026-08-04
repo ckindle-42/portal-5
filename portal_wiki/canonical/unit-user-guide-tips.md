@@ -3,19 +3,35 @@ id: unit-user-guide-tips
 kind: what
 title: "USER_GUIDE \u2014 Tips"
 sources:
-- type: doc
-  path: docs/USER_GUIDE.md
-  commit: 05e42ec2
-  section: Tips
-last_generated_commit: 05e42ec2
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.51699
 updated_at: 1784946220.51699
 ---
 
-- Use **Ctrl+Shift+C** to copy code blocks
-- Attach files with the paperclip icon for document analysis
-- Use `#` to reference knowledge bases
-- Long reasoning tasks (Deep Reasoner) may take 60-90 seconds — be patient
+Several day-to-day behaviors follow from repository configuration rather than
+from this guide. You can attach files for document analysis through Open WebUI's
+uploader; attachments are then chunked and embedded according to the RAG settings
+(`CHUNK_SIZE`, `RAG_EMBEDDING_MODEL`). In a chat you can reference a persistent
+knowledge collection with a `#` marker, which resolves against the same
+knowledge bases the pipeline's `kb_search` serves. Long reasoning sessions, such
+as the `auto-reasoning` workspace, intentionally run slow because reasoning
+models trade latency for depth. Keyboard and icon shortcuts in the chat UI are
+Open WebUI affordances, not Portal settings.
+
+## Why
+
+The original tips unit asserted UI shortcuts as facts about Portal, but those are
+features of the Open WebUI frontend, which this repository does not modify. The
+behaviors this repo actually decides are attachment chunking, knowledge
+collection retrieval, and which workspaces run slow reasoning models. Grounding
+the unit to the compose manifest and `config/portal.yaml` separates repo-owned
+behavior from vendor UI.

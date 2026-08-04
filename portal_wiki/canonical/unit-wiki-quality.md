@@ -6,7 +6,7 @@ sources:
 - type: code
   path: portal/platform/wiki/quality.py
   commit: 4ca84409
-last_generated_commit: 4ca84409
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

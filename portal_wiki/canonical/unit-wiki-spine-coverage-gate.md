@@ -5,13 +5,17 @@ title: Spine code-coverage gate (portal/platform/wiki/coverage.py)
 sources:
 - type: code
   path: portal/platform/wiki/coverage.py
-last_generated_commit: ''
+- type: code
+  path: portal/platform/wiki/adapters/seed_code.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- wiki
+- BR
 - coverage
 - validate-system
-- BR
+- verified-v1
+- wiki
 created_at: 1785380311.8876002
 updated_at: 1785380311.8876002
 ---

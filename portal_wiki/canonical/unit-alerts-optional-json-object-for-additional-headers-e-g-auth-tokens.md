@@ -3,42 +3,22 @@ id: unit-alerts-optional-json-object-for-additional-headers-e-g-auth-tokens
 kind: what
 title: "ALERTS \u2014 Optional: JSON object for additional headers (e.g. auth tokens)"
 sources:
-- type: doc
-  path: docs/ALERTS.md
-  commit: 05e42ec2
-  section: 'Optional: JSON object for additional headers (e.g. auth tokens)'
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/inference/notifications/channels/webhook.py
+- type: code
+  path: portal/platform/inference/notifications/events.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.5482838
 updated_at: 1784946220.5482838
 ---
 
-echo 'WEBHOOK_HEADERS={"Authorization": "Bearer YOUR_TOKEN"}' >> .env
-```
+`WEBHOOK_HEADERS` lets a webhook receiver demand authentication. The channel parses the variable as JSON, merges the result into a base header set that already carries `Content-Type: application/json`, and logs a warning and skips the merge when the value is not valid JSON — the request still proceeds without the extra headers. The alert payload posted by `send_alert` includes event, message, backend id, workspace, timestamp, and metadata; the summary payload additionally includes request totals, per-workspace counts, backend health, uptime, and extended metrics.
 
-**Alert event payload:**
-```json
-{
-  "event": "backend_down",
-  "message": "Backend 'ollama-general' has been unhealthy for 3 consecutive checks.",
-  "backend_id": "ollama-general",
-  "workspace": null,
-  "timestamp": "2026-03-30T12:00:00+00:00",
-  "metadata": {}
-}
-```
+## Why
 
-**Summary event payload:**
-```json
-{
-  "event": "daily_summary",
-  "timestamp": "2026-03-30T09:00:00+00:00",
-  "total_requests": 1247,
-  "requests_by_workspace": {"auto": 800, "auto-coding": 312, "auto-security": 135},
-  "healthy_backends": 4,
-  "total_backends": 4,
-  "uptime_seconds": 86400.0
-}
-```
+Header injection exists because many inbound-webhook targets such as PagerDuty authenticate with a bearer token rather than a shared secret URL. Treating malformed JSON as a soft failure keeps a typo in configuration from silently blocking alert delivery, and the documented payload shape is the contract a custom receiver must parse.

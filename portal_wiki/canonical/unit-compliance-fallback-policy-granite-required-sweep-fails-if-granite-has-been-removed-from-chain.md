@@ -4,52 +4,42 @@ kind: what
 title: "COMPLIANCE_FALLBACK_POLICY \u2014 Granite-required sweep (fails if Granite\
   \ has been removed from chain)"
 sources:
-- type: doc
-  path: docs/COMPLIANCE_FALLBACK_POLICY.md
-  commit: 05e42ec2
-  section: Granite-required sweep (fails if Granite has been removed from chain)
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/modules/eval/persona_matrix/sweep.py
+- type: code
+  path: portal/modules/eval/persona_matrix/cli.py
+- type: code
+  path: tests/persona_matrix_diff.py
+- type: code
+  path: config/backends.yaml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
+- verified-v1
 created_at: 1784946220.5660539
 updated_at: 1784946220.5660539
 ---
 
+The `--require` flag makes a sweep fail fast when a named model is absent from the resolved chain. In `run_sweep`, after backend, model and big-model filters, every required substring must appear in some chain model id; otherwise the driver prints the missing list and exits 3 before any cell runs. The documented granite-required sweep:
+
+```bash
 python3 tests/portal5_persona_matrix.py \
     --backend ollama \
     --require granite4.1:8b,granite4.1:30b \
-    --output tests/benchmarks/results/persona_matrix_granite_$(date -u +%Y%m%dT%H%M%SZ).json
+    --output "tests/benchmarks/results/persona_matrix_granite_$(date -u +%Y%m%dT%H%M%SZ).json"
 ```
 
-Comparison against baseline:
+Both granite models are currently registered in the reasoning and general groups of `config/backends.yaml`, so the auto-compliance chain contains them; the sweep fails only if no remaining chain id contains the required substring. Comparison against baseline uses the real diff tool rather than a hand-rolled snippet:
 
 ```bash
-python3 -c "
-import json
-base = json.load(open('tests/benchmarks/results/persona_matrix_baseline.json'))
-new = json.load(open('tests/benchmarks/results/persona_matrix_<NEW>.json'))
-
-def per_model_pass(report):
-    out = {}
-    for c in report['cells']:
-        s = c['summary']
-        total = s.get('PASS', 0) + s.get('WARN', 0) + s.get('FAIL', 0)
-        if not total:
-            continue
-        out.setdefault(c['model'], [0, 0])
-        out[c['model']][0] += s.get('PASS', 0)
-        out[c['model']][1] += total
-    return {m: (p / t * 100) if t else 0 for m, (p, t) in out.items()}
-
-base_p = per_model_pass(base)
-new_p = per_model_pass(new)
-all_models = sorted(set(base_p) | set(new_p))
-for m in all_models:
-    b = base_p.get(m, float('nan'))
-    n = new_p.get(m, float('nan'))
-    delta = n - b if (b == b and n == n) else float('nan')
-    flag = '\u26a0' if abs(delta) >= 5 else ''
-    print(f'  {m:60} baseline={b:5.1f}%  new={n:5.1f}%  \u0394={delta:+5.1f}  {flag}')
-"
+python3 tests/persona_matrix_diff.py \
+    tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json \
+    tests/benchmarks/results/persona_matrix_<NEW>.json --threshold 10
 ```
+
+`compute_regressions` treats PASS-rate as PASS over PASS plus WARN plus FAIL per cell and flags a drop beyond the threshold in percentage points, default 10.0. The driver's `--baseline-compare` runs the same comparison inline and exits non-zero on regressions.
+
+## Why
+
+The source doc shipped an inline diff snippet with a hardcoded five-point flag that never matched the driver's real regression machinery. The code paths that actually enforce a granite-required sweep are the substring check in `run_sweep` (exit 3) and the per-cell PASS-rate comparison in `persona_matrix_diff` (10pp default), and grounding the unit to those two entry points keeps the failure mode and comparison semantics exact.

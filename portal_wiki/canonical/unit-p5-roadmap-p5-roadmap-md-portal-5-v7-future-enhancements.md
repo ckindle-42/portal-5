@@ -1,31 +1,35 @@
 ---
 id: unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements
 kind: what
-title: "P5_ROADMAP \u2014 P5_ROADMAP.md \u2014 Portal 5 v7 Future Enhancements"
+title: "P5_ROADMAP \u2014 Portal 5 v7 Future Enhancements"
 sources:
-- type: doc
-  path: P5_ROADMAP.md
-  commit: 05e42ec2
-  section: "P5_ROADMAP.md \u2014 Portal 5 v7 Future Enhancements"
-last_generated_commit: 05e42ec2
+- type: code
+  path: pyproject.toml
+- type: code
+  path: CHANGELOG.md
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.5889852
 updated_at: 1784946220.5889852
 ---
 
-```
-Portal 5 v7 Roadmap
-===================
-Last updated: 2026-06-25
-Version: 8.0.0 (production-ready)
+The roadmap document at the repo root is the tracking file for open Portal 5
+work. Its header states the current release as 8.0.0, which matches the `version`
+field in `pyproject.toml`. Completed work is not kept in the open queue:
+`CHANGELOG.md` records shipped milestones, and the roadmap marks all v5.0 through
+v6.1.0 items as DONE there. The live set of open items, each with its
+implementation or absence in code, is tracked in the roadmap's open-work section
+rather than being repeated in a doc copy here.
 
-LEGEND: P1=Critical, P2=High, P3=Medium
-STATUS: DONE, BLOCKED, CANCELED
-```
+## Why
 
-All v5.0–v6.1.0 items are marked DONE in CHANGELOG.md. This document tracks
-genuinely open future work. Completed items are kept for reference only.
-
----
+This unit exists because the roadmap header was once extracted as if it were a
+fact about the system. The only code-determined facts it contains are the release
+version in `pyproject.toml` and the location of the completed-work record in
+`CHANGELOG.md`; the roadmap itself is a planning artifact, not a fact source, so
+the unit now asserts only those two anchors and does not restate the roadmap
+body.

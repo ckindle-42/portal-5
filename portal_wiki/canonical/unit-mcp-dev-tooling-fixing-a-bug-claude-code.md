@@ -3,28 +3,37 @@ id: unit-mcp-dev-tooling-fixing-a-bug-claude-code
 kind: what
 title: "MCP_DEV_TOOLING \u2014 Fixing a bug (Claude Code)"
 sources:
-- type: doc
-  path: docs/MCP_DEV_TOOLING.md
-  commit: 05e42ec2
-  section: Fixing a bug (Claude Code)
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/mcp_host/pipeline_mcp.py
+- type: code
+  path: portal/platform/inference/router/routing.py
+- type: code
+  path: portal/platform/inference/router/workspaces.py
+- type: code
+  path: .mcp.json
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.578301
 updated_at: 1784946220.578301
 ---
 
-```
-You: "Workspace routing is sending some requests to the wrong model"
+Fixing a routing bug with Claude Code in Portal mode follows the tool chain that
+`.mcp.json` and the pipeline MCP provide. The session starts with
+`explore_repository` to locate the routing and workspace-selection code, then reads
+the exact ranges from `router/routing.py` or `router/workspaces.py`, makes the edit
+through the filesystem server, verifies with `execute_bash` in the sandbox running
+pytest, and finishes with the git server's diff and commit tools. Every step maps to
+a concrete server in `.mcp.json`, so no manual checkout or terminal juggling is
+required to take a fix from discovery to commit.
 
-Claude Code:
-  portal-pipeline/explore_repository("workspace routing, model_hint resolution")
-  → citations: router/routing.py:380-430, router/workspaces.py:205-250
-  filesystem/read_file router/routing.py (lines 380-430)
-  [diagnoses the keyword scoring threshold]
-  filesystem/edit_file router/routing.py
-  portal-sandbox/execute_bash "pytest tests/unit/test_pipeline.py -q"
-  git/git_diff
-  git/git_commit
-```
+## Why
+
+The walkthrough is really a contract between the tool roster and a debugging flow:
+exploration, targeted read, edit, test, and version control are each owned by one
+server. That separation keeps the expensive reasoning model focused on diagnosis
+while the mechanical steps stay cheap and auditable, which is the whole point of
+assembling the IDE tool set.

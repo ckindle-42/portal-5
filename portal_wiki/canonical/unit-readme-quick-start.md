@@ -3,14 +3,20 @@ id: unit-readme-quick-start
 kind: what
 title: "README \u2014 Quick Start"
 sources:
-- type: doc
-  path: README.md
-  commit: 05e42ec2
-  section: Quick Start
-last_generated_commit: 05e42ec2
+- type: code
+  path: launch.sh
+- type: code
+  path: scripts/lib/util.sh
+- type: code
+  path: .env.example
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.678459
 updated_at: 1784946220.678459
 ---
@@ -21,17 +27,33 @@ cd portal-5
 ./launch.sh up
 ```
 
-**First run pulls ~16 GB of data and takes 10–45 minutes depending on your
-connection.** You will see progress in the terminal. When it finishes:
+The `up` case in `launch.sh` does the whole first boot: it copies `.env.example`
+to `.env` if missing, generates any secrets still set to CHANGEME, initializes the
+shared workspace directories, stops any previously running stack, pulls Docker
+images, runs the hardware and port pre-flight checks, starts the compose stack
+(profiles auto-selected from Telegram/Slack tokens), and launches the ARM64
+embedding server on Apple Silicon. The `ollama-init` compose service pulls the
+three core models (see the core-models unit).
+
+When it finishes, the terminal prints the real endpoint list:
 
 ```
-[portal-5] ✅ Stack is ready
-[portal-5] Web UI:     http://localhost:8080
-[portal-5] Grafana:    http://localhost:3000
-[portal-5] Admin creds saved to: .env (do not commit this file)
+[portal-5] Stack started.
+  Open WebUI:  http://localhost:8080
+  SearXNG:     http://localhost:8088
+  ComfyUI:     http://localhost:8188
+  Grafana:     http://localhost:3000  (admin / check .env)
+  Prometheus:  http://localhost:9090
 ```
 
-Open **http://localhost:8080** and sign in with the admin credentials printed to
-your terminal.
+Sign in at http://localhost:8080 with the admin credentials in `.env`
+(`OPENWEBUI_ADMIN_EMAIL` defaults to `admin@portal.local`, password is the
+auto-generated `OPENWEBUI_ADMIN_PASSWORD`). Do not commit `.env`.
 
----
+## Why
+
+The zero-setup contract is that a fresh machine reaches a usable stack from one
+command: secret generation, workspace init, hardware checks and model bootstrap
+all happen inside `up` so the operator never hand-edits a config to get started.
+The printed endpoints are the actual compose service URLs, so the first login uses
+credentials that already exist in `.env`.

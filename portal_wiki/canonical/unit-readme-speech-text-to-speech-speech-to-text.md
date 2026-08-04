@@ -3,35 +3,45 @@ id: unit-readme-speech-text-to-speech-speech-to-text
 kind: what
 title: "README \u2014 Speech (Text-to-Speech & Speech-to-Text)"
 sources:
-- type: doc
-  path: README.md
-  commit: 05e42ec2
-  section: Speech (Text-to-Speech & Speech-to-Text)
-last_generated_commit: 05e42ec2
+- type: code
+  path: scripts/mlx-speech.py
+- type: code
+  path: scripts/lib/services.sh
+- type: code
+  path: launch.sh
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.687758
 updated_at: 1784946220.687758
 ---
 
-Portal 5 includes a native MLX speech server on Apple Silicon with:
-- **Kokoro TTS** — fast, high-quality English TTS (200+ voices)
-- **Qwen3-TTS** — 10 languages, voice cloning, voice design, emotion control
-- **Qwen3-ASR** — speech-to-text via MLX
+Portal 5 includes a native MLX speech server on Apple Silicon
+(`scripts/mlx-speech.py`, port `MLX_SPEECH_PORT` default 8918) with three
+backends:
 
-```bash
-./launch.sh start-speech    # Start MLX speech server (Apple Silicon)
-./launch.sh stop-speech     # Stop MLX speech server
-./launch.sh mlx-status      # Check MLX component status (includes speech)
-```
+- **Kokoro TTS** — the `mlx-community/Kokoro-82M-bf16` model via mlx-audio; voices
+  are selected by the Kokoro naming prefix (`af_`, `am_`, `bf_`, `bm_`, `jf_`,
+  `jm_`, `zf_`, `zm_`), e.g. `af_heart`, `bm_george`.
+- **Qwen3-TTS** — 10 languages, voice cloning, voice design and emotion control
+  (per the `mlx-speech.py` module docstring and `MLX_TTS_BACKEND` selection).
+- **Qwen3-ASR** — speech-to-text via `mlx_audio.stt`.
 
-> **Kokoro TTS dependencies:** The Kokoro backend requires additional Python
-> packages that are not installed automatically. Install them before using Kokoro:
-> ```bash
-> pip install misaki num2words spacy phonemizer
-> python3 -m spacy download en_core_web_sm
-> ```
-> Qwen3-TTS and Qwen3-ASR work without these dependencies.
+Manage it with the `start-speech` and `stop-speech` subcommands of `launch.sh`
+(`scripts/lib/services.sh`): `start-speech` verifies `mlx_audio` is installed,
+checks the PID file at `/tmp/portal-mlx-speech.pid`, and launches
+`scripts/mlx-speech.py` with nohup, logging to `~/.portal5/logs/mlx-speech.log`;
+`stop-speech` kills the recorded PID. Models load lazily on the first TTS or ASR
+request.
 
----
+## Why
+
+TTS and ASR are latency-sensitive and run continuously, so the speech server is a
+host-native process on Metal rather than a Docker container: the MPS path keeps
+synthesis fast and the models are loaded once and reused. The PID-file plus
+`start-speech`/`stop-speech` pairing gives an operator lifecycle control without a
+container orchestrator, and Kokoro voices are addressed by the same prefix scheme
+the Kokoro model uses.

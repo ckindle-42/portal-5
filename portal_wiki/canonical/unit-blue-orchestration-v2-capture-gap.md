@@ -16,21 +16,19 @@ sources:
 - type: code
   path: portal/modules/security/core/exec_chain.py
 - type: code
-  path: portal/modules/security/tools/proxmox_mcp.py
+  path: config/attack_image_contract.json
 - type: code
   path: scripts/verify_attack_image.py
-- type: test
-  path: tests/frontend/test_reasoning_display.py
-- type: config
-  path: config/attack_image_contract.json
-last_generated_commit: ''
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- security
+- blue-orchestration-v2
 - blue-team
 - resolved
-- blue-orchestration-v2
+- security
 - telemetry-capture
+- verified-v1
 created_at: 1784366416.7372081
 updated_at: 1785515010.0
 ---
@@ -86,3 +84,17 @@ required readiness components are green as of 2026-07-31.
 The authenticated, non-browser frontend reasoning baseline was rerun against
 the live pipeline with its configured API key and passed. The earlier 401 was
 test-environment credential substitution, not a pipeline reasoning failure.
+
+## Why
+
+This unit is the resolution record for the eleven capture gaps, and its
+claims are grounded in the code that closes them so the "resolved" state
+is re-verifiable rather than asserted: the image contract totals (74
+commands, 15 support files) come from `config/attack_image_contract.json`,
+the `EXEC_SEQUENCES` denominator from
+`portal/modules/security/core/_data.py`, MAC-based Meta3 discovery from
+`scripts/lab_targets.py`, and the netcat bounded-connect fix from
+`scripts/lab_ready.py`. The recurrence-control prose exists to prevent
+regression of the exact defects these files now guard, so re-grounding
+this record to them keeps the historical fix list honest about what
+still enforces it.

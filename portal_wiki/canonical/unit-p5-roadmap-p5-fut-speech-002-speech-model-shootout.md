@@ -3,39 +3,43 @@ id: unit-p5-roadmap-p5-fut-speech-002-speech-model-shootout
 kind: what
 title: "P5_ROADMAP \u2014 P5-FUT-SPEECH-002: Speech-Model Shootout"
 sources:
-- type: doc
-  path: P5_ROADMAP.md
-  commit: 05e42ec2
-  section: 'P5-FUT-SPEECH-002: Speech-Model Shootout'
-last_generated_commit: 05e42ec2
+- type: code
+  path: scripts/mlx-transcribe.py
+- type: code
+  path: scripts/mlx-speech.py
+- type: code
+  path: CHANGELOG.md
+- type: code
+  path: tests/benchmarks/bench_tps.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.5934029
 updated_at: 1784946220.5934029
 ---
 
-Current production speech stack: mlx-transcribe.py (mlx-whisper-large-v3-turbo
-+ Voxtral-Mini-3B-2507-bf16 lazy-loaded + pyannote 3.1 on MPS, :8924),
-mlx-speech.py (Kokoro 82M + Qwen3-TTS Custom/Design/Base on :8918).
+P5-FUT-SPEECH-002 is planned work. The current production speech stack is
+`scripts/mlx-transcribe.py` — mlx-whisper (`mlx-community/whisper-large-v3-turbo`)
+with pyannote speaker-diarization-3.1 and a lazy-loaded
+`mlx-community/Voxtral-Mini-3B-2507-bf16` multilingual engine, serving on port
+8924 — and `scripts/mlx-speech.py` (`mlx-community/Kokoro-82M-bf16` plus three
+Qwen3-TTS 12Hz-1.7B variants for custom-voice, voice-design, and base/cloning,
+serving on port 8918). The three bench-only speech candidates from
+TASK_MODEL_REFRESH_V7 — Voxtral-Mini-4B-Realtime-2602, Voxtral-4B-TTS-2603, and
+Granite-Speech-4.1-2B — are recorded in `CHANGELOG.md` but are not registered in
+`config/portal.yaml`. The planned shootout would score WER, keyword F1, TTFT, and
+subjective Likert ratings and emit a Pareto frontier for the speech lane.
+`tests/benchmarks/bench_tps.py` is a text TPS harness and would not exercise
+streaming ASR or TTS rendering.
 
-V7 added 3 bench-only candidates:
+## Why
 
-- Voxtral-Mini-4B-Realtime-2602 (streaming ASR, ~570ms TTFT claim)
-- Voxtral-4B-TTS-2603 (20 voices × 9 languages)
-- Granite-Speech-4.1-2B (#1 OpenASR, keyword biasing)
-
-A dedicated speech-shootout task should:
-
-1. Build a probe driver exercising each model with the same audio corpus
-   (multilingual, domain-vocab, streaming-vs-batched).
-2. Score on WER, keyword F1, TTFT, and (for TTS) subjective Likert.
-3. Produce a Pareto frontier for the speech lane equivalent to bench_tps.py
-   for the text lane.
-4. Promote winners to production replacement candidates only after the
-   Pareto shows clear wins.
-
-bench_tps.py is the wrong tool for this — its text-prompt harness does
-not exercise streaming ASR or TTS rendering.
-
----
+Speech evaluation cannot reuse the text benchmark because the artifacts are
+audio: WER and keyword F1 need a shared audio corpus, TTFT measures first audio
+chunk rather than first token, and TTS has no transcript to score. The bench
+candidates are kept out of the serving fleet until the shootout runs, so
+`config/portal.yaml`, which defines the fleet, registers only the production
+speech servers and the roadmap keeps the candidates out of routing.

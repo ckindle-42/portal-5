@@ -1,28 +1,42 @@
 ---
 id: unit-fish-speech-setup-portal-5-integration
 kind: what
-title: "FISH_SPEECH_SETUP \u2014 Portal 5 Integration"
+title: "Portal integration \u2014 TTS MCP tools and environment wiring"
 sources:
-- type: doc
-  path: docs/FISH_SPEECH_SETUP.md
-  commit: 05e42ec2
-  section: Portal 5 Integration
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/portal.yaml
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+- type: code
+  path: .env.example
+- type: code
+  path: portal/modules/media/tools/tts_mcp.py
+- type: code
+  path: scripts/mlx-speech.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.5396202
 updated_at: 1784946220.5396202
 ---
 
-The TTS MCP expects Fish Speech API at `http://localhost:5005` by default.
+Integration with Portal 5 runs through the TTS MCP and the environment knobs that
+configure it. `config/portal.yaml` registers the `tts` server as `portal-tts` on
+port 8916, `docker-compose.yml` builds and runs it as the `mcp-tts` service
+passing `TTS_BACKEND` and `TTS_DEFAULT_VOICE`, and `.env.example` documents those
+variables. There is no `FISH_SPEECH_URL` variable anywhere in the repository; the
+optional backend is chosen by setting `TTS_BACKEND=fish_speech`. Separately, Open
+WebUI's own audio output does not use this MCP at all: the compose file points
+`AUDIO_TTS_OPENAI_API_BASE_URL` at the host-native speech server on port 8918
+(`scripts/mlx-speech.py`), which serves Kokoro and Qwen3-TTS.
 
-Set environment variable in `.env`:
-```
-FISH_SPEECH_URL=http://localhost:5005
-```
+## Why
 
-To switch back to the built-in kokoro-onnx backend, set in `.env`:
-```
-TTS_BACKEND=kokoro
-```
+The old guide invented an HTTP URL that the code never reads, and tracing the real
+integration exposes two distinct speech surfaces that are easy to confuse: the
+MCP tool server for persona tool-calls and the OpenAI-compatible server Open
+WebUI speaks to directly. Naming both keeps operators from editing a variable
+that does nothing while the actual switch lives in `TTS_BACKEND`.

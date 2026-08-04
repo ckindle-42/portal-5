@@ -3,26 +3,34 @@ id: unit-mcp-dev-tooling-adding-a-feature-opencode-with-local-laguna
 kind: what
 title: "MCP_DEV_TOOLING \u2014 Adding a feature (opencode with local Laguna)"
 sources:
-- type: doc
-  path: docs/MCP_DEV_TOOLING.md
-  commit: 05e42ec2
-  section: Adding a feature (opencode with local Laguna)
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/mcp_host/pipeline_mcp.py
+- type: code
+  path: config/portal.yaml
+- type: code
+  path: config/personas/codingagentic.yaml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.578677
 updated_at: 1784946220.578677
 ---
 
-```
-You: "Add a new auto-lab-report workspace for generating pentest reports"
+Adding a new workspace with opencode and the local Laguna persona follows the
+agentic loop that the `laguna` variant's `system_prompt_append` in `config/portal.yaml`
+bakes into every turn. First call `explore_repository` (FastContext) to learn how
+workspaces are defined and which files the routing touches, then use `read_text_file`
+and `write_file` from `portal/platform/mcp_host/pipeline_mcp.py` to make the change,
+and finally run the unit suite with `execute_bash` in the sandbox. The workspace
+definition itself lands in `config/portal.yaml` and is consumed by the routing layer.
 
-opencode (Laguna-XS.2 33B-A3B via portal/codingagentic):
-  explore_repository("how workspaces are defined, backends.yaml routing pattern")
-  → citations: router/workspaces.py, config/backends.yaml, router/routing.py
-  execute_bash "sed -n '205,250p' portal/platform/inference/router/workspaces.py"
-  [writes workspace definition matching the pattern]
-  execute_bash "pytest tests/unit/ -q && python3 -c 'workspace consistency check'"
-  [reports complete with passing tests]
-```
+## Why
+
+The loop exists because a new workspace is a real configuration change: it must match
+the shape the router expects or every request for it mis-routes. Making exploration,
+edit, and verification explicit steps forces the model to confirm the exact definition
+shape before writing anything, which keeps a one-file addition from becoming a
+routing incident.

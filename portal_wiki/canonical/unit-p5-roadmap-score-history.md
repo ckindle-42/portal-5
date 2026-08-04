@@ -3,27 +3,40 @@ id: unit-p5-roadmap-score-history
 kind: what
 title: "P5_ROADMAP \u2014 Score History"
 sources:
-- type: doc
-  path: P5_ROADMAP.md
-  commit: 05e42ec2
-  section: Score History
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/inference/notifications/channels/webhook.py
+- type: code
+  path: portal/platform/inference/router/routing.py
+- type: code
+  path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
+- type: code
+  path: CHANGELOG.md
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.593756
 updated_at: 1784946220.593756
 ---
 
-| Date | Score | Notes |
-|------|-------|-------|
-| 2026-03-30 | 100/100 | v5.2.0 — all production items complete |
-| 2026-03-30 | 100/100 | v5.2.1-unreleased — P5-FUT-003 (analytics dashboard) + P5-FUT-004 (webhook channel) implemented, verified live |
-| 2026-04-04 | 100/100 | v5.2.1 — P5-FUT-005 (weighted keyword routing), S18-S22 acceptance tests, persona prompt/signal fixes, documentation updates |
-| 2026-04-07 | 100/100 | P5-FUT-009 (model-size-aware admission control) + P5-FUT-006 (LLM-based intent routing) added to roadmap. P5-FUT-001/002 removed. |
-| 2026-04-07 | 100/100 | v6.0.0 — P5-FUT-006 (LLM intent routing) + P5-FUT-009 (MLX admission control) implemented |
+The roadmap score-history records which P5-FUT items shipped, and each shipped
+item is verifiable in current code. P5-FUT-004 (webhook notifications) is
+implemented in `portal/platform/inference/notifications/channels/webhook.py`.
+P5-FUT-005 (weighted keyword routing) is Layer 2 auto-routing — the
+`_detect_workspace()` function in `portal/platform/inference/router/routing.py`.
+P5-FUT-006 (LLM-based intent routing) is Layer 1 — `_route_with_llm()` in the
+same module. P5-FUT-009 (model-size-aware admission control) shipped in the
+now-retired MLX proxy and survives only in
+`scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py`. The completion scores
+themselves are dated snapshots recorded in `CHANGELOG.md` at each milestone;
+current code is the live status, not the historical score.
 
----
+## Why
 
-*Last updated: 2026-06-25*
-*Part of Portal 5 v7 release documentation*
+A percentage from a past date cannot be re-derived from current code and would go
+stale the moment anything changes, so the unit drops the historical figures. What
+stays true is the mapping of each shipped roadmap item to its implementation, and
+that mapping is asserted here with file paths so the unit remains verifiable
+against the live tree rather than against a snapshot.
