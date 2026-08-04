@@ -1536,7 +1536,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "MERGE",
-    "status": "PENDING",
+    "status": "ARCHIVED",
     "survivor": "unit-ADMIN_GUIDE-approve-pending-users"
   },
   {
@@ -14832,7 +14832,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "MERGE",
-    "status": "PENDING",
+    "status": "ARCHIVED",
     "survivor": "unit-HOWTO-quick-reference-cli-commands"
   },
   {
@@ -14863,7 +14863,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "MERGE",
-    "status": "PENDING",
+    "status": "ARCHIVED",
     "survivor": "unit-HOWTO-quick-reference-cli-commands"
   },
   {
@@ -14939,7 +14939,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "MERGE",
-    "status": "PENDING",
+    "status": "ARCHIVED",
     "survivor": "unit-HOWTO-quick-reference-cli-commands"
   },
   {
@@ -14955,7 +14955,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "MERGE",
-    "status": "PENDING",
+    "status": "ARCHIVED",
     "survivor": "unit-HOWTO-17-slack-bot"
   },
   {
@@ -14971,7 +14971,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "MERGE",
-    "status": "PENDING",
+    "status": "ARCHIVED",
     "survivor": "unit-HOWTO-16-telegram-bot"
   },
   {
@@ -15032,7 +15032,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "MERGE",
-    "status": "PENDING",
+    "status": "ARCHIVED",
     "survivor": "unit-HOWTO-quick-reference-cli-commands"
   },
   {
@@ -15198,7 +15198,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "MERGE",
-    "status": "PENDING",
+    "status": "ARCHIVED",
     "survivor": "unit-HOWTO-quick-reference-cli-commands"
   },
   {
@@ -15289,7 +15289,7 @@
     "aggregate": false,
     "superseded": false,
     "disposition": "MERGE",
-    "status": "PENDING",
+    "status": "ARCHIVED",
     "survivor": "unit-HOWTO-quick-reference-cli-commands"
   },
   {
