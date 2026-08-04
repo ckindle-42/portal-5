@@ -9,7 +9,7 @@ sources:
   path: portal/platform/wiki/drift.py
 - type: code
   path: tests/unit/test_spine_drift.py
-last_generated_commit: 6afb262648d307376dfb4f839eeed69c02112d04
+last_generated_commit: 2bb0179ddd35a16c593a3e50a612847b2c172972
 claims:
 - probe: validate.checks
   pattern: '{value} validate checks'
@@ -20,7 +20,7 @@ tags:
 - verified-v1
 - wiki
 created_at: 1785825842.272556
-updated_at: 1785825842.272556
+updated_at: 1785859017.192845
 ---
 
 Three gates guarded the spine and none of them objected while README asserted 60
@@ -54,19 +54,21 @@ known without a fuzzy signal being promoted to a failure.
 The census carries two further axes. **Pin health** classifies every unit that
 cites a repo-local path: 461 units shipped pinned to `05e42ec2`, a SHA absent
 from all 1904 commits, so `last_generated_commit` was decoration rather than a
-stale anchor — that is reported as `phantom`, distinct from the 52 units whose
-pin resolves but whose cited sources have moved since. **Doc path references**
-reports repo-relative paths named in Tier-1 docs that no longer exist;
-`portal/<workspace-or-persona>` is suppressed as an OpenAI-style served model id
-by checking the live roster, which is why retired ids such as
-`portal/auto-agentic-ornith` are still reported while live ones are not.
+stale anchor — that is reported as `phantom`, distinct from units whose pin
+resolves but whose cited sources have moved since. **Doc path references**
+reports repo-relative paths named in Tier-1 docs that do not exist and are not
+gitignored — `portal/<workspace-or-persona>` is suppressed as an OpenAI-style
+served model id by checking the live roster (so retired ids such as
+`portal/auto-agentic-ornith` are still reported while live ones are not), and a
+path git itself reports as intentionally untracked (`git check-ignore`, e.g. a
+scratch task file under `coding_task/` or a harness-written directory like
+`results/candidates/`) is not a broken reference — it was never going to exist
+in any checkout, so its absence is not drift.
 
-Claim violations hard-fail and are never baselinable: a unit stating a wrong
-number is a bug, not debt. Pin and reference findings ratchet against
-`config/spine_drift_baseline.yaml` — the sets may shrink freely and may never
-grow, so new drift cannot land while the existing debt is worked off. The census
-is re-runnable outside CI as `python3 -m portal_wiki drift`, which exits non-zero
-on a claim violation or unbaselined drift, and re-pins with `--pin-baseline`.
+`TASK_WIKI_ZERO_DEBT_V1` deleted `config/spine_drift_baseline.yaml`: claims,
+pins, and doc refs are all absolute now, with nothing left to ratchet or
+tolerate. The census is re-runnable outside CI as `python3 -m portal_wiki
+drift`, which exits non-zero on any claim violation or any drift at all.
 
 ## Why
 
@@ -76,8 +78,10 @@ never that the cited prose was true — which is how README carried a wrong
 workspace count with every gate green. The mechanism is grounded in the
 code it describes: `claims.py` defines the probes and the `{value}`
 pattern contract, `drift.py` classifies pin health and broken doc path
-references and owns the ratchet against `config/spine_drift_baseline.yaml`,
-and `tests/unit/test_spine_drift.py` locks the behavior. The declared
-claim on `validate.checks` keeps the unit's own count honest, and the
+references (delegating "is this path allowed to be missing" to `git
+check-ignore` rather than a hand-maintained allowlist, so a renamed or
+newly-ignored path never needs a second update to stay accurate), and
+`tests/unit/test_spine_drift.py` locks the behavior. The declared claim on
+`validate.checks` keeps the unit's own count honest, and the
 `phantom`/`stale`/`unpinned` vocabulary is re-derivable by re-running the
 census rather than trusting this prose.
