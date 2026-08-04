@@ -736,3 +736,6 @@
 - `unit-sec-core-validate_captures` | 2026-08-04 | 7f3e752198ce994c8ac8301afa5929e82634f329 | Consolidated into unit-surface-sec-core; per-file scope was set by the BR filesystem walk, not by a decision.
 - `unit-sec-core-validation` | 2026-08-04 | 7f3e752198ce994c8ac8301afa5929e82634f329 | Consolidated into unit-surface-sec-core; per-file scope was set by the BR filesystem walk, not by a decision.
 - `unit-security-trajectory-score` | 2026-08-04 | 7f3e752198ce994c8ac8301afa5929e82634f329 | Consolidated into unit-surface-sec-core; per-file scope was set by the BR filesystem walk, not by a decision.
+- `unit-tests-scripts-capability-probe` | 2026-08-04 | 22007054d6cba73357ea3c5d7d7c97f5c252d7dc | Consolidated into unit-surface-tests-scripts; per-file scope was set by the BR filesystem walk, not by a decision.
+- `unit-tests-scripts-cc-matrix` | 2026-08-04 | 22007054d6cba73357ea3c5d7d7c97f5c252d7dc | Consolidated into unit-surface-tests-scripts; per-file scope was set by the BR filesystem walk, not by a decision.
+- `unit-tests-scripts-game-analyze` | 2026-08-04 | 22007054d6cba73357ea3c5d7d7c97f5c252d7dc | Consolidated into unit-surface-tests-scripts; per-file scope was set by the BR filesystem walk, not by a decision.
