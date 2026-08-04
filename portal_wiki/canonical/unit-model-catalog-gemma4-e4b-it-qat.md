@@ -3,16 +3,22 @@ id: unit-model-catalog-gemma4-e4b-it-qat
 kind: what
 title: "MODEL_CATALOG \u2014 `gemma4:e4b-it-qat`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`gemma4:e4b-it-qat`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.63837
 updated_at: 1784946220.63837
 ---
 
-Gemma 4 E4B QAT (~5GB, Apache 2.0, 128K ctx, audio+image+video+text, QAT: near-BF16 quality at 4-bit). Quality upgrade vs gemma4:e4b-it-q4_K_M. bench-gemma4-e4b-qat target (TASK_MODEL_REFRESH_V8 A2). supports_tools=true per Gemma4 family; verify via --audit-tools before promotion.
+`gemma4:e4b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e4b-qat` workspace `model_hint`, describing an effective 4B QAT (~5GB, 128K ctx, audio+image+video+text, thinking, QAT near-BF16 at 4-bit) positioned as a quality upgrade over the production `gemma4:e4b-it-q4_K_M`.
+
+## Why
+
+The `vision` group registration in `config/backends.yaml` asserts `supports_tools: true` while the `general` group keeps it false, and `config/portal.yaml` supplies the `bench-gemma4-e4b-qat` binding and the quality-upgrade framing. The unit is grounded to both files so the QAT-versus-q4 comparison is tied to the workspace entry that actually selects the model.

@@ -3,16 +3,20 @@ id: unit-model-catalog-hf-co-mradermacher-gemma-4-26b-a4b-it-uncensored-heretic-
 kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.600791
 updated_at: 1784946220.600791
 ---
 
-Gemma 4 26B heretic uncensored Q4 (~17GB, auto-creative primary).
+`hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf` is the mradermacher "heretic" uncensored Q4 of Gemma 4 26B A4B (~17GB). `config/backends.yaml` registers it in the `general` group only, with `supports_tools: false`. It is NOT present in `config/portal.yaml`: no workspace `model_hint` references it, consistent with the mapping's `in_portal: false`. The doc body's "auto-creative primary" label is historical — `auto-creative` has since been upgraded to the HauhauCS uncensored Qwen3.6-35B model, whose description records that upgrade away from gemma-4-heretic. The general-group registration keeps the heretic Q4 as a fallback-pool entry rather than a pinned creative lane.
+
+## Why
+
+The prior body claimed "auto-creative primary" from doc prose; re-grounding shows `config/backends.yaml` places the model in `general` only with `supports_tools: false`, and `config/portal.yaml` never selects it (in_portal false). The auto-creative upgrade is verified through that workspace's description naming the heretic-Q4 replacement. Re-grounding therefore corrects the primary-label claim to the config reality of a general-pool entry, while retaining the ~17GB/uncensored identity as card metadata.

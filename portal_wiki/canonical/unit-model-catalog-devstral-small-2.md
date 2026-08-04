@@ -3,16 +3,22 @@ id: unit-model-catalog-devstral-small-2
 kind: what
 title: "MODEL_CATALOG \u2014 `devstral-small-2`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`devstral-small-2`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.607528
 updated_at: 1784946220.607528
 ---
 
-Mistral Devstral Small 2 (Dec 2025, Apache 2.0, 24B, ~14GB Q4). V2 of devstral — 256K ctx (+2x vs V1), vision added, improved SWE-bench. bench-devstral-small-2 target (TASK_MODEL_REFRESH_V8 A10). supports_tools=true per Mistral function-calling format; verify via --audit-tools.
+`devstral-small-2` is registered in `config/backends.yaml` under the `coding` backend group with `supports_tools: true`. `config/portal.yaml` references it in the `bench-devstral-small-2` workspace description as Devstral V2 (Dec 2025, Apache 2.0, 24B, ~14GB Q4) with 256K ctx, vision added, and improved SWE-bench over `devstral:24b`; that workspace's `model_hint` is the `devstral-small-2:latest` tag. Tool support is asserted per Mistral's function-calling format, with `--audit-tools` verification recommended before promotion.
+
+## Why
+
+The bare `devstral-small-2` id and the `devstral-small-2:latest` tag are distinct registry strings: only the bare id sits in the `coding` group with `supports_tools: true`, while `config/portal.yaml`'s bench workspace points its `model_hint` at the tagged form. Grounding the unit to both files records the V2 facts and the coding-group registration without conflating the two id spellings.

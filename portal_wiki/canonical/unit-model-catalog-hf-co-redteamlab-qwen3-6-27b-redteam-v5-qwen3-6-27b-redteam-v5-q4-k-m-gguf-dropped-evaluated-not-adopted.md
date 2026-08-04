@@ -4,22 +4,22 @@ kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/RedTeamLab/Qwen3.6-27B-redteam-v5:qwen3.6-27b-redteam-v5-Q4_K_M.gguf`\
   \ \u2014 DROPPED (evaluated, not adopted)"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: "`hf.co/RedTeamLab/Qwen3.6-27B-redteam-v5:qwen3.6-27b-redteam-v5-Q4_K_M.gguf`\
-    \ \u2014 DROPPED (evaluated, not adopted)"
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/modules/security/core/candidate_eval.py
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.6264472
 updated_at: 1784946220.6264472
 ---
 
-Red EXPLOIT-slot candidate (RedTeamLab, Qwen3.6-27B QLoRA, same lineage as their blueteam-v1 above). TPS-
-probe 10.4 t/s, below floor — evaluated via `--force`. First run's result JSON was silently lost to a
-path-sanitization bug (see git history for the fix) and rerun for a saved record: candidate-eval vs
-gemma-4-abliterated:E2b incumbent: aggregate -0.075 order-accuracy, +0.000 coverage/lab_success —
-NEUTRAL/slightly negative, worse than RavenX on web_sqli_dump (depth 1/3 vs the same incumbent baseline's
-3/3) and ctf_multi_service (depth 5/7 vs baseline 7/7).
+The `candidate_eval.py` harness evaluates a candidate model in a slot against the fleet incumbent and writes a `cand_<model>_<slot>_<ts>.json` verdict to `portal/modules/security/core/results/candidates/`, with `PROMOTE_POLICY=confirm` meaning it reports deltas and never swaps fleet config. The RedTeamLab Qwen3.6-27B redteam-v5 model was run through this exploit-slot gauntlet on 2026-07-03 and the recorded outcome was a neutral-to-slightly-negative aggregate delta against the incumbent — coverage and lab-success flat, order-accuracy dipping, and the chain stopping well short of the incumbent's depth on the `web_sqli_dump` and `ctf_multi_service` scenarios. A comment in `candidate_eval.py` confirms this model's first run was silently lost to a result-file path-sanitization bug and had to be rerun. The model was not adopted: nothing in `config/portal.yaml` or `config/backends.yaml` references the id today.
+
+## Why
+
+The prior body stated a TPS reading and a below-floor intake override that no tracked file records, so those were deleted. What the tracked harness, its path-bug comment, and the configs do establish is the whole comparative outcome: the candidate ran in the exploit slot under `PROMOTE_POLICY=confirm`, the rerun record landed neutral-to-negative on the two web scenarios, the lost-first-run bug is pinned by the harness comment, and the id appears in no live workspace or backend entry — the mechanical basis for the dropped verdict.

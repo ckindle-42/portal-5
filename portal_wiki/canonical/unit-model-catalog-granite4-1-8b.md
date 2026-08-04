@@ -3,16 +3,22 @@ id: unit-model-catalog-granite4-1-8b
 kind: what
 title: "MODEL_CATALOG \u2014 `granite4.1:8b`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`granite4.1:8b`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.631973
 updated_at: 1784946220.631973
 ---
 
-REPLACES dolphin-llama3:8b at this fallback position (TASK_TOOL_SUPPORT_AUDIT_V1 §A11). Granite 4.1 8B is tool-tagged (BFCL V3 68.27); dolphin-llama3:8b is not. Dolphin retained in ollama-general line 2 for model_hint continuity.
+`granite4.1:8b` is registered in `config/backends.yaml` under the `general`, `security`, and `reasoning` groups, all with `supports_tools: true`. `config/portal.yaml` uses it widely: the `tools-specialist` workspace `model_hint` is the `granite4.1:8b-ctx8k` variant, the compliance workspace's `tool_model` is `granite4.1:8b-ctx8k`, and the image-generation lane names `granite4.1:8b` as its driver. The `bench-granite41-8b` description cites a dense 8B no-think model (~5.3GB Q4_K_M, Apache 2.0, ISO-certified, BFCL V3 68.3). It replaced `dolphin-llama3:8b` at this fallback position because it is tool-tagged while the Dolphin model is not; `dolphin-llama3:8b` remains registered in the `general` group for `model_hint` continuity.
+
+## Why
+
+The three group registrations in `config/backends.yaml` all assert `supports_tools: true`, which is the mechanical basis for the tool-tagged claim, and `config/portal.yaml` supplies the workspace bindings (tools-specialist, compliance `tool_model`, image driver) plus the BFCL score. The replacement-of-Dolphin history is institutional knowledge explaining why this model holds the tool-capable fallback position.

@@ -3,16 +3,22 @@ id: unit-model-catalog-qwen3-vl-32b-ctx8k
 kind: what
 title: "MODEL_CATALOG \u2014 `qwen3-vl:32b-ctx8k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`qwen3-vl:32b-ctx8k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.658004
 updated_at: 1784946220.658004
 ---
 
-Context-capped derived tag of `qwen3-vl:32b` (`PARAMETER num_ctx 8192` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`qwen3-vl:32b-ctx8k` is the context-capped derivation of `qwen3-vl:32b` that bakes `PARAMETER num_ctx 8192` into the tag so the vision lane does not reserve a full native context window per request. `config/backends.yaml` lists it under `group: vision` (`ollama-vision`) with `supports_tools: true`, and `config/portal.yaml` wires it as the `model_hint` of the `auto-vision` workspace whose `context_limit` is `8192`. The tag exists because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`, so a per-workspace cap has to be a distinct model tag rather than a request option. The production vision workspace therefore always runs the capped tag, never the uncapped base.
+
+## Why
+
+This entry exists to record that the vision lane's context is controlled by the derived tag, not by request options, and to bind that fact to the two config files that make it true: the `vision` group entry and the `auto-vision` workspace pin. Without the tag, every vision request would reserve context far beyond the workspace's declared limit and evict other models from memory.

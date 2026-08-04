@@ -3,16 +3,22 @@ id: unit-model-catalog-hf-co-yuxinlu1-gemma-4-12b-agentic-fable5-composer2-5-v2-
 kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.611209
 updated_at: 1784946220.611209
 ---
 
-Gemma-4-12B agentic/coding (~6.87GB Q4_K_M, yuxinlu1, Apache 2.0, gemma4_unified arch, 256K ctx, thinking mode). Gemma-4-12B-it finetune for agentic/coding/terminal tasks. Reports honestly: tau2-bench 55% vs base 15% (local self-eval, not leaderboard). Needs recent Ollama/llama.cpp for gemma4_unified. fable5 provenance is marketing. bench-only, PROMOTE_POLICY=confirm. V11 candidate intake 2026-06-30.
+`hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M` is a ~6.87GB Gemma-4-12B-it fine-tune for agentic, coding, and terminal work using the `gemma4_unified` architecture with a native Gemma-4 tool protocol and thinking mode. `config/backends.yaml` registers it under both the `general` and `coding` groups with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-12b-agentic` `model_hint`, noting its honest self-reported tau2-bench telecom score of 55 percent versus a 15 percent base under a local harness, and marking the fable5 label as marketing provenance. The intake is bench-only with PROMOTE_POLICY=confirm.
+
+## Why
+
+The dual `general`/`coding` registration with `supports_tools: true` is asserted directly by `config/backends.yaml`, and `config/portal.yaml` provides the `bench-gemma4-12b-agentic` binding plus the honest-eval and provenance caveats. The institutional notes about the local self-eval and the needs-recent-Ollama requirement for `gemma4_unified` are preserved because the bench description records them, which is the source the body now cites.

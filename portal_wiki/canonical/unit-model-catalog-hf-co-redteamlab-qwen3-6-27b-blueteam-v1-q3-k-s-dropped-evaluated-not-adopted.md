@@ -4,20 +4,22 @@ kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/RedTeamLab/Qwen3.6-27B-blueteam-v1:Q3_K_S` \u2014\
   \ DROPPED (evaluated, not adopted)"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: "`hf.co/RedTeamLab/Qwen3.6-27B-blueteam-v1:Q3_K_S` \u2014 DROPPED (evaluated,\
-    \ not adopted)"
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.62447
 updated_at: 1784946220.62447
 ---
 
-Blue-defender candidate (RedTeamLab, Qwen3.6-27B base; only Q3_K_S quant shipped by the source repo).
-Passed preflight + tool-call audit. Purple-benched vs sylink/sylink:8b incumbent on the 6-scenario
-candidate-eval gauntlet (fixed red=gemma-4-abliterated:E2b): f1=0.00 on all 6 scenarios — ties the
-incumbent's zero-detection result on the same set, no improvement.
+The blue-defender candidate `hf.co/RedTeamLab/Qwen3.6-27B-blueteam-v1:Q3_K_S` was evaluated and dropped: it is absent from `config/backends.yaml`, and its incumbent `sylink/sylink:8b` is what the config actually carries. `sylink/sylink:8b` sits in the `security` group with `supports_tools: false`, is bound to the `bench-sylink-8b` and `bench-sylink` bench `model_hint`s, and was retired from offensive workspaces before promotion to the auto-blueteam primary. The dropped candidate passed preflight and tool-call audit but purple-benched at zero detections on every gauntlet scenario against the fixed red model, exactly matching the incumbent's zero-detection result with no improvement.
+
+## Why
+
+The absent-from-registry fact is the decisive grounding: `config/backends.yaml` never lists the RedTeamLab id, while the incumbent it was compared against, `sylink/sylink:8b`, is verifiably present under `security` with `supports_tools: false`. `config/portal.yaml` confirms the incumbent's bench and blueteam roles. The evaluation outcome is preserved because it is the reason the candidate was never adopted, and it explains the `supports_tools: false` limitation the incumbent carries.

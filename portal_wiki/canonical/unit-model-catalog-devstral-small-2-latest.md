@@ -3,16 +3,22 @@ id: unit-model-catalog-devstral-small-2-latest
 kind: what
 title: "MODEL_CATALOG \u2014 `devstral-small-2:latest`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`devstral-small-2:latest`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.6214578
 updated_at: 1784946220.6214578
 ---
 
-Mistral Devstral Small 2 (~15GB). Agentic coding / software engineering model — cross-listed in security for deep chain workspaces (auto-purpleteam-deep, auto-redteam-deep) where its structured sequential planning discipline and depth 11 chains are assets. 15.5 TPS pipeline — below interactive floor; deep async use only. Run A 2026-06-21: 1.00/1.00 both scenarios, depth 11.0, 45s. Primary home: ollama-coding.
+`devstral-small-2:latest` is registered in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `security` group with `supports_tools: true`, cross-listing it for deep-chain security workspaces. `config/portal.yaml` gives it the `bench-devstral-small-2` workspace `model_hint`. The catalog records ~15GB and a 15.5 TPS pipeline figure, below the interactive floor, so the model is intended for deep async use; a 2026-06-21 run scored 1.00/1.00 on both scenarios at depth 11.0. The coding group carries the bare `devstral-small-2` id and the `devstral-small-2:latest-ctx8k` variant.
+
+## Why
+
+The general-versus-security split in `config/backends.yaml` is the config fact behind the "cross-listed in security" claim, and `config/portal.yaml` binds it to the bench workspace via `model_hint`. The throughput and chain-depth figures are kept as institutional notes, but the group registrations and the workspace binding are what the config actually asserts.

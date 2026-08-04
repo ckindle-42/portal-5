@@ -84,20 +84,25 @@ def test_backends_models_have_no_notes_field() -> None:
 
 
 def test_catalog_lossless_from_snapshot() -> None:
-    """Every note in the relocation snapshot must appear verbatim (first 40 chars) in catalog."""
+    r"""Every model id in the relocation snapshot must still have a catalog section.
+
+    The snapshot (`tests/fixtures/backends_notes_snapshot.json`) captured the notes
+    that were relocated from backends.yaml into MODEL_CATALOG.md at M2. Its original
+    form asserted the note *text* survived verbatim; that became a stale invariant
+    once TASK_WIKI_ZERO_DEBT_V1 re-grounded the model-catalog units to
+    `config/backends.yaml` and rewrote each body against the live config. What the
+    snapshot still protects is id preservation: no relocated model may have lost its
+    catalog entry. Every model in the snapshot must appear as a `### \`id\`` section.
+    """
     import json
+    import re
 
     snapshot_path = REPO / "tests" / "fixtures" / "backends_notes_snapshot.json"
     snap = json.loads(snapshot_path.read_text())
-    catalog_text = CATALOG.read_text()
+    catalog_ids = set(re.findall(r"^### `([^`]+)`", CATALOG.read_text(), re.MULTILINE))
 
-    missing = []
-    for mid, v in snap.items():
-        notes = v.get("notes", "") if isinstance(v, dict) else v
-        if notes and notes.strip()[:40] not in catalog_text:
-            missing.append(mid)
-
+    missing = [mid for mid in snap if mid not in catalog_ids]
     assert not missing, (
-        f"{len(missing)} model note(s) not found in catalog (first 40 chars mismatch):\n"
+        f"{len(missing)} snapshot model id(s) missing from MODEL_CATALOG.md:\n"
         + "\n".join(f"  {m}" for m in sorted(missing))
     )

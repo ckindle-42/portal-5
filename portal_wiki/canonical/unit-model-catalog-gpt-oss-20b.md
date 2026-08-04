@@ -3,16 +3,22 @@ id: unit-model-catalog-gpt-oss-20b
 kind: what
 title: "MODEL_CATALOG \u2014 `gpt-oss:20b`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`gpt-oss:20b`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.631478
 updated_at: 1784946220.631478
 ---
 
-~12GB — OpenAI open-weight MoE, o3-mini level, configurable thinking depth, designed for agent/tool use. supports_tools=true: audit-tools 2026-06-18 confirmed tool_call (was false from 2026-05-14 text_only — likely stale Ollama template).
+`gpt-oss:20b` is registered in `config/backends.yaml` under the `coding` group with `supports_tools: true`, the `reasoning` group with `supports_tools: true`, and the `general` group with `supports_tools: false`. `config/portal.yaml` binds it as the `bench-gptoss` workspace `model_hint` and the `auto-agentic` description lists it as fallback 2, describing an OpenAI open-weight MoE (~12GB, o3-mini level) purpose-built for agent/tool use with configurable thinking depth. The catalog records an audit-tools confirmation on 2026-06-18 after an earlier text-only mislabel, and the model was promoted to the auto-agentic fallback and coding pool.
+
+## Why
+
+The `coding` and `reasoning` group registrations in `config/backends.yaml` assert `supports_tools: true` while the `general` group keeps it false, which is the mechanical basis for its tool-capable status, and `config/portal.yaml` supplies the `bench-gptoss` binding and the auto-agentic fallback reference. The audit-tools confirmation and promotion note are institutional knowledge explaining why the flag is true.

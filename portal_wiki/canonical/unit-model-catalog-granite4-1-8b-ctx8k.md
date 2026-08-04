@@ -3,16 +3,22 @@ id: unit-model-catalog-granite4-1-8b-ctx8k
 kind: what
 title: "MODEL_CATALOG \u2014 `granite4.1:8b-ctx8k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`granite4.1:8b-ctx8k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
-created_at: 1784946220.6468532
-updated_at: 1784946220.6468532
+- verified-v1
+created_at: 1784946220.641385
+updated_at: 1784946220.641385
 ---
 
-Context-capped derived tag of `granite4.1:8b` (`PARAMETER num_ctx 8192` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`granite4.1:8b-ctx8k` is the 8K-context derived tag of `granite4.1:8b`. `config/backends.yaml` lists it in the `general`, `security`, and `reasoning` groups with `supports_tools: true` in each, so the tool-calling capability survives the tighter context bound. `config/portal.yaml` selects it as the `model_hint` for `tools-specialist` — the structured function/API-composition workspace that substitutes for ToolACE-2.5 — and as the blue `tool_model` for the `blueteam-council` and `blueteam-orchestrated` variants of `auto-security`; it is also the `model_hint` for `bench-granite41-8b`. Like every capped tag, `PARAMETER num_ctx 8192` is baked in because Ollama ignores request-time context options; the derived tag is what makes a per-workspace 8K cap reachable.
+
+## Why
+
+Re-grounding anchors this unit to the two config files that actually determine its content: `config/backends.yaml` proves the tag id, its three groups, and the `supports_tools` flags, while `config/portal.yaml` proves where the 8K variant is actually wired (tools-specialist, blueteam tool_model, bench lane). The doc-only provenance is replaced by checkable source paths.

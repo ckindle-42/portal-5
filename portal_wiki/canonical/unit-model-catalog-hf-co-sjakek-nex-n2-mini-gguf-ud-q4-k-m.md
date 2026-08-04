@@ -3,16 +3,22 @@ id: unit-model-catalog-hf-co-sjakek-nex-n2-mini-gguf-ud-q4-k-m
 kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.612376
 updated_at: 1784946220.612376
 ---
 
-Nex-N2-mini UD-Q4_K_M (~22GB, Nex AGI, June 2026, Apache 2.0). Post-trained on Qwen3.5-35B-A3B-Base. 35B total / 3B active MoE. Multimodal (image+text). Agentic coding, tool use, function calling, reasoning traces. imatrix quant from sjakek community GGUF. bench-nex-n2-mini target (TASK_MODEL_REFRESH_V8 A16). supports_tools=true per Nex-N2 function-calling support; verify via --audit-tools.
+`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` is a ~22GB imatrix quant of a 35B-total / 3B-active MoE post-trained on Qwen3.5-35B-A3B-Base, multimodal with image and text input. `config/backends.yaml` registers it twice with conflicting flags: the `general` group sets `supports_tools: false` while the `coding` group sets `supports_tools: true`, so tool support is asserted only in the agentic-coding lane, not as a global property. `config/portal.yaml` binds it to the `bench-nex-n2-mini` workspace `model_hint` with a Terminal-Bench 2.1 score of 60.7 and PROMOTE_POLICY=confirm. The flag split is the config's way of being conservative outside the coding lane.
+
+## Why
+
+The group-split `supports_tools` values are the core config fact: `config/backends.yaml` grants tool use only under `coding` and denies it under `general`, which `config/portal.yaml`'s bench-only binding reinforces. The institutional note that the model card claims function-calling is retained, but the authoritative verdict is the flag pair in the registry, so the body states the split rather than the marketing claim.

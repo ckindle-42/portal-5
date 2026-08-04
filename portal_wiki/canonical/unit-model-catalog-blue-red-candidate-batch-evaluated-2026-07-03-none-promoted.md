@@ -4,27 +4,40 @@ kind: what
 title: "MODEL_CATALOG \u2014 Blue/red candidate batch evaluated 2026-07-03 \u2014\
   \ none promoted"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: "Blue/red candidate batch evaluated 2026-07-03 \u2014 none promoted"
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/modules/security/core/candidate_eval.py
+- type: code
+  path: tests/benchmarks/results/v10_candidates_20260629T194541Z.json
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.623596
 updated_at: 1784946220.623596
 ---
 
-Eight candidates pulled and evaluated against the EXEC_SEC_FULL_COVERAGE_V1.md full-coverage run (which
-exposed a real detection gap: sylink/sylink:8b, the auto-blueteam incumbent, scored f1=0 on 69/70
-scenarios outside AD). PROMOTE_POLICY=confirm — comparison only, no fleet config touched. Raw result JSON
-files are committed under `tests/benchmarks/bench_security/results/` (fleet-validation
-`sec_full_red_20260703T081509Z.json` / `sec_full_purple_20260703T082741Z.json`) and
-`tests/benchmarks/bench_security/results/candidates/` (per-candidate blue/red runs) — this summary is a
-guide to that data, not a replacement for it. Ollama models removed post-eval (disk reclaim; none
-promoted, so none need to stay pulled). See git history (commits 9eb53c4..b763301, plus the
-candidate_eval.py path-sanitization fix) for the harness fixes this batch also surfaced and repaired
-(purple mode ignoring --all-scenarios, AD blue telemetry always synthetic, self-index/stage2 file
-discovery, candidate-eval --force for quality-over-speed evaluation, a result-file write bug that
-silently dropped RedTeamLab-redteam-v5's first run).
+The candidate-evaluation harness `portal/modules/security/core/candidate_eval.py` benches
+one new model against a slot incumbent, computes per-scenario and aggregate deltas, and
+writes an isolated per-candidate result file `cand_*.json` under
+`portal/modules/security/core/results/candidates/`. Files actually present there include
+`cand_ravenx-cyberagent-35b_Q4_K_M_exploit_20260703T141854Z.json`,
+`cand_hf.co_RedTeamLab_Qwen3.6-27B-redteam-v5_qwen3.6-27b-redteam-v5-Q4_K_M.gguf_exploit_20260703T154522Z.json`,
+and `cand_huihui_ai_baronllm-abliterated_latest_exploit_20260704T055814Z.json`, alongside
+`blue_*` runs from the same candidate pool — the 2026-07-03 batch compared blue and red
+candidates. Because `PROMOTE_POLICY=confirm`, the harness reports deltas and never swaps
+fleet config, so a candidate batch always ends as comparison records with nothing
+promoted. The `TASK_MODEL_EVAL_V10_CANDIDATES` probe run in
+`tests/benchmarks/results/v10_candidates_20260629T194541Z.json` records per-workspace
+probe scores for the bench-* candidate workspaces.
+
+## Why
+
+This unit previously pointed at raw result paths under tests/benchmarks/bench_security
+that do not exist and asserted unverifiable detail about a full-coverage run and its
+scoring. The harness and its isolated cand_* output path are the real record:
+candidate_eval.py fixes where results live, PROMOTE_POLICY=confirm fixes why nothing
+was promoted, and the V10 probe file supplies the scoring basis for the bench-*
+workspaces. Unverifiable claims were deleted rather than softened so the summary stays
+a faithful pointer to the data it describes.

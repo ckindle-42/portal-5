@@ -4,16 +4,22 @@ kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` \u2014\
   \ PROMOTED 2026-06-30"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: "`hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` \u2014 PROMOTED 2026-06-30"
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.6162739
 updated_at: 1784946220.6162739
 ---
 
-Ornith-1.0-35B Q4_K_M (~21GB, DeepReinforce/MIT, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Same RL training as 9B sibling. V10 candidate — bench-ornith-35b. Substitutes for AEON-7 NVFP4 (Blackwell-only). PROMOTED 2026-06-30 to new `auto-agentic-ornith` workspace — strong tool-chain (4/5) and SWE-handoff (4/5) probe markers. Selectable in opencode (`portal/auto-agentic-ornith`) and Claude Code (`cc-local.sh --model auto-agentic-ornith`) alongside auto-agentic and auto-agentic-lite, not replacing either.
+`hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` is Ornith-1.0-35B Q4_K_M (~21GB, DeepReinforce/MIT, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active), sharing its self-improving RL training with the 9B sibling. It was a V10 candidate under `bench-ornith-35b`, substituting for the operator-requested AEON-7 NVFP4 (Blackwell-only). `config/backends.yaml` registers it in the `general` group with `supports_tools: false` and in the `coding` group with `supports_tools: true`. `config/portal.yaml` promoted it 2026-06-30 to the `ornith` variant of `auto-coding` (whose `model_hint` is the `-ctx64k` derived tag) on strong tool-chain 4/5 and SWE-handoff 4/5 probe markers; the variant sits alongside `auto-coding`'s heavy and lite variants without replacing either. The base id remains `bench-ornith-35b`'s `model_hint`.
+
+## Why
+
+The doc body claimed promotion to a standalone "auto-agentic-ornith workspace"; `config/portal.yaml` shows the real target is the `ornith` variant of the existing `auto-coding` workspace, and `config/backends.yaml` supplies the per-group `supports_tools` values. Re-grounding corrects the workspace naming to match config, keeps the AEON-7 substitution rationale from the bench description, and preserves the tool-chain/SWE-handoff probe markers recorded in the variant description.

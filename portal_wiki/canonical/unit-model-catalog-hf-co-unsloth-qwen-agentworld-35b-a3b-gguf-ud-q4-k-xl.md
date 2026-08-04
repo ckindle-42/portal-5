@@ -3,16 +3,22 @@ id: unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl
 kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.6119812
 updated_at: 1784946220.6119812
 ---
 
-Qwen-AgentWorld-35B-A3B UD-Q4_K_XL (~21GB, MoE 3B active, 45 TPS). Language world model for env-simulation across MCP/Terminal/SWE/Web/Android/OS/Search. Also in ollama-general. Cross-listed here for coding group access (auto-agentic secondary slot). audit-tools PASS 2026-06-25.
+`hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL` is a ~21GB Qwen3 MoE with 3B active parameters, a language world model trained on MCP, Terminal, SWE, Web, Android, OS, and Search environment simulation. `config/backends.yaml` registers it under both the `general` and `coding` groups, each with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-agentworld` `model_hint` and records its 2026-06-25 promotion to the `auto-agentic` secondary slot at 45 TPS with an audit-tools pass; the heavy `auto-agentic` variant description also names it as fallback one. The `-ctx64k` derived tag is what the `auto-agentic` lite variant actually routes to.
+
+## Why
+
+The dual `general`/`coding` registration with `supports_tools: true` in both groups is asserted directly by `config/backends.yaml`, and `config/portal.yaml` supplies the promotion record and the bench binding. The institutional knowledge that this is an env-simulation world model complementing the heavier 80B coder is preserved because the workspace descriptions are precisely where that design role is documented.

@@ -3,16 +3,22 @@ id: unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gg
 kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.647757
 updated_at: 1784946220.647757
 ---
 
-Context-capped derived tag of `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M` (`PARAMETER num_ctx 65536` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` is the 64K-context derived tag of the abliterated Qwen3-Coder-Next. `config/backends.yaml` registers it in the `coding` group only, with `supports_tools: true` — the same value as its base tag in that group. `config/portal.yaml` uses it as the `model_hint` for `auto-spl` (Splunk/detection-authoring lane) and for the `uncensored-agentic` variant of `auto-coding`, both of which need the 64K window for long security-scripting or multi-turn agentic work. `PARAMETER num_ctx 65536` is baked in via `portal models apply-params` because Ollama ignores request-time `options.num_ctx`; a derived tag is what makes the wider context reachable. The base id itself carries no `model_hint` in production — only this capped variant does.
+
+## Why
+
+This unit previously parroted the generic derived-tag template from the doc. Re-grounding proves the tag's actual config footprint: `config/backends.yaml` supplies the `coding`-group registration and the `supports_tools: true` flag, and `config/portal.yaml` supplies the two workspaces (`auto-spl`, `auto-coding` uncensored-agentic) that select it as `model_hint`. The context-cap mechanism is stated because the config declares the derived tag, not from doc recollection.

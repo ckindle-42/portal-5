@@ -3,16 +3,22 @@ id: unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx64k
 kind: what
 title: "MODEL_CATALOG \u2014 `huihui_ai/qwen3.5-abliterated:9b-ctx64k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`huihui_ai/qwen3.5-abliterated:9b-ctx64k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.653444
 updated_at: 1784946220.653444
 ---
 
-Context-capped derived tag of `huihui_ai/qwen3.5-abliterated:9b` (`PARAMETER num_ctx 65536` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`huihui_ai/qwen3.5-abliterated:9b-ctx64k` is the 64K-context derived tag of the Qwen3.5-abliterated red-team model, registered in `config/backends.yaml` under both the `general` and `security` groups with `supports_tools: true`. `config/portal.yaml` routes the `auto-security` `purpleteam-deep` variant to this tag with a 65536 context limit, giving the four-hop purple chain the long window it needs for red, blue, detect, and IR hops. The `PARAMETER num_ctx 65536` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base `:9b` entry; this tag exists to give the deep purple chain its context headroom.
+
+## Why
+
+The `purpleteam-deep` routing in `config/portal.yaml` is the decisive binding — that four-hop chain is the only consumer of this specific tag — and `config/backends.yaml` confirms the dual-group `supports_tools: true`. The num_ctx mechanism is preserved because the long context window is the sole reason the derived tag was created, and it can only be expressed as a distinct model id.

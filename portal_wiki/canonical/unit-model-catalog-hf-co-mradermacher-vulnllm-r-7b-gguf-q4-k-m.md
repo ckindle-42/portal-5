@@ -3,16 +3,22 @@ id: unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m
 kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.619392
 updated_at: 1784946220.619392
 ---
 
-VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base, ~4.4GB Q4_K_M). AppSec / code vulnerability specialist — CVE severity, CWE classification, vulnerable code patterns. Full-fleet bench 2026-06-20: 2/2 chain wins at 15s (fastest security-group winner). audit-tools 2026-06-20: tool_call confirmed. supports_tools=true (Qwen2.5-7B tool-call format). CORRECTED 2026-07-16 (P5-AUTOSEC-RESELECT): the 2026-06-20 claim predates the reliability-scoring fix and never measured tool-call argument grounding. Live re-bench (kerberoast_to_da, --lab-exec): valid_rate 0.89 but redundant_call_rate 0.50 — repeatedly re-guesses hallucinated vmid values instead of reusing the value it was just given (docs/reselection/AUTOSEC_VULNLLM_DIAGNOSIS_20260716T164436Z.md). glm-4.7-flash:Q4_K_M staged as reselection primary (docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md). auto-security + auto-pentest co-primary (vuln depth complements baronllm domain breadth) — pending operator confirmation of the swap.
+`hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M` appears in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `security` group with `supports_tools: true`, so its tool flag is group-specific rather than global. `config/portal.yaml` binds the base id to the `bench-vulnllm-r-7b` and `bench-vulnllm-r7b` bench workspaces and the `bench-exec-recon` exec-chain role, while the `auto-security` workspace routes the `q4_K_M-ctx8k` variant and its description records the 2026-07-16 reselection note: the older fast-chain claim predates the reliability-scoring fix, the live re-bench found valid_rate 0.89 with redundant_call_rate 0.50, and `glm-4.7-flash:Q4_K_M` is staged as the reselection primary pending an analytical-workload test.
+
+## Why
+
+The group-split `supports_tools` value is the key config fact: `config/backends.yaml` grants tool support only under `security`, and `config/portal.yaml` keeps the model as the auto-security incumbent while documenting the reliability-gate correction. The reselection knowledge about `glm-4.7-flash:Q4_K_M` is preserved because the same files name it as the staged primary, so both models are grounded in the cited config.

@@ -3,16 +3,22 @@ id: unit-model-catalog-huihui-ai-baronllm-abliterated-latest-ctx8k
 kind: what
 title: "MODEL_CATALOG \u2014 `huihui_ai/baronllm-abliterated:latest-ctx8k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`huihui_ai/baronllm-abliterated:latest-ctx8k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.652317
 updated_at: 1784946220.652317
 ---
 
-Context-capped derived tag of `huihui_ai/baronllm-abliterated:latest` (`PARAMETER num_ctx 8192` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`huihui_ai/baronllm-abliterated:latest-ctx8k` is the 8K-context derived tag of the BaronLLM abliterated fork, and it is the id `config/portal.yaml` routes through the `auto-security` uncensored variant's `model_hint`. `config/backends.yaml` registers it under both the `security` and `creative` groups with `supports_tools: true`. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so the per-workspace context cap is a distinct model id. Full model detail lives in the base `huihui_ai/baronllm-abliterated` entry; this tag exists to satisfy registry parity and the uncensored security lane's context limit.
+
+## Why
+
+The routing fact is decisive: `config/portal.yaml` resolves the `auto-security` uncensored variant to this exact `-ctx8k` tag, while `config/backends.yaml` fixes its `security`/`creative` placement with `supports_tools: true`. The num_ctx mechanism is preserved because it explains why a derived tag was minted — a context cap that cannot be passed at request time has to be encoded in the model id.

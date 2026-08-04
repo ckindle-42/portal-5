@@ -3,16 +3,22 @@ id: unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b
 kind: what
 title: "MODEL_CATALOG \u2014 `huihui_ai/qwen3.5-abliterated:9b`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`huihui_ai/qwen3.5-abliterated:9b`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.61712
 updated_at: 1784946220.61712
 ---
 
-PRIMARY for auto-purpleteam/auto-purpleteam-deep hop-0 (red team). ~5.8GB Q4. Fast abliterated model optimised for TTP generation. Also in ollama-general — duplicate entry required for security-group routing so streaming hint resolution uses the correct model.
+`huihui_ai/qwen3.5-abliterated:9b` is a ~5.8GB fast abliterated model optimized for TTP generation, registered in `config/backends.yaml` under both the `general` and `security` groups with `supports_tools: true` in each — a duplicate entry required so security-group routing resolves the correct model. `config/portal.yaml` binds the base id as the `bench-qwen35-abliterated` `model_hint` (the uncensored tool-capable AUTO baseline) while the red-team workspaces route the derived tags: the `auto-security` `redteam` and `purpleteam` variants use `:9b-ctx8k` and the `purpleteam-deep` variant uses `:9b-ctx64k`. It is the hop-0 red-team primary for the purple chains.
+
+## Why
+
+The duplicate `general`/`security` registration with `supports_tools: true` is asserted directly by `config/backends.yaml`, and `config/portal.yaml` shows exactly which workspace uses the base id versus which routes the derived tags. The institutional knowledge about the security-group routing requirement is preserved because the duplicate entry is itself the design mechanism that makes streaming hint resolution correct.

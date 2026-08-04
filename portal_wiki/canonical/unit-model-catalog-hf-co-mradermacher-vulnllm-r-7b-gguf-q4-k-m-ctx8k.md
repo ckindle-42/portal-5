@@ -3,22 +3,22 @@ id: unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m-ctx8k
 kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k`"
 sources:
-- type: doc
-  path: config/MODEL_CATALOG.md
-  commit: 05e42ec2
-  section: '`hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k`'
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.649809
 updated_at: 1784946220.649809
 ---
 
-Context-capped derived tag of `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M` (`PARAMETER num_ctx 8192` baked in via `portal models apply-params`, TASK-SEC-LIVE-EXEC / Ollama 0.31 num_ctx-default fix). Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so capping context per-workspace requires a derived model tag rather than a request option. See base model's own catalog entry for full model detail; this entry exists only to satisfy backends.yaml/MODEL_CATALOG.md parity (test_model_catalog_parity.py).
+`hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` is the derived 8K-context tag of the AppSec specialist and the only VulnLLM tag `config/portal.yaml` routes in production: it is the `model_hint` of the `auto-security` workspace, whose description binds it to authorized CVE/CWE analysis and hardening. `config/backends.yaml` registers it under the `security` group with `supports_tools: true`, while the base `Q4_K_M` id carries the bench and exec-chain roles. The lowercased `q4_K_M` quant segment is the pullable form `ollama create` mints for derived tags, so this spelling is authoritative over any uppercase variant.
 
-Tag note (P5-SECURITY-ARM-RECONCILE-001, 2026-07-16): `ollama create` lowercases the quantization
-segment of derived tags it mints (`Q4_K_M` → `q4_K_M`) even when the source `Modelfile`/CLI arg used
-uppercase — this catalog entry (and `backends.yaml`/`portal.yaml`) previously declared the tag with
-the uppercase `Q` that was never actually pullable/creatable, causing a silent routing gap. Verified
-against the live Ollama instance during the security-arm reconciliation run.
+## Why
+
+The distinction that matters here is routing: `config/portal.yaml` resolves the `auto-security` workspace to this exact `-ctx8k` tag, not to the base id, and `config/backends.yaml` confirms the `security`-group `supports_tools: true` flag beside it. The derived-tag mechanism is preserved because the context cap is a routing requirement enforced by the model id itself, which is precisely what the two cited files determine.
