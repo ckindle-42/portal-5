@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 975 canonical units.*
+*Deterministic projection of 974 canonical units.*
 
 ## Knowledge Layer
 
@@ -118,7 +118,6 @@
 | `unit-T1610-signature` | mixed | 2 |
 | `unit-T1611-signature` | mixed | 2 |
 | `unit-acceptance-runner` | mixed | 1 |
-| `unit-acceptance-s03_routing` | mixed | 1 |
 | `unit-agent-loop-agent-loop-platform-core` | what | 9 |
 | `unit-agent-loop-consumers` | what | 5 |
 | `unit-agent-loop-contracts-the-key-modules-implement` | what | 2 |
@@ -984,10 +983,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 975 units
+**Total:** 974 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1936 references
+- **code**: 1935 references
 - **mitre**: 32 references
