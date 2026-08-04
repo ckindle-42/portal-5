@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 691 canonical units.*
+*Deterministic projection of 696 canonical units.*
 
 ## Knowledge Layer
 
@@ -667,7 +667,6 @@
 | `unit-surface-toolpreselect-tests` | mixed | 1 |
 | `unit-surface-uat` | mixed | 1 |
 | `unit-surface-uat-catalog` | mixed | 1 |
-| `unit-surface-wiki` | mixed | 1 |
 | `unit-surface-wiki-adapters` | mixed | 1 |
 | `unit-tests-frontend-test-reasoning-display` | what | 1 |
 | `unit-tests-frontends-namespace` | mixed | 1 |
@@ -695,15 +694,21 @@
 | `unit-user-guide-workspaces` | what | 3 |
 | `unit-wiki-adapter-modules` | mixed | 1 |
 | `unit-wiki-audit` | mixed | 1 |
+| `unit-wiki-interfaces` | mixed | 1 |
+| `unit-wiki-maintain` | mixed | 1 |
+| `unit-wiki-provenance-ledger` | mixed | 1 |
 | `unit-wiki-quality` | mixed | 1 |
+| `unit-wiki-schema` | mixed | 1 |
 | `unit-wiki-spine-coverage-gate` | mixed | 2 |
+| `unit-wiki-store` | mixed | 1 |
 | `unit-wiki-tests-migration` | mixed | 1 |
 | `unit-wiki-tests-render` | mixed | 1 |
+| `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 691 units
+**Total:** 696 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1653 references
+- **code**: 1658 references
 - **mitre**: 32 references
