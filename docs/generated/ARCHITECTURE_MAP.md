@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 974 canonical units.*
+*Deterministic projection of 931 canonical units.*
 
 ## Knowledge Layer
 
@@ -188,28 +188,9 @@
 | `unit-backup-restore-what-not-to-back-up` | what | 2 |
 | `unit-backup-restore-what-to-back-up` | what | 3 |
 | `unit-backup-restore-with-compression-faster-for-large-volumes` | what | 1 |
-| `unit-bench-adhoc-probe` | mixed | 1 |
 | `unit-bench-candidates-v10` | mixed | 1 |
-| `unit-bench-capability` | mixed | 1 |
-| `unit-bench-capability-lib` | mixed | 1 |
-| `unit-bench-cli` | mixed | 1 |
-| `unit-bench-discovery` | mixed | 1 |
-| `unit-bench-empty-retry` | mixed | 1 |
-| `unit-bench-init` | mixed | 1 |
-| `unit-bench-lifecycle` | mixed | 1 |
-| `unit-bench-mbptl` | mixed | 1 |
-| `unit-bench-measure` | mixed | 1 |
 | `unit-bench-mlx-hf` | mixed | 1 |
-| `unit-bench-notify` | mixed | 1 |
-| `unit-bench-prompts` | mixed | 1 |
-| `unit-bench-report` | mixed | 1 |
-| `unit-bench-results-io` | mixed | 1 |
-| `unit-bench-router` | mixed | 1 |
-| `unit-bench-router-conditions` | mixed | 1 |
-| `unit-bench-runners` | mixed | 1 |
 | `unit-bench-security` | mixed | 1 |
-| `unit-bench-shootout-analyze` | mixed | 1 |
-| `unit-bench-tps` | mixed | 1 |
 | `unit-blue-orchestration-v2-capture-gap` | why | 8 |
 | `unit-blue-orchestration-v3-council-of-agreement` | why | 3 |
 | `unit-browser-mcp-http-wrapper` | mixed | 1 |
@@ -726,36 +707,12 @@
 | `unit-routing-build-corpus` | mixed | 1 |
 | `unit-routing-measure` | mixed | 1 |
 | `unit-scripts-alias_census` | mixed | 1 |
-| `unit-scripts-bench_supervisor` | mixed | 1 |
-| `unit-scripts-blend_acceptance_results` | mixed | 1 |
-| `unit-scripts-caldera_emulate` | mixed | 1 |
-| `unit-scripts-check_docstrings` | mixed | 1 |
-| `unit-scripts-collapse_snapshot` | mixed | 1 |
-| `unit-scripts-corpus_ingest` | mixed | 1 |
 | `unit-scripts-embedding-server` | mixed | 1 |
-| `unit-scripts-execute_preflight` | mixed | 1 |
-| `unit-scripts-gen-image` | mixed | 1 |
-| `unit-scripts-gen-video` | mixed | 1 |
-| `unit-scripts-lab_bots_install` | mixed | 1 |
-| `unit-scripts-lab_discover` | mixed | 1 |
-| `unit-scripts-lab_setup` | mixed | 1 |
-| `unit-scripts-lab_splunkbase_install` | mixed | 1 |
-| `unit-scripts-migrate_to_portal_yaml` | mixed | 1 |
 | `unit-scripts-mlx-speech` | mixed | 1 |
 | `unit-scripts-mlx-transcribe` | mixed | 1 |
 | `unit-scripts-openwebui_init` | mixed | 1 |
 | `unit-scripts-portal5-powermetrics` | mixed | 1 |
-| `unit-scripts-reconcile_security_arm` | mixed | 1 |
-| `unit-scripts-routing_regression` | mixed | 1 |
 | `unit-scripts-spine_census` | mixed | 1 |
-| `unit-scripts-triage` | mixed | 1 |
-| `unit-scripts-triage_actions` | mixed | 1 |
-| `unit-scripts-update_grafana_acceptance` | mixed | 1 |
-| `unit-scripts-update_grafana_benchmarks` | mixed | 1 |
-| `unit-scripts-update_grafana_uat` | mixed | 1 |
-| `unit-scripts-update_workspace_tools` | mixed | 1 |
-| `unit-scripts-v2_corpus_baseline` | mixed | 1 |
-| `unit-scripts-verify_proxmox_mcp` | mixed | 1 |
 | `unit-sec-core-__init__` | mixed | 1 |
 | `unit-sec-core-__main__` | mixed | 1 |
 | `unit-sec-core-_config` | mixed | 1 |
@@ -983,10 +940,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 974 units
+**Total:** 931 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1935 references
+- **code**: 1892 references
 - **mitre**: 32 references
