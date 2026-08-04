@@ -56,9 +56,15 @@ _PATH_RE = re.compile(
 _LOOKS_TRUNCATED = re.compile(r"[_\-.]$")
 
 
-def _git(root: Path, *args: str) -> subprocess.CompletedProcess:
+def _git(root: Path, *args: str, input: str | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["git", *args], cwd=root, capture_output=True, text=True, check=False, timeout=30
+        ["git", *args],
+        cwd=root,
+        input=input,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
     )
 
 
@@ -167,24 +173,40 @@ def _served_model_ids(root: Path) -> frozenset[str]:
     return frozenset(f"portal/{n}" for n in names)
 
 
-def broken_path_refs(repo_root: Path | None = None) -> tuple[str, ...]:
-    """Repo-relative paths named in Tier-1 docs that do not exist.
+def _gitignored_paths(root: Path, candidates: list[str]) -> frozenset[str]:
+    """Of `candidates`, the subset `git` itself says is intentionally untracked.
 
-    Returned as `"<doc>::<path>"` so the ratchet baseline can pin an individual
-    reference rather than a whole doc — a doc may legitimately gain a new broken
-    reference while an old one is still being worked off.
+    A path a doc cites can be legitimately absent from *any* checkout — a
+    gitignored scratch file (`coding_task/*.md`) or a directory a harness
+    writes at runtime (`results/candidates/`). `.gitignore` is the authoritative
+    answer to "should this exist here", so ask git rather than guessing with
+    more regex: a hand-maintained allowlist drifts the moment a path is renamed,
+    `git check-ignore` never does.
+    """
+    if not candidates:
+        return frozenset()
+    out = _git(root, "check-ignore", "--stdin", input="\n".join(candidates))
+    return frozenset(out.stdout.splitlines())
+
+
+def broken_path_refs(repo_root: Path | None = None) -> tuple[str, ...]:
+    """Repo-relative paths named in Tier-1 docs that do not exist and are not
+    gitignored (a gitignored path existing in no checkout is not drift — see
+    `_gitignored_paths`).
+
+    Returned as `"<doc>::<path>"` rather than one entry per doc — a doc may
+    carry several independent broken references at once.
 
     A few prose fragments survive the truncation filter (`tests/acceptance/s`
     from a sentence that trails off). They are deliberately left in rather than
-    chased with more pattern-matching: the baseline absorbs them at zero cost,
-    and every additional heuristic here is a place for a real broken reference
-    to hide.
+    chased with more pattern-matching: every additional heuristic here is a
+    place for a real broken reference to hide.
     """
     from portal.platform.wiki.render import TIER1_DOCS
 
     root = repo_root or _REPO_ROOT
     model_ids = _served_model_ids(root)
-    broken: set[str] = set()
+    per_doc_missing: dict[str, set[str]] = {}
     for rel in TIER1_DOCS:
         doc = root / rel
         if not doc.exists():
@@ -195,7 +217,16 @@ def broken_path_refs(repo_root: Path | None = None) -> tuple[str, ...]:
                 continue
             if (root / cand).exists():
                 continue
-            broken.add(f"{rel}::{cand}")
+            per_doc_missing.setdefault(rel, set()).add(cand)
+
+    all_missing = sorted({c for cands in per_doc_missing.values() for c in cands})
+    ignored = _gitignored_paths(root, all_missing)
+
+    broken: set[str] = set()
+    for rel, cands in per_doc_missing.items():
+        for cand in cands:
+            if cand not in ignored:
+                broken.add(f"{rel}::{cand}")
     return tuple(sorted(broken))
 
 
