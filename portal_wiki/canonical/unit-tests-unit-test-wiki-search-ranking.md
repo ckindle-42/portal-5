@@ -7,7 +7,7 @@ sources:
   path: tests/unit/test_wiki_search_ranking.py
 - type: code
   path: portal_wiki/mcp.py
-last_generated_commit: 3375027dd618d5a8e55150ce70f3262631aaf538
+last_generated_commit: 6fe71cca7b215f92e60675457af06859cfccf63f
 claims: []
 confidence: high
 tags:

@@ -6,7 +6,7 @@ sources:
 - type: code
   path: portal_wiki/mcp.py
   commit: dc13b2d5
-last_generated_commit: dc13b2d5
+last_generated_commit: 6fe71cca7b215f92e60675457af06859cfccf63f
 claims: []
 confidence: high
 tags:

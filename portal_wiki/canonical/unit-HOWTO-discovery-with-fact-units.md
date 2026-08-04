@@ -9,7 +9,7 @@ sources:
   path: portal/platform/wiki/adapters/seed_facts.py
 - type: code
   path: portal/platform/inference/sync_config.py
-last_generated_commit: 6afb262648d307376dfb4f839eeed69c02112d04
+last_generated_commit: 6fe71cca7b215f92e60675457af06859cfccf63f
 claims: []
 confidence: high
 tags:
