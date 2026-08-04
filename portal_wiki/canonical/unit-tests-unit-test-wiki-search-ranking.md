@@ -5,16 +5,14 @@ title: Wiki search top-hit regression gate
 sources:
 - type: code
   path: tests/unit/test_wiki_search_ranking.py
-- type: code
-  path: portal_wiki/mcp.py
-last_generated_commit: 6fe71cca7b215f92e60675457af06859cfccf63f
+last_generated_commit: df6d81435aea406b02da8347c9f908a81b589139
 claims: []
 confidence: high
 tags:
-- wiki
 - search
 - test
 - verified-v1
+- wiki
 created_at: 1785833000.0
 updated_at: 1785833000.0
 ---
