@@ -5,16 +5,16 @@ title: 10 security canonical variants
 sources:
 - type: code
   path: config/portal.yaml
-  commit: abef7f69f4b1
+  commit: baca992c674a
   section: workspaces.auto-security.variants
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+last_generated_commit: baca992c674a
 claims: []
 confidence: high
 tags:
 - fact
 - security
 created_at: 1784000421.308071
-updated_at: 1784748854.865588
+updated_at: 1785829024.435267
 ---
 
 # Security canonical variants (10)
@@ -31,3 +31,7 @@ sec-bench `--workspaces` targets, addressed as `auto-security::<variant>`:
 - `auto-security::redteam`
 - `auto-security::redteam-deep`
 - `auto-security::uncensored`
+
+## Why
+
+The canonical variant set is the `variants` map on the `auto-security` workspace in `config/portal.yaml`. Each entry is an `auto-security::<variant>` id that `sec-bench --workspaces` targets; the pipeline resolves the variant to a model pool the same way a `?variant=` hint on any workspace does. Deriving the list from config keeps the documented target set and the live routing surface aligned.

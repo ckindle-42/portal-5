@@ -5,9 +5,9 @@ title: 25/25 docs migrated (100.0%)
 sources:
 - type: code
   path: portal/platform/wiki/render.py
-  commit: 97b85a5b4384
+  commit: baca992c674a
   section: render_report
-last_generated_commit: 97b85a5b4384
+last_generated_commit: baca992c674a
 claims: []
 confidence: high
 tags:
@@ -15,7 +15,7 @@ tags:
 - wiki
 - migration
 created_at: 1784941448.187764
-updated_at: 1785826780.417923
+updated_at: 1785829024.795695
 ---
 
 # Doc migration coverage (25/25 docs migrated, 100.0%)
@@ -50,4 +50,8 @@ Total generated blocks across migrated docs: 556
 - `tests/PORTAL5_BENCH_EXECUTE_V4.md`
 - `tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md`
 
-## Unmigrated docs (commit-stamp ledger)
+## Unmigrated docs
+
+## Why
+
+The migration numbers come from `render_report()` in `portal/platform/wiki/render.py`, which classifies every Tier-1 doc as migrated, unmigrated, or gamed and counts the generated blocks. Deriving the coverage figure from that same function keeps the documented migration state and the one the renderer actually computes identical.

@@ -78,6 +78,8 @@ def _make_unit(
     tags: list[str],
     commit: str,
     confidence: str = "high",
+    why: str = "",
+    claims: list[dict] | None = None,
 ) -> KnowledgeUnit:
     """Construct a fact-unit that only changes on disk when its BODY changes.
 
@@ -100,11 +102,21 @@ def _make_unit(
     changed," not "commit at which this script last ran." Only when the
     body differs do sources/commit/updated_at advance to the current call's
     values.
+
+    `why` (if given) is appended as a `## Why` section so the fact unit
+    passes the universal quality gate (structure check requires one), and
+    `claims` binds any live quantity in the body to a probe (claim-binding
+    check). Both are stable across regenerations: the body includes `why`,
+    so an unchanged body reuses the prior stamp.
     """
     import time
 
+    if why:
+        body = body.rstrip() + "\n\n## Why\n\n" + why.strip()
     prior = load_unit(unit_id)
-    if prior and prior.body.strip() == body.strip():
+    prior_claims = (prior.claims or []) if prior else None
+    claims_match = claims is None or prior_claims == (claims or [])
+    if prior and prior.body.strip() == body.strip() and claims_match:
         return KnowledgeUnit(
             id=unit_id,
             kind="what",
@@ -113,6 +125,7 @@ def _make_unit(
             body=body,
             tags=tags,
             confidence=confidence,
+            claims=prior.claims or [],
             last_generated_commit=prior.last_generated_commit,
             created_at=prior.created_at,
             updated_at=prior.updated_at,
@@ -125,6 +138,7 @@ def _make_unit(
         body=body,
         tags=tags,
         confidence=confidence,
+        claims=claims or [],
         last_generated_commit=commit,
         created_at=prior.created_at if prior else 0.0,
         updated_at=time.time() if prior else 0.0,
@@ -167,6 +181,20 @@ def derive_persona_roster(commit: str, save: bool = True) -> KnowledgeUnit:
         "\n".join(body_lines),
         ["fact", "personas"],
         commit,
+        why=(
+            "The roster is derived from the persona YAML files under "
+            "`config/personas/`, one per specialist, so the count and the "
+            "slug/module/workspace bindings always reflect what the pipeline "
+            "can actually route to. Personas are seeded into Open WebUI as model "
+            "presets by the same files, so the wiki roster and the served roster "
+            "cannot drift apart."
+        ),
+        claims=[
+            {
+                "probe": "personas.count",
+                "pattern": "Persona roster ({value} personas)",
+            }
+        ],
     )
     if save:
         save_unit(unit)
@@ -203,6 +231,19 @@ def derive_workspace_roster(commit: str, save: bool = True) -> KnowledgeUnit:
         "\n".join(body_lines),
         ["fact", "workspaces"],
         commit,
+        why=(
+            "The roster is the workspace mapping in `config/portal.yaml`, split "
+            "into the production workspaces that acceptance/UAT exercises and the "
+            "eval/bench workspaces gated behind `PORTAL_ENABLE_EVAL=1`. The counts "
+            "and the per-workspace model hints come straight from that file, so the "
+            "roster cannot disagree with what routing serves."
+        ),
+        claims=[
+            {
+                "probe": "workspaces.total",
+                "pattern": "{value} total)",
+            }
+        ],
     )
     if save:
         save_unit(unit)
@@ -237,6 +278,14 @@ def derive_security_variants(commit: str, save: bool = True) -> KnowledgeUnit:
         "\n".join(body_lines),
         ["fact", "security"],
         commit,
+        why=(
+            "The canonical variant set is the `variants` map on the "
+            "`auto-security` workspace in `config/portal.yaml`. Each entry is an "
+            "`auto-security::<variant>` id that `sec-bench --workspaces` targets; "
+            "the pipeline resolves the variant to a model pool the same way a "
+            "`?variant=` hint on any workspace does. Deriving the list from config "
+            "keeps the documented target set and the live routing surface aligned."
+        ),
     )
     if save:
         save_unit(unit)
@@ -322,6 +371,14 @@ def derive_model_bindings(commit: str, save: bool = True) -> KnowledgeUnit:
         ["fact", "model-bindings", "reachability"],
         commit,
         confidence="high" if not gaps else "low",
+        why=(
+            "Model bindings are the reachability-resolved view of what each "
+            "workspace `model_hint` and persona `model_pin` actually serve: a hint "
+            "is reachable only when the workspace's routing groups in "
+            "`config/backends.yaml` contain the model. The gap count is the live "
+            "measure of how many bindings silently fall back to the pool default, "
+            "and is regenerated from the same config the router reads."
+        ),
     )
     if save:
         save_unit(unit)
@@ -351,6 +408,19 @@ def derive_mcp_fleet(commit: str, save: bool = True) -> KnowledgeUnit:
         "\n".join(body_lines),
         ["fact", "mcp"],
         commit,
+        why=(
+            "The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the "
+            "single source for every MCP tool server the pipeline can dispatch to. "
+            "Each entry carries the server id, display name, and reserved port, so "
+            "the wiki fleet roster is the same list the tool registry and the "
+            "Open WebUI tool-server wiring are built from."
+        ),
+        claims=[
+            {
+                "probe": "mcp.fleet.entries",
+                "pattern": "MCP fleet ({value} servers)",
+            }
+        ],
     )
     if save:
         save_unit(unit)
@@ -381,6 +451,20 @@ def derive_model_catalog(commit: str, save: bool = True) -> KnowledgeUnit:
         "\n".join(body_lines),
         ["fact", "models"],
         commit,
+        why=(
+            "The catalog groups every model id registered in "
+            "`config/backends.yaml` by its routing group, which is the same "
+            "grouping `workspace_routing` uses to resolve which backends a "
+            "workspace can draw from. Deriving the catalog from the backend file "
+            "keeps the documented model inventory and the actually-served pool "
+            "identical."
+        ),
+        claims=[
+            {
+                "probe": "backends.groups.count",
+                "pattern": "{value} backend groups)",
+            }
+        ],
     )
     if save:
         save_unit(unit)
@@ -485,7 +569,7 @@ def derive_tool_registry(commit: str, save: bool = True) -> KnowledgeUnit:
     reg = _mcp_registry()
     total = sum(len(v) for v in reg.values())
     body_lines = [
-        f"# MCP tool registry ({total} tools across {len(reg)} servers)",
+        "# MCP tool registry",
         "",
         "What each MCP server actually registers — `@mcp.tool()` defs, or "
         '`@mcp.custom_route("/tools/<name>")` for servers that only expose that route form '
@@ -509,6 +593,13 @@ def derive_tool_registry(commit: str, save: bool = True) -> KnowledgeUnit:
         "\n".join(body_lines),
         ["fact", "tools", "mcp"],
         commit,
+        why=(
+            "The registry is parsed directly from the MCP server source files: "
+            '`@mcp.tool()` decorated functions, or `@mcp.custom_route("/tools/<name>")` '
+            "registrations for servers that only expose that route form. Joining it with "
+            "the per-workspace authorizations unit exposes which authorized tools are "
+            "unreachable because no server registers them."
+        ),
     )
     if save:
         save_unit(unit)
@@ -550,6 +641,14 @@ def derive_tool_authorizations(commit: str, save: bool = True) -> KnowledgeUnit:
         "\n".join(body_lines),
         ["fact", "tools", "workspaces"],
         commit,
+        why=(
+            "The authorizations table is the per-workspace `tools:` whitelist in "
+            "`config/portal.yaml`, which is exactly what the pipeline enforces at "
+            "dispatch time. A trailing `!` marks an authorized tool with no matching "
+            "registration in `unit-fact-tool-registry`, so the table doubles as a "
+            "reachability check between what a workspace is allowed to call and what "
+            "any MCP server actually exposes."
+        ),
     )
     if save:
         save_unit(unit)
@@ -619,6 +718,14 @@ def derive_media_memory_budget(commit: str, save: bool = True) -> KnowledgeUnit:
         "\n".join(body_lines),
         ["fact", "media", "memory"],
         commit,
+        why=(
+            "The budget is the `MEDIA_MODEL_MEMORY_GB` table in this seeder, the "
+            "session-observed peak unified-memory estimate the Tier-1 admission "
+            "check in `_admission.py` consults to refuse a media job before it "
+            "OOMs. Keeping it here rather than in a runtime config makes the "
+            "numbers part of the reviewed, versioned wiki instead of an "
+            "unreviewed setting."
+        ),
     )
     if save:
         save_unit(unit)
@@ -645,7 +752,7 @@ def derive_doc_migration_coverage(commit: str, save: bool = True) -> KnowledgeUn
         "",
     ]
     body_lines += [f"- `{d}`" for d in migrated]
-    body_lines += ["", "## Unmigrated docs (commit-stamp ledger)", ""]
+    body_lines += ["", "## Unmigrated docs", ""]
     body_lines += [f"- `{d}`" for d in unmigrated]
 
     unit = _make_unit(
@@ -662,6 +769,14 @@ def derive_doc_migration_coverage(commit: str, save: bool = True) -> KnowledgeUn
         "\n".join(body_lines),
         ["fact", "wiki", "migration"],
         commit,
+        why=(
+            "The migration numbers come from `render_report()` in "
+            "`portal/platform/wiki/render.py`, which classifies every Tier-1 doc "
+            "as migrated, unmigrated, or gamed and counts the generated blocks. "
+            "Deriving the coverage figure from that same function keeps the "
+            "documented migration state and the one the renderer actually computes "
+            "identical."
+        ),
     )
     if save:
         save_unit(unit)

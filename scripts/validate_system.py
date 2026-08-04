@@ -31,7 +31,6 @@ It validates:
     AA. Live exec integrity — vulhub->host dispatch, DISPATCH_NOT_RUN guard
     AB. Stage 2 propose integrity — bounded proposals, proof-gated promotion,
         no hollow flag-flip, no writes without operator --apply
-    AK. Doc currency — every ledgered doc is fresh vs HEAD (docs/.doc_ledger.yaml)
 
 Designed to run in under 60 seconds on the M4 Pro Mac Mini. Use this as
 the gate before kicking off the full long-running suites:
@@ -2525,34 +2524,6 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
     )
 
 
-def check_doc_currency() -> tuple[str, str, list[dict]]:
-    """AK — every doc bound in docs/.doc_ledger.yaml is fresh vs HEAD.
-
-    Delegates to scripts/doc_ledger.py (subprocess, JSON) so the ledger logic
-    lives in one place. FAIL lists the stale docs; run the doc-audit agent to
-    clear it, then `python3 scripts/doc_ledger.py stamp-all`.
-    """
-    script = REPO_ROOT / "scripts" / "doc_ledger.py"
-    if not script.exists():
-        return ("SKIP", "scripts/doc_ledger.py not present", [])
-    proc = subprocess.run(
-        [sys.executable, str(script), "check", "--json"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    try:
-        payload = json.loads(proc.stdout.strip() or "{}")
-    except json.JSONDecodeError:
-        return ("FAIL", f"doc_ledger check unparseable: {proc.stdout[:200]}", [])
-    return (
-        payload.get("status", "FAIL"),
-        payload.get("detail", ""),
-        payload.get("findings", []),
-    )
-
-
 def check_capability_index() -> tuple[str, str, list[dict]]:
     """S — every capability's tools/oracle references resolve to a real
     tool_catalog entry / registered oracle (TASK_SEC_CAPABILITY_INDEX_V1).
@@ -2757,7 +2728,6 @@ def main() -> int:
     v.run("AH. telemetry contracts", check_telemetry_contracts)
     v.run("AI. capability graph + gap engine", check_capability_graph)
     v.run("AJ. wiki core backbone", check_wiki_core)
-    v.run("AK. doc currency", check_doc_currency)
     v.run("AL. capability index consistency", check_capability_index)
     v.run("AM. goal-decide dry-run", check_goal_decide_dryrun)
     v.run("AN. drift gate", check_drift_gate)
@@ -2887,35 +2857,13 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
                    Ratcheted.
     """
     from portal.platform.wiki.claims import claim_count, evaluate_claims
-    from portal.platform.wiki.drift import (
-        BASELINE_RELPATH,
-        broken_path_refs,
-        pin_health,
-        ratchet_violations,
-        retired_baseline_entries,
-    )
+    from portal.platform.wiki.drift import broken_path_refs, pin_health
     from portal.platform.wiki.store import load_all
-
-    baseline_path = REPO_ROOT / BASELINE_RELPATH
-    if not baseline_path.exists():
-        return (
-            "FAIL",
-            f"missing {BASELINE_RELPATH} — regenerate it before this gate can hold",
-            [
-                {
-                    "name": "baseline present",
-                    "status": "FAIL",
-                    "detail": f"{BASELINE_RELPATH} absent",
-                }
-            ],
-        )
 
     units = load_all()
     violations = evaluate_claims(units, REPO_ROOT)
     pins = pin_health(REPO_ROOT, units)
     refs = broken_path_refs(REPO_ROOT)
-    new = ratchet_violations(pins, refs, REPO_ROOT)
-    retired = retired_baseline_entries(pins, refs, REPO_ROOT)
 
     subs: list[dict] = [
         {
@@ -2928,30 +2876,39 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
             ),
         },
         {
-            "name": "no new phantom pin",
-            "status": "PASS" if not new["phantom_pins"] else "FAIL",
+            "name": "no phantom pin",
+            "status": "PASS" if not pins.phantom else "FAIL",
             "detail": (
-                "every unresolvable pin is baselined"
-                if not new["phantom_pins"]
-                else f"{len(new['phantom_pins'])} new: {', '.join(new['phantom_pins'][:6])}"
+                "every pin resolves to a real commit"
+                if not pins.phantom
+                else f"{len(pins.phantom)} phantom: {', '.join(pins.phantom[:6])}"
             ),
         },
         {
-            "name": "no newly unpinned unit",
-            "status": "PASS" if not new["unpinned"] else "FAIL",
+            "name": "no unpinned unit",
+            "status": "PASS" if not pins.unpinned else "FAIL",
             "detail": (
-                "every unpinned unit is baselined"
-                if not new["unpinned"]
-                else f"{len(new['unpinned'])} new: {', '.join(new['unpinned'][:6])}"
+                "every unit records a pin"
+                if not pins.unpinned
+                else f"{len(pins.unpinned)} unpinned: {', '.join(pins.unpinned[:6])}"
             ),
         },
         {
-            "name": "no new broken doc reference",
-            "status": "PASS" if not new["broken_refs"] else "FAIL",
+            "name": "no stale unit",
+            "status": "PASS" if not pins.stale else "FAIL",
             "detail": (
-                "every dead path reference is baselined"
-                if not new["broken_refs"]
-                else f"{len(new['broken_refs'])} new: {', '.join(new['broken_refs'][:6])}"
+                "every cited source is current at its pin"
+                if not pins.stale
+                else f"{len(pins.stale)} stale: {', '.join(pins.stale[:6])}"
+            ),
+        },
+        {
+            "name": "no broken doc reference",
+            "status": "PASS" if not refs else "FAIL",
+            "detail": (
+                "every repo path referenced in Tier-1 docs exists"
+                if not refs
+                else f"{len(refs)} dead refs: {', '.join(refs[:6])}"
             ),
         },
         {
@@ -2963,43 +2920,28 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
                 f"of {pins.total}"
             ),
         },
-        {
-            "name": "no stale authored-v1 unit (enforced)",
-            "status": "PASS" if not pins.authored_stale else "FAIL",
-            "detail": (
-                "every authored-v1 unit's cited source is current at its pin"
-                if not pins.authored_stale
-                else f"{len(pins.authored_stale)} authored-v1 unit(s) stale: "
-                f"{', '.join(pins.authored_stale[:6])}"
-            ),
-        },
-        {
-            "name": "baseline is current",
-            "status": "PASS" if not any(retired.values()) else "WARN",
-            "detail": (
-                "no stale entries"
-                if not any(retired.values())
-                else ", ".join(f"{k}: {len(v)}" for k, v in retired.items() if v)
-                + " now clean — re-pin to bank the gain"
-            ),
-        },
     ]
 
-    hard = bool(violations) or bool(pins.authored_stale) or any(new.values())
+    hard = (
+        bool(violations)
+        or bool(pins.phantom)
+        or bool(pins.unpinned)
+        or bool(pins.stale)
+        or bool(refs)
+    )
     if hard:
         return (
             "FAIL",
             f"{len(violations)} claim violation(s), "
-            f"{len(pins.authored_stale)} stale authored-v1 unit(s), "
-            f"{len(new['phantom_pins'])} new phantom pin(s), "
-            f"{len(new['unpinned'])} newly unpinned, "
-            f"{len(new['broken_refs'])} new broken doc ref(s)",
+            f"{len(pins.phantom)} phantom pin(s), "
+            f"{len(pins.unpinned)} unpinned unit(s), "
+            f"{len(pins.stale)} stale unit(s), "
+            f"{len(refs)} dead doc ref(s)",
             subs,
         )
     return (
         "PASS",
-        f"{claim_count(units)} claim(s) hold; no stale authored units, "
-        f"phantom pins, unpinned units, or dead refs",
+        f"{claim_count(units)} claim(s) hold; no phantom pins, unpinned units, stale units, or dead refs",
         subs,
     )
 
@@ -4886,51 +4828,30 @@ def check_benign_alert_fatigue() -> tuple[str, str, list[dict]]:
 
 
 def check_spine_code_coverage() -> tuple[str, str, list[dict]]:
-    """BR. Code drives the spine: no new code surface may land without a covering unit.
+    """BR. Code drives the spine: every code surface carries a covering unit.
 
     The spine already propagates forward (unit changes regenerate docs). This is the
-    converse gate. It is a ratchet, not a cliff: `config/spine_coverage_baseline.yaml`
-    pins today's uncovered surfaces, and only *growth* of that set fails. Aggregate
-    `unit-code-*` citations are excluded from the numerator — counting a generator's
-    own output as coverage is the circularity the doc-generation arc already paid for.
+    converse gate, now absolute: since TASK_WIKI_ZERO_DEBT_V1, 100% of eligible code
+    surfaces are cited by a gate-passing non-aggregate unit, so the baseline ratchet
+    is gone and any uncovered surface is an unconditional FAIL. Aggregate
+    `unit-code-*` citations remain excluded from the numerator — counting a
+    generator's own output as coverage is the circularity the doc-generation arc
+    already paid for.
     """
-    from portal.platform.wiki.coverage import (
-        BASELINE_RELPATH,
-        compute_coverage,
-        gate_failing_coverage_units,
-        load_baseline,
-        ratchet_violations,
-        retired_baseline_entries,
-    )
-
-    baseline_path = REPO_ROOT / BASELINE_RELPATH
-    if not baseline_path.exists():
-        return (
-            "FAIL",
-            f"missing {BASELINE_RELPATH} — regenerate it before this gate can hold",
-            [
-                {
-                    "name": "baseline present",
-                    "status": "FAIL",
-                    "detail": f"{BASELINE_RELPATH} not found",
-                }
-            ],
-        )
+    from portal.platform.wiki.coverage import compute_coverage, gate_failing_coverage_units
 
     report = compute_coverage(REPO_ROOT)
-    baseline = load_baseline(REPO_ROOT)
-    violations = ratchet_violations(report, baseline, REPO_ROOT)
-    retired = retired_baseline_entries(report, baseline, REPO_ROOT)
     offenders = gate_failing_coverage_units(REPO_ROOT)
 
     subs = [
         {
-            "name": "no new uncovered code surface",
-            "status": "PASS" if not violations else "FAIL",
+            "name": "every code surface covered",
+            "status": "PASS" if not report.uncovered else "FAIL",
             "detail": (
-                "every code surface is baselined or covered"
-                if not violations
-                else f"{len(violations)} new uncovered: {', '.join(violations[:8])}"
+                f"{len(report.covered)}/{len(report.eligible)} surfaces "
+                f"({report.pct:.1f}%) cited by a gate-passing non-aggregate unit"
+                if not report.uncovered
+                else f"{len(report.uncovered)} uncovered: {', '.join(report.uncovered[:8])}"
             ),
         },
         {
@@ -4943,34 +4864,15 @@ def check_spine_code_coverage() -> tuple[str, str, list[dict]]:
                 f"{', '.join(offenders[:6])}"
             ),
         },
-        {
-            "name": "coverage measured",
-            "status": "PASS",
-            "detail": (
-                f"{len(report.covered)}/{len(report.eligible)} surfaces "
-                f"({report.pct:.1f}%) cited by a gate-passing non-aggregate unit"
-            ),
-        },
-        {
-            "name": "baseline is current",
-            "status": "PASS" if not retired else "WARN",
-            "detail": (
-                "no stale entries"
-                if not retired
-                else f"{len(retired)} entries now covered or deleted — re-pin to bank the gain"
-            ),
-        },
     ]
-    if violations or offenders:
+    if report.uncovered or offenders:
         parts = []
-        if violations:
-            parts.append(f"{len(violations)} code surface(s) landed with no covering unit")
+        if report.uncovered:
+            parts.append(f"{len(report.uncovered)} code surface(s) uncovered")
         if offenders:
             parts.append(f"{len(offenders)} gate-failing unit(s) sole-cite a surface")
         return ("FAIL", "; ".join(parts), subs)
-    if retired:
-        return ("WARN", f"baseline has {len(retired)} stale entries — re-pin", subs)
-    return ("PASS", f"code coverage ratchet held at {report.pct:.1f}%", subs)
+    return ("PASS", "code coverage 100% — every surface cited by a gate-passing unit", subs)
 
 
 if __name__ == "__main__":

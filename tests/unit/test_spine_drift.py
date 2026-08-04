@@ -219,56 +219,16 @@ def test_broken_path_refs_are_reported_as_doc_and_path():
         assert not (REPO_ROOT / path).exists()
 
 
-# ── ratchet ──────────────────────────────────────────────────────────────────
+# ── absolute drift gate (baseline retired in TASK_WIKI_ZERO_DEBT_V1) ─────────
 
 
-def test_baseline_round_trips_and_ratchet_is_clean_against_itself(tmp_path):
-    health = drift_mod.pin_health(REPO_ROOT)
-    refs = drift_mod.broken_path_refs(REPO_ROOT)
-    rendered = drift_mod.render_baseline(health, refs)
-
-    import yaml
-
-    parsed = yaml.safe_load(rendered)
-    assert parsed["phantom_pin_count"] == len(health.phantom)
-    assert parsed["broken_ref_count"] == len(refs)
-
-    (tmp_path / "config").mkdir()
-    (tmp_path / drift_mod.BASELINE_RELPATH).write_text(rendered, encoding="utf-8")
-    loaded = drift_mod.load_baseline(tmp_path)
-    assert loaded["phantom_pins"] == frozenset(health.phantom)
-    assert loaded["broken_refs"] == frozenset(refs)
-
-    violations = drift_mod.ratchet_violations(health, refs, tmp_path)
-    assert not any(violations.values()), "a freshly pinned baseline must report no drift"
-
-
-def test_ratchet_fails_on_a_finding_absent_from_the_baseline(tmp_path):
-    (tmp_path / "config").mkdir()
-    (tmp_path / drift_mod.BASELINE_RELPATH).write_text(
-        "phantom_pins: []\nunpinned: []\nbroken_refs: []\n", encoding="utf-8"
-    )
-    health = drift_mod.PinHealth(phantom=("new-unit",))
-    violations = drift_mod.ratchet_violations(health, ("README.md::nope/gone.py",), tmp_path)
-    assert violations["phantom_pins"] == ("new-unit",)
-    assert violations["broken_refs"] == ("README.md::nope/gone.py",)
-
-
-def test_missing_baseline_makes_every_finding_a_violation(tmp_path):
-    health = drift_mod.PinHealth(unpinned=("u",))
-    assert drift_mod.ratchet_violations(health, (), tmp_path)["unpinned"] == ("u",)
-
-
-def test_retired_entries_are_reported_so_debt_can_be_repinned(tmp_path):
-    (tmp_path / "config").mkdir()
-    (tmp_path / drift_mod.BASELINE_RELPATH).write_text(
-        "phantom_pins:\n  - fixed-unit\nunpinned: []\nbroken_refs: []\n", encoding="utf-8"
-    )
-    retired = drift_mod.retired_baseline_entries(drift_mod.PinHealth(), (), tmp_path)
-    assert retired["phantom_pins"] == ("fixed-unit",)
-
-
-# ── census ───────────────────────────────────────────────────────────────────
+def test_pin_health_classifies_phantom_unpinned_and_stale(tmp_path):
+    """Every pin condition is reported directly — no baseline to absorb it."""
+    health = drift_mod.PinHealth(phantom=("p",), unpinned=("u",), stale=("s",), fresh=("f",))
+    assert health.phantom == ("p",)
+    assert health.unpinned == ("u",)
+    assert health.stale == ("s",)
+    assert health.total == 4
 
 
 def test_census_is_read_only_and_self_consistent():
@@ -279,6 +239,7 @@ def test_census_is_read_only_and_self_consistent():
         report["pins"][k] for k in ("fresh", "stale", "phantom", "unpinned")
     )
     assert tuple(report["broken_path_refs"]) == before
+    assert "ratchet" not in report and "retired" not in report
 
 
 def test_undeclared_numeric_census_skips_units_that_declare_a_claim():

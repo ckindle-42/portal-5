@@ -5,15 +5,17 @@ title: 23 production + 65 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: fcb54c248055
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
-claims: []
+  commit: baca992c674a
+last_generated_commit: baca992c674a
+claims:
+- probe: workspaces.total
+  pattern: '{value} total)'
 confidence: high
 tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1785470246.328073
+updated_at: 1785832318.351882
 ---
 
 # Workspace roster (23 production, 65 eval, 88 total)
@@ -113,3 +115,7 @@ updated_at: 1785470246.328073
 - `bench-sylink-8b`
 - `bench-vulnllm-r-7b`
 - `bench-vulnllm-r7b`
+
+## Why
+
+The roster is the workspace mapping in `config/portal.yaml`, split into the production workspaces that acceptance/UAT exercises and the eval/bench workspaces gated behind `PORTAL_ENABLE_EVAL=1`. The counts and the per-workspace model hints come straight from that file, so the roster cannot disagree with what routing serves.

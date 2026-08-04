@@ -149,6 +149,10 @@ def _probe_backend_ids(root: Path) -> list[str]:
     return sorted(str(e["id"]) for e in _backend_entries(root) if e.get("id"))
 
 
+def _probe_backend_groups_count(root: Path) -> int:
+    return len(_probe_backend_groups(root))
+
+
 def _probe_backend_types(root: Path) -> list[str]:
     return sorted({str(e["type"]) for e in _backend_entries(root) if e.get("type")})
 
@@ -166,6 +170,7 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "wiki.tier1.docs": _probe_tier1_docs,
     "wiki.generated.blocks": _probe_generated_blocks,
     "backends.groups": _probe_backend_groups,
+    "backends.groups.count": _probe_backend_groups_count,
     "backends.ids": _probe_backend_ids,
     "backends.types": _probe_backend_types,
 }
