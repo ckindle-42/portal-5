@@ -4,28 +4,8 @@ kind: what
 title: "README \u2014 Documentation"
 sources:
 - type: code
-  path: docs/MCP_DEV_TOOLING.md
-- type: code
-  path: docs/HOWTO.md
-- type: code
-  path: docs/USER_GUIDE.md
-- type: code
-  path: docs/ADMIN_GUIDE.md
-- type: code
-  path: docs/ALERTS.md
-- type: code
-  path: docs/COMFYUI_SETUP.md
-- type: code
-  path: docs/FISH_SPEECH_SETUP.md
-- type: code
-  path: docs/CLUSTER_SCALE.md
-- type: code
-  path: docs/AGENT_LOOP.md
-- type: code
-  path: docs/BACKUP_RESTORE.md
-- type: code
-  path: KNOWN_ISSUES.md
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+  path: portal/platform/wiki/render.py
+last_generated_commit: 97b85a5b4384209107aa2e6b3e7d009679ba5096
 claims: []
 confidence: high
 tags:
