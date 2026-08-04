@@ -1,7 +1,8 @@
 ---
 id: unit-T1558.004-signature
 kind: mixed
-title: "T1558.004 \u2014 AS-REP roasting detection signature"
+title: "T1558.004 \u2014 AS-REP roasting \u2014 Windows Security Event 4768 with pre-auth\
+  \ disabled (PreAuthType 0)"
 sources:
 - type: code
   path: portal/modules/security/core/siem/spl_detections.yaml
