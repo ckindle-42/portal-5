@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 1041 canonical units.*
+*Deterministic projection of 1005 canonical units.*
 
 ## Knowledge Layer
 
@@ -965,42 +965,6 @@
 | `unit-tool-preselect-test-state` | mixed | 1 |
 | `unit-uat-browser` | mixed | 1 |
 | `unit-uat-calibration` | mixed | 1 |
-| `unit-uat-catalog-g_advanced` | mixed | 1 |
-| `unit-uat-catalog-g_auto` | mixed | 1 |
-| `unit-uat-catalog-g_auto_agentic` | mixed | 1 |
-| `unit-uat-catalog-g_auto_audio` | mixed | 1 |
-| `unit-uat-catalog-g_auto_bigfix` | mixed | 1 |
-| `unit-uat-catalog-g_auto_blueteam` | mixed | 1 |
-| `unit-uat-catalog-g_auto_cad` | mixed | 1 |
-| `unit-uat-catalog-g_auto_coding` | mixed | 1 |
-| `unit-uat-catalog-g_auto_coding_agentic` | mixed | 1 |
-| `unit-uat-catalog-g_auto_compliance` | mixed | 1 |
-| `unit-uat-catalog-g_auto_creative` | mixed | 1 |
-| `unit-uat-catalog-g_auto_daily` | mixed | 1 |
-| `unit-uat-catalog-g_auto_data` | mixed | 1 |
-| `unit-uat-catalog-g_auto_docs` | mixed | 1 |
-| `unit-uat-catalog-g_auto_documents` | mixed | 1 |
-| `unit-uat-catalog-g_auto_mistral` | mixed | 1 |
-| `unit-uat-catalog-g_auto_music` | mixed | 1 |
-| `unit-uat-catalog-g_auto_pentest` | mixed | 1 |
-| `unit-uat-catalog-g_auto_phi4` | mixed | 1 |
-| `unit-uat-catalog-g_auto_purpleteam` | mixed | 1 |
-| `unit-uat-catalog-g_auto_purpleteam_deep` | mixed | 1 |
-| `unit-uat-catalog-g_auto_reasoning` | mixed | 1 |
-| `unit-uat-catalog-g_auto_redteam` | mixed | 1 |
-| `unit-uat-catalog-g_auto_redteam_deep` | mixed | 1 |
-| `unit-uat-catalog-g_auto_research` | mixed | 1 |
-| `unit-uat-catalog-g_auto_security` | mixed | 1 |
-| `unit-uat-catalog-g_auto_spl` | mixed | 1 |
-| `unit-uat-catalog-g_auto_video` | mixed | 1 |
-| `unit-uat-catalog-g_auto_vision` | mixed | 1 |
-| `unit-uat-catalog-g_auto_voice` | mixed | 1 |
-| `unit-uat-catalog-g_benchmark` | mixed | 1 |
-| `unit-uat-catalog-g_browser_automation` | mixed | 1 |
-| `unit-uat-catalog-g_tools_specialist` | mixed | 1 |
-| `unit-uat-catalog-g_vision_personas` | mixed | 1 |
-| `unit-uat-catalog-init` | mixed | 1 |
-| `unit-uat-catalog-shared` | mixed | 1 |
 | `unit-uat-cli` | mixed | 1 |
 | `unit-uat-config` | mixed | 1 |
 | `unit-uat-dispatch` | mixed | 1 |
@@ -1050,10 +1014,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 1041 units
+**Total:** 1005 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2002 references
+- **code**: 1966 references
 - **mitre**: 32 references
