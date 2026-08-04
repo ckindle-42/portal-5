@@ -7,7 +7,7 @@ sources:
   path: portal/platform/wiki/adapters/seed_facts.py
   commit: baca992c674a
   section: MEDIA_MODEL_MEMORY_GB
-last_generated_commit: baca992c674a
+last_generated_commit: 6afb262648d307376dfb4f839eeed69c02112d04
 claims: []
 confidence: high
 tags:

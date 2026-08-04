@@ -7,7 +7,7 @@ sources:
   path: portal/platform/wiki/coverage.py
 - type: code
   path: portal/platform/wiki/adapters/seed_code.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: 6afb262648d307376dfb4f839eeed69c02112d04
 claims: []
 confidence: high
 tags:

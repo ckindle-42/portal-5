@@ -7,7 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: portal/platform/wiki/adapters/seed_facts.py
-last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+last_generated_commit: 6afb262648d307376dfb4f839eeed69c02112d04
 claims: []
 confidence: high
 tags:
