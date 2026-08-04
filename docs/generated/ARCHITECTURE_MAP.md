@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 1125 canonical units.*
+*Deterministic projection of 1123 canonical units.*
 
 ## Knowledge Layer
 
@@ -248,9 +248,6 @@
 | `unit-channels-namespace` | mixed | 1 |
 | `unit-channels-slack-adapter` | mixed | 1 |
 | `unit-channels-telegram-adapter` | mixed | 1 |
-| `unit-ci-generated-fresh` | mixed | 1 |
-| `unit-ci-identical-sources` | mixed | 1 |
-| `unit-ci-pyproject-no-dup` | mixed | 1 |
 | `unit-cluster-scale-portal-5-cluster-scale-out-guide` | what | 2 |
 | `unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio` | what | 3 |
 | `unit-cluster-scale-stage-3-vllm-for-70b-models` | what | 2 |
@@ -932,6 +929,7 @@
 | `unit-security-tests-test-objective-executor` | what | 1 |
 | `unit-security-tools-mcp-surface` | mixed | 1 |
 | `unit-security-trajectory-score` | what | 1 |
+| `unit-surface-scripts-ci` | mixed | 1 |
 | `unit-surface-security-eval` | mixed | 1 |
 | `unit-surface-toolpreselect-tests` | mixed | 1 |
 | `unit-tests-acceptance-comfyui-shim` | mixed | 1 |
@@ -1134,10 +1132,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 1125 units
+**Total:** 1123 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2084 references
+- **code**: 2082 references
 - **mitre**: 32 references

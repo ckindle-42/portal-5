@@ -412,3 +412,6 @@
 - `unit-toolpreselect-scenario-gen` | 2026-08-04 | e649d2ecdca90ba62d0eb8230060f82bc6bb01ef | Consolidated into unit-surface-toolpreselect-tests; per-file scope was set by the BR filesystem walk, not by a decision.
 - `unit-toolpreselect-run-bench` | 2026-08-04 | e649d2ecdca90ba62d0eb8230060f82bc6bb01ef | Consolidated into unit-surface-toolpreselect-tests; per-file scope was set by the BR filesystem walk, not by a decision.
 - `unit-toolpreselect-baseline-prefill` | 2026-08-04 | e649d2ecdca90ba62d0eb8230060f82bc6bb01ef | Consolidated into unit-surface-toolpreselect-tests; per-file scope was set by the BR filesystem walk, not by a decision.
+- `unit-ci-generated-fresh` | 2026-08-04 | dc3fcc8b4539e7223c63fc73120ad0462de15d20 | Consolidated into unit-surface-scripts-ci; per-file scope was set by the BR filesystem walk, not by a decision.
+- `unit-ci-identical-sources` | 2026-08-04 | dc3fcc8b4539e7223c63fc73120ad0462de15d20 | Consolidated into unit-surface-scripts-ci; per-file scope was set by the BR filesystem walk, not by a decision.
+- `unit-ci-pyproject-no-dup` | 2026-08-04 | dc3fcc8b4539e7223c63fc73120ad0462de15d20 | Consolidated into unit-surface-scripts-ci; per-file scope was set by the BR filesystem walk, not by a decision.
