@@ -60,10 +60,22 @@ class Unit:
         """Cited paths that do not resolve on disk.
 
         Sources carrying a `<scheme>:` prefix (`ATT&CK:T1078`, `bench-run:...`) are
-        logical identifiers, not filesystem paths, and are never unresolved.
+        logical identifiers, not filesystem paths, and are never unresolved. Glob
+        citations are expanded so a surface unit citing `portal/foo/*.py` is not
+        misread as citing a nonexistent literal path.
         """
         cited = self.code_sources + self.other_sources
-        return [p for p in cited if ":" not in p.split("/")[0] and not (REPO / p).exists()]
+        out = []
+        for p in cited:
+            if ":" in p.split("/")[0]:
+                continue
+            if any(ch in p for ch in "*?["):
+                if not list(REPO.glob(p)):
+                    out.append(p)
+                continue
+            if not (REPO / p).exists():
+                out.append(p)
+        return out
 
 
 def _split_front_matter(text: str) -> tuple[str, str]:
