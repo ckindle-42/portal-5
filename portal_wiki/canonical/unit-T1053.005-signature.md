@@ -1,7 +1,8 @@
 ---
 id: unit-T1053.005-signature
 kind: mixed
-title: "T1053.005 \u2014 Scheduled task persistence detection signature"
+title: "T1053.005 \u2014 Scheduled task persistence \u2014 Windows Security Event\
+  \ 4698 task creation"
 sources:
 - type: code
   path: portal/modules/security/core/siem/spl_detections.yaml

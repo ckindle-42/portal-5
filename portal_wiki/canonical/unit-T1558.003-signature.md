@@ -1,7 +1,8 @@
 ---
 id: unit-T1558.003-signature
 kind: mixed
-title: "T1558.003 \u2014 Kerberoasting detection signature"
+title: "T1558.003 \u2014 Kerberoasting \u2014 Windows Security Event 4769 with RC4\
+  \ encryption (TicketEncryptionType 0x17)"
 sources:
 - type: code
   path: portal/modules/security/core/siem/spl_detections.yaml
