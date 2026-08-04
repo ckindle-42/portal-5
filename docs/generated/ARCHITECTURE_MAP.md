@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 1128 canonical units.*
+*Deterministic projection of 1129 canonical units.*
 
 ## Knowledge Layer
 
@@ -781,6 +781,7 @@
 | `unit-scripts-portal5-powermetrics` | mixed | 1 |
 | `unit-scripts-reconcile_security_arm` | mixed | 1 |
 | `unit-scripts-routing_regression` | mixed | 1 |
+| `unit-scripts-spine_census` | mixed | 1 |
 | `unit-scripts-triage` | mixed | 1 |
 | `unit-scripts-triage_actions` | mixed | 1 |
 | `unit-scripts-update_grafana_acceptance` | mixed | 1 |
@@ -1137,10 +1138,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 1128 units
+**Total:** 1129 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2087 references
+- **code**: 2088 references
 - **mitre**: 32 references
