@@ -6,10 +6,10 @@ sources:
 - type: code
   path: config/backends.yaml
 - type: code
-  path: OMLX_DECISION.md
+  path: docs/reports/OMLX_DECISION.md
 - type: code
   path: tests/benchmarks/results/omlx_v3_reeval_20260802T221435Z.md
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: cb5f261a17412c46a46ec83804e8207933de7b67
 claims: []
 confidence: high
 tags:
