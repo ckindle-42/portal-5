@@ -4,11 +4,6 @@ kind: what
 title: "KNOWN_LIMITATIONS \u2014 Emergent Objective Loop \u2014 Curated Capability\
   \ Tool Names vs Live-Dispatch Whitelist"
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  commit: 05e42ec2
-  section: "Emergent Objective Loop \u2014 Curated Capability Tool Names vs Live-Dispatch\
-    \ Whitelist"
 - type: code
   path: portal/modules/security/core/lab.py
 - type: code
@@ -25,20 +20,12 @@ sources:
   path: portal/modules/security/core/goal_cli.py
 - type: code
   path: portal/modules/security/core/emergent_gaps.py
-- type: code
-  path: portal/modules/security/core/trajectory_score.py
-- type: code
-  path: portal/modules/security/tests/test_capability_index.py
-- type: code
-  path: portal/modules/security/tests/test_kali_enable.py
-- type: code
-  path: portal/modules/security/tests/test_objective_entry.py
-- type: code
-  path: portal/modules/security/tests/test_objective_executor.py
-last_generated_commit: 05e42ec2
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.665378
 updated_at: 1785500237
 ---
@@ -76,3 +63,7 @@ updated_at: 1785500237
   the stateful/destructive tool set out of the allowlist unless a future task
   explicitly defines containment, rollback, and live-verification
   requirements for that tool.
+
+## Why
+
+The curated capability library and the live dispatch boundary are two different trust levels, and conflating them produced synthetic exploits being reported as real progress. The allowlist is the seam: only a small set of read-only binaries verified against the live lab may dispatch through `_lab_dispatch_inner`, and `live_dispatchable_only` retires everything unbound from the live trajectory while keeping it visible for planning. That asymmetry is deliberate — an unbound capability must never be represented as a live step.

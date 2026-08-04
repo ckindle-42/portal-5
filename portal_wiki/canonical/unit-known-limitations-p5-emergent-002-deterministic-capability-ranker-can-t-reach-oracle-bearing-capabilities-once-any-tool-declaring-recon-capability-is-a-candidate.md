@@ -4,10 +4,6 @@ kind: what
 title: "KNOWN_LIMITATIONS \u2014 P5-EMERGENT-002 \u2014 Deterministic capability progression\
   \ (Resolved)"
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  commit: 05e42ec2
-  section: "P5-EMERGENT-002 \u2014 Deterministic capability progression (Resolved)"
 - type: code
   path: portal/platform/agent/decide.py
 - type: code
@@ -16,10 +12,12 @@ sources:
   path: portal/modules/security/core/lab.py
 - type: code
   path: portal/modules/security/core/objective_executor.py
-last_generated_commit: 05e42ec2
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.676039
 updated_at: 1784946220.676039
 ---
@@ -62,3 +60,7 @@ compatibility. The full local CI mirror and system validator pass. This
 resolves the deterministic reachability defect; live target availability and
 the separately documented unverified tool-alias gap remain independent
 operational constraints.
+
+## Why
+
+The deterministic ranker must pick a capability before ranking its tools, because dispatch is capability-keyed and a tool-first choice structurally starves every `tools=[]` oracle-bearing option. Progressing from recon to an unattempted oracle-bound action is what makes the loop truthful — it can reach the capability that actually proves the objective — and the regression tests in `test_agent_core.py` pin that ordering so a future refactor cannot silently reintroduce the dead-end.

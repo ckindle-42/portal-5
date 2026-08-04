@@ -3,18 +3,26 @@ id: unit-SEC_BENCH-coding-agent-reentry
 kind: what
 title: Security bench coding-agent re-entry notes
 sources:
-- type: doc
-  path: docs/SECURITY_BENCH_EXEC.md
-  commit: ddb1cc61
 - type: code
   path: portal/modules/security/core/__init__.py
-  commit: ddb1cc61
-last_generated_commit: ddb1cc61
+- type: code
+  path: portal/modules/security/core/__main__.py
+- type: code
+  path: portal/modules/security/core/exec_chain.py
+- type: code
+  path: portal/modules/security/core/lab.py
+- type: code
+  path: portal/modules/security/core/_data.py
+- type: code
+  path: launch.sh
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
-- security
 - bench
 - reentry
+- security
+- verified-v1
 created_at: 1784945192.270462
 updated_at: 1784945192.270462
 ---
@@ -28,7 +36,7 @@ portal/modules/security/core/
 ├── __main__.py     <- CLI entry (do not modify)
 ├── exec_chain.py   <- _run_exec_chain() now lives here
 ├── lab.py          <- _lab_mcp_call, _proxmox_mcp_call
-├── blue.py, chain.py, cli.py, matrix.py, scoring.py, ... (~30 more modules)
+├── blue.py, chain.py, cli.py, matrix.py, scoring.py, ... (plus dozens more)
 ```
 
 ## Architecture invariant
@@ -48,3 +56,7 @@ The bench NEVER modifies Open WebUI or the pipeline. It communicates directly wi
 # After _data.py or __init__.py change:
 # No rebuild needed — Python picks up changes directly
 ```
+
+## Why
+
+Re-entering this package after a refactor is cheap only if the module map is current; the map above is the first thing a contributor checks before adding a prompt, a scenario, or a lab hook. The rebuild triggers matter because the lab-exec lane runs inside Docker images that do not pick up Python edits automatically — only `_data.py` and `__init__.py` are hot-reloadable, so knowing which layer a change lands in determines whether a rebuild is required.

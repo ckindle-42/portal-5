@@ -1,19 +1,21 @@
 ---
 id: unit-T1003.006-signature
 kind: mixed
-title: "T1003.006 \u2014 DCSync detection signature (enriched)"
+title: "T1003.006 \u2014 DCSync detection signature"
 sources:
-- type: spl
-  path: portal/modules/security/core/siem/spl_detections.yaml#T1003.006
+- type: code
+  path: portal/modules/security/core/siem/spl_detections.yaml
 - type: mitre
   path: ATT&CK:T1003.006
-last_generated_commit: ''
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
-- T1003.006
 - DCSync
+- T1003.006
 - credential-access
 - enriched
+- verified-v1
 created_at: 1785503864.9324028
 updated_at: 1785503864.9324028
 ---
@@ -46,6 +48,10 @@ object for a high-confidence DCSync indicator.
 index=portal5_lab sourcetype="windows:security" EventCode=4662 Properties="*Replication*" | stats count by Account, Properties
 ```
 
+## Expected Signal
+
+Directory replication requests from non-DC accounts — the replication-properties filter is the DCSync tell in the access log.
+
 ## Common False Positives
 
 - Domain controllers performing legitimate replication (check source is a DC)
@@ -58,3 +64,7 @@ Kerberoasting → Event 4769 (TGS request) with RC4 encryption
 DCSync → Event 4662 (directory service access) with replication GUIDs
 
 These are fundamentally different event types and should never be confused.
+
+## Why
+
+Pinned to the executable SPL because the live query filters 4662 events on replication-property access, and the access-right GUID table is the concrete expansion of that filter. The DRS replication rights are the authoritative signature, so the unit keeps both the literal query and the well-known GUIDs that give `Properties="*Replication*"` its meaning, rather than softening the technique into a generic "privileged access" description.

@@ -3,28 +3,24 @@ id: unit-DESIGN_WIKI-section-granularity
 kind: why
 title: Section-level default granularity, fact-atom only for reuse or volatility
 sources:
-- type: design
-  path: docs/DESIGN_WIKI_GENERATION_LOOP_V1.md
-  commit: d869257b
-  section: '3'
 - type: code
   path: portal/platform/wiki/adapters/seed_facts.py
-  commit: d869257b
-last_generated_commit: d869257b
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - design
-- wiki
 - granularity
+- verified-v1
+- wiki
 created_at: 1784941411.445164
 updated_at: 1784941411.445164
 ---
 
-A unit maps to a **doc section** -- the chunk a human/agent thinks of as "the thing I edit." This is the default granularity. Decompose to a finer fact-unit **only** when a value is:
+A unit maps by default to a doc section -- the chunk a human or agent thinks of as the thing they edit. Finer fact-unit decomposition is reserved for values that earn it: a value reused across more than one doc, or a value independently volatile on its own schedule, such as counts, ports, model IDs, or thresholds. Rationale is the tiebreaker between the two; the aim is the unit best for an agent to manage and easiest for a human to read. Pure fact-atomization of everything is forbidden, because it turns a doc into a flood of unreadable micro-units and is worse for both audiences.
 
-- **(i) Reused** across more than one doc, or
-- **(ii) Independently volatile** (counts, ports, model IDs, thresholds).
+The `seed_facts.py` derivers implement this through the `_make_unit` idempotency pattern: when the newly derived body matches what is already stored, the prior unit's sources, timestamps, and `last_generated_commit` are reused wholesale, so a unit file changes on disk only when its body actually changed. `last_generated_commit` therefore means the commit at which the fact last changed, not the commit at which the derive script last ran, and repeated `sync-config` runs produce no churn.
 
-Rationale is the tiebreaker: best for the agent to manage, easiest for the human to read. **Pure fact-atomization of everything is forbidden** -- it produces hundreds of unreadable micro-units, worse for both audiences.
+## Why
 
-The existing `seed_facts.py` derivers follow the `_make_unit` idempotent pattern: they only advance `last_generated_commit` when the body actually changes, preventing no-op churn on every `sync-config` run.
+Granularity is a management choice, not a data-model property, so the rule exists to stop the cheapest failure mode: machine-seeded authors splitting everything into atoms and flooding the canonical directory with near-duplicate noise. The `_make_unit` pattern exists for the parallel reason -- if the stamp advanced on every run, every fact-unit would be rewritten on every `sync-config`, turning an idempotent render step into a permanent diff generator and making HEAD pinning meaningless.

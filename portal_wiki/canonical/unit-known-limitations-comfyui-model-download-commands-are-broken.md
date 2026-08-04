@@ -3,19 +3,27 @@ id: unit-known-limitations-comfyui-model-download-commands-are-broken
 kind: what
 title: "KNOWN_LIMITATIONS \u2014 Legacy ComfyUI Model Download Command Is Retired"
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  commit: 05e42ec2
-  section: ComfyUI Model Download Commands Are Broken
-last_generated_commit: 05e42ec2
+- type: code
+  path: scripts/lib/services.sh
+- type: code
+  path: launch.sh
+- type: code
+  path: portal/modules/media/tools/comfyui_mcp.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.663956
 updated_at: 1784946220.663956
 ---
 
-- **Description**: The legacy `./launch.sh download-comfyui-models` command no longer downloads models because its monolithic script was deleted in commit `ea864cf`; the handler now exits with a clear pointer to the family-specific commands.
-- **Resolution (2026-07-29)**: `pull-qwen-image` and `pull-wan22` both have real handlers. `pull-qwen-image` now downloads the exact image checkpoints verified on Apple Silicon MPS: Qwen-Image-2512 plain FP8, Qwen-Image-Edit-2509 plain FP8, the shared text encoder/VAE, and the Lightning LoRA. Video generation remains shelved even though its archival pull command exists.
-- **Remaining impact**: Operators must use the explicit family command instead of the retired alias. Separately, `flux-uncensored` still has no known working checkpoint source.
-- **Operator action**: Run `./launch.sh pull-qwen-image` for the supported image set. Do not treat `pull-wan22` as enabling video operation; see `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps`.
+- **Description**: The legacy `./launch.sh download-comfyui-models` command no longer downloads models. `_launch_download_comfyui_models` in `scripts/lib/services.sh` exits with an error explaining that `scripts/download_comfyui_models.py` was removed (2026-05-23) and pointing to the family-specific commands `pull-wan22` and `pull-qwen-image`. The command still appears in the `launch.sh` usage string for compatibility.
+- **Resolution**: `_launch_pull_qwen_image` in `scripts/lib/services.sh` downloads the Qwen-Image checkpoint set verified on Apple Silicon MPS (T2I FP8, Edit-2509 FP8, shared text encoder/VAE, Lightning LoRA) into ComfyUI's flat `models/{diffusion_models,text_encoders,vae,loras}/` layout. `_launch_pull_wan22` downloads the Wan 2.2 TI2V-5B/S2V-14B/T2V-A14B set; video operation remains shelved even though the archival pull command exists.
+- **Remaining impact**: Operators must use the explicit family command instead of the retired alias. Separately, `flux-uncensored` still has no verified working checkpoint source; the media MCP references a `Flux_v8-NSFW.safetensors` filename in `portal/modules/media/tools/comfyui_mcp.py`.
+- **Operator action**: Run `./launch.sh pull-qwen-image` for the supported image set. Do not treat `pull-wan22` as enabling video operation; see the Wan 2.2 fp8 scaled-checkpoint limitation.
+
+## Why
+
+The monolithic download script was removed in favor of per-family handlers because the checkpoint sources and verification differ per model family, and a single script could not stay current across all of them. Keeping the dead alias registered but failing loudly with a pointer preserves CLI compatibility while forcing the operator to the command that actually works for their target family.

@@ -1,37 +1,41 @@
 ---
 id: unit-T1059.004-signature
 kind: mixed
-title: "T1059.004 \u2014 Unix shell \u2014 command execution via sh/bash/python on\
-  \ Linux targets"
+title: "T1059.004 \u2014 Unix shell detection signature"
 sources:
-- type: spl
-  path: portal/modules/security/core/siem/spl_detections.yaml#T1059.004
+- type: code
+  path: portal/modules/security/core/siem/spl_detections.yaml
 - type: mitre
   path: ATT&CK:T1059.004
-- type: scenario
-  path: exec_chain.py#mbptl_ctf_full_chain
-- type: scenario
-  path: exec_chain.py#web_to_root
-- type: scenario
-  path: exec_chain.py#ctf_multi_service
-last_generated_commit: ''
+- type: code
+  path: portal/modules/security/core/exec_chain.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - T1059.004
-- technique
 - signature
+- technique
+- verified-v1
 created_at: 1785503864.930208
 updated_at: 1785503864.930208
 ---
 
-# T1059.004 — Unix shell — command execution via sh/bash/python on Linux targets
+# T1059.004 — Unix shell detection signature
 
-## Telemetry Signatures
+## What This Detection Sees
 
-### SPL Detection (siem/spl_detections.yaml)
+This sub-technique narrows command execution to the Unix shell family. The SPL watches auditd EXECVE records for the canonical interpreter paths — sh, bash, python3, perl, and php — and groups by host, executable, and first argument, so a payload dropped by a web exploit shows up as a shell invocation rather than as the exploit itself.
+
+## SPL Detection
+
 ```spl
 index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="/bin/sh" OR exe="/bin/bash" OR exe="/usr/bin/python3" OR exe="/usr/bin/perl" OR exe="/usr/bin/php") | stats count by host, exe, a0
 ```
+
+## Expected Signal
+
+Shell or interpreter execve events from exploitation payloads — the query assumes the interpreter is the observable, not the original delivery vector.
 
 ## Exercised By Scenarios
 
@@ -41,11 +45,6 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="/bin/sh" OR exe="/
 - `web_sqli_dump`
 - `web_upload_bypass`
 
-## Per-Source Expected Signatures
+## Why
 
-| Source | Expected Signal |
-|--------|----------------|
-| linux:auditd | EXECVE syscall for /bin/sh, /bin/bash, etc. |
-
----
-*Unit auto-generated from spl_detections.yaml + SCENARIOS.*
+Grounded in the executable SPL because this unit is the one that fixes the interpreter list in absolute paths, and that exactness is what separates it from the broader parent technique. The scenario anchors are mostly web-to-shell chains, which is why the unit frames the interpreter execve as the shared terminal step across distinct entry vectors like SQLi and upload bypass.

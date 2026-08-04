@@ -3,11 +3,6 @@ id: unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only
 kind: what
 title: "KNOWN_LIMITATIONS \u2014 Security Bench Import Mutated Host Environment (Resolved)"
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  commit: 05e42ec2
-  section: Importing the security bench module sets a Linux-only PROMETHEUS_MULTIPROC_DIR
-    host-side
 - type: code
   path: portal/modules/security/core/_data.py
 - type: code
@@ -16,10 +11,12 @@ sources:
   path: tests/benchmarks/bench/config.py
 - type: code
   path: tests/unit/test_import_environment.py
-last_generated_commit: 05e42ec2
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.671319
 updated_at: 1784946220.671319
 ---
@@ -35,3 +32,7 @@ updated_at: 1784946220.671319
 - **Regression coverage**: a clean subprocess deliberately removes
   `UNIT_TEST_MODE` and `PROMETHEUS_MULTIPROC_DIR`, imports the security data
   module, and verifies that no environment key was added or changed.
+
+## Why
+
+A library module must not mutate process-global state on import, because the security data module is imported by nearly every security test and any env leak would silently change behavior for the whole session. Parsing the dotenv into a private mapping keeps the config readable while making imports side-effect-free, and the subprocess regression test proves the invariant mechanically rather than trusting a comment.

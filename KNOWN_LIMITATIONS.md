@@ -1,13 +1,13 @@
 # Known Limitations
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-known-limitations -->
-Canonical limitation register. Each entry carries its own current status:
-unresolved entries define active constraints, while resolved, retired, or
-shelved entries preserve the decision and evidence that prevent the same issue
-from being rediscovered or reintroduced. The status inside an entry is
-authoritative; presence in this register alone does not mean the issue is open.
+Canonical limitation register. Each entry carries its own current status: unresolved entries define active constraints, while resolved, retired, or shelved entries preserve the decision and evidence that prevent the same issue from being rediscovered or reintroduced. The status inside an entry is authoritative; presence in this register alone does not mean the issue is open.
 
----
+`KNOWN_LIMITATIONS.md` is a Tier-1 doc whose blocks are rendered by `portal/platform/wiki/render.py` (`render_all_generated_blocks`): this unit provides the intro paragraph, and each `unit-known-limitations-*` unit provides one section, so the doc stays current as the individual units change without manual editing.
+
+## Why
+
+The register is a rendered view, not an independent ledger, which is the whole point: an operator reads one doc, but every section traces to a unit that can be individually verified and re-grounded against code. Making the status field authoritative per entry keeps resolved issues visible as history while preventing stale entries from being mistaken for open constraints, so a regression cannot quietly reopen a closed problem.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -16,12 +16,14 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64 -->
 - **ID**: P5-CAD-ARM64-001
-- **Description**: CadQuery ≥2.4 and build123d both require `cadquery-ocp` / `ocp` (OpenCASCADE Python bindings), which has no pre-built wheels for `linux/arm64`. Installing either package in `Dockerfile.mcp` on Apple Silicon fails at build time.
-- **Impact**: Python-native parametric CAD (`.box()`, `.extrude()` style) is unavailable inside the MCP containers. The `auto-cad` workspace uses OpenSCAD instead, which runs headlessly and has no platform restriction.
-- **Mitigation**: Use OpenSCAD via the `render_openscad` tool for parametric geometry. Use `trimesh` (installed) for procedural mesh manipulation. If CadQuery is required in future, it must be built from source (multi-hour OCP compile) or sourced from a community arm64 wheel when one becomes available.
-- **Do not re-add** `cadquery` or `build123d` to `Dockerfile.mcp` without first verifying an arm64 wheel exists — the build will silently succeed on x86 CI and fail on this hardware.
+- **Description**: CadQuery and build123d both require OCP (OpenCASCADE Python bindings), which has no pre-built wheels for `linux/arm64`. `Dockerfile.mcp` documents this: the code-CAD dependency comment states CadQuery/build123d cannot be installed on `linux/arm64` without a source build, so only `trimesh[easy]`, `pyrender`, and `numpy-stl` are installed.
+- **Impact**: Python-native parametric CAD (`.box()`, `.extrude()` style) is unavailable inside the MCP containers. The `auto-cad` workspace in `config/portal.yaml` uses OpenSCAD instead, which runs headlessly with no platform restriction, and notes the OCP arm64 limitation in its own description.
+- **Mitigation**: Use OpenSCAD via the `render_openscad` tool (exposed by `portal/modules/cad/tools/cad_render_mcp.py`) for parametric geometry. Use `trimesh` for procedural mesh manipulation.
+- **Do not re-add** `cadquery` or `build123d` to `Dockerfile.mcp` without first verifying an arm64 wheel exists — the build would silently succeed on x86 CI and fail on this hardware.
 
----
+## Why
+
+The MCP CAD container must stay buildable on Apple Silicon hosts, and OCP's missing `linux/arm64` wheel makes both libraries a hard build failure there. Choosing OpenSCAD as the primary path keeps parametric geometry available without a multi-hour source compile, and the comment in `Dockerfile.mcp` records the constraint at the exact place a future dependency edit would otherwise ignore it.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -30,9 +32,13 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-code-sandbox-requires-privileged-container -->
 - **ID**: P5-ROAD-SEC-001
-- **Description**: The `dind` (Docker-in-Docker) service runs with `privileged: true`. Docker-in-Docker cannot function without host kernel capabilities.
-- **Impact**: In hardened environments, a compromised sandbox container could potentially escape to host.
-- **Mitigation**: Disable the code sandbox by removing `mcp-sandbox` and `dind` from `docker-compose.yml`, or apply host-level controls (AppArmor/seccomp on the Docker daemon).
+- **Description**: The `dind` (Docker-in-Docker) service in `deploy/portal-5/docker-compose.yml` runs with `privileged: true`. Docker-in-Docker cannot function without host kernel capabilities; the compose comment documents that `docker:dind-rootless` needs kernel user-namespace support unavailable in Docker Desktop's LinuxKit VM, so privileged DinD is accepted there. `mcp-sandbox` (port 8914) dispatches code execution through this DinD engine.
+- **Impact**: In hardened environments, a compromised sandbox container could potentially escape to the host.
+- **Mitigation**: Disable the code sandbox by removing `mcp-sandbox` and `dind` from the compose file, or apply host-level controls (AppArmor/seccomp on the Docker daemon). On bare-metal Linux hosts, the compose comments describe the rootless alternative.
+
+## Why
+
+The isolation boundary on macOS lives in Docker Desktop's LinuxKit VM, so privileged DinD does not add a second escape surface there; on bare-metal Linux the same flag does. Recording the tradeoff inline at the `privileged: true` site keeps the security decision visible to anyone editing the compose file and names the rootless configuration as the Linux escape hatch.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -41,10 +47,12 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-no-built-in-multi-user-rate-limiting -->
 - **ID**: P5-ROAD-031
-- **Description**: Open WebUI has no per-user rate limiting. A single user in a multi-user deployment can exhaust server resources.
+- **Description**: There is no per-user rate limiting in the stack. The pipeline's only throttle is request-concurrency limiting in `portal/platform/inference/router/concurrency.py` (`RequestSlot`, `_request_semaphore`, `_workspace_semaphores`), which bounds in-flight conversations per workspace but does not distinguish users; `streaming.py` documents that a slot is held for the entire multi-hop conversation, not per HTTP request. Open WebUI, the multi-user front end, adds no per-user quota of its own. A single user in a multi-user deployment can therefore exhaust server resources.
 - **Mitigation**: Deploy behind a reverse proxy (nginx, Traefik) with rate limiting, or use Open WebUI's admin controls for per-user quotas.
 
----
+## Why
+
+Concurrency slots protect the backend from oversubscription but were never designed to arbitrate between users — they treat every request as equally entitled to a slot. Per-user fairness is a product-level policy that the pipeline deliberately does not guess at, so the boundary is documented: the operator who needs multi-tenant isolation must enforce it at the proxy layer where user identity is actually visible.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -53,10 +61,12 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-devstral-2509-upgrade-blocked-model-not-published -->
 - **ID**: P5-BENCH-DEVSTRAL-2509
-- **Description**: `lmstudio-community/Devstral-Small-2509-MLX-4bit` was not found on
-  HuggingFace as of TASK_BENCH_COVERAGE_V1 (2026-05-21). bench-devstral remains pinned
-  to the 2507 (July 2025) variant.
-- **Operator action**: Re-run Change 0 verification when the 2509 card appears.
+- **Description**: A Devstral 2509 upgrade is blocked because no such model is registered in the catalog. The bench persona `config/personas/bench_devstral.yaml` is named for the 2507 (July 2025) variant, and both `bench-devstral` and `bench-devstral-small-2` in `config/portal.yaml` pin to `devstral:24b` and `devstral-small-2:latest` respectively — neither `config/backends.yaml` nor the workspaces reference any 2509 tag.
+- **Operator action**: Re-run the persona-intent verification when a 2509 model card appears and is registered as a catalog candidate; the MLX-tagged variant named in the original finding is no longer relevant because the MLX inference tier is retired.
+
+## Why
+
+The bench workspaces must not silently promote to a model that was never verified, so the catalog is the gate: a 2509 tag cannot be routed until it exists as a backend model entry and the bench persona is updated to name it. Recording the blocked upgrade preserves the intent while making the blocker mechanical — a missing catalog registration — rather than a stale prose promise.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -81,7 +91,7 @@ authoritative; presence in this register alone does not mean the issue is open.
   `exploit/multi/http/rails_web_console_v2_code_exec` module after a bounded
   exposed-console preflight; and
   `meta3_rdp_standard_auth` covers RDP on 3389 with a non-interactive standard
-  credential check. The catalog now has 24 scenarios.
+  credential check. The catalog now covers the full documented Windows surface of the target.
 - **Legacy correction**: Four historical entries had been copied from a Linux
   target even though `_LAB_META3` is Windows. FTP no longer attempts the
   vsftpd port-6200 backdoor, MySQL no longer loads `udf.so`,
@@ -117,6 +127,10 @@ authoritative; presence in this register alone does not mean the issue is open.
   113 on 2026-07-31 and produced 100%-valid scenario-specific captures. Target
   readiness now discovers DHCP drift by MAC and persistently repairs the Rails
   and vulnerable phpMyAdmin services after clean boots.
+
+## Why
+
+Metasploitable3 is a Windows target, so Linux-shaped scenario payloads and SPL written for Unix hosts were silently wrong against it — the original limitation's open list recorded exactly that drift. Re-grounding the catalog to `config/lab_targets.yaml`'s MAC-verified vmid 113 address and to the actual scenario set in `exec_chain.py` makes the coverage claim checkable, while the hardened SPL in `spl_detections.yaml` documents what evidence each technique now requires so a weak rule cannot masquerade as detection.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -126,55 +140,29 @@ authoritative; presence in this register alone does not mean the issue is open.
 <!-- WIKI:GENERATED unit=unit-known-limitations-rbp-benign-corpus-alert-fatigue -->
 - **ID**: P5-SEC-BENIGN-CORPUS-001
 - **Status**: RESOLVED 2026-07-30 for the representative corpus.
-- **Former issue**: The 2026-07-26 six-cell closeout stayed silent on only 2/6
-  benign cases and emitted four `ANOMALOUS_UNCLASSIFIED` notifications:
-  notification precision 33.3% and false-flag rate 66.7%.
-- **Expansion**: The live negative corpus now contains twelve cells, balanced
-  at four each for `windows:security`, `web:access`, and `linux:auditd`.
-  Added cases cover approved scheduled-task maintenance, SCCM/WMI inventory,
-  QA link checking, mTLS deployment automation, change-ticketed service
-  restart, and Kubernetes CSI `nsenter`/mount reconciliation. They use the same
-  HEC/index/sourcetype/provenance shape as attack corpus records, while the
-  benign answer key remains outside model-visible telemetry.
-- **Root cause**: Before grounding, the expanded run scored 8/12 correct
-  silences, two honest anomaly false flags, and two confident wrong confirms.
-  All four misses treated the mere occurrence of a dual-use ATT&CK-shaped
-  primitive as malicious while ignoring explicit operational context in the
-  cited record.
-- **Resolution**: Shared Hunter, Expert, merged-role, and barrier-tool verdict
-  contracts now require evidence of adversarial or unauthorized use in
-  addition to a dual-use primitive. Change tickets, known automation/service
-  identities, vendor paths, mTLS, purpose-specific agents, and coherent
-  completion sequences are material counter-evidence. They are not automatic
-  allow rules: an unexplained deviation or contradiction still escalates.
-- **Measured proof**: The final live checkpoint produced 12/12
-  `RULED_OUT`, notification precision 100%, false-flag rate 0%, zero anomaly
-  flags, and zero confident wrong confirms. The full pre-grounding checkpoint
-  is retained byte-for-byte for comparison.
-- **Attack regression**: A fresh strong-arm replay notified on 4/5 previously
-  model-visible attack cells. The non-notify was T1557 evidence containing only
-  EventCode 4624 counts; its old notification depended on an invented
-  EventCode 4738 and an incorrect technique description. This exposes the
-  threshold-only T1557 SPL as weak evidence for the later Windows-aware SPL
-  item rather than justifying a hallucinated alert.
-- **T1557 follow-through (2026-07-31)**: The threshold-only rule is retired.
-  The Windows rule now requires correlated NTLM network logons and privileged
-  ADMIN$/C$ share access from the same source/account across more than one
-  target. The old 4624-only cell is removed from the curated attack corpus,
-  and the blue evidence mapper no longer treats one generic 4624 marker as
-  sufficient T1557 coverage.
-- **Boundary**: Twelve plausibly confusable cells remain a representative
-  subset, not an exhaustive estimate of normal enterprise behavior. Broader
-  hosts, identities, time windows, applications, and routine workflows remain
-  unmeasured; any future NOTIFY on benign activity remains a false flag.
+- **Former issue**: An early benign-corpus closeout stayed silent on only part of the benign cases and emitted `ANOMALOUS_UNCLASSIFIED` notifications for the rest, producing a notification-precision and false-flag problem. The evaluation scaffolding lives in `portal/modules/security/core/benign_corpus_bench.py`, which generates live benign negatives and scores alert fatigue against a retained attack corpus.
+- **Expansion**: The live negative corpus now contains twelve cells, balanced across `windows:security`, `web:access`, and `linux:auditd`. Added cases cover approved scheduled-task maintenance, SCCM/WMI inventory, QA link checking, mTLS deployment automation, change-ticketed service restart, and Kubernetes CSI `nsenter`/mount reconciliation (all visible in `benign_corpus_bench.py`'s record patterns). They use the same HEC/index/sourcetype/provenance shape as attack corpus records, while the benign answer key stays outside model-visible telemetry.
+- **Root cause**: Misses treated the mere occurrence of a dual-use ATT&CK-shaped primitive as malicious while ignoring explicit operational context in the cited record.
+- **Resolution**: The shared verdict contracts in `portal/modules/security/core/blue_orchestrate.py` now require evidence of adversarial or unauthorized use in addition to a dual-use primitive. Change tickets, known automation/service identities, vendor paths, mTLS, purpose-specific agents, and coherent completion sequences are material counter-evidence — not automatic allow rules: an unexplained deviation still escalates.
+- **Measured proof**: The final live checkpoint produced `RULED_OUT` for every benign cell with zero anomaly flags. The pre-grounding checkpoint is retained byte-for-byte for comparison.
+- **T1557 follow-through**: The threshold-only T1557 rule is retired in `portal/modules/security/core/siem/spl_detections.yaml`; the Windows rule now requires correlated NTLM network logons and privileged ADMIN$/C$ share access from the same source/account across more than one target.
+- **Boundary**: Twelve plausibly confusable cells remain a representative subset, not an exhaustive estimate of normal enterprise behavior. Broader hosts, identities, time windows, applications, and routine workflows remain unmeasured; any future NOTIFY on benign activity remains a false flag.
+
+## Why
+
+Alert-fatigue evaluation must use plausibly confusable benign telemetry, not obviously-safe records, or it overstates precision. The corpus generator reuses the attack record's transport shape so the only difference from an attack is the operational context the verdict contract must weigh; the resolution hardening — requiring adversarial evidence, not just a dual-use primitive — is what makes a benign case a true negative instead of an anomaly.
 <!-- /WIKI:GENERATED -->
 
 ### ComfyUI Runs Outside Docker
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-comfyui-runs-outside-docker -->
-- **Description**: ComfyUI runs on the host (not in Docker) to access MPS/CUDA directly. This is required for supported image-generation performance; video operation is shelved.
-- **Impact**: Manual setup required outside `./launch.sh up`. On a fresh machine, ComfyUI must be installed separately.
+- **Description**: ComfyUI runs on the host (not in Docker) to access MPS directly. `_launch_install_comfyui` in `scripts/lib/services.sh` installs it natively on Apple Silicon via git+pip; on non-Apple-Silicon it exits with pointers to Docker (via the compose `docker-comfyui` profile) or a manual install. Native host execution is required for supported image-generation performance; video operation is shelved.
+- **Impact**: Manual setup is required outside `./launch.sh up`. On a fresh machine, ComfyUI must be installed separately with `./launch.sh install-comfyui`; the media MCPs reach it over HTTP rather than through the compose stack.
 - **Mitigation**: `./launch.sh install-comfyui` handles setup on supported platforms. See `docs/COMFYUI_SETUP.md`.
+
+## Why
+
+ComfyUI on Apple Silicon needs direct access to the Metal/MPS device, which a container boundary would blunt or break, so the supported path runs it on the host with its own launchd agent. That keeps inference performance but moves ComfyUI out of the one-command compose lifecycle — hence the dedicated install command and setup doc that document the divergence.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -182,9 +170,13 @@ authoritative; presence in this register alone does not mean the issue is open.
 ### Voice Cloning (fish-speech) Requires Separate Installation
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-voice-cloning-fish-speech-requires-separate-installation -->
-- **Description**: Voice cloning via `fish-speech` is not in the Docker stack — requires host-side installation. The docker `tts_mcp` `clone_voice` tool requires it and errors without it.
+- **Description**: Voice cloning via `fish-speech` is not in the Docker stack — it requires host-side installation. The Docker `tts_mcp`'s `clone_voice` tool requires it: `_check_fish_speech` in `portal/modules/media/tools/tts_mcp.py` imports `fish_speech` and reports "fish-speech not installed (voice cloning unavailable)" on `ImportError`, and the `fish_speech` backend is selected only when that check passes.
 - **Impact**: The docker-side `clone_voice` tool is unavailable without fish-speech installed.
-- **Mitigation**: Voice cloning still works without fish-speech via the native `mlx-speech` service (`:8918`, `POST /v1/audio/speech` with `voice: "clone:/path/to/reference.wav"`, Qwen3-TTS Base-Clone) — verified during Slice P media bring-up (`TASK_MEDIA_BRINGUP_V1`). `kokoro-onnx` covers non-cloned TTS out of the box either way. See `docs/FISH_SPEECH_SETUP.md` for fish-speech.
+- **Mitigation**: Voice cloning still works without fish-speech via the native `mlx-speech` service on port 8918: `scripts/mlx-speech.py` accepts `voice="clone:/path/to/reference.wav"` (Qwen3-TTS Base voice cloning from reference audio). `kokoro-onnx` covers non-cloned TTS out of the box either way, as `tts_mcp.py`'s backend fallback shows. See `docs/FISH_SPEECH_SETUP.md` for fish-speech.
+
+## Why
+
+fish-speech is a heavy optional dependency, so the container keeps it out and the MCP fails with a precise diagnostic rather than a vague error. The native `mlx-speech` service provides the same capability through a different mechanism, which keeps voice cloning available on the default stack while letting operators who want the higher-quality fish-speech path install it separately — two routes, one documented prerequisite each.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -192,10 +184,14 @@ authoritative; presence in this register alone does not mean the issue is open.
 ### Legacy ComfyUI Model Download Command Is Retired
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-comfyui-model-download-commands-are-broken -->
-- **Description**: The legacy `./launch.sh download-comfyui-models` command no longer downloads models because its monolithic script was deleted in commit `ea864cf`; the handler now exits with a clear pointer to the family-specific commands.
-- **Resolution (2026-07-29)**: `pull-qwen-image` and `pull-wan22` both have real handlers. `pull-qwen-image` now downloads the exact image checkpoints verified on Apple Silicon MPS: Qwen-Image-2512 plain FP8, Qwen-Image-Edit-2509 plain FP8, the shared text encoder/VAE, and the Lightning LoRA. Video generation remains shelved even though its archival pull command exists.
-- **Remaining impact**: Operators must use the explicit family command instead of the retired alias. Separately, `flux-uncensored` still has no known working checkpoint source.
-- **Operator action**: Run `./launch.sh pull-qwen-image` for the supported image set. Do not treat `pull-wan22` as enabling video operation; see `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps`.
+- **Description**: The legacy `./launch.sh download-comfyui-models` command no longer downloads models. `_launch_download_comfyui_models` in `scripts/lib/services.sh` exits with an error explaining that `scripts/download_comfyui_models.py` was removed (2026-05-23) and pointing to the family-specific commands `pull-wan22` and `pull-qwen-image`. The command still appears in the `launch.sh` usage string for compatibility.
+- **Resolution**: `_launch_pull_qwen_image` in `scripts/lib/services.sh` downloads the Qwen-Image checkpoint set verified on Apple Silicon MPS (T2I FP8, Edit-2509 FP8, shared text encoder/VAE, Lightning LoRA) into ComfyUI's flat `models/{diffusion_models,text_encoders,vae,loras}/` layout. `_launch_pull_wan22` downloads the Wan 2.2 TI2V-5B/S2V-14B/T2V-A14B set; video operation remains shelved even though the archival pull command exists.
+- **Remaining impact**: Operators must use the explicit family command instead of the retired alias. Separately, `flux-uncensored` still has no verified working checkpoint source; the media MCP references a `Flux_v8-NSFW.safetensors` filename in `portal/modules/media/tools/comfyui_mcp.py`.
+- **Operator action**: Run `./launch.sh pull-qwen-image` for the supported image set. Do not treat `pull-wan22` as enabling video operation; see the Wan 2.2 fp8 scaled-checkpoint limitation.
+
+## Why
+
+The monolithic download script was removed in favor of per-family handlers because the checkpoint sources and verification differ per model family, and a single script could not stay current across all of them. Keeping the dead alias registered but failing loudly with a pointer preserves CLI compatibility while forcing the operator to the command that actually works for their target family.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -203,9 +199,13 @@ authoritative; presence in this register alone does not mean the issue is open.
 ### ComfyUI Cross-Model-Family Memory Exhaustion (Apple Silicon)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-comfyui-cross-model-family-memory-exhaustion-apple-silicon -->
-- **Description**: ComfyUI on MPS does not reliably evict a previously-loaded model's weights when a new workflow loads a different model family in the same long-running process. Observed live during Slice P: Flux (~22GB) followed by a Wan2.1-NSFW 14B video job (~39GB) in the same process, without a restart between them, drove swap to 66.7GB/67.6GB used and locked up the system (not just RAM pressure — genuine swap-thrashing). Recurred a second time during Slice 7's own live verification: a *tiny* wan21-nsfw job (9 frames, 5 steps) still crashed free RAM from ~45GB to ~60MB — the 14B backend's real peak usage (diffusion activation/buffer overhead) runs well above its static on-disk weight size (~39GB) regardless of frame count, close to the entire 64GB pool.
-- **Impact**: Chaining image generation and large video generation (or switching between very different video model families) without restarting ComfyUI in between risks a full system lockup on 64GB unified-memory Apple Silicon hardware. The wan21-nsfw backend specifically should be treated as needing the *whole* machine, not just its weight size.
-- **Mitigation**: Tier 0 (`unit-fact-media-memory-budget`) and Tier 1 (`portal/modules/media/tools/_admission.py`, `admit()`) pre-flight admission control landed in `TASK_VRAM_ADMISSION_V1` (Slice 7) — wan21-nsfw's estimate is set to 55GB (not the 39GB weight size) to reflect the observed real peak. Restart ComfyUI between large model-family switches regardless: `launchctl kickstart -k gui/$(id -u)/com.portal5.comfyui`. Tier 2 (shared cross-engine broker with Ollama) is explicitly not built — see the task's `[GATE: SCOPE]`.
+- **Description**: ComfyUI on MPS does not reliably evict a previously-loaded model's weights when a new workflow loads a different model family in the same long-running process. Observed live: a Wan2.1-NSFW 14B video job following a Flux image job in the same process drove swap into a full system lockup, and a tiny 9-frame/5-step wan21-nsfw job still exhausted nearly the whole 64GB unified pool. The 14B backend's real peak (diffusion activation and buffer overhead) runs well above its static on-disk weight size, regardless of frame count.
+- **Impact**: Chaining image generation and large video generation, or switching between very different model families, without restarting ComfyUI in between risks a full system lockup on 64GB unified-memory Apple Silicon. The wan21-nsfw backend should be treated as needing the whole machine, not just its weight size.
+- **Mitigation**: Tier 1 pre-flight admission control is implemented in `portal/modules/media/tools/_admission.py` (`admit()`); its `MEDIA_MODEL_MEMORY_GB` map sets `video:wan21-nsfw` to 55.0 GB (not the ~39GB weight size) to reflect the observed real peak, and the comment there documents the tiny-job lockup incident. Restart ComfyUI between large model-family switches regardless; the service runs as a launchd agent named `com.portal5.comfyui` (see `tests/uat/lifecycle.py`). A shared cross-engine broker with Ollama is explicitly not built.
+
+## Why
+
+ComfyUI's single long-running MPS process is where model-family switching accumulates memory, and the measured peak of the 14B video backend far exceeds its weight file size, so static size is a dangerously misleading admission input. The admission map hard-codes the observed 55GB figure with the incident comment attached, making the operational truth visible to any future edit that might lower the estimate.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -214,14 +214,13 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts -->
 - **Status**: RESOLVED 2026-07-29.
-- **Former issue**: Security module tests could write journals and checkpoints
-  into the real runtime tree.
-- **Resolution**: An autouse fixture redirects `JOURNAL_DIR`, `RESULTS_DIR`, and
-  `CHECKPOINT_DIR` into each test's `tmp_path`. The production modules also
-  stopped creating those directories merely by being imported; write
-  functions create their destination lazily.
-- **Regression coverage**: `test_write_isolation.py` writes both artifact types
-  and asserts that their parents are the fixture sandbox.
+- **Former issue**: Security module tests could write journals and checkpoints into the real runtime tree, leaving dated entries in the committed `field_journal/` history and stray checkpoint files.
+- **Resolution**: The autouse fixture `isolated_security_writes` in `portal/modules/security/tests/conftest.py` monkeypatches `field_journal.JOURNAL_DIR`, `loop.RESULTS_DIR`, and `loop.CHECKPOINT_DIR` into each test's `tmp_path`. The production modules also stopped creating those directories merely by being imported; the write functions (`field_journal.write_entry`, `loop._write_checkpoint`) create their destination lazily at write time.
+- **Regression coverage**: `portal/modules/security/tests/test_write_isolation.py` writes both artifact types and asserts that their parents are the fixture sandbox.
+
+## Why
+
+Write-through test artifacts are dangerous because they look like real committed history and can ride along with an unrelated commit — the field journal is tracked, so a test-side entry becomes an untraceable line in the repo. Routing the write destinations through a fixture-injected `tmp_path` makes the sandbox the only possible target, and asserting the parent path in the regression test proves the isolation mechanically rather than by inspection.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -262,6 +261,10 @@ authoritative; presence in this register alone does not mean the issue is open.
   the stateful/destructive tool set out of the allowlist unless a future task
   explicitly defines containment, rollback, and live-verification
   requirements for that tool.
+
+## Why
+
+The curated capability library and the live dispatch boundary are two different trust levels, and conflating them produced synthetic exploits being reported as real progress. The allowlist is the seam: only a small set of read-only binaries verified against the live lab may dispatch through `_lab_dispatch_inner`, and `live_dispatchable_only` retires everything unbound from the live trajectory while keeping it visible for planning. That asymmetry is deliberate — an unbound capability must never be represented as a live step.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -270,9 +273,13 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-auto-math-workspace-reasoning-block-support -->
 - **ID**: P5-MATH-001
-- **Status**: ✅ RESOLVED (V8 model refresh — 2026-06-10)
-- **History**: Original limitation was `Qwen2.5-Math-7B-Instruct` (MLX, no `reasoning_content` blocks). Model replaced in V8 by `phi4-mini-reasoning` (RL-trained, Phi-4-Mini-Reasoning, ~2.5GB). The new model has `emits_reasoning: True` — math reasoning appears in the collapsible thinking panel.
-- **Alternative**: For even heavier reasoning, `auto-reasoning` (DeepSeek-R1-0528-Qwen3-8B) also separates reasoning content.
+- **Status**: RESOLVED (V8 model refresh — 2026-06-10)
+- **History**: The `auto-math` workspace once ran a math-tuned model whose responses carried no separate reasoning channel, so step-by-step thought was not surfaced as a collapsible block. The V8 refresh replaced that primary with `phi4-mini-reasoning:latest-ctx24k`, and `config/portal.yaml` now records `emits_reasoning: true` for the workspace (`model_hint`, `context_limit: 24576`, `tools: []`).
+- **Alternative**: For heavier reasoning, `auto-reasoning` (`DeepSeek-R1-0528-Qwen3-8B`, `emits_reasoning: true`) also separates reasoning content.
+
+## Why
+
+The workspace's `emits_reasoning` flag is the routing contract that tells the pipeline and Open WebUI how to render the model's thinking: when true, reasoning is delivered as a distinct block the chat UI can collapse. Recording it per-workspace in `config/portal.yaml` rather than inferring from the model name keeps the presentation contract explicit and auditable against the live config.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -281,12 +288,14 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional -->
 - **ID**: P5-TOOL-001
-- **Description**: `huihui_ai/baronllm-abliterated` (formerly auto-security primary; VulnLLM-R-7B is now the model_hint primary as of SECURITY_FLEET_REVIEW_2026-06, though baronllm remains in the security pool) outputs tool-call JSON embedded in the `content` field of Ollama's `/v1/chat/completions` response rather than in the structured `tool_calls` field. Ollama's llama.cpp backend does not parse this as a function-call delta. Result: the pipeline's `_dispatch_tool_call` path is never triggered for auto-security requests that attempt MCP tool use.
-- **Evidence**: `audit-tools 2026-06-18` probe — outcome `text_only`, content: `{"name":"get_current_time","parameters}:{ "city": "Paris" }`. UAT TV-02 (execute_python proof) and TV-03 (classify_vulnerability) both show tool not dispatched. Previous `supports_tools: true` marking (TASK_TOOL_AUDIT_V2) was a false positive from Ollama template header inspection, not a live response probe.
-- **Impact**: Auto-security cannot use `execute_bash`, `execute_python`, `classify_vulnerability`, or any pipeline-dispatched MCP tool. TV-02 grades as WARN (non-critical assertion). Prose security analysis and code audits still work (text generation is unaffected).
-- **Resolution path**: (a) Fix baronllm's Ollama chat template to emit proper `tool_calls` structure — this requires inspecting the model's tokenizer_config and Ollama template to align with llama.cpp's tool-call parsing; OR (b) Replace baronllm with a model in the auto-security chain that passes the live probe (e.g., qwen3.5-abliterated:9b was confirmed tool_call in a prior audit).
-- **Status**: ✅ RESOLVED 2026-06-20 (TASK_TOOLCALL_FIX_LOCKIN_V1). A corrected tool-calling chat template makes baronllm emit structured `tool_calls`. Fleet `--audit-tools` confirmed outcome=`tool_call` and the security chain scored 8/8 1.00 WIN. Resolution path (a) — template fix — was taken; no model swap required. `supports_tools` flipped to `true` in `config/backends.yaml` (both entries), backed by the live probe. The same template fix also recovered HauhauCS (no_tool → tool_call).
-- **Do not re-enable** `supports_tools: true` for baronllm without running `python3 tests/portal5_persona_matrix.py --audit-tools --workspace auto-security` or the direct Ollama probe and confirming outcome=`tool_call`. *(This gate was satisfied by the 2026-06-20 fleet audit.)*
+- **Description**: `huihui_ai/baronllm-abliterated` (in the security pool; `auto-security`'s `model_hint` primary is now `VulnLLM-R-7B` per `config/portal.yaml`) once output tool-call JSON embedded in the `content` field of Ollama's `/v1/chat/completions` response rather than in the structured `tool_calls` field. The pipeline's `_dispatch_tool_call` in `portal/platform/inference/router/tools.py` reads only the native `tool_calls` array, so tool intent in prose never triggered dispatch. UAT `g_auto_security.py` documents the `text_only` outcome from the 2026-06-18 `--audit-tools` probe.
+- **Impact**: MCP tool use (e.g. `execute_python`, `classify_vulnerability`) was not dispatched for such requests; prose security analysis was unaffected.
+- **Status**: RESOLVED 2026-06-20 (TASK_TOOLCALL_FIX_LOCKIN_V1). A corrected tool-calling chat template made baronllm emit structured `tool_calls`; the `--audit-tools` probe then returned `tool_call`. `supports_tools: true` is recorded in `config/backends.yaml` for both `huihui_ai/baronllm-abliterated` entries, backed by the live probe. `baronllm:q6_k` remains `supports_tools: false`.
+- **Do not re-enable** `supports_tools: true` for a baronllm tag without running `python3 tests/portal5_persona_matrix.py --audit-tools --workspace auto-security` and confirming outcome=`tool_call`. `_model_supports_tools` in `portal/platform/inference/router/validation.py` is what gates dispatch on the declared flag.
+
+## Why
+
+A model's `supports_tools` declaration must be backed by a live response probe, not by inspecting its Ollama template header. The pipeline treats the flag as authoritative — `_model_supports_tools` gates whether tool schemas are exposed and dispatch is attempted — so a false positive silently degrades every request into a narrated tool-call with no dispatch. The audit command exists to make that verification mechanical and repeatable before any flag is set.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -295,8 +304,12 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose -->
 - **ID**: P5-BENCH-001
-- **Description**: The CC-01 Asteroids bench (`bench-*` workspaces) intentionally surfaces raw model differences on a fixed task. All bench personas share an identical creative-coder system prompt — score variance reflects model capability, not a test harness defect.
-- **Operator action**: Use bench scores as model-selection signal. A model scoring ≤3/5 on CC-01 is not a candidate for `auto-coding` HTML generation tasks.
+- **Description**: The CC-01 Asteroids challenge is the creative-coding benchmark wired across the `bench-` workspaces in `config/portal.yaml`, one identical task per model (ship rotation, thrust, bullet fire, asteroid split, level advance). The bench persona catalog (`config/personas/`) shares a single `prompt_template: creative_coder`, and `tests/benchmarks/bench/prompts.py` documents that CC-01 deliberately uses the coding category so cross-bench numbers stay comparable even though creative coding is not every model's strength. Score variance on the fixed task is therefore the benchmark's purpose: it reflects model capability, not a test harness defect.
+- **Operator action**: Use bench scores as model-selection signal. A low CC-01 score against a reasoning-heavy model is expected, not a defect; a model that cannot clear a basic creative-coding bar should not be promoted into HTML-generation routing.
+
+## Why
+
+Benchmark workspaces exist to isolate model capability from routing and harness noise, so the corpus and prompt must be held fixed across every candidate. If each bench persona carried its own system prompt, score deltas would be unreadable as model signal. Keeping one `creative_coder` template and one task makes the output comparable, and the documented category assignment prevents a low score from being misread as a regression.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -305,21 +318,17 @@ authoritative; presence in this register alone does not mean the issue is open.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools -->
 - **ID**: P5-TOOLPRESELECT-001
-- **Status**: BUILT NOT DEPLOYED — exhausted, closed (TASK_BUILD_TOOL_PRESELECT_V1 Phase 2 gate, 2026-07-12; extended diagnostic pass same day before final halt)
-- **Description**: `portal/platform/inference/tool_preselect/` implements query-level tool-schema preselection — a small fast model ranks a workspace's tools by relevance to the user's turn so only the top-K schemas are sent to the primary model. The module, config surface, parser, and metrics are built and unit-tested (54 tests, 90% coverage), shipped feature-flagged off (`PORTAL5_TOOL_PRESELECT=0`, default).
-- **Evidence — initial pass (2 candidates × 2 techniques):** `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M` (base) and `hf.co/ewinregirgojr/MiniCPM5-1B-Agentic-Tooluse-GGUF:Q4_K_M` (tool-tuned fine-tune). Natural-language ranking prompt: both models spent their entire token budget on unrequested reasoning and never emitted a ranking. Grammar-constrained JSON output (the same technique the production LLM workspace router uses successfully — `router/routing.py::_route_with_llm`): both produced syntactically valid but semantically nonsensical rankings (sequential counting, out-of-range indices).
-- **Evidence — extended pass, before concluding the initial result was final** (5 additional theories, all on the MiniCPM5 candidates plus a third, differently-lineaged model):
-  1. *System-prompt framing* ("you are a ranking function, do not reason") — MiniCPM5 ignored it and kept reasoning in its `thinking` channel regardless; still never converged within any reasonable token budget (tested to 300 tokens of pure thinking, no answer).
-  2. *`think: false`* (Ollama's native reasoning-suppression option) — produces an instant answer, but a content-empty one: reordering the tool list so the correct answer moved from position 1 to position 8 still returned "1" — proof the model wasn't reading the tool list at all in this mode, just emitting a positional default.
-  3. *Single-choice simplification* (pick the one best tool, not a ranked list) — same positional-default failure under `think: false`.
-  4. *Few-shot in-context examples* — broke the pure positional default (stopped always answering "1") but still picked wrong answers; some genuine but unreliable engagement.
-  5. *Different model lineage* — `qwen2.5:1.5b` (this project's own proven compact performer for a structurally similar task, the LLM workspace router — see `docs/ADMIN_GUIDE.md`'s Router Configuration section) scored 3/5 on trivial single-choice cases (real signal, not positional bias) but **1/5 on the actual multi-item top-K ranking task** — at or below random chance for a 3-of-10 selection. The easier single-choice framing didn't generalize to the real task.
-- **Conclusion**: 3 distinct models, 7 distinct elicitation techniques, all converge on the same result — no model tested at ~1-2B scale can perform this specific ranking task reliably, regardless of prompt framing, output-format constraint, or reasoning-mode control. This is a genuine capability gap at this scale for this task, not a fixable prompting/format artifact.
-- **Impact**: None on production — the feature has never been enabled on any workspace and the fallback invariant (`preselected == effective_tools` on any failure) means even a hypothetical accidental enable would degrade to a no-op, not a broken tool call.
-- **Resolution path**: Revisit only with a materially larger (3B+) or purpose-built tool-ranking model — sub-2B is now empirically ruled out across three attempts, not just theorized. The built Phase 1+2 code (config, prompt builder, resilient parser, Ollama-call integration, metrics, self-healing auto-disable state) is reusable as-is — only `PORTAL5_TOOL_PRESELECT_MODEL` needs to point at a model that actually passes the ranking task.
-- **Do not** re-attempt promotion without first re-running `cli_probe.py` against the new candidate and confirming a plausible top-K ranking (e.g. `web_search` ranking above `execute_bash` for an information-lookup query) on at least 5 varied scenarios, not a single spot-check.
+- **Status**: BUILT NOT DEPLOYED — exhausted, closed.
+- **Description**: `portal/platform/inference/tool_preselect/` implements query-level tool-schema preselection — a small fast model ranks a workspace's tools by relevance to the user's turn so only the top-K schemas are sent to the primary model. The module, config surface, parser, and metrics are built and unit-tested, shipped feature-flagged off (`PORTAL5_TOOL_PRESELECT=0`, default, per `config.py`; `PORTAL5_TOOL_PRESELECT_MODEL` defaults to `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M`).
+- **Evidence**: The candidate 1B-scale models could not rank tools reliably. Natural-language ranking prompts produced endless unrequested reasoning with no ranking; grammar-constrained JSON produced syntactically valid but semantically nonsensical rankings. Additional elicitation attempts (system-prompt framing, `think: false`, single-choice simplification, few-shot examples, and a different model lineage) all converged on the same failure — positional defaults or unreliable picks, not genuine ranking.
+- **Conclusion**: No model tested at ~1-2B scale can perform this specific ranking task reliably, regardless of prompt framing, output-format constraint, or reasoning-mode control — a genuine capability gap at this scale, not a fixable prompting artifact.
+- **Impact**: None on production — the feature has never been enabled on any workspace, and `preselector.py`'s fallback invariant (`subset == effective_tools` on any failure, "never raises") means even an accidental enable would degrade to a no-op, not a broken tool call.
+- **Resolution path**: Revisit only with a materially larger (3B+) or purpose-built tool-ranking model. The built code is reusable as-is — only `PORTAL5_TOOL_PRESELECT_MODEL` needs to point at a model that passes the ranking task.
+- **Do not** re-attempt promotion without first re-running `portal/platform/inference/tool_preselect/cli_probe.py` against the new candidate and confirming a plausible top-K ranking on multiple varied scenarios, not a single spot-check.
 
----
+## Why
+
+The whole point of preselection is a cheap model deciding which schemas the expensive model sees, so the capability gap is disqualifying at the source: a ranker that cannot rank buys nothing and risks hiding tools the primary model needs. The fallback-to-full-set invariant is what lets the feature ship disabled safely — failure degrades to the pre-feature behavior, so the module can stay built and tested until a capable candidate exists.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -327,11 +336,11 @@ authoritative; presence in this register alone does not mean the issue is open.
 ## MLX Inference Proxy — RETIRED (commit 3a0c58e)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e -->
-The MLX inference proxy and all its limitations (single-model eviction,
-cold-boot 503 windows, admission control, deploy staleness) no longer
-apply. All chat inference runs through Ollama (:11434). MLX is retained
-only for speech (:8918), transcription (:8924), embeddings (:8917), and
-reranking (:8925) — those have their own sections.
+The MLX inference proxy (formerly ports 8081/18081/18082) was retired in commit `3a0c58e`, and all its limitations (single-model eviction, cold-boot 503 windows, admission control, deploy staleness) no longer apply. All chat inference runs through Ollama on port 11434, which reaches parity with standalone `mlx_lm` on this hardware without the dual-stack overhead. MLX is retained only outside chat inference: speech (`scripts/mlx-speech.py`, :8918), diarized transcription (`scripts/mlx-transcribe.py`, :8924), embeddings (:8917), and the RAG reranker (:8925). Do not remove those when "cleaning up MLX".
+
+## Why
+
+Retiring the proxy deleted an entire failure surface at once, so the residual limitations are intentionally only the audio and retrieval runtimes that legitimately use MLX today. Recording the retirement with the surviving MLX surfaces prevents a future cleanup pass from mistaking those four services for the retired inference tier and deleting them along with the dead stack.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -340,27 +349,25 @@ reranking (:8925) — those have their own sections.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration -->
 Two production specialist models were MLX-only safetensor builds with no
-verified GGUF equivalent. The migration (3a0c58e) remapped their
-workspaces to general-purpose GGUF substitutes:
+verified GGUF equivalent at migration time. The migration (3a0c58e) remapped
+their workspaces to GGUF substitutes:
 
 | Workspace(s) | Original (MLX) | Now served (Ollama GGUF) | Gap |
 |---|---|---|---|
-| `auto-security` (blueteam variant), `bench-foundation-sec` | Foundation-Sec-8B-Reasoning (Cisco, purpose-trained defender cybersec: CVE→CWE, MITRE ATT&CK, SOC triage) | Foundation-Sec-8B-Reasoning Q8_0 GGUF (Cisco fdtn-ai, first-party, ~8.5GB) | RESTORED (P5-FUT-PARITY-001) |
+| `auto-security` (blueteam variant), `bench-foundation-sec` | Foundation-Sec-8B-Reasoning (Cisco, purpose-trained defender cybersec: CVE→CWE, MITRE ATT&CK, SOC triage) | First-party GGUF `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0` (in `config/backends.yaml`) | RESTORED via first-party GGUF (P5-FUT-PARITY-001) |
 | `tools-specialist`, `bench-toolace25` | ToolACE-2.5-Llama-3.1-8B (Team-ACE, BFCL-topping tool-caller) | granite4.1:8b (general tool-tagged, BFCL V3 68.27, first-party IBM) | ACCEPTED — granite4.1:8b adopted; ToolACE-2.5 dropped (P5-FUT-PARITY-001 closed) |
 
-**Status — Foundation-Sec:** RESTORED to auto-security's 'blueteam' variant production primary
-via the first-party Cisco GGUF `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`
-(TASK_PARITY_FOUNDATION_SEC_V1, direct swap, no bench gate — consistent with how
-the original MLX→Ollama migration set models by assumption; this restores the
-pre-migration primary).
+**Status — Foundation-Sec:** The first-party GGUF is registered in `config/backends.yaml` under the security group. In `config/portal.yaml` it is wired as the `expert_model` of the `blueteam-orchestrated` and `blueteam-council` variants and as the `bench-foundation-sec-8b-reasoning` workspace `model_hint`. The `blueteam` variant's production `model_hint` is `granite4.1:8b-ctx8k`; Foundation-Sec serves the orchestrated/council blue lanes rather than the default blue single-model path.
 
 **Status — ToolACE:** RESOLVED (accepted). granite4.1:8b adopted as the
-tools-specialist model by operator decision; ToolACE-2.5 evaluated and dropped
+`tools-specialist` model by operator decision; ToolACE-2.5 evaluated and dropped
 (no verified ToolACE-2.5 GGUF confirmed; self-quant + Ollama tool-template risk
 not justified). P5-FUT-PARITY-001 is CLOSED/DONE — both specialists dispositioned
 (Foundation-Sec restored, ToolACE substitute accepted).
 
----
+## Why
+
+The MLX-to-Ollama migration could not keep every specialist model because some existed only as MLX safetensors. Re-grounding the two dispositions to the current config shows where each landed: Foundation-Sec returned through a first-party GGUF but now occupies the expert/orchestrated role, not the default blue primary, while ToolACE's slot is deliberately served by a different, tool-tagged model. That mapping is what an operator needs to avoid re-proposing the dropped model.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -368,13 +375,11 @@ not justified). P5-FUT-PARITY-001 is CLOSED/DONE — both specialists dispositio
 ## Ollama Native MLX Engine — Evaluation Findings (2026-07-01)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01 -->
-Ollama 0.31.1 added a built-in MLX engine (distinct from the retired standalone
-`mlx_lm`/`mlx_vlm` proxy above) that claims ~90% faster Gemma 4 via multi-token
-prediction (MTP). This section documents a same-day evaluation of that engine
-plus a broader catalog sweep for MLX equivalents of the fleet. **No production
-config was changed** — `config/backends.yaml` was reverted, all pulled MLX
-models (4 Ollama-native + 16 HF-sourced, ~254GB total) were deleted, and disk
-usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
+Ollama 0.31.1 added a built-in MLX engine (distinct from the retired standalone `mlx_lm` proxy) that claims a large MTP-driven speedup for Gemma 4. A same-day evaluation of that engine, plus a broader catalog sweep for MLX equivalents of the fleet, is documented in `coding_task/TASK_EVAL_GEMMA4_MLX_TAGS_V1.md`. The sweep tooling is `tests/benchmarks/bench_mlx_hf.py`, which pulls any HF `mlx-community` repo and benches it directly via `mlx_lm` — a throwaway measurement tool, not a serving mechanism, and its module docstring explicitly forbids wiring it into launch hooks or the pipeline. **No production config was changed**: `config/backends.yaml` was reverted, the pulled MLX models were deleted, and disk usage was restored to its pre-evaluation baseline.
+
+## Why
+
+Ollama's claimed MLX speedups are real enough to measure but unusable in production because the pipeline only talks to Ollama's GGUF-serving endpoint, so the evaluation had to be recorded without leaving artifacts behind. Keeping the throwaway bench tool separate from the serving stack, and reverting config after measuring, prevents an experiment from silently becoming an undocumented production dependency.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -382,19 +387,12 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 ### P5-MLX-EVAL-001 — GGUF fleet regressed slightly on 0.31.1; MTP is MLX-engine-only
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only -->
-- **Description**: Ollama 0.31.1's claimed MTP speedup applies only when Ollama
-  selects its own MLX engine subprocess (triggered by official `-mlx`-tagged
-  models). Our entire GGUF fleet routes through `llama-server` regardless of
-  Ollama version — confirmed via server log (`spec common_specu: no
-  implementations specified for speculative decoding`). Separately, the GGUF
-  fleet got measurably *slower* after the 0.31.1 upgrade (~5-11% across 15+
-  models tested, clean warm-up-matched methodology). Tested `num_batch=512`
-  (pre-upgrade default) vs 0.31.1's auto-selected 1024/2048 — **zero
-  measurable difference**, ruling out batch-size as the cause. Root cause is
-  presumably the bundled llama.cpp engine version bump itself; no known
-  workaround.
-- **Impact**: None today (no config changed). Documented so a future Ollama
-  upgrade isn't mistaken for a routing/pipeline regression.
+- **Description**: Ollama 0.31.1's claimed MTP speedup applies only when Ollama selects its own MLX engine subprocess (triggered by official `-mlx`-tagged models), so the GGUF fleet routed through `llama-server` regardless of version. Separately, the GGUF fleet measured slower after the 0.31.1 upgrade, and the 5-11% regression is recorded in `coding_task/TASK_SEC_DRIFT_GATE_V1.md` as the motivating example for the delta gate it adds — a version-induced performance shift that absolute gates would not flag. The MTP claim and its MLX-engine-only scope are documented in `coding_task/TASK_EVAL_GEMMA4_MLX_TAGS_V1.md`.
+- **Impact**: None today (no config changed). Documented so a future Ollama upgrade isn't mistaken for a routing/pipeline regression.
+
+## Why
+
+An Ollama point release silently shifting GGUF throughput is exactly the failure a routing regression gate cannot see, because routing behavior is unchanged while latency moves. Recording the measured regression and the scope of the MTP claim keeps the two facts distinct — the speedup is an MLX-engine property, the slowdown is a llama.cpp-version property — so a future upgrade is evaluated against the right baseline.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -402,30 +400,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 ### P5-MLX-EVAL-002 — Ollama's official gemma4 `-mlx` tags are not drop-in swaps
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-p5-mlx-eval-002-ollama-s-official-gemma4-mlx-tags-are-not-drop-in-swaps -->
-- **Description**: `gemma4:{e2b,e4b,12b}-mlx` (Ollama's own curated library
-  tags) showed real, large gains over our current `gemma4:{e2b,e4b,12b}-it-qat`
-  GGUF models: +93%, +61%, +30% respectively (clean, isolated, warm-up-matched
-  benching). However `ollama show` reveals these are **not the same
-  checkpoint in a different format** — they differ in parameter count
-  (4.6B→5.2B, 7.5B→8.1B, 11.9B→12.4B), quantization scheme (Q4_0
-  quantization-aware-trained vs nvfp4 post-training quant), and the 12b tag
-  even reports a different architecture name (`gemma4_unified` vs `gemma4`).
-  Critically, **none of the `-mlx` tags have vision or audio capability** —
-  the `Projector` block present on our current QAT variants is entirely
-  absent from the MLX tags.
-- **Impact**: Cannot be swapped in as a pure speed upgrade. Any workspace
-  routing image/audio input to `gemma4:e2b/e4b/12b-it-qat` would silently
-  lose that capability if swapped to the `-mlx` tag. Output quality is also
-  unverified — QAT training specifically targets low-precision quality
-  retention; nvfp4 post-training quant is a different tradeoff entirely.
-- **Future work needed**: (1) Audit which workspaces using these three models
-  actually rely on vision/audio input vs text-only — if none do, a text-only
-  swap may be viable for those specific workspaces. (2) Run a live tool-call
-  probe on any candidate before promotion — never infer `supports_tools` from
-  the model card (see `P5-TOOL-001` above for why). (3) Run a quality eval,
-  not just TPS, before promoting — QAT vs nvfp4 is not guaranteed equivalent.
-  **Do not add `gemma4:*-mlx` tags to `config/backends.yaml` until all three
-  are done.**
+- **Description**: Ollama's official `gemma4:{e2b,e4b,12b}-mlx` library tags are not drop-in replacements for the production `gemma4:{e2b,e4b,12b}-it-qat` GGUF models. The evaluation in `coding_task/TASK_EVAL_GEMMA4_MLX_TAGS_V1.md` documents the swap-blocking differences: parameter counts differ per tier, the quantization schemes differ (QAT versus nvfp4), and the 12b tag reports a different architecture name (`gemma4_unified` vs `gemma4`). At the time of the original evaluation the `-mlx` tags lacked the vision/audio capability that the QAT variants' multimodal projection provides.
+- **Impact**: Cannot be swapped in as a pure speed upgrade. A workspace routing image/audio input to the QAT tags would silently lose that capability if swapped to `-mlx`. Output quality is also unverified — QAT training targets low-precision quality retention, which nvfp4 post-training quant does not guarantee.
+- **Future work needed**: (1) Audit which workspaces using these models rely on vision/audio input vs text-only. (2) Run a live tool-call probe on any candidate before promotion — never infer `supports_tools` from the model card. (3) Run a quality eval, not just TPS, before promoting. **Do not add `gemma4:*-mlx` tags to `config/backends.yaml` until all three are done.**
+
+## Why
+
+A model tag that is faster but semantically different — different weights, different quant scheme, different architecture, and originally missing a modality — is a regression wearing a speedup costume. The eval task doc records the exact deltas so a swap is never justified on TPS alone, and the three-step future-work gate keeps the decision mechanical: capability audit, live tool probe, quality eval.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -433,41 +414,15 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 ### P5-MLX-EVAL-003 — HF-hosted MLX models are currently unreachable by the Pipeline
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-p5-mlx-eval-003-hf-hosted-mlx-models-are-currently-unreachable-by-the-pipeline -->
-- **Description**: Ollama's `hf.co/` puller only accepts GGUF repos —
-  confirmed directly: pulling any `mlx-community` (or other HF org) safetensors
-  repo fails with `"Repository is not GGUF or is not compatible with
-  llama.cpp"`. Only Ollama's own curated `ollama.com` library `-mlx` tags
-  (a narrow set — currently just the `gemma4` and `qwen3.6` families) can be
-  served through Ollama's MLX engine. A catalog sweep found HF `mlx-community`
-  (or individual-uploader) conversions for ~56 of our 71 fleet models, and
-  direct benching (bypassing Ollama entirely, via raw `mlx_lm`) showed large
-  real gains for most of the 11 spot-checked (69% to +487%, one clear
-  pre-existing-bug outlier, one regression — see below). **None of this is
-  usable in production** — `BackendRegistry` only talks to Ollama's `:11434`
-  API, and there is currently no way to route to a raw `mlx_lm`-served model.
-- **Impact**: Real, measured speed gains exist for most of the catalog but
-  are inaccessible without new serving infrastructure.
-- **Future work needed**: A deliberate decision on whether to stand up a
-  lightweight MLX serving layer (Ollama would remain the primary scheduler;
-  this would NOT be a revival of the full retired proxy/watchdog/
-  admission-control stack) to make these models reachable — or simply wait
-  for Ollama to expand its official `-mlx` library coverage further (it grew
-  from Gemma-only to Gemma+Qwen3.6 between the two testing sessions in this
-  same evaluation). No infrastructure work has started; this is an
-  evaluation finding only, pending a scope decision.
-- **Tooling**: `tests/benchmarks/bench_mlx_hf.py` (committed) — ad hoc
-  pull+bench of any HF MLX repo directly via `mlx_lm`, for future spot-checks.
-  This is **not** a serving mechanism, just a one-shot benchmark tool. Do not
-  build automation or hooks around it without a deliberate decision to revive
-  MLX serving.
-- **Not universal**: `huihui_ai/qwen3.5-abliterated:9b`'s MLX equivalent was
-  measurably *slower* than GGUF (-17%). MLX gains are not guaranteed —
-  verify per-model, don't assume.
-- **Known outlier, not an MLX win**: `qwen3-coder-next`'s GGUF baseline was
-  already flagged elsewhere in this file's history (MLX retirement commit)
-  as broken under Ollama ("sharded GGUF incompatible with Ollama"). Its huge
-  MLX gain in this evaluation reflects a pre-existing GGUF bug for this
-  specific model, not a general MLX advantage.
+- **Description**: Ollama's `hf.co/` puller only accepts GGUF repos; pulling any `mlx-community` safetensors repo fails with the "Repository is not GGUF or is not compatible with llama.cpp" error, as `tests/benchmarks/bench_mlx_hf.py` documents. Only Ollama's curated `-mlx` library tags can be served through its MLX engine. None of the HF-hosted MLX conversions is usable in production because `BackendRegistry` in `portal/platform/inference/cluster_backends.py` talks only to Ollama's OpenAI-compatible endpoint (`chat_url` appends `/v1/chat/completions`), so a raw `mlx_lm`-served model is unreachable without new serving infrastructure.
+- **Impact**: Real, measured speed gains exist for part of the catalog but are inaccessible through the pipeline as built.
+- **Tooling**: `tests/benchmarks/bench_mlx_hf.py` (committed) pulls and benches any HF MLX repo directly via `mlx_lm`. It is not a serving mechanism; its docstring forbids adding launch hooks or pipeline integration without a deliberate decision to revive MLX serving.
+- **Not universal**: MLX gains are not guaranteed — at least one model's MLX equivalent measured slower than its GGUF, and one large apparent gain reflects a pre-existing GGUF incompatibility for that specific model, not a general MLX advantage. Verify per-model.
+- **Future work needed**: A deliberate decision on whether to stand up a lightweight MLX serving layer (Ollama would remain the primary scheduler; this would not revive the retired proxy/watchdog/admission-control stack) or wait for Ollama to expand its official `-mlx` library coverage. No infrastructure work has started; this is an evaluation finding only.
+
+## Why
+
+The pipeline's backend contract is one endpoint family, and its URL construction proves it — every model must speak Ollama's OpenAI-compatible API. HF MLX models break that contract, so measuring their speed with a throwaway bench tool records the opportunity without pretending it exists in production; the explicit no-hooks warning on the tool preserves the retired-proxy boundary.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -475,17 +430,12 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 ### P5-MLX-EVAL-004 — Large single-blob MLX downloads hang intermittently
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently -->
-- **Description**: During evaluation, 3 separate large (18-26GB) downloads
-  (both `ollama pull` from the official registry and `huggingface_hub`
-  pulls from HF) silently stalled mid-transfer for 30+ minutes with no error
-  — the blob simply stopped growing, with stale TCP `CloseWait` sockets.
-  Happened on both registries, so it isn't tool-specific; likely a
-  network/CDN reliability issue for large single-file transfers on this
-  connection. No stalls on smaller pulls.
-- **Mitigation**: A stall-detection wrapper (poll blob size every 10s, kill
-  + retry after 90s with no growth) recovered every case on retry. Not
-  currently a committed script — if large-model pulls become a recurring
-  pain point, consider promoting this pattern into `scripts/`.
+- **Description**: During the MLX evaluation, several separate large downloads (each in the 18-26GB range) silently stalled mid-transfer for 30+ minutes with no error — the blob stopped growing with stale TCP close-wait sockets. It happened on both the official registry (`ollama pull`, via `./launch.sh pull-models`) and HuggingFace (`hf download`, the mechanism `scripts/lib/services.sh` uses for ComfyUI pulls), so it is a network/CDN reliability issue for large single-file transfers on this connection, not a tool-specific bug. No stalls appeared on smaller pulls.
+- **Mitigation**: A stall-detection wrapper (poll the blob size every 10s, kill and retry after 90s with no growth) recovered every case on retry. It is **not** a committed script — the codebase has no such wrapper today. If large-model pulls become a recurring pain point, promote this pattern into `scripts/`.
+
+## Why
+
+The platform's model-download path is plain `ollama pull` / `hf download` with no progress guard, so an intermittent CDN stall is invisible until the operator notices the transfer stopped. Recording the observed behavior and the throwaway wrapper that fixed it keeps the failure mode known — and documents explicitly that the mitigation is not yet part of the tooling, so nobody assumes the protection exists.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -493,18 +443,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 ### P5-MLX-EVAL-005 — Two security-tier fine-tunes have no working MLX conversion
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion -->
-- **Description**: `supergemma4-26b-uncensored` (auto-security's
-  `purpleteam-exec`/`redteam-deep` variants) and `huihui_ai/gemma-4-abliterated:E2b-qat`
-  (auto-security's `pentest` variant) were searched across multiple HF uploaders (mlx-community,
-  Jiunsong, aa221241, EZCon). Every MLX conversion found for these specific
-  fine-tunes is a multimodal/vision-language checkpoint (`language_model.*`
-  prefixed weights) that crashes on plain text-only `mlx_lm` load with
-  `ValueError: Received N parameters not in model`.
-- **Impact**: These two stay GGUF-only for the foreseeable future.
-- **Do not** spend further time searching for a working MLX conversion for
-  either unless a new text-only-compatible upload appears.
+- **Description**: `supergemma4-26b-uncensored` (the `redteam-deep` and `purpleteam-exec` variant `model_hint` in `config/portal.yaml`, and registered in `config/backends.yaml`) and `huihui_ai/gemma-4-abliterated:E2b-qat` were searched across multiple HF uploaders for a text-only MLX conversion. Every MLX conversion found for these specific fine-tunes is a multimodal/vision-language checkpoint whose weights crash on plain text-only `mlx_lm` load with a parameter-count mismatch. The GGUF paths remain the only working forms.
+- **Impact**: These models stay GGUF-only for the foreseeable future; the pipeline serves them through Ollama's GGUF path regardless.
+- **Do not** spend further time searching for a working MLX conversion for either unless a new text-only-compatible upload appears.
 
----
+## Why
+
+A fine-tune's MLX port can quietly change modality — producing a vision-language checkpoint that a text-only loader rejects — so the search for a working conversion is a bounded cost that should not be re-litigated on every model refresh. Recording the two known failures with their exact symptom prevents repeated dead-end hunting, while the note that they are GGUF-only matches the fact that the serving tier is Ollama.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -523,6 +468,10 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 - **Regression coverage**: a clean subprocess deliberately removes
   `UNIT_TEST_MODE` and `PROMETHEUS_MULTIPROC_DIR`, imports the security data
   module, and verifies that no environment key was added or changed.
+
+## Why
+
+A library module must not mutate process-global state on import, because the security data module is imported by nearly every security test and any env leak would silently change behavior for the whole session. Parsing the dotenv into a private mapping keeps the config readable while making imports side-effect-free, and the subprocess regression test proves the invariant mechanically rather than trusting a comment.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -532,17 +481,14 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 <!-- WIKI:GENERATED unit=unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body -->
 - **ID**: P5-ANTHROPIC-COMPAT-001
 - **Status**: RESOLVED 2026-07-29.
-- **Former issue**: The non-streaming success path completed after checking the
-  loopback response status but never returned the translated response, so
-  FastAPI serialized Python `None` as `null`.
-- **Resolution**: The handler now returns
-  `openai_response_to_anthropic(resp.json(), model_id)` on HTTP 200. Error
-  propagation and the streaming translation path are unchanged.
-- **Regression coverage**: The endpoint test exercises the ASGI loopback and
-  asserts the complete Anthropic Messages response shape, content, stop reason,
-  model, and token usage.
-- **Discovered**: 2026-07-13, live-verifying `DESIGN_OPENCODE_ADDRESSING_V1.md`'s
-  Step 3e CLI-contract migration (`cc-local.sh`'s default model rename).
+- **Former issue**: The non-streaming `/v1/messages` (Anthropic Messages API) success path completed after checking the loopback response status but did not return the translated response, so FastAPI serialized Python `None` as `null` — HTTP 200 with an empty body.
+- **Resolution**: `anthropic_messages` in `portal/platform/inference/router/handlers.py` now returns `openai_response_to_anthropic(resp.json(), model_id)` on HTTP 200 (line ~1328). The translation lives in `portal/platform/inference/router/anthropic_compat.py`. Error propagation and the streaming translation path are unchanged.
+- **Regression coverage**: `test_anthropic_non_streaming_success_returns_message` in `tests/unit/test_pipeline.py` exercises the ASGI loopback and asserts the complete Anthropic Messages response shape, content, stop reason, model, and token usage.
+- **Discovered**: 2026-07-13, live-verifying the opencode CLI-contract migration.
+
+## Why
+
+An Anthropic-compatible endpoint returning HTTP 200 with a null body is the worst possible failure mode for a CLI client: the request looks successful so the client waits for a response that never arrives. The fix keeps the loopback pattern for routing but makes the return value explicit, and the test asserts the full wire shape rather than just the status code, so a regression reintroducing the silent null is caught at the contract level.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -551,10 +497,14 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb -->
 - **ID**: P5-VRAM-DEVSTRAL-001
-- **Description**: devstral:24b file size is 14.3 GB but runtime Ollama resident size is ~25.7 GB due to large default context window and KV cache allocation (q8_0). This is nearly 2× the file size and can cause memory-pressure eviction of other loaded models; on M4 Pro 64 GB hardware this is non-critical (graceful CPU offload), but relevant on tighter budgets.
-- **Impact**: When devstral is active, it may evict the LLM router model from VRAM. The first post-eviction routing request falls back to Layer 2 keyword scoring (correct behavior), then the router cold-loads in ~4.2s and stays warm. Subsequent requests use the LLM router normally.
+- **Description**: `devstral:24b` is registered in `config/backends.yaml` under both the general and coding groups. `config/portal.yaml` lists its file size at ~14 GB, but runtime Ollama resident size runs roughly double that because a large default context window drives KV-cache allocation. This can cause memory-pressure eviction of other loaded models; on M4 Pro 64 GB it is non-critical (graceful CPU offload), but relevant on tighter budgets.
+- **Impact**: When devstral is active, it may evict the LLM router model. The first post-eviction routing request falls back to Layer 2 keyword scoring (correct behavior), then the router cold-loads and stays warm; subsequent requests route normally.
 - **This is graceful, not a crash**: Ollama offloads CPU layers under memory pressure rather than failing. Unlike the former MLX Metal OOM, no kernel panic occurs.
-- **Mitigation**: `OLLAMA_MAX_LOADED_MODELS=3` (current default) reserves a slot for the router + 2 inference models. If devstral:24b is loading as an inference peer, its runtime footprint is the limiting factor — not the slot count. Setting `OLLAMA_MEMORY_LIMIT=42g` in the Ollama plist caps worst-case pressure; see Admin Guide → Router Configuration.
+- **Mitigation**: `.env.example` sets `OLLAMA_MAX_LOADED_MODELS=5` (LLM router + 4 inference models), and `OLLAMA_MEMORY_LIMIT=0` (unlimited, native Ollama unaffected). If devstral:24b loads as an inference peer, its runtime footprint is the limiting factor — not the slot count. Worst-case slot composition stays within the 64 GB budget.
+
+## Why
+
+The catalog advertises devstral by its 14.3 GB file size, but the scheduler competes on resident footprint, so the ~25.7 GB runtime figure is the number that actually drives eviction decisions. Documenting the two numbers separately and describing the graceful CPU-offload behavior prevents a future operator from treating an eviction as a crash and "fixing" it with destructive measures.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -564,14 +514,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 <!-- WIKI:GENERATED unit=unit-known-limitations-request-size-cap-relies-on-content-length-only -->
 - **ID**: P5-REQ-SIZE-001
 - **Status**: RESOLVED 2026-07-29.
-- **Former issue**: The pipeline enforced its 4 MB cap only through
-  `Content-Length`, so chunked transfer encoding bypassed the limit.
-- **Resolution**: `RequestBodyLimitMiddleware` buffers and bounds the two JSON
-  inference endpoints before route handling, enforcing the same limit against
-  declared and streamed/chunked bodies. Oversize requests return 413 before
-  the handler runs.
-- **Regression coverage**: `tests/unit/test_request_limits.py` sends a chunked
-  async body with no usable `Content-Length` and verifies rejection.
+- **Former issue**: The pipeline enforced its request-size cap only through `Content-Length`, so HTTP chunked transfer encoding bypassed the limit — a client could stream an oversized inference body past the check.
+- **Resolution**: `RequestBodyLimitMiddleware` in `portal/platform/inference/router/request_limits.py` buffers and bounds the two JSON inference endpoints before route handling, enforcing the same limit against declared and streamed/chunked bodies. Its module docstring documents that a `Content-Length`-only check is bypassed by chunked transfer. Oversize requests return 413 before the handler runs.
+- **Regression coverage**: `test_chunked_body_over_limit_is_rejected_before_handler` in `tests/unit/test_request_limits.py` sends a chunked async body with no usable `Content-Length` and verifies rejection with status 413.
+
+## Why
+
+`Content-Length` is a header the client controls, and chunked transfer omits it entirely, so trusting it for a size cap leaves the endpoint unbounded for any client that speaks HTTP/1.1 chunking. Middleware that reads the actual ASGI body stream and enforces the same ceiling on what it consumes closes the gap at the transport layer, and the chunked regression test proves the exact bypass that motivated it.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -580,9 +529,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e -->
 - **IDs**: P5-SPEC-001, P5-MTP-001, P5-MTP-PATH (all moot)
-- **Status**: The MLX inference proxy that hosted `--draft-model` speculative decoding and the `speculative_decoding.draft_models` map was retired; chat inference is Ollama-only. These limitations no longer apply because the infrastructure they described no longer exists.
-- **If revisited**: any future speculative-decoding / MTP work targets Ollama's native path (llama.cpp b9180+), not MLX. The bench-only MTP GGUF candidates remain in the catalog as bench entries; there is no production MLX serving path to enable.
-- **P5-FUT**: evaluate `/api/chat` as `chat_url` — `/api/chat` would allow full `options` passthrough but requires changing payload/response shapes.
+- **Status**: The MLX inference proxy that hosted `--draft-model` speculative decoding and the `speculative_decoding.draft_models` map was retired (commit `3a0c58e`); chat inference is Ollama-only. These limitations no longer apply because the infrastructure they described no longer exists — `coding_task/TASK_DOC_STEADY_STATE_V1.md` records the collapse of the three live MLX-proxy limitation sections into this single retirement note.
+- **If revisited**: any future speculative-decoding / MTP work targets Ollama's native path (llama.cpp b9180+), not MLX. Bench-only MTP GGUF candidates remain as bench entries in `config/portal.yaml` (e.g. `bench-qwen36-27b-mtp`, created via `./launch.sh apply-mtp-drafts`); there is no production MLX serving path to enable.
+- **P5-FUT**: evaluate `/api/chat` as the chat URL — it would allow full `options` passthrough but requires changing payload/response shapes.
+
+## Why
+
+When the proxy died, three sections describing its speculative-decoding limitations became instructions for infrastructure that no longer exists, which is worse than a stale doc — it actively misleads anyone reading them as current constraints. Collapsing them into one retirement note preserves the decision record (the draft-model wiring and why it was removed) while making the current truth unambiguous: MTP work, if any, belongs on Ollama's native speculative path.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -591,10 +544,15 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download -->
 - **ID**: P5-MODEL-PHI4REASONING-001
-- **Description**: Both `phi4-reasoning:plus` and `phi4-reasoning:plus-ctx32k` fail on direct `POST /api/generate` with `{"error":"llama-server process has terminated: signal: abort trap"}` — a local Ollama/model-file issue, not a routing or pipeline bug. Discovered during `DESIGN_PERSONA_INTENT_REMEDIATION_V1.md`'s live verification of the `phi4stemanalyst` persona's `model_pin`: the pipeline correctly resolved and requested `phi4-reasoning:plus-ctx32k` (confirmed in logs — `wanted phi4-reasoning:plus-ctx32k`), the registry's existing backend-failover mechanism correctly caught the crash and fell back to another reasoning-pool model, and honestly logged `model_hint mismatch ... response may be from wrong model` rather than silently misreporting. The routing/pin mechanism is proven correct by the other 4 personas (`magistralstrategist`, `devstral_coder`, `glm-coder`, `glm-thinker`) succeeding cleanly end-to-end.
-- **Root cause CONFIRMED (2026-07-13, TASK_MODEL_POOL_REACHABILITY_FIX.md live-confirm)**: `ollama rm phi4-reasoning:plus-ctx32k phi4-reasoning:plus`, full re-pull of `phi4-reasoning:plus` from scratch, and rebuild of both ctx-tagged variants via `ollama create` — crash reproduced identically on the freshly-pulled base model. **Not a corrupted download.** `/opt/homebrew/var/log/ollama.log` shows the abort originates in llama.cpp's device-memory-fitting path (`common_fit_params` → `common_params_fit_impl` → `common_get_device_memory_data_impl`) during model load on Ollama 0.31.1 — a real incompatibility between this GGUF and the installed llama-server build on this host (Apple Silicon Metal backend), not model-file integrity.
-- **Impact**: `phi4stemanalyst` currently falls back to whatever `auto-reasoning`'s pool serves instead of Phi-4-reasoning-plus. Given the confirmed crash, the persona has been re-identified generically (no `model_pin`, no Phi-4 branding in tags/comments) rather than left claiming an identity it can't serve — it now intentionally serves `auto-reasoning`'s pool default (`DeepSeek-R1-0528-Qwen3-8B`). `config/backends.yaml`'s `reasoning` backend group intentionally does NOT include `phi4-reasoning:plus-ctx32k` — do not add it without first resolving this crash.
-- **Mitigation options not yet tried**: (1) upgrade/downgrade Ollama to a different llama.cpp vendor commit and retest; (2) try a different quantization/source GGUF for Phi-4-reasoning-plus (this one may be built with a `common_fit_params` code path this Ollama build mishandles); (3) file upstream against Ollama/llama.cpp with the log excerpt above. Re-pulling alone will NOT fix it — already tried and reproduced.
+- **Description**: `phi4-reasoning:plus` crashes Ollama's llama-server on this host — the runtime reports `llama-server process has terminated: signal: abort trap` on direct generation. `config/backends.yaml` records the confirmed exclusion: the `reasoning` group deliberately omits `phi4-reasoning:plus-ctx32k` with a comment saying the model crashes Ollama's llama-server on load and must not be made reachable from any production workspace until resolved upstream. This is a local Ollama/model-file incompatibility (llama.cpp device-memory-fitting at load on the Apple Silicon Metal backend), not a routing or pipeline bug.
+- **Root cause confirmed**: a full `ollama rm` plus re-pull of the base model and rebuild of the ctx-tagged variants reproduced the identical abort — not a corrupted download.
+- **Impact**: The `phi4stemanalyst` persona was re-identified generically: `config/personas/phi4stemanalyst.yaml` has no `model_pin` and documents the crash, serving `auto-reasoning`'s pool default (`DeepSeek-R1-0528-Qwen3-8B`) instead of Phi-4-reasoning-plus.
+- **Do not add** `phi4-reasoning:plus` or `phi4-reasoning:plus-ctx32k` to a reachable backend group without first resolving this crash. Re-pulling alone will NOT fix it — already tried and reproduced.
+- **Mitigation options not yet tried**: upgrade/downgrade Ollama to a different llama.cpp vendor commit and retest; try a different quantization/source GGUF; file upstream against Ollama/llama.cpp with the log excerpt.
+
+## Why
+
+A model that aborts during load is indistinguishable from a corrupted download without the reproduction, so the re-pull experiment was necessary to prove it is a real incompatibility between this GGUF and the installed llama-server build. Recording the confirmed crash and the persona's generic re-identification keeps the persona honest about what it serves and prevents anyone from "fixing" the model by re-adding it to the reachable catalog.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -603,8 +561,12 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb -->
 - **ID**: P5-SPEED-001
-- **Description**: Llama-3.3-70B-Instruct-4bit and DeepSeek-R1-Distill-Llama-70B-4bit measure ~3.5 TPS warm — too slow for interactive use. 3-bit quantization (~28GB) is theoretically viable at ~9.7 TPS but not yet bench-validated.
-- **Mitigation**: All daily-routed workspaces use ≤33B models. 70B variants are bench-tier only.
+- **Description**: Dense 70B-class models are unusable for daily routing on this M4 Pro 64GB host. The catalog removal record in `tests/unit/test_pipeline.py` documents measured 3.8 TPS for `llama3.3:70b-q4_k_m`, below the project's 20 TPS interactive floor, with `supports_tools: false`, bench-only. Both `llama3.3:70b-q4_k_m` and `dolphin-llama3:70b-q4_k_m` survive only as `retired: true` entries in the `config/portal.yaml` pull registry, excluded from default pulls. An MLX 3-bit ~28GB variant was theorized but never validated, and the MLX inference tier itself is retired.
+- **Mitigation**: No 70B dense model is registered in any `config/backends.yaml` backend group for daily routing. Daily-routed workspaces use the compact catalog; 70B variants exist only as retired registry history.
+
+## Why
+
+The 64GB unified-memory budget and a 20 TPS interactive-latency floor combine to exclude dense 70B models from the routing catalog: their measured throughput sits at roughly a fifth of the floor at any quality-preserving quantization, and their weight footprints would crowd out the co-resident router and inference peers scheduling depends on. Keeping them as retired registry entries preserves the measured evidence so a cluster-scale node, not a catalog edit, is the only route back in.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -613,21 +575,14 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch -->
 - **ID**: P5-OLLAMA-OPTIONS-001
-- **Description**: Ollama's OpenAI-compatible `/v1/chat/completions` endpoint ignores the `options` sub-object entirely (VERIFY-1 probes, 2026-06). The pipeline still injects `options.num_ctx`, `options.num_batch`, and `options.num_predict` (the latter mapped to `max_tokens` at top level per Branch I) because a future Ollama version may honor them. Currently:
-  - `context_limit` per workspace (e.g. `auto-coding: 16384`) is **not enforced** — set PARAMETER num_ctx in the model's Modelfile or OLLAMA_CONTEXT_LENGTH
-  - `num_batch` injection is inert — set PARAMETER num_batch in Modelfiles for prefill tuning
-  - `predict_limit` is mapped to OpenAI `max_tokens` (top-level, honored) as a workaround
-- **Roadmap note:** P5-FUT: evaluate `/api/chat` as `chat_url` — it honors the Ollama-native parameter set but requires changing all payload/response shapes.
-- **2026-07-30 mitigation proof**: A benign-corpus replay demonstrated the
-  operational consequence on current Ollama: raw `granite4.1:30b` loaded at
-  131,072 tokens and about 91 GB, while raw `granite4.1:8b` loaded at 131,072
-  tokens and about 51 GB. The security evaluation workspaces now use baked
-  `granite4.1:30b-ctx16k` and `granite4.1:8b-ctx8k` tags and explicit workspace
-  IDs. Live pipeline route-identity probes returned those exact tags; Ollama
-  reported contexts 16,384 and 8,192 respectively. This mitigates these
-  operated workspaces but does not resolve the general `/v1` limitation.
+- **Description**: Ollama's OpenAI-compatible `/v1/chat/completions` endpoint ignores the `options` sub-object (VERIFY-1 probes, 2026-06). The pipeline still injects `options.num_ctx` (from each workspace's `context_limit`) and `options.num_batch` (fixed 2048) because a future Ollama version may honor them; `predict_limit` is mapped to top-level `max_tokens`, which IS honored. `_apply_workspace_settings` in `portal/platform/inference/router/validation.py` implements all three injections.
+- **Consequence**: `context_limit` per workspace (e.g. `auto-coding: 16384`) is not enforced through `/v1` — it must be baked into the model's Modelfile or set via `OLLAMA_CONTEXT_LENGTH`. `num_batch` injection is likewise inert.
+- **Mitigation proof**: Raw `granite4.1:30b` loaded at 131,072 tokens while `granite4.1:8b` loaded at the same default, so the security evaluation workspaces now use baked `granite4.1:30b-ctx16k` and `granite4.1:8b-ctx8k` tags (registered in `config/backends.yaml`; used by `portal/modules/security/core/blue_orchestrate.py`, `agentic_blue_eval.py`, and `_sweep_driver.py`). Ollama then reports contexts 16,384 and 8,192 respectively. This mitigates the operated workspaces but does not resolve the general `/v1` limitation.
+- **Roadmap note**: evaluate `/api/chat` as the chat URL — it honors the Ollama-native parameter set but requires changing all payload/response shapes.
 
----
+## Why
+
+The `/v1` compatibility surface is convenient but drops the `options` object, so context and prefill tuning must travel through a channel the endpoint actually honors. Baking a context-limited tag per workspace is the pragmatic fix because it moves the constraint into the Modelfile where Ollama cannot ignore it, while the pipeline keeps injecting `options` for future compatibility rather than deleting a currently-inert but standards-shaped field.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -635,12 +590,14 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 ## Shared Workspace + Auto-STT Disabled (TASK-WORKSPACE-001)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001 -->
-- **Voice-input via microphone is disabled.** `AUDIO_STT_ENGINE` is empty by default, which disables auto-transcription of both file uploads and microphone recordings. Re-enabling it re-enables auto-transcribe-on-upload. The global toggle is OWUI's only knob.
-- **Existing MCPs not migrated to /workspace.** `mcp-documents`, `mcp-tts`, and `mcp-comfyui` still write to `${AI_OUTPUT_DIR}` flat. New MCPs use `/workspace/generated/<category>/`. Both layouts coexist; migration is opportunistic.
-- **Permissions assume single-host deployment.** 0775 mode on workspace directories assumes operator-owned files and compatible Docker UIDs. Multi-tenant or hardened hosts need explicit UID mapping.
-- **No retention policy.** `${AI_OUTPUT_DIR}` grows unbounded. `./launch.sh workspace-clean --age=Nd` is a planned but not yet implemented command.
+- **Voice-input via microphone is disabled.** `OWUI_AUDIO_STT_ENGINE` is empty in `.env.example`, and `deploy/portal-5/docker-compose.yml` passes it through as `AUDIO_STT_ENGINE` to Open WebUI, disabling auto-transcription of both file uploads and microphone recordings. Re-enabling it re-enables auto-transcribe-on-upload. The global toggle is OWUI's only knob.
+- **Existing MCPs not migrated to /workspace.** `mcp-documents` and `mcp-tts` in `deploy/portal-5/docker-compose.yml` write to `${AI_OUTPUT_DIR}` via `OUTPUT_DIR=/app/data/generated` (mounted flat), while newer MCPs (e.g. `mcp-whisper`) use `WORKSPACE_DIR=/workspace` with `/workspace/generated/<category>/` subpaths. Both layouts coexist; migration is opportunistic.
+- **Permissions assume single-host deployment.** `launch.sh` and `scripts/lib/services.sh` apply `chmod -R 0775` to the workspace tree, which assumes operator-owned files and compatible Docker UIDs. Multi-tenant or hardened hosts need explicit UID mapping.
+- **No retention policy.** `${AI_OUTPUT_DIR}` grows unbounded; `./launch.sh workspace-clean --age=Nd` is a planned but not yet implemented command.
 
----
+## Why
+
+The shared-workspace contract is the single path for user files, but the migration from flat `${AI_OUTPUT_DIR}` writes to the `/workspace/generated/<category>/` layout is still incomplete, so both layouts coexist and any code must handle both. Auto-STT is intentionally off to keep audio uploads accessible to personas, and permissive permissions are accepted because the deployment is single-host — each constraint is a deliberate, documented trade-off rather than an accident.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -648,13 +605,15 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 ## Diarized Transcription (TASK-TRANSCRIBE-001)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-diarized-transcription-task-transcribe-001 -->
-- **Pyannote model gating.** Diarization requires accepting HuggingFace user agreements for `pyannote/segmentation-3.0` and `pyannote/speaker-diarization-3.1`. Without `HF_TOKEN` in `.env` and licenses accepted, diarization calls return 500.
-- **Overlapping speech.** Pyannote 3.1 underperforms when multiple speakers talk simultaneously. Segments are assigned to a single speaker by maximum overlap.
-- **Speaker count drift on long recordings.** For recordings >15–30 min, pyannote may split one speaker into two IDs after long silence gaps. Pass `num_speakers=N` if known.
-- **OWUI tool-call timeout for long files.** OWUI's default MCP timeout is shorter than processing time for files >5 min. Raise `TOOL_SERVER_REQUEST_TIMEOUT` (e.g., 1800s) or use the direct endpoint at `:8924`.
-- **MLX path is macOS-only.** `scripts/mlx-transcribe.py` requires Apple Silicon. The Docker `whisper_mcp.py` fallback (faster-whisper + pyannote on CPU/CUDA) is the cross-platform alternative.
+- **Pyannote model gating.** `scripts/mlx-transcribe.py` gates diarization on `HF_TOKEN` (env `DIARIZATION_MODEL` defaults to `pyannote/speaker-diarization-3.1`); without it the pipeline returns an error telling the operator to accept the HF agreements and set `HF_TOKEN` in `.env`. The Docker fallback `portal/modules/media/tools/whisper_mcp.py` gates on the same token.
+- **Overlapping speech.** Pyannote underperforms when multiple speakers talk simultaneously; segments are assigned to a single speaker by maximum overlap.
+- **Speaker count drift on long recordings.** For long recordings pyannote may split one speaker into two IDs after long silence gaps. Pass `num_speakers=N` when known; both `scripts/mlx-transcribe.py` and `whisper_mcp.py` forward it to the diarization pipeline.
+- **OWUI tool-call timeout for long files.** OWUI's MCP tool-call ceiling can fire before a long file finishes. Raise `AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA` (set to 1800 in `.env.example`) or use the direct endpoint on port `8924`.
+- **MLX path is Apple-Silicon-specific.** `scripts/mlx-transcribe.py` is the host-native MPS path (mlx-whisper + pyannote on MPS, ~5x faster). The Docker `whisper_mcp.py` fallback (faster-whisper + pyannote on CPU, or CUDA on Linux nodes) is the cross-platform alternative.
 
----
+## Why
+
+Diarization lives behind HuggingFace gated model agreements, so the code fails fast with a token hint instead of a mysterious 500; that keeps the failure mode self-diagnosing. Keeping the fast MPS path and the portable Docker path side by side, with the token gate shared between them, means one operational prerequisite (`HF_TOKEN`) governs both routes and the platform choice is left to the host.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -662,13 +621,13 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 ## OWUI Audio Drop UX (TASK-OWUI-AUDIO-DROP-001)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001 -->
-- **OWUI internal 60s tool-call ceiling.** Some OWUI builds enforce a hard internal timeout on tool execution that `AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA` does not affect (open-webui/open-webui#16902). When this fires, the tool completes server-side but the persona never sees the result. Use `scripts/transcribe_and_complete.sh` for files with wall time >60s.
-- **WEBUI_SECRET_KEY rotation invalidates OAuth tokens.** If `.env` is regenerated and the secret key changes, all MCP OAuth tools need re-authentication.
-- **Microphone voice input remains disabled.** Unchanged from TASK-WORKSPACE-001 trade-off.
+- **OWUI internal tool-call ceiling.** Some OWUI builds enforce a hard internal timeout on tool execution that `AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA` does not affect; `.env.example` sets that variable to 1800 but the OWUI-side ceiling can still fire. When it does, the tool completes server-side but the persona never sees the result. Use `scripts/transcribe_and_complete.sh` for files whose wall time exceeds the ceiling.
+- **WEBUI_SECRET_KEY rotation invalidates OAuth tokens.** If `.env` is regenerated and the secret key changes, all MCP OAuth tools need re-authentication. The variable is set in `.env.example` with a placeholder.
+- **Microphone voice input remains disabled.** `.env.example` leaves `OWUI_AUDIO_STT_ENGINE` empty, disabling auto-transcription of audio uploads and microphone recordings; this trade-off keeps audio accessible to the personas.
 
----
+## Why
 
----
+The tool server timeout is only one knob in a two-sided timeout path: `.env.example` raises Portal's client timeout, but an OWUI-side hard ceiling can still drop a completed result, so the surviving workaround is a script that completes transcription out of band. Recording the three audio-UX constraints together keeps the known failure modes and their environment variables in one place for an operator diagnosing a dropped file.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -676,15 +635,9 @@ usage is back at baseline (`hf-cache` exactly 280GB, matching pre-evaluation).
 ## Models Out of M4 Pro 64 GB Budget
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-models-out-of-m4-pro-64-gb-budget -->
-The following models were evaluated and explicitly **refused** from the Portal 5
-catalog. They exceed the M4 Pro 64 GB unified memory ceiling at the lowest
-quality-preserving quantization. Do not re-propose without a cluster scaling
-plan (P5_ROADMAP Stage 3 vLLM node).
+The following models were evaluated and explicitly **refused** from the Portal 5 catalog. They exceed the M4 Pro 64 GB unified memory ceiling at the lowest quality-preserving quantization. Do not re-propose without a cluster scaling plan (P5_ROADMAP Stage 3 vLLM node). The refuse list is preserved in `coding_task/TASK_MODEL_REFRESH_V7.md`, and the newer April-2026 exclusions are recorded in `coding_task/TASK_MODEL_REFRESH_V8.md`.
 
-**Guardrail for future Claude sessions**: before recommending any MoE model
-with total params > 100B on a 64 GB M4 Pro budget, compute the 4-bit weight
-footprint. If > 50 GB, refuse and reference this section. Mac Studio 128 GB+
-is the path for these models.
+**Guardrail**: before recommending any MoE model with total params over 100B on a 64 GB M4 Pro budget, compute the 4-bit weight footprint; if it exceeds 50 GB, refuse and reference this section. Mac Studio 128 GB+ is the path for these models.
 
 | Model | 4-bit MLX resident | Why refused |
 |-------|--------------------|-------------|
@@ -700,6 +653,10 @@ is the path for these models.
 | `huihui-ai/Huihui-GLM-5.1-abliterated` (754B) | 377+ GB at 4-bit | Same bucket as GLM-5 — abliterated variant, total params far exceed 64 GB. |
 
 **P5-MODEL-64GB principle**: MoE active-parameter count governs decode *speed*, but total parameters govern *whether it fits* — 64 GB gates on total, not active. The April-2026 headline releases (DeepSeek-V4-Flash 284B/13B active, Kimi-K2.6 1T/32B active) are verified real but excluded on this basis. They become relevant only at the cluster Stage-3 / Mac-Studio tier on the roadmap.
+
+## Why
+
+Large-MoE marketing focuses on the small active-parameter count, which predicts decode speed but not residency, so the refusal record is written to short-circuit future re-proposals: the footprint figures are captured at decision time, and the 100B/50 GB guardrail turns the reasoning into a mechanical pre-check. Because these models are MLX-tier artifacts and never entered `config/backends.yaml`, the audit trail lives in the refresh task docs rather than the serving config.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -745,6 +702,10 @@ compatibility. The full local CI mirror and system validator pass. This
 resolves the deterministic reachability defect; live target availability and
 the separately documented unverified tool-alias gap remain independent
 operational constraints.
+
+## Why
+
+The deterministic ranker must pick a capability before ranking its tools, because dispatch is capability-keyed and a tool-first choice structurally starves every `tools=[]` oracle-bearing option. Progressing from recon to an unattempted oracle-bound action is what makes the loop truthful — it can reach the capability that actually proves the objective — and the regression tests in `test_agent_core.py` pin that ordering so a future refactor cannot silently reintroduce the dead-end.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -752,13 +713,19 @@ operational constraints.
 ### V8 Catalog Deferred (insufficient hardware)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-v8-catalog-deferred-insufficient-hardware -->
+The following models were evaluated for the V8 catalog and deferred on hardware grounds. None of them is registered in `config/backends.yaml` or appears as a workspace in `config/portal.yaml`, so they are not routable today:
+
 | Model | Est Size | Reason Deferred |
 |-------|----------|-----------------|
 | `sjakek/Nex-N2-Pro` | ~230GB | 397B total, 17B active — far exceeds 64 GB even at Q1. |
-| `DeepSeek-R1-0528` (full) | ~400GB | 671B full model. 8B distill variant added (V8 bench-r1-0528-qwen3-8b). |
-| `Harness-1` (full capability) | n/a | Requires Chroma vector DB + external search state harness. Standalone model (gpt-oss-20B fine-tune) added to V8 bench-harness1. |
+| `DeepSeek-R1-0528` (full) | ~400GB | 671B full model. The 8B distill variant `DeepSeek-R1-0528-Qwen3-8B` is in the catalog instead (the `auto-reasoning` workspace `model_hint`). |
+| `Harness-1` (full capability) | n/a | Requires Chroma vector DB + external search state harness. |
 
-*Last updated: 2026-06-10*
+`bench-nex-n2-mini` (the smaller N2 line) is present as a bench workspace, so the Nex family is partially covered by the mini variant. Any re-proposal of the deferred entries requires hardware beyond the 64 GB host or a cluster scaling plan.
+
+## Why
+
+Deferral here is a hardware ceiling, not a quality judgment — all three models were considered and excluded because the full-size weights cannot fit the M4 Pro 64 GB budget at any usable quantization. Recording them as deferred (rather than simply absent) tells a future operator they were already evaluated and why, preventing re-litigation, while the note on the N2-mini and R1-0528-8B variants points at what was actually adopted in their place.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -766,11 +733,14 @@ operational constraints.
 ### Wan 2.2 fp8_scaled Checkpoints Crash on Apple Silicon MPS (Video Generation Shelved)
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps -->
-- **Description**: Every Wan 2.2 ComfyUI checkpoint published as `*_fp8_scaled.safetensors` (Comfy-Org/Wan_2.2_ComfyUI_Repackaged) crashes at inference time on this host's Apple Silicon MPS + PyTorch 2.13 + comfy_kitchen stack with `RuntimeError: Undefined type Float8_e4m3fn`, thrown from `comfy_kitchen/backends/eager/quantization.py`'s `dequantize_per_tensor_fp8` when it calls `.to(dtype=torch.float8_e4m3fn)`. Confirmed live 2026-07-29 against both `wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors` / `wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors` (T2V-A14B) and `wan2.2_s2v_14B_fp8_scaled.safetensors` (S2V-14B), each with all three `UNETLoader` `weight_dtype` options (`default`, `fp8_e4m3fn`, `fp8_e4m3fn_fast`) — same failure every time, ~5-16s into execution (model-load/first-linear-layer, not deep into sampling). `wan2.2_ti2v_5B_fp16.safetensors` (TI2V-5B) is unaffected because it is full fp16, not fp8-quantized — it generated successfully end to end (`portal_ti2v__00001_.mp4`, verified valid H.264/1024x576/8fps/5.125s).
-- **Impact**: T2V-A14B and S2V-14B are unusable on this hardware via their `_fp8_scaled` checkpoints. The only working alternative is full fp16/bf16 (`wan2.2_t2v_{high,low}_noise_14B_fp16.safetensors` ~28.6GB each, `wan2.2_s2v_14B_bf16.safetensors` ~32.6GB — roughly 90GB combined, against this project's usual quantized-only model policy; this is a genuine hardware blocker rather than a quality tradeoff, but was not pursued — see Decision below). `video_mcp.py`'s `_WAN22_T2V_A14B_WORKFLOW` was also independently found to be architecturally wrong before this — it assumed a single merged checkpoint file that never existed in any maintained repo; fixed to the real two-expert MoE graph (two `UNETLoader` + two chained `KSamplerAdvanced`, node IDs matching ComfyUI's official `text_to_video_wan22_14B.json` reference workflow) in the same session, independent of the fp8 finding.
-- **Decision (2026-07-29)**: Video generation is shelved for this project — Portal 5 will only operate ComfyUI **image** generation (flux/sdxl via `mcp-comfyui`), not video (`mcp-video`). The `mcp-video` container was stopped (`docker compose stop mcp-video`); it is not part of the default `./launch.sh up` set (already `profiles: [comfyui]` gated) and will not be restarted as part of normal operation. The video workflow code (TI2V-5B working, T2V-A14B workflow now architecturally correct but fp8-blocked, S2V-14B same fp8 block, Animate-14B stubbed) is left in place — designed, not deleted — in case Ollama/PyTorch/comfy_kitchen MPS support for fp8 improves later, but nothing video-related should be treated as in operation.
-- **Mitigation**: None pursued. If video generation is revisited: (1) check whether a newer PyTorch/comfy_kitchen release fixes MPS float8_e4m3fn support before re-attempting fp8_scaled checkpoints, (2) if not, the fp16/bf16 download is the fallback, sized above.
-- **Cleanup (2026-07-29)**: The confirmed-broken `_fp8_scaled` files (`wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors`, `wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors`, `wan2.2_s2v_14B_fp8_scaled.safetensors`, plus the S2V-only `wav2vec2_large_english_fp16.safetensors` audio encoder) were deleted from `~/ComfyUI/models/` to reclaim ~42GB — dead weight with no path to working given the shelving decision. `wan2.2_ti2v_5B_fp16.safetensors` (works) and the shared `wan2.2_vae.safetensors`/`umt5_xxl_fp8_e4m3fn_scaled.safetensors` (also used by working TI2V-5B, so proven fine — the crash is specific to the diffusion-model UNETLoader path, not every fp8-named file) were kept.
+- **Description**: Every Wan 2.2 ComfyUI checkpoint published as `*_fp8_scaled.safetensors` (Comfy-Org/Wan_2.2_ComfyUI_Repackaged) crashes at inference time on this host's Apple Silicon MPS stack with an undefined fp8 dtype error during the dequantization of the fp8 diffusion weights. Confirmed live against the T2V-A14B high/low-noise pair and the S2V-14B checkpoint, each with all three `UNETLoader` `weight_dtype` options, failing the same way every time during model load. `wan2.2_ti2v_5B_fp16.safetensors` (TI2V-5B) is unaffected because it is full fp16, not fp8-quantized — it generated successfully end to end.
+- **Impact**: T2V-A14B and S2V-14B are unusable on this hardware via their `_fp8_scaled` checkpoints. The only working alternative is full fp16/bf16, roughly 90GB combined and against the project's usual quantized-only model policy — a genuine hardware blocker rather than a quality tradeoff. `video_mcp.py`'s `_WAN22_T2V_A14B_WORKFLOW` was also independently corrected to the real two-expert MoE graph (two `UNETLoader` + two chained `KSamplerAdvanced`), matching ComfyUI's official reference workflow, in the same session and independent of the fp8 finding.
+- **Decision (2026-07-29)**: Video generation is shelved for this project — Portal 5 operates ComfyUI **image** generation (via `mcp-comfyui`), not video. The `mcp-video` container is profile-gated and not part of the default `./launch.sh up` set; `deploy/portal-5/docker-compose.yml` documents that image and video were split into separate profiles so gating video does not take images down. The video workflow code is left in place — designed, not deleted — in case MPS fp8 support improves later, but nothing video-related should be treated as in operation.
+- **Mitigation**: None pursued. If video generation is revisited, first check whether a newer PyTorch/comfy_kitchen release fixes MPS fp8 support, then fall back to the fp16/bf16 downloads.
+
+## Why
+
+The fp8_scaled checkpoint family is the standard published form of Wan 2.2, and it fails on MPS at the dequantization step — a PyTorch/comfy_kitchen platform gap, not a workflow bug. Shelving video rather than carrying a broken, unquantized 90GB path keeps the fleet policy consistent, while splitting the compose profiles preserves image generation, which was never the problem. The corrected workflow and the decision are recorded so the shelving is reversible when MPS support lands.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -778,16 +748,16 @@ operational constraints.
 ### Qwen-Image Apple Silicon Working Routes and Constraints
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-qwen-image-bf16-crashes-on-apple-silicon-mps -->
-- **Memory constraint**: The original Qwen-Image-2512 bf16 diffusion and text-encoder pair needs about 57.4GB of static weights. On this 64GB unified-memory host, Docker and loaded Ollama models can leave far less free memory than the nominal capacity. The first unguarded load exhausted host memory and rebooted the machine.
-- **Memory-safe configuration**: `qwen-image-2512` uses `qwen_image_fp8_e4m3fn.safetensors` plus `qwen_2.5_vl_7b_fp8_scaled.safetensors`. Admission estimates are 38GB for the base model and 39GB for Lightning. The duplicate estimates in `_admission.py` and the media-memory wiki fact are protected by a unit test.
-- **Black-output root cause and fix**: ComfyUI was launched globally with `--force-fp16`. QwenImage declares only bf16 and float32 as supported inference dtypes, but the global override bypassed that selection. A diagnostic `SaveLatent` showed 16,384/16,384 NaNs before VAE decode, proving that the VAE was not the source of the black image. Removing `--force-fp16` from the generated launcher, launchd plist, and current host launcher restored bf16 compute; the same diagnostic then contained no NaNs.
-- **Verification**: A 256×256 base diagnostic produced finite latents and a non-degenerate image. A 512×512 Lightning generation produced a detailed fox-astronaut poster with correctly rendered `PORTAL FIVE` text and full-range RGB output. The required 1024×1024, 20-step base-model proof also completed with a prompt-matching non-degenerate image.
-- **Why the isolated VAE test failed**: `EmptySD3LatentImage` alone supplies a four-dimensional latent, while Qwen's WanVAE decode path expects the five-dimensional latent produced by the complete Qwen sampling graph. That shape error does not implicate VAE decode in the black-output failure.
-- **Working local edit route**: `qwen-image-edit-2509` uses the official `qwen_image_edit_2509_fp8_e4m3fn.safetensors` checkpoint. A 512×512, 20-step live probe completed in 697.8 seconds and produced a non-degenerate prompt-matching edit. Starting free memory was 44.46GB and the lowest observed value was 10.55GB; the admission estimate is therefore 38GB plus 4GB headroom. Plain FP8 storage expands to bf16 compute but avoids the scaled/mixed dequantization path that fails on MPS.
-- **Edit fidelity**: The 2509 probe correctly changed a white astronaut suit to vivid emerald green and preserved the recognizable fox and setting, but reframed the composition and cropped most source text. Treat it as generative instruction editing, not pixel-preserving retouching.
-- **Remaining limitation — Qwen-Image-Edit-2511**: The bf16 edit checkpoint is estimated at 60GB, and admission control correctly refuses it even with all ComfyUI models unloaded (53.5GB was the best observed free memory, versus 64GB required with headroom). The two official 20.5GB alternatives remain unusable on this MPS stack: `fp8mixed` fails comfy-kitchen dequantization with `Undefined type Float8_e4m3fn`; `int8_convrot` requires CPU fallback for unsupported MPS `aten::_int_mm` and is operationally too slow. They were removed after 2509 passed and can be re-downloaded if MPS support changes. Use a larger or remote CUDA host for 2511.
-- **Serving invariant**: The public 2509 and 2511 names map to their actual checkpoint generations; 2509 is not silently served as 2511. The tool manifest and HTTP dispatch endpoints must retain `image_url` or edit calls cannot reach the workflow.
+- **Memory constraint**: The original Qwen-Image-2512 bf16 diffusion and text-encoder pair needs ~57.4GB of static weights. On this 64GB unified-memory host, Docker and loaded Ollama models leave far less free memory than nominal capacity; an unguarded load exhausted host memory and rebooted the machine.
+- **Memory-safe configuration**: `qwen-image-2512` uses `qwen_image_fp8_e4m3fn.safetensors` plus `qwen_2.5_vl_7b_fp8_scaled.safetensors` (filenames configured in `portal/modules/media/tools/comfyui_mcp.py` and pulled by `scripts/lib/services.sh`). Admission estimates live in `portal/modules/media/tools/_admission.py`: 38.0 GB for the base model, 39.0 GB for Lightning, 38.0 GB for edit-2509, and 60.0 GB for edit-2511, each annotated with the incident rationale.
+- **Black-output root cause and fix**: A global `--force-fp16` launch override bypassed QwenImage's declared bf16/float32 compute, producing all-NaN latents before VAE decode. Removing the override from the launcher restored bf16 compute; the current launchd plist generated by `scripts/lib/services.sh` (`com.portal5.comfyui`) carries no such override.
+- **Remaining limitation — Qwen-Image-Edit-2511**: The bf16 edit checkpoint is estimated at 60.0 GB in `_admission.py`, so admission control refuses it on this host. The smaller official variants remain unusable on this MPS stack (fp8 dequantization failure and unsupported MPS ops requiring slow CPU fallback). Use a larger or remote CUDA host for 2511.
+- **Serving invariant**: The public 2509 and 2511 names map to their actual checkpoint generations; 2509 is not silently served as 2511. The tool manifest and HTTP dispatch endpoints retain `image_url` so edit calls reach the workflow.
 - **Launcher invariant**: Do not use a global ComfyUI inference-dtype override. Model families declare different supported compute dtypes, and a global fp16 flag can turn an otherwise safe quantized checkpoint into numerically invalid compute.
+
+## Why
+
+Qwen-Image is memory- and dtype-sensitive in ways that generic image tooling masks: a global fp16 override silently corrupts its compute, and its real working peak is set by activation overhead, not weight size. The admission map encodes the measured figures so a job cannot be admitted on a host that will OOM, and the launcher invariant documents the specific flag that caused the black-image incident so it is not reintroduced.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -796,34 +766,15 @@ operational constraints.
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-spine-code-coverage-ratchet -->
 - **ID**: P5-SPINE-COVERAGE-001
-- **Status**: OPEN — an active problem to pay down, not an accepted steady state. The ratchet
-  is a floor that stops it from growing, not a reason to stop working on it.
-- **Description**: `validate_system.py` check **BR** (spine code coverage ratchet) measures the
-  fraction of eligible Python code surfaces cited by at least one non-aggregate wiki unit.
-  At the time this gate landed (v8.0.0), coverage was **7.7%** (47 of 607 eligible files).
-  Aggregate `unit-code-*` units (auto-seeded by `seed_code.py`, which cites only the first
-  five files of a subsystem while titling itself with the full count) are deliberately
-  excluded from the numerator — counting them would grade the generator against its own
-  output, the same circularity the doc-generation arc paid for elsewhere.
-- **Impact**: The vast majority of the codebase has no unit describing it. The spine's
-  single-write-point discipline guarantees the *forward* direction (a unit change
-  regenerates its docs); it does not by itself guarantee that new code arrives documented.
-- **Mitigation shipped**: The gate is a ratchet, not a cliff. `config/spine_coverage_baseline.yaml`
-  pins the current uncovered set; CI (check BR) fails only when that set *grows* — new code
-  cannot land with zero coverage unnoticed. This prevents the debt from getting worse; it does
-  not pay it down.
-- **Current measurement (2026-07-31)**: **14.9%** (91 of 609 eligible files), with 518
-  uncovered. The latest continuation added twenty-one exact citations in two
-  bounded audits. The security-bench structure and sub-component units now
-  cite the ten package, CLI, capability-rendering, goal-evaluation, and
-  perception modules their bodies describe. The platform-agent unit now maps
-  its seven core modules plus its hermetic regression suite, while the emergent
-  resolution unit cites the gap and trajectory-honesty implementations it
-  relies on. Meta3's sandbox-environment regression also joined its owning
-  limitation unit. The baseline was re-pinned downward after each audit.
-- **Next action**: Backfill coverage for the 518 currently-uncovered surfaces (write covering
-  units, re-pin the baseline down as each batch lands). Not completed in v8.0.0's release
-  window — tracked as ongoing work, not closed out or deprioritized indefinitely.
+- **Status**: OPEN — an active problem to pay down, not an accepted steady state. The ratchet is a floor that stops the uncovered set from growing, not a reason to stop working on it.
+- **Description**: `validate_system.py` check **BR** (spine code coverage ratchet), backed by `portal/platform/wiki/coverage.py`, measures the fraction of eligible Python code surfaces cited by at least one non-aggregate wiki unit. At the time the gate landed (v8.0.0), coverage was about 7.6% (46 of 605 eligible files, per `coverage.py`'s module docstring). Aggregate `unit-code-*` units (auto-seeded by `seed_code.py`, which cites only the first five files of a subsystem while titling itself with the full count) are deliberately excluded from the numerator — counting them would grade the generator against its own output.
+- **Mechanism**: The gate is a ratchet, not a cliff. `config/spine_coverage_baseline.yaml` pins the current uncovered set; CI fails only when that set *grows* — new code cannot land with zero coverage unnoticed. This prevents the debt from getting worse; it does not itself pay it down.
+- **Current state**: The baseline file now records 628 eligible surfaces with all 628 covered (`coverage_pct: 100.0`) — the uncovered list was driven to empty as covering units landed and the baseline was re-pinned downward after each audit batch. The ratchet still guards the set: any newly added Python surface that arrives without a covering unit makes the uncovered set grow and fails the gate.
+- **Next action**: Keep the discipline. New code must carry a covering unit at landing, and the baseline must be re-pinned only downward (never hand-edited upward, which would defeat the authority inversion the gate exists to enforce).
+
+## Why
+
+The ratchet exists to fix an authority inversion: docs generated from units were certified current by comparing them with the very units they came from, so nothing proved new code arrived documented. Measuring code citations from non-aggregate units only, and failing when the uncovered set grows, forces the forward direction — every new surface must earn its coverage. Re-pinning to 100% does not retire the gate; it changes its job from paying down debt to holding the line.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -916,6 +867,10 @@ operational constraints.
   tests: `TestOllamaOutcomes::test_payload_caps_num_ctx` in
   `portal/platform/inference/tool_preselect/tests/test_preselector.py`.
   `cli_probe.py` is operator-invoked only, no automated coverage needed.
+
+## Why
+
+The router warmup pins the model with `keep_alive: -1`, which is load-bearing: without it the router re-cold-loads on every heavy inference request. But the same pin becomes a memory bug when `options.num_ctx` is omitted, because Ollama then reserves the model's full context window times the parallel slots — tens of GiB for a small model — which forces the scheduler to evict the router it was trying to keep warm. Matching the warmup context to the real routing call and the workspace limit is what makes the pin actually safe.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -956,6 +911,10 @@ operational constraints.
 - **Safety boundary**: Client `tool_choice=none`, `portal_no_tools`, and non-matching prompts
   retain their prior behavior. A selected tool must be allow-listed; the selector never grants
   a capability. Unit coverage includes the affected UAT prompt shapes and negative cases.
+
+## Why
+
+The direct reproduction proved the same model was reliable with one tool and intermittent with the full multi-tool payload, so the failure is sampling-driven ambiguity under schema load, not wiring. Narrowing the exposed schema to one required tool for explicit side-effect intents removes the ambiguity at its source without buffering the streaming hot path, and the allow-list plus retained `tool_choice=none` behavior keeps the selector from ever granting a capability it did not already have.
 <!-- /WIKI:GENERATED -->
 
 ---

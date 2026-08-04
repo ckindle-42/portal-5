@@ -1,37 +1,40 @@
 ---
 id: unit-T1611-signature
 kind: mixed
-title: "T1611 \u2014 Container escape \u2014 host auditd + docker events [KEY: nsenter,\
-  \ mount, /proc/1, or privileged from the SPL]"
+title: "T1611 \u2014 Container escape detection signature"
 sources:
-- type: spl
-  path: portal/modules/security/core/siem/spl_detections.yaml#T1611
+- type: code
+  path: portal/modules/security/core/siem/spl_detections.yaml
 - type: mitre
   path: ATT&CK:T1611
-last_generated_commit: ''
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - T1611
-- technique
 - signature
+- technique
+- verified-v1
 created_at: 1785503864.9231381
 updated_at: 1785503864.9231381
 ---
 
-# T1611 — Container escape — host auditd + docker events [KEY: nsenter, mount, /proc/1, or privileged from the SPL]
+# T1611 — Container escape detection signature
 
-## Telemetry Signatures
+## What This Detection Sees
 
-### SPL Detection (siem/spl_detections.yaml)
+Container escape is a two-source signal. The SPL matches Linux auditd records for the namespace-escape primitives — `nsenter`, `mount`, and access to the host init process via `/proc/1` — alongside Docker daemon events for privileged containers, grouping by host so escape attempts are attributable.
+
+## SPL Detection
+
 ```spl
 index=portal5_lab (sourcetype="linux:auditd" "nsenter" OR "mount" OR "/proc/1") OR (sourcetype="docker:daemon" "privileged") | stats count by host
 ```
 
-## Per-Source Expected Signatures
+## Expected Signal
 
-| Source | Expected Signal |
-|--------|----------------|
-| (generic) | Activity consistent with T1611 |
+Container escape indicators: `nsenter`, `mount`, `/proc/1` access, or a privileged container — the escape primitives are the observable, not the escape itself.
 
----
-*Unit auto-generated from spl_detections.yaml + SCENARIOS.*
+## Why
+
+Pinned to the executable SPL because an escape is only visible through its primitives, and the query fixes exactly which ones count — `nsenter` and `mount` on the audit side, privileged on the daemon side. Keeping those literals verbatim preserves the boundary between this technique and ordinary container operations.

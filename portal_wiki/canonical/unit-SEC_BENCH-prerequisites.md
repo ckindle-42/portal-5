@@ -3,21 +3,18 @@ id: unit-SEC_BENCH-prerequisites
 kind: what
 title: 'Security bench prerequisites: lab VMs, attack image, env config'
 sources:
-- type: doc
-  path: docs/SECURITY_BENCH_EXEC.md
-  commit: ddb1cc61
 - type: code
   path: .env.example
-  commit: ddb1cc61
 - type: code
   path: portal/modules/security/core/_data.py
-  commit: ddb1cc61
-last_generated_commit: ddb1cc61
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
-- security
 - bench
 - prerequisites
+- security
+- verified-v1
 created_at: 1784945192.2622862
 updated_at: 1784945192.2622862
 ---
@@ -47,6 +44,8 @@ Required in `.env`:
 - `LAB_TARGET_SRV=10.10.11.33`
 - `LAB_TARGET_WEB=10.10.11.50`
 
+These must be present in the environment or `.env` for the lab-exec lane to activate; without `SANDBOX_LAB_EXEC=true` the bench silently falls back to synthetic results.
+
 Optional — for Proxmox VM lifecycle (snapshot/restore):
 - `PROXMOX_URL`, `PROXMOX_TOKEN_ID`, `PROXMOX_TOKEN_SECRET`
 - `LAB_DC_VMID`, `LAB_SRV_VMID`, `LAB_CLEAN_SNAPSHOT`
@@ -65,3 +64,7 @@ hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
 huihui_ai/baronllm-abliterated:latest
 hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
 ```
+
+## Why
+
+Every item here is a silent-failure precondition: the bench degrades to synthetic, unreachable, or wrong-model results rather than erroring when one is missing. `SANDBOX_LAB_EXEC` gates the entire lab-exec lane, the `LAB_TARGET_*` addresses are what the attack image actually reaches, and the model list is what the exec chain must have pulled locally before a run starts.

@@ -3,32 +3,35 @@ id: unit-SEC_BENCH-execution-chain-features
 kind: what
 title: Security bench execution chain features (22 features)
 sources:
-- type: doc
-  path: docs/SECURITY_BENCH_EXEC.md
-  commit: ddb1cc61
 - type: code
   path: portal/modules/security/core/chain.py
-  commit: ddb1cc61
+- type: code
+  path: portal/modules/security/core/exec_chain.py
 - type: code
   path: portal/modules/security/core/scoring.py
-  commit: ddb1cc61
-last_generated_commit: ddb1cc61
+- type: code
+  path: portal/modules/security/core/lab.py
+- type: code
+  path: portal/modules/security/core/_data.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
-- security
 - bench
 - features
+- security
+- verified-v1
 created_at: 1784945192.269671
 updated_at: 1784945192.269671
 ---
 
-22 features of the execution chain:
+22 features of the execution chain (drawn from `exec_chain.py`, `scoring.py`, `lab.py`, and `_data.py`):
 
 1. **Adaptive Retry** — `fallback_techniques` tried when primary fails
 2. **Cross-Prompt Artifact Chaining** — `CHAIN_INHERITANCE` forwards credentials
 3. **Blue Active Response** — `block_ip`, `disable_account`, `revoke_tgt`
-4. **Step Dependency DAG** — topological sort via `_build_step_dag()`
-5. **Lab Service Auto-Discovery** — 19 service probes, `--probe-lab`
+4. **Step Dependency DAG** — topological sort via `build_step_dag()` in `lab.py`
+5. **Lab Service Auto-Discovery** — 17 service probes in `_LAB_SERVICE_PROBES`, `--probe-lab`
 6. **Stealth Scoring** — Windows Event Log queries, `stealth_event_ids`
 7. **Proxmox VM Snapshot/Restore** — `--lab-snapshot`
 8. **Per-Step Time Budgets** — `time_budget_s`, `speed_score`
@@ -45,4 +48,8 @@ updated_at: 1784945192.269671
 19. **Full Output Capture** — `tool_calls`, `lab_outputs`, `lab_observations`
 20. **Proven Scoring** — `proven_coverage` in lab-exec mode
 21. **Library x Container Matrix** — `--matrix` / `--matrix-all`
-22. **Linux/Web Telemetry** — `TelemetryBackend` protocol, Wazuh adapter
+22. **Linux/Web Telemetry** — `TelemetryBackend` protocol + platform telemetry contracts (`splunk`/`winevent`/`wazuh`)
+
+## Why
+
+The feature list is the map a reviewer uses to decide whether a behavior is already covered before adding a new flag or scorer. Every item traces to a concrete hook in the bench code — a data field, a CLI flag, or a scoring function — so "we should add X" is answerable by checking the list first. The execution chain is deliberately the thickest surface of the bench: it is where theory, real command dispatch, blue detection, and lab lifecycle all meet.

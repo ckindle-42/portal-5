@@ -3,25 +3,30 @@ id: unit-DESIGN_WIKI-spine-write-point
 kind: why
 title: Spine is the single write-point for documentation
 sources:
-- type: design
-  path: docs/DESIGN_WIKI_GENERATION_LOOP_V1.md
-  commit: d869257b
-  section: '1'
 - type: code
   path: portal/platform/wiki/render.py
-  commit: d869257b
-last_generated_commit: d869257b
+- type: code
+  path: scripts/validate_system.py
+- type: code
+  path: portal/platform/inference/sync_config.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - design
-- wiki
 - spine
+- verified-v1
+- wiki
 created_at: 1784941688.641715
 updated_at: 1784941688.641715
 ---
 
-The `portal_wiki/canonical/` spine is the single place truth is edited. Every downstream doc is a **shell** whose substance is rendered from spine units. You edit one unit; a process regenerates every downstream file that draws on it. You never update the same fact in two places.
+The `portal_wiki/canonical/` spine is the single write-point for documentation: a fact is edited in one unit, and `render_all_generated_blocks` rewrites every `WIKI:GENERATED` block that references it across the `TIER1_DOCS` set. Downstream docs are shells -- their generated substance is the unit body, not a separate copy -- so the same fact is never maintained in two places.
 
-This inverts the traditional documentation model (hand-maintain prose, then audit for drift) into a mechanical one: drift is impossible because the doc has no independent prose to drift -- its content IS the unit body, filled in by `render_all_generated_blocks` during `sync-config`.
+This inverts the traditional model of hand-maintaining prose and then auditing for drift. A generated block cannot drift independently because it has no independent prose: `sync-config` invokes `render_all_generated_blocks`, and only the content between the `WIKI:GENERATED` markers is replaced, leaving human-authored narrative untouched.
 
-The enforcement gate is AW in `validate_system.py`: it diffs each WIKI:GENERATED block against its unit's current body. A mismatch means `sync-config` was not re-run after a source change.
+The enforcement gate is validate check AW in `scripts/validate_system.py`: `check_wiki_facts_current` diffs each generated block against its unit's current body via `check_generated_blocks_current`, so a mismatch is a precise signal that `sync-config` was not re-run after the source unit changed. AW also verifies fact-units against live config and that migrated docs carry no un-fenced substance.
+
+## Why
+
+Concentrating the write-point in the spine is what makes doc currency mechanical rather than reviewable. If facts lived in two places, nothing could stop them from diverging except an audit nobody schedules; the block-fill contract turns divergence into a per-block diff failure a pre-commit gate can catch. AW diffs against the unit body rather than a hash or timestamp because only an exact body comparison produces the precise, actionable mismatch that a coarse directory-changed signal cannot.

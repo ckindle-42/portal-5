@@ -3,47 +3,31 @@ id: unit-known-limitations-spine-code-coverage-ratchet
 kind: what
 title: Spine Code-Surface Coverage Is Partial (Ratchet, Not a Cliff)
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  section: Spine Code-Surface Coverage Is Partial (Ratchet, Not a Cliff)
 - type: code
   path: portal/platform/wiki/coverage.py
-last_generated_commit: ''
+- type: code
+  path: config/spine_coverage_baseline.yaml
+- type: code
+  path: scripts/validate_system.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
-- known-limitations
 - coverage
+- known-limitations
 - release
+- verified-v1
 created_at: 1785381155.353122
 updated_at: 1785500996
 ---
 
 - **ID**: P5-SPINE-COVERAGE-001
-- **Status**: OPEN — an active problem to pay down, not an accepted steady state. The ratchet
-  is a floor that stops it from growing, not a reason to stop working on it.
-- **Description**: `validate_system.py` check **BR** (spine code coverage ratchet) measures the
-  fraction of eligible Python code surfaces cited by at least one non-aggregate wiki unit.
-  At the time this gate landed (v8.0.0), coverage was **7.7%** (47 of 607 eligible files).
-  Aggregate `unit-code-*` units (auto-seeded by `seed_code.py`, which cites only the first
-  five files of a subsystem while titling itself with the full count) are deliberately
-  excluded from the numerator — counting them would grade the generator against its own
-  output, the same circularity the doc-generation arc paid for elsewhere.
-- **Impact**: The vast majority of the codebase has no unit describing it. The spine's
-  single-write-point discipline guarantees the *forward* direction (a unit change
-  regenerates its docs); it does not by itself guarantee that new code arrives documented.
-- **Mitigation shipped**: The gate is a ratchet, not a cliff. `config/spine_coverage_baseline.yaml`
-  pins the current uncovered set; CI (check BR) fails only when that set *grows* — new code
-  cannot land with zero coverage unnoticed. This prevents the debt from getting worse; it does
-  not pay it down.
-- **Current measurement (2026-07-31)**: **14.9%** (91 of 609 eligible files), with 518
-  uncovered. The latest continuation added twenty-one exact citations in two
-  bounded audits. The security-bench structure and sub-component units now
-  cite the ten package, CLI, capability-rendering, goal-evaluation, and
-  perception modules their bodies describe. The platform-agent unit now maps
-  its seven core modules plus its hermetic regression suite, while the emergent
-  resolution unit cites the gap and trajectory-honesty implementations it
-  relies on. Meta3's sandbox-environment regression also joined its owning
-  limitation unit. The baseline was re-pinned downward after each audit.
-- **Next action**: Backfill coverage for the 518 currently-uncovered surfaces (write covering
-  units, re-pin the baseline down as each batch lands). Not completed in v8.0.0's release
-  window — tracked as ongoing work, not closed out or deprioritized indefinitely.
+- **Status**: OPEN — an active problem to pay down, not an accepted steady state. The ratchet is a floor that stops the uncovered set from growing, not a reason to stop working on it.
+- **Description**: `validate_system.py` check **BR** (spine code coverage ratchet), backed by `portal/platform/wiki/coverage.py`, measures the fraction of eligible Python code surfaces cited by at least one non-aggregate wiki unit. At the time the gate landed (v8.0.0), coverage was about 7.6% (46 of 605 eligible files, per `coverage.py`'s module docstring). Aggregate `unit-code-*` units (auto-seeded by `seed_code.py`, which cites only the first five files of a subsystem while titling itself with the full count) are deliberately excluded from the numerator — counting them would grade the generator against its own output.
+- **Mechanism**: The gate is a ratchet, not a cliff. `config/spine_coverage_baseline.yaml` pins the current uncovered set; CI fails only when that set *grows* — new code cannot land with zero coverage unnoticed. This prevents the debt from getting worse; it does not itself pay it down.
+- **Current state**: The baseline file now records 628 eligible surfaces with all 628 covered (`coverage_pct: 100.0`) — the uncovered list was driven to empty as covering units landed and the baseline was re-pinned downward after each audit batch. The ratchet still guards the set: any newly added Python surface that arrives without a covering unit makes the uncovered set grow and fails the gate.
+- **Next action**: Keep the discipline. New code must carry a covering unit at landing, and the baseline must be re-pinned only downward (never hand-edited upward, which would defeat the authority inversion the gate exists to enforce).
+
+## Why
+
+The ratchet exists to fix an authority inversion: docs generated from units were certified current by comparing them with the very units they came from, so nothing proved new code arrived documented. Measuring code citations from non-aggregate units only, and failing when the uncovered set grows, forces the forward direction — every new surface must earn its coverage. Re-pinning to 100% does not retire the gate; it changes its job from paying down debt to holding the line.

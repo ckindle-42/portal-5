@@ -3,30 +3,37 @@ id: unit-DESIGN_WIKI-migration-procedure
 kind: what
 title: 'Migration procedure: the per-doc loop body'
 sources:
-- type: design
-  path: docs/DESIGN_WIKI_GENERATION_LOOP_V1.md
-  commit: 05e42ec2
-  section: Migration procedure
 - type: code
   path: portal/platform/wiki/migration.py
-  commit: 05e42ec2
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/wiki/render.py
+- type: code
+  path: scripts/doc_ledger.py
+- type: code
+  path: portal/platform/inference/sync_config.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - design
-- wiki
 - procedure
+- verified-v1
+- wiki
 created_at: 1784946277.748951
 updated_at: 1784946277.748951
 ---
 
-For each doc `D` returned by `discover_unmigrated_docs()` (highest priority first):
+For each doc `D` returned by `discover_unmigrated_docs()`, processed highest priority first, the loop body is:
 
-1. Read `D` and read HEAD reality. For every substantive claim, verify against actual code/config/data. Author units from HEAD truth, not stale prose.
-2. Decompose `D` into section-level units (A2 granularity rule).
-3. Convert `D` to a shell of WIKI:GENERATED blocks and WIKI:HUMAN-OWNED fences for irreducible judgment.
-4. Render via `sync-config`, prove round-trip (edit-propagates, hand-edit-is-clobbered).
-5. Retire `D` from commit-stamp ledger via `doc_ledger.py prune`.
-6. Verify green, commit. Re-discover and continue.
+1. Read `D` and read HEAD reality; verify every substantive claim against actual code, config, or data and author units from HEAD truth, never from stale prose.
+2. Decompose `D` into section-level units, reserving fact-atom decomposition for values that are reused or independently volatile (see the section-granularity unit).
+3. Convert `D` into a shell whose substance is `WIKI:GENERATED` blocks plus `WIKI:HUMAN-OWNED` fences for the irreducible judgment.
+4. Render through `sync-config`, which invokes `render_all_generated_blocks`, then prove round-trip: an edit to the unit propagates and a hand-edit inside a generated fence is clobbered.
+5. Retire `D` from `docs/.doc_ledger.yaml` via `doc_ledger.py prune` (`prune_migrated`).
+6. Verify the per-commit gate is green, commit, then re-discover and continue.
 
-Each doc is one atomic commit. The repo is green after every commit. The loop is resumable at any point.
+Each doc lands as one atomic commit, the repo is green after every commit, and the loop is resumable at any point without cleanup.
+
+## Why
+
+The procedure is a fixed loop body because a migration that cannot be verified at each step silently degrades into docs-are-the-source authoring. Rendering through `sync-config` and proving propagation and clobbering closes the loop before the ledger prune: a doc is only de-ledgered after its shell demonstrably tracks its units. The atomic-commit rule keeps every intermediate state buildable, which is what makes the loop safe to interrupt and resume.

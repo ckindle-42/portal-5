@@ -3,21 +3,18 @@ id: unit-SEC_BENCH-blue-orchestration
 kind: what
 title: Blue/purple discovery orchestration modes
 sources:
-- type: doc
-  path: docs/SECURITY_BENCH_EXEC.md
-  commit: ddb1cc61
 - type: code
   path: portal/modules/security/core/blue.py
-  commit: ddb1cc61
 - type: code
   path: portal/modules/security/core/blue_orchestrate.py
-  commit: ddb1cc61
-last_generated_commit: ddb1cc61
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
-- security
 - bench
 - orchestration
+- security
+- verified-v1
 created_at: 1784945480.186831
 updated_at: 1784945480.186831
 ---
@@ -34,6 +31,11 @@ updated_at: 1784945480.186831
 | `council` | tool + N reasoning + arbiter | N interpreters vote over shared evidence |
 | `multichain` | N independent chains | N fully independent investigations
 
+`scripted` and `hybrid` are assisted diagnostics and do not produce a primary
+capability score. `orchestrated`, `orchestrated-2section`, `council`, and
+`multichain` are standalone modes that replay a captured red episode
+(`--replay-captured-red`) rather than `--purple` prompt variants.
+
 ## Three-section pipeline (`orchestrated`)
 
 Retriever gathers telemetry; Hunter forms hypotheses; Expert renders verdict.
@@ -47,3 +49,7 @@ One Retriever gathers evidence once; N reasoning members vote independently.
 N fully independent investigative chains. Consolidation routes to: `AUTO_CONFIRM`, `ESCALATE`, `CONFIRM_AND_ESCALATE`, `DISMISS`.
 
 Escalation is a SCORED win, not a miss.
+
+## Why
+
+The mode table exists because a single blue prompt cannot serve every evaluation question. Scripted and discovery measure a lone defender; orchestrated, council, and multichain isolate how multiple models split evidence gathering from verdicts. The default is discovery so an operator who omits the flag gets the least-leading evaluation, while the standalone modes intentionally require a captured episode so comparisons stay reproducible against the same red evidence.
