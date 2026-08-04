@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 1123 canonical units.*
+*Deterministic projection of 1112 canonical units.*
 
 ## Knowledge Layer
 
@@ -929,36 +929,25 @@
 | `unit-security-tests-test-objective-executor` | what | 1 |
 | `unit-security-tools-mcp-surface` | mixed | 1 |
 | `unit-security-trajectory-score` | what | 1 |
+| `unit-surface-acceptance` | mixed | 1 |
+| `unit-surface-benchmarks` | mixed | 2 |
+| `unit-surface-scripts` | mixed | 1 |
 | `unit-surface-scripts-ci` | mixed | 1 |
+| `unit-surface-sec-core` | mixed | 1 |
+| `unit-surface-sec-tests` | mixed | 1 |
 | `unit-surface-security-eval` | mixed | 1 |
+| `unit-surface-tests-harness` | mixed | 2 |
+| `unit-surface-tests-unit` | mixed | 1 |
 | `unit-surface-toolpreselect-tests` | mixed | 1 |
-| `unit-tests-acceptance-comfyui-shim` | mixed | 1 |
-| `unit-tests-acceptance-v6-shim` | mixed | 1 |
-| `unit-tests-common` | mixed | 1 |
-| `unit-tests-conftest` | mixed | 1 |
-| `unit-tests-expected-models` | mixed | 1 |
+| `unit-surface-uat-catalog` | mixed | 1 |
 | `unit-tests-frontend-test-reasoning-display` | what | 1 |
 | `unit-tests-frontends-namespace` | mixed | 1 |
-| `unit-tests-init` | mixed | 1 |
 | `unit-tests-integration-wiki-cycle` | mixed | 1 |
-| `unit-tests-lib-coding-assertions` | mixed | 1 |
-| `unit-tests-lib-coding-fixtures` | mixed | 1 |
-| `unit-tests-lib-compliance-assertions` | mixed | 1 |
-| `unit-tests-lib-compliance-fixtures` | mixed | 1 |
-| `unit-tests-lib-init` | mixed | 1 |
-| `unit-tests-lib-results` | mixed | 1 |
-| `unit-tests-lib-stream-wait` | mixed | 1 |
 | `unit-tests-memory-guard` | mixed | 1 |
-| `unit-tests-persona-matrix-diff` | mixed | 1 |
-| `unit-tests-persona-matrix-shim` | mixed | 1 |
-| `unit-tests-quality-signals` | mixed | 1 |
-| `unit-tests-recall-scorer` | mixed | 1 |
 | `unit-tests-scripts-capability-probe` | mixed | 1 |
 | `unit-tests-scripts-cc-matrix` | mixed | 1 |
 | `unit-tests-scripts-game-analyze` | mixed | 1 |
 | `unit-tests-scripts-regen-section-table` | mixed | 1 |
-| `unit-tests-uat-dashboard` | mixed | 1 |
-| `unit-tests-uat-driver-shim` | mixed | 1 |
 | `unit-tests-unit-__init__` | mixed | 1 |
 | `unit-tests-unit-conftest` | mixed | 1 |
 | `unit-tests-unit-test-lab-exec-posture` | what | 1 |
@@ -1132,10 +1121,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 1123 units
+**Total:** 1112 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2082 references
+- **code**: 2073 references
 - **mitre**: 32 references
