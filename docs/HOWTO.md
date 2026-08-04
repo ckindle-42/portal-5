@@ -326,23 +326,12 @@ Document grounding is deliberately split: Open WebUI keeps the uploaded corpus a
 
 ## 15. User Management
 
-<!-- WIKI:GENERATED unit=unit-HOWTO-15-user-management -->
-## Approve Pending Users
-1. Admin Panel > Users
-2. Find users with "pending" role
-3. Click the user > set role to "user"
+<!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-approve-pending-users -->
+Self-registration arrives with the `pending` role because `DEFAULT_USER_ROLE=pending` in `.env.example` is the shipped default, and a pending account has no access until an admin promotes it. Two promotion paths exist. The web path is Open WebUI's Admin Panel > Users: locate the pending account and change its role to `user`. The CLI path is `./launch.sh add-user <email> [name] [role]` with an explicit `pending` role, whose role values scripts/lib/users.sh documents as `user | admin | pending`. `ENABLE_SIGNUP=true` toggles whether self-registration exists at all.
 
-## Create Users via CLI
-```bash
-./launch.sh add-user alice@team.local "Alice Smith"
-./launch.sh add-user bob@team.local "Bob Jones" admin
-./launch.sh list-users
-```
+## Why
 
-## User Roles
-- `pending` -- cannot use the system, waiting for approval
-- `user` -- standard access to workspaces, tools, chat
-- `admin` -- full access including user management and all settings
+Pending-by-default is the deliberate team-deployment posture: nobody gains access silently on a shared box, and every account is either approved or created by an operator. Both registration paths share the same role vocabulary, so the approval gate stays consistent whether a user self-signs or is provisioned from the shell.
 <!-- /WIKI:GENERATED -->
 
 ---

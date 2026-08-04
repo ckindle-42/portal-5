@@ -293,14 +293,6 @@ by hand, which keeps `docker compose up` and `launch.sh up` from diverging.
 
 # Start / stop
 
-<!-- WIKI:GENERATED unit=unit-readme-start-stop -->
-./launch.sh up              # Start everything
-./launch.sh down            # Stop (data preserved)
-./launch.sh status          # Check service health
-<!-- /WIKI:GENERATED -->
-
----
-
 # Test everything is working
 
 <!-- WIKI:GENERATED unit=unit-readme-test-everything-is-working -->
@@ -358,14 +350,6 @@ editing shell code, and retired entries stay documented but stop being fetched.
 
 # MLX (Apple Silicon)
 
-<!-- WIKI:GENERATED unit=unit-readme-mlx-apple-silicon -->
-./launch.sh start-speech    # Start MLX speech server (Apple Silicon)
-./launch.sh stop-speech     # Stop MLX speech server
-./launch.sh mlx-status      # Check MLX component status (includes speech)
-<!-- /WIKI:GENERATED -->
-
----
-
 # User management
 
 <!-- WIKI:GENERATED unit=unit-readme-user-management -->
@@ -395,22 +379,7 @@ scriptable path to provision accounts without clicking through the admin panel.
 
 # Enable messaging channels (requires tokens in .env)
 
-<!-- WIKI:GENERATED unit=unit-readme-enable-messaging-channels-requires-tokens-in-env -->
-./launch.sh up-telegram     # Start Telegram bot
-./launch.sh up-slack        # Start Slack bot
-./launch.sh up-channels     # Start both
-<!-- /WIKI:GENERATED -->
-
----
-
 # Backup and restore
-
-<!-- WIKI:GENERATED unit=unit-readme-backup-and-restore -->
-./launch.sh backup          # Save all data to ./backups/
-./launch.sh restore <file>  # Restore from backup
-<!-- /WIKI:GENERATED -->
-
----
 
 # Seeding
 
@@ -444,52 +413,37 @@ without touching Open WebUI's database by hand.
 
 # Update (single command: git pull + rebuild + model refresh + re-seed)
 
-<!-- WIKI:GENERATED unit=unit-readme-update-single-command-git-pull-rebuild-model-refresh-re-seed -->
-./launch.sh update                  # Full update of all components
-./launch.sh update --skip-models    # Skip Ollama + MLX model refresh (faster)
-./launch.sh update --models-only    # Only refresh models
-<!-- /WIKI:GENERATED -->
-
----
-
 # Cleanup
-
-<!-- WIKI:GENERATED unit=unit-readme-cleanup -->
-./launch.sh clean           # Remove containers (keeps model weights)
-./launch.sh clean-all       # Remove everything including models
-./launch.sh rebuild         # Rebuild portal-pipeline Docker image after git pull
-```
-
----
-<!-- /WIKI:GENERATED -->
-
----
 
 ## Enable Telegram Bot
 
-<!-- WIKI:GENERATED unit=unit-readme-enable-telegram-bot -->
-1. Message **@BotFather** on Telegram → `/newbot` → copy the token
+<!-- WIKI:GENERATED unit=unit-HOWTO-16-telegram-bot -->
+1. Message **@BotFather** on Telegram -> `/newbot` -> copy the token
 2. Get your Telegram user ID from **@userinfobot**
 3. Add to `.env`:
    ```bash
    TELEGRAM_BOT_TOKEN=your-token-here
    TELEGRAM_USER_IDS=your-user-id
    ```
-4. Start: `./launch.sh up-telegram`
-5. Message your bot `/start` to verify
+4. Start: `./launch.sh up-telegram` — the `up-telegram` case in `launch.sh` refuses to start when `TELEGRAM_BOT_TOKEN` is unset, then runs `docker compose --profile telegram up -d`
+5. Message your bot `/start` to verify — the bot's `/start` handler in `portal_channels/telegram/bot.py` replies
 
----
+The bot container (`portal-telegram` in `deploy/portal-5/docker-compose.yml`) is profile-gated: plain `./launch.sh up` auto-detects the token and includes the telegram profile, while `up-telegram` forces it. The bot relays messages to the pipeline via `PIPELINE_URL` with `PIPELINE_API_KEY`, `TELEGRAM_USER_IDS` (comma-separated) controls which Telegram users may talk to it, and `TELEGRAM_DEFAULT_WORKSPACE` selects the routing workspace when the user has not set one with `/workspace`.
+
+## Why
+
+A messaging bot is just a thin channel adapter: all the intelligence stays in the pipeline, so the bot container only relays text between Telegram and the OpenAI-compatible router. Making it a compose profile rather than a default service keeps the token-less install clean, and the token auto-detection in `up` means turning the channel on is a one-line `.env` change with no extra command.
 <!-- /WIKI:GENERATED -->
 
 ---
 
 ## Enable Slack Bot
 
-<!-- WIKI:GENERATED unit=unit-readme-enable-slack-bot -->
-1. Go to https://api.slack.com/apps → **Create New App** → **From scratch**
-2. Under **OAuth & Permissions** → add bot scopes:
-   `app_mentions:read`, `chat:write`, `channels:history`, `im:history`, `im:read`, `im:write`
-3. Under **Socket Mode** → enable it → generate an **App-Level Token** (xapp-...)
+<!-- WIKI:GENERATED unit=unit-HOWTO-17-slack-bot -->
+1. Go to https://api.slack.com/apps -> **Create New App** -> **From scratch**
+2. Under **OAuth & Permissions** -> add bot scopes:
+   `app_mentions:read`, `chat:write`, `channels:history`, `im:history`, `im:read`, `im:write` (Slack-side app configuration)
+3. Under **Socket Mode** -> enable it -> generate an **App-Level Token** (xapp-...)
 4. Install app to your workspace
 5. Add to `.env`:
    ```bash
@@ -497,10 +451,14 @@ without touching Open WebUI's database by hand.
    SLACK_APP_TOKEN=xapp-...
    SLACK_SIGNING_SECRET=...
    ```
-6. Start: `./launch.sh up-slack`
-7. Mention `@portal` in any channel to verify
+6. Start: `./launch.sh up-slack` — the `up-slack` case in `launch.sh` requires both `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` before running `docker compose --profile slack up -d`
+7. Mention `@portal` in any channel to verify — `portal_channels/slack/bot.py` registers an `app_mention` event handler
 
----
+The bot container (`portal-slack` in the compose file) receives the three tokens as env vars and runs `python -m portal_channels.slack.bot`. It connects via Socket Mode, so no public webhook or ingress is required. `SLACK_DEFAULT_WORKSPACE` sets the routing workspace for DMs and unmapped channels.
+
+## Why
+
+Slack integration uses Socket Mode precisely because it needs no public endpoint: the app-level token establishes an outbound WebSocket from the bot container, which keeps the whole deployment firewalled. The two-token requirement (bot token for the app, app token for the socket) is why `up-slack` validates both before starting — a half-configured bot fails loudly instead of silently ignoring mentions.
 <!-- /WIKI:GENERATED -->
 
 ---
