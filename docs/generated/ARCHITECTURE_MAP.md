@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 1127 canonical units.*
+*Deterministic projection of 1125 canonical units.*
 
 ## Knowledge Layer
 
@@ -933,6 +933,7 @@
 | `unit-security-tools-mcp-surface` | mixed | 1 |
 | `unit-security-trajectory-score` | what | 1 |
 | `unit-surface-security-eval` | mixed | 1 |
+| `unit-surface-toolpreselect-tests` | mixed | 1 |
 | `unit-tests-acceptance-comfyui-shim` | mixed | 1 |
 | `unit-tests-acceptance-v6-shim` | mixed | 1 |
 | `unit-tests-common` | mixed | 1 |
@@ -1046,9 +1047,6 @@
 | `unit-tool-preselect-test-parser` | mixed | 1 |
 | `unit-tool-preselect-test-preselector` | mixed | 1 |
 | `unit-tool-preselect-test-state` | mixed | 1 |
-| `unit-toolpreselect-baseline-prefill` | mixed | 1 |
-| `unit-toolpreselect-run-bench` | mixed | 1 |
-| `unit-toolpreselect-scenario-gen` | mixed | 1 |
 | `unit-uat-browser` | mixed | 1 |
 | `unit-uat-calibration` | mixed | 1 |
 | `unit-uat-catalog-g_advanced` | mixed | 1 |
@@ -1136,10 +1134,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 1127 units
+**Total:** 1125 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2086 references
+- **code**: 2084 references
 - **mitre**: 32 references

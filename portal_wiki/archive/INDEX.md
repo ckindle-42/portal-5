@@ -409,3 +409,6 @@
 - `unit-security-eval-surface` | 2026-08-04 | 02c6e8b29d4babc2b7a8a2afe3855beb3b64866c | Consolidated into unit-surface-security-eval; per-file scope was set by the BR filesystem walk, not by a decision.
 - `unit-security-eval-blue-ablation` | 2026-08-04 | 02c6e8b29d4babc2b7a8a2afe3855beb3b64866c | Consolidated into unit-surface-security-eval; per-file scope was set by the BR filesystem walk, not by a decision.
 - `unit-security-eval-ablation-attribution` | 2026-08-04 | 02c6e8b29d4babc2b7a8a2afe3855beb3b64866c | Consolidated into unit-surface-security-eval; per-file scope was set by the BR filesystem walk, not by a decision.
+- `unit-toolpreselect-scenario-gen` | 2026-08-04 | e649d2ecdca90ba62d0eb8230060f82bc6bb01ef | Consolidated into unit-surface-toolpreselect-tests; per-file scope was set by the BR filesystem walk, not by a decision.
+- `unit-toolpreselect-run-bench` | 2026-08-04 | e649d2ecdca90ba62d0eb8230060f82bc6bb01ef | Consolidated into unit-surface-toolpreselect-tests; per-file scope was set by the BR filesystem walk, not by a decision.
+- `unit-toolpreselect-baseline-prefill` | 2026-08-04 | e649d2ecdca90ba62d0eb8230060f82bc6bb01ef | Consolidated into unit-surface-toolpreselect-tests; per-file scope was set by the BR filesystem walk, not by a decision.
