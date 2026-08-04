@@ -47,8 +47,8 @@ no file under it may import `portal.modules.*`.
 - `loop.py` enforces budgets, stop conditions, confidence gates, and honest
   blocked outcomes while folding each executor result into observations.
 - `writeback.py` can propose a cited wiki unit, but never confirms or merges it.
-- `tests/test_agent_core.py` exercises those contracts hermetically without a
-  live pipeline or network.
+- `portal/platform/agent/tests/test_agent_core.py` exercises those contracts
+  hermetically without a live pipeline or network.
 
 ## Why
 

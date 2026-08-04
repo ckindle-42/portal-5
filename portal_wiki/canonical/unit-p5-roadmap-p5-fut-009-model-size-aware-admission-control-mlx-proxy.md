@@ -29,8 +29,9 @@ runs before any model switch, rejecting a load with an HTTP 503 and an
 operator-actionable message when required GB plus `MEMORY_HEADROOM_GB` exceeds
 free memory. The override env vars were `MLX_MEMORY_HEADROOM_GB` (default 10.0)
 and `MLX_MEMORY_UNKNOWN_DEFAULT_GB` (default 20.0). The proxy and its unit tests
-(`tests/unit/test_mlx_proxy.py`) were deleted at commit 3a0c58e, which retired
-the whole MLX inference tier; the archive README documents recovering the tests
+were deleted at commit 3a0c58e, which retired
+the whole MLX inference tier; the archive README at
+`scripts/_archive/mlx-retired-3a0c58e/` documents recovering the tests
 via git. Memory pressure is now managed by Ollama itself through
 `OLLAMA_MAX_LOADED_MODELS` and `OLLAMA_MEMORY_LIMIT` in `.env.example` and
 `deploy/portal-5/docker-compose.yml`.

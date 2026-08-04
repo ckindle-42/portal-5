@@ -34,10 +34,10 @@ probe scores for the bench-* candidate workspaces.
 
 ## Why
 
-This unit previously pointed at raw result paths under tests/benchmarks/bench_security
-that do not exist and asserted unverifiable detail about a full-coverage run and its
-scoring. The harness and its isolated cand_* output path are the real record:
-candidate_eval.py fixes where results live, PROMOTE_POLICY=confirm fixes why nothing
-was promoted, and the V10 probe file supplies the scoring basis for the bench-*
+This unit previously pointed at raw result paths under a `bench_security` results
+directory that does not exist and asserted unverifiable detail about a full-coverage
+run and its scoring. The harness and its isolated cand_* output path are the real
+record: candidate_eval.py fixes where results live, PROMOTE_POLICY=confirm fixes why
+nothing was promoted, and the V10 probe file supplies the scoring basis for the bench-*
 workspaces. Unverifiable claims were deleted rather than softened so the summary stays
 a faithful pointer to the data it describes.

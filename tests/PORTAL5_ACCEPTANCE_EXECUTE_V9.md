@@ -3,8 +3,8 @@
 <!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-portal5-acceptance-execute-v9-claude-code-prompt -->
 The current acceptance entry point is `tests/portal5_acceptance_v6.py`, a thin
 script that re-exports the routing signal dicts and delegates to
-`acceptance.cli.main`; confirm it is still the newest runner by listing
-`tests/portal5_acceptance_v*.py` before running.
+`acceptance.cli.main`; confirm it is still the newest runner by listing the
+`portal5_acceptance_*` shims under `tests/` before running.
 
 Two changes mark the current surface. First, the retired standalone security
 workspace ids no longer exist as workspace ids: S6 tests the `auto-security`
@@ -139,13 +139,13 @@ The runner entry point is `tests/portal5_acceptance_v6.py`, which is a thin
 wrapper: it re-exports `WORKSPACE_PROMPTS` and the related signal dicts and
 calls `acceptance.cli.main`, with all real behavior in
 `tests/acceptance/{cli,runner,results,_common}.py`. Before launching, confirm no
-newer runner exists by listing `tests/portal5_acceptance_v*.py`.
+newer runner exists by listing the `portal5_acceptance_*` shims under `tests/`.
 
 Section selection is handled by the `--section` argument in
 `tests/acceptance/cli.py` and by `_parse_sections` in
 `tests/acceptance/runner.py`, which accepts a single id, a comma-separated list,
 an inclusive numeric range such as `--section S0-S5`, or `ALL`. The
-authoritative section list is the `tests/acceptance/s*.py` file set on disk,
+authoritative section list is the `s*` module set under `tests/acceptance/`,
 each wrapped by a function in the runner's `ALL_SECTIONS` map. Key sections for
 the current surface: S3/S3a routes the production catalog; S6 covers the
 `auto-security` workspace and its variants; S10 and S10c exercise personas (S10
@@ -239,8 +239,9 @@ After a run completes, the results file is written to the repository root as
 the date, git SHA, section list, runtime, summary counts, and one row per
 check. To publish it, run `scripts/update_grafana_acceptance.py --input
 ACCEPTANCE_RESULTS.md`. The explicit `--input` path matters because the script's
-default points at `tests/ACCEPTANCE_RESULTS.md` while the runner writes to the
-repo root. The script parses the markdown table, rewrites the dashboard JSON at
+default (the `RESULTS_FILE` constant) points at a `tests/`-tree location for the
+results file while the runner writes the file to the repo root. The
+script parses the markdown table, rewrites the dashboard JSON at
 `config/grafana/dashboards/portal5_acceptance.json`, and archives a JSONL
 snapshot into `tests/acceptance_corpus/` for the run-trend panel.
 
