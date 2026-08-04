@@ -5,6 +5,9 @@ Usage:
     python3 -m portal_wiki render --check      # drift gate (exit non-zero if drifted)
     python3 -m portal_wiki status              # wiki status report
     python3 -m portal_wiki propose --dry-run   # list proposed units
+    python3 -m portal_wiki archive <unit-id> --reason "<text>"
+                                               # archive a unit (retained on disk)
+    python3 -m portal_wiki archive --check     # archived units unreachable?
 """
 
 from __future__ import annotations
@@ -179,6 +182,50 @@ def cmd_drift(args: argparse.Namespace) -> int:
     return 1 if (evaluate_claims(units, repo_root) or unbaselined) else 0
 
 
+def cmd_archive(args: argparse.Namespace) -> int:
+    """Archive a live unit, or verify archived units are unreachable.
+
+    Archive moves the unit file to `portal_wiki/archive/` and appends a
+    reasoned line to `portal_wiki/archive/INDEX.md`. Preconditions are
+    enforced here, not trusted to the operator: a reason is required, no
+    doc block may reference the id, no live unit may link it, and no cited
+    source may be a live code/config path (overridable only via
+    `--superseded-by` with a verified survivor).
+    """
+    from portal.platform.wiki.archive import archive_reachability, archive_unit
+    from portal.platform.wiki.store import reset_canonical_dir, set_canonical_dir
+
+    repo_root = Path(__file__).resolve().parent.parent
+    set_canonical_dir(repo_root / "portal_wiki" / "canonical")
+
+    if args.check:
+        violations = archive_reachability(repo_root)
+        if violations:
+            print(f"FAIL: {len(violations)} archived unit(s) reachable from the live store")
+            for v in violations:
+                print(f"  ! {v}")
+            reset_canonical_dir()
+            return 1
+        print("OK: no live unit or doc block references an archived unit")
+        reset_canonical_dir()
+        return 0
+
+    if not args.unit_id:
+        print("Usage: python3 -m portal_wiki archive <unit-id> --reason <text>")
+        reset_canonical_dir()
+        return 2
+
+    ok, msg = archive_unit(
+        args.unit_id,
+        args.reason,
+        repo_root,
+        superseded_by=args.superseded_by,
+    )
+    print(msg if ok else f"refused: {msg}")
+    reset_canonical_dir()
+    return 0 if ok else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Portal Wiki CLI")
     sub = parser.add_subparsers(dest="command")
@@ -203,6 +250,23 @@ def main() -> int:
         help="Rewrite config/spine_drift_baseline.yaml from current findings",
     )
 
+    # archive
+    archive_p = sub.add_parser(
+        "archive", help="Archive a unit (retained on disk) or check reachability"
+    )
+    archive_p.add_argument("unit_id", nargs="?", help="Unit id to archive")
+    archive_p.add_argument("--reason", default="", help="Reason, phrased as a fact")
+    archive_p.add_argument(
+        "--superseded-by",
+        default=None,
+        help="Survivor unit that cites every code path of the archived unit",
+    )
+    archive_p.add_argument(
+        "--check",
+        action="store_true",
+        help="Verify no live unit or doc block references an archived unit",
+    )
+
     args = parser.parse_args()
 
     if args.command == "render":
@@ -211,6 +275,8 @@ def main() -> int:
         return cmd_status(args)
     elif args.command == "drift":
         return cmd_drift(args)
+    elif args.command == "archive":
+        return cmd_archive(args)
     else:
         parser.print_help()
         return 1

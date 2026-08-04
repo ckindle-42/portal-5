@@ -12,6 +12,7 @@ from .schema import KnowledgeUnit
 
 # Default store directory (relative to repo root)
 _CANONICAL_DIR: Path | None = None
+_ARCHIVE_DIR: Path | None = None
 
 
 def _get_canonical_dir() -> Path:
@@ -32,6 +33,25 @@ def reset_canonical_dir() -> None:
     """Reset to default."""
     global _CANONICAL_DIR
     _CANONICAL_DIR = None
+
+
+def _get_archive_dir() -> Path:
+    """Get the archive store directory (archived units, retained on disk)."""
+    if _ARCHIVE_DIR is not None:
+        return _ARCHIVE_DIR
+    return Path(__file__).resolve().parents[3] / "portal_wiki" / "archive"
+
+
+def set_archive_dir(path: Path) -> None:
+    """Override the archive directory (for testing)."""
+    global _ARCHIVE_DIR
+    _ARCHIVE_DIR = path
+
+
+def reset_archive_dir() -> None:
+    """Reset to default."""
+    global _ARCHIVE_DIR
+    _ARCHIVE_DIR = None
 
 
 def _unit_path(unit_id: str) -> Path:
@@ -85,3 +105,23 @@ def delete_unit(unit_id: str) -> bool:
         path.unlink()
         return True
     return False
+
+
+def load_archived() -> list[KnowledgeUnit]:
+    """Load all archived units from the archive store.
+
+    Archived units are retained on disk (catalog changes are additive-only)
+    but are read-only history: `load_all()` never sees them, so search,
+    coverage, drift, quality, and render all operate on the live set only.
+    Explicit access for archaeology and for the archive command itself.
+    """
+    archive = _get_archive_dir()
+    if not archive.exists():
+        return []
+    units = []
+    for path in sorted(archive.glob("*.md")):
+        try:
+            units.append(KnowledgeUnit.from_markdown(path.read_text(encoding="utf-8")))
+        except (ValueError, Exception):
+            continue  # skip malformed files
+    return units

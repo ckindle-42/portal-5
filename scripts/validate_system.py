@@ -2830,8 +2830,43 @@ def main() -> int:
         "BS. spine drift census (claims hold + pins resolvable + doc refs exist)",
         check_spine_drift,
     )
+    v.run(
+        "BT. archived units unreachable (no live link or doc block references)",
+        check_archive_reachability,
+    )
 
     return v.summary()
+
+
+def check_archive_reachability() -> tuple[str, str, list[dict]]:
+    """BT. Archived units stay out of the working set.
+
+    Archiving moves a unit's file to `portal_wiki/archive/`; the archive command
+    refuses when a live doc block references the id, a live unit links it, or a
+    live code source determines it. This check proves the invariant holds across
+    the store as a whole, so an archived id can never be re-reached through a
+    stray reference.
+    """
+    from portal.platform.wiki.archive import archive_reachability
+
+    violations = archive_reachability(REPO_ROOT)
+    if violations:
+        return (
+            "FAIL",
+            f"{len(violations)} archived unit(s) reachable from the live store",
+            [
+                {
+                    "name": "archived units unreachable",
+                    "status": "FAIL",
+                    "detail": "; ".join(violations[:6]),
+                }
+            ],
+        )
+    return (
+        "PASS",
+        "no live unit or doc block references an archived unit",
+        [{"name": "archived units unreachable", "status": "PASS", "detail": "all clean"}],
+    )
 
 
 def check_spine_drift() -> tuple[str, str, list[dict]]:
