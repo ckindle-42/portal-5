@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 1112 canonical units.*
+*Deterministic projection of 1041 canonical units.*
 
 ## Knowledge Layer
 
@@ -948,79 +948,8 @@
 | `unit-tests-scripts-cc-matrix` | mixed | 1 |
 | `unit-tests-scripts-game-analyze` | mixed | 1 |
 | `unit-tests-scripts-regen-section-table` | mixed | 1 |
-| `unit-tests-unit-__init__` | mixed | 1 |
-| `unit-tests-unit-conftest` | mixed | 1 |
-| `unit-tests-unit-test-lab-exec-posture` | what | 1 |
-| `unit-tests-unit-test-lab-setup` | what | 1 |
 | `unit-tests-unit-test-security-corpus-contract` | what | 1 |
 | `unit-tests-unit-test-wiki-search-ranking` | what | 2 |
-| `unit-tests-unit-test_acceptance_common` | mixed | 1 |
-| `unit-tests-unit-test_adhoc_probe` | mixed | 1 |
-| `unit-tests-unit-test_all_writebacks` | mixed | 1 |
-| `unit-tests-unit-test_backend_registry_health` | mixed | 1 |
-| `unit-tests-unit-test_bench_capability_cli` | mixed | 1 |
-| `unit-tests-unit-test_bench_config_coverage` | mixed | 1 |
-| `unit-tests-unit-test_bench_skip` | mixed | 1 |
-| `unit-tests-unit-test_bench_supervisor` | mixed | 1 |
-| `unit-tests-unit-test_capability_lib` | mixed | 1 |
-| `unit-tests-unit-test_capability_probe` | mixed | 1 |
-| `unit-tests-unit-test_catalog_schema` | mixed | 1 |
-| `unit-tests-unit-test_channels` | mixed | 1 |
-| `unit-tests-unit-test_coding_fixtures` | mixed | 1 |
-| `unit-tests-unit-test_compliance_assertions` | mixed | 1 |
-| `unit-tests-unit-test_compliance_fixtures` | mixed | 1 |
-| `unit-tests-unit-test_config_ollama_url` | mixed | 1 |
-| `unit-tests-unit-test_config_schema` | mixed | 1 |
-| `unit-tests-unit-test_config_validate` | mixed | 1 |
-| `unit-tests-unit-test_council_review` | mixed | 1 |
-| `unit-tests-unit-test_council_review_bench` | mixed | 1 |
-| `unit-tests-unit-test_document_mcp` | mixed | 1 |
-| `unit-tests-unit-test_expected_models` | mixed | 1 |
-| `unit-tests-unit-test_generated_artifacts_fresh` | mixed | 1 |
-| `unit-tests-unit-test_hint_validator` | mixed | 1 |
-| `unit-tests-unit-test_mcp_endpoints` | mixed | 1 |
-| `unit-tests-unit-test_mcp_fleet_single_source` | mixed | 1 |
-| `unit-tests-unit-test_mcp_vendor_smoke` | mixed | 1 |
-| `unit-tests-unit-test_media_admission` | mixed | 1 |
-| `unit-tests-unit-test_model_catalog_parity` | mixed | 1 |
-| `unit-tests-unit-test_module_toggle` | mixed | 1 |
-| `unit-tests-unit-test_notifications` | mixed | 1 |
-| `unit-tests-unit-test_owui_seeding_payloads` | mixed | 1 |
-| `unit-tests-unit-test_persona_matrix_diff` | mixed | 1 |
-| `unit-tests-unit-test_pipeline_mcp_rest` | mixed | 1 |
-| `unit-tests-unit-test_portal_cli` | mixed | 1 |
-| `unit-tests-unit-test_portal_mitre_mcp` | mixed | 1 |
-| `unit-tests-unit-test_portal_yaml_consistency` | mixed | 1 |
-| `unit-tests-unit-test_prompt_signal_overlap` | mixed | 1 |
-| `unit-tests-unit-test_promptfoo_configs` | mixed | 1 |
-| `unit-tests-unit-test_provenance_ledger` | mixed | 1 |
-| `unit-tests-unit-test_proxmox_mcp` | mixed | 1 |
-| `unit-tests-unit-test_quality_signals` | mixed | 1 |
-| `unit-tests-unit-test_rag` | mixed | 1 |
-| `unit-tests-unit-test_recall_scorer` | mixed | 1 |
-| `unit-tests-unit-test_request_slot` | mixed | 1 |
-| `unit-tests-unit-test_reranker_mcp` | mixed | 1 |
-| `unit-tests-unit-test_routing` | mixed | 1 |
-| `unit-tests-unit-test_sandbox_network_flag` | mixed | 1 |
-| `unit-tests-unit-test_semaphore` | mixed | 1 |
-| `unit-tests-unit-test_spine_coverage` | mixed | 1 |
-| `unit-tests-unit-test_spine_gates` | mixed | 1 |
-| `unit-tests-unit-test_state_persistence` | mixed | 1 |
-| `unit-tests-unit-test_stream_fallback` | mixed | 1 |
-| `unit-tests-unit-test_tool_backoff` | mixed | 1 |
-| `unit-tests-unit-test_tool_registry_refresh` | mixed | 1 |
-| `unit-tests-unit-test_transcribe_diarize` | mixed | 1 |
-| `unit-tests-unit-test_triage_layer2` | mixed | 1 |
-| `unit-tests-unit-test_uat_browser` | mixed | 1 |
-| `unit-tests-unit-test_uat_dispatch_route_params` | mixed | 1 |
-| `unit-tests-unit-test_uat_dispatch_url` | mixed | 1 |
-| `unit-tests-unit-test_uat_grading` | mixed | 1 |
-| `unit-tests-unit-test_uat_metrics_url` | mixed | 1 |
-| `unit-tests-unit-test_wiki_core` | mixed | 1 |
-| `unit-tests-unit-test_wiki_quality` | mixed | 1 |
-| `unit-tests-unit-test_wiki_seed_security` | mixed | 1 |
-| `unit-tests-unit-test_wiki_writeback` | mixed | 1 |
-| `unit-tests-unit-test_workspace` | mixed | 1 |
 | `unit-tool-preselect-cli-probe` | mixed | 1 |
 | `unit-tool-preselect-config` | mixed | 1 |
 | `unit-tool-preselect-init` | mixed | 1 |
@@ -1121,10 +1050,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 1112 units
+**Total:** 1041 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2073 references
+- **code**: 2002 references
 - **mitre**: 32 references
