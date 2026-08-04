@@ -243,9 +243,35 @@ def broken_path_refs(repo_root: Path | None = None) -> tuple[str, ...]:
 
 # ── Census (the human-facing report) ─────────────────────────────────────────
 
+# Regenerated families whose figures are derived and already gated by AW. A
+# `unit-fact-*` body's counts come from live config every seed run, and a
+# technique signature's Event IDs come from the MITRE mapping — neither is a
+# hand-typed figure that could quietly go stale.
+_DERIVED_FAMILY_RE = re.compile(r"^(?:unit-fact-|unit-T\d{4}(?:\.\d{3})?-signature$)")
+
+# Fenced blocks hold captured terminal output and config excerpts. A figure inside
+# one is a transcript of something that already happened, not a claim about now —
+# `0 backends` in a log excerpt was one of the original false alarms.
+_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
+
+# Plural noun required, and the number may not be preceded by a digit or a dot.
+#
+# The singular forms and the missing lookbehind produced twelve false alarms on a
+# store with zero real debt, every one of them a number that was never a count:
+#
+#   "the destination-side 5140 variant"      Windows Event ID
+#   "the Windows 4688 variant"               Windows Event ID
+#   "when a 2509 model card appears"         model version
+#   "per the Qwen3.6 tool-call format"       version number split across the noun
+#   "2658 unit ✅"                           a gates line, using "unit" generically
+#
+# A census that reports debt where there is none teaches the operator to ignore
+# the number, which is how the original 38-unit false alarm survived long enough
+# to matter. The detector is deliberately narrow: a missed figure is visible the
+# moment it goes wrong, a false alarm is invisible forever.
 _NUMERIC_CLAIM_RE = re.compile(
-    r"\b\d[\d,]*\s+(?:workspaces?|personas?|MCP servers?|servers?|checks?|models?|units?|"
-    r"backends?|variants?|scenarios?|techniques?|tools?|ports?)\b",
+    r"(?<![\d.])\b\d[\d,]*\s+(?:workspaces|personas|MCP servers|servers|checks|models|"
+    r"backends|variants|scenarios|techniques|tools|ports)\b",
     re.IGNORECASE,
 )
 
@@ -256,6 +282,12 @@ def undeclared_numeric_claims(units=None) -> dict[str, list[str]]:
     Visible debt, never a hard gate: the pattern is a heuristic and a fuzzy
     signal promoted to a failure is exactly the kind of measurement error this
     project has paid to unlearn. Use it to pick the next units to instrument.
+
+    Derived families are skipped rather than flagged: a `unit-fact-*` body's
+    figures regenerate from live config (and a technique signature's Event IDs
+    from the MITRE mapping) every seed run and are already gated by `AW`, so a
+    `claims:` entry there would duplicate an existing guarantee rather than add
+    one.
     """
     if units is None:
         from portal.platform.wiki.store import load_all
@@ -263,9 +295,11 @@ def undeclared_numeric_claims(units=None) -> dict[str, list[str]]:
         units = load_all()
     out: dict[str, list[str]] = {}
     for unit in units:
-        if getattr(unit, "claims", None):
+        if getattr(unit, "claims", None) or _DERIVED_FAMILY_RE.match(unit.id):
             continue
-        hits = [m.group(0).strip() for m in _NUMERIC_CLAIM_RE.finditer(unit.body)]
+        hits = [
+            m.group(0).strip() for m in _NUMERIC_CLAIM_RE.finditer(_FENCE_RE.sub(" ", unit.body))
+        ]
         if hits:
             out[unit.id] = sorted(set(hits))
     return out

@@ -9,6 +9,8 @@ sources:
   path: portal/platform/wiki/drift.py
 - type: code
   path: tests/unit/test_spine_drift.py
+- type: code
+  path: tests/unit/test_detector_precision.py
 last_generated_commit: 18c44dc3675cf43e4be7663a7f2c2eb4c3f8b535
 claims:
 - probe: validate.checks
@@ -49,7 +51,13 @@ nothing to assert, and demanding an assertion from it would produce exactly the
 mass-stubbing this project refused when it declined to force 100% code-surface
 coverage. Units whose body states a countable quantity without declaring a claim
 are reported as visible debt instead, so the next units to instrument are always
-known without a fuzzy signal being promoted to a failure.
+known without a fuzzy signal being promoted to a failure. The signal itself is
+deliberately narrow (TASK_DETECTOR_PRECISION_V1): a figure is only a count when
+the noun is plural and the number is not preceded by a digit or a dot, fenced
+terminal excerpts are stripped, and the `unit-fact-*` / `unit-T*-signature`
+families are skipped because their figures regenerate from live config or the
+MITRE mapping and are already gated by `AW`. `tests/unit/test_detector_precision.py`
+locks the narrowing.
 
 The census carries two further axes. **Pin health** classifies every unit that
 cites a repo-local path: 461 units shipped pinned to `05e42ec2`, a SHA absent
@@ -81,7 +89,8 @@ pattern contract, `drift.py` classifies pin health and broken doc path
 references (delegating "is this path allowed to be missing" to `git
 check-ignore` rather than a hand-maintained allowlist, so a renamed or
 newly-ignored path never needs a second update to stay accurate), and
-`tests/unit/test_spine_drift.py` locks the behavior. The declared claim on
+`tests/unit/test_spine_drift.py` and `tests/unit/test_detector_precision.py`
+lock the behavior. The declared claim on
 `validate.checks` keeps the unit's own count honest, and the
 `phantom`/`stale`/`unpinned` vocabulary is re-derivable by re-running the
 census rather than trusting this prose.

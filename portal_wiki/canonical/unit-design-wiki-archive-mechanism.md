@@ -12,6 +12,8 @@ sources:
   path: portal_wiki/__main__.py
 - type: code
   path: tests/unit/test_wiki_archive.py
+- type: code
+  path: tests/unit/test_detector_precision.py
 last_generated_commit: 6afb262648d307376dfb4f839eeed69c02112d04
 claims: []
 confidence: high
@@ -37,7 +39,10 @@ archived unit cannot surface in an answer or a census.
 The preconditions for archiving live in `archive_unit()`, not in the operator's
 discipline. A unit is refused when the reason is missing, when a `WIKI:GENERATED`
 doc block references the id, when another live unit's body links it, or when any
-cited source is a live `.py`/`.yaml`/`.json`/`.sh` path. The code-source refusal
+cited source is a live file or directory — "live" meaning a real, non-generated
+path on disk (`is_live_source` asks the filesystem, not an extension allowlist,
+and line-anchored `WIKI:GENERATED` markers reject spine-written markdown). The
+code-source refusal
 is the only one overridable, and only through `--superseded-by <survivor>`, which
 requires a survivor unit that already cites every code path the archived unit
 cited — so a re-groundable unit cannot be archived to avoid re-grounding it.
