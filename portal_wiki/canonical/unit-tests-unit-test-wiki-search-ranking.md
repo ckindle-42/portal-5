@@ -33,8 +33,8 @@ fails the test, so search quality is checked rather than spot-checked.
 
 The flat keyword score treated a design unit and a test-section unit
 identically on equal keyword evidence, so "workspace routing" surfaced a UAT
-staged-section unit ahead of `unit-router-routing` (the routing design). The
-`-s\d{2}_` id-pattern penalty and the kind tier make the design unit win the
-tie, and the fixture locks the judgement so a future re-ranking cannot
-silently regress it. The test is intentionally hermetic: it reads the fixture
-and the live store, requiring no network or services.
+staged-section unit ahead of the routing-design unit. The `-s\d{2}_`
+id-pattern penalty and the kind tier make the design unit win the tie, and the
+fixture locks the judgement so a future re-ranking cannot silently regress it.
+The test is intentionally hermetic: it reads the fixture and the live store,
+requiring no network or services.
