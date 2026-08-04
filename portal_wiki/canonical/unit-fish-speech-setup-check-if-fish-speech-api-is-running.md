@@ -1,18 +1,36 @@
 ---
 id: unit-fish-speech-setup-check-if-fish-speech-api-is-running
 kind: what
-title: "FISH_SPEECH_SETUP \u2014 Check if Fish Speech API is running"
+title: "Checking the TTS backend \u2014 health route, not a Fish Speech API"
 sources:
-- type: doc
-  path: docs/FISH_SPEECH_SETUP.md
-  commit: 05e42ec2
-  section: Check if Fish Speech API is running
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/modules/media/tools/tts_mcp.py
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+- type: code
+  path: launch.sh
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.541662
 updated_at: 1784946220.541662
 ---
 
-curl http://localhost:5005/v1/health
+There is no standalone Fish Speech API server in Portal 5; when the optional
+`fish_speech` package is importable, the TTS MCP loads it in-process instead of
+proxying to a separate process. The correct way to ask whether speech is ready is
+the MCP's own health route: `curl http://localhost:8916/health` returns JSON
+whose `backend` field reads either `kokoro` or `fish_speech`. `docker-compose.yml`
+uses that same request as the container healthcheck, and `./launch.sh logs mcp-tts`
+streams the service log for diagnosing failures at request time.
+
+## Why
+
+The older guide pointed operators at a port 5005 API that no code in this
+repository runs, so that check could never succeed against a healthy stack.
+Pinning the probe to the route the MCP actually serves makes the verification
+meaningful and keeps it identical to the healthcheck Docker already executes for
+the container.

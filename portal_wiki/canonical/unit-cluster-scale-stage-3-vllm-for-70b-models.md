@@ -3,30 +3,38 @@ id: unit-cluster-scale-stage-3-vllm-for-70b-models
 kind: what
 title: "CLUSTER_SCALE \u2014 Stage 3: vLLM for 70B Models"
 sources:
-- type: doc
-  path: docs/CLUSTER_SCALE.md
-  commit: 05e42ec2
-  section: 'Stage 3: vLLM for 70B Models'
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/inference/cluster_backends.py
+- type: code
+  path: config/backends.yaml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.5125499
 updated_at: 1784946220.5125499
 ---
 
-When ready to run 70B+ models (Llama 3.1 70B, etc.) via vLLM:
+A vLLM node for very large models is registered with `type: openai_compatible`.
+`cluster_backends.py` names vLLM as the canonical example of that type and
+derives its liveness probe from the type as well: `health_url` falls back to
+`/health` for any backend that is neither `ollama` nor `omlx`. After starting
+`vllm serve` on the target host, append one entry to the `backends:` list of
+`config/backends.yaml` carrying `type: openai_compatible`, the base `url`, a
+`group`, and the served `models`. An optional `health_path:` override repoints
+the probe at a proxy that fronts the vLLM process. Because the OpenAI-compatible
+surface means `chat_url` appends `/v1/chat/completions` for every backend type,
+the streaming and routing code is engine-agnostic.
 
-1. Install vLLM on the target machine
-2. Start vLLM:
-   ```bash
-   vllm serve meta-llama/Llama-3.1-70B-Instruct --port 8000
-   ```
-3. Add to config/backends.yaml:
-   ```yaml
-   - id: vllm-70b
-     type: openai_compatible
-     url: "http://192.168.1.103:8000"
-     group: general
-     models: [meta-llama/Llama-3.1-70B-Instruct]
-   ```
+## Why
+
+The `type` field on `Backend` exists precisely so engine differences stay inside
+config, not code. vLLM speaks the same OpenAI chat protocol as Ollama —
+`chat_url` appends `/v1/chat/completions` for every type — and its only
+protocol distinction is the liveness surface: `/health` instead of `/api/tags`,
+which `health_url` chooses from the type. That single difference is why a
+seventy-billion-parameter model server can join the fleet without touching the
+request paths. `health_path:` covers the proxy-fronted deployment, keeping even
+the nonstandard topology a YAML-only edit.

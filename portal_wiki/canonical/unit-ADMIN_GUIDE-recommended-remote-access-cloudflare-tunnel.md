@@ -3,28 +3,25 @@ id: unit-ADMIN_GUIDE-recommended-remote-access-cloudflare-tunnel
 kind: why
 title: "ADMIN_GUIDE \u2014 Recommended remote access: Cloudflare Tunnel"
 sources:
-- type: design
-  path: docs/ADMIN_GUIDE.md
-  section: 'Recommended remote access: Cloudflare Tunnel'
-last_generated_commit: ''
+- type: code
+  path: launch.sh
+- type: code
+  path: config/cloudflared/config.yml.example
+- type: code
+  path: .env.example
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
 - ADMIN_GUIDE
+- docs
+- verified-v1
 created_at: 1783195000.813865
 updated_at: 1783195000.813865
 ---
 
+Recommended remote access is a Cloudflare Tunnel: `cloudflared` runs on the host and merges the reference ingress from `config/cloudflared/config.yml.example` into its own config. The rules route `/files/{music,tts}/*` to ports 8912/8916 and a ComfyUI hostname to 8188 before the catch-all to 8080. Remote media links need `ENABLE_REMOTE_ACCESS=true` and `PORTAL_PUBLIC_URL=https://portal.example.com`; `launch.sh` derives `MUSIC_PUBLIC_URL`, `TTS_PUBLIC_URL`, `VIDEO_PUBLIC_URL`, and `COMFYUI_PUBLIC_URL` from it and the MCPs emit those into chat. Without `PORTAL_PUBLIC_URL` the MCPs fall back to localhost URLs that a remote browser cannot resolve.
 
-Run `cloudflared` on the host and configure ingress rules that route specific paths to the local services. The MCP servers stay loopback-only — cloudflared (running on the host, not in docker) reaches them through `127.0.0.1`. A reference ingress configuration is provided at `config/cloudflared/config.yml.example`.
+## Why
 
-To make generated media links work for remote browsers:
-
-```
-ENABLE_REMOTE_ACCESS=true
-PORTAL_PUBLIC_URL=https://portal.example.com
-```
-
-`launch.sh` derives `MUSIC_PUBLIC_URL`, `TTS_PUBLIC_URL`, `VIDEO_PUBLIC_URL`, and `COMFYUI_PUBLIC_URL` from `PORTAL_PUBLIC_URL`, and the MCPs emit those into chat instead of `http://localhost:<port>/...`.
-
-Without `PORTAL_PUBLIC_URL` set, every MCP falls back to localhost-only links — Open WebUI can still be reached remotely, but media download links inside chat won't resolve from a remote browser.
+cloudflared on the host is the chosen remote path because it reaches host-loopback services without changing any bindings, and its ingress is path-scoped so only media files escape the machine. That keeps the tunnel as the single external surface instead of opening the full API plane, which is the security property the whole remote-access story is built on.

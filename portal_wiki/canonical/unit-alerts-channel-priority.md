@@ -3,17 +3,22 @@ id: unit-alerts-channel-priority
 kind: what
 title: "ALERTS \u2014 Channel Priority"
 sources:
-- type: doc
-  path: docs/ALERTS.md
-  commit: 05e42ec2
-  section: Channel Priority
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/inference/notifications/dispatcher.py
+- type: code
+  path: portal/platform/inference/notifications/channels/__init__.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.551283
 updated_at: 1784946220.551283
 ---
 
-All channels receive the same events simultaneously. To avoid duplicate alerts in
-Slack/Telegram, use separate bots or filter with channel rules.
+There is no priority ladder and no ordered fan-out. `dispatch` gathers every registered channel into a single `asyncio.gather` call with `return_exceptions`, so Slack, Telegram, Email, Pushover, and Webhook all receive an event at the same moment, and a slow or failed receiver is isolated from the others. Because every configured channel sees every event, deduplication is left to the operator rather than built into the dispatcher.
+
+## Why
+
+Fanning out concurrently rather than sequentially keeps an unresponsive endpoint from delaying the other four channels, and fire-and-forget send means a notification failure can never fail a chat request. The absence of priority is deliberate: an alert is either worth sending or not, so operators who want fewer messages simply omit the channels they do not need.

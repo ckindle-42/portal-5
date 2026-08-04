@@ -3,44 +3,28 @@ id: unit-alerts-troubleshooting
 kind: what
 title: "ALERTS \u2014 Troubleshooting"
 sources:
-- type: doc
-  path: docs/ALERTS.md
-  commit: 05e42ec2
-  section: Troubleshooting
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/inference/router/handlers.py
+- type: code
+  path: portal/platform/inference/notifications/channels/webhook.py
+- type: code
+  path: portal/platform/inference/notifications/channels/email.py
+- type: code
+  path: portal/platform/inference/notifications/scheduler.py
+- type: code
+  path: portal/platform/inference/router/state.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.551797
 updated_at: 1784946220.551797
 ---
 
-**No alerts received:**
-- Verify `NOTIFICATIONS_ENABLED=true` in `.env`
-- Check pipeline logs: `docker compose logs portal-pipeline | grep -i "notification"`
-- Test a channel directly — if it works in the chat app it will work here
+Debugging follows the enablement chain. If nothing arrives, confirm `NOTIFICATIONS_ENABLED` is true, that the pipeline was restarted after the environment changed, then POST `/notifications/test` for per-channel config status. For webhooks verify `WEBHOOK_URL` accepts a JSON POST and that `WEBHOOK_HEADERS`, when set, parses; malformed JSON is logged and ignored. Email requires the port to match the provider, 587 for STARTTLS and 465 for SSL. The daily summary no longer resets on restart: metrics persist to `/app/data/metrics_state.json` every sixty seconds and the delta snapshot lives beside it, with guards that skip an empty first-day report.
 
-**Telegram alerts not working:**
-- Ensure the alert bot is an admin in the target channel
-- Channel ID format: `-1001234567890` (negative, starts with `-100`)
-- For private channels, the bot must be added before the channel ID will work
+## Why
 
-**Email not working:**
-- Check SMTP credentials — many providers require app-specific passwords
-- Port 587 = STARTTLS, Port 465 = SSL — verify your provider's requirements
-
-**Pushover alerts not working:**
-- Verify the user key matches your Pushover dashboard exactly
-- Check that the application token is correct (not the user key)
-
-**Daily summary not sent:**
-- Confirm `ALERT_SUMMARY_ENABLED=true`
-- Check the scheduled hour and timezone match your expectation
-- Summary uses in-memory request counts — if the pipeline restarts between
-  midnight and the summary time, counts reset to zero for that day
-
-**Webhook not firing:**
-- Verify `WEBHOOK_URL` is set and the endpoint is reachable from the container
-- Check that the endpoint accepts POST requests with `Content-Type: application/json`
-- If using `WEBHOOK_HEADERS`, ensure it is valid JSON — malformed JSON is logged and ignored
-- Inspect outgoing requests: `docker compose logs portal-pipeline | grep -i webhook`
+Every failure mode here traces back to a small set of causes: environment not read, endpoint unreachable, or a restart gap. Because the summary reads persisted state rather than pure memory, the older advice that a restart between midnight and summary time zeroes the numbers is no longer accurate, and correcting it prevents operators from chasing a phantom reset.

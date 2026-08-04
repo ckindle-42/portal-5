@@ -3,44 +3,39 @@ id: unit-HOWTO-3-workspaces
 kind: why
 title: "HOWTO \u2014 3. Workspaces"
 sources:
-- type: design
-  path: docs/HOWTO.md
-  section: 3. Workspaces
-last_generated_commit: ''
+- type: code
+  path: config/portal.yaml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
 - HOWTO
+- docs
+- verified-v1
 created_at: 1783195000.839686
 updated_at: 1783195000.839686
 ---
 
+**What:** Each workspace routes to a specialized model and activates the relevant tools.
 
-**What:** Each workspace routes to a specialized model and activates relevant tools.
+**How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block — each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select one from the model dropdown; the exposed ones are exactly those with `expose_to_owui: true`. `./launch.sh sync-config` regenerates the derived artifacts (`workspace_routing` in `config/backends.yaml`, `.mcp.json`, and the Open WebUI workspace presets under `imports/openwebui/workspaces/`) so `config/portal.yaml` stays the single source of truth.
 
-**How:** Select a workspace from the model dropdown in the top bar.
+For the full live roster (production + eval workspaces, module, model hint) use `unit-fact-workspace-roster` — do not maintain a second handwritten table here. A few flagship examples verified against `config/portal.yaml`:
 
-| Workspace | Select this when... | Routes to |
-|-----------|---------------------|-----------|
-| Portal Auto Router | You're unsure | LLM router classifies intent → best-fit workspace (Ollama) |
-| Portal Daily Driver | Everyday chat, writing, summarization, planning (snappy) | Gemma-4-26B-A4B-IT (Ollama) |
-| Portal Code Expert | Writing or reviewing code | Qwen3-Coder-30B MoE (Ollama) |
-| Portal Security Analyst | Security questions | Qwen3.6-27B (Ollama) · BaronLLM (Ollama) |
-| Portal Red Team | Offensive security | Qwen3.6-27B (Ollama) · BaronLLM (Ollama) |
-| Portal Blue Team | Incident response | sylink:8b (Ollama) — SOC triage, DFIR, ATT&CK |
-| Portal Creative Writer | Stories, scripts | Gemma-4-heretic (Ollama) · Dolphin (Ollama) |
-| Portal Deep Reasoner | Complex analysis | Qwen3.6-27B (Ollama) · DeepSeek-R1 (Ollama) |
-| Portal Council Review | Review decisions, plans, proposals, policies, or research briefs with independent evidence/risk/operator lenses | Three isolated reviewers + deterministic quorum + final synthesizer |
-| Portal Document Builder | Word/Excel/PPT files | Granite-4.1-8B (Ollama) + Documents MCP |
-| Portal Video Creator | Shelved; not shown in the dropdown | Video MCP is disabled |
-| Portal Music Producer | Generate music | Qwen3.5-abliterated (Ollama) + Music MCP |
-| Portal Research Assistant | Web research | Gemma-4-26B-A4B-IT (Ollama) · Tongyi-DeepResearch (Ollama) |
-| Portal Vision | Image analysis | Gemma-4-26B-A4B-IT (Ollama) · Qwen3-VL (Ollama) |
-| Portal Data Analyst | Statistics, analysis | Granite-4.1-30B (Ollama) |
-| Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Granite-4.1-30B (Ollama) · DeepSeek-R1 (Ollama) |
-| Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small (Ollama) |
-| Portal SPL Engineer | Writing or debugging Splunk SPL queries | Qwen3-Coder-Next-abliterated 80B (Ollama) |
-| Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding tasks | Qwen3-Coder-Next 80B (Ollama) |
+| Workspace | model_hint (Ollama) | Key tools |
+|---|---|---|
+| `auto` (Portal Auto Router) | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | LLM intent classifier routes onward |
+| `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | web_search, create_word_document, execute_python |
+| `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | execute_python, execute_nodejs, execute_bash |
+| `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | web_search, classify_vulnerability, execute_bash |
+| `auto-documents` | `granite4.1:8b-ctx16k` | create_word_document, create_excel, create_powerpoint |
+| `auto-music` | `lfm2.5:8b-ctx8k` | generate_music, speak, clone_voice |
+| `auto-vision` | `qwen3-vl:32b-ctx8k` | transcribe_audio, generate_image |
 
-**Example — coding:**
-1. Selec
+`auto-video` is defined with `expose_to_owui: false` (shelved — see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.
+
+**Example — coding:** select `Portal Code Expert` and ask a coding question; `auto-coding` answers with Qwen3-Coder-30B and its sandbox tools (`execute_bash`, `execute_python`, `sandbox_status`) run code on request.
+
+## Why
+
+Workspaces are pure configuration, not code. Putting name, model hint, tool grants, and OWUI exposure in one YAML block means adding or tuning a lane never requires a pipeline code change, and the module-toggle layer can hide an entire workspace family at sync time. Mechanically deriving the presets keeps the dropdown and routing in lockstep, which is why `sync-config` idempotence is enforced by the test suite.

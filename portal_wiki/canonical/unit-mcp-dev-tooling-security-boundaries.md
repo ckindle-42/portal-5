@@ -3,26 +3,37 @@ id: unit-mcp-dev-tooling-security-boundaries
 kind: what
 title: "MCP_DEV_TOOLING \u2014 Security Boundaries"
 sources:
-- type: doc
-  path: docs/MCP_DEV_TOOLING.md
-  commit: 05e42ec2
-  section: Security Boundaries
-last_generated_commit: 05e42ec2
+- type: code
+  path: .mcp.json
+- type: code
+  path: portal/modules/coding/tools/code_sandbox_mcp.py
+- type: code
+  path: portal/platform/mcp_host/pipeline_mcp.py
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.580513
 updated_at: 1784946220.580513
 ---
 
-- `filesystem` is scoped to the repo dirs and `~/.portal5/logs` only — cannot reach outside.
-- `docker` uses the Docker socket. Acceptable on a local single-user machine only.
-- `fetch` is read-only HTTP GET. Do not use it to POST to the Open WebUI admin API.
-- `portal-sandbox` runs commands in an isolated container. `SANDBOX_LAB_EXEC=true` expands
-  capabilities for lab pentest workflows — see `docs/LAB_SETUP.md`.
-- `portal-pipeline` is localhost-only. Reads `PIPELINE_API_KEY` from the environment to
-  authenticate calls to the pipeline.
+Each MCP server in `.mcp.json` has an explicit boundary. `filesystem` is launched
+with `${HOME}/projects` and `/tmp` as its allowed roots. `docker` reaches the Docker
+socket, which is acceptable only on a single-user machine. `fetch` performs HTTP
+requests and should not be pointed at administrative APIs. `portal-sandbox` runs code
+in an isolated container (`code_sandbox_mcp.py`) whose posture widens only when
+`SANDBOX_LAB_EXEC` is set. `portal-pipeline` binds localhost and authenticates with
+`PIPELINE_API_KEY`. There is deliberately no sqlite server: the Open WebUI database
+lives in the `open-webui-data` named volume rather than a host bind mount.
 
-> **sqlite server omitted:** Open WebUI's `webui.db` lives in a Docker volume not bind-mounted
-> to the host. To enable sqlite MCP, add a bind mount in `docker-compose.yml` and add the
-> entry back to `.mcp.json`.
+## Why
+
+The boundaries are the trust model for a local, single-operator setup, and they are
+stated explicitly because each server is a different kind of surface. Reading them
+together shows which servers are sandboxed, which inherit host trust, and which are
+read-only — the information an operator needs before granting a coding agent broader
+access or exposing a port.

@@ -3,42 +3,27 @@ id: unit-compliance-fallback-policy-granite-4-1-initial-expectation
 kind: what
 title: "COMPLIANCE_FALLBACK_POLICY \u2014 Granite 4.1 \u2014 initial expectation"
 sources:
-- type: doc
-  path: docs/COMPLIANCE_FALLBACK_POLICY.md
-  commit: 05e42ec2
-  section: "Granite 4.1 \u2014 initial expectation"
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/portal.yaml
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: tests/fixtures/compliance_scenarios.yaml
+- type: code
+  path: tests/lib/compliance_assertions.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
+- verified-v1
 created_at: 1784946220.56481
 updated_at: 1784946220.56481
 ---
 
-Per IBM Research's stated design (Granite 4.1: dense, no-thinking,
-tool-calling-first, BFCL V3 leader at 73.7 for the 30B, GRC-aware
-training, ISO certification), Granite is expected to:
+Granite 4.1's model-card claims are recorded in the `bench-granite41-8b` and `bench-granite41-30b` workspace descriptions in `config/portal.yaml`. The 8B is described as a dense no-think model at roughly 5.3GB Q4_K_M, Apache 2.0 licensed and ISO-certified, with BFCL V3 68.3, IFEval 87.1 and GSM8K 92.5; the 30B as dense no-think at roughly 17GB Q4_K_M, Apache 2.0 and ISO-certified with cryptographic signatures, BFCL V3 73.7 (first on the IBM chart), IFEval 89.7, GSM8K 94.2 and EvalPlus 82.7, trained with GRC data curation for compliance and audit workflows.
 
-- **PASS clearly** on dense-structured-tool-output (scenario I) — no
-  reasoning chain to leak into the structured output.
-- **PASS** on classification-token-discipline — strong instruction
-  following per IFEval 87.1 (8B) / 89.7 (30B).
-- **PASS** on citation discipline across the 7 frameworks rotated by
-  the multi-framework scenarios.
-- **PASS** on anti-fabrication scenarios — Apache 2.0 + ISO discipline +
-  the "no chain of thought" design favor explicit refusal over confident
-  invention.
-- **WARN-acceptable or PASS** on insufficient-context — the persona
-  prompt enforces the exact phrase regardless of model.
+The expectations the sweep will test are encoded in `tests/fixtures/compliance_scenarios.yaml`: the `dense-structured-tool-output` scenario description states dense no-think models should pass it cleanly while reasoning models typically warn on emitted think blocks, and the classification, citation-format, anti-fabrication and insufficient-context scenarios carry assertion specs dispatched by `run_assertions` to `tests/lib/compliance_assertions.py`. If the first run disappoints, the operator's knobs are the persona system prompt (`config/personas/*.yaml`), the assertion regexes in `tests/lib/compliance_assertions.py`, and model group membership in `config/backends.yaml`.
 
-If Granite 8B fails to clear the 60% MUST threshold on the first run,
-the realistic interpretations are: (a) the persona system prompt isn't
-guiding it well — tune the prompt; (b) the assertion bar is overly
-strict — tune the assertion regex; (c) Granite 8B genuinely doesn't
-suit compliance fallback at this size — demote it within
-`ollama-general`.
+## Why
 
-If Granite 30B fails to clear the 80% MUST threshold, the operator
-explicitly evaluates whether to keep it in `ollama-reasoning` or
-demote it. The dense architecture's slower TPS at 30B is a separate
-trade-off captured in `bench_tps` runs, not in this policy.
+The source document's expectation prose is a prediction, so the only verifiable half is the model-card data recorded in the bench workspace descriptions and the fixture comments stating the intended outcome. Rewording the failure guidance to name the three configuration surfaces the operator can actually touch turns a speculative paragraph into a grounded decision checklist.

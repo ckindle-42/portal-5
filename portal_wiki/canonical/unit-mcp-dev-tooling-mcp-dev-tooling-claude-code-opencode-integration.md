@@ -3,24 +3,32 @@ id: unit-mcp-dev-tooling-mcp-dev-tooling-claude-code-opencode-integration
 kind: what
 title: "MCP_DEV_TOOLING \u2014 MCP Dev Tooling \u2014 Claude Code & opencode Integration"
 sources:
-- type: doc
-  path: docs/MCP_DEV_TOOLING.md
-  commit: 05e42ec2
-  section: "MCP Dev Tooling \u2014 Claude Code & opencode Integration"
-last_generated_commit: 05e42ec2
+- type: code
+  path: .mcp.json
+- type: code
+  path: opencode.jsonc
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.570229
 updated_at: 1784946220.570229
 ---
 
-Portal 5 ships two configuration files that wire it into AI-powered coding tools:
+Portal 5 ships two root-level configuration files that wire AI coding tools into the
+stack. `.mcp.json` is the MCP server roster that Claude Code auto-discovers when it
+opens the repo, covering the local transport servers and the remote portal-* HTTP
+servers. `opencode.jsonc` is the opencode configuration: it declares the local
+pipeline as the provider, the key plumbing for `PIPELINE_API_KEY`, the cloud-provider
+guard, and its own `mcp` block — opencode reads tool servers from that block, not
+from `.mcp.json`. Together they let both clients read the tree, run code, call Portal
+tools, and, for opencode, use fully local models.
 
-- **`.mcp.json`** — MCP server roster, picked up automatically by Claude Code (not opencode — see `opencode.jsonc` `mcp` block)
-- **`opencode.jsonc`** — opencode provider config, points opencode at the local pipeline as its AI backend
+## Why
 
-These let Claude Code and opencode read the repo, run code, call Portal 5 tools, and (for opencode)
-use fully local Portal 5 models instead of any cloud API.
-
----
+The two files exist because the two clients have different configuration surfaces:
+Claude Code consumes `.mcp.json` natively, while opencode needs a provider block and
+its own MCP roster. Keeping them separate but in lockstep means each tool reads the
+format it expects and the integration stays declarative rather than scripted.

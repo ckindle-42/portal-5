@@ -3,28 +3,33 @@ id: unit-comfyui-setup-wan-2-2-family-v6-2-addition
 kind: what
 title: "COMFYUI_SETUP \u2014 Wan 2.2 Family (v6.2 addition)"
 sources:
-- type: doc
-  path: docs/COMFYUI_SETUP.md
-  commit: 05e42ec2
-  section: Wan 2.2 Family (v6.2 addition)
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/modules/media/tools/video_mcp.py
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.555469
 updated_at: 1784946220.555469
 ---
 
-Wan 2.2 video generation is shelved on this Apple Silicon host. The table is
-retained only as an archival implementation inventory; none of these variants
-is exposed as a supported Portal operation.
+The Wan 2.2 family is an implementation inventory, not a service. The workflow
+registry in `video_mcp.py` maps four variants: t2v-a14b is a real two-expert
+graph whose fp8 checkpoints crash on MPS; ti2v-5b is a real fp16 graph that was
+verified but shelved by decision; animate-14b is a stub that raises an
+explanatory error when selected; s2v-14b is a real graph whose fp8 checkpoint
+also crashes at dequantization. The compose profile keeps the container out of
+the default start set, and the fleet table omits the video entry entirely. None
+of the four variants is exposed as a supported Portal capability.
 
-| Variant | Implementation state | Operating state |
-|---|---|---|
-| `wan22-t2v-a14b` | Workflow corrected; available FP8 checkpoints fail on MPS | SHELVED |
-| `wan22-ti2v-5b` | Verified working in isolation | SHELVED by project decision |
-| `wan22-animate-14b` | Stub only | NOT SUPPORTED |
-| `wan22-s2v-14b` | FP8 checkpoint fails on MPS | SHELVED |
+## Why
 
-See `unit-known-limitations-wan22-fp8-scaled-checkpoints-crash-on-apple-silicon-mps`
-for the evidence and revisit conditions.
+The registry is kept as a complete inventory even though only the shelving is
+operational because each variant carries a different reason for being inactive —
+crash, decision, or stub — and conflating them would mislead a future operator.
+The stub in particular is deliberate: it raises loudly rather than silently
+producing nothing.

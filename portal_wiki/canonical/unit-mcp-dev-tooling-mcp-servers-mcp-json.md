@@ -3,25 +3,31 @@ id: unit-mcp-dev-tooling-mcp-servers-mcp-json
 kind: what
 title: "MCP_DEV_TOOLING \u2014 MCP Servers (`.mcp.json`)"
 sources:
-- type: doc
-  path: docs/MCP_DEV_TOOLING.md
-  commit: 05e42ec2
-  section: MCP Servers (`.mcp.json`)
-last_generated_commit: 05e42ec2
+- type: code
+  path: .mcp.json
+- type: code
+  path: config/portal.yaml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.570611
 updated_at: 1784946220.570611
 ---
 
-Six servers activate when Claude Code or opencode opens this project:
+`.mcp.json` is the MCP server roster consumed by Claude Code. Four entries are
+command-transport servers launched through `npx` or `uvx`: `filesystem`, `fetch`,
+`git`, and `docker`. The rest are remote HTTP servers pointing at the reserved
+portal-* ports — comfyui :8910, documents :8913, sandbox :8914, tts :8916,
+security :8919, memory :8920, rag :8921, research :8922, browser :8923,
+proxmox :8927, pipeline :8928, mitre :8929, wiki :8931, and detections :8932 among
+them — so each tool set is available to the client without a local install.
 
-| Server | Transport | Purpose |
-|---|---|---|
-| `filesystem` | npx `@modelcontextprotocol/server-filesystem` | Read/write/search repo source tree and `~/.portal5/logs` |
-| `fetch` | uvx `mcp-fetch` | Read Prometheus metrics, pipeline `/health`, Ollama `/api/ps`, Grafana |
-| `git` | uvx `mcp-server-git` | Commit, diff, log, blame — regression bisect and change tracking |
-| `docker` | npx `@modelcontextprotocol/server-docker` | Container logs, status, exec — live MCP server debug |
-| `portal-sandbox` | URL `:8914/mcp` | `execute_bash`, `execute_python`, `execute_nodejs` in isolated container |
-| `portal-pipeline` | URL `:8928/mcp` | Stack introspection + FastContext repository explorer |
+## Why
+
+The roster is the single place Claude Code learns which capabilities exist, and its
+shape mirrors the project's port reservation table: every portal-* server is an HTTP
+endpoint on a fixed port with no per-client packaging. That keeps tool delivery
+cheap and makes the list auditable against `config/portal.yaml`'s fleet table.

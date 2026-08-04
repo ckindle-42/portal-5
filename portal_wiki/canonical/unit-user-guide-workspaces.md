@@ -3,44 +3,37 @@ id: unit-user-guide-workspaces
 kind: what
 title: "USER_GUIDE \u2014 Workspaces"
 sources:
-- type: doc
-  path: docs/USER_GUIDE.md
-  commit: 05e42ec2
-  section: Workspaces
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/portal.yaml
+- type: code
+  path: portal/platform/inference/sync_config.py
+- type: code
+  path: portal/platform/inference/router/workspaces.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.513955
 updated_at: 1784946220.513955
 ---
 
-Select your workspace from the model dropdown in the top bar. Each workspace
-routes your request to the best-suited AI model for that task.
+Workspaces are the routing layer. Each workspace defined in `config/portal.yaml`
+declares a `name`, a `model_hint` that selects its model, `expose_to_owui`
+(whether it becomes an Open WebUI preset), a tool list, and optional `variants`.
+The synchronization script writes presets only for exposed workspaces, so the
+model dropdown shows that curated set; variants such as the agentic coding lanes
+or the security sub-roles (`blueteam`, `redteam`) are addressed by query hint, not
+listed in the dropdown. `auto-video` is defined but `expose_to_owui: false` and
+shelved, and `auto-council` runs an opt-in multi-model review chain whose quorum
+and dissent handling are enforced in code.
 
-| Workspace | Best for |
-|---|---|
-| 🤖 Portal Auto Router | Not sure which to use — routes automatically |
-| 💻 Portal Code Expert | Writing code, debugging, code review |
-| ⚡ Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding (Qwen3-Coder-Next 80B) |
-| 🔒 Portal Security Analyst | Security questions, hardening guidance |
-| 🔴 Portal Red Team | Offensive security, penetration testing |
-| 🔵 Portal Blue Team | Incident response, threat detection, defense |
-| ✍️ Portal Creative Writer | Stories, scripts, creative content |
-| 🧠 Portal Deep Reasoner | Complex analysis, long reasoning chains |
-| 🏛️ Portal Council Review | Evidence-backed review of decisions, plans, proposals, and policies |
-| 📄 Portal Document Builder | Create Word/Excel/PowerPoint files |
-| 🎬 Portal Video Creator | Shelved; hidden from the model dropdown and not currently in operation |
-| 🎵 Portal Music Producer | Generate music and audio |
-| 🔍 Portal Research Assistant | Research and information synthesis |
-| 👁️ Portal Vision | Image analysis, visual tasks |
-| 📊 Portal Data Analyst | Data analysis, statistics |
-| 🔍 Portal SPL Engineer | Splunk SPL queries and detection searches |
-| ⚖️ Portal Compliance Analyst | NERC CIP gap analysis, policy review, audit prep |
-| 🧪 Portal Mistral Reasoner | Structured reasoning, strategic planning |
+## Why
 
-Council Review is opt-in because it runs three isolated reviewers and a final
-synthesizer. Give it the goal, constraints, available evidence, and options or
-artifact to review. It returns a code-determined recommendation, reviewer
-participation, dissent, missing evidence, and next actions. A reviewer that
-abstains or returns an invalid response does not silently shrink the quorum.
+The guide presented a fixed table of dropdown workspaces that mixed exposed
+workspaces, hidden variants, a shelved service, and a persona that never existed
+in config. Workspace presence in the interface is a mechanical consequence of
+`expose_to_owui` in `portal.yaml` plus the preset generator, so the unit must
+describe that rule instead of reprinting a snapshot. This keeps the claim stable
+as workspaces are added or shelved.

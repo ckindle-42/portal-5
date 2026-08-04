@@ -12,7 +12,7 @@ sources:
   path: portal_wiki/__main__.py
 - type: code
   path: tests/unit/test_wiki_archive.py
-last_generated_commit: 831274f592bf390ce1e599b7569a310e9250369a
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

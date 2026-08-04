@@ -1,7 +1,7 @@
 ---
 id: unit-design-spine-drift-census
 kind: mixed
-title: Spine drift census — binding doc prose to live code
+title: "Spine drift census \u2014 binding doc prose to live code"
 sources:
 - type: code
   path: portal/platform/wiki/claims.py
@@ -11,17 +11,18 @@ sources:
   path: tests/unit/test_spine_drift.py
 - type: code
   path: config/spine_drift_baseline.yaml
-last_generated_commit: ''
-confidence: high
-tags:
-- wiki
-- spine
-- drift
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims:
 - probe: validate.checks
   pattern: '{value} validate checks'
-created_at: 0
-updated_at: 0
+confidence: high
+tags:
+- drift
+- spine
+- verified-v1
+- wiki
+created_at: 1785825842.272556
+updated_at: 1785825842.272556
 ---
 
 Three gates guarded the spine and none of them objected while README asserted 60
@@ -66,3 +67,17 @@ number is a bug, not debt. Pin and reference findings ratchet against
 grow, so new drift cannot land while the existing debt is worked off. The census
 is re-runnable outside CI as `python3 -m portal_wiki drift`, which exits non-zero
 on a claim violation or unbaselined drift, and re-pins with `--pin-baseline`.
+
+## Why
+
+The census exists because the three prior gates certified a doc's block
+against its own unit body or proved a code surface had *some* citation —
+never that the cited prose was true — which is how README carried a wrong
+workspace count with every gate green. The mechanism is grounded in the
+code it describes: `claims.py` defines the probes and the `{value}`
+pattern contract, `drift.py` classifies pin health and broken doc path
+references and owns the ratchet against `config/spine_drift_baseline.yaml`,
+and `tests/unit/test_spine_drift.py` locks the behavior. The declared
+claim on `validate.checks` keeps the unit's own count honest, and the
+`phantom`/`stale`/`unpinned` vocabulary is re-derivable by re-running the
+census rather than trusting this prose.

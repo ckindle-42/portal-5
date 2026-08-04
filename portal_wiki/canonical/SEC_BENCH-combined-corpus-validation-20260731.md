@@ -15,28 +15,30 @@ sources:
   path: portal/modules/security/core/siem/capture_enrichment.py
 - type: code
   path: scripts/security_replay_verify.py
-- type: config
+- type: code
   path: config/security_corpus.yaml
-last_generated_commit: ''
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- security
 - agentic-blue
-- purple-team
-- detection-design
 - corpus
+- detection-design
 - provenance
+- purple-team
+- security
 - validation
+- verified-v1
 created_at: 1785540000.0
 updated_at: 1785634440.0
 ---
 
 The live-probed combined-corpus gate passed at this stopping point. The planning
-catalog contains 93 scenarios, but only 73 are backed lab exercises: 20 theory
-or generic web/cloud entries have no deployed replay target and are explicitly
-excluded, with reasons, by the corpus contract. Thirty-six of the 73 now have
-schema-v2, episode-scoped, scenario-valid Portal captures with real PCAPs.
-The live lane covers 9 target techniques, the current live-probed external
+catalog holds 93 scenario entries, of which 21 are theory or generic web/cloud
+entries with no deployed replay target and are explicitly excluded, with reasons,
+by the corpus contract — leaving 72 backed lab exercises. Thirty-six of the 72
+now have schema-v2, episode-scoped, scenario-valid Portal captures with real
+PCAPs. The live lane covers 9 target techniques, the current live-probed external
 labeled lane intersects 14, and their union covers 18 of the 25 backed target
 techniques. This means the available data is safe to use for detection design;
 it does not mean blue quality passed, and external data remains ineligible as
@@ -101,6 +103,20 @@ Detection design proceeds in this order:
 
 Spine-coverage expansion remains deferred until this design and validation
 backlog is complete.
+
+## Why
+
+This record exists because a validation gate is only trustworthy if the
+numbers behind it are re-derivable from the corpus contract and the
+scenario catalog that produced them. The catalog totals and exclusions
+are grounded in `config/security_corpus.yaml` (`scenario_scope:
+excluded_from_lab_replay`) and `portal/modules/security/core/exec_chain.py`
+(`SCENARIOS`), and the replay/provenance semantics are grounded in the
+replay and capture scripts it cites — so the "93/21/72" and technique
+coverage figures in this record can be recomputed instead of taken on
+faith. The update block on 2026-08-01 documents what changed since the
+original stopping point, preserving the historical verdict while keeping
+the record honest about its own revision.
 
 ## Stopping point and resume order
 

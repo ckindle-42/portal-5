@@ -3,26 +3,41 @@ id: unit-readme-portal-5-local-ai-platform
 kind: what
 title: "README \u2014 Portal 5 \u2014 Local AI Platform"
 sources:
-- type: doc
-  path: README.md
-  commit: 05e42ec2
-  section: "Portal 5 \u2014 Local AI Platform"
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/portal.yaml
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+- type: code
+  path: .env.example
+- type: code
+  path: KNOWN_LIMITATIONS.md
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.67769
 updated_at: 1784946220.67769
 ---
 
-A complete, private AI platform that runs on your hardware. Text, code, security
-analysis, images, music, documents, and voice — all local, all yours. The
-retained video-generation code is shelved and not part of normal operation.
+Portal 5 is a complete, private AI platform that runs on your hardware: text,
+code, security analysis, images, music, documents and voice — all local. It
+connects to Open WebUI, Telegram and Slack, and routes each task automatically to
+the workspace that carries the right model and toolset. The retained
+video-generation code is shelved and not part of normal operation, documented in
+`KNOWN_LIMITATIONS.md` and left unregistered in `config/portal.yaml`
+(`mcp_fleet`), where the `video` fleet entry is intentionally removed.
 
-Connects to Open WebUI, Telegram, and Slack. Routes automatically to the right
-model for each task. No cloud accounts. No usage fees. Inference is fully local —
-your prompts and responses never leave your machine. Model downloads from HuggingFace
-or Ollama registries transmit standard HTTP metadata; if `HF_TOKEN` is configured for
-gated models, authentication requests are sent to HuggingFace.
+Inference is fully local: prompts and responses never leave the machine. Model
+downloads from HuggingFace or Ollama registries transmit standard HTTP metadata,
+and if `HF_TOKEN` is configured for gated models, authentication requests are sent
+to HuggingFace. No cloud accounts or usage fees are required.
 
----
+## Why
+
+The platform is scoped as an enhancement layer over Open WebUI rather than a
+replacement web stack, which keeps authentication, chat history and RAG inside a
+battle-tested frontend while the pipeline owns routing and model selection. The
+video shelving is an honesty contract: code is retained for future work but is
+neither advertised nor operated until the crash limitations are resolved.

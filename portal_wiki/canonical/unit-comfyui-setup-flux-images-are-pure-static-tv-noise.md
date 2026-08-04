@@ -3,31 +3,34 @@ id: unit-comfyui-setup-flux-images-are-pure-static-tv-noise
 kind: what
 title: "COMFYUI_SETUP \u2014 FLUX images are pure static / TV noise"
 sources:
-- type: doc
-  path: docs/COMFYUI_SETUP.md
-  commit: 05e42ec2
-  section: FLUX images are pure static / TV noise
-last_generated_commit: 05e42ec2
+- type: code
+  path: scripts/lib/services.sh
+- type: code
+  path: portal/modules/media/tools/comfyui_mcp.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.5624719
 updated_at: 1784946220.5624719
 ---
 
-**Do not use `--force-fp16`** with FLUX on Apple Silicon MPS. FLUX's transformer
-attention layers are numerically sensitive — float16 precision errors compound over
-sampling steps until the output is indistinguishable from noise. SDXL tolerates fp16
-fine because its U-Net architecture is more forgiving; FLUX does not.
+`--force-fp16` is nowhere in the ComfyUI launch path. The install function
+`_launch_install_comfyui` writes `start.sh` and the launchd plist with only the
+listen address and port arguments, and the MCP's ETA estimator documents its
+Apple Silicon timing assumption as running without fp16. The FLUX graph itself
+pins the `KSampler` cfg to 1.0 and routes guidance through the `FluxGuidance`
+node, because CFG-style extrapolation on a flow-matching model with a real CFG
+scale produces exactly the static output users report. If FLUX output looks like
+TV noise while SDXL is clean, inspect the running process flags; a launch script
+carrying `--force-fp16` is the classic cause and must be edited out.
 
-`~/ComfyUI/start.sh` and the LaunchAgent plist must NOT include `--force-fp16`.
-ComfyUI runs FLUX in bfloat16/float32 by default on MPS, which is correct.
+## Why
 
-If you see static with FLUX but clean images from SDXL, check:
-```bash
-ps aux | grep "main.py" | grep -v grep   # should NOT show --force-fp16
-```
-
-If it shows `--force-fp16`, edit `~/ComfyUI/start.sh` and
-`~/Library/LaunchAgents/com.portal5.comfyui.plist` to remove it, then restart
-ComfyUI.
+FLUX is a diffusion transformer whose attention math accumulates float16
+precision error across sampling steps, so forcing fp16 on MPS degrades the output
+to noise; SDXL's convolutional U-Net tolerates the same precision loss. The
+launch scripts therefore must never add the flag, and the workflow keeps CFG at
+1.0 with separate guidance scaling for the same numerical-sensitivity reason.

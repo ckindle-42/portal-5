@@ -1,7 +1,7 @@
 ---
 id: unit-design-omlx-dual-backend-plumbing
 kind: mixed
-title: "DESIGN — oMLX dual-backend plumbing (P5-FUT-013 Phase 1, B1+B2)"
+title: "DESIGN \u2014 oMLX dual-backend plumbing (P5-FUT-013 Phase 1, B1+B2)"
 sources:
 - type: code
   path: portal/platform/inference/router/backend_introspect.py
@@ -27,20 +27,14 @@ sources:
   path: tests/unit/test_omlx_backend.py
 - type: code
   path: tests/unit/test_seed_facts.py
-- type: doc
-  path: OMLX_DECISION.md
-  section: "Re-evaluation v3 2026-08-02 (P5-FUT-013 Phase-0)"
-- type: doc
-  path: tests/benchmarks/results/omlx_v3_reeval_20260802T221435Z.md
-- type: doc
-  path: PUNCHLIST.md
-  section: "B2. ✅ DONE (2026-08-02) — Shadow then shift, auto-coding first"
-last_generated_commit: bcd2259a
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - design
 - inference
 - omlx
+- verified-v1
 created_at: 1785719000.0
 updated_at: 1785723200.0
 ---
@@ -89,7 +83,7 @@ via the tier-3 absolute-fallback net).
   overrides, alias resolution, priority ordering, injection surface, and the
   introspector seam.
 
-**Gates at landing:** 873 unit ✅, ruff ✅, pipeline rebuilt (7/7 backends
+**Gates at landing:** 873 unit ✅, ruff ✅, pipeline rebuilt (all backends
 healthy incl. `omlx-local`), `smoke_stream.sh` ✅, `ci_local.sh` 2652 ✅,
 BR ratchet covered by this unit.
 
@@ -119,8 +113,8 @@ with a plain dict assignment per backend entry — `groups[name] = {...}`.
 That silently *replaced* rather than *unioned* when a second backend
 declared the same `group:`, exactly the pattern B2 introduces by design.
 Landing `omlx-coding` alongside `ollama-coding` briefly corrupted the
-generated `unit-fact-model-catalog` (coding group reported 2 models
-instead of 41) and produced 6 false "unreachable" gaps in
+generated `unit-fact-model-catalog` (coding group reported a handful of
+models instead of the full catalog) and produced 6 false "unreachable" gaps in
 `unit-fact-model-bindings` / the `AV. persona intent` validate check. Fixed
 both call sites to `groups.setdefault(name, set()).update(...)` — a group
 now means "everything reachable through it," which is what every caller
@@ -141,8 +135,23 @@ pre-trigger this. See `PUNCHLIST.md` B2 for the full note and follow-up
 options.
 
 **Gates:** 2658 unit ✅, ruff ✅, `smoke_stream.sh` ✅, `ci_local.sh` ✅,
-pipeline rebuilt + restarted with 8/8 backends healthy.
+pipeline rebuilt + restarted with all backends healthy.
 
 **Next (B3+, see PUNCHLIST.md):** security-core `/api/chat` → `/v1/chat/completions`
 migration; ~1 week of Prometheus TTFT/TPS comparison before expanding to
 `auto-vision` and `auto-security` migratable variants.
+
+## Why
+
+oMLX is a third-party OpenAI-compatible server, not the in-house MLX proxy
+that was retired at `3a0c58e`, so the two must not be conflated in the
+docs: the retired proxy's regression guards (group never named `mlx`,
+no custom process/watchdog management) are exactly why the holding group
+is `omlx` and why B1 shipped with zero traffic shift. Every mechanism
+described here is grounded in the code that implements it —
+`cluster_backends.py` for the `omlx` type and `priority:`/`aliases:`,
+`validation.py` for `_inject_omlx_options`, `backend_introspect.py` for
+the `model_still_running(url)` seam, and `config/backends.yaml` for the
+`omlx-local`/`omlx-coding` entries — so the Phase-1 and B2 landing records
+re-derive from live config rather than from the decision notes that
+proposed them.

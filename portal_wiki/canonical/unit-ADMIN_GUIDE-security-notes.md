@@ -3,20 +3,25 @@ id: unit-ADMIN_GUIDE-security-notes
 kind: why
 title: "ADMIN_GUIDE \u2014 Security Notes"
 sources:
-- type: design
-  path: docs/ADMIN_GUIDE.md
-  section: Security Notes
-last_generated_commit: ''
+- type: code
+  path: .env.example
+- type: code
+  path: scripts/lib/util.sh
+- type: code
+  path: .gitignore
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
 - ADMIN_GUIDE
+- docs
+- verified-v1
 created_at: 1783195000.813386
 updated_at: 1783195000.813386
 ---
 
+Secrets live in `.env`, which `.gitignore` excludes and `bootstrap_secrets` in scripts/lib/util.sh populates by replacing every `CHANGEME` placeholder on first run. `PIPELINE_API_KEY` authenticates callers of the pipeline API; `WEBUI_SECRET_KEY` encrypts Open WebUI session and tool state — rotating it invalidates stored OAuth tokens and forces re-login, per the `.env.example` note. `GRAFANA_PASSWORD` and `SEARXNG_SECRET_KEY` are generated the same way. Rotation is edit `.env`, then restart the stack; `./launch.sh up` auto-repairs any secret that reverted to a placeholder. Never commit `.env`.
 
-- Generated secrets are in `.env` — never commit this file
-- PIPELINE_API_KEY protects the routing API — rotate if compromised
-- WEBUI_SECRET_KEY secures user sessions — rotation requires all users to re-login
-- To rotate secrets: edit `.env`, restart stack
+## Why
+
+Secret hygiene is automated here because a shared default is the realistic failure: every secret starts as `CHANGEME` and is replaced at first run, so the residual risk is operator error — committing `.env` or hand-setting a weak value — which the gitignore and the placeholder-repair loop directly counter. Knowing which key guards what matters when a rotation is needed.

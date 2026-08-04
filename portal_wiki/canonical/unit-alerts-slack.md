@@ -3,22 +3,24 @@ id: unit-alerts-slack
 kind: what
 title: "ALERTS \u2014 Slack"
 sources:
-- type: doc
-  path: docs/ALERTS.md
-  commit: 05e42ec2
-  section: Slack
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/inference/notifications/channels/slack.py
+- type: code
+  path: portal/platform/inference/notifications/events.py
+- type: code
+  path: .env.example
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.5462432
 updated_at: 1784946220.5462432
 ---
 
-1. Create an Incoming Webhook at [https://api.slack.com/messaging/webhooks](https://api.slack.com/messaging/webhooks)
-2. Copy the webhook URL (e.g. `https://hooks.slack.com/services/...`)
+Slack delivery rides on an Incoming Webhook URL. `SLACK_ALERT_WEBHOOK_URL` is required; `SLACK_ALERT_CHANNEL` defaults to `#portal-alerts` and is included in the message payload so a webhook pinned to one channel can still be overridden. Both alerts and summaries POST a single text block formatted by the event's Slack renderer, which prefixes each event type with an emoji marker.
 
-```bash
-echo "SLACK_ALERT_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL" >> .env
-echo "SLACK_ALERT_CHANNEL=#portal-alerts" >> .env
-```
+## Why
+
+Incoming webhooks are the lowest-friction Slack integration and match the credential-light posture of the rest of the alert layer. Emitting a plain text payload keeps the transport independent of message content, so a future change to the renderer never requires receivers to change, and the default channel keeps configuration to a single required variable.

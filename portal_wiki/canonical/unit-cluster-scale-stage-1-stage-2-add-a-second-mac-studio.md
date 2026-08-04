@@ -3,34 +3,46 @@ id: unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio
 kind: what
 title: "CLUSTER_SCALE \u2014 Stage 1 \u2192 Stage 2: Add a Second Mac Studio"
 sources:
-- type: doc
-  path: docs/CLUSTER_SCALE.md
-  commit: 05e42ec2
-  section: "Stage 1 \u2192 Stage 2: Add a Second Mac Studio"
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: portal/platform/inference/cluster_backends.py
+- type: code
+  path: deploy/portal-5/docker-compose.yml
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.512039
 updated_at: 1784946220.512039
 ---
 
-1. Install Ollama on the new Mac Studio
-2. Configure it to listen on the network:
-   ```bash
-   OLLAMA_HOST=0.0.0.0 ollama serve
-   ```
-3. Add to config/backends.yaml:
-   ```yaml
-   - id: ollama-node-2
-     type: ollama
-     url: "http://192.168.1.102:11434"
-     group: general
-     models: [dolphin-llama3:8b]
-   ```
-4. Restart the pipeline container:
-   ```bash
-   docker compose restart portal-pipeline
-   ```
+Adding a second Ollama node has three steps. First, install Ollama on the new
+machine and bind it to the network by launching it with `OLLAMA_HOST=0.0.0.0`
+— the compose stack's own `ollama` service sets the same variable in
+`deploy/portal-5/docker-compose.yml`. Second, declare the node in
+`config/backends.yaml` with `type: ollama`, the node's base `url`, a routing
+`group`, and a `models` list; `_load_config` builds a `Backend` from exactly
+those fields, and a bare string model list is still accepted. Third, restart
+the pipeline container, because the registry is a process-lifetime singleton
+built in `router_pipe.lifespan`. After restart `start_health_loop` drives
+`health_check_all`, which probes the node at `health_url` and drops it from
+routing when unreachable, and `get_backend_candidates` shuffles healthy
+same-group backends so traffic balances across both nodes.
 
-Portal automatically discovers the new backend and load-balances across both.
+```bash
+docker compose restart portal-pipeline
+```
+
+## Why
+
+There is no automatic network discovery in Portal 5: the registry never scans
+the LAN, so a node must be declared in `config/backends.yaml` and the pipeline
+restarted before it can serve. `BackendRegistry` is constructed exactly once in
+`router_pipe.lifespan`, so `_load_config` parses YAML only at that instant;
+"discovery" is declaration plus the health loop's reachability probing, not
+scanning. This keeps scale-out deterministic and unit-testable — the suite
+mocks the HTTP client, so a second node is exercised without any real daemon
+running.

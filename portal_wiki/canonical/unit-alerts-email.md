@@ -3,27 +3,24 @@ id: unit-alerts-email
 kind: what
 title: "ALERTS \u2014 Email"
 sources:
-- type: doc
-  path: docs/ALERTS.md
-  commit: 05e42ec2
-  section: Email
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/inference/notifications/channels/email.py
+- type: code
+  path: portal/platform/inference/router/lifespan.py
+- type: code
+  path: .env.example
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.5472
 updated_at: 1784946220.5472
 ---
 
-Any SMTP provider works (Gmail, Mailgun, SendGrid, etc.):
+The email channel requires `SMTP_HOST` and `EMAIL_ALERT_TO`; it also reports unconfigured when the aiosmtplib dependency is not importable. `SMTP_PORT` defaults to 587 and `SMTP_FROM` to portal@portal.local. Port 465 selects implicit TLS with a default security context; any other port enables STARTTLS. Username and password are optional and are only sent when provided.
 
-```bash
-echo "SMTP_HOST=smtp.example.com" >> .env
-echo "SMTP_PORT=587" >> .env
-echo "SMTP_USER=your-username" >> .env
-echo "SMTP_PASSWORD=your-password" >> .env
-echo "SMTP_FROM=portal@portal.local" >> .env
-echo "EMAIL_ALERT_TO=admin@portal.local" >> .env
-```
+## Why
 
-For Gmail with 2FA, use an [App Password](https://support.google.com/accounts/answer/185833).
+Two transport modes exist because providers split between implicit TLS on port 465 and STARTTLS on 587, and a single send path cannot serve both. Making the recipient mandatory and the credentials optional keeps the channel usable for an internal relay while still supporting authenticated providers such as Gmail, whose two-factor users need an app password.

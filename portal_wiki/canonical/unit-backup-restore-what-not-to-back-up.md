@@ -3,18 +3,21 @@ id: unit-backup-restore-what-not-to-back-up
 kind: what
 title: "BACKUP_RESTORE \u2014 What NOT to Back Up"
 sources:
-- type: doc
-  path: docs/BACKUP_RESTORE.md
-  commit: 05e42ec2
-  section: What NOT to Back Up
-last_generated_commit: 05e42ec2
+- type: code
+  path: scripts/lib/backup.sh
+- type: code
+  path: launch.sh
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
+- verified-v1
 created_at: 1784946220.53501
 updated_at: 1784946220.53501
 ---
 
-- `ollama-models` volume — can be 50-100GB, easily re-downloaded
-- Docker images — can be rebuilt with `docker compose build`
-- `.venv/` — rebuild with `uv pip install -e ".[dev]"`
+Three artifact classes are intentionally outside the backup surface. The `portal-5_ollama-models` volume is excluded because weights are re-downloadable through `./launch.sh pull-models`. Docker images are excluded because they are rebuilt from the Dockerfiles via `./launch.sh rebuild`. The local Python environment is excluded because `uv pip install -e ".[dev]"` reproduces it from `pyproject.toml` and the lockfile. All three would multiply snapshot size for zero recovery value.
+
+## Why
+
+A backup's value is bounded by how much it speeds recovery of state that cannot otherwise be reproduced; weights, images, and virtual environments are all deterministic outputs of inputs already under version control. Excluding them keeps snapshots small and makes the restore contract honest about what the backup actually guarantees.

@@ -3,24 +3,32 @@ id: unit-comfyui-setup-download-models
 kind: what
 title: "COMFYUI_SETUP \u2014 Download Models"
 sources:
-- type: doc
-  path: docs/COMFYUI_SETUP.md
-  commit: 05e42ec2
-  section: Download Models
-last_generated_commit: 05e42ec2
+- type: code
+  path: scripts/lib/services.sh
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.553596
 updated_at: 1784946220.553596
 ---
 
-Use `./launch.sh pull-qwen-image` to download the image-generation set verified on
-Apple Silicon MPS: Qwen-Image-2512 plain FP8, Qwen-Image-Edit-2509 plain FP8,
-the shared FP8-scaled text encoder and VAE, and the Lightning LoRA (about 48 GiB
-total). The command installs files in ComfyUI's flat model layout and skips files
-already present.
+The supported model download command is `pull-qwen-image`, implemented by
+`_launch_pull_qwen_image` in `scripts/lib/services.sh`. It bootstraps the
+`huggingface_hub` CLI when absent, then pulls the Qwen-Image checkpoints verified
+on Apple Silicon MPS into ComfyUI's flat model layout — the T2I diffusion model,
+the edit-2509 model, the shared FP8-scaled text encoder, the VAE, and the
+Lightning distillation LoRA — skipping any file already present. The legacy
+`download-comfyui-models` alias is retired: `_launch_download_comfyui_models`
+exits with an error explaining that the monolithic downloader was deleted and
+pointing to the family commands. Video models are not part of this set.
 
-`./launch.sh download-comfyui-models` is a retired legacy alias because its old
-monolithic downloader was deleted. Use the explicit family command above. Video
-generation is shelved and is not part of the supported ComfyUI setup.
+## Why
+
+A single downloader script could not stay current across model families whose
+sources and verification differ, so it was replaced by per-family handlers keyed
+to what each family actually needs. Keeping the dead alias registered but failing
+loudly with a pointer preserves CLI compatibility while forcing the operator to
+the command that works for their target family.

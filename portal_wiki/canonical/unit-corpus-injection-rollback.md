@@ -3,38 +3,43 @@ id: unit-corpus-injection-rollback
 kind: what
 title: "corpus_injection \u2014 Rollback"
 sources:
-- type: doc
-  path: docs/security/corpus_injection.md
-  commit: 05e42ec2
-  section: Rollback
-last_generated_commit: 05e42ec2
+- type: code
+  path: scripts/corpus_ingest.py
+- type: code
+  path: portal/modules/security/core/siem/hec_ship.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
+- verified-v1
 created_at: 1784946220.5859468
 updated_at: 1784946220.5859468
 ---
 
-Because every event is tagged and backdated, removal is surgical and never
-touches bench data:
+Because every injected event is tagged `evidence_origin=corpus:<src>:<label>`
+and backdated, removal is surgical and never touches bench data. The loader's
+own docstring documents the exact rollback search:
 
 ```
 index=portal5_lab evidence_origin=corpus:* | delete
 ```
 
-`| delete` requires the `can_delete` role, which is **not** part of `admin` by
-default. Grant it once:
-
-```bash
-curl -ks -u "$LAB_SPLUNK_USER:$LAB_SPLUNK_PASSWORD" \
-  -X POST "$LAB_SPLUNK_URL/services/authorization/roles/admin" \
-  -d imported_roles=power -d imported_roles=user -d imported_roles=can_delete
-```
-
-Confirm the scope before deleting — this splits the index into what would go and
-what would stay:
+`| delete` requires the `can_delete` role, which the loader's docstring names
+as a requirement for the rollback path. Confirm the scope before deleting —
+this splits the index into what would go and what would stay:
 
 ```
 index=portal5_lab earliest=0
   | eval grp=if(like(evidence_origin,"corpus:%"),"CORPUS","BENCH") | stats count by grp
 ```
+
+The role grant itself is Splunk-side configuration done through the management
+API with imported_roles form fields; it is not part of the loader's code.
+
+## Why
+
+Rollback by tag is only possible because the injection contract was set from
+the start: every corpus event carries a single `evidence_origin=corpus:*`
+marker and no `episode_id`, so one delete removes the whole injection while
+leaving bench episodes intact. A loader that shipped untagged or episode-scoped
+events would make the "rollback" a dangerous full-index delete.

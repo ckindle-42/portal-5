@@ -3,25 +3,29 @@ id: unit-mcp-dev-tooling-checking-what-s-in-vram-before-a-long-task
 kind: what
 title: "MCP_DEV_TOOLING \u2014 Checking what's in VRAM before a long task"
 sources:
-- type: doc
-  path: docs/MCP_DEV_TOOLING.md
-  commit: 05e42ec2
-  section: Checking what's in VRAM before a long task
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/platform/mcp_host/pipeline_mcp.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.5794618
 updated_at: 1784946220.5794618
 ---
 
-```
-You: "Is devstral loaded? I don't want to wait for a cold start"
+Before a long coding session, check whether the model you need is already resident in
+memory so the first request is not a cold load. The `get_loaded_models` tool in
+`portal/platform/mcp_host/pipeline_mcp.py` asks Ollama's `/api/ps` endpoint and
+returns each loaded model's name, `size_gb`, `vram_size_gb`, and `expires_at`. A
+model listed there is warm and will answer immediately; one that is absent will cost
+a load before it can produce tokens. The `trigger_backend_warmup` tool exists for the
+opposite case — pre-loading a workspace before you start.
 
-Claude Code:
-  portal-pipeline/get_loaded_models
-  → [{"name": "laguna-xs.2:Q4_K_M", "size_gb": 19.0, "expires_at": "2026-06-17T23:45:00"}]
-  → Yes, warm for 33 more minutes
-```
+## Why
 
----
+Warm-model awareness is what turns a long agentic task from a sequence of
+ten-second stalls into a continuous flow. Checking residency once at the start, and
+optionally warming the workspace you plan to use, lets the model plan around cold
+starts instead of being surprised by them mid-task.

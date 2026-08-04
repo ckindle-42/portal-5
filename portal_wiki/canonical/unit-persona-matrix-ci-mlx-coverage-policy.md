@@ -3,22 +3,29 @@ id: unit-persona-matrix-ci-mlx-coverage-policy
 kind: what
 title: "PERSONA_MATRIX_CI \u2014 MLX coverage policy"
 sources:
-- type: doc
-  path: docs/PERSONA_MATRIX_CI.md
-  commit: 05e42ec2
-  section: MLX coverage policy
-last_generated_commit: 05e42ec2
+- type: code
+  path: portal/modules/eval/persona_matrix/cli.py
+- type: code
+  path: portal/modules/eval/persona_matrix/ollama_client.py
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: .github/workflows/persona_matrix_nightly.yml
+- type: code
+  path: scripts/mlx-speech.py
+last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+claims: []
 confidence: high
 tags:
-- docs
+- verified-v1
 created_at: 1784946220.568525
 updated_at: 1784946220.568525
 ---
 
-**MLX inference is retired (commit 3a0c58e).** All chat inference runs through
-Ollama (:11434). The `--mlx-warmup` flag and `mlx_models:` key in `backends.yaml`
-described here no longer exist — they were part of the pre-retirement MLX proxy.
+MLX chat inference was retired in commit `3a0c58e` (`feat: retire MLX proxy — migrate to Ollama-only inference stack`); the persona-matrix driver now talks only to Ollama at the `OLLAMA_URL` constant (`http://localhost:11434`) via `_chat_direct`, and the CLI restricts `--backend` to `ollama`. The workflow's `backend` input offers only `ollama` as a choice, so CI sweeps are Ollama-only by construction. The `--mlx-warmup` flag and a `mlx_models:` key in `backends.yaml` no longer exist anywhere in the current tree — the only `MLX_MODELS` reference left is a comment in `backends.yaml` about the embedding pull list.
 
-CI sweeps are Ollama-only. MLX is retained only for non-chat runtimes:
-speech (:8918), transcription (:8924), embeddings (:8917), and reranking (:8925).
-Those runtimes are not exercised by the persona matrix driver.
+MLX survives only outside chat inference as separate non-chat runtimes the matrix driver never calls: speech (`scripts/mlx-speech.py`, port 8918), diarized transcription (launch.sh, port 8924), embeddings (port 8917), and reranking (`.env.example` RERANKER, port 8925). Those runtimes are excluded from persona-matrix sweeps because `run_cell` only ever issues an OpenAI-compatible chat request to the Ollama URL; no MLX endpoint is consulted during a sweep.
+
+## Why
+
+This unit exists to keep a stale doc from resurrecting a retired stack: the MLX-proxy era had warmup flags and big-model handling that no longer compile against the driver's CLI. Grounding the boundary to commit `3a0c58e`, the `OLLAMA_URL` constant, and the `ollama`-only backend choice makes it checkable — if MLX ever re-enters chat inference, the cited source files change first, which is the only way this policy can stay honest.
