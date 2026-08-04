@@ -39,7 +39,7 @@ def test_workspace_routing_demotes_test_section_unit():
     """The Phase 7 defect: a test-section unit must not outrank the design unit."""
     result = wiki_search("workspace routing", top_k=3)
     ids = [r["unit_id"] for r in result["results"]]
-    assert ids[0] == "unit-router-routing", ids
+    assert ids[0] == "unit-surface-router", ids
     assert "unit-acceptance-s03_routing" not in ids[:2], ids
 
 

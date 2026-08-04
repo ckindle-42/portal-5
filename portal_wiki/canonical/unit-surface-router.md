@@ -1,7 +1,7 @@
 ---
 id: unit-surface-router
 kind: mixed
-title: "Router subpackage \u2014 pipeline request engine, routing policy, observability"
+title: "Router subpackage \u2014 workspace routing, council quorum, request engine, observability"
 sources:
 - type: code
   path: portal/platform/inference/router/*.py

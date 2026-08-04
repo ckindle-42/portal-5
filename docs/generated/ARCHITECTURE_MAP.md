@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 744 canonical units.*
+*Deterministic projection of 691 canonical units.*
 
 ## Knowledge Layer
 
@@ -286,25 +286,7 @@
 | `unit-general-config-workspace-pointers` | mixed | 1 |
 | `unit-general-module-vendored-tools` | mixed | 1 |
 | `unit-general-tools-vendored-fleet` | mixed | 1 |
-| `unit-inference-cli-agent` | mixed | 1 |
-| `unit-inference-cli-apps` | mixed | 1 |
-| `unit-inference-cli-common` | mixed | 1 |
-| `unit-inference-cli-config` | mixed | 1 |
-| `unit-inference-cli-init` | mixed | 1 |
-| `unit-inference-cli-main` | mixed | 1 |
-| `unit-inference-cli-models` | mixed | 1 |
-| `unit-inference-cli-module` | mixed | 1 |
-| `unit-inference-cli-smoke` | mixed | 1 |
-| `unit-inference-cli-sync` | mixed | 1 |
-| `unit-inference-cli-update` | mixed | 1 |
-| `unit-inference-cli-workspace` | mixed | 1 |
-| `unit-inference-config` | mixed | 1 |
-| `unit-inference-config-validate` | mixed | 1 |
-| `unit-inference-init` | mixed | 1 |
-| `unit-inference-main` | mixed | 1 |
 | `unit-inference-router-pipe` | mixed | 1 |
-| `unit-inference-sync-config` | mixed | 1 |
-| `unit-inference-tool-registry` | mixed | 1 |
 | `unit-known-issues-known-issues` | what | 2 |
 | `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | what | 3 |
 | `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | what | 3 |
@@ -391,9 +373,6 @@
 | `unit-mcp-dev-tooling-tools` | what | 2 |
 | `unit-mcp-dev-tooling-what-opencode-gets` | what | 3 |
 | `unit-mcp-dev-tooling-workspace-selection` | what | 3 |
-| `unit-mcp-host-core` | mixed | 1 |
-| `unit-mcp-host-pipeline-mcp` | mixed | 1 |
-| `unit-mcp-host-workspace` | mixed | 1 |
 | `unit-media-tools-torch-device` | mixed | 1 |
 | `unit-memory-mcp-lancedb` | mixed | 1 |
 | `unit-model-catalog-alicankiraz0-cybersecurity-baronllm-offensive-security-llm-q6-k-gguf-dropped-hf-id-only-see-baronllm-q6-k-below-for-the-fleet-entry` | what | 2 |
@@ -639,25 +618,9 @@
 | `unit-readme-wait-for-ollama-to-finish-loading-then-try-again` | what | 2 |
 | `unit-readme-what-starts-automatically` | what | 3 |
 | `unit-readme-workspaces` | what | 3 |
-| `unit-router-anthropic-compat` | mixed | 1 |
-| `unit-router-app` | mixed | 1 |
-| `unit-router-auth` | mixed | 1 |
-| `unit-router-concurrency` | mixed | 1 |
-| `unit-router-context-inject` | mixed | 1 |
-| `unit-router-correlation` | mixed | 1 |
-| `unit-router-council` | mixed | 1 |
-| `unit-router-init` | mixed | 1 |
-| `unit-router-metrics` | mixed | 1 |
-| `unit-router-monitor` | mixed | 1 |
-| `unit-router-power` | mixed | 1 |
-| `unit-router-preinject` | mixed | 1 |
-| `unit-router-routing` | mixed | 1 |
-| `unit-router-state` | mixed | 1 |
 | `unit-router-streaming` | mixed | 1 |
 | `unit-router-test-context-inject` | mixed | 1 |
 | `unit-router-test-correlation` | mixed | 1 |
-| `unit-router-thinking` | mixed | 1 |
-| `unit-router-workspaces` | mixed | 1 |
 | `unit-routing-build-corpus` | mixed | 1 |
 | `unit-routing-measure` | mixed | 1 |
 | `unit-scripts-alias_census` | mixed | 1 |
@@ -730,33 +693,17 @@
 | `unit-user-guide-tools-mcp-servers` | what | 7 |
 | `unit-user-guide-uploading-documents` | what | 2 |
 | `unit-user-guide-workspaces` | what | 3 |
-| `unit-wiki-adapter-git-source` | mixed | 1 |
 | `unit-wiki-adapter-modules` | mixed | 1 |
-| `unit-wiki-adapter-portal-inference` | mixed | 1 |
-| `unit-wiki-adapter-seed-api` | mixed | 1 |
-| `unit-wiki-adapter-seed-code` | mixed | 1 |
-| `unit-wiki-adapter-seed-intent` | mixed | 1 |
-| `unit-wiki-adapter-seed-security` | mixed | 1 |
-| `unit-wiki-adapter-writeback-bench` | mixed | 1 |
-| `unit-wiki-adapter-writeback-gap` | mixed | 1 |
-| `unit-wiki-adapter-writeback-investigation` | mixed | 1 |
-| `unit-wiki-adapter-writeback-module` | mixed | 1 |
 | `unit-wiki-audit` | mixed | 1 |
-| `unit-wiki-interfaces` | mixed | 1 |
-| `unit-wiki-maintain` | mixed | 1 |
-| `unit-wiki-provenance-ledger` | mixed | 1 |
 | `unit-wiki-quality` | mixed | 1 |
-| `unit-wiki-schema` | mixed | 1 |
 | `unit-wiki-spine-coverage-gate` | mixed | 2 |
-| `unit-wiki-store` | mixed | 1 |
 | `unit-wiki-tests-migration` | mixed | 1 |
 | `unit-wiki-tests-render` | mixed | 1 |
-| `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 744 units
+**Total:** 691 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1707 references
+- **code**: 1654 references
 - **mitre**: 32 references
