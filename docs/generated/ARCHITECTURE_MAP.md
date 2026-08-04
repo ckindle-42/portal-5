@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 931 canonical units.*
+*Deterministic projection of 810 canonical units.*
 
 ## Knowledge Layer
 
@@ -69,7 +69,6 @@
 | `unit-HOWTO-shared-workspace` | why | 1 |
 | `unit-SEC_BENCH-architecture-invariant` | why | 3 |
 | `unit-SEC_BENCH-blue-orchestration` | what | 2 |
-| `unit-SEC_BENCH-cli-flags` | what | 1 |
 | `unit-SEC_BENCH-coding-agent-reentry` | what | 6 |
 | `unit-SEC_BENCH-execution-chain-features` | what | 5 |
 | `unit-SEC_BENCH-execution-tiers` | what | 3 |
@@ -713,123 +712,10 @@
 | `unit-scripts-openwebui_init` | mixed | 1 |
 | `unit-scripts-portal5-powermetrics` | mixed | 1 |
 | `unit-scripts-spine_census` | mixed | 1 |
-| `unit-sec-core-__init__` | mixed | 1 |
-| `unit-sec-core-__main__` | mixed | 1 |
-| `unit-sec-core-_config` | mixed | 1 |
-| `unit-sec-core-_sweep_driver` | mixed | 1 |
-| `unit-sec-core-ability_port` | mixed | 1 |
-| `unit-sec-core-analyst_verdict` | mixed | 1 |
-| `unit-sec-core-bench_integration` | mixed | 1 |
-| `unit-sec-core-capability_graph` | mixed | 1 |
-| `unit-sec-core-capsules` | mixed | 1 |
-| `unit-sec-core-cli` | mixed | 1 |
 | `unit-sec-core-cloud_bench` | mixed | 1 |
-| `unit-sec-core-compliance_report` | mixed | 1 |
-| `unit-sec-core-continuous_eval` | mixed | 1 |
-| `unit-sec-core-council_agreement` | mixed | 1 |
-| `unit-sec-core-council_review_bench` | mixed | 1 |
 | `unit-sec-core-cred_bench` | mixed | 1 |
-| `unit-sec-core-ctf_bench` | mixed | 1 |
 | `unit-sec-core-decision_engine` | mixed | 1 |
-| `unit-sec-core-episode` | mixed | 1 |
-| `unit-sec-core-field_journal` | mixed | 1 |
-| `unit-sec-core-growth_loop` | mixed | 1 |
-| `unit-sec-core-intake` | mixed | 1 |
-| `unit-sec-core-llm_redteam` | mixed | 1 |
-| `unit-sec-core-loop_cli` | mixed | 1 |
-| `unit-sec-core-model_survey` | mixed | 1 |
-| `unit-sec-core-multichain` | mixed | 1 |
-| `unit-sec-core-notify_scoreboard` | mixed | 1 |
-| `unit-sec-core-oast_bench` | mixed | 1 |
-| `unit-sec-core-objective_oracles` | mixed | 1 |
-| `unit-sec-core-oracles` | mixed | 1 |
-| `unit-sec-core-playbooks` | mixed | 1 |
-| `unit-sec-core-re_firmware` | mixed | 1 |
-| `unit-sec-core-recall_attribution` | mixed | 1 |
-| `unit-sec-core-refusal` | mixed | 1 |
-| `unit-sec-core-rescore_run` | mixed | 1 |
-| `unit-sec-core-response_loop` | mixed | 1 |
-| `unit-sec-core-self_index` | mixed | 1 |
-| `unit-sec-core-stage2_propose` | mixed | 1 |
-| `unit-sec-core-telemetry` | mixed | 1 |
-| `unit-sec-core-toolcall_reliability` | mixed | 1 |
-| `unit-sec-core-trace` | mixed | 1 |
-| `unit-sec-core-validate_captures` | mixed | 1 |
-| `unit-sec-core-validation` | mixed | 1 |
-| `unit-sec-tests-__init__` | mixed | 1 |
-| `unit-sec-tests-test_ability_port` | mixed | 1 |
-| `unit-sec-tests-test_ablation_attribution` | mixed | 1 |
-| `unit-sec-tests-test_agentic_blue_multitrial` | mixed | 1 |
-| `unit-sec-tests-test_agentic_blue_scoring` | mixed | 1 |
-| `unit-sec-tests-test_analyst_verdict` | mixed | 1 |
-| `unit-sec-tests-test_attack_telemetry_bridge` | mixed | 1 |
-| `unit-sec-tests-test_bench_investigation` | mixed | 1 |
-| `unit-sec-tests-test_bench_scoring` | mixed | 1 |
-| `unit-sec-tests-test_bench_security_lab_gate` | mixed | 1 |
-| `unit-sec-tests-test_blue_grounding` | mixed | 1 |
-| `unit-sec-tests-test_blue_linux` | mixed | 1 |
-| `unit-sec-tests-test_blue_orchestrate_expert` | mixed | 1 |
-| `unit-sec-tests-test_blue_orchestrate_loop` | mixed | 1 |
-| `unit-sec-tests-test_blue_orchestrate_reasoning` | mixed | 1 |
-| `unit-sec-tests-test_candidate_eval` | mixed | 1 |
-| `unit-sec-tests-test_candidate_eval_incumbent` | mixed | 1 |
-| `unit-sec-tests-test_capability_graph` | mixed | 1 |
-| `unit-sec-tests-test_capsules` | mixed | 1 |
-| `unit-sec-tests-test_capture_enrichment` | mixed | 1 |
-| `unit-sec-tests-test_ci_parity` | mixed | 1 |
-| `unit-sec-tests-test_compliance_mapping` | mixed | 1 |
-| `unit-sec-tests-test_compliance_report` | mixed | 1 |
-| `unit-sec-tests-test_continuous_eval` | mixed | 1 |
-| `unit-sec-tests-test_council_agreement` | mixed | 1 |
-| `unit-sec-tests-test_drift_gate` | mixed | 1 |
-| `unit-sec-tests-test_emergent_gaps` | mixed | 1 |
-| `unit-sec-tests-test_emergent_recall` | mixed | 1 |
-| `unit-sec-tests-test_evidence_chain_validity` | mixed | 1 |
-| `unit-sec-tests-test_field_journal` | mixed | 1 |
-| `unit-sec-tests-test_goal_decide` | mixed | 1 |
-| `unit-sec-tests-test_growth_loop_blue_draft` | mixed | 1 |
-| `unit-sec-tests-test_growth_writeback` | mixed | 1 |
-| `unit-sec-tests-test_investigation_agents` | mixed | 1 |
-| `unit-sec-tests-test_investigation_evidence` | mixed | 1 |
-| `unit-sec-tests-test_lab_targets` | mixed | 1 |
-| `unit-sec-tests-test_labexec_coverage` | mixed | 1 |
-| `unit-sec-tests-test_live_exec` | mixed | 1 |
-| `unit-sec-tests-test_loop` | mixed | 1 |
-| `unit-sec-tests-test_loop_notify` | mixed | 1 |
-| `unit-sec-tests-test_loop_resume` | mixed | 1 |
-| `unit-sec-tests-test_matrix` | mixed | 1 |
-| `unit-sec-tests-test_multichain` | mixed | 1 |
-| `unit-sec-tests-test_notify_scoreboard` | mixed | 1 |
-| `unit-sec-tests-test_oracles` | mixed | 1 |
-| `unit-sec-tests-test_perception_scope` | mixed | 1 |
-| `unit-sec-tests-test_playbooks` | mixed | 1 |
-| `unit-sec-tests-test_prerun_readiness` | mixed | 1 |
-| `unit-sec-tests-test_rbp_episode_grounding` | mixed | 1 |
-| `unit-sec-tests-test_recall_attribution` | mixed | 1 |
-| `unit-sec-tests-test_red_only_network_capture_wiring` | mixed | 1 |
-| `unit-sec-tests-test_replay_captured_red_no_evidence` | mixed | 1 |
-| `unit-sec-tests-test_response_loop` | mixed | 1 |
-| `unit-sec-tests-test_sandbox_output_cap` | mixed | 1 |
-| `unit-sec-tests-test_sec_capabilities` | mixed | 1 |
-| `unit-sec-tests-test_sec_intake` | mixed | 1 |
 | `unit-sec-tests-test_security_mcp` | mixed | 1 |
-| `unit-sec-tests-test_self_index` | mixed | 1 |
-| `unit-sec-tests-test_selfindex_fidelity` | mixed | 1 |
-| `unit-sec-tests-test_splunk_blue` | mixed | 1 |
-| `unit-sec-tests-test_stage2_propose` | mixed | 1 |
-| `unit-sec-tests-test_subtechnique_gate` | mixed | 1 |
-| `unit-sec-tests-test_sweep_checkpoint_safety` | mixed | 1 |
-| `unit-sec-tests-test_sweep_confidence` | mixed | 1 |
-| `unit-sec-tests-test_sweep_parallel` | mixed | 1 |
-| `unit-sec-tests-test_sweep_reporting` | mixed | 1 |
-| `unit-sec-tests-test_target_readiness_ports` | mixed | 1 |
-| `unit-sec-tests-test_technique_signatures` | mixed | 1 |
-| `unit-sec-tests-test_telemetry_contracts` | mixed | 1 |
-| `unit-sec-tests-test_toolcall_reliability` | mixed | 1 |
-| `unit-sec-tests-test_trajectory_scoring` | mixed | 1 |
-| `unit-sec-tests-test_unknown_defense` | mixed | 1 |
-| `unit-sec-tests-test_validation` | mixed | 1 |
-| `unit-sec-tests-test_web_exec_coverage` | mixed | 1 |
 | `unit-security-capability-index` | mixed | 1 |
 | `unit-security-cli-pass-through` | mixed | 1 |
 | `unit-security-combined-corpus-validation` | why | 9 |
@@ -847,14 +733,7 @@
 | `unit-security-siem-spl-backend` | mixed | 1 |
 | `unit-security-siem-spl-detections` | what | 1 |
 | `unit-security-siem-surface` | mixed | 1 |
-| `unit-security-tests-test-capability-index` | what | 1 |
-| `unit-security-tests-test-capture-recipes` | what | 1 |
-| `unit-security-tests-test-corpus-coverage` | what | 1 |
-| `unit-security-tests-test-kali-enable` | what | 1 |
-| `unit-security-tests-test-objective-entry` | what | 1 |
-| `unit-security-tests-test-objective-executor` | what | 1 |
 | `unit-security-tools-mcp-surface` | mixed | 1 |
-| `unit-security-trajectory-score` | what | 1 |
 | `unit-surface-acceptance` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 2 |
 | `unit-surface-scripts` | mixed | 1 |
@@ -940,10 +819,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 931 units
+**Total:** 810 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1892 references
+- **code**: 1771 references
 - **mitre**: 32 references
