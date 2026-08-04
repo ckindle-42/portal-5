@@ -1,38 +1,41 @@
 ---
 id: unit-T1552-signature
 kind: mixed
-title: "T1552 \u2014 Unsecured credentials \u2014 SSRF-to-metadata, .env/.git exposure,\
-  \ hardcoded creds [KEY: One of the metadata/credential exposure literals used by\
-  \ this SPL]"
+title: "T1552 \u2014 Unsecured credentials detection signature"
 sources:
-- type: spl
-  path: portal/modules/security/core/siem/spl_detections.yaml#T1552
+- type: code
+  path: portal/modules/security/core/siem/spl_detections.yaml
 - type: mitre
   path: ATT&CK:T1552
-- type: scenario
-  path: exec_chain.py#web_ssrf
-- type: scenario
-  path: exec_chain.py#vuln_gitlab_rce
-- type: scenario
-  path: exec_chain.py#vuln_joomla_rce
-last_generated_commit: ''
+- type: code
+  path: portal/modules/security/core/exec_chain.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - T1552
-- technique
 - signature
+- technique
+- verified-v1
 created_at: 1785503864.931629
 updated_at: 1785503864.931629
 ---
 
-# T1552 — Unsecured credentials — SSRF-to-metadata, .env/.git exposure, hardcoded creds [KEY: One of the metadata/credential exposure literals used by this SPL]
+# T1552 — Unsecured credentials detection signature
 
-## Telemetry Signatures
+## What This Detection Sees
 
-### SPL Detection (siem/spl_detections.yaml)
+Unsecured credentials are surfaced by the HTTP fingerprints of their exposure. The SPL matches cloud metadata endpoints (the link-local address and the meta-data path), version-control and dotfile leaks (`.git/config`, `.env`), and literal credential keywords like `credentials`, `password=`, and `secret=`, grouping by host and URI path so each exposure is attributable.
+
+## SPL Detection
+
 ```spl
 index=portal5_lab sourcetype="web:access" ("169.254.169.254" OR "/latest/meta-data" OR ".git/config" OR ".env" OR "credentials" OR "password=" OR "secret=") | stats count by host, uri_path, _raw
 ```
+
+## Expected Signal
+
+Metadata endpoint access or sensitive file exposure in HTTP traffic — the query is a union of exposure fingerprints rather than a single canonical event.
 
 ## Exercised By Scenarios
 
@@ -40,11 +43,6 @@ index=portal5_lab sourcetype="web:access" ("169.254.169.254" OR "/latest/meta-da
 - `vuln_gitlab_rce`
 - `vuln_joomla_rce`
 
-## Per-Source Expected Signatures
+## Why
 
-| Source | Expected Signal |
-|--------|----------------|
-| (generic) | Activity consistent with T1552 |
-
----
-*Unit auto-generated from spl_detections.yaml + SCENARIOS.*
+The unit follows the executable SPL because T1552 is an umbrella technique and the query is what fixes its coverage boundaries — metadata, dotfiles, and credential keywords are three different abuse classes in one literal set. Keeping that union visible documents which exposure modes the lab can actually detect.

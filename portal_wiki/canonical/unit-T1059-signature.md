@@ -1,36 +1,41 @@
 ---
 id: unit-T1059-signature
 kind: mixed
-title: "T1059 \u2014 Command execution \u2014 auditd execve of shells/interpreters"
+title: "T1059 \u2014 Command execution detection signature"
 sources:
-- type: spl
-  path: portal/modules/security/core/siem/spl_detections.yaml#T1059
+- type: code
+  path: portal/modules/security/core/siem/spl_detections.yaml
 - type: mitre
   path: ATT&CK:T1059
-- type: scenario
-  path: exec_chain.py#web_ssti
-- type: scenario
-  path: exec_chain.py#meta3_linux_privesc
-- type: scenario
-  path: exec_chain.py#meta3_elasticsearch_rce
-last_generated_commit: ''
+- type: code
+  path: portal/modules/security/core/exec_chain.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - T1059
-- technique
 - signature
+- technique
+- verified-v1
 created_at: 1785503864.922167
 updated_at: 1785503864.922167
 ---
 
-# T1059 — Command execution — auditd execve of shells/interpreters
+# T1059 — Command execution detection signature
 
-## Telemetry Signatures
+## What This Detection Sees
 
-### SPL Detection (siem/spl_detections.yaml)
+Command execution on Linux is seen at the syscall layer: auditd EXECVE records for sh, bash, the Python interpreter, or perl are the payload's arrival. The primary SPL groups by host, executable, and first argument, while a Windows variant detects the same behavior through 4688 process creation for cmd, powershell, python, wscript, and cscript.
+
+## SPL Detection
+
 ```spl
 index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe=/bin/sh OR exe=/bin/bash OR exe=/usr/bin/python* OR exe=/usr/bin/perl) | stats count by host, exe, a0
 ```
+
+## Expected Signal
+
+Shell or interpreter execve events from attack payloads, plus process creation for the corresponding Windows scripting hosts — the interpreter invocation is the observable of the technique.
 
 ## Exercised By Scenarios
 
@@ -40,12 +45,6 @@ index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe=/bin/sh OR exe=/bin
 - `meta3_full_chain`
 - `meta3_tomcat_manager`
 
-## Per-Source Expected Signatures
+## Why
 
-| Source | Expected Signal |
-|--------|----------------|
-| linux:auditd | EXECVE syscall with shell/interpreter commands |
-| windows:security | Process creation (4688) for cmd.exe/powershell.exe |
-
----
-*Unit auto-generated from spl_detections.yaml + SCENARIOS.*
+The parent technique is deliberately broad, so the unit leans on the executable SPL to fix the exact interpreter set across two source types. Pinning the auditd executable list and the 4688 process names prevents drift between what the documentation claims and what the lab actually queries, and the scenario anchors show how many attack chains terminate in a shell.

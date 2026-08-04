@@ -3,18 +3,20 @@ id: unit-SEC_BENCH-execution-tiers
 kind: what
 title: 'Three execution tiers: theory, exec, lab-exec'
 sources:
-- type: doc
-  path: docs/SECURITY_BENCH_EXEC.md
-  commit: d869257b
 - type: code
   path: portal/modules/security/core/cli.py
-  commit: d869257b
-last_generated_commit: d869257b
+- type: code
+  path: portal/modules/security/core/exec_chain.py
+- type: code
+  path: portal/modules/security/core/_config.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
-- security
 - bench
+- security
 - tiers
+- verified-v1
 created_at: 1784941806.377484
 updated_at: 1784941806.377484
 ---
@@ -27,4 +29,8 @@ The bench supports three execution tiers:
 
 Lab-exec is the ground truth for red/purple team evaluation. All tiers run from the same CLI.
 
-The bench supports BenchConfig (replacing mutable module globals): all functions that previously mutated module-level globals now receive a `cfg: BenchConfig` parameter. `main()` creates the config once, calls `cfg.set_scenario()` per scenario iteration, and passes it to all chain/blue/purple runners.
+The bench supports `BenchConfig` (replacing mutable module globals): all functions that previously mutated module-level globals now receive a `BenchConfig` parameter. `main()` creates the config once, calls `set_scenario()` per scenario iteration, and passes it to all chain/blue/purple runners.
+
+## Why
+
+Three tiers exist so throughput and truth are not conflated. Theory pass scores many models cheaply on prose quality; exec pass scores tool-call sequence without touching the lab; lab-exec is the expensive ground-truth tier that proves commands actually landed. Routing all three through the same CLI keeps the harness identical across tiers, and the `BenchConfig` refactor made the tiers safe to interleave by removing the mutable module globals that used to leak scenario state between runs.

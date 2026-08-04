@@ -13,13 +13,15 @@ sources:
   path: tests/unit/test_native_mcp_service.py
 - type: code
   path: scripts/validate_system.py
-last_generated_commit: ''
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - known-limitations
-- mcp
 - launchd
+- mcp
 - resolved
+- verified-v1
 created_at: 1785459600
 updated_at: 1785459600
 ---
@@ -43,3 +45,7 @@ updated_at: 1785459600
 - **Regression proof**: All five health endpoints remained reachable after the
   launching shell returned. Terminating the launchd-managed Pipeline MCP caused
   launchd to assign a new PID and restore a healthy endpoint automatically.
+
+## Why
+
+Host-native MCP services must outlive the shell that started them, or the stack degrades the moment `launch.sh` returns from a non-interactive session. Running them as launchd agents with `KeepAlive=true` gives durable supervision and automatic restart, while the shared wrapper keeps secrets out of the plist files themselves. Linux retains the PID-file path because launchd is not available there; the two mechanisms share the same service names and health endpoints.

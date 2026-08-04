@@ -1,37 +1,40 @@
 ---
 id: unit-T1068-signature
 kind: mixed
-title: "T1068 \u2014 Exploitation for privilege escalation \u2014 kernel/userspace\
-  \ privesc"
+title: "T1068 \u2014 Exploitation for privilege escalation detection signature"
 sources:
-- type: spl
-  path: portal/modules/security/core/siem/spl_detections.yaml#T1068
+- type: code
+  path: portal/modules/security/core/siem/spl_detections.yaml
 - type: mitre
   path: ATT&CK:T1068
-last_generated_commit: ''
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - T1068
-- technique
 - signature
+- technique
+- verified-v1
 created_at: 1785503864.927048
 updated_at: 1785503864.927048
 ---
 
-# T1068 — Exploitation for privilege escalation — kernel/userspace privesc
+# T1068 — Exploitation for privilege escalation detection signature
 
-## Telemetry Signatures
+## What This Detection Sees
 
-### SPL Detection (siem/spl_detections.yaml)
+Exploitation for privilege escalation is caught by the artifact it leaves behind: an auditd EXECVE whose executable path names `exploit` or `privesc`, or whose first argument references a CVE. The query groups by host and executable. A Windows variant detects the post-exploitation recon that commonly follows, flagging `whoami` with the `/priv` switch, `systeminfo`, or CVE mentions on the process command line.
+
+## SPL Detection
+
 ```spl
 index=portal5_lab sourcetype="linux:auditd" type=EXECVE (exe="*/exploit" OR exe="*/privesc" OR a1="*CVE*") | stats count by host, exe
 ```
 
-## Per-Source Expected Signatures
+## Expected Signal
 
-| Source | Expected Signal |
-|--------|----------------|
-| (generic) | Activity consistent with T1068 |
+Exploit binary execution on the target host, plus privilege-escalation recon commands on Windows — the exploit artifact is the observable, not the kernel bug itself.
 
----
-*Unit auto-generated from spl_detections.yaml + SCENARIOS.*
+## Why
+
+This unit is pinned to the executable SPL because the technique has no single canonical event — the signal is the exploit binary. Anchoring to the execve literals and the 4688 recon filters keeps the signature honest about what the lab can actually see, rather than promising kernel-level coverage the telemetry cannot support.

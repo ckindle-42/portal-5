@@ -1,21 +1,22 @@
 ---
 id: unit-SEC_BENCH-multiseat-v2-results-2026-07-05
 kind: mixed
-title: "SEC_BENCH — Multi-Seat Model Bench V2 results (2026-07-05): BugTraceAI-27B, security-slm-1.5b, CyberSecQwen-4B (deferred)"
+title: "SEC_BENCH \u2014 Multi-Seat Model Bench V2 results (2026-07-05): BugTraceAI-27B,\
+  \ security-slm-1.5b, CyberSecQwen-4B (deferred)"
 sources:
-- type: bench-security
-  path: bench-run:sec-bench-multiseat-v2:2026-07-05
 - type: code
   path: portal/modules/security/core/investigation/agents.py
 - type: code
   path: portal/modules/security/core/unknown_defense.py
-last_generated_commit: 3c7d4825cce8be60c904f2144212d2c2a1d65792
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
-- sec-bench
-- multiseat
 - candidate-eval
+- multiseat
+- sec-bench
 - status
+- verified-v1
 created_at: 1783448400.0
 updated_at: 1783448400.0
 ---
@@ -35,7 +36,7 @@ Its slowness makes it impractical for full-scenario (`--all-scenarios`) benching
 | Seat | Verdict | Delta vs incumbent | Detail |
 |---|---|---|---|
 | Red — exploit | WORSE | −0.024 coverage, −1 lab_success | Stalled on `ctf_multi_service` (multi-step chain), tied elsewhere |
-| Red — recon | NEUTRAL | +0.000 across all 6 scenarios | Only assigned a subset of multi-model chain steps; those it touched (kerberoast_to_da, ctf_multi_service) still WIN, matching incumbent exactly |
+| Red — recon | NEUTRAL | +0.000 across every assigned scenario | Only assigned a subset of multi-model chain steps; those it touched (kerberoast_to_da, ctf_multi_service) still WIN, matching incumbent exactly |
 | Red — solo | **BETTER** | **+0.480 coverage, +2 lab_success** | Its full-spectrum reasoner profile dominates when running the WHOLE chain alone — clear win |
 | Blue-analyst | Weak/inconsistent | n/a (no incumbent comparison run) | Benched on a 6-scenario representative subset (kerberoast_to_da, asrep_to_lateral, web_sqli_dump, web_ssrf, vuln_weblogic_rce, meta3_ssh_brute) — NOT `--all-scenarios`, because at ~5 t/s a full 84-scenario blue-chain replay projected to 20+ hours (confirmed: the initial `--all-scenarios` attempt was still stuck on scenario 1 after 26 minutes, killed). Results: kerberoast_to_da f1=0.50 (`PROVEN` — caught T1558.003, missed T1003.006/T1053.005), asrep_to_lateral f1=0.00 (`FAILED`), web_sqli_dump f1=0.00, web_ssrf f1=0.67, vuln_weblogic_rce f1=0.00, meta3_ssh_brute f1=0.00. Two of six runs also logged a `400 Bad Request` mid-chain — consistent with the task file's own warning that thinking models can wrap tool calls oddly. **Net: not a strong blue-defender candidate**, inconsistent even where it partially works. |
 | Investigation (Analyst/Challenger) | **BLOCKED — no hook exists** | n/a | `investigation/agents.py::run_analyst`/`run_challenger` and `investigation/bench_investigation.py::run_single_agent_baseline`/`run_multi_agent` are ALL scaffolded structure only — every implementation literally says "In production, this calls the pipeline... In this slice, we create the structure." There is no `model` parameter anywhere in either file, not even a single shared model hook, let alone per-agent selection. This needs a real wiring task before any model can be benched as Analyst/Challenger. Correctly not faked. |
@@ -52,7 +53,7 @@ via `ollama pull hf.co/Nguuma/security-slm-unsloth-1.5b:latest` (note: `:Q4_K_M`
 |---|---|
 | Classifier/triage (`soc_alert_triage` prompt, `--direct-theory`) | **0.70** theory score — hits all 4 required structural headers (CLASSIF/SEVER/CONTAIN/SUMMAR) but cites **zero** MITRE ATT&CK IDs despite `mitre_min: 1`. Genuine, honest gap: well-organized output, no technique grounding. |
 | Unknown-defense pre-classifier | **N/A — no LLM hook exists.** `unknown_defense.py::compute_similarity` is explicitly documented "U1: Heuristic feature-overlap (explainable, cited) — not embeddings" — pure deterministic word-overlap code, zero model involvement by design. There is no seat here for any model to fill. |
-| Blue floor-check (`--replay-captured-red --purple --all-scenarios`, full 84 scenarios) | **f1 = 0.00 on all 74 scored scenarios** (2 `FAILED`, 72 `INDETERMINATE`, 10 `N/A`/no-ground-truth). A clean, complete floor — confirms the 1.5B model is too weak to be a working blue-defender, exactly as the task anticipated ("documenting where the 1.5b is too weak is as valuable as where it wins"). Ran at ~1.3 min/scenario — the full 84-scenario run was tractable (~110 min) unlike BugTraceAI's, since the model is tiny. |
+| Blue floor-check (`--replay-captured-red --purple --all-scenarios`) | **f1 = 0.00 on all 74 scored scenarios** (2 `FAILED`, 72 `INDETERMINATE`, 10 `N/A`/no-ground-truth). A clean, complete floor — confirms the 1.5B model is too weak to be a working blue-defender, exactly as the task anticipated ("documenting where the 1.5b is too weak is as valuable as where it wins"). Ran at ~1.3 min/scenario — the full sweep was tractable (~110 min) unlike BugTraceAI's, since the model is tiny. |
 
 **Verdict on security-slm-1.5b:** genuinely useful only as a classifier/triage-shaped assistant (0.70, structurally competent) — NOT usable as a blue-defender (complete floor) and has no applicable unknown-defense seat.
 
@@ -86,5 +87,13 @@ candidate — e.g. run it interactively without any tool schema to observe its n
   infrastructure gap, not a capability finding.
 - **Investigation seats (Analyst/Challenger) are structurally unwired for ANY model** — this is the one
   finding that applies regardless of which candidate you'd want to test there; a real wiring task is needed
-  first (see also [[unit-SEC_BENCH-e2e-run-status-2026-07-05]] for the parallel E2E-run status note from the
-  same investigation).
+  first (see the investigation-structure note in Model A above).
+
+## Why
+
+This unit is a dated result, not a live claim: every score reflects the run of 2026-07-05 and is kept
+because it records which candidates were honestly benched, deferred, or blocked. Re-grounding it pins the
+two structural findings that still hold — the Analyst/Challenger seats have no model hook, and the
+unknown-defense pre-classifier is deliberately non-model — while the model-specific scores stay history.
+Keeping the failures explicit prevents a later operator from re-benching a candidate whose blocking cause
+was already diagnosed.

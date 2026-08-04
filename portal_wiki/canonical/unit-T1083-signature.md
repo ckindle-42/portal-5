@@ -1,37 +1,41 @@
 ---
 id: unit-T1083-signature
 kind: mixed
-title: "T1083 \u2014 File and directory discovery \u2014 path traversal and LFI [KEY:\
-  \ One of the path traversal literals used by this SPL]"
+title: "T1083 \u2014 File and directory discovery detection signature"
 sources:
-- type: spl
-  path: portal/modules/security/core/siem/spl_detections.yaml#T1083
+- type: code
+  path: portal/modules/security/core/siem/spl_detections.yaml
 - type: mitre
   path: ATT&CK:T1083
-- type: scenario
-  path: exec_chain.py#web_path_traversal
-- type: scenario
-  path: exec_chain.py#vuln_grafana_lfi
-- type: scenario
-  path: exec_chain.py#vuln_nginx_lfi
-last_generated_commit: ''
+- type: code
+  path: portal/modules/security/core/exec_chain.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - T1083
-- technique
 - signature
+- technique
+- verified-v1
 created_at: 1785503864.927974
 updated_at: 1785503864.927974
 ---
 
-# T1083 — File and directory discovery — path traversal and LFI [KEY: One of the path traversal literals used by this SPL]
+# T1083 — File and directory discovery detection signature
 
-## Telemetry Signatures
+## What This Detection Sees
 
-### SPL Detection (siem/spl_detections.yaml)
+File and directory discovery through web request pathing is a literal-match signature. The SPL scans web access for the traversal sequences an LFI probe leaves in the URI — parent-dot segments in both encoded forms, etc/passwd, and proc/self — and groups by host and URI path so the attacker's enumeration trail is visible as a set of requests rather than a single hit.
+
+## SPL Detection
+
 ```spl
 index=portal5_lab sourcetype="web:access" ("../" OR "..%2f" OR "etc/passwd" OR "proc/self") | stats count by host, uri_path
 ```
+
+## Expected Signal
+
+Path traversal sequences in HTTP requests — the percent-encoded variant is included because naive decoders miss the obfuscated form.
 
 ## Exercised By Scenarios
 
@@ -41,11 +45,6 @@ index=portal5_lab sourcetype="web:access" ("../" OR "..%2f" OR "etc/passwd" OR "
 - `vuln_nexus_rce`
 - `vuln_rails_rce`
 
-## Per-Source Expected Signatures
+## Why
 
-| Source | Expected Signal |
-|--------|----------------|
-| (generic) | Activity consistent with T1083 |
-
----
-*Unit auto-generated from spl_detections.yaml + SCENARIOS.*
+Pinned to the executable SPL because the signature is the literals themselves: the distinction between a real LFI probe and ordinary browsing is a string difference, so a prose description would blur exactly what the query pins. Keeping the four discriminator tokens visible preserves the false-positive floor the lab relies on.

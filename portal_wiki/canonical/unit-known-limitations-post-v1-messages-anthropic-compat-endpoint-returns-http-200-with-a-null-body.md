@@ -3,33 +3,29 @@ id: unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-ht
 kind: what
 title: "KNOWN_LIMITATIONS \u2014 POST /v1/messages Null Success Body (Resolved)"
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  commit: 05e42ec2
-  section: POST /v1/messages (Anthropic-compat endpoint) returns HTTP 200 with a `null`
-    body
 - type: code
   path: portal/platform/inference/router/handlers.py
 - type: code
+  path: portal/platform/inference/router/anthropic_compat.py
+- type: code
   path: tests/unit/test_pipeline.py
-last_generated_commit: 05e42ec2
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.671825
 updated_at: 1784946220.671825
 ---
 
 - **ID**: P5-ANTHROPIC-COMPAT-001
 - **Status**: RESOLVED 2026-07-29.
-- **Former issue**: The non-streaming success path completed after checking the
-  loopback response status but never returned the translated response, so
-  FastAPI serialized Python `None` as `null`.
-- **Resolution**: The handler now returns
-  `openai_response_to_anthropic(resp.json(), model_id)` on HTTP 200. Error
-  propagation and the streaming translation path are unchanged.
-- **Regression coverage**: The endpoint test exercises the ASGI loopback and
-  asserts the complete Anthropic Messages response shape, content, stop reason,
-  model, and token usage.
-- **Discovered**: 2026-07-13, live-verifying `DESIGN_OPENCODE_ADDRESSING_V1.md`'s
-  Step 3e CLI-contract migration (`cc-local.sh`'s default model rename).
+- **Former issue**: The non-streaming `/v1/messages` (Anthropic Messages API) success path completed after checking the loopback response status but did not return the translated response, so FastAPI serialized Python `None` as `null` — HTTP 200 with an empty body.
+- **Resolution**: `anthropic_messages` in `portal/platform/inference/router/handlers.py` now returns `openai_response_to_anthropic(resp.json(), model_id)` on HTTP 200 (line ~1328). The translation lives in `portal/platform/inference/router/anthropic_compat.py`. Error propagation and the streaming translation path are unchanged.
+- **Regression coverage**: `test_anthropic_non_streaming_success_returns_message` in `tests/unit/test_pipeline.py` exercises the ASGI loopback and asserts the complete Anthropic Messages response shape, content, stop reason, model, and token usage.
+- **Discovered**: 2026-07-13, live-verifying the opencode CLI-contract migration.
+
+## Why
+
+An Anthropic-compatible endpoint returning HTTP 200 with a null body is the worst possible failure mode for a CLI client: the request looks successful so the client waits for a response that never arrives. The fix keeps the loopback pattern for routing but makes the return value explicit, and the test asserts the full wire shape rather than just the status code, so a regression reintroducing the silent null is caught at the contract level.

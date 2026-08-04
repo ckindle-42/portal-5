@@ -4,12 +4,8 @@ kind: what
 title: 'Security bench sub-components: capability index, goal-driven decide, drift
   gate, loop notifications'
 sources:
-- type: doc
-  path: docs/SECURITY_BENCH_EXEC.md
-  commit: ddb1cc61
 - type: code
-  path: portal/modules/security/core/capability/
-  commit: ddb1cc61
+  path: portal/modules/security/core/capability/__init__.py
 - type: code
   path: portal/modules/security/core/capability/index.py
 - type: code
@@ -20,31 +16,30 @@ sources:
   path: portal/modules/security/core/capability/tool_inventory.py
 - type: code
   path: portal/modules/security/core/goal.py
-  commit: ddb1cc61
 - type: code
   path: portal/modules/security/core/goal_decide.py
 - type: code
   path: portal/modules/security/core/goal_eval.py
 - type: code
   path: portal/modules/security/core/drift_gate.py
-  commit: ddb1cc61
 - type: code
   path: portal/modules/security/core/drift_cli.py
 - type: code
   path: portal/modules/security/core/loop.py
-  commit: ddb1cc61
 - type: code
   path: portal/modules/security/core/perception.py
 - type: code
   path: portal/modules/security/core/objective_executor.py
 - type: code
   path: portal/modules/security/core/objective_entry.py
-last_generated_commit: ddb1cc61
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
-- security
 - bench
+- security
 - sub-components
+- verified-v1
 created_at: 1784945480.178221
 updated_at: 1784945480.178221
 ---
@@ -53,7 +48,7 @@ updated_at: 1784945480.178221
 
 `portal.modules.security.core.capability` makes the scattered security library legible to a decide step. Read-only — indexes what already exists.
 
-- `tool_inventory.py` — Kali tool arsenal from `config/tool_catalog.yaml` (34 tools)
+- `tool_inventory.py` — Kali tool arsenal curated from `config/tool_catalog.yaml`
 - `index.py` — `Capability` dataclass + `build_index()` + `query()`
 - `render.py` — `render_capabilities()` / `render_tool_arsenal()`
 - CLI: `python3 -m portal.modules.security.core capability {list,query,tools,arsenal}`
@@ -86,5 +81,9 @@ Rolling-baseline regression + model-behavior canary. FLAG only.
 
 Reuses existing notification subsystem. Fire-and-forget, non-fatal.
 
-- Event types: `ENGAGEMENT_ESCALATED`, `ENGAGEMENT_STUCK`, `ENGAGEMENT_COMPLETE`, `VALIDATION_ALERT`
+- Event types: `ENGAGEMENT_ESCALATED`, `ENGAGEMENT_STUCK`, `ENGAGEMENT_COMPLETE`
 - Checkpoint/resume: `_write_checkpoint` persists `EngagementState`
+
+## Why
+
+Each sub-component extends the bench without touching the core chain: the capability index gives a decide step something legible to query, the goal-driven and emergent loops layer reasoning on top, drift gate flags model regressions across runs, and loop notifications surface long-running engagements. The deliberate pattern is containment — the capability index is read-only, goal decide stops at proposal, the emergent loop is flag-gated, and drift is a flag, not a verdict.

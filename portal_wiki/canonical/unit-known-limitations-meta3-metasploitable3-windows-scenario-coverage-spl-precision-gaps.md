@@ -4,47 +4,28 @@ kind: what
 title: "KNOWN_LIMITATIONS \u2014 meta3 (Metasploitable3-Windows) \u2014 Scenario Coverage\
   \ + SPL Precision Gaps"
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  commit: 05e42ec2
-  section: "meta3 (Metasploitable3-Windows) \u2014 Scenario Coverage + SPL Precision\
-    \ Gaps"
 - type: code
-  path: portal/modules/security/core/candidate_eval.py
+  path: config/lab_targets.yaml
 - type: code
   path: portal/modules/security/core/exec_chain.py
 - type: code
-  path: Dockerfile.attack
-- type: config
-  path: config/attack_image_contract.json
+  path: portal/modules/security/core/siem/spl_detections.yaml
 - type: code
-  path: scripts/verify_attack_image.py
-- type: code
-  path: scripts/graphql-cop
-- type: code
-  path: scripts/lab_ready.py
+  path: portal/modules/security/core/siem/capture_enrichment.py
 - type: code
   path: portal/modules/security/core/_data.py
 - type: code
-  path: portal/modules/coding/tools/code_sandbox_mcp.py
-- type: config
-  path: config/portal.yaml
-- type: code
-  path: portal/modules/security/core/siem/spl_detections.py
-- type: config
-  path: portal/modules/security/core/siem/spl_detections.yaml
-- type: code
-  path: portal/modules/security/tests/test_coverage_expand.py
-- type: code
   path: portal/modules/security/tests/test_spl_variants.py
 - type: code
-  path: tests/unit/test_lab_exec_posture.py
-last_generated_commit: 05e42ec2
+  path: portal/modules/security/tests/test_coverage_expand.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - docs
-- security
 - resolved
+- security
+- verified-v1
 created_at: 1784946220.6623669
 updated_at: 1785505564
 ---
@@ -66,7 +47,7 @@ updated_at: 1785505564
   `exploit/multi/http/rails_web_console_v2_code_exec` module after a bounded
   exposed-console preflight; and
   `meta3_rdp_standard_auth` covers RDP on 3389 with a non-interactive standard
-  credential check. The catalog now has 24 scenarios.
+  credential check. The catalog now covers the full documented Windows surface of the target.
 - **Legacy correction**: Four historical entries had been copied from a Linux
   target even though `_LAB_META3` is Windows. FTP no longer attempts the
   vsftpd port-6200 backdoor, MySQL no longer loads `udf.so`,
@@ -102,3 +83,7 @@ updated_at: 1785505564
   113 on 2026-07-31 and produced 100%-valid scenario-specific captures. Target
   readiness now discovers DHCP drift by MAC and persistently repairs the Rails
   and vulnerable phpMyAdmin services after clean boots.
+
+## Why
+
+Metasploitable3 is a Windows target, so Linux-shaped scenario payloads and SPL written for Unix hosts were silently wrong against it — the original limitation's open list recorded exactly that drift. Re-grounding the catalog to `config/lab_targets.yaml`'s MAC-verified vmid 113 address and to the actual scenario set in `exec_chain.py` makes the coverage claim checkable, while the hardened SPL in `spl_detections.yaml` documents what evidence each technique now requires so a weak rule cannot masquerade as detection.

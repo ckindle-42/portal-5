@@ -3,20 +3,26 @@ id: unit-known-limitations-devstral-2509-upgrade-blocked-model-not-published
 kind: what
 title: "KNOWN_LIMITATIONS \u2014 Devstral 2509 Upgrade Blocked \u2014 Model Not Published"
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  commit: 05e42ec2
-  section: "Devstral 2509 Upgrade Blocked \u2014 Model Not Published"
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/personas/bench_devstral.yaml
+- type: code
+  path: config/portal.yaml
+- type: code
+  path: config/backends.yaml
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.6619809
 updated_at: 1784946220.6619809
 ---
 
 - **ID**: P5-BENCH-DEVSTRAL-2509
-- **Description**: `lmstudio-community/Devstral-Small-2509-MLX-4bit` was not found on
-  HuggingFace as of TASK_BENCH_COVERAGE_V1 (2026-05-21). bench-devstral remains pinned
-  to the 2507 (July 2025) variant.
-- **Operator action**: Re-run Change 0 verification when the 2509 card appears.
+- **Description**: A Devstral 2509 upgrade is blocked because no such model is registered in the catalog. The bench persona `config/personas/bench_devstral.yaml` is named for the 2507 (July 2025) variant, and both `bench-devstral` and `bench-devstral-small-2` in `config/portal.yaml` pin to `devstral:24b` and `devstral-small-2:latest` respectively — neither `config/backends.yaml` nor the workspaces reference any 2509 tag.
+- **Operator action**: Re-run the persona-intent verification when a 2509 model card appears and is registered as a catalog candidate; the MLX-tagged variant named in the original finding is no longer relevant because the MLX inference tier is retired.
+
+## Why
+
+The bench workspaces must not silently promote to a model that was never verified, so the catalog is the gate: a 2509 tag cannot be routed until it exists as a backend model entry and the bench persona is updated to name it. Recording the blocked upgrade preserves the intent while making the blocker mechanical — a missing catalog registration — rather than a stale prose promise.

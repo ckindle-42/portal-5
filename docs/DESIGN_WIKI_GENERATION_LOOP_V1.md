@@ -5,36 +5,38 @@
 ### Single write-point
 
 <!-- WIKI:GENERATED unit=unit-DESIGN_WIKI-spine-write-point -->
-The `portal_wiki/canonical/` spine is the single place truth is edited. Every downstream doc is a **shell** whose substance is rendered from spine units. You edit one unit; a process regenerates every downstream file that draws on it. You never update the same fact in two places.
+The `portal_wiki/canonical/` spine is the single write-point for documentation: a fact is edited in one unit, and `render_all_generated_blocks` rewrites every `WIKI:GENERATED` block that references it across the `TIER1_DOCS` set. Downstream docs are shells -- their generated substance is the unit body, not a separate copy -- so the same fact is never maintained in two places.
 
-This inverts the traditional documentation model (hand-maintain prose, then audit for drift) into a mechanical one: drift is impossible because the doc has no independent prose to drift -- its content IS the unit body, filled in by `render_all_generated_blocks` during `sync-config`.
+This inverts the traditional model of hand-maintaining prose and then auditing for drift. A generated block cannot drift independently because it has no independent prose: `sync-config` invokes `render_all_generated_blocks`, and only the content between the `WIKI:GENERATED` markers is replaced, leaving human-authored narrative untouched.
 
-The enforcement gate is AW in `validate_system.py`: it diffs each WIKI:GENERATED block against its unit's current body. A mismatch means `sync-config` was not re-run after a source change.
+The enforcement gate is validate check AW in `scripts/validate_system.py`: `check_wiki_facts_current` diffs each generated block against its unit's current body via `check_generated_blocks_current`, so a mismatch is a precise signal that `sync-config` was not re-run after the source unit changed. AW also verifies fact-units against live config and that migrated docs carry no un-fenced substance.
+
+## Why
+
+Concentrating the write-point in the spine is what makes doc currency mechanical rather than reviewable. If facts lived in two places, nothing could stop them from diverging except an audit nobody schedules; the block-fill contract turns divergence into a per-block diff failure a pre-commit gate can catch. AW diffs against the unit body rather than a hash or timestamp because only an exact body comparison produces the precise, actionable mismatch that a coarse directory-changed signal cannot.
 <!-- /WIKI:GENERATED -->
 
 ### Fence contract
 
 <!-- WIKI:GENERATED unit=unit-DESIGN_WIKI-fence-contract -->
-A migrated doc contains exactly two types of managed content:
+A migrated doc contains exactly two managed content types. First, `WIKI:GENERATED` blocks, delimited by an opening `&lt;!-- WIKI:GENERATED unit=&lt;id&gt; --&gt;` marker and a closing `&lt;!-- /WIKI:GENERATED --&gt;` marker, whose content is filled from the spine unit body by `render_all_generated_blocks`. The marker is placed once by hand; the renderer only replaces content between markers and never invents a location, so the inside of a generated fence is never hand-edited. Second, `WIKI:HUMAN-OWNED` fences, whose current opening form carries a `reason="..."` attribute; the older bare V1 form without a reason is detected and treated as unreasoned, which fails `doc_is_migrated`. Human-owned fences hold irreducible judgment -- rationale, caveats, opinions. A fact (a count, a path, a name, a behavior of the code) belongs in a unit; a judgment may live in a fence.
 
-1. **WIKI:GENERATED blocks** -- delimited by `&lt;!-- WIKI:GENERATED unit=&lt;id&gt; --&gt;` and `&lt;!-- /WIKI:GENERATED --&gt;`. Content is filled from a spine unit by `render_all_generated_blocks`. Never hand-edit inside this fence -- edit the unit instead.
+`doc_is_migrated` demands more than clean fences: at least one generated block, a human-fence share at or below the `_HUMAN_FENCE_MAX` bound, every fence reasoned, and zero `substantive_remainder`. Inert markdown structure -- headings, horizontal rules, blank lines, table separator rows, standalone tags, non-WIKI HTML comments -- may sit outside fences without triggering discovery.
 
-2. **WIKI:HUMAN-OWNED fences** -- delimited by `&lt;!-- WIKI:HUMAN-OWNED --&gt;` and `&lt;!-- /WIKI:HUMAN-OWNED --&gt;`. Irreducible human judgment (rationale, caveats, opinions). This is first-class, not a loophole for un-migrated facts. A fact (a count, a path, a name, a behavior of the code) belongs in a unit; a judgment may live here.
+## Why
 
-Any substantive line outside both fences is **un-migrated content** -- a discovery hit. Inert markdown structure (headings, horizontal rules, blank lines) may exist outside fences without triggering discovery.
+The fence contract is what makes "migrated" a mechanically checkable property instead of a claim. V2 made the reason attribute a hard requirement because an unreasoned fence is indistinguishable from dumping narrative into a doc to dodge discovery. The generated-block floor and the bounded human-fence ratio close the mirror-image loophole: a doc cannot pass by fencing everything, which is the exact game `doc_is_migrated` and the validate gate exist to catch.
 <!-- /WIKI:GENERATED -->
-
 ### Section-level granularity
 
 <!-- WIKI:GENERATED unit=unit-DESIGN_WIKI-section-granularity -->
-A unit maps to a **doc section** -- the chunk a human/agent thinks of as "the thing I edit." This is the default granularity. Decompose to a finer fact-unit **only** when a value is:
+A unit maps by default to a doc section -- the chunk a human or agent thinks of as the thing they edit. Finer fact-unit decomposition is reserved for values that earn it: a value reused across more than one doc, or a value independently volatile on its own schedule, such as counts, ports, model IDs, or thresholds. Rationale is the tiebreaker between the two; the aim is the unit best for an agent to manage and easiest for a human to read. Pure fact-atomization of everything is forbidden, because it turns a doc into a flood of unreadable micro-units and is worse for both audiences.
 
-- **(i) Reused** across more than one doc, or
-- **(ii) Independently volatile** (counts, ports, model IDs, thresholds).
+The `seed_facts.py` derivers implement this through the `_make_unit` idempotency pattern: when the newly derived body matches what is already stored, the prior unit's sources, timestamps, and `last_generated_commit` are reused wholesale, so a unit file changes on disk only when its body actually changed. `last_generated_commit` therefore means the commit at which the fact last changed, not the commit at which the derive script last ran, and repeated `sync-config` runs produce no churn.
 
-Rationale is the tiebreaker: best for the agent to manage, easiest for the human to read. **Pure fact-atomization of everything is forbidden** -- it produces hundreds of unreadable micro-units, worse for both audiences.
+## Why
 
-The existing `seed_facts.py` derivers follow the `_make_unit` idempotent pattern: they only advance `last_generated_commit` when the body actually changes, preventing no-op churn on every `sync-config` run.
+Granularity is a management choice, not a data-model property, so the rule exists to stop the cheapest failure mode: machine-seeded authors splitting everything into atoms and flooding the canonical directory with near-duplicate noise. The `_make_unit` pattern exists for the parallel reason -- if the stamp advanced on every run, every fact-unit would be rewritten on every `sync-config`, turning an idempotent render step into a permanent diff generator and making HEAD pinning meaningless.
 <!-- /WIKI:GENERATED -->
 
 ## Mechanism
@@ -42,13 +44,13 @@ The existing `seed_facts.py` derivers follow the `_make_unit` idempotent pattern
 ### Discovery and termination
 
 <!-- WIKI:GENERATED unit=unit-DESIGN_WIKI-discovery-termination -->
-The migration loop processes whatever `discover_unmigrated_docs()` returns, highest-priority first, and **halts when it returns empty**. The doc list is computed, never hardcoded.
+The migration loop repeatedly calls `discover_unmigrated_docs()` and halts when the returned list is empty. The candidate set is computed at runtime as the union of the `TIER1_DOCS` tuple and the paths still present in `docs/.doc_ledger.yaml` (via `_ledger_doc_paths`); it is never chosen by hand on each run. Results are processed highest-priority first: `priority` is a git-churn count over the last 30 commits touching the file, plus a fixed boost for high-value seed docs, sorted descending.
 
-Each iteration is an **atomic green slice**: after any single doc migrates, the repo is fully working -- that doc is generated + round-trip-proven + de-ledgered; all other docs are untouched. The loop may stop after any commit and resume later with no cleanup.
+Every doc migration is an atomic green slice. After a single doc migrates the repo is fully working, the doc is generated and round-trip proven, and its ledger entry can be pruned; the loop may stop after any commit and resume later with no cleanup. `render_report()` supplies the standing dashboard as `{migrated, unmigrated, gamed, blocks_total, coverage_pct, human_ratio}`. A graduated doc is retired from the ledger by `doc_ledger.py prune` (`prune_migrated`), so when discovery returns empty the ledger is empty too, and content-hash currency (validate check AW) governs from then on.
 
-Priority is a hint (most-important/most-churned first), not a fixed sequence. `render_report()` provides the standing progress dashboard: `{migrated, unmigrated, blocks_total, coverage_pct}`.
+## Why
 
-When `discover_unmigrated_docs` returns empty, the commit-stamp ledger (`docs/.doc_ledger.yaml`) should be at or near empty -- every graduated doc has been pruned by `doc_ledger.py prune`, and only content-hash currency (AW) governs them.
+Mechanical termination exists so migration is never an open-ended rewrite campaign. Because each doc commits atomically and the candidate set is derived from git churn plus the ledger, an operator can interrupt the loop at any commit, resume later, and still find every intermediate state passes the migration gate. The ledger retirement matters as much as the loop: once AW diffs generated blocks against unit bodies directly, the commit-stamp model is redundant, and a shrinking ledger is simply the discovery surface collapsing to the Tier-1 set.
 <!-- /WIKI:GENERATED -->
 
 ### Migration coverage
@@ -92,14 +94,18 @@ Total generated blocks across migrated docs: 562
 ## Migration procedure
 
 <!-- WIKI:GENERATED unit=unit-DESIGN_WIKI-migration-procedure -->
-For each doc `D` returned by `discover_unmigrated_docs()` (highest priority first):
+For each doc `D` returned by `discover_unmigrated_docs()`, processed highest priority first, the loop body is:
 
-1. Read `D` and read HEAD reality. For every substantive claim, verify against actual code/config/data. Author units from HEAD truth, not stale prose.
-2. Decompose `D` into section-level units (A2 granularity rule).
-3. Convert `D` to a shell of WIKI:GENERATED blocks and WIKI:HUMAN-OWNED fences for irreducible judgment.
-4. Render via `sync-config`, prove round-trip (edit-propagates, hand-edit-is-clobbered).
-5. Retire `D` from commit-stamp ledger via `doc_ledger.py prune`.
-6. Verify green, commit. Re-discover and continue.
+1. Read `D` and read HEAD reality; verify every substantive claim against actual code, config, or data and author units from HEAD truth, never from stale prose.
+2. Decompose `D` into section-level units, reserving fact-atom decomposition for values that are reused or independently volatile (see the section-granularity unit).
+3. Convert `D` into a shell whose substance is `WIKI:GENERATED` blocks plus `WIKI:HUMAN-OWNED` fences for the irreducible judgment.
+4. Render through `sync-config`, which invokes `render_all_generated_blocks`, then prove round-trip: an edit to the unit propagates and a hand-edit inside a generated fence is clobbered.
+5. Retire `D` from `docs/.doc_ledger.yaml` via `doc_ledger.py prune` (`prune_migrated`).
+6. Verify the per-commit gate is green, commit, then re-discover and continue.
 
-Each doc is one atomic commit. The repo is green after every commit. The loop is resumable at any point.
+Each doc lands as one atomic commit, the repo is green after every commit, and the loop is resumable at any point without cleanup.
+
+## Why
+
+The procedure is a fixed loop body because a migration that cannot be verified at each step silently degrades into docs-are-the-source authoring. Rendering through `sync-config` and proving propagation and clobbering closes the loop before the ledger prune: a doc is only de-ledgered after its shell demonstrably tracks its units. The atomic-commit rule keeps every intermediate state buildable, which is what makes the loop safe to interrupt and resume.
 <!-- /WIKI:GENERATED -->

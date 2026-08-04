@@ -3,27 +3,23 @@ id: unit-known-limitations-models-out-of-m4-pro-64-gb-budget
 kind: what
 title: "KNOWN_LIMITATIONS \u2014 Models Out of M4 Pro 64 GB Budget"
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  commit: 05e42ec2
-  section: Models Out of M4 Pro 64 GB Budget
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.675589
 updated_at: 1784946220.675589
 ---
 
-The following models were evaluated and explicitly **refused** from the Portal 5
-catalog. They exceed the M4 Pro 64 GB unified memory ceiling at the lowest
-quality-preserving quantization. Do not re-propose without a cluster scaling
-plan (P5_ROADMAP Stage 3 vLLM node).
+The following models were evaluated and explicitly **refused** from the Portal 5 catalog. They exceed the M4 Pro 64 GB unified memory ceiling at the lowest quality-preserving quantization. Do not re-propose without a cluster scaling plan (P5_ROADMAP Stage 3 vLLM node). The refuse list is preserved in `coding_task/TASK_MODEL_REFRESH_V7.md`, and the newer April-2026 exclusions are recorded in `coding_task/TASK_MODEL_REFRESH_V8.md`.
 
-**Guardrail for future Claude sessions**: before recommending any MoE model
-with total params > 100B on a 64 GB M4 Pro budget, compute the 4-bit weight
-footprint. If > 50 GB, refuse and reference this section. Mac Studio 128 GB+
-is the path for these models.
+**Guardrail**: before recommending any MoE model with total params over 100B on a 64 GB M4 Pro budget, compute the 4-bit weight footprint; if it exceeds 50 GB, refuse and reference this section. Mac Studio 128 GB+ is the path for these models.
 
 | Model | 4-bit MLX resident | Why refused |
 |-------|--------------------|-------------|
@@ -39,3 +35,7 @@ is the path for these models.
 | `huihui-ai/Huihui-GLM-5.1-abliterated` (754B) | 377+ GB at 4-bit | Same bucket as GLM-5 — abliterated variant, total params far exceed 64 GB. |
 
 **P5-MODEL-64GB principle**: MoE active-parameter count governs decode *speed*, but total parameters govern *whether it fits* — 64 GB gates on total, not active. The April-2026 headline releases (DeepSeek-V4-Flash 284B/13B active, Kimi-K2.6 1T/32B active) are verified real but excluded on this basis. They become relevant only at the cluster Stage-3 / Mac-Studio tier on the roadmap.
+
+## Why
+
+Large-MoE marketing focuses on the small active-parameter count, which predicts decode speed but not residency, so the refusal record is written to short-circuit future re-proposals: the footprint figures are captured at decision time, and the 100B/50 GB guardrail turns the reasoning into a mechanical pre-check. Because these models are MLX-tier artifacts and never entered `config/backends.yaml`, the audit trail lives in the refresh task docs rather than the serving config.

@@ -1,42 +1,46 @@
 ---
 id: unit-T1550.002-signature
 kind: mixed
-title: "T1550.002 \u2014 Pass-the-hash \u2014 NTLM hash authentication"
+title: "T1550.002 \u2014 Pass-the-hash detection signature"
 sources:
-- type: spl
-  path: portal/modules/security/core/siem/spl_detections.yaml#T1550.002
+- type: code
+  path: portal/modules/security/core/siem/spl_detections.yaml
 - type: mitre
   path: ATT&CK:T1550.002
-- type: scenario
-  path: exec_chain.py#relay_to_shell
-last_generated_commit: ''
+- type: code
+  path: portal/modules/security/core/exec_chain.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - T1550.002
-- technique
 - signature
+- technique
+- verified-v1
 created_at: 1785503864.929021
 updated_at: 1785503864.929021
 ---
 
-# T1550.002 — Pass-the-hash — NTLM hash authentication
+# T1550.002 — Pass-the-hash detection signature
 
-## Telemetry Signatures
+## What This Detection Sees
 
-### SPL Detection (siem/spl_detections.yaml)
+Pass-the-hash is the NTLM authentication case: a network logon (4624, `LogonType` 3) whose authentication package is `NTLM` means the credentials were used as a hash rather than verified interactively. The SPL groups by `Account` and source IP so the attacker's reused identity is visible across sessions.
+
+## SPL Detection
+
 ```spl
 index=portal5_lab sourcetype="windows:security" EventCode=4624 LogonType=3 AuthenticationPackageName=NTLM | stats count by Account, IpAddress
 ```
+
+## Expected Signal
+
+NTLM hash-based network authentication — the package filter is what separates this from a Kerberos logon, and the logon type pins it to network use.
 
 ## Exercised By Scenarios
 
 - `relay_to_shell`
 
-## Per-Source Expected Signatures
+## Why
 
-| Source | Expected Signal |
-|--------|----------------|
-| (generic) | Activity consistent with T1550.002 |
-
----
-*Unit auto-generated from spl_detections.yaml + SCENARIOS.*
+Grounded in the executable SPL because the authentication-package filter is the entire distinction the unit encodes: NTLM on a network logon is the hash-reuse tell. Keeping the query verbatim preserves that single-field discriminator that prose would otherwise soften.

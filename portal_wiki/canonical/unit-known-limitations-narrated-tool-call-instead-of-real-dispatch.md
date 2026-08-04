@@ -3,9 +3,6 @@ id: unit-known-limitations-narrated-tool-call-instead-of-real-dispatch
 kind: what
 title: Model Narrates a Fake Tool Call Instead of Invoking the Real One (Resolved)
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  section: Model Narrates a Fake Tool Call Instead of Invoking the Real One (Resolved)
 - type: code
   path: portal/platform/inference/router/tools.py
 - type: code
@@ -14,12 +11,14 @@ sources:
   path: portal/platform/inference/router/non_streaming.py
 - type: code
   path: tests/unit/test_pipeline.py
-last_generated_commit: ''
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - known-limitations
-- tool-calling
 - resolved
+- tool-calling
+- verified-v1
 created_at: 1785451583.192746
 updated_at: 1785458075
 ---
@@ -57,3 +56,7 @@ updated_at: 1785458075
 - **Safety boundary**: Client `tool_choice=none`, `portal_no_tools`, and non-matching prompts
   retain their prior behavior. A selected tool must be allow-listed; the selector never grants
   a capability. Unit coverage includes the affected UAT prompt shapes and negative cases.
+
+## Why
+
+The direct reproduction proved the same model was reliable with one tool and intermittent with the full multi-tool payload, so the failure is sampling-driven ambiguity under schema load, not wiring. Narrowing the exposed schema to one required tool for explicit side-effect intents removes the ambiguity at its source without buffering the streaming hot path, and the allow-list plus retained `tool_choice=none` behavior keeps the selector from ever granting a capability it did not already have.

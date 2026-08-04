@@ -1,36 +1,41 @@
 ---
 id: unit-T1595-signature
 kind: mixed
-title: "T1595 \u2014 Active scanning \u2014 vulnerability scanning and directory brute-force"
+title: "T1595 \u2014 Active scanning detection signature"
 sources:
-- type: spl
-  path: portal/modules/security/core/siem/spl_detections.yaml#T1595
+- type: code
+  path: portal/modules/security/core/siem/spl_detections.yaml
 - type: mitre
   path: ATT&CK:T1595
-- type: scenario
-  path: exec_chain.py#web_asset_discovery
-- type: scenario
-  path: exec_chain.py#web_nuclei_scan
-- type: scenario
-  path: exec_chain.py#meta3_full_chain
-last_generated_commit: ''
+- type: code
+  path: portal/modules/security/core/exec_chain.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - T1595
-- technique
 - signature
+- technique
+- verified-v1
 created_at: 1785503864.927628
 updated_at: 1785503864.927628
 ---
 
-# T1595 — Active scanning — vulnerability scanning and directory brute-force
+# T1595 — Active scanning detection signature
 
-## Telemetry Signatures
+## What This Detection Sees
 
-### SPL Detection (siem/spl_detections.yaml)
+Active scanning is a volume signal on the web access log: a host accumulating a high rate of 404s is either brute-forcing paths or running a vulnerability scanner. The SPL counts not-found responses per host and URI path and retains only those above a threshold of ten.
+
+## SPL Detection
+
 ```spl
 index=portal5_lab sourcetype="web:access" status=404 | stats count by host, uri_path | where count > 10
 ```
+
+## Expected Signal
+
+A high 404 rate from directory brute-force or vulnerability scanning — the count threshold is the rule, and the not-found status is the raw material.
 
 ## Exercised By Scenarios
 
@@ -38,11 +43,6 @@ index=portal5_lab sourcetype="web:access" status=404 | stats count by host, uri_
 - `web_nuclei_scan`
 - `meta3_full_chain`
 
-## Per-Source Expected Signatures
+## Why
 
-| Source | Expected Signal |
-|--------|----------------|
-| (generic) | Activity consistent with T1595 |
-
----
-*Unit auto-generated from spl_detections.yaml + SCENARIOS.*
+Pinned to the executable SPL because scanning is defined by volume, and the query's count-and-threshold shape is the whole detection. Restating "active scanning" without the 404 aggregate and the threshold would strip the unit of its only mechanical claim.

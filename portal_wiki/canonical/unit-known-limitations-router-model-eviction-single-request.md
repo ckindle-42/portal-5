@@ -3,23 +3,27 @@ id: unit-known-limitations-router-model-eviction-single-request
 kind: what
 title: LLM Router Model Evicted by Single Inference Request (Resolved)
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  section: LLM Router Model Evicted by Single Inference Request (Resolved)
 - type: code
   path: portal/platform/inference/router/lifespan.py
 - type: code
+  path: portal/platform/inference/router/routing.py
+- type: code
   path: scripts/lib/util.sh
-- type: doc
-  path: https://github.com/ollama/ollama/commit/9eef4a7195dc8ad246e697a5251a8df344a56880
-  section: mlx keep loaded model memory resident
-last_generated_commit: ''
+- type: code
+  path: tests/unit/test_pipeline.py
+- type: code
+  path: portal/platform/inference/tool_preselect/preselector.py
+- type: code
+  path: portal/platform/inference/tool_preselect/cli_probe.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - known-limitations
-- router
 - ollama
 - resolved
+- router
+- verified-v1
 created_at: 1785451451.3742568
 updated_at: 1785458075
 ---
@@ -109,3 +113,7 @@ updated_at: 1785458075
   tests: `TestOllamaOutcomes::test_payload_caps_num_ctx` in
   `portal/platform/inference/tool_preselect/tests/test_preselector.py`.
   `cli_probe.py` is operator-invoked only, no automated coverage needed.
+
+## Why
+
+The router warmup pins the model with `keep_alive: -1`, which is load-bearing: without it the router re-cold-loads on every heavy inference request. But the same pin becomes a memory bug when `options.num_ctx` is omitted, because Ollama then reserves the model's full context window times the parallel slots — tens of GiB for a small model — which forces the scheduler to evict the router it was trying to keep warm. Matching the warmup context to the real routing call and the workspace limit is what makes the pin actually safe.

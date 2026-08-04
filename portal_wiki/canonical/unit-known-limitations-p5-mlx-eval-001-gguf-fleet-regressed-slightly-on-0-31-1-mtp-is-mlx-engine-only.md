@@ -4,29 +4,23 @@ kind: what
 title: "KNOWN_LIMITATIONS \u2014 P5-MLX-EVAL-001 \u2014 GGUF fleet regressed slightly\
   \ on 0.31.1; MTP is MLX-engine-only"
 sources:
-- type: doc
-  path: KNOWN_LIMITATIONS.md
-  commit: 05e42ec2
-  section: "P5-MLX-EVAL-001 \u2014 GGUF fleet regressed slightly on 0.31.1; MTP is\
-    \ MLX-engine-only"
-last_generated_commit: 05e42ec2
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: tests/benchmarks/bench_mlx_hf.py
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
 - docs
+- verified-v1
 created_at: 1784946220.669174
 updated_at: 1784946220.669174
 ---
 
-- **Description**: Ollama 0.31.1's claimed MTP speedup applies only when Ollama
-  selects its own MLX engine subprocess (triggered by official `-mlx`-tagged
-  models). Our entire GGUF fleet routes through `llama-server` regardless of
-  Ollama version — confirmed via server log (`spec common_specu: no
-  implementations specified for speculative decoding`). Separately, the GGUF
-  fleet got measurably *slower* after the 0.31.1 upgrade (~5-11% across 15+
-  models tested, clean warm-up-matched methodology). Tested `num_batch=512`
-  (pre-upgrade default) vs 0.31.1's auto-selected 1024/2048 — **zero
-  measurable difference**, ruling out batch-size as the cause. Root cause is
-  presumably the bundled llama.cpp engine version bump itself; no known
-  workaround.
-- **Impact**: None today (no config changed). Documented so a future Ollama
-  upgrade isn't mistaken for a routing/pipeline regression.
+- **Description**: Ollama 0.31.1's claimed MTP speedup applies only when Ollama selects its own MLX engine subprocess (triggered by official `-mlx`-tagged models), so the GGUF fleet routed through `llama-server` regardless of version. Separately, the GGUF fleet measured slower after the 0.31.1 upgrade, and the 5-11% regression is recorded in `coding_task/TASK_SEC_DRIFT_GATE_V1.md` as the motivating example for the delta gate it adds — a version-induced performance shift that absolute gates would not flag. The MTP claim and its MLX-engine-only scope are documented in `coding_task/TASK_EVAL_GEMMA4_MLX_TAGS_V1.md`.
+- **Impact**: None today (no config changed). Documented so a future Ollama upgrade isn't mistaken for a routing/pipeline regression.
+
+## Why
+
+An Ollama point release silently shifting GGUF throughput is exactly the failure a routing regression gate cannot see, because routing behavior is unchanged while latency moves. Recording the measured regression and the scope of the MTP claim keeps the two facts distinct — the speedup is an MLX-engine property, the slowdown is a llama.cpp-version property — so a future upgrade is evaluated against the right baseline.

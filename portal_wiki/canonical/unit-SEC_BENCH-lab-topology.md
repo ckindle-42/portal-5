@@ -3,19 +3,19 @@ id: unit-SEC_BENCH-lab-topology
 kind: what
 title: 'Lab topology: Proxmox VMs and LXC containers'
 sources:
-- type: doc
-  path: docs/SECURITY_BENCH_EXEC.md
-  commit: d869257b
 - type: code
   path: config/lab_targets.yaml
-  commit: d869257b
-last_generated_commit: d869257b
+- type: code
+  path: .env.example
+last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+claims: []
 confidence: high
 tags:
-- security
 - bench
 - lab
+- security
 - topology
+- verified-v1
 created_at: 1784941806.377922
 updated_at: 1784941806.377922
 ---
@@ -24,12 +24,16 @@ Proxmox 3 (10.0.0.203) hosts the lab:
 
 | ID | Name | IP | Role |
 |---|---|---|---|
-| vmid 110 | portal-lab-dc01 | 10.10.11.21 | DC, Win2022 |
+| vmid 110 | portal-lab-dc01 | 10.10.11.21 | Domain controller (Windows) |
 | vmid 111 | portal-lab-srv01 | 10.10.11.33 | Member server |
 | vmid 113 | portal-lab-meta3-win2k8 | 10.10.11.13 | Metasploitable3 Win2k8 |
 | lxc 112 | portal-lab-vulhub | 10.10.11.50 | Docker: Redis/LFI/Tomcat/Log4Shell/NFS/VulnerableApp |
 | lxc 300 | portal-lab-mbptl | 10.0.1.140 | MBPTL CTF lab |
 
-Metasploitable3 Win2k8 (vmid 113): 2 CPU, 4 GB RAM, 60 GB disk. Open ports: 21 (FTP), 22 (SSH), 80 (IIS), 135 (RPC), 139 (NetBIOS), 445 (SMB/AD), 3306 (MySQL), 3389 (RDP), 4848 (GlassFish), 8080 (Tomcat), 8383, 8484 (Java), 9200 (Elasticsearch). **IP is DHCP-assigned, not static** -- has drifted twice.
+The vmids, names, and IPs above are pinned in `config/lab_targets.yaml` (host identities) and `.env.example` (`LAB_MBPTL_HOST`/`LAB_MBPTL_LXC_VMID`, `LAB_META3_VMID`, `LAB_VULHUB_VMID`). Metasploitable3 Win2k8 runs FTP, SSH, IIS, SMB, MySQL, RDP, GlassFish, and Elasticsearch per its documented service fleet; the bench probes it on ports 445/3306/80/8282/21 (the `meta3_*` entries in `_LAB_SERVICE_PROBES`). **Its IP is DHCP-assigned, not static** -- it has drifted twice and was last corrected to 10.10.11.13 via MAC-based identification rather than a port-probe guess.
 
-VulnerableApp (lxc 112, 10.10.11.50:80): OWASP project, Docker-native, 14 vulnerability types (SQLi, XSS, XXE, SSRF, Command Injection, File Upload, Path Traversal, JWT, Open Redirect, IDOR, LDAP Injection, Clickjacking, Crypto failures, Authentication).
+VulnerableApp (lxc 112, 10.10.11.50:80): OWASP project, Docker-native, exposing a broad set of vulnerability classes (SQLi, XSS, XXE, SSRF, command injection, path traversal, IDOR, JWT, and more).
+
+## Why
+
+The topology is recorded here because the bench's lab-exec tier addresses these exact IPs and vmids, and each one has already drifted or been mis-identified at least once (see the correction history in `lab_targets.yaml`). Pinning the identities in one place — and noting which are DHCP-assigned — tells an operator which failure mode to suspect first when a scenario starts failing with connection-refused, and which file to edit when a host moves.
