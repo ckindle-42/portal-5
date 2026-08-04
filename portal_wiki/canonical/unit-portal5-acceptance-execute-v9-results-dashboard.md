@@ -21,8 +21,9 @@ After a run completes, the results file is written to the repository root as
 the date, git SHA, section list, runtime, summary counts, and one row per
 check. To publish it, run `scripts/update_grafana_acceptance.py --input
 ACCEPTANCE_RESULTS.md`. The explicit `--input` path matters because the script's
-default points at `tests/ACCEPTANCE_RESULTS.md` while the runner writes to the
-repo root. The script parses the markdown table, rewrites the dashboard JSON at
+default (the `RESULTS_FILE` constant) points at a `tests/`-tree location for the
+results file while the runner writes the file to the repo root. The
+script parses the markdown table, rewrites the dashboard JSON at
 `config/grafana/dashboards/portal5_acceptance.json`, and archives a JSONL
 snapshot into `tests/acceptance_corpus/` for the run-trend panel.
 

@@ -27,8 +27,8 @@ updated_at: 1784946220.6935182
 
 The current acceptance entry point is `tests/portal5_acceptance_v6.py`, a thin
 script that re-exports the routing signal dicts and delegates to
-`acceptance.cli.main`; confirm it is still the newest runner by listing
-`tests/portal5_acceptance_v*.py` before running.
+`acceptance.cli.main`; confirm it is still the newest runner by listing the
+`portal5_acceptance_*` shims under `tests/` before running.
 
 Two changes mark the current surface. First, the retired standalone security
 workspace ids no longer exist as workspace ids: S6 tests the `auto-security`

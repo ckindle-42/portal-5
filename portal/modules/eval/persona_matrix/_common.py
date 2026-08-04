@@ -27,7 +27,6 @@ WORKSPACE_REGISTRY: dict[str, dict[str, str]] = {
         "assertions_module": "tests.lib.coding_assertions",
         "fixtures_module": "tests.lib.coding_fixtures",
         "persona_categories": ("coding", "software", "development", "systems"),
-        "threshold_doc": "docs/CODING_FALLBACK_POLICY.md",
     },
     # Shootout-only registry entry — same assertions and fixtures as auto-coding,
     # but filters by the benchmark persona category so bench-* personas (each
@@ -45,7 +44,6 @@ WORKSPACE_REGISTRY: dict[str, dict[str, str]] = {
         # persona_categories is retained as a fallback if persona_slugs_explicit is
         # cleared, but V2 routes through the slug list. See A2/A7.
         "persona_categories": ("benchmark",),
-        "threshold_doc": "TASK_CODING_SHOOTOUT_V2.md",
         # V2 enumerates the production personas the workspace actually serves,
         # pruned per A3. Categories-based filtering can't express this set
         # because it spans multiple persona categories AND requires exclusions

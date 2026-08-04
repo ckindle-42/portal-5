@@ -28,13 +28,13 @@ The runner entry point is `tests/portal5_acceptance_v6.py`, which is a thin
 wrapper: it re-exports `WORKSPACE_PROMPTS` and the related signal dicts and
 calls `acceptance.cli.main`, with all real behavior in
 `tests/acceptance/{cli,runner,results,_common}.py`. Before launching, confirm no
-newer runner exists by listing `tests/portal5_acceptance_v*.py`.
+newer runner exists by listing the `portal5_acceptance_*` shims under `tests/`.
 
 Section selection is handled by the `--section` argument in
 `tests/acceptance/cli.py` and by `_parse_sections` in
 `tests/acceptance/runner.py`, which accepts a single id, a comma-separated list,
 an inclusive numeric range such as `--section S0-S5`, or `ALL`. The
-authoritative section list is the `tests/acceptance/s*.py` file set on disk,
+authoritative section list is the `s*` module set under `tests/acceptance/`,
 each wrapped by a function in the runner's `ALL_SECTIONS` map. Key sections for
 the current surface: S3/S3a routes the production catalog; S6 covers the
 `auto-security` workspace and its variants; S10 and S10c exercise personas (S10
