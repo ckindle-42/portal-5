@@ -16,6 +16,10 @@ from portal.platform.wiki.coverage import (
     compute_coverage,
     covered_surfaces,
     discover_code_surfaces,
+    generate_surface_manifest,
+    load_surface_manifest,
+    surface_manifest_uncovered,
+    write_surface_manifest,
 )
 from portal.platform.wiki.schema import KnowledgeUnit, SourceRef
 
@@ -85,6 +89,42 @@ _BODY_BY_ID: dict[str, str] = {
         "A new file with no unit must be reported uncovered by the absolute "
         "gate, because there is no baseline left to absorb new debt once the "
         "coverage set reaches one hundred percent."
+    ),
+    "unit-surface-foo": (
+        "The foo subsystem owns the request path, and the surface unit "
+        "documents the contract of the whole directory rather than one file "
+        "inside it, which is the regrained shape the manifest gate expects.\n\n"
+        "## Why\n\n"
+        "A directory glob names one surface covering many files, so the "
+        "surface unit must pass the gate and cite paths matching the glob "
+        "for the manifest two-part assertion to accept it as documented."
+    ),
+    "unit-surface-bar": (
+        "The bar subsystem enumerates its surfaces by glob, and the manifest "
+        "gate expands each match so a directory-wide citation never understates "
+        "coverage across the synthetic tree's backend files.\n\n"
+        "## Why\n\n"
+        "A glob citation legitimately covers every file it matches, and the "
+        "manifest must count all of them or the gate reports false "
+        "uncovered surfaces for a directory that is fully documented."
+    ),
+    "unit-engine-a": (
+        "The wiki engine file a.py is declared per-file in the manifest so "
+        "that a brand new file in the engine directory is not automatically "
+        "covered by a sibling glob and must be deliberately registered.\n\n"
+        "## Why\n\n"
+        "The engine is the extraction-guarantee boundary, so a new file there "
+        "must force an explicit manifest addition instead of riding in under "
+        "a directory glob, which is exactly what the R3 probe verifies."
+    ),
+    "unit-engine-b": (
+        "The wiki engine file b.py is the second per-file manifest entry, "
+        "paired with a.py, and together they prove that per-file declarations "
+        "still satisfy the manifest's coverage requirement for the engine.\n\n"
+        "## Why\n\n"
+        "Per-file coverage for the engine directory keeps the boundary honest "
+        "while still meeting part two's demand that every eligible file fall "
+        "under some declared surface entry."
     ),
 }
 
@@ -208,3 +248,107 @@ def test_empty_tree_reports_full_coverage_not_division_error(tmp_path: Path) -> 
     report = compute_coverage(tmp_path, [])
     assert report.eligible == ()
     assert report.pct == 100.0
+
+
+# ── R3 manifest-driven gate ───────────────────────────────────────────────────
+
+_WIKI_ENGINE = "portal/platform/wiki"
+
+
+def _manifest_units() -> list[KnowledgeUnit]:
+    """A synthetic tree: two glob-covered dirs + a per-file engine dir."""
+    return [
+        _unit("unit-surface-foo", "portal/foo/alpha.py", "portal/foo/beta.py"),
+        _unit("unit-surface-bar", "portal/bar/*.py"),
+        _unit("unit-engine-a", f"{_WIKI_ENGINE}/a.py"),
+        _unit("unit-engine-b", f"{_WIKI_ENGINE}/b.py"),
+    ]
+
+
+def _manifest_tree(tmp_path: Path) -> Path:
+    for p in (
+        "portal/foo/alpha.py",
+        "portal/foo/beta.py",
+        "portal/bar/x.py",
+        "portal/bar/y.py",
+        f"{_WIKI_ENGINE}/a.py",
+        f"{_WIKI_ENGINE}/b.py",
+    ):
+        f = tmp_path / p
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("x = 1\n")
+    return tmp_path
+
+
+def test_manifest_generation_covers_every_eligible_file(tmp_path: Path) -> None:
+    tree = _manifest_tree(tmp_path)
+    units = _manifest_units()
+    surfaces = generate_surface_manifest(tree, units)
+    eligible = set(discover_code_surfaces(tree))
+    covered: set[str] = set()
+    for s in surfaces:
+        for g in s["globs"]:
+            if any(ch in g for ch in "*?["):
+                for m in tree.glob(g):
+                    if m.is_file():
+                        covered.add(str(m.relative_to(tree)))
+            else:
+                covered.add(g)
+    assert eligible <= covered, eligible - covered
+
+
+def test_manifest_two_part_gate_passes_when_covered(tmp_path: Path) -> None:
+    tree = _manifest_tree(tmp_path)
+    units = _manifest_units()
+    write_surface_manifest(tree, units)
+    part1, part2 = surface_manifest_uncovered(tree, units)
+    assert part1 == []
+    assert part2 == []
+
+
+def test_manifest_gate_fails_new_file_outside_surfaces(tmp_path: Path) -> None:
+    """The R3 adversarial probe: a new file under no declared surface fails."""
+    tree = _manifest_tree(tmp_path)
+    units = _manifest_units()
+    write_surface_manifest(tree, units)
+    # new file in the per-file engine dir — not declared → must fail
+    probe = tmp_path / _WIKI_ENGINE / "_simplify_probe.py"
+    probe.write_text("x = 1\n")
+    _part1, part2 = surface_manifest_uncovered(tree, units)
+    assert f"{_WIKI_ENGINE}/_simplify_probe.py" in part2
+
+
+def test_manifest_gate_fails_when_covering_unit_is_gate_failing(tmp_path: Path) -> None:
+    """Part 1: a declared surface whose unit fails the quality gate is broken."""
+    tree = _manifest_tree(tmp_path)
+    weak = KnowledgeUnit(
+        id="unit-surface-foo",
+        kind="what",
+        title="unit-surface-foo",
+        sources=[SourceRef(type="code", path="portal/foo/alpha.py")],
+        body="too short",
+    )
+    units = [weak] + [u for u in _manifest_units() if u.id != "unit-surface-foo"]
+    write_surface_manifest(tree, units)
+    part1, _part2 = surface_manifest_uncovered(tree, units)
+    assert any("unit-surface-foo" in e for e in part1)
+
+
+def test_manifest_is_idempotent(tmp_path: Path) -> None:
+    tree = _manifest_tree(tmp_path)
+    units = _manifest_units()
+    write_surface_manifest(tree, units)
+    first = (tmp_path / "config" / "spine_surfaces.yaml").read_text()
+    write_surface_manifest(tree, units)
+    second = (tmp_path / "config" / "spine_surfaces.yaml").read_text()
+    assert first == second
+
+
+def test_manifest_loader_reads_what_was_written(tmp_path: Path) -> None:
+    tree = _manifest_tree(tmp_path)
+    units = _manifest_units()
+    write_surface_manifest(tree, units)
+    surfaces = load_surface_manifest(tree)
+    assert surfaces, "manifest must not be empty"
+    for s in surfaces:
+        assert s["name"] and s["globs"] and s["unit"]
