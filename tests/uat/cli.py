@@ -71,7 +71,7 @@ from tests.uat.skips import evaluate_skip_conditions
 from tests.uat_catalog import TEST_CATALOG
 
 
-async def main() -> None:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Portal 5 UAT Conversation Driver")
     parser.add_argument("--all", action="store_true", help="Run all tests")
     parser.add_argument("--section", action="append", help="Run tests from section(s)")
@@ -147,107 +147,112 @@ async def main() -> None:
         metavar="JSON",
         help="Generate quality_signals suggestions from a reviewed calibration JSON",
     )
-    args = parser.parse_args()
 
-    print("\nPortal 5 UAT Driver")
-    print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}")
-    print(f"Results: {config.RESULTS_FILE}\n")
+    return parser
 
-    # Auth
-    token = owui_token()
-    if not token:
-        print("ERROR: Could not authenticate with Open WebUI", file=sys.stderr)
+
+def _cmd_emit_signals(args) -> None:
+    output = getattr(args, "calibrate_output", "updated_signals.py")
+    _emit_signals_from_calibration(args.emit_signals_from, output)
+    return
+
+
+def _cmd_migrate(token) -> None:
+    uat_root_id = owui_get_or_create_folder(token, "UAT")
+    if uat_root_id:
+        print(f"  Migrating loose UAT chats → root UAT folder (id={uat_root_id}) …")
+        n_moved = owui_migrate_loose_uat_chats(token, uat_root_id)
+        print(f"  Migrated {n_moved} chat(s).")
+    else:
+        print("  ERROR: could not get/create UAT root folder.")
         sys.exit(1)
+    return
 
-    # Codebase freshness — warn if running images predate latest git commits.
-    # Stale images mean test results reflect old code, not HEAD.
-    _check_image_freshness()
 
-    # --emit-signals-from mode: standalone, no browser needed
-    if args.emit_signals_from:
-        output = getattr(args, "calibrate_output", "updated_signals.py")
-        _emit_signals_from_calibration(args.emit_signals_from, output)
+def _cmd_purge_uat(token) -> None:
+    folders = _owui_list_folders(token)
+    uat_folder = next(
+        (f for f in folders if f.get("name") == "UAT" and not f.get("parent_id")), None
+    )
+    if not uat_folder:
+        print("  No UAT folder found — nothing to purge.")
         return
-
-    # --migrate mode: move existing loose UAT chats into UAT folder hierarchy, then exit
-    if args.migrate:
-        uat_root_id = owui_get_or_create_folder(token, "UAT")
-        if uat_root_id:
-            print(f"  Migrating loose UAT chats → root UAT folder (id={uat_root_id}) …")
-            n_moved = owui_migrate_loose_uat_chats(token, uat_root_id)
-            print(f"  Migrated {n_moved} chat(s).")
-        else:
-            print("  ERROR: could not get/create UAT root folder.")
-            sys.exit(1)
-        return
-
-    # --purge-uat mode: delete all chats in the UAT folder, then delete the folder
-    if args.purge_uat:
-        folders = _owui_list_folders(token)
-        uat_folder = next(
-            (f for f in folders if f.get("name") == "UAT" and not f.get("parent_id")), None
+    uat_root_id = uat_folder["id"]
+    # Collect all chats currently in the UAT folder
+    try:
+        r = httpx.get(
+            f"{OPENWEBUI_URL}/api/v1/chats/",
+            headers=owui_headers(token),
+            params={"limit": 9999},
+            timeout=30,
         )
-        if not uat_folder:
-            print("  No UAT folder found — nothing to purge.")
-            return
-        uat_root_id = uat_folder["id"]
-        # Collect all chats currently in the UAT folder
+        all_chats = r.json() if r.status_code == 200 else []
+    except Exception as e:
+        print(f"  ERROR fetching chats: {e}")
+        sys.exit(1)
+    # OWUI list endpoint may not include folder_id; fetch detail for each to filter
+    uat_chat_ids: list[str] = []
+    for chat in all_chats:
+        cid = chat.get("id", "")
         try:
-            r = httpx.get(
-                f"{OPENWEBUI_URL}/api/v1/chats/",
+            r2 = httpx.get(
+                f"{OPENWEBUI_URL}/api/v1/chats/{cid}",
                 headers=owui_headers(token),
-                params={"limit": 9999},
-                timeout=30,
+                timeout=10,
             )
-            all_chats = r.json() if r.status_code == 200 else []
-        except Exception as e:
-            print(f"  ERROR fetching chats: {e}")
-            sys.exit(1)
-        # OWUI list endpoint may not include folder_id; fetch detail for each to filter
-        uat_chat_ids: list[str] = []
-        for chat in all_chats:
-            cid = chat.get("id", "")
-            try:
-                r2 = httpx.get(
-                    f"{OPENWEBUI_URL}/api/v1/chats/{cid}",
-                    headers=owui_headers(token),
-                    timeout=10,
-                )
-                if r2.status_code == 200 and r2.json().get("folder_id") == uat_root_id:
-                    uat_chat_ids.append(cid)
-            except Exception:
-                pass
-        print(f"  UAT folder id={uat_root_id} — {len(uat_chat_ids)} chat(s) to delete")
-        deleted = 0
-        for cid in uat_chat_ids:
-            try:
-                r = httpx.delete(
-                    f"{OPENWEBUI_URL}/api/v1/chats/{cid}",
-                    headers=owui_headers(token),
-                    timeout=10,
-                )
-                if r.status_code == 200:
-                    deleted += 1
-                else:
-                    print(f"  WARNING: DELETE chat {cid} returned {r.status_code}")
-            except Exception as e:
-                print(f"  WARNING: DELETE chat {cid} error — {e}")
-        print(f"  Deleted {deleted}/{len(uat_chat_ids)} chat(s).")
-        # Now delete the UAT folder itself
+            if r2.status_code == 200 and r2.json().get("folder_id") == uat_root_id:
+                uat_chat_ids.append(cid)
+        except Exception:
+            pass
+    print(f"  UAT folder id={uat_root_id} — {len(uat_chat_ids)} chat(s) to delete")
+    deleted = 0
+    for cid in uat_chat_ids:
         try:
             r = httpx.delete(
-                f"{OPENWEBUI_URL}/api/v1/folders/{uat_root_id}",
+                f"{OPENWEBUI_URL}/api/v1/chats/{cid}",
                 headers=owui_headers(token),
                 timeout=10,
             )
             if r.status_code == 200:
-                print("  UAT folder deleted.")
+                deleted += 1
             else:
-                print(f"  WARNING: DELETE folder returned {r.status_code} — {r.text[:120]}")
+                print(f"  WARNING: DELETE chat {cid} returned {r.status_code}")
         except Exception as e:
-            print(f"  WARNING: DELETE folder error — {e}")
-        return
+            print(f"  WARNING: DELETE chat {cid} error — {e}")
+    print(f"  Deleted {deleted}/{len(uat_chat_ids)} chat(s).")
+    # Now delete the UAT folder itself
+    try:
+        r = httpx.delete(
+            f"{OPENWEBUI_URL}/api/v1/folders/{uat_root_id}",
+            headers=owui_headers(token),
+            timeout=10,
+        )
+        if r.status_code == 200:
+            print("  UAT folder deleted.")
+        else:
+            print(f"  WARNING: DELETE folder returned {r.status_code} — {r.text[:120]}")
+    except Exception as e:
+        print(f"  WARNING: DELETE folder error — {e}")
+    return
 
+
+def _dispatch_standalone(args, token) -> bool:
+    if args.emit_signals_from:
+        _cmd_emit_signals(args)
+        return True
+
+    if args.migrate:
+        _cmd_migrate(token)
+        return True
+
+    if args.purge_uat:
+        _cmd_purge_uat(token)
+        return True
+
+    return False
+
+
+def _apply_rerun_failed(args) -> None:
     # --rerun-failed: auto-select FAIL/BLOCKED tests from UAT_RESULTS.md,
     # then run them through the same cascade logic as a normal run.
     # Tests are sorted by tier (ollama → any) so
@@ -316,6 +321,8 @@ async def main() -> None:
         args.test = [t["id"] for t in candidate_tests]
         args.rerun = True
 
+
+def _select_tests(args) -> list:
     # Determine test selection. --media composes with --section by union;
     # --test always overrides.
     if args.test:
@@ -361,6 +368,10 @@ async def main() -> None:
         tier_counts[tier] = tier_counts.get(tier, 0) + 1
     print(f"  Cascade order: {' > '.join(f'{t}({c})' for t, c in tier_counts.items())}")
 
+    return tests
+
+
+def _apply_rerun(args, tests) -> None:
     # --rerun: remove existing rows for the selected tests so they don't duplicate
     if args.rerun:
         if not (args.test or args.section or args.media or args.rerun_failed):
@@ -380,17 +391,8 @@ async def main() -> None:
             print("  --rerun: no existing UAT_RESULTS.md to update — running fresh")
             args.append = False
 
-    # Skip conditions
-    skip_conditions = evaluate_skip_conditions()
-    flagged = [k for k, v in skip_conditions.items() if v]
-    if flagged:
-        print(f"Skip conditions active: {', '.join(flagged)}")
 
-    # Watchdog runs during UAT — the check_server_zombies() function now guards
-    # on proxy state=switching so it won't kill a server that is mid-load.
-    # Only S23-style tests that deliberately crash backends need the watchdog
-    # stopped; UAT doesn't do that.
-
+def _prepare_run(args, token):
     # ---- Chat archival strategy ----
     # Chats run in root so OWUI navigation works during the run. On completion
     # (or SIGINT) they are moved to UAT/{YYYY-MM-DD}.
@@ -428,6 +430,19 @@ async def main() -> None:
     corpus_run_id: str = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     print(f"  Corpus: tests/uat_corpus/uat_{corpus_run_id}.jsonl")
 
+    return run_date, folder_id, counts, calibration_records, corpus_run_id
+
+
+async def _run_suite(
+    args,
+    tests,
+    token,
+    skip_conditions,
+    counts,
+    calibration_records,
+    corpus_run_id,
+    folder_id,
+):
     from playwright.async_api import async_playwright  # lazy: keeps unit-test collection light
 
     async with async_playwright() as pw:
@@ -707,6 +722,18 @@ async def main() -> None:
             pass
         await browser.close()
 
+    return monitor, t_start
+
+
+async def _finish_run(
+    args,
+    tests,
+    counts,
+    calibration_records,
+    run_date,
+    monitor,
+    t_start,
+):
     # Stop continuous monitor and crash watcher
     await monitor.stop()
     _crash_watcher.stop()
@@ -793,6 +820,57 @@ async def main() -> None:
     )
     print(f"Report:  {config.RESULTS_FILE}")
     print(f"Chats:   {OPENWEBUI_URL}")
+
+
+async def _run_uat(args, token) -> None:
+    _apply_rerun_failed(args)
+
+    tests = _select_tests(args)
+    _apply_rerun(args, tests)
+
+    # Skip conditions
+    skip_conditions = evaluate_skip_conditions()
+    flagged = [k for k, v in skip_conditions.items() if v]
+    if flagged:
+        print(f"Skip conditions active: {', '.join(flagged)}")
+
+    # Watchdog runs during UAT — the check_server_zombies() function now guards
+    # on proxy state=switching so it won't kill a server that is mid-load.
+    # Only S23-style tests that deliberately crash backends need the watchdog
+    # stopped; UAT doesn't do that.
+
+    run_date, folder_id, counts, calibration_records, corpus_run_id = _prepare_run(args, token)
+    monitor, t_start = await _run_suite(
+        args,
+        tests,
+        token,
+        skip_conditions,
+        counts,
+        calibration_records,
+        corpus_run_id,
+        folder_id,
+    )
+    await _finish_run(args, tests, counts, calibration_records, run_date, monitor, t_start)
+
+
+async def main() -> None:
+    args = _build_parser().parse_args()
+
+    print("\nPortal 5 UAT Driver")
+    print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}")
+    print(f"Results: {config.RESULTS_FILE}\n")
+
+    token = owui_token()
+    if not token:
+        print("ERROR: Could not authenticate with Open WebUI", file=sys.stderr)
+        sys.exit(1)
+
+    _check_image_freshness()
+
+    if _dispatch_standalone(args, token):
+        return
+
+    await _run_uat(args, token)
 
 
 if __name__ == "__main__":
