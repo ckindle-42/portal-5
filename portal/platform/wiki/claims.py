@@ -107,7 +107,23 @@ def _probe_personas(root: Path) -> int:
 
 
 def _probe_validate_checks(root: Path) -> int:
-    return (root / "scripts" / "validate_system.py").read_text(encoding="utf-8").count("v.run(")
+    """Number of registered validation checks.
+
+    Since TASK_PORTAL_SIMPLIFY_V1 C5 the check inventory lives in the
+    scripts/validation/ package and is registered via `@register` decorators;
+    the validate_system.py shim is a thin loop, so its `v.run(` count is no
+    longer the inventory. Count `@register(` across the family modules (the
+    registry itself and `_shared`/`__init__` carry none). Falls back to the
+    `v.run(` count for a pre-C5 checkout.
+    """
+    val_dir = root / "scripts" / "validation"
+    if not val_dir.is_dir():
+        return (root / "scripts" / "validate_system.py").read_text(encoding="utf-8").count("v.run(")
+    return sum(
+        f.read_text(encoding="utf-8").count("@register(")
+        for f in sorted(val_dir.glob("*.py"))
+        if f.name != "registry.py"
+    )
 
 
 def _probe_canonical_units(root: Path) -> int:
