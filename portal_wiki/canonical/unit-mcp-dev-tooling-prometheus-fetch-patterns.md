@@ -11,7 +11,7 @@ sources:
   path: config/prometheus/prometheus.yml
 - type: code
   path: deploy/portal-5/docker-compose.yml
-last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
+last_generated_commit: bb686b68ebf5e92e85a9d94a58501f0566522beb
 claims: []
 confidence: high
 tags:

@@ -6,7 +6,7 @@ sources:
 - type: code
   path: portal/platform/inference/router/streaming.py
   commit: a234187e
-last_generated_commit: a234187e
+last_generated_commit: bb686b68ebf5e92e85a9d94a58501f0566522beb
 claims: []
 confidence: high
 tags:

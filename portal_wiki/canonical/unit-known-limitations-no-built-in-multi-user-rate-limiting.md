@@ -7,7 +7,7 @@ sources:
   path: portal/platform/inference/router/concurrency.py
 - type: code
   path: portal/platform/inference/router/streaming.py
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+last_generated_commit: bb686b68ebf5e92e85a9d94a58501f0566522beb
 claims: []
 confidence: high
 tags:
