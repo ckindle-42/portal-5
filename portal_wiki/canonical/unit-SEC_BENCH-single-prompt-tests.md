@@ -5,7 +5,7 @@ title: Security bench single-prompt quick tests
 sources:
 - type: code
   path: portal/modules/security/core/cli.py
-last_generated_commit: 26f31124
+last_generated_commit: 979d6439b0dc24246beb3ebbd2d9aecd5adedf6d
 claims: []
 confidence: high
 tags:
