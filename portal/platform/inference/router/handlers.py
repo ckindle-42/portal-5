@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import importlib.metadata
-import json
 import logging
 import os
 import time
@@ -47,7 +46,6 @@ from portal.platform.inference.router.lifespan import (
 )
 from portal.platform.inference.router.metrics import (
     _REGISTRY,
-    _hint_fallback_total,
     _record_response_time,
     _requests_total,
 )
@@ -73,22 +71,15 @@ from portal.platform.inference.router.state import (
     _request_count,
 )
 from portal.platform.inference.router.streaming import (
-    _json_completion_to_sse,
-    _stream_with_chain,
-    _stream_with_preamble,
-    _stream_with_secondary_chain,
-    _stream_with_tool_loop,
-)
-from portal.platform.inference.router.tools import _select_explicit_required_tool
-from portal.platform.inference.router.validation import (
-    _inject_ollama_options,
-    _model_supports_tools,
+    _build_streaming_request,
+    _prioritize_hinted_backend,  # noqa: F401  (re-exported: tests import it from handlers)
+    _select_stream_fn,
+    _select_streaming_backend,
+    _stream_with_fallback,
 )
 from portal.platform.inference.router.workspaces import (
     _PERSONA_MAP,
     WORKSPACES,
-    _resolve_persona_tool_choice,
-    _resolve_persona_tools,
 )
 
 logger = logging.getLogger(__name__)
@@ -99,31 +90,6 @@ logger = logging.getLogger(__name__)
 # as _routing_mod._http_client and _streaming_mod._http_client.
 registry: BackendRegistry | None = None
 _notification_dispatcher: Any = None
-
-
-def _prioritize_hinted_backend(candidates: list[Any], model_hint: str) -> list[Any]:
-    """Move the first backend able to serve ``model_hint`` to the front.
-
-    Workspace group priority remains the default. A concrete model hint is
-    more specific, though, and streaming previously substituted the first
-    backend's default model even when a later eligible backend contained the
-    requested one. Non-streaming already skips candidates that cannot satisfy
-    the hint; this gives streaming the same served-model behavior.
-
-    Uses ``resolve_model`` rather than a plain ``in candidate.models`` check
-    so a backend that serves the hint under an aliased native id (e.g. the
-    oMLX entry translating a GGUF hint to its own model directory name)
-    still matches — a bare membership check would always skip it in favor
-    of the Ollama backend that carries the literal hint string.
-    """
-    if not model_hint:
-        return candidates
-    for index, candidate in enumerate(candidates):
-        if candidate.resolve_model(model_hint) is not None:
-            if index == 0:
-                return candidates
-            return [candidate, *candidates[:index], *candidates[index + 1 :]]
-    return candidates
 
 
 # ── Constants from original router_pipe.py ────────────────────────────────────
@@ -555,6 +521,278 @@ async def list_backends_endpoint(authorization: str | None = Header(None)) -> di
     }
 
 
+async def _resolve_request_route(
+    request: Request,
+    slot: RequestSlot,
+) -> tuple[str, dict[str, Any], bool, str, list[Any]]:
+    """Resolve the request's workspace + context and select backend candidates.
+
+    Phases 2-7 of ``chat_completions``: parse the body, resolve a persona
+    slug to its workspace, run auto-routing for ``auto``, apply the
+    auto-vision text-only fallback, unpack synthetic ``base::variant`` ids,
+    gate on module state, apply variant/model overrides, inject temporal /
+    system-prompt / file-attachment / memory context, acquire the
+    per-workspace semaphore, record counters, and select healthy backend
+    candidates for the resolved workspace.
+
+    Returns:
+        ``(workspace_id, body, stream, persona, candidates)``.
+    """
+    if registry is None:
+        raise HTTPException(status_code=503, detail="Backend registry not initialised")
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body") from None
+    workspace_id = body.get("model") or "auto"
+    _original_model_id = workspace_id
+    # Phase 2: Resolve persona slug → workspace_model (e.g. "dailydriver" → "auto-daily")
+    workspace_id = _resolve_persona_workspace(workspace_id)
+    stream = body.get("stream", False)
+
+    # Phase 3: Content-aware routing for 'auto' workspace.
+    # Primary path: LLM-based intent classification (P5-FUT-006).
+    # Fallback: weighted keyword scoring (_detect_workspace).
+    workspace_id = await _resolve_auto_routing(workspace_id, body.get("messages", []))
+
+    # Phase 4: auto-vision text-only fallback — reroute to auto-reasoning when
+    # no image_url is present in the request.
+    workspace_id, body = _resolve_vision_fallback(workspace_id, body)
+
+    # Phase 4a: unpack the canonical "base::variant" synthetic form (both
+    # routing layers emit it directly — Phase 7 canonicalization) before
+    # Gate 4, so the gate checks the real workspace's module state.
+    workspace_id, _alias_variant = _unpack_synthetic_workspace(workspace_id)
+
+    # Gate 4 (M7 toggle layer): reject requests to a workspace whose owning
+    # module is currently disabled. Checked after all workspace_id-mutating
+    # phases (persona resolution, auto-routing, vision fallback, legacy
+    # alias) so this sees the final resolved workspace, not an intermediate
+    # alias.
+    from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+    if is_workspace_disabled(workspace_id):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Workspace '{workspace_id}' is disabled (module not enabled).",
+        )
+
+    # Phase 4b (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6): apply a named
+    # variant override onto a factored workspace. Priority: explicit
+    # ?variant= query param, else the legacy alias's implied variant
+    # (e.g. "auto-agentic" implies variant=heavy), else the persona's own
+    # declared variant. Checked against the already-disabled-gated base
+    # workspace_id — a variant can only narrow behavior within an
+    # already-permitted workspace, never grant access to a disabled one.
+    workspace_id = _resolve_workspace_variant(
+        _original_model_id,
+        workspace_id,
+        request.query_params.get("variant") or _alias_variant,
+    )
+
+    # Phase 4c (BUILD_PROGRAM_COLLAPSE_V1.md Phase 8, DESIGN §D5): explicit
+    # ?model=<hint> query param overrides the resolved workspace/variant's
+    # model_hint. Bounded to config/backends.yaml's known model catalog
+    # (see _resolve_model_override) -- an unrecognized model param is a
+    # silent no-op, not an error.
+    #
+    # DESIGN_PERSONA_INTENT_REMEDIATION_V1.md §4.2: a persona's own
+    # model_pin applies through this exact same mechanism, so a persona
+    # claiming a specific model lineage (e.g. magistralstrategist ->
+    # Magistral) is actually served that model, not just its
+    # workspace's pool-primary. An explicit ?model= query param always
+    # wins over the persona's pin (more specific caller intent).
+    _persona_for_pin = _PERSONA_MAP.get(_original_model_id)
+    _model_pin = _persona_for_pin.model_pin if _persona_for_pin else None
+    workspace_id = _resolve_model_override(
+        workspace_id, request.query_params.get("model") or _model_pin
+    )
+
+    # Phase 5: Temporal context injection — give web-tool-enabled workspaces today's
+    # date plus a search-first nudge so local models don't answer time-sensitive
+    # questions from a frozen training cutoff.
+    body = _inject_temporal_context(workspace_id, body)
+
+    # Phase 6: Workspace-level system_prompt_append — appended to existing system
+    # message or injected as a new system message if none is present.
+    body = _inject_system_prompt_append(workspace_id, body)
+
+    # Phase 7: File attachment injection — OWUI sends uploaded files in body["files"]
+    # but does not include them in the messages array. Inject a note into the last
+    # user message so the model can reference audio/document file IDs in tool calls.
+    body = _inject_attached_files(body)
+
+    # Phase 8: Auto-context injection — proactively recall cross-session
+    # memory and knowledge-base hits for opted-in workspaces, so grounding
+    # does not depend on the model volunteering a recall/kb_search call.
+    # Both no-op unless the workspace sets inject_memory / auto_rag.
+    _cid = get_correlation_id()
+    body = await inject_recalled_memory(workspace_id, body, _cid)
+    body = await inject_retrieved_context(workspace_id, body, _cid)
+
+    # Per-workspace semaphore + gauge (M6-T05)
+    await slot.acquire_workspace(workspace_id)
+
+    _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
+    _requests_total.labels(workspace=workspace_id).inc()
+    slot.mark_active()
+
+    # Track persona usage — the "model" field in the request is the persona
+    # (workspace ID) the user selected in Open WebUI.
+    persona = body.get("model") or "auto"
+    if persona in WORKSPACES:
+        _record_persona(persona, "unknown")
+
+    candidates = registry.get_backend_candidates(workspace_id)
+    if not candidates:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "No healthy backends available. "
+                "Ensure Ollama is running and a model is pulled. "
+                "Check config/backends.yaml."
+            ),
+        )
+
+    return workspace_id, body, stream, persona, candidates
+
+
+async def _dispatch_council(
+    workspace_id: str,
+    body: dict[str, Any],
+    stream: bool,
+    persona: str,
+    slot: RequestSlot,
+    start_time: float,
+) -> Any | None:
+    """Handle the council-routing path for workspaces that declare a council config.
+
+    Returns a streaming or JSON response when the workspace declares a
+    ``council`` block, else ``None`` so the caller proceeds to the normal
+    non-streaming / streaming branches.
+    """
+    council_cfg = WORKSPACES.get(workspace_id, {}).get("council")
+    if not council_cfg:
+        return None
+    logger.info(
+        "Council routing: workspace=%s reviewers=%d stream=%s",
+        workspace_id,
+        len(council_cfg.get("members") or []),
+        stream,
+    )
+    synth_model = str(council_cfg.get("synthesizer_model", "council"))
+    _record_persona(persona, synth_model)
+    if stream:
+        return StreamingResponse(
+            stream_council_review(
+                body,
+                council_cfg,
+                slot.detach(),
+                registry=registry,
+                workspace_id=workspace_id,
+            ),
+            media_type="text/event-stream",
+            headers={"x-portal-route": f"{workspace_id};council;{synth_model}"},
+        )
+
+    completion = await run_council_review(
+        body,
+        council_cfg,
+        registry=registry,
+        workspace_id=workspace_id,
+    )
+    _record_response_time(
+        completion.model,
+        workspace_id,
+        time.monotonic() - start_time,
+    )
+    return JSONResponse(
+        content=completion.data,
+        headers={"x-portal-route": (f"{workspace_id};{completion.backend_id};{completion.model}")},
+    )
+
+
+async def _dispatch_non_streaming(
+    candidates: list[Any],
+    body: dict[str, Any],
+    workspace_id: str,
+    persona: str,
+    stream: bool,
+    start_time: float,
+) -> JSONResponse:
+    """Iterate healthy candidates and return the first successful non-streaming response.
+
+    Non-streaming branch of ``chat_completions`` (extracted C4.3). Tries each
+    backend in priority order via ``_try_non_streaming``; the model hint is
+    enforced (skip backends without the hinted model) for all but the last
+    candidate, where any model is accepted as fallback. Applies the
+    workspace's ``chain`` when configured. Raises HTTPException 502 when
+    every candidate fails.
+
+    Lives in handlers.py (not non_streaming.py) so ``_try_non_streaming``
+    resolves through this module's namespace — unit tests monkeypatch
+    ``handlers._try_non_streaming`` to intercept the dispatch.
+
+    Returns:
+        ``JSONResponse`` from the first successful backend.
+    """
+    logger.info(
+        "Routing workspace=%s → %d candidate(s) stream=%s",
+        workspace_id,
+        len(candidates),
+        stream,
+    )
+    _ns_chain = WORKSPACES.get(workspace_id, {}).get("chain") or []
+    for i, backend in enumerate(candidates):
+        is_last = i == len(candidates) - 1
+        result = await _try_non_streaming(
+            backend,
+            body,
+            workspace_id,
+            start_time,
+            enforce_hint=(not is_last),
+            persona=persona,
+        )
+        if result is not None:
+            route_header = result.headers.get("x-portal-route", ";;")
+            resolved_model = (
+                route_header.split(";")[2] if len(route_header.split(";")) > 2 else "unknown"
+            )
+            _record_response_time(
+                resolved_model,
+                workspace_id,
+                time.monotonic() - start_time,
+            )
+            _record_persona(persona, resolved_model)
+            if _ns_chain:
+                primary_data = result.body
+                if isinstance(primary_data, bytes):
+                    import json as _json
+
+                    primary_data = _json.loads(primary_data)
+                primary_text = str(
+                    primary_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                )
+                return await _run_non_streaming_chain(
+                    primary_text=primary_text,
+                    chain=_ns_chain,
+                    backend=backend,
+                    body=body,
+                    workspace_id=workspace_id,
+                    start_time=start_time,
+                    primary_data=primary_data,
+                    primary_model=resolved_model,
+                )
+            return result
+    # All backends failed
+    _record_error(workspace_id, "all_backends_failed")
+    raise HTTPException(
+        status_code=502,
+        detail="All backends failed — check server logs",
+    )
+
+
 async def chat_completions(
     request: Request,
     authorization: str | None = Header(None),
@@ -638,383 +876,33 @@ async def chat_completions(
     workspace_id: str = "unknown"
     start_time = time.monotonic()
     try:
-        if registry is None:
-            raise HTTPException(status_code=503, detail="Backend registry not initialised")
-
-        try:
-            body = await request.json()
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid JSON body") from None
-        workspace_id = body.get("model") or "auto"
-        _original_model_id = workspace_id
-        # Phase 2: Resolve persona slug → workspace_model (e.g. "dailydriver" → "auto-daily")
-        workspace_id = _resolve_persona_workspace(workspace_id)
-        stream = body.get("stream", False)
-
-        # Phase 3: Content-aware routing for 'auto' workspace.
-        # Primary path: LLM-based intent classification (P5-FUT-006).
-        # Fallback: weighted keyword scoring (_detect_workspace).
-        workspace_id = await _resolve_auto_routing(workspace_id, body.get("messages", []))
-
-        # Phase 4: auto-vision text-only fallback — reroute to auto-reasoning when
-        # no image_url is present in the request.
-        workspace_id, body = _resolve_vision_fallback(workspace_id, body)
-
-        # Phase 4a: unpack the canonical "base::variant" synthetic form (both
-        # routing layers emit it directly — Phase 7 canonicalization) before
-        # Gate 4, so the gate checks the real workspace's module state.
-        workspace_id, _alias_variant = _unpack_synthetic_workspace(workspace_id)
-
-        # Gate 4 (M7 toggle layer): reject requests to a workspace whose owning
-        # module is currently disabled. Checked after all workspace_id-mutating
-        # phases (persona resolution, auto-routing, vision fallback, legacy
-        # alias) so this sees the final resolved workspace, not an intermediate
-        # alias.
-        from portal.platform.wiki.adapters.modules import is_workspace_disabled
-
-        if is_workspace_disabled(workspace_id):
-            raise HTTPException(
-                status_code=404,
-                detail=f"Workspace '{workspace_id}' is disabled (module not enabled).",
-            )
-
-        # Phase 4b (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6): apply a named
-        # variant override onto a factored workspace. Priority: explicit
-        # ?variant= query param, else the legacy alias's implied variant
-        # (e.g. "auto-agentic" implies variant=heavy), else the persona's own
-        # declared variant. Checked against the already-disabled-gated base
-        # workspace_id — a variant can only narrow behavior within an
-        # already-permitted workspace, never grant access to a disabled one.
-        workspace_id = _resolve_workspace_variant(
-            _original_model_id,
-            workspace_id,
-            request.query_params.get("variant") or _alias_variant,
+        workspace_id, body, stream, persona, candidates = await _resolve_request_route(
+            request, slot
         )
 
-        # Phase 4c (BUILD_PROGRAM_COLLAPSE_V1.md Phase 8, DESIGN §D5): explicit
-        # ?model=<hint> query param overrides the resolved workspace/variant's
-        # model_hint. Bounded to config/backends.yaml's known model catalog
-        # (see _resolve_model_override) -- an unrecognized model param is a
-        # silent no-op, not an error.
-        #
-        # DESIGN_PERSONA_INTENT_REMEDIATION_V1.md §4.2: a persona's own
-        # model_pin applies through this exact same mechanism, so a persona
-        # claiming a specific model lineage (e.g. magistralstrategist ->
-        # Magistral) is actually served that model, not just its
-        # workspace's pool-primary. An explicit ?model= query param always
-        # wins over the persona's pin (more specific caller intent).
-        _persona_for_pin = _PERSONA_MAP.get(_original_model_id)
-        _model_pin = _persona_for_pin.model_pin if _persona_for_pin else None
-        workspace_id = _resolve_model_override(
-            workspace_id, request.query_params.get("model") or _model_pin
+        council_resp = await _dispatch_council(
+            workspace_id, body, stream, persona, slot, start_time
         )
-
-        # Phase 5: Temporal context injection — give web-tool-enabled workspaces today's
-        # date plus a search-first nudge so local models don't answer time-sensitive
-        # questions from a frozen training cutoff.
-        body = _inject_temporal_context(workspace_id, body)
-
-        # Phase 6: Workspace-level system_prompt_append — appended to existing system
-        # message or injected as a new system message if none is present.
-        body = _inject_system_prompt_append(workspace_id, body)
-
-        # Phase 7: File attachment injection — OWUI sends uploaded files in body["files"]
-        # but does not include them in the messages array. Inject a note into the last
-        # user message so the model can reference audio/document file IDs in tool calls.
-        body = _inject_attached_files(body)
-
-        # Phase 8: Auto-context injection — proactively recall cross-session
-        # memory and knowledge-base hits for opted-in workspaces, so grounding
-        # does not depend on the model volunteering a recall/kb_search call.
-        # Both no-op unless the workspace sets inject_memory / auto_rag.
-        _cid = get_correlation_id()
-        body = await inject_recalled_memory(workspace_id, body, _cid)
-        body = await inject_retrieved_context(workspace_id, body, _cid)
-
-        # Per-workspace semaphore + gauge (M6-T05)
-        await slot.acquire_workspace(workspace_id)
-
-        _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
-        _requests_total.labels(workspace=workspace_id).inc()
-        slot.mark_active()
-
-        # Track persona usage — the "model" field in the request is the persona
-        # (workspace ID) the user selected in Open WebUI.
-        persona = body.get("model") or "auto"
-        if persona in WORKSPACES:
-            _record_persona(persona, "unknown")
-
-        candidates = registry.get_backend_candidates(workspace_id)
-        if not candidates:
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "No healthy backends available. "
-                    "Ensure Ollama is running and a model is pulled. "
-                    "Check config/backends.yaml."
-                ),
-            )
-
-        council_cfg = WORKSPACES.get(workspace_id, {}).get("council")
-        if council_cfg:
-            logger.info(
-                "Council routing: workspace=%s reviewers=%d stream=%s",
-                workspace_id,
-                len(council_cfg.get("members") or []),
-                stream,
-            )
-            synth_model = str(council_cfg.get("synthesizer_model", "council"))
-            _record_persona(persona, synth_model)
-            if stream:
-                return StreamingResponse(
-                    stream_council_review(
-                        body,
-                        council_cfg,
-                        slot.detach(),
-                        registry=registry,
-                        workspace_id=workspace_id,
-                    ),
-                    media_type="text/event-stream",
-                    headers={"x-portal-route": f"{workspace_id};council;{synth_model}"},
-                )
-
-            completion = await run_council_review(
-                body,
-                council_cfg,
-                registry=registry,
-                workspace_id=workspace_id,
-            )
-            _record_response_time(
-                completion.model,
-                workspace_id,
-                time.monotonic() - start_time,
-            )
-            return JSONResponse(
-                content=completion.data,
-                headers={
-                    "x-portal-route": (f"{workspace_id};{completion.backend_id};{completion.model}")
-                },
-            )
+        if council_resp is not None:
+            return council_resp
 
         if not stream:
             # Non-streaming: try each backend in priority order until one succeeds.
             # Model hint is enforced (skip backends without the hinted model) for
             # all but the last candidate, where we accept any model as fallback.
-            # Log the routing decision here — mirrors the streaming-path log at line ~1443
-            # so that S3-19 log validation and operational log parsing work regardless
-            # of whether the client requested streaming or non-streaming mode.
-            logger.info(
-                "Routing workspace=%s → %d candidate(s) stream=%s",
-                workspace_id,
-                len(candidates),
-                stream,
-            )
-            _ns_chain = WORKSPACES.get(workspace_id, {}).get("chain") or []
-            for i, backend in enumerate(candidates):
-                is_last = i == len(candidates) - 1
-                result = await _try_non_streaming(
-                    backend,
-                    body,
-                    workspace_id,
-                    start_time,
-                    enforce_hint=(not is_last),
-                    persona=persona,
-                )
-                if result is not None:
-                    route_header = result.headers.get("x-portal-route", ";;")
-                    resolved_model = (
-                        route_header.split(";")[2]
-                        if len(route_header.split(";")) > 2
-                        else "unknown"
-                    )
-                    _record_response_time(
-                        resolved_model,
-                        workspace_id,
-                        time.monotonic() - start_time,
-                    )
-                    _record_persona(persona, resolved_model)
-                    if _ns_chain:
-                        primary_data = result.body
-                        if isinstance(primary_data, bytes):
-                            import json as _json
-
-                            primary_data = _json.loads(primary_data)
-                        primary_text = str(
-                            primary_data.get("choices", [{}])[0]
-                            .get("message", {})
-                            .get("content", "")
-                        )
-                        return await _run_non_streaming_chain(
-                            primary_text=primary_text,
-                            chain=_ns_chain,
-                            backend=backend,
-                            body=body,
-                            workspace_id=workspace_id,
-                            start_time=start_time,
-                            primary_data=primary_data,
-                            primary_model=resolved_model,
-                        )
-                    return result
-            # All backends failed
-            _record_error(workspace_id, "all_backends_failed")
-            raise HTTPException(
-                status_code=502,
-                detail="All backends failed — check server logs",
+            return await _dispatch_non_streaming(
+                candidates, body, workspace_id, persona, stream, start_time
             )
 
-        ws_cfg = WORKSPACES.get(workspace_id, {})
-        model_hint = ws_cfg.get("model_hint", "")
-        _chain = ws_cfg.get("chain") or []
-        _secondary_model = ws_cfg.get("secondary_model", "")
-        _tertiary_model = ws_cfg.get("tertiary_model", "")
-
-        # Streaming: prefer the eligible backend that can actually serve the
-        # requested model hint. If the stream yields an error chunk early, fall
-        # back to non-streaming with the reordered remaining candidates.
-        candidates = _prioritize_hinted_backend(candidates, model_hint)
-        backend = candidates[0]
-
-        # Pick target model from the workspace's model_hint, translating
-        # through the backend's aliases (e.g. GGUF hint -> oMLX native id)
-        # when the hint isn't served under its literal name.
-        if model_hint:
-            resolved_hint = backend.resolve_model(model_hint)
-            if resolved_hint is not None:
-                target_model = resolved_hint
-            else:
-                if not backend.models:
-                    logger.warning(
-                        "Backend %s has empty models list — cannot fall back. Skipping.",
-                        backend.id,
-                    )
-                    raise HTTPException(
-                        502,
-                        f"Backend {backend.id} has an empty models list — fix config/backends.yaml",
-                    )
-                target_model = backend.models[0]
-                logger.warning(
-                    "model_hint %r not in backend %s models — falling back to %r. "
-                    "Add it to config/backends.yaml or correct the hint in WORKSPACES.",
-                    model_hint,
-                    backend.id,
-                    target_model,
-                )
-                _hint_fallback_total.labels(
-                    workspace=workspace_id,
-                    hinted=model_hint,
-                    served=target_model,
-                    path="streaming",
-                ).inc()
-        else:
-            if not backend.models:
-                logger.warning(
-                    "Backend %s has empty models list — cannot resolve. Skipping.",
-                    backend.id,
-                )
-                raise HTTPException(
-                    502, f"Backend {backend.id} has an empty models list — fix config/backends.yaml"
-                )
-            target_model = backend.models[0]
-
-        logger.info(
-            "Stream routing: workspace=%s backend=%s model=%s (1/%d candidates)",
-            workspace_id,
-            backend.id,
-            target_model,
-            len(candidates),
+        backend, target_model, _model_hint, _chain, _secondary_model, _tertiary_model = (
+            _select_streaming_backend(workspace_id, candidates)
         )
-
-        backend_body = {**body, "model": target_model}
-
-        # Per-engine option injection: keep_alive/num_batch/options for
-        # Ollama; plain-OpenAI max_tokens/stream_options for oMLX.
-        if backend.type == "ollama":
-            backend_body = _inject_ollama_options(backend_body, workspace_id)
-        elif backend.type == "omlx":
-            from portal.platform.inference.router.validation import _inject_omlx_options
-
-            backend_body = _inject_omlx_options(backend_body, workspace_id)
-
-        # Resolve effective tool list for this request (M2)
-        persona_data = _PERSONA_MAP.get(persona, {})
-        effective_tools = _resolve_persona_tools(persona_data, workspace_id)
-        # Per-model supports_tools lookup for both backend types — see
-        # TASK_TOOL_SUPPORT_AUDIT_V1 §A4. The previous Ollama-default-true
-        # logic caused tool-using workspaces to error when their fallback
-        # chain landed on a non-tool-tagged Ollama model.
-        backend_supports_tools = _model_supports_tools(target_model or "")
-        # Strip any client-injected tools from the request body when the backend
-        # model doesn't support tool calls — without this strip, Ollama returns
-        # HTTP 400 "does not support tools" even for non-tool workspaces.
-        if not backend_supports_tools:
-            backend_body.pop("tools", None)
-            backend_body.pop("tool_choice", None)
-        # portal_no_tools: bench theory-pass flag — skip tool attachment entirely
-        # so the model cannot call tools and must return prose (tool_choice=none
-        # alone leaves tool definitions in the request, causing skeletal responses).
-        _portal_no_tools = backend_body.pop("portal_no_tools", False)
-        if _portal_no_tools:
-            backend_body.pop("tools", None)
-            backend_body.pop("tool_choice", None)
-            _has_tools = False
-        else:
-            _has_tools = bool(effective_tools) and backend_supports_tools
-        if effective_tools and not backend_supports_tools:
-            logger.info(
-                "Tool-call: workspace=%s persona=%s model=%s does not declare "
-                "supports_tools — falling back to text-only response (no tools "
-                "attached). Set supports_tools=true in config/backends.yaml after "
-                "verification via tests/portal5_persona_matrix.py --audit-tools.",
-                workspace_id,
-                persona,
-                target_model,
-            )
-
-        if _has_tools:
-            from portal.platform.inference.tool_registry import tool_registry
-
-            _required_tool = None
-            if backend_body.get("tool_choice") in (None, "auto"):
-                _required_tool = _select_explicit_required_tool(
-                    backend_body.get("messages", []), set(effective_tools)
-                )
-            if _required_tool:
-                effective_tools = [_required_tool]
-                backend_body["tool_choice"] = "required"
-                logger.info(
-                    "Tool-call: workspace=%s explicit side-effect intent selected required tool=%s",
-                    workspace_id,
-                    _required_tool,
-                )
-            await tool_registry.refresh()
-            tools_array = tool_registry.get_openai_tools(effective_tools)
-            # Merge client-injected tools with workspace tools — clients
-            # (e.g. bench blue/purple) may inject domain-specific tools
-            # that complement the workspace tools, not replace them.
-            client_tools = [] if _required_tool else backend_body.get("tools", [])
-            if tools_array:
-                if client_tools:
-                    seen_names = {t.get("function", {}).get("name") for t in tools_array}
-                    for ct in client_tools:
-                        ct_name = ct.get("function", {}).get("name", "")
-                        if ct_name and ct_name not in seen_names:
-                            tools_array.append(ct)
-                            seen_names.add(ct_name)
-                backend_body["tools"] = tools_array
-                backend_body["tool_choice"] = (
-                    backend_body.get("tool_choice")
-                    or _resolve_persona_tool_choice(persona_data)
-                    or WORKSPACES.get(workspace_id, {}).get("tool_choice")
-                    or "auto"
-                )
-                logger.info(
-                    "Tool-call: workspace=%s persona=%s exposed %d tools (merged)",
-                    workspace_id,
-                    persona,
-                    len(tools_array),
-                )
-            else:
-                _has_tools = False
+        (
+            backend_body,
+            effective_tools,
+            _has_tools,
+            _portal_no_tools,
+        ) = await _build_streaming_request(body, backend, target_model, workspace_id, persona)
 
         logger.info(
             "Routing workspace=%s → backend=%s model=%s stream=%s (1/%d candidates)",
@@ -1028,51 +916,21 @@ async def chat_completions(
         if len(candidates) == 1:
             # Single candidate — no fallback possible, return streaming directly
             _record_persona(persona, target_model)
-            if _has_tools:
-                _stream_fn = _stream_with_tool_loop(
-                    backend.chat_url,
-                    backend_body,
-                    slot.detach(),
-                    workspace_id,
-                    target_model,
-                    persona,
-                    set(effective_tools),
-                    start_time,
-                )
-            elif _chain and not _portal_no_tools:
-                # Chain requires tool execution to be meaningful — skip in theory
-                # mode (portal_no_tools) so exec models get a plain prose prompt
-                # instead of hallucinating the entire multi-hop chain themselves.
-                _stream_fn = _stream_with_chain(
-                    backend.chat_url,
-                    backend_body,
-                    slot.detach(),
-                    workspace_id=workspace_id,
-                    primary_model=target_model,
-                    chain=_chain,
-                    start_time=start_time,
-                    persona=persona,
-                )
-            elif _secondary_model:
-                _stream_fn = _stream_with_secondary_chain(
-                    backend.chat_url,
-                    backend_body,
-                    slot.detach(),
-                    workspace_id=workspace_id,
-                    model=target_model,
-                    secondary_model=_secondary_model,
-                    tertiary_model=_tertiary_model,
-                    start_time=start_time,
-                )
-            else:
-                _stream_fn = _stream_with_preamble(
-                    backend.chat_url,
-                    backend_body,
-                    slot.detach(),
-                    workspace_id=workspace_id,
-                    model=target_model,
-                    start_time=start_time,
-                )
+            _stream_fn = _select_stream_fn(
+                backend,
+                backend_body,
+                slot,
+                workspace_id,
+                target_model,
+                persona,
+                effective_tools,
+                start_time,
+                _chain,
+                _secondary_model,
+                _tertiary_model,
+                _portal_no_tools,
+                _has_tools,
+            )
             _streaming_response = StreamingResponse(
                 _stream_fn,
                 media_type="text/event-stream",
@@ -1085,152 +943,25 @@ async def chat_completions(
         # from the remaining candidates.
         remaining = candidates[1:]
 
-        async def _stream_or_fallback() -> AsyncIterator[bytes]:
-            """Streaming wrapper for the multi-candidate path; falls back to non-streaming.
-
-            Nested closure inside ``chat_completions`` because it closes
-            over ~13 locals from the request handler (backend, body,
-            semaphores, target_model, etc.). Lifting it to module scope
-            would require parameter-passing every one of those — the
-            closure is the right abstraction here.
-
-            Behaviour:
-
-            1. Stream from ``backend`` (first candidate) via either
-               ``_stream_with_tool_loop`` or ``_stream_with_preamble``
-               depending on ``_has_tools``.
-            2. Detect failure by either:
-               - Substring check ``b'"error"' in chunk`` (the explicit
-                 error envelopes emitted by ``_stream_from_backend_guarded``).
-                 False-positive risk if a model's content happens to include
-                 ``"error"`` literally — accepted, because that chunk would
-                 also contain real content and the fallback then produces
-                 the same answer the streaming variant would have, just
-                 slower.
-               - Exception from the inner generator.
-            3. On failure, retry the **same backend** in non-streaming
-               via ``_try_non_streaming`` with ``enforce_hint=True``.
-            4. If that succeeds, wrap the JSON response as SSE (role chunk,
-               content chunk, per-tool-call chunks, done chunk, ``[DONE]``)
-               and yield. OWUI cannot tolerate a Content-Type switch
-               mid-stream — once we've started SSE we must keep emitting SSE.
-            5. If that also fails, try **remaining** candidates non-streaming.
-               The ``_try_non_streaming`` call iterates all remaining
-               candidates in order; fixed in
-               ``TASK_ROUTER_BACKEND_REVIEW_AND_IMPROVEMENTS``.
-
-            Semaphore release is delegated to the streaming function
-            (``_stream_with_tool_loop`` or ``_stream_with_preamble``) via
-            their own ``try/finally``. This closure does not own
-            semaphores.
-            """
-            stream_failed = False
-            _error_buffer = None
-            try:
-                if _has_tools:
-                    _inner_stream = _stream_with_tool_loop(
-                        backend.chat_url,
-                        backend_body,
-                        slot.detach(),
-                        workspace_id,
-                        target_model,
-                        persona,
-                        set(effective_tools),
-                        start_time,
-                    )
-                elif _chain and not _portal_no_tools:
-                    _inner_stream = _stream_with_chain(
-                        backend.chat_url,
-                        backend_body,
-                        slot.detach(),
-                        workspace_id=workspace_id,
-                        primary_model=target_model,
-                        chain=_chain,
-                        start_time=start_time,
-                        persona=persona,
-                    )
-                elif _secondary_model:
-                    _inner_stream = _stream_with_secondary_chain(
-                        backend.chat_url,
-                        backend_body,
-                        slot.detach(),
-                        workspace_id=workspace_id,
-                        model=target_model,
-                        secondary_model=_secondary_model,
-                        tertiary_model=_tertiary_model,
-                        start_time=start_time,
-                    )
-                else:
-                    _inner_stream = _stream_with_preamble(
-                        backend.chat_url,
-                        backend_body,
-                        slot.detach(),
-                        workspace_id=workspace_id,
-                        model=target_model,
-                        start_time=start_time,
-                    )
-                async for chunk in _inner_stream:
-                    if b'"error"' in chunk:
-                        stream_failed = True
-                        _error_buffer = chunk
-                        continue
-                    yield chunk
-            except Exception:
-                stream_failed = True
-
-            if stream_failed:
-                logger.info(
-                    "Stream from %s failed, retrying same backend in non-streaming for workspace=%s",
-                    backend.id,
-                    workspace_id,
-                )
-                fallback_body = {**body, "stream": False}
-                result = await _try_non_streaming(
-                    backend,
-                    fallback_body,
-                    workspace_id,
-                    start_time,
-                    enforce_hint=True,
-                    persona=persona,
-                )
-                if result is not None:
-                    data = json.loads(result.body)
-                    for frame in _json_completion_to_sse(data, workspace_id):
-                        yield frame
-                    return
-
-                if remaining:
-                    logger.info(
-                        "Non-streaming retry on %s failed, falling back to remaining backends for workspace=%s",
-                        backend.id,
-                        workspace_id,
-                    )
-                    for j, fb in enumerate(remaining):
-                        fb_last = j == len(remaining) - 1
-                        result = await _try_non_streaming(
-                            fb,
-                            fallback_body,
-                            workspace_id,
-                            start_time,
-                            enforce_hint=not fb_last,
-                            persona=persona,
-                        )
-                        if result is not None:
-                            data = json.loads(result.body)
-                            for frame in _json_completion_to_sse(data, workspace_id):
-                                yield frame
-                            return
-
-                if _error_buffer:
-                    yield _error_buffer
-                else:
-                    yield b'data: {"error": "All backends failed"}\n\n'
-                yield b"data: [DONE]\n\n"
-                _record_error(workspace_id, "all_backends_failed")
-
         slot.detach()
         _streaming_response = StreamingResponse(
-            _stream_or_fallback(),
+            _stream_with_fallback(
+                backend,
+                body,
+                workspace_id,
+                target_model,
+                persona,
+                effective_tools,
+                start_time,
+                _has_tools,
+                _chain,
+                _portal_no_tools,
+                _secondary_model,
+                _tertiary_model,
+                remaining,
+                slot,
+                backend_body,
+            ),
             media_type="text/event-stream",
             headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
         )
