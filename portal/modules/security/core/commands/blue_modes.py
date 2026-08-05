@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .._data import _LAB_EXEC_AVAILABLE, RESULTS_DIR
+from ..blue import run_purple_tests
 from ..chain import (
     _WEB_SEARCH_CHAIN_TOOL,
     SCENARIOS,
@@ -995,3 +996,84 @@ def run_chain_models(run: BenchRun) -> None:
                     f"  {avg['avg_chain_depth']:>5.1f}"
                     f"  {avg['avg_elapsed_s']:>4.0f}s"
                 )
+
+
+def run_purple(run: BenchRun) -> None:
+    # Step 2c: purple interaction (red x blue on one scenario, or every scenario
+    # with --all-scenarios). Purple sits outside the _any_chain chain-dispatch
+    # path (see _any_chain above), so it needs its own --all-scenarios handling
+    # — without this it silently ran only the single default `scenario` even
+    # when --all-scenarios was passed (found live 2026-07-03: a "full-coverage"
+    # purple run produced results for 1/70 scenarios with no error or warning).
+    if not run.args.blue_models or (not run.args.chain_models and not run.args.replay_captured_red):
+        print(
+            "  ERROR: --purple requires --blue-models, and either --chain-models "
+            "or --replay-captured-red"
+        )
+    else:
+        _purple_scenarios = list(SCENARIOS.values()) if run.args.all_scenarios else [run.scenario]
+        if run._retry_failed_scenarios:
+            _purple_scenarios = [
+                sc for sc in _purple_scenarios if sc["name"] in run._retry_failed_scenarios
+            ]
+            print(f"  Retry: purple filtered to {len(_purple_scenarios)} scenario(s)")
+        for _p_sc in _purple_scenarios:
+            # Purple never ran the target-readiness gate at all (found live
+            # 2026-07-03, same day as the "1/70 scenarios" fix above): no
+            # verify/heal, and — since run_purple_tests used to call its own
+            # cfg.set_scenario with no runtime_env — no $TARGET_HOST/$TARGET_PORT
+            # substitution either. Every vulhub/web scenario attacked a literal
+            # unresolved template string. Reuse the exact same gate as the
+            # red-only path (_any_chain) instead of a second implementation.
+            gate = _prepare_scenario(
+                _p_sc,
+                run.cfg,
+                dry_run=run.args.dry_run,
+                lab_exec=run.args.lab_exec,
+                # --replay-captured-red never re-runs live red, but the
+                # gate should still be allowed to actually bring a target
+                # back up (or restart a crashed VM) rather than passively
+                # reporting target-unrecoverable — see _prepare_scenario's
+                # allow_heal docstring (found live 2026-07-05).
+                allow_heal=run.args.lab_exec or run.args.replay_captured_red,
+            )
+            if not gate.get("ready"):
+                print(f"  SKIP: {gate.get('reason', 'target-unrecoverable')}")
+                run.purple_results.append(
+                    {
+                        "red_model": (
+                            ",".join(run.args.chain_models)
+                            if run.args.chain_models
+                            else "captured-red"
+                        ),
+                        "blue_model": ",".join(run.args.blue_models),
+                        "scenario": _p_sc["name"],
+                        "outcome": "indeterminate",
+                        "gate_reason": gate.get("reason", "target-unrecoverable"),
+                    }
+                )
+                _write_checkpoint(run)
+                continue
+            if gate.get("healed"):
+                print(
+                    f"  Target healed: {gate.get('reason')} → {gate.get('host')}:{gate.get('port')}"
+                )
+            run.purple_results.extend(
+                run_purple_tests(
+                    run.args.chain_models,
+                    run.args.blue_models,
+                    _p_sc,
+                    run.cfg,
+                    dry_run=run.args.dry_run,
+                    lab_exec=run.args.lab_exec,
+                    replay_captured_red=run.args.replay_captured_red,
+                    blue_mode=run.args.blue_mode,
+                )
+            )
+            _write_checkpoint(run)
+            if _p_sc.get("vulhub_env") and run.args.lab_exec and not run.args.dry_run:
+                from scripts.lab_targets import cmd_down
+
+                cmd_down(_p_sc["vulhub_env"], dry_run=run.args.dry_run)
+            if run.args.lab_exec and not run.args.dry_run:
+                time.sleep(5)
