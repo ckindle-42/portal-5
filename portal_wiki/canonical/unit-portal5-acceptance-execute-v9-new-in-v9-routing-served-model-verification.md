@@ -12,7 +12,7 @@ sources:
   path: tests/expected_models.py
 - type: code
   path: scripts/execute_preflight.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: 1c013743834d850604632980a093809f65c3c3ed
 claims: []
 confidence: high
 tags:

@@ -9,7 +9,7 @@ sources:
   path: portal/platform/inference/router/routing.py
 - type: code
   path: tests/benchmarks/bench_router.py
-last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
+last_generated_commit: 1c013743834d850604632980a093809f65c3c3ed
 claims: []
 confidence: high
 tags:
