@@ -642,6 +642,119 @@ def gate_concurrent(url: str, model: str, n: int = CONCURRENT_N) -> dict:
     }
 
 
+SHOOTOUT_DURATION_S = 120
+SHOOTOUT_CONCURRENCY = 6
+
+
+def _shootout_pct(xs: list[float], p: float) -> float | None:
+    if not xs:
+        return None
+    k = min(len(xs) - 1, int(round((p / 100.0) * (len(xs) - 1))))
+    return round(xs[k], 3)
+
+
+def _shootout_run_load(
+    url: str, models: list[str], prompts: list[str], duration_s: int, concurrency: int
+) -> tuple[list[dict], float]:
+    import threading
+
+    samples: list[dict] = []
+    stop_at = time.perf_counter() + duration_s
+    rr = {"i": 0}
+    lock = threading.Lock()
+
+    def _one() -> dict:
+        with lock:
+            idx = rr["i"]
+            rr["i"] += 1
+        model = models[idx % len(models)]
+        prompt = prompts[idx % len(prompts)]
+        r = one_request(url, model, [{"role": "user", "content": prompt}])
+        r["model"] = model
+        return r
+
+    def _worker() -> None:
+        while time.perf_counter() < stop_at:
+            try:
+                samples.append(_one())
+            except Exception as exc:
+                samples.append({"error": str(exc), "ttft_s": None, "tps": 0.0})
+
+    threads = [threading.Thread(target=_worker) for _ in range(concurrency)]
+    t0 = time.perf_counter()
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    return samples, time.perf_counter() - t0
+
+
+def _shootout_summarize(
+    samples: list[dict], models: list[str], duration_s: int, concurrency: int, wall_s: float
+) -> dict:
+    import statistics as _st
+
+    ok = [r for r in samples if "error" not in r and r.get("ttft_s") is not None]
+    ttfts = sorted(r["ttft_s"] for r in ok)
+    tpss = [r["tps"] for r in ok if r.get("tps")]
+    fails = len(samples) - len(ok)
+
+    per_model: dict[str, dict] = {}
+    for m in models:
+        m_ok = [r for r in ok if r.get("model") == m]
+        per_model[m] = {
+            "requests": len(m_ok),
+            "ttft_p50": _shootout_pct(sorted(r["ttft_s"] for r in m_ok), 50),
+            "ttft_p95": _shootout_pct(sorted(r["ttft_s"] for r in m_ok), 95),
+            "tps_mean": round(_st.mean([r["tps"] for r in m_ok if r.get("tps")]), 1)
+            if any(r.get("tps") for r in m_ok)
+            else None,
+        }
+
+    tps_cv = (
+        round(_st.pstdev(tpss) / _st.mean(tpss), 3) if len(tpss) > 1 and _st.mean(tpss) else None
+    )
+    return {
+        "test": "shootout",
+        "models": models,
+        "duration_s": duration_s,
+        "concurrency": concurrency,
+        "wall_s": round(wall_s, 1),
+        "total_requests": len(samples),
+        "ok": len(ok),
+        "failures": fails,
+        "throughput_rps": round(len(ok) / wall_s, 2) if wall_s else None,
+        "ttft_p50": _shootout_pct(ttfts, 50),
+        "ttft_p95": _shootout_pct(ttfts, 95),
+        "ttft_p99": _shootout_pct(ttfts, 99),
+        "tps_mean": round(_st.mean(tpss), 1) if tpss else None,
+        "tps_cv": tps_cv,
+        "per_model": per_model,
+    }
+
+
+def gate_shootout(
+    url: str,
+    models: list[str],
+    duration_s: int = SHOOTOUT_DURATION_S,
+    concurrency: int = SHOOTOUT_CONCURRENCY,
+) -> dict:
+    """Sustained mixed-model concurrent load — does it hold steady, not just peak TPS."""
+    for m in models:
+        warmup(url, m)
+    prompts = list(SINGLE_PROMPTS.values())
+    samples, wall_s = _shootout_run_load(url, models, prompts, duration_s, concurrency)
+    result = _shootout_summarize(samples, models, duration_s, concurrency, wall_s)
+    print(
+        f"      {result['ok']}/{result['total_requests']} ok, {result['failures']} fail, "
+        f"rps={result['throughput_rps']}, ttft p50/p95/p99="
+        f"{result['ttft_p50']}/{result['ttft_p95']}/{result['ttft_p99']}s, "
+        f"tps_mean={result['tps_mean']} cv={result['tps_cv']}",
+        flush=True,
+    )
+    return result
+
+
 # ── Driver ────────────────────────────────────────────────────────────────────
 
 GATES = {
@@ -650,6 +763,7 @@ GATES = {
     "tools": gate_tools,
     "grammar": gate_grammar,
     "concurrent": gate_concurrent,
+    "shootout": gate_shootout,
 }
 
 
@@ -661,6 +775,15 @@ def main() -> None:
         "--models", default=None, help="Comma list of keys from OMLX_MODELS, or explicit model ids"
     )
     p.add_argument("--tag", default=None, help="Extra tag for the results filename")
+    p.add_argument(
+        "--duration", type=int, default=SHOOTOUT_DURATION_S, help="shootout gate: seconds"
+    )
+    p.add_argument(
+        "--concurrency",
+        type=int,
+        default=SHOOTOUT_CONCURRENCY,
+        help="shootout gate: parallel workers",
+    )
     args = p.parse_args()
 
     if args.models:
@@ -674,13 +797,22 @@ def main() -> None:
     started = datetime.now(UTC)
     all_results = []
 
-    for model in models:
-        print(f"\n=== {model} @ {args.url} ===", flush=True)
-        for g in gates:
-            res = gate_mtp(args.url, model) if g == "mtp" else GATES[g](args.url, model)
-            res["gate"] = g
-            res["engine"] = engine
-            all_results.append(res)
+    if args.gate == "shootout":
+        print(f"\n=== shootout: {models} @ {args.url} ===", flush=True)
+        res = gate_shootout(
+            args.url, models, duration_s=args.duration, concurrency=args.concurrency
+        )
+        res["gate"] = "shootout"
+        res["engine"] = engine
+        all_results.append(res)
+    else:
+        for model in models:
+            print(f"\n=== {model} @ {args.url} ===", flush=True)
+            for g in gates:
+                res = gate_mtp(args.url, model) if g == "mtp" else GATES[g](args.url, model)
+                res["gate"] = g
+                res["engine"] = engine
+                all_results.append(res)
 
     ts = started.strftime("%Y%m%dT%H%M%SZ")
     tag = f"_{args.tag}" if args.tag else ""

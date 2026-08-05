@@ -7,7 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: scripts/lib/util.sh
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: 86e6f142c0069ca2d4824b4721a545e64bd585b3
 claims: []
 confidence: high
 tags:

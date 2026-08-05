@@ -10,7 +10,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: tests/unit/test_pipeline.py
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+last_generated_commit: 86e6f142c0069ca2d4824b4721a545e64bd585b3
 claims: []
 confidence: high
 tags:
