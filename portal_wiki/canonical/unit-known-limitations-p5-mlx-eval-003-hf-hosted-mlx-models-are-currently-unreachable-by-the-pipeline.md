@@ -8,7 +8,7 @@ sources:
   path: tests/benchmarks/bench_mlx_hf.py
 - type: code
   path: portal/platform/inference/cluster_backends.py
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+last_generated_commit: ca0f99d64c0644df1d5fc30674b6c476fceb1a42
 claims: []
 confidence: high
 tags:

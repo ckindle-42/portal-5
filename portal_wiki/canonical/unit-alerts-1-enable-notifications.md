@@ -9,7 +9,7 @@ sources:
   path: portal/platform/inference/notifications/dispatcher.py
 - type: code
   path: portal/platform/inference/router/lifespan.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: ca0f99d64c0644df1d5fc30674b6c476fceb1a42
 claims: []
 confidence: high
 tags:

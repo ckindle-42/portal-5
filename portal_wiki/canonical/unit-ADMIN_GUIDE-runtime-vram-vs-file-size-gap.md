@@ -11,7 +11,7 @@ sources:
   path: portal/platform/inference/router/routing.py
 - type: code
   path: portal/platform/inference/router/lifespan.py
-last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
+last_generated_commit: ca0f99d64c0644df1d5fc30674b6c476fceb1a42
 claims: []
 confidence: high
 tags:
