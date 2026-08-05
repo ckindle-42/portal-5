@@ -112,14 +112,6 @@ surfaces:
   globs:
   - portal/modules/security/core/capability/tool_inventory.py
   unit: unit-SEC_BENCH-sub-components
-- name: file-portal-modules-security-core-commands-__init__
-  globs:
-  - portal/modules/security/core/commands/__init__.py
-  unit: unit-security-commands-namespace
-- name: file-portal-modules-security-core-commands-run
-  globs:
-  - portal/modules/security/core/commands/run.py
-  unit: unit-ADMIN_GUIDE-ollama-max-loaded-models-3
 - name: file-portal-modules-security-knowledge-__init__
   globs:
   - portal/modules/security/knowledge/__init__.py
@@ -362,6 +354,7 @@ surfaces:
 - name: unit-surface-sec-core
   globs:
   - portal/modules/security/core/*.py
+  - portal/modules/security/core/commands/*.py
   unit: unit-surface-sec-core
 - name: unit-surface-sec-tests
   globs:
