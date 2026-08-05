@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import json
+import os
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -244,10 +245,18 @@ def one_request(
     response_text = ""
     tool_calls: list = []
 
+    # Pipeline runs (:9099) require Bearer auth; oMLX/Ollama ignore the extra header.
+    headers = {}
+    _api_key = os.environ.get("PIPELINE_API_KEY", "")
+    if _api_key and "9099" in url:
+        headers["Authorization"] = f"Bearer {_api_key}"
+
     try:
         with (
             httpx.Client(timeout=REQUEST_TIMEOUT) as client,
-            client.stream("POST", f"{url}/v1/chat/completions", json=payload) as resp,
+            client.stream(
+                "POST", f"{url}/v1/chat/completions", json=payload, headers=headers
+            ) as resp,
         ):
             if resp.status_code != 200:
                 body = resp.read()[:300].decode(errors="replace")
