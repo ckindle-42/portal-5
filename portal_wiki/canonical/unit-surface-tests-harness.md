@@ -1,13 +1,13 @@
 ---
 id: unit-surface-tests-harness
 kind: mixed
-title: "Test-tree scaffolding and shared harness library"
+title: Test-tree scaffolding and shared harness library
 sources:
 - type: code
   path: tests/*.py
 - type: code
   path: tests/lib/*.py
-last_generated_commit: 1c013743834d850604632980a093809f65c3c3ed
+last_generated_commit: 717b0e6cd88f30a2f8c94765a5dfd7a7eb006d2f
 claims: []
 confidence: high
 tags:
