@@ -85,14 +85,14 @@ The `general`-group placement and `supports_tools: true` are asserted directly b
 
 ---
 
-### `llama3.2:3b-ctx8k`
+### `llama3.2:3b-instruct-q8_0-ctx8k`
 
-<!-- WIKI:GENERATED unit=unit-model-catalog-llama3-2-3b-ctx8k -->
-`llama3.2:3b-ctx8k` is a `-ctx8k`-tagged Ollama variant of `llama3.2:3b` (registered `config/backends.yaml`, `general` group, `supports_tools: true`), created via `ollama create` with a Modelfile-baked `PARAMETER num_ctx 8192`. It exists solely for `tests/benchmarks/bench_omlx_v3.py`'s shootout gate — Ollama's `/v1/chat/completions` endpoint silently ignores a runtime `options.num_ctx` override (verified live, Ollama 0.32.5), so a real context cap requires this baked-tag mechanism, matching every other `-ctxNk` model in the catalog. Not referenced by any `config/portal.yaml` workspace.
+<!-- WIKI:GENERATED unit=unit-model-catalog-llama3-2-3b-instruct-q8-0-ctx8k -->
+`llama3.2:3b-instruct-q8_0-ctx8k` is a `-ctx8k`-tagged Ollama variant of `llama3.2:3b-instruct-q8_0` (registered `config/backends.yaml`, `general` group, `supports_tools: true`, live-audited via `_audit_tools_probe`), created via `ollama create` with a Modelfile-baked `PARAMETER num_ctx 8192`. It exists solely for `tests/benchmarks/bench_omlx_v3.py`'s shootout gate — Ollama's `/v1/chat/completions` endpoint silently ignores a runtime `options.num_ctx` override (verified live, Ollama 0.32.5), so a real context cap requires this baked-tag mechanism, matching every other `-ctxNk` model in the catalog. Not referenced by any `config/portal.yaml` workspace.
 
 ## Why
 
-Discovered while building a fair oMLX-vs-Ollama multi-model bake-off: the bare `llama3.2:3b` tag was loading at its full 131072-token context regardless of any per-request cap, ballooning memory far beyond what a 900-4096 token test prompt needed. This tag gives the bench harness the same working context-control mechanism production workspaces already rely on.
+Discovered while building a fair oMLX-vs-Ollama multi-model bake-off: the bare `llama3.2:3b` tag was loading at its full 131072-token context regardless of any per-request cap. Superseded an earlier `llama3.2:3b-ctx8k` (Q4_K_M) tag: a settings-parity audit found oMLX's counterpart (`Llama-3.2-3B-Instruct-8bit`) runs at 8-bit precision (3.6GB) while the default Ollama pull is Q4_K_M (2.0GB) — a real, unmatched ~2x precision gap. This tag uses `llama3.2:3b-instruct-q8_0` (3.4GB, Q8_0) instead, matching oMLX's bit-width class for a genuine apples-to-apples comparison.
 <!-- /WIKI:GENERATED -->
 
 ---

@@ -59,7 +59,10 @@ OLLAMA_BASELINES = {
     # context (131k-262k) regardless of any request-level cap.
     "coder": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",  # matches auto-coding's real hint
     "gemma": "gemma4:e4b-it-qat-ctx8k",
-    "3b": "llama3.2:3b-ctx8k",
+    # q8_0, not the default q4_K_M pull — matches oMLX's Llama-3.2-3B-Instruct-8bit
+    # bit-for-bit class (verified: 3.4GB vs oMLX's 3.6GB; the q4_K_M default was a
+    # real, unmatched precision gap caught during a settings-parity audit).
+    "3b": "llama3.2:3b-instruct-q8_0-ctx8k",
 }
 
 # ── Protocol constants (identical to bench_omlx.py @ 10075f1c) ───────────────
@@ -243,11 +246,13 @@ def one_request(
         payload.update(extra)
 
     t0 = time.perf_counter()
-    t_first: float | None = None
+    t_first: float | None = None  # first token of any kind (content OR reasoning)
+    t_first_content: float | None = None  # first *visible answer* token specifically
     completion_tokens = 0
     cached_tokens: int | None = None
     prompt_tokens: int | None = None
     response_text = ""
+    reasoning_text = ""
     tool_calls: list = []
     finish_reason: str | None = None
 
@@ -288,9 +293,21 @@ def one_request(
                 choices = obj.get("choices") or []
                 delta = choices[0].get("delta", {}) if choices else {}
                 chunk = delta.get("content") or ""
-                if chunk and t_first is None:
+                # Ollama uses "reasoning"; oMLX uses "reasoning_content" — cover both.
+                reasoning_chunk = delta.get("reasoning") or delta.get("reasoning_content") or ""
+                # Thinking-capable models (e.g. gemma4 on Ollama) stream extended
+                # reasoning with an empty `content` field until thinking finishes —
+                # that's active, visible progress, not silence. TTFT must count it,
+                # or a model that thinks-then-answers looks falsely stalled next to
+                # one that skips straight to content (verified live: oMLX serves
+                # this same checkpoint with thinking_default=False, no reasoning
+                # field at all — the two engines' real default configs differ).
+                if (chunk or reasoning_chunk) and t_first is None:
                     t_first = time.perf_counter()
+                if chunk and t_first_content is None:
+                    t_first_content = time.perf_counter()
                 response_text += chunk
+                reasoning_text += reasoning_chunk
                 if delta.get("tool_calls"):
                     tool_calls.extend(delta["tool_calls"])
                 if choices and choices[0].get("finish_reason"):
@@ -309,13 +326,16 @@ def one_request(
         return {"error": str(e)[:150], "elapsed_s": round(time.perf_counter() - t0, 3)}
 
     elapsed = time.perf_counter() - t0
-    if completion_tokens == 0 and response_text:
-        completion_tokens = max(1, len(response_text.split()))
+    if completion_tokens == 0 and (response_text or reasoning_text):
+        completion_tokens = max(1, len((response_text + reasoning_text).split()))
     ttft = round(t_first - t0, 3) if t_first is not None else None
+    ttft_content = round(t_first_content - t0, 3) if t_first_content is not None else None
     decode_s = (elapsed - ttft) if ttft is not None else None
     return {
         "elapsed_s": round(elapsed, 3),
-        "ttft_s": ttft,
+        "ttft_s": ttft,  # first token of any kind (content or reasoning)
+        "ttft_content_s": ttft_content,  # first visible-answer token specifically
+        "reasoning_chars": len(reasoning_text),
         "completion_tokens": completion_tokens,
         "prompt_tokens": prompt_tokens,
         "cached_tokens": cached_tokens,
@@ -722,6 +742,23 @@ def _shootout_pct(xs: list[float], p: float) -> float | None:
     return round(xs[k], 3)
 
 
+# coder/gemma already carry identical sampling params on both engines (traced to
+# the same upstream generation_config.json — verified byte-for-byte equal). The
+# 3B model has no baked config anywhere (neither engine), so without an explicit
+# override each engine would silently fall back to its own internal default —
+# pin temperature/top_p (both standard OpenAI fields, confirmed applied on both
+# engines) identically. top_k deliberately omitted: verified live that Ollama's
+# /v1/chat/completions silently ignores it (temp=1.5 + top_k=1 still produced
+# non-deterministic output across repeats) — same class of bug as num_ctx/think.
+SHOOTOUT_LLAMA32_SAMPLING = {"temperature": 0.7, "top_p": 0.9}
+
+
+def _shootout_extra_for(model: str) -> dict | None:
+    if "llama-3.2" in model.lower() or "llama3.2" in model.lower():
+        return dict(SHOOTOUT_LLAMA32_SAMPLING)
+    return None
+
+
 def _shootout_run_load(
     url: str,
     models: list[str],
@@ -747,7 +784,13 @@ def _shootout_run_load(
             rr["i"] += 1
         model = models[idx % len(models)]
         prompt = prompts[idx % len(prompts)]
-        r = one_request(url, model, [{"role": "user", "content": prompt}], max_tokens=max_tokens)
+        r = one_request(
+            url,
+            model,
+            [{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            extra=_shootout_extra_for(model),
+        )
         r["model"] = model
         return r
 
@@ -779,6 +822,9 @@ def _shootout_summarize(
     truncated = sum(1 for r in ok if r.get("finish_reason") == "length")
     avg_response_chars = (
         round(_st.mean([r.get("response_chars", 0) for r in ok]), 0) if ok else None
+    )
+    avg_reasoning_chars = (
+        round(_st.mean([r.get("reasoning_chars", 0) for r in ok]), 0) if ok else None
     )
 
     per_model: dict[str, dict] = {}
@@ -813,6 +859,7 @@ def _shootout_summarize(
         "tps_cv": tps_cv,
         "truncated": truncated,  # finish_reason == "length" — hit max_tokens before finishing
         "avg_response_chars": avg_response_chars,
+        "avg_reasoning_chars": avg_reasoning_chars,  # non-zero => model used extended thinking
         "per_model": per_model,
     }
 

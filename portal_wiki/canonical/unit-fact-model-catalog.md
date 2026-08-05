@@ -5,8 +5,8 @@ title: 203 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: f06ae3ff0835
-last_generated_commit: f06ae3ff0835
+  commit: fccb30525d45
+last_generated_commit: fccb30525d45
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -15,7 +15,7 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1785953792.468617
+updated_at: 1785957353.614054
 ---
 
 # Model catalog (203 model ids across 7 backend groups)
@@ -141,7 +141,7 @@ updated_at: 1785953792.468617
 - `lfm2.5:8b`
 - `lfm2.5:8b-ctx8k`
 - `llama3.2:3b`
-- `llama3.2:3b-ctx8k`
+- `llama3.2:3b-instruct-q8_0-ctx8k`
 - `meta-secalign-8b-q4_k_m:latest`
 - `mistral-small3.2:24b`
 - `omnicoder2:9b-q4_k_m`
