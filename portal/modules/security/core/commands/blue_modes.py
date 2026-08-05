@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 import time
@@ -23,7 +24,33 @@ from ..scoring import (
     score_chain_coherence,
     score_pivot_correctness,
 )
+from .context import BenchRun
 from .run import _print_intake_summary
+
+
+def _write_checkpoint(run: BenchRun) -> None:
+    """Persist progress so far to .partial.json after each scenario (C3 Tier C-1).
+
+    Scenario sweeps bypass the workspace-benchmark checkpoint path, so they
+    need this independent checkpoint. Best-effort writes must never crash
+    the run they are protecting.
+    """
+    if not run.checkpoint_path:
+        return
+    with contextlib.suppress(Exception):
+        run.checkpoint_path.write_text(
+            json.dumps(
+                {
+                    "timestamp": run.ts,
+                    "in_progress": True,
+                    "chain_tests": run.chain_results,
+                    "blue_tests": run.blue_results,
+                    "purple_tests": run.purple_results,
+                },
+                indent=2,
+                default=str,
+            )
+        )
 
 
 def run_blue_mode_orchestrated(args) -> None:

@@ -794,30 +794,6 @@ def main() -> None:
     purple_results: list[dict] = []
     scenario_averages: list[dict] = []
 
-    def _write_checkpoint() -> None:
-        """Persist progress so far to .partial.json after each scenario.
-
-        Scenario sweeps bypass the workspace-benchmark checkpoint path, so they
-        need this independent checkpoint. Best-effort writes must never crash
-        the run they are protecting.
-        """
-        if not checkpoint_path:
-            return
-        with contextlib.suppress(Exception):
-            checkpoint_path.write_text(
-                json.dumps(
-                    {
-                        "timestamp": ts,
-                        "in_progress": True,
-                        "chain_tests": chain_results,
-                        "blue_tests": blue_results,
-                        "purple_tests": purple_results,
-                    },
-                    indent=2,
-                    default=str,
-                )
-            )
-
     # Parse --step-models assignments (multi-model chain)
     _step_models: dict[str, str] = {}
     if args.step_models:
@@ -836,6 +812,37 @@ def main() -> None:
     from .commands.blue_modes import run_any_chain
 
     _snapshot_name = run_any_chain(args, _any_chain, _enabled_prompts)
+
+    # ── Run-state context (TASK_PORTAL_SIMPLIFY_V1 C-2) ─────────────────────
+    # BenchRun threads the fall-through run state through _write_checkpoint and
+    # (in C-3) the extracted fall-through handlers. Constructed once the early
+    # locals exist; later-produced locals are reassigned onto `run` as they are
+    # initialized so every field stays current for the fall-through blocks.
+    from .commands.blue_modes import _write_checkpoint
+    from .commands.context import BenchRun
+
+    run = BenchRun(
+        args=args,
+        cfg=cfg,
+        ts=ts,
+        checkpoint_path=checkpoint_path,
+        chain_results=chain_results,
+        blue_results=blue_results,
+        purple_results=purple_results,
+        scenario=scenario,
+        scenario_averages=scenario_averages,
+        multimodel_results=multimodel_results,
+        _step_models=_step_models,
+        _enabled_prompts=_enabled_prompts,
+        _target_prompts=_target_prompts,
+        results=None,
+        evasion_results=evasion_results,
+        false_positive_results=None,
+        defense_efficacy_results=None,
+        expansion_steps=None,
+        matrix_results=None,
+        matrix_units=None,
+    )
 
     # Step 2: tool call chain test (red), aligned to the selected scenario(s)
     if args.chain_models and not args.purple:
@@ -890,7 +897,7 @@ def main() -> None:
                 }
                 chain_results.append(indeterminate_result)
                 all_scenario_results.setdefault(sc["name"], []).append(indeterminate_result)
-                _write_checkpoint()
+                _write_checkpoint(run)
                 continue
             if gate.get("healed"):
                 print(
@@ -936,7 +943,7 @@ def main() -> None:
                 r["episode_id"] = episode_id
             all_scenario_results[sc["name"]] = sc_results
             chain_results.extend(sc_results)
-            _write_checkpoint()
+            _write_checkpoint(run)
 
             if args.lab_exec and not args.dry_run:
                 # Get red's raw host telemetry into the SIEM up front, at its true
@@ -1116,7 +1123,7 @@ def main() -> None:
                             "gate_reason": gate.get("reason", "target-unrecoverable"),
                         }
                     )
-                    _write_checkpoint()
+                    _write_checkpoint(run)
                     continue
                 if gate.get("healed"):
                     print(
@@ -1134,7 +1141,7 @@ def main() -> None:
                         blue_mode=args.blue_mode,
                     )
                 )
-                _write_checkpoint()
+                _write_checkpoint(run)
                 if _p_sc.get("vulhub_env") and args.lab_exec and not args.dry_run:
                     from scripts.lab_targets import cmd_down
 
@@ -1169,6 +1176,7 @@ def main() -> None:
 
     # Step 2g: false positive test — send benign traffic to blue defender
     false_positive_results: list[dict] = []
+    run.false_positive_results = false_positive_results
     if args.false_positive_test and args.blue_models and not args.dry_run:
         from .blue import _run_blue_turn
         from .lab import CLEAN_TRAFFIC_PROMPTS, dispatch_lab_tool
@@ -1223,6 +1231,7 @@ def main() -> None:
 
     # Step 2h: defense efficacy — re-run red after blue countermeasures
     defense_efficacy_results: list[dict] = []
+    run.defense_efficacy_results = defense_efficacy_results
     if args.defense_efficacy and args.chain_models and args.blue_models and not args.dry_run:
         from .blue import _run_blue_chain_test
         from .chain import _run_chain_test
@@ -1326,6 +1335,7 @@ def main() -> None:
             checkpoint_path=checkpoint_path,
             parallel_workspaces=args.parallel_workspaces,
         )
+    run.results = results
 
     # ── Proxmox VM restore after exec_chain (Step 3) ────────────────────────
     if args.lab_snapshot and _LAB_EXEC_AVAILABLE and _snapshot_name and args.exec_chain_models:
@@ -1335,6 +1345,7 @@ def main() -> None:
 
     # ── Security expansion steps (run even during dry-run) ───────────────────
     expansion_steps: dict[str, dict] = {}
+    run.expansion_steps = expansion_steps
     if (
         args.full_expanded
         or args.verify_findings
@@ -1435,6 +1446,8 @@ def main() -> None:
     # ── Matrix execution (TASK_SEC_VALIDATION_FOUNDATION_V1) ────────────────
     matrix_results: dict = {}
     matrix_units: list = []
+    run.matrix_results = matrix_results
+    run.matrix_units = matrix_units
     if args.matrix or args.matrix_all or args.matrix_classes or args.matrix_coverage:
         from .matrix import build_coverage_report, build_run_matrix, run_matrix
 
@@ -1463,6 +1476,7 @@ def main() -> None:
         print(f"  Units resolved: {len(matrix_units)}")
         print(f"  Scenarios: {sum(1 for u in matrix_units if u.kind == 'scenario')}")
         print(f"  Class containers: {sum(1 for u in matrix_units if u.kind == 'class')}")
+        run.matrix_units = matrix_units
 
         matrix_results = run_matrix(
             matrix_units,
@@ -1471,6 +1485,7 @@ def main() -> None:
             max_concurrent=args.max_concurrent,
             purple=args.purple,
         )
+        run.matrix_results = matrix_results
 
         print(f"\n  Verified: {matrix_results['verified']}")
         print(f"  Rejected: {matrix_results['rejected']}")
