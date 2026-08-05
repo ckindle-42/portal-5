@@ -9,7 +9,7 @@ sources:
   path: scripts/validate_system.py
 - type: code
   path: portal/platform/inference/sync_config.py
-last_generated_commit: cb5f261a17412c46a46ec83804e8207933de7b67
+last_generated_commit: da87b0b818f6edbc10d432ddee82ab4392b684dc
 claims: []
 confidence: high
 tags:

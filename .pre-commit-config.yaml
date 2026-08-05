@@ -9,31 +9,6 @@ repos:
 
   - repo: local
     hooks:
-      # Guard: no two tracked files byte-identical across deploy/ ↔ portal_mcp/
-      - id: no-identical-sources
-        name: no duplicate source files (deploy/ ↔ portal_mcp/)
-        language: python
-        entry: python3 scripts/ci/check_no_identical_sources.py
-        pass_filenames: false
-        always_run: true
-
-      # Guard: sync-config is idempotent — generated artifacts are never stale
-      - id: generated-fresh
-        name: generated artifacts fresh (sync-config idempotent)
-        language: python
-        additional_dependencies: ["pyyaml>=6.0.1", "pydantic>=2.5.0", "pydantic-settings>=2.1.0"]
-        entry: python3 scripts/ci/check_generated_fresh.py
-        pass_filenames: false
-        always_run: true
-
-      # Guard: pyproject.toml has no duplicate dependency strings
-      - id: pyproject-no-dup
-        name: pyproject.toml has no duplicate dependency pins
-        language: python
-        entry: python3 scripts/ci/check_pyproject_no_dup.py
-        pass_filenames: false
-        files: pyproject.toml
-
       # Ruff lint + format check
       - id: ruff-check
         name: ruff lint

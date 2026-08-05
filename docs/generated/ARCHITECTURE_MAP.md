@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 696 canonical units.*
+*Deterministic projection of 694 canonical units.*
 
 ## Knowledge Layer
 
@@ -183,7 +183,6 @@
 | `unit-bench-security` | mixed | 1 |
 | `unit-blue-orchestration-v2-capture-gap` | why | 8 |
 | `unit-blue-orchestration-v3-council-of-agreement` | why | 3 |
-| `unit-browser-mcp-http-wrapper` | mixed | 1 |
 | `unit-channels-dispatcher` | mixed | 1 |
 | `unit-channels-namespace` | mixed | 1 |
 | `unit-channels-slack-adapter` | mixed | 1 |
@@ -655,7 +654,6 @@
 | `unit-surface-portal-wiki` | mixed | 1 |
 | `unit-surface-router` | mixed | 1 |
 | `unit-surface-scripts` | mixed | 1 |
-| `unit-surface-scripts-ci` | mixed | 1 |
 | `unit-surface-sec-core` | mixed | 1 |
 | `unit-surface-sec-tests` | mixed | 1 |
 | `unit-surface-security-eval` | mixed | 1 |
@@ -705,10 +703,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 696 units
+**Total:** 694 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1659 references
+- **code**: 1657 references
 - **mitre**: 32 references

@@ -6,7 +6,7 @@ RUN pip3 install --no-cache-dir httpx starlette uvicorn "mcp>=2.0.0,<3.0.0"
 RUN npm install -g @playwright/mcp@latest
 
 RUN mkdir -p /app /profiles /audit
-COPY browser_mcp.py /app/browser_mcp.py
+COPY portal/modules/research/tools/browser_mcp.py /app/browser_mcp.py
 
 EXPOSE 8922
 

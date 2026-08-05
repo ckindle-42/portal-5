@@ -671,8 +671,8 @@ services:
   # ── Browser MCP (Playwright) ──────────────────────────────────────────────────
   playwright-mcp:
     build:
-      context: ../../deploy/playwright-mcp
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: deploy/playwright-mcp/Dockerfile
     container_name: portal5-playwright
     restart: unless-stopped
     ports:
