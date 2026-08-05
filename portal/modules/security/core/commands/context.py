@@ -28,6 +28,12 @@ class BenchRun:
     evasion_results: list[dict] | None
     false_positive_results: list[dict] | None
     defense_efficacy_results: list[dict] | None
-    expansion_steps: list[dict] | None
+    expansion_steps: dict[str, dict] | None
     matrix_results: dict | None
     matrix_units: list[dict] | None
+    _snapshot_name: str
+    refusal_results: list[dict]
+    _audit_results: list[dict]
+    _retry_data: dict
+    _out_path: Path
+    _t0_bench: float
