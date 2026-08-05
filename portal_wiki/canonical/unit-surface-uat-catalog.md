@@ -5,7 +5,7 @@ title: "UAT scenario catalog \u2014 data modules, assembly order, shared vocabul
 sources:
 - type: code
   path: tests/uat_catalog/*.py
-last_generated_commit: 863d7aa3152e7562e2d09344959c464b20eec0de
+last_generated_commit: 44337398432f63b63bd77ff750552c81dc7b7cc2
 claims: []
 confidence: high
 tags:

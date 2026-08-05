@@ -1,0 +1,120 @@
+[
+  {
+    "description": "Store a memory for future recall. Use for: user preferences, persistent facts about the user's projects/work, important conclusions to keep across conversations. Each memory should be self-contained \u2014 no pronouns referring to the current chat context.",
+    "name": "remember",
+    "parameters": {
+      "properties": {
+        "category": {
+          "default": "fact",
+          "enum": [
+            "preference",
+            "fact",
+            "project_context",
+            "conversation_summary"
+          ],
+          "type": "string"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "text": {
+          "description": "The memory content. Self-contained sentence.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Retrieve memories relevant to a query. Returns top matches by semantic similarity with recency boost. Use at the start of a conversation to prime context.",
+    "name": "recall",
+    "parameters": {
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "top_k": {
+          "default": 5,
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Delete a specific memory by ID. Use when recall returns a stale or incorrect memory.",
+    "name": "forget",
+    "parameters": {
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "List stored memories, optionally filtered by category or tag. For inventory and management.",
+    "name": "list_memories",
+    "parameters": {
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "limit": {
+          "default": 50,
+          "maximum": 500,
+          "type": "integer"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "description": "Admin: delete all memories. Requires confirm_token='YES_DELETE_ALL'. Cannot be undone.",
+    "name": "clear_memories",
+    "parameters": {
+      "properties": {
+        "confirm_token": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "confirm_token"
+      ],
+      "type": "object"
+    }
+  }
+]

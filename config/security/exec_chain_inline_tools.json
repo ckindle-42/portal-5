@@ -1,0 +1,58 @@
+[
+  {
+    "function": {
+      "description": "Run a bash command in the Kali Linux lab environment",
+      "name": "execute_bash",
+      "parameters": {
+        "properties": {
+          "cmd": {
+            "description": "Bash command to run",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cmd"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Run Python code in the lab environment",
+      "name": "execute_python",
+      "parameters": {
+        "properties": {
+          "code": {
+            "description": "Python code to execute",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Search the web for CVEs, exploits, or tool documentation",
+      "name": "web_search",
+      "parameters": {
+        "properties": {
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

@@ -1,0 +1,80 @@
+{
+  "4625": [
+    [
+      "IpAddress",
+      "Source Network Address:[ \\t]*(\\S+)"
+    ],
+    [
+      "Account",
+      "Account Name:[ \\t]*(\\S+)"
+    ]
+  ],
+  "4662": [
+    [
+      "Properties",
+      "Properties:[ \\t]*(\\S.*)"
+    ],
+    [
+      "Account",
+      "Account Name:[ \\t]*(\\S+)"
+    ]
+  ],
+  "4688": [
+    [
+      "NewProcessName",
+      "New Process Name:[ \\t]*(\\S.*)"
+    ],
+    [
+      "CommandLine",
+      "Process Command Line:[ \\t]*(\\S.*)"
+    ],
+    [
+      "Account",
+      "Account Name:[ \\t]*(\\S+)"
+    ]
+  ],
+  "4698": [
+    [
+      "TaskName",
+      "Task Name:[ \\t]*(\\S.*)"
+    ],
+    [
+      "Account",
+      "Account Name:[ \\t]*(\\S+)"
+    ]
+  ],
+  "4768": [
+    [
+      "PreAuthType",
+      "Pre-Authentication Type:[ \\t]*(\\S+)"
+    ],
+    [
+      "Account",
+      "Account Name:[ \\t]*(\\S+)"
+    ]
+  ],
+  "4769": [
+    [
+      "TicketEncryptionType",
+      "Ticket Encryption Type:[ \\t]*(\\S+)"
+    ],
+    [
+      "ServiceName",
+      "Service Name:[ \\t]*(\\S+)"
+    ],
+    [
+      "Account",
+      "Account Name:[ \\t]*(\\S+)"
+    ]
+  ],
+  "4771": [
+    [
+      "IpAddress",
+      "Client Address:[ \\t]*(\\S+)"
+    ],
+    [
+      "Account",
+      "Account Name:[ \\t]*(\\S+)"
+    ]
+  ]
+}

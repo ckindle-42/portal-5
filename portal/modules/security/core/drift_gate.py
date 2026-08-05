@@ -27,6 +27,16 @@ from typing import Any
 
 from .self_index import _complete_result_files, _run_timestamp_key
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 CANARY_DIR = RESULTS_DIR / "canary_baselines"
 
@@ -241,68 +251,7 @@ def render_drift_markdown(report: dict) -> str:
 
 # ── Phase 2: model-behavior canary ──────────────────────────────────────────────
 
-CANARY_PROBES: list[dict[str, Any]] = [
-    {
-        "id": "kerberoast_mitre_id",
-        "prompt": "Name the exact MITRE ATT&CK technique ID for Kerberoasting (requesting a service ticket for offline cracking). Respond with only the technique ID.",
-        "expect_any": ["T1558.003", "T1558/003"],
-    },
-    {
-        "id": "asreproast_mitre_id",
-        "prompt": "Name the exact MITRE ATT&CK technique ID for AS-REP Roasting. Respond with only the technique ID.",
-        "expect_any": ["T1558.004", "T1558/004"],
-    },
-    {
-        "id": "golden_ticket_mitre_id",
-        "prompt": "Name the exact MITRE ATT&CK technique ID for a Golden Ticket attack. Respond with only the technique ID.",
-        "expect_any": ["T1558.001", "T1558/001"],
-    },
-    {
-        "id": "pass_the_hash_mitre_id",
-        "prompt": "Name the exact MITRE ATT&CK technique ID for Pass the Hash. Respond with only the technique ID.",
-        "expect_any": ["T1550.002", "T1550/002"],
-    },
-    {
-        "id": "log4shell_cve",
-        "prompt": "What is the CVE ID for the Log4Shell remote code execution vulnerability in Apache Log4j?",
-        "expect_any": ["CVE-2021-44228"],
-    },
-    {
-        "id": "container_escape_mitre_id",
-        "prompt": "Name the exact MITRE ATT&CK technique ID for Escape to Host (container escape). Respond with only the technique ID.",
-        "expect_any": ["T1611"],
-    },
-    {
-        "id": "llmnr_poisoning_mitre_id",
-        "prompt": "Name the exact MITRE ATT&CK technique ID for LLMNR/NBT-NS Poisoning and SMB Relay. Respond with only the technique ID.",
-        "expect_any": ["T1557.001", "T1557/001"],
-    },
-    {
-        "id": "sqli_owasp_category",
-        "prompt": "SQL injection falls under which OWASP Top 10 2021 category letter/number (e.g. A03)?",
-        "expect_any": ["A03"],
-    },
-    {
-        "id": "wmi_exec_mitre_id",
-        "prompt": "Name the exact MITRE ATT&CK technique ID for Windows Management Instrumentation (as an execution technique). Respond with only the technique ID.",
-        "expect_any": ["T1047"],
-    },
-    {
-        "id": "nonblank_general",
-        "prompt": "In one sentence, what does a port scanner do?",
-        "expect_any": [],  # non-blank check only
-    },
-    {
-        "id": "eternal_blue_cve",
-        "prompt": "What is the CVE ID for the EternalBlue SMBv1 remote code execution vulnerability?",
-        "expect_any": ["CVE-2017-0144"],
-    },
-    {
-        "id": "ssrf_owasp_category",
-        "prompt": "Server-Side Request Forgery (SSRF) falls under which OWASP Top 10 2021 category letter/number?",
-        "expect_any": ["A10"],
-    },
-]
+CANARY_PROBES: list[dict[str, Any]] = _load_data("drift_gate_canary_probes")
 
 
 def _run_single_probe(model: str, probe: dict, ollama_url: str) -> dict:

@@ -1,0 +1,411 @@
+[
+  {
+    "function": {
+      "description": "Start a Proxmox lab VM and wait for it to be ready. Call this before scanning or attacking a target.",
+      "name": "start_lab_target",
+      "parameters": {
+        "properties": {
+          "snapshot": {
+            "description": "Snapshot to revert to before starting (use 'baseline-ad' for the seeded red-team baseline)",
+            "type": "string"
+          },
+          "vmid": {
+            "description": "Proxmox VM ID to start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "vmid"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Run an nmap scan against a target host or network range",
+      "name": "run_nmap_scan",
+      "parameters": {
+        "properties": {
+          "flags": {
+            "description": "nmap flags e.g. -sV -sC",
+            "type": "string"
+          },
+          "target": {
+            "description": "IP or CIDR range",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Check if a service on a host is vulnerable to a CVE",
+      "name": "check_cve",
+      "parameters": {
+        "properties": {
+          "cve_id": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "host",
+          "port",
+          "cve_id"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Exploit a vulnerable service and attempt to get a shell",
+      "name": "exploit_service",
+      "parameters": {
+        "properties": {
+          "exploit_module": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "host",
+          "port",
+          "exploit_module"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Establish persistence on a compromised host",
+      "name": "establish_persistence",
+      "parameters": {
+        "properties": {
+          "host": {
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "cron",
+              "service",
+              "registry",
+              "startup"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "method"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Move laterally to another host using obtained credentials, hashes, or tickets. Call after establishing initial access and persistence on the first host.",
+      "name": "lateral_move",
+      "parameters": {
+        "properties": {
+          "credential": {
+            "description": "NTLM hash, Kerberos ticket, or plaintext credential",
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "pass-the-hash",
+              "pass-the-ticket",
+              "psexec",
+              "wmiexec",
+              "rdp"
+            ],
+            "type": "string"
+          },
+          "target_host": {
+            "description": "IP or hostname to pivot to",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_host",
+          "method"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Exfiltrate collected data from a compromised host to an attacker-controlled staging location. Call after lateral movement has given access to target data.",
+      "name": "exfiltrate_data",
+      "parameters": {
+        "properties": {
+          "data_type": {
+            "enum": [
+              "credentials",
+              "files",
+              "emails",
+              "database"
+            ],
+            "type": "string"
+          },
+          "destination": {
+            "description": "Staging server IP or URL to send data to",
+            "type": "string"
+          },
+          "source_host": {
+            "description": "Host to exfiltrate from",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_host",
+          "data_type"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Revert a Proxmox lab VM back to a clean snapshot after the operation. Always call this at the end of an engagement to restore the lab.",
+      "name": "revert_lab_target",
+      "parameters": {
+        "properties": {
+          "snapshot": {
+            "description": "Snapshot name to restore (use 'baseline-ad')",
+            "type": "string"
+          },
+          "vmid": {
+            "description": "Proxmox VM ID to revert",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "vmid",
+          "snapshot"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Make an HTTP request to a URL and return the response body and headers.",
+      "name": "web_request",
+      "parameters": {
+        "properties": {
+          "cookies": {
+            "description": "Cookie string",
+            "type": "string"
+          },
+          "data": {
+            "description": "POST body (URL-encoded or JSON)",
+            "type": "string"
+          },
+          "follow_redirects": {
+            "default": true,
+            "type": "boolean"
+          },
+          "headers": {
+            "description": "Extra request headers",
+            "type": "object"
+          },
+          "method": {
+            "default": "GET",
+            "enum": [
+              "GET",
+              "POST"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Run SQLMap automated SQL injection scanner against a URL.",
+      "name": "run_sqlmap",
+      "parameters": {
+        "properties": {
+          "database": {
+            "description": "Database to dump (optional)",
+            "type": "string"
+          },
+          "extra_flags": {
+            "description": "Additional sqlmap flags",
+            "type": "string"
+          },
+          "table": {
+            "description": "Table to dump (optional)",
+            "type": "string"
+          },
+          "url": {
+            "description": "Target URL with injectable parameter",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Upload a PHP web shell to a target web application via an authenticated file upload endpoint. Returns the URL of the uploaded shell.",
+      "name": "upload_webshell",
+      "parameters": {
+        "properties": {
+          "auth_cookies": {
+            "description": "Session cookies for authentication",
+            "type": "string"
+          },
+          "form_fields": {
+            "description": "Additional form fields to include",
+            "type": "object"
+          },
+          "upload_url": {
+            "description": "URL of the file upload endpoint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_url"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Execute a system command via a previously uploaded PHP web shell. Returns command output.",
+      "name": "webshell_exec",
+      "parameters": {
+        "properties": {
+          "command": {
+            "description": "Command to execute on the target",
+            "type": "string"
+          },
+          "shell_url": {
+            "description": "URL of the PHP web shell",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shell_url",
+          "command"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Connect to a binary service and send a buffer overflow or other exploit payload. Returns the service response before and after the payload.",
+      "name": "exploit_binary_service",
+      "parameters": {
+        "properties": {
+          "host": {
+            "type": "string"
+          },
+          "offset": {
+            "description": "Bytes of padding before overwrite",
+            "type": "integer"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "target_address": {
+            "description": "Return address to redirect to (hex, e.g. 0x4006c6)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "port"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Run a bash command in the Kali Linux lab environment",
+      "name": "execute_bash",
+      "parameters": {
+        "properties": {
+          "cmd": {
+            "description": "Bash command to run",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cmd"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Run Python code in the lab environment",
+      "name": "execute_python",
+      "parameters": {
+        "properties": {
+          "code": {
+            "description": "Python code to execute",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

@@ -1,0 +1,66 @@
+[
+  {
+    "note": "Requested repo is AutoRound int4 safetensors, NOT GGUF \u2014 not Ollama-runnable as named. Resolved to Abiray's GGUF requant of the same base model (Abiray already appears in our catalog).",
+    "requested": "josefprusa/ThinkingCap-Qwen3.6-27B-int4-AutoRound-v1",
+    "resolved_file": "ThinkingCap-Qwen3.6-27B-Q4_K_M.gguf",
+    "resolved_id": "Abiray/ThinkingCap-Qwen3.6-27B-Q4_K_M-GGUF",
+    "size_b": 27
+  },
+  {
+    "note": "Requested repo is safetensors-only. bartowski/migtissera_Tess-4-27B-GGUF also has a Q4_K_M quant (trusted quantizer) but its 31-file repo manifest consistently timed out via `ollama pull` (context deadline exceeded, reproduced 3x, blob fully downloaded each time). Verified: the author's own smaller 8-file GGUF repo (migtissera/Tess-4-27B-GGUF) pulls cleanly \u2014 used that instead.",
+    "requested": "migtissera/Tess-4-27B",
+    "resolved_file": "Tess-4-27B-Q4_K_M.gguf",
+    "resolved_id": "migtissera/Tess-4-27B-GGUF",
+    "size_b": 27
+  },
+  {
+    "note": "Corrected author: no HF author 'TrevorS' exists \u2014 this is TrevorJS (operator-confirmed, HF collection TrevorJS/gemma-4-uncensored). That collection ships GGUF abliterations at E2B/E4B/12B/26B-A4B/31B. Bigger isn't necessarily better (bench-don't-assume applies to size within a family, not just seat-by-label) \u2014 all 3 in-band sizes (12B/26B-A4B/31B) are queued as separate candidates below so the sweep measures which size actually wins, rather than assuming the largest does. Quantizer is TrevorJS (single-user).",
+    "requested": "TrevorS/gemma-4-abliteration (thinking family) [31B]",
+    "resolved_file": "gemma-4-31B-it-uncensored-Q4_K_M.gguf",
+    "resolved_id": "TrevorJS/gemma-4-31B-it-uncensored-GGUF",
+    "size_b": 31
+  },
+  {
+    "note": "Same family/author as the 31B entry \u2014 mid-size in-band variant, queued for a fair size comparison.",
+    "requested": "TrevorS/gemma-4-abliteration (thinking family) [26B-A4B]",
+    "resolved_file": "gemma-4-26B-A4B-it-uncensored-Q4_K_M.gguf",
+    "resolved_id": "TrevorJS/gemma-4-26B-A4B-it-uncensored-GGUF",
+    "size_b": 26
+  },
+  {
+    "note": "Same family/author as the 31B entry \u2014 smallest in-band variant, queued for a fair size comparison.",
+    "requested": "TrevorS/gemma-4-abliteration (thinking family) [12B]",
+    "resolved_file": "gemma-4-12B-it-uncensored-Q4_K_M.gguf",
+    "resolved_id": "TrevorJS/gemma-4-12B-it-uncensored-GGUF",
+    "size_b": 12
+  },
+  {
+    "note": "GGUF exists as named. Quantizer is MaralGPT itself (single-user, not in trust list).",
+    "requested": "MaralGPT/MaralGPT-Mythos-9B-2606-GGUF",
+    "resolved_file": "MaralGPT-Mythos-9B-2606-Q4_K_M.gguf",
+    "resolved_id": "MaralGPT/MaralGPT-Mythos-9B-2606-GGUF",
+    "size_b": 9
+  },
+  {
+    "note": "GGUF exists as named, huihui-ai is a trusted quantizer. CAUTION: this is an MTP (multi-token-prediction) build \u2014 llama.cpp/Ollama MTP support is unverified on this stack; preflight must confirm it loads and emits tool_calls at all before it's benchable.",
+    "requested": "huihui-ai/Huihui-Ornith-1.0-9B-abliterated-MTP-GGUF",
+    "resolved_file": "ornith-9b-mtp-kl-Q4_K_M.gguf",
+    "resolved_id": "huihui-ai/Huihui-Ornith-1.0-9B-abliterated-MTP-GGUF",
+    "size_b": 9
+  },
+  {
+    "local_ollama_name": "davidau-qwen36-40b-neocode",
+    "note": "GGUF exists on HF (24GB Q4_K_M, verified via model_info). `ollama pull hf.co/<repo>:<file>` rejects it client-side with '400 Bad Request: invalid model name' \u2014 reproduced twice. Isolated cause: the repo id is 100 characters; a shorter DavidAU repo (40 chars) parses fine and fails later for an unrelated reason (not-GGUF-compatible) \u2014 confirms it's a length limit in the `hf.co` resolver path specifically, not a download or GGUF-validity problem. WORKAROUND VERIFIED: downloaded the file directly with `huggingface_hub.hf_hub_download` (bypasses that resolver entirely), then `ollama create davidau-qwen36-40b-neocode -f Modelfile` with `FROM <local-path>` \u2014 this local-registration path has no repo-name length check. Result: 'success', tool-calling preflight PASSED. Still bench with caution: 40B is above the 7-35B OOM-safe sweet spot (Llama-4-Scout precedent: 57GB model crashed the machine) \u2014 load solo, watch Metal memory.",
+    "requested": "DavidAU/Qwen3.6-40B-...-Thinking-NEO-CODE-...-GGUF",
+    "resolved_file": "Qwen3.6-40B-Deck-Opus-NEO-CODE-HERE-2T-OT-Q4_K_M.gguf",
+    "resolved_id": "DavidAU/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF",
+    "size_b": 40
+  },
+  {
+    "note": "Actual repo id has no '-GGUF' suffix but ships a GGUF quant. Quantizer is HauhauCS (single-user).",
+    "requested": "HauhauCS/Gemma4-12B-QAT-Uncensored-...-GGUF",
+    "resolved_file": "Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-Q4_K_M.gguf",
+    "resolved_id": "HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced",
+    "size_b": 12
+  }
+]

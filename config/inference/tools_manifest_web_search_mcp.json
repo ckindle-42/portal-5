@@ -1,0 +1,75 @@
+[
+  {
+    "description": "Search the web. Returns title, URL, snippet for top N results. Use for current events or factual lookups beyond training data.",
+    "name": "web_search",
+    "parameters": {
+      "properties": {
+        "num_results": {
+          "default": 5,
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "query": {
+          "type": "string"
+        },
+        "time_range": {
+          "default": "any",
+          "enum": [
+            "any",
+            "day",
+            "week",
+            "month",
+            "year"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Fetch the text content of a URL (HTML stripped, max 2MB). Refuses localhost and private addresses.",
+    "name": "web_fetch",
+    "parameters": {
+      "properties": {
+        "max_chars": {
+          "default": 50000,
+          "type": "integer"
+        },
+        "url": {
+          "description": "Full URL with http/https scheme",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Search recent news articles. Biased toward news sources and recent results.",
+    "name": "news_search",
+    "parameters": {
+      "properties": {
+        "num_results": {
+          "default": 5,
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "query": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    }
+  }
+]

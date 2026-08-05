@@ -1,0 +1,37 @@
+[
+  {
+    "description": "Classify a vulnerability description into severity level (low/medium/high/critical) using CIRCL's VLAI RoBERTa model. Returns severity label, confidence score, and all class probabilities.",
+    "name": "classify_vulnerability",
+    "parameters": {
+      "properties": {
+        "description": {
+          "description": "CVE or vulnerability description text (1-3 sentences).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "description"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bounded live-state enumerator for the RBP lab (10.10.11.0/24 only). Returns a live observation delta (services up, reachability, changed hosts) for the given hosts. Any host outside the lab CIDR is rejected before any probe leaves the box.",
+    "name": "lab_perception",
+    "parameters": {
+      "properties": {
+        "hosts": {
+          "description": "Lab host IPs to enumerate (must be inside 10.10.11.0/24).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "hosts"
+      ],
+      "type": "object"
+    }
+  }
+]

@@ -24,6 +24,21 @@ import httpx
 from portal.platform.inference.router.metrics import _router_latency_seconds
 from portal.platform.inference.router.workspaces import WORKSPACES
 
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    if env_dir := os.environ.get("ROUTING_CONFIG_DIR"):
+        config_dir = Path(env_dir)
+    else:
+        docker_dir = Path("/app/config")
+        config_dir = (
+            docker_dir if docker_dir.is_dir() else Path(__file__).resolve().parents[4] / "config"
+        )
+    path = config_dir / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 logger = logging.getLogger(__name__)
 
 # Shared httpx client — set by lifespan in router_pipe after startup.
@@ -39,266 +54,16 @@ _http_client: httpx.AsyncClient | None = None
 # handles overlapping signals naturally (highest score wins, not arbitrary order).
 
 # Redteam keywords — clearly offensive intent
-_REDTEAM_KEYWORDS: dict[str, int] = {
-    # Strong (3) — unambiguous offensive intent
-    "exploit": 3,
-    "payload": 3,
-    "shellcode": 3,
-    "reverse shell": 3,
-    "bind shell": 3,
-    "privilege escalation": 3,
-    "privesc": 3,
-    "metasploit": 3,
-    "msfvenom": 3,
-    "cobalt strike": 3,
-    "mimikatz": 3,
-    "golden ticket": 3,
-    "dcsync": 3,
-    "pass the hash": 3,
-    "antivirus bypass": 3,
-    "edr bypass": 3,
-    "av evasion": 3,
-    # Medium (2) — offensive context
-    "bypass": 2,
-    "evasion": 2,
-    "obfuscate": 2,
-    "c2": 2,
-    "c2 server": 2,
-    "command and control": 2,
-    "offensive": 2,
-    "red team": 2,
-    "redteam": 2,
-    "pentest": 2,
-    "penetration test": 2,
-    "hack": 2,
-    "hacking": 2,
-    "ctf": 2,
-    "lolbas": 2,
-    "living off": 2,
-    "lateral movement": 2,
-    "bloodhound": 2,
-    "kerberoast": 2,
-}
+_REDTEAM_KEYWORDS: dict[str, int] = _load_data("routing_redteam_keywords")
 
 # Security keywords — broader (defensive + offensive analysis)
-_SECURITY_KEYWORDS: dict[str, int] = {
-    # Strong (3) — unambiguous security intent
-    "exploit": 3,
-    "payload": 3,
-    "shellcode": 3,
-    "privilege escalation": 3,
-    "privesc": 3,
-    "reverse shell": 3,
-    "bind shell": 3,
-    "command injection": 3,
-    "sql injection": 3,
-    "sqli": 3,
-    "xss": 3,
-    "csrf": 3,
-    "buffer overflow": 3,
-    "rop chain": 3,
-    "heap spray": 3,
-    "use after free": 3,
-    "uaf": 3,
-    "zero day": 3,
-    "0day": 3,
-    "cve-": 3,
-    "metasploit": 3,
-    "msfvenom": 3,
-    "meterpreter": 3,
-    "cobalt strike": 3,
-    "c2 server": 3,
-    "c&c": 3,
-    "lateral movement": 3,
-    "persistence mechanism": 3,
-    "antivirus bypass": 3,
-    "edr bypass": 3,
-    "av evasion": 3,
-    "defense evasion": 3,
-    "exfiltration": 3,
-    "data exfiltration": 3,
-    "pentesting": 3,
-    "pentest": 3,
-    "penetration test": 3,
-    "red team": 3,
-    "redteam": 3,
-    "offensive security": 3,
-    "mimikatz": 3,
-    "crackmapexec": 3,
-    "pass the hash": 3,
-    "pass the ticket": 3,
-    "kerberoasting": 3,
-    "asreproasting": 3,
-    "golden ticket": 3,
-    "silver ticket": 3,
-    "dcsync": 3,
-    "ransomware": 3,
-    "rootkit": 3,
-    "backdoor": 3,
-    "botnet": 3,
-    "incident response": 3,
-    "threat hunting": 3,
-    "malware analysis": 3,
-    "network forensics": 3,
-    "memory forensics": 3,
-    "mitre att&ck": 3,
-    # Medium (2) — clear security context
-    "evasion": 2,
-    "obfuscation": 2,
-    "lolbas": 2,
-    "living off the land": 2,
-    "bug bounty": 2,
-    "ctf": 2,
-    "capture the flag": 2,
-    "nmap": 3,
-    "masscan": 2,
-    "gobuster": 2,
-    "nikto": 2,
-    "burp suite": 2,
-    "sqlmap": 2,
-    "hydra": 2,
-    "hashcat": 2,
-    "bloodhound": 2,
-    "threat intelligence": 2,
-    "ioc": 2,
-    "indicator of compromise": 2,
-    "reverse engineering": 2,
-    "yara rule": 2,
-    "sigma rule": 2,
-    "siem alert": 2,
-    "splunk detection": 2,
-    "ids rule": 2,
-    "snort rule": 2,
-    "suricata": 2,
-    "volatility": 2,
-    "malware": 3,
-    "trojan": 2,
-    "threat actor": 2,
-    "vulnerability assessment": 2,
-    "vulnerability scan": 2,
-    "nessus": 2,
-    "openvas": 2,
-    "hardening": 2,
-    "cis benchmark": 2,
-    "attack framework": 2,
-    "kill chain": 2,
-    "diamond model": 2,
-    # Weak (1) — broad terms that need corroboration
-    "security audit": 1,
-    "vulnerability": 1,
-    "security": 1,
-    "implications": 1,
-}
+_SECURITY_KEYWORDS: dict[str, int] = _load_data("routing_security_keywords")
 
 # SPL keywords — Splunk-specific vocabulary (low false positive rate)
-_SPL_KEYWORDS: dict[str, int] = {
-    # Strong (3) — unambiguous SPL intent
-    "splunk": 3,
-    "spl query": 3,
-    "search processing language": 3,
-    "tstats": 3,
-    "inputlookup": 3,
-    "outputlookup": 3,
-    "makeresults": 3,
-    "mvexpand": 3,
-    "streamstats": 3,
-    "eventstats": 3,
-    "correlation search": 3,
-    "notable event": 3,
-    "splunk es": 3,
-    "splunk enterprise security": 3,
-    "data model acceleration": 3,
-    "summary index": 3,
-    "detection search": 3,
-    "splunk query": 3,
-    "write me a splunk": 3,
-    "write a splunk": 3,
-    "build a splunk": 3,
-    # Medium (2) — SPL commands in natural language
-    "eval field": 2,
-    "rex field": 2,
-    "lookup command": 2,
-    "transaction command": 2,
-    "| stats": 2,
-    "| timechart": 2,
-    "| eval": 2,
-    "| rex": 2,
-    "datamodel": 2,
-    "saved search": 2,
-    "dashboard panel spl": 2,
-    # Weak (1) — short terms that need corroboration
-    "spl": 1,
-    "| table": 1,
-    "| dedup": 1,
-    "| sort": 1,
-    "| rename": 1,
-}
+_SPL_KEYWORDS: dict[str, int] = _load_data("routing_spl_keywords")
 
 # Coding keywords — software development intent
-_CODING_KEYWORDS: dict[str, int] = {
-    # Strong (3) — clear coding intent
-    "write a function": 3,
-    "write a script": 3,
-    "write a program": 3,
-    "write code": 3,
-    "debug this": 3,
-    "fix this code": 3,
-    "fix the bug": 3,
-    "code review": 3,
-    "run this code": 3,
-    # Medium (2) — development activities
-    "refactor": 2,
-    "implement": 2,
-    "class definition": 2,
-    "api endpoint": 2,
-    "unit test": 2,
-    "pytest": 2,
-    "unittest": 2,
-    "sql query": 2,
-    "algorithm": 2,
-    "data structure": 2,
-    "bash script": 2,
-    "powershell": 2,
-    "ansible": 2,
-    "terraform": 2,
-    "bigfix": 2,
-    "bes xml": 2,
-    "relevance": 2,
-    "interpreter": 2,
-    "simulator": 2,
-    "execute": 2,
-    # Weak (1) — broad terms that need corroboration
-    "docker": 1,
-    "kubernetes": 1,
-    "ci/cd": 1,
-    "regex": 1,
-    "python": 1,
-    "javascript": 1,
-    "typescript": 1,
-    "rust": 1,
-    "golang": 1,
-    "sql": 1,
-    "function": 1,
-    "script": 1,
-    "review": 2,
-    "bug": 2,
-    "bash": 2,
-    "networking": 2,
-    "write function": 2,
-    "write script": 2,
-    "write a python": 2,
-    "write a javascript": 2,
-    "write a typescript": 2,
-    "write a rust": 2,
-    "write a golang": 2,
-    "write a sql": 2,
-    "write a bash": 2,
-    "write a docker": 2,
-    "write a kubernetes": 2,
-    "docker compose": 2,
-    "dockerfile": 2,
-    "pipeline": 1,
-}
+_CODING_KEYWORDS: dict[str, int] = _load_data("routing_coding_keywords")
 
 # Reasoning keywords — analytical/deep thinking intent
 _REASONING_KEYWORDS: dict[str, int] = {
@@ -325,52 +90,7 @@ _REASONING_KEYWORDS: dict[str, int] = {
 }
 
 # Compliance keywords — NERC CIP and regulatory intent
-_COMPLIANCE_KEYWORDS: dict[str, int] = {
-    # Strong (3) — unambiguous compliance intent
-    "nerc cip": 3,
-    "cip-002": 3,
-    "cip-003": 3,
-    "cip-004": 3,
-    "cip-005": 3,
-    "cip-006": 3,
-    "cip-007": 3,
-    "cip-008": 3,
-    "cip-009": 3,
-    "cip-010": 3,
-    "cip-011": 3,
-    "cip-013": 3,
-    "cip-014": 3,
-    "compliance gap": 3,
-    "gap analysis": 3,
-    "regulatory compliance": 3,
-    "audit preparation": 3,
-    "policy mapping": 3,
-    "policy-to-standard": 3,
-    "control evidence": 3,
-    "compliance status": 3,
-    # Medium (2) — regulatory context
-    "nerc": 2,
-    "bulk electric": 2,
-    "bes cyber": 2,
-    "critical asset": 2,
-    "low impact": 2,
-    "medium impact": 2,
-    "high impact": 2,
-    "electronic security": 2,
-    "physical security": 2,
-    "access management": 2,
-    "security management": 2,
-    "incident response plan": 2,
-    "recovery plan": 2,
-    "configuration change": 2,
-    "patch management": 2,
-    # Weak (1) — broad regulatory terms
-    "compliance": 1,
-    "regulation": 1,
-    "audit": 1,
-    "standard": 1,
-    "policy review": 1,
-}
+_COMPLIANCE_KEYWORDS: dict[str, int] = _load_data("routing_compliance_keywords")
 
 # Mistral/Magistral keywords — structured reasoning with Mistral lineage
 _MISTRAL_KEYWORDS: dict[str, int] = {

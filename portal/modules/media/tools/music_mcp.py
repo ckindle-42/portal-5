@@ -1,3 +1,5 @@
+import json
+
 """
 Music Generation MCP Server
 Wraps HuggingFace MusicGen (facebook/musicgen-*) for local music generation.
@@ -20,6 +22,16 @@ from typing import Any
 
 from mcp.server import MCPServer
 from starlette.responses import FileResponse, JSONResponse
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
 
 from portal.modules.media.tools._admission import admit
 
@@ -57,62 +69,7 @@ async def serve_generated_file(request):
 
 
 # Tool manifest for discovery
-TOOLS_MANIFEST = [
-    {
-        "name": "generate_music",
-        "description": "Generate music using HuggingFace MusicGen (facebook/musicgen-*)",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {"type": "string", "description": "Description of the music to generate"},
-                "duration": {
-                    "type": "number",
-                    "description": "Duration in seconds (5-30)",
-                    "default": 10,
-                },
-                "model": {
-                    "type": "string",
-                    "description": "Model size: small (~300MB), medium (~1.5GB), large (~3.3GB, default)",
-                    "default": "large",
-                },
-            },
-            "required": ["prompt"],
-        },
-    },
-    {
-        "name": "generate_continuation",
-        "description": "Continue or extend a piece of music using a melody WAV as input",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "Description of how to continue the music",
-                },
-                "melody_path": {
-                    "type": "string",
-                    "description": "Path to a WAV file to use as melodic conditioning",
-                },
-                "duration": {
-                    "type": "number",
-                    "description": "Duration in seconds (max 30)",
-                    "default": 10,
-                },
-                "model": {
-                    "type": "string",
-                    "description": "MusicGen model size — small | medium | large",
-                    "default": "medium",
-                },
-            },
-            "required": ["prompt", "melody_path"],
-        },
-    },
-    {
-        "name": "list_music_models",
-        "description": "List available MusicGen model sizes and their requirements",
-        "parameters": {"type": "object", "properties": {}, "required": []},
-    },
-]
+TOOLS_MANIFEST = _load_data("tools_manifest_music_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

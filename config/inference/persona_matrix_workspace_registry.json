@@ -1,0 +1,82 @@
+{
+  "auto-coding": {
+    "assertions_module": "tests.lib.coding_assertions",
+    "fixtures_module": "tests.lib.coding_fixtures",
+    "persona_categories": [
+      "coding",
+      "software",
+      "development",
+      "systems"
+    ]
+  },
+  "auto-coding-bench": {
+    "assertions_module": "tests.lib.coding_assertions",
+    "fixtures_module": "tests.lib.coding_fixtures",
+    "models_explicit": [
+      "laguna-xs.2:Q4_K_M",
+      "glm-4.7-flash:Q4_K_M",
+      "qwen3-coder:30b-a3b-q4_K_M",
+      "devstral-small-2",
+      "hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M",
+      "hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf",
+      "lfm2.5:8b",
+      "granite4.1:8b",
+      "granite4.1:30b",
+      "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
+      "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M",
+      "hf.co/ijohn07/harness-1-Q4_K_M-GGUF:Q4_K_M",
+      "qwen3-coder-next",
+      "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M"
+    ],
+    "models_reference_only": [
+      "qwen3-coder-next",
+      "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M",
+      "granite4.1:30b"
+    ],
+    "persona_categories": [
+      "benchmark"
+    ],
+    "persona_shapes": {
+      "bugdiscoverycodeassistant": "Audit",
+      "codereviewassistant": "Audit",
+      "codereviewer": "Audit",
+      "creativecoder": "Ship-It",
+      "devopsautomator": "Ship-It",
+      "e2edebugger": "Composite",
+      "e2etestauthor": "Composite",
+      "fullstacksoftwaredeveloper": "Composite",
+      "githubexpert": "Ship-It",
+      "javascriptconsole": "REPL",
+      "linuxterminal": "REPL",
+      "pythoncodegeneratorcleanoptimizedproduction-ready": "Ship-It",
+      "pythoninterpreter": "REPL",
+      "softwarequalityassurancetester": "Audit",
+      "sqlterminal": "REPL"
+    },
+    "persona_slugs_explicit": [
+      "sqlterminal",
+      "linuxterminal",
+      "pythoninterpreter",
+      "javascriptconsole",
+      "codereviewer",
+      "softwarequalityassurancetester",
+      "bugdiscoverycodeassistant",
+      "codereviewassistant",
+      "e2etestauthor",
+      "e2edebugger",
+      "fullstacksoftwaredeveloper",
+      "creativecoder",
+      "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "devopsautomator",
+      "githubexpert"
+    ]
+  },
+  "auto-compliance": {
+    "assertions_module": "tests.lib.compliance_assertions",
+    "fixtures_module": "tests.lib.compliance_fixtures",
+    "persona_categories": [
+      "compliance"
+    ],
+    "threshold_doc": "docs/COMPLIANCE_FALLBACK_POLICY.md"
+  }
+}

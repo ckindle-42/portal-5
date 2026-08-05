@@ -1,0 +1,78 @@
+{
+  "auto": [
+    "server:mcp:portal_comfyui"
+  ],
+  "auto-agentic": [
+    "server:mcp:portal_code"
+  ],
+  "auto-audio": [
+    "server:mcp:portal_whisper"
+  ],
+  "auto-blueteam": [
+    "server:mcp:portal_research",
+    "server:mcp:portal_code"
+  ],
+  "auto-coding": [
+    "server:mcp:portal_code",
+    "server:mcp:portal_memory"
+  ],
+  "auto-compliance": [
+    "server:mcp:portal_research"
+  ],
+  "auto-creative": [
+    "server:mcp:portal_tts"
+  ],
+  "auto-daily": [
+    "server:mcp:portal_research",
+    "server:mcp:portal_memory"
+  ],
+  "auto-data": [
+    "server:mcp:portal_research",
+    "server:mcp:portal_code",
+    "server:mcp:portal_documents"
+  ],
+  "auto-documents": [
+    "server:mcp:portal_documents",
+    "server:mcp:portal_code"
+  ],
+  "auto-image": [
+    "server:mcp:portal_comfyui"
+  ],
+  "auto-math": [],
+  "auto-mistral": [
+    "server:mcp:portal_research"
+  ],
+  "auto-music": [
+    "server:mcp:portal_music",
+    "server:mcp:portal_tts"
+  ],
+  "auto-reasoning": [
+    "server:mcp:portal_research"
+  ],
+  "auto-redteam": [
+    "server:mcp:portal_research",
+    "server:mcp:portal_code"
+  ],
+  "auto-research": [
+    "server:mcp:portal_research"
+  ],
+  "auto-security": [
+    "server:mcp:portal_research",
+    "server:mcp:portal_code",
+    "server:mcp:portal_security"
+  ],
+  "auto-spl": [
+    "server:mcp:portal_code"
+  ],
+  "auto-video": [
+    "server:mcp:portal_video",
+    "server:mcp:portal_comfyui"
+  ],
+  "auto-vision": [
+    "server:mcp:portal_comfyui"
+  ],
+  "tools-specialist": [
+    "server:mcp:portal_code",
+    "server:mcp:portal_memory"
+  ]
+}

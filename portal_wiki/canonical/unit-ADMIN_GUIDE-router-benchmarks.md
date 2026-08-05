@@ -9,7 +9,7 @@ sources:
   path: tests/benchmarks/bench_router_conditions.py
 - type: code
   path: .env.example
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: 44337398432f63b63bd77ff750552c81dc7b7cc2
 claims: []
 confidence: high
 tags:

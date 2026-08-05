@@ -1,3 +1,5 @@
+import json
+
 """
 Code Execution Sandbox MCP Server
 Runs Python, Node.js, and Bash code in Docker containers with isolation.
@@ -17,8 +19,20 @@ import logging
 import os
 import uuid
 from pathlib import Path
+from typing import Any
 
 from mcp.server import MCPServer
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 from starlette.responses import JSONResponse
 
 mcp = MCPServer("code-sandbox")
@@ -38,61 +52,7 @@ async def health_check(request):
 
 
 # Tool manifest for discovery
-TOOLS_MANIFEST = [
-    {
-        "name": "execute_python",
-        "description": "Execute Python code in an isolated Docker container",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "code": {"type": "string", "description": "Python code to execute"},
-                "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 30},
-            },
-            "required": ["code"],
-        },
-    },
-    {
-        "name": "execute_nodejs",
-        "description": "Execute Node.js code in an isolated Docker container",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "code": {"type": "string", "description": "Node.js code to execute"},
-                "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 30},
-            },
-            "required": ["code"],
-        },
-    },
-    {
-        "name": "execute_bash",
-        "description": "Execute Bash commands in an isolated Docker container",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "command": {"type": "string", "description": "Bash command to execute"},
-                "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 30},
-            },
-            "required": ["command"],
-        },
-    },
-    {
-        "name": "execute_powershell",
-        "description": "Execute a PowerShell script in an isolated Docker container (pwsh on Alpine)",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "code": {"type": "string", "description": "PowerShell script to execute"},
-                "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 60},
-            },
-            "required": ["code"],
-        },
-    },
-    {
-        "name": "sandbox_status",
-        "description": "Check if the code sandbox (Docker/DinD) is available",
-        "parameters": {"type": "object", "properties": {}, "required": []},
-    },
-]
+TOOLS_MANIFEST = _load_data("tools_manifest_code_sandbox_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

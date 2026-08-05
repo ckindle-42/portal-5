@@ -1,0 +1,63 @@
+[
+  {
+    "description": "Look up a MITRE ATT&CK technique by ID. Returns name, tactic, platforms, detection info.",
+    "name": "mitre_technique_lookup",
+    "parameters": {
+      "properties": {
+        "technique_id": {
+          "description": "ATT&CK technique ID (e.g. T1190, T1558.003)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "technique_id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "List data sources needed to detect a technique.",
+    "name": "mitre_data_sources_for_technique",
+    "parameters": {
+      "properties": {
+        "technique_id": {
+          "description": "ATT&CK technique ID",
+          "type": "string"
+        }
+      },
+      "required": [
+        "technique_id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "List local SPL detections for a technique (joins ATT&CK to our detection library).",
+    "name": "mitre_detections_for_technique",
+    "parameters": {
+      "properties": {
+        "technique_id": {
+          "description": "ATT&CK technique ID",
+          "type": "string"
+        }
+      },
+      "required": [
+        "technique_id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "List all known ATT&CK techniques with their metadata.",
+    "name": "mitre_techniques_list",
+    "parameters": {
+      "properties": {
+        "tactic": {
+          "description": "Optional tactic filter (e.g. initial-access, credential-access)",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  }
+]

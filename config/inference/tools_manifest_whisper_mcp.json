@@ -1,0 +1,45 @@
+[
+  {
+    "description": "Transcribe audio using faster-whisper. If the user uploaded an audio file, omit audio_path and the tool will auto-detect the most recently uploaded file from the workspace.",
+    "name": "transcribe_audio",
+    "parameters": {
+      "properties": {
+        "audio_path": {
+          "description": "Absolute path to audio file. Omit to auto-detect latest upload.",
+          "type": "string"
+        },
+        "language": {
+          "default": "auto",
+          "description": "Language code (e.g., en, zh)",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Transcribe an audio file with speaker diarization (Docker fallback path). On Apple Silicon, prefer the host-native MLX path on port 8924 (mlx-whisper + pyannote on MPS, ~5x faster). This Docker path is the cross-platform fallback for Linux/CUDA nodes.",
+    "name": "transcribe_with_speakers",
+    "parameters": {
+      "properties": {
+        "file": {
+          "description": "Audio reference: OWUI file ID, filename in uploads/, or absolute path",
+          "type": "string"
+        },
+        "language": {
+          "description": "ISO language code. Auto-detected if omitted.",
+          "type": "string"
+        },
+        "num_speakers": {
+          "description": "Hint for expected speaker count. Auto-detected if omitted.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "type": "object"
+    }
+  }
+]

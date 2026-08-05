@@ -1,0 +1,150 @@
+[
+  {
+    "description": "Generate a video using ComfyUI with a local video model (Wan2.2 or CogVideoX)",
+    "name": "generate_video",
+    "parameters": {
+      "properties": {
+        "cfg": {
+          "default": 6.0,
+          "description": "CFG scale",
+          "type": "number"
+        },
+        "frames": {
+          "default": 9,
+          "description": "Number of frames",
+          "type": "integer"
+        },
+        "height": {
+          "default": 480,
+          "description": "Video height in pixels",
+          "type": "integer"
+        },
+        "negative_prompt": {
+          "default": "",
+          "description": "Negative prompt",
+          "type": "string"
+        },
+        "prompt": {
+          "description": "Text description of the video to generate",
+          "type": "string"
+        },
+        "seed": {
+          "default": -1,
+          "description": "Random seed",
+          "type": "integer"
+        },
+        "steps": {
+          "default": 2,
+          "description": "Number of inference steps",
+          "type": "integer"
+        },
+        "width": {
+          "default": 832,
+          "description": "Video width in pixels",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Start video generation and return immediately with a job_id. Generation takes 30-90 min \u2014 use this instead of generate_video in OWUI. Follow up with get_video_status(job_id) to retrieve the result.",
+    "name": "start_video_generation",
+    "parameters": {
+      "properties": {
+        "audio_url": {
+          "default": "",
+          "description": "URL or local path to an audio file (required for wan22-s2v-14b)",
+          "type": "string"
+        },
+        "cfg": {
+          "default": 6.2,
+          "type": "number"
+        },
+        "frames": {
+          "default": 41,
+          "type": "integer"
+        },
+        "height": {
+          "default": 720,
+          "type": "integer"
+        },
+        "image_url": {
+          "default": "",
+          "description": "URL or local path to a start-frame image (required for wan22-ti2v-5b and wan22-s2v-14b)",
+          "type": "string"
+        },
+        "negative_prompt": {
+          "default": "",
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "sampler": {
+          "default": "uni_pc",
+          "type": "string"
+        },
+        "seed": {
+          "default": -1,
+          "type": "integer"
+        },
+        "shift": {
+          "default": 9.8,
+          "type": "number"
+        },
+        "steps": {
+          "default": 30,
+          "type": "integer"
+        },
+        "width": {
+          "default": 1280,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Check status of a video generation job. Returns URL when complete.",
+    "name": "get_video_status",
+    "parameters": {
+      "properties": {
+        "job_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Get the most recently generated videos from ComfyUI.",
+    "name": "get_latest_videos",
+    "parameters": {
+      "properties": {
+        "count": {
+          "default": 5,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "description": "List available video model checkpoints in ComfyUI",
+    "name": "list_video_models",
+    "parameters": {
+      "properties": {},
+      "type": "object"
+    }
+  }
+]

@@ -1,0 +1,142 @@
+{
+  "http_8080": [
+    8080,
+    "curl -s -o /dev/null -w '%{http_code}' http://${host}:8080/ 2>&1",
+    [
+      "200",
+      "301",
+      "302",
+      "403"
+    ]
+  ],
+  "http_8081": [
+    8081,
+    "curl -s -o /dev/null -w '%{http_code}' http://${host}:8081/ 2>&1",
+    [
+      "200",
+      "401",
+      "404"
+    ]
+  ],
+  "http_8983": [
+    8983,
+    "curl -s -o /dev/null -w '%{http_code}' http://${host}:8983/ 2>&1",
+    [
+      "200",
+      "301",
+      "302",
+      "404"
+    ]
+  ],
+  "kerberos": [
+    88,
+    "nxc smb ${host} -u '' -p '' 2>&1 | grep -v '^\\[\\*\\]' | head -3",
+    [
+      "SMB",
+      "445"
+    ]
+  ],
+  "ldap": [
+    389,
+    "nxc ldap ${host} -u Administrator -p 'LabAdmin1!' 2>&1 | grep -v '^\\[\\*\\]' | head -5",
+    [
+      "LDAP",
+      "domain"
+    ]
+  ],
+  "meta3_ftp": [
+    21,
+    "timeout 3 bash -c 'echo > /dev/tcp/${host}/21' 2>&1 && echo OK",
+    [
+      "OK"
+    ]
+  ],
+  "meta3_http": [
+    80,
+    "curl -s -o /dev/null -w '%{http_code}' http://${host}/ 2>&1",
+    [
+      "200",
+      "301",
+      "302"
+    ]
+  ],
+  "meta3_mysql": [
+    3306,
+    "timeout 3 bash -c 'echo > /dev/tcp/${host}/3306' 2>&1 && echo OK",
+    [
+      "OK"
+    ]
+  ],
+  "meta3_smb": [
+    445,
+    "nxc smb ${host} -u '' -p '' --shares 2>&1 | grep -v '^\\[\\*\\]' | head -5",
+    [
+      "SMB",
+      "signing",
+      "Win2008"
+    ]
+  ],
+  "meta3_tomcat": [
+    8282,
+    "curl -s -o /dev/null -w '%{http_code}' http://${host}:8282/ 2>&1",
+    [
+      "200",
+      "302",
+      "401"
+    ]
+  ],
+  "nfs": [
+    2049,
+    "showmount -e ${host} 2>&1 | head -5",
+    [
+      "Export list"
+    ]
+  ],
+  "redis": [
+    6379,
+    "redis-cli -h ${host} ping 2>&1 | head -3",
+    [
+      "PONG"
+    ]
+  ],
+  "rpc": [
+    135,
+    "timeout 3 bash -c 'echo > /dev/tcp/${host}/135' 2>&1 && echo OK",
+    [
+      "OK"
+    ]
+  ],
+  "smb": [
+    445,
+    "nxc smb ${host} -u '' -p '' --shares 2>&1 | grep -v '^\\[\\*\\]' | head -5",
+    [
+      "SMB",
+      "shares",
+      "signing"
+    ]
+  ],
+  "vulnapp_api": [
+    80,
+    "curl -s -o /dev/null -w '%{http_code}' http://${host}/VulnerableApp/ 2>&1",
+    [
+      "200",
+      "302"
+    ]
+  ],
+  "vulnapp_web": [
+    80,
+    "curl -s -o /dev/null -w '%{http_code}' http://${host}/ 2>&1",
+    [
+      "200"
+    ]
+  ],
+  "winrm": [
+    5985,
+    "nxc winrm ${host} -u Administrator -p 'LabAdmin1!' 2>&1 | grep -v '^\\[\\*\\]' | head -5",
+    [
+      "Pwn3d",
+      "WinRM",
+      "STATUS"
+    ]
+  ]
+}

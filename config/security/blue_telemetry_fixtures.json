@@ -1,0 +1,33 @@
+{
+  "T1003.006": {
+    "event_ids": [
+      4662
+    ],
+    "synthetic": "EventID=4662 Operation=DS-Replication-Get-Changes-All Account=arya.stark Properties={1131f6ad-...}"
+  },
+  "T1053.005": {
+    "event_ids": [
+      4698
+    ],
+    "synthetic": "EventID=4698 TaskName=\\Backdoor RunAs=SYSTEM Trigger=onlogon"
+  },
+  "T1110.003": {
+    "event_ids": [
+      4625,
+      4771
+    ],
+    "synthetic": "EventID=4625 FailureReason=BadPassword distinct_accounts=8 source=single_host within=60s"
+  },
+  "T1558.003": {
+    "event_ids": [
+      4769
+    ],
+    "synthetic": "EventID=4769 TicketEncryptionType=0x17(RC4) ServiceName=svc_mssql TicketOptions=0x40810000 Account=arya.stark@PORTAL.LAB\nEventID=4769 TicketEncryptionType=0x17(RC4) ServiceName=svc_iis Account=arya.stark@PORTAL.LAB"
+  },
+  "T1558.004": {
+    "event_ids": [
+      4768
+    ],
+    "synthetic": "EventID=4768 PreAuthType=0 (no pre-auth) Account=arya.stark TicketEncryptionType=0x17"
+  }
+}

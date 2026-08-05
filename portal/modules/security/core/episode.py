@@ -8,44 +8,27 @@ V3 DESIGN §2.3 / TASK_SEC_RBP_STEP0_1_EVIDENCE_GROUNDING_V1 Phase 1.
 from __future__ import annotations
 
 import hashlib
+import json
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 # ── Reason-coded status axes (V3 §Reason-coded status axes) ──────────────────
 # Deterministic; drive later auto-work.  Each axis is independent.
 
-REASON_CODES: dict[str, list[str]] = {
-    "red": [
-        "RED_NO_SCENARIO",
-        "RED_NOT_RUN",
-        "RED_TARGET_UNAVAILABLE",
-        "RED_EXECUTION_FAILED",
-        "RED_LANDED",
-    ],
-    "telemetry": [
-        "TELEMETRY_NOT_REQUIRED",
-        "TELEMETRY_NOT_CONFIGURED",
-        "TELEMETRY_COLLECTION_FAILED",
-        "TELEMETRY_NOT_INDEXED",
-        "TELEMETRY_OBSERVED",
-    ],
-    "detection": [
-        "DETECTION_MISSING",
-        "DETECTION_NOT_RUN",
-        "DETECTION_NO_HIT",
-        "DETECTION_HIT_UNATTRIBUTED",
-        "DETECTION_CONFIRMED",
-    ],
-    "response": [
-        "RESPONSE_NOT_TESTED",
-        "RESPONSE_MISSING",
-        "RESPONSE_RECOMMENDED",
-        "RESPONSE_EXECUTED",
-        "RESPONSE_EFFECTIVE",
-        "RESPONSE_FAILED",
-    ],
-}
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+REASON_CODES: dict[str, list[str]] = _load_data("episode_reason_codes")
 
 CAPABILITY_VERDICTS = ["PROVEN", "FAILED", "INDETERMINATE", "UNAVAILABLE"]
 

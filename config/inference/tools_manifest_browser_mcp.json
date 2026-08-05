@@ -1,0 +1,138 @@
+[
+  {
+    "description": "Navigate to a URL in a browser tab. Returns the page accessibility tree.",
+    "name": "browser_navigate",
+    "parameters": {
+      "properties": {
+        "profile": {
+          "default": "_isolated",
+          "type": "string"
+        },
+        "url": {
+          "description": "Full URL with http/https scheme",
+          "type": "string"
+        },
+        "wait_for": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Return the current page's accessibility tree (structured DOM data).",
+    "name": "browser_snapshot",
+    "parameters": {
+      "properties": {
+        "profile": {
+          "default": "_isolated",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "description": "Click an element identified by its accessibility ref.",
+    "name": "browser_click",
+    "parameters": {
+      "properties": {
+        "element_ref": {
+          "type": "string"
+        },
+        "profile": {
+          "default": "_isolated",
+          "type": "string"
+        }
+      },
+      "required": [
+        "element_ref"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Type text into a form field. Sensitive fields are redacted in logs.",
+    "name": "browser_fill",
+    "parameters": {
+      "properties": {
+        "element_ref": {
+          "type": "string"
+        },
+        "profile": {
+          "default": "_isolated",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "element_ref",
+        "text"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Capture a PNG screenshot. Returns base64.",
+    "name": "browser_screenshot",
+    "parameters": {
+      "properties": {
+        "full_page": {
+          "default": false,
+          "type": "boolean"
+        },
+        "profile": {
+          "default": "_isolated",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "description": "Execute a JavaScript expression in the page context.",
+    "name": "browser_evaluate",
+    "parameters": {
+      "properties": {
+        "expression": {
+          "type": "string"
+        },
+        "profile": {
+          "default": "_isolated",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expression"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Close the browser session for a profile. Releases memory.",
+    "name": "browser_close",
+    "parameters": {
+      "properties": {
+        "profile": {
+          "default": "_isolated",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "description": "List the named browser profiles available on this host.",
+    "name": "browser_list_profiles",
+    "parameters": {
+      "properties": {},
+      "type": "object"
+    }
+  }
+]

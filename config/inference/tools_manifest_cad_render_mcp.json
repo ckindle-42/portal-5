@@ -1,0 +1,75 @@
+[
+  {
+    "description": "Render a 3D mesh file (STL/3MF/OBJ/PLY) to a PNG image. Headless, no GUI. Returns the PNG path/URL and the mesh bounding-box dimensions in model units.",
+    "name": "render_mesh",
+    "parameters": {
+      "properties": {
+        "mesh_path": {
+          "description": "Absolute path or filename of the mesh (e.g. part.stl) produced by the CAD sandbox",
+          "type": "string"
+        },
+        "prompt": {
+          "default": "",
+          "description": "Short description of the part, used only by the review loop",
+          "type": "string"
+        },
+        "resolution": {
+          "default": 1024,
+          "description": "Square render resolution in px",
+          "type": "integer"
+        },
+        "review": {
+          "default": false,
+          "description": "If true AND CAD_RENDER_REVIEW_LOOP=1, send the PNG to the vision model for a geometry critique",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mesh_path"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Render OpenSCAD source code to a PNG using the openscad binary in headless --render mode.",
+    "name": "render_openscad",
+    "parameters": {
+      "properties": {
+        "code": {
+          "description": "OpenSCAD source code",
+          "type": "string"
+        },
+        "resolution": {
+          "default": 1024,
+          "description": "Square render resolution in px",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Convert between CAD/mesh formats (STL/3MF/OBJ/PLY; STEP read is best-effort if build123d/OCP is present). Returns the output path/URL.",
+    "name": "convert_cad",
+    "parameters": {
+      "properties": {
+        "input_path": {
+          "description": "Absolute path or filename of the input model",
+          "type": "string"
+        },
+        "to_format": {
+          "description": "Target extension without dot: stl | 3mf | obj | ply",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input_path",
+        "to_format"
+      ],
+      "type": "object"
+    }
+  }
+]

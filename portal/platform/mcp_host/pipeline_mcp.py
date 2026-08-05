@@ -34,74 +34,17 @@ REPO_ROOT = pathlib.Path(
     os.environ.get("PIPELINE_MCP_REPO_ROOT", pathlib.Path(__file__).parents[3])
 ).resolve()
 
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = REPO_ROOT / "config" / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 _FASTCONTEXT_MODEL = "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M"
 _FASTCONTEXT_MAX_TURNS = 6
-_FASTCONTEXT_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "READ",
-            "description": "Return line-numbered contents of a file in the repository.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "Repo-relative file path"},
-                    "start_line": {
-                        "type": "integer",
-                        "description": "First line to return (1-indexed, inclusive)",
-                    },
-                    "end_line": {
-                        "type": "integer",
-                        "description": "Last line to return (inclusive); omit for entire file",
-                    },
-                },
-                "required": ["path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "GLOB",
-            "description": "List files matching a glob pattern under the repository root.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "pattern": {
-                        "type": "string",
-                        "description": "Glob pattern, e.g. '**/*.py' or 'portal/platform/inference/**'",
-                    },
-                },
-                "required": ["pattern"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "GREP",
-            "description": "Search for a regex pattern across repository files.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "pattern": {
-                        "type": "string",
-                        "description": "Python regex pattern to search for",
-                    },
-                    "glob": {
-                        "type": "string",
-                        "description": "Limit search to files matching this glob, e.g. '**/*.py'",
-                    },
-                    "max_results": {
-                        "type": "integer",
-                        "description": "Max matching lines to return (default 40)",
-                    },
-                },
-                "required": ["pattern"],
-            },
-        },
-    },
-]
+_FASTCONTEXT_TOOLS = _load_data("pipeline_mcp_fastcontext_tools")
 
 mcp = MCPServer("portal-pipeline")
 
@@ -120,143 +63,7 @@ async def health_check(request: Any) -> JSONResponse:
 # POST /tools/{name} with body {"arguments": {...}, "request_id": "..."}.
 # This manifest MUST stay in sync with the @mcp.tool() functions below and the
 # POST /tools/{name} routes — tests/unit/test_pipeline_mcp_rest.py enforces parity.
-TOOLS_MANIFEST: list[dict[str, Any]] = [
-    {
-        "name": "get_pipeline_status",
-        "description": "Return Portal 5 pipeline health: backend count, workspace count, version.",
-        "parameters": {"type": "object", "properties": {}, "required": []},
-    },
-    {
-        "name": "list_workspaces",
-        "description": "List all Portal 5 workspaces (AI models) with routing metadata. Optional substring filter.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "filter": {"type": "string", "description": "Substring to filter by id or name"}
-            },
-            "required": [],
-        },
-    },
-    {
-        "name": "get_loaded_models",
-        "description": "Return which Ollama models are currently loaded in VRAM/RAM with size and expiry.",
-        "parameters": {"type": "object", "properties": {}, "required": []},
-    },
-    {
-        "name": "get_metrics_summary",
-        "description": "Return key Portal 5 operational metrics from Prometheus (requests, tool calls, errors, TPS).",
-        "parameters": {"type": "object", "properties": {}, "required": []},
-    },
-    {
-        "name": "get_workspace_recommendation",
-        "description": "Suggest the best Portal 5 workspace for a plain-English task description.",
-        "parameters": {
-            "type": "object",
-            "properties": {"task": {"type": "string", "description": "Plain-English task"}},
-            "required": ["task"],
-        },
-    },
-    {
-        "name": "explore_repository",
-        "description": "Locate relevant code via the FastContext-4B explorer subagent. Returns file+line citations. Call before editing.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "What to find in the repo"},
-                "max_turns": {"type": "integer", "description": "Exploration turns (default 6)"},
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "trigger_backend_warmup",
-        "description": "Pre-load a workspace model into VRAM before a long session.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "workspace": {
-                    "type": "string",
-                    "description": "Workspace id (default codingagentic)",
-                }
-            },
-            "required": [],
-        },
-    },
-    {
-        "name": "read_text_file",
-        "description": "Read a file from the host filesystem. Accepts absolute paths or repo-relative paths. Returns line-numbered content.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "Absolute or repo-relative file path"},
-                "start_line": {
-                    "type": "integer",
-                    "description": "First line to return (1-indexed, inclusive)",
-                },
-                "end_line": {
-                    "type": "integer",
-                    "description": "Last line to return (inclusive); omit for entire file",
-                },
-            },
-            "required": ["path"],
-        },
-    },
-    {
-        "name": "list_directory",
-        "description": "List files and directories at the given path. Returns [FILE]/[DIR] prefixed entries.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute or repo-relative directory path",
-                },
-            },
-            "required": ["path"],
-        },
-    },
-    {
-        "name": "search_files",
-        "description": "Search for a regex pattern across project files. Returns file:line matches.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "pattern": {
-                    "type": "string",
-                    "description": "Regex or literal string to search for",
-                },
-                "path": {
-                    "type": "string",
-                    "description": "Directory to search (default: repo root)",
-                },
-                "glob": {
-                    "type": "string",
-                    "description": "File glob filter, e.g. '**/*.py' (default: all files)",
-                },
-                "max_results": {
-                    "type": "integer",
-                    "description": "Max matching lines to return (default 50)",
-                },
-            },
-            "required": ["pattern"],
-        },
-    },
-    {
-        "name": "write_file",
-        "description": "Write or overwrite a file on the host filesystem. Constrained to the repo root and /tmp.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute or repo-relative file path to write",
-                },
-                "content": {"type": "string", "description": "Full file content to write"},
-            },
-            "required": ["path", "content"],
-        },
-    },
-]
+TOOLS_MANIFEST = _load_data("pipeline_mcp_tools_manifest")
 
 
 @mcp.custom_route("/tools", methods=["GET"])
