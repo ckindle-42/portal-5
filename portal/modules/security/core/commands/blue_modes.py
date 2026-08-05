@@ -3,16 +3,27 @@
 from __future__ import annotations
 
 import json
+import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .._data import RESULTS_DIR
+from .._data import _LAB_EXEC_AVAILABLE, RESULTS_DIR
+from ..chain import TPS_FLOOR
+from ..chain import run_candidate_intake as _run_candidate_intake_chain
 from ..cli import _parse_barrier_tools_arg, _parse_budgets_arg
+from ..lab import (
+    print_lab_probe_report,
+    probe_lab_services,
+    snapshot_lab_vms,
+    verify_lab_targets_reachable,
+)
 from ..scoring import (
     score_argument_adaptation,
     score_chain_coherence,
     score_pivot_correctness,
 )
+from .run import _print_intake_summary
 
 
 def run_blue_mode_orchestrated(args) -> None:
@@ -521,3 +532,220 @@ def run_rescore(args) -> None:
     print(f"  Rescored {_rescored_count} entries")
     print(f"  Output: {_rescore_path}")
     return
+
+
+def _collect_retry_failed(args, _retry_failed_prompts, _retry_failed_scenarios) -> dict | None:
+    """Retry mode: find failures from previous run, re-run only those (C3 Tier B)."""
+    if args.retry_failed:
+        _retry_path = Path(args.retry_failed)
+        if not _retry_path.exists():
+            print(f"ERROR: retry file not found: {_retry_path}")
+            return None
+        _retry_data = json.loads(_retry_path.read_text())
+        # Find failed chain tests (depth < max_depth, or stalled). chain_tests entries
+        # from --chain-models --all-scenarios runs carry a "scenario" tag (not
+        # "prompts_failed" — that field belongs to a different result shape and was
+        # never actually populated here), so failures are tracked by scenario name and
+        # used to restrict scenarios_to_run below — this is what makes --retry-failed
+        # actually retry only the failed chain tests instead of silently retrying none.
+        for ct in _retry_data.get("chain_tests", []):
+            if ct.get("outcome") == "dry_run":
+                continue
+            depth = ct.get("chain_depth", 0)
+            max_d = ct.get("max_depth", 1)
+            if (depth < max_d or ct.get("stalled")) and ct.get("scenario"):
+                _retry_failed_scenarios.add(ct["scenario"])
+        # Find failed exec chain entries (success_rate < 0.5)
+        for r in _retry_data.get("results", []):
+            for ec in r.get("exec_chain", []):
+                if ec.get("_blue_defender"):
+                    continue
+                sr = ec.get("success_rate", 1.0)
+                if sr < 0.5:
+                    _retry_failed_prompts.add(r.get("prompt_key", ""))
+        _retry_failed_prompts.discard("")
+        # Find failed purple tests — red never landed (target was down, dispatch
+        # stub, etc.).  The E2E results store data in purple_tests, not
+        # chain_tests, so --retry-failed must check here too or it silently
+        # finds "no failures" and exits.  red_landed=False means no real
+        # execution happened — the scenario needs a live re-run.  Scenarios
+        # where red landed but blue_f1=0 are valid data (model capability
+        # floor), not infrastructure failures.
+        #
+        # Exclude scenarios that were explicitly gated as target-unrecoverable
+        # (no amount of retrying will help — the target doesn't exist) and
+        # web_* placeholders that reference non-existent endpoints.
+        _gated_scenarios: set[str] = set()
+        for pt in _retry_data.get("purple_tests", []):
+            if pt.get("gate_reason") == "target-unrecoverable":
+                _gated_scenarios.add(pt.get("scenario", ""))
+        for pt in _retry_data.get("purple_tests", []):
+            name = pt.get("scenario", "")
+            if not name:
+                continue
+            # Skip unrecoverable targets — retrying won't help
+            if name in _gated_scenarios:
+                continue
+            # Skip web_* placeholders — no real vulnerable app deployed
+            if name.startswith("web_"):
+                continue
+            if not pt.get("red_landed", False):
+                _retry_failed_scenarios.add(name)
+        return _retry_data
+    return {}
+
+
+def run_candidate_intake(args) -> bool:
+    """Candidate intake: pull → TPS gate → audit-tools → queue (C3 Tier B)."""
+    if args.candidate_intake:
+        intake_results = _run_candidate_intake_chain(
+            args.candidate_intake,
+            dry_run=args.dry_run,
+            skip_pull=getattr(args, "skip_pull", False),
+            tps_floor=TPS_FLOOR,
+        )
+        _print_intake_summary(intake_results)
+        if (
+            not args.dry_run
+            and not args.workspaces
+            and not args.chain_models
+            and not args.exec_chain_models
+        ):
+            return True  # intake-only run; nothing else to do
+    return False
+
+
+def run_any_chain(args, _any_chain, _enabled_prompts) -> str:
+    """Shared lab setup: probe + snapshot (C3 Tier B)."""
+    _snapshot_name = ""
+    if _any_chain:
+        if (args.lab_exec or args.lab_snapshot or args.probe_lab) and not _LAB_EXEC_AVAILABLE:
+            print(
+                "  WARNING: lab exec requested but bench_lab_exec.py not importable — using synthetic"
+            )
+
+        # ── Mandatory reachability gate (independent of --probe-lab) ────────────
+        # Added 2026-06-30: --probe-lab only auto-filters prompts, and that filter is
+        # bypassed by an explicit --prompt list and never consulted on the
+        # --chain-models + --all-scenarios path. This gate runs unconditionally
+        # whenever --lab-exec is set, on both paths, before any model inference.
+        if args.lab_exec and _LAB_EXEC_AVAILABLE and not args.force_unreachable_lab:
+            print("\n  [lab-gate] verifying DC/SRV reachability before chain dispatch ...")
+            if not verify_lab_targets_reachable(dry_run=args.dry_run):
+                print(
+                    "\n  ABORTING: lab targets unreachable — this run would otherwise "
+                    "produce lab_success=0 across the board with no signal anything was "
+                    "wrong (see docs/LAB_REACHABILITY_DIAGNOSTIC_2026-06-30.md). Verify "
+                    "VM state and network path, or pass --force-unreachable-lab to "
+                    "override deliberately.\n"
+                )
+                sys.exit(1)
+
+        # ── Lab service auto-discovery ────────────────────────────────────────
+        if args.probe_lab and _LAB_EXEC_AVAILABLE:
+            _probe = probe_lab_services(dry_run=args.dry_run)
+            print_lab_probe_report(_probe)
+            _svc_to_prompt: dict[str, list[str]] = {
+                "smb": [
+                    "kerberoasting",
+                    "asrep_roasting",
+                    "pass_the_hash",
+                    "smb_enum_relay",
+                    "bloodhound_ad_recon",
+                    "rbcd_attack",
+                    "ad_dcsync_golden_ticket",
+                    "adcs_template_abuse",
+                    "eternalblue_ms17010",
+                    "htb_responder_chain",
+                ],
+                "meta3_smb": [
+                    "kerberoasting",
+                    "asrep_roasting",
+                    "pass_the_hash",
+                    "smb_enum_relay",
+                    "bloodhound_ad_recon",
+                    "eternalblue_ms17010",
+                    "lateral_movement",
+                    "htb_responder_chain",
+                    "meta3_full_compromise",
+                ],
+                "meta3_mysql": ["sqli_manual", "mysql_udf_privesc", "meta3_full_compromise"],
+                "meta3_http": [
+                    "web_recon_basics",
+                    "web_shell_upload",
+                    "iis_webdav_scanner",
+                    "meta3_full_compromise",
+                ],
+                "meta3_tomcat": ["tomcat_manager", "meta3_full_compromise"],
+                "meta3_ftp": [
+                    "web_recon_basics",
+                    "ftp_backdoor",
+                    "meta3_full_compromise",
+                ],
+                "redis": ["redis_to_rce"],
+                "nfs": ["nfs_privesc_chain"],
+                "http_8080": ["lfi_to_rce", "htb_lfi_log_poison"],
+                "http_8081": ["tomcat_manager"],
+                "http_8983": ["log4shell_rce"],
+                "vulnapp_web": [
+                    "sqli_manual",
+                    "web_shell_upload",
+                    "ssrf_exploitation",
+                    "lfi_to_rce",
+                    "web_recon_basics",
+                    "htb_sqli_to_shell",
+                ],
+            }
+            for svc, prompts in _svc_to_prompt.items():
+                if _probe.get(svc):
+                    _enabled_prompts.update(prompts)
+            if _enabled_prompts:
+                print(
+                    f"  [probe-lab] auto-filter: {len(_enabled_prompts)} prompts with reachable services\n"
+                )
+
+        # ── Proxmox VM snapshot before chain ──────────────────────────────────
+        if args.lab_snapshot and _LAB_EXEC_AVAILABLE:
+            _snapshot_name = f"bench-{int(time.monotonic())}"
+            if not args.dry_run:
+                snapshot_lab_vms(_snapshot_name, dry_run=args.dry_run)
+            print(f"  [proxmox] snapshot '{_snapshot_name}' created\n")
+    return _snapshot_name
+
+
+def run_retry_data(args, _retry_data, chain_results, results, ts, output_data) -> dict:
+    """Merge mode: replace only the entries this retry re-ran (C3 Tier B)."""
+    if _retry_data:
+        # Merge mode: start from the previous run, replace only the entries this
+        # retry actually re-ran (matched by (scenario, model) for chain_tests, by
+        # prompt_key for results), and keep everything else from the original file
+        # untouched — a chain-only retry must not silently drop old blue/purple/
+        # matrix_results data it never re-ran.
+        def _ct_key(ct: dict) -> tuple:
+            return (ct.get("scenario"), ct.get("model"))
+
+        retried_ct_keys = {_ct_key(r) for r in chain_results}
+        merged_chain_tests = [
+            ct for ct in _retry_data.get("chain_tests", []) if _ct_key(ct) not in retried_ct_keys
+        ]
+        merged_chain_tests.extend(chain_results)
+
+        retried_prompt_keys = {r.get("prompt_key") for r in results if r.get("prompt_key")}
+        merged_results = [
+            r
+            for r in _retry_data.get("results", [])
+            if r.get("prompt_key") not in retried_prompt_keys
+        ]
+        merged_results.extend(results)
+
+        merged = dict(_retry_data)
+        merged["timestamp"] = ts
+        merged["chain_tests"] = merged_chain_tests
+        merged["results"] = merged_results
+        output_data = merged
+        print(
+            f"  Retry: merged {len(retried_ct_keys)} chain_test(s) + "
+            f"{len(retried_prompt_keys)} result(s) into "
+            f"{len(merged_chain_tests)} total chain_tests, {len(merged_results)} total results"
+        )
+    return output_data

@@ -13,7 +13,7 @@ sources:
   path: portal/modules/security/core/lab.py
 - type: code
   path: portal/modules/security/core/candidate_eval.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: e4c305ec04cdd092bc773b4a5253e3d843940f04
 claims: []
 confidence: high
 tags:

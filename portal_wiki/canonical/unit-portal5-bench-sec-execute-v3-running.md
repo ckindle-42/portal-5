@@ -9,7 +9,7 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: portal/modules/security/core/commands/run.py
-last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
+last_generated_commit: e4c305ec04cdd092bc773b4a5253e3d843940f04
 claims: []
 confidence: high
 tags:
