@@ -350,6 +350,7 @@ surfaces:
   globs:
   - scripts/*.py
   - scripts/lib/*.py
+  - scripts/validation/*.py
   unit: unit-surface-scripts
 - name: unit-surface-sec-core
   globs:
