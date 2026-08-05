@@ -9,7 +9,7 @@ sources:
   path: scripts/lab_discover.py
 - type: code
   path: portal/modules/security/core/matrix.py
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
 claims: []
 confidence: high
 tags:
