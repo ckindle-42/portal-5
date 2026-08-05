@@ -27,7 +27,7 @@ sources:
   path: tests/unit/test_omlx_backend.py
 - type: code
   path: tests/unit/test_seed_facts.py
-last_generated_commit: 717b0e6cd88f30a2f8c94765a5dfd7a7eb006d2f
+last_generated_commit: f06ae3ff0835dd30c220449f6cf4f9ff2ebad233
 claims: []
 confidence: high
 tags:

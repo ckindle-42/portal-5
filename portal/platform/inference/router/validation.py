@@ -85,6 +85,16 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
 
     Global tuning: ``keep_alive`` (-1 keeps the model in VRAM; workspace
     override wins via hard assignment), ``num_batch`` (2048 prefill speedup).
+
+    ``num_ctx`` here is belt-and-suspenders, not load-bearing: verified live
+    (2026-08-05, Ollama 0.32.5) that a runtime ``options.num_ctx`` sent to
+    ``/v1/chat/completions`` is silently ignored — the model loads at its full
+    trained context regardless. The mechanism that actually works is a
+    Modelfile-baked ``PARAMETER num_ctx`` on a dedicated ``-ctxNk`` tagged
+    model (see the many such tags in ``config/backends.yaml``); every
+    workspace's ``model_hint`` MUST point at one of those tags if
+    ``context_limit`` is meant to take effect, not a bare model id.
+
     Workspace-driven, all via ``setdefault`` so caller values win:
     ``num_ctx`` from ``context_limit``, top-level ``max_tokens`` from
     ``predict_limit``, sampling keys (``temperature``, ``top_p``, ``top_k``,
