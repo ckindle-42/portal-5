@@ -11,7 +11,7 @@ sources:
   path: config/personas/codingagentic.yaml
 - type: code
   path: .pre-commit-config.yaml
-last_generated_commit: 6afb262648d307376dfb4f839eeed69c02112d04
+last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
 claims:
 - probe: mcpjson.servers
   pattern: currently {value} MCP servers

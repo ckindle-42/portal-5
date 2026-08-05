@@ -357,6 +357,7 @@ surfaces:
 - name: unit-surface-scripts
   globs:
   - scripts/*.py
+  - scripts/lib/*.py
   unit: unit-surface-scripts
 - name: unit-surface-sec-core
   globs:

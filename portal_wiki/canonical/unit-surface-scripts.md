@@ -5,7 +5,9 @@ title: "Operator script farm \u2014 standalone tools for bench, lab, media, and 
 sources:
 - type: code
   path: scripts/*.py
-last_generated_commit: da87b0b818f6edbc10d432ddee82ab4392b684dc
+- type: code
+  path: scripts/lib/*.py
+last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
 claims: []
 confidence: high
 tags:

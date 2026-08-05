@@ -7,7 +7,7 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: portal/modules/coding/tools/code_sandbox_mcp.py
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
 claims: []
 confidence: high
 tags:
