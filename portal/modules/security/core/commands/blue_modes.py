@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .._data import _LAB_EXEC_AVAILABLE, RESULTS_DIR
-from ..blue import run_purple_tests
+from ..blue import _run_evasion_purple, run_purple_tests
 from ..chain import (
     _WEB_SEARCH_CHAIN_TOOL,
     SCENARIOS,
@@ -1094,3 +1094,24 @@ def run_purple(run: BenchRun) -> None:
                     cmd_down(_p_sc["vulhub_env"], dry_run=run.args.dry_run)
                 if run.args.lab_exec and not run.args.dry_run:
                     time.sleep(5)
+
+
+def run_evasion(run: BenchRun) -> None:
+    # Step 2d: evasion loop (--evasion flag)
+    if run.args.evasion:
+        if not run.args.chain_models or not run.args.blue_models:
+            print("  ERROR: --evasion requires both --chain-models and --blue-models")
+        else:
+            for rm in run.args.chain_models:
+                for bm in run.args.blue_models:
+                    run.evasion_results.append(
+                        _run_evasion_purple(
+                            rm,
+                            bm,
+                            run.scenario,
+                            run.cfg,
+                            rounds=run.args.evasion_rounds,
+                            dry_run=run.args.dry_run,
+                            lab_exec=run.args.lab_exec,
+                        )
+                    )
