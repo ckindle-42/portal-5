@@ -540,7 +540,7 @@ workspaces:
       pentest:
         name: 🖊️ Portal Pentest Assistant
         description: 'Authorized penetration testing assistant with execution capability. Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive (MoE, ~22GB). PROMOTED 2026-07-16 (P5-AUTOSEC-RESELECT widened slate): the only candidate across 27 tested (original 11-candidate slate + a widened abliterated-model sweep) to clear BOTH the tool-call reliability gate (valid_rate 0.80, unique_coverage 6/8 on kerberoast_to_da --lab-exec — best of any abliterated candidate) AND zero-refusal authorized-content compliance (verified: delivers complete working reverse-shell payloads, detailed mimikatz credential-dump walkthroughs, and working Metasploit EternalBlue commands — see docs/reselection/ for the diagnosis chain). Superseded the prior gemma-4-abliterated:E2b-qat pick, whose 2026-06-25 head-to-head numbers predated the reliability-scoring fix and were never re-verified; re-tested under the corrected methodology it failed the reliability gate (valid_rate 0.50-0.67 across 3 reps). execute_bash + execute_python + web_search for live target enumeration and PoC validation. Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings.'
-        model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
+        model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
         context_limit: 8192
         keep_alive: 15m
         temperature: 0.3
