@@ -34,4 +34,9 @@ for a follow-up regrain.
 
 ## Ruff complexity debt
 
-(to be filled by C7)
+**82 files** recorded in `pyproject.toml` `[tool.ruff.lint.per-file-ignores]` under the C90/PLR0912/PLR0915 block, dated 2026-08-05. Entries may only be **removed** (as a file is refactored below the complexity threshold), never added. The largest debt clusters: the security engine (`exec_chain.py`, `blue.py`, `blue_orchestrate.py` — deliberately out of scope per §7), the MCP tool servers, and `tests/uat/*`.
+
+## C5.4 (deferred)
+
+The 21 over-budget check bodies in `scripts/validation/` were moved verbatim (not decomposed). They now live in the family modules; C7's ratchet holds them. A follow-up can decompose them like C3/C4.
+
