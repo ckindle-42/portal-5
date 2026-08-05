@@ -1,0 +1,61 @@
+[
+  {
+    "label": "HTML file delivered",
+    "type": "has_code"
+  },
+  {
+    "critical": false,
+    "label": "Single-file constraint (no external script src)",
+    "negate": true,
+    "patterns": [
+      {
+        "label": "external <script src=>",
+        "regex": "<script[^>]+src\\s*="
+      },
+      {
+        "label": "remote .js URL",
+        "regex": "https?://\\S+\\.js"
+      },
+      {
+        "label": "CDN reference",
+        "regex": "cdn\\.\\S+"
+      }
+    ],
+    "type": "code_pattern"
+  },
+  {
+    "critical": false,
+    "label": "Canvas + animation loop present",
+    "patterns": [
+      {
+        "label": "canvas element",
+        "regex": "<canvas"
+      },
+      {
+        "label": "animation loop",
+        "regex": "requestAnimationFrame\\s*\\(|setInterval\\s*\\("
+      },
+      {
+        "label": "2d context",
+        "regex": "getContext\\s*\\(\\s*['\\\"]2d"
+      }
+    ],
+    "type": "code_pattern"
+  },
+  {
+    "keywords": [
+      "paper",
+      "letter",
+      "cursive",
+      "desk",
+      "wooden",
+      "yellow",
+      "flame",
+      "fire",
+      "smoke",
+      "particle"
+    ],
+    "label": "Visual atmosphere described",
+    "type": "any_of"
+  }
+]

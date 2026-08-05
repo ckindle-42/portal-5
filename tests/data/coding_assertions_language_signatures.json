@@ -1,0 +1,51 @@
+{
+  "bash": [
+    "^#!/(?:usr/)?bin/(?:bash|sh)",
+    "\\b(?:if|for|while)\\s+\\[\\[",
+    "\\$\\{\\w+"
+  ],
+  "go": [
+    "\\bpackage\\s+\\w+",
+    "\\bfunc\\s+\\w+\\s*\\(",
+    "\\binterface\\s*{",
+    "\\bgo\\s+\\w+\\("
+  ],
+  "html": [
+    "<!DOCTYPE\\s+html",
+    "<html\\b",
+    "<body\\b",
+    "<script\\b"
+  ],
+  "javascript": [
+    "\\bfunction\\s+\\w+\\s*\\(",
+    "\\bconst\\s+\\w+\\s*=",
+    "\\blet\\s+\\w+\\s*=",
+    "=>\\s*[{(]",
+    "\\bdocument\\.",
+    "\\bwindow\\.",
+    "\\bimport\\s*\\{\\s*test\\b",
+    "\\bawait\\s+page\\.",
+    "\\bexpect\\s*\\([^)]+\\)\\.to",
+    "\\.spec\\.js\\b|\\.test\\.js\\b"
+  ],
+  "python": [
+    "^\\s*def\\s+\\w+\\s*\\(",
+    "^\\s*class\\s+\\w+",
+    "^\\s*import\\s+\\w+",
+    "^\\s*from\\s+\\w+\\s+import"
+  ],
+  "rust": [
+    "\\bfn\\s+\\w+\\s*\\(",
+    "\\bimpl\\b",
+    "\\blet\\s+(?:mut\\s+)?\\w+",
+    "::<.*>",
+    "\\buse\\s+std::"
+  ],
+  "sql": [
+    "\\bSELECT\\b",
+    "\\bFROM\\b",
+    "\\bWHERE\\b",
+    "\\bJOIN\\b",
+    "\\bCREATE\\s+TABLE\\b"
+  ]
+}

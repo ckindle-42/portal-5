@@ -1,0 +1,440 @@
+[
+  [
+    "write a Python function to merge overlapping intervals",
+    "auto-coding",
+    "standard",
+    ""
+  ],
+  [
+    "debug this TypeScript type error in my React component",
+    "auto-coding",
+    "standard",
+    ""
+  ],
+  [
+    "implement a Rust async HTTP server",
+    "auto-coding",
+    "standard",
+    ""
+  ],
+  [
+    "write a Dockerfile for a FastAPI app",
+    "auto-coding",
+    "standard",
+    ""
+  ],
+  [
+    "refactor this function to use dependency injection",
+    "auto-coding",
+    "standard",
+    ""
+  ],
+  [
+    "write a Splunk tstats search for failed logins by source IP",
+    "auto-spl",
+    "standard",
+    ""
+  ],
+  [
+    "explain how data model acceleration works in Splunk ES",
+    "auto-spl",
+    "standard",
+    ""
+  ],
+  [
+    "create a correlation search for lateral movement in SPL",
+    "auto-spl",
+    "standard",
+    "domain overlap with security"
+  ],
+  [
+    "write an exploit for an authorized buffer overflow test",
+    "auto-redteam",
+    "security",
+    "offensive"
+  ],
+  [
+    "explain how to perform pass-the-hash in an AD environment",
+    "auto-redteam",
+    "security",
+    "offensive"
+  ],
+  [
+    "generate a reverse shell payload for a red team exercise",
+    "auto-redteam",
+    "security",
+    "offensive"
+  ],
+  [
+    "what AV evasion techniques work on current EDR products",
+    "auto-redteam",
+    "security",
+    "offensive"
+  ],
+  [
+    "full kill-chain analysis for a supply chain compromise \u2014 ATT&CK mapped",
+    "auto-redteam-deep",
+    "security",
+    "depth signal"
+  ],
+  [
+    "detailed kerberoasting walkthrough with OPSEC considerations",
+    "auto-redteam-deep",
+    "security",
+    "depth signal"
+  ],
+  [
+    "authorized engagement: enumerate AD kerberoastable accounts and crack hashes",
+    "auto-pentest",
+    "security",
+    "execution mode"
+  ],
+  [
+    "run sqlmap against the authorized target at 10.0.0.50",
+    "auto-pentest",
+    "security",
+    "execution mode"
+  ],
+  [
+    "analyze this YARA rule for potential false positives",
+    "auto-security",
+    "standard",
+    ""
+  ],
+  [
+    "what does CVE-2024-3400 mean for our Palo Alto firewalls",
+    "auto-security",
+    "standard",
+    ""
+  ],
+  [
+    "write a Sigma rule for detecting Mimikatz",
+    "auto-security",
+    "standard",
+    "defensive creation"
+  ],
+  [
+    "we detected ransomware on WS-42 \u2014 what do we isolate first",
+    "auto-blueteam",
+    "standard",
+    ""
+  ],
+  [
+    "write an incident response playbook for a phishing campaign",
+    "auto-blueteam",
+    "standard",
+    ""
+  ],
+  [
+    "harden our Windows Server 2022 baseline per CIS benchmarks",
+    "auto-blueteam",
+    "standard",
+    ""
+  ],
+  [
+    "attack chain for cobalt strike beacon plus matching detection rules",
+    "auto-purpleteam",
+    "standard",
+    "red+blue signal"
+  ],
+  [
+    "purple team analysis: credential dumping TTPs and SIEM detections",
+    "auto-purpleteam-deep",
+    "standard",
+    "deep chain"
+  ],
+  [
+    "authorized lab: scan 192.168.100.0/24 and identify vulnerable services",
+    "auto-purpleteam-exec",
+    "security",
+    "execution mode"
+  ],
+  [
+    "is our patch management process compliant with NERC CIP-007-6 R4",
+    "auto-compliance",
+    "standard",
+    ""
+  ],
+  [
+    "map our access control logs to CIP-004 R6 evidence requirements",
+    "auto-compliance",
+    "standard",
+    ""
+  ],
+  [
+    "query the BigFix REST API for all computers missing KB5034765",
+    "auto-bigfix",
+    "standard",
+    ""
+  ],
+  [
+    "write a BigFix relevance expression to check .NET 4.8 patch state",
+    "auto-bigfix",
+    "standard",
+    ""
+  ],
+  [
+    "create a BigFix fixlet to deploy an emergency patch to Windows servers",
+    "auto-bigfix",
+    "standard",
+    ""
+  ],
+  [
+    "design a parametric mounting bracket in OpenSCAD for M4 screws",
+    "auto-cad",
+    "standard",
+    ""
+  ],
+  [
+    "generate OpenSCAD code for a hex enclosure with snap-fit lid",
+    "auto-cad",
+    "standard",
+    ""
+  ],
+  [
+    "create an STL for a spur gear, module 2, 20 teeth",
+    "auto-cad",
+    "standard",
+    ""
+  ],
+  [
+    "analyze this CSV for outliers and suggest visualization approaches",
+    "auto-data",
+    "standard",
+    ""
+  ],
+  [
+    "explain the difference between ANOVA and a t-test for my experiment",
+    "auto-data",
+    "standard",
+    ""
+  ],
+  [
+    "find recent papers on diffusion models for protein structure prediction",
+    "auto-research",
+    "standard",
+    ""
+  ],
+  [
+    "what happened with the CrowdStrike outage in July 2024",
+    "auto-research",
+    "standard",
+    ""
+  ],
+  [
+    "deep dive: pros and cons of event sourcing vs CQRS for this system",
+    "auto-reasoning",
+    "standard",
+    ""
+  ],
+  [
+    "step by step: how does a transformer's attention mechanism work",
+    "auto-reasoning",
+    "standard",
+    ""
+  ],
+  [
+    "solve the differential equation dy/dx = 2xy with initial condition y(0)=1",
+    "auto-math",
+    "standard",
+    ""
+  ],
+  [
+    "prove by induction that the sum of first n integers is n(n+1)/2",
+    "auto-math",
+    "standard",
+    ""
+  ],
+  [
+    "create a Word document with our Q3 financial summary",
+    "auto-documents",
+    "standard",
+    ""
+  ],
+  [
+    "make a PowerPoint presentation from these 10 bullet points",
+    "auto-documents",
+    "standard",
+    ""
+  ],
+  [
+    "transcribe this meeting recording with speaker labels",
+    "auto-documents",
+    "standard",
+    ""
+  ],
+  [
+    "summarize the key points from this podcast episode",
+    "auto-audio",
+    "standard",
+    ""
+  ],
+  [
+    "what topics were discussed in this interview recording",
+    "auto-audio",
+    "standard",
+    ""
+  ],
+  [
+    "what does this network diagram show",
+    "auto-vision",
+    "standard",
+    ""
+  ],
+  [
+    "analyze the architecture in this screenshot",
+    "auto-vision",
+    "standard",
+    ""
+  ],
+  [
+    "write a noir detective short story set in a rainy city",
+    "auto-creative",
+    "standard",
+    ""
+  ],
+  [
+    "write product copy for a new headphone launch",
+    "auto-creative",
+    "standard",
+    ""
+  ],
+  [
+    "generate a 30-second ambient track for a meditation app",
+    "auto-music",
+    "standard",
+    ""
+  ],
+  [
+    "create an upbeat lo-fi hip hop beat",
+    "auto-music",
+    "standard",
+    ""
+  ],
+  [
+    "generate a 5-second video of ocean waves at sunset",
+    "auto-video",
+    "standard",
+    ""
+  ],
+  [
+    "create a time-lapse video of a city skyline",
+    "auto-video",
+    "standard",
+    ""
+  ],
+  [
+    "refactor this entire 8000-line monolith to use async/await throughout",
+    "auto-agentic",
+    "standard",
+    "scale signal"
+  ],
+  [
+    "analyze and document every function in this 200-file codebase",
+    "auto-agentic",
+    "standard",
+    "scale signal"
+  ],
+  [
+    "use Magistral to walk through this strategic partnership decision",
+    "auto-mistral",
+    "standard",
+    "model-name signal"
+  ],
+  [
+    "structured Mistral reasoning: evaluate these three architecture options",
+    "auto-mistral",
+    "standard",
+    "model-name signal"
+  ],
+  [
+    "use Phi-4 to reason through this STEM problem",
+    "auto-phi4",
+    "standard",
+    "model-name signal"
+  ],
+  [
+    "can you help me draft a quick reply to this email",
+    "auto-daily",
+    "standard",
+    ""
+  ],
+  [
+    "what's a good way to organize my week",
+    "auto-daily",
+    "standard",
+    ""
+  ],
+  [
+    "read all Python files in this directory recursively",
+    "tools-specialist",
+    "standard",
+    "tool invocation"
+  ],
+  [
+    "list running Docker containers and show their resource usage",
+    "tools-specialist",
+    "standard",
+    "tool invocation"
+  ],
+  [
+    "hello, how are you today",
+    "auto",
+    "abstain",
+    "no routing gain"
+  ],
+  [
+    "what is 2 + 2",
+    "auto",
+    "abstain",
+    "trivial \u2014 no workspace needed"
+  ],
+  [
+    "who invented the telephone",
+    "auto",
+    "abstain",
+    "general knowledge"
+  ],
+  [
+    "can you help me think through something",
+    "auto",
+    "abstain",
+    "vague intent"
+  ],
+  [
+    "write a Splunk search to detect Mimikatz",
+    "auto-spl",
+    "standard",
+    "security + SPL overlap \u2014 SPL should win"
+  ],
+  [
+    "CIP-007 requirements for patching ICS systems",
+    "auto-compliance",
+    "standard",
+    "compliance + security overlap"
+  ],
+  [
+    "design a bracket that holds a Raspberry Pi",
+    "auto-cad",
+    "standard",
+    "coding vs CAD ambiguity"
+  ],
+  [
+    "write tests for my OpenSCAD model generator",
+    "auto-coding",
+    "standard",
+    "OpenSCAD but task is coding"
+  ],
+  [
+    "explain how kerberoasting works",
+    "auto-security",
+    "standard",
+    "explanation vs execution"
+  ],
+  [
+    "i need to know about lateral movement techniques",
+    "auto-security",
+    "standard",
+    "general vs redteam"
+  ]
+]

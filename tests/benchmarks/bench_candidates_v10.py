@@ -215,47 +215,15 @@ P2_PROMPT_USER = (
     "the cause and propose a fix. Do not assume the project layout — "
     "investigate first."
 )
-P2_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "run_shell",
-            "description": "Run a shell command, return stdout+stderr.",
-            "parameters": {
-                "type": "object",
-                "properties": {"command": {"type": "string"}},
-                "required": ["command"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "read_file",
-            "description": "Read a text file's contents.",
-            "parameters": {
-                "type": "object",
-                "properties": {"path": {"type": "string"}},
-                "required": ["path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "write_file",
-            "description": "Write or replace a text file.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "content": {"type": "string"},
-                },
-                "required": ["path", "content"],
-            },
-        },
-    },
-]
+
+
+def _load_data(name: str):
+    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+P2_TOOLS = _load_data("bench_candidates_v10_p2_tools")
 
 
 def score_p2_toolchain(msg: dict) -> tuple[float, dict[str, bool]]:
@@ -377,50 +345,7 @@ def score_p4_uncensored(text: str) -> tuple[float, dict[str, bool]]:
 
 # ── P5 — Hard reasoning (GLM-4.7-Flash-Claude-Distill signature) ─────────────
 
-P5_QUESTIONS = [
-    {
-        "q": (
-            "A 5.0 g object is dropped from rest into a viscous fluid where the "
-            "drag force is given by F = -b v with b = 2.5 g/s. After 4.0 seconds, "
-            "the object's velocity is approximately what fraction of its terminal "
-            "velocity? Choose: (A) 0.63 (B) 0.86 (C) 0.95 (D) 0.99"
-        ),
-        "answer": "B",
-        "rationale": "v/v_term = 1 - exp(-b t / m) = 1 - exp(-2) ~= 0.865",
-    },
-    {
-        "q": (
-            "In a CRISPR-Cas9 experiment, you observe that a 23-bp guide RNA "
-            "produces 20x lower off-target cutting than a standard 20-bp guide "
-            "for the same locus, but on-target cutting drops by 60%. The most "
-            "likely mechanism is: "
-            "(A) Extended seed-region complementarity reduces tolerance for "
-            "mismatches "
-            "(B) Cas9 endonuclease has steric preference for shorter sgRNA "
-            "(C) Mismatch tolerance scales linearly with guide length "
-            "(D) The extra bases form a hairpin that blocks DNA binding"
-        ),
-        "answer": "A",
-        "rationale": "Extended guides increase specificity via thermodynamic mismatch cost.",
-    },
-    {
-        "q": (
-            "A hash chain is built such that h_n = SHA256(h_{n-1} || nonce_n) "
-            "for n=1..1000 with h_0 a 128-bit secret. An attacker observes "
-            "h_1000 and all nonce_2..nonce_1000 but not nonce_1. Assuming "
-            "SHA256 is preimage-resistant, the attacker can recover h_0 with: "
-            "(A) Brute-force on nonce_1 alone (given h_1 is determinable from h_2..h_1000) "
-            "(B) Brute-force on the 128-bit secret space of h_0 directly "
-            "(C) Cannot recover h_0 without nonce_1 and brute-force on h_0 separately "
-            "(D) Length-extension attack on h_1000"
-        ),
-        "answer": "B",
-        "rationale": (
-            "h_1 isn't directly determinable from h_2..h_1000 without inverting "
-            "SHA256. The only feasible attack is brute-forcing h_0 (128 bits)."
-        ),
-    },
-]
+P5_QUESTIONS = _load_data("bench_candidates_v10_p5_questions")
 
 
 def score_p5_reasoning(text: str, expected: str) -> tuple[float, dict[str, bool]]:

@@ -7,6 +7,9 @@ entries. Defined once here so catalog data modules import from one place.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from tests.common import REFUSAL_PHRASES  # noqa: F401  (re-exported for catalog modules)
 
 _CC01_PROMPT = (
@@ -58,55 +61,15 @@ _GC03_PROMPT = (
     "win/lose screen." + _GC_SINGLE_FILE_NOTE
 )
 
+
 # ── Shared structural checks for every game band ───────────────────────────
-_GC_BASE_ASSERTIONS = [
-    {"type": "has_code", "label": "HTML file delivered"},
-    {
-        "type": "code_pattern",
-        "label": "Single-file constraint (no external script src)",
-        # PASS = the forbidden pattern is ABSENT. The matrix analyzer treats a
-        # code_pattern with "negate": True as passing when no regex matches.
-        "negate": True,
-        "patterns": [
-            {"regex": r"<script[^>]+src\s*=", "label": "external <script src=>"},
-            {"regex": r"https?://\S+\.js", "label": "remote .js URL"},
-            {"regex": r"cdn\.\S+", "label": "CDN reference"},
-        ],
-        "critical": False,
-    },
-    {
-        "type": "code_pattern",
-        "label": "Game loop present",
-        "patterns": [
-            {"regex": r"requestAnimationFrame\s*\(", "label": "requestAnimationFrame()"},
-            {"regex": r"setInterval\s*\(", "label": "setInterval()"},
-        ],
-        "critical": False,
-    },
-    {
-        "type": "code_pattern",
-        "label": "Collision detection present",
-        "patterns": [
-            {"regex": r"\bcollid", "label": "collide/collision identifier"},
-            {"regex": r"getBoundingClientRect|intersect|overlap", "label": "intersection test"},
-            {"regex": r"<=?.*&&.*<=?|x\s*<.*&&.*y\s*<", "label": "AABB bounds check"},
-        ],
-        "critical": False,
-    },
-    {
-        "type": "code_pattern",
-        "label": "Game-over / restart state",
-        "patterns": [
-            {
-                "regex": r"gameOver|game_over|isGameOver|state\s*=\s*['\"]",
-                "label": "game state flag",
-            },
-            {"regex": r"\brestart|\breset\s*\(|location\.reload", "label": "restart mechanism"},
-        ],
-        "critical": False,
-    },
-    {"type": "contains", "label": "Score system", "keywords": ["score"]},
-]
+def _load_data(name: str):
+    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+_GC_BASE_ASSERTIONS = _load_data("uat_catalog_shared_gc_base_assertions")
 
 # ── GC-01 Flappy Bird — gravity + single collision + score ─────────────────
 _GC01_ASSERTIONS = [
@@ -273,46 +236,7 @@ _GC04_PROMPT = (
 )
 
 # ── GC-04 base assertions (visual animation — no game mechanics) ──────────
-_GC04_BASE_ASSERTIONS = [
-    {"type": "has_code", "label": "HTML file delivered"},
-    {
-        "type": "code_pattern",
-        "label": "Single-file constraint (no external script src)",
-        "negate": True,
-        "patterns": [
-            {"regex": r"<script[^>]+src\s*=", "label": "external <script src=>"},
-            {"regex": r"https?://\S+\.js", "label": "remote .js URL"},
-            {"regex": r"cdn\.\S+", "label": "CDN reference"},
-        ],
-        "critical": False,
-    },
-    {
-        "type": "code_pattern",
-        "label": "Canvas + animation loop present",
-        "patterns": [
-            {"regex": r"<canvas", "label": "canvas element"},
-            {"regex": r"requestAnimationFrame\s*\(|setInterval\s*\(", "label": "animation loop"},
-            {"regex": r"getContext\s*\(\s*['\"]2d", "label": "2d context"},
-        ],
-        "critical": False,
-    },
-    {
-        "type": "any_of",
-        "label": "Visual atmosphere described",
-        "keywords": [
-            "paper",
-            "letter",
-            "cursive",
-            "desk",
-            "wooden",
-            "yellow",
-            "flame",
-            "fire",
-            "smoke",
-            "particle",
-        ],
-    },
-]
+_GC04_BASE_ASSERTIONS = _load_data("uat_catalog_shared_gc04_base_assertions")
 
 _GC04_ASSERTIONS = [
     *_GC04_BASE_ASSERTIONS,
@@ -359,102 +283,7 @@ _GC04_ASSERTIONS = [
     },
 ]
 
-_CC01_ASSERTIONS = [
-    {"type": "has_code", "label": "HTML file delivered"},
-    # ── Behavioral checks (code patterns, not variable names) ──────────────
-    {
-        "type": "code_pattern",
-        "label": "Game loop (behavioral)",
-        "patterns": [
-            {"regex": r"requestAnimationFrame\s*\(", "label": "requestAnimationFrame() call"},
-            {"regex": r"setInterval\s*\(", "label": "setInterval() call"},
-        ],
-        "critical": False,
-    },
-    {
-        "type": "code_pattern",
-        "label": "Lives manipulation (behavioral)",
-        "patterns": [
-            {"regex": r"\blives\s*--", "label": "lives-- decrement"},
-            {"regex": r"\blives\s*-=\s*1", "label": "lives -= 1"},
-            {"regex": r"\blives\s*=\s*\blives\s*-\s*1", "label": "lives = lives - 1"},
-            {"regex": r"\bthis\.lives\s*--", "label": "this.lives--"},
-            {"regex": r"\bplayer\.lives\s*--", "label": "player.lives--"},
-            {"regex": r"\blose\s+a?\s*life", "label": "lose a life message"},
-            {"regex": r"\blives\s*[<>!=]=\s*0", "label": "lives <=/>=/==/!= 0 check"},
-            {"regex": r"\blives\s*<\s*1", "label": "lives < 1 (zero check)"},
-            {"regex": r"\blives\s*==\s*0", "label": "lives == 0 check"},
-        ],
-        "critical": False,
-    },
-    {
-        "type": "code_pattern",
-        "label": "Score increment (behavioral)",
-        "patterns": [
-            {"regex": r"\bscore\s*\+=\s*", "label": "score += (increment)"},
-            {"regex": r"\bscore\s*=\s*\bscore\s*\+", "label": "score = score +"},
-        ],
-        "critical": False,
-    },
-    {
-        "type": "code_pattern",
-        "label": "Asteroid split/push (behavioral)",
-        "patterns": [
-            {"regex": r"asteroid.*\.push\(", "label": "asteroid push"},
-            {"regex": r"\.push\(.*asteroid", "label": "push asteroid"},
-            {"regex": r"\.split\s*\(", "label": "split() method"},
-            {"regex": r"asteroids\.push\(", "label": "asteroids.push()"},
-        ],
-        "critical": False,
-    },
-    # ── Keyword checks (defense-in-depth, survives code-block extraction failure) ──
-    {
-        "type": "any_of",
-        "label": "Canvas game loop (keyword)",
-        "keywords": [
-            "requestanimationframe",
-            "requestAnimationFrame",
-            "setinterval",
-            "setInterval",
-            "game loop",
-            "gameloop",
-            "game_loop",
-        ],
-        "critical": False,
-    },
-    {
-        "type": "any_of",
-        "label": "Asteroids split logic",
-        "keywords": ["split", "asteroid", "fragment", "smaller"],
-    },
-    {
-        "type": "any_of",
-        "label": "Lives system (keyword)",
-        "word_boundary": True,
-        "keywords": [
-            "lives",
-            "life",
-            "lives_remaining",
-            "numlives",
-            "playerlives",
-            "player.lives",
-            "this.lives",
-            "this.life",
-            "playerlife",
-            "livescount",
-            "livesleft",
-            "lifecount",
-            "remaininglives",
-            "player_lives",
-            "lose a life",
-            "lost a life",
-            "starting lives",
-            "3 lives",
-        ],
-        "critical": False,
-    },
-    {"type": "contains", "label": "Score system", "keywords": ["score"]},
-]
+_CC01_ASSERTIONS = _load_data("uat_catalog_shared_cc01_assertions")
 
 # Variant for RL/STEM-tuned models (P5-BENCH-001) that don't reliably emit
 # HTML code blocks — has_code demoted to critical: False so the benchmark

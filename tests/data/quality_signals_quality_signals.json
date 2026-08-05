@@ -1,0 +1,65 @@
+{
+  "coding": [
+    "def merge_intervals",
+    "list",
+    "tuple",
+    "intervals.sort",
+    "merged",
+    "overlap"
+  ],
+  "creative": [
+    "memory",
+    "detective",
+    "city",
+    "rain"
+  ],
+  "general": [
+    "physical",
+    "data link",
+    "network",
+    "transport",
+    "session",
+    "presentation",
+    "application"
+  ],
+  "math": [
+    "180",
+    "11",
+    "50",
+    "factor",
+    "-6",
+    "n = 3"
+  ],
+  "reasoning": [
+    [
+      "bottleneck",
+      "capacity"
+    ],
+    "doctor",
+    "nurse",
+    "bed",
+    [
+      "wait",
+      "arrival"
+    ],
+    [
+      "minute",
+      "hour"
+    ]
+  ],
+  "security": [
+    "T1110",
+    "MITRE",
+    "ATT&CK",
+    "containment",
+    "detection",
+    "block"
+  ],
+  "vision": [
+    "objects",
+    "text",
+    "scene",
+    "anomalies",
+    "confidence"
+  ]
+}

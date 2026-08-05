@@ -1,0 +1,82 @@
+[
+  {
+    "label": "HTML file delivered",
+    "type": "has_code"
+  },
+  {
+    "critical": false,
+    "label": "Single-file constraint (no external script src)",
+    "negate": true,
+    "patterns": [
+      {
+        "label": "external <script src=>",
+        "regex": "<script[^>]+src\\s*="
+      },
+      {
+        "label": "remote .js URL",
+        "regex": "https?://\\S+\\.js"
+      },
+      {
+        "label": "CDN reference",
+        "regex": "cdn\\.\\S+"
+      }
+    ],
+    "type": "code_pattern"
+  },
+  {
+    "critical": false,
+    "label": "Game loop present",
+    "patterns": [
+      {
+        "label": "requestAnimationFrame()",
+        "regex": "requestAnimationFrame\\s*\\("
+      },
+      {
+        "label": "setInterval()",
+        "regex": "setInterval\\s*\\("
+      }
+    ],
+    "type": "code_pattern"
+  },
+  {
+    "critical": false,
+    "label": "Collision detection present",
+    "patterns": [
+      {
+        "label": "collide/collision identifier",
+        "regex": "\\bcollid"
+      },
+      {
+        "label": "intersection test",
+        "regex": "getBoundingClientRect|intersect|overlap"
+      },
+      {
+        "label": "AABB bounds check",
+        "regex": "<=?.*&&.*<=?|x\\s*<.*&&.*y\\s*<"
+      }
+    ],
+    "type": "code_pattern"
+  },
+  {
+    "critical": false,
+    "label": "Game-over / restart state",
+    "patterns": [
+      {
+        "label": "game state flag",
+        "regex": "gameOver|game_over|isGameOver|state\\s*=\\s*['\\\"]"
+      },
+      {
+        "label": "restart mechanism",
+        "regex": "\\brestart|\\breset\\s*\\(|location\\.reload"
+      }
+    ],
+    "type": "code_pattern"
+  },
+  {
+    "keywords": [
+      "score"
+    ],
+    "label": "Score system",
+    "type": "contains"
+  }
+]
