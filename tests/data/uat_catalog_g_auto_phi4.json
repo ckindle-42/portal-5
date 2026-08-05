@@ -1,0 +1,114 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "characteristic",
+          "det",
+          "lambda",
+          "determinant",
+          "(4-\u03bb)",
+          "(4 - \u03bb)",
+          "\u03bb\u00b2"
+        ],
+        "label": "Characteristic polynomial",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "\u03bb = 5",
+          "\u03bb = 2",
+          "\u03bb=5",
+          "\u03bb=2",
+          "eigenvalue.*5",
+          "eigenvalue.*2",
+          "= 5",
+          "= 2"
+        ],
+        "label": "Correct eigenvalues (2 and 5)",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "eigenvector",
+          "v =",
+          "vector",
+          "[1,",
+          "[2,",
+          "null space",
+          "kernel"
+        ],
+        "label": "Eigenvector computed",
+        "type": "any_of"
+      },
+      {
+        "chars": 400,
+        "label": "Full derivation shown",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-PHI4-01",
+    "model_slug": "auto-reasoning",
+    "name": "STEM Reasoning \u2014 Eigenvalue Derivation",
+    "prompt": "/nothink\nFind the eigenvalues and eigenvectors of the matrix A = [[4, 1], [2, 3]]. Show the characteristic polynomial derivation, then solve for eigenvalues, then find the eigenvectors. Express answers exactly (no floating-point).",
+    "section": "auto-reasoning (STEM reasoning)",
+    "timeout": 240,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": true,
+        "keywords": [
+          "kinetic",
+          "potential",
+          "mv\u00b2",
+          "\u00bdmv",
+          "GMm/r",
+          "energy conservation"
+        ],
+        "label": "Energy conservation setup",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "v_e",
+          "v =",
+          "escape",
+          "sqrt(2GM",
+          "\u221a(2GM",
+          "2GM/R"
+        ],
+        "label": "Final formula present",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "11.2",
+          "11,200",
+          "11.18",
+          "11 km/s",
+          "~11"
+        ],
+        "label": "Numerical result ~11.2 km/s",
+        "type": "any_of"
+      },
+      {
+        "chars": 400,
+        "label": "Step-by-step derivation",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-PHI4-02",
+    "model_slug": "auto-reasoning",
+    "name": "STEM Reasoning \u2014 Physics Derivation",
+    "prompt": "/nothink\nDerive the escape velocity formula from energy conservation principles. Start from kinetic energy equals gravitational potential energy, define all variables, and show each algebraic step. State the final formula and evaluate it for Earth (M=5.97\u00d710\u00b2\u2074 kg, R=6.37\u00d710\u2076 m, G=6.67\u00d710\u207b\u00b9\u00b9).",
+    "section": "auto-reasoning (STEM reasoning)",
+    "timeout": 240,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  }
+]

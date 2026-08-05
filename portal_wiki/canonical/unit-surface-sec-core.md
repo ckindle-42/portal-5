@@ -5,7 +5,7 @@ title: "Security core \u2014 the RBP bench engine"
 sources:
 - type: code
   path: portal/modules/security/core/*.py
-last_generated_commit: 3d7ada5ee6506e7b736addbdbd21c07778915453
+last_generated_commit: 65958b7ff433a91759bbe4778df434a744fa802c
 claims: []
 confidence: high
 tags:

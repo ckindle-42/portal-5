@@ -1,0 +1,49 @@
+[
+  {
+    "assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "tool error",
+          "failed to transcribe",
+          "unavailable",
+          "no audio file",
+          "audio not found",
+          "file not found"
+        ],
+        "label": "No tool error",
+        "type": "not_contains"
+      },
+      {
+        "chars": 20,
+        "critical": false,
+        "label": "Transcript length",
+        "type": "min_length"
+      },
+      {
+        "keywords": [
+          "portal",
+          "acceptance",
+          "quick",
+          "brown",
+          "fox",
+          "lazy dog"
+        ],
+        "label": "Transcript matches fixture content",
+        "type": "any_of"
+      }
+    ],
+    "fixture": "sample.wav",
+    "force_unload_before": true,
+    "id": "M-01",
+    "media_kind": "voice",
+    "model_slug": "auto-music",
+    "name": "Whisper STT \u2014 Voice-to-Text Round-Trip",
+    "pre_stage_audio": true,
+    "prompt": "I'm uploading an audio file. Please transcribe it using the Whisper tool and return the text exactly as spoken.",
+    "section": "auto-music",
+    "skip_if": "no_audio_fixture",
+    "timeout": 90,
+    "workspace_tier": "media_heavy"
+  }
+]

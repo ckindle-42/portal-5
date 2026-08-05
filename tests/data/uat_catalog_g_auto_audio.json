@@ -1,0 +1,92 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "transcri",
+          "speech",
+          "audio",
+          "recording",
+          "wav",
+          "mp3"
+        ],
+        "label": "Transcription capability mentioned",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "extract",
+          "identify",
+          "analysi",
+          "speaker",
+          "summarize",
+          "timestamp"
+        ],
+        "label": "Analysis capability mentioned",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "error",
+          "unavailable",
+          "cannot connect"
+        ],
+        "label": "No error",
+        "type": "not_contains"
+      }
+    ],
+    "id": "WS-21",
+    "model_slug": "auto-audio",
+    "name": "Audio Analyst \u2014 Capabilities Overview",
+    "prompt": "What audio analysis capabilities do you have? What file formats can you transcribe, and what information can you extract from recordings?",
+    "section": "auto-audio",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "action item",
+          "action point",
+          "follow-up",
+          "follow up",
+          "task",
+          "todo",
+          "to do"
+        ],
+        "label": "Mentions action items",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "summary",
+          "key point",
+          "highlight",
+          "decision",
+          "takeaway"
+        ],
+        "label": "Describes summary format",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "speaker",
+          "timestamp",
+          "time",
+          "section",
+          "topic"
+        ],
+        "label": "Mentions speaker or timestamp",
+        "type": "any_of"
+      }
+    ],
+    "id": "WS-22",
+    "model_slug": "auto-audio",
+    "name": "Audio Analyst \u2014 Meeting Summary Request",
+    "prompt": "I have a 45-minute team meeting recording. Once transcribed, what kind of summary and action items could you extract? Describe the output format you'd produce.",
+    "section": "auto-audio",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  }
+]

@@ -1,0 +1,64 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "error",
+          "failed",
+          "unavailable",
+          "no audio file found"
+        ],
+        "label": "No tool error",
+        "type": "not_contains"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "SPEAKER_00",
+          "SPEAKER_01"
+        ],
+        "label": "Diarization produced >=2 speakers (transcribe_with_speakers ran)",
+        "type": "all_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "/files/",
+          "/workspace/generated/documents/",
+          "download_url"
+        ],
+        "label": "Response references a .docx artifact (create_word_document ran)",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          ".docx"
+        ],
+        "label": "Filename pattern is docx",
+        "type": "any_of"
+      },
+      {
+        "chars": 50,
+        "critical": false,
+        "label": "Transcript body has substance",
+        "type": "min_length"
+      }
+    ],
+    "fixture": "sample_two_speakers.wav",
+    "force_unload_before": true,
+    "id": "TR-01",
+    "media_kind": "voice",
+    "model_slug": "transcriptanalyst",
+    "name": "Transcript Analyst \u2014 Diarize + Word Doc (Golden Path)",
+    "pre_stage_audio": true,
+    "prompt": "I just uploaded an audio file. Please transcribe it with 2 speakers, then create a Word document from the result titled 'Two-Speaker Transcript'.",
+    "section": "auto-documents",
+    "skip_if": [
+      "no_two_speaker_audio_fixture",
+      "no_transcribe_server"
+    ],
+    "timeout": 240,
+    "workspace_tier": "ollama"
+  }
+]

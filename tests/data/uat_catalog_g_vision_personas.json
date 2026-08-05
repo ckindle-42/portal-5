@@ -1,0 +1,142 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "language",
+          "syntax",
+          "identify",
+          "extension",
+          "highlighting",
+          "programming language",
+          "code language",
+          "file type",
+          "language detection"
+        ],
+        "label": "Language identification",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "indent",
+          "spaces",
+          "tabs",
+          "formatting",
+          "preserv",
+          "whitespace",
+          "alignment",
+          "structure",
+          "line by line"
+        ],
+        "label": "Indentation preservation",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "ambiguous",
+          "l vs 1",
+          "O vs 0",
+          "resolution",
+          "[?]",
+          "visually similar",
+          "similar character",
+          "hard to distinguish",
+          "hard to tell",
+          "similar-looking",
+          "look alike",
+          "easily confused",
+          "0 and o",
+          "1 and l",
+          "similar letters",
+          "might be",
+          "could be",
+          "double-check",
+          "verify",
+          "unclear"
+        ],
+        "label": "Ambiguous character handling",
+        "type": "any_of"
+      },
+      {
+        "chars": 200,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "P-V10",
+    "model_slug": "codescreenshotreader",
+    "name": "Code Screenshot Reader \u2014 Protocol",
+    "prompt": "How would you transcribe a code screenshot from a VS Code dark theme? What steps do you take to ensure accuracy?",
+    "section": "auto-vision",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "chart type",
+          "bar chart",
+          "type of chart",
+          "axes",
+          "bar graph",
+          "bar diagram",
+          "column chart",
+          "x-axis",
+          "y-axis",
+          "horizontal axis",
+          "vertical axis",
+          "legend",
+          "categories",
+          "labeled"
+        ],
+        "label": "Chart type identification",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "data",
+          "extract",
+          "values",
+          "points",
+          "numbers",
+          "figures",
+          "revenue",
+          "quantities"
+        ],
+        "label": "Data extraction mentioned",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "design",
+          "tufte",
+          "misleading",
+          "truncated",
+          "data-ink",
+          "visual",
+          "clarity",
+          "readability",
+          "color",
+          "presentation",
+          "effective",
+          "best practice",
+          "data visualization",
+          "scale",
+          "label",
+          "proportion",
+          "clear"
+        ],
+        "label": "Design critique mentioned",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-V11",
+    "model_slug": "chartanalyst",
+    "name": "Chart Analyst \u2014 Analysis Framework",
+    "prompt": "I'm about to send you a bar chart comparing quarterly revenue across regions. What information will you extract from it?",
+    "section": "auto-vision",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  }
+]

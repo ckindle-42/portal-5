@@ -1,0 +1,317 @@
+[
+  {
+    "assertions": [
+      {
+        "critical": true,
+        "keywords": [
+          "```openscad",
+          "```scad",
+          "module ",
+          "linear_extrude",
+          "translate(",
+          "cube(",
+          "cylinder("
+        ],
+        "label": "OpenSCAD code block present",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "base_w",
+          "base_width",
+          "arm_height",
+          "wall",
+          "thickness",
+          "clearance",
+          "fillet",
+          "="
+        ],
+        "label": "Named dimension variables declared",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "m4",
+          "hole",
+          "3.0",
+          "3mm",
+          "cylinder",
+          "translate"
+        ],
+        "label": "M4 / hole feature present",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "png_url",
+          "stl_path",
+          ".png",
+          ".stl",
+          "rendered",
+          "preview",
+          "/files/models3d/"
+        ],
+        "label": "render_openscad called \u2014 PNG or STL referenced in response",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "import cadquery",
+          "import build123d",
+          "cq.Workplane",
+          "from cadquery"
+        ],
+        "label": "No CadQuery import attempted",
+        "type": "not_contains"
+      }
+    ],
+    "id": "WS-CAD-01",
+    "model_slug": "auto-cad",
+    "name": "CAD Workspace \u2014 Parametric Mounting Bracket",
+    "prompt": "Design a parametric mounting bracket in OpenSCAD. The bracket should have a 60\u00d740mm base with two M4 mounting holes (3mm clearance), a 90\u00b0 upright arm 30mm tall and 4mm thick, and a 2mm fillet on the inner corner. All dimensions must be named variables. Render it and show me the preview.",
+    "section": "auto-cad",
+    "timeout": 300,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": true,
+        "keywords": [
+          "```openscad",
+          "```scad",
+          "module ",
+          "difference(",
+          "cube("
+        ],
+        "label": "OpenSCAD code block present",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "wall",
+          "wall_t",
+          "thickness",
+          "wall_thickness",
+          "wall ="
+        ],
+        "label": "Wall thickness variable declared",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "clearance",
+          "tolerance",
+          "fit",
+          "0.2"
+        ],
+        "label": "Clearance/tolerance variable declared",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "module lid",
+          "module box",
+          "module enclosure",
+          "module top",
+          "module cover"
+        ],
+        "label": "Two modules (box + lid)",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "png_url",
+          ".png",
+          ".stl",
+          "rendered",
+          "preview",
+          "/files/models3d/",
+          "stl_path"
+        ],
+        "label": "Render called \u2014 artifact referenced",
+        "type": "any_of"
+      }
+    ],
+    "id": "WS-CAD-02",
+    "model_slug": "auto-cad",
+    "name": "CAD Workspace \u2014 Hex Enclosure with Lid",
+    "prompt": "Create an OpenSCAD script for a simple electronics enclosure: 80\u00d750\u00d730mm rectangular box, 2mm wall thickness, open top for a snap-fit lid. The lid should be a separate module that fits over the box with 0.2mm clearance. Use named variables throughout. Render the box and show me the preview.",
+    "section": "auto-cad",
+    "timeout": 300,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": true,
+        "keywords": [
+          ".obj",
+          "output_url",
+          "converted",
+          "obj format",
+          "/files/models3d/"
+        ],
+        "label": "Convert tool called \u2014 OBJ output referenced",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "file not found",
+          "conversion failed",
+          "unable to convert",
+          "could not find",
+          "does not exist"
+        ],
+        "label": "No error reported",
+        "type": "not_contains"
+      }
+    ],
+    "id": "WS-CAD-03",
+    "model_slug": "auto-cad",
+    "name": "CAD Workspace \u2014 Convert STL to OBJ",
+    "prompt": "I have a file called smoke_box.stl in the workspace. Please convert it to OBJ format and tell me the output URL.",
+    "section": "auto-cad",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": true,
+        "keywords": [
+          "```openscad",
+          "```scad",
+          "module gear",
+          "module spur",
+          "teeth",
+          "module =",
+          "modul ="
+        ],
+        "label": "OpenSCAD or parametric geometry code present",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "teeth",
+          "num_teeth",
+          "tooth_count",
+          "module",
+          "modul",
+          "face_width",
+          "bore"
+        ],
+        "label": "Named tooth/module variables",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "png_url",
+          ".png",
+          ".stl",
+          "rendered",
+          "preview",
+          "/files/models3d/"
+        ],
+        "label": "Render called \u2014 PNG or STL referenced",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "import cadquery",
+          "import build123d",
+          "cq.Workplane"
+        ],
+        "label": "No CadQuery import",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-CAD-01",
+    "model_slug": "cadquerydesigner",
+    "name": "CAD Designer Persona \u2014 Spur Gear",
+    "prompt": "Design a spur gear with 20 teeth, module 2, 10mm face width, and a 6mm bore. All parameters must be named variables. Render and show me the preview.",
+    "section": "auto-cad",
+    "timeout": 300,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": true,
+        "keywords": [
+          "```openscad",
+          "```scad",
+          "module ",
+          "linear_extrude",
+          "cube(",
+          "cylinder("
+        ],
+        "label": "OpenSCAD code block present",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "nozzle_dia",
+          "nozzle",
+          "wall_count",
+          "overhang",
+          "clearance",
+          "layer_height"
+        ],
+        "label": "DfAM parameters declared",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "chamfer",
+          "45",
+          "overhang",
+          "support",
+          "angle"
+        ],
+        "label": "Chamfer or overhang mitigation referenced",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "m2.5",
+          "2.5",
+          "hole",
+          "mount",
+          "screw",
+          "cylinder"
+        ],
+        "label": "M2.5 / mounting holes addressed",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "png_url",
+          ".png",
+          ".stl",
+          "rendered",
+          "preview",
+          "/files/models3d/"
+        ],
+        "label": "Render called \u2014 artifact referenced",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-CAD-02",
+    "model_slug": "printabilityengineer",
+    "name": "Printability Engineer Persona \u2014 FDM Bracket Analysis",
+    "prompt": "I need a wall-mount bracket for a Raspberry Pi 4. Design it for FDM printing on a 0.4mm nozzle with PETG. The bracket must hold the Pi securely (58\u00d749mm board, M2.5 holes at corners), with a 45\u00b0 chamfer on any overhang. Declare nozzle_dia, wall_count, overhang_limit_deg, and clearance as named variables. Render the result.",
+    "section": "auto-cad",
+    "timeout": 300,
+    "workspace_tier": "ollama"
+  }
+]

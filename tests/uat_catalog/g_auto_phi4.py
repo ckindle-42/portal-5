@@ -12,103 +12,20 @@ re-identified (Phi-4-lineage-dropped) persona.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from tests.uat_catalog._shared import (  # noqa: F401
     _CC01_ASSERTIONS,
     _CC01_ASSERTIONS_BENCH,
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [  # -----------------------------------------------------------------------
-    {
-        "id": "WS-PHI4-01",
-        "name": "STEM Reasoning — Eigenvalue Derivation",
-        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-phi4" retired
-        # (model-tied). See module docstring — phi4-reasoning is confirmed
-        # crash-prone on this host, so this exercises auto-reasoning's
-        # actual served model rather than a ?model= override.
-        "section": "auto-reasoning (STEM reasoning)",
-        "model_slug": "auto-reasoning",
-        "via_dispatcher": True,
-        "timeout": 240,
-        "workspace_tier": "ollama",
-        "prompt": (
-            "/nothink\n"
-            "Find the eigenvalues and eigenvectors of the matrix A = [[4, 1], [2, 3]]. "
-            "Show the characteristic polynomial derivation, then solve for eigenvalues, "
-            "then find the eigenvectors. Express answers exactly (no floating-point)."
-        ),
-        "assertions": [
-            {
-                "type": "any_of",
-                "label": "Characteristic polynomial",
-                "keywords": [
-                    "characteristic",
-                    "det",
-                    "lambda",
-                    "determinant",
-                    "(4-λ)",
-                    "(4 - λ)",
-                    "λ²",
-                ],
-            },
-            {
-                "type": "any_of",
-                "label": "Correct eigenvalues (2 and 5)",
-                "keywords": [
-                    "λ = 5",
-                    "λ = 2",
-                    "λ=5",
-                    "λ=2",
-                    "eigenvalue.*5",
-                    "eigenvalue.*2",
-                    "= 5",
-                    "= 2",
-                ],
-                "critical": True,
-            },
-            {
-                "type": "any_of",
-                "label": "Eigenvector computed",
-                "keywords": ["eigenvector", "v =", "vector", "[1,", "[2,", "null space", "kernel"],
-            },
-            {"type": "min_length", "label": "Full derivation shown", "chars": 400},
-        ],
-    },
-    {
-        "id": "WS-PHI4-02",
-        "name": "STEM Reasoning — Physics Derivation",
-        # See WS-PHI4-01's comment / module docstring.
-        "section": "auto-reasoning (STEM reasoning)",
-        "model_slug": "auto-reasoning",
-        "via_dispatcher": True,
-        "timeout": 240,
-        "workspace_tier": "ollama",
-        "prompt": (
-            "/nothink\n"
-            "Derive the escape velocity formula from energy conservation principles. "
-            "Start from kinetic energy equals gravitational potential energy, define all variables, "
-            "and show each algebraic step. State the final formula and evaluate it for Earth "
-            "(M=5.97×10²⁴ kg, R=6.37×10⁶ m, G=6.67×10⁻¹¹)."
-        ),
-        "assertions": [
-            {
-                "type": "any_of",
-                "label": "Energy conservation setup",
-                "keywords": ["kinetic", "potential", "mv²", "½mv", "GMm/r", "energy conservation"],
-                "critical": True,
-            },
-            {
-                "type": "any_of",
-                "label": "Final formula present",
-                "keywords": ["v_e", "v =", "escape", "sqrt(2GM", "√(2GM", "2GM/R"],
-                "critical": True,
-            },
-            {
-                "type": "any_of",
-                "label": "Numerical result ~11.2 km/s",
-                "keywords": ["11.2", "11,200", "11.18", "11 km/s", "~11"],
-            },
-            {"type": "min_length", "label": "Step-by-step derivation", "chars": 400},
-        ],
-    },
-]
+
+def _load_catalog(name: str) -> list[dict]:
+    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"uat_catalog_{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+TESTS: list[dict] = _load_catalog("g_auto_phi4")

@@ -1,0 +1,210 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "return",
+          "missing",
+          "None",
+          "forgot",
+          "implicit",
+          "no return"
+        ],
+        "label": "Diagnoses missing return",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "def ",
+          "return ",
+          "average",
+          "fix",
+          "corrected"
+        ],
+        "label": "Shows fix with code",
+        "type": "any_of"
+      },
+      {
+        "chars": 400,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-02A",
+    "model_slug": "auto-coding",
+    "name": "Agentic Coder \u2014 Bug Fix Plan",
+    "prompt": "I have a Python function that's supposed to calculate a running average but returns None instead of the computed value. Explain how you would diagnose and fix this bug \u2014 describe the likely cause, the fix, and how you would verify the fix works. Include example code. Do NOT use any tools or execute code \u2014 respond with text and inline code only.",
+    "route_params": {
+      "variant": "laguna"
+    },
+    "section": "auto-coding (agentic/laguna)",
+    "timeout": 300,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "validate",
+          "check",
+          "empty",
+          "required",
+          "email",
+          "format"
+        ],
+        "label": "Identifies validation requirements",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "request.json",
+          "400",
+          "abort",
+          "jsonify",
+          "if not",
+          "raise"
+        ],
+        "label": "Shows code edit",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "test",
+          "verify",
+          "curl",
+          "assert",
+          "confirm",
+          "pytest"
+        ],
+        "label": "Mentions testing/verification",
+        "type": "any_of"
+      },
+      {
+        "chars": 500,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "P-D-CA01",
+    "model_slug": "auto-coding",
+    "name": "Agentic Coder \u2014 Refactor Plan with Targeted Edits",
+    "prompt": "I need to add input validation to an existing Flask route. The route currently accepts POST JSON with 'username' and 'email' fields but does no validation. Describe your approach: (1) what to check before any code changes, (2) the minimal targeted edit to add validation, (3) how to verify the change. Respond as text with inline code \u2014 do NOT execute code or use tools.",
+    "route_params": {
+      "variant": "laguna"
+    },
+    "section": "auto-coding (agentic/laguna)",
+    "timeout": 300,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "step",
+          "first",
+          "1.",
+          "1)",
+          "phase",
+          "then"
+        ],
+        "label": "Step-by-step structure",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "class",
+          "encapsulate",
+          "object",
+          "__init__"
+        ],
+        "label": "Class extraction mentioned",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "pytest",
+          "fixture",
+          "test",
+          "mock",
+          "assert"
+        ],
+        "label": "Testing addressed",
+        "type": "any_of"
+      },
+      {
+        "chars": 400,
+        "label": "Substantive plan",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-26",
+    "model_slug": "auto-coding",
+    "name": "Uncensored Agentic Coder \u2014 Refactor Plan",
+    "prompt": "I have a 500-line Python module with 8 functions, no tests, and globals used as state. Describe a step-by-step refactor plan to make it testable: eliminate globals, extract a class, and add a pytest fixture. Be specific about what to do in each step.",
+    "route_params": {
+      "variant": "uncensored-agentic"
+    },
+    "section": "auto-coding (uncensored-agentic)",
+    "timeout": 180,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "requirements",
+          "pyproject",
+          "main.py",
+          ".py",
+          "redis",
+          "middleware"
+        ],
+        "label": "Files mentioned",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "redis",
+          "slowapi",
+          "limits",
+          "aioredis",
+          "install",
+          "pip",
+          "uv"
+        ],
+        "label": "Dependencies addressed",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "test",
+          "pytest",
+          "assert",
+          "mock",
+          "rate limit"
+        ],
+        "label": "Testing mentioned",
+        "type": "any_of"
+      },
+      {
+        "chars": 300,
+        "label": "Substantive decomposition",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-27",
+    "model_slug": "auto-coding",
+    "name": "Agentic Lite \u2014 SWE Task Decomposition",
+    "prompt": "Break down this task into actionable subtasks: Add rate limiting to a FastAPI endpoint using Redis. List what files to create or modify, what dependencies to add, and what tests to write.",
+    "route_params": {
+      "variant": "lite"
+    },
+    "section": "auto-coding (agentic/lite)",
+    "timeout": 180,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  }
+]

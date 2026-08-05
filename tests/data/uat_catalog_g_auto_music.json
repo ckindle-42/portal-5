@@ -1,0 +1,60 @@
+[
+  {
+    "artifact_ext": "wav",
+    "assertions": [
+      {
+        "keywords": [
+          "an error occurred",
+          "tool error",
+          "failed to generate",
+          "generation failed",
+          "unavailable"
+        ],
+        "label": "No error",
+        "type": "not_contains"
+      },
+      {
+        "label": "WAV \u22655s",
+        "min_seconds": 5.0,
+        "type": "wav_valid"
+      }
+    ],
+    "force_unload_before": true,
+    "id": "WS-12",
+    "media_kind": "sound",
+    "model_slug": "auto-music",
+    "name": "Music Producer \u2014 Dark Ambient Generation",
+    "prompt": "Generate a 20-second piece: dark ambient electronic, cinematic tension, slow evolving pads, subtle percussion, minor key, suitable for a suspense scene.",
+    "section": "auto-music",
+    "timeout": 180,
+    "workspace_tier": "media_heavy"
+  },
+  {
+    "artifact_ext": "wav",
+    "assertions": [
+      {
+        "keywords": [
+          "error",
+          "failed",
+          "unavailable"
+        ],
+        "label": "No error",
+        "type": "not_contains"
+      },
+      {
+        "label": "WAV \u22651.5s",
+        "min_seconds": 1.2,
+        "type": "wav_valid"
+      }
+    ],
+    "force_unload_before": true,
+    "id": "T-09",
+    "media_kind": "voice",
+    "model_slug": "auto-music",
+    "name": "TTS \u2014 British Male Voice",
+    "prompt": "Read the following text aloud using a British male voice (bm_george): \"Portal 5 operates entirely on local hardware. Your data never leaves your machine. All inference runs locally through Ollama on Apple Silicon.\"",
+    "section": "auto-music",
+    "timeout": 120,
+    "workspace_tier": "media_heavy"
+  }
+]

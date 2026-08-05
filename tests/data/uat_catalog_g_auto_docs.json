@@ -1,0 +1,394 @@
+[
+  {
+    "artifact_ext": "docx",
+    "assertions": [
+      {
+        "critical": true,
+        "keywords": [
+          "error",
+          "failed",
+          "unable to create"
+        ],
+        "label": "No error message",
+        "type": "not_contains"
+      },
+      {
+        "label": "DOCX file opens without error",
+        "type": "docx_valid"
+      }
+    ],
+    "id": "WS-10",
+    "model_slug": "auto-documents",
+    "name": "Document Builder \u2014 Change Management DOCX",
+    "prompt": "Create a Word document: \"Change Management Procedure for OT Environments\". Include: Purpose, Scope, Definitions (table: Term | Definition, at least 4 rows), Change Request Process (numbered steps), Risk Assessment Matrix (table: Risk | Likelihood | Impact | Mitigation), and Approvals section. Save as a .docx file.",
+    "section": "auto-documents",
+    "timeout": 180,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "prerequisite",
+          "before you begin",
+          "requirements",
+          "what you need",
+          "setup",
+          "getting started",
+          "install",
+          "you'll need",
+          "make sure"
+        ],
+        "label": "Prerequisites section",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "verify",
+          "confirm",
+          "you should see",
+          "check",
+          "test",
+          "validate",
+          "ensure",
+          "make sure",
+          "should be able"
+        ],
+        "label": "Verification steps",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "simply",
+          "just run",
+          "easily",
+          "trivially"
+        ],
+        "label": "Not condescending",
+        "type": "not_contains"
+      },
+      {
+        "chars": 800,
+        "label": "Comprehensive guide",
+        "type": "min_length"
+      }
+    ],
+    "id": "P-W04",
+    "model_slug": "techwriter",
+    "name": "Tech Writer \u2014 Audience-Appropriate Docs",
+    "prompt": "Write a 'Getting Started' guide for a junior developer joining our team. They need to set up a local development environment for a Python FastAPI project. The project uses Docker Compose, PostgreSQL, and Redis. They have Python experience but have never used Docker.",
+    "section": "auto-documents",
+    "timeout": 360,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "yes",
+          "this is a problem",
+          "blocking",
+          "issue"
+        ],
+        "label": "Direct answer first",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "event loop",
+          "blocking",
+          "async",
+          "await"
+        ],
+        "label": "Event loop explained",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "async sqlalchemy",
+          "run_in_executor",
+          "asyncpg",
+          "fix"
+        ],
+        "label": "Fix provided",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-W05",
+    "model_slug": "phi4specialist",
+    "name": "Phi-4 Technical Analyst \u2014 Conclusion First",
+    "prompt": "Analyze this system: A FastAPI app uses a synchronous SQLAlchemy session inside async route handlers. Is this a problem? Should it be fixed?",
+    "section": "auto-documents",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "artifact_ext": "docx",
+    "assertions": [
+      {
+        "keywords": [
+          "error",
+          "failed",
+          "unable to create"
+        ],
+        "label": "No error",
+        "type": "not_contains"
+      },
+      {
+        "label": "DOCX file valid",
+        "type": "docx_valid"
+      }
+    ],
+    "id": "T-04",
+    "model_slug": "auto-documents",
+    "name": "Document Generation \u2014 DOCX with Table",
+    "prompt": "Create a Word document: \"Vendor Security Assessment Checklist\". Include a table with columns: Control Area | Check | Status | Notes. Pre-populate 6 rows covering: Data Encryption, Access Control, Patch Management, Incident Response, Data Residency, SOC 2 Certification. Add a Summary section after the table. Save as a .docx file.",
+    "section": "auto-documents",
+    "timeout": 180,
+    "workspace_tier": "ollama"
+  },
+  {
+    "artifact_ext": "xlsx",
+    "assertions": [
+      {
+        "keywords": [
+          "an error occurred",
+          "tool error",
+          "failed to generate",
+          "generation failed",
+          "unable to create"
+        ],
+        "label": "No error",
+        "type": "not_contains"
+      },
+      {
+        "label": "XLSX file valid",
+        "type": "xlsx_valid"
+      }
+    ],
+    "id": "T-05",
+    "model_slug": "auto-documents",
+    "name": "Document Generation \u2014 Excel Tracker",
+    "prompt": "Create an Excel workbook: \"Security Incident Tracker\". Columns: Incident ID | Date | Severity (Critical/High/Medium/Low) | Affected System | Status (Open/In Progress/Resolved) | Owner | Resolution Date. Add 5 sample rows with realistic incident data.",
+    "section": "auto-documents",
+    "timeout": 180,
+    "workspace_tier": "ollama"
+  },
+  {
+    "artifact_ext": "pptx",
+    "assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "error generating",
+          "failed to create",
+          "unable to generate"
+        ],
+        "label": "No error",
+        "type": "not_contains"
+      },
+      {
+        "critical": false,
+        "label": "PPTX has 5 slides",
+        "min_slides": 5,
+        "type": "pptx_valid"
+      }
+    ],
+    "id": "T-06",
+    "model_slug": "auto-documents",
+    "name": "Document Generation \u2014 PowerPoint Zero Trust",
+    "prompt": "Create a 5-slide PowerPoint: \"Introduction to Zero Trust Networking\". Slide 1: Title. Slides 2\u20135: content slides with title + 3 bullet points each. Topics: (2) What is Zero Trust, (3) Core Principles, (4) Implementation Steps, (5) Common Mistakes.",
+    "section": "auto-documents",
+    "timeout": 180,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "cannot read",
+          "unable to read",
+          "can't access"
+        ],
+        "label": "No 'cannot read'",
+        "type": "not_contains"
+      },
+      {
+        "chars": 150,
+        "label": "Substantive summary",
+        "type": "min_length"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "Network Security",
+          "Access Control",
+          "Introduction",
+          "Authentication",
+          "least privilege",
+          "RBAC"
+        ],
+        "label": "Document content found \u2014 proves read_word_document ran",
+        "type": "any_of"
+      }
+    ],
+    "id": "T-07",
+    "model_slug": "auto-documents",
+    "name": "Document Reading \u2014 Parse Uploaded Word File",
+    "prompt": "Read this document. Tell me: how many sections or headings it has, summarize the main content of each section in one sentence, and list any tables present with their column headers.",
+    "section": "auto-documents",
+    "skip_if": "no_docx_fixture",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "Name",
+          "Value"
+        ],
+        "label": "Column headers found \u2014 proves read_excel ran",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "Test",
+          "42"
+        ],
+        "label": "Row data found",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "file not found",
+          "cannot read",
+          "failed to read"
+        ],
+        "label": "No file-not-found error",
+        "type": "not_contains"
+      }
+    ],
+    "fixture": "sample.xlsx",
+    "id": "TV-07",
+    "model_slug": "auto-documents",
+    "name": "Tool Validation \u2014 read_excel proof (sample.xlsx)",
+    "pre_stage_audio": true,
+    "prompt": "Use read_excel to read the file at /app/data/generated/uploads/sample.xlsx and tell me the column headers and every data value in the spreadsheet.",
+    "section": "auto-documents",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "Portal 5 UAT Fixture",
+          "Portal 5",
+          "UAT Fixture",
+          "Section 1",
+          "Overview"
+        ],
+        "label": "Fixture text found \u2014 proves read_pdf ran",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "file not found",
+          "cannot read",
+          "pdfplumber not installed"
+        ],
+        "label": "No file-not-found error",
+        "type": "not_contains"
+      }
+    ],
+    "fixture": "sample.pdf",
+    "id": "TV-08",
+    "model_slug": "auto-documents",
+    "name": "Tool Validation \u2014 read_pdf proof (sample.pdf)",
+    "pre_stage_audio": true,
+    "prompt": "Use read_pdf to read the file at /app/data/generated/uploads/sample.pdf and tell me the text content on each page.",
+    "section": "auto-documents",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "Test Presentation",
+          "acceptance testing",
+          "Sample content"
+        ],
+        "label": "Slide content found \u2014 proves read_powerpoint ran",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "file not found",
+          "cannot read",
+          "failed to read"
+        ],
+        "label": "No file-not-found error",
+        "type": "not_contains"
+      }
+    ],
+    "fixture": "sample.pptx",
+    "id": "TV-09",
+    "model_slug": "auto-documents",
+    "name": "Tool Validation \u2014 read_powerpoint proof (sample.pptx)",
+    "pre_stage_audio": true,
+    "prompt": "Use read_powerpoint to read the file at /app/data/generated/uploads/sample.pptx and tell me the title and content of each slide.",
+    "section": "auto-documents",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "Network Security Policy",
+          "Access Control Framework",
+          "Network Security"
+        ],
+        "label": "Document title found \u2014 proves read_word_document ran",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "Introduction",
+          "Access Control Policy",
+          "Authentication",
+          "Conclusion"
+        ],
+        "label": "Section headings found",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "file not found",
+          "cannot read",
+          "failed to read"
+        ],
+        "label": "No file-not-found error",
+        "type": "not_contains"
+      }
+    ],
+    "fixture": "sample.docx",
+    "id": "TV-10",
+    "model_slug": "auto-documents",
+    "name": "Tool Validation \u2014 read_word_document proof (sample.docx)",
+    "pre_stage_audio": true,
+    "prompt": "Use read_word_document to read the file at /app/data/generated/uploads/sample.docx and tell me the document title and list each section heading.",
+    "section": "auto-documents",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  }
+]

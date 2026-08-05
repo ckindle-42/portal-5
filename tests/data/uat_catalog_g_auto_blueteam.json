@@ -1,0 +1,116 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "isolat",
+          "contain",
+          "disconnect",
+          "block"
+        ],
+        "label": "Isolation first",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "credential",
+          "reset",
+          "password",
+          "rotate",
+          "revoke",
+          "lock",
+          "disable",
+          "admin account",
+          "administrator",
+          "account",
+          "access",
+          "compromised account",
+          "suspend",
+          "authenticate",
+          "domain controller",
+          "dc01"
+        ],
+        "label": "Admin account action",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "immediately",
+          "now",
+          "step",
+          "first",
+          "priority",
+          "urgent",
+          "right now"
+        ],
+        "label": "Action-oriented",
+        "type": "any_of"
+      },
+      {
+        "chars": 500,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-07",
+    "model_slug": "auto-security",
+    "name": "Blue Team \u2014 Multi-Stage Incident Triage",
+    "prompt": "We are mid-incident. Timeline: 14:03 \u2014 EDR alert: PowerShell download cradle on WS-42. 14:11 \u2014 DNS logs show WS-42 querying a DGA-like domain 6x. 14:19 \u2014 Firewall: WS-42 initiating outbound HTTPS to 91.109.x.x (known TOR exit). 14:31 \u2014 Auth logs: admin account used from WS-42, destination: DC01. What do we do right now? Provide a triage and containment plan.",
+    "route_params": {
+      "variant": "blueteam"
+    },
+    "section": "auto-security (blueteam)",
+    "timeout": 180,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "what type",
+          "what kind",
+          "which environment",
+          "more information",
+          "tell me more",
+          "clarify",
+          "need more",
+          "can you provide",
+          "could you share",
+          "describe",
+          "what system",
+          "what happened",
+          "what anomaly",
+          "more details",
+          "what do you mean",
+          "elaborate",
+          "context",
+          "specifics",
+          "nature of",
+          "what are you seeing",
+          "what triggered"
+        ],
+        "label": "Asks for context",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "step 1: isolate",
+          "immediately isolate",
+          "first, isolate"
+        ],
+        "label": "No immediate IR plan",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-S03",
+    "model_slug": "blueteamdefender",
+    "name": "Blue Team Defender \u2014 Asks for OT Context",
+    "prompt": "Anomaly detected. Respond.",
+    "section": "auto-blueteam",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  }
+]

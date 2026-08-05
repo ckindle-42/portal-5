@@ -1,0 +1,199 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "execute_python",
+          "execute python",
+          "run python",
+          "python code",
+          "python",
+          "execute code",
+          "run code",
+          "code execution"
+        ],
+        "label": "execute_python referenced",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "remember",
+          "store",
+          "save",
+          "key",
+          "row_count",
+          "memory"
+        ],
+        "label": "remember/store referenced",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "step",
+          "first",
+          "then",
+          "next",
+          "order",
+          "sequence",
+          "1.",
+          "2.",
+          "3.",
+          "finally",
+          "afterward",
+          "followed by",
+          "after that",
+          "in order",
+          "call",
+          "invoke"
+        ],
+        "label": "Sequential plan present",
+        "type": "any_of"
+      },
+      {
+        "chars": 100,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-TOOLS-01",
+    "model_slug": "tools-specialist",
+    "name": "Tool Composer \u2014 Multi-Step Tool Plan",
+    "prompt": "I need to: (1) execute Python code that reads /workspace/data.csv and counts rows, (2) store the row count in memory under the key 'row_count', (3) recall 'row_count' and return it to me. Plan the tool calls in order. Available tools: execute_python, remember, recall.",
+    "section": "tools-specialist",
+    "timeout": 180,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "334067"
+        ],
+        "label": "Correct computed output (334067) \u2014 proves execute_bash ran",
+        "type": "contains"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "cannot execute",
+          "unable to run",
+          "don't have the ability",
+          "can't run"
+        ],
+        "label": "Did not refuse tool use",
+        "type": "not_contains"
+      }
+    ],
+    "id": "TV-05",
+    "model_slug": "auto-coding",
+    "name": "Tool Validation \u2014 execute_bash proof (arithmetic)",
+    "prompt": "Use execute_bash to run this script and return ONLY the numeric result:\n```bash\necho $((731 * 457))\n```",
+    "section": "tools-specialist",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "334067"
+        ],
+        "label": "Correct computed output (334067) \u2014 proves execute_nodejs ran",
+        "type": "contains"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "cannot execute",
+          "unable to run",
+          "don't have the ability",
+          "can't run"
+        ],
+        "label": "Did not refuse tool use",
+        "type": "not_contains"
+      }
+    ],
+    "id": "TV-06",
+    "model_slug": "auto-coding",
+    "name": "Tool Validation \u2014 execute_nodejs proof (arithmetic)",
+    "prompt": "Use execute_nodejs to run this code and return ONLY the numeric result:\n```javascript\nconsole.log(731 * 457);\n```",
+    "section": "tools-specialist",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "56154"
+        ],
+        "label": "Correct computed output (56154) \u2014 proves tool ran",
+        "type": "contains"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "cannot execute",
+          "unable to run",
+          "don't have the ability",
+          "can't run"
+        ],
+        "label": "Did not refuse tool use",
+        "type": "not_contains"
+      }
+    ],
+    "force_unload_before": true,
+    "id": "TV-01",
+    "model_slug": "auto-coding",
+    "name": "Tool Validation \u2014 execute_python proof (auto-coding/qwen3-coder baseline)",
+    "prompt": "Use execute_python to run this code and return ONLY the numeric result:\n```python\nprint(42 * 1337)\n```",
+    "section": "tools-specialist",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "execute_python",
+          "execute python",
+          "python",
+          "run code"
+        ],
+        "label": "execute_python in plan",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "remember",
+          "store",
+          "save",
+          "line_count",
+          "memory"
+        ],
+        "label": "memory store in plan",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "step",
+          "first",
+          "then",
+          "next",
+          "1.",
+          "2.",
+          "order"
+        ],
+        "label": "Ordered steps",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-TOOLS-01",
+    "model_slug": "toolcomposer",
+    "name": "toolcomposer persona \u2014 File Count and Store",
+    "prompt": "I need to count the lines in /workspace/report.txt using execute_python, then store the count in memory as 'line_count'. What tool calls do you plan, and in what order?",
+    "section": "tools-specialist",
+    "timeout": 180,
+    "workspace_tier": "ollama"
+  }
+]

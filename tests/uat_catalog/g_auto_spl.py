@@ -2,74 +2,20 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from tests.uat_catalog._shared import (  # noqa: F401
     _CC01_ASSERTIONS,
     _CC01_ASSERTIONS_BENCH,
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [  # -----------------------------------------------------------------------
-    {
-        "id": "WS-04",
-        "name": "SPL Engineer — Refactor Slow Search",
-        "section": "auto-spl",
-        "model_slug": "auto-spl",
-        "timeout": 160,
-        "max_wait_no_progress": 1200,  # qwen3-coder-next-abliterated regularly hits 900s cap
-        "workspace_tier": "ollama",
-        "prompt": (
-            "Refactor this slow SPL search to use tstats for performance:\n"
-            "index=windows EventCode=4624 LogonType=3 | stats count by src_ip, dest_host, user, _time | where count > 10\n"
-            "Also explain why the original is slow and what tstats gains us."
-        ),
-        "assertions": [
-            {"type": "contains", "label": "tstats used", "keywords": ["tstats"]},
-            {"type": "contains", "label": "count filter preserved", "keywords": ["count", "> 10"]},
-            {
-                "type": "any_of",
-                "label": "Performance explanation",
-                "keywords": [
-                    "tsidx",
-                    "faster",
-                    "performance",
-                    "index",
-                    "raw event",
-                    "accelerat",
-                    "tsmaps",
-                    "bloom",
-                ],
-            },
-            {
-                "type": "not_contains",
-                "label": "No threat intel detour",
-                "keywords": ["threat intelligence", "attacker", "mitre att&ck"],
-                "critical": False,
-            },
-        ],
-    },
-    {
-        "id": "P-S06",
-        "name": "SPL Engineer — Redirects Non-SPL Request",
-        "section": "auto-spl",
-        "model_slug": "splunksplgineer",
-        "timeout": 60,
-        "workspace_tier": "ollama",
-        "prompt": (
-            "We just had a security incident. What frameworks should we use for our incident "
-            "response and what tools do you recommend for threat hunting?"
-        ),
-        "assertions": [
-            {
-                "type": "any_of",
-                "label": "Redirects to SPL scope",
-                "keywords": ["spl", "splunk", "redirect", "only", "scope", "my function"],
-            },
-            {
-                "type": "not_contains",
-                "label": "No IR framework answer",
-                "keywords": ["nist 800-61", "sans ir", "mitre att&ck for ir", "step 1: identify"],
-                "critical": True,
-            },
-        ],
-    },
-]
+
+def _load_catalog(name: str) -> list[dict]:
+    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"uat_catalog_{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+TESTS: list[dict] = _load_catalog("g_auto_spl")

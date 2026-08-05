@@ -1,0 +1,196 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "cip-003-9",
+          "r1",
+          "1.2.6"
+        ],
+        "label": "Standard cited precisely",
+        "type": "contains"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "april 1, 2026",
+          "april 2026",
+          "2026",
+          "effective date",
+          "implementation date",
+          "deadline",
+          "enforcement date",
+          "now in effect",
+          "now enforceable",
+          "currently enforceable"
+        ],
+        "label": "Enforceability date",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "assess",
+          "inventory",
+          "identif",
+          "review",
+          "determine",
+          "evaluate",
+          "audit",
+          "gap analysis",
+          "next step",
+          "action"
+        ],
+        "label": "Immediate actions given",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "sme",
+          "expert",
+          "attorney",
+          "legal",
+          "verify",
+          "professional",
+          "consult",
+          "qualified",
+          "specialist",
+          "counsel"
+        ],
+        "label": "Refers user to SME",
+        "type": "any_of"
+      }
+    ],
+    "id": "WS-16",
+    "model_slug": "auto-compliance",
+    "name": "Compliance Analyst \u2014 CIP-003-9 R1.2.6",
+    "prompt": "We are a medium-sized Transmission Owner. We have never classified any assets under CIP-003 because we believed our distributed control systems were Low impact only. Our external auditor just told us CIP-003-9 R1.2.6 is now enforceable and may apply to some of our systems. What does CIP-003-9 R1.2.6 require, when is it enforceable, and what should we do immediately to assess our exposure?",
+    "section": "auto-compliance",
+    "timeout": 360,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "cip-003-9",
+          "cip 003-9",
+          "cip-003 r1.2.6",
+          "cip003-9",
+          "1.2.6",
+          "r1.2.6",
+          "part 1.2.6",
+          "requirement 1.2.6"
+        ],
+        "label": "Precise citation",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "april 1, 2026",
+          "april 2026",
+          "2026",
+          "effective date",
+          "implementation date",
+          "deadline",
+          "enforcement date"
+        ],
+        "label": "Enforceability date",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "priority-1",
+          "priority 1",
+          "urgent",
+          "immediate"
+        ],
+        "label": "Priority-1 flagged",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "sme",
+          "legal",
+          "expert",
+          "verify",
+          "counsel",
+          "consult",
+          "review",
+          "specialist",
+          "professional",
+          "qualified"
+        ],
+        "label": "SME review recommended",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-C01",
+    "model_slug": "nerccipcomplianceanalyst",
+    "name": "NERC CIP Analyst \u2014 CIP-003-9 Full Citation",
+    "prompt": "We are a Distribution Provider with some assets that have routable external connectivity to a vendor cloud portal for remote monitoring. A colleague says CIP-003-9 R1 Part 1.2.6 applies to us now. Are they right? What does this require and what is the urgency?",
+    "section": "auto-compliance",
+    "timeout": 360,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "strive",
+          "as appropriate",
+          "where feasible",
+          "timely"
+        ],
+        "label": "Aspirational language flagged",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "shall",
+          "must",
+          "will patch",
+          "required to",
+          "are required",
+          "must be applied",
+          "shall be applied"
+        ],
+        "label": "Rewrite uses mandatory language",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "[entity name]"
+        ],
+        "label": "Placeholder preserved",
+        "type": "contains"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "35 calendar",
+          "days",
+          "patch window",
+          "calendar days",
+          "window",
+          "timeframe",
+          "time frame",
+          "period",
+          "deadline",
+          "within"
+        ],
+        "label": "Time window specified",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-C02",
+    "model_slug": "cippolicywriter",
+    "name": "CIP Policy Writer \u2014 Aspirational Language Rejection",
+    "prompt": "Review and fix this draft policy statement:\n\n\"[ENTITY NAME] will strive to ensure that, as appropriate and where feasible, security patches are applied to BES Cyber Systems in a timely manner.\"\n\nOutput format:\n1. Problems: list each issue with the original\n2. Rewrite: the corrected policy statement using mandatory language (shall/must) and a specific time window (e.g., 35 calendar days)\n3. Why: one sentence on why each change matters for audit",
+    "section": "auto-compliance",
+    "timeout": 360,
+    "workspace_tier": "ollama"
+  }
+]

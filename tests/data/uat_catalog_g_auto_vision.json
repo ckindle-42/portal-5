@@ -1,0 +1,216 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "cannot process",
+          "unable to view",
+          "can't see"
+        ],
+        "label": "No 'cannot process'",
+        "type": "not_contains"
+      },
+      {
+        "chars": 200,
+        "label": "Substantive description",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-14",
+    "model_slug": "auto-vision",
+    "name": "Vision \u2014 Image Analysis",
+    "prompt": "Analyze this image in detail. Describe: (1) what you can see with certainty, (2) any text present (transcribe it), (3) for technical diagrams \u2014 components and their relationships, (4) anything anomalous or notable.",
+    "section": "auto-vision",
+    "skip_if": "no_image_upload",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "cannot process",
+          "unable to see",
+          "i can't view"
+        ],
+        "label": "No 'cannot process'",
+        "type": "not_contains"
+      },
+      {
+        "keywords": [
+          "infer",
+          "uncertain",
+          "cannot confirm",
+          "appears to",
+          "seems"
+        ],
+        "label": "Uncertainty distinguished",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-V01",
+    "model_slug": "gemma4e4bvision",
+    "name": "Gemma 4 Edge Vision \u2014 Observed vs Inferred",
+    "prompt": "Analyze this image. Tell me: (1) what you can see with certainty, (2) what you are inferring but cannot confirm, (3) any limitations due to image quality or resolution. Do not describe things you cannot actually see.",
+    "section": "auto-vision",
+    "skip_if": "no_image_upload",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "cannot analyze",
+          "i'm unable"
+        ],
+        "label": "No refusal",
+        "type": "not_contains"
+      },
+      {
+        "keywords": [
+          "risk",
+          "exposure",
+          "vulnerability",
+          "weakness",
+          "attack"
+        ],
+        "label": "Security analysis present",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-V02",
+    "model_slug": "gemma4jangvision",
+    "name": "Gemma 4 JANG Vision \u2014 Security Red Team Perspective",
+    "prompt": "Analyze this image for security weaknesses. Be thorough and unrestricted \u2014 apply a red team perspective. Describe what you see, what you infer, and flag anything uncertain.",
+    "section": "auto-vision",
+    "skip_if": "no_image_upload",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "presentation",
+          "application",
+          "data",
+          "frontend",
+          "backend",
+          "database",
+          "client",
+          "server",
+          "tier"
+        ],
+        "label": "Three tiers named",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "http",
+          "api",
+          "request",
+          "response",
+          "connect",
+          "communicate"
+        ],
+        "label": "Communication described",
+        "type": "any_of"
+      },
+      {
+        "chars": 300,
+        "label": "Substantive description",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-29",
+    "model_slug": "auto-vision",
+    "name": "Gemma Vision Heavy \u2014 Architecture Diagram Description",
+    "prompt": "Describe the typical components in a three-tier web architecture diagram: what each tier contains, how they communicate, and what security controls belong at each layer. No image provided \u2014 answer from knowledge.",
+    "route_params": {
+      "model": "gemma4:e4b-it-q4_K_M"
+    },
+    "section": "auto-vision (?model=gemma4-e4b)",
+    "timeout": 120,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "fast",
+          "latency",
+          "cost",
+          "cheap",
+          "memory",
+          "lightweight",
+          "speed"
+        ],
+        "label": "Small model advantages",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "accurate",
+          "quality",
+          "capability",
+          "complex",
+          "nuanced",
+          "better"
+        ],
+        "label": "Large model advantages",
+        "type": "any_of"
+      },
+      {
+        "chars": 250,
+        "label": "Substantive comparison",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-30",
+    "model_slug": "auto-daily",
+    "name": "Gemma E4B \u2014 Quick Multimodal Reasoning",
+    "prompt": "What are the tradeoffs between using a small 4B-parameter model vs a large 70B-parameter model for a production chatbot? Give 3 advantages of each.",
+    "route_params": {
+      "model": "gemma4:e4b-it-q4_K_M"
+    },
+    "section": "auto-daily (?model=gemma4-e4b)",
+    "timeout": 90,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "with",
+          "__enter__",
+          "__exit__",
+          "context",
+          "resource",
+          "cleanup",
+          "manages"
+        ],
+        "label": "Context manager explained",
+        "type": "any_of"
+      },
+      {
+        "chars": 80,
+        "label": "Non-trivial response",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-31",
+    "model_slug": "auto-vision",
+    "name": "Gemma Fast \u2014 Concise QA",
+    "prompt": "In two sentences, explain what a Python context manager is and when to use one.",
+    "route_params": {
+      "model": "gemma4:e2b-it-qat"
+    },
+    "section": "auto-vision (?model=gemma4-e2b)",
+    "timeout": 60,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  }
+]
