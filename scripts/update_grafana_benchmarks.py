@@ -13,14 +13,14 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from lib.grafana_panels import GREEN, RED, YELLOW
+
 PROJECT_ROOT = Path(__file__).parent.parent
 DASHBOARD_PATH = PROJECT_ROOT / "config/grafana/dashboards/portal5_benchmarks.json"
 DEFAULT_INPUT = "/tmp/bench_tps_results.json"
 
-# ── TPS colour thresholds ─────────────────────────────────────────────────────
-GREEN = "#73BF69"
-YELLOW = "#FFD700"
-RED = "#F2495C"
+
+# ── TPS helpers ───────────────────────────────────────────────────────────────
 
 
 def _bar_color(tps: float, peak: float) -> str:

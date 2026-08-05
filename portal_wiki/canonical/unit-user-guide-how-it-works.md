@@ -7,7 +7,7 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: scripts/embedding-launchd-wrapper.sh
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
 claims: []
 confidence: high
 tags:

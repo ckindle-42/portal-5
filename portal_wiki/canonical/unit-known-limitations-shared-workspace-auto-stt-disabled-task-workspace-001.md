@@ -11,7 +11,7 @@ sources:
   path: launch.sh
 - type: code
   path: scripts/lib/services.sh
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
 claims: []
 confidence: high
 tags:

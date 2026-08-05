@@ -14,18 +14,24 @@ import json
 import re
 import sys
 from collections import Counter, defaultdict
-from datetime import UTC, datetime
 from pathlib import Path
+
+from lib.grafana_panels import (
+    GRAY,
+    GREEN,
+    RED,
+    YELLOW,
+    failures_panel,
+    metadata_panel,
+    section_table,
+    summary_panel,
+    trend_table,
+)
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DASHBOARD_PATH = PROJECT_ROOT / "config/grafana/dashboards/portal5_uat.json"
 RESULTS_FILE = PROJECT_ROOT / "tests/UAT_RESULTS.md"
 CORPUS_DIR = PROJECT_ROOT / "tests/uat_corpus"
-
-GREEN = "#73BF69"
-YELLOW = "#FFD700"
-RED = "#F2495C"
-GRAY = "#888888"
 
 STATUS_ORDER = ["PASS", "WARN", "FAIL", "BLOCKED", "SKIP", "MANUAL"]
 STATUS_COLOR = {
@@ -123,85 +129,27 @@ def _parse_corpus_runs(corpus_dir: Path, last_n: int = 10) -> list[dict]:
     return runs
 
 
-# ── Panel builders ────────────────────────────────────────────────────────────
-
-
-def _bar(filled: int, total: int, color: str = GREEN) -> str:
-    if total == 0:
-        return '<div style="color:#555;font-size:10px">n/a</div>'
-    pct = round(filled / total * 100)
-    bar_color = color if filled > 0 else RED
-    bar_width = pct if filled > 0 else 0
-    return (
-        f'<div style="display:flex;align-items:center;gap:4px">'
-        f'<span style="width:42px;text-align:right;font-weight:bold;color:{bar_color}">{filled}/{total}</span>'
-        f'<div style="background:{bar_color};height:8px;width:{bar_width}%;border-radius:2px;max-width:80px"></div>'
-        f'<span style="color:#888;font-size:10px">{pct}%</span></div>'
-    )
+# ── Panel assembly ────────────────────────────────────────────────────────────
 
 
 def _build_summary_panel(summary: dict, total: int) -> str:
-    pass_ct = summary.get("PASS", 0)
-    warn_ct = summary.get("WARN", 0)
-    fail_ct = summary.get("FAIL", 0)
-    blocked_ct = summary.get("BLOCKED", 0)
-    skip_ct = summary.get("SKIP", 0)
-    manual_ct = summary.get("MANUAL", 0)
-    eligible = total - skip_ct - manual_ct
-    pct = round(100 * pass_ct / eligible) if eligible else 0
-    pass_color = GREEN if fail_ct + blocked_ct == 0 else (YELLOW if fail_ct <= 3 else RED)
-
-    legend = (
-        '<div style="font-size:10px;color:#666;margin-top:10px;text-align:left;'
-        'padding:6px 12px;border-top:1px solid #333;display:flex;gap:16px;flex-wrap:wrap">'
-        f'<span><b style="color:{GREEN}">PASS</b> — all assertions satisfied</span>'
-        f'<span><b style="color:{YELLOW}">WARN</b> — non-critical assertions failed (critical passed)</span>'
-        f'<span><b style="color:{RED}">FAIL</b> — one or more critical assertions failed</span>'
-        f'<span><b style="color:{GRAY}">BLOCKED</b> — test could not run (infra/model unavailable)</span>'
-        f'<span><b style="color:{GRAY}">SKIP</b> — excluded from this run (fixture missing, env gate)</span>'
-        f'<span><b style="color:#555">MANUAL</b> — requires human verification, not scored</span>'
-        f'<span style="color:#555">Pass rate = PASS ÷ eligible (excludes SKIP &amp; MANUAL)</span>'
-        "</div>"
-    )
-
-    return (
-        '<div style="display:flex;flex-direction:column;justify-content:center;height:100%">'
-        '<div style="display:flex;justify-content:space-around;align-items:center;'
-        'text-align:center;font-size:14px;padding:8px 0">'
-        f'<div><div style="font-size:28px;font-weight:bold;color:{GREEN}">{pass_ct}</div>'
-        f'<div style="color:#aaa">PASS</div></div>'
-        f'<div><div style="font-size:28px;font-weight:bold;color:{YELLOW}">{warn_ct}</div>'
-        f'<div style="color:#aaa">WARN</div></div>'
-        f'<div><div style="font-size:28px;font-weight:bold;color:{RED}">{fail_ct}</div>'
-        f'<div style="color:#aaa">FAIL</div></div>'
-        f'<div><div style="font-size:28px;font-weight:bold;color:{GRAY}">{blocked_ct}</div>'
-        f'<div style="color:#aaa">BLOCKED</div></div>'
-        f'<div><div style="font-size:28px;font-weight:bold;color:{GRAY}">{skip_ct}</div>'
-        f'<div style="color:#aaa">SKIP</div></div>'
-        f'<div><div style="font-size:28px;font-weight:bold;color:#555">{manual_ct}</div>'
-        f'<div style="color:#aaa">MANUAL</div></div>'
-        f'<div><div style="font-size:28px;font-weight:bold;color:{pass_color}">{pass_ct}/{eligible}</div>'
-        f'<div style="color:#aaa">Pass Rate ({pct}%)</div></div>'
-        "</div>"
-        f"{legend}"
-        "</div>"
+    return summary_panel(
+        summary,
+        total,
+        eligible_extra=("SKIP", "MANUAL"),
+        legend_extra=(
+            ("SKIP", GRAY, "excluded from this run (fixture missing, env gate)"),
+            ("MANUAL", "#555", "requires human verification, not scored"),
+        ),
+        pass_rate_note="Pass rate = PASS ÷ eligible (excludes SKIP &amp; MANUAL)",
     )
 
 
 def _build_metadata_panel(run_ts: str, total: int, fail_ct: int, blocked_ct: int) -> str:
-    health = (
-        "🟢 HEALTHY"
-        if fail_ct + blocked_ct == 0
-        else ("🟡 DEGRADED" if fail_ct <= 3 else "🔴 FAILING")
-    )
-    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    return (
-        '<div style="font-size:11px;color:#888;padding:2px 8px;display:flex;gap:16px;flex-wrap:wrap">'
-        f"<span><b>Source run:</b> {run_ts}</span>"
-        f"<span><b>Health:</b> {health}</span>"
-        f"<span><b>Total tests:</b> {total}</span>"
-        f"<span><b>Dashboard updated:</b> {now}</span>"
-        "</div>"
+    return metadata_panel(
+        [("Source run", run_ts), ("Total tests", str(total))],
+        fail_ct=fail_ct,
+        blocked_ct=blocked_ct,
     )
 
 
@@ -222,65 +170,14 @@ _SECTION_DESCRIPTIONS: dict[str, str] = {
 
 
 def _build_section_table(rows: list[dict]) -> str:
-    sections: dict[str, Counter] = defaultdict(Counter)
-    for r in rows:
-        sections[r["section"]][r["status"]] += 1
-
-    legend_items = "".join(
-        f'<tr><td style="font-family:monospace;font-weight:bold;color:#6b9cd4;white-space:nowrap;padding:2px 8px 2px 0">{k}</td>'
-        f'<td style="color:#888;font-size:10px;padding:2px 0">{v}</td></tr>'
-        for k, v in _SECTION_DESCRIPTIONS.items()
-        if k in sections
-    )
-    legend_html = (
-        '<details style="margin-bottom:8px;font-size:10px">'
-        '<summary style="cursor:pointer;color:#6b9cd4;padding:4px 0">▶ Section key — what each prefix covers</summary>'
-        '<div style="padding:6px 0;border-bottom:1px solid #333;margin-bottom:6px">'
-        f'<table style="border-collapse:collapse;width:100%">{legend_items}</table>'
-        "</div></details>"
-    )
-
-    header = (
-        '<tr style="background:#1f1f1f;position:sticky;top:0">'
-        '<th style="text-align:left">Section</th>'
-        '<th style="text-align:left;font-size:10px;color:#888">What it covers</th>'
-        '<th style="text-align:left">Pass</th>'
-        '<th style="text-align:right">Warn</th>'
-        '<th style="text-align:right">Fail</th>'
-        '<th style="text-align:right">Blk</th>'
-        '<th style="text-align:right">Total</th>'
-        '<th style="text-align:left;min-width:100px">Pass%</th></tr>'
-    )
-    table_rows = []
-    for i, sec in enumerate(sorted(sections)):
-        c = sections[sec]
-        total = sum(c.values())
-        pass_ct = c.get("PASS", 0)
-        fail_ct = c.get("FAIL", 0) + c.get("BLOCKED", 0)
-        eligible = total - c.get("SKIP", 0) - c.get("MANUAL", 0)
-        pct = round(100 * pass_ct / eligible) if eligible else 0
-        warn_only = fail_ct == 0 and pass_ct == 0 and c.get("WARN", 0) > 0
-        color = RED if fail_ct > 0 else (YELLOW if warn_only else GREEN)
-        icon = "✗" if fail_ct > 0 else ("⚠" if warn_only else "✓")
-        bg = ' style="background:#1a1a2e"' if i % 2 == 1 else ""
-        desc = _SECTION_DESCRIPTIONS.get(sec, "")
-        desc_cell = f'<td style="color:#555;font-size:10px;max-width:260px">{desc[:80]}{"…" if len(desc) > 80 else ""}</td>'
-        table_rows.append(
-            f"<tr{bg}>"
-            f'<td style="font-family:monospace;color:{color};white-space:nowrap">{icon} {sec}</td>'
-            f"{desc_cell}"
-            f'<td style="color:{GREEN}">{pass_ct}</td>'
-            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN", 0)}</td>'
-            f'<td style="text-align:right;color:{RED}">{c.get("FAIL", 0)}</td>'
-            f'<td style="text-align:right;color:{GRAY}">{c.get("BLOCKED", 0)}</td>'
-            f'<td style="text-align:right">{total}</td>'
-            f"<td>{_bar(pass_ct, eligible, color)}</td></tr>"
-        )
-    return (
-        f"{legend_html}"
-        '<div style="overflow:auto;max-height:480px">'
-        '<table style="width:100%;border-collapse:collapse;font-size:11px">'
-        f"{header}{''.join(table_rows)}</table></div>"
+    return section_table(
+        rows,
+        _SECTION_DESCRIPTIONS,
+        eligible_extra=("SKIP", "MANUAL"),
+        max_height=480,
+        desc_max=80,
+        desc_width=260,
+        summary_text="Section key — what each prefix covers",
     )
 
 
@@ -314,6 +211,8 @@ def _build_model_table(rows: list[dict]) -> str:
         '<th style="text-align:right">Total</th>'
         '<th style="text-align:left;min-width:120px">Pass%</th></tr>'
     )
+    from lib.grafana_panels import bar
+
     table_rows = []
     for i, (model, c) in enumerate(sorted(models.items(), key=sort_key)):
         total = sum(c.values())
@@ -330,7 +229,7 @@ def _build_model_table(rows: list[dict]) -> str:
             f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN", 0)}</td>'
             f'<td style="text-align:right;color:{RED}">{c.get("FAIL", 0)}</td>'
             f'<td style="text-align:right">{total}</td>'
-            f"<td>{_bar(pass_ct, eligible, color)}</td></tr>"
+            f"<td>{bar(pass_ct, eligible, color)}</td></tr>"
         )
     return (
         f"{legend_html}"
@@ -341,82 +240,26 @@ def _build_model_table(rows: list[dict]) -> str:
 
 
 def _build_failures_table(rows: list[dict]) -> str:
-    bad = [r for r in rows if r["status"] in ("FAIL", "BLOCKED", "WARN")]
-    if not bad:
-        return f'<div style="padding:16px;text-align:center;color:{GREEN};font-size:14px">✅ No failures or warnings — clean run!</div>'
-
-    header = (
-        '<tr style="background:#1f1f1f;position:sticky;top:0">'
-        '<th style="text-align:left">Status'
-        '<th style="text-align:left">Test ID'
-        '<th style="text-align:left">Name'
-        '<th style="text-align:left">Model'
-        '<th style="text-align:left">Detail</tr>'
+    html, _count = failures_panel(
+        rows,
+        status_order=STATUS_ORDER,
+        status_color=STATUS_COLOR,
+        id_key="test_id",
+        name_key="name",
+        detail_max=90,
+        max_height=580,
+        extra_cells=[("model", "")],
     )
-    table_rows = []
-    for i, r in enumerate(sorted(bad, key=lambda x: STATUS_ORDER.index(x["status"]))):
-        color = STATUS_COLOR.get(r["status"], GRAY)
-        bg = ' style="background:#1a1a2e"' if i % 2 == 1 else ""
-        url = r.get("url", "")
-        name_cell = (
-            f'<a href="{url}" style="color:#6b9cd4;text-decoration:none">{r["name"][:60]}</a>'
-            if url
-            else r["name"][:60]
-        )
-        detail = r["detail"][:90].replace("<", "&lt;").replace(">", "&gt;")
-        table_rows.append(
-            f"<tr{bg}>"
-            f'<td style="color:{color};font-weight:bold">{r["status"]}</td>'
-            f'<td style="font-family:monospace;white-space:nowrap">{r["test_id"]}</td>'
-            f"<td>{name_cell}</td>"
-            f'<td style="font-family:monospace;color:#aaa">{r["model"][:28]}</td>'
-            f'<td style="color:#888;font-size:10px">{detail}</td></tr>'
-        )
-    return (
-        '<div style="overflow:auto;max-height:580px">'
-        '<table style="width:100%;border-collapse:collapse;font-size:11px">'
-        f"{header}{''.join(table_rows)}</table></div>"
-    )
+    return html
 
 
 def _build_trend_table(runs: list[dict]) -> str:
-    if not runs:
-        return '<div style="padding:8px;color:#888">No corpus JSONL files found in tests/uat_corpus/.</div>'
-
-    peak_pass = max((r["pass_pct"] for r in runs), default=0)
-
-    header = (
-        '<tr style="background:#1f1f1f">'
-        '<th style="text-align:left">Run ID'
-        '<th style="text-align:left">Date'
-        '<th style="text-align:right">Pass'
-        '<th style="text-align:right">Warn'
-        '<th style="text-align:right">Fail'
-        '<th style="text-align:right">Total'
-        '<th style="text-align:left;min-width:140px">Pass%</tr>'
-    )
-    table_rows = []
-    for i, run in enumerate(runs):
-        c = run["counts"]
-        ts = run["timestamp"][:10] if run["timestamp"] else run["run_id"][:10]
-        pct = run["pass_pct"]
-        color = GREEN if pct >= 90 else (YELLOW if pct >= 70 else RED)
-        bg = ' style="background:#1a1a2e"' if i % 2 == 1 else ""
-        total = run["total"]
-        table_rows.append(
-            f"<tr{bg}>"
-            f'<td style="font-family:monospace;font-size:10px">{run["run_id"]}</td>'
-            f"<td>{ts}</td>"
-            f'<td style="text-align:right;color:{GREEN}">{c.get("PASS", 0)}</td>'
-            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN", 0)}</td>'
-            f'<td style="text-align:right;color:{RED}">{c.get("FAIL", 0)}</td>'
-            f'<td style="text-align:right">{total}</td>'
-            f"<td>{_bar(c.get('PASS', 0), total, color)}</td></tr>"
-        )
-    return (
-        '<div style="overflow:auto;max-height:280px">'
-        '<table style="width:100%;border-collapse:collapse;font-size:11px">'
-        f"{header}{''.join(table_rows)}</table></div>"
+    return trend_table(
+        runs,
+        empty_note="No corpus JSONL files found in tests/uat_corpus/.",
+        include_sha=False,
+        include_blk=False,
+        max_height=280,
     )
 
 
