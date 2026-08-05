@@ -7,7 +7,7 @@ sources:
   path: portal/modules/eval/persona_matrix/_common.py
 - type: code
   path: .github/workflows/persona_matrix_nightly.yml
-last_generated_commit: baca992c674a3cbb36a619e8f62e7e88b8fccfff
+last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
 claims: []
 confidence: high
 tags:

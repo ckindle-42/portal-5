@@ -5,7 +5,7 @@ title: "Inference platform layer \u2014 config single-source, tool registry, pro
 sources:
 - type: code
   path: portal/platform/inference/*.py
-last_generated_commit: 22007054d6cba73357ea3c5d7d7c97f5c252d7dc
+last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
 claims: []
 confidence: high
 tags:

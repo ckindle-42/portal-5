@@ -7,7 +7,7 @@ sources:
   path: .env.example
 - type: code
   path: portal/modules/security/core/_data.py
-last_generated_commit: 65958b7ff433a91759bbe4778df434a744fa802c
+last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
 claims: []
 confidence: high
 tags:

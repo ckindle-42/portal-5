@@ -13,7 +13,7 @@ sources:
   path: config/routing_examples.json
 - type: code
   path: tests/unit/test_routing.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
 claims: []
 confidence: high
 tags:
