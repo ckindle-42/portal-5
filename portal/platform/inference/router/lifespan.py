@@ -52,38 +52,21 @@ _notification_scheduler = None
 def _init_notifications(registry: BackendRegistry) -> None:
     """Build and start the notification dispatcher + daily-summary scheduler.
 
-    Called from ``lifespan`` only when ``NOTIFICATIONS_ENABLED=true``,
-    so the notifications package never loads in environments that
-    don't need it (keeps ``Dockerfile.pipeline`` lean per CLAUDE.md
-    §9).
+    Called from ``lifespan`` only when ``NOTIFICATIONS_ENABLED=true``.
 
-    Sequencing details that matter:
+    Sequencing that matters: notifications are late-imported here (the package
+    imports ``cluster_backends``, already loaded — a top-level import would
+    close a cycle); channels share ``_http_client``; an immediate threshold
+    check alerts on problems present at startup; ``_attach_to_pipeline`` must
+    run before ``NotificationScheduler.start()`` because its baseline snapshot
+    reads ``_request_count`` during ``start()``.
 
-    1. **Late imports** of ``portal.platform.inference.notifications`` happen
-       inside the function. The notifications package imports
-       ``cluster_backends``, which is already imported at module
-       top — a top-level import here would close the cycle. The
-       local import breaks it.
-    2. **Channels share ``_http_client``**. All five
-       (Slack/Telegram/Email/Pushover/Webhook) take the pipeline's
-       shared client. Giving each channel its own client would
-       silently triple the connection budget — avoid.
-    3. **Immediate threshold check** at line 1578 runs the
-       dispatcher's threshold logic synchronously so problems
-       present at startup alert immediately, not 30s later after
-       the first health cycle.
-    4. **Scheduler-attach-before-start**:
-       ``_attach_to_pipeline`` MUST run before
-       ``_notification_scheduler.start()`` because the scheduler's
-       baseline snapshot reads ``_request_count`` during ``start()``.
-
-    Mutates the module-level singletons
-    ``_notification_dispatcher`` and ``_notification_scheduler``.
+    Mutates the module-level ``_notification_dispatcher`` and
+    ``_notification_scheduler``.
 
     Args:
-        registry: The pipeline's ``BackendRegistry`` instance; the
-            immediate threshold check inspects it for unhealthy
-            backends.
+        registry: The pipeline's ``BackendRegistry``; the immediate threshold
+            check inspects it for unhealthy backends.
     """
     global _notification_dispatcher, _notification_scheduler
     # Late import to avoid circular dependency — notifications imports cluster_backends
@@ -108,9 +91,8 @@ def _init_notifications(registry: BackendRegistry) -> None:
     _notification_dispatcher.add_channel(PushoverChannel(_http_client))
     _notification_dispatcher.add_channel(WebhookChannel(_http_client))
 
-    # Run threshold check on first health cycle to catch any immediate issues.
-    # check_thresholds_and_alert is async; schedule it as a fire-and-forget task
-    # so _init_notifications (sync) can trigger the first check without blocking.
+    # Run threshold check on first health cycle — fire-and-forget so the sync
+    # init doesn't block.
     import asyncio as _asyncio  # noqa: PLC0415
 
     _asyncio.ensure_future(_notification_dispatcher.check_thresholds_and_alert(registry))
@@ -118,8 +100,8 @@ def _init_notifications(registry: BackendRegistry) -> None:
     # Schedule daily summary
     _notification_scheduler = NotificationScheduler(_notification_dispatcher)
 
-    # Attach scheduler to pipeline metrics BEFORE starting — _init_baseline_snapshot()
-    # reads _request_count during start(), so the reference must be set first.
+    # Attach scheduler to pipeline metrics BEFORE starting — the baseline
+    # snapshot reads _request_count during start().
     from portal.platform.inference.notifications import scheduler as notif_scheduler
 
     notif_scheduler._attach_to_pipeline(
@@ -135,30 +117,15 @@ def _init_notifications(registry: BackendRegistry) -> None:
 async def _warmup_auto_model(registry: BackendRegistry) -> None:
     """Pre-load the ``auto`` workspace's default backend with a 1-token request.
 
-    Ollama lazily loads models on first request. A cold load of an
-    8B model is 10–30s (HDD) or 1–5s (SSD/NFS). Without this warmup,
-    the first user request to the auto workspace eats that penalty;
-    after this warmup the model is resident and the first token
-    streams immediately.
+    Ollama lazily loads models on first request; this makes the model resident
+    so the first user request streams immediately. Uses ``backend.models[0]``
+    (not the workspace ``model_hint``) — the goal is warming the backend's disk
+    cache, not exercising routing. ``num_predict: 1`` forces a load + forward
+    pass without meaningful compute. Failures are logged and swallowed — a
+    failed warmup never crashes the pipeline.
 
-    Two non-obvious choices:
-
-    1. **Uses ``backend.models[0]``, not the workspace
-       ``model_hint``.** The goal is "warm the backend's disk
-       cache", not "exercise the routing logic". Whichever model
-       Ollama pulls into the page cache first benefits subsequent
-       loads of any other model on the same backend.
-    2. **One token of output** (``num_predict: 1``). Just enough
-       to force model load + a forward pass; not enough to spend
-       meaningful compute.
-
-    Failure swallowing: a non-200 response is logged at debug and
-    treated as "model will load on first user request." HTTP errors
-    are similarly debug-logged. A failed warmup never crashes the
-    pipeline.
-
-    Runs from ``_run_startup_warmups`` as a background task,
-    parallel with ``_warmup_llm_router``.
+    Runs from ``_run_startup_warmups`` as a background task, parallel with
+    ``_warmup_llm_router``.
 
     Args:
         registry: The pipeline's ``BackendRegistry`` instance.
@@ -181,10 +148,9 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
             )
             return
         if backend.type == "omlx":
-            # oMLX has no /api/generate (Ollama-native) and no keep_alive
-            # concept — its own EnginePool owns residency/pinning (B3
-            # scope). Warm it through the same OpenAI-compatible endpoint
-            # normal traffic uses instead.
+            # oMLX has no /api/generate nor keep_alive — its EnginePool owns
+            # residency. Warm via the OpenAI-compatible endpoint normal traffic
+            # uses.
             warmup_url = f"{backend.url.rstrip('/')}/v1/chat/completions"
             warmup_payload = {
                 "model": backend.models[0],
@@ -199,12 +165,9 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
                 "prompt": "ok",
                 "stream": False,
                 "keep_alive": -1,  # int not string — Ollama 0.30.8+ rejects "-1"
-                # num_ctx caps the warmed runner's reserved KV-cache. Without it,
-                # Ollama defaults to the model's full context window multiplied
-                # by OLLAMA_NUM_PARALLEL slots — for an uncapped model this can
-                # reserve tens of GiB pinned forever (keep_alive: -1), forcing
-                # the scheduler to evict everything else on the next load. Same
-                # bug and fix as the router warmup below (P5-ROUTER-EVICTION-001).
+                # num_ctx caps the warmed runner's reserved KV-cache; without
+                # it the default (full context × OLLAMA_NUM_PARALLEL) pins tens
+                # of GiB forever via keep_alive: -1.
                 "options": {"num_predict": 1, "num_ctx": 8192},
             }
 
@@ -228,36 +191,17 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
 async def _warmup_llm_router() -> None:
     """Pre-load the LLM intent-router model with a pinned 1-token request.
 
-    Every request routed through the ``auto`` workspace calls
-    ``_route_with_llm()``, which dispatches a generation request to
-    the LLM router model BEFORE any inference happens. On a cold
-    Ollama instance this adds 30–60s to the first auto request even
-    when the inference model is already warm.
+    Every auto-routed request calls ``_route_with_llm()`` first; on a cold
+    Ollama this adds 30–60s to the first auto request. ``keep_alive: -1`` pins
+    the router model so a larger inference model doesn't evict it under memory
+    pressure. ``options.num_ctx`` must match the 2048 used by the real routing
+    call — an uncapped default reserves tens of GiB and forces the same
+    eviction this warmup exists to prevent.
 
-    This warmup fires a single minimal generate call at startup so
-    the router model is resident in memory when the first user
-    request arrives.
+    Skipped when ``LLM_ROUTER_ENABLED=false`` (keyword-fallback routing).
 
-    ``keep_alive: -1`` is the load-bearing option — it tells Ollama
-    to keep the router model pinned indefinitely rather than
-    evicting it under memory pressure from a bigger inference
-    model. Without the pin, the router would re-cold-load every
-    time a large inference model displaced it.
-
-    ``options.num_ctx`` must match the 2048 used by the real routing
-    call in ``_route_with_llm`` (``routing.py``). Omitting it here
-    let Ollama default the warmed runner to the model's full context
-    (multiplied by ``OLLAMA_NUM_PARALLEL`` slots), reserving tens of
-    GiB for a 3B-class model and forcing the scheduler to evict the
-    router under normal memory pressure — the same eviction symptom
-    this warmup exists to prevent.
-
-    Skipped when ``LLM_ROUTER_ENABLED=false`` — the keyword-fallback
-    router (``_detect_workspace``) handles those deployments and
-    requires no warmup.
-
-    Runs from ``_run_startup_warmups`` as a background task,
-    parallel with ``_warmup_auto_model``.
+    Runs from ``_run_startup_warmups`` as a background task, parallel with
+    ``_warmup_auto_model``.
     """
     if not _LLM_ROUTER_ENABLED:
         return
@@ -289,17 +233,9 @@ async def _warmup_llm_router() -> None:
 async def _run_startup_warmups(registry: BackendRegistry) -> None:
     """Fire startup warmups in parallel; never raises.
 
-    Both ``_warmup_auto_model`` and ``_warmup_llm_router`` already
-    swallow their own exceptions internally. The
-    ``return_exceptions=True`` on ``asyncio.gather`` is
-    belt-and-suspenders — even if one of them somehow does raise
-    (a future refactor regression), the other still completes and
-    this function doesn't propagate.
-
-    Launched as a background task from ``lifespan`` so pipeline
-    startup is not blocked. The first user request after startup
-    may arrive before warmups finish; that's fine — the warmups
-    only optimize, they don't gate.
+    Both warmups swallow their own exceptions; ``return_exceptions=True`` is
+    belt-and-suspenders. Launched as a background task so startup isn't
+    blocked — warmups optimize, they don't gate.
 
     Args:
         registry: Forwarded to ``_warmup_auto_model``.
@@ -315,73 +251,42 @@ async def _run_startup_warmups(registry: BackendRegistry) -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifecycle — create singletons on startup, tear down on shutdown.
 
-    This is the single point of process-lifecycle truth for the
-    pipeline. Every module-level singleton (``registry``,
-    ``_http_client``, ``_request_semaphore``,
-    ``_notification_dispatcher``, ``_notification_scheduler``, the
-    three background tasks ``_health_task``, ``_state_save_task``,
-    and the unnamed power-polling task) is created here, mutated
-    only by serving code, and torn down here.
+    The single point of process-lifecycle truth: every module-level singleton
+    (``registry``, ``_http_client``, ``_request_semaphore``, the notification
+    dispatcher/scheduler, and the background tasks ``_health_task``,
+    ``_state_save_task``, power-polling) is created here and torn down here.
 
-    **Startup sequence** (before ``yield``):
+    Startup: create ``_request_semaphore``; pre-create the Prometheus multiproc
+    dir (worker race when ``PIPELINE_WORKERS > 1``); create ``_http_client``
+    with a 600s body / 5s connect timeout (cold-loading 32B models takes 2–4
+    min); construct ``BackendRegistry``; validate ``WORKSPACES`` hints
+    (``STRICT_HINT_VALIDATION=true`` raises on unresolvable hints); run one
+    synchronous health check; load persisted metrics state; launch warmups,
+    power polling, notifications, the health loop, and the state-save loop.
 
-    1. Create ``_request_semaphore`` bounded by ``_MAX_CONCURRENT``.
-    2. Pre-create the Prometheus multiproc dir (P5-FIX prevents
-       worker race when ``PIPELINE_WORKERS > 1``).
-    3. Create the shared ``_http_client`` with 300s body timeout
-       (cold-loading 32B models can take 2–4 min; 120s caused S3-18
-       streaming timeouts) and 5s connect timeout (local backends
-       should bind immediately).
-    4. Construct ``BackendRegistry`` (reads ``backends.yaml``).
-    5. Validate ``WORKSPACES`` hints against backend models. In
-       ``STRICT_HINT_VALIDATION=true`` mode, unresolvable hints
-       raise ``RuntimeError`` and the container fails to start. In
-       the default permissive mode, hints log warnings and the
-       pipeline serves anyway — hint failures surface as silent
-       fallbacks at request time.
-    6. Run one synchronous health check so the first request has
-       fresh health data.
-    7. Load persisted metrics state from ``_STATE_FILE`` (peak only).
-    8. Launch background warmup task (parallel auto-model + LLM
-       router).
-    9. Launch background power-polling task (graceful if daemon
-       absent).
-    10. If ``NOTIFICATIONS_ENABLED=true``, initialise the dispatcher
-        and scheduler.
-    11. Launch background health-check loop with the ``_on_health``
-        callback that fires threshold alerts.
-    12. Launch background state-save loop (60s interval).
-
-    **Shutdown sequence** (after ``yield``, in roughly LIFO order):
-
-    1. Final ``_save_state`` synchronously — must run before
-       cancelling the save-loop task; a cancelled task can't await.
-    2. Cancel ``_state_save_task`` and ``_health_task``.
-    3. Close ``_http_client`` — after tasks so an in-flight request
-       cancellation doesn't observe a closed pool.
-    4. Stop the notification scheduler (if running).
-    5. Close ``BackendRegistry``'s class-level health-check client.
+    Shutdown (roughly LIFO): final synchronous ``_save_state`` before the save
+    task is cancelled; cancel ``_state_save_task``/``_health_task``; close
+    ``_http_client`` after tasks; stop the notification scheduler; close the
+    registry's health-check client.
 
     Args:
-        app: The FastAPI app. Not used directly inside the function
-            — required by the asynccontextmanager interface.
+        app: The FastAPI app. Not used directly — required by the
+            asynccontextmanager interface.
 
     Yields:
-        Nothing. The yield separates startup from shutdown; request
-        handling runs in the time the yield is suspended.
+        Nothing. The yield separates startup from shutdown; request handling
+        runs while it is suspended.
     """
     global registry, _health_task, _http_client
     global _notification_dispatcher, _notification_scheduler, _state_save_task
     _concurrency_mod._request_semaphore = asyncio.Semaphore(_concurrency_mod._MAX_CONCURRENT)
-    # P5-FIX: pre-create Prometheus multiproc dir at startup so workers don't race.
+    # Pre-create Prometheus multiproc dir at startup so workers don't race.
     if mp_dir := os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
         os.makedirs(mp_dir, exist_ok=True)
-    # P1: create shared client with a connection pool sized for concurrent inference
-    # Safety-net timeout: per-request timeouts in _try_non_streaming are the
-    # operative control (registry.request_timeout + reasoning modifier).
-    # This client-level value is the absolute upper bound — raise to 600s so
-    # reasoning workspaces (which get 600s per-request) are never clamped by it.
-    # connect stays 5s — local backends should bind immediately.
+    # Shared client: the 600s body timeout is the absolute upper bound — per-request
+    # timeouts in _try_non_streaming are the operative control, and reasoning
+    # workspaces get 600s per-request. Connect stays 5s — local backends should
+    # bind immediately.
     _http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(600.0, connect=5.0),
         limits=httpx.Limits(
@@ -396,8 +301,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _streaming_mod._http_client = _http_client
     _council_mod._http_client = _http_client
     registry = BackendRegistry()
-    # Push registry + _http_client to modules that cannot capture them at import time.
-    # Same pattern as _routing_mod/_streaming_mod above.
+    # Push registry + _http_client to modules that can't capture them at import time.
     import portal.platform.inference.router.handlers as _handlers_mod  # noqa: PLC0415
     import portal.platform.inference.router.non_streaming as _non_streaming_mod  # noqa: PLC0415
     import portal.platform.inference.router.validation as _validation_mod  # noqa: PLC0415
@@ -425,8 +329,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ctx_limit = ws_cfg.get("context_limit")
         hint = ws_cfg.get("model_hint", "")
         if ctx_limit:
-            # "-ctx" only appears in our derived-tag convention (e.g. -ctx32k),
-            # so a simple substring check is robust without a brittle suffix list.
+            # "-ctx" only appears in the derived-tag convention (e.g. -ctx32k),
+            # so a substring check is robust without a brittle suffix list.
             if "-ctx" in hint:
                 logger.info(
                     "workspace=%s context_limit=%d enforced via derived tag %s",
@@ -447,13 +351,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await registry.health_check_all()
     # Load persisted metrics state from disk (survives restarts)
     _load_state()
-    # Pre-warm: load the inference model AND the LLM router model in parallel so
-    # the first 'auto' request is not penalized by two sequential cold-loads:
-    # (1) router model classification (~30-60s if cold) then
-    # (2) inference model generation (~10-30s if cold).
-    # Both fire simultaneously as background tasks — startup is not blocked.
+    # Pre-warm inference + LLM router models in parallel as background tasks —
+    # startup is not blocked.
     asyncio.create_task(_run_startup_warmups(registry))
-    # Power metrics polling (M6-T02) — graceful if daemon not running
+    # Power metrics polling — graceful if daemon not running
     asyncio.create_task(_power_polling_loop())
     healthy = registry.list_healthy_backends()
     logger.info("Portal Pipeline started. Healthy backends: %d", len(healthy))

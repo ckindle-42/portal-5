@@ -1,35 +1,21 @@
 """Tool registry — discovers model-facing tools from MCP servers and dispatches calls.
 
-This module owns the mapping of ``tool_name → MCP server URL + JSON schema``
-for every tool that a model can call from a chat completion. Three concerns
-live here: discovery (poll each MCP's ``/tools`` endpoint), advertisement
-(serialize to OpenAI ``tools:`` array), and dispatch (POST a tool call to
-the right MCP and return its result).
+Maps ``tool_name → MCP server URL + JSON schema`` for every model-callable tool:
+discovery (poll each MCP's ``/tools`` endpoint), advertisement (serialize to the
+OpenAI ``tools:`` array), and dispatch (POST a tool call and return its result).
 
-A module-level singleton ``tool_registry = ToolRegistry()`` is created at
-import time and is the single instance used by ``router_pipe.py``. Discovery
-runs lazily on the first ``refresh()`` (called during chat-completion
-handling) and on demand via ``POST /admin/refresh-tools``.
+A module-level singleton ``tool_registry = ToolRegistry()`` is used by
+``router_pipe.py``; discovery runs lazily on the first ``refresh()`` and on
+demand via ``POST /admin/refresh-tools``.
 
-``MCP_SERVERS`` is intentionally not the full MCP fleet. Only servers whose
-tools are meant to be model-callable are listed here. The reranker MCP
-(:8925) and the browser MCP (:8923) are absent because they are internal
-infrastructure — the reranker is invoked directly by the RAG MCP with
-graceful fallback, and browser actions are wrapped behind ``research``/web
-search tools rather than exposed as raw tools.
+``MCP_SERVERS`` is not the full fleet — internal infrastructure (reranker :8925,
+browser :8923) is excluded. Failure isolation is by design: one MCP's discovery
+failure doesn't affect others, and ``dispatch`` returns error dicts rather than
+raising so a tool failure can't break the SSE stream.
 
-Failure isolation is by design throughout: discovery failures for one MCP
-do not affect others, and ``dispatch`` returns error dicts rather than
-raising so a tool failure cannot break the SSE stream feeding the model.
-
-Knobs (all env-overridable):
-
-* ``TOOL_REGISTRY_REFRESH_S`` (default 3600s) — refresh interval.
-* ``TOOL_DISCOVERY_TIMEOUT_S`` (5s, not overridable) — per-server
-  ``/tools`` GET timeout.
-* ``TOOL_DISPATCH_TIMEOUT_S`` (default 60s) — per-call POST timeout,
-  overridable per-tool via ``ToolDefinition.custom_timeout_s``.
-* Per-server ``MCP_<NAME>_URL`` — override the default ``localhost:<port>``.
+Knobs (env-overridable): ``TOOL_REGISTRY_REFRESH_S`` (3600s refresh interval),
+``TOOL_DISPATCH_TIMEOUT_S`` (60s per-call POST timeout, overridable per-tool via
+``ToolDefinition.custom_timeout_s``), and per-server ``MCP_<NAME>_URL``.
 """
 
 from __future__ import annotations
@@ -47,10 +33,8 @@ from portal.platform.inference.config import get_pipeline_mcp_servers, load_port
 
 logger = logging.getLogger(__name__)
 
-# MCP server base URLs — derived from portal.yaml fleet table (M1 migration).
-# Env vars MCP_<ID_UPPER>_URL still override individual entries as before.
-# The hand-maintained dict below was replaced by the fleet table in portal.yaml;
-# this one-liner produces the identical runtime value.
+# MCP server base URLs — derived from the portal.yaml fleet table; env vars
+# MCP_<ID_UPPER>_URL override individual entries.
 MCP_SERVERS: dict[str, str] = get_pipeline_mcp_servers(load_portal_config())
 
 TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"))
@@ -59,16 +43,13 @@ TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
 
 
 def _backoff_seconds(failures: int) -> float:
-    """Look up the backoff window for a tool with ``failures`` consecutive errors.
+    """Backoff window in seconds for ``failures`` consecutive errors.
 
-    Hand-picked schedule (seconds): ``30, 120, 300, 900, 3600`` — capped at
-    1h. Failures beyond the fifth stay at 1h, matching the default registry
-    refresh cadence so a permanently-broken tool gets re-probed by discovery
-    on roughly the same beat as by post-backoff retry.
+    Schedule: ``30, 120, 300, 900, 3600`` — capped at 1h.
 
     Args:
         failures: Consecutive-failure count, 1-indexed. Values < 1 return
-            the first slot (30s); values beyond the schedule clamp to 1h.
+            the first slot; values beyond the schedule clamp to 1h.
 
     Returns:
         Backoff window in seconds.
@@ -81,16 +62,11 @@ def _backoff_seconds(failures: int) -> float:
 class ToolDefinition:
     """One discovered tool, with attached circuit-breaker state.
 
-    Constructed exclusively by ``ToolRegistry.refresh`` from the
-    ``/tools`` response of an MCP server. The first five fields describe
-    the tool itself; the last four track its dispatch history so the
-    registry can apply backoff.
-
-    State fields live on this object (rather than a parallel map keyed
-    by tool name) so ``refresh`` can preserve circuit-breaker state with
-    a straight field copy when a tool re-appears in a later discovery
-    cycle. Without that preservation, a flapping MCP would escape its
-    penalty box every refresh.
+    Constructed by ``ToolRegistry.refresh`` from an MCP's ``/tools`` response.
+    The first five fields describe the tool; the rest track dispatch history so
+    the registry can apply backoff. State lives on this object so ``refresh``
+    can preserve it with a field copy when a tool re-appears — without that, a
+    flapping MCP would escape its penalty box every refresh.
 
     Attributes:
         name: Unique tool name; matches the key in ``ToolRegistry._tools``.
@@ -127,11 +103,9 @@ class ToolDefinition:
     def to_openai_tool(self) -> dict[str, Any]:
         """Render as one entry of an OpenAI-format ``tools`` array.
 
-        Returns the canonical ``{"type": "function", "function": {...}}`` shape
-        that is splatted into the outgoing chat-completions request body in
-        ``router_pipe.chat_completions``. Drops all circuit-breaker state —
-        only the model-facing fields (``name``, ``description``,
-        ``parameters``) are included.
+        Returns ``{"type": "function", "function": {...}}`` with only the
+        model-facing fields (``name``, ``description``, ``parameters``);
+        circuit-breaker state is dropped.
         """
         return {
             "type": "function",
@@ -146,36 +120,26 @@ class ToolDefinition:
 class ToolRegistry:
     """Discovers tools from MCP servers and dispatches calls to them.
 
-    Singleton by convention — the module-level ``tool_registry`` instance
-    (line 229) is the only one imported by ``router_pipe.py``. Constructing
-    another instance is legal but pointless: it would have its own empty
-    ``_tools`` dict and HTTP client.
+    Singleton by convention — the module-level ``tool_registry`` instance is the
+    only one used by ``router_pipe.py``.
 
-    Concurrency:
+    Concurrency: ``_refresh_lock`` serializes ``refresh()`` so a manual refresh
+    racing a lazy refresh can't lose circuit-breaker state. One shared
+    ``httpx.AsyncClient`` (lazily created in ``_client``) serves discovery and
+    dispatch; close it via ``close()`` on shutdown.
 
-    * ``_refresh_lock`` serializes ``refresh()`` so a manual
-      ``POST /admin/refresh-tools`` racing a chat-completion's lazy refresh
-      can't lose circuit-breaker state via last-write-wins.
-    * One shared ``httpx.AsyncClient`` is used for both discovery (5s
-      timeout) and dispatch (60s+ via per-call override). It is created
-      lazily in ``_client`` and must be closed via ``close()`` on shutdown.
-
-    Failure isolation:
-
-    * Discovery failures for one MCP do not affect others
-      (``asyncio.gather(..., return_exceptions=True)``).
-    * Dispatch never raises — every failure path returns an error dict,
-      because the caller feeds the result back to the model as a ``tool``
-      role message and an uncaught exception would break the SSE stream.
+    Failure isolation: one MCP's discovery failure doesn't affect others
+    (``asyncio.gather(..., return_exceptions=True)``); dispatch never raises —
+    every failure path returns an error dict so the SSE stream feeding the model
+    survives.
     """
 
     def __init__(self) -> None:
         """Initialize an empty registry; no network calls.
 
-        Construction is side-effect-free — the first ``refresh()`` call is
-        what actually discovers tools. This is what makes the module-level
-        ``tool_registry = ToolRegistry()`` at import time safe in tests and
-        CI where MCP servers may not be reachable.
+        Side-effect-free construction — the first ``refresh()`` discovers
+        tools — makes the import-time ``tool_registry = ToolRegistry()`` safe in
+        tests and CI where MCP servers may not be reachable.
         """
         self._tools: dict[str, ToolDefinition] = {}
         self._last_refresh: float = 0.0
@@ -185,11 +149,9 @@ class ToolRegistry:
     async def _client(self) -> httpx.AsyncClient:
         """Return the shared HTTP client, creating it if missing or closed.
 
-        The ``is_closed`` check lets the registry recover transparently if
-        ``close()`` was called and then a discovery or dispatch happens again
-        — a sequence that occurs in test teardown / reuse but not in normal
-        production lifecycle. Client timeout defaults to
-        ``TOOL_DISCOVERY_TIMEOUT_S`` (5s); ``dispatch`` overrides per-call.
+        Recovers transparently if ``close()`` was called and the registry is
+        reused (test teardown). Client timeout defaults to
+        ``TOOL_DISCOVERY_TIMEOUT_S``; ``dispatch`` overrides per-call.
         """
         if self._http is None or self._http.is_closed:
             self._http = httpx.AsyncClient(timeout=TOOL_DISCOVERY_TIMEOUT_S)
@@ -198,27 +160,13 @@ class ToolRegistry:
     async def refresh(self, force: bool = False) -> int:
         """Rediscover tools from every MCP in ``MCP_SERVERS``.
 
-        Behaviour beyond the bare description:
-
-        * **Rate-limited**: refreshes are no-ops if the last one was less than
-          ``TOOL_REGISTRY_REFRESH_S`` ago (default 1h). A lockless fast-path
-          checks the TTL before acquiring ``_refresh_lock``; callers inside the
-          window return immediately without contending. A second check under the
-          lock ensures only the first of any concurrent expiries does work.
-          ``force=True`` bypasses the TTL (used by ``POST /admin/refresh-tools``).
-        * **Parallel discovery**: all MCPs are probed concurrently via
-          ``asyncio.gather(..., return_exceptions=True)``. One MCP being
-          down does not block discovery of others.
-        * **Circuit-breaker state is preserved across refreshes** for tools
-          that re-appear: ``healthy``, ``consecutive_failures``, and
-          ``next_retry_at`` are copied forward from the previous
-          ``ToolDefinition``. Without this, a tool would escape its backoff
-          window every refresh cycle.
-        * **New tools** (not present in the previous registry) start with
-          default state — healthy, zero failures, no pending retry.
-        * **Tools that disappear** from a server's ``/tools`` response are
-          silently dropped; the next dispatch attempt returns
-          ``"Tool '...' not in registry"``.
+        Rate-limited: refreshes are no-ops within ``TOOL_REGISTRY_REFRESH_S`` of
+        the last one (checked lockless, re-checked under ``_refresh_lock``);
+        ``force=True`` bypasses the TTL. Discovery is parallel via
+        ``asyncio.gather(..., return_exceptions=True)``. Circuit-breaker state is
+        preserved across refreshes for tools that re-appear; new tools start
+        healthy; tools that disappear from a server's ``/tools`` response are
+        dropped (next dispatch returns ``"Tool '...' not in registry"``).
 
         Args:
             force: When ``True``, run discovery regardless of the TTL.
@@ -325,28 +273,17 @@ class ToolRegistry:
         return self._tools.get(name)
 
     def list_tool_names(self) -> list[str]:
-        """Return every registered tool name, sorted alphabetically.
-
-        Used by ``POST /admin/refresh-tools`` as part of its JSON response so
-        operators can verify which tools came through after a manual refresh.
-        """
+        """Return every registered tool name, sorted alphabetically."""
         return sorted(self._tools.keys())
 
     def get_openai_tools(self, names: list[str]) -> list[dict[str, Any]]:
         """Build the OpenAI ``tools:[]`` array from ``names``, skipping cool-down tools.
 
-        For each name in ``names`` (typically a persona's effective tool list,
-        resolved in ``portal_pipeline/router/workspaces.py``), include the
-        tool **only if** it's healthy OR its backoff window has elapsed.
-        Re-admission while still ``healthy == False`` is intentional: the
-        next ``dispatch`` is what flips the tool back to healthy on success.
-        Without this re-admission, a tool would only recover via the next
-        ``refresh`` (hourly by default).
-
-        Unknown names (not in the registry) are silently skipped — they're
-        typically persona configs referencing tools whose source MCP is
-        currently unreachable. The persona itself is still advertised to the
-        model, just without those tools.
+        Include a tool only if healthy or its backoff window has elapsed.
+        Re-admission while ``healthy == False`` is intentional: the next
+        ``dispatch`` flips it back to healthy on success. Unknown names are
+        silently skipped — the persona is still advertised, just without those
+        tools.
 
         Args:
             names: Tool names to advertise. Order is preserved in the output.
@@ -369,40 +306,31 @@ class ToolRegistry:
     ) -> dict[str, Any]:
         """Dispatch a tool call to its source MCP; return the result or an error dict.
 
-        **Never raises.** Every failure path — unknown tool, in cool-down, HTTP
-        non-200, timeout, network error, JSON decode failure — returns an
-        ``{"error": "..."}`` dict. This contract is load-bearing: the caller
-        in ``router_pipe.py`` JSON-encodes the result directly into a ``tool``
-        role message that gets streamed back to the model mid-completion, and
-        a raised exception there would break the SSE stream.
+        Never raises — every failure path (unknown tool, cool-down, HTTP
+        non-200, timeout, network error, JSON decode failure) returns
+        ``{"error": "..."}``. The caller JSON-encodes the result into a
+        ``tool`` role message streamed back to the model, so a raised
+        exception would break the SSE stream.
 
-        Circuit-breaker behaviour:
-
-        * Tools in cool-down (``healthy=False`` AND ``time.time() <
-          next_retry_at``) **do not get a network call** — the error returns
-          immediately. This is what keeps a broken MCP from being hammered.
-        * A 200 response resets ``healthy=True``, ``consecutive_failures=0``,
-          ``next_retry_at=0`` regardless of prior state.
-        * Any non-success (HTTP non-200, timeout, exception) increments
-          ``consecutive_failures`` and recomputes ``next_retry_at`` via
-          ``_backoff_seconds``.
-
-        Timeout: ``tool.custom_timeout_s`` if set, else
-        ``TOOL_DISPATCH_TIMEOUT_S`` (60s default; env-overridable).
+        Circuit-breaker behaviour: tools in cool-down (``healthy=False`` AND
+        ``time.time() < next_retry_at``) return an error without a network
+        call; a 200 resets ``healthy=True``, ``consecutive_failures=0``,
+        ``next_retry_at=0``; any non-success increments
+        ``consecutive_failures`` and recomputes ``next_retry_at`` via
+        ``_backoff_seconds``. Timeout: ``tool.custom_timeout_s`` if set, else
+        ``TOOL_DISPATCH_TIMEOUT_S``.
 
         Args:
             tool_name: Must match a key in ``self._tools``. Unknown names
-                return ``{"error": "Tool '...' not in registry ..."}``.
+                return an error dict.
             arguments: JSON-serialisable kwargs forwarded as the ``arguments``
-                field of the POST body. The MCP server is responsible for
-                schema validation.
-            request_id: Opaque request correlator forwarded as the
-                ``request_id`` field so MCP logs can be cross-referenced
-                with pipeline logs. May be empty.
+                field of the POST body; the MCP validates the schema.
+            request_id: Opaque request correlator forwarded as ``request_id``
+                so MCP logs can be cross-referenced with pipeline logs. May be
+                empty.
 
         Returns:
-            Either the MCP's parsed JSON response (success) or an
-            ``{"error": "...", "detail"?: "..."}`` dict (any failure mode).
+            The MCP's parsed JSON response (success) or an error dict.
         """
         tool = self.get(tool_name)
         if tool is None:
@@ -453,10 +381,9 @@ class ToolRegistry:
     async def close(self) -> None:
         """Close the shared HTTP client; safe to call multiple times.
 
-        The ``is_closed`` guard makes this idempotent so multiple shutdown
-        hooks can call it. After close, ``_client`` will lazily create a
-        fresh client if the registry is reused (test pattern; in production
-        close happens at process exit).
+        Idempotent via the ``is_closed`` guard so multiple shutdown hooks can
+        call it. After close, ``_client`` lazily creates a fresh client if the
+        registry is reused (test pattern; in production close happens at exit).
         """
         if self._http is not None and not self._http.is_closed:
             await self._http.aclose()

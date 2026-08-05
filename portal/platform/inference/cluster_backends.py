@@ -1,31 +1,20 @@
 """Backend registry — config-driven inference backend discovery and routing.
 
-This module owns the single source of truth for "which backends exist and which
-are reachable right now." It is loaded once per pipeline process from
-``config/backends.yaml`` and instantiated as a singleton in
-``router_pipe.lifespan``; no other code constructs a ``BackendRegistry``.
+Loaded once per pipeline process from ``config/backends.yaml`` and instantiated
+as a singleton in ``router_pipe.lifespan``; no other code constructs a
+``BackendRegistry``. Three backend types:
 
-Three backend types are supported:
+* ``ollama``            — health probed via ``/api/tags``.
+* ``openai_compatible`` — vLLM and similar; health probed via ``/health``.
+* ``omlx``              — third-party oMLX on Apple Silicon (OpenAI-compatible
+  serving); health probed via ``/v1/models``.
 
-* ``ollama``           — health probed via ``/api/tags``.
-* ``openai_compatible``— vLLM and similar; health probed via ``/health``.
-* ``omlx``             — oMLX on Apple Silicon (OpenAI-compatible serving,
-  MLX-format models); health probed via ``/v1/models``. Distinct from the
-  retired in-house MLX proxy (3a0c58e): this is a third-party server spoken
-  to over plain HTTP, with no custom process/watchdog management here.
-
-A per-backend ``health_path:`` YAML key overrides the type-derived probe path
-when an operator needs it (e.g. a proxy fronting the server).
-
-Operator workflow: adding a cluster node is a YAML edit and a pipeline restart
-— never a code change. Workspace-to-group routing lives in the same YAML under
-``workspace_routing:``; the keys there must match the ``WORKSPACES`` dict in
-``router_pipe.py`` (the workspace-consistency check in CLAUDE.md §6 enforces
-this).
-
-Per-request hot path is ``get_backend_for_workspace`` → ``get_backend_candidates``;
-both are cached so the steady-state cost per request is a dict lookup and a
-list copy, not a YAML re-parse or a health re-scan.
+A per-backend ``health_path:`` YAML key overrides the type-derived probe path.
+Adding a cluster node is a YAML edit plus a pipeline restart — never a code
+change. Workspace-to-group routing lives in ``workspace_routing:``; keys there
+must match the ``WORKSPACES`` dict (enforced by the workspace-consistency
+check). The per-request hot path ``get_backend_for_workspace`` →
+``get_backend_candidates`` is cached.
 """
 
 from __future__ import annotations
@@ -47,28 +36,22 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-# Pre-compiled regex — avoid re-compiling on every string expansion (P5)
+# Pre-compiled regex — avoid re-compiling on every string expansion.
 _ENV_VAR_RE = re.compile(r"\$\{([^}]+)\}")
 
 
 def _expand_env(val: Any) -> Any:
     """Expand POSIX-style ``${VAR}`` and ``${VAR:-default}`` placeholders in ``val``.
 
-    Recurses through dicts and lists so a single call expands every string in
-    a parsed YAML config tree. Non-string scalars pass through unchanged.
-    Missing variables with no ``:-default`` resolve to the empty string,
-    matching shell semantics.
-
-    Used by ``_load_config`` to make ``backends.yaml`` portable across the
-    Docker container (where ``HOST_GATEWAY`` is ``host.docker.internal``) and
-    the host (where it is empty or unset).
+    Recurses through dicts and lists. Non-string scalars pass through unchanged;
+    missing variables with no ``:-default`` resolve to the empty string.
 
     Args:
         val: Any value from the parsed YAML — typically a dict, list, or str.
 
     Returns:
-        ``val`` with all ``${...}`` references in any contained string
-        replaced. Containers are rebuilt; the original is not mutated.
+        ``val`` with all ``${...}`` references replaced. Containers are rebuilt;
+        the original is not mutated.
     """
 
     def _replace(m: re.Match) -> str:
@@ -88,8 +71,7 @@ def _expand_env(val: Any) -> Any:
 def _priority_ordered(backends: list[Backend]) -> list[Backend]:
     """Sort by descending ``priority``, shuffling within equal priorities.
 
-    All-zero priority lists (every pre-omlx config) shuffle exactly as before —
-    the field is a no-op until an operator sets it.
+    All-zero priority lists shuffle exactly as before — a no-op until set.
     """
     by_priority: dict[int, list[Backend]] = {}
     for b in backends:
@@ -105,18 +87,12 @@ def _priority_ordered(backends: list[Backend]) -> list[Backend]:
 def _default_config_path() -> str:
     """Resolve ``backends.yaml`` path across container, local-dev, and CI contexts.
 
-    Priority order:
-
-    1. ``BACKEND_CONFIG_PATH`` environment variable (explicit override,
-       used by tests and ad-hoc operator runs).
-    2. ``/app/config/backends.yaml`` — the Docker container mount.
-    3. ``<repo_root>/config/backends.yaml`` — local development, found by
-       walking up to three directories from this file.
+    Priority: ``BACKEND_CONFIG_PATH`` env var, then ``/app/config/backends.yaml``
+    (Docker mount), then ``<repo_root>/config/backends.yaml`` (local dev, walking
+    up from this file).
 
     Returns:
-        The first path that exists. If none exist, returns the Docker path
-        so the downstream "config not found" log in ``_load_config`` points
-        at the path operators are most likely to expect.
+        The first path that exists; the Docker path otherwise.
     """
     # Explicit override always wins
     if env_path := os.environ.get("BACKEND_CONFIG_PATH"):
@@ -145,10 +121,9 @@ DEFAULT_CONFIG_PATH = _default_config_path()
 class Backend:
     """A single inference backend — Ollama or OpenAI-compatible (vLLM).
 
-    Instances are constructed exclusively by ``BackendRegistry._load_config``
-    from entries in ``config/backends.yaml`` and are mutated in-place only by
-    ``_check_one`` (which updates ``healthy`` and ``last_check``). Treat as
-    effectively immutable elsewhere.
+    Instances are constructed by ``BackendRegistry._load_config`` from
+    ``config/backends.yaml`` and mutated in-place only by ``_check_one``
+    (``healthy``/``last_check``); treat as immutable elsewhere.
 
     Attributes:
         id: Stable identifier from YAML; used as the registry dict key.
@@ -178,33 +153,26 @@ class Backend:
     healthy: bool = True
     last_check: float = 0.0
     consecutive_failures: int = field(default=0)
-    # Rich per-model metadata for Ollama backends. Populated from dict-form entries
-    # in `models:` (e.g. `{id: foo, supports_tools: true}`). Empty list when entries
-    # are bare strings (legacy format) — those models default to supports_tools=False
-    # via model_supports_tools(). See TASK_TOOL_SUPPORT_AUDIT_V1 §A2-A4.
+    # Per-model metadata from dict-form entries in `models:`; empty for
+    # bare-string (legacy) entries, which default to supports_tools=False.
     ollama_metadata: list[dict] = field(default_factory=list)
-    # Optional explicit health-probe path override (``health_path:`` in YAML).
-    # Wins over the type-derived default in ``health_url``.
+    # Optional explicit health-probe path override (`health_path:` in YAML).
+    # Wins over the type-derived default in `health_url`.
     health_path: str | None = None
-    # Candidate-ordering weight within a group (``priority:`` in YAML, default 0).
-    # Higher priority candidates are tried first; equal priorities shuffle for
-    # load balancing. This is how an operator expresses "oMLX primary, Ollama
-    # fallback" inside one group without touching workspace routing.
+    # Candidate-ordering weight within a group (`priority:` in YAML, default 0).
+    # Higher tried first; equal priorities shuffle for load balancing.
     priority: int = 0
-    # Optional hint-translation map (``aliases:`` in YAML): canonical hint id
-    # (e.g. the Ollama GGUF tag a workspace's model_hint names) -> this
-    # backend's native model id (e.g. the oMLX directory name). Lets a
-    # workspace keep a single model_hint while engines are swapped underneath
-    # it — the swap stays a config/backends.yaml edit (CLAUDE.md Rule 1).
+    # Hint-translation map (`aliases:` in YAML): canonical hint id → this
+    # backend's native model id. Lets a workspace keep one model_hint while
+    # engines are swapped underneath.
     aliases: dict[str, str] = field(default_factory=dict)
 
     @property
     def chat_url(self) -> str:
         """Return the OpenAI-compatible chat completions URL for this backend.
 
-        Both Ollama (>=0.1.24) and vLLM expose /v1/chat/completions.
-        We always use the OpenAI-compatible endpoint so request body format
-        is identical regardless of backend type.
+        Both Ollama (>=0.1.24) and vLLM expose /v1/chat/completions, so the
+        request body format is identical regardless of backend type.
         """
         return f"{self.url.rstrip('/')}/v1/chat/completions"
 
@@ -212,13 +180,8 @@ class Backend:
     def health_url(self) -> str:
         """Return the URL to probe for liveness, dispatched by backend ``type``.
 
-        * explicit ``health_path`` — always wins when set.
-        * ``ollama`` → ``/api/tags`` — proves the daemon is up and the model
-          registry is responsive in one round-trip.
-        * ``omlx`` → ``/v1/models`` — proves the server is up and its model
-          registry is responsive (oMLX has no /health; /v1/models is the
-          canonical liveness surface).
-        * any other → ``/health`` — vLLM's canonical liveness path.
+        Explicit ``health_path`` wins when set; else ``ollama`` → ``/api/tags``,
+        ``omlx`` → ``/v1/models``, any other → ``/health``.
         """
         if self.health_path:
             return f"{self.url.rstrip('/')}{self.health_path}"
@@ -231,9 +194,8 @@ class Backend:
     def resolve_model(self, model_hint: str) -> str | None:
         """Translate a workspace model hint to this backend's native model id.
 
-        Returns the hint unchanged when it is served directly, the alias target
-        when the hint is aliased to a native id, or ``None`` when this backend
-        cannot serve the hint at all.
+        Returns the hint unchanged when served directly, the alias target when
+        aliased, or ``None`` when this backend cannot serve the hint.
         """
         if not model_hint:
             return None
@@ -245,52 +207,39 @@ class Backend:
 class BackendRegistry:
     """Singleton registry of inference backends — loads, monitors, and selects.
 
-    Constructed exactly once per pipeline process in ``router_pipe.lifespan``.
-    Concurrent reads during request handling are safe (no mutation of the
-    backend list after ``_load_config``); the only mutators after construction
-    are ``_check_one`` (per-backend ``healthy`` flag) and the cache helpers.
+    Constructed once per pipeline process in ``router_pipe.lifespan``. Reads
+    after construction are safe; the mutators are ``_check_one`` (per-backend
+    ``healthy``) and the cache helpers.
 
-    Hot path: ``get_backend_for_workspace(ws)`` → ``get_backend_candidates(ws)``
-    → cached lookup. Steady-state cost per request is a dict get and a list
-    copy. The three caches that make this work are:
+    Hot path: ``get_backend_for_workspace`` → ``get_backend_candidates`` →
+    cached lookup (dict get + list copy). Caches: ``_cached_healthy`` (rebuilt
+    after each health cycle), ``_ws_group_cache`` (built at YAML load), and
+    ``_candidate_cache`` (5s TTL, invalidated on health changes).
 
-    * ``_cached_healthy`` — full healthy list, refreshed after each
-      ``health_check_all`` cycle (every 30s by default).
-    * ``_ws_group_cache`` — workspace id → list of group names, built once
-      at YAML load.
-    * ``_candidate_cache`` — per-workspace ordered candidate list, 5s TTL,
-      invalidated immediately on health-status changes.
-
-    Class-level (shared across all instances): ``_health_client`` and
-    ``_health_semaphore``. These are intentionally shared so tests that
-    construct multiple registries don't each open a connection pool; in
-    production there is only one registry anyway. Call
+    Class-level ``_health_client``/``_health_semaphore`` are shared so tests
+    that construct multiple registries don't each open a connection pool. Call
     ``BackendRegistry.close_health_client()`` on shutdown.
 
-    Startup behavior: ``Backend.healthy`` defaults to ``True``, so requests
-    arriving before the first health-check cycle completes are routed
-    optimistically rather than 503'd. The first ``health_check_all`` call
-    flips any unreachable backends to unhealthy and they drop out of routing.
+    Startup: ``Backend.healthy`` defaults to True, so requests before the first
+    health cycle are routed optimistically rather than 503'd.
     """
 
-    # Shared httpx client for health checks — single connection pool reused across
-    # all health check cycles. Created lazily on first health check.
+    # Shared httpx client for health checks — single connection pool reused
+    # across all health check cycles. Created lazily on first health check.
     _health_client: httpx.AsyncClient | None = None
     _health_semaphore: asyncio.Semaphore | None = None
 
     def __init__(self, config_path: str | None = None) -> None:
         """Initialize the registry and load ``config_path``.
 
-        All instance state is set to safe defaults before ``_load_config`` runs,
-        so a malformed or missing YAML file produces an empty-but-valid registry
-        (every request will 503 with a clear log line) rather than a hard crash
-        at process startup. This lets operators fix the YAML and restart only
-        the pipeline container.
+        State is set to safe defaults before ``_load_config`` runs, so a
+        malformed or missing YAML produces an empty-but-valid registry
+        (requests 503 with a clear log line) rather than a hard crash at
+        startup.
 
         Args:
-            config_path: Override the auto-detected path. When ``None``, falls
-                back to ``DEFAULT_CONFIG_PATH`` (resolved at import time by
-                ``_default_config_path``).
+            config_path: Override the auto-detected path; ``None`` →
+                ``DEFAULT_CONFIG_PATH``.
         """
         self.config_path = config_path or DEFAULT_CONFIG_PATH
         self._backends: dict[str, Backend] = {}
@@ -300,14 +249,13 @@ class BackendRegistry:
         self._request_timeout = 120.0  # Match config/backends.yaml defaults.request_timeout
         self._health_timeout = 10.0  # Defensive default before _load_config() runs
         self._health_failure_threshold = 2
-        # P8: cached healthy-backend list — rebuilt only after each health check
-        # cycle, not on every inference request. None = uninitialized (pre-first-cycle).
+        # Cached healthy-backend list — rebuilt only after each health check
+        # cycle, not on every inference request. None = pre-first-cycle.
         self._cached_healthy: list[Backend] | None = None
-        # P9: pre-computed workspace → group list cache. Built once in _load_config.
-        # Eliminates dict lookup + list construction on every get_backend_for_workspace call.
+        # Pre-computed workspace → group list cache. Built once in _load_config.
         self._ws_group_cache: dict[str, list[str]] = {}
-        # P7-PERF: TTL-cached backend candidates per workspace. Rebuilt after health checks
-        # or when TTL expires. Avoids list comprehension + shuffle on every request.
+        # TTL-cached backend candidates per workspace. Rebuilt after health
+        # checks or when the TTL expires.
         self._candidate_cache: dict[str, tuple[list[Backend], float]] = {}
         self._candidate_cache_ttl: float = 5.0  # 5s TTL — short enough to react to failures
         self._tool_support: dict[str, bool] = {}
@@ -319,28 +267,15 @@ class BackendRegistry:
     def _load_config(self) -> None:
         """Parse ``backends.yaml``, expand env vars, populate registry state.
 
-        Failure mode is "empty registry + logged error", never a raised exception
-        — the pipeline must reach a serving state even if config is broken so
-        operators can fix YAML and restart only this container. The conditions
-        that trigger empty-registry-mode are:
+        Failure mode is "empty registry + logged error", never a raised
+        exception, so the pipeline reaches a serving state even with broken
+        config (missing file, YAML parse error, non-dict top level).
+        Per-backend errors are logged and the entry skipped; surrounding
+        backends still load.
 
-        * config file missing,
-        * YAML parse error,
-        * top-level structure not a dict.
-
-        Per-backend errors (unexpected model entry type, etc.) are logged and
-        the offending entry is skipped; surrounding backends still load.
-
-        Handles two model-entry formats in ``backends:[].models:``:
-
-        * Bare strings (legacy) — populate ``Backend.models`` only;
-          ``ollama_metadata`` stays empty and downstream tool-support checks
-          fall through to the conservative default.
-        * Dicts with ``id`` plus optional ``supports_tools`` etc. (new) —
-          populate both ``Backend.models`` and ``Backend.ollama_metadata``.
-
-        Also builds ``_ws_group_cache`` (one dict-copy per workspace) so
-        ``get_backend_candidates`` doesn't pay the lookup cost per request.
+        Handles ``models:`` entries as bare strings (legacy; ``ollama_metadata``
+        stays empty) or dicts with ``id`` plus optional ``supports_tools``
+        (populates metadata). Also builds ``_ws_group_cache``.
         """
         if not os.path.exists(self.config_path):
             logger.error("Backend config not found: %s", self.config_path)
@@ -363,8 +298,8 @@ class BackendRegistry:
 
         # Load backends
         for be in cfg.get("backends", []):
-            # Accept `models: [str]` OR `models: [dict]`. When entries are dicts,
-            # populate ollama_metadata; when strings, leave it empty.
+            # Accept `models: [str]` OR `models: [dict]`; dict entries populate
+            # ollama_metadata, strings leave it empty.
             ollama_meta: list[dict] = []
             raw_models = be.get("models", [])
             flat_models = []
@@ -406,7 +341,7 @@ class BackendRegistry:
 
         # Load workspace routing
         self._workspace_routes = cfg.get("workspace_routing", {})
-        # P9: pre-compute workspace → group list for O(1) get_backend_for_workspace lookups
+        # Pre-compute workspace → group list for O(1) lookups
         self._ws_group_cache = {
             ws_id: groups.copy() for ws_id, groups in self._workspace_routes.items()
         }
@@ -445,12 +380,9 @@ class BackendRegistry:
     def list_healthy_backends(self) -> list[Backend]:
         """Return backends currently passing health checks.
 
-        Returns the cache populated by ``_refresh_healthy_cache`` after each
-        health cycle. Before the first cycle completes ``_cached_healthy`` is
-        ``None`` and we fall back to a live scan over ``_backends.values()``;
-        combined with ``Backend.healthy`` defaulting to ``True``, this means
-        requests arriving in the startup window are routed optimistically
-        rather than 503'd.
+        Uses ``_cached_healthy``; before the first cycle completes (``None``)
+        falls back to a live scan, routing startup-window requests
+        optimistically.
         """
         return (
             self._cached_healthy
@@ -461,61 +393,41 @@ class BackendRegistry:
     def _refresh_healthy_cache(self) -> None:
         """Rebuild ``_cached_healthy`` and invalidate the candidate cache.
 
-        Called from ``health_check_all`` after every cycle. Invalidating the
-        candidate cache here is the only reason ``get_backend_candidates``
-        sees freshness within the 5s TTL window — without this, a backend
-        going down would still be returned as a candidate until its TTL
-        entries naturally expired.
+        Called from ``health_check_all`` after every cycle; the invalidation is
+        what lets a health change take effect within the 5s TTL window.
         """
         self._cached_healthy = [b for b in self._backends.values() if b.healthy]
-        # P7-PERF: Invalidate candidate cache when health status changes
         self._invalidate_candidate_cache()
 
     def get_backend_candidates(self, workspace_id: str) -> list[Backend]:
         """Return ordered list of healthy candidates for ``workspace_id``.
 
-        Order is by group priority (from ``workspace_routing`` in YAML), then
-        randomly shuffled within each group for load balancing. Three tiers
-        are appended in sequence, each only contributing backends not already
-        seen:
+        Order is by group priority (from ``workspace_routing``), shuffled within
+        each group for load balancing. Tiers, each only contributing unseen
+        backends:
+        1. the workspace's named groups, in YAML order;
+        2. the configured ``fallback_group`` (default ``"general"``);
+        3. any remaining healthy backends (degrade-don't-fail safety net).
 
-        1. The workspace's named groups, in YAML order.
-        2. The configured ``fallback_group`` (default ``"general"``).
-        3. Any remaining healthy backends.
-
-        The third tier is a deliberate degrade-don't-fail safety net — an
-        unusual workspace with no matching healthy backend still routes
-        somewhere, with a logged warning at the call site, rather than 503'ing
-        while other capacity sits idle.
-
-        Results are cached per workspace for 5s. The cache is also invalidated
-        immediately after every health-check cycle, so a backend going down
-        flips out of routing within one cycle (30s default), not 5s + 30s.
-
-        Unknown workspace ids are clamped to ``"_unknown"`` for cache-key
-        purposes so the cache dict doesn't grow unbounded with garbage ids.
+        Results are cached per workspace for 5s and invalidated after every
+        health cycle. Unknown ids are clamped to ``"_unknown"`` as cache key.
 
         Args:
             workspace_id: A workspace id from ``WORKSPACES`` /
-                ``workspace_routing``. Unknown ids route via the fallback
-                group only (no error raised).
+                ``workspace_routing``.
 
         Returns:
             Fresh list copy; safe to mutate. Empty when no backends are healthy.
         """
-        # Variants and bounded model overrides are represented in WORKSPACES
-        # by synthetic ids such as ``auto-coding::laguna`` and
-        # ``auto-coding::model=...``.  Backend groups belong to the base
-        # workspace, while the synthetic id remains necessary to resolve the
-        # variant's model hint and tuning later in the request path.  Treat a
-        # synthetic id whose base is configured as that base for candidate
-        # selection; otherwise preserve the ordinary unknown-id fallback.
+        # Synthetic ids like ``auto-coding::laguna`` resolve to the base
+        # workspace for candidate selection; otherwise use the ordinary
+        # unknown-id fallback.
         base_workspace_id = workspace_id.split("::", 1)[0]
         routing_workspace_id = (
             base_workspace_id if base_workspace_id in self._ws_group_cache else workspace_id
         )
 
-        # P7-PERF: Check cache first (clamp unknown workspace ids to _unknown)
+        # Check cache first (clamp unknown workspace ids to _unknown)
         cache_key = (
             routing_workspace_id if routing_workspace_id in self._ws_group_cache else "_unknown"
         )
@@ -535,8 +447,7 @@ class BackendRegistry:
         seen: set[str] = set()
 
         # Collect backends by group priority, ordered within each group by
-        # descending Backend.priority (engine preference, e.g. oMLX primary /
-        # Ollama fallback), shuffled only among equal priorities for balancing.
+        # descending Backend.priority, shuffled only among equal priorities.
         for group in groups:
             group_backends = [b for b in healthy if b.group == group and b.id not in seen]
             if group_backends:
@@ -557,34 +468,31 @@ class BackendRegistry:
             random.shuffle(remaining)
             result.extend(remaining)
 
-        # P7-PERF: Cache the result
+        # Cache the result
         self._candidate_cache[cache_key] = (result, now)
         return list(result)
 
     def _invalidate_candidate_cache(self) -> None:
         """Clear the per-workspace candidate cache.
 
-        Called from ``_refresh_healthy_cache`` whenever health status changes.
-        Forces the next ``get_backend_candidates`` call to rebuild from scratch,
-        which is what lets a newly-unhealthy backend drop out of routing within
-        one health cycle instead of waiting for the 5s TTL.
+        Forces the next ``get_backend_candidates`` call to rebuild, so a newly
+        unhealthy backend drops out within one health cycle instead of the 5s
+        TTL.
         """
         self._candidate_cache.clear()
 
     def get_backend_for_workspace(self, workspace_id: str) -> Backend | None:
         """Select the single best healthy backend for ``workspace_id``.
 
-        Convenience wrapper around ``get_backend_candidates`` that returns the
-        head of the list. Used by callers that don't need request-level
-        fallback (warmups, the ``/health`` endpoint's backend counters).
+        Returns the head of ``get_backend_candidates``; used by callers
+        without request-level fallback (warmups, the ``/health`` endpoint).
 
         Args:
             workspace_id: Workspace identifier; see ``get_backend_candidates``.
 
         Returns:
-            A ``Backend``, or ``None`` if no healthy backend exists anywhere
-            — in which case the caller is expected to surface a 503 (the
-            chat-completions handler does exactly this).
+            A ``Backend``, or ``None`` if none healthy — the caller should
+            surface a 503 (the chat-completions handler does this).
         """
         candidates = self.get_backend_candidates(workspace_id)
         return candidates[0] if candidates else None
@@ -593,11 +501,9 @@ class BackendRegistry:
     def _get_health_semaphore(cls) -> asyncio.Semaphore:
         """Lazily-create the shared semaphore that bounds concurrent health checks.
 
-        Class-level so all registries in a process share the cap (in production
-        there is only one registry; tests construct several). The cap of 2 is
-        intentionally conservative — a 30-backend cluster spreads its health
-        cycle over ~15s of every 30s interval, well under the request-handling
-        workers' concurrency budget.
+        Class-level so all registries in a process share the cap; the cap of 2
+        keeps a 30-backend cluster's cycle well under the request-handling
+        concurrency budget.
         """
         if cls._health_semaphore is None:
             cls._health_semaphore = asyncio.Semaphore(2)
@@ -607,18 +513,13 @@ class BackendRegistry:
     async def _get_health_client(cls, health_timeout: float) -> httpx.AsyncClient:
         """Lazily-create the shared ``httpx.AsyncClient`` used for health checks.
 
-        A single client (10 keepalive, 20 max connections) is reused across
-        every health-check cycle and every backend, so the 30s health cycle
-        costs zero TCP/TLS handshakes after the first connect.
-
-        Class-level lifetime — the client is created once per process and must
-        be closed on shutdown via ``close_health_client``. ``lifespan`` in
-        ``router_pipe.py`` does this in its cleanup phase.
+        One client (10 keepalive, 20 max connections) is reused across every
+        health cycle, so steady-state cycles cost zero handshakes. Class-level
+        lifetime; must be closed on shutdown via ``close_health_client``.
 
         Args:
-            health_timeout: Per-request timeout applied to every health probe
-                using this client. Only honoured at first-call; later calls
-                receive the same client and the original timeout.
+            health_timeout: Per-request timeout for every health probe; honoured
+                only at first call.
         """
         if cls._health_client is None:
             cls._health_client = httpx.AsyncClient(
@@ -633,17 +534,11 @@ class BackendRegistry:
     async def health_check_all(self) -> None:
         """Run one health-check cycle across every registered backend.
 
-        Cycles are launched concurrently bounded by ``_get_health_semaphore``
-        (default cap = 2). Per-backend exceptions are swallowed by
-        ``_check_one``; this method itself never raises.
-
-        On completion, ``_refresh_healthy_cache`` rebuilds ``_cached_healthy``
-        and invalidates the candidate cache, so any health change observed in
-        this cycle takes effect on the very next request.
-
-        Called from ``start_health_loop`` on the configured interval and also
-        once at startup in ``lifespan`` to ensure the first request has fresh
-        data.
+        Launched concurrently bounded by ``_get_health_semaphore`` (cap 2).
+        Per-backend exceptions are swallowed by ``_check_one``; this method
+        never raises. On completion ``_refresh_healthy_cache`` rebuilds
+        ``_cached_healthy`` and invalidates the candidate cache, so health
+        changes take effect on the very next request.
         """
         sem = self._get_health_semaphore()
         client = await self._get_health_client(self._health_timeout)
@@ -651,7 +546,7 @@ class BackendRegistry:
             *[self._check_one(b, sem, client) for b in self._backends.values()],
             return_exceptions=True,
         )
-        self._refresh_healthy_cache()  # P8: update cache after all checks complete
+        self._refresh_healthy_cache()  # update cache after all checks complete
         healthy_count = len(self._cached_healthy)
         if healthy_count != self._last_healthy_count:
             self._last_healthy_count = healthy_count
@@ -665,9 +560,7 @@ class BackendRegistry:
         try:
             from portal.platform.inference.router.monitor import memory_pct as _mp
 
-            # Offload the vm_stat subprocess to a thread so it does not block the
-            # event loop during the health cycle (memory_pct is ~10-50 ms on
-            # Apple Silicon; a slower future probe would stall serving).
+            # Offload vm_stat to a thread so it doesn't block the event loop.
             _mem = await asyncio.get_running_loop().run_in_executor(None, _mp)
             self._last_memory_pct = _mem
             if _mem >= 90.0:
@@ -692,15 +585,10 @@ class BackendRegistry:
     ) -> None:
         """Probe one backend; update ``backend.healthy`` and ``backend.last_check``.
 
-        Standard path: HTTP 200 → healthy, anything else → unhealthy.
-
-        Exceptions from the HTTP client are caught; this method never raises.
-        The semaphore is held only for the duration of the network call.
-
-        Health hysteresis: ``healthy`` flips to ``False`` only after
-        ``_health_failure_threshold`` consecutive failures. A single
-        success resets the counter and restores ``healthy=True``
-        immediately.
+        HTTP 200 → healthy, anything else → unhealthy; never raises. The
+        semaphore is held only for the network call. Hysteresis: ``healthy``
+        flips to False only after ``_health_failure_threshold`` consecutive
+        failures; a success resets the counter and restores healthy immediately.
 
         Args:
             backend: Backend to probe; mutated in place.
@@ -745,20 +633,16 @@ class BackendRegistry:
     ) -> None:
         """Long-running task: health-check every ``_health_check_interval`` seconds.
 
-        Sleeps first, then probes, so callers can invoke ``health_check_all``
-        once synchronously before launching this loop to ensure the first
-        request after startup has fresh data (``lifespan`` does this).
-
-        Exits cleanly on ``asyncio.CancelledError`` (the standard shutdown
-        signal from ``lifespan``); any other exception is logged and the loop
-        continues — a single failing cycle never kills the registry.
+        Sleeps first, then probes, so callers can run one synchronous
+        ``health_check_all`` before launching (``lifespan`` does this). Exits
+        cleanly on ``asyncio.CancelledError``; other exceptions are logged and
+        the loop continues.
 
         Args:
-            on_health_check: Optional callback invoked with ``self`` after
-                each cycle. May be sync or async; awaitable returns are
-                awaited. This is how ``router_pipe.lifespan`` injects the
-                notification dispatcher's threshold check without
-                ``cluster_backends`` taking a dependency on notifications.
+            on_health_check: Optional callback invoked with ``self`` after each
+                cycle; sync or async (awaitable results are awaited). Lets
+                ``lifespan`` inject the notification dispatcher's threshold
+                check without a dependency.
         """
         logger.info("Starting health check loop (interval: %ss)", self._health_check_interval)
         while True:
@@ -799,9 +683,9 @@ class BackendRegistry:
         return self._workspace_routes
 
     def model_supports_tools(self, model_id: str) -> bool:
-        """Return whether ``model_id`` declares ``supports_tools: true`` in its metadata.
+        """Return whether ``model_id`` declares ``supports_tools: true``.
 
-        Lookup is O(1) against the pre-built ``_tool_support`` map.
-        Returns ``False`` for unknown models.
+        O(1) lookup against the pre-built ``_tool_support`` map; ``False`` for
+        unknown models.
         """
         return self._tool_support.get(model_id, False)

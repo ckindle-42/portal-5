@@ -1,8 +1,7 @@
 """Pre-flight validation and per-backend option injection.
 
-Extracted from router_pipe.py during M6-A finish. Pure functions —
-no module-level state. Imported by lifespan (validation) and by the
-non-streaming + streaming dispatch paths (option injection).
+Pure functions — no module-level state. Imported by lifespan (validation) and
+by the non-streaming + streaming dispatch paths (option injection).
 """
 
 from __future__ import annotations
@@ -12,7 +11,7 @@ import os
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.router.workspaces import WORKSPACES
 
-# Module-level constants from router_pipe.py (now in validation.py)
+# Env-overridable Ollama request defaults
 _OLLAMA_KEEP_ALIVE: str = os.environ.get("OLLAMA_KEEP_ALIVE_REQUEST", "-1")
 _OLLAMA_NUM_BATCH: int = int(os.environ.get("OLLAMA_NUM_BATCH", "2048"))
 
@@ -23,29 +22,17 @@ registry: BackendRegistry | None = None
 def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
     """Verify every ``WORKSPACES`` ``model_hint`` resolves.
 
-    Run once at startup from ``lifespan``. For each workspace,
-    ``model_hint`` (Ollama) must be in some backend's ``models``
-    list, AND that backend must be in one of the workspace's
-    routing groups per ``config/backends.yaml``.
-
-    Returns the list of failures rather than raising. The caller
-    decides what to do: ``lifespan`` raises ``RuntimeError`` under
-    ``STRICT_HINT_VALIDATION=true``, or logs warnings and starts
-    anyway in permissive mode. Returning a list lets the operator
-    see every misconfigured workspace in one startup pass instead
-    of fail-on-first.
-
-    Without this check, a typo in ``WORKSPACES`` produces silent
-    fallback at request time — the workspace serves, but with a
-    different model than intended.
+    Each workspace's ``model_hint`` must be in some backend's ``models`` list
+    AND that backend must be in one of the workspace's routing groups per
+    ``config/backends.yaml``. Returns failures rather than raising — ``lifespan``
+    decides to raise (``STRICT_HINT_VALIDATION=true``) or log-and-continue,
+    and the operator sees every misconfigured workspace in one pass.
 
     Args:
-        registry: The pipeline's ``BackendRegistry``, already
-            loaded from YAML.
+        registry: The pipeline's ``BackendRegistry``, already loaded from YAML.
 
     Returns:
-        Human-readable error strings, one per failed hint. Empty
-        list means all hints resolve.
+        Human-readable error strings, one per failed hint; empty = all resolve.
     """
     group_models: dict[str, set[str]] = {}
     for be in registry.list_backends():
@@ -72,18 +59,17 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
 
 
 def _model_supports_tools(model_id: str) -> bool:
-    """Return whether ``model_id`` declares ``supports_tools: true`` in its metadata.
+    """Return whether ``model_id`` declares ``supports_tools: true``.
 
-    Delegates to ``BackendRegistry.model_supports_tools`` for O(1) lookup
-    against the pre-built tool-support map built during ``_load_config``.
+    Delegates to ``BackendRegistry.model_supports_tools`` (O(1) against the
+    pre-built tool-support map).
 
     Args:
-        model_id: Concrete model id (e.g. ``"qwen3-coder:30b"``).
-            Unknown models return ``False``.
+        model_id: Concrete model id (e.g. ``"qwen3-coder:30b"``). Unknown
+            models return ``False``.
 
     Returns:
-        ``True`` if the model's metadata explicitly declares
-        ``supports_tools: true``, ``False`` otherwise.
+        ``True`` if the model's metadata declares ``supports_tools: true``.
     """
     if registry is None or not model_id:
         return False
@@ -93,38 +79,18 @@ def _model_supports_tools(model_id: str) -> bool:
 def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     """Add Ollama-specific tuning to the outgoing request body. Returns a copy.
 
-    Only called for backends with ``type == "ollama"``. vLLM
-    does not recognise these fields and would either error or silently
-    ignore them.
+    Only called for ``type == "ollama"`` backends — vLLM doesn't recognise
+    these fields. Body is copied at entry; the ``options`` sub-dict is
+    deep-copied so injections never pollute the caller's dict.
 
-    Body is copied at function entry — the original is never
-    mutated. The ``options`` sub-dict is deep-copied so workspace
-    injections never pollute the caller's original options dict.
-
-    **Global tuning** (applies to every Ollama request):
-
-    * ``keep_alive``: ``-1`` keeps model in VRAM, eliminates cold-load cost.
-    * ``num_batch``: 2048 — 4× faster prefill vs Ollama default 512.
-
-    **Workspace-driven** (only when workspace declares the field):
-
-    * ``num_ctx`` from ``context_limit`` — explicit KV-cache cap for big models.
-    * ``max_tokens`` from ``predict_limit`` — output token cap (CoT exhaustion guard).
-    * ``temperature`` — sampling temperature. 0.1 for exec/tool workspaces;
-      0.2 for coding; 0.6 for reasoning/research; 0.8 for creative.
-    * ``top_p`` — nucleus sampling cutoff. Tighter (0.9) for tool-calling roles;
-      wider (0.95) for reasoning and creative roles.
-    * ``top_k`` — vocabulary candidate pool. 20 for exec precision; 40 default.
-    * ``min_p`` — minimum token probability floor. Filters degenerate low-prob
-      tokens that abliterated models can drift toward. 0.05 is safe across fleet.
-    * ``repeat_penalty`` — penalises repeated n-grams. 1.1 for exec/tool chains
-      that show looping behaviour; 1.0 (default) elsewhere.
-    * ``seed`` — RNG seed for reproducibility. Set on bench workspaces only so
-      theory/exec scores are comparable across runs without non-determinism noise.
-    * ``think`` — extended thinking toggle for Qwen3/similar.
-
-    All injections use ``setdefault`` so caller-supplied values
-    (e.g. Open WebUI passing its own ``temperature``) always win.
+    Global tuning: ``keep_alive`` (-1 keeps the model in VRAM; workspace
+    override wins via hard assignment), ``num_batch`` (2048 prefill speedup).
+    Workspace-driven, all via ``setdefault`` so caller values win:
+    ``num_ctx`` from ``context_limit``, top-level ``max_tokens`` from
+    ``predict_limit``, sampling keys (``temperature``, ``top_p``, ``top_k``,
+    ``min_p``, ``repeat_penalty``, ``seed``), ``mirostat``/``mirostat_tau``/
+    ``mirostat_eta`` (mutually exclusive with top_p/top_k; injected only when
+    the workspace opts in), and ``think``.
 
     Args:
         body: Outgoing request body. Not mutated.
@@ -147,9 +113,8 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     if predict_limit:
         body.setdefault("max_tokens", predict_limit)
 
-    # keep_alive: workspace override wins; fall back to global "-1"
-    # Hard assignment (not setdefault) — OWUI sends its own keep_alive but bench
-    # workspace lifecycle must take precedence to avoid pinning large models.
+    # keep_alive: workspace override wins; hard assignment (not setdefault) so
+    # bench workspace lifecycle takes precedence over OWUI's own value.
     ws_keep_alive = ws_cfg_local.get("keep_alive")
     if ws_keep_alive is not None:
         body["keep_alive"] = ws_keep_alive
@@ -197,20 +162,14 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
 
 
 def _inject_omlx_options(body: dict, workspace_id: str = "") -> dict:
-    """Per-request injection for ``type == "omlx"`` backends (P5-FUT-013 Phase 1).
+    """Per-request injection for ``type == "omlx"`` backends.
 
-    oMLX speaks plain OpenAI — there is no ``options`` sub-dict, no
-    ``keep_alive`` (model residency is server-side: EnginePool pinning/TTL),
-    and no ``num_ctx``/``num_batch`` (context and prefill chunking are
-    server-side per-model settings, replacing the Ollama ``-ctxNk`` derived
-    tags). What remains worth injecting per request:
-
-    * ``max_tokens`` from ``predict_limit`` — output cap (OpenAI standard).
-    * ``stream_options.include_usage`` — TPS accounting, same as Ollama path.
-    * ``temperature`` / ``top_p`` as top-level OpenAI fields when the
-      workspace declares them (caller values always win via setdefault).
-
-    Body is copied at entry; the original is never mutated.
+    oMLX speaks plain OpenAI — no ``options`` sub-dict, no ``keep_alive``
+    (residency is server-side: EnginePool pinning/TTL), no ``num_ctx``/
+    ``num_batch``. Injects ``max_tokens`` from ``predict_limit``,
+    ``stream_options.include_usage`` for TPS accounting, and top-level
+    ``temperature``/``top_p`` when declared (caller values win via setdefault).
+    Body is copied at entry.
     """
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}

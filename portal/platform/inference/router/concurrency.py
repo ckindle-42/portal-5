@@ -1,15 +1,13 @@
 """Request-concurrency machinery — semaphores, limits, and RequestSlot.
 
 Owns the three semaphores (global request, per-workspace, per-API-key) and
-:class:`RequestSlot`, which provides single-owner lifecycle for all three
-within one request. Extracted from ``router_pipe.py`` where the same
-lifecycle was split across five release sites.
+:class:`RequestSlot`, which provides single-owner lifecycle for all three within
+one request.
 
 Mutable singletons (``_request_semaphore``, ``_workspace_semaphores``,
-``_api_key_semaphores``) live here and are **never** facade-re-exported
-from ``router_pipe.py`` (A4). ``lifespan`` sets ``_request_semaphore``
-directly on this module; :class:`RequestSlot` acquires and releases all
-three on the request handler's behalf.
+``_api_key_semaphores``) live here and are never facade-re-exported from
+``router_pipe.py``; ``lifespan`` sets ``_request_semaphore`` directly on this
+module.
 """
 
 from __future__ import annotations
@@ -54,27 +52,14 @@ _api_key_sem_lock = asyncio.Lock()
 def _get_workspace_concurrency_limit(workspace_id: str) -> int:
     """Resolve the per-workspace concurrent-request cap.
 
-    Three-layer override chain (highest priority first):
-
-    1. ``WORKSPACE_CONCURRENCY_<ID>`` environment variable
-       (e.g. ``WORKSPACE_CONCURRENCY_AUTO_CODING=4``). The
-       transformation maps kebab-case workspace ids to upper
-       snake-case for env-var convention.
-    2. ``max_concurrent`` field on the workspace's
-       ``WORKSPACES`` entry (developer-time default).
-    3. ``PORTAL5_DEFAULT_WORKSPACE_CONCURRENCY`` environment
-       variable, or the hard-coded fallback ``5`` (a single
-       workspace can hold at most 25% of the default global
-       cap of 20).
-
-    The cap controls the per-workspace ``asyncio.Semaphore`` lazily
-    created in ``_acquire_workspace_sem``. Bursts beyond the cap
-    return HTTP 429 to the caller and increment
-    ``portal5_workspace_semaphore_busy_total``.
+    Override chain (highest priority first): ``WORKSPACE_CONCURRENCY_<ID>`` env
+    var (kebab-case id → UPPER_SNAKE), then the workspace's ``max_concurrent``
+    field, then ``PORTAL5_DEFAULT_WORKSPACE_CONCURRENCY`` or the fallback 5
+    (25% of the default global cap of 20). Bursts beyond the cap return HTTP
+    429 and increment ``portal5_workspace_semaphore_busy_total``.
 
     Args:
-        workspace_id: Workspace id from the request (kebab case;
-            transformed to ``UPPER_SNAKE`` for env-var lookup).
+        workspace_id: Workspace id from the request (kebab case).
 
     Returns:
         Concurrent-request cap, ≥ 1.
@@ -93,32 +78,19 @@ def _get_workspace_concurrency_limit(workspace_id: str) -> int:
 async def _acquire_workspace_sem(workspace_id: str) -> asyncio.Semaphore:
     """Return the workspace's semaphore, creating it on first access.
 
-    Lazy creation: the first request for a given ``workspace_id``
-    builds an ``asyncio.Semaphore(limit)`` where ``limit`` comes from
-    ``_get_workspace_concurrency_limit``, caches it in the
-    module-level ``_workspace_semaphores`` dict, and returns it.
-    Every subsequent request for the same workspace returns the
-    cached semaphore.
-
-    Race-safe via ``_workspace_sem_lock``: two concurrent requests
-    for a newly-added workspace cannot both create competing
-    semaphores. Without the lock, the second creation would
-    overwrite the first and double the effective cap.
-
-    The semaphores live for the process lifetime — there is no
-    eviction path. Adding a new workspace via YAML + pipeline
-    restart adds one ``Semaphore`` object to the process; removing
-    a workspace leaves a stranded semaphore that is never used
-    again (negligible memory).
+    Lazy creation: the first request builds ``asyncio.Semaphore(limit)`` from
+    ``_get_workspace_concurrency_limit`` and caches it. Race-safe via
+    ``_workspace_sem_lock`` — without it, two concurrent creations would double
+    the effective cap. Semaphores live for the process lifetime (no eviction; a
+    removed workspace leaves a stranded, never-used semaphore).
 
     Args:
-        workspace_id: The workspace key. Unknown ids still get a
-            semaphore sized by the default cap.
+        workspace_id: The workspace key. Unknown ids still get a semaphore
+            sized by the default cap.
 
     Returns:
-        The workspace's ``asyncio.Semaphore``. Caller is expected
-        to ``acquire()`` it with ``asyncio.wait_for`` and handle
-        timeout as HTTP 429.
+        The workspace's ``asyncio.Semaphore``. Caller acquires it with
+        ``asyncio.wait_for`` and handles timeout as HTTP 429.
     """
     from portal.platform.inference.router.workspaces import WORKSPACES
 
@@ -139,29 +111,15 @@ async def _acquire_workspace_sem(workspace_id: str) -> asyncio.Semaphore:
 def _api_key_limit(key_hash: str) -> int:
     """Resolve the per-API-key concurrent-request cap.
 
-    Two-layer override chain:
-
-    1. ``API_KEY_CONCURRENCY_<PREFIX>`` env var, where ``<PREFIX>``
-       is the first 8 hex chars of the key's SHA-256, uppercased
-       (e.g. ``API_KEY_CONCURRENCY_A3F2D1B0=20``). Hash prefix —
-       not raw key — so env vars are safe to grep and inspect;
-       env vars carrying raw secrets leak via ``ps``, ``/proc``,
-       and container inspection.
-    2. ``PORTAL5_DEFAULT_API_KEY_CONCURRENCY`` env var, or the
-       hard-coded fallback ``10`` — twice the default workspace
-       cap because an API key in production is typically a service
-       account running many parallel workspace queries; it should
-       be able to use multiple workspaces simultaneously without
-       hitting the per-key limit before the per-workspace limit
-       fires.
-
-    8-char hash prefixes provide ~32 bits of identifier space;
-    collisions are theoretically possible but the pipeline's API
-    key population is small in practice.
+    Override chain: ``API_KEY_CONCURRENCY_<PREFIX>`` env var (prefix = first 8
+    hex chars of the key's SHA-256, uppercased — never the raw key, so env vars
+    don't leak secrets), then ``PORTAL5_DEFAULT_API_KEY_CONCURRENCY`` or the
+    fallback 10 (twice the workspace cap, so a service account can fan out
+    across workspaces without hitting the per-key limit first).
 
     Args:
-        key_hash: Full SHA-256 hex digest of the API key. Only the
-            first 8 chars are used for the env-var key.
+        key_hash: Full SHA-256 hex digest of the API key; only the first 8
+            chars are used for the env-var key.
 
     Returns:
         Concurrent-request cap for this API key, ≥ 1.
@@ -176,32 +134,17 @@ def _api_key_limit(key_hash: str) -> int:
 async def _acquire_api_key_sem(api_key: str) -> asyncio.Semaphore | None:
     """Return the per-API-key semaphore, creating it on first access.
 
-    Mirrors ``_acquire_workspace_sem`` but keyed by SHA-256 hash of
-    the API key. The hashing is deliberate: cached semaphores live
-    in ``_api_key_semaphores`` for the process lifetime, and storing
-    raw keys as dict keys would leave them in memory in readable
-    form. Hash digests are one-way — a memory dump or accidental
-    debug-print shows hex, not credentials.
-
-    ``hashlib`` is imported lazily inside the function so tests that
-    never present an API key don't pay the import cost.
-
-    Returns ``None`` when ``api_key`` is empty, which is the caller's
-    signal to skip per-key concurrency enforcement. This handles two
-    cases: single-user deployments with no API-key setup, and
-    malformed-auth-header edge cases that ``_verify_key`` accepted.
-
-    Race-safe via ``_api_key_sem_lock`` — same pattern as the
-    workspace semaphore.
+    Keyed by SHA-256 of the API key so raw credentials never sit in memory as
+    dict keys. ``hashlib`` is imported lazily so keyless tests don't pay the
+    import cost. Returns ``None`` for an empty ``api_key`` (single-user
+    deployments, malformed-auth edge cases). Race-safe via ``_api_key_sem_lock``.
 
     Args:
-        api_key: Raw API key from the ``Authorization`` header
-            (Bearer token, prefix stripped). Empty string yields
-            ``None``.
+        api_key: Raw API key from the ``Authorization`` header (Bearer token,
+            prefix stripped). Empty string yields ``None``.
 
     Returns:
-        The per-key ``asyncio.Semaphore``, or ``None`` for empty
-        input.
+        The per-key ``asyncio.Semaphore``, or ``None`` for empty input.
     """
     if not api_key:
         return None
@@ -221,14 +164,12 @@ async def _acquire_api_key_sem(api_key: str) -> asyncio.Semaphore | None:
 
 
 class RequestSlot:
-    """Owns the three request semaphores and the concurrent-requests gauge
-    for exactly one request. Single release authority — replaces the
-    historical five-release-site pattern in chat_completions.
+    """Owns the three request semaphores and the concurrent-requests gauge for
+    exactly one request. Single release authority.
 
-    Acquisition is staged (global → api-key → workspace → mark_active),
-    mirroring the original order because workspace is unknown until
-    routing resolves. Release is one idempotent method: reverse-order
-    semaphore release + gauge dec if held.
+    Acquisition is staged (global → api-key → workspace → mark_active) because
+    the workspace is unknown until routing resolves. Release is one idempotent
+    method: reverse-order semaphore release + gauge dec if held.
     """
 
     def __init__(self) -> None:
