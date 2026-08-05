@@ -1,47 +1,19 @@
 """Portal 5 — system monitoring primitives (Metal GPU memory, Ollama model state).
 
 Promoted from tests/memory_guard.py so production routing code can react to
-system state instead of relying on blind timeouts. Tests import from here via
-the tests/memory_guard.py re-export shim.
+system state instead of relying on blind timeouts; tests import via the
+tests/memory_guard.py re-export shim.
 
-macOS Metal GPU buffers are released asynchronously after Ollama evicts a
-model — /api/ps becoming empty does not mean GPU memory is reclaimed.
-Metal typically holds buffers for 30-60s, and can get stuck indefinitely
-when a process crashes without releasing its Metal context.
+macOS Metal GPU buffers are released asynchronously after Ollama evicts a model
+— /api/ps becoming empty does not mean GPU memory is reclaimed. Poll functions
+exit when the condition is met and fall back to escalating recovery: Stage 1
+poll vm_stat, Stage 2 run `purge`, Stage 3 restart Ollama (releases all Metal
+contexts), then return failure.
 
-All poll functions exit immediately when the condition is met; they fall back
-to escalating recovery actions when the condition stalls:
-
-  Stage 1 (default 30s): poll vm_stat, exit on clear
-  Stage 2 (timeout):     run `purge` — macOS memory compaction, no kills
-  Stage 3 (timeout):     restart Ollama — releases all Metal contexts
-  All retries exhausted: return failure — caller blocks/skips
-
-Public API
-----------
-memory_pct() -> float
-    Current used% from vm_stat (active + wired pages).
-
-free_ram_gb() -> float
-    Approximate free + inactive unified memory in GB.
-
-purge_memory() -> None
-    Run macOS `purge` to unblock stalled Metal buffers.
-
-restart_ollama(ollama_url) -> bool
-    Restart Ollama server; returns True when healthy again.
-
-wait_for_drain(threshold_pct, timeout_s, poll_s, retries, label, ollama_url) -> bool
-    Sync drain wait with retry+recovery. Use in UAT driver and bench_tps.
-
-wait_for_drain_async(threshold_pct, timeout_s, poll_s, retries, ollama_url) -> float
-    Async drain wait with retry+recovery. Use in acceptance v6 (asyncio context).
-    Returns final free_ram_gb() reading.
-
-wait_for_model_loaded(timeout_s, poll_s, ollama_url) -> bool  [async]
-    Poll /api/ps until Ollama has at least one model loaded. Event-driven cold-
-    load wait — call after a timeout instead of sleeping a fixed duration.
-    Returns True when a model appears, False on timeout.
+Public API: ``memory_pct`` (used% from vm_stat), ``free_ram_gb`` (free+inactive
+in GB), ``purge_memory``, ``restart_ollama``, ``wait_for_drain`` (sync; UAT
+driver/bench_tps), ``wait_for_drain_async`` (async; acceptance v6),
+``wait_for_model_loaded`` (async; pipeline fallback — polls /api/ps).
 """
 
 from __future__ import annotations
@@ -67,9 +39,9 @@ DEFAULT_RETRIES = 2  # purge (1) → restart (2) → give up
 def memory_pct() -> float:
     """Return current memory used % (active + wired / total) from vm_stat.
 
-    Wired pages are the key indicator for Metal GPU buffers — they remain
-    elevated after Ollama eviction until Metal releases its contexts.
-    Returns 0.0 on any parse failure (safe default — callers treat low as OK).
+    Wired pages track Metal GPU buffers — they stay elevated after Ollama
+    eviction until Metal releases its contexts. Returns 0.0 on parse failure
+    (callers treat low as OK).
     """
     try:
         result = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=5)
@@ -101,10 +73,9 @@ def memory_pct() -> float:
 def free_ram_gb() -> float:
     """Return approximate free + inactive unified memory in GB from vm_stat.
 
-    Uses free + inactive pages (memory available for immediate use or
-    quickly reclaimable) rather than just free, matching macOS Activity
-    Monitor's "memory available" reading.
-    Returns 0.0 on parse failure.
+    Uses free + inactive (available or quickly reclaimable) rather than just
+    free, matching Activity Monitor's "memory available". Returns 0.0 on parse
+    failure.
     """
     try:
         out = subprocess.check_output(["vm_stat"], text=True, timeout=5)
@@ -130,9 +101,8 @@ def free_ram_gb() -> float:
 def purge_memory() -> None:
     """Run macOS `purge` to force inactive-page compaction.
 
-    `purge` pressures the VM subsystem into reclaiming inactive pages, which
-    often unblocks Metal GPU buffers that have stopped draining on their own.
-    It does not kill any process and is safe to call between model loads.
+    Often unblocks Metal GPU buffers that stopped draining on their own. Kills
+    no process; safe to call between model loads.
     """
     try:
         subprocess.run(["purge"], timeout=15, check=False, capture_output=True)
@@ -142,13 +112,12 @@ def purge_memory() -> None:
 
 
 def restart_ollama(ollama_url: str = DEFAULT_OLLAMA_URL) -> bool:
-    """Restart the Ollama server to release all stuck Metal GPU contexts.
+    """Restart the Ollama server to release stuck Metal GPU contexts.
 
-    Nuclear recovery: kills and restarts Ollama. Used only when `purge`
-    fails to unblock Metal buffers. Waits up to 30s for Ollama to return
-    healthy before returning.
+    Nuclear recovery used only when `purge` fails. Waits up to 30s for Ollama
+    to return healthy.
 
-    Returns True if Ollama is healthy after restart, False on timeout.
+    Returns True if healthy after restart, False on timeout.
     """
     print("  [metal] Restarting Ollama to clear stuck Metal contexts ...", flush=True)
     try:
@@ -192,22 +161,18 @@ def wait_for_drain(
     label: str = "",
     ollama_url: str = DEFAULT_OLLAMA_URL,
 ) -> bool:
-    """Wait for Metal GPU buffers to drain below threshold_pct.
+    """Wait for Metal GPU buffers to drain below ``threshold_pct``.
 
-    Polling exits immediately when the condition is met. On timeout, takes
-    escalating recovery actions before retrying:
-      Attempt 1 timeout → purge_memory()
-      Attempt 2 timeout → restart_ollama()
-      All retries exhausted → return False
-
-    Callers that receive False should BLOCK or skip the next operation rather
-    than proceeding — continuing into high-memory state produces routing
-    fallback and confusing false failures that mask the real cause.
+    Polling exits immediately when the condition is met. On timeout, escalates:
+    attempt 1 → ``purge_memory()``, attempt 2 → ``restart_ollama()``, retries
+    exhausted → return False. Callers that get False should BLOCK or skip the
+    next operation — continuing into high-memory state produces routing
+    fallback and confusing false failures.
 
     Args:
         threshold_pct: Target used% ceiling (default 75%).
-        timeout_s:     Polling window per attempt in seconds (default 30s).
-        poll_s:        vm_stat check interval in seconds (default 2s).
+        timeout_s:     Polling window per attempt (default 30s).
+        poll_s:        vm_stat check interval (default 2s).
         retries:       Recovery attempts before giving up (default 2).
         label:         Short string appended to log prefix for context.
         ollama_url:    Ollama base URL for health checks after restart.
@@ -253,19 +218,16 @@ async def wait_for_drain_async(
 ) -> float:
     """Async variant of wait_for_drain for use in asyncio contexts.
 
-    Polls free_ram_gb() until it stabilises (stops increasing for two
-    consecutive checks), applying the same purge → restart escalation on
-    timeout.
-
-    Uses free_ram_gb() (free + inactive) rather than memory_pct() (active +
-    wired) because the acceptance runner expresses headroom in GB rather than
-    used%. The two metrics are complementary — both reflect Metal drain state.
+    Polls free_ram_gb() until it stabilises (no increase for two consecutive
+    checks), applying the same purge → restart escalation on timeout. Uses
+    free_ram_gb() rather than memory_pct() because the acceptance runner
+    expresses headroom in GB; the two metrics are complementary.
 
     Args:
         threshold_pct: Unused (kept for API symmetry); stability detection
-                       replaces threshold-based exit for the async variant.
-        timeout_s:     Polling window per attempt in seconds (default 30s).
-        poll_s:        vm_stat check interval in seconds (default 3s).
+            replaces threshold-based exit.
+        timeout_s:     Polling window per attempt (default 30s).
+        poll_s:        vm_stat check interval (default 3s).
         retries:       Recovery attempts before giving up (default 2).
         ollama_url:    Ollama base URL for health checks after restart.
 
@@ -314,9 +276,9 @@ async def wait_for_model_loaded(
 ) -> bool:
     """Poll /api/ps until Ollama has at least one model loaded.
 
-    Event-driven wait for use in the pipeline's non-streaming fallback path.
-    When a backend times out, call this before cascading to the next candidate
-    — if the model is still in /api/ps it is still generating, not dead.
+    Event-driven wait for the non-streaming fallback path: when a backend times
+    out, call this before cascading to the next candidate — if the model is
+    still in /api/ps it is still generating, not dead.
 
     Args:
         timeout_s:  Maximum seconds to wait (default 300s).

@@ -23,8 +23,7 @@ from portal.platform.inference.router.metrics import (
 
 logger = logging.getLogger(__name__)
 
-# Persistent state file — survives pipeline restarts.
-# Mounted as a Docker volume so it persists across container lifecycle.
+# Persistent state file — mounted as a Docker volume so it survives restarts.
 _STATE_FILE = Path(os.environ.get("METRICS_STATE_FILE", "/app/data/metrics_state.json"))
 
 # Basic Prometheus-compatible metrics counter
@@ -46,19 +45,15 @@ _persona_usage_raw: dict[str, dict[str, int]] = {}  # persona -> {model -> count
 def _record_error(workspace: str, error_type: str) -> None:
     """Record an error to both the Prometheus counter and the daily-summary dict.
 
-    The pipeline keeps two parallel error counts: ``_errors_total`` (a
-    Prometheus ``Counter`` scraped by ``/metrics``) and
-    ``_req_count_by_error`` (a plain dict diffed by the notification
-    scheduler to build daily summaries). They must update together —
-    every error path goes through this helper rather than mutating
-    either directly.
+    Every error path goes through this helper so the two parallel counts
+    (``_errors_total`` Counter and ``_req_count_by_error`` plain dict) stay in
+    sync.
 
     Args:
         workspace: Workspace id; unknown ids are accepted (the Prometheus
             label space simply grows).
         error_type: Short error category (e.g. ``"timeout"``,
-            ``"backend_down"``, ``"tool_error"``). Used as both a
-            Prometheus label and a dict key.
+            ``"backend_down"``, ``"tool_error"``).
     """
     _errors_total.labels(workspace=workspace, error_type=error_type).inc()
     global _req_count_by_error
@@ -68,17 +63,13 @@ def _record_error(workspace: str, error_type: str) -> None:
 def _record_persona(persona: str, model: str) -> None:
     """Record one persona × model usage to both the Prometheus counter and the summary dict.
 
-    Mirror of ``_record_error`` for persona telemetry. The nested-dict
-    shape ``_persona_usage_raw[persona][model] = count`` is what the
-    notification daily summary consumes; storing it pre-shaped saves
-    the scheduler from re-aggregating from a flat counter.
+    The nested shape ``_persona_usage_raw[persona][model] = count`` is what the
+    notification daily summary consumes, pre-shaped to save re-aggregation.
 
     Args:
-        persona: Persona slug from the chat-completions request, or
-            ``"unknown"`` when no persona was selected.
+        persona: Persona slug from the request, or ``"unknown"`` when none.
         model: Concrete model id the request was routed to (after
-            ``model_hint`` resolution). Distinct from the user-facing
-            workspace id.
+            ``model_hint`` resolution).
     """
     _persona_usage.labels(persona=persona, model=model).inc()
     global _persona_usage_raw
@@ -90,18 +81,11 @@ def _record_persona(persona: str, model: str) -> None:
 def _load_state() -> None:
     """Restore persisted metrics state from disk (survives restarts).
 
-    IMPORTANT: In-memory accumulator counters (_request_count, _total_tps, etc.)
-    are intentionally NOT pre-loaded from disk.  The _save_state() merge adds
-    each worker's in-memory delta on top of the existing file totals; if we also
-    pre-loaded the file totals into memory we would double-count on every save
-    cycle, compounding exponentially across workers and restarts.
+    Accumulator counters are intentionally NOT pre-loaded: ``_save_state``
+    merges in-memory deltas onto file totals, so pre-loading would double-count
+    on every cycle. Only ``peak_concurrent`` is restored (it merges via max()).
 
-    Only peak_concurrent is restored because it uses max() rather than addition
-    in the merge, so loading the historical peak is safe and desirable.
-
-    Called once from ``lifespan`` after ``BackendRegistry`` is up but
-    before the first health check completes. See ``_save_state`` for
-    the partner function that writes deltas back to disk.
+    Called once from ``lifespan`` after ``BackendRegistry`` is up.
     """
     global _peak_concurrent
 
@@ -124,33 +108,18 @@ def _load_state() -> None:
 def _save_state() -> None:
     """Persist in-memory metric deltas to disk with delta semantics.
 
-    Cross-worker correctness:
+    Cross-worker correctness: acquire exclusive ``fcntl.flock`` on a sidecar
+    lockfile (serialises all workers), read the file, add this worker's
+    in-memory delta, write atomically via temp file + rename (a kill mid-write
+    can't leave a partial file). Reset in-memory accumulators to 0 after
+    persisting — without this every subsequent save re-adds the same totals,
+    inflating by saves_per_day × workers. ``peak_concurrent`` is exempt
+    (merges via max(), represents an all-time peak).
 
-    1. Acquire exclusive ``fcntl.flock`` on a sidecar lockfile
-       (serialises all workers; a 4-worker pipeline pays ~10ms wait
-       on contention).
-    2. Read the file, add this worker's in-memory delta, write
-       atomically via temp file + rename so a kill mid-write can't
-       leave a partial file for the next ``_load_state``.
-    3. **Reset in-memory accumulators to 0** — the delta has been
-       persisted. Without this reset, every subsequent save re-adds
-       the same cumulative totals on top of the file, inflating
-       values by ``saves_per_day × workers``.
+    All exceptions are swallowed to ``logger.debug`` — a metrics failure must
+    never break a serving pipeline; losing telemetry beats crashing.
 
-    ``peak_concurrent`` is the only field exempt from the reset
-    because it merges via ``max()`` rather than addition and
-    represents an all-time peak.
-
-    Failure handling: all exceptions are swallowed to ``logger.debug``.
-    A metrics-state failure must not break a serving pipeline — if
-    the disk is full or the lockfile is unwritable, request handling
-    continues and only telemetry is lost. The opposite (crashing
-    because metrics couldn't save) is worse.
-
-    Called every 60s by ``_state_save_loop`` and once more from
-    ``lifespan`` shutdown. See ``_load_state`` for the partner that
-    reads — only ``peak_concurrent`` is read; accumulators are NOT
-    pre-loaded, by design.
+    Called every 60s by ``_state_save_loop`` and once at ``lifespan`` shutdown.
     """
     global _total_tps, _request_tps_count
     global _total_input_tokens, _total_output_tokens
@@ -213,9 +182,8 @@ def _save_state() -> None:
                 tmp.write_text(json.dumps(merged))
                 tmp.rename(_STATE_FILE)
 
-                # CRITICAL: reset in-memory accumulators after successful persist.
-                # The delta is now in the file. Re-summing in-memory on the next
-                # save would double-count.
+                # Reset in-memory accumulators after successful persist —
+                # re-summing on the next save would double-count.
                 _metrics_mod._total_response_time_ms = 0.0
                 _total_tps = 0.0
                 _request_tps_count = 0
@@ -225,8 +193,8 @@ def _save_state() -> None:
                 _req_count_by_model.clear()
                 _req_count_by_error.clear()
                 _persona_usage_raw.clear()
-                # peak_concurrent is NOT reset — it uses max() and represents
-                # an all-time peak that should survive across save cycles.
+                # peak_concurrent is NOT reset — it merges via max() and
+                # represents an all-time peak that survives across save cycles.
             finally:
                 fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
     except Exception as e:
@@ -236,21 +204,13 @@ def _save_state() -> None:
 async def _state_save_loop(interval: int = 60) -> None:
     """Background task: persist metrics state to disk every ``interval`` seconds.
 
-    No internal exception handler — ``_save_state`` already swallows
-    failures to ``logger.debug``, so the loop can never crash on a
-    metrics issue. Handles ``asyncio.CancelledError`` implicitly via
-    the missing handler: cancellation propagates and the task ends.
-
-    Shutdown sequence is ``lifespan`` cancelling this task and then
-    calling ``_save_state`` one final time. The pattern ensures
-    in-flight deltas at shutdown are persisted, not lost in the
-    cancelled iteration.
+    No exception handler needed — ``_save_state`` swallows failures, so the
+    loop can never crash on a metrics issue. Cancellation propagates; the
+    ``lifespan`` shutdown sequence cancels this task and then calls
+    ``_save_state`` once more so in-flight deltas are persisted.
 
     Args:
-        interval: Seconds between saves. The 60s default is a balance
-            between persistence freshness and disk write rate —
-            shortening it under 10s risks contention with the 30s
-            health-check cycle's logging cadence.
+        interval: Seconds between saves (default 60).
     """
     while True:
         await asyncio.sleep(interval)

@@ -1,34 +1,13 @@
 """Typed configuration loader — config/portal.yaml → validated PortalConfig.
 
-Validates workspace catalog and MCP fleet at load time; fails loud with a
-precise message rather than silently delivering broken state.  Cached after
-the first successful load for process lifetime.
+Validates the workspace catalog and MCP fleet at load time, failing loud with a
+precise message rather than silently delivering broken state. Cached after the
+first successful load for process lifetime.
 
-Usage
------
-    from portal.platform.inference.config import load_portal_config
-    cfg = load_portal_config()
-    print(cfg.ollama_url)          # canonical Ollama URL
-    print(cfg.workspaces["auto"])  # WorkspaceSpec
-
-Public API
-----------
-``load_portal_config(path=None, *, _force_reload=False)``
-    Returns the cached (or freshly loaded) PortalConfig.
-
-``get_workspace_dict(config)``
-    Returns the runtime ``WORKSPACES``-compatible plain dict stripped of
-    portal.yaml-only fields (``expose_to_owui``, ``enable_web_search``,
-    ``owui_system_prompt``).
-
-``get_pipeline_mcp_servers(config)``
-    Returns env-overridden ``{id: url}`` dict for all pipeline-exposed MCPs.
-
-``load_persona_map(personas_dir=None)``
-    Returns ``{slug: PersonaSpec}`` for every YAML under ``config/personas/``.
-
-``resolve_preset_tools(persona_spec, workspace_spec)``
-    Single tool-resolution path for any persona × workspace pair.
+Public API: ``load_portal_config`` (cached load, OLLAMA_URL env override),
+``get_workspace_dict`` (runtime WORKSPACES dict), ``get_pipeline_mcp_servers``
+(env-overridden {id: url}), ``load_persona_map`` ({slug: PersonaSpec}),
+``resolve_preset_tools`` (single tool-resolution path).
 """
 
 from __future__ import annotations
@@ -46,8 +25,8 @@ logger = logging.getLogger(__name__)
 # Path to the single source of truth — relative to repo root
 PORTAL_YAML: Path = Path(__file__).resolve().parents[3] / "config" / "portal.yaml"
 
-# The nine discipline modules (BUILD_PROGRAM_COLLAPSE_V1.md Phase 2). "platform"
-# is additionally valid on mcp_fleet entries (infra no discipline owns).
+# The nine discipline modules; "platform" is additionally valid on mcp_fleet
+# entries (infra no discipline owns).
 ModuleName = Literal[
     "cad", "coding", "compliance", "documents", "eval", "general", "media", "research", "security"
 ]
@@ -95,9 +74,8 @@ class CouncilSpec(BaseModel):
 class ToolPreselectSpec(BaseModel):
     """Per-workspace opt-in for query-level tool-schema preselection.
 
-    See portal/platform/inference/tool_preselect/README.md. Absence of
-    this whole block on a workspace means the feature is bypassed for
-    it even when PORTAL5_TOOL_PRESELECT=1 globally.
+    Absence of this block on a workspace means the feature is bypassed for it
+    even when PORTAL5_TOOL_PRESELECT=1 globally.
     """
 
     enabled: bool = False
@@ -113,15 +91,15 @@ class WorkspaceSpec(BaseModel):
     description: str
     module: ModuleName
 
-    # --- Collapse axes (BUILD_PROGRAM_COLLAPSE_V1.md §4.1, DESIGN §D4) ---
+    # --- Collapse axes ---
     mode: Literal["single", "agentic"] = "single"
     depth: Literal["default", "deep", "exec"] = "default"
     guardrail: Literal["default", "uncensored"] = "default"
     variant: str = "default"
-    # security-specific axis (Phase 6): red/blue/purple/pentest engagement role
+    # security-specific axis: red/blue/purple/pentest engagement role
     role: Literal["red", "blue", "purple", "pentest"] = "purple"
 
-    # --- Named variant overrides (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6) ---
+    # --- Named variant overrides ---
     # variant name -> partial field overrides, applied on top of this workspace's
     # own fields by resolve_workspace_variant(). Internal-only: never appears in
     # the runtime WORKSPACES dict (see get_workspace_dict's _INTERNAL_ONLY_FIELDS).
@@ -142,12 +120,9 @@ class WorkspaceSpec(BaseModel):
 
     # --- Model behaviour ---
     system_prompt_append: str | None = None
-    # Workspace-level tool_choice default (persona.tool_choice, when set,
-    # still wins — see _resolve_persona_tool_choice). Use only for a
-    # workspace whose entire purpose depends on a real tool call happening
-    # (see the "required" fields on personas of this same intent) — a
-    # narrow, single-purpose workspace like auto-cad, not a general shared
-    # one like auto-coding/auto-daily/auto.
+    # Workspace-level tool_choice default. persona.tool_choice, when set, still
+    # wins. Use only on workspaces whose entire purpose depends on a real tool
+    # call happening — a narrow, single-purpose workspace, not a general one.
     tool_choice: str | None = None
     think: bool | None = None
     emits_reasoning: bool | None = None
@@ -165,14 +140,12 @@ class WorkspaceSpec(BaseModel):
     # --- Isolated multi-model review ---
     council: CouncilSpec | None = None
 
-    # --- Tool preselection opt-in (P5-FUT-TOOL-PRESELECT) ---
+    # --- Tool preselection opt-in ---
     tool_preselect: ToolPreselectSpec | None = None
 
     # --- Proactive context injection (router/context_inject.py) ---
-    # Per-workspace opt-ins for auto memory recall / RAG retrieval / writeback /
-    # temporal context. Absent = disabled (context_inject treats missing as
-    # False). These keys existed in portal.yaml (auto-daily) but were silently
-    # dropped by the schema — keep them flowing to the runtime WORKSPACES dict.
+    # Per-workspace opt-ins for memory recall / RAG retrieval / writeback /
+    # temporal context. Absent = disabled (missing is treated as False).
     inject_memory: bool | None = None
     auto_rag: bool | None = None
     memory_writeback: bool | None = None
@@ -189,9 +162,9 @@ class PersonaSpec(BaseModel):
     """One persona entry from ``config/personas/<slug>.yaml``.
 
     A persona is a workspace override: it inherits ``workspace_model``'s
-    routing, model, and default tools, then optionally overrides system
-    prompt and tools.  ``workspace_model`` must be a key in the loaded
-    ``WORKSPACES`` catalog — validated by ``load_persona_map``.
+    routing, model, and default tools, then optionally overrides system prompt
+    and tools. ``workspace_model`` must be a key in the loaded ``WORKSPACES``
+    catalog.
     """
 
     name: str
@@ -199,43 +172,23 @@ class PersonaSpec(BaseModel):
     category: str = "general"
     module: ModuleName
     workspace_model: str  # parent workspace key (= OWUI base_model_id)
-    # Optional named variant of workspace_model (BUILD_PROGRAM_COLLAPSE_V1.md
-    # Phase 5/6) — e.g. a coding persona pointing at auto-coding with
-    # variant: laguna to get the agentic Laguna-XS.2 lane instead of the
-    # base single-turn Qwen3-Coder-30B. Resolved by resolve_workspace_variant().
+    # Optional named variant of workspace_model — e.g. a coding persona pointing
+    # at auto-coding with variant: laguna. Resolved by resolve_workspace_variant().
     variant: str | None = None
-    # Ordered model fallback chain (BUILD_PROGRAM_COLLAPSE_V1.md Phase 8,
-    # DESIGN_COLLAPSE_V1.md §D6). First entry is the persona's current
-    # effective model (its resolved workspace/variant model_hint); later
-    # entries are same-discipline-group alternates from config/backends.yaml.
-    # Advisory metadata for now: ?model=<hint> (see resolve_model_override()
-    # in preinject.py) lets a caller explicitly select any entry in the
-    # chain; workspace_model/variant still determine which workspace serves
-    # the request (retiring workspace_model in favor of deriving the
-    # workspace from module alone was considered and deferred — several
-    # modules, e.g. general/media, still map to multiple distinct
-    # workspaces, which would need real disambiguation logic, not a config
-    # migration, to do safely).
+    # Ordered model fallback chain; advisory metadata only — nothing in the
+    # serving path consumes it. ?model=<hint> lets a caller select any entry.
     preferred_models: list[str] = Field(default_factory=list)
-    # Exact backends.yaml model id to pin this persona to, applied via the
-    # same bounded, catalog-checked _resolve_model_override() mechanism the
-    # ?model=<hint> query param uses (DESIGN_COLLAPSE_V1.md §D5) — unlike
-    # preferred_models, this field IS read in the serving path (handlers.py).
-    # DESIGN_PERSONA_INTENT_REMEDIATION_V1.md §1: preferred_models looked
-    # like it selected the served model but was never consumed anywhere;
-    # model_pin exists so a persona claiming a specific model lineage in its
-    # system_prompt is actually served that model, not just its workspace's
-    # pool-primary. An unknown/mistyped pin is a silent no-op (matches
-    # ?model='s existing behavior), never an error.
+    # Exact backends.yaml model id to pin this persona to, applied via the same
+    # bounded _resolve_model_override() mechanism the ?model=<hint> query param
+    # uses. Unlike preferred_models, this field IS read in the serving path.
+    # An unknown/mistyped pin is a silent no-op, never an error.
     model_pin: str | None = None
     system_prompt: str = ""
     # Named reference to a shared prompt body under
-    # portal/modules/eval/persona_matrix/prompts/<name>.txt
-    # (BUILD_PROGRAM_COLLAPSE_V1.md Phase 8) — dedupes the bench-matrix
-    # personas that previously each carried a byte-identical inline
-    # system_prompt. Resolved by load_persona_map(); exactly one of
-    # system_prompt/prompt_template may be set (enforced there, not here,
-    # since resolution needs filesystem access this schema layer avoids).
+    # portal/modules/eval/persona_matrix/prompts/<name>.txt — dedupes
+    # bench-matrix personas that previously carried byte-identical inline
+    # system_prompt. Exactly one of system_prompt/prompt_template must be set
+    # (enforced in load_persona_map).
     prompt_template: str | None = None
     tags: list[str] = Field(default_factory=list)
 
@@ -244,20 +197,13 @@ class PersonaSpec(BaseModel):
     tools_deny: list[str] = Field(default_factory=list)
 
     # Force the model to actually invoke a tool rather than narrate an intent
-    # to (e.g. "Let me search knowledge bases...") and then stop generating
-    # without ever calling one — observed across several tool-reliant
-    # personas in the P4 UAT closeout sweep. None means inherit the request's
-    # default ("auto"); set to "required" only for personas whose entire
-    # purpose depends on a tool call actually happening (see
-    # _resolve_persona_tool_choice in router/workspaces.py). Do not set
-    # broadly — forcing tool use on a persona that legitimately sometimes
-    # needs no tools breaks the tool-free case.
+    # and stop without calling one. None = inherit the request default ("auto");
+    # set to "required" only for personas whose entire purpose depends on a tool
+    # call happening. Do not set broadly — it breaks the tool-free case.
     tool_choice: str | None = None
 
-    # DESIGN_OPENCODE_ADDRESSING_V1.md §3.2: flags a persona as part of the
-    # opencode/Claude-Code curated model picker, so /v1/models can advertise
-    # it (fixing the divergence between the hand-maintained opencode.jsonc
-    # and the discovery endpoint) without exposing every persona in the repo.
+    # Flags a persona for the opencode/Claude-Code curated model picker so
+    # /v1/models can advertise it without exposing every persona in the repo.
     ide_expose: bool = False
 
 
@@ -412,11 +358,8 @@ _INTERNAL_ONLY_FIELDS = frozenset({"variants"})
 def _eval_enabled() -> bool:
     """Whether the eval module's workspaces/mcp entries should be loaded.
 
-    BUILD_PROGRAM_COLLAPSE_V1.md Phase 4. Bench/eval harnesses set
-    ``PORTAL_ENABLE_EVAL=1`` before importing portal.platform.inference; a
-    ``portal module enable eval`` wiki toggle persists it across a session.
-    Neither of these is control flow — they're the two ways an operator or
-    harness opts into the bench surface that's off by default.
+    True when ``PORTAL_ENABLE_EVAL=1`` is set or the eval module is enabled via
+    the wiki module toggle.
     """
     if os.environ.get("PORTAL_ENABLE_EVAL", "").lower() in ("true", "1", "yes"):
         return True
@@ -428,14 +371,10 @@ def _eval_enabled() -> bool:
 def get_workspace_dict(config: PortalConfig) -> dict[str, dict[str, Any]]:
     """Return the runtime ``WORKSPACES``-compatible plain dict.
 
-    Strips portal.yaml-only fields so the dict deep-equals the original
-    Python literal that was captured in ``tests/fixtures/workspaces_snapshot.json``.
-    Excludes workspaces belonging to any disabled module (M7 toggle layer,
-    ``portal module disable <name>``) — the eval module additionally honors
-    ``PORTAL_ENABLE_EVAL=1`` as a bench-harness opt-in that doesn't require a
-    persisted wiki toggle (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4/9 — the
-    disabled-by-default toggle finally has teeth at boot, not just in the
-    OWUI-preset gate).
+    Strips portal.yaml-only fields so the dict deep-equals the original Python
+    literal (tests/fixtures/workspaces_snapshot.json). Excludes workspaces whose
+    module is disabled; the eval module additionally honors
+    ``PORTAL_ENABLE_EVAL=1`` as a bench-harness opt-in.
     """
     from portal.platform.wiki.adapters.modules import enabled_modules
 
@@ -494,9 +433,9 @@ def load_persona_map(
 ) -> dict[str, PersonaSpec]:
     """Return ``{slug: PersonaSpec}`` for every YAML under ``config/personas/``.
 
-    Invalid files are logged and skipped (same "graceful-empty" pattern as
-    the legacy loader).  Does **not** validate that every ``workspace_model``
-    resolves — call ``validate_persona_parents`` if you need that gate.
+    Invalid files are logged and skipped. Does not validate that every
+    ``workspace_model`` resolves — call ``validate_persona_parents`` for that
+    gate.
     """
     directory = personas_dir or _PERSONAS_DIR
     if not directory.is_dir():
@@ -536,11 +475,9 @@ _PROMPT_TEMPLATES_DIR = (
 
 
 def _load_prompt_template(name: str) -> str:
-    """Read a shared bench-persona prompt body (BUILD_PROGRAM_COLLAPSE_V1.md
-    Phase 8) — dedupes personas that previously carried a byte-identical
-    inline system_prompt. Raises if the template file doesn't exist (a
-    dangling prompt_template: reference is a config error, not a silent
-    empty prompt)."""
+    """Read a shared bench-persona prompt body; raises if the file doesn't exist
+    (a dangling prompt_template: reference is a config error, not a silent empty
+    prompt)."""
     path = _PROMPT_TEMPLATES_DIR / f"{name}.txt"
     return path.read_text()
 
@@ -551,9 +488,9 @@ def validate_persona_parents(
 ) -> None:
     """Raise ``ValueError`` if any persona's ``workspace_model`` is not in WORKSPACES.
 
-    Called at load time when strict validation is needed (e.g. seeding or
-    the CI catalog schema test).  Production pipeline import skips this to
-    avoid startup failure from a persona pointing at a since-removed workspace.
+    Called when strict validation is needed (seeding, CI catalog schema test);
+    production pipeline import skips this so a persona pointing at a
+    since-removed workspace doesn't block startup.
     """
     if config is None:
         config = load_portal_config()

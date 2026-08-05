@@ -39,34 +39,20 @@ ELECTRICITY_RATE_USD_PER_KWH = float(os.environ.get("ELECTRICITY_RATE_USD_PER_KW
 async def _power_polling_loop():
     """Background task: poll the host powermetrics daemon every 10s; update gauges.
 
-    The pipeline does not shell out to ``powermetrics`` itself (no
-    root in the container; macOS-only tool). Instead a separate
-    launchd-managed daemon — ``scripts/portal5-powermetrics.py`` —
-    runs as root on the host, polls ``powermetrics``, and republishes
-    JSON-per-line on a Unix socket at
-    ``/tmp/portal5-powermetrics.sock``. This task connects, reads
-    one line, decodes, updates the ``_power_*_watts`` gauges and the
-    ``_energy_consumed_ws_total`` counter, then closes the connection.
+    The pipeline doesn't shell out to ``powermetrics`` (no root in the
+    container; macOS-only). A launchd daemon (``scripts/portal5-powermetrics.py``)
+    runs as root on the host and republishes JSON-per-line on the Unix socket at
+    ``/tmp/portal5-powermetrics.sock``. This task connects, reads one line,
+    updates the ``_power_*_watts`` gauges and ``_energy_consumed_ws_total``, then
+    closes the connection.
 
-    Degrades silently when the daemon isn't running: ``FileNotFoundError``
-    on the socket connect is caught and the loop just retries every
-    10s. This is intentional — operators may not install the
-    powermetrics service, and the pipeline must still serve.
+    Degrades silently when the daemon isn't running (socket connect raises
+    ``FileNotFoundError``, caught, retried next tick). Energy elapsed time uses
+    the daemon's reported timestamp (``state["ts"]``), not local ``time.time()``,
+    so daemon cadence jitter doesn't bias energy attribution.
 
-    Elapsed time for the energy accumulator (``current_w * elapsed``)
-    is computed from the daemon's reported timestamp (``state["ts"]``),
-    not local ``time.time()``, so jitter in the daemon's cadence
-    doesn't bias energy attribution.
-
-    Started as a background task by ``lifespan`` and runs for the
-    lifetime of the process. Never cancelled explicitly — relies on
-    asyncio task cleanup at shutdown.
-
-    Failure swallowing: ``except Exception: pass`` at the end of the
-    try block catches everything silently. Acceptable for a
-    telemetry-only loop, but means malformed socket payloads are
-    invisible without ``logger.debug`` instrumentation. Tracked in
-    ``DOCSTRINGS_V1_NOTES.md``.
+    Started by ``lifespan``; runs for the process lifetime. All failures are
+    swallowed — acceptable for a telemetry-only loop.
     """
     last_poll = time.time()
     while True:
@@ -100,52 +86,31 @@ def _record_usage(
 ) -> None:
     """Extract token counts and TPS from a backend response dict; record to metrics.
 
-    Shape-tolerant. Safe to call with incomplete dicts — missing
-    fields are skipped, never raised. Supports four observed
-    response shapes from the three backend types Portal 5 talks to:
+    Shape-tolerant: missing fields are skipped, never raised. Handles four
+    response shapes: Ollama top-level (``eval_count``, ``prompt_eval_count``,
+    ``eval_duration`` ns), Ollama nested under ``usage:``, OpenAI top-level
+    (``completion_tokens``, ``prompt_tokens``), OpenAI nested in ``usage``.
 
-    * **Ollama native** (top-level): ``eval_count``,
-      ``prompt_eval_count``, ``eval_duration`` (nanoseconds).
-    * **Ollama nested**: same fields under ``usage:`` (rare fork
-      variant; included defensively).
-    * **OpenAI top-level**: ``completion_tokens``, ``prompt_tokens``.
-    * **OpenAI nested in ``usage``**: spec-compliant shape (vLLM,
-      MLX proxy when streaming).
+    TPS preference: ``eval_duration_ns`` (Ollama's model compute time, no
+    network jitter), then ``elapsed_seconds`` (wall clock from the streaming
+    caller), then skipped (token counts still recorded). Updates the Prometheus
+    collectors and the daily-summary aggregates (``_total_tps``,
+    ``_total_input_tokens``, etc.); ``bench-*`` traffic is excluded from the
+    daily-summary TPS (cold model loads inflate wall-clock TPS).
 
-    TPS preference (most-accurate first):
-
-    1. ``eval_duration_ns`` — Ollama's reported model compute time.
-       No network jitter, no SSE chunking; the cleanest TPS we get.
-    2. ``elapsed_seconds`` — wall-clock from the streaming caller.
-       Used when the backend doesn't return ``eval_duration`` (MLX
-       proxy in OpenAI-streaming mode).
-    3. Skipped — when neither is available, token counts are still
-       recorded but no TPS observation is emitted.
-
-    Updates both the Prometheus histograms/counters (scraped by
-    ``/metrics``) and the module-level aggregates used by the daily
-    summary scheduler (``_total_tps``, ``_request_tps_count``,
-    ``_total_input_tokens``, ``_total_output_tokens``,
-    ``_req_count_by_model``).
-
-    Failure handling: bare ``except Exception`` swallows everything
-    to ``logger.debug``. A malformed backend payload should not crash
-    a successful request's metric path — worst case is a missing
-    data point in ``/metrics``.
+    Bare ``except Exception`` swallows failures — a malformed payload must not
+    crash a successful request's metric path.
 
     Args:
         model: Concrete model id (post-``model_hint`` resolution).
         workspace: Workspace id from the request.
-        data: The backend's response dict, in any of the four
-            shapes above.
-        elapsed_seconds: Wall-clock elapsed time, supplied by the
-            streaming caller. ``None`` from non-streaming callers
-            (they rely on ``eval_duration`` instead).
+        data: The backend's response dict, in any of the four shapes above.
+        elapsed_seconds: Wall-clock elapsed time from the streaming caller;
+            ``None`` from non-streaming callers (they rely on ``eval_duration``).
     """
     try:
-        # Prefer OpenAI format fields (completion_tokens / prompt_tokens)
-        # Fall back to Ollama native (eval_count / prompt_eval_count)
-        # MLX server nests tokens inside "usage" dict — check both levels.
+        # Tokens may be OpenAI (completion/prompt_tokens) or Ollama
+        # (eval/prompt_eval_count), top-level or nested under usage:.
         usage = data.get("usage") or {}
         completion_tokens = int(
             data.get("completion_tokens")
@@ -203,9 +168,8 @@ def _record_usage(
                 tps,
             )
         elif elapsed_seconds and elapsed_seconds > 0:
-            # OpenAI-format streaming with no usage data (data: [DONE] path).
-            # We still know the request completed — record with 0 tokens but
-            # track the elapsed time for response time visibility.
+            # OpenAI-format stream with no usage data (data: [DONE] path) —
+            # log elapsed for response-time visibility.
             logger.debug(
                 "Usage: workspace=%s model=%s no token data (OpenAI stream), elapsed=%.2fs",
                 workspace,

@@ -84,15 +84,12 @@ from portal.platform.inference.router.workspaces import (
 
 logger = logging.getLogger(__name__)
 
-# Set by lifespan — NOT captured at import time.
-# Importing registry/dispatcher by name from lifespan would capture the module-level
-# None before lifespan runs; lifespan pushes the live objects in, same pattern
-# as _routing_mod._http_client and _streaming_mod._http_client.
+# Set by lifespan — pushed in at startup, not captured at import time.
 registry: BackendRegistry | None = None
 _notification_dispatcher: Any = None
 
 
-# ── Constants from original router_pipe.py ────────────────────────────────────
+# ── Module constants ──────────────────────────────────────────────────────────
 try:
     _PKG_VERSION = importlib.metadata.version("portal-5")
 except importlib.metadata.PackageNotFoundError:
@@ -106,19 +103,14 @@ _mp_registry_dir_cache: str | None = None
 async def health() -> dict:
     """GET /health — fast unauthenticated liveness probe.
 
-    Used by Open WebUI's "test connection" button, Docker healthchecks,
-    and Kubernetes readiness probes. Information disclosure is
-    minimal (counts and version).
-
-    ``status`` is ``"ok"`` if at least one backend is healthy, else
-    ``"degraded"``. Returning 503 when zero backends are healthy
-    would cause orchestrators to kill and restart the pipeline,
-    which doesn't help because the problem is upstream (Ollama
-    down, not pipeline broken).
+    Used by Open WebUI's "test connection" button, Docker healthchecks, and
+    Kubernetes readiness probes. ``status`` is ``"ok"`` if at least one backend
+    is healthy, else ``"degraded"`` — deliberately not 503, since the problem
+    is upstream (Ollama down), not the pipeline.
 
     Raises:
-        HTTPException: 503 only when the backend registry hasn't
-            been initialised yet (lifespan startup race).
+        HTTPException: 503 only when the backend registry isn't initialised
+            yet (lifespan startup race).
     """
     if registry is None:
         raise HTTPException(status_code=503, detail="Backend registry not initialised")
@@ -135,19 +127,13 @@ async def health() -> dict:
 async def health_all():
     """GET /health/all — aggregate diagnostic check across the full stack.
 
-    Probes the pipeline itself, Ollama, and every MCP server in
-    ``tool_registry.MCP_SERVERS`` in parallel with a per-probe 3s
-    timeout. Returns a dict keyed by component name; each value is
-    the component's own ``/health`` (or ``/api/tags`` for Ollama)
-    JSON if 200, else a status dict with ``"degraded"`` (HTTP error)
-    or ``"down"`` (connection error).
-
-    One shared ``httpx.AsyncClient(timeout=3)`` handles all probes
-    via ``asyncio.gather`` — no fresh client per probe.
+    Probes the pipeline, Ollama, and every MCP in ``tool_registry.MCP_SERVERS``
+    in parallel with a per-probe 3s timeout via one shared
+    ``httpx.AsyncClient``. Each value is the component's ``/health`` (or
+    ``/api/tags`` for Ollama) JSON if 200, else a status dict.
 
     Returns:
-        Dict keyed by component name, values are component-specific
-        health JSON or status dicts.
+        Dict keyed by component name.
     """
     from portal.platform.inference.tool_registry import MCP_SERVERS
 
@@ -181,19 +167,12 @@ PORTAL5_ADMIN_KEY = os.environ.get("PORTAL5_ADMIN_KEY", os.environ.get("PIPELINE
 async def admin_refresh_tools(authorization: str | None = Header(None)):
     """POST /admin/refresh-tools — force a tool-registry refresh.
 
-    Operator escape hatch for "I just added or changed an MCP and
-    want the pipeline to pick it up without waiting for the next
-    scheduled refresh." Bypasses the 1h TTL via
-    ``tool_registry.refresh(force=True)``.
-
-    Requires the admin key (``PORTAL5_ADMIN_KEY``), not the regular
-    API key — state-mutating endpoint.
+    Operator escape hatch to pick up MCP changes without waiting for the next
+    scheduled refresh (bypasses the 1h TTL via ``refresh(force=True)``).
+    Requires the admin key (``PORTAL5_ADMIN_KEY``), not the regular API key.
 
     Returns:
-        ``{"refreshed": True, "tools_registered": int, "names":
-        [str, ...]}``. ``names`` is the sorted list of every tool
-        currently in the registry, useful for verifying which
-        servers' tools came through.
+        ``{"refreshed": True, "tools_registered": int, "names": [str, ...]}``.
     """
     _verify_admin_key(authorization)
     from portal.platform.inference.tool_registry import tool_registry
@@ -205,32 +184,17 @@ async def admin_refresh_tools(authorization: str | None = Header(None)):
 async def test_notifications(authorization: str | None = Header(None)) -> dict:
     """POST /notifications/test — fire a test alert and summary; report status.
 
-    Sanity-check for notification configuration. Dispatches one
-    ``AlertEvent`` (type BACKEND_DOWN, message labeled as test) and
-    one ``SummaryEvent`` with live data — real ``_request_count``
-    and backend counts, not zeros — so an operator can see what a
-    real daily summary would look like with current data.
-
-    Requires ``NOTIFICATIONS_ENABLED=true`` at process start (the
-    dispatcher is lazily initialised in ``_init_notifications``);
-    otherwise returns 503.
-
-    Reports per-channel configuration status by checking the
-    canonical env var for each (``SLACK_ALERT_WEBHOOK_URL``,
-    ``TELEGRAM_ALERT_BOT_TOKEN``, ``SMTP_HOST``,
-    ``PUSHOVER_API_TOKEN`` + ``PUSHOVER_USER_KEY``, ``WEBHOOK_URL``).
-    A channel that says ``"configured"`` here may still fail at
-    send time (bad token, network issue) — the ``results`` field
-    of the response is authoritative for actual deliverability.
+    Sanity-check for notification configuration: dispatches one AlertEvent
+    (labeled as test) and one SummaryEvent with live data. Requires
+    ``NOTIFICATIONS_ENABLED=true`` at process start, else 503. ``channels``
+    reports env-var config status; the ``results`` field is authoritative for
+    actual deliverability.
 
     Returns:
-        ``{"status": "ok", "results": {...}}`` where ``results``
-        contains ``alert``, ``summary``, ``channels``, and
-        ``scheduler`` keys.
+        ``{"status": "ok", "results": {...}}``.
 
     Raises:
-        HTTPException: 401 on bad auth, 503 when notifications are
-            disabled.
+        HTTPException: 401 on bad auth, 503 when notifications are disabled.
     """
     _verify_key(authorization)
 
@@ -303,34 +267,15 @@ async def test_notifications(authorization: str | None = Header(None)) -> dict:
 async def metrics() -> PlainTextResponse:
     """GET /metrics — Prometheus-compatible exposition.
 
-    **Intentionally unauthenticated.** Prometheus scrapes without
-    credentials; requiring auth would force Prometheus to be
-    configured with a bearer token (operational burden) for
-    minimal gain — the metrics expose request counts per workspace,
-    error categories, persona usage, but nothing approaching
-    credentials or message content.
+    Intentionally unauthenticated — metrics expose counts/categories, not
+    credentials or message content, and auth would burden Prometheus config.
 
-    Combines two metric sources:
-
-    1. Hand-rolled gauges (backends healthy/total, uptime,
-       workspaces) written as plain Prometheus text.
-    2. The full ``prometheus_client`` registry — either the
-       in-process ``_REGISTRY`` (single-worker) or the multiprocess
-       collector aggregating ``/tmp/<dir>/*.db`` files across all
-       uvicorn workers.
-
-    **Multi-worker caching**: when ``PROMETHEUS_MULTIPROC_DIR`` is
-    set, the ``MultiProcessCollector`` is cached in
-    ``_mp_registry_cache``. Construction scans the dir; caching
-    avoids that work on every scrape. The collector reads from
-    disk files on each call regardless, so caching the registry
-    object never serves stale data.
-
-    **P5-FIX defence-in-depth**: ``os.makedirs(mp_dir,
-    exist_ok=True)`` is called both here and in ``lifespan``.
-    ``prometheus_client`` writes per-pid files but doesn't create
-    the parent dir; first scrape after a worker fork without the
-    dir present would 500 (ACCEPTANCE_RESULTS S70-07, 2026-04-25).
+    Combines hand-rolled gauges (backends healthy/total, uptime, workspaces)
+    with the ``prometheus_client`` registry — the in-process ``_REGISTRY``
+    (single-worker) or a cached ``MultiProcessCollector`` over the multiproc
+    dir (``PROMETHEUS_MULTIPROC_DIR``). The collector reads disk files on each
+    call, so caching the registry never serves stale data. ``os.makedirs`` is
+    idempotent (prometheus_client doesn't create the parent dir).
 
     Returns:
         ``PlainTextResponse`` with Prometheus exposition format.
@@ -358,17 +303,14 @@ async def metrics() -> PlainTextResponse:
         "# TYPE portal_workspaces_total gauge",
         f"portal_workspaces_total {len(WORKSPACES)}",
     ]
-    # Combine hand-rolled metrics with prometheus_client metrics.
-    # Use multiprocess collector when PROMETHEUS_MULTIPROC_DIR is set
-    # (aggregates metrics across all uvicorn workers).
-    # Cache the registry object — MultiProcessCollector reads from disk files,
-    # so there's no need to reconstruct it on every scrape.
+    # Hand-rolled gauges + prometheus_client registry; use the multiprocess
+    # collector when PROMETHEUS_MULTIPROC_DIR is set. The registry is cached —
+    # MultiProcessCollector reads from disk files on each call.
     global _mp_registry_cache, _mp_registry_dir_cache
     mp_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
     if mp_dir:
-        # P5-FIX: prometheus_client writes per-pid files but does not create the
-        # parent dir. Without this, the first /metrics scrape after worker fork
-        # fails with errno-2 (see ACCEPTANCE_RESULTS S70-07, 2026-04-25).
+        # prometheus_client writes per-pid files but doesn't create the parent
+        # dir — without this the first scrape after worker fork 500s.
         os.makedirs(mp_dir, exist_ok=True)
         if _mp_registry_cache is None or _mp_registry_dir_cache != mp_dir:
             from prometheus_client import CollectorRegistry as _CollectorRegistry
@@ -386,43 +328,20 @@ async def metrics() -> PlainTextResponse:
 async def list_models(authorization: str | None = Header(None)) -> dict:
     """GET /v1/models — OpenAI-compatible model catalogue.
 
-    Returns one entry per ``WORKSPACES`` key, plus one entry per
-    IDE-curated persona (``ide_expose: true`` — DESIGN_OPENCODE_
-    ADDRESSING_V1.md §3.2). Per CLAUDE.md, Portal 5 is Open WebUI's
-    sole model source — OWUI sees workspaces as models, never the
-    underlying Ollama models. The user picks a workspace (or, for
-    opencode/Claude Code, a persona) in the model picker; that
-    selection becomes the ``model`` field on the chat-completions
-    request and is what ``chat_completions`` routes on.
+    One entry per ``WORKSPACES`` key, plus one entry per IDE-curated persona
+    (``ide_expose: true``). Portal 5 is Open WebUI's sole model source — OWUI
+    sees workspaces as models, and the user's pick becomes the ``model`` field
+    that ``chat_completions`` routes on. Persona entries keep this endpoint
+    consistent with ``opencode.jsonc``'s curated picker without exposing the
+    full persona catalogue.
 
-    The persona entries exist so this endpoint agrees with
-    ``opencode.jsonc``'s curated picker (previously they diverged —
-    opencode's variant-carrying picker entries existed only in the
-    hand-maintained jsonc, invisible to ``/v1/models`` discovery).
-    Only ``ide_expose: true`` personas are included — this does NOT
-    expose the full ~138-persona catalogue, only the same curated
-    subset opencode's picker already shows.
+    Per-entry fields: ``id`` (workspace key or persona slug), ``name``,
+    ``category`` (derived from the id, overridable via ``category:``), ``tags``
+    (default ``[category]``), ``tools`` (workspace default whitelist),
+    ``is_benchmark`` (``bench-*`` workspaces only), ``is_persona``
+    (IDE-curated personas).
 
-    Per-entry fields:
-
-    * ``id`` — workspace key (e.g. ``"auto-coding"``) or persona slug
-      (e.g. ``"codingagentic"``).
-    * ``name`` — human display name.
-    * ``category`` — OWUI grouping. Derived from the workspace id
-      (``bench-*`` → ``"benchmark"``; ``auto-X`` → ``"X"``; else
-      the id itself), or explicitly overridden by ``category:`` in
-      the workspace's ``WORKSPACES`` entry (or the persona's).
-    * ``tags`` — non-standard OWUI extension; defaults to
-      ``[category]`` if not set.
-    * ``tools`` — the workspace's default tool whitelist (the
-      pipeline applies persona-level overrides at request time).
-    * ``is_benchmark`` — convenience flag for OWUI UI; ``True``
-      for ``bench-*`` workspaces (always ``False`` for personas).
-    * ``is_persona`` — ``True`` for IDE-curated persona entries,
-      absent/``False`` for base workspace entries.
-
-    Authenticated via ``_verify_key`` because the response leaks
-    the full workspace catalogue, which reveals operational config.
+    Authenticated because the response reveals operational config.
 
     Returns:
         ``{"object": "list", "data": [...]}`` — OpenAI-spec shape.
@@ -481,25 +400,16 @@ async def list_models(authorization: str | None = Header(None)) -> dict:
 async def list_backends_endpoint(authorization: str | None = Header(None)) -> dict:
     """GET /v1/backends — diagnostic view of every registered backend.
 
-    Returns ``{id, type, group, url, models, healthy, last_check}``
-    per backend. Not part of the OpenAI API surface; used by
-    ``tests/portal5_uat_driver.py`` and operator tooling that
-    needs to know what's actually live (the registry is loaded
-    from ``backends.yaml`` at startup; this is its current state).
-
-    The ``_endpoint`` suffix on the function name is to avoid
-    colliding with a previously-named ``_list_backends`` symbol;
-    rename tracked in ``DOCSTRINGS_V1_NOTES.md`` as out-of-scope
-    cleanup.
-
-    Authenticated via ``_verify_key``.
+    Returns ``{id, type, group, url, models, healthy, last_check}`` per
+    backend. Not part of the OpenAI API surface; used by the UAT driver and
+    operator tooling. Authenticated via ``_verify_key``.
 
     Returns:
         ``{"object": "list", "data": [...]}``.
 
     Raises:
-        HTTPException: 401 on bad auth, 503 when the registry
-            isn't yet initialised.
+        HTTPException: 401 on bad auth, 503 when the registry isn't
+            yet initialised.
     """
     _verify_key(authorization)
     if registry is None:
@@ -551,25 +461,21 @@ async def _resolve_request_route(
     workspace_id = _resolve_persona_workspace(workspace_id)
     stream = body.get("stream", False)
 
-    # Phase 3: Content-aware routing for 'auto' workspace.
-    # Primary path: LLM-based intent classification (P5-FUT-006).
-    # Fallback: weighted keyword scoring (_detect_workspace).
+    # Phase 3: Content-aware routing for 'auto' — LLM intent classification,
+    # falling back to weighted keyword scoring.
     workspace_id = await _resolve_auto_routing(workspace_id, body.get("messages", []))
 
     # Phase 4: auto-vision text-only fallback — reroute to auto-reasoning when
     # no image_url is present in the request.
     workspace_id, body = _resolve_vision_fallback(workspace_id, body)
 
-    # Phase 4a: unpack the canonical "base::variant" synthetic form (both
-    # routing layers emit it directly — Phase 7 canonicalization) before
-    # Gate 4, so the gate checks the real workspace's module state.
+    # Phase 4a: unpack the canonical "base::variant" synthetic form before
+    # Gate 4 so the gate sees the real workspace's module state.
     workspace_id, _alias_variant = _unpack_synthetic_workspace(workspace_id)
 
-    # Gate 4 (M7 toggle layer): reject requests to a workspace whose owning
-    # module is currently disabled. Checked after all workspace_id-mutating
-    # phases (persona resolution, auto-routing, vision fallback, legacy
-    # alias) so this sees the final resolved workspace, not an intermediate
-    # alias.
+    # Gate 4: reject requests to a workspace whose owning module is currently
+    # disabled. Checked after all workspace_id-mutating phases so it sees the
+    # final resolved id, not an intermediate alias.
     from portal.platform.wiki.adapters.modules import is_workspace_disabled
 
     if is_workspace_disabled(workspace_id):
@@ -578,12 +484,9 @@ async def _resolve_request_route(
             detail=f"Workspace '{workspace_id}' is disabled (module not enabled).",
         )
 
-    # Phase 4b (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6): apply a named
-    # variant override onto a factored workspace. Priority: explicit
-    # ?variant= query param, else the legacy alias's implied variant
-    # (e.g. "auto-agentic" implies variant=heavy), else the persona's own
-    # declared variant. Checked against the already-disabled-gated base
-    # workspace_id — a variant can only narrow behavior within an
+    # Phase 4b: apply a named variant override. Priority: explicit ?variant=
+    # query param, else the legacy alias's implied variant, else the persona's
+    # declared variant. A variant can only narrow behavior within an
     # already-permitted workspace, never grant access to a disabled one.
     workspace_id = _resolve_workspace_variant(
         _original_model_id,
@@ -591,47 +494,35 @@ async def _resolve_request_route(
         request.query_params.get("variant") or _alias_variant,
     )
 
-    # Phase 4c (BUILD_PROGRAM_COLLAPSE_V1.md Phase 8, DESIGN §D5): explicit
-    # ?model=<hint> query param overrides the resolved workspace/variant's
-    # model_hint. Bounded to config/backends.yaml's known model catalog
-    # (see _resolve_model_override) -- an unrecognized model param is a
-    # silent no-op, not an error.
-    #
-    # DESIGN_PERSONA_INTENT_REMEDIATION_V1.md §4.2: a persona's own
-    # model_pin applies through this exact same mechanism, so a persona
-    # claiming a specific model lineage (e.g. magistralstrategist ->
-    # Magistral) is actually served that model, not just its
-    # workspace's pool-primary. An explicit ?model= query param always
-    # wins over the persona's pin (more specific caller intent).
+    # Phase 4c: explicit ?model=<hint> query param overrides the resolved
+    # model_hint, bounded to the known model catalog (unrecognized = silent
+    # no-op). A persona's model_pin applies through the same mechanism; an
+    # explicit ?model= always wins over the pin.
     _persona_for_pin = _PERSONA_MAP.get(_original_model_id)
     _model_pin = _persona_for_pin.model_pin if _persona_for_pin else None
     workspace_id = _resolve_model_override(
         workspace_id, request.query_params.get("model") or _model_pin
     )
 
-    # Phase 5: Temporal context injection — give web-tool-enabled workspaces today's
-    # date plus a search-first nudge so local models don't answer time-sensitive
-    # questions from a frozen training cutoff.
+    # Phase 5: Temporal context injection — today's date + a search-first nudge
+    # for web-tool-enabled workspaces.
     body = _inject_temporal_context(workspace_id, body)
 
     # Phase 6: Workspace-level system_prompt_append — appended to existing system
     # message or injected as a new system message if none is present.
     body = _inject_system_prompt_append(workspace_id, body)
 
-    # Phase 7: File attachment injection — OWUI sends uploaded files in body["files"]
-    # but does not include them in the messages array. Inject a note into the last
-    # user message so the model can reference audio/document file IDs in tool calls.
+    # Phase 7: File attachment injection — OWUI uploads live in body["files"];
+    # inject notes into the last user message so the model can reference file IDs.
     body = _inject_attached_files(body)
 
-    # Phase 8: Auto-context injection — proactively recall cross-session
-    # memory and knowledge-base hits for opted-in workspaces, so grounding
-    # does not depend on the model volunteering a recall/kb_search call.
-    # Both no-op unless the workspace sets inject_memory / auto_rag.
+    # Phase 8: Auto-context injection — proactive memory recall + KB retrieval
+    # for opted-in workspaces (no-op unless inject_memory / auto_rag).
     _cid = get_correlation_id()
     body = await inject_recalled_memory(workspace_id, body, _cid)
     body = await inject_retrieved_context(workspace_id, body, _cid)
 
-    # Per-workspace semaphore + gauge (M6-T05)
+    # Per-workspace semaphore + gauge
     await slot.acquire_workspace(workspace_id)
 
     _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
@@ -723,15 +614,13 @@ async def _dispatch_non_streaming(
 ) -> JSONResponse:
     """Iterate healthy candidates and return the first successful non-streaming response.
 
-    Non-streaming branch of ``chat_completions`` (extracted C4.3). Tries each
-    backend in priority order via ``_try_non_streaming``; the model hint is
-    enforced (skip backends without the hinted model) for all but the last
-    candidate, where any model is accepted as fallback. Applies the
-    workspace's ``chain`` when configured. Raises HTTPException 502 when
-    every candidate fails.
+    Tries each backend in priority order via ``_try_non_streaming``; the model
+    hint is enforced (skip backends without the hinted model) for all but the
+    last candidate, where any model is accepted. Applies the workspace's
+    ``chain`` when configured. Raises HTTPException 502 when every candidate
+    fails.
 
-    Lives in handlers.py (not non_streaming.py) so ``_try_non_streaming``
-    resolves through this module's namespace — unit tests monkeypatch
+    Lives here (not non_streaming.py) so unit tests monkeypatch
     ``handlers._try_non_streaming`` to intercept the dispatch.
 
     Returns:
@@ -799,77 +688,37 @@ async def chat_completions(
 ) -> Any:
     """POST /v1/chat/completions — primary OpenAI-compatible chat endpoint.
 
-    This is the function. Open WebUI calls it on every user message;
-    it routes, applies policy, dispatches to a backend, and streams
-    (or returns) the response. ~650 lines split across the
-    following phases, in order:
+    Routes, applies policy, dispatches to a backend, and streams (or returns)
+    the response. Phases, in order:
+    1. Auth + size limit + three-tier semaphore acquisition (global, per-API-key,
+       per-workspace; timeout → HTTP 429 with Retry-After).
+    2. Persona-to-workspace resolution (``_PERSONA_MAP[slug].workspace_model``).
+    3. Auto-routing for ``auto`` (LLM intent classifier → keyword fallback).
+    4. auto-vision text-only fallback (no image → reroute to auto-reasoning).
+    5. ``system_prompt_append`` injection.
+    6. File attachment injection (OWUI uploads live in ``body["files"]``).
+    7. Candidate selection (``registry.get_backend_candidates``).
+    8. Non-streaming branch: iterate candidates, first success or 502.
+    9. Streaming branch: single candidate → direct stream; multiple candidates →
+       ``_stream_with_fallback`` (stream, falling back to non-streaming retries).
 
-    1. **Auth + size limit + three-tier semaphore acquisition**:
-       global ``_request_semaphore``, per-API-key ``_api_sem``,
-       per-workspace ``_ws_sem``. Each acquisition is wrapped in
-       ``asyncio.wait_for`` with ``_SEMAPHORE_TIMEOUT`` (50ms
-       default); timeout → HTTP 429 with Retry-After.
-    2. **Persona-to-workspace resolution**: if the request's
-       ``model`` field is a persona slug rather than a workspace
-       id, look up ``_PERSONA_MAP[slug].workspace_model`` and use
-       that.
-    3. **Auto-routing** (only when ``workspace_id == "auto"``):
-       Layer 1 ``_route_with_llm`` → Layer 2 ``_detect_workspace``.
-       See chunk 2 for those functions.
-    4. **auto-vision text-only fallback**: a vision-language model
-       called without an image returns empty content. If the
-       request has no ``image_url`` parts, reroute to
-       ``auto-reasoning`` with a vision-themed system prompt so
-       responses use vision-domain vocabulary.
-    5. **``system_prompt_append``** from the workspace, appended to
-       an existing system message or injected as a new one.
-    6. **File attachment injection**: OWUI sends uploads in
-       ``body["files"]`` but doesn't put them in ``messages``.
-       Inject ``[Attached file — id, name, type]`` notes into the
-       last user message so the model can reference them in tool
-       calls.
-    7. **Candidate selection**: ``registry.get_backend_candidates``
-       returns healthy backends for the workspace.
-    8. **Non-streaming branch**: iterate candidates,
-       ``_try_non_streaming`` each, return first success. All-fail
-       returns 502.
-    9. **Streaming branch**: pick first candidate, resolve target
-       model from hints, inject options, resolve effective tools,
-       decide ``_has_tools``.
-       - **Single candidate**: hand off directly to
-         ``_stream_with_tool_loop`` (if tools) or
-         ``_stream_with_preamble`` (no tools). The streaming
-         helper owns semaphore lifecycle from here.
-       - **Multiple candidates**: wrap in ``_stream_or_fallback``
-         nested closure that watches for error chunks and falls
-         back to non-streaming retry of the same backend, then
-         remaining backends as SSE-wrapped non-streaming
-         responses.
-
-    **Semaphore lifecycle** — two release sites (down from five):
-
-    * ``chat_completions.finally:`` → ``slot.release_if_attached()`` — no-op
-      for streaming paths (slot was detached); releases for non-streaming.
-    * ``_stream_with_tool_loop.finally:`` / ``_stream_with_preamble.finally:``
-      → ``slot.release()`` — releases after the stream is fully consumed or
-      the client disconnects.
-
-    :class:`~portal.platform.inference.router.concurrency.RequestSlot` owns the three
-    semaphores and the concurrent-requests gauge for the request's lifetime.
+    Semaphore lifecycle — two release sites: ``chat_completions.finally`` →
+    ``slot.release_if_attached()`` (no-op for detached streaming paths); the
+    streaming helper's finally → ``slot.release()`` after the stream is consumed
+    or the client disconnects. ``RequestSlot`` owns all three semaphores and
+    the concurrent-requests gauge for the request's lifetime.
 
     Raises:
-        HTTPException: 400 (invalid JSON body), 401 (bad auth),
-            413 (body too large), 429 (semaphore timeout — global,
-            per-key, or per-workspace), 502 (all backends failed
-            non-streaming), 503 (registry not initialised; no
-            healthy backends).
+        HTTPException: 400 (invalid JSON), 401 (bad auth), 413 (body too
+            large), 429 (semaphore timeout), 502 (all backends failed), 503
+            (registry not initialised; no healthy backends).
     """
     _verify_key(authorization)
 
     slot = RequestSlot()
     await slot.acquire_global()
 
-    # Per-API-key semaphore (M6-T06)
+    # Per-API-key semaphore
     _api_key_raw = authorization.removeprefix("Bearer ").strip() if authorization else ""
     await slot.acquire_api_key(_api_key_raw)
 
@@ -887,9 +736,8 @@ async def chat_completions(
             return council_resp
 
         if not stream:
-            # Non-streaming: try each backend in priority order until one succeeds.
-            # Model hint is enforced (skip backends without the hinted model) for
-            # all but the last candidate, where we accept any model as fallback.
+            # Non-streaming: try each backend until one succeeds; enforce the
+            # model hint except on the last candidate.
             return await _dispatch_non_streaming(
                 candidates, body, workspace_id, persona, stream, start_time
             )
@@ -938,9 +786,8 @@ async def chat_completions(
             )
             return _streaming_response
 
-        # Multiple candidates — streaming with non-streaming fallback.
-        # Try streaming from first backend; if it fails, fall back to non-streaming
-        # from the remaining candidates.
+        # Multiple candidates — stream from the first; fall back to non-streaming
+        # retries of the remaining.
         remaining = candidates[1:]
 
         slot.detach()
@@ -982,23 +829,15 @@ async def anthropic_messages(
 ) -> Any:
     """POST /v1/messages — Anthropic Messages API compatibility endpoint.
 
-    Translates Anthropic SDK requests (Claude Code, ``anthropic`` Python
-    SDK, etc.) into the pipeline's OpenAI-compatible format, routes them
-    through the same workspace logic as ``/v1/chat/completions``, and
-    returns responses in Anthropic wire format.
+    Translates Anthropic SDK requests (Claude Code, ``anthropic`` Python SDK)
+    into the pipeline's OpenAI-compatible format, routes them through the same
+    workspace logic as ``/v1/chat/completions``, and returns responses in
+    Anthropic wire format. Makes Claude Code usable as a local-model IDE (see
+    ``scripts/cc-local.sh``).
 
-    This makes Claude Code usable as a **local-model IDE** with full
-    Portal 5 intelligence — set::
-
-        export ANTHROPIC_BASE_URL=http://localhost:9099
-        export ANTHROPIC_API_KEY=$PIPELINE_API_KEY
-        claude --model agenticheavy
-
-    or use ``scripts/cc-local.sh`` which handles the env vars automatically.
-
-    Implementation: translates the request body then dispatches to
-    ``/v1/chat/completions`` via ASGI-level loopback (zero network
-    overhead, full routing stack, independent semaphore slot).
+    Implementation: translates the body then dispatches to
+    ``/v1/chat/completions`` via ASGI-level loopback (zero network overhead,
+    full routing stack, independent semaphore slot).
     """
     _verify_key(authorization)
 
