@@ -1,9 +1,9 @@
 # Recorded complexity budget — written by scripts/complexity_report.py --write-budget.
 # Values are ceilings. Lower them when a phase lands; never raise them.
-committed_blob_bytes: 9709442
-data_lines: 25535
-god_funcs: 256
-god_lines: 36691
-identical_pairs: 1
-prose: 27066
-unwired_scripts: 23
+committed_blob_bytes: 9491950
+data_lines: 25274
+god_funcs: 251
+god_lines: 36124
+identical_pairs: 0
+prose: 26636
+unwired_scripts: 0
