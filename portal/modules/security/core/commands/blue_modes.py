@@ -1115,3 +1115,58 @@ def run_evasion(run: BenchRun) -> None:
                             lab_exec=run.args.lab_exec,
                         )
                     )
+
+
+def run_false_positive_test(run: BenchRun) -> None:
+    # Step 2g: false positive test — send benign traffic to blue defender
+    if run.args.false_positive_test and run.args.blue_models and not run.args.dry_run:
+        from ..blue import _run_blue_turn
+        from ..lab import CLEAN_TRAFFIC_PROMPTS, dispatch_lab_tool
+
+        print("\n── False Positive Test (benign traffic → blue defender) ──\n")
+        for bm in run.args.blue_models:
+            fp_verdicts: list[dict] = []
+            for ct in CLEAN_TRAFFIC_PROMPTS:
+                exec_result = dispatch_lab_tool("execute_bash", {"cmd": ct["command"]})
+                benign_output = exec_result.get("output", "")[:500]
+                fake_tc = [{"tool": "execute_bash", "arguments": {"cmd": ct["command"]}}]
+                lab_out = (
+                    [
+                        {
+                            "cmd": ct["command"],
+                            "output": benign_output,
+                            "ok": exec_result.get("ok", False),
+                        }
+                    ]
+                    if exec_result.get("ok")
+                    else None
+                )
+                blue_result = _run_blue_turn(
+                    fake_tc,
+                    "benign_traffic",
+                    bm,
+                    ollama_url=run.cfg.ollama_url,
+                    lab_outputs=lab_out,
+                )
+                fp_verdicts.append(
+                    {
+                        "traffic": ct["name"],
+                        "description": ct["description"],
+                        "detected": blue_result.get("detected", False),
+                        "quality": blue_result.get("detection_quality", 0.0),
+                    }
+                )
+                det_tag = "FP!" if blue_result.get("detected") else "clean"
+                print(f"  {ct['name']:25s} → {det_tag}")
+            fp_count = sum(1 for v in fp_verdicts if v["detected"])
+            fp_rate = fp_count / len(fp_verdicts) if fp_verdicts else 0.0
+            run.false_positive_results.append(
+                {
+                    "model": bm,
+                    "false_positive_rate": round(fp_rate, 3),
+                    "fp_count": fp_count,
+                    "total": len(fp_verdicts),
+                    "verdicts": fp_verdicts,
+                }
+            )
+            print(f"  FP rate: {fp_rate:.1%} ({fp_count}/{len(fp_verdicts)})")
