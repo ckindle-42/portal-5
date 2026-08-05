@@ -22,6 +22,7 @@ class BenchRun:
     scenario_averages: list[dict]
     multimodel_results: list[dict]
     _step_models: dict[str, str]
+    _retry_failed_scenarios: set[str]
     _enabled_prompts: set[str]
     _target_prompts: set[str]
     results: list[dict] | None

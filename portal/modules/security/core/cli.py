@@ -8,9 +8,7 @@ dispatcher and imports everything it needs from focused sub-modules.
 from __future__ import annotations
 
 import argparse
-import contextlib
 import json
-import logging
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -31,14 +29,11 @@ from .blue import (
     run_purple_tests,
 )
 from .chain import (
-    _WEB_SEARCH_CHAIN_TOOL,
     CHAIN_TOOLS_BASE,
     SCENARIOS,
     _prepare_scenario,
-    _run_multimodel_chain,
     _run_refusal_test,
     run_audit_tools,
-    run_chain_tests,
 )
 from .commands.run import (
     _print_summary,
@@ -833,6 +828,7 @@ def main() -> None:
         scenario_averages=scenario_averages,
         multimodel_results=multimodel_results,
         _step_models=_step_models,
+        _retry_failed_scenarios=_retry_failed_scenarios,
         _enabled_prompts=_enabled_prompts,
         _target_prompts=_target_prompts,
         results=None,
@@ -845,218 +841,9 @@ def main() -> None:
     )
 
     # Step 2: tool call chain test (red), aligned to the selected scenario(s)
-    if args.chain_models and not args.purple:
-        if args.dynamic_cve:
-            cfg.dynamic_cve_mode = True
-            if _WEB_SEARCH_CHAIN_TOOL not in cfg.chain_tools:
-                cfg.chain_tools.append(_WEB_SEARCH_CHAIN_TOOL)
-            print("  [dynamic-cve] web_search offered; nmap banners only, CVE must be researched")
+    from .commands.blue_modes import run_chain_models
 
-        if args.judgment:
-            cfg.judgment_mode = True
-            print(
-                f"  [judgment] scope_discipline on — decoy {cfg.scope_decoy_host} injected into nmap; "
-                f"per-step timeout {cfg.step_timeout_s:.0f}s; refusal scenario runs after chain tests"
-            )
-
-        # A retry-scenario target implies scanning the full scenario set to find it —
-        # the single default `scenario` almost never matches, which previously made
-        # --retry-scenarios silently select zero scenarios unless --all-scenarios was
-        # ALSO passed by hand (found live 2026-07-02: a targeted retry ran to completion
-        # having dispatched nothing, because this defaulted to [scenario] instead).
-        scenarios_to_run = (
-            list(SCENARIOS.values())
-            if (args.all_scenarios or _retry_failed_scenarios)
-            else [scenario]
-        )
-        if _retry_failed_scenarios:
-            scenarios_to_run = [
-                sc for sc in scenarios_to_run if sc["name"] in _retry_failed_scenarios
-            ]
-            print(
-                f"  Retry: restricting to {len(scenarios_to_run)} failed scenario(s): "
-                f"{sorted(s['name'] for s in scenarios_to_run)}"
-            )
-        all_scenario_results: dict[str, list[dict]] = {}
-
-        for sc in scenarios_to_run:
-            print(f"\n── Scenario: {sc['name']} ──")
-            # Phase 3: target readiness gate — verify→heal→re-verify
-            gate = _prepare_scenario(sc, cfg, dry_run=args.dry_run, lab_exec=args.lab_exec)
-            if not gate.get("ready"):
-                # Unrecoverable target → indeterminate, NEVER lab_success=False
-                print(f"  SKIP: {gate.get('reason', 'target-unrecoverable')}")
-                indeterminate_result = {
-                    "model": ",".join(args.chain_models) if args.chain_models else "unknown",
-                    "scenario": sc["name"],
-                    "chain_depth": 0,
-                    "outcome": "indeterminate",
-                    "gate_reason": gate.get("reason", "target-unrecoverable"),
-                    "lab_success": False,
-                    "lab_observations": {"open_ports": []},
-                }
-                chain_results.append(indeterminate_result)
-                all_scenario_results.setdefault(sc["name"], []).append(indeterminate_result)
-                _write_checkpoint(run)
-                continue
-            if gate.get("healed"):
-                print(
-                    f"  Target healed: {gate.get('reason')} → {gate.get('host')}:{gate.get('port')}"
-                )
-            scenario_start = time.time()
-            # Episode-scoped packet capture at the DinD attack boundary --
-            # found live 2026-07-24: this red-only --all-scenarios path never
-            # called start_network_capture/stop_network_capture at all (only
-            # blue.py's separate --purple orchestration did), so every
-            # red-only run fell back entirely to the old lossy post-hoc
-            # scrape (collect_and_ship_scenario_telemetry's docker/access-log
-            # read after the fact) -- the exact Hop 2/3 evidence-chain gap
-            # 993b6a97 built network_capture.py to fix, just never wired into
-            # this code path. Without it, a captured red run has no lossless
-            # sensor-observed evidence for blue to ever detect, regardless of
-            # whether the attack itself succeeded -- 52/68 full-depth
-            # completions in the first run through this gap showed zero
-            # ground-truth coverage.
-            from .episode import new_episode_id
-
-            episode_id = new_episode_id(sc["name"])
-            network_capture = None
-            if args.lab_exec and not args.dry_run:
-                from portal.modules.security.core.siem.network_capture import (
-                    start_network_capture,
-                )
-
-                network_capture = start_network_capture(episode_id, sc.get("target_host"))
-            try:
-                sc_results = run_chain_tests(
-                    args.chain_models, cfg, dry_run=args.dry_run, lab_exec=args.lab_exec
-                )
-            finally:
-                if network_capture is not None:
-                    from portal.modules.security.core.siem.network_capture import (
-                        stop_network_capture,
-                    )
-
-                    network_capture = stop_network_capture(network_capture)
-            for r in sc_results:
-                r["scenario"] = sc["name"]
-                r["episode_id"] = episode_id
-            all_scenario_results[sc["name"]] = sc_results
-            chain_results.extend(sc_results)
-            _write_checkpoint(run)
-
-            if args.lab_exec and not args.dry_run:
-                # Get red's raw host telemetry into the SIEM up front, at its true
-                # attack time — this is the whole point of re-running Step 1: a
-                # captured red run should be independently verifiable in Splunk,
-                # not just present as a local JSON summary. Non-AD/DC/meta3
-                # targets only (WinEventBackend queries the DC live, no shipping
-                # needed there); best-effort, never blocks red's own results.
-                from portal.modules.security.core.blue import collect_and_ship_scenario_telemetry
-                from portal.modules.security.core.siem.capture_store import save_evidence
-
-                cap_path, indexed, tele_err = None, None, ""
-                try:
-                    cap_path, indexed, tele_err = collect_and_ship_scenario_telemetry(
-                        sc,
-                        scenario_start,
-                        lab_exec=args.lab_exec,
-                        dry_run=args.dry_run,
-                        episode_id=episode_id,
-                        network_telemetry=network_capture.telemetry if network_capture else None,
-                        pcap_path=network_capture.local_pcap_path if network_capture else None,
-                    )
-                except Exception as _cap_exc:
-                    logging.warning("capture failed for %s: %s", sc["name"], _cap_exc)
-                with contextlib.suppress(Exception):
-                    for r in sc_results:
-                        save_evidence(
-                            "red",
-                            sc["name"],
-                            {
-                                "model": r.get("model"),
-                                "telemetry_capture_path": cap_path,
-                                "telemetry_indexed_confirmed": indexed,
-                                "telemetry_collection_error": tele_err,
-                                **r,
-                            },
-                        )
-
-            # Tear down ephemeral vulhub targets once their scenario is done —
-            # cmd_up/heal never stops them, so a full --all-scenarios run leaves
-            # every healed CVE container running for the rest of the run, and the
-            # vulhub LXC's memory climbs monotonically until later heals start
-            # timing out (found live 2026-07-03: 25/70 scenarios lost to this on a
-            # single run). Best-effort: a failed teardown just means the next
-            # scenario's `cmd_up` finds the container already there.
-            if sc.get("vulhub_env") and args.lab_exec and not args.dry_run:
-                from scripts.lab_targets import cmd_down
-
-                cmd_down(sc["vulhub_env"], dry_run=args.dry_run)
-
-            # Pace back-to-back scenarios — teardown/heal/exploitation lands right
-            # on top of each other otherwise, and repeated full/retry runs have
-            # crashed real lab infra under it (meta3 crashing mid-run, the vulhub
-            # LXC's docker daemon thrashing under concurrent network teardown +
-            # new-container-create). A short settle window between scenarios costs
-            # little against a ~30-45min run and lets Docker/Proxmox actually
-            # finish releasing a target's resources before the next one claims them.
-            if args.lab_exec and not args.dry_run:
-                time.sleep(5)
-
-            # Multi-model chain for this scenario (if --step-models provided)
-            if _step_models and args.chain_models:
-                print(f"\n── Multi-model chain: {sc['name']} ──")
-                mm_result = _run_multimodel_chain(
-                    step_models=_step_models,
-                    default_model=args.chain_models[0],
-                    cfg=cfg,
-                    dry_run=args.dry_run,
-                    lab_exec=args.lab_exec,
-                )
-                multimodel_results.append({**mm_result, "scenario": sc["name"]})
-
-        # Compute per-model averages across scenarios when --all-scenarios
-        if args.all_scenarios and not args.dry_run:
-            by_model: dict[str, list[dict]] = {}
-            for _sc_name, sc_res in all_scenario_results.items():
-                for r in sc_res:
-                    by_model.setdefault(r["model"], []).append(r)
-            for model, runs in by_model.items():
-                avg_unique = sum(r.get("unique_coverage", 0) for r in runs) / len(runs)
-                avg_acc = sum(r.get("order_accuracy", 0) for r in runs) / len(runs)
-                avg_depth = sum(r.get("chain_depth", 0) for r in runs) / len(runs)
-                avg_time = sum(r.get("elapsed_s", 0) for r in runs) / len(runs)
-                scenario_averages.append(
-                    {
-                        "model": model,
-                        "scenarios_run": [
-                            r.get("scenario", sc)
-                            for r, sc in zip(
-                                runs, [s["name"] for s in scenarios_to_run], strict=False
-                            )
-                        ],
-                        "avg_unique_coverage": round(avg_unique, 3),
-                        "avg_order_accuracy": round(avg_acc, 3),
-                        "avg_chain_depth": round(avg_depth, 1),
-                        "avg_elapsed_s": round(avg_time, 1),
-                    }
-                )
-            scenario_averages.sort(
-                key=lambda x: (x["avg_unique_coverage"], x["avg_order_accuracy"]), reverse=True
-            )
-            if scenario_averages:
-                print("\n── Scenario Averages (all scenarios) ──")
-                print(f"{'Model':<48} {'Unique':>7} {'Acc':>5} {'Depth':>6} {'Time':>6}")
-                print("-" * 80)
-                for avg in scenario_averages:
-                    print(
-                        f"{avg['model'][:48]:<48}"
-                        f"  {avg['avg_unique_coverage']:>6.2f}"
-                        f"  {avg['avg_order_accuracy']:>4.2f}"
-                        f"  {avg['avg_chain_depth']:>5.1f}"
-                        f"  {avg['avg_elapsed_s']:>4.0f}s"
-                    )
+    run_chain_models(run)
 
     # ── Proxmox VM restore after chain_models tests (only if no exec_chain follows) ──
     # exec_chain_models runs in Step 3; restore happens after Step 3 instead.
