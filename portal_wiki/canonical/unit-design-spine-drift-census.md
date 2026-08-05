@@ -11,7 +11,7 @@ sources:
   path: tests/unit/test_spine_drift.py
 - type: code
   path: tests/unit/test_detector_precision.py
-last_generated_commit: eb7d36d65f646843737e645ab547ece867863723
+last_generated_commit: a6c3cee783274e7e3cc2199f5798ce466dcf7330
 claims:
 - probe: validate.checks
   pattern: '{value} validate checks'
