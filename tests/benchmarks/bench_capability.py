@@ -429,76 +429,13 @@ def run_c1_agentic_debug(workspace: str) -> list[ProbeResult]:
 
 
 # C2: Code generation — scored by running against unit tests
-C2_PROBLEMS = [
-    {
-        "id": "c2_1",
-        "prompt": (
-            "Write a Python function `merge_intervals(intervals)` that merges "
-            "all overlapping intervals. Each interval is [start, end]. "
-            "Return the merged list sorted by start.\n"
-            "Example: merge_intervals([[1,3],[2,6],[8,10]]) → [[1,6],[8,10]]\n"
-            "Provide the complete function in a ```python fenced code block."
-        ),
-        "test": (
-            "from solution import merge_intervals\n\n"
-            "def test_basic():\n"
-            "    assert merge_intervals([[1,3],[2,6],[8,10]]) == [[1,6],[8,10]]\n\n"
-            "def test_single():\n"
-            "    assert merge_intervals([[1,4]]) == [[1,4]]\n\n"
-            "def test_non_overlapping():\n"
-            "    assert merge_intervals([[1,2],[3,4],[5,6]]) == [[1,2],[3,4],[5,6]]\n\n"
-            "def test_unsorted():\n"
-            "    assert merge_intervals([[5,8],[1,3]]) == [[1,3],[5,8]]\n\n"
-            "def test_contained():\n"
-            "    assert merge_intervals([[1,10],[2,5],[6,9]]) == [[1,10]]\n"
-        ),
-    },
-    {
-        "id": "c2_2",
-        "prompt": (
-            "Write a Python function `first_missing_positive(nums)` that returns "
-            "the smallest positive integer not present in the list.\n"
-            "Example: [3,4,-1,1] → 2, [1,2,0] → 3\n"
-            "Provide the complete function in a ```python fenced code block."
-        ),
-        "test": (
-            "from solution import first_missing_positive\n\n"
-            "def test_example1():\n"
-            "    assert first_missing_positive([3,4,-1,1]) == 2\n\n"
-            "def test_example2():\n"
-            "    assert first_missing_positive([1,2,0]) == 3\n\n"
-            "def test_all_negative():\n"
-            "    assert first_missing_positive([-5,-3,-1]) == 1\n\n"
-            "def test_consecutive():\n"
-            "    assert first_missing_positive([1,2,3,4,5]) == 6\n\n"
-            "def test_gap():\n"
-            "    assert first_missing_positive([7,8,9]) == 1\n"
-        ),
-    },
-    {
-        "id": "c2_3",
-        "prompt": (
-            "Write a Python function `can_jump(nums)` that returns whether you can "
-            "reach the last index. Start at index 0, and nums[i] is your max jump "
-            "length from position i.\n"
-            "Example: [2,3,1,1,4] → True, [3,2,1,0,4] → False\n"
-            "Provide the complete function in a ```python fenced code block."
-        ),
-        "test": (
-            "from solution import can_jump\n\n"
-            "def test_example1():\n"
-            "    assert can_jump([2,3,1,1,4]) is True\n\n"
-            "def test_example2():\n"
-            "    assert can_jump([3,2,1,0,4]) is False\n\n"
-            "def test_single():\n"
-            "    assert can_jump([0]) is True\n\n"
-            "def test_large_jump():\n"
-            "    assert can_jump([5,0,0,0,0,0]) is True\n\n"
-            "def test_trapped():\n"
-            "    assert can_jump([1,0,1,0]) is False\n"
-        ),
-    },
-]
+def _load_data(name: str):
+    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+C2_PROBLEMS = _load_data("bench_capability_c2_problems")
 
 
 def run_c2_codegen_executable(workspace: str) -> list[ProbeResult]:
@@ -552,40 +489,7 @@ def run_c2_codegen_executable(workspace: str) -> list[ProbeResult]:
 
 
 # C3: Environment simulation — AgentWorld's signature capability
-C3_COMMANDS = [
-    {
-        "id": "c3_1",
-        "prompt": (
-            "Simulate the output of this command in a macOS terminal:\n"
-            "```bash\nseq 5\n```\n"
-            "Output exactly what would appear on stdout, one line per number. "
-            "Do not include reasoning — put your answer in a ``` fenced block."
-        ),
-        "expected_lines": ["1", "2", "3", "4", "5"],
-    },
-    {
-        "id": "c3_2",
-        "prompt": (
-            "Simulate the output of this command in a macOS terminal:\n"
-            "```bash\nls -1 /Applications | head -3\n```\n"
-            "Assume a typical macOS Applications folder. Output exactly what "
-            "would appear, three lines. Use a ``` fenced block for your answer."
-        ),
-        "expected_lines": None,  # free-form, check structural properties
-        "check": "structure",  # must have 3 lines of plausible app names
-    },
-    {
-        "id": "c3_3",
-        "prompt": (
-            "Simulate the output of this command in a macOS terminal:\n"
-            "```bash\ndf -h | head -3\n```\n"
-            "Output the typical header line and two filesystem lines you'd see "
-            "on a Mac. Use a ``` fenced block for your answer."
-        ),
-        "expected_lines": None,
-        "check": "df_header",  # must have Filesystem/Size/Used/Avail-like columns
-    },
-]
+C3_COMMANDS = _load_data("bench_capability_c3_commands")
 
 
 def _score_envsim(answer: str, spec: dict) -> tuple[float, float]:
@@ -652,39 +556,7 @@ def run_c3_env_simulation(workspace: str) -> list[ProbeResult]:
 
 
 # C4: SWE diagnosis — nginx-502 task with tcpdump filter grading
-C4_INCIDENTS = [
-    {
-        "id": "c4_1",
-        "prompt": (
-            "You're debugging an nginx reverse proxy returning 502 Bad Gateway to clients. "
-            "The upstream is running on port 8080. Write a tcpdump filter to capture the "
-            "traffic between nginx and the upstream to diagnose the issue.\n"
-            "1. Numbered plan (2-4 steps)\n"
-            "2. The tcpdump command in a fenced ``` block\n"
-            "3. What you'd look for in the output"
-        ),
-    },
-    {
-        "id": "c4_2",
-        "prompt": (
-            "A web application behind nginx is intermittently slow. Write a tcpdump "
-            "filter to capture HTTP traffic to port 443 to look for connection resets.\n"
-            "1. Numbered plan\n"
-            "2. The tcpdump command in a fenced ``` block\n"
-            "3. What patterns indicate connection resets"
-        ),
-    },
-    {
-        "id": "c4_3",
-        "prompt": (
-            "You suspect a DNS resolution delay is causing timeouts in a service. "
-            "Write a tcpdump filter to capture DNS traffic (port 53) to confirm.\n"
-            "1. Numbered plan\n"
-            "2. The tcpdump command in a fenced ``` block\n"
-            "3. What DNS response times indicate a problem"
-        ),
-    },
-]
+C4_INCIDENTS = _load_data("bench_capability_c4_incidents")
 
 
 def _score_swe(text: str) -> tuple[float, float, dict]:

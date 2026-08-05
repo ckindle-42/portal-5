@@ -1,0 +1,17 @@
+[
+  {
+    "answer": "B",
+    "q": "A 5.0 g object is dropped from rest into a viscous fluid where the drag force is given by F = -b v with b = 2.5 g/s. After 4.0 seconds, the object's velocity is approximately what fraction of its terminal velocity? Choose: (A) 0.63 (B) 0.86 (C) 0.95 (D) 0.99",
+    "rationale": "v/v_term = 1 - exp(-b t / m) = 1 - exp(-2) ~= 0.865"
+  },
+  {
+    "answer": "A",
+    "q": "In a CRISPR-Cas9 experiment, you observe that a 23-bp guide RNA produces 20x lower off-target cutting than a standard 20-bp guide for the same locus, but on-target cutting drops by 60%. The most likely mechanism is: (A) Extended seed-region complementarity reduces tolerance for mismatches (B) Cas9 endonuclease has steric preference for shorter sgRNA (C) Mismatch tolerance scales linearly with guide length (D) The extra bases form a hairpin that blocks DNA binding",
+    "rationale": "Extended guides increase specificity via thermodynamic mismatch cost."
+  },
+  {
+    "answer": "B",
+    "q": "A hash chain is built such that h_n = SHA256(h_{n-1} || nonce_n) for n=1..1000 with h_0 a 128-bit secret. An attacker observes h_1000 and all nonce_2..nonce_1000 but not nonce_1. Assuming SHA256 is preimage-resistant, the attacker can recover h_0 with: (A) Brute-force on nonce_1 alone (given h_1 is determinable from h_2..h_1000) (B) Brute-force on the 128-bit secret space of h_0 directly (C) Cannot recover h_0 without nonce_1 and brute-force on h_0 separately (D) Length-extension attack on h_1000",
+    "rationale": "h_1 isn't directly determinable from h_2..h_1000 without inverting SHA256. The only feasible attack is brute-forcing h_0 (128 bits)."
+  }
+]

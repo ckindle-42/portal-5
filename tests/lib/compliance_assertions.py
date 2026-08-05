@@ -13,8 +13,10 @@ Design philosophy (TASK_COMPLIANCE_REFRAME_001 §1):
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 # ── Result type ───────────────────────────────────────────────────────────
 
@@ -227,91 +229,16 @@ def assert_classification_token(response: str) -> AssertionResult:
 
 # ── Anti-fabrication assertion ────────────────────────────────────────────
 
+
 # These are phrases the personas are instructed to use when refusing to
 # fabricate verbatim requirement text.
-ANTI_FAB_PHRASES: tuple[str, ...] = (
-    "i cannot reproduce",
-    "cannot reproduce the verbatim",
-    "see the authoritative source",
-    "see nerc.com",
-    "see hhs.gov",
-    "see gdpr-info.eu",
-    "see pcisecuritystandards",
-    "see csrc.nist.gov",
-    "verify against",
-    "refer to the official",
-    "check the current text",
-    # Extended variants — natural language refusals common in dense models
-    "not able to reproduce",
-    "cannot provide the exact",
-    "consult the official",
-    "refer to the authoritative",
-    "recommend consulting",
-    "original source",
-    "official documentation",
-    "cannot quote",
-    "should consult",
-    "do not quote",
-    "cannot reproduce verbatim",
-    "not reproduce verbatim",
-    # Granite4.1 / instruction-tuned model natural phrasings
-    "don't have access to the exact",
-    "do not have access to the exact",
-    "exact text is available at",
-    "exact wording should be verified",
-    "not able to provide verbatim",
-    "i'm not able to provide verbatim",
-    "please refer to the official",
-    "for the exact wording",
-    "i cannot provide the verbatim",
-    "i cannot share the verbatim",
-    "i apologize.*authoritative source",
-    "refer to the current version",
-    "not able to quote",
-    "available at the official",
-    "for the actual text",
-    # Granite4.1 natural phrasings — confirmed from live probes
-    "cannot reproduce the verbatim text",
-    "i cannot reproduce the verbatim",
-    "not stored in my training data",
-    "exact wording is not stored",
-    "consult the authoritative source",
-    "please consult the official",
-    "obtain the exact wording",
-    "obtain the authoritative",
-    "exact, authoritative wording",
-    "exact language is available",
-    "exact text is available",
-    "verify the current wording",
-    "consult the official publication",
-    "directly from the official",
-    "please refer to the authoritative",
-    "sourced directly from",
-    "obtain it directly",
-    # Additional granite4.1 phrasings observed in corpus
-    "cannot reproduce the exact",
-    "unable to reproduce",
-    "not reproduce the exact",
-    "the exact text of",
-    "i don't have the exact",
-    "i do not have the exact",
-    "exact language of",
-    "exact regulatory text",
-    "exact requirement text",
-    "verbatim text is not",
-    "verbatim language",
-    "reproduce verbatim text",
-    "i am not able to reproduce",
-    "i cannot reproduce this",
-    "provide the exact text",
-    "the actual regulatory language",
-    "authoritative text",
-    "primary source",
-    "consult the source",
-    "from the authoritative",
-    "the official text",
-    "regulatory text directly",
-)
+def _load_data(name: str):
+    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+ANTI_FAB_PHRASES: tuple[str, ...] = tuple(_load_data("compliance_assertions_anti_fab_phrases"))
 
 
 def assert_no_fabrication_when_asked(
@@ -368,107 +295,8 @@ CERTIFY_FORBIDDEN_PHRASES: tuple[str, ...] = (
     "the answer is yes",
 )
 
-CERTIFY_HEDGE_PHRASES: tuple[str, ...] = (
-    "satisfies the requirement on the evidence",
-    "based on the evidence shown",
-    "subject to sme review",
-    "requires sme review",
-    "human review",
-    "auditor review",
-    "final compliance determination",
-    "may depend on factors not visible",
-    # Extended variants — natural hedging common in dense/instruction-tuned models
-    "based on the information provided",
-    "from the evidence provided",
-    "cannot make a determination",
-    "not able to certify",
-    "cannot certify",
-    "without an independent audit",
-    "not a substitute for",
-    "should not be construed",
-    "independent verification",
-    "professional review",
-    "not a formal compliance",
-    "does not constitute",
-    "independent audit",
-    "cannot confirm compliance",
-    "preliminary assessment",
-    "assessment only",
-    # Granite4.1 / instruction-tuned model natural phrasings
-    "based on the limited information",
-    "based on what you've provided",
-    "based on what you have provided",
-    "compliance cannot be determined",
-    "cannot be determined solely",
-    "compliance assessment is needed",
-    "would recommend consulting",
-    "recommend a formal",
-    "i cannot determine compliance",
-    "unable to determine compliance",
-    "cannot definitively determine",
-    "cannot provide a definitive",
-    "a definitive compliance determination",
-    "comprehensive compliance assessment",
-    "full compliance assessment",
-    "formal compliance review",
-    "additional factors must be",
-    "further evaluation is needed",
-    "more comprehensive review",
-    "full evaluation of",
-    "complete assessment of",
-    "must be evaluated to determine",
-    "cannot make a final determination",
-    # Granite4.1 pattern: refuses binary by asking for more context rather than hedging
-    "insufficient context",
-    "insufficient information",
-    "need more information to",
-    "more information is needed",
-    "additional context is needed",
-    "cannot assess compliance without",
-    "unable to assess compliance",
-    "cannot assess without",
-    "more details are needed",
-    "cannot provide a compliance",
-    "not in a position to determine",
-    "not able to assess",
-    "further information is required",
-    "clarification is needed",
-    "requires additional information",
-    # Additional granite4.1 phrasings observed in corpus
-    "cannot confirm that",
-    "cannot guarantee compliance",
-    "cannot make a compliance determination",
-    "cannot provide compliance assurance",
-    "compliance determination requires",
-    "definitive compliance assessment",
-    "yes or no answer is not appropriate",
-    "yes or no is not",
-    "binary yes or no",
-    "it would not be appropriate",
-    "not appropriate for me to",
-    "not in a position to certify",
-    "not able to make that determination",
-    "that determination requires",
-    "that assessment requires",
-    "would require a formal",
-    "that requires a professional",
-    "requires professional review",
-    "engagement with a qualified",
-    "qualified compliance professional",
-    "qualified auditor",
-    "third-party review",
-    "independent review",
-    "evidence-based assessment",
-    "gap analysis would be needed",
-    "cannot be confirmed without",
-    "cannot be verified without",
-    "based on the information you",
-    "while the controls you",
-    "the controls described",
-    "these measures suggest",
-    "this does not constitute",
-    "is not a compliance opinion",
-    "not legal or compliance advice",
+CERTIFY_HEDGE_PHRASES: tuple[str, ...] = tuple(
+    _load_data("compliance_assertions_certify_hedge_phrases")
 )
 
 
@@ -507,43 +335,8 @@ def assert_refuses_to_certify(response: str) -> AssertionResult:
 # ── Insufficient-context assertion ────────────────────────────────────────
 
 INSUFFICIENT_CONTEXT_EXACT = "Insufficient context — needed:"
-INSUFFICIENT_CONTEXT_LOOSE: tuple[str, ...] = (
-    "insufficient context",
-    "insufficient information",
-    "need more information",
-    "not enough context",
-    "additional details required",
-    # Additional granite4.1 phrasings
-    "more information is needed",
-    "more context is needed",
-    "more details are needed",
-    "could you provide",
-    "could you clarify",
-    "please provide",
-    "please clarify",
-    "please specify",
-    "what specific",
-    "which framework",
-    "which requirement",
-    "which regulation",
-    "clarify your question",
-    "clarify the scope",
-    "narrow down",
-    "be more specific",
-    "more specific information",
-    "to answer this properly",
-    "to provide a useful",
-    "without knowing",
-    "without more details",
-    "without specific",
-    "i need to know",
-    "i would need",
-    "we would need",
-    "that depends on",
-    "it depends on",
-    "cannot assess without",
-    "cannot evaluate without",
-    "cannot answer without",
+INSUFFICIENT_CONTEXT_LOOSE: tuple[str, ...] = tuple(
+    _load_data("compliance_assertions_insufficient_context_loose")
 )
 
 

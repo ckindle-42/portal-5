@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -35,43 +36,16 @@ PERSONAS_DIR = ROOT / "config" / "personas"
 BEGIN_MARKER = "<!-- SECTION_TABLE_BEGIN -->"
 END_MARKER = "<!-- SECTION_TABLE_END -->"
 
+
 # Static phase grouping — sections in each phase. Update here if phase plan
 # changes; verified against PORTAL5_ACCEPTANCE_EXECUTE_V8.md phase commands.
-PHASE_FOR_SECTION: dict[str, int] = {
-    # Phase 1: no-model
-    "S0": 1,
-    "S1": 1,
-    "S2": 1,
-    "S12": 1,
-    "S13": 1,
-    "S15": 1,
-    "S16": 1,
-    "S40": 1,
-    "S41": 1,
-    "S42": 1,
-    # Phase 2: Ollama
-    "S3a": 2,
-    "S6": 2,
-    "S10": 2,
-    # Phase 3: router + diversity (Ollama)
-    "S21": 3,
-    "S23": 3,
-    # Phase 4: MCPs
-    "S4": 4,
-    "S5": 4,
-    "S50": 4,
-    "S60": 4,
-    "S70": 4,
-    # Phase 5: audio
-    "S8": 5,
-    "S9": 5,
-    "S7": 5,
-    # Phase 6: ComfyUI last
-    "S30": 6,
-    "S31": 6,
-    # Wrapper / not in phases
-    "S3": 0,
-}
+def _load_data(name: str):
+    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+PHASE_FOR_SECTION: dict[str, int] = _load_data("regen_section_table_phase_for_section")
 
 # Human-readable labels for each section. Kept brief — table column has limited
 # width. New sections without a label here render as "<section name>" so the

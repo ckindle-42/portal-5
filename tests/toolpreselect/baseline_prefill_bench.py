@@ -53,70 +53,17 @@ WORKSPACE_CONFIGS: dict[str, dict] = {
     },
 }
 
+
 # Tool name lists per workspace (from portal.yaml)
-WORKSPACE_TOOL_NAMES: dict[str, list[str]] = {
-    "auto-coding": [
-        "execute_python",
-        "execute_nodejs",
-        "execute_bash",
-        "sandbox_status",
-        "read_word_document",
-        "read_pdf",
-        "remember",
-        "recall",
-    ],
-    "auto-coding+heavy": [
-        "execute_python",
-        "execute_bash",
-        "execute_nodejs",
-        "sandbox_status",
-        "read_word_document",
-        "read_excel",
-        "read_powerpoint",
-        "read_pdf",
-        "classify_vulnerability",
-        "web_search",
-        "web_fetch",
-        "remember",
-        "recall",
-        "kb_search",
-        "kb_list",
-    ],
-    "auto-daily": [
-        "web_search",
-        "web_fetch",
-        "kb_search",
-        "kb_list",
-        "read_pdf",
-        "read_word_document",
-        "read_excel",
-        "create_word_document",
-        "create_excel",
-        "create_powerpoint",
-        "execute_python",
-        "remember",
-        "recall",
-        "generate_music",
-        "transcribe_audio",
-    ],
-    "auto-coding+lite": [
-        "execute_python",
-        "execute_bash",
-        "execute_nodejs",
-        "sandbox_status",
-        "read_word_document",
-        "read_excel",
-        "read_powerpoint",
-        "read_pdf",
-        "classify_vulnerability",
-        "web_search",
-        "web_fetch",
-        "remember",
-        "recall",
-        "kb_search",
-        "kb_list",
-    ],
-}
+def _load_data(name: str):
+    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+WORKSPACE_TOOL_NAMES: dict[str, list[str]] = _load_data(
+    "toolpreselect_baseline_prefill_workspace_tool_names"
+)
 
 
 def _load_tool_schemas(schemas_path: Path) -> dict[str, list[dict]]:

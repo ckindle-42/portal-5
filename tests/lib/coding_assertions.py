@@ -16,7 +16,9 @@ Design philosophy:
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
 from tests.lib.compliance_assertions import AssertionResult, ScenarioOutcome  # noqa: F401
 
@@ -90,60 +92,15 @@ def assert_no_truncation_or_placeholders(response: str) -> AssertionResult:
 
 # ── Language constraint adherence ─────────────────────────────────────────
 
+
+def _load_data(name: str):
+    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 _LANGUAGE_SIGNATURES: dict[str, tuple[str, ...]] = {
-    "python": (
-        r"^\s*def\s+\w+\s*\(",
-        r"^\s*class\s+\w+",
-        r"^\s*import\s+\w+",
-        r"^\s*from\s+\w+\s+import",
-    ),
-    "javascript": (
-        r"\bfunction\s+\w+\s*\(",
-        r"\bconst\s+\w+\s*=",
-        r"\blet\s+\w+\s*=",
-        r"=>\s*[{(]",
-        r"\bdocument\.",
-        r"\bwindow\.",
-        # Playwright / JS-test idioms — short .spec.js files were failing
-        # the >=2-signature threshold because they use these patterns
-        # rather than the more general patterns above. See
-        # TASK_V2_SCENARIO_FIXES_V1.md section A2.
-        r"\bimport\s*\{\s*test\b",
-        r"\bawait\s+page\.",
-        r"\bexpect\s*\([^)]+\)\.to",
-        r"\.spec\.js\b|\.test\.js\b",
-    ),
-    "html": (
-        r"<!DOCTYPE\s+html",
-        r"<html\b",
-        r"<body\b",
-        r"<script\b",
-    ),
-    "rust": (
-        r"\bfn\s+\w+\s*\(",
-        r"\bimpl\b",
-        r"\blet\s+(?:mut\s+)?\w+",
-        r"::<.*>",
-        r"\buse\s+std::",
-    ),
-    "go": (
-        r"\bpackage\s+\w+",
-        r"\bfunc\s+\w+\s*\(",
-        r"\binterface\s*{",
-        r"\bgo\s+\w+\(",
-    ),
-    "sql": (
-        r"\bSELECT\b",
-        r"\bFROM\b",
-        r"\bWHERE\b",
-        r"\bJOIN\b",
-        r"\bCREATE\s+TABLE\b",
-    ),
-    "bash": (
-        r"^#!/(?:usr/)?bin/(?:bash|sh)",
-        r"\b(?:if|for|while)\s+\[\[",
-        r"\$\{\w+",
-    ),
+    k: tuple(v) for k, v in _load_data("coding_assertions_language_signatures").items()
 }
 
 

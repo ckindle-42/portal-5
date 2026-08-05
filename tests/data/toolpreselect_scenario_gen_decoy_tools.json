@@ -1,0 +1,50 @@
+{
+  "create_word_document": [
+    "Generate a spreadsheet with the quarterly revenue numbers.",
+    "create_excel"
+  ],
+  "execute_bash": [
+    "I need to run a Python script in an isolated container.",
+    "execute_python"
+  ],
+  "kb_search": [
+    "Search across all knowledge bases for Cobalt Strike indicators.",
+    "kb_search_all"
+  ],
+  "mitre_technique_lookup": [
+    "List all ATT&CK techniques in the initial-access tactic.",
+    "mitre_techniques_list"
+  ],
+  "news_search": [
+    "Search the web for the latest Ollama release notes.",
+    "web_search"
+  ],
+  "read_pdf": [
+    "Extract text from this Word document.",
+    "read_word_document"
+  ],
+  "recall": [
+    "Store this fact about my preferences for later.",
+    "remember"
+  ],
+  "render_openscad": [
+    "Render this existing STL mesh file to a PNG image.",
+    "render_mesh"
+  ],
+  "spl_search_library": [
+    "Check if this SPL query has syntax errors.",
+    "spl_validate_syntax"
+  ],
+  "transcribe_audio": [
+    "Transcribe this meeting recording and label each speaker.",
+    "transcribe_with_speakers"
+  ],
+  "web_search": [
+    "Fetch the full text content of this specific URL.",
+    "web_fetch"
+  ],
+  "wiki_search": [
+    "Explain how the tool preselector works in Portal 5.",
+    "wiki_explain"
+  ]
+}

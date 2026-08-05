@@ -1,0 +1,159 @@
+[
+  {
+    "label": "HTML file delivered",
+    "type": "has_code"
+  },
+  {
+    "critical": false,
+    "label": "Game loop (behavioral)",
+    "patterns": [
+      {
+        "label": "requestAnimationFrame() call",
+        "regex": "requestAnimationFrame\\s*\\("
+      },
+      {
+        "label": "setInterval() call",
+        "regex": "setInterval\\s*\\("
+      }
+    ],
+    "type": "code_pattern"
+  },
+  {
+    "critical": false,
+    "label": "Lives manipulation (behavioral)",
+    "patterns": [
+      {
+        "label": "lives-- decrement",
+        "regex": "\\blives\\s*--"
+      },
+      {
+        "label": "lives -= 1",
+        "regex": "\\blives\\s*-=\\s*1"
+      },
+      {
+        "label": "lives = lives - 1",
+        "regex": "\\blives\\s*=\\s*\\blives\\s*-\\s*1"
+      },
+      {
+        "label": "this.lives--",
+        "regex": "\\bthis\\.lives\\s*--"
+      },
+      {
+        "label": "player.lives--",
+        "regex": "\\bplayer\\.lives\\s*--"
+      },
+      {
+        "label": "lose a life message",
+        "regex": "\\blose\\s+a?\\s*life"
+      },
+      {
+        "label": "lives <=/>=/==/!= 0 check",
+        "regex": "\\blives\\s*[<>!=]=\\s*0"
+      },
+      {
+        "label": "lives < 1 (zero check)",
+        "regex": "\\blives\\s*<\\s*1"
+      },
+      {
+        "label": "lives == 0 check",
+        "regex": "\\blives\\s*==\\s*0"
+      }
+    ],
+    "type": "code_pattern"
+  },
+  {
+    "critical": false,
+    "label": "Score increment (behavioral)",
+    "patterns": [
+      {
+        "label": "score += (increment)",
+        "regex": "\\bscore\\s*\\+=\\s*"
+      },
+      {
+        "label": "score = score +",
+        "regex": "\\bscore\\s*=\\s*\\bscore\\s*\\+"
+      }
+    ],
+    "type": "code_pattern"
+  },
+  {
+    "critical": false,
+    "label": "Asteroid split/push (behavioral)",
+    "patterns": [
+      {
+        "label": "asteroid push",
+        "regex": "asteroid.*\\.push\\("
+      },
+      {
+        "label": "push asteroid",
+        "regex": "\\.push\\(.*asteroid"
+      },
+      {
+        "label": "split() method",
+        "regex": "\\.split\\s*\\("
+      },
+      {
+        "label": "asteroids.push()",
+        "regex": "asteroids\\.push\\("
+      }
+    ],
+    "type": "code_pattern"
+  },
+  {
+    "critical": false,
+    "keywords": [
+      "requestanimationframe",
+      "requestAnimationFrame",
+      "setinterval",
+      "setInterval",
+      "game loop",
+      "gameloop",
+      "game_loop"
+    ],
+    "label": "Canvas game loop (keyword)",
+    "type": "any_of"
+  },
+  {
+    "keywords": [
+      "split",
+      "asteroid",
+      "fragment",
+      "smaller"
+    ],
+    "label": "Asteroids split logic",
+    "type": "any_of"
+  },
+  {
+    "critical": false,
+    "keywords": [
+      "lives",
+      "life",
+      "lives_remaining",
+      "numlives",
+      "playerlives",
+      "player.lives",
+      "this.lives",
+      "this.life",
+      "playerlife",
+      "livescount",
+      "livesleft",
+      "lifecount",
+      "remaininglives",
+      "player_lives",
+      "lose a life",
+      "lost a life",
+      "starting lives",
+      "3 lives"
+    ],
+    "label": "Lives system (keyword)",
+    "type": "any_of",
+    "word_boundary": true
+  },
+  {
+    "keywords": [
+      "score"
+    ],
+    "label": "Score system",
+    "type": "contains"
+  }
+]

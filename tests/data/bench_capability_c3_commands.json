@@ -1,0 +1,25 @@
+[
+  {
+    "expected_lines": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "id": "c3_1",
+    "prompt": "Simulate the output of this command in a macOS terminal:\n```bash\nseq 5\n```\nOutput exactly what would appear on stdout, one line per number. Do not include reasoning \u2014 put your answer in a ``` fenced block."
+  },
+  {
+    "check": "structure",
+    "expected_lines": null,
+    "id": "c3_2",
+    "prompt": "Simulate the output of this command in a macOS terminal:\n```bash\nls -1 /Applications | head -3\n```\nAssume a typical macOS Applications folder. Output exactly what would appear, three lines. Use a ``` fenced block for your answer."
+  },
+  {
+    "check": "df_header",
+    "expected_lines": null,
+    "id": "c3_3",
+    "prompt": "Simulate the output of this command in a macOS terminal:\n```bash\ndf -h | head -3\n```\nOutput the typical header line and two filesystem lines you'd see on a Mac. Use a ``` fenced block for your answer."
+  }
+]

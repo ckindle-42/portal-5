@@ -1,0 +1,14 @@
+[
+  {
+    "id": "c4_1",
+    "prompt": "You're debugging an nginx reverse proxy returning 502 Bad Gateway to clients. The upstream is running on port 8080. Write a tcpdump filter to capture the traffic between nginx and the upstream to diagnose the issue.\n1. Numbered plan (2-4 steps)\n2. The tcpdump command in a fenced ``` block\n3. What you'd look for in the output"
+  },
+  {
+    "id": "c4_2",
+    "prompt": "A web application behind nginx is intermittently slow. Write a tcpdump filter to capture HTTP traffic to port 443 to look for connection resets.\n1. Numbered plan\n2. The tcpdump command in a fenced ``` block\n3. What patterns indicate connection resets"
+  },
+  {
+    "id": "c4_3",
+    "prompt": "You suspect a DNS resolution delay is causing timeouts in a service. Write a tcpdump filter to capture DNS traffic (port 53) to confirm.\n1. Numbered plan\n2. The tcpdump command in a fenced ``` block\n3. What DNS response times indicate a problem"
+  }
+]

@@ -1,0 +1,94 @@
+[
+  {
+    "acceptable_tools": [
+      "classify_vulnerability",
+      "create_word_document",
+      "web_search",
+      "mitre_technique_lookup"
+    ],
+    "id": "C1",
+    "user_turn": "I found a suspicious binary on a host \u2014 analyze the CVE it might exploit and write up a report."
+  },
+  {
+    "acceptable_tools": [
+      "spl_search_library",
+      "spl_validate_syntax",
+      "execute_bash",
+      "execute_python"
+    ],
+    "id": "C2",
+    "user_turn": "Search for Kerberoasting detections, validate the SPL syntax, then run it in the sandbox."
+  },
+  {
+    "acceptable_tools": [
+      "read_pdf",
+      "create_word_document",
+      "read_text_file"
+    ],
+    "id": "C3",
+    "user_turn": "Read this PDF report, extract the key findings, and save them to a Word document."
+  },
+  {
+    "acceptable_tools": [
+      "get_loaded_models",
+      "trigger_backend_warmup"
+    ],
+    "id": "C4",
+    "user_turn": "What models are loaded, and can you pre-load the coding model before I start?"
+  },
+  {
+    "acceptable_tools": [
+      "web_search",
+      "mitre_technique_lookup",
+      "news_search"
+    ],
+    "id": "C5",
+    "user_turn": "Search the web for recent proxy shell exploits, then look up the relevant ATT&CK technique."
+  },
+  {
+    "acceptable_tools": [
+      "transcribe_audio",
+      "transcribe_with_speakers",
+      "remember"
+    ],
+    "id": "C6",
+    "user_turn": "Transcribe this audio file and store the key points in memory for later."
+  },
+  {
+    "acceptable_tools": [
+      "search_files",
+      "read_text_file",
+      "explore_repository",
+      "wiki_explain"
+    ],
+    "id": "C7",
+    "user_turn": "Find all Python files referencing ToolRegistry, read the main module, and explain it."
+  },
+  {
+    "acceptable_tools": [
+      "spl_techniques_covered",
+      "create_powerpoint",
+      "spl_search_library"
+    ],
+    "id": "C8",
+    "user_turn": "Create a presentation about our detection coverage \u2014 pull stats from the SPL library and format it as slides."
+  },
+  {
+    "acceptable_tools": [
+      "kb_ingest",
+      "kb_optimize",
+      "kb_search"
+    ],
+    "id": "C9",
+    "user_turn": "Ingest these documents into the KB, build a vector index, then search for lateral movement."
+  },
+  {
+    "acceptable_tools": [
+      "get_pipeline_status",
+      "list_workspaces",
+      "get_workspace_recommendation"
+    ],
+    "id": "C10",
+    "user_turn": "Check pipeline health, list all workspaces, and tell me which one is best for a security analysis task."
+  }
+]
