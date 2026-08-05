@@ -108,7 +108,8 @@ class TestModelCanary:
         for probe in CANARY_PROBES:
             assert "id" in probe and "prompt" in probe and "expect_any" in probe
 
-    def test_run_canary_probe_mocked(self):
+    def test_run_canary_probe_mocked(self, monkeypatch):
+        monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
         with patch("httpx.post") as mock_post:
             mock_post.return_value.raise_for_status = lambda: None
             mock_post.return_value.json.return_value = {
@@ -120,7 +121,27 @@ class TestModelCanary:
         assert result["total"] == len(CANARY_PROBES)
         assert result["pass_count"] >= 1
 
-    def test_flipped_probe_detected(self, tmp_path):
+    def test_run_canary_probe_mocked_pipeline_default(self, monkeypatch):
+        monkeypatch.delenv("DRIFT_DIRECT_OLLAMA", raising=False)
+        with patch("httpx.post") as mock_post:
+            mock_post.return_value.raise_for_status = lambda: None
+            mock_post.return_value.json.return_value = {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "T1558.003 CVE-2021-44228 A03 T1611 T1047 CVE-2017-0144 A10 T1557.001 T1550.002 T1558.004 T1558.001"
+                        }
+                    }
+                ]
+            }
+            result = run_canary_probe("fake-model")
+        assert result["total"] == len(CANARY_PROBES)
+        assert result["pass_count"] >= 1
+        called_url = mock_post.call_args.args[0]
+        assert "/v1/chat/completions" in called_url
+
+    def test_flipped_probe_detected(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
         model = "canary-test-model"
         with patch(
             "portal.modules.security.core.drift_gate._canary_baseline_path",
@@ -142,7 +163,8 @@ class TestModelCanary:
         assert result["status"] in ("LOW", "MEDIUM", "HIGH")
         assert len(result["flipped"]) > 0
 
-    def test_identical_behavior_is_none(self, tmp_path):
+    def test_identical_behavior_is_none(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
         model = "canary-stable-model"
         fixed_content = "T1558.003 CVE-2021-44228 A03 T1611 T1047 CVE-2017-0144 A10 T1557.001 T1550.002 T1558.004 T1558.001"
         with (
