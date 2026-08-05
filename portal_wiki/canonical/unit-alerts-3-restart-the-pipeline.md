@@ -11,7 +11,7 @@ sources:
   path: portal/platform/inference/notifications/dispatcher.py
 - type: code
   path: .env.example
-last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
+last_generated_commit: ca0f99d64c0644df1d5fc30674b6c476fceb1a42
 claims: []
 confidence: high
 tags:

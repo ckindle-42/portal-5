@@ -7,7 +7,7 @@ sources:
   path: portal/platform/inference/router/handlers.py
 - type: code
   path: .env.example
-last_generated_commit: bb686b68ebf5e92e85a9d94a58501f0566522beb
+last_generated_commit: ca0f99d64c0644df1d5fc30674b6c476fceb1a42
 claims: []
 confidence: high
 tags:
