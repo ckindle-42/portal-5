@@ -12,16 +12,6 @@ Also supports:
   - Audit-tools probe: single tool call check against direct Ollama models
   - Chain test: multi-turn tool call chain (recon → vuln check → exploit → persist)
     scoring chain depth, tool selection accuracy, and refusal rate
-
-Usage:
-    python3 tests/benchmarks/bench_security.py
-    python3 tests/benchmarks/bench_security.py --workspaces auto-security::redteam auto-security
-    python3 tests/benchmarks/bench_security.py --prompt kerberoasting
-    python3 tests/benchmarks/bench_security.py --output results/sec_bench.json
-    python3 tests/benchmarks/bench_security.py --dry-run
-    python3 tests/benchmarks/bench_security.py --audit-tools --chain-models <model_id> [<model_id> ...]
-    python3 tests/benchmarks/bench_security.py --chain-models hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8
-    python3 tests/benchmarks/bench_security.py --chain-models <model_id> --lab-exec  # real execution via MCP sandbox
 """
 
 from __future__ import annotations
@@ -79,9 +69,9 @@ except ImportError as _exc:
     _LAB_EXEC_AVAILABLE = False
 
     def _load_lab_hosts_config() -> dict[str, str]:
-        """config/lab_targets.yaml's `lab_hosts:` block — single source of truth
-        (P5-SECURITY-ARM-RECONCILE-001). Returns {} on any failure so the literals
-        below remain a last-resort default, never a silent hard dependency."""
+        """config/lab_targets.yaml's `lab_hosts:` block — single source of truth.
+        Returns {} on any failure so the literals below remain a last-resort
+        default, never a silent hard dependency."""
         try:
             import yaml
 
@@ -109,7 +99,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 
 def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
+    """Load a JSON data file from config/security/."""
     path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
     with path.open(encoding="utf-8") as fh:
         return json.load(fh)
@@ -130,12 +120,11 @@ _ENV_KEYS_SKIP_FROM_DOTENV = {"PIPELINE_URL"}
 
 
 def _load_env() -> dict[str, str]:
-    # Hermetic-test guard (CLAUDE.md: tests/unit/ must pass with no network
-    # access / real config) — same class of bug as bench/config.py's
-    # _load_env: this module is imported by nearly every security test, and
-    # this ran unconditionally at import time, leaking every real .env key
-    # (LAB_* secrets, PIPELINE_API_KEY, PORTAL_ENABLE_EVAL, ...) into the
-    # whole unit-test session's os.environ. tests/unit/conftest.py sets
+    # Hermetic-test guard: tests/unit/ must pass with no network access / real
+    # config. This module is imported by nearly every security test, so running
+    # unconditionally at import time would leak every real .env key (LAB_*
+    # secrets, PIPELINE_API_KEY, PORTAL_ENABLE_EVAL, ...) into the whole
+    # unit-test session's os.environ. tests/unit/conftest.py sets
     # UNIT_TEST_MODE=1 for exactly this hermetic-mode signal.
     if os.environ.get("UNIT_TEST_MODE") == "1":
         return {}
@@ -196,11 +185,9 @@ def resolve_pipeline_model(model: str) -> str:
 
     The pipeline's ``/v1/chat/completions`` treats the ``model`` field as a
     workspace/persona id, not a literal model selector: an unrecognized value
-    silently falls back to the routing group's first model rather than erroring
-    (found 2026-07-05 — a raw model tag with no matching workspace was silently
-    served by an unrelated model, making every bench result attributable to the
-    wrong model). Every model callers want to address directly needs a workspace
-    entry in ``config/portal.yaml`` with a matching ``model_hint``. Already-known
+    silently falls back to the routing group's first model rather than erroring.
+    Every model callers want to address directly needs a workspace entry in
+    ``config/portal.yaml`` with a matching ``model_hint``. Already-known
     workspace/persona ids pass through unchanged.
     """
     _load_workspace_model_hints()
@@ -212,10 +199,7 @@ def expected_model_hint(workspace_id: str) -> str | None:
 
     Used to verify a pipeline call was actually served the intended model,
     not silently substituted (see ``resolve_pipeline_model``'s docstring for
-    the failure mode this guards against — found live 2026-07-21 during the
-    GATE-D ablation: the Expert-role model had no workspace mapping and every
-    call was silently served by an unrelated fallback model for the entire
-    investigation before this was caught).
+    the failure mode this guards against).
     """
     return _load_workspace_model_hints().get(workspace_id)
 
@@ -223,24 +207,20 @@ def expected_model_hint(workspace_id: str) -> str | None:
 # Per-workspace request-timeout overrides (seconds).
 # Reasoning workspaces and slow research models get extended caps so
 # they don't get killed by the default REQUEST_TIMEOUT.
-# Reference: UAT 20260627 — phi4-reasoning ran 67min on P-DA05;
-# tongyi-deepresearch 901s on P-R05; qwen3.5-abliterated 1293s on WS-PT02.
-# CLOSEOUT_ALIAS_REMOVAL.md Step 4: keyed on the pre-resolution canonical
-# "base::variant" string (NOT the resolved base) — auto-security::redteam
-# and auto-security::purpleteam-deep both resolve to "auto-security" but
-# had different timeout caps, so keying on the resolved base would collapse
-# them and silently lose the distinction. Lookup site: _idle_timeout()
-# below, called with the exact string the caller passed as `workspace`
-# (== the literal `model` field sent to the pipeline), before any ::
-# unpacking — so this dict's keys must match that literal string exactly.
+# Keyed on the pre-resolution canonical "base::variant" string (NOT the
+# resolved base) — auto-security::redteam and auto-security::purpleteam-deep
+# both resolve to "auto-security" but had different timeout caps, so keying on
+# the resolved base would collapse them and silently lose the distinction.
+# Lookup site: _idle_timeout() below, called with the exact string the caller
+# passed as `workspace` (== the literal `model` field sent to the pipeline),
+# before any :: unpacking — so this dict's keys must match that literal string
+# exactly.
 PER_WORKSPACE_TIMEOUT: dict[str, float] = {
     "auto-research": 1200.0,  # tongyi-deepresearch-abliterated
     "auto-security::purpleteam-deep": 1500.0,  # qwen3.5-abliterated
     # auto-security::redteam and auto-security::purpleteam share
     # qwen3.5-abliterated's first hop with auto-security::purpleteam-deep
-    # (portal.yaml model_hint) — same timeout applies. Confirmed a single
-    # kerberoasting-scale prompt takes ~114s (3332 output tokens); the 120s
-    # default trips under concurrent dispatch.
+    # (portal.yaml model_hint) — same timeout applies.
     "auto-security::redteam": 1500.0,  # qwen3.5-abliterated
     "auto-security::purpleteam": 1500.0,  # qwen3.5-abliterated
     "auto-spl": 600.0,  # huihui-ai_qwen3-coder-next
@@ -248,10 +228,6 @@ PER_WORKSPACE_TIMEOUT: dict[str, float] = {
     # override (run.py) to bound degenerate exec-model runs. No timeout
     # override needed here.
 }
-# "auto-phi4" (formerly 1500.0, phi4-reasoning:plus) removed — dead key,
-# not referenced by DEFAULT_WORKSPACES or any harness call site (phi4-
-# reasoning is now reached via the phi4stemanalyst persona -> auto-reasoning,
-# outside this module's scope; see DESIGN_PERSONA_INTENT_REMEDIATION_V1.md).
 PROMPT_MAX_TOKENS = 6000  # model-level token cap — capacity event, not a timer
 # Hard wall-clock cap per model turn in the exec chain. Thinking models (Qwable-35B)
 # can generate 6000 reasoning tokens at ~10 TPS = 600s without hitting the per-chunk
@@ -276,13 +252,8 @@ _LAB_META3_VMID = _env("LAB_META3_WIN_VMID")
 _LAB_MBPTL_VMID = _env("LAB_MBPTL_LXC_VMID")
 # Allowlist for start_lab_target/revert_lab_target — every real lab vmid, nothing
 # else. Some scenario red_prompts contain fictional vmid flavor text (e.g.
-# "vmid=101") for scenario realism; a red model can and does call these tools
-# with those literal numbers. On this shared Proxmox host, small integers like
-# 101/102/103 collide with real unrelated VMs — found live 2026-07-03 via
-# repeated qmstart/qmrollback tasks against vmid 100-103 in the Proxmox task
-# log, none of which are lab infra. The rollbacks failed harmlessly only because
-# those VMs don't happen to have snapshots named "clean"/"baseline-ad" — that's
-# luck, not a safeguard.
+# "vmid=101"); small integers like 101/102/103 collide with real unrelated VMs
+# on the shared Proxmox host, so un-allowlisted ids are rejected.
 _LAB_VALID_VMIDS = {
     v for v in (_LAB_DC_VMID, _LAB_SRV_VMID, _LAB_WS_VMID, _LAB_META3_VMID, _LAB_MBPTL_VMID) if v
 }
@@ -337,7 +308,7 @@ PROMPTS: dict[str, dict[str, Any]] = _load_data("prompts")  # noqa: E501
 # regardless of which tool was used. In lab-exec mode, a step is scored as hit when
 # either (a) keyword found in tool call arguments [method match] OR (b) output_keyword
 # found in sandbox output [result match]. This implements result-based scoring:
-# 1+3=4, 2+2=4 — the objective achieved is what counts, not the path taken.
+# the objective achieved is what counts, not the path taken.
 EXEC_SEQUENCES: dict[str, list[dict]] = _load_data("exec_sequences")  # noqa: E501
 
 
@@ -379,9 +350,9 @@ CHAIN_INHERITANCE: dict[str, list[str]] = {
 _chain_artifacts: dict[str, dict[str, str]] = {}
 
 # Default workspace targets for the security bench.
-# CLOSEOUT_ALIAS_REMOVAL.md Step 4 (Holdout 3): canonical "base::variant"
-# strings — the harness is a non-interactive caller (no picker), so it
-# addresses variants the same way Incalmo does, not via a persona slug.
+# Canonical "base::variant" strings — the harness is a non-interactive caller
+# (no picker), so it addresses variants the same way Incalmo does, not via a
+# persona slug.
 DEFAULT_WORKSPACES = [
     "auto-security",
     "auto-security::redteam",
