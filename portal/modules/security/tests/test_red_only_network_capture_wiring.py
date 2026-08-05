@@ -15,6 +15,11 @@ scenario_telemetry already accepts episode_id/network_telemetry/pcap_path
 as optional kwargs (built for blue.py's purple path); this was simply never
 wired into the red-only path.
 
+Retargeted in C3 of TASK_PORTAL_SIMPLIFY_V1: the red-only --all-scenarios
+loop moved out of cli.py's main() into
+commands/blue_modes.py::run_chain_models during the main() decomposition.
+The guard now inspects that function, which is where the wiring lives.
+
 A full live integration test would need to mock through gate resolution,
 run_chain_tests, DinD tcpdump, and Splunk shipping -- this is a structural
 source-inspection check instead (same technique used by
@@ -34,14 +39,20 @@ def _main_source() -> str:
     return inspect.getsource(cli.main)
 
 
+def _red_loop_source() -> str:
+    from portal.modules.security.core.commands import blue_modes
+
+    return inspect.getsource(blue_modes.run_chain_models)
+
+
 def test_all_scenarios_loop_starts_and_stops_network_capture():
-    src = _main_source()
+    src = _red_loop_source()
     assert "start_network_capture(episode_id" in src
     assert "stop_network_capture(network_capture)" in src
 
 
 def test_all_scenarios_loop_uses_new_episode_id():
-    src = _main_source()
+    src = _red_loop_source()
     assert "new_episode_id(sc[" in src
 
 
@@ -50,7 +61,7 @@ def test_collect_and_ship_receives_episode_and_pcap_evidence():
     through what start_network_capture produced -- having the capture start/
     stop without wiring its output into collection would be the same class
     of gap wearing a disguise."""
-    src = _main_source()
+    src = _red_loop_source()
     call_start = src.index("collect_and_ship_scenario_telemetry(\n")
     # Slice a generous window after the call site to capture its kwargs.
     call_region = src[call_start : call_start + 500]
