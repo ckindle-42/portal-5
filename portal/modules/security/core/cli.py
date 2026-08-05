@@ -24,7 +24,6 @@ from ._data import (
     _send_bench_notification,
 )
 from .blue import (
-    _run_evasion_purple,
     run_blue_chain_tests,
 )
 from .chain import (
@@ -866,23 +865,9 @@ def main() -> None:
     run_purple(run)
 
     # Step 2d: evasion loop (--evasion flag)
-    if args.evasion:
-        if not args.chain_models or not args.blue_models:
-            print("  ERROR: --evasion requires both --chain-models and --blue-models")
-        else:
-            for rm in args.chain_models:
-                for bm in args.blue_models:
-                    evasion_results.append(
-                        _run_evasion_purple(
-                            rm,
-                            bm,
-                            scenario,
-                            cfg,
-                            rounds=args.evasion_rounds,
-                            dry_run=args.dry_run,
-                            lab_exec=args.lab_exec,
-                        )
-                    )
+    from .commands.blue_modes import run_evasion
+
+    run_evasion(run)
 
     # Step 2f: refusal scenario (judgment mode only)
     if cfg.judgment_mode and args.chain_models:
