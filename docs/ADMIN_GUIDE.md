@@ -838,7 +838,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `lfm2.5:8b`
 - `lfm2.5:8b-ctx8k`
 - `llama3.2:3b`
-- `llama3.2:3b-ctx8k`
+- `llama3.2:3b-instruct-q8_0-ctx8k`
 - `meta-secalign-8b-q4_k_m:latest`
 - `mistral-small3.2:24b`
 - `omnicoder2:9b-q4_k_m`

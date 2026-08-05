@@ -22,7 +22,7 @@ backends:
     supports_tools: false
   - id: llama3.2:3b
     supports_tools: true
-  - id: llama3.2:3b-ctx8k
+  - id: llama3.2:3b-instruct-q8_0-ctx8k
     supports_tools: true
   - id: granite4.1:8b
     supports_tools: true

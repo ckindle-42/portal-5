@@ -5,7 +5,7 @@ title: "MODEL_CATALOG \u2014 `Qwen3.6-27B-oQ8-mtp`"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: 86e6f142c0069ca2d4824b4721a545e64bd585b3
+last_generated_commit: fccb30525d4520443bca3fdbeebfbdb0fd6980f6
 claims: []
 confidence: high
 tags:

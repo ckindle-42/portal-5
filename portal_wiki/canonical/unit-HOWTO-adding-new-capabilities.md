@@ -13,7 +13,7 @@ sources:
   path: portal/platform/wiki/adapters/seed_facts.py
 - type: code
   path: portal/platform/inference/sync_config.py
-last_generated_commit: db75e444cdca521f9be63059be9180bb380a4a64
+last_generated_commit: fccb30525d4520443bca3fdbeebfbdb0fd6980f6
 claims: []
 confidence: high
 tags:
