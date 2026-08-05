@@ -22,6 +22,8 @@ backends:
     supports_tools: false
   - id: llama3.2:3b
     supports_tools: true
+  - id: llama3.2:3b-ctx8k
+    supports_tools: true
   - id: granite4.1:8b
     supports_tools: true
   - id: granite4.1:8b-ctx16k

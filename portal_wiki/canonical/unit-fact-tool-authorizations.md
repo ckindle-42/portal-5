@@ -5,9 +5,9 @@ title: tool authorizations for 23 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: baca992c674a
+  commit: db75e444cdca521f9be63059be9180bb380a4a64
   section: workspaces[].tools
-last_generated_commit: baca992c674a
+last_generated_commit: db75e444cdca521f9be63059be9180bb380a4a64
 claims: []
 confidence: high
 tags:

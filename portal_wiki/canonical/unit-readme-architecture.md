@@ -11,7 +11,7 @@ sources:
   path: scripts/mlx-speech.py
 - type: code
   path: scripts/embedding-server.py
-last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
+last_generated_commit: db75e444cdca521f9be63059be9180bb380a4a64
 claims: []
 confidence: high
 tags:

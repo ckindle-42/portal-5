@@ -5,8 +5,8 @@ title: 23 production + 65 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: baca992c674a
-last_generated_commit: baca992c674a
+  commit: db75e444cdca521f9be63059be9180bb380a4a64
+last_generated_commit: db75e444cdca521f9be63059be9180bb380a4a64
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
