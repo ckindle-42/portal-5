@@ -176,6 +176,10 @@ def find_unwired() -> list[str]:
     haystack_files = [
         p for p in _tracked("*") if p.endswith((".py", ".sh", ".yaml", ".yml", ".toml", ".mk"))
     ]
+    # scripts/OPERATOR_TOOLS.md is the deliberate registration manifest for the
+    # operator-invoked surface: naming a script there is what makes it referenced.
+    if (REPO / "scripts" / "OPERATOR_TOOLS.md").exists():
+        haystack_files.append("scripts/OPERATOR_TOOLS.md")
     corpus: dict[str, str] = {}
     for rel in haystack_files:
         try:

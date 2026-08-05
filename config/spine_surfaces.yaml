@@ -4,10 +4,6 @@
 # documents it. Every eligible .py file must fall under a declared
 # surface; new code outside one forces a deliberate manifest entry.
 surfaces:
-- name: file-deploy-playwright-mcp-browser_mcp
-  globs:
-  - deploy/playwright-mcp/browser_mcp.py
-  unit: unit-browser-mcp-http-wrapper
 - name: file-portal-conftest
   globs:
   - portal/conftest.py
@@ -362,10 +358,6 @@ surfaces:
   globs:
   - scripts/*.py
   unit: unit-surface-scripts
-- name: unit-surface-scripts-ci
-  globs:
-  - scripts/ci/*.py
-  unit: unit-surface-scripts-ci
 - name: unit-surface-sec-core
   globs:
   - portal/modules/security/core/*.py

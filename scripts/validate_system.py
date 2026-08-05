@@ -1252,11 +1252,63 @@ def check_ci_parity() -> tuple[str, str, list[dict]]:
             }
         )
 
+    # Check 5: pyproject.toml has no duplicate dependency pins (per context).
+    # Absorbed from the retired scripts/ci/check_pyproject_no_dup.py guard.
+    dup_contexts = _pyproject_duplicate_dep_contexts(pyproject if pyproject.exists() else None)
+    if dup_contexts:
+        subs.append(
+            {
+                "name": "no duplicate dependency pins",
+                "status": "FAIL",
+                "detail": f"duplicate pins in: {', '.join(dup_contexts)}",
+            }
+        )
+        return ("FAIL", f"duplicate dependency pins in {', '.join(dup_contexts)}", subs)
+    subs.append({"name": "no duplicate dependency pins", "status": "PASS"})
+
     return (
         "PASS",
         "bench imports without PYTHONPATH; conftest has lab defaults; ci_local.sh present",
         subs,
     )
+
+
+def _pyproject_duplicate_dep_contexts(pyproject: Path | None) -> list[str]:
+    """Contexts in pyproject.toml whose dependency list pins a package twice.
+
+    Case-insensitive, `-`/`_` folded, version specifier stripped, scoped per
+    context (core vs each extra) — the semantic the retired CI guard enforced.
+    """
+    if pyproject is None or not pyproject.exists():
+        return []
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib  # type: ignore[no-redef]
+
+    try:
+        data = tomllib.loads(pyproject.read_text())
+    except Exception:  # noqa: BLE001
+        return []
+
+    def pkg(dep: str) -> str:
+        return re.split(r"[><=!;[ ]", dep.strip())[0].lower().replace("-", "_")
+
+    dup: list[str] = []
+    contexts: list[tuple[str, list]] = [
+        ("[project.dependencies]", data.get("project", {}).get("dependencies", []))
+    ]
+    for extra, deps in data.get("project", {}).get("optional-dependencies", {}).items():
+        contexts.append((f"[project.optional-dependencies.{extra}]", deps))
+    for name, deps in contexts:
+        seen: set[str] = set()
+        for dep in deps:
+            key = pkg(dep)
+            if key in seen:
+                dup.append(name)
+                break
+            seen.add(key)
+    return dup
 
 
 def check_live_exec_integrity() -> tuple[str, str, list[dict]]:

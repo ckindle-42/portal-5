@@ -1,0 +1,49 @@
+# Operator Tools — scripts/ invoked directly by a human
+
+The scripts in this manifest are run by a human (or an operator agent), not wired
+into `validate_system.py` or a Makefile target. They read live state and print
+results; they are the deliberate, documented operator surface of the repo. Listing
+them here is what makes each one "referenced", so the complexity census does not
+report them as unwired.
+
+## Image / video generation
+
+```bash
+python3 scripts/gen-image.py        # rapid image generation via the ComfyUI MCP
+python3 scripts/gen-video.py        # video generation via the video MCP (shelved service, retained tooling)
+```
+
+## Lab and corpus operations
+
+```bash
+python3 scripts/caldera_emulate.py                 # live Caldera/ART emulation lane → Splunk
+python3 scripts/lab_discover.py                    # read-only lab host discovery (Phase 0)
+python3 scripts/lab_splunkbase_install.py          # install Splunkbase apps BOTS needs
+python3 scripts/execute_preflight.py               # ground-truth preflight before bench/sec/acceptance sessions
+python3 scripts/security_capture_recipes.py        # capture replayable lab data by recipe
+python3 scripts/security_corpus_report.py          # combined red-corpus readiness report
+python3 scripts/security_replay_verify.py          # verify live captures replay into Splunk
+```
+
+## Dashboards and results
+
+```bash
+python3 scripts/update_grafana_acceptance.py       # portal5_acceptance.json from ACCEPTANCE_RESULTS.md
+python3 scripts/update_grafana_benchmarks.py       # portal5_benchmarks.json from bench results
+python3 scripts/update_grafana_uat.py              # portal5_uat.json from UAT_RESULTS.md
+python3 scripts/blend_acceptance_results.py        # blend ACCEPTANCE_RESULTS.md from git history + live file
+```
+
+## Verification and measurement
+
+```bash
+python3 scripts/verify_proxmox_mcp.py              # quick Proxmox MCP check (no Docker)
+python3 scripts/spine_census.py                    # wiki granularity census (mirror/surface/orphan)
+python3 scripts/collapse_snapshot.py               # read-only surface snapshot for BUILD_PROGRAM_COLLAPSE_V1
+```
+
+## Convention
+
+New operator tools live in `scripts/` and should be added here so the complexity
+census's `unwired_scripts` stays at zero. A tool that a machine should invoke
+automatically belongs in `validate_system.py` or a Makefile target instead.
