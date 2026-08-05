@@ -80,7 +80,18 @@ class Validator:
         """Run a single check. fn returns (status, detail, sub_results)."""
         t0 = time.time()
         try:
-            status, detail, sub = fn()
+            if self.emit_json:
+                # In --json mode the only output must be the JSON document. Some
+                # checks (lab-setup readiness, detector self-tests) print to
+                # stdout directly; capture and discard it so the emitted JSON is
+                # parseable.
+                import contextlib
+                import io
+
+                with contextlib.redirect_stdout(io.StringIO()):
+                    status, detail, sub = fn()
+            else:
+                status, detail, sub = fn()
         except Exception as e:
             status, detail, sub = "FAIL", f"{type(e).__name__}: {e}", []
         elapsed_ms = int((time.time() - t0) * 1000)
@@ -778,11 +789,15 @@ def check_loop_dry_run() -> tuple[str, str, list[dict]]:
 
 def check_lab_setup_readiness() -> tuple[str, str, list[dict]]:
     """V. Lab setup/readiness scripts import and parse correctly."""
+    import contextlib
+    import io
+
     subs: list[dict] = []
     try:
         from scripts.lab_setup import run_setup
 
-        result = run_setup(skip_heavy=True, dry_run=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = run_setup(skip_heavy=True, dry_run=True)
         subs.append({"name": "lab_setup", "status": "PASS" if "vulhub" in result else "FAIL"})
     except Exception as e:
         subs.append({"name": "lab_setup", "status": "FAIL", "error": str(e)})
