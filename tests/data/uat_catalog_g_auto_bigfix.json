@@ -1,0 +1,102 @@
+[
+  {
+    "assertions": [
+      {
+        "critical": true,
+        "keywords": [
+          "whose",
+          "of it",
+          "exists",
+          "computer name",
+          "name of operating system"
+        ],
+        "label": "Relevance syntax present",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "Windows 10",
+          "Windows 11",
+          "windows",
+          "operating system"
+        ],
+        "label": "Windows OS filter",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "30 day",
+          "last logged",
+          "login",
+          "day",
+          "now - 30"
+        ],
+        "label": "Time-based filter",
+        "type": "any_of"
+      },
+      {
+        "chars": 200,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-BF-01",
+    "model_slug": "auto-bigfix",
+    "name": "BigFix \u2014 Relevance Language Expression",
+    "prompt": "Write a BigFix Relevance Language expression that returns a list of Windows endpoints where the operating system is Windows 10 or Windows 11 AND the last login was more than 30 days ago. Use proper Relevance syntax with 'whose' clauses.",
+    "section": "auto-bigfix",
+    "timeout": 180,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "api/v1",
+          "/api/",
+          "bigfix",
+          "port 52311",
+          ":52311",
+          "https://"
+        ],
+        "label": "REST API endpoint structure",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "requests.get",
+          "requests.post",
+          "import requests",
+          "session",
+          "auth="
+        ],
+        "label": "Python requests usage",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "json()",
+          ".json",
+          "response",
+          "parse",
+          "data",
+          "result"
+        ],
+        "label": "Response parsing",
+        "type": "any_of"
+      },
+      {
+        "chars": 300,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-BF-02",
+    "model_slug": "auto-bigfix",
+    "name": "BigFix \u2014 REST API Patch Compliance Query",
+    "prompt": "Write a BigFix REST API call using Python requests to query the NERC CIP compliance dashboard for all endpoints where critical patches are missing (relevance: patch count > 0). Include authentication headers, the endpoint URL structure, and how to parse the JSON response.",
+    "section": "auto-bigfix",
+    "timeout": 180,
+    "workspace_tier": "ollama"
+  }
+]

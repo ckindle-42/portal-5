@@ -1,0 +1,594 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "rdp",
+          "remote desktop"
+        ],
+        "label": "RDP risk identified",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "boundary",
+          "lateral",
+          "dmz",
+          "segmentation",
+          "isolation",
+          "network segment",
+          "purdue",
+          "zone",
+          "conduit",
+          "network boundary",
+          "air gap",
+          "firewall",
+          "network architecture",
+          "segment"
+        ],
+        "label": "Boundary/DMZ risk",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "iec 62443",
+          "nerc cip",
+          "nist",
+          "cis",
+          "purdue model",
+          "ot security",
+          "isa/iec",
+          "security framework",
+          "security standard",
+          "compliance"
+        ],
+        "label": "Framework cited",
+        "type": "any_of"
+      },
+      {
+        "chars": 400,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-05",
+    "model_slug": "auto-security",
+    "name": "Security Analyst \u2014 OT/ICS Hardening",
+    "prompt": "/nothink\nOur utility has a Historian server that sits at the boundary between the OT network (Level 2) and the IT DMZ. It runs Windows Server 2019, OSIsoft PI, has RDP enabled for vendor support, and is backed up nightly over the corporate LAN. Identify the top security concerns and recommend mitigations.",
+    "section": "auto-security",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "firewall is enough",
+          "just block"
+        ],
+        "label": "Firewall-only rejected",
+        "type": "not_contains"
+      },
+      {
+        "keywords": [
+          "nist csf",
+          "nist cybersecurity framework",
+          "nist 800-53",
+          "nist sp 800",
+          "cis controls",
+          "cis control",
+          "cis benchmark",
+          "mitre att&ck",
+          "mitre attack",
+          "iso 27001",
+          "iso/iec 27001",
+          "defense in depth",
+          "defense-in-depth",
+          "layered defense",
+          "zero trust"
+        ],
+        "label": "Framework cited",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "tuning",
+          "false positive",
+          "soar",
+          "triage",
+          "noise",
+          "fidelity",
+          "false positive rate",
+          "alert fatigue",
+          "prioritization",
+          "deduplication",
+          "suppression",
+          "rule tuning"
+        ],
+        "label": "Alert tuning mentioned",
+        "type": "any_of"
+      },
+      {
+        "chars": 500,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "P-S01",
+    "model_slug": "cybersecurityspecialist",
+    "name": "Cyber Security Specialist \u2014 Defense-in-Depth",
+    "prompt": "/nothink\nOur SOC is seeing a 400% increase in alerts but the team size is flat. Leadership wants to 'just block more at the firewall.' Analyze this using a defense-in-depth framework and recommend a structured response. Cite specific controls by framework (NIST CSF, CIS Controls, or MITRE ATT&CK).",
+    "section": "auto-security",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "relay",
+          "isolat",
+          "level 1",
+          "level1",
+          "protection",
+          "sel-751",
+          "goose",
+          "firewall between"
+        ],
+        "label": "Relay isolation specified",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "dmz",
+          "one-way",
+          "data diode",
+          "historian",
+          "demilitarized",
+          "buffer zone"
+        ],
+        "label": "Historian in DMZ",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "iec 62443",
+          "purdue",
+          "zone",
+          "iec 61850",
+          "nist",
+          "nerc",
+          "level 1",
+          "level 2",
+          "vlan",
+          "segment"
+        ],
+        "label": "Framework cited",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "safety",
+          "change management",
+          "protection relay",
+          "outage",
+          "maintenance window"
+        ],
+        "label": "Safety warning included",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-S05",
+    "model_slug": "networkengineer",
+    "name": "Network Engineer \u2014 OT Segmentation Design",
+    "prompt": "/nothink\nDesign network segmentation for a substation automation system. Components: SEL-751 protective relays (IEC 61850 GOOSE), an HMI workstation, a data concentrator/historian, and a corporate WAN link for remote SCADA access. Threat model: prevent ransomware from IT from reaching protection relays. Specify how each component is isolated, which zone/level each sits in, and what controls sit between IT and the relays.",
+    "section": "auto-security",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "critical",
+          "9.0",
+          "9.8",
+          "10.0",
+          "severe",
+          "high",
+          "very high",
+          "highest",
+          "maximum",
+          "critical severity",
+          "most severe"
+        ],
+        "label": "CRITICAL severity",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "9.8",
+          "10.0",
+          "9.9",
+          "9.0",
+          "9.5",
+          "9.1",
+          "9.2",
+          "9.3",
+          "9.4",
+          "9.6",
+          "9.7",
+          "critical",
+          "cvss",
+          "cvss v3",
+          "cvss score",
+          "cvss: 9"
+        ],
+        "label": "Score >= 9.0",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "unauthenticated",
+          "remote",
+          "code execution",
+          "overflow",
+          "root",
+          "buffer",
+          "arbitrary code",
+          "network-accessible",
+          "no authentication",
+          "without authentication",
+          "attacker",
+          "stack",
+          "network",
+          "privilege",
+          "rce",
+          "remote code",
+          "arbitrary",
+          "management interface",
+          "crafted",
+          "exploit",
+          "system access",
+          "memory",
+          "heap",
+          "crash",
+          "denial",
+          "severity",
+          "impact",
+          "vector"
+        ],
+        "label": "Rationale includes key factors",
+        "type": "any_of"
+      }
+    ],
+    "id": "T-11",
+    "model_slug": "auto-security",
+    "name": "Security MCP \u2014 Vulnerability Classification",
+    "prompt": "/nothink\nClassify this vulnerability by severity (CVSS score and rating) and explain your rationale: \"An unauthenticated remote attacker can send a crafted HTTP request to the management interface of a network switch, triggering a stack buffer overflow and executing arbitrary code with root privileges.\"",
+    "section": "auto-security",
+    "timeout": 180,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "cve-",
+          "cve ",
+          "cve_",
+          "cve id",
+          "cve identifier",
+          "kb",
+          "rhsa-",
+          "cisco-sa-",
+          "advisory",
+          "vulnerability id"
+        ],
+        "label": "CVE or vendor advisory IDs present",
+        "type": "any_of"
+      },
+      {
+        "chars": 300,
+        "critical": false,
+        "label": "Substantive results",
+        "type": "min_length"
+      },
+      {
+        "keywords": [
+          "no results found",
+          "could not find any"
+        ],
+        "label": "No 'no results'",
+        "type": "not_contains"
+      }
+    ],
+    "id": "T-12",
+    "model_slug": "auto-security",
+    "name": "Web Search \u2014 Recent CVEs via SearXNG",
+    "prompt": "/nothink\nSearch for and summarize the three most significant CVEs disclosed in the past 60 days affecting network infrastructure equipment (routers, switches, firewalls). For each: CVE ID, affected vendor/product, severity, and remediation status.",
+    "section": "auto-security",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "56154"
+        ],
+        "label": "Correct computed output (56154) \u2014 proves tool ran",
+        "type": "contains"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "cannot execute",
+          "unable to run",
+          "don't have the ability",
+          "can't run"
+        ],
+        "label": "Did not refuse tool use",
+        "type": "not_contains"
+      }
+    ],
+    "force_unload_before": true,
+    "id": "TV-02",
+    "model_slug": "auto-security",
+    "name": "Tool Validation \u2014 execute_python proof (auto-security/baronllm)",
+    "prompt": "/nothink\nUse execute_python to run this code and return ONLY the numeric result:\n```python\nprint(42 * 1337)\n```",
+    "section": "auto-security",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "confidence",
+          "probabilities",
+          "circl",
+          "CIRCL",
+          "vulnerability-severity-classification",
+          "\"low\"",
+          "\"medium\"",
+          "\"high\"",
+          "\"critical\"",
+          "classify",
+          "vulnerability",
+          "tool",
+          "mcp",
+          "result",
+          "output",
+          "analysis",
+          "assessment",
+          "score",
+          "label",
+          "severity_label",
+          "classification"
+        ],
+        "label": "MCP tool signature in response \u2014 proves classify_vulnerability ran",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "critical",
+          "high",
+          "medium",
+          "low"
+        ],
+        "label": "Severity label returned",
+        "type": "any_of"
+      }
+    ],
+    "force_unload_before": true,
+    "id": "TV-03",
+    "model_slug": "auto-security",
+    "name": "Tool Validation \u2014 classify_vulnerability MCP signature (auto-security/baronllm)",
+    "prompt": "/nothink\nUse classify_vulnerability to classify this description and return the full tool result:\n'An unauthenticated remote attacker can send a crafted packet to the management interface and execute arbitrary code with root privileges.'",
+    "section": "auto-security",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "import re",
+          "re.sub",
+          "re.compile",
+          "regex",
+          "pattern"
+        ],
+        "label": "Regex used for pattern matching",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "bearer",
+          "authorization",
+          "auth"
+        ],
+        "label": "Bearer token handled",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "sk-",
+          "api.key",
+          "api_key",
+          "20",
+          "alphanum"
+        ],
+        "label": "API key pattern handled",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "password",
+          "passwd",
+          "pwd"
+        ],
+        "label": "Password pattern handled",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "[redacted]",
+          "[REDACTED]"
+        ],
+        "label": "REDACTED placeholder used",
+        "type": "contains"
+      }
+    ],
+    "id": "P-S08",
+    "model_slug": "auto-security",
+    "name": "Security Code \u2014 Log Secrets Redaction",
+    "prompt": "Write a Python function `redact(line)` that removes secrets from a log line before storage: redact anything matching an API-key pattern (sk-... 20+ chars), bearer tokens, and password=VALUE. Return the line with those replaced by [REDACTED]. One code block, stdlib only.",
+    "section": "auto-security",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Fixed code present",
+        "type": "has_code"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "os.popen"
+        ],
+        "label": "os.popen removed",
+        "type": "not_contains"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "shell=true",
+          "shell=True"
+        ],
+        "label": "shell=True not introduced",
+        "type": "not_contains"
+      },
+      {
+        "keywords": [
+          "subprocess",
+          "shlex",
+          "list",
+          "open(",
+          "pathlib",
+          "Popen",
+          "run(",
+          "check_output",
+          "check_call",
+          "getoutput",
+          "execvp"
+        ],
+        "label": "Safe alternative used",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "inject",
+          "injection",
+          "arbitrary",
+          "shell",
+          "escape",
+          "sanitize",
+          "untrusted",
+          "command",
+          "malicious",
+          "attack",
+          "exploit",
+          "user input",
+          "user-supplied",
+          "concatenat",
+          "format string",
+          "vulnerable",
+          "dangerous",
+          "risk"
+        ],
+        "label": "Injection risk explained",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-S09",
+    "model_slug": "auto-security",
+    "name": "Security Code \u2014 Command Injection Audit",
+    "prompt": "Audit this function and return a corrected version that is not vulnerable to command injection. Explain the vulnerability and the fix.\n\n```python\nimport os\ndef lookup(user):\n    return os.popen(f'grep {user} /etc/passwd').read()\n```",
+    "section": "auto-security",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "server-side",
+          "internal",
+          "metadata",
+          "request",
+          "forged",
+          "ssrf"
+        ],
+        "label": "SSRF mechanism explained",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "169.254.169.254",
+          "metadata",
+          "aws",
+          "cloud",
+          "http://",
+          "curl"
+        ],
+        "label": "Attack vector concrete",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "allowlist",
+          "whitelist",
+          "block",
+          "validate",
+          "filter",
+          "mitigation",
+          "firewall",
+          "egress"
+        ],
+        "label": "Mitigations listed",
+        "type": "any_of"
+      },
+      {
+        "chars": 300,
+        "label": "Substantive answer",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-28",
+    "model_slug": "auto-security",
+    "name": "Uncensored Security \u2014 SSRF Exploitation Vector",
+    "prompt": "Explain how Server-Side Request Forgery (SSRF) works, give a concrete example of how an attacker would exploit it against a cloud metadata endpoint, and list the top 3 mitigations.",
+    "route_params": {
+      "variant": "uncensored"
+    },
+    "section": "auto-security (uncensored)",
+    "timeout": 120,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  }
+]

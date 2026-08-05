@@ -1,0 +1,263 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "ml-kem",
+          "kyber",
+          "ml-dsa",
+          "dilithium",
+          "slh-dsa"
+        ],
+        "label": "NIST algorithms named",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "openssl",
+          "boringssl",
+          "rustls",
+          "tls"
+        ],
+        "label": "TLS library mentioned",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "phase",
+          "migrat",
+          "timeline",
+          "roadmap",
+          "step",
+          "schedule",
+          "year 1",
+          "year 2",
+          "year one",
+          "year two",
+          "rollout",
+          "rolled out",
+          "phased",
+          "deployment plan",
+          "near-term",
+          "long-term",
+          "short-term",
+          "q1",
+          "q2",
+          "q3",
+          "q4",
+          "first quarter",
+          "wave 1",
+          "wave 2",
+          "by 2030",
+          "by 2035",
+          "interim",
+          "hybrid",
+          "transition period",
+          "begin migration",
+          "prepare for",
+          "preparation",
+          "plan to migrate",
+          "incremental"
+        ],
+        "label": "Migration timeline",
+        "type": "any_of"
+      },
+      {
+        "chars": 500,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-13",
+    "model_slug": "auto-research",
+    "name": "Research Assistant \u2014 Post-Quantum Cryptography",
+    "prompt": "Post-quantum cryptography deployment status. Structure your response in exactly these four sections, no preamble:\n1. NIST-FINALIZED ALGORITHMS \u2014 name each finalized algorithm and production-readiness status\n2. TLS LIBRARY SUPPORT \u2014 which major TLS libraries have shipped PQC support and which version\n3. MIGRATION TIMELINE \u2014 realistic phased plan for an enterprise with 200+ internal services\n4. CONFIRMED VS EMERGING \u2014 one sentence distinguishing what is deployed today vs still in progress\nLimit: 700 words total. No preamble before section 1.",
+    "section": "auto-research",
+    "timeout": 360,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "established fact",
+          "strong evidence",
+          "inference",
+          "speculation",
+          "well established",
+          "widely accepted",
+          "evidence suggests",
+          "likely",
+          "inferred",
+          "speculative",
+          "uncertain",
+          "high confidence",
+          "medium confidence",
+          "low confidence",
+          "established:",
+          "evidence:",
+          "inference:",
+          "speculation:",
+          "[established",
+          "[strong",
+          "[inference",
+          "[speculation",
+          "fact:",
+          "based on evidence",
+          "limited evidence"
+        ],
+        "label": "Evidence labels present",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "however",
+          "but",
+          "challenge",
+          "limitation",
+          "concern",
+          "caveat",
+          "drawback",
+          "disadvantage",
+          "on the other hand",
+          "critics",
+          "some argue",
+          "others argue",
+          "debate",
+          "not without",
+          "it should be noted",
+          "worth noting"
+        ],
+        "label": "Counterpoints included",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "passwordless is always",
+          "always more secure"
+        ],
+        "label": "No absolute claim",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-R05",
+    "max_wait_no_progress": 1200,
+    "model_slug": "researchanalyst",
+    "name": "Research Analyst \u2014 Evidence Quality Labeling",
+    "prompt": "Analyze this claim: 'Passwordless authentication is more secure than passwords + MFA for enterprise environments.'\n\nStructure your response as follows:\n1. METHODOLOGY \u2014 what framework you are applying\n2. KEY FINDINGS \u2014 for each finding, prefix the claim with exactly one of: [Established Fact], [Strong Evidence], [Inference], or [Speculation]\n3. COUNTERARGUMENTS \u2014 limitations, challenges, or cases where the claim does not hold\n4. CONCLUSION \u2014 confidence-weighted verdict (High/Medium/Low)\nNo preamble. Start directly with section 1. Limit: 600 words.",
+    "section": "auto-research",
+    "timeout": 360,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "established fact",
+          "strong evidence",
+          "inference",
+          "speculation",
+          "[established",
+          "[strong",
+          "[inference",
+          "[speculation"
+        ],
+        "label": "Evidence labels present",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "eu ai act",
+          "european",
+          "eu act",
+          "artificial intelligence act"
+        ],
+        "label": "EU AI Act covered",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "disagreement",
+          "debate",
+          "some argue",
+          "others argue",
+          "conflicting",
+          "contend",
+          "dispute",
+          "differ",
+          "not all",
+          "critics"
+        ],
+        "label": "Expert disagreement surfaced",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-R06",
+    "max_wait_no_progress": 1200,
+    "model_slug": "gemmaresearchanalyst",
+    "name": "Gemma Research Analyst \u2014 AI Regulation with Evidence Framework",
+    "prompt": "Analyze AI regulation globally. Structure your response as follows:\n- For EACH claim, prefix it with one of: [Established Fact], [Strong Evidence], [Inference], or [Speculation]\n- Cover: EU AI Act, US executive orders, China's approach\n- Surface at least one area of significant expert disagreement \u2014 do not smooth it over\nKeep the total response under 600 words.",
+    "section": "auto-research",
+    "timeout": 360,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "prompt injection",
+          "injecting",
+          "indirect injection",
+          "instruction injection"
+        ],
+        "label": "Prompt injection covered",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "model extraction",
+          "api",
+          "reconstruct",
+          "stealing",
+          "extraction attack",
+          "query budget"
+        ],
+        "label": "Model extraction covered",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "detect",
+          "mitigat",
+          "defend",
+          "prevent",
+          "protect",
+          "filter",
+          "monitor",
+          "sanitiz"
+        ],
+        "label": "Defenses included",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "i cannot provide",
+          "i'm unable to",
+          "i won't"
+        ],
+        "label": "No excessive refusal",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-R07",
+    "model_slug": "supergemma4researcher",
+    "name": "SuperGemma4 Uncensored \u2014 Adversarial ML Analysis",
+    "prompt": "Technical briefing on adversarial ML attacks against production LLMs. Use this exact structure \u2014 one paragraph each:\n1. Prompt Injection: mechanism + detection + mitigation\n2. Model Extraction via API: how attackers reconstruct models + defenses\n3. Training Data Extraction: what leaks + how to prevent\n4. Jailbreaking: common vectors + defender countermeasures\nBe direct and technical. No preamble.",
+    "section": "auto-research",
+    "timeout": 360,
+    "workspace_tier": "ollama"
+  }
+]

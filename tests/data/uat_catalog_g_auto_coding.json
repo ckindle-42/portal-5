@@ -1,0 +1,1494 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "httpx",
+          "asyncclient",
+          "async with httpx",
+          "httpx.asyncclient",
+          "asyncclient()"
+        ],
+        "label": "Uses httpx.AsyncClient",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "429",
+          "500",
+          "503",
+          "502",
+          "504",
+          "status code"
+        ],
+        "label": "Status codes correct",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "asyncio.sleep",
+          "import asyncio",
+          "backoff",
+          "jitter",
+          "exponential"
+        ],
+        "label": "Asyncio backoff present",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "->",
+          ": int",
+          ": str",
+          ": float",
+          "optional[",
+          "dict[",
+          "tuple["
+        ],
+        "label": "Type hints present",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "```",
+          "async def",
+          "asyncclient",
+          "httpx.asyncclient"
+        ],
+        "label": "Code block present",
+        "type": "any_of"
+      }
+    ],
+    "id": "WS-02",
+    "model_slug": "auto-coding",
+    "name": "Code Expert \u2014 Async HTTP Retry Wrapper",
+    "prompt": "Write a Python async HTTP retry wrapper using httpx.AsyncClient. Requirements: exponential backoff with jitter, max 3 retries, retry only on 429/500/502/503/504 status codes, configurable timeout. Include type hints, docstring, and a usage example.",
+    "section": "auto-coding",
+    "timeout": 240,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "pathlib",
+          "path"
+        ],
+        "label": "pathlib used",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "safe_load",
+          "yaml.safe_load",
+          "pyyaml"
+        ],
+        "label": "yaml.safe_load",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "->",
+          ": Path",
+          ": str",
+          ": path",
+          "-> Path",
+          "-> str"
+        ],
+        "label": "Type hints present",
+        "type": "any_of"
+      },
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      },
+      {
+        "chars": 600,
+        "label": "Structured response",
+        "type": "min_length"
+      }
+    ],
+    "id": "P-D01",
+    "model_slug": "pythoncodegeneratorcleanoptimizedproduction-ready",
+    "name": "Python Code Generator \u2014 Five-Step Delivery",
+    "prompt": "Write a function to parse YAML configuration files with schema validation. The function should: accept a file path and a pydantic model class, return a validated model instance, and raise a descriptive error on validation failure or missing file. Use pathlib and PyYAML.",
+    "section": "auto-coding",
+    "timeout": 240,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "injection",
+          "os.system",
+          "command injection",
+          "shell",
+          "arbitrary command"
+        ],
+        "label": "Command injection found",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "security vulnerability",
+          "security issue",
+          "security risk",
+          "vulnerability",
+          "security flaw"
+        ],
+        "label": "Security type label",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "runtime error",
+          "keyerror",
+          "key error",
+          "KeyError",
+          "exception",
+          "logic error",
+          "wrong data",
+          "crash",
+          "invalid key",
+          "missing key",
+          "IndexError",
+          "ValueError"
+        ],
+        "label": "Runtime error label",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "1. ",
+          "2. ",
+          "3. ",
+          "1) ",
+          "2) ",
+          "3) "
+        ],
+        "label": "At least 3 enumerated issues",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "validate",
+          "validation",
+          "sanitize",
+          "untrusted",
+          "f-string",
+          "f\"",
+          "concatenat",
+          "user input",
+          "user-supplied",
+          "shell",
+          "shlex"
+        ],
+        "label": "Issue 3: input validation / unsafe concat",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-D02",
+    "model_slug": "bugdiscoverycodeassistant",
+    "name": "Bug Discovery \u2014 Classification by Type",
+    "prompt": "Find all issues in this function and classify each by type (Logic Error, Runtime Error, Security Vulnerability, or Performance Issue):\n\ndef get_config(env):\n    config = {\"dev\": {\"db\": \"sqlite\"}, \"prod\": {\"db\": \"postgres\"}}\n    cmd = f\"load_config --env {env}\"\n    os.system(cmd)\n    return config[env][\"db\"]",
+    "section": "auto-coding",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "secret_key",
+          "secret key",
+          "hardcoded",
+          "environment",
+          "hardcode",
+          "hard-coded",
+          "env var",
+          "secret",
+          "credential",
+          "config",
+          "leaked"
+        ],
+        "label": "SECRET_KEY flagged",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "exp",
+          "expiry",
+          "expiration",
+          "claim",
+          "ttl",
+          "expires",
+          "lifetime",
+          "duration",
+          "3600"
+        ],
+        "label": "exp/expiry claim",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "check_db is",
+          "check_db looks",
+          "check_db function"
+        ],
+        "label": "check_db not critiqued",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-D03",
+    "model_slug": "codereviewassistant",
+    "name": "Code Review Assistant \u2014 PR Diff Scope",
+    "prompt": "PR Diff (review only the changed lines marked with +):\n\ndef authenticate(username, password):\n-    return check_db(username, password)\n+    token = jwt.encode({\"user\": username}, SECRET_KEY, algorithm=\"HS256\")\n+    return {\"token\": token, \"expires\": 3600}\n\ndef check_db(username, password):\n     # unchanged \u2014 no modification\n     return db.query(username, password)",
+    "section": "auto-coding",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "mutation",
+          "aliasing",
+          "in-place",
+          "result = base",
+          "copy"
+        ],
+        "label": "Mutation bug found",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "high",
+          "medium",
+          "low",
+          "confidence"
+        ],
+        "label": "Confidence levels present",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "recursion",
+          "depth",
+          "stack overflow",
+          "merge_configs("
+        ],
+        "label": "Recursion risk noted",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-D04",
+    "model_slug": "codereviewer",
+    "name": "Code Reviewer \u2014 Deep Audit with Confidence",
+    "prompt": "Audit this Python function completely. Assign confidence level (High/Medium/Low) to each finding:\n\ndef merge_configs(base: dict, override: dict) -> dict:\n    result = base\n    for key, val in override.items():\n        if isinstance(val, dict):\n            result[key] = merge_configs(result.get(key, {}), val)\n        else:\n            result[key] = val\n    return result",
+    "section": "auto-coding",
+    "timeout": 240,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "/auth/login",
+          "/protected",
+          "/auth/refresh"
+        ],
+        "label": "All 3 endpoints",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "exp",
+          "expiry",
+          "expiration",
+          "expires",
+          "expire",
+          "ttl"
+        ],
+        "label": "exp claim present",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "secret_key = \"",
+          "secret_key = '",
+          "= \"mysecret"
+        ],
+        "label": "No hardcoded secret",
+        "type": "not_contains"
+      },
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      }
+    ],
+    "id": "P-D05",
+    "model_slug": "fullstacksoftwaredeveloper",
+    "name": "Fullstack Developer \u2014 Secure JWT Auth",
+    "prompt": "Implement a FastAPI JWT authentication flow: POST /auth/login returns access + refresh tokens, GET /protected requires valid access token, POST /auth/refresh exchanges a refresh token for a new access token. Show the complete implementation.",
+    "section": "auto-coding",
+    "timeout": 150,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "which framework",
+          "what framework",
+          "framework?",
+          "which library",
+          "what stack",
+          "what are you using",
+          "insufficient context",
+          "what are you building with",
+          "react, vue",
+          "react or vue",
+          "before i",
+          "first, could you",
+          "to get started",
+          "are you using react",
+          "are you using vue",
+          "preferred framework",
+          "what's your stack",
+          "what tech",
+          "technology stack"
+        ],
+        "label": "Asks about framework",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "import React",
+          "const DataTable",
+          "export default",
+          "<template>"
+        ],
+        "label": "No immediate component",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-D06",
+    "model_slug": "seniorfrontenddeveloper",
+    "name": "Senior Frontend Developer \u2014 Asks Framework First",
+    "prompt": "Build me a reusable data table component with sorting, pagination (25 rows per page), and a search filter. Column definitions should be passed as props.",
+    "section": "auto-coding",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "v1.2.3",
+          "1.2.3"
+        ],
+        "label": "Image tag pinned",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "readinessprobe",
+          "/health",
+          "readiness",
+          "healthz"
+        ],
+        "label": "readinessProbe on /health",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "512mi",
+          "0.5",
+          "limits",
+          "limit",
+          "250m",
+          "cpu",
+          "memory",
+          "resources"
+        ],
+        "label": "Resource limits set",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "rollout undo",
+          "rollback",
+          "kubectl rollout",
+          "revision"
+        ],
+        "label": "Rollback included",
+        "type": "any_of"
+      },
+      {
+        "label": "YAML block present",
+        "type": "has_code"
+      }
+    ],
+    "id": "P-D07",
+    "model_slug": "devopsautomator",
+    "name": "DevOps Automator \u2014 Complete K8s Manifest",
+    "prompt": "Generate a Kubernetes Deployment manifest for a Python FastAPI app. Image: ghcr.io/myorg/api:v1.2.3, port 8000, 2 replicas, readiness probe on /health, resource limits 512Mi/0.5CPU.",
+    "section": "auto-coding",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "reset --hard",
+          "reset --hard head~3",
+          "force",
+          "git reset"
+        ],
+        "label": "Correct command",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "data loss",
+          "permanent",
+          "cannot be recovered",
+          "unrecoverable",
+          "warning",
+          "destructive",
+          "irreversible"
+        ],
+        "label": "Data loss warning",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "collaborator",
+          "team",
+          "pulled",
+          "pushed",
+          "remote",
+          "others",
+          "shared",
+          "force push"
+        ],
+        "label": "Collaborators mentioned",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-D09",
+    "model_slug": "githubexpert",
+    "name": "GitHub Expert \u2014 Destructive Command Warning",
+    "prompt": "I need to undo the last 3 commits on main branch and remove them completely from git history so nobody can ever see them. What is the git command?",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "security audit",
+          "professional audit",
+          "audit before",
+          "has not been audited",
+          "not been audited",
+          "not audited",
+          "security notice",
+          "\u26a0\ufe0f",
+          "mainnet deployment",
+          "before deploying",
+          "before deployment",
+          "audited by",
+          "recommend an audit",
+          "requires an audit"
+        ],
+        "label": "Audit disclaimer",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "pragma solidity",
+          "^0.",
+          "solidity ^",
+          "solidity version"
+        ],
+        "label": "Solidity pragma",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "reentrancyguard",
+          "checks-effects",
+          "reentrancy",
+          "checks effects interactions",
+          "nonreentrant",
+          "re-entrancy",
+          "reentrancy protection",
+          "reentrancy attack"
+        ],
+        "label": "Reentrancy protection",
+        "type": "any_of"
+      },
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      }
+    ],
+    "id": "P-D10",
+    "model_slug": "ethereumdeveloper",
+    "name": "Ethereum Developer \u2014 Security Audit Disclaimer",
+    "prompt": "Write a Solidity staking contract where users can deposit ETH, earn yield based on time staked, and withdraw with accumulated rewards. This will go live on mainnet next week.",
+    "section": "auto-coding",
+    "timeout": 420,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "object",
+          "'object'",
+          "\"object\"",
+          "typeof null",
+          "null is object",
+          "null"
+        ],
+        "label": "typeof null = object",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "typeerror",
+          "cannot read",
+          "undefined"
+        ],
+        "label": "TypeError for [].foo.bar",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "2, 4, 6",
+          "[2,4,6]",
+          "[2, 4, 6]",
+          "map(x",
+          "x * 2"
+        ],
+        "label": "[2, 4, 6] correct",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "undefined",
+          "no value",
+          "not found"
+        ],
+        "label": "Map.get returns undefined",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "as you can see",
+          "note that",
+          "this is because"
+        ],
+        "label": "No prose explanation",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-D11",
+    "model_slug": "javascriptconsole",
+    "name": "JavaScript Console \u2014 Strict V8 Output",
+    "prompt": "> typeof null\n> [].foo.bar\n> [1,2,3].map(x => x * 2)\n> new Map([[\"a\",1],[\"b\",2]]).get(\"c\")",
+    "section": "auto-coding",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "hello portal"
+        ],
+        "label": "cat output correct",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "/tmp/portal_test"
+        ],
+        "label": "pwd shows /tmp/portal_test",
+        "type": "contains"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "here is",
+          "this command",
+          "the output is"
+        ],
+        "label": "No prose",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-D12",
+    "model_slug": "linuxterminal",
+    "name": "Linux Terminal \u2014 Stateful Session",
+    "prompt": "$ mkdir -p /tmp/portal_test && cd /tmp/portal_test\n$ echo \"hello portal\" > greet.txt\n$ cat greet.txt\n$ pwd",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "system: portal v6"
+        ],
+        "label": "Print output correct",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "indexerror"
+        ],
+        "label": "IndexError raised",
+        "type": "contains"
+      }
+    ],
+    "id": "P-D13",
+    "model_slug": "pythoninterpreter",
+    "name": "Python Interpreter \u2014 Traceback Handling",
+    "prompt": "data = {\"name\": \"Portal\", \"version\": 6}\nitems = list(data.items())\nprint(f\"System: {data['name']} v{data['version']}\")\nprint(items[5])  # this should fail",
+    "section": "auto-coding",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "(3 rows",
+          "3 row",
+          "username",
+          "rows returned",
+          "3 records",
+          "3 results",
+          "user"
+        ],
+        "label": "SELECT returns rows",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "1 row",
+          "affected",
+          "inserted",
+          "insert 0",
+          "row added",
+          "1 record",
+          "success",
+          "created"
+        ],
+        "label": "INSERT acknowledged",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "newuser",
+          "analyst"
+        ],
+        "label": "newuser retrieved",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-D14",
+    "model_slug": "sqlterminal",
+    "name": "SQL Terminal \u2014 DML Session State",
+    "prompt": "SELECT TOP 3 Username, Role FROM Users ORDER BY CreatedAt DESC;\nINSERT INTO Users (Username, Email, Role) VALUES ('newuser', 'new@lab.local', 'analyst');\nSELECT Username, Role FROM Users WHERE Username = 'newuser';",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "10500",
+          "10,500"
+        ],
+        "label": "D2 = 10500",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "9000",
+          "9,000",
+          "9.000",
+          "9 000"
+        ],
+        "label": "D3 = 9000",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "80000",
+          "80,000"
+        ],
+        "label": "B4 = 80000",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "19500",
+          "19,500"
+        ],
+        "label": "D4 = 19500",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-D15",
+    "model_slug": "excelsheet",
+    "name": "Excel Sheet \u2014 Formula Computation",
+    "prompt": "Set up this spreadsheet:\nA1=Month, B1=Revenue, C1=Expenses, D1=Net\nA2=January, B2=42000, C2=31500, D2=formula: =B2-C2\nA3=February, B3=38000, C3=29000, D3=formula: =B3-C3\nA4=TOTAL, B4=formula: =SUM(B2:B3), C4=formula: =SUM(C2:C3), D4=formula: =SUM(D2:D3)",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "mission",
+          "quest",
+          "challenge",
+          "xp",
+          "level"
+        ],
+        "label": "RPG framing present",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "docker",
+          "kubectl",
+          "pod",
+          "container"
+        ],
+        "label": "First task given",
+        "type": "any_of"
+      },
+      {
+        "chars": 200,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "P-D16",
+    "model_slug": "kubernetesdockerrpglearningengine",
+    "name": "K8s/Docker RPG \u2014 Mission Start",
+    "prompt": "START NEW GAME. Character: DevOps Apprentice. Difficulty: Normal. I want to learn how to deploy my first containerized app to Kubernetes. Begin Mission 1.",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "security",
+          "malicious",
+          "injection",
+          "xss",
+          "path traversal",
+          "exploit",
+          "attack",
+          "adversarial",
+          "invalid type",
+          "unauthorized"
+        ],
+        "label": "Security tests present",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "10mb",
+          "10 mb",
+          "10mb",
+          "size limit",
+          "file size",
+          "limit",
+          "max",
+          "oversized",
+          "exceed",
+          "boundary",
+          "maximum"
+        ],
+        "label": "Boundary at 10MB",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "unit",
+          "integration",
+          "security",
+          "boundary"
+        ],
+        "label": "Multiple test types",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "comprehensive coverage",
+          "covers everything"
+        ],
+        "label": "No vague coverage claim",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-D18",
+    "model_slug": "softwarequalityassurancetester",
+    "name": "QA Tester \u2014 Test Type Coverage",
+    "prompt": "Write a test strategy for a file upload API endpoint: POST /api/v1/files \u2014 accepts multipart/form-data, max 10MB, allowed types: PDF/PNG/DOCX. Separate your test cases by type: unit, integration, security, and boundary. Do not claim 'comprehensive coverage' \u2014 be specific about what each test covers.",
+    "section": "auto-coding",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "which platform",
+          "what platform",
+          "mobile or desktop",
+          "what device",
+          "clarif",
+          "before i design",
+          "before designing",
+          "need to know"
+        ],
+        "label": "Asks about platform",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "mobile",
+          "desktop",
+          "platform",
+          "device",
+          "tablet",
+          "responsive",
+          "screen size",
+          "browser",
+          "what device",
+          "which platform",
+          "target device",
+          "ios",
+          "android",
+          "web app",
+          "native app",
+          "viewport",
+          "display",
+          "interface type"
+        ],
+        "label": "Platform context present",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "here is the dashboard",
+          "dashboard layout:",
+          "navigation bar:",
+          "sidebar:"
+        ],
+        "label": "No immediate mockup",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-D19",
+    "model_slug": "ux-uideveloper",
+    "name": "UX/UI Developer \u2014 Platform Clarification",
+    "prompt": "Design a dashboard for a field technician who needs to view and update work orders, check equipment status, and log time against jobs.",
+    "section": "auto-coding",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": false,
+        "label": "HTML file delivered",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "canvas",
+          "getcontext",
+          "2d",
+          "html canvas",
+          "canvas element"
+        ],
+        "label": "Canvas used",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "gravity",
+          "vy",
+          "velocity",
+          "vx",
+          "acceleration",
+          "fall",
+          "g ="
+        ],
+        "label": "Gravity implemented",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "space",
+          "keydown",
+          "addeventlistener",
+          "key ===",
+          "[space]",
+          "spacebar",
+          "keycode",
+          "event.key"
+        ],
+        "label": "Space/C key handlers",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "what framework",
+          "which library",
+          "do you want"
+        ],
+        "label": "No clarifying questions",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-D20",
+    "model_slug": "creativecoder",
+    "name": "Creative Coder \u2014 Particle System (Ships First)",
+    "prompt": "Make me a particle system visualizer. Particles should emit from wherever I click, fan outward with randomized velocity and color, fade out over their lifetime, and respect gravity. Keyboard: [Space] to toggle gravity on/off, [C] to clear all particles.",
+    "section": "auto-coding",
+    "timeout": 240,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "498000",
+          "498,000",
+          "$498,000"
+        ],
+        "label": "F2 = 498000",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "384000",
+          "384,000",
+          "$384,000"
+        ],
+        "label": "F3 = 384000",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "865000",
+          "865,000",
+          "$865,000"
+        ],
+        "label": "F4 = 865000",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "west",
+          "rank: 1",
+          "rank 1",
+          "1st place",
+          "highest"
+        ],
+        "label": "West is rank 1",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-DA06",
+    "include_thinking_in_assertions": true,
+    "model_slug": "excelsheet",
+    "name": "Excel Sheet \u2014 Multi-Region Rank Formula",
+    "prompt": "Row 1 headers: Region | Q1_Sales | Q2_Sales | Q3_Sales | Q4_Sales | Annual | Rank\nA2=North, B2=120000, C2=135000, D2=98000, E2=145000\nA3=South, B3=89000, C3=102000, D3=115000, E3=78000\nA4=West, B4=210000, C4=195000, D4=220000, E4=240000\nF column: =SUM of Q1-Q4 for each row\nG column: =RANK of Annual Sales (highest=1) among all regions",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "the: 2",
+          "quick: 1",
+          "brown: 1"
+        ],
+        "label": "Sandbox output present",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "would output",
+          "this will print"
+        ],
+        "label": "Not a prediction",
+        "type": "not_contains"
+      }
+    ],
+    "id": "T-01",
+    "model_slug": "auto-coding",
+    "name": "Code Sandbox \u2014 Python Exact Execution",
+    "prompt": "Run this code and show me the exact output:\n\nfrom collections import Counter\ntext = \"the quick brown fox jumps over the lazy dog\"\ntop3 = Counter(text.split()).most_common(3)\nfor word, count in top3:\n    print(f\"{word}: {count}\")",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "3 apple"
+        ],
+        "label": "3 apple first",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "2 banana"
+        ],
+        "label": "2 banana second",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "1 cherry"
+        ],
+        "label": "1 cherry last",
+        "type": "contains"
+      }
+    ],
+    "id": "T-02",
+    "model_slug": "auto-coding",
+    "name": "Code Sandbox \u2014 Bash Pipeline",
+    "prompt": "Run this bash command and show exact output:\n\nprintf \"%s\\n\" apple banana cherry apple banana apple | sort | uniq -c | sort -rn",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "urlerror",
+          "gaierror",
+          "network",
+          "failed",
+          "error",
+          "unable",
+          "connection",
+          "refused",
+          "sandbox",
+          "execute"
+        ],
+        "label": "Network error returned",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "200 ok",
+          "successfully connected",
+          "retrieved"
+        ],
+        "label": "No fake success",
+        "type": "not_contains"
+      }
+    ],
+    "id": "T-03",
+    "model_slug": "auto-coding",
+    "name": "Code Sandbox \u2014 Network Isolation",
+    "prompt": "Run this code:\n\nimport urllib.request\nurllib.request.urlopen(\"http://example.com\")",
+    "section": "auto-coding",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "ordereddict",
+          "deque",
+          "collections",
+          "move_to_end",
+          "capacity"
+        ],
+        "label": "OrderedDict or deque approach",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "def get",
+          "def get("
+        ],
+        "label": "get method defined",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "def put",
+          "def put("
+        ],
+        "label": "put method defined",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "evict",
+          "popitem",
+          "popleft",
+          "pop(",
+          "capacity"
+        ],
+        "label": "Eviction logic present",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-D21",
+    "model_slug": "auto-coding",
+    "name": "Code Correctness \u2014 LRU Cache Eviction",
+    "prompt": "Implement a Python class `LRUCache` with `__init__(self, capacity)`, `get(key)` returning the value or -1, and `put(key, value)` evicting the least-recently-used entry when over capacity. Module scope, one code block.",
+    "section": "auto-coding",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Fixed code present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "off-by-one",
+          "off by one",
+          "+ 1",
+          "+1",
+          "inclusive",
+          "range(len"
+        ],
+        "label": "Off-by-one identified",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "len(nums) - k + 1",
+          "- k + 1",
+          "range(len(nums) - k + 1)"
+        ],
+        "label": "Correct range fix",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "bug",
+          "issue",
+          "problem",
+          "misses",
+          "excludes",
+          "last window"
+        ],
+        "label": "Explains the bug",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-D22",
+    "model_slug": "auto-coding",
+    "name": "Debug \u2014 Sliding Window Off-by-One",
+    "prompt": "This function should return the maximum sliding-window sum of size k but has a bug. Fix it and explain what was wrong.\n\n```python\ndef max_window_sum(nums, k):\n    best = 0\n    for i in range(len(nums) - k):\n        s = sum(nums[i:i+k])\n        if s > best:\n            best = s\n    return best\n```",
+    "section": "auto-coding",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Fixed code present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "copy()",
+          ".copy()",
+          "dict(base)",
+          "{**base}",
+          "deepcopy",
+          "result = {"
+        ],
+        "label": "Copy approach used",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "mutate",
+          "mutation",
+          "reference",
+          "alias",
+          "same object",
+          "modif"
+        ],
+        "label": "Mutation explained",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-D23",
+    "model_slug": "auto-coding",
+    "name": "Debug \u2014 Config Merge Mutation Bug",
+    "prompt": "This config-merge function mutates the caller's dict. Fix it so `base` is never modified. Return the corrected function and explain the fix.\n\n```python\ndef merge(base, override):\n    result = base\n    for k, v in override.items():\n        result[k] = v\n    return result\n```",
+    "section": "auto-coding",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "import csv",
+          "csv.reader",
+          "splitlines",
+          "split(',')"
+        ],
+        "label": "csv module used",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "import pandas",
+          "pd.read_csv",
+          "DataFrame"
+        ],
+        "label": "No pandas",
+        "type": "not_contains"
+      },
+      {
+        "keywords": [
+          "sum(",
+          "/ len",
+          "mean",
+          "average",
+          "total"
+        ],
+        "label": "Mean computed",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-D24",
+    "model_slug": "auto-coding",
+    "name": "Constraint \u2014 Stdlib-Only CSV Grouping",
+    "prompt": "Using ONLY the Python standard library (no pandas, no numpy, no third-party packages), write `group_means(text)` that takes CSV text, groups by the first column, and returns a dict of {group: mean of second column as float}. Skip non-numeric second values. One code block.",
+    "section": "auto-coding",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Fixed code present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "lock",
+          "asyncio.lock",
+          "lock()",
+          "async with",
+          "semaphore",
+          "atomic"
+        ],
+        "label": "Lock or atomic fix",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "race",
+          "interleav",
+          "context switch",
+          "yield",
+          "await",
+          "concurrent"
+        ],
+        "label": "Race condition explained",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "1000",
+          "thousand"
+        ],
+        "label": "1000 referenced as expected value",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-D25",
+    "model_slug": "auto-coding",
+    "name": "Debug \u2014 Async Race Condition Fix",
+    "prompt": "This async counter under-counts because of a race condition. Fix it so the final count is exactly 1000. Return the corrected code and explain why it races.\n\n```python\nimport asyncio\ncount = 0\nasync def inc():\n    global count\n    tmp = count\n    await asyncio.sleep(0)\n    count = tmp + 1\nasync def main():\n    await asyncio.gather(*[inc() for _ in range(1000)])\n    print(count)\nasyncio.run(main())\n```",
+    "section": "auto-coding",
+    "timeout": 150,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "argparse",
+          "ArgumentParser",
+          "add_parser",
+          "add_subparsers"
+        ],
+        "label": "argparse used",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "init",
+          "run",
+          "status"
+        ],
+        "label": "Subcommands present",
+        "type": "any_of"
+      }
+    ],
+    "id": "WS-23",
+    "model_slug": "auto-coding",
+    "name": "Uncensored Coder \u2014 Python Argparse CLI",
+    "prompt": "Write a Python CLI using argparse with three subcommands: 'init', 'run', and 'status'. Each subcommand should accept a --config flag that defaults to 'config.yaml'. Include a main() entry point.",
+    "route_params": {
+      "variant": "uncensored"
+    },
+    "section": "auto-coding (uncensored)",
+    "timeout": 120,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "async def",
+          "yield",
+          "async for",
+          "aiofiles",
+          "asyncio"
+        ],
+        "label": "async generator syntax",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "AsyncGenerator",
+          "AsyncIterator",
+          "str",
+          "-> "
+        ],
+        "label": "Type annotations present",
+        "type": "any_of"
+      }
+    ],
+    "id": "WS-24",
+    "model_slug": "auto-coding",
+    "name": "Devstral \u2014 Async Generator Pattern",
+    "prompt": "Write a Python async generator that reads lines from a file asynchronously and yields non-empty, stripped lines. Include type annotations and a usage example.",
+    "route_params": {
+      "model": "devstral:24b"
+    },
+    "section": "auto-coding (?model=devstral:24b)",
+    "timeout": 120,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "@dataclass",
+          "dataclass",
+          "dataclasses"
+        ],
+        "label": "Dataclass decorator",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "__post_init__",
+          "ValueError",
+          "raise",
+          "if "
+        ],
+        "label": "Validation present",
+        "type": "any_of"
+      }
+    ],
+    "id": "WS-25",
+    "model_slug": "auto-coding",
+    "name": "GLM \u2014 Dataclass with Validation",
+    "prompt": "Write a Python dataclass 'ServerConfig' with fields: host (str), port (int, 1-65535), workers (int, >= 1), and debug (bool, default False). Add a __post_init__ that raises ValueError for out-of-range values. Include a usage example.",
+    "route_params": {
+      "model": "glm-4.7-flash:Q4_K_M"
+    },
+    "section": "auto-coding (?model=glm-4.7-flash)",
+    "timeout": 120,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  }
+]

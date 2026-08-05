@@ -1,0 +1,1399 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "getbyrole",
+          "getbylabel",
+          "getbytext",
+          "locator",
+          "page.goto"
+        ],
+        "label": "Playwright selectors",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "success",
+          "dashboard",
+          "redirect",
+          "expect",
+          "visible"
+        ],
+        "label": "Happy path present",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "error",
+          "invalid",
+          "wrong password",
+          "fail",
+          "toast"
+        ],
+        "label": "Error path present",
+        "type": "any_of"
+      },
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      }
+    ],
+    "id": "P-B01",
+    "model_slug": "e2etestauthor",
+    "name": "E2E Test Author \u2014 Test Strategy",
+    "prompt": "Write a Playwright test for a login page: POST /login accepts email+password, redirects to /dashboard on success, shows error toast on failure. Include both happy-path and error-path tests.",
+    "section": "auto-coding",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "map",
+          "field",
+          "identify",
+          "label",
+          "structure"
+        ],
+        "label": "Field mapping mentioned",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "verify",
+          "review",
+          "confirm",
+          "before submit",
+          "check each"
+        ],
+        "label": "Verification before submit",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "never auto-submit",
+          "without confirmation",
+          "ask",
+          "operator",
+          "your approval",
+          "confirm first",
+          "before submitting",
+          "before submission",
+          "would you like",
+          "please provide",
+          "need from you",
+          "wait",
+          "pause",
+          "hold",
+          "permission"
+        ],
+        "label": "No auto-submit",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-B02",
+    "model_slug": "formfiller",
+    "name": "Form Filler \u2014 Verification Protocol",
+    "prompt": "I need you to fill out a job application form at careers.example.com. It has: name, email, resume upload, cover letter textarea, and salary expectations. What's your approach?",
+    "section": "auto-coding",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "navigate",
+          "login",
+          "billing",
+          "step",
+          "first",
+          "then",
+          "click"
+        ],
+        "label": "Task decomposition",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "confirm",
+          "purchase",
+          "delete",
+          "never",
+          "without",
+          "ask",
+          "security",
+          "privacy",
+          "i can't directly",
+          "cannot directly",
+          "you'd need",
+          "you'll need",
+          "you need to",
+          "on your behalf",
+          "access your",
+          "your account"
+        ],
+        "label": "Safety awareness",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-B03",
+    "model_slug": "webnavigator",
+    "name": "Web Navigator \u2014 Task Decomposition",
+    "prompt": "Go to the AWS console and check my current monthly bill. How would you approach this task?",
+    "section": "auto",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "timing",
+          "race",
+          "animation",
+          "network",
+          "slow",
+          "wait",
+          "timeout",
+          "flaky"
+        ],
+        "label": "Timing issue suspected",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "snapshot",
+          "browser",
+          "inspect",
+          "navigate",
+          "reproduce",
+          "accessibility"
+        ],
+        "label": "Browser inspection suggested",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-B04",
+    "model_slug": "e2edebugger",
+    "name": "E2E Debugger \u2014 Root Cause Analysis",
+    "prompt": "My Playwright test `test_login_redirect` fails intermittently. The error is: 'TimeoutError: locator.click: Timeout 30000ms exceeded.' The test clicks a 'Sign In' button that should redirect to /dashboard. It works locally but fails in CI. What's your diagnosis approach?",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "page",
+          "pagination",
+          "next",
+          "click",
+          "scroll",
+          "iterate",
+          "loop"
+        ],
+        "label": "Pagination handling",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "csv",
+          "json",
+          "table",
+          "extract",
+          "format",
+          "structured"
+        ],
+        "label": "Structured output",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-B05",
+    "model_slug": "dataextractor",
+    "name": "Data Extractor \u2014 Extraction Strategy",
+    "prompt": "I need to extract all product names and prices from a paginated e-commerce category page (20 products per page, ~50 pages). What's your approach using browser tools?",
+    "section": "auto-data",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "acm",
+          "ieee",
+          "login",
+          "profile",
+          "session",
+          "access",
+          "institutional"
+        ],
+        "label": "Authenticated sources mentioned",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "arxiv",
+          "semantic scholar",
+          "open access",
+          "alternative",
+          "free"
+        ],
+        "label": "Fallback to open access",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-B06",
+    "model_slug": "paywalledresearcher",
+    "name": "Paywalled Researcher \u2014 Source Strategy",
+    "prompt": "I need to find recent papers on 'local LLM inference optimization' from ACM Digital Library and IEEE Xplore. I have institutional access to both. What's your approach?",
+    "section": "auto-research",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "architecture",
+          "flowchart",
+          "diagram",
+          "type",
+          "identify",
+          "classify"
+        ],
+        "label": "Diagram type identification",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "mermaid",
+          "markdown",
+          "structured",
+          "format",
+          "convert",
+          "digital"
+        ],
+        "label": "Mermaid or structured output",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "ambiguit",
+          "unclear",
+          "not sure",
+          "confidence",
+          "best guess",
+          "hard to distinguish",
+          "hard to identify",
+          "hard to read",
+          "potentially misread",
+          "manual check",
+          "need to verify",
+          "verify",
+          "i'll note",
+          "i'll flag",
+          "flag any",
+          "note any",
+          "where unclear",
+          "might be unclear",
+          "could be",
+          "might be",
+          "uncertain",
+          "indicate where",
+          "assuming",
+          "based on",
+          "depending",
+          "as described",
+          "from the description",
+          "you've described",
+          "you described",
+          "as you mentioned",
+          "given the",
+          "interpret",
+          "note that"
+        ],
+        "label": "Ambiguity handling or context-awareness",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-V12",
+    "model_slug": "whiteboardconverter",
+    "name": "Whiteboard Converter \u2014 Diagram Recognition",
+    "prompt": "If I send you a whiteboard photo of a system architecture sketch with boxes labeled 'API Gateway', 'Auth Service', 'User DB', and arrows between them, how would you convert it to a digital format?",
+    "section": "auto-vision",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "step",
+          "1.",
+          "2.",
+          "3.",
+          "first",
+          "then",
+          "next"
+        ],
+        "label": "Step decomposition",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "search",
+          "web",
+          "tool",
+          "create",
+          "document",
+          "word"
+        ],
+        "label": "Tool identification",
+        "type": "any_of"
+      },
+      {
+        "chars": 150,
+        "label": "Substantive plan",
+        "type": "min_length"
+      }
+    ],
+    "id": "P-N01",
+    "max_wait_no_progress": 600,
+    "model_slug": "auto-daily",
+    "name": "Goal Decomposition \u2014 Research & Deliver Plan",
+    "prompt": "I want to research the 5 most recent CVEs affecting Apache HTTP Server and write up a summary report. List 4-5 concrete steps to accomplish this goal, and for each step identify what tool or resource you would use.",
+    "section": "advanced",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "objective",
+          "goal",
+          "problem",
+          "requirement",
+          "outcome"
+        ],
+        "label": "Distinguishes objective from feature",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "what do you mean",
+          "clarif",
+          "more specific",
+          "which",
+          "who",
+          "stakeholder",
+          "open question",
+          "understand"
+        ],
+        "label": "Asks clarifying questions or lists open questions",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N02",
+    "model_slug": "businessanalyst",
+    "name": "Business Analyst \u2014 Requirements Decomposition",
+    "prompt": "The VP of Sales wants 'a better CRM.' Help me translate this into structured business requirements.",
+    "section": "advanced",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "hipaa",
+          "health insurance",
+          "phi",
+          "health data"
+        ],
+        "label": "HIPAA identified",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "gdpr",
+          "general data protection",
+          "eu",
+          "european"
+        ],
+        "label": "GDPR identified",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "gap",
+          "risk",
+          "requirement",
+          "control",
+          "framework"
+        ],
+        "label": "Gap analysis framing",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N03",
+    "model_slug": "complianceanalyst",
+    "name": "Compliance Analyst \u2014 Multi-Framework Gap Analysis",
+    "prompt": "We're a SaaS company storing health data for US clients and EU clients. Which compliance frameworks apply and where do we have potential gaps?",
+    "section": "auto-compliance",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "mrr",
+          "churn",
+          "revenue",
+          "trend",
+          "growth"
+        ],
+        "label": "Primary metrics identified",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "above the fold",
+          "headline",
+          "primary",
+          "key metric",
+          "data-ink",
+          "few",
+          "tufte",
+          "single",
+          "focus"
+        ],
+        "label": "Design principle applied",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N04",
+    "model_slug": "dashboardarchitect",
+    "name": "Dashboard Architect \u2014 Executive Dashboard Design",
+    "prompt": "Design an executive dashboard for a B2B SaaS company. The CEO cares most about MRR growth and churn. What should be above the fold?",
+    "section": "auto-data",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "row-level",
+          "schema-per",
+          "database-per",
+          "shared schema",
+          "tenant_id",
+          "tenancy",
+          "isolation",
+          "separate schema"
+        ],
+        "label": "Tenancy model discussed",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "trade-off",
+          "cost",
+          "isolation",
+          "complexity",
+          "performance",
+          "easier",
+          "harder",
+          "pros",
+          "cons"
+        ],
+        "label": "Trade-offs acknowledged",
+        "type": "any_of"
+      },
+      {
+        "label": "Schema DDL or pseudo-code present",
+        "type": "has_code"
+      }
+    ],
+    "id": "P-N05",
+    "model_slug": "databasearchitect",
+    "name": "Database Architect \u2014 Multi-Tenant Schema",
+    "prompt": "Design a database schema for a multi-tenant SaaS application with organizations, users, projects, and audit logs. Recommend a tenancy model and explain the trade-offs.",
+    "section": "auto-data",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "c4",
+          "container",
+          "diagram type",
+          "architecture",
+          "component"
+        ],
+        "label": "Diagram type identified",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "mermaid",
+          "markdown",
+          "text",
+          "structured",
+          "format",
+          "describe",
+          "represent",
+          "list"
+        ],
+        "label": "Output format mentioned",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N06",
+    "model_slug": "diagramreader",
+    "name": "Diagram Reader \u2014 Architecture Interpretation",
+    "prompt": "I'm about to send you a C4 container diagram of a microservices system. What information will you extract and how will you represent it in text?",
+    "section": "auto-vision",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "tutorial",
+          "how-to",
+          "reference",
+          "explanation",
+          "guide",
+          "conceptual",
+          "diataxis"
+        ],
+        "label": "Di\u00e1taxis modes or equivalents",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "spec",
+          "reference only",
+          "not enough",
+          "also need",
+          "beyond the spec",
+          "openapi alone",
+          "just a spec"
+        ],
+        "label": "OpenAPI limitation acknowledged",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N07",
+    "model_slug": "documentationarchitect",
+    "name": "Documentation Architect \u2014 Di\u00e1taxis Framework",
+    "prompt": "We have a REST API and want to document it properly. We currently only have an OpenAPI spec. What documentation types do we need and why?",
+    "section": "auto-documents",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "tiobe",
+          "stackoverflow",
+          "github",
+          "source",
+          "survey",
+          "index",
+          "primary",
+          "authoritative",
+          "redmonk"
+        ],
+        "label": "Authoritative source identified",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "depends",
+          "definition",
+          "metric",
+          "measure",
+          "context",
+          "how you define",
+          "varies",
+          "depends on"
+        ],
+        "label": "Nuance or context noted",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N08",
+    "model_slug": "factchecker",
+    "name": "Fact Checker \u2014 Claim Verification Protocol",
+    "prompt": "Claim: 'Python is the most popular programming language in the world.' Walk me through how you'd fact-check this.",
+    "section": "auto-research",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "article 6",
+          "art. 6",
+          "lawful basis",
+          "legitimate interest",
+          "balancing test",
+          "lia",
+          "legitimate interests assessment"
+        ],
+        "label": "Article 6 or lawful basis identified",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "opt-out",
+          "right to object",
+          "article 21",
+          "unsubscribe",
+          "object",
+          "oppose"
+        ],
+        "label": "Right to object mentioned",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "consent",
+          "risk",
+          "emarketing",
+          "pecr",
+          "alternative",
+          "reconsider"
+        ],
+        "label": "Risk or alternative noted",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N09",
+    "model_slug": "gdprdpoadvisor",
+    "name": "GDPR DPO Advisor \u2014 Lawful Basis Assessment",
+    "prompt": "Our app sends marketing emails to EU users. We currently rely on 'legitimate interests' as the lawful basis. Is this appropriate, and what are the risks?",
+    "section": "auto-compliance",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "error",
+          "fmt.errorf",
+          "return nil",
+          "return err",
+          "%w"
+        ],
+        "label": "Idiomatic error return",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "unmarshal",
+          "json.unmarshal",
+          "os.readfile",
+          "os.open"
+        ],
+        "label": "JSON unmarshal used",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N10",
+    "model_slug": "goengineer",
+    "name": "Go Engineer \u2014 Idiomatic Error Handling",
+    "prompt": "Write a Go function that reads a JSON config file, unmarshals it into a Config struct, and returns it with proper error handling. Show idiomatic Go error wrapping.",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "risk assessment",
+          "assess",
+          "determine",
+          "evaluate",
+          "whether",
+          "reportable",
+          "notification required"
+        ],
+        "label": "Breach assessment step",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "60 day",
+          "60-day",
+          "hhs",
+          "secretary",
+          "notification deadline"
+        ],
+        "label": "60-day deadline or HHS notification",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "notify",
+          "individual",
+          "patient",
+          "affected",
+          "letter"
+        ],
+        "label": "Affected individuals notified",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N11",
+    "model_slug": "hipaaprivacyofficer",
+    "name": "HIPAA Privacy Officer \u2014 Breach Notification",
+    "prompt": "A laptop containing unencrypted PHI for 450 patients was stolen. Walk me through HIPAA breach notification requirements and deadlines.",
+    "section": "auto-compliance",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "design",
+          "system",
+          "scale",
+          "how would you",
+          "build a"
+        ],
+        "label": "System design questions provided",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "clarif",
+          "requirement",
+          "trade-off",
+          "scale",
+          "bottleneck",
+          "evaluate",
+          "looking for",
+          "interviewers"
+        ],
+        "label": "Evaluation criteria mentioned",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N12",
+    "model_slug": "interviewcoach",
+    "name": "Interview Coach \u2014 Technical Screening Prep",
+    "prompt": "I'm preparing for a senior software engineer interview at a FAANG company. Give me 3 realistic system design questions I should practice, and what aspects of my answer will interviewers evaluate?",
+    "section": "advanced",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "kb_list",
+          "list",
+          "available",
+          "check",
+          "first",
+          "which kb",
+          "what kbs",
+          "knowledge base",
+          "collections"
+        ],
+        "label": "KB listing step described",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "search",
+          "query",
+          "look for",
+          "retrieve",
+          "kb_search",
+          "find",
+          "locate"
+        ],
+        "label": "Search strategy described",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N13",
+    "model_slug": "kbnavigator",
+    "name": "Knowledge Base Navigator \u2014 KB Retrieval Protocol",
+    "prompt": "What knowledge bases do you have access to, and how would you find information about our product's API rate limits?",
+    "section": "auto-research",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "ollama",
+          "llm",
+          "local",
+          "inference",
+          "open source",
+          "model",
+          "deployment",
+          "on-premise",
+          "self-hosted"
+        ],
+        "label": "Market players or segments mentioned",
+        "type": "any_of"
+      },
+      {
+        "chars": 200,
+        "label": "Substantive analysis",
+        "type": "min_length"
+      }
+    ],
+    "id": "P-N14",
+    "model_slug": "marketanalyst",
+    "name": "Market Analyst \u2014 Competitive Analysis",
+    "prompt": "Give me a competitive analysis of the top 3 players in the local LLM inference market. What's driving adoption?",
+    "section": "auto-research",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "lim",
+          "h\u21920",
+          "h -> 0",
+          "limit",
+          "definition of derivative",
+          "difference quotient"
+        ],
+        "label": "Limit definition stated",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "sin(x+h)",
+          "sin(a+b)",
+          "addition formula",
+          "sum formula",
+          "trig identity",
+          "sin x cos h",
+          "sin(h)/h",
+          "sinh/h",
+          "sin h / h",
+          "(1 - cos h)",
+          "cos h - 1",
+          "taylor",
+          "series expansion",
+          "euler",
+          "squeeze",
+          "sandwich theorem",
+          "cos x sin h",
+          "sin(x)cos",
+          "cos(x)sin",
+          "product",
+          "trig",
+          "identity",
+          "derivative of sin"
+        ],
+        "label": "Key intermediate step used",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "cos(x)",
+          "cos x",
+          "= cos"
+        ],
+        "label": "Result stated",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N15",
+    "model_slug": "mathreasoner",
+    "name": "Math Reasoner \u2014 Calculus Proof from First Principles",
+    "prompt": "Prove that the derivative of sin(x) is cos(x) from first principles (limit definition of the derivative). Show every step.",
+    "section": "auto-math",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "column",
+          "layout",
+          "two-column",
+          "region",
+          "detect",
+          "identify",
+          "structure"
+        ],
+        "label": "Layout detection mentioned",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "row",
+          "header",
+          "cell",
+          "table",
+          "csv",
+          "json",
+          "structured",
+          "delimit"
+        ],
+        "label": "Table extraction strategy",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N16",
+    "model_slug": "ocrspecialist",
+    "name": "OCR Specialist \u2014 Two-Column Table Extraction",
+    "prompt": "I have a scanned two-column academic paper with a table in the results section. How would you extract the table data accurately?",
+    "section": "auto-vision",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "scope",
+          "reduce",
+          "cardholder data",
+          "cde",
+          "out of scope"
+        ],
+        "label": "Scope reduction confirmed",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "saq a",
+          "saq a-ep",
+          "saq",
+          "self-assessment"
+        ],
+        "label": "SAQ type identified",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N17",
+    "model_slug": "pcidssassessor",
+    "name": "PCI-DSS Assessor \u2014 Stripe Elements Scope",
+    "prompt": "We use Stripe Elements for payment collection. Does this reduce our PCI-DSS scope, and if so, to which SAQ?",
+    "section": "auto-compliance",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "problem",
+          "user need",
+          "pain point",
+          "opportunity",
+          "why",
+          "objective"
+        ],
+        "label": "Problem or user need section",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "metric",
+          "kpi",
+          "success",
+          "measure",
+          "adoption",
+          "engagement",
+          "target"
+        ],
+        "label": "Success metrics included",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "out of scope",
+          "assumption",
+          "constraint",
+          "non-goal",
+          "not in scope"
+        ],
+        "label": "Out of scope or assumptions",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N18",
+    "model_slug": "productmanager",
+    "name": "Product Manager \u2014 PRD Structure",
+    "prompt": "We want to add AI-powered search to our B2B SaaS platform. Outline the key sections of a PRD for this feature.",
+    "section": "advanced",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "team has",
+          "subject-verb",
+          "collective noun",
+          "singular",
+          "have \u2192 has",
+          "has agreed",
+          "verb agreement",
+          "agreement error",
+          "has been",
+          "should be 'has'",
+          "use 'has'",
+          "team is",
+          "changed 'have'",
+          "replace 'have'",
+          "have\" should",
+          "'have' to 'has'",
+          "have to has"
+        ],
+        "label": "Subject-verb agreement noted",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "discuss",
+          "dicuss",
+          "spelling",
+          "typo",
+          "misspell",
+          "mispell"
+        ],
+        "label": "Spelling error found",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "it's",
+          "its",
+          "possessive",
+          "apostrophe",
+          "contraction",
+          "its impact",
+          "incorrect apostrophe",
+          "possessive form"
+        ],
+        "label": "Apostrophe error found",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N19",
+    "include_thinking_in_assertions": true,
+    "model_slug": "proofreader",
+    "name": "Proofreader \u2014 Copy Editing Pass",
+    "prompt": "Proofread this sentence and explain all corrections: 'The team have agreed, that they will meet on tuesday at 3pm to dicuss the projects progress and it's impact.'",
+    "section": "auto-creative",
+    "timeout": 200,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "result",
+          "?",
+          "err",
+          "io::error",
+          "std::io"
+        ],
+        "label": "Result propagation",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "fs::read_to_string",
+          "file::open",
+          "read_to_string",
+          "buf_reader"
+        ],
+        "label": "File reading idiom",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N20",
+    "model_slug": "rustengineer",
+    "name": "Rust Engineer \u2014 Result Propagation",
+    "prompt": "Write a Rust function that reads a file path from args, reads the file contents, and returns a word count. Use proper Result propagation and no unwrap() in non-main code.",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "cc6",
+          "cc5",
+          "common criteria",
+          "security",
+          "access control",
+          "logical access",
+          "cc6.1",
+          "cc6.2"
+        ],
+        "label": "Security criteria identified",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "mfa",
+          "multi-factor",
+          "access review",
+          "periodic review",
+          "user access",
+          "logical access"
+        ],
+        "label": "MFA or access review gap",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N21",
+    "model_slug": "soc2auditor",
+    "name": "SOC 2 Auditor \u2014 Control Gap Assessment",
+    "prompt": "Our SaaS company is preparing for a SOC 2 Type II audit. We have no formal access review process and no MFA enforcement. Which Trust Services Criteria are at risk?",
+    "section": "auto-compliance",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "SPL detection present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "t1078",
+          "valid accounts",
+          "mitre",
+          "att&ck",
+          "technique"
+        ],
+        "label": "MITRE ATT&CK mapping",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "geo",
+          "location",
+          "distance",
+          "ip",
+          "60 minute",
+          "time window",
+          "span",
+          "earliest",
+          "latest"
+        ],
+        "label": "Geographic or timing logic",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N22",
+    "model_slug": "splunkdetectionauthor",
+    "name": "Splunk Detection Author \u2014 Impossible Travel Rule",
+    "prompt": "Write a Splunk detection for T1078 (Valid Accounts) \u2014 specifically, a user account authenticating from two geographically distant IPs within 60 minutes. Include MITRE mapping and risk score.",
+    "section": "auto-spl",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Terraform code present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "aws_s3_bucket",
+          "aws_s3",
+          "resource",
+          "bucket",
+          "s3"
+        ],
+        "label": "S3 bucket resource",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "versioning",
+          "encryption",
+          "server_side_encryption",
+          "block_public",
+          "public_access",
+          "sse",
+          "kms",
+          "acl",
+          "prevent_destroy"
+        ],
+        "label": "Security controls present",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N23",
+    "model_slug": "terraformwriter",
+    "name": "Terraform Writer \u2014 S3 Module",
+    "prompt": "Write a Terraform module for an AWS S3 bucket with versioning, server-side encryption, and public access blocked. Use proper module structure with variables and outputs.",
+    "section": "auto-coding",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "transcript",
+          "summary",
+          "action item",
+          "speaker",
+          "key point",
+          "decision",
+          "formatted"
+        ],
+        "label": "Transcript or summary output described",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "word",
+          "docx",
+          "document",
+          "export",
+          "download",
+          "file"
+        ],
+        "label": "Document export mentioned",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N24",
+    "model_slug": "transcriptanalyst",
+    "name": "Transcript Analyst \u2014 Meeting Summary Protocol",
+    "prompt": "Before I upload my audio, can you describe what output you produce and in what format for a 45-minute engineering all-hands meeting recording?",
+    "section": "auto-documents",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "label": "Code block present",
+        "type": "has_code"
+      },
+      {
+        "keywords": [
+          "<T",
+          "keyof",
+          "extends",
+          "pick<",
+          "K[]"
+        ],
+        "label": "Generic signature correct",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "infer",
+          "typeof",
+          "const",
+          "type",
+          "Pick<"
+        ],
+        "label": "Type inference demonstrated",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N25",
+    "model_slug": "typescriptengineer",
+    "name": "TypeScript Engineer \u2014 Generic Pick Utility",
+    "prompt": "Write a TypeScript generic function `pick<T, K extends keyof T>(obj: T, keys: K[]): Pick<T, K>` that returns an object with only the specified keys. Show how TypeScript infers the return type correctly with an example.",
+    "section": "auto-coding",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "multiple source",
+          "cross-reference",
+          "verify",
+          "source",
+          "arxiv",
+          "papers",
+          "different",
+          "cross-check"
+        ],
+        "label": "Multi-source or verification strategy",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "web_search",
+          "search",
+          "first",
+          "then",
+          "step",
+          "protocol",
+          "approach",
+          "fetch"
+        ],
+        "label": "Research process described",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-N26",
+    "model_slug": "webresearcher",
+    "name": "Web Researcher \u2014 Multi-Source Research Protocol",
+    "prompt": "Research the current state of Mixture-of-Experts (MoE) models for local inference. Describe your research protocol: what sources will you consult and how will you verify the findings?",
+    "section": "auto-research",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  }
+]

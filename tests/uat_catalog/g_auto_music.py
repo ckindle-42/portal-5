@@ -2,64 +2,20 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from tests.uat_catalog._shared import (  # noqa: F401
     _CC01_ASSERTIONS,
     _CC01_ASSERTIONS_BENCH,
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [  # -----------------------------------------------------------------------
-    {
-        "id": "WS-12",
-        "name": "Music Producer — Dark Ambient Generation",
-        "section": "auto-music",
-        "model_slug": "auto-music",
-        "timeout": 180,
-        "workspace_tier": "media_heavy",
-        "media_kind": "sound",
-        "artifact_ext": "wav",
-        "force_unload_before": True,
-        "prompt": (
-            "Generate a 20-second piece: dark ambient electronic, cinematic tension, "
-            "slow evolving pads, subtle percussion, minor key, suitable for a suspense scene."
-        ),
-        "assertions": [
-            {
-                "type": "not_contains",
-                "label": "No error",
-                "keywords": [
-                    "an error occurred",
-                    "tool error",
-                    "failed to generate",
-                    "generation failed",
-                    "unavailable",
-                ],
-            },
-            {"type": "wav_valid", "label": "WAV ≥5s", "min_seconds": 5.0},
-        ],
-    },
-    {
-        "id": "T-09",
-        "name": "TTS — British Male Voice",
-        "section": "auto-music",
-        "model_slug": "auto-music",
-        "timeout": 120,
-        "workspace_tier": "media_heavy",
-        "media_kind": "voice",
-        "artifact_ext": "wav",
-        "force_unload_before": True,
-        "prompt": (
-            "Read the following text aloud using a British male voice (bm_george): "
-            '"Portal 5 operates entirely on local hardware. Your data never leaves your machine. '
-            'All inference runs locally through Ollama on Apple Silicon."'
-        ),
-        "assertions": [
-            {
-                "type": "not_contains",
-                "label": "No error",
-                "keywords": ["error", "failed", "unavailable"],
-            },
-            {"type": "wav_valid", "label": "WAV ≥1.5s", "min_seconds": 1.2},
-        ],
-    },
-]
+
+def _load_catalog(name: str) -> list[dict]:
+    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"uat_catalog_{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+TESTS: list[dict] = _load_catalog("g_auto_music")

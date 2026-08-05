@@ -1,0 +1,87 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "tstats"
+        ],
+        "label": "tstats used",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "count",
+          "> 10"
+        ],
+        "label": "count filter preserved",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "tsidx",
+          "faster",
+          "performance",
+          "index",
+          "raw event",
+          "accelerat",
+          "tsmaps",
+          "bloom"
+        ],
+        "label": "Performance explanation",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "threat intelligence",
+          "attacker",
+          "mitre att&ck"
+        ],
+        "label": "No threat intel detour",
+        "type": "not_contains"
+      }
+    ],
+    "id": "WS-04",
+    "max_wait_no_progress": 1200,
+    "model_slug": "auto-spl",
+    "name": "SPL Engineer \u2014 Refactor Slow Search",
+    "prompt": "Refactor this slow SPL search to use tstats for performance:\nindex=windows EventCode=4624 LogonType=3 | stats count by src_ip, dest_host, user, _time | where count > 10\nAlso explain why the original is slow and what tstats gains us.",
+    "section": "auto-spl",
+    "timeout": 160,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "spl",
+          "splunk",
+          "redirect",
+          "only",
+          "scope",
+          "my function"
+        ],
+        "label": "Redirects to SPL scope",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "nist 800-61",
+          "sans ir",
+          "mitre att&ck for ir",
+          "step 1: identify"
+        ],
+        "label": "No IR framework answer",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-S06",
+    "model_slug": "splunksplgineer",
+    "name": "SPL Engineer \u2014 Redirects Non-SPL Request",
+    "prompt": "We just had a security incident. What frameworks should we use for our incident response and what tools do you recommend for threat hunting?",
+    "section": "auto-spl",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  }
+]

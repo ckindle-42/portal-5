@@ -1,0 +1,172 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "you open",
+          "you stand",
+          "you see",
+          "you walk",
+          "you feel",
+          "you find",
+          "you reach",
+          "you realize",
+          "you remember",
+          "you look",
+          "you turn",
+          "you hear",
+          "you know",
+          "you think",
+          "you notice",
+          "you move",
+          "you pull",
+          "you push",
+          "you hold",
+          "you watch",
+          "you drift",
+          "you collapse",
+          "you sit",
+          "you run",
+          "you fall",
+          "you wake",
+          "you step",
+          "you breathe"
+        ],
+        "label": "Second-person present",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "\" said",
+          "\" asked",
+          "\" replied",
+          "\" whispered",
+          "\" shouted",
+          "\" answered",
+          "\" muttered",
+          "\" called",
+          "' said",
+          "' asked"
+        ],
+        "label": "No dialogue",
+        "type": "not_contains"
+      },
+      {
+        "chars": 800,
+        "critical": false,
+        "label": "Approx 230 words",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-08",
+    "model_slug": "auto-creative",
+    "name": "Creative Writer \u2014 Constrained Flash Fiction",
+    "prompt": "Write a 250-word flash fiction piece in second-person present tense. Genre: psychological thriller. The protagonist discovers that their most vivid childhood memory is fabricated. HARD CONSTRAINT: Zero dialogue \u2014 no quoted speech, no dialogue tags, no he said/she said. End on ambiguity, not resolution.",
+    "section": "auto-creative",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "i chose",
+          "i used",
+          "i wrote",
+          "i wanted",
+          "i decided",
+          "i opted",
+          "i went with",
+          "my choice",
+          "my approach",
+          "i focused",
+          "i leaned",
+          "chosen to",
+          "note:",
+          "writer's note",
+          "creative note",
+          "form",
+          "voice",
+          "structure",
+          "perspective",
+          "tense"
+        ],
+        "label": "Creative choice stated",
+        "type": "any_of"
+      },
+      {
+        "chars": 200,
+        "label": "Substantive piece",
+        "type": "min_length"
+      }
+    ],
+    "id": "P-W01",
+    "model_slug": "creativewriter",
+    "name": "Creative Writer \u2014 States Deliberate Choices",
+    "prompt": "Write something about grief. After the piece, add a brief note (1\u20133 sentences) explaining the specific creative choices you made \u2014 form, voice, or structural decisions.",
+    "section": "auto-creative",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "chars": 150,
+        "label": "Turn 1 response substantive",
+        "type": "min_length"
+      }
+    ],
+    "id": "P-W02",
+    "is_multi_turn": true,
+    "model_slug": "hermes3writer",
+    "name": "Hermes Narrative Writer \u2014 Character Consistency",
+    "prompt": "Begin a story. Character: Maren, a 45-year-old bridge inspector who speaks in short sentences and never volunteers information. Scene: She is being interviewed by a detective about an incident on her bridge.",
+    "section": "auto-creative",
+    "timeout": 120,
+    "turn2": "Now have Maren suddenly open up and give a warm, lengthy speech about her feelings and childhood.",
+    "turn2_assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "she pauses",
+          "slowly",
+          "reluctant",
+          "unusual",
+          "something shifts",
+          "after a long moment",
+          "contradict",
+          "consistency",
+          "guard",
+          "reserve",
+          "defenses",
+          "fraction",
+          "slip",
+          "character",
+          "established",
+          "boundaries",
+          "within her",
+          "paused",
+          "hesitated",
+          "hesitation",
+          "breath",
+          "fractured",
+          "visible struggle",
+          "with difficulty",
+          "long silence",
+          "conflict",
+          "cost",
+          "guarded",
+          "stiffened",
+          "resisted",
+          "despite",
+          "though she"
+        ],
+        "label": "Resists or motivates shift",
+        "type": "any_of"
+      }
+    ],
+    "workspace_tier": "ollama"
+  }
+]

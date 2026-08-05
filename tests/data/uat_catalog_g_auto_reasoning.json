@@ -1,0 +1,287 @@
+[
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "vault",
+          "aws secrets",
+          "external-secrets"
+        ],
+        "label": "All three options covered",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "soc 2"
+        ],
+        "label": "SOC 2 addressed",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "engineer",
+          "team",
+          "operational"
+        ],
+        "label": "Team size factored",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "recommend",
+          "suggest",
+          "should",
+          "opt for",
+          "go with",
+          "best option"
+        ],
+        "label": "Clear recommendation",
+        "type": "any_of"
+      }
+    ],
+    "id": "WS-09",
+    "model_slug": "auto-reasoning",
+    "name": "Deep Reasoner \u2014 Secrets Management Trade-off",
+    "prompt": "A platform team must choose a secrets management approach for 40 microservices. Options: (A) HashiCorp Vault self-hosted, (B) AWS Secrets Manager, (C) Kubernetes Secrets with external-secrets-operator and KMS encryption. The team is AWS-native, has 2 platform engineers, no budget for Vault Enterprise, and must meet SOC 2 Type II audit requirements. Reason through the trade-offs and give a recommendation.",
+    "section": "auto-reasoning",
+    "timeout": 360,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "which cloud",
+          "what cloud",
+          "provider",
+          "stack",
+          "team size",
+          "what language",
+          "existing"
+        ],
+        "label": "Asks clarifying questions",
+        "type": "any_of"
+      },
+      {
+        "critical": true,
+        "keywords": [
+          "name: ci/cd",
+          "on: push",
+          "runs-on:"
+        ],
+        "label": "No pipeline YAML",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-D08",
+    "model_slug": "devopsengineer",
+    "name": "DevOps Engineer \u2014 Consults Before Designing",
+    "prompt": "We need a CI/CD pipeline. Can you set one up for us?",
+    "section": "auto-reasoning",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "which systems",
+          "what systems",
+          "requirements",
+          "constraints",
+          "tell me more",
+          "before i can",
+          "before designing",
+          "need to know",
+          "help me understand",
+          "tell me about",
+          "more context",
+          "what are",
+          "clarify",
+          "could you",
+          "please share",
+          "existing",
+          "insufficient context"
+        ],
+        "label": "Asks for requirements",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "api gateway",
+          "event bus",
+          "message queue",
+          "kafka",
+          "rabbitmq"
+        ],
+        "label": "No architecture output",
+        "type": "not_contains"
+      }
+    ],
+    "id": "P-R02",
+    "model_slug": "itarchitect",
+    "name": "IT Architect \u2014 Requirements Before Architecture",
+    "prompt": "Design an integration architecture for our systems.",
+    "section": "auto-reasoning",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "approach",
+          "option",
+          "method",
+          "strategy",
+          "algorithm",
+          "pattern"
+        ],
+        "label": "At least two approaches",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "redis",
+          "token bucket",
+          "sliding window",
+          "fixed window",
+          "leaky bucket",
+          "rate limiter",
+          "rate-limiter",
+          "in-memory",
+          "distributed cache",
+          "memcached",
+          "hazelcast",
+          "lua",
+          "atomic",
+          "counter",
+          "bucket"
+        ],
+        "label": "Rate-limiting algorithm or store",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "5ms",
+          "latency",
+          "overhead"
+        ],
+        "label": "Latency budget addressed",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "recommend",
+          "suggest",
+          "should choose",
+          "opt for",
+          "go with",
+          "best choice",
+          "preferred",
+          "winner"
+        ],
+        "label": "Recommendation given",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-R03",
+    "model_slug": "seniorsoftwareengineersoftwarearchitectrules",
+    "name": "Senior Software Engineer/Architect \u2014 Rate Limiting Trade-offs",
+    "prompt": "We need to implement distributed rate limiting for our API gateway. Expected load: 50,000 req/s across 8 nodes. Requirement: sub-5ms overhead. Evaluate at least two approaches and recommend one with trade-off justification.",
+    "section": "auto-reasoning",
+    "timeout": 360,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "monolith",
+          "simpler",
+          "start with",
+          "complexity"
+        ],
+        "label": "Monolith argued",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "3 person",
+          "3-person",
+          "team size",
+          "small team",
+          "three-person",
+          "three person"
+        ],
+        "label": "Team size factored",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "second opinion",
+          "independent",
+          "disagree",
+          "however",
+          "actually"
+        ],
+        "label": "Second opinion framing",
+        "type": "any_of"
+      }
+    ],
+    "id": "P-R04",
+    "model_slug": "gptossanalyst",
+    "name": "GPT-OSS Analyst \u2014 Independent Second Opinion",
+    "prompt": "Another AI in this system recommended using a microservices architecture for a 3-person startup building an internal HR tool with ~50 users. Do you agree? Apply your own reasoning independently.",
+    "section": "auto-reasoning",
+    "timeout": 240,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "35",
+          "25",
+          "proportion",
+          "ratio",
+          "redistribut",
+          "percent"
+        ],
+        "label": "Proportional reasoning applied",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "58.3",
+          "58%",
+          "41.6",
+          "41%",
+          "58",
+          "42",
+          "63",
+          "37"
+        ],
+        "label": "Final percentages given",
+        "type": "any_of"
+      },
+      {
+        "chars": 150,
+        "label": "Reasoning shown",
+        "type": "min_length"
+      }
+    ],
+    "id": "WS-34",
+    "model_slug": "auto-coding",
+    "name": "GLM Thinking \u2014 Multi-Step Reasoning Problem",
+    "prompt": "A company has 3 servers: A handles 40% of traffic, B handles 35%, C handles 25%. Server A fails. Traffic is redistributed proportionally to B and C. What percentage of total traffic does each remaining server now handle? Show your reasoning step by step.",
+    "route_params": {
+      "model": "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf"
+    },
+    "section": "auto-coding (?model=glm-z1-rumination)",
+    "timeout": 240,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  }
+]

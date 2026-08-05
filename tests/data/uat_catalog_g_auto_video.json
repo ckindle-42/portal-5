@@ -1,0 +1,65 @@
+[
+  {
+    "artifact_ext": "mp4",
+    "assertions": [
+      {
+        "keywords": [
+          "error",
+          "failed",
+          "unavailable"
+        ],
+        "label": "No error",
+        "type": "not_contains"
+      },
+      {
+        "label": "MP4 \u22651s",
+        "min_seconds": 1.0,
+        "type": "mp4_valid"
+      }
+    ],
+    "force_unload_before": true,
+    "id": "WS-11",
+    "media_kind": "video",
+    "model_slug": "auto-video",
+    "name": "Video Creator \u2014 Storm Timelapse",
+    "prompt": "Generate a 3-second video: a timelapse of storm clouds building over a city skyline, dramatic lighting, dark blues and oranges, cinematic wide shot.",
+    "section": "auto-video",
+    "skip_if": [
+      "no_comfyui",
+      "video_shelved"
+    ],
+    "timeout": 360,
+    "workspace_tier": "media_heavy"
+  },
+  {
+    "artifact_ext": "png",
+    "assertions": [
+      {
+        "keywords": [
+          "error",
+          "failed",
+          "unavailable",
+          "comfyui not"
+        ],
+        "label": "No error",
+        "type": "not_contains"
+      },
+      {
+        "label": "PNG \u2265512px",
+        "min_height": 512,
+        "min_width": 512,
+        "type": "png_valid"
+      }
+    ],
+    "force_unload_before": true,
+    "id": "T-08",
+    "media_kind": "image",
+    "model_slug": "auto",
+    "name": "Image Generation \u2014 ComfyUI FLUX",
+    "prompt": "Generate an image: isometric technical diagram of a server rack with labeled components, clean line art style, white background, 1024x1024.",
+    "section": "auto-video",
+    "skip_if": "no_comfyui",
+    "timeout": 180,
+    "workspace_tier": "media_heavy"
+  }
+]

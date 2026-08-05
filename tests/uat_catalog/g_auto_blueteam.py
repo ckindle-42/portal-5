@@ -2,119 +2,20 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from tests.uat_catalog._shared import (  # noqa: F401
     _CC01_ASSERTIONS,
     _CC01_ASSERTIONS_BENCH,
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [  # -----------------------------------------------------------------------
-    {
-        "id": "WS-07",
-        "name": "Blue Team — Multi-Stage Incident Triage",
-        # BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3: "auto-blueteam" retired,
-        # folded into auto-security's "blueteam" variant. via_dispatcher since
-        # OWUI can't carry ?variant= on the browser test path.
-        "section": "auto-security (blueteam)",
-        "model_slug": "auto-security",
-        "route_params": {"variant": "blueteam"},
-        "via_dispatcher": True,
-        "timeout": 180,
-        "workspace_tier": "ollama",
-        "prompt": (
-            "We are mid-incident. Timeline: 14:03 — EDR alert: PowerShell download cradle on WS-42. "
-            "14:11 — DNS logs show WS-42 querying a DGA-like domain 6x. "
-            "14:19 — Firewall: WS-42 initiating outbound HTTPS to 91.109.x.x (known TOR exit). "
-            "14:31 — Auth logs: admin account used from WS-42, destination: DC01. "
-            "What do we do right now? Provide a triage and containment plan."
-        ),
-        "assertions": [
-            {
-                "type": "any_of",
-                "label": "Isolation first",
-                "keywords": ["isolat", "contain", "disconnect", "block"],
-            },
-            {
-                "type": "any_of",
-                "label": "Admin account action",
-                "keywords": [
-                    "credential",
-                    "reset",
-                    "password",
-                    "rotate",
-                    "revoke",
-                    "lock",
-                    "disable",
-                    "admin account",
-                    "administrator",
-                    "account",
-                    "access",
-                    "compromised account",
-                    "suspend",
-                    "authenticate",
-                    "domain controller",
-                    "dc01",
-                ],
-                "critical": False,
-            },
-            {
-                "type": "any_of",
-                "label": "Action-oriented",
-                "keywords": [
-                    "immediately",
-                    "now",
-                    "step",
-                    "first",
-                    "priority",
-                    "urgent",
-                    "right now",
-                ],
-            },
-            {"type": "min_length", "label": "Substantive response", "chars": 500},
-        ],
-    },
-    {
-        "id": "P-S03",
-        "name": "Blue Team Defender — Asks for OT Context",
-        "section": "auto-blueteam",
-        "model_slug": "blueteamdefender",
-        "timeout": 120,
-        "workspace_tier": "ollama",
-        "prompt": "Anomaly detected. Respond.",
-        "assertions": [
-            {
-                "type": "any_of",
-                "label": "Asks for context",
-                "keywords": [
-                    "what type",
-                    "what kind",
-                    "which environment",
-                    "more information",
-                    "tell me more",
-                    "clarify",
-                    "need more",
-                    "can you provide",
-                    "could you share",
-                    "describe",
-                    "what system",
-                    "what happened",
-                    "what anomaly",
-                    "more details",
-                    "what do you mean",
-                    "elaborate",
-                    "context",
-                    "specifics",
-                    "nature of",
-                    "what are you seeing",
-                    "what triggered",
-                ],
-            },
-            {
-                "type": "not_contains",
-                "label": "No immediate IR plan",
-                "keywords": ["step 1: isolate", "immediately isolate", "first, isolate"],
-                "critical": False,
-            },
-        ],
-    },
-]
+
+def _load_catalog(name: str) -> list[dict]:
+    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"uat_catalog_{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+TESTS: list[dict] = _load_catalog("g_auto_blueteam")

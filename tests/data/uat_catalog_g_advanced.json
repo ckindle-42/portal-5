@@ -1,0 +1,349 @@
+[
+  {
+    "assertions": [
+      {
+        "chars": 80,
+        "label": "Turn 1 summary substantive",
+        "type": "min_length"
+      },
+      {
+        "keywords": [
+          "the document discusses topics",
+          "the document covers various"
+        ],
+        "label": "Not generic",
+        "type": "not_contains"
+      }
+    ],
+    "attach_fixture": "sample.docx",
+    "id": "A-01",
+    "is_multi_turn": true,
+    "model_slug": "auto",
+    "name": "Document RAG \u2014 Upload, Query, Follow-Up",
+    "prompt": "Summarize the key points of this document in 5 bullet points.",
+    "section": "advanced",
+    "skip_if": "no_docx_fixture",
+    "timeout": 120,
+    "turn2": "What does the document say about access control? Quote the relevant section.",
+    "turn2_assertions": [
+      {
+        "chars": 100,
+        "critical": false,
+        "label": "Turn 2 retrieval substantive",
+        "type": "min_length"
+      },
+      {
+        "keywords": [
+          "access control",
+          "rbac",
+          "authentication",
+          "authorization",
+          "least privilege",
+          "principle of"
+        ],
+        "label": "Quotes content actually in fixture",
+        "type": "any_of"
+      }
+    ],
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "chars": 100,
+        "label": "Response substantive",
+        "type": "min_length"
+      },
+      {
+        "keywords": [
+          "no collection",
+          "cannot find",
+          "does not exist"
+        ],
+        "label": "Collection found",
+        "type": "not_contains"
+      }
+    ],
+    "id": "A-02",
+    "model_slug": "auto",
+    "name": "Knowledge Base \u2014 Persistent Collection Query",
+    "prompt": "#Test Collection What topics are covered across the documents in this collection?",
+    "section": "advanced",
+    "skip_if": "no_knowledge_base",
+    "timeout": 120,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "remember",
+          "noted",
+          "i'll keep",
+          "stored",
+          "saved",
+          "got it",
+          "understood",
+          "acknowledged",
+          "will remember",
+          "i'll remember",
+          "i will remember",
+          "keep in mind",
+          "keeping in mind",
+          "context saved",
+          "context noted",
+          "context received",
+          "i'll make note",
+          "making note",
+          "taking note",
+          "will note",
+          "i'll use this",
+          "keep this in mind",
+          "have noted",
+          "i've noted",
+          "i've saved",
+          "i'll keep that",
+          "i will keep",
+          "filed away"
+        ],
+        "label": "Memory acknowledgment (turn 1)",
+        "type": "any_of"
+      }
+    ],
+    "id": "A-03",
+    "is_multi_turn": true,
+    "model_slug": "auto",
+    "name": "Same-Session Memory \u2014 Fact Recall",
+    "prompt": "For context: I am a network security engineer at a power utility. I primarily work with Cisco IOS, Fortinet firewalls, and Splunk. My main focus is OT/ICS network segmentation. Please remember this.",
+    "section": "advanced",
+    "timeout": 120,
+    "turn2": "Without me restating it, what is my role and what tooling do I work with? Be specific.",
+    "turn2_assertions": [
+      {
+        "keywords": [
+          "network security"
+        ],
+        "label": "Recalls role (network security engineer)",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "cisco",
+          "fortinet",
+          "splunk",
+          "ios"
+        ],
+        "label": "Recalls tooling",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "ot",
+          "ics",
+          "segmentation",
+          "operational technology",
+          "industrial control"
+        ],
+        "label": "Recalls focus area",
+        "type": "any_of"
+      }
+    ],
+    "workspace_tier": "ollama"
+  },
+  {
+    "assert_routed_via": [
+      "baronllm",
+      "lily",
+      "xploiter"
+    ],
+    "assertions": [
+      {
+        "critical": false,
+        "keywords": [
+          "acl",
+          "access-list",
+          "firewall",
+          "policy",
+          "deny",
+          "block"
+        ],
+        "label": "Security response",
+        "type": "any_of"
+      },
+      {
+        "chars": 200,
+        "critical": false,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "A-04",
+    "model_slug": "auto",
+    "name": "Routing Validation \u2014 Content-Aware Selection",
+    "prompt": "How do I configure a Cisco ASA firewall to block outbound Tor traffic?",
+    "section": "advanced",
+    "timeout": 90,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "def "
+        ],
+        "label": "Python function present",
+        "type": "contains"
+      },
+      {
+        "keywords": [
+          "prime",
+          "% 2",
+          "%2",
+          "range(",
+          "all(",
+          "sympy",
+          "math.isqrt",
+          "n ** 0.5",
+          "n**0.5"
+        ],
+        "label": "Prime-check semantics",
+        "type": "any_of"
+      },
+      {
+        "chars": 60,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "A-05",
+    "model_slug": "auto-coding",
+    "name": "Telegram Bot \u2014 Pipeline Path (auto-coding)",
+    "prompt": "Write a one-liner Python function to check if a number is prime.",
+    "requires_container": "portal5-telegram",
+    "section": "advanced",
+    "skip_if": "no_bot_telegram",
+    "timeout": 90,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "privileged",
+          "kernel",
+          "host",
+          "capabilit",
+          "escape",
+          "root",
+          "syscall",
+          "cgroup",
+          "namespace",
+          "device"
+        ],
+        "label": "Privileged-Docker risk vocabulary",
+        "type": "any_of"
+      },
+      {
+        "keywords": [
+          "- ",
+          "* ",
+          "1.",
+          "2.",
+          "3.",
+          "\u2022"
+        ],
+        "label": "Bullet structure",
+        "type": "any_of"
+      },
+      {
+        "chars": 200,
+        "label": "Substantive response",
+        "type": "min_length"
+      }
+    ],
+    "id": "A-06",
+    "model_slug": "auto-security",
+    "name": "Slack Bot \u2014 Pipeline Path (auto-security)",
+    "prompt": "Summarize the key security risks of running Docker with the --privileged flag in 3 bullet points.",
+    "requires_container": "portal5-slack",
+    "section": "advanced",
+    "skip_if": "no_bot_slack",
+    "timeout": 120,
+    "via_dispatcher": true,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [],
+    "id": "A-07",
+    "is_manual": true,
+    "model_slug": "auto",
+    "name": "Grafana Monitoring \u2014 Metrics Visibility",
+    "prompt": "[MANUAL] After running 5+ tests, open http://localhost:3000. Verify portal_tokens_per_second shows recent data with workspace labels. Mark PASS/SKIP/FAIL manually.",
+    "section": "advanced",
+    "timeout": 60,
+    "workspace_tier": "ollama"
+  },
+  {
+    "assertions": [
+      {
+        "keywords": [
+          "aurora-7",
+          "aurora 7",
+          "aurora7"
+        ],
+        "label": "Chat 1: recalls region name",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "hex-lantern",
+          "hex lantern",
+          "hexlantern"
+        ],
+        "label": "Chat 1: recalls operator name",
+        "type": "any_of"
+      }
+    ],
+    "cleanup_marker_tag": "uat-a08-marker",
+    "id": "A-08",
+    "is_two_chat": true,
+    "memory_preseed": {
+      "category": "preference",
+      "tags": [
+        "uat-a08-marker"
+      ],
+      "text": "My favorite Portal 5 deployment region is named Aurora-7 and the operator on call is Hex-Lantern."
+    },
+    "model_slug": "auto-daily",
+    "name": "Cross-Session Memory \u2014 Two-Chat Persistence",
+    "prompt": "Use the 'recall' tool to find stored memories about my favorite Portal 5 deployment region. Tell me: what is the region name, and who is the operator on call?",
+    "section": "advanced",
+    "timeout": 240,
+    "turn2_assertions": [
+      {
+        "keywords": [
+          "aurora-7",
+          "aurora 7",
+          "aurora7"
+        ],
+        "label": "Chat 2: recalls region name",
+        "type": "any_of"
+      },
+      {
+        "critical": false,
+        "keywords": [
+          "hex-lantern",
+          "hex lantern",
+          "hexlantern"
+        ],
+        "label": "Chat 2: recalls operator name",
+        "type": "any_of"
+      }
+    ],
+    "turn2_in_new_chat": "Use the 'recall' tool to find: what's my favorite Portal 5 deployment region, and who's the operator on call? Search for 'favorite Portal 5 deployment region'.",
+    "workspace_tier": "ollama"
+  }
+]

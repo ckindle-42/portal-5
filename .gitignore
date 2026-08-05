@@ -44,10 +44,11 @@ venv/
 # macOS
 .DS_Store
 
-# Portal data
-volumes/
-data/
-.claude/
+ # Portal data
+ volumes/
+ data/
+ !tests/data/
+ .claude/
 
 # Agent task files
 coding_task/
