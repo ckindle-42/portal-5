@@ -5,11 +5,6 @@ the per-persona YAML files. This module never modifies them; it only reads
 the canonical config and returns "what model should have served this
 request" given a workspace ID or a persona slug.
 
-Used by:
-  - tests/portal5_acceptance_v6.py (S3a, S6, S10, S21 routing checks)
-  - tests/uat/routing.py (per-test routed_model validation; entry tests/portal5_uat_driver.py)
-  - tests/benchmarks/bench_tps.py (expected_model_match flag in JSON output)
-
 All checks are case-insensitive substring matches against the actual model
 name returned by the backend. The matchers are intentionally loose (family
 prefix of Ollama tag) because Ollama may return abbreviated names.

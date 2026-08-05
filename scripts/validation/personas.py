@@ -14,11 +14,7 @@ from .registry import register
 
 @register("workspace_module_tag", "AP. workspace module tag", order=40)
 def check_workspace_module_tag() -> tuple[str, str, list[dict]]:
-    """AP. Every workspace in config/portal.yaml carries a module: tag.
-
-    Hard-fail as of BUILD_PROGRAM_COLLAPSE_V1.md Phase 2 (every workspace
-    is tagged) — was soft-fail (WARN) in Phase 0-1.
-    """
+    """AP. Every workspace in config/portal.yaml carries a module: tag (hard-fail)."""
     import yaml
 
     cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
@@ -37,10 +33,7 @@ def check_workspace_module_tag() -> tuple[str, str, list[dict]]:
 
 @register("mcp_module_tag", "AQ. mcp module tag", order=41)
 def check_mcp_module_tag() -> tuple[str, str, list[dict]]:
-    """AQ. Every mcp_fleet entry in config/portal.yaml carries a module: tag.
-
-    Hard-fail as of BUILD_PROGRAM_COLLAPSE_V1.md Phase 2 (same discipline as AP).
-    """
+    """AQ. Every mcp_fleet entry in config/portal.yaml carries a module: tag (hard-fail)."""
     import yaml
 
     cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
@@ -55,10 +48,7 @@ def check_mcp_module_tag() -> tuple[str, str, list[dict]]:
 
 @register("persona_module_tag", "AR. persona module tag", order=42)
 def check_persona_module_tag() -> tuple[str, str, list[dict]]:
-    """AR. Every persona YAML carries a module: tag.
-
-    Hard-fail as of BUILD_PROGRAM_COLLAPSE_V1.md Phase 2 (same discipline as AP/AQ).
-    """
+    """AR. Every persona YAML carries a module: tag (hard-fail)."""
     import glob
 
     import yaml
@@ -85,11 +75,9 @@ def check_persona_module_tag() -> tuple[str, str, list[dict]]:
 def check_persona_prompt_uniqueness() -> tuple[str, str, list[dict]]:
     """AS. No two personas share a byte-identical system_prompt.
 
-    Hard-fail as of BUILD_PROGRAM_COLLAPSE_V1.md Phase 8 (the 27
-    bench-matrix personas that shared 3 byte-identical prompts now
-    reference them via prompt_template: instead). Personas using
-    `prompt_template:` are excluded from the hash comparison — a shared
-    template referenced by many personas is the fix, not a new collision.
+    Personas using `prompt_template:` are excluded from the hash comparison —
+    a shared template referenced by many personas is the fix, not a new
+    collision.
     """
     import glob
     import hashlib
@@ -123,28 +111,19 @@ def check_persona_prompt_uniqueness() -> tuple[str, str, list[dict]]:
 def check_alias_ratchet() -> tuple[str, str, list[dict]]:
     """AT. Zero live-code references to a retired pre-collapse workspace alias.
 
-    BUILD_PROGRAM_ALIAS_FINISH_V1.md Phase 6: the growth-only ratchet this
-    check used to be is retired along with the shim it was guarding
-    (`_LEGACY_WORKSPACE_ALIASES` — removed from preinject.py once the
-    Phase 4 live-traffic trip gate proved zero real callers depended on it;
-    see CLOSEOUT_ALIAS_REMOVAL.md). This is now a hard assertion: zero
-    non-comment occurrences of any of the 23 retired alias ids
-    (`scripts/alias_census.py`'s `_RETIRED_ALIAS_IDS`) in live Python
-    serving-path code (shim/integration/personas categories — where a bare
-    alias id would be a real regression: a default argument, a dict value
-    sent as `model=`, etc.).
+    Hard assertion: zero non-comment occurrences of any of the 23 retired
+    alias ids (`scripts/alias_census.py`'s `_RETIRED_ALIAS_IDS`) in live
+    Python serving-path code (shim/integration/personas categories — where a
+    bare alias id would be a real regression: a default argument, a dict
+    value sent as `model=`, etc.).
 
-    Scope note: this is deliberately *not* a zero-occurrence-anywhere-in-
-    the-repo assertion. `docs/`, `tests/`, `config/`'s narrative JSON/YAML
-    (MODEL_CATALOG.md, routing_descriptions.json's `_note` field, Grafana
-    dashboard panel configs, etc.) legitimately reference retired ids by
-    name when explaining collapse/retirement history — that's the exact
+    Deliberately *not* a zero-occurrence-anywhere-in-the-repo assertion:
+    `docs/`, `tests/`, `config/`'s narrative JSON/YAML legitimately reference
+    retired ids by name when explaining collapse/retirement history (the
     "explanatory comment" content the closeout's own exemption design
-    anticipated, at a scale (~700 refs across the doc/test corpus) where a
-    blanket ban would either break historical narrative or demand rewriting
-    every design doc in `coding_task/` that documents this exact program.
-    `scripts/alias_census.py`'s comment/docstring-aware classifier is what
-    makes the code-vs-narrative distinction precise instead of guessing.
+    anticipated, ~700 refs across the doc/test corpus). `scripts/alias_census.py`'s
+    comment/docstring-aware classifier is what makes the code-vs-narrative
+    distinction precise instead of guessing.
     """
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     from alias_census import run_census
@@ -171,22 +150,20 @@ def check_alias_ratchet() -> tuple[str, str, list[dict]]:
 def check_routing_regression() -> tuple[str, str, list[dict]]:
     """AU. Routing decisions match the versioned baseline (served model, not just id).
 
-    BUILD_PROGRAM_ROUTING_INTEGRITY_V1.md Phase R3: runs the committed corpus
-    (tests/routing/corpus.json) through the current keyword-layer router and
-    asserts the full (base, variant, served_model) tuple per prompt against
-    tests/routing/baseline.json — the persona finding proved that a
-    workspace-id-only check is insufficient (right workspace, wrong served
-    model). Hard fail on any drift. Intended routing changes must be
-    re-blessed explicitly (`scripts/routing_regression.py --rebless`) with
-    the diff recorded in the commit — never silently accepted here.
+    Runs the committed corpus (tests/routing/corpus.json) through the current
+    keyword-layer router and asserts the full (base, variant, served_model)
+    tuple per prompt against tests/routing/baseline.json — a workspace-id-only
+    check is insufficient (right workspace, wrong served model). Hard fail on
+    any drift. Intended routing changes must be re-blessed explicitly
+    (`scripts/routing_regression.py --rebless`) with the diff recorded in the
+    commit — never silently accepted here.
     """
     # Earlier checks in this same process may import portal.platform.inference
     # and set PROMETHEUS_MULTIPROC_DIR (see metrics.py's own docstring) to a
-    # directory (e.g. /dev/shm/portal_metrics) that only exists once the
-    # pipeline's own startup has created it. This subprocess doesn't need
-    # multiprocess metrics at all — routing_regression.py only imports
-    # routing.py for its pure keyword-scoring function — so drop the
-    # inherited var rather than risk a FileNotFoundError from a stale/
+    # directory that only exists once the pipeline's own startup has created it.
+    # This subprocess doesn't need multiprocess metrics — routing_regression.py
+    # only imports routing.py for its pure keyword-scoring function — so drop
+    # the inherited var rather than risk a FileNotFoundError from a stale/
     # nonexistent multiprocess dir polluting an unrelated check.
     child_env = {k: v for k, v in os.environ.items() if k != "PROMETHEUS_MULTIPROC_DIR"}
     result = subprocess.run(
@@ -209,15 +186,11 @@ def check_routing_regression() -> tuple[str, str, list[dict]]:
 def check_persona_intent() -> tuple[str, str, list[dict]]:
     """AV. A persona's system_prompt identity claim matches its served model.
 
-    DESIGN_PERSONA_INTENT_REMEDIATION_V1.md §7 Check 2, permanent gate: the
-    bug class this catches is "right workspace, wrong served model" — a
-    persona named/prompted for a specific model lineage (e.g. "powered by
-    Magistral") but actually served a different model via its workspace's
-    pool primary or a stale model_pin. This is exactly what let 7 personas
-    drift silently after the workspace collapse (5 in the design doc + 2
-    more this check itself found: gemma_vision, gemma4jangvision). Also
-    checks module/workspace discipline agreement and that every model_pin
-    is a real backends.yaml catalog id.
+    Catches the bug class "right workspace, wrong served model" — a persona
+    named/prompted for a specific model lineage (e.g. "powered by Magistral")
+    but actually served a different model via its workspace's pool primary or
+    a stale model_pin. Also checks module/workspace discipline agreement and
+    that every model_pin is a real backends.yaml catalog id.
     """
     # Same PROMETHEUS_MULTIPROC_DIR pollution as check_routing_regression
     # (see its comment) — this subprocess transitively imports preinject.py

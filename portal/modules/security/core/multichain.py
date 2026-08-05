@@ -1,14 +1,12 @@
 """Multi-chain consolidation — the "cooling" / triage decision across several
 INDEPENDENT investigative chains.
 
-This is the piece the Council of Agreement (`council_agreement.py`) is not:
-the council votes N interpreters over ONE shared evidence pool (one lead
-investigator hunts, everyone else just concludes from the same context). A
-real multi-model multi-chain analyst runs N *independent* chains — each forms
-its own hypothesis, pulls its own evidence, hunts its own way — and then
-consolidates across chains that saw DIFFERENT evidence. Agreement reached by
-independent investigation is a far stronger signal than agreement forced by
-identical input; divergence after independent investigation is a far stronger
+Unlike the Council of Agreement (N interpreters over ONE shared evidence
+pool), a real multi-model multi-chain analyst runs N *independent* chains —
+each forms its own hypothesis, pulls its own evidence, hunts its own way —
+then consolidates across chains that saw DIFFERENT evidence. Agreement reached
+by independent investigation is a stronger signal than agreement forced by
+identical input; divergence after independent investigation is a stronger
 "a human needs to look at this" signal.
 
 The consolidation produces one of three OPERATOR DECISIONS (not just verdicts):
@@ -44,10 +42,9 @@ DECISIONS = ("AUTO_CONFIRM", "CONFIRM_AND_ESCALATE", "ESCALATE", "DISMISS")
 class ChainResult:
     """One independent investigative chain's outcome.
 
-    Unlike a council member (which concludes from a shared pool), a chain
-    carries `evidence_sources` — the telemetry sourcetypes IT chose to query
-    while hunting its own hypothesis — so consolidation can measure how much
-    of the telemetry surface the chains collectively covered (the coverage
+    A chain carries `evidence_sources` — the telemetry sourcetypes IT chose to
+    query while hunting its own hypothesis — so consolidation can measure how
+    much of the telemetry surface the chains collectively covered (the coverage
     win that multi-chain exists for, and the direct structural answer to the
     single-lead HUNTER_MISS problem).
     """
@@ -58,10 +55,10 @@ class ChainResult:
     similar_to: list[str] = field(default_factory=list)
     evidence_sources: list[str] = field(default_factory=list)
     # CONFIRMED claims this chain made that failed its citation gate —
-    # quarantined audit data (2026-07-23). Deliberately excluded from quorum
-    # votes AND from review leads: before this field existed, a demoted
-    # fabrication rode along in technique_ids/similar_to and could vote a
-    # hallucination toward AUTO_CONFIRM or earn it escalation credit.
+    # quarantined audit data. Deliberately excluded from quorum votes AND from
+    # review leads: otherwise a demoted fabrication rides along in
+    # technique_ids/similar_to and could vote a hallucination toward
+    # AUTO_CONFIRM or earn it escalation credit.
     ungrounded_claims: list[str] = field(default_factory=list)
 
     def is_conclusion(self) -> bool:
@@ -124,7 +121,7 @@ def consolidate(chains: list[ChainResult], *, quorum: float = 0.5) -> Consolidat
     concluders = [c for c in chains if c.is_conclusion()]
     diversity = len({s for c in chains for s in c.evidence_sources})
     # Demoted (gate-failed) claims are carried for audit only — they never
-    # vote, never become review leads (2026-07-23 design review).
+    # vote, never become review leads.
     ungrounded_union = sorted({u for c in chains for u in c.ungrounded_claims})
 
     if not concluders:

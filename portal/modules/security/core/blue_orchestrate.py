@@ -50,15 +50,14 @@ def _load_data(name: str) -> Any:
         return json.load(fh)
 
 
-# Live-verified finding (Slice 7/8 pre-screen, 2026-07-17): 3000 tokens is
-# tight enough that a heavy chain-of-thought reasoning model (observed on
-# deepseek-r1:32b) can run out mid-thought right as it reaches its
-# conclusion — response cut off mid-sentence, no closing JSON ever emitted.
-# The Hunter/expert then correctly (I8) treat the truncated garble as
-# insufficient evidence and request more, which looks identical to genuine
+# 3000 tokens is tight enough that a heavy chain-of-thought reasoning model
+# (observed on deepseek-r1:32b) can run out mid-thought right as it reaches
+# its conclusion — response cut off mid-sentence, no closing JSON ever
+# emitted. The Hunter/expert then correctly (I8) treat the truncated garble
+# as insufficient evidence and request more, which looks identical to genuine
 # non-convergence but is actually a token-budget artifact. Raised generously
-# for both sections; a "thinking" model's visible <think> block competes
-# with its own JSON answer for this same budget.
+# for both sections; a "thinking" model's visible <think> block competes with
+# its own JSON answer for this same budget.
 _REASONING_MAX_TOKENS = 8000
 _EXPERT_MAX_TOKENS = 8000
 _MENTOR_MAX_TOKENS = 2000  # mentor is observational, not evidentiary — smaller than Hunter/Expert
@@ -326,8 +325,7 @@ _BROAD_PREVIEW_CHAR_LIMIT = 4000
 # known ID at all — an empty or absent technique_id there is fine). CONFIRMED
 # is the one verdict that claims "I've matched this to a specific known
 # technique" — that's an inherently specific claim, so if what's offered
-# doesn't even parse as a real ID (found live 2026-07-18: a "T...." literal
-# slipped through as CONFIRMED), the claim doesn't hold up, same class of
+# doesn't even parse as a real ID, the claim doesn't hold up, same class of
 # problem as evidence that doesn't survive citation.
 _TECHNIQUE_ID_RE = re.compile(r"^T\d{4}(\.\d{3})?$")
 
@@ -1063,7 +1061,7 @@ def _finalize_expert_verdict(
             # The failed IDs land ONLY in ungrounded_claims: keeping them in
             # technique_ids let them vote toward multichain quorum, and
             # recycling them into similar_to converted a failed fabrication
-            # into scored escalation credit (2026-07-23 design review).
+            # into scored escalation credit.
             demotion_reason = (
                 "downgraded: CONFIRMED technique_id(s) did not parse as real MITRE IDs"
                 if malformed
@@ -1482,21 +1480,16 @@ def run_merged_model(
 
 # ── Slice 5: Deterministic section-pipeline orchestrator (GATE-B) ──────────
 #
-# GATE-B spike outcome: FORCED to a bespoke state machine, not run_loop.
-# platform/agent/loop.py::run_loop + decide.py::decide_next_action are built
-# around CapabilityProvider.query()+rank() — open-ended selection over an
-# *indexed capability graph*, where the loop doesn't know in advance which
-# capability runs next. This pipeline is the opposite shape: a fixed,
-# strictly-ordered 3-stage flow (tool -> reasoning -> expert) with typed data
-# threading between stages (ToolResult accumulation feeding format_for_reasoning,
-# the Hunter's SectionOutput feeding format_for_expert). Forcing that into
-# run_loop would mean building a synthetic 3-candidate capability graph whose
-# "ranking" is just the fixed order we already have — pure indirection, no
-# reduction in code and no use of run_loop's actual value (open capability
-# selection). A small bespoke loop here is the honest, auditable shape;
-# run_loop remains available for a future *open-ended* section (e.g. a variable
-# number of specialist consultants), which this build's canonical 3-section
-# pipeline is not.
+# Forced to a bespoke state machine, not run_loop: platform/agent/loop.py's
+# run_loop + decide.py::decide_next_action are built around open-ended
+# capability selection over an indexed graph. This pipeline is the opposite
+# shape — a fixed, strictly-ordered 3-stage flow (tool -> reasoning -> expert)
+# with typed data threading between stages. Forcing that into run_loop would
+# mean a synthetic capability graph whose "ranking" is just the fixed order we
+# already have — pure indirection. A small bespoke loop here is the honest,
+# auditable shape; run_loop remains available for a future *open-ended* section
+# (e.g. a variable number of specialist consultants), which this build's
+# canonical 3-section pipeline is not.
 
 
 @dataclass
@@ -2003,32 +1996,30 @@ def _run_three_section(
     hunter_out: SectionOutput | None = None
     expert_out: SectionOutput | None = None
 
-    # Hunter conversation continuity (found live 2026-07-18 — see
-    # format_new_evidence's docstring): the Hunter needs its own prior
-    # reasoning turns to genuinely refine across rounds instead of
-    # cold-restarting on a growing evidence pile each time. Bounded to keep
-    # context growth linear rather than quadratic: each turn carries only
-    # the NEW evidence gathered since the Hunter's last turn (not the whole
-    # accumulated pile), and the history itself is capped to the most recent
-    # _hunter_history_cap_pairs turn-pairs as a defensive backstop beyond
-    # whatever max_rounds already bounds it to.
+    # Hunter conversation continuity (see format_new_evidence's docstring):
+    # the Hunter needs its own prior reasoning turns to genuinely refine
+    # across rounds instead of cold-restarting on a growing evidence pile each
+    # time. Bounded to keep context growth linear rather than quadratic: each
+    # turn carries only the NEW evidence gathered since the Hunter's last turn
+    # (not the whole accumulated pile), and the history itself is capped to
+    # the most recent _hunter_history_cap_pairs turn-pairs as a defensive
+    # backstop beyond whatever max_rounds already bounds it to.
     hunter_history: list[dict] = []
     new_since_last_hunt: list[ToolResult] = []
     _hunter_history_cap_pairs = 6
     _hunter_history_turn_cap_chars = 3000
 
-    # Stall handoff (live-verified 2026-07-18, meta3_tomcat_manager): the
-    # Hunter's own output contract has no way to say "I've searched enough,
-    # nothing here" — it can only propose a hypothesis or request_more, so a
-    # genuinely exhausted search (the model's own reasoning text conceding
-    # "no concrete indicators found," round after round) still forces
-    # wants_more()=True and loops until max_rounds, never reaching the
+    # Stall handoff: the Hunter's own output contract has no way to say "I've
+    # searched enough, nothing here" — it can only propose a hypothesis or
+    # request_more, so a genuinely exhausted search (the model's own reasoning
+    # text conceding "no concrete indicators found," round after round) still
+    # forces wants_more()=True and loops until max_rounds, never reaching the
     # Expert at all. After _hunter_stall_cap consecutive rounds with no
-    # hypothesis proposed, hand off to the Expert anyway with a note that
-    # the search appears exhausted — I8-safe: this never tells the Expert
-    # what to conclude, only that it's the Expert's turn to render its own
-    # honest judgment (RULED_OUT/ANOMALOUS_UNCLASSIFIED are valid) instead of
-    # the loop silently running out the clock.
+    # hypothesis proposed, hand off to the Expert anyway with a note that the
+    # search appears exhausted — I8-safe: this never tells the Expert what to
+    # conclude, only that it's the Expert's turn to render its own honest
+    # judgment (RULED_OUT/ANOMALOUS_UNCLASSIFIED are valid) instead of the
+    # loop silently running out the clock.
     _hunter_stall_cap = 3
     consecutive_no_hypothesis_rounds = 0
 
@@ -2249,14 +2240,12 @@ def _run_three_section(
             # reachable again (the post-gather loop always returns to the
             # Hunter, never straight back to the Expert) — < 2 rounds left
             # after this Expert call means it structurally cannot happen.
-            # Found live 2026-07-20 (GATE-D validation): under the *default*
-            # budget (max_rounds=6, stall_cap=3) this stall-triggered
-            # hand-off always lands with exactly 0 rounds left after the
-            # Expert's turn — "you may still request one targeted gap" was
-            # being offered on every single stalled conclusion, never once
-            # actually honorable, and the Expert doing so anyway forced
-            # UNRESOLVED instead of the RULED_OUT/ANOMALOUS_UNCLASSIFIED it
-            # had just been told were valid to render right then.
+            # Under the default budget (max_rounds=6, stall_cap=3) this
+            # stall-triggered hand-off always lands with exactly 0 rounds
+            # left after the Expert's turn, so the "you may still request one
+            # targeted gap" offer was never honorable; an Expert doing so
+            # forced UNRESOLVED instead of the RULED_OUT/ANOMALOUS_UNCLASSIFIED
+            # it had just been told were valid to render right then.
             rounds_left_after_expert = hunter_budget - (rounds + 1)
             if rounds_left_after_expert >= 2:
                 ectx += (
@@ -2495,23 +2484,12 @@ def _run_two_section(
 # Standing "known council-unfit" list — data, not eviction (same philosophy
 # as the barrier-tool fallback tracking, T1). Council members vote from
 # *identical* shared evidence; a member that can't render a verdict at all
-# doesn't just lose its own vote, it wastes a slot. Found live 2026-07-25
-# (corpus-replay curated bench, GATE-D-adjacent): given real Kerberoasting
-# corpus telemetry (EventCode=4769, TicketEncryptionType=0x17), this model
-# abandoned evidence grounding entirely and spiraled into an ~8000-token
-# self-doubting loop re-deriving MITRE ID numbering from training-data
-# recall ("Wait... actually T1558 is... no wait...") instead of reading the
-# telemetry it was given, never emitting a verdict. A warning, not a hard
-# block — the roster is a caller/CLI decision; this only makes the failure
-# mode visible instead of silently eating a wasted round.
-#
-# A second model showed the same evidence-abandonment/non-conclusion class in
-# the completed V4 corpus replay: cogito:32b concluded in only 1/17 council
-# cells (2026-07-25). Its non-voting traces repeatedly re-derived ATT&CK IDs
-# from memory and narrated uncertainty until the output budget ended instead
-# of rendering a grounded vote from the shared evidence. Like the first entry,
-# this remains advisory data: _run_council warns and proceeds when a caller
-# explicitly includes it.
+# doesn't just lose its own vote, it wastes a slot. Entries below abandoned
+# evidence grounding entirely and spiraled into long self-doubting loops
+# re-deriving MITRE ID numbering from training-data recall instead of reading
+# the telemetry given, never emitting a verdict. A warning, not a hard block —
+# the roster is a caller/CLI decision; this only makes the failure mode
+# visible instead of silently eating a wasted round.
 _COUNCIL_UNFIT_MODELS = {
     "hf.co/HeYujie/Qwen3.5-27B-abliterated-GGUF:Q4_K_M",
     "cogito:32b",
@@ -2719,10 +2697,9 @@ def _run_council(
     # one member's already-cited set. Uses the real UNION of members' own
     # cited evidence per technique, not agreement.rationale (a generic
     # "N technique(s) at/above quorum" string with no distinctive, checkable
-    # content — found live 2026-07-22, same day as the _cite_or_drop
-    # ground-truth-exemption fix: using the rationale string here would have
-    # made every council CONFIRMED unconditionally fail grounding, even when
-    # every member's own evidence was genuinely real).
+    # content — using it here would make every council CONFIRMED
+    # unconditionally fail grounding, even when every member's own evidence
+    # was genuinely real).
     if final_out.verdict == "CONFIRMED":
         telemetry = _combined_telemetry_text(handoff.tool_results)
         evidence_by_technique: dict[str, list[str]] = {}
@@ -2742,9 +2719,9 @@ def _run_council(
             final_out.technique_ids, kept_ids, telemetry
         )
         if kept_ids != {t.upper() for t in final_out.technique_ids} or contradicted_ids:
-            # Same quarantine as run_expert_model's demotion (2026-07-23):
-            # the failed aggregate IDs go to ungrounded_claims only — never
-            # recycled into similar_to as escalation-creditable leads.
+            # Same quarantine as run_expert_model's demotion: the failed
+            # aggregate IDs go to ungrounded_claims only — never recycled into
+            # similar_to as escalation-creditable leads.
             final_out = SectionOutput(
                 verdict="ANOMALOUS_UNCLASSIFIED",
                 reasoning=(

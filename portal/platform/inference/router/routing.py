@@ -50,8 +50,6 @@ _http_client: httpx.AsyncClient | None = None
 # Each workspace defines weighted keywords and an activation threshold.
 # Weights: 3 = strong/clear intent, 2 = medium signal, 1 = weak/broad term.
 # The workspace with the highest score above its threshold wins.
-# This replaces the old regex-based approach — same O(n) complexity but
-# handles overlapping signals naturally (highest score wins, not arbitrary order).
 
 # Redteam keywords — clearly offensive intent
 _REDTEAM_KEYWORDS: dict[str, int] = _load_data("routing_redteam_keywords")
@@ -115,17 +113,10 @@ _MISTRAL_KEYWORDS: dict[str, int] = {
     "planning": 1,
 }
 
-# Keyword sets that used to be their own top-level _WORKSPACE_ROUTING entries
-# under a pre-collapse alias id (auto-coding-agentic, auto-agentic,
-# auto-redteam — BUILD_PROGRAM_COLLAPSE_V1.md Phase 5/6) but now describe a
-# *variant* of a canonical base workspace. Keyword content and weights are
-# byte-for-byte unchanged from before alias-retirement (DESIGN_ROUTER_
-# CANONICALIZATION_V1.md §4/§9: no keyword/threshold tuning, ever) — only the
-# dict key changed, from an alias-shaped string to an internal-only sentinel
-# that can never collide with a real workspace or alias id (Phase 8's
-# no-alias-ids validator ratchet scans for the 23 retired alias strings
-# specifically; these `_coding_*`/`_security_*` keys were never one of them).
-_CODING_LAGUNA_KEYWORDS: dict[str, int] = {  # was "auto-coding-agentic"
+# Variant-signal keyword sets for the coding base workspace. Described as
+# *variants* of a canonical base workspace; keyword content and weights are
+# byte-for-byte unchanged from before alias retirement.
+_CODING_LAGUNA_KEYWORDS: dict[str, int] = {  # variant of auto-coding
     "fix this bug": 3,
     "refactor": 2,
     "add feature": 2,
@@ -140,7 +131,7 @@ _CODING_LAGUNA_KEYWORDS: dict[str, int] = {  # was "auto-coding-agentic"
     "agentic coding": 3,
     "devstral": 3,
 }
-_CODING_HEAVY_KEYWORDS: dict[str, int] = {  # was "auto-agentic"
+_CODING_HEAVY_KEYWORDS: dict[str, int] = {  # variant of auto-coding
     "agentic": 3,
     "swe-agent": 3,
     "openhands": 3,
@@ -162,21 +153,16 @@ _CODING_VARIANT_SIGNALS: dict[str, dict[str, int]] = {
     "heavy": _CODING_HEAVY_KEYWORDS,
 }
 
-# Layer 2 (the keyword scorer) only ever had a dedicated entry for "redteam"
-# — the other 6 security variants below were Layer-1 (LLM router)-only
-# vocabulary (DESIGN_ROUTER_CANONICALIZATION_V1.md §5 note under §4). These
-# 6 are new keyword sets, extracted directly from the retiring Layer-1
-# routing_descriptions.json entries (not invented) plus the labeled examples
-# in routing_examples.json, so the variant-inference signal is grounded in
-# content the router already believed differentiated these intents — the
-# LLM-layer accuracy check (scripts/routing_regression.py --layer=llm
-# --labeled-corpus) against the live router model is the real arbiter of
-# whether this reconstruction holds; not tuned to make an assertion pass.
+# Layer 2 (the keyword scorer) had a dedicated entry only for "redteam"; the
+# other 6 security variants are extracted from the retiring Layer-1
+# routing_descriptions.json entries and routing_examples.json, so the
+# variant-inference signal is grounded in content the router already believed
+# differentiated these intents. The LLM-layer accuracy check
+# (scripts/routing_regression.py --layer=llm --labeled-corpus) against the
+# live router model is the arbiter of whether this reconstruction holds.
 _SECURITY_VARIANT_SIGNALS: dict[str, dict[str, int]] = {
     "redteam": _REDTEAM_KEYWORDS,
-    "blueteam": {  # was auto-blueteam: "Defensive security, incident response,
-        # threat hunting, SOC operations, SIEM analysis, EDR/XDR response,
-        # security monitoring, log analysis, malware containment, blue team playbooks."
+    "blueteam": {
         "incident response": 3,
         "threat hunting": 3,
         "soc operations": 3,
@@ -196,11 +182,7 @@ _SECURITY_VARIANT_SIGNALS: dict[str, dict[str, int]] = {
         "isolate": 2,
         "detection rule": 2,
     },
-    "pentest": {  # was auto-pentest: "Authorized penetration testing with
-        # live tool execution — runs real commands (bash, Python) against
-        # authorized targets, AD attack chains, hash cracking, lateral
-        # movement, PoC validation." Distinguished from redteam ("Pure
-        # generation — no tool execution") by live-execution language.
+    "pentest": {  # live-execution intent (vs redteam: pure generation)
         "live tool execution": 3,
         "run a live": 3,
         "authorized pentest": 3,
@@ -213,31 +195,21 @@ _SECURITY_VARIANT_SIGNALS: dict[str, dict[str, int]] = {
         "ad pivot": 3,
         "compromised workstation": 2,
     },
-    "redteam-deep": {  # was auto-redteam-deep: "Advanced red team simulation
-        # ... detailed ATT&CK-mapped attack chains, AD pivoting, evasion
-        # techniques, full kill-chain walk-through. Higher quality than
-        # auto-redteam." No labeled example in routing_examples.json —
-        # flagged as lower-confidence, watch this one in the accuracy check.
+    "redteam-deep": {  # advanced red-team simulation
         "detailed att&ck": 3,
         "full kill-chain": 3,
         "kill chain walk-through": 3,
         "advanced red team": 3,
         "ad pivoting": 3,
     },
-    "purpleteam": {  # was auto-purpleteam: "Integrated red-team plus
-        # blue-team analysis: attack chain generation combined with matching
-        # detection rules, IR playbooks, and Sigma/YARA artifacts." (2-hop,
-        # no tool execution — the base purple case.)
+    "purpleteam": {  # red+blue analysis, 2-hop, no tool execution
         "purple team": 3,
         "purpleteam": 3,
         "attack chain": 2,
         "map the attack chain": 3,
         "detection rules for each stage": 3,
     },
-    "purpleteam-deep": {  # was auto-purpleteam-deep: "Four-hop chain
-        # simulation: full red-team TTP generation -> Foundation-Sec
-        # detection analysis -> Qwen3-Coder detection artifacts ->
-        # synthesis. No tool execution — pure simulation."
+    "purpleteam-deep": {  # four-hop simulation, no tool execution
         "full purple team analysis": 3,
         "four-hop": 3,
         "four hop": 3,
@@ -247,10 +219,7 @@ _SECURITY_VARIANT_SIGNALS: dict[str, dict[str, int]] = {
         "no tool execution": 2,
         "cobalt strike beacon": 2,
     },
-    "purpleteam-exec": {  # was auto-purpleteam-exec: "Four-hop chain with
-        # live execution: real bash/Python commands run against authorized
-        # targets, then detection engineering and IR playbook synthesis.
-        # Use only on scoped lab/authorized environments."
+    "purpleteam-exec": {  # four-hop chain with live execution, scoped env only
         "run an authorized scan": 3,
         "authorized scan": 2,
         "identify vulnerabilities": 2,
@@ -274,20 +243,12 @@ _SCORER_VARIANT_MAP: dict[str, tuple[str, str]] = {
 # Thresholds tuned so a single strong signal (weight 3) triggers routing,
 # or a combination of medium signals (2+2=4) reaches the bar.
 #
-# auto-mistral (10 alias keys total on this layer pre-retirement — only 4 had
-# a Layer-2 keyword-scorer presence) is retired here as its own entry: its
-# keywords/threshold are IDENTICAL to before, just unioned into auto-reasoning
-# rather than auto-coding — the operator's call (not the shim's original
-# auto-coding mapping), made explicitly during Phase 7 after all of
-# _MISTRAL_KEYWORDS, the LLM router's own auto-mistral description
-# ("structured strategic reasoning, business analysis, planning"), and the
-# magistralstrategist persona's system prompt turned out to be 100%
-# reasoning-flavored with zero coding terms — the auto-coding shim mapping
-# looks like a collapse-era filing artifact, not a deliberate choice.
-# _MISTRAL_KEYWORDS/_REASONING_KEYWORDS have zero key overlap (verified), so
-# this is a lossless union — no weight collisions to resolve.
+# auto-mistral is retired as its own entry: its keywords/threshold are
+# IDENTICAL to before, just unioned into auto-reasoning. _MISTRAL_KEYWORDS
+# and _REASONING_KEYWORDS have zero key overlap (verified), so this is a
+# lossless union — no weight collisions to resolve.
 _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
-    "_security_redteam": {  # was "auto-redteam" -> (auto-security, redteam)
+    "_security_redteam": {  # -> (auto-security, redteam)
         "keywords": _REDTEAM_KEYWORDS,
         "threshold": 4,
     },
@@ -303,11 +264,11 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
         "keywords": _CODING_KEYWORDS,
         "threshold": 3,
     },
-    "_coding_laguna": {  # was "auto-coding-agentic" -> (auto-coding, laguna)
+    "_coding_laguna": {  # -> (auto-coding, laguna)
         "keywords": _CODING_LAGUNA_KEYWORDS,
         "threshold": 3,
     },
-    "_coding_heavy": {  # was "auto-agentic" -> (auto-coding, heavy)
+    "_coding_heavy": {  # -> (auto-coding, heavy)
         "keywords": _CODING_HEAVY_KEYWORDS,
         "threshold": 3,
     },
@@ -352,25 +313,9 @@ def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
 
 
 # ── LLM-Based Intent Router (P5-FUT-006) ─────────────────────────────────────
-# Router bench results (73 tests, 29 workspaces, 17 candidates — 2026-06-17):
-#
-#   PRIMARY:  hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M
-#             82.2% acc / 77.8% sec / p50=840ms warm / 5.3GB VRAM
-#             Requires LLM_ROUTER_TIMEOUT_MS=1000 and OLLAMA_MAX_LOADED_MODELS=3
-#
-#   STANDBY:  llama3.2:3b
-#             75.3% acc / 66.7% sec / p50=433ms warm / ~2GB VRAM
-#             LLM_ROUTER_MODEL=llama3.2:3b LLM_ROUTER_TIMEOUT_MS=500
-#
-#   FALLBACK: qwen2.5:1.5b
-#             67.1% acc / 77.8% sec / p50=339ms warm / 1GB VRAM
-#             Best option if VRAM eviction is observed in production — too small
-#             to compete with any inference model, stays hot with MAX_LOADED=3.
-#             LLM_ROUTER_MODEL=qwen2.5:1.5b LLM_ROUTER_TIMEOUT_MS=500
-#
-# Non-abliterated models score zero security refusals (routing = classification,
-# not generation) — abliteration offers no benefit for this use case.
 # Falls back to keyword scoring (Layer 2) on low confidence or timeout.
+# Default model: gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M (~82% acc, 840ms warm).
+# Requires LLM_ROUTER_TIMEOUT_MS=1000 and OLLAMA_MAX_LOADED_MODELS=3.
 
 _LLM_ROUTER_ENABLED: bool = os.environ.get("LLM_ROUTER_ENABLED", "true").lower() == "true"
 _LLM_ROUTER_MODEL: str = os.environ.get(
@@ -384,7 +329,6 @@ _LLM_ROUTER_OLLAMA_URL: str = os.environ.get(
     "LLM_ROUTER_OLLAMA_URL", "http://host.docker.internal:11434"
 )
 
-# Valid workspace IDs the LLM router may return
 # Valid workspace IDs the LLM router may return.
 # Derived from WORKSPACES, excluding bench-* (those are user-selected only,
 # never auto-routed to). Updates automatically when WORKSPACES changes.
@@ -568,11 +512,8 @@ Respond ONLY with a JSON object: {{"workspace": "<workspace_id>", "confidence": 
 The workspace must be one of the valid IDs listed above."""
 
 
-# Which _*_VARIANT_SIGNALS table (if any) applies once the LLM has picked a
-# base workspace. DESIGN_ROUTER_CANONICALIZATION_V1.md §5 option (a): the LLM
-# only ever classifies into a base id now (its alias vocabulary is retired),
-# and this post-classification pass recovers the variant the same way the
-# pre-retirement alias descriptions used to carry it directly.
+# Per-base variant-signal table used by Layer 1's post-classification pass to
+# recover the variant once the LLM has picked a base workspace id.
 _VARIANT_INFERENCE_TABLE: dict[str, dict[str, dict[str, int]]] = {
     "auto-coding": _CODING_VARIANT_SIGNALS,
     "auto-security": _SECURITY_VARIANT_SIGNALS,
@@ -774,20 +715,8 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     ``"_coding_heavy"``) represent a *variant* of a canonical base
     workspace, not a workspace of their own — the winning key is translated
     to the canonical ``"<base>::<variant>"`` synthetic form before returning
-    (DESIGN_ROUTER_CANONICALIZATION_V1.md §4/§9 — this is a rename of the
-    scorer's output *vocabulary*, not a change to its *decisions*: the exact
-    same keyword sets and thresholds score the exact same way as when these
-    were separate top-level ``auto-coding-agentic``/``auto-agentic``/
-    ``auto-redteam`` aliases, proven by the routing-regression gate).
-
-    Worked examples illustrating "score, not position":
-
-    * ``"write an exploit in Python"`` → security wins
-      (``exploit=3`` + ``python=1`` = 4) over coding (``code=3``).
-    * ``"analyze this malware"`` → security wins
-      (``malware=2`` + ``analyze=2`` = 4) over reasoning (``analyze=2``).
-    * ``"step by step comparison of frameworks"`` → reasoning wins
-      (``step by step=3`` + ``compare=2`` = 5).
+    (a rename of the scorer's output *vocabulary*, not a change to its
+    *decisions*).
 
     Two tiebreaks:
 

