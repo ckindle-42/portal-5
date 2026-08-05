@@ -11,7 +11,7 @@ sources:
   path: portal/modules/research/tools/rag_mcp.py
 - type: code
   path: config/backends.yaml
-last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
+last_generated_commit: 86e6f142c0069ca2d4824b4721a545e64bd585b3
 claims: []
 confidence: high
 tags:

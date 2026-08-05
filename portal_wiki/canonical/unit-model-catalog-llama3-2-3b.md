@@ -1,11 +1,11 @@
 ---
 id: unit-model-catalog-llama3-2-3b
 kind: what
-title: "MODEL_CATALOG — `llama3.2:3b`"
+title: "MODEL_CATALOG \u2014 `llama3.2:3b`"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: 3c03cc6d6a7d50eed26b9acd17d269b4122a3a5a
+last_generated_commit: 86e6f142c0069ca2d4824b4721a545e64bd585b3
 claims: []
 confidence: high
 tags:

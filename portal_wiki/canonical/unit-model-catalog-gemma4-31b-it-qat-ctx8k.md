@@ -5,7 +5,7 @@ title: "MODEL_CATALOG \u2014 `gemma4:31b-it-qat-ctx8k`"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+last_generated_commit: 86e6f142c0069ca2d4824b4721a545e64bd585b3
 claims: []
 confidence: high
 tags:
