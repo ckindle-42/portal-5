@@ -10,7 +10,7 @@ sources:
   path: config/personas/phi4stemanalyst.yaml
 - type: code
   path: config/portal.yaml
-last_generated_commit: fccb30525d4520443bca3fdbeebfbdb0fd6980f6
+last_generated_commit: 778def71961fd1bb2f1088be9754388706facf7a
 claims: []
 confidence: high
 tags:

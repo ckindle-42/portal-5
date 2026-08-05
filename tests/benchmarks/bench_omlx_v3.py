@@ -231,10 +231,115 @@ GRAMMAR_PROMPT = (
 # ── Core request helper (streaming, TTFT + usage capture) ────────────────────
 
 
-def one_request(
-    url: str, model: str, messages: list, max_tokens: int = MAX_TOKENS, extra: dict | None = None
+def _one_request_ollama_native_think(
+    url: str, model: str, messages: list, max_tokens: int, think: bool, extra: dict | None
 ) -> dict:
-    """Single streaming chat request. Returns timing, token, and cache data."""
+    """Ollama-only, native /api/chat path — the only endpoint that honors `think`
+    (verified live: /v1/chat/completions silently ignores it, same bug class as
+    num_ctx/top_k). Used only when a caller needs `think` force-matched; the main
+    one_request/`/v1/chat/completions` path is untouched for everything else."""
+    options = {"num_predict": max_tokens}
+    if extra:
+        options.update(extra)
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": True,
+        "think": think,
+        "options": options,
+    }
+    t0 = time.perf_counter()
+    t_first: float | None = None
+    t_first_content: float | None = None
+    completion_tokens = 0
+    prompt_tokens: int | None = None
+    response_text = ""
+    reasoning_text = ""
+    finish_reason: str | None = None
+    try:
+        with (
+            httpx.Client(timeout=REQUEST_TIMEOUT) as client,
+            client.stream("POST", f"{url}/api/chat", json=payload) as resp,
+        ):
+            if resp.status_code != 200:
+                body = resp.read()[:300].decode(errors="replace")
+                return {
+                    "error": f"HTTP {resp.status_code}: {body[:200]}",
+                    "elapsed_s": round(time.perf_counter() - t0, 3),
+                }
+            for raw_line in resp.iter_lines():
+                line = raw_line if isinstance(raw_line, str) else raw_line.decode(errors="replace")
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except Exception:
+                    continue
+                msg = obj.get("message") or {}
+                chunk = msg.get("content") or ""
+                reasoning_chunk = msg.get("thinking") or ""
+                if (chunk or reasoning_chunk) and t_first is None:
+                    t_first = time.perf_counter()
+                if chunk and t_first_content is None:
+                    t_first_content = time.perf_counter()
+                response_text += chunk
+                reasoning_text += reasoning_chunk
+                if obj.get("done"):
+                    completion_tokens = obj.get("eval_count") or 0
+                    prompt_tokens = obj.get("prompt_eval_count")
+                    finish_reason = obj.get("done_reason")
+                    break
+    except httpx.ReadTimeout:
+        return {"error": "timeout", "elapsed_s": REQUEST_TIMEOUT}
+    except Exception as e:
+        return {"error": str(e)[:150], "elapsed_s": round(time.perf_counter() - t0, 3)}
+
+    elapsed = time.perf_counter() - t0
+    if completion_tokens == 0 and (response_text or reasoning_text):
+        completion_tokens = max(1, len((response_text + reasoning_text).split()))
+    ttft = round(t_first - t0, 3) if t_first is not None else None
+    ttft_content = round(t_first_content - t0, 3) if t_first_content is not None else None
+    decode_s = (elapsed - ttft) if ttft is not None else None
+    return {
+        "elapsed_s": round(elapsed, 3),
+        "ttft_s": ttft,
+        "ttft_content_s": ttft_content,
+        "reasoning_chars": len(reasoning_text),
+        "completion_tokens": completion_tokens,
+        "prompt_tokens": prompt_tokens,
+        "cached_tokens": None,
+        "tps": round(completion_tokens / elapsed, 1) if elapsed > 0 else 0.0,
+        "decode_tps": round(completion_tokens / decode_s, 1) if decode_s and decode_s > 0 else None,
+        "tool_calls": None,
+        "finish_reason": finish_reason,
+        "response_preview": response_text[:200],
+        "response_chars": len(response_text),
+    }
+
+
+def one_request(
+    url: str,
+    model: str,
+    messages: list,
+    max_tokens: int = MAX_TOKENS,
+    extra: dict | None = None,
+    think: bool | None = None,
+) -> dict:
+    """Single streaming chat request. Returns timing, token, and cache data.
+
+    `think`, when not None, force-matches thinking mode across engines: Ollama
+    routes to native /api/chat (the only endpoint that honors `think`); oMLX
+    gets `enable_thinking`/`thinking_budget` injected (already respected via
+    /v1/chat/completions).
+    """
+    if think is not None and "11434" in url:
+        return _one_request_ollama_native_think(url, model, messages, max_tokens, think, extra)
+    if think is not None and "8085" in url:
+        extra = dict(extra or {})
+        extra["enable_thinking"] = think
+        if think:
+            extra["thinking_budget"] = 2000
     payload = {
         "model": model,
         "messages": messages,
@@ -348,8 +453,8 @@ def one_request(
     }
 
 
-def warmup(url: str, model: str) -> bool:
-    r = one_request(url, model, [{"role": "user", "content": "hi"}], max_tokens=1)
+def warmup(url: str, model: str, think: bool | None = None) -> bool:
+    r = one_request(url, model, [{"role": "user", "content": "hi"}], max_tokens=1, think=think)
     if "error" in r:
         print(f"      warmup FAILED for {model}: {r['error']}")
         return False
@@ -751,11 +856,25 @@ def _shootout_pct(xs: list[float], p: float) -> float | None:
 # /v1/chat/completions silently ignores it (temp=1.5 + top_k=1 still produced
 # non-deterministic output across repeats) — same class of bug as num_ctx/think.
 SHOOTOUT_LLAMA32_SAMPLING = {"temperature": 0.7, "top_p": 0.9}
+# supergemma4-26b: oMLX's generation_config.json has temp=1.0/top_p=0.95 baked;
+# Ollama's Modelfile has no sampling params at all (num_ctx/stop only) — pin
+# oMLX's known-correct upstream values on both sides.
+SHOOTOUT_SUPERGEMMA_SAMPLING = {"temperature": 1.0, "top_p": 0.95}
+# qwen3.5-9b (huihui abliterated): Ollama's Modelfile bakes temp=1/top_p=0.95;
+# oMLX has no generation_config.json for this checkpoint (unverifiable default)
+# — pin the same values explicitly on both rather than trust an unknown oMLX
+# default matches.
+SHOOTOUT_QWEN35_9B_SAMPLING = {"temperature": 1.0, "top_p": 0.95}
 
 
 def _shootout_extra_for(model: str) -> dict | None:
     if "llama-3.2" in model.lower() or "llama3.2" in model.lower():
         return dict(SHOOTOUT_LLAMA32_SAMPLING)
+    if "supergemma4" in model.lower():
+        return dict(SHOOTOUT_SUPERGEMMA_SAMPLING)
+    _ml = model.lower()
+    if "qwen3.5" in _ml and "9b" in _ml:
+        return dict(SHOOTOUT_QWEN35_9B_SAMPLING)
     return None
 
 
@@ -766,6 +885,7 @@ def _shootout_run_load(
     duration_s: int,
     concurrency: int,
     max_tokens: int = SHOOTOUT_MAX_TOKENS,
+    think: bool | None = None,
 ) -> tuple[list[dict], float]:
     import threading
 
@@ -790,6 +910,7 @@ def _shootout_run_load(
             [{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
             extra=_shootout_extra_for(model),
+            think=think,
         )
         r["model"] = model
         return r
@@ -870,12 +991,16 @@ def gate_shootout(
     duration_s: int = SHOOTOUT_DURATION_S,
     concurrency: int = SHOOTOUT_CONCURRENCY,
     max_tokens: int = SHOOTOUT_MAX_TOKENS,
+    think: bool | None = None,
 ) -> dict:
-    """Sustained mixed-model concurrent load, using SHOOTOUT_PROMPTS — does it hold steady."""
+    """Sustained mixed-model concurrent load, using SHOOTOUT_PROMPTS — does it hold steady.
+    `think`, when not None, force-matches thinking mode across engines (see one_request)."""
     for m in models:
-        warmup(url, m)
+        warmup(url, m, think=think)
     prompts = list(SHOOTOUT_PROMPTS.values())
-    samples, wall_s = _shootout_run_load(url, models, prompts, duration_s, concurrency, max_tokens)
+    samples, wall_s = _shootout_run_load(
+        url, models, prompts, duration_s, concurrency, max_tokens, think
+    )
     result = _shootout_summarize(samples, models, duration_s, concurrency, wall_s)
     print(
         f"      {result['ok']}/{result['total_requests']} ok, {result['failures']} fail, "
@@ -924,7 +1049,14 @@ def main() -> None:
         default=SHOOTOUT_MAX_TOKENS,
         help="shootout gate: max_tokens per request (room to actually reason)",
     )
+    p.add_argument(
+        "--think",
+        choices=["on", "off"],
+        default=None,
+        help="shootout gate: force-match thinking mode across engines (default: each engine's own config)",
+    )
     args = p.parse_args()
+    think = {"on": True, "off": False, None: None}[args.think]
 
     if args.models:
         keys = args.models.split(",")
@@ -945,6 +1077,7 @@ def main() -> None:
             duration_s=args.duration,
             concurrency=args.concurrency,
             max_tokens=args.max_tokens,
+            think=think,
         )
         res["gate"] = "shootout"
         res["engine"] = engine
