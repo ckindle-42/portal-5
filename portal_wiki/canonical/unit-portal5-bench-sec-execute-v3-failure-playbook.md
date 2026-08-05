@@ -11,7 +11,7 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: portal/platform/inference/router/preinject.py
-last_generated_commit: 1c013743834d850604632980a093809f65c3c3ed
+last_generated_commit: db75e444cdca521f9be63059be9180bb380a4a64
 claims: []
 confidence: high
 tags:

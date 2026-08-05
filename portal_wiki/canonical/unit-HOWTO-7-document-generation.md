@@ -5,7 +5,7 @@ title: "HOWTO \u2014 7. Document Generation"
 sources:
 - type: code
   path: config/portal.yaml
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: db75e444cdca521f9be63059be9180bb380a4a64
 claims: []
 confidence: high
 tags:

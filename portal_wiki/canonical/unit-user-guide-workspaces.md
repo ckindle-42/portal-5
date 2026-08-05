@@ -9,7 +9,7 @@ sources:
   path: portal/platform/inference/sync_config.py
 - type: code
   path: portal/platform/inference/router/workspaces.py
-last_generated_commit: ca0f99d64c0644df1d5fc30674b6c476fceb1a42
+last_generated_commit: db75e444cdca521f9be63059be9180bb380a4a64
 claims: []
 confidence: high
 tags:

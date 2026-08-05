@@ -10,7 +10,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: tests/benchmarks/bench_mlx_hf.py
-last_generated_commit: 86e6f142c0069ca2d4824b4721a545e64bd585b3
+last_generated_commit: db75e444cdca521f9be63059be9180bb380a4a64
 claims: []
 confidence: high
 tags:

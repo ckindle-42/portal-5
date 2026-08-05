@@ -53,8 +53,13 @@ OMLX_MODELS = {
 }
 
 OLLAMA_BASELINES = {
-    "coder": "qwen3-coder:30b-a3b-q4_K_M",
-    "gemma": "gemma4:e4b-it-qat",
+    # -ctxNk tags carry a real Modelfile-baked PARAMETER num_ctx — Ollama's
+    # /v1/chat/completions endpoint silently ignores a runtime options.num_ctx
+    # override (verified live), so the bare untagged ids run at full model
+    # context (131k-262k) regardless of any request-level cap.
+    "coder": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",  # matches auto-coding's real hint
+    "gemma": "gemma4:e4b-it-qat-ctx8k",
+    "3b": "llama3.2:3b-ctx8k",
 }
 
 # ── Protocol constants (identical to bench_omlx.py @ 10075f1c) ───────────────
@@ -244,6 +249,7 @@ def one_request(
     prompt_tokens: int | None = None
     response_text = ""
     tool_calls: list = []
+    finish_reason: str | None = None
 
     # Pipeline runs (:9099) require Bearer auth; oMLX/Ollama ignore the extra header.
     headers = {}
@@ -287,6 +293,8 @@ def one_request(
                 response_text += chunk
                 if delta.get("tool_calls"):
                     tool_calls.extend(delta["tool_calls"])
+                if choices and choices[0].get("finish_reason"):
+                    finish_reason = choices[0]["finish_reason"]
                 usage = obj.get("usage") or {}
                 if usage.get("completion_tokens"):
                     completion_tokens = usage["completion_tokens"]
@@ -314,7 +322,9 @@ def one_request(
         "tps": round(completion_tokens / elapsed, 1) if elapsed > 0 else 0.0,
         "decode_tps": round(completion_tokens / decode_s, 1) if decode_s and decode_s > 0 else None,
         "tool_calls": tool_calls or None,
+        "finish_reason": finish_reason,
         "response_preview": response_text[:200],
+        "response_chars": len(response_text),
     }
 
 
@@ -652,7 +662,57 @@ def gate_concurrent(url: str, model: str, n: int = CONCURRENT_N) -> dict:
 
 
 SHOOTOUT_DURATION_S = 120
-SHOOTOUT_CONCURRENCY = 6
+SHOOTOUT_CONCURRENCY = 5  # matches PORTAL5_DEFAULT_WORKSPACE_CONCURRENCY (concurrency.py)
+# auto-coding (qwen3-coder's real production workspace) uses context_limit=16384,
+# predict_limit=16384 (config/portal.yaml). max_tokens is capped below that ceiling
+# for practical sweep duration — 16384 tokens at ~15 tok/s is 15-20 min/request.
+SHOOTOUT_MAX_TOKENS = 4096
+
+# Multi-step tasks (not single-fact recall) so decode-TPS/tps_cv reflect sustained compute.
+SHOOTOUT_PROMPTS = {
+    "coding_hard": (
+        "Implement an LRU (least-recently-used) cache in Python with get and put "
+        "in true O(1) time. Use a dict plus a doubly linked list — do not use "
+        "OrderedDict or functools.lru_cache. Explain why a plain dict alone cannot "
+        "achieve O(1) eviction order, walk through what happens on a put that "
+        "evicts an existing key, and note one thread-safety concern if this cache "
+        "were shared across requests."
+    ),
+    "debugging": (
+        "This Python function is supposed to return the second-largest unique "
+        "value in a list, or None if fewer than two unique values exist:\n\n"
+        "def second_largest(nums):\n"
+        "    largest = second = float('-inf')\n"
+        "    for n in nums:\n"
+        "        if n > largest:\n"
+        "            second = largest\n"
+        "            largest = n\n"
+        "        elif n > second:\n"
+        "            second = n\n"
+        "    return second if second != float('-inf') else None\n\n"
+        "Find the bug (give a concrete input where it returns the wrong answer), "
+        "explain why it happens, and provide a corrected version."
+    ),
+    "scheduling_reasoning": (
+        "Four technicians (A, B, C, D) must each complete a distinct one-hour "
+        "task (1, 2, 3, 4) between 9am and 1pm. Constraints: A cannot work "
+        "before 10am. Task 2 must immediately precede task 4 (same technician "
+        "or handoff, back-to-back with no gap). C must do task 3. D's task must "
+        "start after B's task ends. Task 1 cannot be the last task of the day. "
+        "Find a valid full schedule (technician + task + start time for each "
+        "slot) satisfying every constraint, and show your reasoning step by "
+        "step — don't just assert an answer."
+    ),
+    "tradeoff_analysis": (
+        "A team is choosing between write-through and write-back caching for a "
+        "service that caches database rows in front of a relational database "
+        "with strict consistency requirements for financial balances, but also "
+        "has a high-write-volume audit-log table where occasional data loss on "
+        "crash is acceptable. Recommend a caching strategy for EACH of the two "
+        "tables separately, justify each choice against the other option, and "
+        "identify the specific failure mode each choice avoids."
+    ),
+}
 
 
 def _shootout_pct(xs: list[float], p: float) -> float | None:
@@ -663,7 +723,12 @@ def _shootout_pct(xs: list[float], p: float) -> float | None:
 
 
 def _shootout_run_load(
-    url: str, models: list[str], prompts: list[str], duration_s: int, concurrency: int
+    url: str,
+    models: list[str],
+    prompts: list[str],
+    duration_s: int,
+    concurrency: int,
+    max_tokens: int = SHOOTOUT_MAX_TOKENS,
 ) -> tuple[list[dict], float]:
     import threading
 
@@ -671,6 +736,10 @@ def _shootout_run_load(
     stop_at = time.perf_counter() + duration_s
     rr = {"i": 0}
     lock = threading.Lock()
+    # Context sizing: pass real -ctxNk-tagged Ollama model ids in `models` (their
+    # num_ctx is Modelfile-baked, the only mechanism that actually works — Ollama's
+    # /v1/chat/completions endpoint silently ignores a runtime options.num_ctx
+    # override, verified live). Don't pass a bare untagged id expecting a cap.
 
     def _one() -> dict:
         with lock:
@@ -678,7 +747,7 @@ def _shootout_run_load(
             rr["i"] += 1
         model = models[idx % len(models)]
         prompt = prompts[idx % len(prompts)]
-        r = one_request(url, model, [{"role": "user", "content": prompt}])
+        r = one_request(url, model, [{"role": "user", "content": prompt}], max_tokens=max_tokens)
         r["model"] = model
         return r
 
@@ -707,6 +776,10 @@ def _shootout_summarize(
     ttfts = sorted(r["ttft_s"] for r in ok)
     tpss = [r["tps"] for r in ok if r.get("tps")]
     fails = len(samples) - len(ok)
+    truncated = sum(1 for r in ok if r.get("finish_reason") == "length")
+    avg_response_chars = (
+        round(_st.mean([r.get("response_chars", 0) for r in ok]), 0) if ok else None
+    )
 
     per_model: dict[str, dict] = {}
     for m in models:
@@ -738,6 +811,8 @@ def _shootout_summarize(
         "ttft_p99": _shootout_pct(ttfts, 99),
         "tps_mean": round(_st.mean(tpss), 1) if tpss else None,
         "tps_cv": tps_cv,
+        "truncated": truncated,  # finish_reason == "length" — hit max_tokens before finishing
+        "avg_response_chars": avg_response_chars,
         "per_model": per_model,
     }
 
@@ -747,18 +822,21 @@ def gate_shootout(
     models: list[str],
     duration_s: int = SHOOTOUT_DURATION_S,
     concurrency: int = SHOOTOUT_CONCURRENCY,
+    max_tokens: int = SHOOTOUT_MAX_TOKENS,
 ) -> dict:
-    """Sustained mixed-model concurrent load — does it hold steady, not just peak TPS."""
+    """Sustained mixed-model concurrent load, using SHOOTOUT_PROMPTS — does it hold steady."""
     for m in models:
         warmup(url, m)
-    prompts = list(SINGLE_PROMPTS.values())
-    samples, wall_s = _shootout_run_load(url, models, prompts, duration_s, concurrency)
+    prompts = list(SHOOTOUT_PROMPTS.values())
+    samples, wall_s = _shootout_run_load(url, models, prompts, duration_s, concurrency, max_tokens)
     result = _shootout_summarize(samples, models, duration_s, concurrency, wall_s)
     print(
         f"      {result['ok']}/{result['total_requests']} ok, {result['failures']} fail, "
         f"rps={result['throughput_rps']}, ttft p50/p95/p99="
         f"{result['ttft_p50']}/{result['ttft_p95']}/{result['ttft_p99']}s, "
-        f"tps_mean={result['tps_mean']} cv={result['tps_cv']}",
+        f"tps_mean={result['tps_mean']} cv={result['tps_cv']}, "
+        f"truncated={result['truncated']}/{result['ok']}, "
+        f"avg_chars={result['avg_response_chars']}",
         flush=True,
     )
     return result
@@ -793,6 +871,12 @@ def main() -> None:
         default=SHOOTOUT_CONCURRENCY,
         help="shootout gate: parallel workers",
     )
+    p.add_argument(
+        "--max-tokens",
+        type=int,
+        default=SHOOTOUT_MAX_TOKENS,
+        help="shootout gate: max_tokens per request (room to actually reason)",
+    )
     args = p.parse_args()
 
     if args.models:
@@ -809,7 +893,11 @@ def main() -> None:
     if args.gate == "shootout":
         print(f"\n=== shootout: {models} @ {args.url} ===", flush=True)
         res = gate_shootout(
-            args.url, models, duration_s=args.duration, concurrency=args.concurrency
+            args.url,
+            models,
+            duration_s=args.duration,
+            concurrency=args.concurrency,
+            max_tokens=args.max_tokens,
         )
         res["gate"] = "shootout"
         res["engine"] = engine
