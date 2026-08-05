@@ -9,7 +9,7 @@ sources:
   path: portal/modules/security/core/candidate_eval.py
 - type: code
   path: scripts/execute_preflight.py
-last_generated_commit: b02e5db6
+last_generated_commit: ace36bcf
 claims: []
 confidence: high
 tags:

@@ -7,7 +7,7 @@ sources:
   path: portal/modules/security/core/*.py
 - type: code
   path: portal/modules/security/core/commands/*.py
-last_generated_commit: b02e5db6
+last_generated_commit: ace36bcf
 claims: []
 confidence: high
 tags:

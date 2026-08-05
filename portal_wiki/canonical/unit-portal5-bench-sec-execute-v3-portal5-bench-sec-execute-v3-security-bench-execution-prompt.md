@@ -14,7 +14,7 @@ sources:
   path: scripts/execute_preflight.py
 - type: code
   path: config/portal.yaml
-last_generated_commit: b02e5db6
+last_generated_commit: ace36bcf
 claims: []
 confidence: high
 tags:

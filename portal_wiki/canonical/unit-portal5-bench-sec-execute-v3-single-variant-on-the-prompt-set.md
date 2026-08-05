@@ -9,7 +9,7 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: config/portal.yaml
-last_generated_commit: b02e5db6
+last_generated_commit: ace36bcf
 claims: []
 confidence: high
 tags:
