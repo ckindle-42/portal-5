@@ -9,7 +9,7 @@ sources:
   path: portal/modules/security/core/exec_chain.py
 - type: code
   path: portal/modules/security/core/_config.py
-last_generated_commit: ace36bcf
+last_generated_commit: 99de914e
 claims: []
 confidence: high
 tags:

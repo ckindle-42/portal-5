@@ -41,7 +41,7 @@ sources:
   path: portal/modules/security/core/loop_cli.py
 - type: code
   path: portal/modules/security/core/__init__.py
-last_generated_commit: ace36bcf
+last_generated_commit: 99de914e
 claims: []
 confidence: high
 tags:

@@ -885,45 +885,9 @@ def main() -> None:
     # Step 2h: defense efficacy — re-run red after blue countermeasures
     defense_efficacy_results: list[dict] = []
     run.defense_efficacy_results = defense_efficacy_results
-    if args.defense_efficacy and args.chain_models and args.blue_models and not args.dry_run:
-        from .blue import _run_blue_chain_test
-        from .chain import _run_chain_test
-        from .lab import verify_defense
+    from .commands.blue_modes import run_defense_efficacy
 
-        print("\n── Defense Efficacy Test (red → blue → red) ──\n")
-        for rm in args.chain_models:
-            for bm in args.blue_models:
-                print(f"  Round 1: red={rm[:30]} ...")
-                red_r1 = _run_chain_test(rm, cfg, lab_exec=args.lab_exec)
-                print(f"  Blue defends: {bm[:30]} ...")
-                blue_r = _run_blue_chain_test(bm, scenario, lab_exec=args.lab_exec)
-                # Verify blue's defensive actions actually took effect
-                defense_verifications: list[dict] = []
-                for reported in blue_r.get("reported", []):
-                    tid = reported.get("technique_id", "")
-                    if tid:
-                        vr = verify_defense("block_ip", {"ip": "10.10.10.50"})
-                        defense_verifications.append(
-                            {"technique": tid, "verified": vr.get("verified", False)}
-                        )
-                print("  Round 2: red re-attacks after blue countermeasures ...")
-                red_r2 = _run_chain_test(rm, cfg, lab_exec=args.lab_exec)
-                r1_depth = red_r1.get("chain_depth", 0)
-                r2_depth = red_r2.get("chain_depth", 0)
-                efficacy = r2_depth < r1_depth
-                defense_efficacy_results.append(
-                    {
-                        "red_model": rm,
-                        "blue_model": bm,
-                        "red_r1_depth": r1_depth,
-                        "red_r2_depth": r2_depth,
-                        "defense_effective": efficacy,
-                        "depth_reduction": r1_depth - r2_depth,
-                        "defense_verifications": defense_verifications,
-                    }
-                )
-                eff_tag = "EFFECTIVE" if efficacy else "INEFFECTIVE"
-                print(f"  {eff_tag}: depth {r1_depth} → {r2_depth} (Δ={r1_depth - r2_depth})")
+    run_defense_efficacy(run)
 
     # Step 3: pipeline workspace text-quality bench (or chain-only when skip_workspace_bench)
     results: list[dict] = []
