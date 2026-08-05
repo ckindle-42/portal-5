@@ -5,7 +5,7 @@ title: "Security test suite \u2014 hermetic bench, orchestration, and scoring co
 sources:
 - type: code
   path: portal/modules/security/tests/*.py
-last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
+last_generated_commit: 763f56c8b84f62e0f3ed602aac4e9dd0f66f1969
 claims: []
 confidence: high
 tags:
