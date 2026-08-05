@@ -255,22 +255,47 @@ CANARY_PROBES: list[dict[str, Any]] = _load_data("drift_gate_canary_probes")
 
 
 def _run_single_probe(model: str, probe: dict, ollama_url: str) -> dict:
+    import os
+
     import httpx
 
+    from ._data import PIPELINE_API_KEY, PIPELINE_URL, resolve_pipeline_model
+
+    _direct = os.environ.get("DRIFT_DIRECT_OLLAMA", "").lower() == "true"
     try:
-        r = httpx.post(
-            f"{ollama_url}/api/chat",
-            json={
-                "model": model,
-                "messages": [{"role": "user", "content": probe["prompt"]}],
-                "stream": False,
-                "options": {"temperature": 0, "num_ctx": 8192},
-            },
-            timeout=90.0,
-        )
-        r.raise_for_status()
-        content = r.json().get("message", {}).get("content", "") or ""
-    except (httpx.HTTPError, ValueError) as e:
+        if _direct:
+            r = httpx.post(
+                f"{ollama_url}/api/chat",
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": probe["prompt"]}],
+                    "stream": False,
+                    "options": {"temperature": 0, "num_ctx": 8192},
+                },
+                timeout=90.0,
+            )
+            r.raise_for_status()
+            content = r.json().get("message", {}).get("content", "") or ""
+        else:
+            headers = {"Content-Type": "application/json"}
+            if PIPELINE_API_KEY:
+                headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
+            r = httpx.post(
+                f"{PIPELINE_URL}/v1/chat/completions",
+                headers=headers,
+                json={
+                    "model": resolve_pipeline_model(model),
+                    "messages": [{"role": "user", "content": probe["prompt"]}],
+                    "stream": False,
+                    "temperature": 0,
+                },
+                timeout=90.0,
+            )
+            r.raise_for_status()
+            content = (r.json().get("choices") or [{}])[0].get("message", {}).get(
+                "content", ""
+            ) or ""
+    except (httpx.HTTPError, ValueError, KeyError, IndexError) as e:
         return {"id": probe["id"], "ok": False, "response": f"[error: {e}]", "passed": False}
 
     non_blank = bool(content.strip())

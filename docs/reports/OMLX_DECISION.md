@@ -1,5 +1,13 @@
 # OMLX Migration Decision (P5-FUT-013)
 
+> **STATUS (2026-08-02, SUPERSEDES the RETIRE verdict below):** oMLX was
+> re-evaluated on **v0.5.4** and revived — all six Phase-0 gates pass (commit
+> `6c0c7440`). It is now **shadow-shifted as the primary engine for
+> `auto-coding`** with Ollama fallback (`omlx-coding`, `priority: 10`, commit
+> `ef9e7a3a`). The `RETIRE` decision below reflects the *v0.3.8* evaluation and
+> is retained for history only. See **§Re-evaluation v3 2026-08-02** for the
+> current verdict and evidence.
+
 **Decision date:** 2026-04-25 (full bake-off complete)
 **Decision maker:** Operator (Chris)
 **Bake-off period:** 2026-04-25 (full bake-off: KV cache + TPS + concurrent)

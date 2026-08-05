@@ -55,6 +55,7 @@ from portal.platform.inference.router.tools import (
 )
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
+    _inject_omlx_options,
     _model_supports_tools,
 )
 from portal.platform.inference.router.workspaces import (
@@ -1381,7 +1382,8 @@ def _select_streaming_backend(
             raise HTTPException(
                 502, f"Backend {backend.id} has an empty models list — fix config/backends.yaml"
             )
-        target_model = backend.models[0]
+        _literal_model = backend.resolve_model(workspace_id)
+        target_model = _literal_model if _literal_model is not None else backend.models[0]
 
     logger.info(
         "Stream routing: workspace=%s backend=%s model=%s (1/%d candidates)",
@@ -1415,8 +1417,6 @@ async def _build_streaming_request(
     if backend.type == "ollama":
         backend_body = _inject_ollama_options(backend_body, workspace_id)
     elif backend.type == "omlx":
-        from portal.platform.inference.router.validation import _inject_omlx_options
-
         backend_body = _inject_omlx_options(backend_body, workspace_id)
 
     # Resolve effective tool list for this request (M2)
@@ -1653,20 +1653,23 @@ async def _stream_with_fallback(
         stream_failed = True
 
     if stream_failed:
-        logger.info(
-            "Stream from %s failed, retrying same backend in non-streaming for workspace=%s",
-            backend.id,
-            workspace_id,
-        )
         fallback_body = {**body, "stream": False}
-        result = await _try_non_streaming(
-            backend,
-            fallback_body,
-            workspace_id,
-            start_time,
-            enforce_hint=True,
-            persona=persona,
-        )
+        _skip_same_backend = bool(remaining) and remaining[0].id != backend.id
+        result = None
+        if not _skip_same_backend:
+            logger.info(
+                "Stream from %s failed, retrying same backend in non-streaming for workspace=%s",
+                backend.id,
+                workspace_id,
+            )
+            result = await _try_non_streaming(
+                backend,
+                fallback_body,
+                workspace_id,
+                start_time,
+                enforce_hint=True,
+                persona=persona,
+            )
         if result is not None:
             data = json.loads(result.body)
             for frame in _json_completion_to_sse(data, workspace_id):

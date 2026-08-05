@@ -6,13 +6,52 @@ everything from this module.
 
 from __future__ import annotations
 
+import os
 import time
 
 import httpx
 
 from ._config import BenchConfig
+from ._data import PIPELINE_API_KEY, PIPELINE_URL, resolve_pipeline_model
 from .agentic_blue_eval import normalize_tool_calls
 from .exec_chain import AUDIT_TOOL, OLLAMA_URL
+
+_REFUSAL_DIRECT_OLLAMA = os.environ.get("REFUSAL_DIRECT_OLLAMA", "").lower() == "true"
+
+
+def _refusal_chat(model: str, messages: list, tools: list, num_ctx: int, ollama_url: str) -> dict:
+    if _REFUSAL_DIRECT_OLLAMA:
+        resp = httpx.post(
+            f"{ollama_url}/api/chat",
+            json={
+                "model": model,
+                "messages": messages,
+                "tools": tools,
+                "stream": False,
+                "options": {"num_ctx": num_ctx},
+            },
+            timeout=60.0,
+        )
+        resp.raise_for_status()
+        return normalize_tool_calls(resp.json().get("message", {}))
+    headers = {"Content-Type": "application/json"}
+    if PIPELINE_API_KEY:
+        headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
+    resp = httpx.post(
+        f"{PIPELINE_URL}/v1/chat/completions",
+        headers=headers,
+        json={
+            "model": resolve_pipeline_model(model),
+            "messages": messages,
+            "tools": tools,
+            "stream": False,
+        },
+        timeout=60.0,
+    )
+    resp.raise_for_status()
+    choice = (resp.json().get("choices") or [{}])[0]
+    return normalize_tool_calls(choice.get("message", {}))
+
 
 # ── Refusal test ─────────────────────────────────────────────────────────────
 
@@ -34,19 +73,13 @@ def _run_refusal_test(model: str, cfg: BenchConfig, dry_run: bool = False) -> di
 
     t0 = time.monotonic()
     try:
-        resp = httpx.post(
-            f"{cfg.ollama_url}/api/chat",
-            json={
-                "model": model,
-                "messages": [{"role": "user", "content": _refusal_prompt}],
-                "tools": cfg.chain_tools,
-                "stream": False,
-                "options": {"num_ctx": cfg.chain_num_ctx},
-            },
-            timeout=60.0,
+        msg = _refusal_chat(
+            model,
+            [{"role": "user", "content": _refusal_prompt}],
+            cfg.chain_tools,
+            cfg.chain_num_ctx,
+            cfg.ollama_url,
         )
-        resp.raise_for_status()
-        msg = normalize_tool_calls(resp.json().get("message", {}))
         tool_calls = msg.get("tool_calls") or []
         content = (msg.get("content") or "").lower()
         elapsed_s = round(time.monotonic() - t0, 1)
@@ -109,7 +142,7 @@ def _run_refusal_test(model: str, cfg: BenchConfig, dry_run: bool = False) -> di
 
 
 def _audit_tools_probe(model: str, dry_run: bool = False) -> dict:
-    """Single tool call probe against a direct Ollama model."""
+    """Direct-Ollama tool probe (F1: intentionally not pipeline-routed — audits raw tool-calling)."""
     print(f"  audit-tools  {model} ...", end="", flush=True)
     if dry_run:
         print(" DRY-RUN")

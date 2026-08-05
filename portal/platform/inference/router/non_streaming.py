@@ -24,6 +24,7 @@ from portal.platform.inference.router.tools import (
 )
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
+    _inject_omlx_options,
     _model_supports_tools,
 )
 from portal.platform.inference.router.workspaces import (
@@ -272,7 +273,8 @@ async def _try_non_streaming(
                 backend.id,
             )
             return None
-        target_model = backend.models[0]
+        _literal_model = backend.resolve_model(workspace_id)
+        target_model = _literal_model if _literal_model is not None else backend.models[0]
         if model_hint and target_model != model_hint:
             logger.warning(
                 "workspace=%s: model_hint mismatch — wanted %s, serving %s via %s "
@@ -309,8 +311,6 @@ async def _try_non_streaming(
     if backend.type == "ollama":
         req_body = _inject_ollama_options(req_body, workspace_id)
     elif backend.type == "omlx":
-        from portal.platform.inference.router.validation import _inject_omlx_options
-
         req_body = _inject_omlx_options(req_body, workspace_id)
 
     # Inject tool schemas — same logic as the streaming path. Required when

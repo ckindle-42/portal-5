@@ -715,7 +715,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (201 model ids across 7 backend groups)
+# Model catalog (202 model ids across 7 backend groups)
 
 ## coding (41)
 
@@ -774,7 +774,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (75)
+## general (76)
 
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
@@ -837,6 +837,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `laguna-xs.2:Q4_K_M`
 - `lfm2.5:8b`
 - `lfm2.5:8b-ctx8k`
+- `llama3.2:3b`
 - `meta-secalign-8b-q4_k_m:latest`
 - `mistral-small3.2:24b`
 - `omnicoder2:9b-q4_k_m`
