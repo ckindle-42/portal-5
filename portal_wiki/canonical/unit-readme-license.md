@@ -5,7 +5,7 @@ title: "README \u2014 License"
 sources:
 - type: code
   path: pyproject.toml
-last_generated_commit: 97b85a5b4384209107aa2e6b3e7d009679ba5096
+last_generated_commit: 4c57cd90a475c6dbc05893e67ee8c8ab6f9414be
 claims: []
 confidence: high
 tags:
