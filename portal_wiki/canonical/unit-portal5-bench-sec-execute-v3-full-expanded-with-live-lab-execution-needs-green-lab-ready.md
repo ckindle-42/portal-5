@@ -10,7 +10,7 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: portal/modules/security/core/lab.py
-last_generated_commit: 9d387d9909cdcfc2c76b68bac06e77b1cd9088c2
+last_generated_commit: 3d373c1d3405961ef07207794b3f8b6a8068696a
 claims: []
 confidence: high
 tags:
