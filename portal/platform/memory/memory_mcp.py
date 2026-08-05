@@ -1,3 +1,7 @@
+import json
+from pathlib import Path
+from typing import Any
+
 """Portal 5 Memory MCP Server.
 
 Cross-conversation persistent memory backed by LanceDB.
@@ -17,6 +21,17 @@ import httpx
 import lancedb
 import pyarrow as pa
 from mcp.server import MCPServer
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -73,72 +88,7 @@ async def health(request):
         return JSONResponse({"status": "degraded", "error": str(e)})
 
 
-TOOLS_MANIFEST = [
-    {
-        "name": "remember",
-        "description": "Store a memory for future recall. Use for: user preferences, persistent facts about the user's projects/work, important conclusions to keep across conversations. Each memory should be self-contained — no pronouns referring to the current chat context.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "text": {
-                    "type": "string",
-                    "description": "The memory content. Self-contained sentence.",
-                },
-                "category": {
-                    "type": "string",
-                    "enum": ["preference", "fact", "project_context", "conversation_summary"],
-                    "default": "fact",
-                },
-                "tags": {"type": "array", "items": {"type": "string"}, "default": []},
-            },
-            "required": ["text"],
-        },
-    },
-    {
-        "name": "recall",
-        "description": "Retrieve memories relevant to a query. Returns top matches by semantic similarity with recency boost. Use at the start of a conversation to prime context.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string"},
-                "top_k": {"type": "integer", "default": 5, "minimum": 1, "maximum": 20},
-                "tags": {"type": "array", "items": {"type": "string"}, "default": []},
-                "category": {"type": "string"},
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "forget",
-        "description": "Delete a specific memory by ID. Use when recall returns a stale or incorrect memory.",
-        "parameters": {
-            "type": "object",
-            "properties": {"id": {"type": "string"}},
-            "required": ["id"],
-        },
-    },
-    {
-        "name": "list_memories",
-        "description": "List stored memories, optionally filtered by category or tag. For inventory and management.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "category": {"type": "string"},
-                "tags": {"type": "array", "items": {"type": "string"}, "default": []},
-                "limit": {"type": "integer", "default": 50, "maximum": 500},
-            },
-        },
-    },
-    {
-        "name": "clear_memories",
-        "description": "Admin: delete all memories. Requires confirm_token='YES_DELETE_ALL'. Cannot be undone.",
-        "parameters": {
-            "type": "object",
-            "properties": {"confirm_token": {"type": "string"}},
-            "required": ["confirm_token"],
-        },
-    },
-]
+TOOLS_MANIFEST = _load_data("tools_manifest_memory_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

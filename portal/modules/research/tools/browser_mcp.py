@@ -31,9 +31,28 @@ import time
 import uuid
 from collections import defaultdict, deque
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 from mcp.server import MCPServer
+
+
+def _repo_root() -> Path:
+    """Walk up from this file to the repo root (repo layout) or / (playwright
+    container layout, where browser_mcp.py is copied to /app/browser_mcp.py)."""
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "config" / "inference").is_dir():
+            return parent
+    return Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _repo_root() / "config" / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -349,90 +368,7 @@ mcp = MCPServer(
     instructions="Playwright browser automation: navigate, click, fill forms, screenshot, and inspect page content.",
 )
 
-TOOLS_MANIFEST = [
-    {
-        "name": "browser_navigate",
-        "description": "Navigate to a URL in a browser tab. Returns the page accessibility tree.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "url": {"type": "string", "description": "Full URL with http/https scheme"},
-                "profile": {"type": "string", "default": "_isolated"},
-                "wait_for": {"type": "string", "default": ""},
-            },
-            "required": ["url"],
-        },
-    },
-    {
-        "name": "browser_snapshot",
-        "description": "Return the current page's accessibility tree (structured DOM data).",
-        "parameters": {
-            "type": "object",
-            "properties": {"profile": {"type": "string", "default": "_isolated"}},
-        },
-    },
-    {
-        "name": "browser_click",
-        "description": "Click an element identified by its accessibility ref.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "element_ref": {"type": "string"},
-                "profile": {"type": "string", "default": "_isolated"},
-            },
-            "required": ["element_ref"],
-        },
-    },
-    {
-        "name": "browser_fill",
-        "description": "Type text into a form field. Sensitive fields are redacted in logs.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "element_ref": {"type": "string"},
-                "text": {"type": "string"},
-                "profile": {"type": "string", "default": "_isolated"},
-            },
-            "required": ["element_ref", "text"],
-        },
-    },
-    {
-        "name": "browser_screenshot",
-        "description": "Capture a PNG screenshot. Returns base64.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "profile": {"type": "string", "default": "_isolated"},
-                "full_page": {"type": "boolean", "default": False},
-            },
-        },
-    },
-    {
-        "name": "browser_evaluate",
-        "description": "Execute a JavaScript expression in the page context.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "expression": {"type": "string"},
-                "profile": {"type": "string", "default": "_isolated"},
-            },
-            "required": ["expression"],
-        },
-    },
-    {
-        "name": "browser_close",
-        "description": "Close the browser session for a profile. Releases memory.",
-        "parameters": {
-            "type": "object",
-            "properties": {"profile": {"type": "string", "default": "_isolated"}},
-        },
-    },
-    {
-        "name": "browser_list_profiles",
-        "description": "List the named browser profiles available on this host.",
-        "parameters": {"type": "object", "properties": {}},
-    },
-]
+TOOLS_MANIFEST = _load_data("tools_manifest_browser_mcp")
 
 
 # ── Custom routes (health + pipeline REST compat + admin) ────────────────

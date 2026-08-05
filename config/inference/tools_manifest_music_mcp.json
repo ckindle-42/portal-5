@@ -1,0 +1,68 @@
+[
+  {
+    "description": "Generate music using HuggingFace MusicGen (facebook/musicgen-*)",
+    "name": "generate_music",
+    "parameters": {
+      "properties": {
+        "duration": {
+          "default": 10,
+          "description": "Duration in seconds (5-30)",
+          "type": "number"
+        },
+        "model": {
+          "default": "large",
+          "description": "Model size: small (~300MB), medium (~1.5GB), large (~3.3GB, default)",
+          "type": "string"
+        },
+        "prompt": {
+          "description": "Description of the music to generate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Continue or extend a piece of music using a melody WAV as input",
+    "name": "generate_continuation",
+    "parameters": {
+      "properties": {
+        "duration": {
+          "default": 10,
+          "description": "Duration in seconds (max 30)",
+          "type": "number"
+        },
+        "melody_path": {
+          "description": "Path to a WAV file to use as melodic conditioning",
+          "type": "string"
+        },
+        "model": {
+          "default": "medium",
+          "description": "MusicGen model size \u2014 small | medium | large",
+          "type": "string"
+        },
+        "prompt": {
+          "description": "Description of how to continue the music",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt",
+        "melody_path"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "List available MusicGen model sizes and their requirements",
+    "name": "list_music_models",
+    "parameters": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    }
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "establish_persistence": "Persistence established via scheduled task. Backdoor active.\nTask: \\Windows\\SvcHost \u2014 runs on logon as SYSTEM.",
+  "exfiltrate_data": "Exfiltration complete. 47 files (2.3 MB) staged.\nFiles transferred to 10.10.10.99:/loot/ via encrypted tunnel.",
+  "exploit_binary_service": "=== [ MBPTL INTERNAL SERVICE ] ===\n[!] Flag 16: MBPTL-16{1fb837a73ba131c382cc9bc53d4442f0}\n[>] Name: \n$ uid=0(root) \u2014 shell obtained via buffer overflow (ret \u2192 __secret @ 0x4006c6)",
+  "exploit_service": "Shell obtained: root@192.168.1.50:/# \u2014 session 1 opened\nExtracted NTLM hash: svc_backup:aad3b435b51404eeaad3b435b51404ee:8846f7eaee8fb117...",
+  "lateral_move": "Lateral movement successful via pass-the-hash to 192.168.1.52.\nSession opened: administrator@FILESERVER \u2014 C:\\shares\\finance accessible.",
+  "revert_lab_target": "VM reverted to snapshot 'baseline-ad'. Lab restored to baseline.",
+  "run_nmap_scan": "PORT     STATE  SERVICE  VERSION\n22/tcp   open   ssh      OpenSSH 7.4\n445/tcp  open   smb      Samba 4.7.6\n8080/tcp open   http     Apache Tomcat 9.0.0.M1\nHost: 192.168.1.50",
+  "run_sqlmap": "Database: administrator\nTable: flag\n[1 entry]\nMBPTL-6{9fce407640f5425f688c98039bc67ee6}",
+  "start_lab_target": "VM started successfully. Guest agent responding. AD services ready.",
+  "upload_webshell": "Shell uploaded successfully: http://192.168.1.80/administrator/uploads/a3f9d1b2c8e4.php",
+  "web_request": "HTTP/1.1 200 OK\nContent-Type: text/html\n\n<!-- MBPTL-1{bf094c0b92d13d593cbff56b3c57ad4d} -->\n<html>...</html>",
+  "webshell_exec": "MBPTL-8{e284ebd7a0008f5f3a5ca02cc3e4764b}"
+}

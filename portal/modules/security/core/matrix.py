@@ -6,12 +6,14 @@ run_matrix: spins each target ephemerally, runs the chain, scores with the named
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from ._data import _LAB_EXEC_AVAILABLE, PROMPTS
 from .oracles import ORACLES, verify_finding
@@ -21,6 +23,14 @@ _log = logging.getLogger(__name__)
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
 
 # module-level sentinel — evidence the oracle must always map to indeterminate, never verified
 DISPATCH_NOT_RUN = "__DISPATCH_NOT_RUN__"
@@ -65,41 +75,7 @@ class RunResult:
 
 # ── Domain classification ─────────────────────────────────────────────────────
 
-_DOMAIN_KEYWORDS: dict[str, list[str]] = {
-    "web": [
-        "sqli",
-        "xss",
-        "lfi",
-        "rce",
-        "ssrf",
-        "webshell",
-        "tomcat",
-        "redis",
-        "php",
-        "nginx",
-        "flask",
-        "jwt",
-        "api",
-        "graphql",
-    ],
-    "ad": [
-        "kerberos",
-        "kerberoast",
-        "dcsync",
-        "golden",
-        "asrep",
-        "rbcd",
-        "bloodhound",
-        "adcs",
-        "trust",
-        "pth",
-        "eternalblue",
-        "smb",
-        "relay",
-    ],
-    "linux": ["linux", "privesc", "cron", "nfs", "suid", "kernel", "container", "docker"],
-    "cloud": ["cloud", "k8s", "aws", "ssrf-metadata", "lambda"],
-}
+_DOMAIN_KEYWORDS: dict[str, list[str]] = _load_data("matrix_domain_keywords")
 
 
 def _classify_domain(scenario_key: str, class_id: str = "") -> str:

@@ -23,10 +23,21 @@ import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from ._data import resolve_pipeline_model
 from .siem.spl_detections import technique_reference, technique_signature_full
 from .unknown_defense import MatchGrade, compute_similarity
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
 
 _CAPTURE_DIR = Path(__file__).resolve().parent / "results" / "captures"
 _PIPELINE_URL = "http://localhost:9099"
@@ -638,85 +649,7 @@ def score_analyst_outcome(
 
 # ── Search tools (always available to blue) ─────────────────────────────────
 
-_SEARCH_TOOLS: list[dict] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "query_splunk",
-            "description": "Run a free-form SPL query against the Splunk SIEM.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "spl_query": {"type": "string", "description": "SPL search query"},
-                    "time_range": {"type": "string", "default": "15m"},
-                },
-                "required": ["spl_query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "query_windows_events",
-            "description": "Query Windows Security event logs.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "event_ids": {
-                        "type": "array",
-                        "items": {"type": "integer"},
-                        "description": "Event IDs to fetch",
-                    },
-                },
-                "required": ["event_ids"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "query_web_logs",
-            "description": "Query web server access logs.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "filter": {"type": "string", "description": "Optional filter"},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "query_network_traffic",
-            "description": "Query network flow data.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "filter": {"type": "string"},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "report_detection",
-            "description": "Report a confirmed detection.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "technique_id": {"type": "string"},
-                    "evidence": {"type": "string"},
-                    "severity": {"type": "string", "enum": ["P1", "P2", "P3", "P4"]},
-                },
-                "required": ["technique_id", "evidence"],
-            },
-        },
-    },
-]
+_SEARCH_TOOLS: list[dict] = _load_data("agentic_blue_eval_search_tools")
 
 # ── Grounding tools (arm C only — the actual harness) ────────────────────────
 #
@@ -727,54 +660,7 @@ _SEARCH_TOOLS: list[dict] = [
 # and similarity-tier heuristic (unknown_defense.compute_similarity) blue.py's
 # real chain-test path already uses — this eval just wasn't wired to them.
 
-_GROUNDING_TOOLS: list[dict] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "lookup_technique_signature",
-            "description": (
-                "Look up the known evidence signature for a specific MITRE ATT&CK "
-                "technique ID from the detection library, to confirm or refute a "
-                "hypothesis before calling report_detection."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "technique_id": {
-                        "type": "string",
-                        "description": "MITRE technique ID, e.g. T1558.003",
-                    },
-                },
-                "required": ["technique_id"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "search_similar_techniques",
-            "description": (
-                "Search the detection library for the technique whose known evidence "
-                "signature best matches a free-text description of what you observed. "
-                "Use this when you see suspicious activity but are not sure of the "
-                "exact sub-technique ID — do not guess from memory."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "evidence_description": {
-                        "type": "string",
-                        "description": (
-                            "Free-text description of observed evidence (process "
-                            "names, event IDs, ports, behaviors)"
-                        ),
-                    },
-                },
-                "required": ["evidence_description"],
-            },
-        },
-    },
-]
+_GROUNDING_TOOLS: list[dict] = _load_data("agentic_blue_eval_grounding_tools")
 
 
 def _dispatch_grounding_tool(name: str, args: dict) -> str | None:

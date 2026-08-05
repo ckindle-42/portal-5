@@ -13,7 +13,7 @@ sources:
   path: tests/lib/compliance_assertions.py
 - type: code
   path: tests/fixtures/compliance_scenarios.yaml
-last_generated_commit: baca992c674a3cbb36a619e8f62e7e88b8fccfff
+last_generated_commit: 44337398432f63b63bd77ff750552c81dc7b7cc2
 claims: []
 confidence: high
 tags:

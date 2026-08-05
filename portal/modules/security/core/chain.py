@@ -13,7 +13,11 @@ intake      Candidate intake pipeline (pull → TPS gate → tool probe)
 
 from __future__ import annotations
 
-from .exec_chain import (
+import json
+from pathlib import Path
+from typing import Any
+
+from .exec_chain import (  # noqa: F401
     _CHAIN_ROLES,
     _CVE_DEFAULT_HIT,
     _CVE_DEFAULT_MISS,
@@ -43,57 +47,27 @@ from .exec_chain import (
     _synthetic_web_search,
     run_chain_tests,
 )
-from .intake import (
+from .intake import (  # noqa: F401
     PULL_TIMEOUT_S,
     TPS_FLOOR,
     _pull_model,
     _tps_warmup,
     run_candidate_intake,
 )
-from .refusal import (
+from .refusal import (  # noqa: F401
     _audit_tools_probe,
     _run_refusal_test,
     run_audit_tools,
 )
 
-__all__ = [
-    # ── exec_chain ────────────────────────────────────────────────────────────
-    "OLLAMA_URL",
-    "AUDIT_TOOL",
-    "CHAIN_TOOLS_BASE",
-    "CHAIN_INITIAL_PROMPT_DEFAULT",
-    "INLINE_TOOLS",
-    "SCENARIOS",
-    "_CHAIN_ROLES",
-    "_STEP_GROUPS",
-    "_REFUSAL_PATTERNS",
-    "_DYNAMIC_CVE_DB",
-    "_CVE_RESPONSES",
-    "_CVE_DEFAULT_MISS",
-    "_CVE_DEFAULT_HIT",
-    "_WEB_SEARCH_CHAIN_TOOL",
-    "_assign_steps",
-    "_is_pipeline_model",
-    "_call_via_pipeline",
-    "_prepare_scenario",
-    "_run_blue_turn",
-    "_run_blue_defender",
-    "_run_exec_chain",
-    "_run_chain_test",
-    "_run_model_turn",
-    "run_chain_tests",
-    "_resolve_step_model",
-    "_run_multimodel_chain",
-    "_synthetic_web_search",
-    "_synthetic_tool_result",
-    # ── refusal ───────────────────────────────────────────────────────────────
-    "_run_refusal_test",
-    "_audit_tools_probe",
-    "run_audit_tools",
-    # ── intake ────────────────────────────────────────────────────────────────
-    "TPS_FLOOR",
-    "PULL_TIMEOUT_S",
-    "_pull_model",
-    "_tps_warmup",
-    "run_candidate_intake",
-]
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+__all__ = _load_data("chain_all")

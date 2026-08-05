@@ -1,0 +1,31 @@
+{
+  "cleanup": [
+    "revert_lab_target"
+  ],
+  "exfil": [
+    "exfiltrate_data"
+  ],
+  "exploit": [
+    "exploit_binary_service",
+    "exploit_service",
+    "upload_webshell",
+    "webshell_exec"
+  ],
+  "move": [
+    "deploy_ransomware_payload",
+    "lateral_move",
+    "pivot_scan"
+  ],
+  "persist": [
+    "delete_shadow_copies",
+    "dump_credentials",
+    "establish_persistence"
+  ],
+  "planning": [
+    "check_cve",
+    "run_nmap_scan",
+    "run_sqlmap",
+    "start_lab_target",
+    "web_request"
+  ]
+}

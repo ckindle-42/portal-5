@@ -1,0 +1,147 @@
+[
+  {
+    "function": {
+      "description": "Query the Windows Security event log on the domain controller. Returns matching event records (id, time, account, detail).",
+      "name": "query_windows_events",
+      "parameters": {
+        "properties": {
+          "event_ids": {
+            "description": "Event IDs to fetch, e.g. [4769, 4768, 4662]. Omit to fetch recent security events broadly.",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "max_records": {
+            "description": "Cap on records returned",
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Run a free-form SPL (Search Processing Language) query against the Splunk SIEM. Use this to search for patterns, correlate events, or investigate anomalies. Returns matching events with timestamps.",
+      "name": "query_splunk",
+      "parameters": {
+        "properties": {
+          "spl_query": {
+            "description": "SPL search query, e.g. 'index=* sourcetype=* EventCode=4769'",
+            "type": "string"
+          },
+          "time_range": {
+            "default": "15m",
+            "description": "Time range for the search, e.g. '15m', '1h', '24h'",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spl_query"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Query web server access logs from the target environment. Returns HTTP requests with timestamps, source IPs, URLs, and response codes.",
+      "name": "query_web_logs",
+      "parameters": {
+        "properties": {
+          "filter": {
+            "description": "Optional filter (e.g. 'status=500', 'POST', specific IP)",
+            "type": "string"
+          },
+          "max_records": {
+            "description": "Cap on records returned",
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Query network flow data or connection logs. Shows source/destination IPs, ports, protocols, and connection counts. Use to identify lateral movement or unusual traffic patterns.",
+      "name": "query_network_traffic",
+      "parameters": {
+        "properties": {
+          "filter": {
+            "description": "Optional filter (e.g. 'src=10.10.11.50', 'port=445')",
+            "type": "string"
+          },
+          "max_records": {
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Report a confirmed detection of an adversary technique. Call once per distinct technique observed in the telemetry.",
+      "name": "report_detection",
+      "parameters": {
+        "properties": {
+          "evidence": {
+            "description": "Event IDs / fields supporting it",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "P1",
+              "P2",
+              "P3",
+              "P4"
+            ],
+            "type": "string"
+          },
+          "technique_id": {
+            "description": "MITRE ATT&CK technique ID, e.g. T1558.003",
+            "type": "string"
+          }
+        },
+        "required": [
+          "technique_id",
+          "evidence"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Recommend a containment action for a detected technique.",
+      "name": "recommend_containment",
+      "parameters": {
+        "properties": {
+          "action": {
+            "description": "Specific containment step",
+            "type": "string"
+          },
+          "technique_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "technique_id",
+          "action"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

@@ -5,13 +5,26 @@ Wraps faster-whisper for audio transcription as an MCP tool.
 
 import asyncio
 import contextlib
+import json
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 from mcp.server import MCPServer
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 from starlette.responses import JSONResponse
 
 mcp = MCPServer("whisper-transcription")
@@ -81,58 +94,7 @@ async def openai_models(request):
 
 
 # Tool manifest for discovery
-TOOLS_MANIFEST = [
-    {
-        "name": "transcribe_audio",
-        "description": (
-            "Transcribe audio using faster-whisper. "
-            "If the user uploaded an audio file, omit audio_path and the tool will "
-            "auto-detect the most recently uploaded file from the workspace."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "audio_path": {
-                    "type": "string",
-                    "description": "Absolute path to audio file. Omit to auto-detect latest upload.",
-                },
-                "language": {
-                    "type": "string",
-                    "description": "Language code (e.g., en, zh)",
-                    "default": "auto",
-                },
-            },
-            "required": [],
-        },
-    },
-    {
-        "name": "transcribe_with_speakers",
-        "description": (
-            "Transcribe an audio file with speaker diarization (Docker fallback path). "
-            "On Apple Silicon, prefer the host-native MLX path on port 8924 "
-            "(mlx-whisper + pyannote on MPS, ~5x faster). This Docker path is the "
-            "cross-platform fallback for Linux/CUDA nodes."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "file": {
-                    "type": "string",
-                    "description": "Audio reference: OWUI file ID, filename in uploads/, or absolute path",
-                },
-                "num_speakers": {
-                    "type": "integer",
-                    "description": "Hint for expected speaker count. Auto-detected if omitted.",
-                },
-                "language": {
-                    "type": "string",
-                    "description": "ISO language code. Auto-detected if omitted.",
-                },
-            },
-            "required": ["file"],
-        },
-    },
-]
+TOOLS_MANIFEST = _load_data("tools_manifest_whisper_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

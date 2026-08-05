@@ -104,6 +104,11 @@ COPY portal_channels/ ./portal_channels/
 COPY portal/__init__.py ./portal/__init__.py
 COPY portal/platform/ ./portal/platform/
 COPY portal/modules/ ./portal/modules/
+# config/ (incl. config/inference/*.json and config/security/*.json extracted
+# from module-level literals in C2 of TASK_PORTAL_SIMPLIFY_V1) must be baked
+# into the image so MCP tool servers can load their TOOLS_MANIFEST at import
+# time — mirroring Dockerfile.pipeline's COPY config/ ./config/.
+COPY config/ ./config/
 COPY scripts/mcp-entrypoint.sh /usr/local/bin/mcp-entrypoint.sh
 
 # Create non-root user (with a home dir — needed so the entrypoint can stage a

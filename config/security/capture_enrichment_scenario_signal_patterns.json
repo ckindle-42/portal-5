@@ -1,0 +1,561 @@
+{
+  "ad_full_compromise": {
+    "T1003.001": [
+      "[Ss]uccessfully dumped"
+    ],
+    "T1003.006": [
+      "EventCode=4662 Properties=Control Access Account=arya\\.stark"
+    ],
+    "T1047": [
+      "IP \\d+\\.\\d+\\.\\d+\\.\\d+\\.\\d+ > \\d+\\.\\d+\\.\\d+\\.\\d+\\.135:",
+      "Executed command via wmiexec"
+    ]
+  },
+  "asrep_to_lateral": {
+    "T1053.005": [
+      "EventCode=4698 TaskName=\\\\PortalProofTask"
+    ],
+    "T1110.003": [
+      "(?s)arya\\.stark.*?ned\\.stark"
+    ],
+    "T1558.004": [
+      "EventCode=4768 PreAuthType=0 Account=arya\\.stark"
+    ]
+  },
+  "ctf_multi_service": {
+    "T1059.004": [
+      "uid=33\\(www-data\\) gid=33\\(www-data\\)"
+    ],
+    "T1190": [
+      "SQL syntax; check the manual that corresponds to your MySQL server"
+    ],
+    "T1203": [
+      "BOF:uid=65534\\(nobody\\)"
+    ]
+  },
+  "kerberoast_to_da": {
+    "T1003.006": [
+      "EventCode=4662 Properties=Control Access Account=arya\\.stark"
+    ],
+    "T1053.005": [
+      "EventCode=4698 TaskName=\\\\PortalProofTask"
+    ]
+  },
+  "mbptl_ctf_full_chain": {
+    "T1059.004": [
+      "uid=33\\(www-data\\) gid=33\\(www-data\\)"
+    ],
+    "T1190": [
+      "SQL syntax; check the manual that corresponds to your MySQL server"
+    ],
+    "T1203": [
+      "BOF:uid=65534\\(nobody\\)"
+    ],
+    "T1505.003": [
+      "GET /administrator/uploads/[0-9a-f]{32}\\.php\\?c="
+    ]
+  },
+  "meta3_elasticsearch_rce": {
+    "T1059": [
+      "nt authority"
+    ],
+    "T1190": [
+      "(?s)script_fields.*?Runtime\\.getRuntime\\(\\)\\.exec"
+    ]
+  },
+  "meta3_ftp_backdoor": {
+    "T1078": [
+      "(?s)USER vagrant.*?PASS vagrant.*?230 User logged in"
+    ]
+  },
+  "meta3_full_chain": {
+    "T1059": [
+      "nt authority"
+    ],
+    "T1078": [
+      "vagrant-2008[Rr]2\\\\vagrant"
+    ],
+    "T1190": [
+      "(?s)script_fields.*?Runtime\\.getRuntime\\(\\)\\.exec"
+    ],
+    "T1595": [
+      "Elasticsearch REST API",
+      "PORTAL_TARGET_POSTCONDITION:full-chain:"
+    ]
+  },
+  "meta3_iis_http": {
+    "T1059": [
+      "apppool"
+    ],
+    "T1190": [
+      "portalproof\\.aspx"
+    ]
+  },
+  "meta3_jenkins_rce": {
+    "T1059": [
+      "nt authority"
+    ],
+    "T1190": [
+      "scriptText"
+    ]
+  },
+  "meta3_linux_privesc": {
+    "T1059": [
+      "(?s)Executed command \\(shell type: powershell\\).*?vagrant-2008r2\\\\vagrant.*?True"
+    ],
+    "T1078": [
+      "vagrant-2008r2\\\\vagrant"
+    ]
+  },
+  "meta3_mysql_exploit": {
+    "T1078": [
+      "(?s)5\\.5\\.20.*?wordpress"
+    ]
+  },
+  "meta3_phpmyadmin_rce": {
+    "T1059": [
+      "nt authority\\\\+(?:local service|system)"
+    ],
+    "T1078": [
+      "(?:username|pma_username)(?:=|%3D)root"
+    ],
+    "T1190": [
+      "/phpmyadmin/(?:js/messages\\.php|index\\.php)"
+    ]
+  },
+  "meta3_psexec": {
+    "T1021.002": [
+      "Executed command via wmiexec"
+    ],
+    "T1059": [
+      "Executed command via wmiexec.*?vagrant-2008r2\\\\vagrant"
+    ],
+    "T1078": [
+      "vagrant-2008r2\\\\vagrant"
+    ]
+  },
+  "meta3_rails_console_rce": {
+    "T1059": [
+      "nt authority\\\\+system"
+    ],
+    "T1190": [
+      "/missing404",
+      "web_console"
+    ]
+  },
+  "meta3_rdp_standard_auth": {
+    "T1021.001": [
+      "(?s)(?=.*(?:\\.3389|3389:))(?=.*EventCode=4624.*LogonType=(?:10|3).*(?:Account=vagrant|LogonProcessName=(?:User32|NtLmSsp)))"
+    ],
+    "T1078": [
+      "EventCode=4624.*LogonType=10",
+      "EventCode=4624.*LogonType=3.*Account=vagrant.*LogonProcessName=NtLmSsp"
+    ]
+  },
+  "meta3_smb_exploit": {
+    "T1021.002": [
+      "Pwn3d!"
+    ],
+    "T1210": [
+      "Pwn3d!"
+    ]
+  },
+  "meta3_snmp_enum": {
+    "T1046": [
+      "(?s)public.*?iso\\.3\\.6\\.1\\.2\\.1"
+    ],
+    "T1592": [
+      "Windows Version 6\\.1"
+    ]
+  },
+  "meta3_ssh_brute": {
+    "T1059": [
+      "vagrant-2008r2\\\\vagrant"
+    ],
+    "T1078": [
+      "vagrant-2008r2\\\\vagrant"
+    ],
+    "T1110.003": [
+      "vagrant-2008r2\\\\vagrant"
+    ]
+  },
+  "meta3_struts_rce": {
+    "T1059": [
+      "nt authority"
+    ],
+    "T1190": [
+      "(?s)DEFAULT_MEMBER_ACCESS.*?ProcessBuilder"
+    ]
+  },
+  "meta3_tomcat_manager": {
+    "T1059": [
+      "nt authority\\\\system"
+    ],
+    "T1078": [
+      "(?s)GET /manager/html HTTP/1\\.1.*?Tomcat Web Application Manager"
+    ],
+    "T1190": [
+      "(?s)GET /manager/html HTTP/1\\.1.*?Tomcat Web Application Manager"
+    ]
+  },
+  "meta3_webdav_upload": {
+    "T1190": [
+      "PUT /uploads/portalproof\\.php HTTP/1\\.1"
+    ],
+    "T1505.003": [
+      "nt authority"
+    ]
+  },
+  "meta3_winrm_weakpass": {
+    "T1021.002": [
+      "Pwn3d!"
+    ],
+    "T1078": [
+      "Pwn3d!"
+    ],
+    "T1110.003": [
+      "vagrant-2008[Rr]2\\\\vagrant:vagrant"
+    ]
+  },
+  "meta3_wordpress_ninja": {
+    "T1059": [
+      "nt authority"
+    ],
+    "T1190": [
+      "nftmp-[A-Za-z0-9]+\\.php",
+      "PORTAL_TARGET_POSTCONDITION:wordpress-ninja:"
+    ]
+  },
+  "mission_ad_enumerate_exploit": {
+    "T1003.006": [
+      "EventCode=4662 Properties=Control Access Account=arya\\.stark"
+    ],
+    "T1059": [
+      "Executed command via wmiexec"
+    ],
+    "T1078": [
+      "\\[\\+\\] portal\\.lab\\\\administrator:.*?\\(Pwn3d!\\)"
+    ]
+  },
+  "mission_meta3_lateral_pivot": {
+    "T1021.002": [
+      "Executed command via wmiexec"
+    ],
+    "T1046": [
+      "8282/tcp open\\s+libelle"
+    ],
+    "T1059": [
+      "nt authority\\\\system"
+    ],
+    "T1190": [
+      "(?s)GET /manager/html HTTP/1\\.1.*?Tomcat Web Application Manager"
+    ]
+  },
+  "mission_meta3_recon_exploit": {
+    "T1046": [
+      "8282/tcp open\\s+libelle"
+    ],
+    "T1059": [
+      "nt authority\\\\system"
+    ],
+    "T1190": [
+      "(?s)GET /manager/html HTTP/1\\.1.*?Tomcat Web Application Manager"
+    ]
+  },
+  "mission_vulhub_multi_target": {
+    "T1059": [
+      "PORTAL_TARGET_POSTCONDITION:mvmt-laravel-rce:/tmp/portal-mvmt-laravel-proof"
+    ],
+    "T1078": [
+      "(?s)/nacos/v1/auth/users/login.*?nacos.*?(?:accessToken|globalAdmin)"
+    ],
+    "T1190": [
+      "(?s)(?:POST|PUT) /_ignition/execute-solution.*?PORTAL_TARGET_POSTCONDITION:mvmt-laravel-rce:/tmp/portal-mvmt-laravel-proof",
+      "(?s)User-Agent: Nacos-Server.*?/nacos/v1/auth/users.*?mvmtproof"
+    ]
+  },
+  "mission_vulhub_web_exploit": {
+    "T1059": [
+      "PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof"
+    ],
+    "T1190": [
+      "(?s)(?:POST|PUT) /_ignition/execute-solution.*?PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof"
+    ]
+  },
+  "relay_to_shell": {
+    "T1003.002": [
+      "Dumping local SAM hashes",
+      "Administrator:500:[0-9a-f]{32}:[0-9a-f]{32}:::"
+    ],
+    "T1557.001": [
+      "Authenticating connection from PORTAL\\.LAB\\\\?/?ADMINISTRATOR.*?SUCCEED"
+    ]
+  },
+  "vuln_activemq_deserial": {
+    "T1059": [
+      "PORTAL_TARGET_POSTCONDITION:activemq-rce:/tmp/activeMQ-RCE-success"
+    ],
+    "T1190": [
+      "(?s)org\\.springframework\\.context\\.support\\.ClassPathXmlApplicationContext.*?PORTAL_TARGET_POSTCONDITION:activemq-rce:/tmp/activeMQ-RCE-success"
+    ]
+  },
+  "vuln_adminer_ssrf_recon": {
+    "T1046": [
+      "10\\.10\\.11\\.21(?::|%3A)(?:5985|31337)"
+    ],
+    "T1190": [
+      "auth(?:%5B|\\[)driver(?:%5D|\\])=elastic"
+    ]
+  },
+  "vuln_ajreport_rce": {
+    "T1190": [
+      "/dataSetParam/verification;swagger-ui/"
+    ]
+  },
+  "vuln_confluence_rce": {
+    "T1059": [
+      "X-Cmd-Response:\\s*uid=\\d+\\([\\w.-]+\\)\\s*gid=\\d+\\([\\w.-]+\\)"
+    ],
+    "T1190": [
+      "ServletActionContext.*setHeader.*X-Cmd-Response"
+    ]
+  },
+  "vuln_couchdb_rce": {
+    "T1078": [
+      "(?s)Authorization: Basic .*?GET /_all_dbs.*?_users"
+    ],
+    "T1190": [
+      "(?s)PUT /_users/org\\.couchdb\\.user:portalproof.*?\"roles\":\\[\"_admin\"\\],\"roles\":\\[\\].*?\"ok\":true"
+    ]
+  },
+  "vuln_django_sqli": {
+    "T1190": [
+      "(?s)/\\?date=xxxx(?:%27|')xxxx.*?(?:syntax error|ProgrammingError|unterminated)"
+    ]
+  },
+  "vuln_docker_api_rce": {
+    "T1190": [
+      "POST /containers/create"
+    ]
+  },
+  "vuln_druid_rce": {
+    "T1190": [
+      "/druid/indexer/v1/sampler"
+    ]
+  },
+  "vuln_drupal_rce": {
+    "T1059": [
+      "uid=\\d+\\([\\w.-]+\\)\\s*gid=\\d+\\([\\w.-]+\\)"
+    ],
+    "T1190": [
+      "user/register.*mail(?:%5B|\\[)(?:%23|#)post_render(?:%5D|\\])(?:%5B|\\[)(?:%5D|\\])=exec"
+    ]
+  },
+  "vuln_dubbo_rce": {
+    "T1059": [
+      "PORTAL_TARGET_POSTCONDITION:dubbo-rce:/tmp/portal-dubbo-proof"
+    ],
+    "T1190": [
+      "POST /org\\.vulhub\\.api\\.CalcService"
+    ]
+  },
+  "vuln_elasticsearch_rce": {
+    "T1059": [
+      "uid=\\d+\\([\\w.-]+\\)\\s*gid=\\d+\\([\\w.-]+\\)"
+    ],
+    "T1190": [
+      "(?s)/_search\\?pretty.*?script_fields.*?Runtime\\.getRuntime\\(\\)\\.exec.*?uid=\\d+\\("
+    ]
+  },
+  "vuln_fastjson_rce": {
+    "T1190": [
+      "(?s)com\\.sun\\.rowset\\.JdbcRowSetImpl.*?rmi://.*?PORTAL_TARGET_POSTCONDITION:fastjson-rmi-callback"
+    ]
+  },
+  "vuln_gitea_rce": {
+    "T1190": [
+      "(?s)/info/lfs/objects.*?\\.\\.\\.\\.\\.\\./\\.\\./\\.\\./etc/passwd.*?root:x:0:0:"
+    ]
+  },
+  "vuln_gitlab_rce": {
+    "T1059": [
+      "PORTAL_TARGET_POSTCONDITION:gitlab-rce:/tmp/portal-gitlab-proof"
+    ],
+    "T1190": [
+      "(?s)POST /uploads/user.*?AT&TFORM"
+    ]
+  },
+  "vuln_grafana_lfi": {
+    "T1083": [
+      "(?s)/public/plugins/alertlist/\\.\\./.*?/etc/passwd.*?root:x:0:0:"
+    ],
+    "T1190": [
+      "(?s)/public/plugins/alertlist/\\.\\./.*?/etc/passwd.*?root:x:0:0:"
+    ]
+  },
+  "vuln_hugegraph_rce": {
+    "T1190": [
+      "POST /gremlin"
+    ]
+  },
+  "vuln_jackson_deserial": {
+    "T1059": [
+      "PORTAL_TARGET_POSTCONDITION:jackson-rce:/tmp/prove1.txt"
+    ],
+    "T1190": [
+      "(?s)POST /exploit.*?TemplatesImpl.*?transletBytecodes"
+    ]
+  },
+  "vuln_jimureport_rce": {
+    "T1190": [
+      "/jmreport/queryFieldBySql"
+    ]
+  },
+  "vuln_joomla_rce": {
+    "T1190": [
+      "/api/index\\.php/v1/config/application\\?public=true"
+    ],
+    "T1552": [
+      "(?s)/api/index\\.php/v1/config/application\\?public=true.*?\"(?:password|db|user)\""
+    ]
+  },
+  "vuln_laravel_rce": {
+    "T1059": [
+      "PORTAL_TARGET_POSTCONDITION:laravel-rce:/tmp/portal-laravel-proof"
+    ],
+    "T1190": [
+      "(?s)(?:POST|PUT) /_ignition/execute-solution.*?PORTAL_TARGET_POSTCONDITION:laravel-rce:/tmp/portal-laravel-proof"
+    ]
+  },
+  "vuln_nacos_rce": {
+    "T1078": [
+      "(?s)/nacos/v1/auth/users/login.*?nacos.*?(?:accessToken|globalAdmin)"
+    ],
+    "T1190": [
+      "(?s)User-Agent: Nacos-Server.*?/nacos/v1/auth/users.*?portalproof"
+    ]
+  },
+  "vuln_nexus_rce": {
+    "T1083": [
+      "(?s)%2F\\.\\.%2F\\.\\.%2F.*?etc%2Fpasswd.*?root:x:0:0:"
+    ],
+    "T1190": [
+      "(?s)%2F\\.\\.%2F\\.\\.%2F.*?etc%2Fpasswd.*?root:x:0:0:"
+    ]
+  },
+  "vuln_nginx_lfi": {
+    "T1083": [
+      "(?s)Range: bytes=-\\d+,-922337203685\\d+.*?(?:KEY:|HTTP/1\\.[01] 200|Content-Type:)"
+    ],
+    "T1190": [
+      "(?s)Range: bytes=-\\d+,-922337203685\\d+.*?(?:KEY:|HTTP/1\\.[01] 200|Content-Type:)"
+    ]
+  },
+  "vuln_phpmyadmin_rce": {
+    "T1190": [
+      "(?s)/index\\.php\\?target=db_sql\\.php%253f/\\.\\./.*?/etc/passwd.*?root:x:0:0:"
+    ]
+  },
+  "vuln_rails_rce": {
+    "T1083": [
+      "(?s)GET /robots.*?Accept: \\.\\./.*?/etc/passwd\\{\\{.*?root:x:0:0:"
+    ],
+    "T1190": [
+      "(?s)GET /robots.*?Accept: \\.\\./.*?/etc/passwd\\{\\{.*?root:x:0:0:"
+    ]
+  },
+  "vuln_redis_unauth": {
+    "T1190": [
+      "(?s)INFO.*?redis_version:.*?CONFIG.*?GET.*?dir"
+    ]
+  },
+  "vuln_shellshock_rce": {
+    "T1190": [
+      "/victim\\.cgi",
+      "User-Agent: \\(\\) \\{ :;\\}"
+    ]
+  },
+  "vuln_shiro_deserial": {
+    "T1059": [
+      "PORTAL_TARGET_POSTCONDITION:shiro-rce:/tmp/portal-shiro-proof"
+    ],
+    "T1190": [
+      "Cookie: rememberMe=[A-Za-z0-9+/=]{100,}"
+    ]
+  },
+  "vuln_solr_rce": {
+    "T1059": [
+      "uid=\\d+\\([\\w.-]+\\)\\s*gid=\\d+\\([\\w.-]+\\)"
+    ],
+    "T1190": [
+      "(?s)/solr/.*/config.*params.resource.loader.enabled.*?/solr/.*/select.*v\\.template=custom"
+    ]
+  },
+  "vuln_spring4shell_rce": {
+    "T1190": [
+      "class\\.module\\.classLoader",
+      "/tomcatwar\\.jsp"
+    ]
+  },
+  "vuln_spring_actuator": {
+    "T1059": [
+      "PORTAL_TARGET_POSTCONDITION:spring-rce:/tmp/success"
+    ],
+    "T1190": [
+      "(?s)selector:T\\(java\\.lang\\.Runtime\\)\\.getRuntime\\(\\)\\.exec\\('touch /tmp/success'\\).*?/app/hello"
+    ]
+  },
+  "vuln_struts2_rce": {
+    "T1190": [
+      "(?s)(?=.*getExcludedPackageNames\\(\\)\\.clear\\(\\))(?=.*X-Cmd-Output:\\s*uid=\\d+\\([\\w.-]+\\)\\s*gid=\\d+\\([\\w.-]+\\))"
+    ]
+  },
+  "vuln_thinkphp_rce": {
+    "T1059": [
+      "uid=\\d+\\([\\w.-]+\\)\\s*gid=\\d+\\([\\w.-]+\\)"
+    ],
+    "T1190": [
+      "(?s)POST /index\\.php\\?s=captcha.*?_method=__construct.*?filter(?:%5B|\\[)(?:%5D|\\])=system.*?uid=\\d+\\("
+    ]
+  },
+  "vuln_tomcat_deploy": {
+    "T1059.004": [
+      "uid=\\d+\\([\\w.-]+\\)\\s*gid=\\d+\\([\\w.-]+\\)"
+    ],
+    "T1190": [
+      "(?s)PUT /portal-proof\\.jsp/.*?GET /portal-proof\\.jsp.*?uid=\\d+\\("
+    ],
+    "T1505.003": [
+      "(?s)PUT /portal-proof\\.jsp/.*?GET /portal-proof\\.jsp.*?uid=\\d+\\("
+    ]
+  },
+  "vuln_weblogic_rce": {
+    "T1190": [
+      "(?s)ldap://.*?PORTAL_TARGET_POSTCONDITION:weblogic-ldap-callback"
+    ]
+  },
+  "vuln_wordpress_rce": {
+    "T1059": [
+      "PORTAL_TARGET_POSTCONDITION:wordpress-rce:/tmp/portal-wordpress-proof"
+    ],
+    "T1190": [
+      "(?s)/wp-login\\.php\\?action=lostpassword.*?spool_directory.*?PORTAL_TARGET_POSTCONDITION:wordpress-rce:/tmp/portal-wordpress-proof"
+    ]
+  },
+  "vuln_zabbix_rce": {
+    "T1190": [
+      "(?s)/(?:latest|jsrpc)\\.php.*?updatexml(?:%28|\\()0(?:%2C|,)concat(?:%28|\\()0xa(?:%2C|,)(?:user|database|version)(?:%28%29|\\(\\))(?:%29|\\)),0(?:%29|\\)).*?(?:XPATH syntax error|root@|zabbix@)"
+    ]
+  },
+  "web_to_root": {
+    "T1059.004": [
+      "GET /administrator/uploads/[0-9a-f]{32}\\.php\\?e=id"
+    ],
+    "T1190": [
+      "Unknown column 'password' in 'order clause'"
+    ],
+    "T1548.001": [
+      "uid=0\\(root\\) gid=0\\(root\\) groups=0\\(root\\)"
+    ]
+  }
+}

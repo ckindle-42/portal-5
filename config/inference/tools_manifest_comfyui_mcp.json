@@ -1,0 +1,154 @@
+[
+  {
+    "description": "Start image generation and return immediately with a job_id. Use this for OWUI/chat \u2014 generation takes 1-40 min depending on model. Follow up with get_image_status(job_id) to retrieve the result.",
+    "name": "start_image_generation",
+    "parameters": {
+      "properties": {
+        "cfg": {
+          "default": 1.0,
+          "type": "number"
+        },
+        "height": {
+          "default": 1024,
+          "type": "integer"
+        },
+        "image_url": {
+          "default": "",
+          "description": "Reference image URL/path required by qwen-image-edit models",
+          "type": "string"
+        },
+        "model": {
+          "default": "flux",
+          "description": "Model: 'flux', 'flux-uncensored', 'sdxl', 'qwen-image-2512', 'qwen-image-2512-lightning', 'qwen-image-edit-2509', or 'qwen-image-edit-2511'",
+          "type": "string"
+        },
+        "negative_prompt": {
+          "default": "",
+          "type": "string"
+        },
+        "prompt": {
+          "description": "Text description of the image",
+          "type": "string"
+        },
+        "seed": {
+          "default": -1,
+          "type": "integer"
+        },
+        "steps": {
+          "default": 4,
+          "type": "integer"
+        },
+        "width": {
+          "default": 1024,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Check status of an image generation job. Returns URL when complete.",
+    "name": "get_image_status",
+    "parameters": {
+      "properties": {
+        "job_id": {
+          "description": "job_id from start_image_generation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Get the most recently generated images from ComfyUI.",
+    "name": "get_latest_images",
+    "parameters": {
+      "properties": {
+        "count": {
+          "default": 5,
+          "description": "Number of images to return",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "description": "Generate an image and block until complete. WARNING: takes 1-40 minutes. Prefer start_image_generation for interactive use.",
+    "name": "generate_image",
+    "parameters": {
+      "properties": {
+        "cfg": {
+          "default": 1.0,
+          "type": "number"
+        },
+        "height": {
+          "default": 1024,
+          "type": "integer"
+        },
+        "image_url": {
+          "default": "",
+          "description": "Reference image URL/path required by qwen-image-edit models",
+          "type": "string"
+        },
+        "model": {
+          "default": "flux",
+          "type": "string"
+        },
+        "negative_prompt": {
+          "default": "",
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "seed": {
+          "default": -1,
+          "type": "integer"
+        },
+        "steps": {
+          "default": 4,
+          "type": "integer"
+        },
+        "width": {
+          "default": 1024,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "List available ComfyUI workflows",
+    "name": "list_workflows",
+    "parameters": {
+      "properties": {},
+      "type": "object"
+    }
+  },
+  {
+    "description": "Check the status of a generation task (legacy \u2014 prefer get_image_status)",
+    "name": "get_generation_status",
+    "parameters": {
+      "properties": {
+        "task_id": {
+          "description": "The task ID to check",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id"
+      ],
+      "type": "object"
+    }
+  }
+]

@@ -1,0 +1,50 @@
+{
+  "ad": [
+    "kerberos",
+    "kerberoast",
+    "dcsync",
+    "golden",
+    "asrep",
+    "rbcd",
+    "bloodhound",
+    "adcs",
+    "trust",
+    "pth",
+    "eternalblue",
+    "smb",
+    "relay"
+  ],
+  "cloud": [
+    "cloud",
+    "k8s",
+    "aws",
+    "ssrf-metadata",
+    "lambda"
+  ],
+  "linux": [
+    "linux",
+    "privesc",
+    "cron",
+    "nfs",
+    "suid",
+    "kernel",
+    "container",
+    "docker"
+  ],
+  "web": [
+    "sqli",
+    "xss",
+    "lfi",
+    "rce",
+    "ssrf",
+    "webshell",
+    "tomcat",
+    "redis",
+    "php",
+    "nginx",
+    "flask",
+    "jwt",
+    "api",
+    "graphql"
+  ]
+}

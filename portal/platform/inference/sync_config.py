@@ -28,42 +28,19 @@ import yaml
 
 REPO: Path = Path(__file__).resolve().parents[3]
 
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = REPO / "config" / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 # ── update_workspace_tools.py tool-ID mapping ────────────────────────────────
 # Maps workspace-id → OWUI toolIds (server:mcp:<name> format).
 # Authoritative source: scripts/update_workspace_tools.py; this is a copy
 # so sync-config doesn't need to exec that script separately.
-_WORKSPACE_TOOL_IDS: dict[str, list[str]] = {
-    "auto": ["server:mcp:portal_comfyui"],
-    "auto-daily": ["server:mcp:portal_research", "server:mcp:portal_memory"],
-    "auto-coding": ["server:mcp:portal_code", "server:mcp:portal_memory"],
-    "auto-compliance": ["server:mcp:portal_research"],
-    "auto-documents": ["server:mcp:portal_documents", "server:mcp:portal_code"],
-    "auto-music": ["server:mcp:portal_music", "server:mcp:portal_tts"],
-    "auto-video": ["server:mcp:portal_video", "server:mcp:portal_comfyui"],
-    "auto-image": ["server:mcp:portal_comfyui"],
-    "auto-security": [
-        "server:mcp:portal_research",
-        "server:mcp:portal_code",
-        "server:mcp:portal_security",
-    ],
-    "auto-redteam": ["server:mcp:portal_research", "server:mcp:portal_code"],
-    "auto-blueteam": ["server:mcp:portal_research", "server:mcp:portal_code"],
-    "auto-research": ["server:mcp:portal_research"],
-    "auto-reasoning": ["server:mcp:portal_research"],
-    "auto-creative": ["server:mcp:portal_tts"],
-    "auto-vision": ["server:mcp:portal_comfyui"],
-    "auto-data": [
-        "server:mcp:portal_research",
-        "server:mcp:portal_code",
-        "server:mcp:portal_documents",
-    ],
-    "auto-math": [],
-    "auto-spl": ["server:mcp:portal_code"],
-    "auto-mistral": ["server:mcp:portal_research"],
-    "auto-agentic": ["server:mcp:portal_code"],
-    "auto-audio": ["server:mcp:portal_whisper"],
-    "tools-specialist": ["server:mcp:portal_code", "server:mcp:portal_memory"],
-}
+_WORKSPACE_TOOL_IDS: dict[str, list[str]] = _load_data("sync_config_workspace_tool_ids")
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────

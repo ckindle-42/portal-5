@@ -11,7 +11,7 @@ sources:
   path: tests/persona_matrix_diff.py
 - type: code
   path: portal/modules/eval/persona_matrix/_common.py
-last_generated_commit: baca992c674a3cbb36a619e8f62e7e88b8fccfff
+last_generated_commit: 44337398432f63b63bd77ff750552c81dc7b7cc2
 claims: []
 confidence: high
 tags:

@@ -1,3 +1,7 @@
+import json
+from pathlib import Path
+from typing import Any
+
 """
 Video Generation MCP Server
 Wraps ComfyUI video workflows for local video generation.
@@ -17,6 +21,16 @@ import uuid
 import httpx
 from mcp.server import MCPServer
 from starlette.responses import JSONResponse
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
 
 from portal.modules.media.tools._admission import admit
 
@@ -55,105 +69,7 @@ async def health_check(request):
 
 
 # Tool manifest for discovery
-TOOLS_MANIFEST = [
-    {
-        "name": "generate_video",
-        "description": "Generate a video using ComfyUI with a local video model (Wan2.2 or CogVideoX)",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "Text description of the video to generate",
-                },
-                "width": {
-                    "type": "integer",
-                    "description": "Video width in pixels",
-                    "default": 832,
-                },
-                "height": {
-                    "type": "integer",
-                    "description": "Video height in pixels",
-                    "default": 480,
-                },
-                "frames": {"type": "integer", "description": "Number of frames", "default": 9},
-                "steps": {
-                    "type": "integer",
-                    "description": "Number of inference steps",
-                    "default": 2,
-                },
-                "cfg": {"type": "number", "description": "CFG scale", "default": 6.0},
-                "negative_prompt": {
-                    "type": "string",
-                    "description": "Negative prompt",
-                    "default": "",
-                },
-                "seed": {"type": "integer", "description": "Random seed", "default": -1},
-            },
-            "required": ["prompt"],
-        },
-    },
-    {
-        "name": "start_video_generation",
-        "description": (
-            "Start video generation and return immediately with a job_id. "
-            "Generation takes 30-90 min — use this instead of generate_video in OWUI. "
-            "Follow up with get_video_status(job_id) to retrieve the result."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {"type": "string"},
-                "negative_prompt": {"type": "string", "default": ""},
-                "width": {"type": "integer", "default": 1280},
-                "height": {"type": "integer", "default": 720},
-                "frames": {"type": "integer", "default": 41},
-                "steps": {"type": "integer", "default": 30},
-                "cfg": {"type": "number", "default": 6.2},
-                "shift": {"type": "number", "default": 9.8},
-                "sampler": {"type": "string", "default": "uni_pc"},
-                "seed": {"type": "integer", "default": -1},
-                "image_url": {
-                    "type": "string",
-                    "description": "URL or local path to a start-frame image (required for wan22-ti2v-5b and wan22-s2v-14b)",
-                    "default": "",
-                },
-                "audio_url": {
-                    "type": "string",
-                    "description": "URL or local path to an audio file (required for wan22-s2v-14b)",
-                    "default": "",
-                },
-            },
-            "required": ["prompt"],
-        },
-    },
-    {
-        "name": "get_video_status",
-        "description": "Check status of a video generation job. Returns URL when complete.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "job_id": {"type": "string"},
-            },
-            "required": ["job_id"],
-        },
-    },
-    {
-        "name": "get_latest_videos",
-        "description": "Get the most recently generated videos from ComfyUI.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "count": {"type": "integer", "default": 5},
-            },
-        },
-    },
-    {
-        "name": "list_video_models",
-        "description": "List available video model checkpoints in ComfyUI",
-        "parameters": {"type": "object", "properties": {}},
-    },
-]
+TOOLS_MANIFEST = _load_data("tools_manifest_video_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])
@@ -402,50 +318,7 @@ _WAN22_T2V_WORKFLOW: dict = {
 # CogVideoX fallback workflow — uses CheckpointLoaderSimple + EmptyMochiLatentVideo
 # EmptyMochiLatentVideo uses "length" parameter (v0.16.3).
 # KSampler uses "seed" (not "noise_seed") and "normal" scheduler in v0.16.3.
-_COGVIDEOX_WORKFLOW: dict = {
-    "1": {
-        "inputs": {"ckpt_name": "cogvideox_5b.safetensors"},
-        "class_type": "CheckpointLoaderSimple",
-    },
-    "2": {
-        "inputs": {"text": "", "clip": ["1", 1]},
-        "class_type": "CLIPTextEncode",
-    },
-    "3": {
-        "inputs": {"width": 720, "height": 480, "length": 49, "batch_size": 1},
-        "class_type": "EmptyMochiLatentVideo",
-    },
-    "4": {
-        "inputs": {
-            "model": ["1", 0],
-            "positive": ["2", 0],
-            "negative": ["2", 0],
-            "latent_image": ["3", 0],
-            "seed": 42,
-            "steps": 20,
-            "cfg": 6,
-            "sampler_name": "euler",
-            "scheduler": "normal",
-            "denoise": 1,
-        },
-        "class_type": "KSampler",
-    },
-    "5": {
-        "inputs": {"samples": ["4", 0], "vae": ["1", 2]},
-        "class_type": "VAEDecode",
-    },
-    "6": {
-        "inputs": {
-            "filename_prefix": "portal_video_",
-            "images": ["5", 0],
-            "fps": 8,
-            "format": "video/h264-mp4",
-            "pingpong": False,
-            "save_output": True,
-        },
-        "class_type": "VHS_VideoCombine",
-    },
-}
+_COGVIDEOX_WORKFLOW = _load_data("video_mcp_cogvideox_workflow")
 
 # Wan2.1 NSFW T2V workflow — fully fine-tuned NSFW checkpoint, no LoRA required.
 # Architecture mirrors the HunyuanVideo workflow but uses:

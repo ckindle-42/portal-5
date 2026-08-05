@@ -1,0 +1,146 @@
+[
+  {
+    "description": "List all Proxmox nodes with status",
+    "name": "proxmox_list_nodes"
+  },
+  {
+    "description": "Get CPU/memory/storage usage for a node",
+    "name": "proxmox_node_status"
+  },
+  {
+    "description": "Get cluster quorum and node membership",
+    "name": "proxmox_cluster_status"
+  },
+  {
+    "description": "List every VM/CT across all nodes",
+    "name": "proxmox_list_all_vms"
+  },
+  {
+    "description": "Find a VM by name across all nodes",
+    "name": "proxmox_find_vm"
+  },
+  {
+    "description": "List VMs on a node",
+    "name": "proxmox_list_vms"
+  },
+  {
+    "description": "Get VM runtime status",
+    "name": "proxmox_vm_status"
+  },
+  {
+    "description": "Get VM hardware configuration",
+    "name": "proxmox_vm_config"
+  },
+  {
+    "description": "Start a VM",
+    "name": "proxmox_vm_start"
+  },
+  {
+    "description": "Gracefully shut down a VM",
+    "name": "proxmox_vm_shutdown"
+  },
+  {
+    "description": "Force-stop a VM",
+    "name": "proxmox_vm_stop"
+  },
+  {
+    "description": "Hard-reset a VM",
+    "name": "proxmox_vm_reset"
+  },
+  {
+    "description": "Gracefully reboot a VM",
+    "name": "proxmox_vm_reboot"
+  },
+  {
+    "description": "Suspend a VM",
+    "name": "proxmox_vm_suspend"
+  },
+  {
+    "description": "Resume a suspended VM",
+    "name": "proxmox_vm_resume"
+  },
+  {
+    "description": "Clone a VM (full or linked)",
+    "name": "proxmox_clone_vm"
+  },
+  {
+    "description": "Delete a VM and its disks",
+    "name": "proxmox_delete_vm"
+  },
+  {
+    "description": "List VM snapshots",
+    "name": "proxmox_list_snapshots"
+  },
+  {
+    "description": "Create a VM snapshot",
+    "name": "proxmox_create_snapshot"
+  },
+  {
+    "description": "Roll back VM to a snapshot",
+    "name": "proxmox_rollback_snapshot"
+  },
+  {
+    "description": "Delete a VM snapshot",
+    "name": "proxmox_delete_snapshot"
+  },
+  {
+    "description": "Execute a command inside a VM via QEMU guest agent",
+    "name": "proxmox_exec_vm"
+  },
+  {
+    "description": "Get OS/network info from QEMU guest agent",
+    "name": "proxmox_vm_agent_info"
+  },
+  {
+    "description": "List LXC containers on a node",
+    "name": "proxmox_list_containers"
+  },
+  {
+    "description": "Get LXC container status",
+    "name": "proxmox_container_status"
+  },
+  {
+    "description": "Start an LXC container",
+    "name": "proxmox_container_start"
+  },
+  {
+    "description": "Force-stop an LXC container",
+    "name": "proxmox_container_stop"
+  },
+  {
+    "description": "Gracefully shut down an LXC container",
+    "name": "proxmox_container_shutdown"
+  },
+  {
+    "description": "Execute a command inside an LXC container via pct exec",
+    "name": "proxmox_container_exec"
+  },
+  {
+    "description": "Execute a command on the Proxmox host via SSH",
+    "name": "proxmox_node_exec"
+  },
+  {
+    "description": "Deploy a CTF lab (MBPTL etc.) in an LXC container with Docker",
+    "name": "proxmox_deploy_ctf_lab"
+  },
+  {
+    "description": "List storage pools on a node",
+    "name": "proxmox_list_storage"
+  },
+  {
+    "description": "List content in a storage pool",
+    "name": "proxmox_list_storage_content"
+  },
+  {
+    "description": "List network interfaces on a node",
+    "name": "proxmox_list_networks"
+  },
+  {
+    "description": "Get status of an async task by UPID",
+    "name": "proxmox_task_status"
+  },
+  {
+    "description": "List recent tasks on a node",
+    "name": "proxmox_list_tasks"
+  }
+]

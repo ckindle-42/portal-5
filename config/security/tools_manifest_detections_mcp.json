@@ -1,0 +1,83 @@
+[
+  {
+    "description": "Search the SPL detection library by keyword or technique ID.",
+    "name": "spl_search_library",
+    "parameters": {
+      "properties": {
+        "query": {
+          "description": "Search query (keyword or technique ID)",
+          "type": "string"
+        },
+        "top_k": {
+          "description": "Max results (default 10)",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Validate SPL syntax locally (no live Splunk call needed).",
+    "name": "spl_validate_syntax",
+    "parameters": {
+      "properties": {
+        "spl": {
+          "description": "SPL query to validate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spl"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Explain a detection: logic, mappings, expected signal.",
+    "name": "spl_explain_detection",
+    "parameters": {
+      "properties": {
+        "technique_id": {
+          "description": "ATT&CK technique ID",
+          "type": "string"
+        }
+      },
+      "required": [
+        "technique_id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "List all technique IDs with SPL detections.",
+    "name": "spl_techniques_covered",
+    "parameters": {
+      "properties": {},
+      "type": "object"
+    }
+  },
+  {
+    "description": "Compare an SPL result against an expected signal to find matches, misses, and unexpected findings.",
+    "name": "spl_diff_hypothesis",
+    "parameters": {
+      "properties": {
+        "observed_signal": {
+          "description": "What was actually observed in telemetry",
+          "type": "string"
+        },
+        "technique_id": {
+          "description": "ATT&CK technique ID",
+          "type": "string"
+        }
+      },
+      "required": [
+        "technique_id",
+        "observed_signal"
+      ],
+      "type": "object"
+    }
+  }
+]

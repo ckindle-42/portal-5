@@ -1,0 +1,107 @@
+[
+  {
+    "function": {
+      "description": "Emit a conclusive verdict. Use CONFIRMED when the evidence supports a specific known MITRE technique in an adversarial or unauthorized context; a dual-use primitive alone is not enough. Use RULED_OUT when the evidence, examined honestly, does not support the hypothesis being investigated. If you saw signal but cannot map it exactly to a known technique, do NOT emit CONFIRMED \u2014 use escalate_anomalous instead.",
+      "name": "emit_verdict",
+      "parameters": {
+        "properties": {
+          "evidence": {
+            "description": "Verbatim citations from the gathered telemetry. Every entry must be something you can point to in the evidence you were given \u2014 never a typical detail invented from the technique.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "match_grade": {
+            "description": "EXACT when the evidence matches the named technique(s) directly; NONE when RULED_OUT. SIMILAR is not valid here \u2014 use escalate_anomalous for variant/novel matches.",
+            "enum": [
+              "EXACT",
+              "NONE"
+            ],
+            "type": "string"
+          },
+          "reasoning": {
+            "type": "string"
+          },
+          "technique_ids": {
+            "description": "MITRE technique IDs (T####.### form). Required when verdict is CONFIRMED; must be [] when RULED_OUT.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "verdict": {
+            "enum": [
+              "CONFIRMED",
+              "RULED_OUT"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "verdict",
+          "technique_ids",
+          "evidence",
+          "reasoning",
+          "match_grade"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Emit ANOMALOUS_UNCLASSIFIED \u2014 signal was present in the evidence but you cannot map it exactly to a known technique. This is a first-class success outcome for this investigation, not a fallback. Use this only for a cited unexplained deviation or conflict, not merely because legitimate dual-use activity could theoretically be abused. Use it when you see something worth surfacing to a human analyst that does not fit a known signature \u2014 the emerging-threat case.",
+      "name": "escalate_anomalous",
+      "parameters": {
+        "properties": {
+          "evidence": {
+            "description": "The verbatim telemetry citations that support this being anomalous. Same grounding rule as emit_verdict.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "reasoning": {
+            "description": "Why this is anomalous \u2014 what pattern you saw, and why it doesn't fit a known technique.",
+            "type": "string"
+          },
+          "similar_to": {
+            "description": "Nearest known techniques (T####.### form) \u2014 the SIMILAR-neighbours, for downstream review. May be [] if truly nothing close.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "reasoning",
+          "similar_to",
+          "evidence"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Explicit continuation \u2014 you need more telemetry before you can render one of the barrier verdicts above. Name the specific gap (EventCode, field, source) \u2014 never a generic re-ask. Not emitting a tool call at all is not the same as requesting more; if you do not call one of these three, your turn contributes nothing to the investigation.",
+      "name": "request_more",
+      "parameters": {
+        "properties": {
+          "what": {
+            "description": "Exact telemetry gap: EventCode, field, source, or technique-family you still need to see.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "what"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

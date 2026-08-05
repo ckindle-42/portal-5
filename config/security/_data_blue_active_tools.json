@@ -1,0 +1,67 @@
+[
+  {
+    "function": {
+      "description": "Block an attacker IP at the firewall or host level",
+      "name": "block_ip",
+      "parameters": {
+        "properties": {
+          "ip": {
+            "description": "Attacker IP to block",
+            "type": "string"
+          },
+          "target": {
+            "description": "Target host to apply block on",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ip"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Disable a compromised AD user account",
+      "name": "disable_account",
+      "parameters": {
+        "properties": {
+          "domain": {
+            "description": "Domain controller IP",
+            "type": "string"
+          },
+          "username": {
+            "description": "AD username to disable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Revoke Kerberos TGT by resetting krbtgt password twice",
+      "name": "revoke_tgt",
+      "parameters": {
+        "properties": {
+          "domain": {
+            "description": "Domain controller IP",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

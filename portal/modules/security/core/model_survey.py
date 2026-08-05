@@ -25,13 +25,26 @@ Run directly:
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 BACKENDS_YAML = Path(__file__).resolve().parents[4] / "config" / "backends.yaml"
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 SWEEP_CHECKPOINT = Path("/tmp/agentic_blue_sweep.json")
 
 # Sweet spot for this rig (see CLAUDE.md — single M-series host, 7-35B fits
@@ -366,115 +379,7 @@ def print_hf_survey(candidates: list[dict], limit: int | None = 20) -> None:
 # either).
 TRUSTED_QUANTIZERS = {"bartowski", "mradermacher", "unsloth", "huihui-ai", "huihui_ai"}
 
-SEED_CANDIDATES = [
-    {
-        "requested": "josefprusa/ThinkingCap-Qwen3.6-27B-int4-AutoRound-v1",
-        "resolved_id": "Abiray/ThinkingCap-Qwen3.6-27B-Q4_K_M-GGUF",
-        "resolved_file": "ThinkingCap-Qwen3.6-27B-Q4_K_M.gguf",
-        "size_b": 27,
-        "note": (
-            "Requested repo is AutoRound int4 safetensors, NOT GGUF — "
-            "not Ollama-runnable as named. Resolved to Abiray's GGUF requant "
-            "of the same base model (Abiray already appears in our catalog)."
-        ),
-    },
-    {
-        "requested": "migtissera/Tess-4-27B",
-        "resolved_id": "migtissera/Tess-4-27B-GGUF",
-        "resolved_file": "Tess-4-27B-Q4_K_M.gguf",
-        "size_b": 27,
-        "note": (
-            "Requested repo is safetensors-only. bartowski/migtissera_Tess-4-27B-GGUF "
-            "also has a Q4_K_M quant (trusted quantizer) but its 31-file repo "
-            "manifest consistently timed out via `ollama pull` (context deadline "
-            "exceeded, reproduced 3x, blob fully downloaded each time). Verified: "
-            "the author's own smaller 8-file GGUF repo (migtissera/Tess-4-27B-GGUF) "
-            "pulls cleanly — used that instead."
-        ),
-    },
-    {
-        "requested": "TrevorS/gemma-4-abliteration (thinking family) [31B]",
-        "resolved_id": "TrevorJS/gemma-4-31B-it-uncensored-GGUF",
-        "resolved_file": "gemma-4-31B-it-uncensored-Q4_K_M.gguf",
-        "size_b": 31,
-        "note": (
-            "Corrected author: no HF author 'TrevorS' exists — this is "
-            "TrevorJS (operator-confirmed, HF collection "
-            "TrevorJS/gemma-4-uncensored). That collection ships GGUF "
-            "abliterations at E2B/E4B/12B/26B-A4B/31B. Bigger isn't "
-            "necessarily better (bench-don't-assume applies to size within "
-            "a family, not just seat-by-label) — all 3 in-band sizes "
-            "(12B/26B-A4B/31B) are queued as separate candidates below so "
-            "the sweep measures which size actually wins, rather than "
-            "assuming the largest does. Quantizer is TrevorJS (single-user)."
-        ),
-    },
-    {
-        "requested": "TrevorS/gemma-4-abliteration (thinking family) [26B-A4B]",
-        "resolved_id": "TrevorJS/gemma-4-26B-A4B-it-uncensored-GGUF",
-        "resolved_file": "gemma-4-26B-A4B-it-uncensored-Q4_K_M.gguf",
-        "size_b": 26,
-        "note": "Same family/author as the 31B entry — mid-size in-band variant, queued for a fair size comparison.",
-    },
-    {
-        "requested": "TrevorS/gemma-4-abliteration (thinking family) [12B]",
-        "resolved_id": "TrevorJS/gemma-4-12B-it-uncensored-GGUF",
-        "resolved_file": "gemma-4-12B-it-uncensored-Q4_K_M.gguf",
-        "size_b": 12,
-        "note": "Same family/author as the 31B entry — smallest in-band variant, queued for a fair size comparison.",
-    },
-    {
-        "requested": "MaralGPT/MaralGPT-Mythos-9B-2606-GGUF",
-        "resolved_id": "MaralGPT/MaralGPT-Mythos-9B-2606-GGUF",
-        "resolved_file": "MaralGPT-Mythos-9B-2606-Q4_K_M.gguf",
-        "size_b": 9,
-        "note": "GGUF exists as named. Quantizer is MaralGPT itself (single-user, not in trust list).",
-    },
-    {
-        "requested": "huihui-ai/Huihui-Ornith-1.0-9B-abliterated-MTP-GGUF",
-        "resolved_id": "huihui-ai/Huihui-Ornith-1.0-9B-abliterated-MTP-GGUF",
-        "resolved_file": "ornith-9b-mtp-kl-Q4_K_M.gguf",
-        "size_b": 9,
-        "note": (
-            "GGUF exists as named, huihui-ai is a trusted quantizer. CAUTION: "
-            "this is an MTP (multi-token-prediction) build — llama.cpp/Ollama "
-            "MTP support is unverified on this stack; preflight must confirm "
-            "it loads and emits tool_calls at all before it's benchable."
-        ),
-    },
-    {
-        "requested": "DavidAU/Qwen3.6-40B-...-Thinking-NEO-CODE-...-GGUF",
-        "resolved_id": "DavidAU/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF",
-        "resolved_file": "Qwen3.6-40B-Deck-Opus-NEO-CODE-HERE-2T-OT-Q4_K_M.gguf",
-        "local_ollama_name": "davidau-qwen36-40b-neocode",
-        "size_b": 40,
-        "note": (
-            "GGUF exists on HF (24GB Q4_K_M, verified via model_info). "
-            "`ollama pull hf.co/<repo>:<file>` rejects it client-side with "
-            "'400 Bad Request: invalid model name' — reproduced twice. "
-            "Isolated cause: the repo id is 100 characters; a shorter "
-            "DavidAU repo (40 chars) parses fine and fails later for an "
-            "unrelated reason (not-GGUF-compatible) — confirms it's a "
-            "length limit in the `hf.co` resolver path specifically, not a "
-            "download or GGUF-validity problem. WORKAROUND VERIFIED: "
-            "downloaded the file directly with `huggingface_hub."
-            "hf_hub_download` (bypasses that resolver entirely), then "
-            "`ollama create davidau-qwen36-40b-neocode -f Modelfile` with "
-            "`FROM <local-path>` — this local-registration path has no "
-            "repo-name length check. Result: 'success', tool-calling "
-            "preflight PASSED. Still bench with caution: 40B is above the "
-            "7-35B OOM-safe sweet spot (Llama-4-Scout precedent: 57GB model "
-            "crashed the machine) — load solo, watch Metal memory."
-        ),
-    },
-    {
-        "requested": "HauhauCS/Gemma4-12B-QAT-Uncensored-...-GGUF",
-        "resolved_id": "HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced",
-        "resolved_file": "Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-Q4_K_M.gguf",
-        "size_b": 12,
-        "note": "Actual repo id has no '-GGUF' suffix but ships a GGUF quant. Quantizer is HauhauCS (single-user).",
-    },
-]
+SEED_CANDIDATES = _load_data("model_survey_seed_candidates")
 
 
 def resolve_seed_candidates() -> list[dict]:

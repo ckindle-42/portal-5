@@ -16,10 +16,18 @@ import os
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def unwrap_mcp_stdout(raw: str) -> str:
@@ -54,36 +62,7 @@ def unwrap_mcp_stdout(raw: str) -> str:
 # filters as-is — Splunk's default key=value auto-extraction only works if we
 # ship it already normalized to EventCode=/TicketEncryptionType=/etc.
 _WINDOWS_EVENT_FIELD_PATTERNS: dict[str, list[tuple[str, str]]] = {
-    "4769": [  # Kerberoasting (T1558.003)
-        ("TicketEncryptionType", r"Ticket Encryption Type:[ \t]*(\S+)"),
-        ("ServiceName", r"Service Name:[ \t]*(\S+)"),
-        ("Account", r"Account Name:[ \t]*(\S+)"),
-    ],
-    "4768": [  # AS-REP roasting (T1558.004)
-        ("PreAuthType", r"Pre-Authentication Type:[ \t]*(\S+)"),
-        ("Account", r"Account Name:[ \t]*(\S+)"),
-    ],
-    "4662": [  # DCSync (T1003.006)
-        ("Properties", r"Properties:[ \t]*(\S.*)"),
-        ("Account", r"Account Name:[ \t]*(\S+)"),
-    ],
-    "4698": [  # Scheduled task persistence (T1053.005)
-        ("TaskName", r"Task Name:[ \t]*(\S.*)"),
-        ("Account", r"Account Name:[ \t]*(\S+)"),
-    ],
-    "4625": [  # Failed logon (T1110.003, password spray)
-        ("IpAddress", r"Source Network Address:[ \t]*(\S+)"),
-        ("Account", r"Account Name:[ \t]*(\S+)"),
-    ],
-    "4771": [  # Kerberos pre-auth failed (T1110.003, password spray)
-        ("IpAddress", r"Client Address:[ \t]*(\S+)"),
-        ("Account", r"Account Name:[ \t]*(\S+)"),
-    ],
-    "4688": [  # Process creation (T1059/T1059.004/T1548.001/T1068 command exec + privesc)
-        ("NewProcessName", r"New Process Name:[ \t]*(\S.*)"),
-        ("CommandLine", r"Process Command Line:[ \t]*(\S.*)"),
-        ("Account", r"Account Name:[ \t]*(\S+)"),
-    ],
+    k: [(a, b) for a, b in v] for k, v in _load_data("collect_windows_event_field_patterns").items()
 }
 
 

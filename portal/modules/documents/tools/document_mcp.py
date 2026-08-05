@@ -1,3 +1,5 @@
+import json
+
 """
 Document Tools MCP Server
 Exposes Word, PowerPoint, and Excel document creation as MCP tools.
@@ -12,8 +14,20 @@ import os
 import re
 import uuid
 from pathlib import Path
+from typing import Any
 
 from mcp.server import MCPServer
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 from starlette.responses import FileResponse, JSONResponse
 
 port = int(os.getenv("DOCUMENTS_MCP_PORT", "8913"))
@@ -47,151 +61,7 @@ async def serve_generated_file(request):
 
 
 # Tool manifest for discovery
-TOOLS_MANIFEST = [
-    {
-        "name": "create_word_document",
-        "description": "Create a Word document",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string",
-                    "description": "Document content (markdown supported)",
-                },
-                "title": {"type": "string", "description": "Document title"},
-            },
-            "required": ["content"],
-        },
-    },
-    {
-        "name": "create_powerpoint",
-        "description": "Create a PowerPoint presentation",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "slides": {"type": "array", "description": "List of slide content"},
-                "title": {"type": "string", "description": "Presentation title"},
-            },
-            "required": ["slides"],
-        },
-    },
-    {
-        "name": "create_excel",
-        "description": "Create an Excel spreadsheet",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "data": {"type": "array", "description": "Array of rows"},
-                "sheet_name": {"type": "string", "description": "Sheet name"},
-            },
-            "required": ["data"],
-        },
-    },
-    {
-        "name": "convert_document",
-        "description": "Convert between document formats using pandoc",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "source_path": {
-                    "type": "string",
-                    "description": "Path to source file (.docx, .pptx, .xlsx, or .pdf)",
-                },
-                "target_format": {
-                    "type": "string",
-                    "description": "Target format: 'pdf', 'docx', 'pptx', or 'xlsx'",
-                },
-            },
-            "required": ["source_path", "target_format"],
-        },
-    },
-    {
-        "name": "list_generated_files",
-        "description": "List recently generated documents in the output directory. "
-        "Use this to find files created by other tools.",
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-        },
-    },
-    {
-        "name": "read_word_document",
-        "description": "Extract text content and structure from an existing Word (.docx) file. "
-        "Returns headings, paragraphs, and table data.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "file_path": {
-                    "type": "string",
-                    "description": "Absolute path to the .docx file to read",
-                },
-                "include_tables": {
-                    "type": "boolean",
-                    "description": "Whether to include table cell content (default true)",
-                },
-            },
-            "required": ["file_path"],
-        },
-    },
-    {
-        "name": "read_excel",
-        "description": "Extract data from an existing Excel (.xlsx) spreadsheet. "
-        "Returns sheet names and row data for each sheet.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "file_path": {
-                    "type": "string",
-                    "description": "Absolute path to the .xlsx file to read",
-                },
-                "max_rows": {
-                    "type": "integer",
-                    "description": "Maximum rows to return per sheet (default 500)",
-                },
-            },
-            "required": ["file_path"],
-        },
-    },
-    {
-        "name": "read_powerpoint",
-        "description": "Extract text and speaker notes from an existing PowerPoint (.pptx) file. "
-        "Returns slide titles, content, and notes.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "file_path": {
-                    "type": "string",
-                    "description": "Absolute path to the .pptx file to read",
-                },
-            },
-            "required": ["file_path"],
-        },
-    },
-    {
-        "name": "read_pdf",
-        "description": "Extract text content from an existing PDF file page by page. "
-        "Also extracts tables when present. Requires pdfplumber.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "file_path": {
-                    "type": "string",
-                    "description": "Absolute path to the .pdf file to read",
-                },
-                "max_pages": {
-                    "type": "integer",
-                    "description": "Maximum pages to extract (default 50, 0 = all)",
-                },
-                "include_tables": {
-                    "type": "boolean",
-                    "description": "Whether to extract table data alongside text (default true)",
-                },
-            },
-            "required": ["file_path"],
-        },
-    },
-]
+TOOLS_MANIFEST = _load_data("tools_manifest_document_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

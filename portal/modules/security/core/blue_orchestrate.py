@@ -14,8 +14,10 @@ Reuses (never re-implements):
 from __future__ import annotations
 
 import contextlib
+import json
 import re
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any
 
 from .agentic_blue_eval import (
@@ -37,6 +39,16 @@ from .multichain import ChainResult
 from .multichain import consolidate as _consolidate_chains
 from .multichain import to_section_output as _consolidation_to_section_output
 from .unknown_defense import MatchGrade, compute_similarity
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
 
 # Live-verified finding (Slice 7/8 pre-screen, 2026-07-17): 3000 tokens is
 # tight enough that a heavy chain-of-thought reasoning model (observed on
@@ -105,138 +117,7 @@ def _retrieval_tool_schemas() -> list[dict]:
 # chose to call `emit_verdict` or `escalate_anomalous`, not a heuristic
 # over its prose.
 
-_BARRIER_TOOL_SCHEMAS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "emit_verdict",
-            "description": (
-                "Emit a conclusive verdict. Use CONFIRMED when the evidence "
-                "supports a specific known MITRE technique in an adversarial "
-                "or unauthorized context; a dual-use primitive alone is not "
-                "enough. Use RULED_OUT "
-                "when the evidence, examined honestly, does not support the "
-                "hypothesis being investigated. If you saw signal but cannot "
-                "map it exactly to a known technique, do NOT emit CONFIRMED — "
-                "use escalate_anomalous instead."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "verdict": {
-                        "type": "string",
-                        "enum": ["CONFIRMED", "RULED_OUT"],
-                    },
-                    "technique_ids": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": (
-                            "MITRE technique IDs (T####.### form). Required "
-                            "when verdict is CONFIRMED; must be [] when "
-                            "RULED_OUT."
-                        ),
-                    },
-                    "evidence": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": (
-                            "Verbatim citations from the gathered telemetry. "
-                            "Every entry must be something you can point to "
-                            "in the evidence you were given — never a typical "
-                            "detail invented from the technique."
-                        ),
-                    },
-                    "reasoning": {"type": "string"},
-                    "match_grade": {
-                        "type": "string",
-                        "enum": ["EXACT", "NONE"],
-                        "description": (
-                            "EXACT when the evidence matches the named "
-                            "technique(s) directly; NONE when RULED_OUT. "
-                            "SIMILAR is not valid here — use "
-                            "escalate_anomalous for variant/novel matches."
-                        ),
-                    },
-                },
-                "required": ["verdict", "technique_ids", "evidence", "reasoning", "match_grade"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "escalate_anomalous",
-            "description": (
-                "Emit ANOMALOUS_UNCLASSIFIED — signal was present in the "
-                "evidence but you cannot map it exactly to a known technique. "
-                "This is a first-class success outcome for this investigation, "
-                "not a fallback. Use this only for a cited unexplained "
-                "deviation or conflict, not merely because legitimate dual-use "
-                "activity could theoretically be abused. Use it when you see something worth "
-                "surfacing to a human analyst that does not fit a known "
-                "signature — the emerging-threat case."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "reasoning": {
-                        "type": "string",
-                        "description": (
-                            "Why this is anomalous — what pattern you saw, "
-                            "and why it doesn't fit a known technique."
-                        ),
-                    },
-                    "similar_to": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": (
-                            "Nearest known techniques (T####.### form) — the "
-                            "SIMILAR-neighbours, for downstream review. May "
-                            "be [] if truly nothing close."
-                        ),
-                    },
-                    "evidence": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": (
-                            "The verbatim telemetry citations that support "
-                            "this being anomalous. Same grounding rule as "
-                            "emit_verdict."
-                        ),
-                    },
-                },
-                "required": ["reasoning", "similar_to", "evidence"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "request_more",
-            "description": (
-                "Explicit continuation — you need more telemetry before you "
-                "can render one of the barrier verdicts above. Name the "
-                "specific gap (EventCode, field, source) — never a generic "
-                "re-ask. Not emitting a tool call at all is not the same as "
-                "requesting more; if you do not call one of these three, "
-                "your turn contributes nothing to the investigation."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "what": {
-                        "type": "string",
-                        "description": (
-                            "Exact telemetry gap: EventCode, field, source, "
-                            "or technique-family you still need to see."
-                        ),
-                    },
-                },
-                "required": ["what"],
-            },
-        },
-    },
-]
+_BARRIER_TOOL_SCHEMAS = _load_data("blue_orchestrate_barrier_tool_schemas")
 
 _BARRIER_TOOLS_ENABLED_ADDENDUM = (
     "\n\nYou have three tools available: emit_verdict (for CONFIRMED or "

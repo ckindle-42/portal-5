@@ -1,3 +1,7 @@
+import json
+from pathlib import Path
+from typing import Any
+
 """
 ComfyUI MCP Server
 Wraps the ComfyUI workflow API as MCP tools.
@@ -16,6 +20,16 @@ import uuid
 import httpx
 from mcp.server import MCPServer
 from starlette.responses import JSONResponse
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
 
 from portal.modules.media.tools._admission import admit
 
@@ -65,110 +79,7 @@ async def health_check(request):
 
 
 # Tool manifest for discovery
-TOOLS_MANIFEST = [
-    {
-        "name": "start_image_generation",
-        "description": (
-            "Start image generation and return immediately with a job_id. "
-            "Use this for OWUI/chat — generation takes 1-40 min depending on model. "
-            "Follow up with get_image_status(job_id) to retrieve the result."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {"type": "string", "description": "Text description of the image"},
-                "model": {
-                    "type": "string",
-                    "description": (
-                        "Model: 'flux', 'flux-uncensored', 'sdxl', 'qwen-image-2512', "
-                        "'qwen-image-2512-lightning', 'qwen-image-edit-2509', or "
-                        "'qwen-image-edit-2511'"
-                    ),
-                    "default": "flux",
-                },
-                "image_url": {
-                    "type": "string",
-                    "description": "Reference image URL/path required by qwen-image-edit models",
-                    "default": "",
-                },
-                "width": {"type": "integer", "default": 1024},
-                "height": {"type": "integer", "default": 1024},
-                "steps": {"type": "integer", "default": 4},
-                "cfg": {"type": "number", "default": 1.0},
-                "negative_prompt": {"type": "string", "default": ""},
-                "seed": {"type": "integer", "default": -1},
-            },
-            "required": ["prompt"],
-        },
-    },
-    {
-        "name": "get_image_status",
-        "description": "Check status of an image generation job. Returns URL when complete.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "job_id": {"type": "string", "description": "job_id from start_image_generation"},
-            },
-            "required": ["job_id"],
-        },
-    },
-    {
-        "name": "get_latest_images",
-        "description": "Get the most recently generated images from ComfyUI.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "count": {
-                    "type": "integer",
-                    "description": "Number of images to return",
-                    "default": 5,
-                },
-            },
-        },
-    },
-    {
-        "name": "generate_image",
-        "description": (
-            "Generate an image and block until complete. WARNING: takes 1-40 minutes. "
-            "Prefer start_image_generation for interactive use."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {"type": "string"},
-                "model": {"type": "string", "default": "flux"},
-                "image_url": {
-                    "type": "string",
-                    "description": "Reference image URL/path required by qwen-image-edit models",
-                    "default": "",
-                },
-                "width": {"type": "integer", "default": 1024},
-                "height": {"type": "integer", "default": 1024},
-                "steps": {"type": "integer", "default": 4},
-                "cfg": {"type": "number", "default": 1.0},
-                "negative_prompt": {"type": "string", "default": ""},
-                "seed": {"type": "integer", "default": -1},
-            },
-            "required": ["prompt"],
-        },
-    },
-    {
-        "name": "list_workflows",
-        "description": "List available ComfyUI workflows",
-        "parameters": {"type": "object", "properties": {}},
-    },
-    {
-        "name": "get_generation_status",
-        "description": "Check the status of a generation task (legacy — prefer get_image_status)",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "task_id": {"type": "string", "description": "The task ID to check"},
-            },
-            "required": ["task_id"],
-        },
-    },
-]
+TOOLS_MANIFEST = _load_data("tools_manifest_comfyui_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])
@@ -273,64 +184,7 @@ IMAGE_BACKEND = os.getenv("IMAGE_BACKEND", "flux")  # "flux", "flux-uncensored",
 #   9: VAEDecode → image[0]  ← samples[8,0], vae[3,0]
 #  10: SaveImage
 # All filenames are set dynamically at runtime from env vars (see generate_image).
-FLUX_WORKFLOW = {
-    "1": {
-        "inputs": {"ckpt_name": "flux1-schnell.safetensors"},
-        "class_type": "CheckpointLoaderSimple",
-    },
-    "2": {
-        "inputs": {
-            "clip_name1": "text_encoder/model.safetensors",
-            "clip_name2": "text_encoder_2/model-00001-of-00002.safetensors",
-            "type": "flux",
-        },
-        "class_type": "DualCLIPLoader",
-    },
-    "3": {
-        "inputs": {"vae_name": "ae.safetensors"},
-        "class_type": "VAELoader",
-    },
-    "4": {
-        "inputs": {"text": "", "clip": ["2", 0]},
-        "class_type": "CLIPTextEncode",
-    },
-    "5": {
-        # Empty negative — KSampler requires a conditioning tensor, not empty string.
-        "inputs": {"text": "", "clip": ["2", 0]},
-        "class_type": "CLIPTextEncode",
-    },
-    "6": {
-        "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
-        "class_type": "EmptyLatentImage",
-    },
-    "7": {
-        "inputs": {"conditioning": ["4", 0], "guidance": 3.5},
-        "class_type": "FluxGuidance",
-    },
-    "8": {
-        "inputs": {
-            "seed": 42,
-            "steps": 4,
-            "cfg": 1.0,
-            "sampler_name": "euler",
-            "scheduler": "simple",
-            "model": ["1", 0],
-            "positive": ["7", 0],
-            "negative": ["5", 0],
-            "latent_image": ["6", 0],
-            "denoise": 1,
-        },
-        "class_type": "KSampler",
-    },
-    "9": {
-        "inputs": {"samples": ["8", 0], "vae": ["3", 0]},
-        "class_type": "VAEDecode",
-    },
-    "10": {
-        "inputs": {"filename_prefix": "portal_", "images": ["9", 0]},
-        "class_type": "SaveImage",
-    },
-}
+FLUX_WORKFLOW = _load_data("comfyui_mcp_flux_workflow")
 
 # SDXL workflow template - uses EmptyLatentImage and has negative prompt
 # ComfyUI v0.16: node IDs must be strings (not integers), connections as [node_id, output_index]

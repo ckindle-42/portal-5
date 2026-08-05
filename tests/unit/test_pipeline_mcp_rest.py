@@ -27,6 +27,13 @@ _SRC_PATH = (
 )
 _SRC = _SRC_PATH.read_text()
 
+_DATA_PATH = (
+    pathlib.Path(__file__).resolve().parents[2]
+    / "config"
+    / "inference"
+    / "pipeline_mcp_tools_manifest.json"
+)
+
 EXPECTED_TOOLS = {
     "get_pipeline_status",
     "list_workspaces",
@@ -43,8 +50,12 @@ EXPECTED_TOOLS = {
 
 
 def _manifest_names() -> set[str]:
-    block = _SRC.split("TOOLS_MANIFEST")[1].split("@mcp.custom_route")[0]
-    return set(re.findall(r'"name":\s*"([a-z_]+)"', block))
+    # C2 of TASK_PORTAL_SIMPLIFY_V1 extracted the inline TOOLS_MANIFEST
+    # literal to config/inference/pipeline_mcp_tools_manifest.json; the
+    # parity guard now reads the data file instead of the source text.
+    import json
+
+    return {t["name"] for t in json.loads(_DATA_PATH.read_text())}
 
 
 def _tool_names() -> set[str]:

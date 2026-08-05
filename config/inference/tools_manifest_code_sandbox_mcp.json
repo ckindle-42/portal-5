@@ -1,0 +1,95 @@
+[
+  {
+    "description": "Execute Python code in an isolated Docker container",
+    "name": "execute_python",
+    "parameters": {
+      "properties": {
+        "code": {
+          "description": "Python code to execute",
+          "type": "string"
+        },
+        "timeout": {
+          "default": 30,
+          "description": "Timeout in seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Execute Node.js code in an isolated Docker container",
+    "name": "execute_nodejs",
+    "parameters": {
+      "properties": {
+        "code": {
+          "description": "Node.js code to execute",
+          "type": "string"
+        },
+        "timeout": {
+          "default": 30,
+          "description": "Timeout in seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Execute Bash commands in an isolated Docker container",
+    "name": "execute_bash",
+    "parameters": {
+      "properties": {
+        "command": {
+          "description": "Bash command to execute",
+          "type": "string"
+        },
+        "timeout": {
+          "default": 30,
+          "description": "Timeout in seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Execute a PowerShell script in an isolated Docker container (pwsh on Alpine)",
+    "name": "execute_powershell",
+    "parameters": {
+      "properties": {
+        "code": {
+          "description": "PowerShell script to execute",
+          "type": "string"
+        },
+        "timeout": {
+          "default": 60,
+          "description": "Timeout in seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Check if the code sandbox (Docker/DinD) is available",
+    "name": "sandbox_status",
+    "parameters": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    }
+  }
+]

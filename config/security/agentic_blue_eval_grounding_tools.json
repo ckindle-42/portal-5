@@ -1,0 +1,40 @@
+[
+  {
+    "function": {
+      "description": "Look up the known evidence signature for a specific MITRE ATT&CK technique ID from the detection library, to confirm or refute a hypothesis before calling report_detection.",
+      "name": "lookup_technique_signature",
+      "parameters": {
+        "properties": {
+          "technique_id": {
+            "description": "MITRE technique ID, e.g. T1558.003",
+            "type": "string"
+          }
+        },
+        "required": [
+          "technique_id"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Search the detection library for the technique whose known evidence signature best matches a free-text description of what you observed. Use this when you see suspicious activity but are not sure of the exact sub-technique ID \u2014 do not guess from memory.",
+      "name": "search_similar_techniques",
+      "parameters": {
+        "properties": {
+          "evidence_description": {
+            "description": "Free-text description of observed evidence (process names, event IDs, ports, behaviors)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_description"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

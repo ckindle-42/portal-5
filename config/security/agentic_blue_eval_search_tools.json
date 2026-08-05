@@ -1,0 +1,111 @@
+[
+  {
+    "function": {
+      "description": "Run a free-form SPL query against the Splunk SIEM.",
+      "name": "query_splunk",
+      "parameters": {
+        "properties": {
+          "spl_query": {
+            "description": "SPL search query",
+            "type": "string"
+          },
+          "time_range": {
+            "default": "15m",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spl_query"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Query Windows Security event logs.",
+      "name": "query_windows_events",
+      "parameters": {
+        "properties": {
+          "event_ids": {
+            "description": "Event IDs to fetch",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "event_ids"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Query web server access logs.",
+      "name": "query_web_logs",
+      "parameters": {
+        "properties": {
+          "filter": {
+            "description": "Optional filter",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Query network flow data.",
+      "name": "query_network_traffic",
+      "parameters": {
+        "properties": {
+          "filter": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Report a confirmed detection.",
+      "name": "report_detection",
+      "parameters": {
+        "properties": {
+          "evidence": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "P1",
+              "P2",
+              "P3",
+              "P4"
+            ],
+            "type": "string"
+          },
+          "technique_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "technique_id",
+          "evidence"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

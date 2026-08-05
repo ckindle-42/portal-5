@@ -14,6 +14,7 @@ import json
 import re
 import shlex
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -23,6 +24,16 @@ from portal.modules.security.core.exec_chain import SCENARIOS
 from portal.modules.security.core.siem.spl_detections import (
     techniques_covered,
 )
+
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a test fixture that was a module-level literal before V1."""
+    path = _REPO_ROOT / "tests" / "data" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
 
 # ── Scenario name lists ───────────────────────────────────────────────────────
 
@@ -53,45 +64,7 @@ _META3_SCENARIOS = [
     "meta3_rdp_standard_auth",
 ]
 
-_VULHUB_EXPANSION_SCENARIOS = [
-    "vuln_struts2_rce",
-    "vuln_hugegraph_rce",
-    "vuln_confluence_rce",
-    "vuln_weblogic_rce",
-    "vuln_activemq_deserial",
-    "vuln_drupal_rce",
-    "vuln_solr_rce",
-    "vuln_grafana_lfi",
-    "vuln_tomcat_deploy",
-    "vuln_couchdb_rce",
-    "vuln_elasticsearch_rce",
-    "vuln_redis_unauth",
-    "vuln_gitlab_rce",
-    "vuln_nacos_rce",
-    "vuln_dubbo_rce",
-    "vuln_druid_rce",
-    "vuln_gitea_rce",
-    "vuln_nginx_lfi",
-    "vuln_joomla_rce",
-    "vuln_wordpress_rce",
-    "vuln_phpmyadmin_rce",
-    "vuln_spring_actuator",
-    "vuln_shellshock_rce",
-    "vuln_shiro_deserial",
-    "vuln_fastjson_rce",
-    "vuln_jackson_deserial",
-    "vuln_jimureport_rce",
-    "vuln_ajreport_rce",
-    "vuln_spring4shell_rce",
-    "vuln_nexus_rce",
-    "vuln_zabbix_rce",
-    "vuln_django_sqli",
-    "vuln_thinkphp_rce",
-    "vuln_laravel_rce",
-    "vuln_rails_rce",
-    "vuln_docker_api_rce",
-    "vuln_adminer_ssrf_recon",
-]
+_VULHUB_EXPANSION_SCENARIOS = _load_data("security_test_coverage_expand_vulhub")
 
 _ALL_NEW_SCENARIOS = _META3_SCENARIOS + _VULHUB_EXPANSION_SCENARIOS
 

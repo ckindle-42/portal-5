@@ -53,6 +53,16 @@ from .unknown_defense import (
     score_anomaly,
 )
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 # U3 baselines (benign-traffic profiles) persist here once generate_baseline() has
 # been run for a host — none exist yet in this slice, so anomaly scoring stays
 # honestly dormant ("no-baseline") rather than scoring against a fabricated one.
@@ -174,178 +184,9 @@ _TECHNIQUE_NAMES: dict[str, str] = {
     "T1110.003": "Password spray (failed logins — EventID 4625/4771)",
 }
 
-BLUE_TOOLS: list[dict] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "query_windows_events",
-            "description": (
-                "Query the Windows Security event log on the domain controller. "
-                "Returns matching event records (id, time, account, detail)."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "event_ids": {
-                        "type": "array",
-                        "items": {"type": "integer"},
-                        "description": (
-                            "Event IDs to fetch, e.g. [4769, 4768, 4662]. Omit to fetch "
-                            "recent security events broadly."
-                        ),
-                    },
-                    "max_records": {"type": "integer", "description": "Cap on records returned"},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "query_splunk",
-            "description": (
-                "Run a free-form SPL (Search Processing Language) query against the Splunk SIEM. "
-                "Use this to search for patterns, correlate events, or investigate anomalies. "
-                "Returns matching events with timestamps."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "spl_query": {
-                        "type": "string",
-                        "description": "SPL search query, e.g. 'index=* sourcetype=* EventCode=4769'",
-                    },
-                    "time_range": {
-                        "type": "string",
-                        "description": "Time range for the search, e.g. '15m', '1h', '24h'",
-                        "default": "15m",
-                    },
-                },
-                "required": ["spl_query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "query_web_logs",
-            "description": (
-                "Query web server access logs from the target environment. "
-                "Returns HTTP requests with timestamps, source IPs, URLs, and response codes."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "filter": {
-                        "type": "string",
-                        "description": "Optional filter (e.g. 'status=500', 'POST', specific IP)",
-                    },
-                    "max_records": {"type": "integer", "description": "Cap on records returned"},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "query_network_traffic",
-            "description": (
-                "Query network flow data or connection logs. Shows source/destination IPs, "
-                "ports, protocols, and connection counts. Use to identify lateral movement "
-                "or unusual traffic patterns."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "filter": {
-                        "type": "string",
-                        "description": "Optional filter (e.g. 'src=10.10.11.50', 'port=445')",
-                    },
-                    "max_records": {"type": "integer"},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "report_detection",
-            "description": (
-                "Report a confirmed detection of an adversary technique. Call once "
-                "per distinct technique observed in the telemetry."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "technique_id": {
-                        "type": "string",
-                        "description": "MITRE ATT&CK technique ID, e.g. T1558.003",
-                    },
-                    "evidence": {
-                        "type": "string",
-                        "description": "Event IDs / fields supporting it",
-                    },
-                    "severity": {"type": "string", "enum": ["P1", "P2", "P3", "P4"]},
-                },
-                "required": ["technique_id", "evidence"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "recommend_containment",
-            "description": "Recommend a containment action for a detected technique.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "technique_id": {"type": "string"},
-                    "action": {"type": "string", "description": "Specific containment step"},
-                },
-                "required": ["technique_id", "action"],
-            },
-        },
-    },
-]
+BLUE_TOOLS: list[dict] = _load_data("blue_blue_tools")
 
-_TELEMETRY_FIXTURES: dict[str, dict] = {
-    "T1558.003": {  # Kerberoasting
-        "event_ids": [4769],
-        "synthetic": (
-            "EventID=4769 TicketEncryptionType=0x17(RC4) ServiceName=svc_mssql "
-            "TicketOptions=0x40810000 Account=arya.stark@PORTAL.LAB\n"
-            "EventID=4769 TicketEncryptionType=0x17(RC4) ServiceName=svc_iis "
-            "Account=arya.stark@PORTAL.LAB"
-        ),
-    },
-    "T1558.004": {  # AS-REP roasting
-        "event_ids": [4768],
-        "synthetic": (
-            "EventID=4768 PreAuthType=0 (no pre-auth) Account=arya.stark TicketEncryptionType=0x17"
-        ),
-    },
-    "T1003.006": {  # DCSync
-        "event_ids": [4662],
-        "synthetic": (
-            "EventID=4662 Operation=DS-Replication-Get-Changes-All "
-            "Account=arya.stark Properties={1131f6ad-...}"
-        ),
-    },
-    "T1053.005": {  # Scheduled task persistence
-        "event_ids": [4698],
-        "synthetic": "EventID=4698 TaskName=\\Backdoor RunAs=SYSTEM Trigger=onlogon",
-    },
-    "T1110.003": {  # Password spray
-        "event_ids": [4625, 4771],
-        "synthetic": (
-            "EventID=4625 FailureReason=BadPassword distinct_accounts=8 "
-            "source=single_host within=60s"
-        ),
-    },
-}
+_TELEMETRY_FIXTURES: dict[str, dict] = _load_data("blue_telemetry_fixtures")
 
 
 def _build_blue_initial_prompt() -> str:

@@ -1,3 +1,5 @@
+import json
+
 """Portal 5 RAG MCP Server.
 
 Multiple knowledge bases (KBs) backed by LanceDB. Each KB:
@@ -18,11 +20,23 @@ import os
 import re
 import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 import lancedb
 import pyarrow as pa
 from mcp.server import MCPServer
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_data(name: str) -> Any:
+    """Load a data file that was a module-level literal before V1."""
+    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -119,103 +133,7 @@ async def health(request):
         return JSONResponse({"status": "degraded", "error": str(e)})
 
 
-TOOLS_MANIFEST = [
-    {
-        "name": "kb_list",
-        "description": "List all available knowledge bases (KBs) and their document counts.",
-        "parameters": {"type": "object", "properties": {}, "required": []},
-    },
-    {
-        "name": "kb_search",
-        "description": "Search a specific knowledge base. Returns top relevant chunks with source file and similarity score. Use kb_list first to find available KB IDs. query_type: vector (semantic, default), fts (BM25 keyword — exact terms/IDs), hybrid (both, RRF-fused). fts/hybrid require the KB to be ingested with fts=true.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "kb_id": {"type": "string", "description": "Knowledge base identifier"},
-                "query": {"type": "string"},
-                "top_k": {"type": "integer", "default": 5, "minimum": 1, "maximum": 20},
-                "query_type": {
-                    "type": "string",
-                    "enum": ["vector", "fts", "hybrid"],
-                    "default": "vector",
-                },
-            },
-            "required": ["kb_id", "query"],
-        },
-    },
-    {
-        "name": "kb_search_all",
-        "description": "Search across all knowledge bases simultaneously. Useful when the user's question may match multiple KBs. query_type: vector (default), fts, hybrid; KBs without an FTS index transparently fall back to vector.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string"},
-                "top_k": {"type": "integer", "default": 5, "minimum": 1, "maximum": 20},
-                "query_type": {
-                    "type": "string",
-                    "enum": ["vector", "fts", "hybrid"],
-                    "default": "vector",
-                },
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "kb_ingest",
-        "description": "Admin: ingest files from a directory into a knowledge base. Reads .md, .txt, .pdf, .docx, .pptx, .xlsx, .html, .htm, .epub files (Docling-first extraction with pypdf/python-docx fallback). Run via curl or as setup; not typically called from chat.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "kb_id": {"type": "string"},
-                "source_dir": {
-                    "type": "string",
-                    "description": "Absolute path to directory of source files",
-                },
-                "rebuild": {
-                    "type": "boolean",
-                    "description": "Drop existing chunks and reingest",
-                    "default": False,
-                },
-                "fts": {
-                    "type": "boolean",
-                    "description": "Build a native Lance BM25 full-text index after ingest (enables query_type fts/hybrid on this KB)",
-                    "default": False,
-                },
-            },
-            "required": ["kb_id", "source_dir"],
-        },
-    },
-    {
-        "name": "kb_optimize",
-        "description": "Admin: build an IVF_PQ vector index on a KB for faster search. Skipped automatically for KBs under 256 chunks (brute-force is already fast). Run after large ingests.",
-        "parameters": {
-            "type": "object",
-            "properties": {"kb_id": {"type": "string"}},
-            "required": ["kb_id"],
-        },
-    },
-    {
-        "name": "kb_versions",
-        "description": "List a KB's LanceDB version history and named tags (e.g. automatic pre-rebuild tags). Use with kb_restore to roll back.",
-        "parameters": {
-            "type": "object",
-            "properties": {"kb_id": {"type": "string"}},
-            "required": ["kb_id"],
-        },
-    },
-    {
-        "name": "kb_restore",
-        "description": "Admin: restore a KB to an earlier LanceDB version (see kb_versions). The restore itself is a new version, so it can be undone.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "kb_id": {"type": "string"},
-                "version": {"type": "integer", "description": "Version number from kb_versions"},
-            },
-            "required": ["kb_id", "version"],
-        },
-    },
-]
+TOOLS_MANIFEST = _load_data("tools_manifest_rag_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

@@ -1,0 +1,172 @@
+[
+  {
+    "description": "Create a Word document",
+    "name": "create_word_document",
+    "parameters": {
+      "properties": {
+        "content": {
+          "description": "Document content (markdown supported)",
+          "type": "string"
+        },
+        "title": {
+          "description": "Document title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Create a PowerPoint presentation",
+    "name": "create_powerpoint",
+    "parameters": {
+      "properties": {
+        "slides": {
+          "description": "List of slide content",
+          "type": "array"
+        },
+        "title": {
+          "description": "Presentation title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slides"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Create an Excel spreadsheet",
+    "name": "create_excel",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "Array of rows",
+          "type": "array"
+        },
+        "sheet_name": {
+          "description": "Sheet name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Convert between document formats using pandoc",
+    "name": "convert_document",
+    "parameters": {
+      "properties": {
+        "source_path": {
+          "description": "Path to source file (.docx, .pptx, .xlsx, or .pdf)",
+          "type": "string"
+        },
+        "target_format": {
+          "description": "Target format: 'pdf', 'docx', 'pptx', or 'xlsx'",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_path",
+        "target_format"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "List recently generated documents in the output directory. Use this to find files created by other tools.",
+    "name": "list_generated_files",
+    "parameters": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Extract text content and structure from an existing Word (.docx) file. Returns headings, paragraphs, and table data.",
+    "name": "read_word_document",
+    "parameters": {
+      "properties": {
+        "file_path": {
+          "description": "Absolute path to the .docx file to read",
+          "type": "string"
+        },
+        "include_tables": {
+          "description": "Whether to include table cell content (default true)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Extract data from an existing Excel (.xlsx) spreadsheet. Returns sheet names and row data for each sheet.",
+    "name": "read_excel",
+    "parameters": {
+      "properties": {
+        "file_path": {
+          "description": "Absolute path to the .xlsx file to read",
+          "type": "string"
+        },
+        "max_rows": {
+          "description": "Maximum rows to return per sheet (default 500)",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Extract text and speaker notes from an existing PowerPoint (.pptx) file. Returns slide titles, content, and notes.",
+    "name": "read_powerpoint",
+    "parameters": {
+      "properties": {
+        "file_path": {
+          "description": "Absolute path to the .pptx file to read",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Extract text content from an existing PDF file page by page. Also extracts tables when present. Requires pdfplumber.",
+    "name": "read_pdf",
+    "parameters": {
+      "properties": {
+        "file_path": {
+          "description": "Absolute path to the .pdf file to read",
+          "type": "string"
+        },
+        "include_tables": {
+          "description": "Whether to extract table data alongside text (default true)",
+          "type": "boolean"
+        },
+        "max_pages": {
+          "description": "Maximum pages to extract (default 50, 0 = all)",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "type": "object"
+    }
+  }
+]

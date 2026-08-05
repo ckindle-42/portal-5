@@ -1,0 +1,62 @@
+[
+  {
+    "description": "Convert text to speech. Returns path to generated audio file.",
+    "name": "speak",
+    "parameters": {
+      "properties": {
+        "backend": {
+          "default": "",
+          "description": "Force specific backend: 'kokoro' or 'fish_speech'",
+          "type": "string"
+        },
+        "speed": {
+          "default": 1.0,
+          "description": "Speech rate (0.5-2.0, default 1.0)",
+          "type": "number"
+        },
+        "text": {
+          "description": "The text to convert to speech",
+          "type": "string"
+        },
+        "voice": {
+          "default": "af_heart",
+          "description": "Voice name (kokoro: af_heart, af_sky, am_adam, bf_emma, bm_george)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Clone a voice from reference audio and speak text with it. Requires fish-speech to be installed.",
+    "name": "clone_voice",
+    "parameters": {
+      "properties": {
+        "reference_audio": {
+          "description": "Path to 5-30 second reference audio file",
+          "type": "string"
+        },
+        "text": {
+          "description": "Text to speak with the cloned voice",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reference_audio",
+        "text"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "List available voices for text-to-speech.",
+    "name": "list_voices",
+    "parameters": {
+      "properties": {},
+      "type": "object"
+    }
+  }
+]

@@ -6,7 +6,7 @@ sources:
 - type: code
   path: tests/benchmarks/bench_candidates_v10.py
   commit: f09fdb85
-last_generated_commit: f09fdb85
+last_generated_commit: 44337398432f63b63bd77ff750552c81dc7b7cc2
 claims: []
 confidence: high
 tags:

@@ -1,0 +1,122 @@
+[
+  {
+    "cell_id": "p5n001",
+    "events": [
+      "EventCode=4624 LogonType=2 TargetUserName=jsmith AuthenticationPackageName=Negotiate Status=0x0 WorkstationName=WS17",
+      "EventCode=4672 SubjectUserName=jsmith PrivilegeList=SeChangeNotifyPrivilege",
+      "EventCode=4634 LogonType=2 TargetUserName=jsmith"
+    ],
+    "host": "workstation-17",
+    "sourcetype": "windows:security"
+  },
+  {
+    "cell_id": "p5n002",
+    "events": [
+      "EventCode=4768 TargetUserName=svc_backup PreAuthType=2 Status=0x0 TicketEncryptionType=0x12 IpAddress=10.10.20.15",
+      "EventCode=4769 TargetUserName=svc_backup ServiceName=cifs/fileserver TicketEncryptionType=0x12 Status=0x0",
+      "EventCode=4624 LogonType=3 TargetUserName=svc_backup WorkstationName=BACKUP01 Status=0x0"
+    ],
+    "host": "ad-dc-01",
+    "sourcetype": "windows:security"
+  },
+  {
+    "cell_id": "p5n003",
+    "events": [
+      "10.10.30.12 - monitor [26/Jul/2026:04:10:01 +0000] \"GET /health HTTP/1.1\" 200 18 \"-\" \"kube-probe/1.34\"",
+      "10.10.30.21 - api_user [26/Jul/2026:04:10:03 +0000] \"GET /api/v1/users?page=1&limit=25 HTTP/1.1\" 200 842 \"-\" \"portal-client/5.0\"",
+      "10.10.30.21 - api_user [26/Jul/2026:04:10:04 +0000] \"GET /api/v1/users/42 HTTP/1.1\" 200 96 \"-\" \"portal-client/5.0\""
+    ],
+    "host": "web-prod-02",
+    "sourcetype": "web:access"
+  },
+  {
+    "cell_id": "p5n004",
+    "events": [
+      "10.10.30.33 - analyst [26/Jul/2026:04:12:01 +0000] \"POST /search HTTP/1.1\" 200 1337 \"https://portal/search\" \"Mozilla/5.0\" query=\"quarterly report\"",
+      "10.10.30.33 - analyst [26/Jul/2026:04:12:04 +0000] \"GET /reports/quarterly-summary.pdf HTTP/1.1\" 200 48211 \"https://portal/search\" \"Mozilla/5.0\"",
+      "10.10.30.12 - monitor [26/Jul/2026:04:12:06 +0000] \"GET /ready HTTP/1.1\" 200 18 \"-\" \"kube-probe/1.34\""
+    ],
+    "host": "web-prod-02",
+    "sourcetype": "web:access"
+  },
+  {
+    "cell_id": "p5n005",
+    "events": [
+      "type=USER_CMD msg=audit(1785039301.100:4401): pid=8221 uid=1001 auid=1001 ses=44 subj=unconfined msg=\"cwd=/home/admin cmd=/usr/bin/sudo /usr/bin/apt-get update terminal=pts/2 res=success\"",
+      "type=EXECVE msg=audit(1785039301.120:4402): argc=2 a0=\"/usr/bin/apt-get\" a1=\"update\"",
+      "type=USER_END msg=audit(1785039310.100:4403): pid=8221 uid=0 auid=1001 ses=44 res=success"
+    ],
+    "host": "linux-app-03",
+    "sourcetype": "linux:auditd"
+  },
+  {
+    "cell_id": "p5n006",
+    "events": [
+      "type=EXECVE msg=audit(1785039401.100:4501): argc=4 a0=\"/usr/bin/tar\" a1=\"-czf\" a2=\"/var/backups/app.tgz\" a3=\"/srv/app\" auid=0 uid=0",
+      "type=SYSCALL msg=audit(1785039401.110:4502): arch=c000003e syscall=59 success=yes exe=\"/usr/bin/tar\" key=\"nightly-backup\" auid=0 uid=0",
+      "type=SERVICE_START msg=audit(1785039410.100:4503): pid=1 uid=0 auid=4294967295 msg=\"unit=backup.service comm=systemd res=success\""
+    ],
+    "host": "linux-app-03",
+    "sourcetype": "linux:auditd"
+  },
+  {
+    "cell_id": "p5n007",
+    "events": [
+      "EventCode=4698 TaskName=\\Microsoft\\Windows\\EnterpriseMgmt\\HealthCheck Author=SYSTEM SubjectUserName=SCCM-SERVER$ TaskContent=deviceenroller.exe Schedule=PT1H ChangeTicket=CHG-2026-0712",
+      "EventCode=4688 NewProcessName=C:\\Windows\\System32\\deviceenroller.exe ParentProcessName=C:\\Windows\\System32\\svchost.exe CommandLine=deviceenroller.exe /c /AutoEnrollMDM Signature=Microsoft SubjectUserName=SYSTEM",
+      "EventCode=4699 TaskName=\\Microsoft\\Windows\\EnterpriseMgmt\\HealthCheck SubjectUserName=SCCM-SERVER$ Result=maintenance-complete ChangeTicket=CHG-2026-0712"
+    ],
+    "host": "workstation-22",
+    "sourcetype": "windows:security"
+  },
+  {
+    "cell_id": "p5n008",
+    "events": [
+      "EventCode=4624 LogonType=3 TargetUserName=SCCM-SERVER$ AuthenticationPackageName=Kerberos IpAddress=10.10.40.20 Status=0x0 Purpose=approved-inventory",
+      "EventCode=4688 NewProcessName=C:\\Windows\\System32\\wbem\\WmiPrvSE.exe ParentProcessName=C:\\Windows\\System32\\svchost.exe CommandLine=WmiPrvSE.exe -secured -Embedding Initiator=SCCM InventoryJob=INV-8842",
+      "EventCode=4634 LogonType=3 TargetUserName=SCCM-SERVER$ SessionResult=success InventoryJob=INV-8842"
+    ],
+    "host": "workstation-23",
+    "sourcetype": "windows:security"
+  },
+  {
+    "cell_id": "p5n009",
+    "events": [
+      "10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:01 +0000] \"GET /docs/migration-v7 HTTP/1.1\" 200 18231 \"-\" \"qa-link-checker/2.1\" run=QA-443",
+      "10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:02 +0000] \"GET /docs/retired-endpoint HTTP/1.1\" 404 211 \"-\" \"qa-link-checker/2.1\" run=QA-443",
+      "10.10.50.18 - qa_linkcheck [30/Jul/2026:03:15:03 +0000] \"GET /robots.txt HTTP/1.1\" 200 94 \"-\" \"qa-link-checker/2.1\" run=QA-443"
+    ],
+    "host": "docs-prod-01",
+    "sourcetype": "web:access"
+  },
+  {
+    "cell_id": "p5n010",
+    "events": [
+      "10.10.60.11 - deploy_bot [30/Jul/2026:03:20:01 +0000] \"POST /api/admin/cache/warm HTTP/1.1\" 202 38 \"-\" \"portal-deployer/8.0\" auth=mtls change=CHG-2026-0730",
+      "10.10.60.11 - deploy_bot [30/Jul/2026:03:20:03 +0000] \"GET /api/admin/cache/status HTTP/1.1\" 200 76 \"-\" \"portal-deployer/8.0\" auth=mtls change=CHG-2026-0730",
+      "10.10.60.12 - monitor [30/Jul/2026:03:20:05 +0000] \"GET /ready HTTP/1.1\" 200 18 \"-\" \"kube-probe/1.34\""
+    ],
+    "host": "api-prod-04",
+    "sourcetype": "web:access"
+  },
+  {
+    "cell_id": "p5n011",
+    "events": [
+      "type=USER_CMD msg=audit(1785381901.100:4601): pid=9221 uid=1002 auid=1002 ses=51 msg=\"cwd=/srv/api cmd=/usr/bin/sudo /usr/bin/systemctl restart portal-api.service terminal=pts/1 res=success\" change_ticket=CHG-2026-0729",
+      "type=EXECVE msg=audit(1785381901.120:4602): argc=3 a0=\"/usr/bin/systemctl\" a1=\"restart\" a2=\"portal-api.service\" auid=1002 uid=0 automation=ansible",
+      "type=SERVICE_START msg=audit(1785381903.100:4603): pid=1 uid=0 auid=4294967295 msg=\"unit=portal-api.service comm=systemd res=success\" change_ticket=CHG-2026-0729"
+    ],
+    "host": "linux-api-05",
+    "sourcetype": "linux:auditd"
+  },
+  {
+    "cell_id": "p5n012",
+    "events": [
+      "type=EXECVE msg=audit(1785382001.100:4701): argc=5 a0=\"/usr/bin/nsenter\" a1=\"--mount=/proc/1/ns/mnt\" a2=\"--\" a3=\"/usr/bin/mount\" a4=\"/var/lib/kubelet/pods\" uid=0 auid=4294967295 comm=kubelet purpose=csi-volume-reconcile",
+      "type=SYSCALL msg=audit(1785382001.110:4702): arch=c000003e syscall=165 success=yes exe=\"/usr/bin/mount\" key=\"kubernetes-csi\" uid=0 auid=4294967295 container_runtime=containerd",
+      "type=SERVICE_START msg=audit(1785382002.100:4703): pid=1 uid=0 auid=4294967295 msg=\"unit=kubelet.service comm=systemd res=success\" node_role=worker"
+    ],
+    "host": "k8s-worker-04",
+    "sourcetype": "linux:auditd"
+  }
+]
