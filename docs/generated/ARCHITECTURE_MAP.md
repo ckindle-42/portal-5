@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 694 canonical units.*
+*Deterministic projection of 696 canonical units.*
 
 ## Knowledge Layer
 
@@ -474,6 +474,8 @@
 | `unit-model-catalog-lfm2-5-8b` | what | 2 |
 | `unit-model-catalog-lfm2-5-8b-ctx8k` | what | 2 |
 | `unit-model-catalog-llama-3-2-3b-instruct-8bit` | what | 1 |
+| `unit-model-catalog-llama3-2-3b` | what | 1 |
+| `unit-model-catalog-llama3-2-3b-instruct-q8-0-ctx8k` | what | 1 |
 | `unit-model-catalog-meta-secalign-8b-q4-k-m` | what | 2 |
 | `unit-model-catalog-meta-secalign-8b-q4-k-m-latest` | what | 2 |
 | `unit-model-catalog-mistral-small3-2-24b` | what | 2 |
@@ -703,10 +705,10 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 694 units
+**Total:** 696 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1660 references
+- **code**: 1662 references
 - **mitre**: 32 references

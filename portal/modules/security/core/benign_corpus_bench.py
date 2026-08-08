@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -265,7 +266,7 @@ def render_markdown(result: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description="Generate and score benign RBP corpus")
     parser.add_argument("--ship", action="store_true", help="Ship missing cells through HEC")
     parser.add_argument("--run", action="store_true", help="Run blue over indexed cells")
@@ -295,7 +296,7 @@ def main() -> None:
         pass
     else:
         print(json.dumps(ship_corpus(dry_run=True), indent=2), flush=True)
-        return
+        return 0
 
     records = (
         run_bench(
@@ -314,7 +315,8 @@ def main() -> None:
         args.report_out.write_text(render_markdown(result))
     if not args.json_out and not args.report_out:
         print(render_markdown(result))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

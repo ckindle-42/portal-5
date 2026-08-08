@@ -59,4 +59,4 @@ if __name__ == "__main__":
         sys.exit(loop_main(sys.argv[2:]))
     from portal.modules.security.core import main
 
-    main()
+    sys.exit(main())

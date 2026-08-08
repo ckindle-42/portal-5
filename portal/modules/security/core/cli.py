@@ -650,41 +650,41 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _dispatch_standalone(args) -> bool:
-    """Early-return modes (listings, blue-mode runners, probe-lab, rescore)."""
+def _dispatch_standalone(args) -> int | None:
+    """Early-return modes (listings, blue-mode runners, probe-lab, rescore).
+
+    Returns an exit code for handled modes, or ``None`` when no standalone
+    mode applies and the caller should continue with the full bench.
+    """
     if args.list_scenarios:
         for k, sc in SCENARIOS.items():
             print(f"  {k:<22} red={'->'.join(sc['red_order'])}")
-        return True
+        return 0
 
     if args.list_prompts:
         for k in PROMPTS:
             print(f"  {k}")
-        return True
+        return 0
 
     if args.blue_mode == "orchestrated":
         from .commands.blue_modes import run_blue_mode_orchestrated
 
-        run_blue_mode_orchestrated(args)
-        return True
+        return run_blue_mode_orchestrated(args)
 
     if args.blue_mode == "orchestrated-2section":
         from .commands.blue_modes import run_blue_mode_orchestrated_2section
 
-        run_blue_mode_orchestrated_2section(args)
-        return True
+        return run_blue_mode_orchestrated_2section(args)
 
     if args.blue_mode == "council":
         from .commands.blue_modes import run_blue_mode_council
 
-        run_blue_mode_council(args)
-        return True
+        return run_blue_mode_council(args)
 
     if args.blue_mode == "multichain":
         from .commands.blue_modes import run_blue_mode_multichain
 
-        run_blue_mode_multichain(args)
-        return True
+        return run_blue_mode_multichain(args)
 
     # ── Standalone lab probe: `--probe-lab` with no chain/exec/purple work ────
     # requested is a pure connectivity check (used as a Step 0 precondition
@@ -694,17 +694,16 @@ def _dispatch_standalone(args) -> bool:
     if args.probe_lab and not (args.chain_models or args.exec_chain_models or args.purple):
         if not _LAB_EXEC_AVAILABLE:
             print("  WARNING: lab exec requested but bench_lab_exec.py not importable")
-            return True
+            return 0
         _probe = probe_lab_services(dry_run=args.dry_run)
         print_lab_probe_report(_probe)
-        return True
+        return 0
 
     if args.rescore:
         from .commands.blue_modes import run_rescore
 
-        run_rescore(args)
-        return True
-    return False
+        return run_rescore(args)
+    return None
 
 
 def _build_run(args) -> BenchRun | None:
@@ -843,25 +842,31 @@ def _build_run(args) -> BenchRun | None:
     return run
 
 
-def main() -> None:
+def main() -> int:
     args = _build_parser().parse_args()
 
-    if _dispatch_standalone(args):
-        return
+    exit_code = _dispatch_standalone(args)
+    if exit_code is not None:
+        return exit_code
 
     run = _build_run(args)
     if run is None:
-        return
+        # Two distinct early-returns: --retry-failed with a missing file is an
+        # error (non-zero); "no failures found in previous run" is informational.
+        if args.retry_failed and not Path(args.retry_failed).exists():
+            return 1
+        return 0
 
     _run_steps(run)
 
     if args.dry_run:
-        return
+        return 0
 
     from .commands.blue_modes import run_result_summary
 
     run_result_summary(run)
     _write_output(run)
+    return 0
 
 
 def _run_steps(run: BenchRun) -> None:
