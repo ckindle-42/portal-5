@@ -41,6 +41,8 @@ from typing import Any
 
 import httpx
 
+from portal.platform.data_loader import load_data
+
 # Notification support (same module used by bench_tps / bench_security)
 try:
     from tests.benchmarks.bench.notify import _send_bench_notification
@@ -187,14 +189,8 @@ ROUND4_LFM_CANDIDATES: list[str] = [
 #   notes: optional string explaining the routing challenge
 
 
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
 GOLDEN_SET: list[tuple[str, str, str, str]] = [
-    tuple(r) for r in _load_data("bench_router_golden_set")
+    tuple(r) for r in load_data("tests/data", "bench_router_golden_set")
 ]
 
 

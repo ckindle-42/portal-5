@@ -13,27 +13,17 @@ established never-fabricate as a hard rule here.
 
 from __future__ import annotations
 
-import json
 import re
-from pathlib import Path
-from typing import Any
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[5]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
+from portal.platform.data_loader import load_data
 
 # ── Expected signals per technique ───────────────────────────────────────────
 # Each technique maps to (sourcetype, [lines]) that SHOULD be present in the
 # capture for the model to have a chance of detecting it.
 
 EXPECTED_SIGNALS: dict[str, tuple[str, list[str]]] = {
-    k: (v[0], v[1]) for k, v in _load_data("capture_enrichment_expected_signals").items()
+    k: (v[0], v[1])
+    for k, v in load_data("config/security", "capture_enrichment_expected_signals").items()
 }
 
 # Regex-based ALTERNATIVE evidence per technique, checked with OR logic
@@ -65,8 +55,8 @@ ADDITIONAL_SIGNAL_PATTERNS: dict[str, list[str]] = {
 # SQL injection cannot validate an observed Shellshock, Gremlin, or Spring
 # data-binding request. These signatures are deliberately scoped by scenario
 # so an ordinary request in one capture cannot certify an unrelated exploit.
-SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = _load_data(
-    "capture_enrichment_scenario_signal_patterns"
+SCENARIO_SIGNAL_PATTERNS: dict[str, dict[str, list[str]]] = load_data(
+    "config/security", "capture_enrichment_scenario_signal_patterns"
 )
 
 

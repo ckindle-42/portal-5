@@ -23,6 +23,8 @@ from pathlib import Path
 
 import httpx
 
+from portal.platform.data_loader import load_data
+
 OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 REPS = 5
 NUM_PREDICT = 20
@@ -55,14 +57,10 @@ WORKSPACE_CONFIGS: dict[str, dict] = {
 
 
 # Tool name lists per workspace (from portal.yaml)
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
-WORKSPACE_TOOL_NAMES: dict[str, list[str]] = _load_data(
-    "toolpreselect_baseline_prefill_workspace_tool_names"
+WORKSPACE_TOOL_NAMES: dict[str, list[str]] = load_data(
+    "tests/data", "toolpreselect_baseline_prefill_workspace_tool_names"
 )
 
 

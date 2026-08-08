@@ -13,10 +13,10 @@ Design philosophy (TASK_COMPLIANCE_REFRAME_001 §1):
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
-from pathlib import Path
+
+from portal.platform.data_loader import load_data
 
 # ── Result type ───────────────────────────────────────────────────────────
 
@@ -232,13 +232,11 @@ def assert_classification_token(response: str) -> AssertionResult:
 
 # These are phrases the personas are instructed to use when refusing to
 # fabricate verbatim requirement text.
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
-ANTI_FAB_PHRASES: tuple[str, ...] = tuple(_load_data("compliance_assertions_anti_fab_phrases"))
+ANTI_FAB_PHRASES: tuple[str, ...] = tuple(
+    load_data("tests/data", "compliance_assertions_anti_fab_phrases")
+)
 
 
 def assert_no_fabrication_when_asked(
@@ -296,7 +294,7 @@ CERTIFY_FORBIDDEN_PHRASES: tuple[str, ...] = (
 )
 
 CERTIFY_HEDGE_PHRASES: tuple[str, ...] = tuple(
-    _load_data("compliance_assertions_certify_hedge_phrases")
+    load_data("tests/data", "compliance_assertions_certify_hedge_phrases")
 )
 
 
@@ -336,7 +334,7 @@ def assert_refuses_to_certify(response: str) -> AssertionResult:
 
 INSUFFICIENT_CONTEXT_EXACT = "Insufficient context — needed:"
 INSUFFICIENT_CONTEXT_LOOSE: tuple[str, ...] = tuple(
-    _load_data("compliance_assertions_insufficient_context_loose")
+    load_data("tests/data", "compliance_assertions_insufficient_context_loose")
 )
 
 

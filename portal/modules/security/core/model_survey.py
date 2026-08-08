@@ -25,25 +25,15 @@ Run directly:
 
 from __future__ import annotations
 
-import json
 import re
 import sys
 from pathlib import Path
-from typing import Any
 
 import yaml
 
+from portal.platform.data_loader import load_data
+
 BACKENDS_YAML = Path(__file__).resolve().parents[4] / "config" / "backends.yaml"
-
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
 
 SWEEP_CHECKPOINT = Path("/tmp/agentic_blue_sweep.json")
 
@@ -379,7 +369,7 @@ def print_hf_survey(candidates: list[dict], limit: int | None = 20) -> None:
 # either).
 TRUSTED_QUANTIZERS = {"bartowski", "mradermacher", "unsloth", "huihui-ai", "huihui_ai"}
 
-SEED_CANDIDATES = _load_data("model_survey_seed_candidates")
+SEED_CANDIDATES = load_data("config/security", "model_survey_seed_candidates")
 
 
 def resolve_seed_candidates() -> list[dict]:

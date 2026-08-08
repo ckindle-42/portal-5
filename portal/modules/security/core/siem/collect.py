@@ -16,18 +16,12 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any
+
+from portal.platform.data_loader import load_data
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
 def unwrap_mcp_stdout(raw: str) -> str:
@@ -62,7 +56,8 @@ def unwrap_mcp_stdout(raw: str) -> str:
 # filters as-is — Splunk's default key=value auto-extraction only works if we
 # ship it already normalized to EventCode=/TicketEncryptionType=/etc.
 _WINDOWS_EVENT_FIELD_PATTERNS: dict[str, list[tuple[str, str]]] = {
-    k: [(a, b) for a, b in v] for k, v in _load_data("collect_windows_event_field_patterns").items()
+    k: [(a, b) for a, b in v]
+    for k, v in load_data("config/security", "collect_windows_event_field_patterns").items()
 }
 
 

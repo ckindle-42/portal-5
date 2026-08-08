@@ -168,6 +168,10 @@ surfaces:
   globs:
   - portal/platform/agent/writeback.py
   unit: unit-agent-loop-agent-loop-platform-core
+- name: file-portal-platform-data_loader
+  globs:
+  - portal/platform/data_loader.py
+  unit: unit-platform-storage-config-facade
 - name: file-portal-platform-memory-memory_mcp
   globs:
   - portal/platform/memory/memory_mcp.py

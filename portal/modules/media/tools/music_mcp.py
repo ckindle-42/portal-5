@@ -1,5 +1,3 @@
-import json
-
 """
 Music Generation MCP Server
 Wraps HuggingFace MusicGen (facebook/musicgen-*) for local music generation.
@@ -23,17 +21,8 @@ from typing import Any
 from mcp.server import MCPServer
 from starlette.responses import FileResponse, JSONResponse
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
 from portal.modules.media.tools._admission import admit
+from portal.platform.data_loader import load_data
 
 port = int(os.getenv("MUSIC_MCP_PORT", "8912"))
 mcp = MCPServer("music-generation")
@@ -69,7 +58,7 @@ async def serve_generated_file(request):
 
 
 # Tool manifest for discovery
-TOOLS_MANIFEST = _load_data("tools_manifest_music_mcp")
+TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_music_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

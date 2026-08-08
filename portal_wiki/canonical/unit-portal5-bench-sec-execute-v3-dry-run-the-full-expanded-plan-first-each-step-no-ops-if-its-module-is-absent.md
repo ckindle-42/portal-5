@@ -8,7 +8,7 @@ sources:
   path: portal/modules/security/core/cli.py
 - type: code
   path: portal/modules/security/core/bench_integration.py
-last_generated_commit: e232bf011e21e6935f63889a827bbce99422a3df
+last_generated_commit: 59839264613bae9f5c35a66902c8cc274654191d
 claims: []
 confidence: high
 tags:

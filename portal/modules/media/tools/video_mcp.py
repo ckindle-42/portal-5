@@ -1,7 +1,3 @@
-import json
-from pathlib import Path
-from typing import Any
-
 """
 Video Generation MCP Server
 Wraps ComfyUI video workflows for local video generation.
@@ -22,17 +18,8 @@ import httpx
 from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
 from portal.modules.media.tools._admission import admit
+from portal.platform.data_loader import load_data
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +56,7 @@ async def health_check(request):
 
 
 # Tool manifest for discovery
-TOOLS_MANIFEST = _load_data("tools_manifest_video_mcp")
+TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_video_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])
@@ -318,7 +305,7 @@ _WAN22_T2V_WORKFLOW: dict = {
 # CogVideoX fallback workflow — uses CheckpointLoaderSimple + EmptyMochiLatentVideo
 # EmptyMochiLatentVideo uses "length" parameter (v0.16.3).
 # KSampler uses "seed" (not "noise_seed") and "normal" scheduler in v0.16.3.
-_COGVIDEOX_WORKFLOW = _load_data("video_mcp_cogvideox_workflow")
+_COGVIDEOX_WORKFLOW = load_data("config/inference", "video_mcp_cogvideox_workflow")
 
 # Wan2.1 NSFW T2V workflow — fully fine-tuned NSFW checkpoint, no LoRA required.
 # Architecture mirrors the HunyuanVideo workflow but uses:
@@ -434,7 +421,6 @@ _WAN21_NSFW_T2V_WORKFLOW: dict = {
         "class_type": "CLIPTextEncode",
     },
 }
-
 
 # ── Wan 2.2 family (PHASE_PLAN_MODEL_REFRESH_V7_V2) ──────────────────────────
 # T2V-A14B: real workflow, mirrors _WAN21_NSFW_T2V_WORKFLOW node layout so the

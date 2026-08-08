@@ -14,7 +14,6 @@ import json
 import re
 import shlex
 from pathlib import Path
-from typing import Any
 
 import pytest
 import yaml
@@ -24,15 +23,9 @@ from portal.modules.security.core.exec_chain import SCENARIOS
 from portal.modules.security.core.siem.spl_detections import (
     techniques_covered,
 )
+from portal.platform.data_loader import load_data
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a test fixture that was a module-level literal before V1."""
-    path = _REPO_ROOT / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
 # ── Scenario name lists ───────────────────────────────────────────────────────
@@ -64,7 +57,7 @@ _META3_SCENARIOS = [
     "meta3_rdp_standard_auth",
 ]
 
-_VULHUB_EXPANSION_SCENARIOS = _load_data("security_test_coverage_expand_vulhub")
+_VULHUB_EXPANSION_SCENARIOS = load_data("tests/data", "security_test_coverage_expand_vulhub")
 
 _ALL_NEW_SCENARIOS = _META3_SCENARIOS + _VULHUB_EXPANSION_SCENARIOS
 

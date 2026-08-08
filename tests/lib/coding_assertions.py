@@ -16,10 +16,9 @@ Design philosophy:
 
 from __future__ import annotations
 
-import json
 import re
-from pathlib import Path
 
+from portal.platform.data_loader import load_data
 from tests.lib.compliance_assertions import AssertionResult, ScenarioOutcome  # noqa: F401
 
 # ── Code block presence ───────────────────────────────────────────────────
@@ -93,14 +92,8 @@ def assert_no_truncation_or_placeholders(response: str) -> AssertionResult:
 # ── Language constraint adherence ─────────────────────────────────────────
 
 
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
 _LANGUAGE_SIGNATURES: dict[str, tuple[str, ...]] = {
-    k: tuple(v) for k, v in _load_data("coding_assertions_language_signatures").items()
+    k: tuple(v) for k, v in load_data("tests/data", "coding_assertions_language_signatures").items()
 }
 
 

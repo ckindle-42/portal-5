@@ -20,16 +20,7 @@ from portal.modules.security.core.blue_orchestrate import SectionSpec, run_blue_
 from portal.modules.security.core.notify_scoreboard import build_run, join_oracle
 from portal.modules.security.core.siem.hec_ship import ship_batch
 from portal.modules.security.core.siem.spl_backend import SplunkBackend
-
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
+from portal.platform.data_loader import load_data
 
 TOOL_MODEL = "bench-granite41-8b"
 REASONING_MODEL = "bench-granite41-30b"
@@ -45,7 +36,9 @@ OUT_PATH = Path(
     )
 )
 
-BENIGN_CELLS: tuple[dict[str, Any], ...] = tuple(_load_data("benign_corpus_bench_benign_cells"))
+BENIGN_CELLS: tuple[dict[str, Any], ...] = tuple(
+    load_data("config/security", "benign_corpus_bench_benign_cells")
+)
 
 
 def provenance_fields(cell: dict[str, Any]) -> set[str]:

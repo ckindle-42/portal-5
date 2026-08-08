@@ -17,6 +17,8 @@ import json
 import sys
 from pathlib import Path
 
+from portal.platform.data_loader import load_data
+
 # ---------------------------------------------------------------------------
 # Hand-crafted positive scenarios per tool category.
 #
@@ -26,25 +28,22 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-_CATEGORY_POSITIVES: dict[str, dict[str, str]] = _load_data(
-    "toolpreselect_scenario_gen_category_positives"
+_CATEGORY_POSITIVES: dict[str, dict[str, str]] = load_data(
+    "tests/data", "toolpreselect_scenario_gen_category_positives"
 )
 
 # Decoy scenarios: user turn mentions a plausible-but-wrong tool domain,
 # correct tool is different.  ~20% of tools = ~12 tools.
 DECOY_TOOLS: dict[str, tuple[str, str]] = {
-    k: tuple(v) for k, v in _load_data("toolpreselect_scenario_gen_decoy_tools").items()
+    k: tuple(v)
+    for k, v in load_data("tests/data", "toolpreselect_scenario_gen_decoy_tools").items()
 }
 
 # 10 compound/ambiguous scenarios — multi-tool asks.
 # Scored PASS if any acceptable tool lands in top-K.
-COMPOUND_SCENARIOS: list[dict] = _load_data("toolpreselect_scenario_gen_compound_scenarios")
+COMPOUND_SCENARIOS: list[dict] = load_data(
+    "tests/data", "toolpreselect_scenario_gen_compound_scenarios"
+)
 
 # 5 no-good-fit scenarios — conversational turns with no real tool need.
 NO_GOOD_FIT_SCENARIOS: list[dict] = [

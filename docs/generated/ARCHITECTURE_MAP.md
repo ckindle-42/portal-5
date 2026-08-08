@@ -548,7 +548,7 @@
 | `unit-persona-matrix-ci-persona-matrix-ci-operations` | what | 2 |
 | `unit-persona-matrix-ci-pipeline-shape` | what | 3 |
 | `unit-persona-matrix-ci-regression-triage-workflow` | what | 5 |
-| `unit-platform-storage-config-facade` | mixed | 1 |
+| `unit-platform-storage-config-facade` | mixed | 2 |
 | `unit-portal-conftest` | mixed | 1 |
 | `unit-portal-mcp-namespace` | mixed | 1 |
 | `unit-portal5-acceptance-execute-v9-autonomous-monitoring-loop-required-default` | what | 4 |
@@ -710,5 +710,5 @@
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1662 references
+- **code**: 1663 references
 - **mitre**: 32 references

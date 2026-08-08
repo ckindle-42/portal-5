@@ -23,21 +23,12 @@ import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+
+from portal.platform.data_loader import load_data
 
 from ._data import resolve_pipeline_model
 from .siem.spl_detections import technique_reference, technique_signature_full
 from .unknown_defense import MatchGrade, compute_similarity
-
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
 
 _CAPTURE_DIR = Path(__file__).resolve().parent / "results" / "captures"
 _PIPELINE_URL = "http://localhost:9099"
@@ -649,7 +640,7 @@ def score_analyst_outcome(
 
 # ── Search tools (always available to blue) ─────────────────────────────────
 
-_SEARCH_TOOLS: list[dict] = _load_data("agentic_blue_eval_search_tools")
+_SEARCH_TOOLS: list[dict] = load_data("config/security", "agentic_blue_eval_search_tools")
 
 # ── Grounding tools (arm C only — the actual harness) ────────────────────────
 #
@@ -660,7 +651,7 @@ _SEARCH_TOOLS: list[dict] = _load_data("agentic_blue_eval_search_tools")
 # and similarity-tier heuristic (unknown_defense.compute_similarity) blue.py's
 # real chain-test path already uses — this eval just wasn't wired to them.
 
-_GROUNDING_TOOLS: list[dict] = _load_data("agentic_blue_eval_grounding_tools")
+_GROUNDING_TOOLS: list[dict] = load_data("config/security", "agentic_blue_eval_grounding_tools")
 
 
 def _dispatch_grounding_tool(name: str, args: dict) -> str | None:

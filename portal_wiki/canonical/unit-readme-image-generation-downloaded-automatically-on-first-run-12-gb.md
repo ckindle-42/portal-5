@@ -14,7 +14,7 @@ sources:
   path: portal/modules/media/tools/comfyui_mcp.py
 - type: code
   path: scripts/gen-image.py
-last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
+last_generated_commit: 59839264613bae9f5c35a66902c8cc274654191d
 claims: []
 confidence: high
 tags:

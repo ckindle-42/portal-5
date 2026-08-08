@@ -22,10 +22,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
+
+from portal.platform.data_loader import load_data
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 ACCEPTANCE_FILE = ROOT / "tests" / "portal5_acceptance_v6.py"
@@ -39,13 +40,9 @@ END_MARKER = "<!-- SECTION_TABLE_END -->"
 
 # Static phase grouping — sections in each phase. Update here if phase plan
 # changes; verified against PORTAL5_ACCEPTANCE_EXECUTE_V8.md phase commands.
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
-PHASE_FOR_SECTION: dict[str, int] = _load_data("regen_section_table_phase_for_section")
+PHASE_FOR_SECTION: dict[str, int] = load_data("tests/data", "regen_section_table_phase_for_section")
 
 # Human-readable labels for each section. Kept brief — table column has limited
 # width. New sections without a label here render as "<section name>" so the

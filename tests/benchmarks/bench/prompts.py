@@ -3,8 +3,7 @@
 Extracted byte-for-byte from tests/benchmarks/bench_tps.py.
 """
 
-import json
-from pathlib import Path
+from portal.platform.data_loader import load_data
 
 # ── Prompt library ────────────────────────────────────────────────────────────
 # Category-mapped prompts designed to produce ~150-250 tokens of structured
@@ -12,16 +11,10 @@ from pathlib import Path
 # apples-to-apples within a category. The "general" prompt is used as fallback.
 
 
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[3] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-PROMPTS: dict[str, str] = _load_data("bench_prompts_prompts")
+PROMPTS: dict[str, str] = load_data("tests/data", "bench_prompts_prompts")
 
 # Map workspace IDs → prompt category
-WORKSPACE_PROMPT_MAP: dict[str, str] = _load_data("bench_prompts_workspace_prompt_map")
+WORKSPACE_PROMPT_MAP: dict[str, str] = load_data("tests/data", "bench_prompts_workspace_prompt_map")
 
 # Map Ollama backend group → prompt category
 GROUP_PROMPT_MAP: dict[str, str] = {

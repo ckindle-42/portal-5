@@ -1,7 +1,3 @@
-import json
-from pathlib import Path
-from typing import Any
-
 """Portal 5 Memory MCP Server.
 
 Cross-conversation persistent memory backed by LanceDB.
@@ -21,18 +17,9 @@ import httpx
 import lancedb
 import pyarrow as pa
 from mcp.server import MCPServer
-
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
 from starlette.responses import JSONResponse
+
+from portal.platform.data_loader import load_data
 
 logger = logging.getLogger(__name__)
 mcp = MCPServer("memory")
@@ -88,7 +75,7 @@ async def health(request):
         return JSONResponse({"status": "degraded", "error": str(e)})
 
 
-TOOLS_MANIFEST = _load_data("tools_manifest_memory_mcp")
+TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_memory_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

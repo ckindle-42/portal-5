@@ -25,17 +25,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from portal.platform.data_loader import load_data
+
 from .self_index import _complete_result_files, _run_timestamp_key
-
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 CANARY_DIR = RESULTS_DIR / "canary_baselines"
@@ -57,7 +49,6 @@ try:
 except ImportError:
     _scipy_stats = None
     _SCIPY_AVAILABLE = False
-
 
 # ── Phase 1: rolling-baseline drift gate ───────────────────────────────────────
 
@@ -251,7 +242,7 @@ def render_drift_markdown(report: dict) -> str:
 
 # ── Phase 2: model-behavior canary ──────────────────────────────────────────────
 
-CANARY_PROBES: list[dict[str, Any]] = _load_data("drift_gate_canary_probes")
+CANARY_PROBES: list[dict[str, Any]] = load_data("config/security", "drift_gate_canary_probes")
 
 
 def _run_single_probe(model: str, probe: dict, ollama_url: str) -> dict:

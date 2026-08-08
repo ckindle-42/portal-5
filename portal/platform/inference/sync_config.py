@@ -26,21 +26,18 @@ from typing import Any
 
 import yaml
 
+from portal.platform.data_loader import load_data
+
 REPO: Path = Path(__file__).resolve().parents[3]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = REPO / "config" / "inference" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
 # ── update_workspace_tools.py tool-ID mapping ────────────────────────────────
 # Maps workspace-id → OWUI toolIds (server:mcp:<name> format).
 # Authoritative source: scripts/update_workspace_tools.py; this is a copy
 # so sync-config doesn't need to exec that script separately.
-_WORKSPACE_TOOL_IDS: dict[str, list[str]] = _load_data("sync_config_workspace_tool_ids")
+_WORKSPACE_TOOL_IDS: dict[str, list[str]] = load_data(
+    "config/inference", "sync_config_workspace_tool_ids"
+)
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────

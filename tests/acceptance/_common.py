@@ -17,6 +17,8 @@ from pathlib import Path
 import httpx
 import yaml
 
+from portal.platform.data_loader import load_data
+
 # ── Re-export from results so section modules have one import point ──────────
 from .results import (  # noqa: F401
     _ICON,
@@ -750,14 +752,10 @@ OLLAMA_WORKSPACES: set[str] = set(WS_IDS) | {"huihui_ai/Qwen3.6-abliterated:27b"
 # by _chat_with_model as a ?variant=/?model= query param. Dict keys here are
 # descriptive labels — s03_routing.py's PRODUCTION_WORKSPACES pairs each
 # label with the real (base) workspace id used for the pipeline call.
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
 WORKSPACE_PROMPTS = {
-    k: tuple(v) for k, v in _load_data("acceptance_common_workspace_prompts").items()
+    k: tuple(v) for k, v in load_data("tests/data", "acceptance_common_workspace_prompts").items()
 }
 
 # Persona test prompts and expected signals
@@ -774,7 +772,9 @@ PERSONA_PROMPTS_EXCLUDED: set[str] = {
     # Specialized personas tested via workspace routing or S24
     "dailydriver",  # auto-daily workspace, general-purpose
 }
-PERSONA_PROMPTS = {k: tuple(v) for k, v in _load_data("acceptance_common_persona_prompts").items()}
+PERSONA_PROMPTS = {
+    k: tuple(v) for k, v in load_data("tests/data", "acceptance_common_persona_prompts").items()
+}
 
 
 # ── Backward-compat getters ────────────────────────────────────────────────────
