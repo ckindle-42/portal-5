@@ -19,7 +19,7 @@ sources:
   path: config/attack_image_contract.json
 - type: code
   path: scripts/verify_attack_image.py
-last_generated_commit: 1c013743834d850604632980a093809f65c3c3ed
+last_generated_commit: 9623f6b25b3e922bd0cf4b3885a926a4728b26a1
 claims: []
 confidence: high
 tags:
