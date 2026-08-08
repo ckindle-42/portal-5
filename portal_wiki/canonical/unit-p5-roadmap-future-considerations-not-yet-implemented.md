@@ -13,7 +13,7 @@ sources:
   path: config/challenge_classes.yaml
 - type: code
   path: portal/modules/security/core/corpus_replay_bench.py
-last_generated_commit: ca0f99d64c0644df1d5fc30674b6c476fceb1a42
+last_generated_commit: 9623f6b25b3e922bd0cf4b3885a926a4728b26a1
 claims: []
 confidence: high
 tags:
