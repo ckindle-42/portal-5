@@ -53,6 +53,8 @@ Commit to `main` during stabilization; `pytest tests/ -q --tb=no` before every p
 User files live at `${AI_OUTPUT_DIR}` (default `~/AI_Output/`), mounted at `/workspace`. Reads: `resolve_upload_path(file_id)`; writes: `get_generated_dir(category)` (categories: transcripts, documents, images, videos, music, speech). New Docker MCPs touching user files must mount `${AI_OUTPUT_DIR}:/workspace`.
 ### 12 — Docs Travel With The Work
 Docs couple to code mechanically where mechanized: fact-unit currency is check `AW` (`scripts/validate_system.py`), drift census is `BS`, and generated views render from `portal_wiki/canonical/`. When a change touches a subsystem, update its fact-unit or authored unit in the same task. Never hardcode counts/ports/check-letters as prose — derive them at reconcile time.
+
+`BS` (pre-push, not pre-commit) fails your push if a unit's `last_generated_commit` pin is older than a commit touching one of its cited paths — including the commit you just made, since a unit cannot be pinned to a hash that doesn't exist yet. This is **always a two-commit sequence**, never one: make the functional commit, then run `python3 scripts/repin_stale.py --apply` and commit the resulting pin bumps (`chore(spine): re-pin units stale after <change>`) before pushing. If the census also flags an actual factual change (not just a moved pin), fix that unit's body by hand first — the script only bumps pins, it never rewrites content.
 ### 13 — Fact-Units Are the Discovery Index
 Before grepping, query the wiki: `wiki_search` / `wiki_get_unit` / `wiki_explain`. Verify every edit anchor `count==1` against HEAD before editing.
 

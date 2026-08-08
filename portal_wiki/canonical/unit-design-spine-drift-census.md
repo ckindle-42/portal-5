@@ -78,6 +78,20 @@ pins, and doc refs are all absolute now, with nothing left to ratchet or
 tolerate. The census is re-runnable outside CI as `python3 -m portal_wiki
 drift`, which exits non-zero on any claim violation or any drift at all.
 
+## Operational note: pin staleness is always a two-commit fix
+
+`BS` runs at push, not commit, and a commit that touches a cited path makes
+every unit citing that path stale the instant it lands — including the
+commit itself, since a unit cannot be pinned to a hash that does not exist
+until after `git commit` returns. There is no one-commit way to satisfy
+Rule 12 here: make the functional commit, then run `python3
+scripts/repin_stale.py --apply` and commit the pin bumps separately
+(`chore(spine): re-pin units stale after <change>`) before pushing. Two
+dozen-plus commits in this history follow exactly that shape. The script
+only ever rewrites `last_generated_commit`; a unit whose cited fact
+actually changed (not just moved) needs its body edited by hand first, or
+the re-pin certifies a now-wrong claim as current.
+
 ## Why
 
 The census exists because the three prior gates certified a doc's block
