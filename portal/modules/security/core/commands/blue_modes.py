@@ -63,7 +63,7 @@ def _write_checkpoint(run: BenchRun) -> None:
         )
 
 
-def run_blue_mode_orchestrated(args) -> None:
+def run_blue_mode_orchestrated(args) -> int:
     # ── Standalone: --blue-mode orchestrated ─────────────────────────────────
     # BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2 Slice 7. Not a --purple prompt
     # variant (I5: no auto-security prod routing touched) — runs the
@@ -77,12 +77,12 @@ def run_blue_mode_orchestrated(args) -> None:
 
     if not args.replay_captured_red:
         print("  ERROR: --blue-mode orchestrated requires --replay-captured-red")
-        return
+        return 1
 
     episode = load_episode(args.scenario)
     if episode is None:
         print(f"  ERROR: no captured episode found for scenario '{args.scenario}'")
-        return
+        return 1
 
     default_variant = (
         load_portal_config()
@@ -97,7 +97,7 @@ def run_blue_mode_orchestrated(args) -> None:
             "  ERROR: --tool-model/--reasoning-model/--expert-model not set and "
             "no default found in config/portal.yaml's blueteam-orchestrated variant"
         )
-        return
+        return 1
 
     budgets = _parse_budgets_arg(args.budgets)
     barrier_roles = _parse_barrier_tools_arg(args.barrier_tools)
@@ -171,10 +171,10 @@ def run_blue_mode_orchestrated(args) -> None:
         )
     )
     print(f"  Results written -> {out_path}")
-    return
+    return 0
 
 
-def run_blue_mode_orchestrated_2section(args) -> None:
+def run_blue_mode_orchestrated_2section(args) -> int:
     # ── Standalone: --blue-mode orchestrated-2section (Slice 8 ablation) ─────
     # design §6.1's "V1 shape" — tool + merged reasoning/expert, one model
     # hunts and concludes itself. Same standalone contract as 'orchestrated'
@@ -184,18 +184,18 @@ def run_blue_mode_orchestrated_2section(args) -> None:
 
     if not args.replay_captured_red:
         print("  ERROR: --blue-mode orchestrated-2section requires --replay-captured-red")
-        return
+        return 1
 
     episode = load_episode(args.scenario)
     if episode is None:
         print(f"  ERROR: no captured episode found for scenario '{args.scenario}'")
-        return
+        return 1
 
     tool_model = args.tool_model
     merged_model = args.merged_model
     if not (tool_model and merged_model):
         print("  ERROR: --tool-model and --merged-model are both required")
-        return
+        return 1
 
     print(
         f"Blue orchestration (2-section) — scenario={episode.scenario} target={episode.target_host}"
@@ -252,10 +252,10 @@ def run_blue_mode_orchestrated_2section(args) -> None:
         )
     )
     print(f"  Results written -> {out_path}")
-    return
+    return 0
 
 
-def run_blue_mode_council(args) -> None:
+def run_blue_mode_council(args) -> int:
     # ── Standalone: --blue-mode council (GATE-D ablation Part II-A) ──────────
     # TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1. Same standalone contract as
     # 'orchestrated'/'orchestrated-2section' above (not a --purple prompt
@@ -271,12 +271,12 @@ def run_blue_mode_council(args) -> None:
 
     if not args.replay_captured_red:
         print("  ERROR: --blue-mode council requires --replay-captured-red")
-        return
+        return 1
 
     episode = load_episode(args.scenario)
     if episode is None:
         print(f"  ERROR: no captured episode found for scenario '{args.scenario}'")
-        return
+        return 1
 
     default_variant = (
         load_portal_config().workspaces.get("auto-security").variants.get("blueteam-council", {})
@@ -295,7 +295,7 @@ def run_blue_mode_council(args) -> None:
             "are required, and no default found in config/portal.yaml's "
             "blueteam-council variant"
         )
-        return
+        return 1
 
     budgets = _parse_budgets_arg(args.budgets)
     barrier_roles = _parse_barrier_tools_arg(args.barrier_tools)
@@ -376,10 +376,10 @@ def run_blue_mode_council(args) -> None:
         )
     )
     print(f"  Results written -> {out_path}")
-    return
+    return 0
 
 
-def run_blue_mode_multichain(args) -> None:
+def run_blue_mode_multichain(args) -> int:
     # ── Standalone: --blue-mode multichain (multi-model multi-chain analyst) ──
     # N FULLY INDEPENDENT investigative chains — each its own tool+reasoning+
     # expert hunt with its own hypothesis/evidence pulls — consolidated into an
@@ -393,12 +393,12 @@ def run_blue_mode_multichain(args) -> None:
 
     if not args.replay_captured_red:
         print("  ERROR: --blue-mode multichain requires --replay-captured-red")
-        return
+        return 1
 
     episode = load_episode(args.scenario)
     if episode is None:
         print(f"  ERROR: no captured episode found for scenario '{args.scenario}'")
-        return
+        return 1
 
     default_variant = (
         load_portal_config().workspaces.get("auto-security").variants.get("blueteam-council", {})
@@ -419,7 +419,7 @@ def run_blue_mode_multichain(args) -> None:
             "models) are required, and no default found in config/portal.yaml's "
             "blueteam-council variant"
         )
-        return
+        return 1
 
     print(
         f"Blue orchestration (multichain) — scenario={episode.scenario} "
@@ -513,15 +513,15 @@ def run_blue_mode_multichain(args) -> None:
         )
     )
     print(f"  Results written -> {out_path}")
-    return
+    return 0
 
 
-def run_rescore(args) -> None:
+def run_rescore(args) -> int:
     # ── Rescore mode: re-derive scores from saved data ────────────────────
     _rescore_file = Path(args.rescore)
     if not _rescore_file.exists():
         print(f"ERROR: rescore file not found: {_rescore_file}")
-        return
+        return 1
     _rescore_path = (
         Path(args.output)
         if args.output
@@ -568,7 +568,7 @@ def run_rescore(args) -> None:
     _rescore_path.write_text(json.dumps(_rescore_data, indent=2))
     print(f"  Rescored {_rescored_count} entries")
     print(f"  Output: {_rescore_path}")
-    return
+    return 0
 
 
 def _collect_retry_failed(args, _retry_failed_prompts, _retry_failed_scenarios) -> dict | None:

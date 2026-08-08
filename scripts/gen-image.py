@@ -189,7 +189,7 @@ def poll(job_id: str, label: str = "", interval: int = 10) -> str | None:
             time.sleep(interval)
 
 
-def main() -> None:
+def main() -> int:
     qwen_names = sorted(QWEN_IMAGE_PRESETS.keys())
     qwen_help = "\n".join(f"  {k:25s} {v['description']}" for k, v in QWEN_IMAGE_PRESETS.items())
     parser = argparse.ArgumentParser(
@@ -271,8 +271,7 @@ Examples:
     args = parser.parse_args()
 
     if args.status:
-        poll(args.status, interval=args.poll_interval)
-        return
+        return 0 if poll(args.status, interval=args.poll_interval) is not None else 1
 
     if sum([bool(args.preset), args.quality, args.fast]) > 1:
         parser.error("--preset, --quality, --fast are mutually exclusive")
@@ -310,10 +309,10 @@ Examples:
     if args.no_wait:
         print(f"job_id: {job_id}")
         print(f"Poll later: python3 scripts/gen-image.py --status {job_id}")
-        return
+        return 0
 
-    poll(job_id, interval=args.poll_interval)
+    return 0 if poll(job_id, interval=args.poll_interval) is not None else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -351,7 +351,8 @@ def _eta_seconds(steps: int, frames: int, width: int, height: int) -> int:
     return int(steps * per_step) + 120
 
 
-def run_batch(prompts: list[str], args: argparse.Namespace, base: dict) -> None:
+def run_batch(prompts: list[str], args: argparse.Namespace, base: dict) -> int:
+    """Run every prompt in sequence; returns the count of failed generations."""
     total = len(prompts)
     w = base.get("width", 832)
     h = base.get("height", 480)
@@ -381,9 +382,10 @@ def run_batch(prompts: list[str], args: argparse.Namespace, base: dict) -> None:
         for idx, p in failed:
             print(f"  [{idx}] {p[:80]}")
     _telegram_text(f"Batch done: {total - len(failed)}/{total} videos generated.")
+    return len(failed)
 
 
-def main() -> None:
+def main() -> int:
     wan22_preset_names = sorted(WAN22_PRESETS.keys())
     wan22_preset_help = "\n".join(f"  {k:20s} {v['description']}" for k, v in WAN22_PRESETS.items())
     parser = argparse.ArgumentParser(
@@ -507,8 +509,7 @@ Examples:
     args = parser.parse_args()
 
     if args.status:
-        poll(args.status, interval=args.poll_interval)
-        return
+        return 0 if poll(args.status, interval=args.poll_interval) is not None else 1
 
     explicit_flags = [args.preview, args.quality, args.overnight]
     if sum(bool(f) for f in explicit_flags) > 1:
@@ -551,8 +552,7 @@ Examples:
             parser.error(f"Cannot read batch file: {e}")
         if not prompts:
             parser.error("Batch file is empty")
-        run_batch(prompts, args, base)
-        return
+        return run_batch(prompts, args, base)
 
     if not args.prompt:
         parser.error("prompt is required (or use --batch FILE or --status JOB_ID)")
@@ -576,10 +576,10 @@ Examples:
     if args.no_wait:
         print(f"job_id: {job_id}")
         print(f"Poll later: python3 scripts/gen-video.py --status {job_id}")
-        return
+        return 0
 
-    poll(job_id, interval=args.poll_interval)
+    return 0 if poll(job_id, interval=args.poll_interval) is not None else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

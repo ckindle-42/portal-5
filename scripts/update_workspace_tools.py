@@ -2,6 +2,7 @@
 """Update workspace JSON files with appropriate toolIds."""
 
 import json
+import sys
 from pathlib import Path
 
 # Keyed by top-level workspace id — one entry per generated
@@ -46,7 +47,7 @@ WORKSPACE_TOOLS = {
 }
 
 
-def main() -> None:
+def main() -> int:
     """Update workspace JSON files with current toolId mappings."""
     ws_dir = Path("imports/openwebui/workspaces")
     if not ws_dir.exists():
@@ -55,7 +56,7 @@ def main() -> None:
 
     if not ws_dir.exists():
         print(f"WARNING: workspace directory not found: {ws_dir}")
-        return
+        return 1
 
     errors = 0
     for ws_file in sorted(ws_dir.glob("workspace_*.json")):
@@ -86,9 +87,10 @@ def main() -> None:
 
     if errors:
         print(f"Done with {errors} error(s).")
-    else:
-        print("Done.")
+        return 1
+    print("Done.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

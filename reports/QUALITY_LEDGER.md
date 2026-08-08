@@ -22,6 +22,14 @@ Row schema: `| ID | file:line | cat | evidence | proposed fix | decision | statu
 
 ## P1 — Exit codes (Q001–Q003)
 
+| ID | file:line | cat | evidence | proposed fix | decision | status |
+|---|---|---|---|---|---|---|
+| Q001 | `security/core/cli.py:main` | SILENT | `def main() -> None:` — 3 returns, all `None`; no `sys.exit`/`SystemExit` anywhere in the file | `main() -> int`, thread status to the entry point | FIX-NOW | DONE |
+| Q002 | `commands/blue_modes.py` (all `run_*`) | SILENT | `print("  ERROR: ...")` then bare `return` | return `int`; `0` ok, non-zero fail | FIX-NOW | DONE |
+| Q003 | `cli.py:_dispatch_standalone` | SHAPE | returns only `True`/`False` — "handled", with no failure channel | `int \| None`: `None` = not handled | FIX-NOW | DONE |
+
+P1 also converted the four other same-defect entry points: `scripts/gen-video.py`, `scripts/gen-image.py`, `scripts/update_workspace_tools.py`, `portal/modules/security/core/benign_corpus_bench.py` — each `main()` now returns `int` and the entry point exits with it. Golden stdout byte-identical (verified against `/tmp/q_golden_before`); listings exit 0; every error path exits non-zero.
+
 ## P2 — Loader collapse (Q004)
 
 ## P3 — Imports and guards (Q005–Q006)
