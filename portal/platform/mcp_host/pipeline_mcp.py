@@ -23,6 +23,8 @@ import httpx
 from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
+from portal.platform.data_loader import load_data
+
 logger = logging.getLogger(__name__)
 
 PORT = int(os.environ.get("PIPELINE_MCP_PORT", 8928))
@@ -35,16 +37,9 @@ REPO_ROOT = pathlib.Path(
 ).resolve()
 
 
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = REPO_ROOT / "config" / "inference" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
 _FASTCONTEXT_MODEL = "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M"
 _FASTCONTEXT_MAX_TURNS = 6
-_FASTCONTEXT_TOOLS = _load_data("pipeline_mcp_fastcontext_tools")
+_FASTCONTEXT_TOOLS = load_data("config/inference", "pipeline_mcp_fastcontext_tools")
 
 mcp = MCPServer("portal-pipeline")
 
@@ -63,7 +58,7 @@ async def health_check(request: Any) -> JSONResponse:
 # POST /tools/{name} with body {"arguments": {...}, "request_id": "..."}.
 # This manifest MUST stay in sync with the @mcp.tool() functions below and the
 # POST /tools/{name} routes — tests/unit/test_pipeline_mcp_rest.py enforces parity.
-TOOLS_MANIFEST = _load_data("pipeline_mcp_tools_manifest")
+TOOLS_MANIFEST = load_data("config/inference", "pipeline_mcp_tools_manifest")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

@@ -8,27 +8,16 @@ V3 DESIGN §2.3 / TASK_SEC_RBP_STEP0_1_EVIDENCE_GROUNDING_V1 Phase 1.
 from __future__ import annotations
 
 import hashlib
-import json
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+
+from portal.platform.data_loader import load_data
 
 # ── Reason-coded status axes (V3 §Reason-coded status axes) ──────────────────
 # Deterministic; drive later auto-work.  Each axis is independent.
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-REASON_CODES: dict[str, list[str]] = _load_data("episode_reason_codes")
+REASON_CODES: dict[str, list[str]] = load_data("config/security", "episode_reason_codes")
 
 CAPABILITY_VERDICTS = ["PROVEN", "FAILED", "INDETERMINATE", "UNAVAILABLE"]
 

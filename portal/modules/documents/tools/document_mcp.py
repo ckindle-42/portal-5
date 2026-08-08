@@ -1,5 +1,3 @@
-import json
-
 """
 Document Tools MCP Server
 Exposes Word, PowerPoint, and Excel document creation as MCP tools.
@@ -14,21 +12,11 @@ import os
 import re
 import uuid
 from pathlib import Path
-from typing import Any
 
 from mcp.server import MCPServer
-
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
 from starlette.responses import FileResponse, JSONResponse
+
+from portal.platform.data_loader import load_data
 
 port = int(os.getenv("DOCUMENTS_MCP_PORT", "8913"))
 mcp = MCPServer("document-tools")
@@ -61,7 +49,7 @@ async def serve_generated_file(request):
 
 
 # Tool manifest for discovery
-TOOLS_MANIFEST = _load_data("tools_manifest_document_mcp")
+TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_document_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

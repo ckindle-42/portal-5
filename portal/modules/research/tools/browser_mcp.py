@@ -31,29 +31,12 @@ import time
 import uuid
 from collections import defaultdict, deque
 from pathlib import Path
-from typing import Any
 from urllib.parse import urlparse
 
 from mcp.server import MCPServer
-
-
-def _repo_root() -> Path:
-    """Walk up from this file to the repo root (repo layout) or / (playwright
-    container layout, where browser_mcp.py is copied to /app/browser_mcp.py)."""
-    for parent in Path(__file__).resolve().parents:
-        if (parent / "config" / "inference").is_dir():
-            return parent
-    return Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _repo_root() / "config" / "inference" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
 from starlette.responses import JSONResponse
+
+from portal.platform.data_loader import load_data
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
@@ -368,8 +351,7 @@ mcp = MCPServer(
     instructions="Playwright browser automation: navigate, click, fill forms, screenshot, and inspect page content.",
 )
 
-TOOLS_MANIFEST = _load_data("tools_manifest_browser_mcp")
-
+TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_browser_mcp")
 
 # ── Custom routes (health + pipeline REST compat + admin) ────────────────
 

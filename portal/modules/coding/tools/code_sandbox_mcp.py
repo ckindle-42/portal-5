@@ -1,5 +1,3 @@
-import json
-
 """
 Code Execution Sandbox MCP Server
 Runs Python, Node.js, and Bash code in Docker containers with isolation.
@@ -19,21 +17,11 @@ import logging
 import os
 import uuid
 from pathlib import Path
-from typing import Any
 
 from mcp.server import MCPServer
-
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
 from starlette.responses import JSONResponse
+
+from portal.platform.data_loader import load_data
 
 mcp = MCPServer("code-sandbox")
 
@@ -52,7 +40,7 @@ async def health_check(request):
 
 
 # Tool manifest for discovery
-TOOLS_MANIFEST = _load_data("tools_manifest_code_sandbox_mcp")
+TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_code_sandbox_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

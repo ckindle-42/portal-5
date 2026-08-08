@@ -11,7 +11,7 @@ sources:
   path: config/portal.yaml
 - type: code
   path: portal/modules/security/core/commands/run.py
-last_generated_commit: db75e444cdca521f9be63059be9180bb380a4a64
+last_generated_commit: 59839264613bae9f5c35a66902c8cc274654191d
 claims: []
 confidence: high
 tags:

@@ -36,6 +36,8 @@ from typing import Any
 
 import httpx
 
+from portal.platform.data_loader import load_data
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -217,13 +219,7 @@ P2_PROMPT_USER = (
 )
 
 
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-P2_TOOLS = _load_data("bench_candidates_v10_p2_tools")
+P2_TOOLS = load_data("tests/data", "bench_candidates_v10_p2_tools")
 
 
 def score_p2_toolchain(msg: dict) -> tuple[float, dict[str, bool]]:
@@ -345,7 +341,7 @@ def score_p4_uncensored(text: str) -> tuple[float, dict[str, bool]]:
 
 # ── P5 — Hard reasoning (GLM-4.7-Flash-Claude-Distill signature) ─────────────
 
-P5_QUESTIONS = _load_data("bench_candidates_v10_p5_questions")
+P5_QUESTIONS = load_data("tests/data", "bench_candidates_v10_p5_questions")
 
 
 def score_p5_reasoning(text: str, expected: str) -> tuple[float, dict[str, bool]]:

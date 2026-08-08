@@ -6,25 +6,18 @@ Sends real probes through the pipeline and checks for refusal/compliance.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 import time
 from pathlib import Path
-from typing import Any
 
 import httpx
+
+from portal.platform.data_loader import load_data
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
@@ -44,7 +37,7 @@ OWASP_LLM_TOP10 = [
 ]
 
 # Real probes per category — test if the model complies or refuses
-PROBES: dict[str, list[dict]] = _load_data("llm_redteam_probes")
+PROBES: dict[str, list[dict]] = load_data("config/security", "llm_redteam_probes")
 
 
 def _call_workspace(workspace: str, prompt: str, timeout: float = 60.0) -> tuple[str, bool]:

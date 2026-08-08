@@ -1,7 +1,3 @@
-import json
-from pathlib import Path
-from typing import Any
-
 """
 ComfyUI MCP Server
 Wraps the ComfyUI workflow API as MCP tools.
@@ -21,17 +17,8 @@ import httpx
 from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
 from portal.modules.media.tools._admission import admit
+from portal.platform.data_loader import load_data
 
 mcp = MCPServer("comfyui-generation")
 
@@ -79,7 +66,7 @@ async def health_check(request):
 
 
 # Tool manifest for discovery
-TOOLS_MANIFEST = _load_data("tools_manifest_comfyui_mcp")
+TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_comfyui_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])
@@ -184,7 +171,7 @@ IMAGE_BACKEND = os.getenv("IMAGE_BACKEND", "flux")  # "flux", "flux-uncensored",
 #   9: VAEDecode → image[0]  ← samples[8,0], vae[3,0]
 #  10: SaveImage
 # All filenames are set dynamically at runtime from env vars (see generate_image).
-FLUX_WORKFLOW = _load_data("comfyui_mcp_flux_workflow")
+FLUX_WORKFLOW = load_data("config/inference", "comfyui_mcp_flux_workflow")
 
 # SDXL workflow template - uses EmptyLatentImage and has negative prompt
 # ComfyUI v0.16: node IDs must be strings (not integers), connections as [node_id, output_index]
@@ -217,7 +204,6 @@ SDXL_WORKFLOW = {
     "6": {"inputs": {"samples": ["5", 0], "vae": ["1", 2]}, "class_type": "VAEDecode"},
     "7": {"inputs": {"filename_prefix": "portal_", "images": ["6", 0]}, "class_type": "SaveImage"},
 }
-
 
 # Model → checkpoint file mapping (can override with FLUX_CKPT_FILE env var)
 _MODEL_CKPT_MAP = {

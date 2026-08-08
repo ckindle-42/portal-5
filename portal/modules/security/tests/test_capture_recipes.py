@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -12,20 +11,16 @@ from portal.modules.security.core.capture_recipes import (
 )
 from portal.modules.security.core.exec_chain import SCENARIOS
 from portal.modules.security.core.siem.capture_enrichment import validate_capture_signals
+from portal.platform.data_loader import load_data
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
-def _load_data(name: str) -> Any:
-    """Load a test fixture that was a module-level literal before V1."""
-    path = _REPO_ROOT / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
+SAMPLE_EVIDENCE = load_data("tests/data", "security_test_capture_recipes_sample_evidence")
 
-
-SAMPLE_EVIDENCE = _load_data("security_test_capture_recipes_sample_evidence")
-
-REQUEST_ONLY_EVIDENCE = _load_data("security_test_capture_recipes_request_only_evidence")
+REQUEST_ONLY_EVIDENCE = load_data(
+    "tests/data", "security_test_capture_recipes_request_only_evidence"
+)
 
 
 @pytest.mark.parametrize("scenario", sorted(CAPTURE_RECIPES))

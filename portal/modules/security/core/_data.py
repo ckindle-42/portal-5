@@ -16,13 +16,14 @@ Also supports:
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
 import sys
 from pathlib import Path
 from typing import Any
+
+from portal.platform.data_loader import load_data
 
 _log = logging.getLogger(__name__)
 
@@ -96,13 +97,6 @@ except ImportError as _exc:
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
-
-
-def _load_data(name: str) -> Any:
-    """Load a JSON data file from config/security/."""
-    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
 try:
@@ -261,12 +255,13 @@ _LAB_CLEAN_SNAPSHOT = _env("LAB_CLEAN_SNAPSHOT", "baseline-ad")
 _LAB_PROBE_BEFORE = _env("LAB_PROBE_BEFORE").lower() == "true"
 
 # ── Blue active response tools (deployed via sandbox MCP to lab) ──────────────
-_BLUE_ACTIVE_TOOLS: list[dict] = _load_data("_data_blue_active_tools")
+_BLUE_ACTIVE_TOOLS: list[dict] = load_data("config/security", "_data_blue_active_tools")
 
 # ── Lab service probe map ─────────────────────────────────────────────────────
 # Service → (port, probe command, output keyword expected if service exists)
 _LAB_SERVICE_PROBES: dict[str, tuple[int, str, list[str]]] = {
-    k: (v[0], v[1], v[2]) for k, v in _load_data("_data_lab_service_probes").items()
+    k: (v[0], v[1], v[2])
+    for k, v in load_data("config/security", "_data_lab_service_probes").items()
 }
 
 # ── Stealth scoring: Windows Event IDs generated per technique ────────────────
@@ -292,7 +287,7 @@ _STEALTH_QUERY_TIMEOUT = 30  # seconds for wevtutil query
 #   mitre_min  — minimum expected ATT&CK ID count (T\d{4})
 #   word_min   — minimum word count for a complete response
 
-PROMPTS: dict[str, dict[str, Any]] = _load_data("prompts")  # noqa: E501
+PROMPTS: dict[str, dict[str, Any]] = load_data("config/security", "prompts")  # noqa: E501
 
 
 # ── Execution sequences ───────────────────────────────────────────────────────
@@ -309,7 +304,7 @@ PROMPTS: dict[str, dict[str, Any]] = _load_data("prompts")  # noqa: E501
 # either (a) keyword found in tool call arguments [method match] OR (b) output_keyword
 # found in sandbox output [result match]. This implements result-based scoring:
 # the objective achieved is what counts, not the path taken.
-EXEC_SEQUENCES: dict[str, list[dict]] = _load_data("exec_sequences")  # noqa: E501
+EXEC_SEQUENCES: dict[str, list[dict]] = load_data("config/security", "exec_sequences")  # noqa: E501
 
 
 # Merge exec_sequences into PROMPTS entries at import time
@@ -397,7 +392,7 @@ _LAB_PREFIX = (
 
 # Per-prompt imperative exec_text overrides — all 19 EXEC_SEQUENCES prompts.
 # Provides concrete lab targets so models generate real tool calls rather than prose.
-_EXEC_TEXT_OVERRIDES: dict[str, str] = _load_data("exec_text_overrides")  # noqa: E501
+_EXEC_TEXT_OVERRIDES: dict[str, str] = load_data("config/security", "exec_text_overrides")  # noqa: E501
 
 
 # Merge exec_text into PROMPTS at import time (separate from the step sequence)

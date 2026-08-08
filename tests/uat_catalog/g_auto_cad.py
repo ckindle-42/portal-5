@@ -15,14 +15,6 @@ called (png_url, stl_path, or file path in the response).
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from portal.platform.data_loader import load_data
 
-
-def _load_catalog(name: str) -> list[dict]:
-    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"uat_catalog_{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-TESTS: list[dict] = _load_catalog("g_auto_cad")
+TESTS: list[dict] = load_data("tests/data", "uat_catalog_g_auto_cad")

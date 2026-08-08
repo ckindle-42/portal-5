@@ -1,5 +1,3 @@
-import json
-
 """
 CAD Render MCP Server
 Headless rendering + format conversion for the code-CAD lane (TASK_CAD_RENDER_MCP_V1).
@@ -23,21 +21,11 @@ import re
 import subprocess  # noqa: S404 — openscad invocation is argument-controlled, no shell
 import uuid
 from pathlib import Path
-from typing import Any
 
 from mcp.server import MCPServer
 from starlette.responses import FileResponse, JSONResponse
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "inference" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
+from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.workspace import get_generated_dir
 
 logger = logging.getLogger(__name__)
@@ -192,7 +180,7 @@ async def serve_generated_file(request):
     return FileResponse(path=str(file_path), filename=filename, media_type=media)
 
 
-TOOLS_MANIFEST = _load_data("tools_manifest_cad_render_mcp")
+TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_cad_render_mcp")
 
 
 @mcp.custom_route("/tools", methods=["GET"])

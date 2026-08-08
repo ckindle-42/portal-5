@@ -7,19 +7,12 @@ that was previously at the top of the monolithic script.
 from __future__ import annotations
 
 import importlib
-import json
 import sys
 from pathlib import Path
-from typing import Any
+
+from portal.platform.data_loader import load_data
 
 _REPO = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _REPO / "config" / "inference" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
 sys.path.insert(0, str(_REPO))
@@ -35,7 +28,7 @@ _TUPLE_KEYS = (
 )
 WORKSPACE_REGISTRY = {
     k: {ik: (tuple(iv) if ik in _TUPLE_KEYS else iv) for ik, iv in v.items()}
-    for k, v in _load_data("persona_matrix_workspace_registry").items()
+    for k, v in load_data("config/inference", "persona_matrix_workspace_registry").items()
 }
 
 # Module-level aliases reassigned by run_sweep() based on --workspace.

@@ -7,9 +7,7 @@ entries. Defined once here so catalog data modules import from one place.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
+from portal.platform.data_loader import load_data
 from tests.common import REFUSAL_PHRASES  # noqa: F401  (re-exported for catalog modules)
 
 _CC01_PROMPT = (
@@ -63,13 +61,9 @@ _GC03_PROMPT = (
 
 
 # ── Shared structural checks for every game band ───────────────────────────
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
-_GC_BASE_ASSERTIONS = _load_data("uat_catalog_shared_gc_base_assertions")
+_GC_BASE_ASSERTIONS = load_data("tests/data", "uat_catalog_shared_gc_base_assertions")
 
 # ── GC-01 Flappy Bird — gravity + single collision + score ─────────────────
 _GC01_ASSERTIONS = [
@@ -236,7 +230,7 @@ _GC04_PROMPT = (
 )
 
 # ── GC-04 base assertions (visual animation — no game mechanics) ──────────
-_GC04_BASE_ASSERTIONS = _load_data("uat_catalog_shared_gc04_base_assertions")
+_GC04_BASE_ASSERTIONS = load_data("tests/data", "uat_catalog_shared_gc04_base_assertions")
 
 _GC04_ASSERTIONS = [
     *_GC04_BASE_ASSERTIONS,
@@ -283,7 +277,7 @@ _GC04_ASSERTIONS = [
     },
 ]
 
-_CC01_ASSERTIONS = _load_data("uat_catalog_shared_cc01_assertions")
+_CC01_ASSERTIONS = load_data("tests/data", "uat_catalog_shared_cc01_assertions")
 
 # Variant for RL/STEM-tuned models (P5-BENCH-001) that don't reliably emit
 # HTML code blocks — has_code demoted to critical: False so the benchmark

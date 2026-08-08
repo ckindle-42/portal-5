@@ -24,6 +24,7 @@ from typing import Any
 import httpx
 import yaml
 
+from portal.platform.data_loader import load_data
 from tests.benchmarks.capability_lib import (
     extract_code_block,
     extract_final_answer,
@@ -429,13 +430,9 @@ def run_c1_agentic_debug(workspace: str) -> list[ProbeResult]:
 
 
 # C2: Code generation — scored by running against unit tests
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[2] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
-C2_PROBLEMS = _load_data("bench_capability_c2_problems")
+C2_PROBLEMS = load_data("tests/data", "bench_capability_c2_problems")
 
 
 def run_c2_codegen_executable(workspace: str) -> list[ProbeResult]:
@@ -489,7 +486,7 @@ def run_c2_codegen_executable(workspace: str) -> list[ProbeResult]:
 
 
 # C3: Environment simulation — AgentWorld's signature capability
-C3_COMMANDS = _load_data("bench_capability_c3_commands")
+C3_COMMANDS = load_data("tests/data", "bench_capability_c3_commands")
 
 
 def _score_envsim(answer: str, spec: dict) -> tuple[float, float]:
@@ -556,7 +553,7 @@ def run_c3_env_simulation(workspace: str) -> list[ProbeResult]:
 
 
 # C4: SWE diagnosis — nginx-502 task with tcpdump filter grading
-C4_INCIDENTS = _load_data("bench_capability_c4_incidents")
+C4_INCIDENTS = load_data("tests/data", "bench_capability_c4_incidents")
 
 
 def _score_swe(text: str) -> tuple[float, float, dict]:

@@ -22,9 +22,9 @@ when no verifier exists. Two categories upgraded:
 from __future__ import annotations
 
 # ── Verifier callables (optional per-category) ───────────────────────────────
-import json
 from collections.abc import Callable
-from pathlib import Path
+
+from portal.platform.data_loader import load_data
 
 
 def _verify_coding(response: str) -> float:
@@ -88,15 +88,9 @@ _VERIFIERS: dict[str, Callable[[str], float]] = {
 }
 
 
-def _load_data(name: str):
-    path = Path(__file__).resolve().parents[1] / "tests" / "data" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
 QUALITY_SIGNALS: dict[str, list] = {
     k: [tuple(sig) if isinstance(sig, list) else sig for sig in v]
-    for k, v in _load_data("quality_signals_quality_signals").items()
+    for k, v in load_data("tests/data", "quality_signals_quality_signals").items()
 }
 
 

@@ -13,9 +13,7 @@ intake      Candidate intake pipeline (pull → TPS gate → tool probe)
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Any
+from portal.platform.data_loader import load_data
 
 from .exec_chain import (  # noqa: F401
     _CHAIN_ROLES,
@@ -60,14 +58,4 @@ from .refusal import (  # noqa: F401
     run_audit_tools,
 )
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_data(name: str) -> Any:
-    """Load a data file that was a module-level literal before V1."""
-    path = _PROJECT_ROOT / "config" / "security" / f"{name}.json"
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-__all__ = _load_data("chain_all")
+__all__ = load_data("config/security", "chain_all")
