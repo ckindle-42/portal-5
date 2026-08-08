@@ -1065,7 +1065,7 @@ def main() -> None:
         models = list(OMLX_MODELS.values())
 
     gates = list(GATES) if args.gate == "all" else [args.gate]
-    engine = "omlx" if "8085" in args.url else "ollama"
+    engine = "omlx" if "8085" in args.url else ("pipeline" if "9099" in args.url else "ollama")
     started = datetime.now(UTC)
     all_results = []
 
