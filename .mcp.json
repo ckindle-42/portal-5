@@ -27,6 +27,17 @@
         "${HOME}/projects/portal-5"
       ]
     },
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--project",
+        "${HOME}/projects/portal-5"
+      ]
+    },
     "docker": {
       "command": "npx",
       "args": [

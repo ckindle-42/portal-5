@@ -680,13 +680,14 @@ Model bindings are the reachability-resolved view of what each workspace `model_
 ### MCP Fleet
 
 <!-- WIKI:GENERATED unit=unit-fact-mcp-fleet -->
-# MCP fleet (23 servers)
+# MCP fleet (24 servers)
 
 | ID | Name | Port |
 |---|---|---|
 | `filesystem` | filesystem |  |
 | `fetch` | fetch |  |
 | `git` | git |  |
+| `serena` | serena |  |
 | `docker` | docker |  |
 | `comfyui` | portal-comfyui | 8910 |
 | `music` | portal-music | 8912 |

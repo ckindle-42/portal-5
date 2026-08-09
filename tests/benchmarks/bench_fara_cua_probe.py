@@ -92,6 +92,57 @@ COMPUTER_USE_TOOL = {
 }
 
 
+def _extract_action(msg: dict) -> tuple[str | None, dict]:
+    """Parse Fara's tool call, whichever of three shapes it lands in.
+
+    Depending on whether Ollama's generic (non-Fara-specific) chat template
+    extracts it, the call can be: (a) native structured tool_calls (what the
+    Modelfile's tool-capable template advertises, and the ideal case); (b) an
+    inline JSON <tool_call>{"name":...,"arguments":{...}}</tool_call> block
+    (the format the model card's raw-output docs describe); or (c) an XML
+    <function=NAME><parameter=KEY>value</parameter></function> dialect,
+    observed emitted inside the "thinking" field rather than "content" for
+    this custom import (no FROM template override was used, so the GGUF's
+    own embedded template drives extraction, and Ollama's built-in tool-call
+    parser does not recognize this XML dialect as structured tool_calls).
+    """
+    text = msg.get("content", "") or ""
+    thinking = msg.get("thinking", "") or ""
+    args: dict = {}
+
+    tool_calls = msg.get("tool_calls") or []
+    if tool_calls:
+        fn = tool_calls[0].get("function", {})
+        args = fn.get("arguments", {})
+        return args.get("action"), args
+
+    combined = text + "\n" + thinking
+    m = re.search(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", combined, re.S)
+    if m:
+        obj = json.loads(m.group(1))
+        args = obj.get("arguments", obj)
+        return args.get("action") or args.get("name"), args
+
+    m = re.search(r"<function=computer_use>(.*?)</function>", combined, re.S)
+    if m:
+        # Non-greedy match bounded by a lookahead for the next <parameter=
+        # or the closing </function>, so a missing </parameter> close tag
+        # (observed in some samples) is reported as a malformed parameter
+        # rather than silently absorbing the next parameter's tag and value.
+        for pm in re.finditer(
+            r"<parameter=(\w+)>\s*(.*?)\s*(?:</parameter>|(?=<parameter=)|(?=$))",
+            m.group(1),
+            re.S,
+        ):
+            key, val = pm.group(1), pm.group(2).strip()
+            if "<parameter=" in val or "<function" in val:
+                continue  # malformed: no close tag, value bled into next field
+            args[key] = val
+        return args.get("action"), args
+
+    return None, args
+
+
 def main() -> int:
     img = base64.b64encode(open(FIXTURE, "rb").read()).decode()
     body = {
@@ -111,57 +162,11 @@ def main() -> int:
     r = httpx.post(f"{OLLAMA}/api/chat", json=body, timeout=300)
     r.raise_for_status()
     msg = r.json().get("message", {})
-    text = msg.get("content", "") or ""
-    thinking = msg.get("thinking", "") or ""
-
-    # Fara's tool call can land in three different shapes depending on
-    # whether Ollama's generic (non-Fara-specific) chat template extracts it:
-    #   (a) native structured tool_calls (what the Modelfile's tool-capable
-    #       template advertises, and the ideal case)
-    #   (b) an inline JSON <tool_call>{"name":...,"arguments":{...}}</tool_call>
-    #       block (the format the model card's raw-output docs describe)
-    #   (c) an XML <function=NAME><parameter=KEY>value</parameter></function>
-    #       dialect, observed emitted inside the "thinking" field rather than
-    #       "content" for this custom import (no FROM template override was
-    #       used, so the GGUF's own embedded template drives extraction, and
-    #       Ollama's built-in tool-call parser does not recognize this XML
-    #       dialect as structured tool_calls).
-    action = None
-    args: dict = {}
-    tool_calls = msg.get("tool_calls") or []
-    if tool_calls:
-        fn = tool_calls[0].get("function", {})
-        args = fn.get("arguments", {})
-        action = args.get("action")
-    else:
-        combined = text + "\n" + thinking
-        m = re.search(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", combined, re.S)
-        if m:
-            obj = json.loads(m.group(1))
-            args = obj.get("arguments", obj)
-            action = args.get("action") or args.get("name")
-        else:
-            m = re.search(r"<function=computer_use>(.*?)</function>", combined, re.S)
-            if m:
-                # Non-greedy match bounded by a lookahead for the next
-                # <parameter= or the closing </function>, so a missing
-                # </parameter> close tag (observed in some samples) is
-                # reported as a malformed parameter rather than silently
-                # absorbing the next parameter's tag and value.
-                for pm in re.finditer(
-                    r"<parameter=(\w+)>\s*(.*?)\s*(?:</parameter>|(?=<parameter=)|(?=$))",
-                    m.group(1),
-                    re.S,
-                ):
-                    key, val = pm.group(1), pm.group(2).strip()
-                    if "<parameter=" in val or "<function" in val:
-                        continue  # malformed: no close tag, value bled into next field
-                    args[key] = val
-                action = args.get("action")
+    action, args = _extract_action(msg)
 
     if action is None:
         print("FAIL: no tool_call (native or inline) with an 'action' field emitted")
-        print("content:", text[:400])
+        print("content:", msg.get("content", "")[:400])
         print("thinking:", msg.get("thinking", "")[:400])
         return 1
 
