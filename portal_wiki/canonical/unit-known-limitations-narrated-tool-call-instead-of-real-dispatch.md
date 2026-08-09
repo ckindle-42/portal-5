@@ -11,7 +11,7 @@ sources:
   path: portal/platform/inference/router/non_streaming.py
 - type: code
   path: tests/unit/test_pipeline.py
-last_generated_commit: 86e6f142c0069ca2d4824b4721a545e64bd585b3
+last_generated_commit: 63cbca4c591d2d00f1cc9e3101ffa91f84a9a4a0
 claims: []
 confidence: high
 tags:

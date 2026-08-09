@@ -15,7 +15,7 @@ sources:
   path: portal/platform/inference/tool_preselect/preselector.py
 - type: code
   path: portal/platform/inference/tool_preselect/cli_probe.py
-last_generated_commit: 1c013743834d850604632980a093809f65c3c3ed
+last_generated_commit: 63cbca4c591d2d00f1cc9e3101ffa91f84a9a4a0
 claims: []
 confidence: high
 tags:

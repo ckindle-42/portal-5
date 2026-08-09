@@ -1,13 +1,13 @@
 ---
 id: unit-model-catalog-portal5-xyz-aquila-mini-q4-k-m
 kind: what
-title: "MODEL_CATALOG — `portal5/xyz-aquila-mini:q4_k_m`"
+title: "MODEL_CATALOG \u2014 `portal5/xyz-aquila-mini:q4_k_m`"
 sources:
 - type: code
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-last_generated_commit: 7d0a3709d56327a5fc7ce93bed2aa3a00187e29c
+last_generated_commit: 63cbca4c591d2d00f1cc9e3101ffa91f84a9a4a0
 claims: []
 confidence: high
 tags:

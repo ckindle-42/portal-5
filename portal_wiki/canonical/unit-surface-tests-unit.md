@@ -1,11 +1,12 @@
 ---
 id: unit-surface-tests-unit
 kind: mixed
-title: "Platform unit-test suite \u2014 hermetic contract pins for routing, config, fleet, and wiki"
+title: "Platform unit-test suite \u2014 hermetic contract pins for routing, config,\
+  \ fleet, and wiki"
 sources:
 - type: code
   path: tests/unit/*.py
-last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
+last_generated_commit: 63cbca4c591d2d00f1cc9e3101ffa91f84a9a4a0
 claims: []
 confidence: high
 tags:
