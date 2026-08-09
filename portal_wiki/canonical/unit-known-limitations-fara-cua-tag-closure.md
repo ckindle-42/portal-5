@@ -1,11 +1,11 @@
 ---
 id: unit-known-limitations-fara-cua-tag-closure
 kind: what
-title: "KNOWN_LIMITATIONS — Fara1.5-27B CUA tag-closure reliability"
+title: "KNOWN_LIMITATIONS \u2014 Fara1.5-27B CUA tag-closure reliability"
 sources:
 - type: code
   path: tests/benchmarks/bench_fara_cua_probe.py
-last_generated_commit: 763c46f9a3cbef167b6ad736afdcc60deb2c8dd6
+last_generated_commit: 71365e161a6a4b4ecb738390f91df5c261332bfd
 claims: []
 confidence: high
 tags:
