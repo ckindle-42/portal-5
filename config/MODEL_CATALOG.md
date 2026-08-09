@@ -1820,6 +1820,94 @@ This unit grounds the oMLX Laguna entry to the two backends.yaml registrations t
 
 ---
 
+## oMLX daily-fleet backends (TASK_OMLX_FULL_PIPELINE_COVERAGE_V1)
+
+### `gemma-4-26b-a4b-it-QAT-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-gemma-4-26b-a4b-it-qat-4bit -->
+`gemma-4-26b-a4b-it-QAT-4bit` is the 4-bit QAT MLX conversion of gemma-4-26b-a4b-it served by the oMLX evaluation backend. `config/backends.yaml` registers it in the new `omlx-general` entry (group `general`, `priority: 10`, TASK_OMLX_FULL_PIPELINE_COVERAGE_V1) with `supports_tools: true`, live-audited via a direct `/v1/chat/completions` tool-call probe (clean structured `tool_calls`, `finish_reason: tool_calls`). The `aliases` block maps the production GGUF hint `gemma4:26b-a4b-it-qat-ctx8k` onto this oMLX name, so `general`-group daily workspaces (`auto-daily` and the general fallback) can now be served by oMLX with automatic Ollama fallback — no `config/portal.yaml` or `workspace_routing` change was needed.
+
+## Why
+
+Grounds the model to the `omlx-general` registration that serves it and the alias that lets the existing GGUF hint reach oMLX unchanged. The measured (not assumed) `supports_tools: true` result is the load-bearing fact — the whole point of the Phase 1 audit in TASK_OMLX_FULL_PIPELINE_COVERAGE_V1 was to not flag a model as tool-capable without a live probe.
+<!-- /WIKI:GENERATED -->
+
+---
+
+### `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit -->
+`Tongyi-DeepResearch-30B-A3B-abliterated-4bit` is the 4-bit MLX conversion (jurejaklic, via huihui-ai's abliteration) of Tongyi-DeepResearch-30B-A3B served by the oMLX evaluation backend. `config/backends.yaml` registers it in the `omlx-reasoning` entry (group `reasoning`, `priority: 10`), added alongside `DeepSeek-R1-0528-Qwen3-8B-4bit` once Phase 4 verification of TASK_OMLX_FULL_PIPELINE_COVERAGE_V1 showed `auto-research` pins its own `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` model_hint — distinct from `auto-reasoning`'s DeepSeek-R1 hint — so a single-model `omlx-reasoning` entry left `auto-research` falling through to Ollama by hint mismatch, not by admission reject. Live-audited via a direct `/v1/chat/completions` tool-call probe (clean structured `tool_calls`, `finish_reason: tool_calls`, no template/tokenizer defects). Already on disk per `TASK_DAILY_WORK_FLEET_SOAK_V1`'s own per-category model table.
+
+## Why
+
+Grounds the model to the `omlx-reasoning` multi-model registration and explains why it was added in the same task as DeepSeek-R1 despite the task's original Phase 0 table implying one model per group — the `reasoning` group's four daily workspaces each pin a different `model_hint`, so full pipeline coverage for the group needed every distinct hint aliased, not just the group's namesake workspace.
+<!-- /WIKI:GENERATED -->
+
+---
+
+### `granite-4.1-30b-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-granite-4-1-30b-4bit -->
+`granite-4.1-30b-4bit` is the 4-bit MLX conversion (mlx-community) of granite-4.1-30b served by the oMLX evaluation backend. `config/backends.yaml` registers it in the `omlx-reasoning` entry (group `reasoning`, `priority: 10`), mapped from the `auto-data` workspace's `granite4.1:30b-ctx64k` model_hint. Added alongside `DeepSeek-R1-0528-Qwen3-8B-4bit` for the same reason as `Tongyi-DeepResearch-30B-A3B-abliterated-4bit` (see that unit) — `auto-data` pins its own model_hint distinct from `auto-reasoning`'s. Live-audited via a direct `/v1/chat/completions` tool-call probe (clean structured `tool_calls`, `finish_reason: tool_calls`, no template/tokenizer defects). Already on disk per `TASK_DAILY_WORK_FLEET_SOAK_V1`'s own per-category model table.
+
+## Why
+
+Grounds the model to the `omlx-reasoning` multi-model registration and the `auto-data` alias that lets its existing GGUF hint reach oMLX unchanged.
+<!-- /WIKI:GENERATED -->
+
+---
+
+### `granite-4.1-8b-mxfp8`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-granite-4-1-8b-mxfp8 -->
+`granite-4.1-8b-mxfp8` is the ~8-bit mxfp8 MLX conversion (nightmedia) of granite-4.1-8b served by the oMLX evaluation backend, substituted here (same substitution `TASK_DAILY_WORK_FLEET_SOAK_V1` documents) because the 4-bit `unsloth-granite-4.1-8b-mlx-oQ4` conversion 409s and won't load. `config/backends.yaml` registers it in the `omlx-reasoning` entry (group `reasoning`, `priority: 10`), mapped from the `auto-compliance` workspace's `granite4.1:8b-ctx16k` model_hint. Added alongside `DeepSeek-R1-0528-Qwen3-8B-4bit` for the same reason as `Tongyi-DeepResearch-30B-A3B-abliterated-4bit` (see that unit) — `auto-compliance` pins its own model_hint distinct from `auto-reasoning`'s. Live-audited via a direct `/v1/chat/completions` tool-call probe (clean structured `tool_calls`, `finish_reason: tool_calls`, no template/tokenizer defects).
+
+## Why
+
+Grounds the model to the `omlx-reasoning` multi-model registration and the `auto-compliance` alias that lets its existing GGUF hint reach oMLX unchanged. Notes the mxfp8 substitution reason so a future session doesn't re-attempt the known-broken 4-bit conversion.
+<!-- /WIKI:GENERATED -->
+
+---
+
+### `DeepSeek-R1-0528-Qwen3-8B-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-deepseek-r1-0528-qwen3-8b-4bit -->
+`DeepSeek-R1-0528-Qwen3-8B-4bit` is the 4-bit MLX conversion (mlx-community) of the DeepSeek-R1-0528 distill onto Qwen3-8B, served by the oMLX evaluation backend. `config/backends.yaml` registers it in the new `omlx-reasoning` entry (group `reasoning`, `priority: 10`, TASK_OMLX_FULL_PIPELINE_COVERAGE_V1) with `supports_tools: true`. The `aliases` block maps the production GGUF hint `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` onto this oMLX name — `reasoning`-group daily workspaces (`auto-reasoning`, `auto-compliance`, `auto-research`, `auto-data`) can now be served by oMLX with automatic Ollama fallback, no `workspace_routing` change.
+
+This model initially audited as a hard NO on tool-calling (0/N) — root-caused, not worked around, as two real defects on disk in `/Volumes/data01/omlx-models/DeepSeek-R1-0528-Qwen3-8B-4bit/`: (1) `tokenizer_config.json` mislabeled `tokenizer_class` as `LlamaTokenizerFast` for a ByteLevel-BPE `tokenizer.json`, so `AutoTokenizer.from_pretrained` loaded the slow SentencePiece-style Llama tokenizer and corrupted decode (raw `Ġ`/`Ċ` byte markers leaking into output as literal text) — fixed to `PreTrainedTokenizerFast`, which uses `tokenizer.json`'s own correct `ByteLevel` decoder; (2) the upstream `deepseek-ai/DeepSeek-R1-0528-Qwen3-8B` `chat_template.jinja` (matched verbatim on this conversion) never renders the `tools` kwarg into the prompt at all — replaced with `unsloth/DeepSeek-R1-0528-Qwen3-8B`'s canonical tool-calling template (sourced from sglang's official `tool_chat_template_deepseekr1.jinja`, verified byte-identical between that repo's embedded and standalone template files, not hand-authored); (3) no `mlx_lm` tool parser recognized DeepSeek's `<｜tool▁calls▁begin｜>` format — added `mlx_lm/tool_parsers/deepseek_r1.py` to the running oMLX install (`/opt/homebrew/Cellar/omlx/0.5.7/libexec/lib/python3.11/site-packages/mlx_lm/`, the actual process per `lsof`/`ps` — a decoy `/Volumes/data01/omlx-venv` and a second homebrew site-packages exist but are not what `omlx-server` runs) and set `tool_parser_type: deepseek_r1` explicitly in this model's `tokenizer_config.json` (same explicit per-model override pattern as the prior Laguna tool-parser fix, not a global `_infer_tool_parser` change). Post-fix re-audit: 100% (6/6) structured `tool_calls` at `temperature: 0`; roughly 50-60% at default sampling — this 8B reasoning distill sometimes talks itself out of calling the tool in its `reasoning_content` before finishing with plain prose. `supports_tools: true` reflects a genuinely functional, temperature-sensitive capability (measured, not assumed) rather than a silent-failure flag.
+
+## Why
+
+Records the full root-cause chain because none of it is visible from `config/backends.yaml` alone: the fix lives partly in on-disk model files (tokenizer_config.json, chat_template.jinja) and partly in the running oMLX server's vendored `mlx_lm` package, neither tracked by this git repo. Without this unit, a future session re-auditing this model would see `supports_tools: true`, find it flaky at default temperature, and either wrongly conclude the flag is a lie or re-do the same tokenizer/template/parser investigation from scratch. The temperature-sensitivity finding is kept explicit because it is the honest caveat, not a reason to downgrade the flag — same discipline as the group's cross-group memory-ceiling finding in the parent task.
+<!-- /WIKI:GENERATED -->
+
+---
+
+### `VulnLLM-R-7B-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-vulnllm-r-7b-4bit -->
+`VulnLLM-R-7B-4bit` is the 4-bit MLX conversion (mlx-community) of VulnLLM-R-7B (Qwen2-tokenizer based) served by the oMLX evaluation backend. `config/backends.yaml` registers it in the new `omlx-security` entry (group `security`, `priority: 10`, TASK_OMLX_FULL_PIPELINE_COVERAGE_V1) with `supports_tools: true`, live-audited via a direct `/v1/chat/completions` tool-call probe (clean structured `tool_calls`, `finish_reason: tool_calls`, no template/tokenizer defects found — unlike the reasoning-group model, this conversion's `tokenizer_class`/chat template worked correctly as shipped). The `aliases` block maps the production GGUF hint `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` onto this oMLX name, so the `auto-security` daily workspace can now be served by oMLX with automatic Ollama fallback — no `config/portal.yaml` or `workspace_routing` change was needed.
+
+## Why
+
+Grounds the model to the `omlx-security` registration that serves it and the alias that lets the existing GGUF hint reach oMLX unchanged. Noting the clean audit result (no tokenizer/template defect, unlike the reasoning-group sibling model added in the same task) is useful context for a future session comparing why one of the four new backends needed deep root-causing and the others didn't.
+<!-- /WIKI:GENERATED -->
+
+---
+
+### `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`
+
+<!-- WIKI:GENERATED unit=unit-model-catalog-qwen3-6-35b-a3b-hauhaucs-aggressive-4bit -->
+`Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit` is the 4-bit MLX conversion (dawncr0w's OptiQ build) of the Qwen3.6-35B-A3B HauhauCS-Aggressive-Uncensored fine-tune, served by the oMLX evaluation backend. `config/backends.yaml` registers it in the new `omlx-creative` entry (group `creative`, `priority: 10`, TASK_OMLX_FULL_PIPELINE_COVERAGE_V1) with `supports_tools: true`, live-audited via a direct `/v1/chat/completions` tool-call probe (clean structured `tool_calls`, `finish_reason: tool_calls`, no template/tokenizer defects found). The `aliases` block maps the production GGUF hint `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` onto this oMLX name, so the `auto-creative` daily workspace can now be served by oMLX with automatic Ollama fallback — no `config/portal.yaml` or `workspace_routing` change was needed.
+
+## Why
+
+Grounds the model to the `omlx-creative` registration that serves it and the alias that lets the existing GGUF hint reach oMLX unchanged. This is one of the four TASK_OMLX_FULL_PIPELINE_COVERAGE_V1 additions whose combined resident set (~63GB with the other three) exceeds oMLX's admission ceiling by design — the point of the parent task is to measure cross-group eviction/rejection under the full daily mix, not avoid it.
+<!-- /WIKI:GENERATED -->
+
+---
+
 ### `portal5/xyz-aquila-mini:q4_k_m`
 
 <!-- WIKI:GENERATED unit=unit-model-catalog-portal5-xyz-aquila-mini-q4-k-m -->

@@ -1,12 +1,12 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 204 model ids, 7 backend groups
+title: 211 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 7d0a3709d563
-last_generated_commit: 63cbca4c591d2d00f1cc9e3101ffa91f84a9a4a0
+  commit: bf25fe83ab4a
+last_generated_commit: bf25fe83ab4a
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -15,10 +15,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1786303871.472805
+updated_at: 1786317311.2903628
 ---
 
-# Model catalog (204 model ids across 7 backend groups)
+# Model catalog (211 model ids across 7 backend groups)
 
 ## coding (41)
 
@@ -64,8 +64,9 @@ updated_at: 1786303871.472805
 - `qwen3.6:27b-q4_K_M`
 - `qwen3.6:35b-a3b-q4_K_M`
 
-## creative (10)
+## creative (11)
 
+- `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`
 - `dolphin-llama3:8b`
 - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4`
 - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k`
@@ -77,13 +78,14 @@ updated_at: 1786303871.472805
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (78)
+## general (79)
 
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
 - `devstral:24b`
 - `dolphin-llama3:8b`
 - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4`
+- `gemma-4-26b-a4b-it-QAT-4bit`
 - `gemma4:12b-it-qat`
 - `gemma4:26b-a4b-it-q4_K_M`
 - `gemma4:26b-a4b-it-qat`
@@ -169,10 +171,14 @@ updated_at: 1786303871.472805
 - `gemma-4-e4b-it-4bit`
 - `supergemma4-26b-abliterated-multimodal-mlx-4bit`
 
-## reasoning (23)
+## reasoning (27)
 
+- `DeepSeek-R1-0528-Qwen3-8B-4bit`
+- `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`
 - `deepseek-r1:32b-q4_k_m`
 - `gpt-oss:20b`
+- `granite-4.1-30b-4bit`
+- `granite-4.1-8b-mxfp8`
 - `granite4.1:30b`
 - `granite4.1:30b-ctx16k`
 - `granite4.1:30b-ctx64k`
@@ -195,8 +201,9 @@ updated_at: 1786303871.472805
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 
-## security (28)
+## security (29)
 
+- `VulnLLM-R-7B-4bit`
 - `baronllm:q6_k`
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
