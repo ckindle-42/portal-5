@@ -10,7 +10,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/README.md
-last_generated_commit: 63cbca4c591d2d00f1cc9e3101ffa91f84a9a4a0
+last_generated_commit: 50b73876729db7181402fcbcc48400caa1ba1e40
 claims: []
 confidence: high
 tags:

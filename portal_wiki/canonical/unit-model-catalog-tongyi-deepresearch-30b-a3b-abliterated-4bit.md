@@ -1,11 +1,11 @@
 ---
 id: unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit
 kind: what
-title: "MODEL_CATALOG — `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`"
+title: "MODEL_CATALOG \u2014 `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: bf25fe83ab4a7c0c23b07a8dcc432bf9f7283d1d
+last_generated_commit: 50b73876729db7181402fcbcc48400caa1ba1e40
 claims: []
 confidence: high
 tags:

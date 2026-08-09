@@ -1,11 +1,12 @@
 ---
 id: unit-known-limitations-antares-gate-e1-gated-download
 kind: what
-title: "KNOWN_LIMITATIONS — Antares-1b: broken special-token handling (not arch, not a gate)"
+title: "KNOWN_LIMITATIONS \u2014 Antares-1b: broken special-token handling (not arch,\
+  \ not a gate)"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: c510745fac5262b22d588ff092753823bc2f70ce
+last_generated_commit: 50b73876729db7181402fcbcc48400caa1ba1e40
 claims: []
 confidence: high
 tags:
