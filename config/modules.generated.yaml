@@ -41,6 +41,7 @@ launched_mcp_ids:
 - reranker
 - research
 - security
+- serena
 - tts
 - whisper
 - wiki

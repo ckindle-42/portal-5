@@ -38,6 +38,14 @@ mcp_fleet:
     command:
       type: local
       command: ["uvx", "--with", "mcp<2.0.0", "mcp-server-git", "--repository", "${HOME}/projects/portal-5"]
+  - id: serena
+    module: general
+    name: serena
+    expose_to_pipeline: false
+    expose_to_ide: true
+    command:
+      type: local
+      command: ["uvx", "--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project", "${HOME}/projects/portal-5"]
   - id: docker
     module: general
     name: docker
