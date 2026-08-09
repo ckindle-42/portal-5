@@ -1,11 +1,11 @@
 ---
 id: unit-model-catalog-granite-4-1-8b-mxfp8
 kind: what
-title: "MODEL_CATALOG — `granite-4.1-8b-mxfp8`"
+title: "MODEL_CATALOG \u2014 `granite-4.1-8b-mxfp8`"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: bf25fe83ab4a7c0c23b07a8dcc432bf9f7283d1d
+last_generated_commit: 50b73876729db7181402fcbcc48400caa1ba1e40
 claims: []
 confidence: high
 tags:

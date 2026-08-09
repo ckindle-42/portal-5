@@ -13,7 +13,7 @@ sources:
   path: tests/uat_catalog/g_benchmark.py
 - type: code
   path: tests/benchmarks/coding_shootout_analyze.py
-last_generated_commit: 925f52c4b7e7ec876ea24823d3a221c7f2f8f505
+last_generated_commit: 50b73876729db7181402fcbcc48400caa1ba1e40
 claims: []
 confidence: high
 tags:
