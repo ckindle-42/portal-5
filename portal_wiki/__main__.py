@@ -77,8 +77,16 @@ def cmd_render(args: argparse.Namespace) -> int:
 
     # --all: regenerate everything
     if args.all:
-        # Step 1: refresh what units from current HEAD
+        # Step 1: refresh what units from current HEAD. This re-derives every
+        # WHAT unit from live seeders, not just units related to your task —
+        # a seeder/mapping drift unrelated to your change can rewrite dozens
+        # of units at once (see unit-wiki-maintain "Gotchas"). Use `render
+        # --check` instead if you only need to verify doc currency, and
+        # review this diff in full — never `git add -A` — before committing.
         print(f"Refreshing what units from HEAD {commit}...")
+        print("  WARNING: rewrites every WHAT unit whose live derivation differs from")
+        print("  what's stored, whether or not it relates to your current task.")
+        print("  Review the resulting diff in full before staging anything.")
         updated = update_what_units(commit, dry_run=args.dry_run)
         print(f"  Updated {len(updated)} what units")
 

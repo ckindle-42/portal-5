@@ -47,3 +47,16 @@ churn detector.
 re-seeding updates in place rather than duplicating, which the module's own
 history shows was once a real failure (signature units were seeded but never
 invoked, so they never landed in the store).
+
+`python3 -m portal_wiki render --all` calls `update_what_units` as its first
+step, unconditionally, before rendering any view — "no-change run produces no
+churn" describes the snapshot hash, not the blast radius when the seeders
+*do* disagree with what's stored. A live seeder can diverge from stored units
+for reasons that have nothing to do with the task at hand (a MITRE mapping
+tweak, a signature-format change, months of accumulated drift), and `--all`
+will rewrite every such unit — observed rewriting title/sources/tags on 39
+`unit-T*-signature` units and inventing new `unit-code-*` files in one run.
+Never reach for `--all` to fix a single doc reference; `render --check` is
+the read-only currency check for that. If `--all` is genuinely needed, treat
+its output as its own reviewed change — diff every touched unit before
+`git add`, never `git add -A` — not something to fold into an unrelated task.
