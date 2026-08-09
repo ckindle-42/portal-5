@@ -517,7 +517,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (23 production, 65 eval, 88 total)
+# Workspace roster (23 production, 66 eval, 89 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -551,6 +551,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 
 - `bench-agents-a1`
 - `bench-agentworld`
+- `bench-aquila-mini-35b-a3b`
 - `bench-baronllm-q6k`
 - `bench-bugtrace-ultra-27b`
 - `bench-cybersecqwen-4b`
@@ -715,7 +716,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (203 model ids across 7 backend groups)
+# Model catalog (204 model ids across 7 backend groups)
 
 ## coding (41)
 
@@ -774,7 +775,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (77)
+## general (78)
 
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
@@ -846,6 +847,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `phi4:14b-q8_0`
 - `portal5/gemma4-12b:q4_K_M-ctx8k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`
+- `portal5/xyz-aquila-mini:q4_k_m`
 - `qwen3-coder-next:latest`
 - `qwen3-coder:30b-a3b-q4_K_M`
 - `qwen3.6:27b-q4_K_M`

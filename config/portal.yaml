@@ -2321,6 +2321,26 @@ workspaces:
     - execute_python
     expose_to_owui: false
     enable_web_search: false
+  bench-aquila-mini-35b-a3b:
+    module: eval
+    name: 🔬 Bench · XYZ-Aquila-mini (Deep-Search agent)
+    description: |-
+      Benchmark: XYZ-Aquila-mini (XYZAILab, 35B-A3B MoE ~3B active, post-trained from Qwen3.6-35B-A3B via AxisAgentic bounded-exploration pipeline). Purpose-built deep-search/web-research agent. Card claims top sub-40B open-weight agentic-search results. UNVERIFIED until benched. Real seat is the AxisAgentic harness (not shipped here); this workspace runs the in-fleet tool-chain proxy probe only — treat any tool-chain read as a proxy signal, not a full deep-search verdict.
+      Intake note: hf.co Ollama pull of the Q4_K_M quant (bartowski/XYZAILab_XYZ-Aquila-mini-GGUF) repeatedly failed with a server-side "context deadline exceeded" on the 21GB blob specifically (smaller quants pulled fine; both blobs verified cached+hash-valid; HF CDN/Xet resolution confirmed fast via direct curl) — root-caused as an Ollama hf.co-puller limitation on this build/blob-size combination, not a network or repo problem. Worked around via the repo's documented gated-repo pattern (huggingface_hub.hf_hub_download + ollama create -f Modelfile, see config/portal.yaml baronllm:q6_k precedent) — same Q4_K_M quant, no quality substitution.
+    model_hint: portal5/xyz-aquila-mini:q4_k_m
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+    owui_system_prompt: |-
+      You are a helpful agentic assistant. Use tools when needed; produce complete, correct output.
+
 
 # ── Model pull registry ────────────────────────────────────────────────────────
 # HuggingFace → Ollama pull metadata. Consumed by `portal models pull`.

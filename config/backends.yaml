@@ -175,6 +175,14 @@ backends:
     supports_tools: false
   - id: meta-secalign-8b-q4_k_m:latest
     supports_tools: false
+  # TASK-BATCH-BENCH-001 Part A intake (2026-08-09): XYZ-Aquila-mini, imported
+  # locally via huggingface_hub.hf_hub_download + `ollama create` (hf.co puller
+  # hit a repeatable server-side context-deadline timeout on this 21GB blob;
+  # see bench-aquila-mini-35b-a3b workspace description for the full root
+  # cause). supports_tools: true is from a direct /api/chat probe (clean,
+  # well-formed tool_calls, arguments correctly typed) — not inferred.
+  - id: portal5/xyz-aquila-mini:q4_k_m
+    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: coding
@@ -765,4 +773,6 @@ workspace_routing:
   bench-qwen3-14b-abliterated:
   - general
   bench-meta-secalign-8b:
+  - general
+  bench-aquila-mini-35b-a3b:
   - general
