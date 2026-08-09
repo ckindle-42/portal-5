@@ -560,6 +560,92 @@ backends:
     laguna-xs.2:Q4_K_M-ctx64k: Laguna-XS.2-4bit
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
+# oMLX shadow-shift extended to the rest of the daily fleet
+# (TASK_OMLX_FULL_PIPELINE_COVERAGE_V1, 2026-08-09). Same pattern as
+# omlx-coding above: priority 10, no workspace_routing change, automatic
+# Ollama fallback via get_backend_candidates when oMLX is unhealthy/rejects.
+# supports_tools measured live per model (Phase 1 audit), not assumed.
+#
+# omlx-reasoning note: DeepSeek-R1-0528-Qwen3-8B-4bit initially audited NO
+# (0/N tool calls) — root-caused, not worked around: (1) tokenizer_config.json
+# mislabeled tokenizer_class as LlamaTokenizerFast for a ByteLevel-BPE
+# tokenizer.json, which corrupted decode (raw Ġ/Ċ byte markers leaking into
+# output) — fixed to PreTrainedTokenizerFast; (2) the upstream deepseek-ai
+# chat_template.jinja never renders the `tools` kwarg into the prompt at
+# all — replaced with unsloth's DeepSeek-R1-0528-Qwen3-8B canonical
+# tool-calling template (sourced from sglang's official
+# tool_chat_template_deepseekr1.jinja, not hand-authored); (3) no mlx_lm
+# tool_parser recognized DeepSeek's `<｜tool▁calls▁begin｜>` format — added
+# mlx_lm/tool_parsers/deepseek_r1.py to the running oMLX install
+# (opt/homebrew/Cellar/omlx) and set tool_parser_type: deepseek_r1 in this
+# model's tokenizer_config.json (same explicit-override pattern as the prior
+# Laguna tool-parser fix, not a global auto-inference change). Re-audited:
+# 100% (6/6) at temperature=0, ~50-60% at default sampling — this 8B distill
+# sometimes reasons its way out of calling the tool. supports_tools: true
+# reflects a genuinely functional (if temperature-sensitive) capability, not
+# a silent-failure flag; if the soak shows this instability matters in
+# practice, the lever is a lower default temperature for the reasoning
+# group's workspaces in config/portal.yaml (out of scope here).
+- group: general
+  id: omlx-general
+  models:
+  - id: gemma-4-26b-a4b-it-QAT-4bit
+    supports_tools: true
+  priority: 10
+  aliases:
+    gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit
+  type: omlx
+  url: ${OMLX_URL:-http://host.docker.internal:8085}
+# omlx-reasoning carries 4 models, not 1: the reasoning group's daily
+# workspaces (auto-reasoning, auto-research, auto-compliance, auto-data) each
+# pin a DIFFERENT model_hint in config/portal.yaml — DeepSeek-R1 alone only
+# covered auto-reasoning, leaving the other three falling through to Ollama
+# even though oMLX health was fine (verified via Phase 4 x-portal-route: they
+# resolved to ollama-reasoning because their hint had no alias here, not
+# because of an admission reject). Tongyi-DeepResearch-30B/granite-4.1-30b/
+# granite-4.1-8b-mxfp8 were already on disk (TASK_DAILY_WORK_FLEET_SOAK_V1's
+# own per-category model table) and live-audited for tool-calling the same
+# way as the primary 4 (all YES, no template/tokenizer defects). Same
+# multi-model-per-group pattern as omlx-coding above.
+- group: reasoning
+  id: omlx-reasoning
+  models:
+  - id: DeepSeek-R1-0528-Qwen3-8B-4bit
+    supports_tools: true
+  - id: Tongyi-DeepResearch-30B-A3B-abliterated-4bit
+    supports_tools: true
+  - id: granite-4.1-30b-4bit
+    supports_tools: true
+  - id: granite-4.1-8b-mxfp8
+    supports_tools: true
+  priority: 10
+  aliases:
+    hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k: DeepSeek-R1-0528-Qwen3-8B-4bit
+    huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k: Tongyi-DeepResearch-30B-A3B-abliterated-4bit
+    granite4.1:30b-ctx64k: granite-4.1-30b-4bit
+    granite4.1:8b-ctx16k: granite-4.1-8b-mxfp8
+  type: omlx
+  url: ${OMLX_URL:-http://host.docker.internal:8085}
+- group: security
+  id: omlx-security
+  models:
+  - id: VulnLLM-R-7B-4bit
+    supports_tools: true
+  priority: 10
+  aliases:
+    hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k: VulnLLM-R-7B-4bit
+  type: omlx
+  url: ${OMLX_URL:-http://host.docker.internal:8085}
+- group: creative
+  id: omlx-creative
+  models:
+  - id: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
+    supports_tools: true
+  priority: 10
+  aliases:
+    fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
+  type: omlx
+  url: ${OMLX_URL:-http://host.docker.internal:8085}
 defaults:
   fallback_group: general
   health_check_interval: 15
