@@ -964,3 +964,75 @@ The direct raw-`/api/chat` reproduction (bypassing any pipeline or probe-script 
 <!-- /WIKI:GENERATED -->
 
 ---
+
+### Antares-1b Role Probe — Gated on Cisco HF Approval (Open, Deferred)
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-antares-gate-e1-gated-download -->
+- **ID**: P5-ANTARES-GATE-E1
+- **Status**: Open, honest-BLOCKED — root cause required two corrections before landing on the
+  real one. TASK-BATCH-BENCH-001 Part E finding.
+- **Correction history** (kept because each wrong turn is a real lesson): pass 1 concluded
+  "gated, unavailable" from `ollama list` alone, without attempting a pull — wrong, ungated
+  community GGUF conversions exist. Pass 2, after actually pulling and probing two independent
+  quants and seeing garbage chat output (`@@@@@@@@@@@@@@@@`) on both, concluded "arch mismatch"
+  (`granitemoehybrid` mapped down to plain `granite`) — also wrong, caught by a direct question
+  prompting a proper isolation test.
+- **Actual root cause (verified)**: `ollama generate --raw` (bypasses the chat template
+  entirely, sends plain text) produces **perfectly coherent output** — "The capital of France
+  is" → "Paris. 2. The largest city in the world by population is Tokyo..." — proving the
+  underlying weights, quantization, and `granite`-mapped forward pass are all fine. The garbage
+  appears *only* when the model's own embedded chat template is applied. Isolated further:
+  feeding the exact literal special-token markup the template emits
+  (`<|start_of_role|>user<|end_of_role|>The capital of France is<|end_of_text|>\n<|start_of_role|>assistant<|end_of_role|>`)
+  through `--raw` reproduces the identical garbage — so the bug is specifically in how
+  Granite-4's `<|start_of_role|>`/`<|end_of_role|>`/`<|end_of_text|>` special tokens are
+  registered/embedded in these GGUF conversions, not in the base model weights or in llama.cpp's
+  architecture support for `granite`/`granitemoehybrid`. Reproduced identically across two
+  independently-uploaded quants (`hf.co/HolkViking/antares-1b-Q4_K_M-GGUF`,
+  `hf.co/DevQuasar/fdtn-ai.antares-1b-GGUF`), which points at either a shared upstream
+  conversion-tool bug for this token family, or a subtly broken special-token embedding row in
+  the base model that every converter faithfully reproduces.
+- **Why still blocked**: `TASK_ANTARES_ROLE_PROBE_V1.md`'s Phase 0.4 tool-call smoke test goes
+  through `/api/chat` (the template path), so it fails the same way regardless of the corrected
+  diagnosis — Experiments A and B both need coherent chat-formatted tool-calling to run.
+  Hand-authoring a working custom Ollama `TEMPLATE` (bypassing the broken embedded one) would
+  fix this, but is real reverse-engineering work — deferred as a follow-on, the same call made
+  for Fara1.5-27B's XML tool-call dialect in this same batch-bench task, not attempted here.
+- **Unblocking**: either a GGUF conversion with correctly-registered special tokens, or a
+  hand-authored Ollama `TEMPLATE` override proven against the `--raw` isolation test above
+  (garbage → coherent) before trusting any chat-mode result.
+
+## Why
+
+Two wrong conclusions in a row on the same finding is exactly the failure mode this note exists to prevent recurring: the first (assumed gate) skipped verification entirely, the second (assumed arch) stopped at the first plausible-looking `ollama show` signal instead of isolating chat-template vs. raw-completion behavior. The `--raw` isolation test that finally pinned this down is cheap and repeatable — recording it here means a future session (or the deferred custom-TEMPLATE follow-on) starts from a verified root cause instead of either stale wrong answer.
+<!-- /WIKI:GENERATED -->
+
+---
+
+### Serena MCP Air-Gap LSP Staging (Not Applicable On This Box, Deferred For Air-Gapped Deploys)
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-serena-gate-d1-airgap-staging -->
+- **ID**: P5-SERENA-GATE-D1
+- **Status**: Not applicable on this box; deferred as a note for a genuinely air-gapped
+  deployment. TASK-BATCH-BENCH-001 Part D finding.
+- **Description**: The `serena` `mcp_fleet` entry (`config/portal.yaml`) launches via
+  `uvx --from git+https://github.com/oraios/serena serena start-mcp-server`, which fetches the
+  Serena package from GitHub and its LSP backend (`pyright`, via a further `uvx pyright==1.1.403`
+  invocation) from PyPI on first activation. TASK-BATCH-BENCH-001's GATE-D1 flagged this as a
+  potential blocker on an air-gapped box, where these must be pre-staged rather than fetched live.
+  This box has live internet access throughout the whole batch-bench session (confirmed by ~60GB
+  of HuggingFace model pulls across Parts A-C) — `uvx` fetched and built `serena-agent` plus
+  `pyright-langserver` cleanly on first `activate_project` call (see
+  `results/serena_refactor_bench_20260809.md`), so GATE-D1 did not block anything here.
+- **For an actual air-gapped deployment**: pre-stage the `oraios/serena` package (e.g. a vendored
+  wheel or mirrored pip index) and a `pyright` binary matching the pinned `1.1.403` version (or
+  configure Serena's `--language-backend` for an alternative already-installed language server),
+  then confirm `uvx --from git+https://github.com/oraios/serena serena start-mcp-server --help`
+  succeeds with network access disabled before relying on the fleet entry in production.
+
+## Why
+
+Recording that GATE-D1 was checked and found not-applicable — rather than silently skipping the check because it happened to not matter — is what keeps this a real gate for any future deployment of this fleet entry onto hardware that isn't already known to have live internet, instead of an assumption nobody re-verifies.
+<!-- /WIKI:GENERATED -->
+
+---
