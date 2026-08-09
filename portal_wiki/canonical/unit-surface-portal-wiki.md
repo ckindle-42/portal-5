@@ -5,7 +5,7 @@ title: "portal_wiki package \u2014 agent retrieval and CLI maintenance surface"
 sources:
 - type: code
   path: portal_wiki/*.py
-last_generated_commit: 22007054d6cba73357ea3c5d7d7c97f5c252d7dc
+last_generated_commit: c5bc22c53b423fab17022fcc0a2971512ae6597e
 claims: []
 confidence: high
 tags:

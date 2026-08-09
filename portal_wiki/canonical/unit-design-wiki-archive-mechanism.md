@@ -14,7 +14,7 @@ sources:
   path: tests/unit/test_wiki_archive.py
 - type: code
   path: tests/unit/test_detector_precision.py
-last_generated_commit: eb7d36d65f646843737e645ab547ece867863723
+last_generated_commit: c5bc22c53b423fab17022fcc0a2971512ae6597e
 claims: []
 confidence: high
 tags:
