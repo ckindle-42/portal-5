@@ -23,6 +23,7 @@
   "auto-vision": "vision",
   "bench-agents-a1": "coding",
   "bench-agentworld": "coding",
+  "bench-aquila-mini-35b-a3b": "reasoning",
   "bench-baronllm-q6k": "general",
   "bench-bugtrace-ultra-27b": "coding",
   "bench-cybersecqwen-4b": "general",

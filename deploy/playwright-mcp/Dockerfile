@@ -7,6 +7,9 @@ RUN npm install -g @playwright/mcp@latest
 
 RUN mkdir -p /app /profiles /audit
 COPY portal/modules/research/tools/browser_mcp.py /app/browser_mcp.py
+COPY portal/__init__.py /app/portal/__init__.py
+COPY portal/platform/ /app/portal/platform/
+COPY config/ /app/config/
 COPY config/ /config/
 
 EXPOSE 8922
