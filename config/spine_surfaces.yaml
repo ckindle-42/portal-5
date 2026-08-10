@@ -312,6 +312,7 @@ surfaces:
   globs:
   - tests/benchmarks/*.py
   - tests/benchmarks/bench/*.py
+  - tests/benchmarks/bench_repair/*.py
   unit: unit-surface-benchmarks
 - name: unit-surface-comfyui-tests
   globs:
