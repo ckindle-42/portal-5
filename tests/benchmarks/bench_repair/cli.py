@@ -16,7 +16,20 @@ from pathlib import Path
 import yaml
 
 from portal.platform.wiki.provenance_ledger import append_entry
-from tests.benchmarks.bench_repair.config import TARGETS
+from tests.benchmarks.bench_repair.checkpoint import (
+    append_samples,
+    cell_done,
+    checkpoint_path,
+    load_checkpoint,
+    samples_for_cell,
+)
+from tests.benchmarks.bench_repair.config import (
+    ARM_ONESHOT,
+    ARM_REPAIR,
+    ONESHOT_N,
+    REPAIR_N,
+    TARGETS,
+)
 from tests.benchmarks.bench_repair.corpus import compute_gsha, load_corpus
 from tests.benchmarks.bench_repair.report import render_matrix
 from tests.benchmarks.bench_repair.runner import (
@@ -63,6 +76,11 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print the plan and exit without calling any model",
     )
+    ap.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Ignore/discard any existing checkpoint for this gsha and start over",
+    )
     return ap.parse_args()
 
 
@@ -78,25 +96,72 @@ def _print_plan(
     print(f"  ollama_version: {ollama_version}")
 
 
-def _run_all_workspaces(
-    workspaces: list[str], hints: dict[str, str], corpus: list[dict]
+def _run_cell(
+    samples: list[SampleResult],
+    *,
+    ckpt_path: Path,
+    gsha: str,
+    ws: str,
+    hint: str,
+    prob: dict,
+    arm: str,
+    n: int,
+    run_fn,
+    label: str,
 ) -> list[SampleResult]:
-    samples: list[SampleResult] = []
+    """Reuse checkpointed samples for this (ws, problem, arm) cell, else run + persist it."""
+    if cell_done(samples, ws, prob["id"], arm, n):
+        cell = samples_for_cell(samples, ws, prob["id"], arm)
+        print(f"  {label}: skip (checkpointed)", end="", flush=True)
+        return cell
+    print(f"  {label}...", end="", flush=True)
+    cell = run_fn(ws, hint, prob)
+    samples.extend(cell)
+    append_samples(ckpt_path, gsha, cell)
+    return cell
+
+
+def _run_all_workspaces(
+    workspaces: list[str], hints: dict[str, str], corpus: list[dict], *, ckpt_path: Path, gsha: str
+) -> list[SampleResult]:
+    samples: list[SampleResult] = load_checkpoint(ckpt_path)
+    if samples:
+        print(f"Resuming: {len(samples)} sample(s) already checkpointed at {ckpt_path}", flush=True)
     for mi, ws in enumerate(workspaces, 1):
         hint = hints[ws]
         print(f"\n[{mi}/{len(workspaces)}] {ws}  ({hint})", flush=True)
         evict_all()  # kick prior residents
         t_ws_start = time.monotonic()
         for pi, prob in enumerate(corpus, 1):
-            print(f"  [{pi}/{len(corpus)}] {prob['id']}  one-shot...", end="", flush=True)
-            os_samples = run_one_shot(ws, hint, prob)
-            os_passes = sum(1 for s in os_samples if s.passed)
-            print(f" {os_passes}/{len(os_samples)}  repair...", end="", flush=True)
-            rp_samples = run_repair(ws, hint, prob)
-            rp_passes = sum(1 for s in rp_samples if s.passed)
-            print(f" {rp_passes}/{len(rp_samples)}", flush=True)
-            samples.extend(os_samples)
-            samples.extend(rp_samples)
+            print(f"  [{pi}/{len(corpus)}] {prob['id']}", flush=True)
+            os_samples = _run_cell(
+                samples,
+                ckpt_path=ckpt_path,
+                gsha=gsha,
+                ws=ws,
+                hint=hint,
+                prob=prob,
+                arm=ARM_ONESHOT,
+                n=ONESHOT_N,
+                run_fn=run_one_shot,
+                label="one-shot",
+            )
+            print(
+                f" {sum(1 for s in os_samples if s.passed)}/{len(os_samples)}", end="", flush=True
+            )
+            rp_samples = _run_cell(
+                samples,
+                ckpt_path=ckpt_path,
+                gsha=gsha,
+                ws=ws,
+                hint=hint,
+                prob=prob,
+                arm=ARM_REPAIR,
+                n=REPAIR_N,
+                run_fn=run_repair,
+                label="repair",
+            )
+            print(f" {sum(1 for s in rp_samples if s.passed)}/{len(rp_samples)}", flush=True)
         print(f"  ── {ws} elapsed {(time.monotonic() - t_ws_start) / 60:.1f}m", flush=True)
     return samples
 
@@ -146,12 +211,19 @@ def main() -> int:
     gsha, breakdown = compute_gsha(corpus)
     hints = {w: _resolve_model_hint(w) for w in workspaces}
     _print_plan(workspaces, hints, corpus, gsha, breakdown["ollama_version"])
+
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    ckpt_path = checkpoint_path(RESULTS_DIR, gsha)
+    if args.fresh and ckpt_path.exists():
+        ckpt_path.unlink()
+        print(f"--fresh: discarded checkpoint {ckpt_path}")
+
     if args.dry_run:
         print("(dry-run — no chat calls)")
         return 0
 
     t_run_start = time.monotonic()
-    samples = _run_all_workspaces(workspaces, hints, corpus)
+    samples = _run_all_workspaces(workspaces, hints, corpus, ckpt_path=ckpt_path, gsha=gsha)
     total_elapsed = time.monotonic() - t_run_start
     print(f"\nTotal elapsed: {total_elapsed / 60:.1f}m over {len(samples)} samples")
 

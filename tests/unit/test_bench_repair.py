@@ -11,12 +11,20 @@ from unittest.mock import patch
 
 from tests.benchmarks.bench_repair import (
     ARM_ONESHOT,
+    ARM_REPAIR,
+    append_samples,
+    cell_done,
+    checkpoint_path,
     compute_gsha,
+    load_checkpoint,
     load_corpus,
     run_one_shot,
     run_repair,
+    samples_for_cell,
 )
+from tests.benchmarks.bench_repair.cli import _run_all_workspaces
 from tests.benchmarks.bench_repair.config import arch_from_hint
+from tests.benchmarks.bench_repair.runner import SampleResult
 
 TRIVIAL_PROBLEM = {
     "id": "trivial",
@@ -149,3 +157,75 @@ def test_run_scenarios_survive_chat_exception():
     assert all(s.passed is False for s in os_samples)
     assert all(s.detail.startswith("harness_error") for s in os_samples)
     assert all(s.detail.startswith("harness_error") for s in rp_samples)
+
+
+def _sample(ws="bench-fake", pid="c2_1", arm=ARM_ONESHOT, idx=0, passed=True):
+    return SampleResult(
+        workspace=ws,
+        model_hint="fake:latest",
+        arm=arm,
+        problem_id=pid,
+        sample_idx=idx,
+        passed=passed,
+        detail="pass",
+        latency_s=0.01,
+    )
+
+
+def test_checkpoint_roundtrip(tmp_path):
+    path = checkpoint_path(tmp_path, "gsha123")
+    assert load_checkpoint(path) == []
+    append_samples(path, "gsha123", [_sample(idx=0), _sample(idx=1)])
+    append_samples(path, "gsha123", [_sample(idx=2)])
+    loaded = load_checkpoint(path)
+    assert len(loaded) == 3
+    assert [s.sample_idx for s in loaded] == [0, 1, 2]
+
+
+def test_load_checkpoint_missing_file_returns_empty(tmp_path):
+    assert load_checkpoint(tmp_path / "does_not_exist.json") == []
+
+
+def test_cell_done_and_samples_for_cell():
+    samples = [_sample(idx=0), _sample(idx=1), _sample(pid="c2_2", idx=0)]
+    assert cell_done(samples, "bench-fake", "c2_1", ARM_ONESHOT, n=2) is True
+    assert cell_done(samples, "bench-fake", "c2_1", ARM_ONESHOT, n=3) is False
+    assert cell_done(samples, "bench-fake", "c2_1", ARM_REPAIR, n=1) is False
+    assert len(samples_for_cell(samples, "bench-fake", "c2_1", ARM_ONESHOT)) == 2
+
+
+def test_resume_skips_completed_cells_without_calling_ollama(tmp_path):
+    corpus = [TRIVIAL_PROBLEM]
+    ckpt = checkpoint_path(tmp_path, "gsha_resume")
+    call_count = {"n": 0}
+
+    def _fake_chat(*a, **kw):
+        call_count["n"] += 1
+        return GOOD_CODE_RESPONSE, 0.01
+
+    with (
+        patch("tests.benchmarks.bench_repair.runner._chat_ollama", side_effect=_fake_chat),
+        patch("tests.benchmarks.bench_repair.runner._emits_reasoning", return_value=False),
+        patch("tests.benchmarks.bench_repair.cli.evict_all"),
+    ):
+        first = _run_all_workspaces(
+            ["bench-fake"],
+            {"bench-fake": "fake:latest"},
+            corpus,
+            ckpt_path=ckpt,
+            gsha="gsha_resume",
+        )
+        first_calls = call_count["n"]
+        assert first_calls > 0
+        assert len(first) == 5 + 2  # one-shot n=5 + repair n=2
+
+        second = _run_all_workspaces(
+            ["bench-fake"],
+            {"bench-fake": "fake:latest"},
+            corpus,
+            ckpt_path=ckpt,
+            gsha="gsha_resume",
+        )
+    # Second call resumes entirely from checkpoint — no new Ollama calls.
+    assert call_count["n"] == first_calls
+    assert len(second) == len(first)
