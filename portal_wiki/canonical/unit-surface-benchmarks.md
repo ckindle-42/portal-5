@@ -9,7 +9,7 @@ sources:
   path: tests/benchmarks/bench/*.py
 - type: code
   path: tests/benchmarks/bench_repair/*.py
-last_generated_commit: c292595b1902995a3c045b1ca0832eae407b4d0d
+last_generated_commit: 916b1931ff69939a98aca98aa5ea64444ceee56c
 claims: []
 confidence: high
 tags:
