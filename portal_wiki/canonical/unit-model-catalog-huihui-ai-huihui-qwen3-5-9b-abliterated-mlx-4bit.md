@@ -1,11 +1,11 @@
 ---
 id: unit-model-catalog-huihui-ai-huihui-qwen3-5-9b-abliterated-mlx-4bit
 kind: what
-title: "MODEL_CATALOG — `huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit`"
+title: "MODEL_CATALOG \u2014 `huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit`"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: 29531a65
+last_generated_commit: 3cdc95603cf1faa41ddd64aa3eaad1ec45a113ce
 claims: []
 confidence: high
 tags:
