@@ -24,24 +24,9 @@ def _harness_error_count(samples: list[SampleResult]) -> int:
     return sum(1 for s in samples if s.detail.startswith("harness_error"))
 
 
-def render_matrix(
-    samples: list[SampleResult],
-    *,
-    gsha: str,
-    breakdown: dict,
-    corpus_size: int,
-) -> str:
-    # Group by workspace × arm
-    by_ws_arm: dict[tuple[str, str], list[SampleResult]] = defaultdict(list)
-    hint_by_ws: dict[str, str] = {}
-    for s in samples:
-        by_ws_arm[(s.workspace, s.arm)].append(s)
-        hint_by_ws[s.workspace] = s.model_hint
-
-    workspaces = sorted({s.workspace for s in samples})
-
+def _header_lines(*, gsha: str, breakdown: dict, corpus_size: int) -> list[str]:
     ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    lines: list[str] = [
+    return [
         "# bench_repair — one-shot vs +1-repair matrix",
         "",
         f"**Generated:** {ts}",
@@ -64,6 +49,13 @@ def render_matrix(
         "|---|---|---|---:|---:|---:|---|",
     ]
 
+
+def _matrix_rows(
+    workspaces: list[str],
+    by_ws_arm: dict[tuple[str, str], list[SampleResult]],
+    hint_by_ws: dict[str, str],
+) -> list[str]:
+    rows = []
     for ws in workspaces:
         hint = hint_by_ws[ws]
         arch = arch_from_hint(hint)
@@ -74,16 +66,24 @@ def render_matrix(
         delta = rp_rate - os_rate
         errs = _harness_error_count(os_samples) + _harness_error_count(rp_samples)
         notes = f"harness_errors={errs}" if errs else ""
-        lines.append(
+        rows.append(
             f"| `{ws}` | {arch} | `{hint}` | "
             f"{os_rate * 100:.1f}% ({len(os_samples)}) | "
             f"{rp_rate * 100:.1f}% ({len(rp_samples)}) | "
             f"{'+' if delta >= 0 else ''}{delta * 100:.1f} | {notes} |"
         )
+    return rows
 
-    # Arch summary
-    lines += ["", "## Arch summary (mean pass rate, mean delta)", ""]
-    lines += [
+
+def _arch_summary_lines(
+    workspaces: list[str],
+    by_ws_arm: dict[tuple[str, str], list[SampleResult]],
+    hint_by_ws: dict[str, str],
+) -> list[str]:
+    lines = [
+        "",
+        "## Arch summary (mean pass rate, mean delta)",
+        "",
         "| Arch | mean one-shot | mean +1-repair | mean Δ | workspaces |",
         "|---|---:|---:|---:|---|",
     ]
@@ -100,14 +100,38 @@ def render_matrix(
             f"{'+' if (m_rp - m_os) >= 0 else ''}{(m_rp - m_os) * 100:.1f} | "
             f"{', '.join(arch_ws)} |"
         )
+    return lines
 
-    # Per-cell detail
-    lines += ["", "## Per-sample detail", ""]
+
+def _per_sample_lines(samples: list[SampleResult]) -> list[str]:
+    lines = ["", "## Per-sample detail", ""]
     for s in sorted(samples, key=lambda x: (x.workspace, x.arm, x.problem_id, x.sample_idx)):
         mark = "PASS" if s.passed else "FAIL"
         lines.append(
             f"- `{s.workspace}` `{s.arm}` `{s.problem_id}` #{s.sample_idx}: "
             f"**{mark}** ({s.latency_s:.1f}s) — {s.detail}"
         )
+    return lines
+
+
+def render_matrix(
+    samples: list[SampleResult],
+    *,
+    gsha: str,
+    breakdown: dict,
+    corpus_size: int,
+) -> str:
+    by_ws_arm: dict[tuple[str, str], list[SampleResult]] = defaultdict(list)
+    hint_by_ws: dict[str, str] = {}
+    for s in samples:
+        by_ws_arm[(s.workspace, s.arm)].append(s)
+        hint_by_ws[s.workspace] = s.model_hint
+
+    workspaces = sorted({s.workspace for s in samples})
+
+    lines = _header_lines(gsha=gsha, breakdown=breakdown, corpus_size=corpus_size)
+    lines += _matrix_rows(workspaces, by_ws_arm, hint_by_ws)
+    lines += _arch_summary_lines(workspaces, by_ws_arm, hint_by_ws)
+    lines += _per_sample_lines(samples)
     lines.append("")
     return "\n".join(lines)

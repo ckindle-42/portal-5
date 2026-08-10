@@ -41,7 +41,7 @@ def _resolve_model_hint(workspace: str) -> str:
     return hint
 
 
-def main() -> int:
+def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Portal 5 repair-loop coding bench")
     ap.add_argument(
         "--models",
@@ -63,33 +63,25 @@ def main() -> int:
         action="store_true",
         help="Print the plan and exit without calling any model",
     )
-    args = ap.parse_args()
+    return ap.parse_args()
 
-    workspaces = [w.strip() for w in args.models.split(",") if w.strip()] or list(TARGETS)
-    corpus = load_corpus()
-    if args.problems:
-        wanted = {p.strip() for p in args.problems.split(",")}
-        corpus = [p for p in corpus if p["id"] in wanted]
-    if not corpus:
-        print("ERROR: no problems selected", file=sys.stderr)
-        return 2
 
-    gsha, breakdown = compute_gsha(corpus)
-    hints = {w: _resolve_model_hint(w) for w in workspaces}
-
+def _print_plan(
+    workspaces: list[str], hints: dict[str, str], corpus: list[dict], gsha: str, ollama_version: str
+) -> None:
     print(f"bench_repair — gsha={gsha}")
     print(f"  workspaces ({len(workspaces)}):")
     for w in workspaces:
         print(f"    {w:32}  {hints[w]}")
     print(f"  problems: {len(corpus)}  arms: one-shot(n=5) + repair(n=2)")
     print(f"  total samples: {len(workspaces) * len(corpus) * (5 + 2)}")
-    print(f"  ollama_version: {breakdown['ollama_version']}")
-    if args.dry_run:
-        print("(dry-run — no chat calls)")
-        return 0
+    print(f"  ollama_version: {ollama_version}")
 
+
+def _run_all_workspaces(
+    workspaces: list[str], hints: dict[str, str], corpus: list[dict]
+) -> list[SampleResult]:
     samples: list[SampleResult] = []
-    t_run_start = time.monotonic()
     for mi, ws in enumerate(workspaces, 1):
         hint = hints[ws]
         print(f"\n[{mi}/{len(workspaces)}] {ws}  ({hint})", flush=True)
@@ -106,21 +98,28 @@ def main() -> int:
             samples.extend(os_samples)
             samples.extend(rp_samples)
         print(f"  ── {ws} elapsed {(time.monotonic() - t_ws_start) / 60:.1f}m", flush=True)
+    return samples
 
-    total_elapsed = time.monotonic() - t_run_start
-    print(f"\nTotal elapsed: {total_elapsed / 60:.1f}m over {len(samples)} samples")
 
+def _finalize_results(
+    samples: list[SampleResult],
+    *,
+    gsha: str,
+    breakdown: dict,
+    corpus: list[dict],
+    workspaces: list[str],
+    output: str,
+) -> Path:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out_path = (
-        Path(args.output)
-        if args.output
+        Path(output)
+        if output
         else (RESULTS_DIR / f"BENCH_REPAIR_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.md")
     )
     md = render_matrix(samples, gsha=gsha, breakdown=breakdown, corpus_size=len(corpus))
     out_path.write_text(md)
     print(f"Wrote {out_path}")
 
-    # Append to provenance ledger — one entry per run
     append_entry(
         episode_id=f"bench_repair_{gsha}_{int(time.time())}",
         scenario=gsha,
@@ -129,6 +128,41 @@ def main() -> int:
         event="bench_repair_run",
     )
     print("Appended provenance ledger entry")
+    return out_path
+
+
+def main() -> int:
+    args = _parse_args()
+
+    workspaces = [w.strip() for w in args.models.split(",") if w.strip()] or list(TARGETS)
+    corpus = load_corpus()
+    if args.problems:
+        wanted = {p.strip() for p in args.problems.split(",")}
+        corpus = [p for p in corpus if p["id"] in wanted]
+    if not corpus:
+        print("ERROR: no problems selected", file=sys.stderr)
+        return 2
+
+    gsha, breakdown = compute_gsha(corpus)
+    hints = {w: _resolve_model_hint(w) for w in workspaces}
+    _print_plan(workspaces, hints, corpus, gsha, breakdown["ollama_version"])
+    if args.dry_run:
+        print("(dry-run — no chat calls)")
+        return 0
+
+    t_run_start = time.monotonic()
+    samples = _run_all_workspaces(workspaces, hints, corpus)
+    total_elapsed = time.monotonic() - t_run_start
+    print(f"\nTotal elapsed: {total_elapsed / 60:.1f}m over {len(samples)} samples")
+
+    _finalize_results(
+        samples,
+        gsha=gsha,
+        breakdown=breakdown,
+        corpus=corpus,
+        workspaces=workspaces,
+        output=args.output,
+    )
     return 0
 
 
