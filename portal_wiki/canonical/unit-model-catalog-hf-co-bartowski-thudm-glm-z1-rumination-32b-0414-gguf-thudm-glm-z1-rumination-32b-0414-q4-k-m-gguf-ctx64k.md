@@ -5,7 +5,7 @@ title: "MODEL_CATALOG \u2014 `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-G
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: de01e9b1e91aa629f9d80d26a890483a552e43e0
+last_generated_commit: 0fec84d46a8898b1b5baf0508af1e25634b099af
 claims: []
 confidence: high
 tags:
