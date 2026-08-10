@@ -1,12 +1,12 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 208 model ids, 7 backend groups
+title: 211 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 4b432aece5bd
-last_generated_commit: 5d5f217e3cd2b239cd1a8444769243ea0a3f752e
+  commit: ac403bbbb3a4
+last_generated_commit: ac403bbbb3a4
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -15,10 +15,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1786382303.401597
+updated_at: 1786389017.996109
 ---
 
-# Model catalog (208 model ids across 7 backend groups)
+# Model catalog (211 model ids across 7 backend groups)
 
 ## coding (41)
 
@@ -78,7 +78,7 @@ updated_at: 1786382303.401597
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (79)
+## general (82)
 
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
@@ -104,6 +104,7 @@ updated_at: 1786382303.401597
 - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M`
 - `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K`
+- `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M`
 - `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf`
 - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M`
 - `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M`
@@ -146,9 +147,11 @@ updated_at: 1786382303.401597
 - `llama3.2:3b-instruct-q8_0-ctx8k`
 - `meta-secalign-8b-q4_k_m:latest`
 - `mistral-small3.2:24b`
+- `muse-glimmer:30b-mlx`
 - `omnicoder2:9b-q4_k_m`
 - `phi4-mini`
 - `phi4:14b-q8_0`
+- `portal5/deepwen-3.6:q4.5-moq`
 - `portal5/gemma4-12b:q4_K_M-ctx8k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`
 - `portal5/xyz-aquila-mini:q4_k_m`

@@ -2348,6 +2348,71 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a helpful agentic assistant. Use tools when needed; produce complete, correct output.
+  bench-muse-glimmer-30b:
+    module: eval
+    name: 🔬 Bench · Muse-Glimmer-30B (multimodal agentic, DFlash)
+    description: |-
+      Benchmark: muse-glimmer:30b-mlx (meta-models/Muse-Glimmer-30B, native Ollama MLX engine, 0.32.7, Apache 2.0). 29.6B dense + ViT-G/14 perception encoder; local-first multimodal agentic model; ships DFlash speculative decoding; OpenClaw/Hermes tool-call compatible.
+      BENCH RESULT 2026-08-10: TPS 25.6 t/s avg (5/5, clears 20 t/s floor). Tool-calling verified via direct /api/chat probe (clean, correctly-typed tool_calls) — supports_tools:true is not inferred. Native vision confirmed: fed an unlabeled bar-chart fixture, returned an accurate grounded description of relative bar heights and trend (mg-vision: ok). Capability C1/C4 vs auto-coding baseline: C1 both 0.00 (harness/probe-difficulty artifact — baseline scores 0 too, not a differentiator); C4 shows a real gap — muse-glimmer 0.33/0.0/0.33 per-probe vs baseline's 1.0/1.0/1.0 — correct plan/fence format but materially weaker SWE-probe content quality. DFlash spec-decode: controlled 8-run-per-arm same-prompt A/B (draft_num_predict 15 vs 0) gives only a 1.9% decode-TPS delta (20.38 vs 19.99 t/s, both within stdev) — far below the card's claimed 1.5-1.8x; output bit-identical across all runs and between on/off, so correctness holds, it just doesn't buy real speed on this serving path. Verdict: pass on TPS/tools/vision, but the coding/agentic edge over the incumbent is not there (C4) and DFlash is not a differentiator here — not a primary-lane promotion candidate on current evidence. PROMOTE_POLICY=confirm.
+    model_hint: muse-glimmer:30b-mlx
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+  bench-jackrong-dsv4-9b:
+    module: eval
+    name: 🔬 Bench · Jackrong DeepSeek-V4-Pro-Qwen3.5-9B-MTP
+    description: |-
+      Benchmark: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M (~5.8GB, arch qwen35). DeepSeek-V4-Pro→Qwen3.5-9B reasoning distill with embedded MTP draft heads; card claims 97.2% format-compliance. TASK-BATCH-BENCH-002 Part B.1 — distillation-watch datapoint (Jackrong) vs compliance/reasoning baseline (granite41-8b), MTP spec-decode read. Self-reported card benches UNVERIFIED until reproduced. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.9
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+  bench-deepwen-cad:
+    module: eval
+    name: 🔬 Bench · Deepwen-3.6 (CAD lane vs Qwen3-Coder incumbent)
+    description: |-
+      Benchmark: Deepwen-3.6 (quimmedes/Deepwen-3.6, Qwen3.6-35B-A3B fine-tune for procedural geometry / hard-surface / 3D asset workflows, MoQ GGUF ~21GB, arch qwen35moe). TASK-BATCH-BENCH-002 Part D — head-to-head vs auto-cad's Qwen3-Coder-30B-A3B incumbent on the real render_openscad/convert_cad tool loop (OpenSCAD primary path + trimesh procedural path). Untested on OpenSCAD specifically — split verdict expected. PROMOTE_POLICY=confirm.
+    model_hint: portal5/deepwen-3.6:q4.5-moq
+    context_limit: 8192
+    predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    tool_choice: required
+    system_prompt_append: |2-
+
+
+      CAD OUTPUT RULE: When asked for a 3D model or printable part, write COMPLETE OpenSCAD source code in a fenced ```openscad block. State all dimensions as named variables at the top (units=mm, wall thickness, tolerances) so the part is parametric. End by calling the render_openscad tool with your code to produce the STL + preview PNG. For procedural geometry (arrays, math-driven surfaces), use Python with trimesh in execute_python — trimesh is available. Do not leave stubs.
+    tools:
+    - execute_python
+    - execute_bash
+    - sandbox_status
+    - read_pdf
+    - read_word_document
+    - web_search
+    - web_fetch
+    - remember
+    - recall
+    - kb_search
+    - render_mesh
+    - render_openscad
+    - convert_cad
+    expose_to_owui: true
+    enable_web_search: false
 
 
 # ── Model pull registry ────────────────────────────────────────────────────────

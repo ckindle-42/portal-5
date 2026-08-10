@@ -11,7 +11,7 @@ sources:
   path: portal/platform/inference/router/workspaces.py
 - type: code
   path: portal/platform/inference/config.py
-last_generated_commit: 5d5f217e3cd2b239cd1a8444769243ea0a3f752e
+last_generated_commit: ac403bbbb3a4053f140d2f1e8fb20481276318d1
 claims:
 - probe: workspaces.bench
   pattern: currently {value} workspaces
@@ -35,7 +35,7 @@ List the current set with:
 python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"
 ```
 
-The live count is currently 66 workspaces. Verified examples from `config/portal.yaml`:
+The live count is currently 69 workspaces. Verified examples from `config/portal.yaml`:
 
 | Workspace | Pinned model (`model_hint`) |
 |---|---|
