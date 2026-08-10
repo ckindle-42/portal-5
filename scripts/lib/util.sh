@@ -135,21 +135,23 @@ _check_hardware() {
     ARCH=$(uname -m)
     if [ "$ARCH" = "arm64" ]; then
         echo "  ✅ Platform: Apple Silicon — Metal acceleration available"
-        if command -v ollama &>/dev/null && curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
-            OLLAMA_VER=$(ollama --version 2>/dev/null | head -1 || echo "installed")
-            OLLAMA_SEMVER=$(printf "%s" "$OLLAMA_VER" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-            if [ -n "$OLLAMA_SEMVER" ] && _version_at_least "$OLLAMA_SEMVER" "$OLLAMA_MIN_VERSION"; then
-                echo "  ✅ Ollama: native ($OLLAMA_VER) — Metal GPU active"
+        # Version/liveness are read from the live API, not a PATH-resolved
+        # `ollama` binary — `command -v ollama` can silently resolve to a
+        # stale/wrong install (e.g. Homebrew's, disabled 2026-08-10 for
+        # shipping below OLLAMA_MIN_VERSION) while the correct server
+        # (com.portal5.ollama LaunchDaemon) is what's actually serving :11434.
+        OLLAMA_API_VER=$(curl -s http://localhost:11434/api/version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        if [ -n "$OLLAMA_API_VER" ]; then
+            if _version_at_least "$OLLAMA_API_VER" "$OLLAMA_MIN_VERSION"; then
+                echo "  ✅ Ollama: native ($OLLAMA_API_VER) — Metal GPU active"
             else
-                echo "  ⚠️  Ollama ${OLLAMA_SEMVER:-unknown} is below required ${OLLAMA_MIN_VERSION}"
+                echo "  ⚠️  Ollama ${OLLAMA_API_VER} is below required ${OLLAMA_MIN_VERSION}"
                 echo "     Upgrade the active server before launch; older MLX builds can evict pinned models"
                 WARN=1
             fi
-        elif command -v ollama &>/dev/null; then
-            echo "  ⚠️  Ollama installed but not running — start it: brew services start ollama"
-            WARN=1
         else
-            echo "  ⚠️  Ollama not installed — run: ./launch.sh install-ollama"
+            echo "  ⚠️  Ollama not responding on :11434 — restart it:"
+            echo "     sudo launchctl kickstart -k system/com.portal5.ollama"
             WARN=1
         fi
         # Check native ComfyUI is running
@@ -264,17 +266,15 @@ _ensure_native_services() {
     [ -x "$PY" ] || PY="python3"
 
     # ── Ollama ───────────────────────────────────────────────────────────────
-    if command -v ollama &>/dev/null; then
+    # Apple Silicon runs the pinned build (`com.portal5.ollama`, a system
+    # LaunchDaemon at /Library/LaunchDaemons/) — NOT Homebrew's `ollama`
+    # (disabled 2026-08-10, ships below OLLAMA_MIN_VERSION). Detection and
+    # restart both go through the LaunchDaemon/API, never `command -v ollama`
+    # or `brew services` — PATH can silently resolve to a stale reinstall.
+    if [ "$ARCH" = "arm64" ] && [ -f /Library/LaunchDaemons/com.portal5.ollama.plist ]; then
         if ! curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
-            echo "[portal-5]   Ollama installed but not running — starting..."
-            if command -v brew &>/dev/null; then
-                brew services start ollama &>/dev/null || true
-            else
-                # Linux: start as background process
-                mkdir -p "$HOME/.portal5/logs"
-                OLLAMA_MODELS="${OLLAMA_MODELS:-$HOME/.ollama/models}" nohup ollama serve > "$HOME/.portal5/logs/ollama.log" 2>&1 &
-            fi
-            # Wait up to 10s for Ollama to respond
+            echo "[portal-5]   Ollama not responding — restarting com.portal5.ollama..."
+            sudo -n /bin/launchctl kickstart -k system/com.portal5.ollama &>/dev/null || true
             local retries=10
             while [ "$retries" -gt 0 ]; do
                 sleep 1
@@ -285,7 +285,29 @@ _ensure_native_services() {
                 retries=$((retries - 1))
             done
             if [ "$retries" -eq 0 ]; then
-                echo "[portal-5]   ⚠️  Ollama did not respond after 10s — check: brew services info ollama"
+                echo "[portal-5]   ⚠️  Ollama did not respond after 10s — check:"
+                echo "[portal-5]      sudo launchctl print system/com.portal5.ollama"
+            fi
+        else
+            echo "[portal-5]   ✅ Ollama: running"
+        fi
+    elif command -v ollama &>/dev/null; then
+        if ! curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
+            echo "[portal-5]   Ollama installed but not running — starting..."
+            # Linux: start as background process
+            mkdir -p "$HOME/.portal5/logs"
+            OLLAMA_MODELS="${OLLAMA_MODELS:-$HOME/.ollama/models}" nohup ollama serve > "$HOME/.portal5/logs/ollama.log" 2>&1 &
+            local retries=10
+            while [ "$retries" -gt 0 ]; do
+                sleep 1
+                if curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
+                    echo "[portal-5]   ✅ Ollama started"
+                    break
+                fi
+                retries=$((retries - 1))
+            done
+            if [ "$retries" -eq 0 ]; then
+                echo "[portal-5]   ⚠️  Ollama did not respond after 10s"
             fi
         else
             echo "[portal-5]   ✅ Ollama: running"
@@ -787,11 +809,11 @@ for key, label, url in rows:
     if [ "$ARCH" = "arm64" ]; then
         echo "  NATIVE SERVICES (host)"
 
-        if command -v ollama &>/dev/null && python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:11434/api/tags', timeout=2)" &>/dev/null 2>&1; then
-            _OV=$(ollama --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:11434/api/tags', timeout=2)" &>/dev/null 2>&1; then
+            _OV=$(curl -s http://localhost:11434/api/version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
             printf "    ✅  %-28s %s\n" "Ollama" ":11434  (v${_OV:-?})"
         else
-            printf "    ❌  %-28s %s\n" "Ollama" "not running — brew services start ollama"
+            printf "    ❌  %-28s %s\n" "Ollama" "not running — sudo launchctl kickstart -k system/com.portal5.ollama"
         fi
 
         if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8188/system_stats', timeout=2)" &>/dev/null 2>&1; then

@@ -3,7 +3,7 @@
 # shellcheck shell=bash
 
 _launch_install_ollama() {
-    echo "=== Installing Ollama natively (Apple Silicon / Metal GPU) ==="
+    echo "=== Ollama status (Apple Silicon / Metal GPU) ==="
     ARCH=$(uname -m)
 
     if [ "$ARCH" != "arm64" ]; then
@@ -13,37 +13,42 @@ _launch_install_ollama() {
         exit 0
     fi
 
-    if ! command -v brew &>/dev/null; then
-        echo "  ❌ Homebrew not found. Install it first:"
-        echo '     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-        echo "  Then re-run: ./launch.sh install-ollama"
-        exit 1
+    # Homebrew's ollama is NOT used on this project (disabled 2026-08-10) —
+    # it lags upstream releases and this project tracks newer Ollama
+    # versions faster than brew publishes them (native MLX Metal on Apple
+    # Silicon requires 0.32.4+; see OLLAMA_MIN_VERSION in scripts/lib/util.sh).
+    # The supported install is a pinned binary release run as a system
+    # LaunchDaemon (`com.portal5.ollama`), not `brew install ollama`.
+    if [ -f /Library/LaunchDaemons/com.portal5.ollama.plist ]; then
+        OLLAMA_API_VER=$(curl -s http://localhost:11434/api/version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        if [ -n "$OLLAMA_API_VER" ]; then
+            echo "  ✅ com.portal5.ollama running (v${OLLAMA_API_VER})"
+        else
+            echo "  ⚠️  com.portal5.ollama is configured but not responding — restart it:"
+            echo "     sudo launchctl kickstart -k system/com.portal5.ollama"
+        fi
+        echo ""
+        echo "Next steps:"
+        echo "  ./launch.sh up           — start Portal 5 stack"
+        echo "  ./launch.sh pull-models  — pull AI models (30-90 min)"
+        return
     fi
 
-    if command -v ollama &>/dev/null; then
-        echo "  ✅ Ollama already installed: $(ollama --version 2>/dev/null | head -1 || echo 'installed')"
-    else
-        echo "  Installing Ollama via brew..."
-        brew install ollama
-        echo "  ✅ Ollama installed"
-    fi
-
-    echo "  Starting Ollama service (auto-starts on login)..."
-    brew services start ollama
-    sleep 3
-
-    if curl -s http://localhost:11434/api/tags &>/dev/null; then
-        echo "  ✅ Ollama is running at http://localhost:11434"
-        echo "  ✅ Will auto-start on login via brew services"
-    else
-        echo "  ⚠️  Ollama installed but not yet responding — wait a moment then check:"
-        echo "     curl http://localhost:11434/api/tags"
-    fi
-
-    echo ""
-    echo "Next steps:"
-    echo "  ./launch.sh up           — start Portal 5 stack"
-    echo "  ./launch.sh pull-models  — pull AI models (30-90 min)"
+    echo "  ❌ No pinned Ollama LaunchDaemon found."
+    echo "  This project does not use 'brew install ollama' — it ships below the"
+    echo "  version this project requires (see OLLAMA_MIN_VERSION) and brew lags"
+    echo "  upstream releases. Set up the pinned native install manually:"
+    echo "    1. Download the current Ollama release for macOS/arm64 from"
+    echo "       https://github.com/ollama/ollama/releases and unpack it to"
+    echo "       e.g. ~/ollama-<version>/"
+    echo "    2. Create /Library/LaunchDaemons/com.portal5.ollama.plist pointing"
+    echo "       ProgramArguments at that binary, with EnvironmentVariables"
+    echo "       OLLAMA_MODELS/OLLAMA_MAX_LOADED_MODELS/OLLAMA_NUM_PARALLEL/"
+    echo "       OLLAMA_GPU_OVERHEAD set (see docs/ADMIN_GUIDE.md)."
+    echo "    3. sudo launchctl bootstrap system /Library/LaunchDaemons/com.portal5.ollama.plist"
+    echo "  This is a deliberate one-time, root-owned setup step — not automated"
+    echo "  here — so re-run this command once it's in place to verify status."
+    exit 1
 }
 
 _launch_install_comfyui() {

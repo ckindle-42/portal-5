@@ -117,25 +117,38 @@ def restart_ollama(ollama_url: str = DEFAULT_OLLAMA_URL) -> bool:
     Nuclear recovery used only when `purge` fails. Waits up to 30s for Ollama
     to return healthy.
 
-    Returns True if healthy after restart, False on timeout.
+    Ollama runs as `com.portal5.ollama`, a system LaunchDaemon (deliberately
+    system-domain, not a per-user LaunchAgent, so it's up before any user is
+    logged in) — NOT Homebrew's `homebrew.mxcl.ollama` (stale, older version;
+    disabled 2026-08-10, see reports/DAILY_WORK_SOAK_*.md). Restarting a
+    system LaunchDaemon always requires root, so this shells out via `sudo -n`
+    to a single, narrowly-scoped passwordless rule
+    (`/etc/sudoers.d/portal5-ollama`: exactly
+    `launchctl kickstart -k system/com.portal5.ollama`, nothing else). If that
+    rule isn't installed, `sudo -n` fails fast (no password prompt hang) and
+    this returns False rather than silently starting the wrong service.
+
+    Returns True if healthy after restart, False on timeout or if the sudo
+    rule is missing.
     """
     print("  [metal] Restarting Ollama to clear stuck Metal contexts ...", flush=True)
     try:
-        subprocess.run(
-            ["brew", "services", "restart", "ollama"], timeout=30, check=False, capture_output=True
+        result = subprocess.run(
+            ["sudo", "-n", "/bin/launchctl", "kickstart", "-k", "system/com.portal5.ollama"],
+            timeout=30,
+            check=False,
+            capture_output=True,
         )
-    except Exception:
-        try:
-            subprocess.run(
-                ["pkill", "-f", "ollama serve"], timeout=5, check=False, capture_output=True
+        if result.returncode != 0:
+            print(
+                "  [metal] Ollama restart failed — sudo rule missing or kickstart errored: "
+                f"{result.stderr.decode(errors='replace').strip()}",
+                flush=True,
             )
-            time.sleep(3)
-            subprocess.Popen(
-                ["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
-        except Exception as e:
-            print(f"  [metal] Ollama restart failed: {e}", flush=True)
             return False
+    except Exception as e:
+        print(f"  [metal] Ollama restart failed: {e}", flush=True)
+        return False
     deadline = time.time() + 30.0
     while time.time() < deadline:
         try:

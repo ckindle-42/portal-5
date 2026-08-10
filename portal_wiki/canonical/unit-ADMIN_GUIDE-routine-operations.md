@@ -18,7 +18,7 @@ created_at: 1783195000.8131342
 updated_at: 1783195000.8131342
 ---
 
-Routine lifecycle is one command per operation. `./launch.sh status` runs `_cmd_status` in scripts/lib/util.sh — a per-service health table covering the Docker stack, native services, and the pipeline's `backends_healthy` counts. `./launch.sh logs` tails the portal-pipeline container by default; the default stack has no Ollama container (the compose `ollama` service sits behind the `docker-ollama` profile), so native Ollama logs come from brew services or `~/.portal5/logs/ollama.log`, not from `logs ollama`. `./launch.sh seed` re-runs `openwebui-init` idempotently, `./launch.sh down` stops the stack via `_do_down` with data preserved, and `./launch.sh clean` removes only the `portal-5_open-webui-data` volume, keeping Ollama models.
+Routine lifecycle is one command per operation. `./launch.sh status` runs `_cmd_status` in scripts/lib/util.sh — a per-service health table covering the Docker stack, native services, and the pipeline's `backends_healthy` counts. `./launch.sh logs` tails the portal-pipeline container by default; the default stack has no Ollama container (the compose `ollama` service sits behind the `docker-ollama` profile), so native Ollama logs come from `/opt/homebrew/var/log/ollama.log` (the `com.portal5.ollama` LaunchDaemon's configured log path, despite the `homebrew` directory prefix — not Homebrew-managed) or `~/.portal5/logs/ollama.log` on Linux, not from `logs ollama`. `./launch.sh seed` re-runs `openwebui-init` idempotently, `./launch.sh down` stops the stack via `_do_down` with data preserved, and `./launch.sh clean` removes only the `portal-5_open-webui-data` volume, keeping Ollama models.
 
 ## Why
 
