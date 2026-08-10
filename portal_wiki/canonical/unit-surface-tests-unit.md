@@ -6,7 +6,7 @@ title: "Platform unit-test suite \u2014 hermetic contract pins for routing, conf
 sources:
 - type: code
   path: tests/unit/*.py
-last_generated_commit: a2211f18e73a41d884419a28afb6b2127c68f16b
+last_generated_commit: 689a533566795e0e04d627b0bfc49d8feb5b968f
 claims: []
 confidence: high
 tags:
