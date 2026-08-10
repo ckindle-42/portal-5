@@ -10,7 +10,7 @@ sources:
   path: config/personas/bench_granite41_8b.yaml
 - type: code
   path: tests/benchmarks/bench/prompts.py
-last_generated_commit: fb9979b75eb4d70f331e849b80fc7326e8e61847
+last_generated_commit: de01e9b1e91aa629f9d80d26a890483a552e43e0
 claims: []
 confidence: high
 tags:

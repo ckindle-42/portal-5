@@ -7,7 +7,7 @@ sources:
   path: config/portal.yaml
   commit: db75e444cdca521f9be63059be9180bb380a4a64
   section: workspaces[].tools
-last_generated_commit: fb9979b75eb4d70f331e849b80fc7326e8e61847
+last_generated_commit: de01e9b1e91aa629f9d80d26a890483a552e43e0
 claims: []
 confidence: high
 tags:
