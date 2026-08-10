@@ -183,6 +183,30 @@ backends:
   # well-formed tool_calls, arguments correctly typed) — not inferred.
   - id: portal5/xyz-aquila-mini:q4_k_m
     supports_tools: true
+  # TASK-BATCH-BENCH-002 Part A/B intake (2026-08-10): supports_tools verified
+  # via direct /api/chat probe (clean tool_calls, correctly typed arguments)
+  # after fixing the OLLAMA_GPU_OVERHEAD ceiling (was 40GiB, permanently
+  # capping any single Ollama model at ~15.5GiB regardless of oMLX's actual
+  # loaded state; reduced to 20GiB in com.portal5.ollama.plist — real
+  # coexistence headroom instead of a number that starved Ollama).
+  - id: muse-glimmer:30b-mlx
+    supports_tools: true
+  - id: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M
+    supports_tools: true
+  # TASK-BATCH-BENCH-002 Part D intake (2026-08-10): Deepwen-3.6, quimmedes'
+  # Qwen3.6-35B-A3B fine-tune for procedural/hard-surface CAD. `ollama pull
+  # hf.co/quimmedes/Deepwen-3.6:Q4.5-MoQ` and `:BF16` both 400'd — Ollama's
+  # hf.co puller validates the tag against its own quant-scheme enum and
+  # rejects the uploader's custom "MoQ" (Mixture-of-Quantizations) naming;
+  # the no-tag pull hangs indefinitely (can't auto-pick among multiple MoQ
+  # variants). Not gated — worked around via direct
+  # huggingface_hub.hf_hub_download of Deepwen-3.6-Q4.5-MoQ.gguf (21.2GB,
+  # matches card) + `ollama create` from the local file (GGUF metadata
+  # auto-parsed cleanly: arch qwen35moe, template, tool-call format — no
+  # hand-written Modelfile needed, unlike the baronllm/xyz-aquila gated-repo
+  # precedent). supports_tools: true verified via direct /api/chat probe.
+  - id: portal5/deepwen-3.6:q4.5-moq
+    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: coding
@@ -877,4 +901,10 @@ workspace_routing:
   bench-meta-secalign-8b:
   - general
   bench-aquila-mini-35b-a3b:
+  - general
+  bench-muse-glimmer-30b:
+  - general
+  bench-jackrong-dsv4-9b:
+  - general
+  bench-deepwen-cad:
   - general

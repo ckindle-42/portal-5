@@ -1,12 +1,12 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 23 production + 66 eval workspaces
+title: 23 production + 69 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 7d0a3709d563
-last_generated_commit: 925f52c4b7e7ec876ea24823d3a221c7f2f8f505
+  commit: ac403bbbb3a4
+last_generated_commit: ac403bbbb3a4
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -15,10 +15,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1786302934.9146721
+updated_at: 1786386814.292601
 ---
 
-# Workspace roster (23 production, 66 eval, 89 total)
+# Workspace roster (23 production, 69 eval, 92 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -57,6 +57,7 @@ updated_at: 1786302934.9146721
 - `bench-bugtrace-ultra-27b`
 - `bench-cybersecqwen-4b`
 - `bench-cybersecqwen-4b-toolfix`
+- `bench-deepwen-cad`
 - `bench-devstral`
 - `bench-devstral-small-2`
 - `bench-e2b-pentest`
@@ -82,6 +83,7 @@ updated_at: 1786302934.9146721
 - `bench-granite41-8b`
 - `bench-huihui-qwen36-27b`
 - `bench-huihui-qwen36-35b-a3b`
+- `bench-jackrong-dsv4-9b`
 - `bench-laguna`
 - `bench-lfm-micro-1p2b`
 - `bench-lfm-micro-230m`
@@ -90,6 +92,7 @@ updated_at: 1786302934.9146721
 - `bench-lfm25-8b-uncensored`
 - `bench-meta-secalign-8b`
 - `bench-mistral7b-uncensored`
+- `bench-muse-glimmer-30b`
 - `bench-nex-n2-mini`
 - `bench-north-mini-code`
 - `bench-omnicoder2`
