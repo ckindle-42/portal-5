@@ -18,12 +18,15 @@ updated_at: 1784946220.688859
 ---
 
 "Wait for Ollama to finish loading, then try again" is the guidance for a cold
-start. During `up`, `_ensure_native_services` (`scripts/lib/util.sh`) starts
-Ollama via `brew services` (or `nohup ollama serve`) when it is installed but not
-responding, then polls `http://localhost:11434/api/tags` up to 10 seconds before
-reporting success or warning. The router only sees healthy backends once models
-finish loading, so an immediate request right after boot can hit an empty backend
-list — retrying after Ollama responds is the intended fix.
+start. During `up`, `_ensure_native_services` (`scripts/lib/util.sh`) restarts
+Ollama via `sudo -n launchctl kickstart -k system/com.portal5.ollama` on Apple
+Silicon (the pinned native install, `com.portal5.ollama` — not Homebrew, which
+was uninstalled 2026-08-10) when it is configured but not responding, or via
+`nohup ollama serve` on Linux, then polls `http://localhost:11434/api/tags` up
+to 10 seconds before reporting success or warning. The router only sees healthy
+backends once models finish loading, so an immediate request right after boot
+can hit an empty backend list — retrying after Ollama responds is the intended
+fix.
 
 **First run taking too long:** the FLUX.1-schnell checkpoint is about 12 GB, so on
 a slower connection the download dominates boot time; the `hf download` based

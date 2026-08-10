@@ -36,12 +36,15 @@ The requirements `./launch.sh up` actually enforces are in `_check_hardware` in
 | **RAM** | 16 GB | warns below 32 GB (enough for core models; 32+ for the full catalog) |
 | **Disk** | 20 GB free | warns below 50 GB; FLUX alone is about 12 GB |
 | **Docker** | running daemon (5 s timeout) | a hung Docker Desktop is detected and the user is offered a process kill |
-| **Ollama** | reachable on :11434 | auto-started by `_ensure_native_services` via `brew services` if installed |
+| **Ollama** | reachable on :11434 | auto-restarted by `_ensure_native_services` via `sudo -n launchctl kickstart -k system/com.portal5.ollama` if configured |
 
-Apple Silicon is the recommended platform: `install-ollama` installs Ollama via
-brew with Metal acceleration, `install-comfyui` sets up ComfyUI with an MPS venv,
-and the native MLX services run on the M-series Metal path. On non-Apple-Silicon
-machines the installers print Linux/Docker alternatives instead of failing.
+Apple Silicon is the recommended platform: `install-ollama` reports the pinned
+native Ollama install's status (a system LaunchDaemon, `com.portal5.ollama` —
+not Homebrew, which lags upstream releases below this project's minimum
+version; disabled and uninstalled 2026-08-10), `install-comfyui` sets up
+ComfyUI with an MPS venv, and the native MLX services run on the M-series
+Metal path. On non-Apple-Silicon machines the installers print Linux/Docker
+alternatives instead of failing.
 
 ## Why
 
@@ -694,12 +697,15 @@ confusing mid-boot error.
 
 <!-- WIKI:GENERATED unit=unit-readme-wait-for-ollama-to-finish-loading-then-try-again -->
 "Wait for Ollama to finish loading, then try again" is the guidance for a cold
-start. During `up`, `_ensure_native_services` (`scripts/lib/util.sh`) starts
-Ollama via `brew services` (or `nohup ollama serve`) when it is installed but not
-responding, then polls `http://localhost:11434/api/tags` up to 10 seconds before
-reporting success or warning. The router only sees healthy backends once models
-finish loading, so an immediate request right after boot can hit an empty backend
-list — retrying after Ollama responds is the intended fix.
+start. During `up`, `_ensure_native_services` (`scripts/lib/util.sh`) restarts
+Ollama via `sudo -n launchctl kickstart -k system/com.portal5.ollama` on Apple
+Silicon (the pinned native install, `com.portal5.ollama` — not Homebrew, which
+was uninstalled 2026-08-10) when it is configured but not responding, or via
+`nohup ollama serve` on Linux, then polls `http://localhost:11434/api/tags` up
+to 10 seconds before reporting success or warning. The router only sees healthy
+backends once models finish loading, so an immediate request right after boot
+can hit an empty backend list — retrying after Ollama responds is the intended
+fix.
 
 **First run taking too long:** the FLUX.1-schnell checkpoint is about 12 GB, so on
 a slower connection the download dominates boot time; the `hf download` based

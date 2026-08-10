@@ -25,12 +25,15 @@ The requirements `./launch.sh up` actually enforces are in `_check_hardware` in
 | **RAM** | 16 GB | warns below 32 GB (enough for core models; 32+ for the full catalog) |
 | **Disk** | 20 GB free | warns below 50 GB; FLUX alone is about 12 GB |
 | **Docker** | running daemon (5 s timeout) | a hung Docker Desktop is detected and the user is offered a process kill |
-| **Ollama** | reachable on :11434 | auto-started by `_ensure_native_services` via `brew services` if installed |
+| **Ollama** | reachable on :11434 | auto-restarted by `_ensure_native_services` via `sudo -n launchctl kickstart -k system/com.portal5.ollama` if configured |
 
-Apple Silicon is the recommended platform: `install-ollama` installs Ollama via
-brew with Metal acceleration, `install-comfyui` sets up ComfyUI with an MPS venv,
-and the native MLX services run on the M-series Metal path. On non-Apple-Silicon
-machines the installers print Linux/Docker alternatives instead of failing.
+Apple Silicon is the recommended platform: `install-ollama` reports the pinned
+native Ollama install's status (a system LaunchDaemon, `com.portal5.ollama` —
+not Homebrew, which lags upstream releases below this project's minimum
+version; disabled and uninstalled 2026-08-10), `install-comfyui` sets up
+ComfyUI with an MPS venv, and the native MLX services run on the M-series
+Metal path. On non-Apple-Silicon machines the installers print Linux/Docker
+alternatives instead of failing.
 
 ## Why
 
