@@ -4,6 +4,13 @@ Monkeypatching must target the owning module (e.g. `runner._chat_ollama`),
 not these re-exports.
 """
 
+from tests.benchmarks.bench_repair.checkpoint import (
+    append_samples,
+    cell_done,
+    checkpoint_path,
+    load_checkpoint,
+    samples_for_cell,
+)
 from tests.benchmarks.bench_repair.cli import main
 from tests.benchmarks.bench_repair.config import (
     ARM_ONESHOT,
@@ -41,4 +48,9 @@ __all__ = [
     "evict_all",
     "score_code",
     "render_matrix",
+    "checkpoint_path",
+    "load_checkpoint",
+    "append_samples",
+    "cell_done",
+    "samples_for_cell",
 ]
