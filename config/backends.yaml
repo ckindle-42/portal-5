@@ -628,12 +628,37 @@ backends:
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 - group: security
   id: omlx-security
+  # RBP arm coverage (2026-08-10): auto-security folds 8 role variants
+  # (uncensored/pentest/blueteam/redteam/redteam-deep/purpleteam/
+  # purpleteam-deep/purpleteam-exec), each pinning a DIFFERENT model_hint —
+  # the base VulnLLM alias above only covered plain auto-security requests.
+  # Four variants added here for free: their oMLX conversions were already
+  # on disk (shared with omlx-creative/omlx-reasoning, or previously
+  # unregistered), each live tool-call-audited before being added. Two
+  # roles (redteam-deep, purpleteam-exec — supergemma4-26b-uncensored)
+  # deliberately NOT added: the only supergemma4-26b MLX conversion on
+  # disk is Jiunsong/supergemma4-26b-abliterated-multimodal, a DIFFERENT
+  # base checkpoint per its own README (not the -uncensored repo Ollama
+  # actually serves) — aliasing it would be a silent model substitution.
+  # Left Ollama-backed until a correct conversion is deliberately pulled.
+  # `uncensored` (baronllm-abliterated) also left Ollama-backed — no oMLX
+  # conversion on disk, deferred pending a disk-usage reassessment.
   models:
   - id: VulnLLM-R-7B-4bit
+    supports_tools: true
+  - id: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
+    supports_tools: true
+  - id: granite-4.1-8b-mxfp8
+    supports_tools: true
+  - id: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
     supports_tools: true
   priority: 10
   aliases:
     hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k: VulnLLM-R-7B-4bit
+    fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
+    granite4.1:8b-ctx8k: granite-4.1-8b-mxfp8
+    huihui_ai/qwen3.5-abliterated:9b-ctx8k: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
+    huihui_ai/qwen3.5-abliterated:9b-ctx64k: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 - group: creative

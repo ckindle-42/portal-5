@@ -1,12 +1,12 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 211 model ids, 7 backend groups
+title: 214 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: bf25fe83ab4a
-last_generated_commit: 50b73876729db7181402fcbcc48400caa1ba1e40
+  commit: 29531a6522c0
+last_generated_commit: 29531a6522c0
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -15,10 +15,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1786317311.2903628
+updated_at: 1786378729.078368
 ---
 
-# Model catalog (211 model ids across 7 backend groups)
+# Model catalog (214 model ids across 7 backend groups)
 
 ## coding (41)
 
@@ -201,14 +201,16 @@ updated_at: 1786317311.2903628
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 
-## security (29)
+## security (32)
 
+- `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`
 - `VulnLLM-R-7B-4bit`
 - `baronllm:q6_k`
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
 - `devstral-small-2:latest-ctx8k`
 - `glm-4.7-flash:Q4_K_M`
+- `granite-4.1-8b-mxfp8`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`
@@ -218,6 +220,7 @@ updated_at: 1786317311.2903628
 - `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k`
+- `huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit`
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 - `huihui_ai/gemma-4-abliterated:E2b-qat`
