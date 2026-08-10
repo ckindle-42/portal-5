@@ -1,9 +1,4 @@
-"""Corpus load + exam fingerprint.
-
-The gsha stamps every results file and every ledger entry. Fingerprint
-changes if any of {corpus content, prompt templates, Ollama version} changes,
-which is exactly the boundary of comparability.
-"""
+"""Corpus load + exam fingerprint (gsha changes iff corpus/prompts/Ollama version change)."""
 
 from __future__ import annotations
 
@@ -21,7 +16,6 @@ from tests.benchmarks.bench_repair.config import (
 
 
 def load_corpus() -> list[dict]:
-    """Return the c2 corpus (which the repair loop shares with bench_capability)."""
     return load_data("tests/data", "bench_capability_c2_problems")
 
 
@@ -35,11 +29,7 @@ def _ollama_version() -> str:
 
 
 def compute_gsha(corpus: list[dict]) -> tuple[str, dict]:
-    """Return (gsha, breakdown).
-
-    gsha is a 12-char hex digest. breakdown is the {corpus_sha, prompts_sha,
-    ollama_version, gsha} the report/ledger record for auditability.
-    """
+    """Return (gsha, breakdown) where breakdown records the inputs for auditability."""
     corpus_bytes = json.dumps(corpus, sort_keys=True, separators=(",", ":")).encode()
     corpus_sha = hashlib.sha256(corpus_bytes).hexdigest()[:16]
     prompts_sha = hashlib.sha256((ONE_SHOT_TEMPLATE + REPAIR_TEMPLATE).encode()).hexdigest()[:16]

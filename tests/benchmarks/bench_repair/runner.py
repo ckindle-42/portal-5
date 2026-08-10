@@ -1,11 +1,7 @@
 """Ollama-direct chat + one-shot and +1-repair arms.
 
-Model-major eviction between models mirrors capability_probe.py: at model
-switch, list currently-loaded models via /api/ps and post keep_alive=0 for
-each. This keeps one model resident at a time on the 64 GB M4 Pro.
-
-Temperature is passed explicitly (default 1.0) so the sampling variance is
-real and matches @danpacary's protocol.
+Eviction mirrors capability_probe.py's model-major pattern: keeps one
+model resident at a time on the 64 GB M4 Pro.
 """
 
 from __future__ import annotations
@@ -49,7 +45,7 @@ def _chat_ollama(
     temperature: float = TEMPERATURE,
     timeout: float = 600.0,
 ) -> tuple[str, float]:
-    """Post one chat completion to Ollama directly. Returns (content, elapsed_s)."""
+    """Returns (content, elapsed_s)."""
     payload = {
         "model": model_hint,
         "messages": messages,
@@ -66,7 +62,6 @@ def _chat_ollama(
 
 
 def evict_all() -> None:
-    """Set keep_alive=0 for every currently-loaded Ollama model."""
     try:
         ps = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5).json()
         for m in ps.get("models", []):
@@ -76,12 +71,10 @@ def evict_all() -> None:
                 timeout=10,
             )
     except Exception:  # noqa: BLE001
-        # Eviction is best-effort; a stale model just slows the next run.
-        pass
+        pass  # best-effort; a stale model just slows the next run
 
 
 def _budget_for(workspace: str) -> int:
-    """Token budget: 8192 for reasoning-emitting workspaces, 4096 else."""
     if _emits_reasoning(workspace):
         return 8192
     return 4096
