@@ -5,9 +5,9 @@ title: 25/25 docs migrated (100.0%)
 sources:
 - type: code
   path: portal/platform/wiki/render.py
-  commit: af3bb184d18e
+  commit: b849a142e908
   section: render_report
-last_generated_commit: af3bb184d18e
+last_generated_commit: b849a142e908
 claims: []
 confidence: high
 tags:
@@ -15,12 +15,12 @@ tags:
 - wiki
 - migration
 created_at: 1784941448.187764
-updated_at: 1786392435.447542
+updated_at: 1786396447.081663
 ---
 
 # Doc migration coverage (25/25 docs migrated, 100.0%)
 
-Total generated blocks across migrated docs: 575
+Total generated blocks across migrated docs: 578
 
 ## Migrated docs (content-hash gate only)
 

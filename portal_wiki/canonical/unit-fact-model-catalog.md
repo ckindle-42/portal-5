@@ -1,12 +1,12 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 212 model ids, 7 backend groups
+title: 213 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: af3bb184d18e
-last_generated_commit: de01e9b1e91aa629f9d80d26a890483a552e43e0
+  commit: b849a142e908
+last_generated_commit: b849a142e908
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -15,10 +15,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1786391999.7378821
+updated_at: 1786395667.923926
 ---
 
-# Model catalog (212 model ids across 7 backend groups)
+# Model catalog (213 model ids across 7 backend groups)
 
 ## coding (41)
 
@@ -78,7 +78,7 @@ updated_at: 1786391999.7378821
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (83)
+## general (84)
 
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
@@ -153,6 +153,7 @@ updated_at: 1786391999.7378821
 - `phi4-mini`
 - `phi4:14b-q8_0`
 - `portal5/deepwen-3.6:q4.5-moq`
+- `portal5/deepwen-3.6:q4.5-moq-ctx32k`
 - `portal5/gemma4-12b:q4_K_M-ctx8k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`
 - `portal5/xyz-aquila-mini:q4_k_m`
