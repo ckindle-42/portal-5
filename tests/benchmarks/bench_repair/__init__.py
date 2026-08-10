@@ -1,18 +1,7 @@
-"""Portal 5 — repair-loop coding bench.
+"""Portal 5 — repair-loop coding bench: one-shot vs +1-repair pass rate.
 
-Measures execution-graded pass rate under two arms:
-  one-shot   : n=5 samples per (model, problem)
-  +1-repair  : n=2 samples per (model, problem); on failure, second attempt
-               receives the model's own code + pytest stderr and one retry.
-
-Reuses capability_lib.run_python_against_tests for grading. Reuses
-bench_capability's _emits_reasoning + _get_token_budget for reasoning-model
-token allocation. Ollama-direct chat with keep_alive=0 model-major eviction
-between models. No auto-promotion (PROMOTE_POLICY: confirm).
-
-Public API stability: monkeypatching internals must target the module that
-owns them (e.g. `bench_repair.runner._chat_ollama`), not the shim
-re-exports.
+Monkeypatching must target the owning module (e.g. `runner._chat_ollama`),
+not these re-exports.
 """
 
 from tests.benchmarks.bench_repair.cli import main
