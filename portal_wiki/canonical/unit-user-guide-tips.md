@@ -7,7 +7,7 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: config/portal.yaml
-last_generated_commit: 925f52c4b7e7ec876ea24823d3a221c7f2f8f505
+last_generated_commit: fb9979b75eb4d70f331e849b80fc7326e8e61847
 claims: []
 confidence: high
 tags:
