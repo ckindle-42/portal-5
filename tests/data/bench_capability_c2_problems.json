@@ -1,17 +1,52 @@
 [
   {
     "id": "c2_1",
-    "prompt": "Write a Python function `merge_intervals(intervals)` that merges all overlapping intervals. Each interval is [start, end]. Return the merged list sorted by start.\nExample: merge_intervals([[1,3],[2,6],[8,10]]) \u2192 [[1,6],[8,10]]\nProvide the complete function in a ```python fenced code block.",
+    "prompt": "Write a Python function `merge_intervals(intervals)` that merges all overlapping intervals. Each interval is [start, end]. Return the merged list sorted by start.\nExample: merge_intervals([[1,3],[2,6],[8,10]]) → [[1,6],[8,10]]\nProvide the complete function in a ```python fenced code block.",
     "test": "from solution import merge_intervals\n\ndef test_basic():\n    assert merge_intervals([[1,3],[2,6],[8,10]]) == [[1,6],[8,10]]\n\ndef test_single():\n    assert merge_intervals([[1,4]]) == [[1,4]]\n\ndef test_non_overlapping():\n    assert merge_intervals([[1,2],[3,4],[5,6]]) == [[1,2],[3,4],[5,6]]\n\ndef test_unsorted():\n    assert merge_intervals([[5,8],[1,3]]) == [[1,3],[5,8]]\n\ndef test_contained():\n    assert merge_intervals([[1,10],[2,5],[6,9]]) == [[1,10]]\n"
   },
   {
     "id": "c2_2",
-    "prompt": "Write a Python function `first_missing_positive(nums)` that returns the smallest positive integer not present in the list.\nExample: [3,4,-1,1] \u2192 2, [1,2,0] \u2192 3\nProvide the complete function in a ```python fenced code block.",
+    "prompt": "Write a Python function `first_missing_positive(nums)` that returns the smallest positive integer not present in the list.\nExample: [3,4,-1,1] → 2, [1,2,0] → 3\nProvide the complete function in a ```python fenced code block.",
     "test": "from solution import first_missing_positive\n\ndef test_example1():\n    assert first_missing_positive([3,4,-1,1]) == 2\n\ndef test_example2():\n    assert first_missing_positive([1,2,0]) == 3\n\ndef test_all_negative():\n    assert first_missing_positive([-5,-3,-1]) == 1\n\ndef test_consecutive():\n    assert first_missing_positive([1,2,3,4,5]) == 6\n\ndef test_gap():\n    assert first_missing_positive([7,8,9]) == 1\n"
   },
   {
     "id": "c2_3",
-    "prompt": "Write a Python function `can_jump(nums)` that returns whether you can reach the last index. Start at index 0, and nums[i] is your max jump length from position i.\nExample: [2,3,1,1,4] \u2192 True, [3,2,1,0,4] \u2192 False\nProvide the complete function in a ```python fenced code block.",
+    "prompt": "Write a Python function `can_jump(nums)` that returns whether you can reach the last index. Start at index 0, and nums[i] is your max jump length from position i.\nExample: [2,3,1,1,4] → True, [3,2,1,0,4] → False\nProvide the complete function in a ```python fenced code block.",
     "test": "from solution import can_jump\n\ndef test_example1():\n    assert can_jump([2,3,1,1,4]) is True\n\ndef test_example2():\n    assert can_jump([3,2,1,0,4]) is False\n\ndef test_single():\n    assert can_jump([0]) is True\n\ndef test_large_jump():\n    assert can_jump([5,0,0,0,0,0]) is True\n\ndef test_trapped():\n    assert can_jump([1,0,1,0]) is False\n"
+  },
+  {
+    "id": "c2_4",
+    "prompt": "Write a Python function `flatten_nested(items)` that flattens an arbitrarily nested list of integers into a flat list, preserving order.\nExample: flatten_nested([1, [2, [3, 4], 5], 6]) → [1, 2, 3, 4, 5, 6]\nProvide the complete function in a ```python fenced code block.",
+    "test": "from solution import flatten_nested\n\ndef test_basic():\n    assert flatten_nested([1, [2, [3, 4], 5], 6]) == [1, 2, 3, 4, 5, 6]\n\ndef test_empty():\n    assert flatten_nested([]) == []\n\ndef test_flat_input():\n    assert flatten_nested([1, 2, 3]) == [1, 2, 3]\n\ndef test_deeply_nested():\n    assert flatten_nested([[[[[1]]]], 2]) == [1, 2]\n\ndef test_multiple_branches():\n    assert flatten_nested([[1, 2], [3, [4, 5]], 6, [[7]]]) == [1, 2, 3, 4, 5, 6, 7]\n"
+  },
+  {
+    "id": "c2_5",
+    "prompt": "Write a Python function `roman_to_int(s)` that converts a Roman numeral string to an integer. Valid input uses I, V, X, L, C, D, M with standard subtractive notation (IV=4, IX=9, XL=40, XC=90, CD=400, CM=900).\nExample: roman_to_int(\"MCMXCIV\") → 1994\nProvide the complete function in a ```python fenced code block.",
+    "test": "from solution import roman_to_int\n\ndef test_i():\n    assert roman_to_int(\"I\") == 1\n\ndef test_iv():\n    assert roman_to_int(\"IV\") == 4\n\ndef test_ix():\n    assert roman_to_int(\"IX\") == 9\n\ndef test_lviii():\n    assert roman_to_int(\"LVIII\") == 58\n\ndef test_mcmxciv():\n    assert roman_to_int(\"MCMXCIV\") == 1994\n\ndef test_mmxxvi():\n    assert roman_to_int(\"MMXXVI\") == 2026\n"
+  },
+  {
+    "id": "c2_6",
+    "prompt": "Write a Python function `parse_kv(s)` that parses a string like \"key1=value1; key2=value2\" into a dict. Semicolons separate pairs; = separates key from value. Trim whitespace around keys and values. A backslash-semicolon `\\;` inside a value is a literal semicolon and does NOT split. An empty string returns an empty dict.\nExample: parse_kv(\"a=1; b=hello\\\\;world; c=3\") -> {\"a\":\"1\", \"b\":\"hello;world\", \"c\":\"3\"}\nProvide the complete function in a ```python fenced code block.",
+    "test": "from solution import parse_kv\n\ndef test_basic():\n    assert parse_kv(\"a=1; b=2\") == {\"a\": \"1\", \"b\": \"2\"}\n\ndef test_single():\n    assert parse_kv(\"x=42\") == {\"x\": \"42\"}\n\ndef test_empty():\n    assert parse_kv(\"\") == {}\n\ndef test_whitespace():\n    assert parse_kv(\"  name = alice ;   age = 30  \") == {\"name\": \"alice\", \"age\": \"30\"}\n\ndef test_escaped_semicolon():\n    # backslash-semicolon means literal ; inside the value\n    assert parse_kv(\"a=1; b=hello\\\\;world; c=3\") == {\"a\": \"1\", \"b\": \"hello;world\", \"c\": \"3\"}\n"
+  },
+  {
+    "id": "c2_7",
+    "prompt": "Write a Python function `rotate_90(matrix)` that returns a NEW 2D list rotated 90 degrees clockwise. Input is a list of lists (may be non-square). Do not mutate the input.\nExample: rotate_90([[1,2,3],[4,5,6]]) → [[4,1],[5,2],[6,3]]\nProvide the complete function in a ```python fenced code block.",
+    "test": "from solution import rotate_90\nimport copy\n\ndef test_2x2():\n    assert rotate_90([[1, 2], [3, 4]]) == [[3, 1], [4, 2]]\n\ndef test_2x3():\n    assert rotate_90([[1, 2, 3], [4, 5, 6]]) == [[4, 1], [5, 2], [6, 3]]\n\ndef test_3x2():\n    assert rotate_90([[1, 2], [3, 4], [5, 6]]) == [[5, 3, 1], [6, 4, 2]]\n\ndef test_single_row():\n    assert rotate_90([[1, 2, 3]]) == [[1], [2], [3]]\n\ndef test_does_not_mutate():\n    m = [[1, 2], [3, 4]]\n    snapshot = copy.deepcopy(m)\n    _ = rotate_90(m)\n    assert m == snapshot\n"
+  },
+  {
+    "id": "c2_8",
+    "prompt": "Write a Python function `parse_log_line(line)` that parses a log line of the form `[TIMESTAMP] LEVEL=X msg=\"the message\"` into a dict with keys \"timestamp\", \"level\", \"msg\". The msg value is inside double quotes and may contain spaces. Return None if the line does not match the format.\nExample: parse_log_line('[2026-08-10 12:34:56] LEVEL=INFO msg=\"startup complete\"') → {\"timestamp\":\"2026-08-10 12:34:56\", \"level\":\"INFO\", \"msg\":\"startup complete\"}\nProvide the complete function in a ```python fenced code block.",
+    "test": "from solution import parse_log_line\n\ndef test_basic():\n    r = parse_log_line('[2026-08-10 12:34:56] LEVEL=INFO msg=\"startup complete\"')\n    assert r == {\"timestamp\": \"2026-08-10 12:34:56\", \"level\": \"INFO\", \"msg\": \"startup complete\"}\n\ndef test_different_level():\n    r = parse_log_line('[2025-01-01 00:00:00] LEVEL=ERROR msg=\"disk full\"')\n    assert r == {\"timestamp\": \"2025-01-01 00:00:00\", \"level\": \"ERROR\", \"msg\": \"disk full\"}\n\ndef test_empty_msg():\n    r = parse_log_line('[2026-08-10 12:34:56] LEVEL=DEBUG msg=\"\"')\n    assert r == {\"timestamp\": \"2026-08-10 12:34:56\", \"level\": \"DEBUG\", \"msg\": \"\"}\n\ndef test_malformed_returns_none():\n    assert parse_log_line(\"nonsense\") is None\n\ndef test_missing_msg_returns_none():\n    assert parse_log_line(\"[2026-08-10 12:34:56] LEVEL=INFO\") is None\n"
+  },
+  {
+    "id": "c2_9",
+    "prompt": "Write a Python function `topological_sort(graph)` where graph is a dict mapping node → list of nodes that depend on it (i.e., must come AFTER this node). Return a list of nodes in a valid topological order. If a cycle exists, return None. If multiple valid orders exist, any is acceptable. Every node that appears (as a key or in any value list) must be present in the returned list exactly once.\nExample: topological_sort({\"a\": [\"b\", \"c\"], \"b\": [\"d\"], \"c\": [\"d\"], \"d\": []}) — valid returns include [\"a\",\"b\",\"c\",\"d\"] or [\"a\",\"c\",\"b\",\"d\"].\nProvide the complete function in a ```python fenced code block.",
+    "test": "from solution import topological_sort\n\ndef _is_valid_topo(order, graph):\n    if order is None:\n        return False\n    nodes = set()\n    for k, deps in graph.items():\n        nodes.add(k)\n        nodes.update(deps)\n    if set(order) != nodes or len(order) != len(nodes):\n        return False\n    pos = {n: i for i, n in enumerate(order)}\n    for src, dsts in graph.items():\n        for d in dsts:\n            if pos[src] >= pos[d]:\n                return False\n    return True\n\ndef test_linear_chain():\n    g = {\"a\": [\"b\"], \"b\": [\"c\"], \"c\": []}\n    assert _is_valid_topo(topological_sort(g), g)\n\ndef test_diamond():\n    g = {\"a\": [\"b\", \"c\"], \"b\": [\"d\"], \"c\": [\"d\"], \"d\": []}\n    assert _is_valid_topo(topological_sort(g), g)\n\ndef test_cycle_returns_none():\n    g = {\"a\": [\"b\"], \"b\": [\"c\"], \"c\": [\"a\"]}\n    assert topological_sort(g) is None\n\ndef test_empty():\n    assert topological_sort({}) == []\n\ndef test_single_node():\n    assert topological_sort({\"only\": []}) == [\"only\"]\n"
+  },
+  {
+    "id": "c2_10",
+    "prompt": "Write a Python function `parse_ip_range(cidr)` that takes a CIDR string like \"10.0.0.0/30\" and returns a list of every IPv4 address in the range as strings, in order. Include network and broadcast addresses.\nExample: parse_ip_range(\"10.0.0.0/30\") → [\"10.0.0.0\", \"10.0.0.1\", \"10.0.0.2\", \"10.0.0.3\"]\nProvide the complete function in a ```python fenced code block.",
+    "test": "from solution import parse_ip_range\n\ndef test_slash_32():\n    assert parse_ip_range(\"192.168.1.1/32\") == [\"192.168.1.1\"]\n\ndef test_slash_30():\n    assert parse_ip_range(\"10.0.0.0/30\") == [\"10.0.0.0\", \"10.0.0.1\", \"10.0.0.2\", \"10.0.0.3\"]\n\ndef test_slash_29():\n    r = parse_ip_range(\"172.16.0.8/29\")\n    assert r == [\"172.16.0.8\", \"172.16.0.9\", \"172.16.0.10\", \"172.16.0.11\",\n                 \"172.16.0.12\", \"172.16.0.13\", \"172.16.0.14\", \"172.16.0.15\"]\n\ndef test_slash_24_count():\n    r = parse_ip_range(\"10.10.11.0/24\")\n    assert len(r) == 256\n    assert r[0] == \"10.10.11.0\"\n    assert r[-1] == \"10.10.11.255\"\n"
   }
 ]
