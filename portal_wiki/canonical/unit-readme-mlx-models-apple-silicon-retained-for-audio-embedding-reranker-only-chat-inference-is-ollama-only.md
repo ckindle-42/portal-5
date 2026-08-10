@@ -14,7 +14,7 @@ sources:
   path: .env.example
 - type: code
   path: scripts/lib/services.sh
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: a81c5e73569f981ecedb0d95b088563fcce651ed
 claims: []
 confidence: high
 tags:
