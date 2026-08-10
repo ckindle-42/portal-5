@@ -7,7 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-last_generated_commit: eecaf33560f0be8d5fa9c2cf20bf1fbdbf93443a
+last_generated_commit: 956ee226e319e701e3605c9de6950bfa437a56f0
 claims: []
 confidence: high
 tags:
