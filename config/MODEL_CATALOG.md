@@ -1748,7 +1748,7 @@ The `-ctx8k` tag is the rare case of a declared backend model with no production
 Grounding anchors the model to the two omlx registrations that serve it and to the aliases block that lets the production GGUF hint reach oMLX unchanged. The Phase-0 probe numbers are kept as measured results, not config facts, and the unit notes the absence of any portal.yaml wiring so the eval-only role stays explicit.
 <!-- /WIKI:GENERATED -->
 
-### `gemma-4-e4b-it-4bit`
+### `gemma-4-e4b-it-4bit` — DROPPED (disk cleanup 2026-08-10, no production route; see config/UNUSED_MODELS_20260810.md)
 
 <!-- WIKI:GENERATED unit=unit-model-catalog-gemma-4-e4b-it-4bit -->
 `gemma-4-e4b-it-4bit` is registered in `config/backends.yaml` under the `omlx` group with `supports_tools: true`, served by the oMLX evaluation backend (`type: omlx`). It is the MLX conversion (mlx-community, 4-bit) of gemma-4-e4b-it. Phase-0 probes measured roughly 74 t/s decode versus about 49 t/s for the GGUF `gemma4:e4b-it-qat` (~1.4x), a 3.5x warmer TTFT, and a structured `tool_calls` PASS via Gemma `<start_function_call>` parsing, with JSON-schema PASS and one reproducible self-recovering livelock on unconstrained-to-constrained transitions.
@@ -1758,7 +1758,7 @@ Grounding anchors the model to the two omlx registrations that serve it and to t
 The `omlx` group registration in `config/backends.yaml` is the model's only config grounding — it is a holding group with no workspace routing reference, so the backend entry carries the id, the tool flag, and the oMLX type. The probe numbers are institutional knowledge from the oMLX evaluation phase and are kept because they justify the `supports_tools: true` decision recorded in the entry.
 <!-- /WIKI:GENERATED -->
 
-### `supergemma4-26b-abliterated-multimodal-mlx-4bit`
+### `supergemma4-26b-abliterated-multimodal-mlx-4bit` — DROPPED (disk cleanup 2026-08-10; also confirmed a checkpoint mismatch vs the redteam-deep/purpleteam-exec RBP variants — see unit-model-catalog-huihui-ai-huihui-qwen3-5-9b-abliterated-mlx-4bit and config/UNUSED_MODELS_20260810.md)
 
 <!-- WIKI:GENERATED unit=unit-model-catalog-supergemma4-26b-abliterated-multimodal-mlx-4bit -->
 `supergemma4-26b-abliterated-multimodal-mlx-4bit` is a VLM-shaped 4-bit MLX conversion of the abliterated supergemma4-26b fine-tune, registered in `config/backends.yaml` under `group: omlx` (`omlx-local`) with `supports_tools: true`. The group's live-probe notes attribute the tool_call PASS to the VLM engine because the fine-tune crashes text-only `mlx_lm`; oMLX's VLM engine is the only serving path. Phase-0 Gate-6 confirmed coherent generation plus structured `tool_calls`. It is an evaluation candidate for the auto-security redteam and purpleteam variants, which remain on the GGUF `supergemma4-26b-uncensored:Q4_K_M` family for production.
@@ -1768,7 +1768,7 @@ The `omlx` group registration in `config/backends.yaml` is the model's only conf
 This model's `supports_tools: true` is meaningful only together with the serving-path constraint: native tool calling works exclusively through the VLM engine because text-only `mlx_lm` crashes on the fine-tune. Grounding the flag to the `omlx-local` entry and the engine requirement prevents the model from being mis-assumed safe to serve elsewhere, and marks its role as evaluation candidate rather than production.
 <!-- /WIKI:GENERATED -->
 
-### `Qwen3-VL-32B-Instruct-4bit`
+### `Qwen3-VL-32B-Instruct-4bit` — DROPPED (disk cleanup 2026-08-10, no production route — vision served by ollama-vision instead; see config/UNUSED_MODELS_20260810.md)
 
 <!-- WIKI:GENERATED unit=unit-model-catalog-qwen3-vl-32b-instruct-4bit -->
 `Qwen3-VL-32B-Instruct-4bit` is a 4-bit MLX conversion of Qwen3-VL-32B-Instruct registered in `config/backends.yaml` under `group: omlx` (`omlx-local`) with `supports_tools: false` — the group's live-probe notes record a passing vision probe, not structured tool calling. The `omlx` holding group carries no `workspace_routing` reference, so traffic reaches the model only through the tier-3 absolute fallback. Phase-0 Gate-6 recorded a 7.7s load and correct image understanding via OpenAI `image_url` parts. It is an evaluation candidate for the `auto-vision` lane, whose production primary is the GGUF `qwen3-vl:32b` family, and must clear a migration gate before any promotion.
@@ -1778,7 +1778,7 @@ This model's `supports_tools: true` is meaningful only together with the serving
 The oMLX entry's `supports_tools: false` is easy to misread as a vision failure; in fact the vision probe passed and only tool-calling is disclaimed. Grounding the flag against the `omlx-local` entry and noting the holding group's lack of `workspace_routing` makes both the capability boundary and the reachability boundary explicit, and prevents a future reader from wiring the model into a production lane by mistake.
 <!-- /WIKI:GENERATED -->
 
-### `Qwen3.6-27B-oQ8-mtp`
+### `Qwen3.6-27B-oQ8-mtp` — DROPPED (disk cleanup 2026-08-10, 28GB reclaimed; Phase-4 MTP-enablement reference numbers preserved below if that plan is revisited — see config/UNUSED_MODELS_20260810.md)
 
 <!-- WIKI:GENERATED unit=unit-model-catalog-qwen3-6-27b-oq8-mtp -->
 `Qwen3.6-27B-oQ8-mtp` is the oQ-quantized Qwen3.6-27B with a merged Lightning MTP head (built during the 2026-05-28 re-eval), served by the oMLX evaluation backend. `config/backends.yaml` registers it in the `omlx` group's `omlx-local` backend with `supports_tools: false`. Phase-0 Gate-2b with the toggle verified against the server log measured MTP off 8.1-8.4 t/s versus on 18.0-20.5 t/s — a 2.22-2.47x speedup at 82-95% draft acceptance. It is the reference artifact for Phase-4 MTP enablement on coding and security primaries, and no `config/portal.yaml` workspace consumes it.
@@ -1788,7 +1788,7 @@ The oMLX entry's `supports_tools: false` is easy to misread as a vision failure;
 Grounding anchors the model to the single `omlx-local` registration whose supports_tools false flag reflects its eval-only role, and records that no portal.yaml workspace references it. The MTP speedup figures are kept as the institutional evidence behind the Phase-4 plan — they are a measured probe result, not a config-derived claim, so they are stated as measurements.
 <!-- /WIKI:GENERATED -->
 
-### `Llama-3.2-3B-Instruct-8bit`
+### `Llama-3.2-3B-Instruct-8bit` — DROPPED (disk cleanup 2026-08-10, eval-continuity only, no production route; see config/UNUSED_MODELS_20260810.md)
 
 <!-- WIKI:GENERATED unit=unit-model-catalog-llama-3-2-3b-instruct-8bit -->
 `Llama-3.2-3B-Instruct-8bit` is the 8-bit MLX conversion of Llama-3.2-3B-Instruct (mlx-community), the cross-eval continuity model (2026-04-25 bake-off, 2026-05-28 re-eval, 2026-08-02 Phase-0). `config/backends.yaml` registers it in the `omlx` group's `omlx-local` backend with `supports_tools: false`. Phase-0 measured 62 t/s decode, 7.0x warm TTFT, and a JSON-schema PASS, but tool calling FAILS — bare JSON emitted in content, an oMLX Llama parser gap versus Ollama/llama.cpp — so Llama-family models are not migrated to oMLX tool paths until the parser handles them. It is not referenced by any `config/portal.yaml` workspace; it exists for eval continuity, not serving.
@@ -1798,7 +1798,7 @@ Grounding anchors the model to the single `omlx-local` registration whose suppor
 This unit grounds the MLX Llama model to the single `omlx-local` registration in backends.yaml, where the supports_tools false flag is the load-bearing fact, and records that no portal.yaml workspace consumes it. The Phase-0 measurements are kept as the institutional evidence behind the do-not-migrate note, which is a parser limitation rather than a model quality judgement.
 <!-- /WIKI:GENERATED -->
 
-### `Phi-4-reasoning-plus-MLX-4bit`
+### `Phi-4-reasoning-plus-MLX-4bit` — DROPPED (disk cleanup 2026-08-10, was already do-not-migrate on a tool-calling template defect; see config/UNUSED_MODELS_20260810.md)
 
 <!-- WIKI:GENERATED unit=unit-model-catalog-phi-4-reasoning-plus-mlx-4bit -->
 `Phi-4-reasoning-plus-MLX-4bit` is the 4-bit MLX conversion of Phi-4-reasoning-plus (lmstudio-community), probed as a candidate refuge for the GGUF crash. `config/backends.yaml` registers it in the `omlx` group's `omlx-local` backend with `supports_tools: false`; the group's header comment marks Phi-4-reasoning-plus a degenerate-output FAIL — registered but do-not-migrate until the template issue resolves. Phase-0 Gate-6 reproduced special-token leakage and incoherent output under the default chat template, so it is not production-viable as probed. The registration keeps the id known without letting any workspace route to it.
