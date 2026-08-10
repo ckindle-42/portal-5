@@ -1,11 +1,11 @@
 ---
 id: unit-known-limitations-serena-gate-d1-airgap-staging
 kind: what
-title: "KNOWN_LIMITATIONS — Serena GATE-D1 air-gap LSP staging"
+title: "KNOWN_LIMITATIONS \u2014 Serena GATE-D1 air-gap LSP staging"
 sources:
 - type: code
   path: config/portal.yaml
-last_generated_commit: c510745fac5262b22d588ff092753823bc2f70ce
+last_generated_commit: fb9979b75eb4d70f331e849b80fc7326e8e61847
 claims: []
 confidence: high
 tags:

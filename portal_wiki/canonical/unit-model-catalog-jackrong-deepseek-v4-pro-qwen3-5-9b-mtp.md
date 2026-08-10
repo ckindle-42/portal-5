@@ -1,13 +1,13 @@
 ---
 id: unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-9b-mtp
 kind: what
-title: "MODEL_CATALOG — `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M`"
+title: "MODEL_CATALOG \u2014 `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M`"
 sources:
 - type: code
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-last_generated_commit: ac403bbbb3a4053f140d2f1e8fb20481276318d1
+last_generated_commit: fb9979b75eb4d70f331e849b80fc7326e8e61847
 claims: []
 confidence: high
 tags:

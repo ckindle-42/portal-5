@@ -1,13 +1,13 @@
 ---
 id: unit-model-catalog-muse-glimmer-30b-mlx
 kind: what
-title: "MODEL_CATALOG — `muse-glimmer:30b-mlx`"
+title: "MODEL_CATALOG \u2014 `muse-glimmer:30b-mlx`"
 sources:
 - type: code
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-last_generated_commit: ac403bbbb3a4053f140d2f1e8fb20481276318d1
+last_generated_commit: fb9979b75eb4d70f331e849b80fc7326e8e61847
 claims: []
 confidence: high
 tags:

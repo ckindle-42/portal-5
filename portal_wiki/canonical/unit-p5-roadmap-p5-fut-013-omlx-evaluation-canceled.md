@@ -9,7 +9,7 @@ sources:
   path: docs/reports/OMLX_DECISION.md
 - type: code
   path: tests/benchmarks/results/omlx_v3_reeval_20260802T221435Z.md
-last_generated_commit: 5d5f217e3cd2b239cd1a8444769243ea0a3f752e
+last_generated_commit: fb9979b75eb4d70f331e849b80fc7326e8e61847
 claims: []
 confidence: high
 tags:
