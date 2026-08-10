@@ -5,7 +5,7 @@ title: "KNOWN_LIMITATIONS \u2014 auto-math Workspace \u2014 Reasoning Block Supp
 sources:
 - type: code
   path: config/portal.yaml
-last_generated_commit: 956ee226e319e701e3605c9de6950bfa437a56f0
+last_generated_commit: 0fec84d46a8898b1b5baf0508af1e25634b099af
 claims: []
 confidence: high
 tags:

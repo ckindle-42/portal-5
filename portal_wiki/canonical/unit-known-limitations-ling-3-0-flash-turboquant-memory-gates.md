@@ -1,11 +1,11 @@
 ---
 id: unit-known-limitations-ling-3-0-flash-turboquant-memory-gates
 kind: what
-title: "KNOWN_LIMITATIONS — Ling-3.0-flash TurboQuant build + memory gates"
+title: "KNOWN_LIMITATIONS \u2014 Ling-3.0-flash TurboQuant build + memory gates"
 sources:
 - type: code
   path: config/portal.yaml
-last_generated_commit: b849a142e908b69008d6d69246f500aab0ce430f
+last_generated_commit: 0fec84d46a8898b1b5baf0508af1e25634b099af
 claims: []
 confidence: high
 tags:

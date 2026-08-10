@@ -12,7 +12,7 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: portal/modules/security/core/__init__.py
-last_generated_commit: 956ee226e319e701e3605c9de6950bfa437a56f0
+last_generated_commit: 0fec84d46a8898b1b5baf0508af1e25634b099af
 claims: []
 confidence: high
 tags:

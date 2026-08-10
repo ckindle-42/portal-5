@@ -1,13 +1,13 @@
 ---
 id: unit-model-catalog-portal5-deepwen-3-6-q4-5-moq-ctx32k
 kind: what
-title: "MODEL_CATALOG — `portal5/deepwen-3.6:q4.5-moq-ctx32k`"
+title: "MODEL_CATALOG \u2014 `portal5/deepwen-3.6:q4.5-moq-ctx32k`"
 sources:
 - type: code
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-last_generated_commit: b849a142e908b69008d6d69246f500aab0ce430f
+last_generated_commit: 0fec84d46a8898b1b5baf0508af1e25634b099af
 claims: []
 confidence: high
 tags:
