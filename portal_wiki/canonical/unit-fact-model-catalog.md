@@ -6,7 +6,7 @@ sources:
 - type: code
   path: config/backends.yaml
   commit: 29531a6522c0
-last_generated_commit: 29531a6522c0
+last_generated_commit: 3cdc95603cf1faa41ddd64aa3eaad1ec45a113ce
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
