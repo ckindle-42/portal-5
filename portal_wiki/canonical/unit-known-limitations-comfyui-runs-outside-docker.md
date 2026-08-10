@@ -7,7 +7,7 @@ sources:
   path: scripts/lib/services.sh
 - type: code
   path: deploy/portal-5/docker-compose.yml
-last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
+last_generated_commit: a81c5e73569f981ecedb0d95b088563fcce651ed
 claims: []
 confidence: high
 tags:

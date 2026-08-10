@@ -9,7 +9,7 @@ sources:
   path: scripts/lib/services.sh
 - type: code
   path: config/portal.yaml
-last_generated_commit: 925f52c4b7e7ec876ea24823d3a221c7f2f8f505
+last_generated_commit: a81c5e73569f981ecedb0d95b088563fcce651ed
 claims: []
 confidence: high
 tags:

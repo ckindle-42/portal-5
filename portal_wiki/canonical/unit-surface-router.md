@@ -6,7 +6,7 @@ title: "Router subpackage \u2014 workspace routing, council quorum, request engi
 sources:
 - type: code
   path: portal/platform/inference/router/*.py
-last_generated_commit: db75e444cdca521f9be63059be9180bb380a4a64
+last_generated_commit: a81c5e73569f981ecedb0d95b088563fcce651ed
 claims: []
 confidence: high
 tags:
