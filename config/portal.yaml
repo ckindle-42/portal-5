@@ -2369,8 +2369,26 @@ workspaces:
     module: eval
     name: 🔬 Bench · Jackrong DeepSeek-V4-Pro-Qwen3.5-9B-MTP
     description: |-
-      Benchmark: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M (~5.8GB, arch qwen35). DeepSeek-V4-Pro→Qwen3.5-9B reasoning distill with embedded MTP draft heads; card claims 97.2% format-compliance. TASK-BATCH-BENCH-002 Part B.1 — distillation-watch datapoint (Jackrong) vs compliance/reasoning baseline (granite41-8b), MTP spec-decode read. Self-reported card benches UNVERIFIED until reproduced. PROMOTE_POLICY=confirm.
+      Benchmark: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M (~5.8GB, arch qwen35). DeepSeek-V4-Pro→Qwen3.5-9B reasoning distill with embedded MTP draft heads; card claims 97.2% format-compliance.
+      BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.67, not perfect — some run-quality variance). Capability C4 vs auto-compliance baseline: format 1.00/1.00 tied (consistent with the card's 97.2% compliance claim), but capability 0.56 vs baseline's 0.89 — a real quality gap, underperforms the incumbent on the compliance/reasoning probe. MTP spec-decode: unlike Muse-Glimmer's MLX DFlash (exposed via `draft_num_predict`, controlled A/B measured), this GGUF/llama.cpp path shows no MTP toggle in `ollama show`'s Parameters and silently ignores `draft_num_predict` — no controlled on/off comparison is possible on this Ollama build, so the MTP-speedup question is undetermined here, not measured-zero. Verdict: clears TPS floor, format-compliant, but real capability underperforms the compliance/reasoning incumbent — distillation-watch datapoint, not a promotion candidate on this evidence. PROMOTE_POLICY=confirm.
     model_hint: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.9
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+  bench-jackrong-dsv4-4b:
+    module: eval
+    name: 🔬 Bench · Jackrong DeepSeek-V4-Pro-Qwen3.5-4B-MTP (light)
+    description: |-
+      Benchmark: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M (arch qwen35). 4B sibling of bench-jackrong-dsv4-9b — cheap small-reasoner tier. The bare `Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B` repo is safetensors-only (no GGUF); found the official `Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF` mirror instead, pulled clean, no arch/tag issues.
+      BENCH RESULT 2026-08-10: TPS 52.4 t/s avg (5/5, Q-score 1.00 — clean, unlike the 9B's 0.67), comfortably clears the 20 t/s floor with real headroom over its 9B sibling. Capability C4 vs auto-compliance baseline: format 1.00/1.00 tied, capability 0.56 vs baseline's 0.89 — identical capability score to the 9B sibling despite the smaller size, i.e. the 4B loses nothing on this probe relative to its own family while being ~1.5x faster. Verdict: valid cheap-reasoner baseline datapoint for the family — same capability ceiling as the 9B at better TPS, but both still trail the compliance/reasoning incumbent. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m

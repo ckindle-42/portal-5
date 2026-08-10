@@ -193,6 +193,13 @@ backends:
     supports_tools: true
   - id: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M
     supports_tools: true
+  # TASK-BATCH-BENCH-002 Part B.2 intake (2026-08-10): the bare
+  # Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B repo is safetensors-only (no GGUF);
+  # found the official Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF mirror,
+  # pulled clean via standard `ollama pull hf.co/...`, no arch/tag issues
+  # (unlike the 9B's sibling repo, this one uses standard Q4_K_M naming).
+  - id: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M
+    supports_tools: true
   # TASK-BATCH-BENCH-002 Part D intake (2026-08-10): Deepwen-3.6, quimmedes'
   # Qwen3.6-35B-A3B fine-tune for procedural/hard-surface CAD. `ollama pull
   # hf.co/quimmedes/Deepwen-3.6:Q4.5-MoQ` and `:BF16` both 400'd — Ollama's
@@ -905,6 +912,8 @@ workspace_routing:
   bench-muse-glimmer-30b:
   - general
   bench-jackrong-dsv4-9b:
+  - general
+  bench-jackrong-dsv4-4b:
   - general
   bench-deepwen-cad:
   - general

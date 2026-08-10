@@ -517,7 +517,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (23 production, 69 eval, 92 total)
+# Workspace roster (23 production, 70 eval, 93 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -582,6 +582,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-granite41-8b`
 - `bench-huihui-qwen36-27b`
 - `bench-huihui-qwen36-35b-a3b`
+- `bench-jackrong-dsv4-4b`
 - `bench-jackrong-dsv4-9b`
 - `bench-laguna`
 - `bench-lfm-micro-1p2b`
@@ -720,7 +721,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (211 model ids across 7 backend groups)
+# Model catalog (212 model ids across 7 backend groups)
 
 ## coding (41)
 
@@ -780,7 +781,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (82)
+## general (83)
 
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
@@ -806,6 +807,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M`
 - `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K`
+- `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M`
 - `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M`
 - `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf`
 - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M`
