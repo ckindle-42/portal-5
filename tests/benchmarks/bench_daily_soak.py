@@ -16,6 +16,15 @@ task drawn from a deep per-category bank so hours of runtime never go stale and 
 MCP tool path is actually exercised (create_word_document, execute_python,
 web_search, kb_search, classify_vulnerability, ...). Captures x-portal-route on the
 pipeline path. Built on bench_omlx_soak.py's checkpoint/health skeleton.
+
+Unload discipline (2026-08-10 incident fix): every invocation runs a preflight
+that unloads stale resident models before starting — see _preflight_unload().
+A kernel panic during the first daily-soak run traced to Ollama holding a 54GB
+model resident from a finished direct-Ollama leg while the next leg (pipeline)
+loaded oMLX models on top of it; combined memory exceeded physical RAM before
+either engine's own admission guard could react. This was previously an
+operator discipline ("unload between legs") that got skipped at exactly one
+transition. It is now enforced by the harness itself so it can't be skipped.
 """
 
 from __future__ import annotations
@@ -152,6 +161,68 @@ def _target(path: str, engine: str, ws: str) -> tuple[str, str]:
     if path == "pipeline":
         return PIPELINE_URL, ws  # model field = workspace id
     return (OMLX_URL if engine == "omlx" else OLLAMA_URL), DIRECT_MODELS[engine][ws]
+
+
+def _unload_omlx_all() -> None:
+    """Unload every currently-loaded oMLX model. Best-effort: a failed check or
+    unload is logged and skipped, never fatal — the run should still attempt to
+    proceed, but the operator sees exactly what wasn't cleared."""
+    try:
+        r = httpx.get(f"{OMLX_URL}/v1/models/status", timeout=10)
+        loaded = [m["id"] for m in r.json().get("models", []) if m.get("loaded")]
+    except Exception as exc:
+        print(f"  [preflight] omlx status check failed (non-fatal): {exc}", flush=True)
+        return
+    for mid in loaded:
+        try:
+            httpx.post(f"{OMLX_URL}/v1/models/{mid}/unload", timeout=30)
+            print(f"  [preflight] unloaded omlx model: {mid}", flush=True)
+        except Exception as exc:
+            print(f"  [preflight] failed to unload omlx/{mid}: {exc}", flush=True)
+
+
+def _unload_ollama_all() -> None:
+    """Unload every currently-loaded Ollama model via keep_alive=0."""
+    try:
+        r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=10)
+        loaded = [m["name"] for m in r.json().get("models", [])]
+    except Exception as exc:
+        print(f"  [preflight] ollama ps check failed (non-fatal): {exc}", flush=True)
+        return
+    for name in loaded:
+        try:
+            httpx.post(
+                f"{OLLAMA_URL}/api/generate", json={"model": name, "keep_alive": 0}, timeout=30
+            )
+            print(f"  [preflight] unloaded ollama model: {name}", flush=True)
+        except Exception as exc:
+            print(f"  [preflight] failed to unload ollama/{name}: {exc}", flush=True)
+
+
+def _preflight_unload(path: str, engine: str) -> None:
+    """Clear stale resident models before this leg starts.
+
+    Extends the "unload between legs" discipline into the harness itself so it
+    can never again be skipped at a transition (2026-08-10 incident: a kernel
+    panic traced to Ollama still holding a 54GB model from a finished direct
+    leg while the pipeline leg loaded oMLX on top of it — see
+    reports/DAILY_WORK_SOAK_*.md).
+
+      --path direct --engine omlx   -> unload Ollama (isolate the oMLX leg)
+      --path direct --engine ollama -> unload oMLX (isolate the Ollama leg)
+      --path pipeline                -> unload BOTH (pipeline drives both
+                                         engines; this is the exact transition
+                                         that crashed the host)
+    """
+    print("=== preflight: clearing stale resident models ===", flush=True)
+    if path == "pipeline":
+        _unload_omlx_all()
+        _unload_ollama_all()
+    elif engine == "omlx":
+        _unload_ollama_all()
+    else:
+        _unload_omlx_all()
+    time.sleep(3)  # let Metal/VRAM settle before the run starts
 
 
 class DailySoak:
@@ -319,9 +390,17 @@ def main() -> None:
     p.add_argument("--duration", type=int, default=10800)
     p.add_argument("--concurrency", type=int, default=3)
     p.add_argument("--tag", default=None)
+    p.add_argument(
+        "--no-preflight-unload",
+        action="store_true",
+        help="Skip the stale-model unload preflight (default: on). Only for debugging"
+        " a specific leg's transition behavior — leave enabled for real runs.",
+    )
     args = p.parse_args()
     if args.path == "pipeline" and not os.environ.get("PIPELINE_API_KEY"):
         print("WARNING: PIPELINE_API_KEY unset — :9099 will 401.", flush=True)
+    if not args.no_preflight_unload:
+        _preflight_unload(args.path, args.engine)
     tgt = (
         PIPELINE_URL
         if args.path == "pipeline"
