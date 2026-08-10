@@ -1,12 +1,12 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 214 model ids, 7 backend groups
+title: 208 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 29531a6522c0
-last_generated_commit: 3cdc95603cf1faa41ddd64aa3eaad1ec45a113ce
+  commit: 4b432aece5bd
+last_generated_commit: 4b432aece5bd
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -15,10 +15,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1786378729.078368
+updated_at: 1786382303.401597
 ---
 
-# Model catalog (214 model ids across 7 backend groups)
+# Model catalog (208 model ids across 7 backend groups)
 
 ## coding (41)
 
@@ -160,16 +160,10 @@ updated_at: 1786378729.078368
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
 
-## omlx (8)
+## omlx (2)
 
 - `Laguna-XS.2-4bit`
-- `Llama-3.2-3B-Instruct-8bit`
-- `Phi-4-reasoning-plus-MLX-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
-- `Qwen3-VL-32B-Instruct-4bit`
-- `Qwen3.6-27B-oQ8-mtp`
-- `gemma-4-e4b-it-4bit`
-- `supergemma4-26b-abliterated-multimodal-mlx-4bit`
 
 ## reasoning (27)
 

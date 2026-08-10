@@ -717,7 +717,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (214 model ids across 7 backend groups)
+# Model catalog (208 model ids across 7 backend groups)
 
 ## coding (41)
 
@@ -859,16 +859,10 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
 
-## omlx (8)
+## omlx (2)
 
 - `Laguna-XS.2-4bit`
-- `Llama-3.2-3B-Instruct-8bit`
-- `Phi-4-reasoning-plus-MLX-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
-- `Qwen3-VL-32B-Instruct-4bit`
-- `Qwen3.6-27B-oQ8-mtp`
-- `gemma-4-e4b-it-4bit`
-- `supergemma4-26b-abliterated-multimodal-mlx-4bit`
 
 ## reasoning (27)
 
