@@ -54,6 +54,7 @@
   "bench-granite41-8b": "coding",
   "bench-huihui-qwen36-27b": "general",
   "bench-huihui-qwen36-35b-a3b": "general",
+  "bench-jackrong-dsv4-4b": "reasoning",
   "bench-jackrong-dsv4-9b": "reasoning",
   "bench-laguna": "reasoning",
   "bench-lfm-micro-1p2b": "general",
