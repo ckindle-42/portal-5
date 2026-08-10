@@ -717,7 +717,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (211 model ids across 7 backend groups)
+# Model catalog (214 model ids across 7 backend groups)
 
 ## coding (41)
 
@@ -900,14 +900,16 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 
-## security (29)
+## security (32)
 
+- `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`
 - `VulnLLM-R-7B-4bit`
 - `baronllm:q6_k`
 - `cybersecqwen-4b-toolfix:latest`
 - `devstral-small-2:latest`
 - `devstral-small-2:latest-ctx8k`
 - `glm-4.7-flash:Q4_K_M`
+- `granite-4.1-8b-mxfp8`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`
@@ -917,6 +919,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k`
+- `huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit`
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 - `huihui_ai/gemma-4-abliterated:E2b-qat`
