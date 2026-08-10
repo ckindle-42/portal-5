@@ -212,7 +212,19 @@ backends:
   # auto-parsed cleanly: arch qwen35moe, template, tool-call format — no
   # hand-written Modelfile needed, unlike the baronllm/xyz-aquila gated-repo
   # precedent). supports_tools: true verified via direct /api/chat probe.
+  # NOTE: the base tag hit a real pipeline bug — Ollama's OpenAI-compatible
+  # /v1/chat/completions endpoint (what the pipeline uses) silently ignores
+  # request-time options.num_ctx entirely, so the workspace's context_limit
+  # setting had zero effect; the model ran at whatever context was already
+  # loaded, which produced garbled tool-call JSON. Fixed via the documented
+  # `./launch.sh apply-model-params` path (PORTAL_ENABLE_EVAL=1 required —
+  # get_workspace_dict excludes eval-module workspaces otherwise), which
+  # bakes PARAMETER num_ctx into a derived tag. See
+  # portal5/deepwen-3.6:q4.5-moq-ctx32k below — that is the tag actually
+  # used by bench-deepwen-cad's model_hint.
   - id: portal5/deepwen-3.6:q4.5-moq
+    supports_tools: true
+  - id: portal5/deepwen-3.6:q4.5-moq-ctx32k
     supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
