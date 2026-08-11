@@ -41,6 +41,7 @@ python3 scripts/verify_proxmox_mcp.py              # quick Proxmox MCP check (no
 python3 scripts/spine_census.py                    # wiki granularity census (mirror/surface/orphan)
 python3 scripts/repin_stale.py --apply             # re-pin spine units after a BS push failure (Rule 12)
 python3 scripts/collapse_snapshot.py               # read-only surface snapshot for BUILD_PROGRAM_COLLAPSE_V1
+python3 scripts/model_cleanup_audit.py              # workspace-variants + result-evidence aware model reclaim audit
 ```
 
 ## Convention
