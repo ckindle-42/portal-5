@@ -77,6 +77,13 @@ def read_globs_indexed(patterns: list[str]) -> list[tuple[str, str]]:
             relpath = str(p.relative_to(REPO_ROOT))
             if relpath in SELF_OUTPUT_RELPATHS:
                 continue
+            # Part B2's model-card fetch cache mentions every pending tag by
+            # construction (it's keyed by tag) but never contains TPS/quality
+            # evidence — citing it just crowds out real evidence files,
+            # especially now that _evidence_sort_key prefers recency and the
+            # cache is refreshed alongside every fleet run.
+            if relpath.startswith("reports/model_cards/"):
+                continue
             try:
                 text = p.read_text(encoding="utf-8", errors="ignore")
             except OSError:
@@ -139,14 +146,41 @@ def catalog_verdict(tag: str) -> str | None:
     return None
 
 
+_EVIDENCE_TS_RE = re.compile(r"(20\d{6})T?\d*Z?")
+
+
+def _evidence_sort_key(relpath: str) -> float:
+    """Most-recent-first key for evidence files. Filename timestamp wins when
+    present (matches the TS_RE convention pending_verdicts_evidence.py and
+    pending_verdicts_report.py both parse dates with); falls back to mtime.
+    Without this, render_ledger's evidence[:3] truncation picks up whatever
+    3 files glob.glob happens to return first — arbitrary filesystem order,
+    not recency — which can silently hide fresh post-boundary evidence
+    behind old citations for any tag that already had 3+ evidence files.
+    That would defeat the whole stack-boundary freshness mechanism."""
+    import datetime as _dt
+
+    m = _EVIDENCE_TS_RE.search(relpath)
+    if m:
+        try:
+            return _dt.datetime.strptime(m.group(1), "%Y%m%d").timestamp()
+        except ValueError:
+            pass
+    try:
+        return (REPO_ROOT / relpath).stat().st_mtime
+    except OSError:
+        return 0.0
+
+
 def evidence_files(tag: str, bench_ws: list[str], result_files: list[tuple[str, str]]) -> list[str]:
     tag_l = tag.lower()
     ws_l = [w.lower() for w in bench_ws]
-    return [
+    matches = [
         relpath
         for relpath, text_l in result_files
         if tag_l in text_l or any(w in text_l for w in ws_l)
     ]
+    return sorted(matches, key=_evidence_sort_key, reverse=True)
 
 
 def classify(
