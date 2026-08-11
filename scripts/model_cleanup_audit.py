@@ -197,17 +197,37 @@ LEDGER_PATH = REPO_ROOT / "config" / "PENDING_MODEL_VERDICTS.md"
 CHECKED_RE = re.compile(r"^- \[(x| )\] `([^`]+)`")
 
 
-def _existing_checked_tags() -> set[str]:
-    """Tags already marked `- [x]` in the tracked ledger — preserved across reruns
-    so re-running this script never silently erases a recorded decision."""
+def _existing_state() -> dict[str, dict]:
+    """Return {tag: {"checked": bool, "extras": [str]}} for entries in the
+    tracked ledger, preserving *any* operator-added bullet lines beneath an
+    entry (verdict:, reason:, notes:, etc.) across reruns. The audit script
+    regenerates the file every run; without this, the operator's recorded
+    decisions would be silently erased on the next run.
+
+    An 'extra' is any indented bullet under an entry that is not a
+    regenerated `- evidence:` line — those are re-derived fresh from the
+    live evidence corpus each run and never preserved."""
     if not LEDGER_PATH.exists():
-        return set()
-    checked = set()
+        return {}
+    state: dict[str, dict] = {}
+    current = None
     for line in LEDGER_PATH.read_text(encoding="utf-8", errors="ignore").splitlines():
         m = CHECKED_RE.match(line)
-        if m and m.group(1) == "x":
-            checked.add(m.group(2))
-    return checked
+        if m:
+            current = m.group(2)
+            state[current] = {"checked": m.group(1) == "x", "extras": []}
+            continue
+        if current is None:
+            continue
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if not line.startswith("  -"):
+            continue
+        if stripped.startswith("- evidence:"):
+            continue
+        state[current]["extras"].append(line)
+    return state
 
 
 def render_ledger(pending: list[tuple[dict, list[str]]]) -> str:
@@ -215,7 +235,7 @@ def render_ledger(pending: list[tuple[dict, list[str]]]) -> str:
     models that were actually benched but never got a promote/decline verdict.
     Regenerating this file (re-running the audit) preserves any `- [x]` already
     checked off, so operator progress survives a rerun instead of vanishing."""
-    checked = _existing_checked_tags()
+    state = _existing_state()
     lines = [
         "# Pending model verdicts",
         "",
@@ -233,10 +253,13 @@ def render_ledger(pending: list[tuple[dict, list[str]]]) -> str:
         "",
     ]
     for m, evidence in sorted(pending, key=lambda x: -x[0]["size"]):
-        box = "x" if m["name"] in checked else " "
+        prior = state.get(m["name"], {"checked": False, "extras": []})
+        box = "x" if prior["checked"] else " "
         lines.append(f"- [{box}] `{m['name']}` — {gb(m['size']):.1f} GB")
         for f in evidence[:3]:
             lines.append(f"  - evidence: `{f}`")
+        for extra in prior["extras"]:
+            lines.append(extra)
     lines.append("")
     return "\n".join(lines)
 
