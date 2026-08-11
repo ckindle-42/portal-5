@@ -206,3 +206,86 @@ def check_persona_intent() -> tuple[str, str, list[dict]]:
     if result.returncode != 0:
         return ("FAIL", (result.stdout.strip() + "\n" + result.stderr.strip()).strip()[-800:], [])
     return ("PASS", result.stdout.strip() or "0 hard failures", [])
+
+
+# Pre-existing eval/bench-* workspaces that predate this check (landed before
+# TASK-BENCH-FOLLOWUP-001 Part 3) and carry a baked -ctxNk tag with no
+# recorded working-ctx probe. Grandfathered so this check doesn't retroactively
+# fail unrelated workspaces; new/edited eval workspaces get no such pass —
+# they must carry ctx_validated: true. Shrink this set as each is verified.
+_CTX_HYGIENE_GRANDFATHERED = {
+    "bench-granite41-8b",
+    "bench-granite41-30b",
+}
+
+
+@register("eval_workspace_config_hygiene", "BW. eval-workspace config hygiene", order=72)
+def check_eval_workspace_config_hygiene() -> tuple[str, str, list[dict]]:
+    """BW. eval/bench-* workspaces don't repeat the Deepwen CAD config churn.
+
+    Two footguns cost three benching passes (TASK-BENCH-FOLLOWUP-001):
+      1. P5-OLLAMA-OPTIONS-001 — context_limit: is silently dropped by Ollama's
+         /v1 endpoint; ctx must be baked into the model tag (-ctxNk).
+      2. tool_choice: required inherited from a cloned workspace without being
+         re-verified for the new model's architecture (auto-cad -> Deepwen).
+
+    Does NOT enforce a uniform ctx across a lane — a baked -ctxNk tag is only
+    accepted if the workspace also carries `ctx_validated: true`, proving a
+    working-ctx preflight was actually run for *this* model rather than
+    copied from whatever workspace it was cloned from. Same pattern for
+    `tool_choice: required`, gated on `tool_choice_verified: true`.
+    """
+    import re
+
+    import yaml
+
+    cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    workspaces = cfg.get("workspaces", {}) or {}
+    ctx_suffix_re = re.compile(r"-ctx\d+k?$", re.IGNORECASE)
+
+    dropped_context_limit: list[str] = []
+    unvalidated_ctx: list[str] = []
+    unverified_tool_choice: list[str] = []
+    checked = 0
+
+    for ws_id, ws in workspaces.items():
+        if not isinstance(ws, dict):
+            continue
+        is_eval_lane = ws.get("module") == "eval" or ws_id.startswith("bench-")
+        if not is_eval_lane:
+            continue
+        checked += 1
+        model_hint = ws.get("model_hint", "") or ""
+        has_baked_ctx = bool(ctx_suffix_re.search(model_hint))
+
+        if "context_limit" in ws and not has_baked_ctx:
+            dropped_context_limit.append(ws_id)
+
+        if has_baked_ctx and not ws.get("ctx_validated"):
+            if ws_id not in _CTX_HYGIENE_GRANDFATHERED:
+                unvalidated_ctx.append(ws_id)
+
+        if ws.get("tool_choice") == "required" and not ws.get("tool_choice_verified"):
+            unverified_tool_choice.append(ws_id)
+
+    detail = f"{checked} eval/bench-* workspaces checked"
+    problems = []
+    if dropped_context_limit:
+        problems.append(
+            f"context_limit set without baked -ctxNk tag (silently dropped, "
+            f"P5-OLLAMA-OPTIONS-001): {sorted(dropped_context_limit)}"
+        )
+    if unvalidated_ctx:
+        problems.append(
+            f"baked ctx tag missing ctx_validated:true (working-ctx preflight not "
+            f"recorded, may be copied from a cloned workspace): {sorted(unvalidated_ctx)}"
+        )
+    if unverified_tool_choice:
+        problems.append(
+            f"tool_choice: required missing tool_choice_verified:true (may be "
+            f"inherited from a cloned workspace, doesn't transfer across model "
+            f"architectures): {sorted(unverified_tool_choice)}"
+        )
+    if problems:
+        return ("FAIL", f"{detail} — " + "; ".join(problems), [])
+    return ("PASS", detail, [])

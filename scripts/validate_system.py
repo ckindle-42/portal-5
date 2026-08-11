@@ -93,6 +93,7 @@ from scripts.validation.lab import (  # noqa: E402, F401
 )
 from scripts.validation.personas import (  # noqa: E402, F401
     check_alias_ratchet,
+    check_eval_workspace_config_hygiene,
     check_mcp_module_tag,
     check_persona_intent,
     check_persona_module_tag,

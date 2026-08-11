@@ -921,6 +921,8 @@ workspace_routing:
   - general
   bench-aquila-mini-35b-a3b:
   - general
+  bench-aquila-research:
+  - general
   bench-muse-glimmer-30b:
   - general
   bench-jackrong-dsv4-9b:
