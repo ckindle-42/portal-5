@@ -11,7 +11,7 @@ sources:
   path: portal/platform/inference/router/context_inject.py
 - type: code
   path: config/portal.yaml
-last_generated_commit: 9c0a4efa9fea8836ee3466b206c01b042c59455f
+last_generated_commit: 1896bb7da29dd96ff280b8ffb495519d507070ee
 claims: []
 confidence: high
 tags:
