@@ -13,6 +13,11 @@ often keyed by workspace name, not model tag.
     python3 scripts/model_cleanup_audit.py
 
 Never calls `ollama rm`. Report-only; a human decides what to delete.
+Writes two files: reports/model_cleanup_audit.md (full categorization,
+gitignored, regenerated fresh each run) and config/PENDING_MODEL_VERDICTS.md
+(the EVALUATED_PENDING backlog — models genuinely benched but never given a
+promote/decline verdict; git-tracked, checklist-style, `- [x]` lines survive
+a rerun so this can't silently regenerate over a recorded decision again).
 """
 
 from __future__ import annotations
@@ -39,6 +44,10 @@ RESULT_SEARCH_GLOBS = [
     "reports/**/*",
 ]
 PRIOR_AUDIT_DOCS = ["config/UNUSED_MODELS_20260721.md", "config/UNUSED_MODELS_20260810.md"]
+# This script's own output: lists every model by name, so treating it as
+# evidence would make a model's "never evaluated" finding self-poison into
+# fake "evaluated" evidence on the very next run. Excluded, not just ignored.
+SELF_OUTPUT_RELPATHS = {"reports/model_cleanup_audit.md", "config/PENDING_MODEL_VERDICTS.md"}
 
 
 def base(tag: str) -> str:
@@ -51,15 +60,29 @@ def fetch_on_disk() -> list[dict]:
 
 
 def read_globs(patterns: list[str]) -> str:
-    corpus = []
+    return "\n".join(text for _, text in read_globs_indexed(patterns))
+
+
+def read_globs_indexed(patterns: list[str]) -> list[tuple[str, str]]:
+    """Like read_globs but keeps (relpath, lowered_content) pairs so evidence is
+    citable. Content is lowered once here, not per-lookup — with ~2500 result
+    files and dozens of candidate models, re-lowering per lookup is the
+    difference between seconds and minutes."""
+    out = []
     for pattern in patterns:
         for path in glob.glob(str(REPO_ROOT / pattern), recursive=True):
-            if Path(path).is_file():
-                try:
-                    corpus.append(Path(path).read_text(encoding="utf-8", errors="ignore"))
-                except OSError:
-                    continue
-    return "\n".join(corpus).lower()
+            p = Path(path)
+            if not p.is_file():
+                continue
+            relpath = str(p.relative_to(REPO_ROOT))
+            if relpath in SELF_OUTPUT_RELPATHS:
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            out.append((relpath, text.lower()))
+    return out
 
 
 def production_bases() -> set[str]:
@@ -116,22 +139,34 @@ def catalog_verdict(tag: str) -> str | None:
     return None
 
 
+def evidence_files(tag: str, bench_ws: list[str], result_files: list[tuple[str, str]]) -> list[str]:
+    tag_l = tag.lower()
+    ws_l = [w.lower() for w in bench_ws]
+    return [
+        relpath
+        for relpath, text_l in result_files
+        if tag_l in text_l or any(w in text_l for w in ws_l)
+    ]
+
+
 def classify(
     m: dict,
     *,
     prod_bases: set,
     bench_by_base: dict,
     code_corpus: str,
-    result_corpus: str,
+    result_files: list[tuple[str, str]],
     prior_docs: set,
-) -> str:
+) -> tuple[str, list[str]]:
+    """Returns (category, evidence_files) — evidence_files only populated for
+    EVALUATED_PENDING, since that's the category a human needs to act on."""
     tag = m["name"]
     b = base(tag)
 
     if b in prod_bases:
-        return "PRODUCTION"
+        return "PRODUCTION", []
     if any(tag.lower() in doc for doc in prior_docs):
-        return "DOCUMENTED_KEEP"
+        return "DOCUMENTED_KEEP", []
 
     tag_l = tag.lower()
     code_referenced = tag_l in code_corpus or (
@@ -140,22 +175,70 @@ def classify(
 
     verdict = catalog_verdict(tag)
     if verdict == "DROPPED":
-        return "DROPPED_VERDICT"
+        return "DROPPED_VERDICT", []
     if verdict == "PROMOTED":
-        return "PROMOTED_NOT_WIRED"
+        return "PROMOTED_NOT_WIRED", []
 
     bench_ws = bench_by_base.get(b, [])
-    has_evidence = tag_l in result_corpus or any(ws.lower() in result_corpus for ws in bench_ws)
+    evidence = evidence_files(tag, bench_ws, result_files)
 
     if not bench_ws and not code_referenced:
-        return "NO_WORKSPACE_ORPHAN"
-    if has_evidence:
-        return "EVALUATED_PENDING"
-    return "NEVER_EVALUATED"
+        return "NO_WORKSPACE_ORPHAN", []
+    if evidence:
+        return "EVALUATED_PENDING", evidence
+    return "NEVER_EVALUATED", []
 
 
 def gb(nbytes: int) -> float:
     return nbytes / (1024**3)
+
+
+LEDGER_PATH = REPO_ROOT / "config" / "PENDING_MODEL_VERDICTS.md"
+CHECKED_RE = re.compile(r"^- \[(x| )\] `([^`]+)`")
+
+
+def _existing_checked_tags() -> set[str]:
+    """Tags already marked `- [x]` in the tracked ledger — preserved across reruns
+    so re-running this script never silently erases a recorded decision."""
+    if not LEDGER_PATH.exists():
+        return set()
+    checked = set()
+    for line in LEDGER_PATH.read_text(encoding="utf-8", errors="ignore").splitlines():
+        m = CHECKED_RE.match(line)
+        if m and m.group(1) == "x":
+            checked.add(m.group(2))
+    return checked
+
+
+def render_ledger(pending: list[tuple[dict, list[str]]]) -> str:
+    """A git-tracked, human-editable checklist for the EVALUATED_PENDING backlog:
+    models that were actually benched but never got a promote/decline verdict.
+    Regenerating this file (re-running the audit) preserves any `- [x]` already
+    checked off, so operator progress survives a rerun instead of vanishing."""
+    checked = _existing_checked_tags()
+    lines = [
+        "# Pending model verdicts",
+        "",
+        "Models benched with real evaluation evidence on file, but never given a",
+        "final promote-or-decline decision. Generated by",
+        "`scripts/model_cleanup_audit.py` — rerun it to refresh; `- [x]` lines are",
+        "preserved across reruns so checking one off here doesn't get lost.",
+        "",
+        f"**{len(pending)} models pending, {sum(gb(m['size']) for m, _ in pending):.1f} GB.**",
+        "",
+        "Check the box once a decision is made and recorded (promote → wire the",
+        "`model_hint`/config change; decline → add a DROPPED verdict to its",
+        "`unit-model-catalog-*.md`, or straight to `ollama rm` if no catalog unit",
+        "exists yet).",
+        "",
+    ]
+    for m, evidence in sorted(pending, key=lambda x: -x[0]["size"]):
+        box = "x" if m["name"] in checked else " "
+        lines.append(f"- [{box}] `{m['name']}` — {gb(m['size']):.1f} GB")
+        for f in evidence[:3]:
+            lines.append(f"  - evidence: `{f}`")
+    lines.append("")
+    return "\n".join(lines)
 
 
 def render_report(categorized: dict[str, list[dict]]) -> str:
@@ -188,20 +271,23 @@ def main() -> int:
     prod_bases = production_bases()
     bench_by_base = bench_workspaces_by_base()
     code_corpus = read_globs(CODE_SEARCH_GLOBS)
-    result_corpus = read_globs(RESULT_SEARCH_GLOBS)
+    result_files = read_globs_indexed(RESULT_SEARCH_GLOBS)
     prior_docs = documented_keep_tags()
 
     categorized: dict[str, list[dict]] = {}
+    pending: list[tuple[dict, list[str]]] = []
     for m in on_disk:
-        cat = classify(
+        cat, evidence = classify(
             m,
             prod_bases=prod_bases,
             bench_by_base=bench_by_base,
             code_corpus=code_corpus,
-            result_corpus=result_corpus,
+            result_files=result_files,
             prior_docs=prior_docs,
         )
         categorized.setdefault(cat, []).append(m)
+        if cat == "EVALUATED_PENDING":
+            pending.append((m, evidence))
 
     for cat, items in categorized.items():
         print(f"  {cat}: {len(items)} models, {sum(gb(m['size']) for m in items):.1f} GB")
@@ -210,6 +296,9 @@ def main() -> int:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(render_report(categorized))
     print(f"\nWrote {out_path}")
+
+    LEDGER_PATH.write_text(render_ledger(pending))
+    print(f"Wrote {LEDGER_PATH} ({len(pending)} pending verdicts)")
     return 0
 
 
