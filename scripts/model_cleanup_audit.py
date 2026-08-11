@@ -60,14 +60,49 @@ def fetch_on_disk() -> list[dict]:
 
 
 def read_globs(patterns: list[str]) -> str:
-    return "\n".join(text for _, text in read_globs_indexed(patterns))
+    return "\n".join(text for _, text, _ in read_globs_indexed(patterns))
 
 
-def read_globs_indexed(patterns: list[str]) -> list[tuple[str, str]]:
-    """Like read_globs but keeps (relpath, lowered_content) pairs so evidence is
-    citable. Content is lowered once here, not per-lookup — with ~2500 result
-    files and dozens of candidate models, re-lowering per lookup is the
-    difference between seconds and minutes."""
+_MATCHABLE_ROW_KEYS = ("model", "workspace", "routed_model", "persona_slug", "workspace_model")
+
+
+def _row_match_values(text: str) -> frozenset[str] | None:
+    """For a bench-results JSON with a top-level 'results' list, return the
+    lowered set of {model, workspace, routed_model, persona_slug,
+    workspace_model} field values across all rows. None if the file doesn't
+    parse as that shape — caller falls back to whole-text substring matching.
+
+    Whole-file substring matching (the prior behaviour) false-positives on
+    any tag/workspace name that happens to appear in the file's OWN
+    metadata — every bench_tps run embeds the full prompt library and
+    backend/group config at the top level, so a workspace slug like
+    'bench-aquila-mini-35b-a3b' matches every bench_tps file ever written,
+    not just ones that actually tested that tag. Row-scoped matching is
+    what pending_verdicts_evidence.py's mine_tps_json already does — this
+    brings evidence_files() in line with it."""
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    rows = data.get("results") if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        return None
+    values: set[str] = set()
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        for key in _MATCHABLE_ROW_KEYS:
+            v = r.get(key)
+            if isinstance(v, str) and v:
+                values.add(v.lower())
+    return frozenset(values)
+
+
+def read_globs_indexed(patterns: list[str]) -> list[tuple[str, str, frozenset[str] | None]]:
+    """Like read_globs but keeps (relpath, lowered_content, row_match_values)
+    triples so evidence is citable. Content is lowered once here, not per-
+    lookup — with ~2500 result files and dozens of candidate models,
+    re-lowering per lookup is the difference between seconds and minutes."""
     out = []
     for pattern in patterns:
         for path in glob.glob(str(REPO_ROOT / pattern), recursive=True):
@@ -106,7 +141,8 @@ def read_globs_indexed(patterns: list[str]) -> list[tuple[str, str]]:
                 text = p.read_text(encoding="utf-8", errors="ignore")
             except OSError:
                 continue
-            out.append((relpath, text.lower()))
+            lowered = text.lower()
+            out.append((relpath, lowered, _row_match_values(lowered)))
     return out
 
 
@@ -164,21 +200,38 @@ def catalog_verdict(tag: str) -> str | None:
     return None
 
 
-_EVIDENCE_TS_RE = re.compile(r"(20\d{6})T?\d*Z?")
+# Full YYYYMMDDTHHMMSS when present (sub-day precision — required for
+# same-day recency ordering, see _evidence_sort_key), else date-only.
+_EVIDENCE_TS_FULL_RE = re.compile(r"(20\d{6}T\d{6})Z?")
+_EVIDENCE_TS_DATE_RE = re.compile(r"(20\d{6})")
 
 
 def _evidence_sort_key(relpath: str) -> float:
     """Most-recent-first key for evidence files. Filename timestamp wins when
-    present (matches the TS_RE convention pending_verdicts_evidence.py and
-    pending_verdicts_report.py both parse dates with); falls back to mtime.
+    present; falls back to mtime.
+
     Without this, render_ledger's evidence[:3] truncation picks up whatever
     3 files glob.glob happens to return first — arbitrary filesystem order,
     not recency — which can silently hide fresh post-boundary evidence
     behind old citations for any tag that already had 3+ evidence files.
-    That would defeat the whole stack-boundary freshness mechanism."""
+    That would defeat the whole stack-boundary freshness mechanism.
+
+    Sub-day precision matters: a date-only key ties every same-day file
+    together, and Python's stable sort then falls back to glob's arbitrary
+    filesystem order — a fresh 23:09 re-run can rank BEHIND a stale 01:47
+    run from the same calendar day purely by chance. pending_verdicts_
+    evidence.py/_report.py's own TS_RE stays date-only deliberately (they
+    only need day-granularity for the stack-boundary freshness check, not
+    a same-day total order), so this is intentionally not shared with them."""
     import datetime as _dt
 
-    m = _EVIDENCE_TS_RE.search(relpath)
+    m = _EVIDENCE_TS_FULL_RE.search(relpath)
+    if m:
+        try:
+            return _dt.datetime.strptime(m.group(1), "%Y%m%dT%H%M%S").timestamp()
+        except ValueError:
+            pass
+    m = _EVIDENCE_TS_DATE_RE.search(relpath)
     if m:
         try:
             return _dt.datetime.strptime(m.group(1), "%Y%m%d").timestamp()
@@ -190,15 +243,57 @@ def _evidence_sort_key(relpath: str) -> float:
         return 0.0
 
 
-def evidence_files(tag: str, bench_ws: list[str], result_files: list[tuple[str, str]]) -> list[str]:
+def _evidence_harness(relpath: str) -> str:
+    """Harness prefix from a results filename (e.g. 'vision_probe' from
+    'vision_probe_20260811T200619Z.json'). Everything before the first
+    run of the YYYYMMDDT timestamp; falls back to the bare filename stem
+    for anything that doesn't follow the convention."""
+    base = Path(relpath).stem
+    m = re.match(r"(.+?)_20\d{6}T", base)
+    return m.group(1) if m else base
+
+
+def evidence_files(
+    tag: str, bench_ws: list[str], result_files: list[tuple[str, str, frozenset[str] | None]]
+) -> list[str]:
     tag_l = tag.lower()
     ws_l = [w.lower() for w in bench_ws]
-    matches = [
-        relpath
-        for relpath, text_l in result_files
-        if tag_l in text_l or any(w in text_l for w in ws_l)
-    ]
-    return sorted(matches, key=_evidence_sort_key, reverse=True)
+    needles = {tag_l, *ws_l}
+    matches = []
+    for relpath, text_l, row_values in result_files:
+        if row_values is not None:
+            # Structured results JSON: match only against actual per-row
+            # model/workspace fields, not the file's own metadata (which
+            # embeds the full fleet config and would substring-match almost
+            # any tag/workspace name regardless of what that run tested).
+            if needles & row_values:
+                matches.append(relpath)
+        elif tag_l in text_l or any(w in text_l for w in ws_l):
+            # Unstructured evidence (.txt probes, sec_bench logs, etc.) has
+            # no row shape to scope matching to — whole-text substring is
+            # the best available signal.
+            matches.append(relpath)
+    by_recency = sorted(matches, key=_evidence_sort_key, reverse=True)
+
+    # Guarantee harness diversity survives the downstream evidence[:6]
+    # truncation. Pure-recency sort lets a widely-referenced tag's many
+    # generic bench_tps runs crowd out its one capability-specific probe
+    # result (vision_probe, security_exec_probe, ...) — the render cap never
+    # even sees it, so the coherence gate (which reads only cited evidence)
+    # wrongly flags a model as needing re-bench when valid evidence already
+    # exists on disk. Front-load the newest file per distinct harness, then
+    # fill the rest in recency order.
+    seen_harness: set[str] = set()
+    diverse: list[str] = []
+    rest: list[str] = []
+    for f in by_recency:
+        h = _evidence_harness(f)
+        if h not in seen_harness:
+            seen_harness.add(h)
+            diverse.append(f)
+        else:
+            rest.append(f)
+    return diverse + rest
 
 
 def classify(
@@ -207,7 +302,7 @@ def classify(
     prod_bases: set,
     bench_by_base: dict,
     code_corpus: str,
-    result_files: list[tuple[str, str]],
+    result_files: list[tuple[str, str, frozenset[str] | None]],
     prior_docs: set,
 ) -> tuple[str, list[str]]:
     """Returns (category, evidence_files) — evidence_files only populated for
