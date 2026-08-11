@@ -10,7 +10,7 @@ sources:
   path: launch.sh
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/README.md
-last_generated_commit: 1896bb7da29dd96ff280b8ffb495519d507070ee
+last_generated_commit: ed366c7a6eb34d822a5d4aa04f8072edca8acd5d
 claims: []
 confidence: high
 tags:
