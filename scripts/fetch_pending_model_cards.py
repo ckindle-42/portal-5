@@ -88,6 +88,44 @@ def derive_card_url(tag: str) -> tuple[str | None, list[str]]:
     return f"https://ollama.com/library/{base}", []
 
 
+def _extract_ollama_readme(html: str) -> str:
+    """ollama.com library/namespaced pages are full HTML documents with nav
+    chrome, category tag pills (e.g. a 'vision' filter pill shown on every
+    model page's related-models nav, unrelated to this specific model), and
+    JS bundles — none of it is the model's actual description. The rendered
+    readme lives in the id="display" prose div. Extract just that div's
+    inner HTML (matching nested <div> depth) and strip tags down to plain
+    text, so deployment-note keyword matching runs against the real card
+    prose instead of page chrome."""
+    marker = 'id="display"'
+    idx = html.find(marker)
+    if idx == -1:
+        return html
+    start = html.find(">", idx)
+    if start == -1:
+        return html
+    start += 1
+    depth = 1
+    pos = start
+    end = len(html)
+    tag_re = re.compile(r"<(/?)div\b")
+    for m in tag_re.finditer(html, pos):
+        if m.group(1):
+            depth -= 1
+        else:
+            depth += 1
+        if depth == 0:
+            end = m.start()
+            break
+    inner = html[start:end]
+    text = re.sub(r"<[^>]+>", " ", inner)
+    text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    text = text.replace("&#39;", "'").replace("&rsquo;", "'").replace("&quot;", '"')
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n\s*\n+", "\n\n", text)
+    return text.strip()
+
+
 def curl_fetch(url: str) -> tuple[int, str]:
     """Fetch a URL via curl. Returns (http_status, body). Non-2xx → empty
     body but real status. curl failures → (0, error message)."""
@@ -137,6 +175,8 @@ def fetch_card(tag: str) -> dict:
     for url in [primary, *fallbacks]:
         code, body = curl_fetch(url)
         if code == 200 and body.strip():
+            if "ollama.com" in url:
+                body = _extract_ollama_readme(body)
             return {
                 "tag": tag,
                 "status": "ok",
