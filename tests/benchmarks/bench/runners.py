@@ -12,9 +12,11 @@ from .config import (
     _MATH_SPECIALIST_PATTERNS,
     MATH_SPECIALIST_WORKSPACES,
     OLLAMA_URL,
-    PER_WORKSPACE_TIMEOUT,
     PIPELINE_INACTIVITY_TIMEOUT,
     PIPELINE_URL,
+    budget_for_model_tag,
+    resolve_request_timeout,
+    workspace_budget,
 )
 from .discovery import (
     _config_ollama_models_by_group,
@@ -127,6 +129,17 @@ def bench_direct(
             print("(warm-up) ", end="", flush=True)
             _warmup_ollama_model(model)
             prompt_cat = _prompt_category_for_model(model, group=group)
+            # TASK_BENCH_VALIDITY_V1: direct mode has no router to inject the
+            # production budget, so resolve it from portal.yaml (tag ->
+            # bench workspace -> predict_limit) and pass it explicitly. None =>
+            # no cap => model default, matching production's unset behaviour.
+            _db = budget_for_model_tag(model)
+            _direct_timeout = resolve_request_timeout(
+                _db.get("workspace") or "",
+                emits_reasoning=_db["emits_reasoning"],
+                has_tools=_db["has_tools"],
+                default=PIPELINE_INACTIVITY_TIMEOUT,
+            )
             r = bench_tps(
                 OLLAMA_URL,
                 model,
@@ -134,6 +147,9 @@ def bench_direct(
                 runs=runs,
                 label="ollama-direct",
                 prompt_category=prompt_cat,
+                request_timeout=_direct_timeout,
+                predict_limit=_db["predict_limit"],
+                predict_limit_resolved=True,
             )
             r["backend"] = "ollama"
             r["path"] = "direct"
@@ -170,6 +186,7 @@ def bench_direct(
                     print(f"      {model}:math SKIP (already done)")
                 else:
                     print(f"      {model}:math ...", end=" ", flush=True)
+                    _mdb = budget_for_model_tag(model)
                     rm = bench_tps(
                         OLLAMA_URL,
                         model,
@@ -177,6 +194,14 @@ def bench_direct(
                         runs=runs,
                         label="ollama-direct",
                         prompt_category="math",
+                        request_timeout=resolve_request_timeout(
+                            _mdb.get("workspace") or "",
+                            emits_reasoning=_mdb["emits_reasoning"],
+                            has_tools=_mdb["has_tools"],
+                            default=PIPELINE_INACTIVITY_TIMEOUT,
+                        ),
+                        predict_limit=_mdb["predict_limit"],
+                        predict_limit_resolved=True,
                     )
                     rm["backend"] = "ollama"
                     rm["path"] = "direct"
@@ -264,9 +289,23 @@ def bench_pipeline(
         prompt_cat = WORKSPACE_PROMPT_MAP.get(ws, "general")
         print("(warm-up) ", end="", flush=True)
         _warmup_pipeline_model(ws)
-        # Pipeline calls may buffer <think> output before forwarding bytes —
-        # use per-workspace cap when specified, inactivity timeout otherwise.
-        _ws_timeout = PER_WORKSPACE_TIMEOUT.get(ws, PIPELINE_INACTIVITY_TIMEOUT)
+        # TASK_BENCH_VALIDITY_V1: category-aware wall-clock ceiling. With the
+        # bench-only token cap removed, reasoning/agentic workspaces run their
+        # full production-budget generation and must not be killed mid-answer.
+        # The idle-gap stall detector remains the real backstop; this ceiling is
+        # the runaway guard, sized by whether the workspace emits reasoning /
+        # uses tools. Explicit PER_WORKSPACE_TIMEOUT entries still win.
+        _wb = workspace_budget(ws)
+        _ws_timeout = resolve_request_timeout(
+            ws,
+            emits_reasoning=_wb["emits_reasoning"],
+            has_tools=_wb["has_tools"],
+            default=PIPELINE_INACTIVITY_TIMEOUT,
+        )
+        # Pipeline mode: do NOT pass predict_limit — the router injects
+        # max_tokens from the workspace's predict_limit via setdefault, and a
+        # caller value would override (re-truncate) it. predict_limit_resolved
+        # stays False so bench_tps omits max_tokens entirely in pipeline mode.
         r = bench_tps(
             PIPELINE_URL,
             ws,
@@ -302,6 +341,7 @@ def bench_pipeline(
                 print(f"    [{i}/{len(workspaces)}] {ws}:math SKIP (already done)")
             else:
                 print(f"    [{i}/{len(workspaces)}] {ws}:math ...", end=" ", flush=True)
+                _mwb = workspace_budget(ws)
                 rm = bench_tps(
                     PIPELINE_URL,
                     ws,
@@ -309,7 +349,12 @@ def bench_pipeline(
                     runs=runs,
                     label="pipeline",
                     prompt_category="math",
-                    request_timeout=PER_WORKSPACE_TIMEOUT.get(ws, PIPELINE_INACTIVITY_TIMEOUT),
+                    request_timeout=resolve_request_timeout(
+                        ws,
+                        emits_reasoning=_mwb["emits_reasoning"],
+                        has_tools=_mwb["has_tools"],
+                        default=PIPELINE_INACTIVITY_TIMEOUT,
+                    ),
                 )
             rm["backend"] = "pipeline"
             rm["path"] = "pipeline"
@@ -369,8 +414,16 @@ def bench_personas(
         prompt = _get_prompt_for_persona_category(cat)
         prompt_cat = _prompt_category_for_persona(cat)
         _warmup_pipeline_model(wm)
-        # Same rationale as the workspace path: inactivity timeout for all.
-        _p_timeout = PIPELINE_INACTIVITY_TIMEOUT
+        # TASK_BENCH_VALIDITY_V1: category-aware ceiling (idle-gap remains the
+        # real backstop). Persona `wm` is a workspace/model id; resolve its
+        # budget so reasoning personas aren't killed mid-answer.
+        _pwb = workspace_budget(wm)
+        _p_timeout = resolve_request_timeout(
+            wm,
+            emits_reasoning=_pwb["emits_reasoning"],
+            has_tools=_pwb["has_tools"],
+            default=PIPELINE_INACTIVITY_TIMEOUT,
+        )
         r = bench_tps(
             PIPELINE_URL,
             wm,
