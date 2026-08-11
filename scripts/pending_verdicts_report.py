@@ -392,7 +392,11 @@ _HARNESS_FOR_CATEGORY: dict[str, set[str]] = {
     "cua": {"cad_probe", "fara_cua_probe"},
     "vision": {"vision_probe"},
     "mtp-speculative": {"mtp_probe"},
-    "reasoning-explicit": {"persona_matrix", "capability_probe"},  # reasoning-aware grading
+    "reasoning-explicit": {
+        "reasoning_probe",
+        "persona_matrix",
+        "capability_probe",
+    },  # reasoning-aware grading
     "agent-toolcall": {"tool_use_probe"},  # harness to be built; bench_tps insufficient
     "long-context": {"long_context_probe"},
     "abliterated": {"refusal_preservation_probe"},
@@ -413,6 +417,7 @@ def _harness_of_path(rel_path: str) -> str:
         ("fara_cua_probe_", "fara_cua_probe"),
         ("security_exec_probe_", "security_exec_probe"),
         ("tool_use_probe_", "tool_use_probe"),
+        ("reasoning_probe_", "reasoning_probe"),
         ("research_probe_", "research_probe"),
         ("persona_matrix_", "persona_matrix"),
         ("v11_capability_", "capability_probe"),
@@ -817,6 +822,74 @@ def _matches_category(category: dict, features: dict, card_claims: dict) -> bool
     return any(token in caps_text for token in category["match_card_text"])
 
 
+# TASK_MODEL_REASONING_HARNESS_V1 Part 2: card-derived categories that imply a
+# RUNTIME capability (a vision encoder, tool support) must be reconciled against
+# what the model actually exposes at runtime — the same "never infer capability
+# from a card, always preflight" convention the bench harnesses already follow.
+# Two pending 'vision' tags (no vision encoder despite vision language in the
+# card) were sitting forever as never-satisfiable wrong-instrument flags because
+# the categorizer trusted the card. This lifts a live `ollama show` capability
+# check up into categorization so a contradicted category is demoted BEFORE any
+# prescription is emitted. Offline-safe: if Ollama is unreachable the check
+# abstains (returns None) and the card-derived category stands with a noted
+# caveat, rather than crashing or silently flipping.
+
+OLLAMA_SHOW_URL = "http://localhost:11434/api/show"
+
+# category id -> the runtime capability token `ollama show` must report for the
+# card-derived category to be trustworthy. Only categories whose whole point is
+# a runtime modality/capability are listed; text-only categories aren't gated.
+_CATEGORY_REQUIRES_CAPABILITY = {
+    "vision": "vision",
+    "agent-toolcall": "tools",
+}
+
+
+def _ollama_capabilities(model_tag: str) -> list[str] | None:
+    """Return the model's runtime capabilities from `ollama show`, or None if
+    Ollama is unreachable (abstain — do NOT treat unreachable as 'no caps')."""
+    import urllib.request as _ur
+
+    try:
+        req = _ur.Request(
+            OLLAMA_SHOW_URL,
+            data=json.dumps({"model": model_tag}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with _ur.urlopen(req, timeout=15) as r:
+            data = json.load(r)
+    except Exception:
+        return None
+    caps = data.get("capabilities")
+    return list(caps) if isinstance(caps, list) else []
+
+
+def _reconcile_category_with_runtime(matched: dict, features: dict) -> tuple[dict, str | None]:
+    """If the card-derived category requires a runtime capability the model does
+    not actually expose, demote to the general fallback and explain why. Returns
+    (category, note). note is None when nothing changed or the check abstained."""
+    required = _CATEGORY_REQUIRES_CAPABILITY.get(matched.get("id"))
+    if not required:
+        return matched, None
+    caps = _ollama_capabilities(features.get("tag", ""))
+    if caps is None:
+        # Abstain — Ollama unreachable. Keep card-derived category, note caveat.
+        return matched, (
+            f"runtime capability preflight abstained (ollama unreachable) — "
+            f"`{matched['id']}` category is card-derived and UNVERIFIED"
+        )
+    if required in caps:
+        return matched, None  # confirmed
+    # Contradicted: the card implied a capability the model doesn't expose.
+    fallback = CAPABILITY_CATEGORIES[-1]
+    return fallback, (
+        f"recategorized `{matched['id']}` → `{fallback['id']}`: `ollama show` reports "
+        f"capabilities={caps or '[]'} — no `{required}` capability, so the card-derived "
+        f"`{matched['id']}` label is wrong. Re-benching with the `{matched['id']}` harness "
+        f"would never produce valid evidence; the category itself was the wrong instrument."
+    )
+
+
 def bench_prescription(
     features: dict, card_claims: dict, alignment: dict, slots: list[dict], numeric: dict
 ) -> dict:
@@ -831,6 +904,9 @@ def bench_prescription(
             break
     if matched is None:
         matched = CAPABILITY_CATEGORIES[-1]  # general fallback
+
+    # Reconcile a runtime-capability category against ground truth (Part 2).
+    matched, _recat_note = _reconcile_category_with_runtime(matched, features)
 
     # Slot-fix analysis: what MUST change in workspace config for a bench
     # to produce valid data? A CUA model with no mmproj = benching wrong
@@ -919,11 +995,14 @@ def bench_prescription(
         "slot_fixes_required": slot_fixes,
         "blocked_by_slot": bool(slot_fixes),
         "needs_rebench": not numeric["has_valid_evidence"],
+        "recategorization_note": _recat_note,
     }
 
 
 def render_prescription(rx: dict) -> list[str]:
     lines = []
+    if rx.get("recategorization_note"):
+        lines.append(f"- 🔧 **Runtime capability preflight:** {rx['recategorization_note']}")
     if rx["needs_rebench"]:
         lines.append("- **Re-bench REQUIRED** (no post-boundary evidence)")
     lines.append(f"- **Capability category:** `{rx['category_id']}` — {rx['category_label']}")

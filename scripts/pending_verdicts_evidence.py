@@ -142,6 +142,7 @@ def harness_of(rel_path: str) -> str:
         ("fara_cua_probe_", "fara_cua_probe"),
         ("security_exec_probe_", "security_exec_probe"),
         ("tool_use_probe_", "tool_use_probe"),
+        ("reasoning_probe_", "reasoning_probe"),
         ("research_probe_", "research_probe"),
         ("persona_matrix_", "persona_matrix"),
         ("v11_capability_", "capability_probe"),

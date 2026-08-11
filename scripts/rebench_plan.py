@@ -23,7 +23,7 @@ REPORTS = REPO_ROOT / "reports"
 CATEGORY_HARNESS_CMD: dict[str, str | None] = {
     "general": "python3 -m tests.benchmarks.bench_tps --mode pipeline|direct",
     "moe": "python3 -m tests.benchmarks.bench_tps --mode pipeline|direct",
-    "reasoning-explicit": "python3 -m tests.benchmarks.bench_tps  (corrected budget+scorer)",
+    "reasoning-explicit": "python3 tests/benchmarks/bench_reasoning_probe.py",
     "vision": "python3 tests/benchmarks/bench_vision_probe.py",
     "mtp-speculative": "python3 tests/benchmarks/bench_mtp_probe.py",
     "abliterated": "python3 tests/benchmarks/bench_refusal_preservation_probe.py",
