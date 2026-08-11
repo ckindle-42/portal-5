@@ -46,6 +46,29 @@ OLLAMA_URL = "http://localhost:11434"
 RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
 TIMEOUT = 120
 
+# TASK_MODEL_BENCH_VALIDITY_V1 follow-up: bench at the temperature the model
+# is actually configured to run at (portal.yaml), not its Modelfile default —
+# the same "wrong instrument" failure as the token-budget bug, on the
+# sampling axis. Fall back to a low default only when the tag isn't wired to
+# a bench-* workspace yet.
+_DEFAULT_TEMPERATURE = 0.2
+
+
+def _temperature_for_tag(model_tag: str) -> float:
+    try:
+        import yaml as _yaml
+
+        data = _yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text()) or {}
+        for slug, spec in (data.get("workspaces") or {}).items():
+            if not slug.startswith("bench-") or not isinstance(spec, dict):
+                continue
+            if spec.get("model_hint") == model_tag and spec.get("temperature") is not None:
+                return float(spec["temperature"])
+    except Exception:
+        pass
+    return _DEFAULT_TEMPERATURE
+
+
 REFUSAL_MARKERS = (
     "i cannot",
     "i can't",
@@ -119,7 +142,7 @@ def run_case(model: str, case: dict) -> dict:
         "messages": [{"role": "user", "content": case["prompt"]}],
         "stream": False,
         "think": False,
-        "options": {"num_predict": 200},
+        "options": {"num_predict": 200, "temperature": _temperature_for_tag(model)},
     }
     req = urllib.request.Request(
         f"{OLLAMA_URL}/api/chat",

@@ -55,6 +55,31 @@ OLLAMA_URL = "http://localhost:11434"
 RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
 TIMEOUT = 180
 
+# TASK_MODEL_BENCH_VALIDITY_V1 follow-up: the security-tooling category's own
+# slot_requirements (scripts/pending_verdicts_report.py CAPABILITY_CATEGORIES)
+# call for "0.1-0.3 for reproducibility" — benching at a model's Modelfile-
+# default temperature instead of its intended operating temperature is the
+# same "wrong instrument" failure the token-budget bug was, just on the
+# sampling axis. Resolve the workspace-configured temperature per tag from
+# portal.yaml (single source of truth); fall back to the documented range's
+# midpoint only when the tag isn't wired to a bench-* workspace yet.
+_DEFAULT_TEMPERATURE = 0.2
+
+
+def _temperature_for_tag(model_tag: str) -> float:
+    try:
+        import yaml as _yaml
+
+        data = _yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text()) or {}
+        for slug, spec in (data.get("workspaces") or {}).items():
+            if not slug.startswith("bench-") or not isinstance(spec, dict):
+                continue
+            if spec.get("model_hint") == model_tag and spec.get("temperature") is not None:
+                return float(spec["temperature"])
+    except Exception:
+        pass
+    return _DEFAULT_TEMPERATURE
+
 
 def _extract_fenced(text: str, langs: tuple[str, ...]) -> str:
     """First fenced block for any of the given language tags, else first bare
@@ -178,7 +203,7 @@ def run_case(model: str, case: dict) -> dict:
         "model": model,
         "messages": [{"role": "user", "content": case["prompt"]}],
         "stream": False,
-        "options": {"num_predict": 1024},
+        "options": {"num_predict": 1024, "temperature": _temperature_for_tag(model)},
     }
     req = urllib.request.Request(
         f"{OLLAMA_URL}/api/chat",

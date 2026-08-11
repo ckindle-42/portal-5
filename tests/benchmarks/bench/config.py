@@ -109,6 +109,7 @@ def _portal_workspace_fields() -> dict[str, dict]:
                 "emits_reasoning": bool(spec.get("emits_reasoning")),
                 "tools": list(spec.get("tools") or []),
                 "model_hint": spec.get("model_hint"),
+                "temperature": spec.get("temperature"),
             }
     except Exception:
         out = {}
@@ -117,21 +118,32 @@ def _portal_workspace_fields() -> dict[str, dict]:
 
 
 def workspace_budget(workspace_id: str) -> dict:
-    """Return {predict_limit, emits_reasoning, has_tools} for a workspace slug,
-    resolved from portal.yaml. Unknown workspace => all-None/False."""
+    """Return {predict_limit, emits_reasoning, has_tools, temperature} for a
+    workspace slug, resolved from portal.yaml. Unknown workspace => all-None/False.
+
+    TASK_MODEL_BENCH_VALIDITY_V1 follow-up: temperature is part of the
+    production-fidelity fix alongside predict_limit — benching a model at its
+    Modelfile-default temperature instead of the temperature it's actually
+    configured to run at (e.g. security-tooling's 0.1-0.3 for reproducibility)
+    is the same "wrong instrument" failure as the token-budget bug, just on a
+    different axis. Pipeline mode already gets this for free (the router
+    injects temperature from workspace config via setdefault); direct mode
+    needs it resolved explicitly, same as predict_limit."""
     fields = _portal_workspace_fields().get(workspace_id, {})
     return {
         "predict_limit": fields.get("predict_limit"),
         "emits_reasoning": bool(fields.get("emits_reasoning")),
         "has_tools": bool(fields.get("tools")),
+        "temperature": fields.get("temperature"),
     }
 
 
 def budget_for_model_tag(model_tag: str) -> dict:
     """Direct-mode resolution: map a bare Ollama model tag back to the first
-    bench-* workspace whose model_hint matches, and return its budget. Used by
-    direct-Ollama bench runs which get a tag, not a workspace slug. Unknown =>
-    all-None/False (=> no cap, model default, == production unset behaviour)."""
+    bench-* workspace whose model_hint matches, and return its budget +
+    temperature. Used by direct-Ollama bench runs which get a tag, not a
+    workspace slug. Unknown => all-None/False (=> no cap, model default, ==
+    production unset behaviour)."""
     fields = _portal_workspace_fields()
     for slug, spec in fields.items():
         if spec.get("model_hint") == model_tag:
@@ -139,9 +151,16 @@ def budget_for_model_tag(model_tag: str) -> dict:
                 "predict_limit": spec.get("predict_limit"),
                 "emits_reasoning": bool(spec.get("emits_reasoning")),
                 "has_tools": bool(spec.get("tools")),
+                "temperature": spec.get("temperature"),
                 "workspace": slug,
             }
-    return {"predict_limit": None, "emits_reasoning": False, "has_tools": False, "workspace": None}
+    return {
+        "predict_limit": None,
+        "emits_reasoning": False,
+        "has_tools": False,
+        "temperature": None,
+        "workspace": None,
+    }
 
 
 def resolve_request_timeout(
