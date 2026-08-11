@@ -9,7 +9,7 @@ sources:
   path: scripts/lib/util.sh
 - type: code
   path: .gitignore
-last_generated_commit: a81c5e73569f981ecedb0d95b088563fcce651ed
+last_generated_commit: ca53210fcc6fc1346fc2ae79ad8b87617835d7f4
 claims: []
 confidence: high
 tags:
