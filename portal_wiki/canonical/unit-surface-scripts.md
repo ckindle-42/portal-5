@@ -9,7 +9,7 @@ sources:
   path: scripts/lib/*.py
 - type: code
   path: scripts/validation/*.py
-last_generated_commit: 1896bb7da29dd96ff280b8ffb495519d507070ee
+last_generated_commit: 04ecdeb4d768f9898e8f32815c4bf140caaaf341
 claims: []
 confidence: high
 tags:
