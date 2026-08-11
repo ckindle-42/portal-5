@@ -10,7 +10,7 @@ sources:
   path: config/portal.yaml
 - type: code
   path: portal/platform/inference/cli/update.py
-last_generated_commit: ed366c7a6eb34d822a5d4aa04f8072edca8acd5d
+last_generated_commit: d19bcd41d50c690918807eab095f1f738f9798d5
 claims: []
 confidence: high
 tags:
