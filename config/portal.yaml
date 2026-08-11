@@ -2348,6 +2348,45 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a helpful agentic assistant. Use tools when needed; produce complete, correct output.
+  bench-aquila-research:
+    module: eval
+    name: 🔬 Bench · XYZ-Aquila-mini (research-task eval, vs auto-research incumbent)
+    description: |-
+      TASK-BENCH-FOLLOWUP-001 Part 1B: research-appropriate head-to-head for Aquila, replacing
+      the V1 C4/SWE-diagnosis proxy (C4 measures nothing about deep research). Clones
+      auto-research's tool set (web_search/web_fetch/synthesis) so both arms run the identical
+      research-task rubric. Working-ctx preflight found 8k truncates conversation history after
+      ~2 tool hops (prompt silently dropped from 15,932 to 6,311 tokens with identical input,
+      i.e. context loss, not malformed JSON); 16k processes the full multi-hop conversation
+      cleanly and 32k showed no further difference, so 16k is baked as the lowest clean value
+      (escalation path 8k[unclean] -> 16k[clean], stop). tool_choice: required verified safe for
+      this model via a live /v1/chat/completions probe (no hallucinated tool call on a
+      no-tool-needed prompt, same as tool_choice=auto) -- not blindly inherited from auto-research.
+    model_hint: portal5/xyz-aquila-mini:q4_k_m-ctx16k
+    ctx_validated: true  # working-ctx preflight: 8k truncates history, 16k clean (see description)
+    predict_limit: 16384
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    top_k: 40
+    min_p: 0.02
+    emits_reasoning: true
+    tools:
+    - web_search
+    - web_fetch
+    - news_search
+    - kb_search
+    - kb_search_all
+    - kb_list
+    - remember
+    - recall
+    expose_to_owui: false
+    enable_web_search: true
+    tool_choice: required
+    tool_choice_verified: true  # live /v1/chat/completions probe: no hallucinated call vs auto (see description)
+    owui_system_prompt: |-
+      You are a research assistant. Synthesize information from multiple sources. Distinguish primary from secondary sources. Always acknowledge the limits of your knowledge.
   bench-muse-glimmer-30b:
     module: eval
     name: 🔬 Bench · Muse-Glimmer-30B (multimodal agentic, DFlash)
@@ -2410,6 +2449,7 @@ workspaces:
       Verdict: **pass, with real caveats** — the earlier "declined" verdicts (broken quant; tool-call-convergence failure) are both retracted. Deepwen-3.6 has genuine, demonstrated CAD capability across both the OpenSCAD and trimesh sub-paths once configured correctly (`tool_choice: auto`, not `required` — the opposite of what `auto-cad`'s own Qwen3-Coder needs, per its "avoids hallucinating tool names" comment). Convergence reliability (~50% first-attempt on this complex multi-constraint prompt) is the real, remaining limitation worth tracking — not a reason to write the model off. The original OpenSCAD-vs-trimesh domain-mismatch hypothesis is now testable and shows no clear split: both sub-paths succeed when the model converges. PROMOTE_POLICY=confirm.
     model_hint: portal5/deepwen-3.6:q4.5-moq-ctx32k
     context_limit: 32768
+    ctx_validated: true  # 32k baked+confirmed live; see BENCH RESULT note above (P5-OLLAMA-OPTIONS-001 root cause)
     predict_limit: 16384
     temperature: 0.2
     top_p: 0.9
