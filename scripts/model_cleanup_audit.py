@@ -84,6 +84,24 @@ def read_globs_indexed(patterns: list[str]) -> list[tuple[str, str]]:
             # cache is refreshed alongside every fleet run.
             if relpath.startswith("reports/model_cards/"):
                 continue
+            # pending_verdicts_evidence.py / _report.py's own timestamped
+            # output (reports/PENDING_VERDICTS_EVIDENCE_<UTC>.md,
+            # PENDING_VERDICTS_ANALYSIS_<UTC>.md) mentions every pending
+            # tag by construction and can contain closeout-verdict-shaped
+            # words ("decline", "pass", etc.) in its own suggested-verdict
+            # prose. SELF_OUTPUT_RELPATHS can't list these — the filename
+            # changes every run — so they need a prefix match instead.
+            # Without this, mine_closeout_verdict() in
+            # pending_verdicts_evidence.py can pick up its own PRIOR run's
+            # suggestion as if it were an independent closeout signal: a
+            # self-referential feedback loop, not new evidence.
+            _report_prefixes = (
+                "reports/PENDING_VERDICTS_EVIDENCE_",
+                "reports/PENDING_VERDICTS_ANALYSIS_",
+                "reports/RECLAIM_PLAN_",
+            )
+            if relpath.startswith(_report_prefixes):
+                continue
             try:
                 text = p.read_text(encoding="utf-8", errors="ignore")
             except OSError:
