@@ -11,7 +11,7 @@ sources:
   path: tests/benchmarks/bench/config.py
 - type: code
   path: tests/unit/test_import_environment.py
-last_generated_commit: 9623f6b25b3e922bd0cf4b3885a926a4728b26a1
+last_generated_commit: 3771ef49a112fde1d667c67af5bf1bc003ce75b4
 claims: []
 confidence: high
 tags:

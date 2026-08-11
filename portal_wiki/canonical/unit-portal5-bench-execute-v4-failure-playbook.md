@@ -9,7 +9,7 @@ sources:
   path: scripts/routing_regression.py
 - type: code
   path: scripts/execute_preflight.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: 3771ef49a112fde1d667c67af5bf1bc003ce75b4
 claims: []
 confidence: high
 tags:

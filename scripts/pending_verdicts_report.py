@@ -382,6 +382,46 @@ def evidence_date(rel_path: str) -> _dt.date | None:
         return None
 
 
+# TASK_BENCH_VALIDITY_V1: which harness (results-file prefix) produces valid
+# evidence for which capability category. A category's evidence is only
+# instrument-appropriate if it came from a listed harness. bench_tps counts as
+# a TPS-floor data point for every category, but for capability-specialized
+# categories it is NOT the capability-appropriate signal on its own.
+_HARNESS_FOR_CATEGORY: dict[str, set[str]] = {
+    "security-tooling": {"security_exec_probe"},  # harness to be built; bench_tps insufficient
+    "cua": {"cad_probe", "fara_cua_probe"},
+    "vision": {"vision_probe"},
+    "mtp-speculative": {"mtp_probe"},
+    "reasoning-explicit": {"persona_matrix", "capability_probe"},  # reasoning-aware grading
+    "agent-toolcall": {"tool_use_probe"},  # harness to be built; bench_tps insufficient
+    "long-context": {"long_context_probe"},
+    "abliterated": {"refusal_preservation_probe"},
+    "moe": {"bench_tps"},  # bench_tps + MoE profile — bench_tps is acceptable
+    "general": {"bench_tps", "persona_matrix"},
+}
+
+
+def _harness_of_path(rel_path: str) -> str:
+    base = rel_path.rsplit("/", 1)[-1]
+    for prefix, harness in (
+        ("bench_tps_", "bench_tps"),
+        ("mtp_probe_", "mtp_probe"),
+        ("vision_probe_", "vision_probe"),
+        ("refusal_preservation_probe_", "refusal_preservation_probe"),
+        ("long_context_probe_", "long_context_probe"),
+        ("cad_probe_", "cad_probe"),
+        ("fara_cua_probe_", "fara_cua_probe"),
+        ("security_exec_probe_", "security_exec_probe"),
+        ("tool_use_probe_", "tool_use_probe"),
+        ("research_probe_", "research_probe"),
+        ("persona_matrix_", "persona_matrix"),
+        ("v11_capability_", "capability_probe"),
+    ):
+        if base.startswith(prefix):
+            return harness
+    return "unknown"
+
+
 def collect_numeric_evidence(
     tag: str,
     evidence_paths: list[str],
@@ -397,6 +437,7 @@ def collect_numeric_evidence(
     closeouts_valid = []
     closeouts_invalid = []
     dates = []
+    valid_harnesses: set[str] = set()
     for rel in evidence_paths:
         p = REPO_ROOT / rel
         if not p.exists():
@@ -405,6 +446,7 @@ def collect_numeric_evidence(
         if d:
             dates.append(d)
         is_valid = d is not None and d >= boundary
+        _harness = _harness_of_path(rel)
         if p.suffix == ".json":
             try:
                 data = json.loads(p.read_text(encoding="utf-8"))
@@ -419,7 +461,13 @@ def collect_numeric_evidence(
                 model_l = str(r.get("model") or "").lower()
                 routed_l = str(r.get("routed_model") or "").lower()
                 if any(n in model_l or n in routed_l for n in needles):
-                    (tps_rows_valid if is_valid else tps_rows_invalid).append(r)
+                    r = dict(r)
+                    r["_harness"] = _harness
+                    if is_valid:
+                        tps_rows_valid.append(r)
+                        valid_harnesses.add(_harness)
+                    else:
+                        tps_rows_invalid.append(r)
         elif p.suffix == ".md":
             tl = p.read_text(encoding="utf-8", errors="ignore").lower()
             for token in (
@@ -461,7 +509,50 @@ def collect_numeric_evidence(
         "newest_valid_date": newest_valid.isoformat() if newest_valid else None,
         "stack_boundary_date": boundary.isoformat(),
         "has_valid_evidence": len(tps_rows_valid) > 0 or len(closeouts_valid) > 0,
+        # TASK_BENCH_VALIDITY_V1: harnesses that produced post-boundary rows,
+        # for the category-coherence gate applied once the category is known.
+        "valid_harnesses": sorted(valid_harnesses),
     }
+
+
+def apply_coherence_gate(numeric: dict, category_id: str) -> dict:
+    """TASK_BENCH_VALIDITY_V1 coherence gate: post-boundary evidence only counts
+    as *capability-appropriate* if it came from a harness listed for the model's
+    category. A bench_tps coding row on a reasoning-explicit or security-tooling
+    model is retained as a data point (visible on the sheet) but does NOT satisfy
+    has_valid_evidence — because it measured the wrong thing.
+
+    Mutates and returns `numeric` with:
+      - instrument_ok: bool — at least one valid row came from a right harness
+      - wrong_instrument_harnesses: harnesses present but not category-appropriate
+      - has_valid_evidence: ANDed with instrument_ok (closeouts still count)
+      - rebench_reason: why a re-bench is still owed, if any
+    """
+    appropriate = _HARNESS_FOR_CATEGORY.get(category_id, {"bench_tps", "persona_matrix"})
+    present = set(numeric.get("valid_harnesses") or [])
+    right = present & appropriate
+    wrong = present - appropriate
+
+    instrument_ok = bool(right)
+    numeric["instrument_ok"] = instrument_ok
+    numeric["wrong_instrument_harnesses"] = sorted(wrong)
+    numeric["appropriate_harnesses"] = sorted(appropriate)
+
+    had_closeout = bool(numeric.get("closeout_signals"))
+    # Evidence is decision-grade only if a right instrument ran (or a
+    # post-boundary closeout exists). Wrong-instrument rows stay as data points.
+    numeric["has_valid_evidence"] = instrument_ok or had_closeout
+
+    if instrument_ok or had_closeout:
+        numeric["rebench_reason"] = None
+    elif wrong:
+        numeric["rebench_reason"] = (
+            f"only wrong-instrument evidence ({', '.join(sorted(wrong))}) for a "
+            f"`{category_id}` model — needs {', '.join(sorted(appropriate))}"
+        )
+    else:
+        numeric["rebench_reason"] = f"no post-boundary evidence for a `{category_id}` model"
+    return numeric
 
 
 # ---------------- Bench prescription (capability-appropriate re-bench) ----------------
@@ -1478,9 +1569,21 @@ def render_numeric(numeric: dict) -> list[str]:
         )
         for src in numeric["closeout_sources_invalid"]:
             lines.append(f"  - `{src}`")
-    if not numeric["has_valid_evidence"]:
+    # TASK_BENCH_VALIDITY_V1: harness/category coherence
+    if numeric.get("valid_harnesses"):
         lines.append(
-            "- ⚠ **No post-boundary evidence — decision cannot rest on numbers. Re-bench required.**"
+            f"- **Harness(es) that produced valid rows:** {', '.join(numeric['valid_harnesses'])}"
+        )
+    if numeric.get("wrong_instrument_harnesses"):
+        lines.append(
+            f"- ⚠ **Wrong-instrument evidence (kept as data point, does NOT count as valid):** "
+            f"{', '.join(numeric['wrong_instrument_harnesses'])} — this category needs "
+            f"{', '.join(numeric.get('appropriate_harnesses') or [])}"
+        )
+    if not numeric["has_valid_evidence"]:
+        reason = numeric.get("rebench_reason") or "no post-boundary evidence"
+        lines.append(
+            f"- ⚠ **Not decision-grade — {reason}. Capability-appropriate re-bench required.**"
         )
     return lines
 
@@ -1828,6 +1931,14 @@ def main(argv: list[str] | None = None) -> int:
         alignment = alignment_analysis(card_claims, slots)
         losses = what_wed_lose(features, position, diversity)
         prescription = bench_prescription(features, card_claims, alignment, slots, numeric)
+        # TASK_BENCH_VALIDITY_V1: now that the capability category is known,
+        # gate the evidence on harness/category coherence. Wrong-instrument
+        # post-boundary rows are kept as data points but no longer satisfy
+        # has_valid_evidence — so a bench_tps-only reasoning model correctly
+        # still needs its capability-appropriate re-bench. Re-derive the
+        # prescription's needs_rebench off the gated evidence.
+        numeric = apply_coherence_gate(numeric, prescription["category_id"])
+        prescription["needs_rebench"] = not numeric["has_valid_evidence"]
         hyp = hypothesis(features, rationale, position, diversity, numeric, alignment)
         rows.append(
             {

@@ -11,7 +11,7 @@ sources:
   path: scripts/persona_intent_audit.py
 - type: code
   path: scripts/routing_regression.py
-last_generated_commit: 1c013743834d850604632980a093809f65c3c3ed
+last_generated_commit: 3771ef49a112fde1d667c67af5bf1bc003ce75b4
 claims: []
 confidence: high
 tags:
