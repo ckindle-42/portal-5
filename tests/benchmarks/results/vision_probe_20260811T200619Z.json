@@ -1,0 +1,649 @@
+{
+  "results": [
+    {
+      "model": "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k",
+      "skipped": false,
+      "avg_tps": 10.98,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "The image is a solid red color with no other discernible features or colors. The entire area is filled with a consistent red hue, so the dominant color is clearly red.red",
+          "tps": 10.233529134857447,
+          "wall_s": 21.828040458989562
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 13.36433859888274,
+          "wall_s": 0.9412944579962641
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "The image shows three blue circles arranged in a row. To determine the number of circles, I simply count them. There is one circle on the left, one in the middle, and one on the right. Adding them up,",
+          "tps": 10.16593271052957,
+          "wall_s": 7.987869167001918
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "greenThe image shows a square that is clearly distinguishable from the background. The square is a solid color, and the background is black. By observing the color of the square, it appears to be a br",
+          "tps": 10.169017545792357,
+          "wall_s": 8.203636999998707
+        }
+      ]
+    },
+    {
+      "model": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "skipped": false,
+      "avg_tps": 80.84,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "red",
+          "tps": 86.38935683123839,
+          "wall_s": 11.064325791987358
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 61.587732672102796,
+          "wall_s": 0.553094166010851
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 87.43933895859747,
+          "wall_s": 0.6137278749956749
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 87.96235211329551,
+          "wall_s": 0.630485542002134
+        }
+      ]
+    },
+    {
+      "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M",
+      "skipped": false,
+      "avg_tps": 81.77,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "red",
+          "tps": 85.93280054996993,
+          "wall_s": 13.39957837498514
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 62.72738677706686,
+          "wall_s": 0.5614647920010611
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 89.99685011024614,
+          "wall_s": 0.6466059160011355
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 88.40560491535163,
+          "wall_s": 0.6520757920225151
+        }
+      ]
+    },
+    {
+      "model": "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M",
+      "skipped": false,
+      "avg_tps": 94.77,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 101.28120727199068,
+          "wall_s": 15.640186250006082
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 71.18704395799965,
+          "wall_s": 0.5029207079787739
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 103.78288620206528,
+          "wall_s": 0.6134950410050806
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 102.81719103434094,
+          "wall_s": 0.6164418749976903
+        }
+      ]
+    },
+    {
+      "model": "muse-glimmer:30b-mlx",
+      "skipped": false,
+      "avg_tps": 20.18,
+      "quality_score": 0.75,
+      "runs_success": 3,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "red",
+          "tps": 19.32944854870105,
+          "wall_s": 13.009633708017645
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": false,
+          "response_preview": "PORTALS5",
+          "tps": 21.294479413406155,
+          "wall_s": 5.935696708998876
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 16.88752281253254,
+          "wall_s": 16.574261915986426
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 23.21115150275427,
+          "wall_s": 3.9943282079766504
+        }
+      ]
+    },
+    {
+      "model": "gemma4:31b-it-qat-ctx8k",
+      "skipped": false,
+      "avg_tps": 22.06,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 23.932033026205573,
+          "wall_s": 13.501935624983162
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 15.987529726813086,
+          "wall_s": 2.2217920830007643
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 24.213075060532685,
+          "wall_s": 2.074541207985021
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 24.123415393151365,
+          "wall_s": 2.052149124996504
+        }
+      ]
+    },
+    {
+      "model": "gemma4:31b-it-qat",
+      "skipped": false,
+      "avg_tps": 22.31,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 24.340672045955188,
+          "wall_s": 4.717204374988796
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 16.459550654267137,
+          "wall_s": 2.2131401670048945
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 24.16860015467904,
+          "wall_s": 2.047611916990718
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 24.252125092461227,
+          "wall_s": 2.048148542002309
+        }
+      ]
+    },
+    {
+      "model": "gemma4:26b-a4b-it-q4_K_M",
+      "skipped": false,
+      "avg_tps": 97.51,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 102.93890575943179,
+          "wall_s": 13.244768667005701
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 75.81932255435298,
+          "wall_s": 0.8088402080175001
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 105.60219652568773,
+          "wall_s": 0.7621647499909159
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 105.6859015007398,
+          "wall_s": 0.7821648750104941
+        }
+      ]
+    },
+    {
+      "model": "hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf",
+      "skipped": false,
+      "avg_tps": 97.69,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 105.64124234100993,
+          "wall_s": 12.779094249999616
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 75.44180607683748,
+          "wall_s": 0.8076954170246609
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 104.9042748492001,
+          "wall_s": 0.7667527500016149
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 104.7833604023681,
+          "wall_s": 0.7762843749951571
+        }
+      ]
+    },
+    {
+      "model": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "skipped": false,
+      "avg_tps": 68.14,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 73.49428581927755,
+          "wall_s": 5.302513250004267
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 50.99634101253235,
+          "wall_s": 0.6417416250042152
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 73.66753839920439,
+          "wall_s": 0.6780514999991283
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 74.38815740534108,
+          "wall_s": 0.6827646660094615
+        }
+      ]
+    },
+    {
+      "model": "hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M",
+      "skipped": false,
+      "avg_tps": 67.84,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 72.43752263672583,
+          "wall_s": 4.8067359999986365
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 50.50568820313387,
+          "wall_s": 0.6424209169927053
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 74.39092430723451,
+          "wall_s": 0.6736975829990115
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 74.02472425790214,
+          "wall_s": 0.6708430839935318
+        }
+      ]
+    },
+    {
+      "model": "gemma4:e4b-it-qat-ctx8k",
+      "skipped": false,
+      "avg_tps": 96.26,
+      "quality_score": 0.75,
+      "runs_success": 3,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 102.55358424776946,
+          "wall_s": 4.716919208003674
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 74.05076179721199,
+          "wall_s": 0.6346263749874197
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": false,
+          "response_preview": "4",
+          "tps": 103.23646311877354,
+          "wall_s": 0.5861384580202866
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 105.20778537611784,
+          "wall_s": 0.5872000840026885
+        }
+      ]
+    },
+    {
+      "model": "gemma4:e4b-it-qat",
+      "skipped": false,
+      "avg_tps": 98.28,
+      "quality_score": 0.5,
+      "runs_success": 2,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 103.33781130515656,
+          "wall_s": 1.9414992920064833
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": false,
+          "response_preview": "PORTALS",
+          "tps": 82.23007976317737,
+          "wall_s": 0.6092495420016348
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": false,
+          "response_preview": "4",
+          "tps": 103.40192327577292,
+          "wall_s": 0.5894966249761637
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 104.16666666666667,
+          "wall_s": 0.6178984589932952
+        }
+      ]
+    },
+    {
+      "model": "gemma4:e2b-it-qat-ctx8k",
+      "skipped": false,
+      "avg_tps": 152.35,
+      "quality_score": 0.75,
+      "runs_success": 3,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 160.926939169617,
+          "wall_s": 3.8810813750023954
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 121.06537530266344,
+          "wall_s": 0.48814341699471697
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": false,
+          "response_preview": "4",
+          "tps": 162.97262059973926,
+          "wall_s": 0.4664303750032559
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 164.4331168297295,
+          "wall_s": 0.4573114159866236
+        }
+      ]
+    },
+    {
+      "model": "gemma4:e2b-it-qat",
+      "skipped": false,
+      "avg_tps": 153.75,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 164.6090534979424,
+          "wall_s": 1.8676632910210174
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 121.96981247141333,
+          "wall_s": 0.4912763750180602
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 163.58580075249466,
+          "wall_s": 0.46873491699807346
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 164.85328058028355,
+          "wall_s": 0.4704700000002049
+        }
+      ]
+    }
+  ]
+}

@@ -212,10 +212,18 @@ def run_case(model: str, case: dict) -> dict:
         return {"id": case["id"], "ok": False, "error": str(e), "wall_s": time.monotonic() - t0}
 
     calls = _extract_tool_calls(data)
-    content = (data.get("message") or {}).get("content", "") or ""
+    msg = data.get("message") or {}
+    content = msg.get("content", "") or ""
+    # A reasoning model's whole answer can land entirely in Ollama's separate
+    # "thinking" field with empty "content" (same pattern already handled in
+    # bench_vision_probe.py / bench_fara_cua_probe.py). Combine both so a
+    # no-tool-needed answer that reasons its way to the right response isn't
+    # scored as a blank non-answer.
+    thinking = msg.get("thinking", "") or ""
+    text = content + ("\n" + thinking if thinking else "")
 
     if case["kind"] == "expect_no_call":
-        answered = any(k in content.lower() for k in case.get("expect_any", []))
+        answered = any(k in text.lower() for k in case.get("expect_any", []))
         matched = answered and not calls
     else:
         matched = False
@@ -241,7 +249,7 @@ def run_case(model: str, case: dict) -> dict:
         "ok": True,
         "matched": matched,
         "emitted_calls": [(c.get("function", {}) or {}).get("name", "") for c in calls],
-        "response_preview": content[:160],
+        "response_preview": (content or thinking)[:160],
         "tps": tps,
         "wall_s": time.monotonic() - t0,
     }

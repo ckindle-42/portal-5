@@ -1,0 +1,158 @@
+{
+  "results": [
+    {
+      "model": "portal5/qwen3.6-27b-mtp:q8_0-drafted",
+      "avg_tps": 12.451993552007528,
+      "quality_score": 1.0,
+      "runs_success": 1,
+      "runs_total": 1,
+      "prompt_category": "mtp_speculative",
+      "base_tag": "qwen3.6:27b-q8_0",
+      "base_avg_tps": 8.34456943732992,
+      "speedup_vs_base": 1.49,
+      "note": null,
+      "mtp_result": {
+        "ok": true,
+        "tps": 12.451993552007528,
+        "eval_count": 256,
+        "coherent": true,
+        "response_preview": "```python\ndef longest_increasing_subsequence(nums: list[int]) -> list[int]:\n    \"\"\"Find the longest strictly increasing subsequence in a list of integ",
+        "wall_s": 46.40683804100263
+      },
+      "base_result": {
+        "ok": true,
+        "tps": 8.34456943732992,
+        "eval_count": 256,
+        "coherent": true,
+        "response_preview": "```python\ndef longest_increasing_subsequence(nums: list[int]) -> list[int]:\n    \"\"\"Find the longest strictly increasing subsequence in a list of integ",
+        "wall_s": 46.68992833397351
+      }
+    },
+    {
+      "model": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf",
+      "avg_tps": 9.544241101945603,
+      "quality_score": 1.0,
+      "runs_success": 1,
+      "runs_total": 1,
+      "prompt_category": "mtp_speculative",
+      "base_tag": "qwen3.6:27b-q8_0",
+      "base_avg_tps": 8.022840776978283,
+      "speedup_vs_base": 1.19,
+      "note": null,
+      "mtp_result": {
+        "ok": true,
+        "tps": 9.544241101945603,
+        "eval_count": 241,
+        "coherent": true,
+        "response_preview": "```python\ndef longest_increasing_subsequence(nums: list[int]) -> list[int]:\n    \"\"\"Return one longest strictly increasing subsequence of nums.\"\"\"\n    ",
+        "wall_s": 37.56964387500193
+      },
+      "base_result": {
+        "ok": true,
+        "tps": 8.022840776978283,
+        "eval_count": 256,
+        "coherent": true,
+        "response_preview": "```python\ndef longest_increasing_subsequence(nums: list[int]) -> list[int]:\n    \"\"\"Find the longest strictly increasing subsequence in a list of integ",
+        "wall_s": 46.355972040997585
+      }
+    },
+    {
+      "model": "hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M",
+      "avg_tps": 11.884073095219835,
+      "quality_score": 1.0,
+      "runs_success": 1,
+      "runs_total": 1,
+      "prompt_category": "mtp_speculative",
+      "base_tag": null,
+      "base_avg_tps": null,
+      "speedup_vs_base": null,
+      "note": "no baseline pair identified in fleet \u2014 TPS floor check only",
+      "mtp_result": {
+        "ok": true,
+        "tps": 11.884073095219835,
+        "eval_count": 256,
+        "coherent": true,
+        "response_preview": "```python\ndef longest_increasing_subsequence(nums: list[int]) -> list[int]:\n    \"\"\"Find and return the longest strictly increasing subsequence from a ",
+        "wall_s": 33.237681708007585
+      },
+      "base_result": null
+    },
+    {
+      "model": "qwen3.6:27b-mtp-q4_K_M",
+      "avg_tps": 10.683210954230661,
+      "quality_score": 1.0,
+      "runs_success": 1,
+      "runs_total": 1,
+      "prompt_category": "mtp_speculative",
+      "base_tag": "qwen3.6:27b-q8_0",
+      "base_avg_tps": 8.03445021606708,
+      "speedup_vs_base": 1.33,
+      "note": null,
+      "mtp_result": {
+        "ok": true,
+        "tps": 10.683210954230661,
+        "eval_count": 256,
+        "coherent": true,
+        "response_preview": "```python\ndef longest_increasing_subsequence(nums: list[int]) -> list[int]:\n    \"\"\"\n    Find the longest strictly increasing subsequence in a list of ",
+        "wall_s": 36.99364966599387
+      },
+      "base_result": {
+        "ok": true,
+        "tps": 8.03445021606708,
+        "eval_count": 256,
+        "coherent": true,
+        "response_preview": "```python\ndef longest_increasing_subsequence(nums: list[int]) -> list[int]:\n    \"\"\"Find the longest strictly increasing subsequence in a list of integ",
+        "wall_s": 46.29205383401131
+      }
+    },
+    {
+      "model": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "avg_tps": 26.694910438054094,
+      "quality_score": 1.0,
+      "runs_success": 1,
+      "runs_total": 1,
+      "prompt_category": "mtp_speculative",
+      "base_tag": "portal5/gemma4-12b:q4_K_M-ctx8k",
+      "base_avg_tps": 26.860853851982846,
+      "speedup_vs_base": 0.99,
+      "note": null,
+      "mtp_result": {
+        "ok": true,
+        "tps": 26.694910438054094,
+        "eval_count": 256,
+        "coherent": true,
+        "response_preview": "Here is an efficient $O(n \\log n)$ implementation using patience-sorting logic (maintaining the smallest possible tail for each length).\n\n```python\nim",
+        "wall_s": 15.097505541983992
+      },
+      "base_result": {
+        "ok": true,
+        "tps": 26.860853851982846,
+        "eval_count": 256,
+        "coherent": true,
+        "response_preview": "To solve this problem efficiently, we can use a technique involving **binary search**. This approach allows us to find the length of the Longest Incre",
+        "wall_s": 14.952632417000132
+      }
+    },
+    {
+      "model": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M",
+      "avg_tps": 47.52392173957219,
+      "quality_score": 1.0,
+      "runs_success": 1,
+      "runs_total": 1,
+      "prompt_category": "mtp_speculative",
+      "base_tag": null,
+      "base_avg_tps": null,
+      "speedup_vs_base": null,
+      "note": "no baseline pair identified in fleet \u2014 TPS floor check only",
+      "mtp_result": {
+        "ok": true,
+        "tps": 47.52392173957219,
+        "eval_count": 203,
+        "coherent": true,
+        "response_preview": "```python\ndef longest_increasing_subsequence(nums):\n \"\"\"\n Returns the length of the Longest Increasing Subsequence (LIS) in `nums`.\n\n The LIS is defin",
+        "wall_s": 7.404184166982304
+      },
+      "base_result": null
+    }
+  ]
+}
