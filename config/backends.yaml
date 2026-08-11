@@ -911,6 +911,16 @@ workspace_routing:
   - general
   bench-security-slm-1p5b:
   - general
+  bench-qwen3.6:
+  - general
+  bench-deepseek-r1:
+  - general
+  bench-glm47-flash-reap:
+  - general
+  bench-hermes3:
+  - general
+  bench-dolphin-llama3:
+  - general
   bench-cybersecqwen-4b-toolfix:
   - general
   bench-mistral7b-uncensored:

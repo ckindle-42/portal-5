@@ -517,7 +517,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (23 production, 71 eval, 94 total)
+# Workspace roster (23 production, 76 eval, 99 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -557,9 +557,11 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-bugtrace-ultra-27b`
 - `bench-cybersecqwen-4b`
 - `bench-cybersecqwen-4b-toolfix`
+- `bench-deepseek-r1`
 - `bench-deepwen-cad`
 - `bench-devstral`
 - `bench-devstral-small-2`
+- `bench-dolphin-llama3`
 - `bench-e2b-pentest`
 - `bench-exec-exploit`
 - `bench-exec-reasoning`
@@ -578,9 +580,11 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-glm`
 - `bench-glm-reap`
 - `bench-glm-z1-rumination`
+- `bench-glm47-flash-reap`
 - `bench-gptoss`
 - `bench-granite41-30b`
 - `bench-granite41-8b`
+- `bench-hermes3`
 - `bench-huihui-qwen36-27b`
 - `bench-huihui-qwen36-35b-a3b`
 - `bench-jackrong-dsv4-4b`
@@ -603,6 +607,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-qwen3-coder-30b`
 - `bench-qwen3-coder-next`
 - `bench-qwen3-coder-next-abliterated`
+- `bench-qwen3.6`
 - `bench-qwen35-9b-heretic-vision`
 - `bench-qwen35-abliterated`
 - `bench-qwen36-27b`

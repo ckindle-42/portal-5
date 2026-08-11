@@ -2245,6 +2245,7 @@ workspaces:
     description: |-
       security-slm-unsloth-1.5b (~1.1GB, Nguuma, DeepSeek-R1-distill base finetuned on security corpora). Multi-seat V2 bench candidate (2026-07-05) — red+blue+CoT+mcp-security seats. tools: [] deliberately: audited directly against Ollama, Modelfile TEMPLATE has zero {{ .Tools }} handling, so tool defs never reach the model regardless of what's attached here — it can only be scored on prose/CoT, not tool dispatch.
     model_hint: hf.co/Nguuma/security-slm-unsloth-1.5b:latest
+    predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
     temperature: 0.6
@@ -2254,19 +2255,102 @@ workspaces:
     tools: []
     expose_to_owui: false
     enable_web_search: false
+  bench-qwen3.6:
+    module: eval
+    name: "🧪 Bench · Qwen3.6-27B Q8_0"
+    description: |-
+      qwen3.6:27b-q8_0 (~27.9GB, Q8_0, Alibaba Qwen3.6 27B dense). Pending-verdict backlog entry (TASK_MODEL_DISK_RECLAIM_V1) — was bench-orphaned prior to this workspace; added so the reasoning-explicit re-bench prescription (persona-matrix with reasoning capture) can produce valid evidence instead of investigate-refresh. PROMOTE_POLICY=confirm.
+    model_hint: qwen3.6:27b-q8_0
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-deepseek-r1:
+    module: eval
+    name: "🧪 Bench · DeepSeek-R1 32B"
+    description: |-
+      deepseek-r1:32b-q4_k_m (~19.1GB, DeepSeek-R1-Distill-Qwen-32B, explicit <think> reasoning traces). Pending-verdict backlog entry (TASK_MODEL_DISK_RECLAIM_V1) — was bench-orphaned prior to this workspace; added so the reasoning-explicit re-bench prescription can produce valid evidence instead of investigate-refresh. PROMOTE_POLICY=confirm.
+    model_hint: deepseek-r1:32b-q4_k_m
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-glm47-flash-reap:
+    module: eval
+    name: "🧪 Bench · GLM-4.7-Flash-REAP 23B-A3B"
+    description: |-
+      hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k (~14.3GB, Zhipu GLM-4.7-Flash REAP pruned MoE, 23B total / ~3B active). Pending-verdict backlog entry (TASK_MODEL_DISK_RECLAIM_V1) — was bench-orphaned prior to this workspace; added so the reasoning-explicit re-bench prescription can produce valid evidence instead of investigate-refresh. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    ctx_validated: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-hermes3:
+    module: eval
+    name: "🧪 Bench · Hermes3 8B"
+    description: |-
+      hermes3:8b (~4.7GB, NousResearch Hermes-3-Llama-3.1-8B, reasoning + tool-use tuned). Pending-verdict backlog entry (TASK_MODEL_DISK_RECLAIM_V1) — was bench-orphaned prior to this workspace; added so the reasoning-explicit re-bench prescription can produce valid evidence instead of investigate-refresh. PROMOTE_POLICY=confirm.
+    model_hint: hermes3:8b
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.6
+    top_p: 0.95
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-dolphin-llama3:
+    module: eval
+    name: "🧪 Bench · Dolphin-Llama3 8B"
+    description: |-
+      dolphin-llama3:8b (~4.7GB, Cognitive Computations Dolphin fine-tune of Llama3-8B, uncensored). Pending-verdict backlog entry (TASK_MODEL_DISK_RECLAIM_V1) — was bench-orphaned prior to this workspace. Preflight (direct /api/chat probe with a tool schema attached): Ollama returns "does not support tools" — same footgun documented on bench-mistral7b-uncensored and bench-cybersecqwen-4b-toolfix; tools: [] set accordingly. Card's "agent/tool-use tuned" claim is untested here — the base template has no tool-call support in Ollama regardless of what's attached. PROMOTE_POLICY=confirm.
+    model_hint: dolphin-llama3:8b
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.7
+    top_p: 0.9
+    top_k: 20
+    repeat_penalty: 1.1
+    emits_reasoning: false
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
   bench-cybersecqwen-4b-toolfix:
     module: eval
     name: "🧪 Bench · CyberSecQwen-4B (toolfix)"
     description: |-
       cybersecqwen-4b-toolfix (~2.5GB, retemplated from mradermacher/CyberSecQwen-4B-GGUF Q4_K_M to add Qwen-style <tool_call> tag support — the base tag hard-errors "does not support tools" in Ollama). Multi-seat V2 bench candidate (2026-07-05) — blue seat. tools: [] deliberately: this workspace exists only so the pipeline resolves the exact model instead of falling back to the general group's first model; blue.py injects its own tool schemas per-request.
     model_hint: cybersecqwen-4b-toolfix:latest
+    predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
     temperature: 0.7
     top_p: 0.8
     top_k: 20
     repeat_penalty: 1.1
-    emits_reasoning: false
+    emits_reasoning: true
     tools: []
     expose_to_owui: false
     enable_web_search: false

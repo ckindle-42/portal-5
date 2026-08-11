@@ -1,12 +1,12 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 23 production + 71 eval workspaces
+title: 23 production + 76 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 0855f4c77c24
-last_generated_commit: 1896bb7da29dd96ff280b8ffb495519d507070ee
+  commit: 38ed0e621c5c
+last_generated_commit: 38ed0e621c5c
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -15,10 +15,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1786413152.8188632
+updated_at: 1786428739.7347682
 ---
 
-# Workspace roster (23 production, 71 eval, 94 total)
+# Workspace roster (23 production, 76 eval, 99 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -58,9 +58,11 @@ updated_at: 1786413152.8188632
 - `bench-bugtrace-ultra-27b`
 - `bench-cybersecqwen-4b`
 - `bench-cybersecqwen-4b-toolfix`
+- `bench-deepseek-r1`
 - `bench-deepwen-cad`
 - `bench-devstral`
 - `bench-devstral-small-2`
+- `bench-dolphin-llama3`
 - `bench-e2b-pentest`
 - `bench-exec-exploit`
 - `bench-exec-reasoning`
@@ -79,9 +81,11 @@ updated_at: 1786413152.8188632
 - `bench-glm`
 - `bench-glm-reap`
 - `bench-glm-z1-rumination`
+- `bench-glm47-flash-reap`
 - `bench-gptoss`
 - `bench-granite41-30b`
 - `bench-granite41-8b`
+- `bench-hermes3`
 - `bench-huihui-qwen36-27b`
 - `bench-huihui-qwen36-35b-a3b`
 - `bench-jackrong-dsv4-4b`
@@ -104,6 +108,7 @@ updated_at: 1786413152.8188632
 - `bench-qwen3-coder-30b`
 - `bench-qwen3-coder-next`
 - `bench-qwen3-coder-next-abliterated`
+- `bench-qwen3.6`
 - `bench-qwen35-9b-heretic-vision`
 - `bench-qwen35-abliterated`
 - `bench-qwen36-27b`
