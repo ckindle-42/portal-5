@@ -56,7 +56,7 @@ Mechanical termination exists so migration is never an open-ended rewrite campai
 ### Migration coverage
 
 <!-- WIKI:GENERATED unit=unit-fact-doc-migration-coverage -->
-# Doc migration coverage (25/25 docs migrated, 100.0%)
+# Doc migration coverage (24/25 docs migrated, 96.0%)
 
 Total generated blocks across migrated docs: 578
 
@@ -83,12 +83,13 @@ Total generated blocks across migrated docs: 578
 - `docs/AGENT_LOOP.md`
 - `docs/DESIGN_WIKI_GENERATION_LOOP_V1.md`
 - `docs/security/corpus_injection.md`
-- `config/MODEL_CATALOG.md`
 - `tests/PORTAL5_ACCEPTANCE_EXECUTE_V9.md`
 - `tests/PORTAL5_BENCH_EXECUTE_V4.md`
 - `tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md`
 
 ## Unmigrated docs
+
+- `config/MODEL_CATALOG.md`
 
 ## Why
 

@@ -1934,6 +1934,12 @@ The model id, its `general` group placement, and its probed `supports_tools: tru
 
 ---
 
+### `portal5/xyz-aquila-mini:q4_k_m-ctx16k`
+
+The working-context tag for XYZ-Aquila-mini, documented inline in the `q4_k_m` entry above (TASK-BENCH-FOLLOWUP-001 Part 1): the bare `q4_k_m` tag carries no baked ctx (Ollama default 8192) and silently truncates multi-hop research conversations at 8k; `-ctx16k` is the tag that processes a full conversation cleanly and is what `bench-aquila-research`'s `model_hint` actually points at (`ctx_validated: true`). Registered in `config/backends.yaml`'s `general` group with `supports_tools: true`, copied from the base tag's own direct `/api/chat` probe result (same underlying model, no separate probe needed for a context-window-only variant). Split into its own catalog section (2026-08-11, TASK_MODEL_DISK_RECLAIM_V1) because `test_model_catalog_parity.py` requires a 1:1 `backends.yaml` id ↔ catalog section mapping and this tag is a distinct backend id from the bare `q4_k_m` one, even though the narrative lives with the base entry.
+
+---
+
 ### `portal5/qwen36-27b-fable-fusion-heretic:q4_k_m` — DROPPED (evaluated, not adopted; RBP red EXPLOIT-slot candidate)
 
 <!-- WIKI:GENERATED unit=unit-model-catalog-portal5-qwen36-27b-fable-fusion-heretic-q4-k-m-dropped -->

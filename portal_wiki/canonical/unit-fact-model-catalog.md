@@ -1,12 +1,12 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 213 model ids, 7 backend groups
+title: 218 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: b849a142e908
-last_generated_commit: ed366c7a6eb34d822a5d4aa04f8072edca8acd5d
+  commit: 989000303b26
+last_generated_commit: 989000303b26
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -15,10 +15,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1786395667.923926
+updated_at: 1786434528.993152
 ---
 
-# Model catalog (213 model ids across 7 backend groups)
+# Model catalog (218 model ids across 7 backend groups)
 
 ## coding (41)
 
@@ -78,9 +78,10 @@ updated_at: 1786395667.923926
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (84)
+## general (89)
 
 - `cybersecqwen-4b-toolfix:latest`
+- `deepseek-r1:32b-q4_k_m`
 - `devstral-small-2:latest`
 - `devstral:24b`
 - `dolphin-llama3:8b`
@@ -101,6 +102,7 @@ updated_at: 1786395667.923926
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`
+- `hermes3:8b`
 - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M`
 - `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K`
@@ -127,6 +129,7 @@ updated_at: 1786395667.923926
 - `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf`
 - `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`
 - `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL`
+- `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0`
 - `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k`
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
@@ -157,10 +160,12 @@ updated_at: 1786395667.923926
 - `portal5/gemma4-12b:q4_K_M-ctx8k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`
 - `portal5/xyz-aquila-mini:q4_k_m`
+- `portal5/xyz-aquila-mini:q4_k_m-ctx16k`
 - `qwen3-coder-next:latest`
 - `qwen3-coder:30b-a3b-q4_K_M`
 - `qwen3.6:27b-q4_K_M`
 - `qwen3.6:27b-q4_K_M-ctx16k`
+- `qwen3.6:27b-q8_0`
 - `qwen3.6:35b-a3b-q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
