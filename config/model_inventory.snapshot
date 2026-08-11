@@ -52,7 +52,6 @@ hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M
 hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M
 hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
 hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M
-hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M
 hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf
 hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M
 hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M

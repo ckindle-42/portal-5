@@ -5,6 +5,27 @@
 for that story). Follows the same review discipline as
 `config/UNUSED_MODELS_20260721.md`.
 
+**ADDENDUM 2026-08-10 (bench-cleanup review):** 1 more Ollama model deleted,
+2.5GB. `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M` — `config/backends.yaml`
+hard-errors this tag as tool-call-incapable (no `{% if tools %}` block in its
+shipped ChatML template); the tool-call blocker was fixed 2026-07-04 via the
+`cybersecqwen-4b-toolfix` derivative (kept, still in the `security` group,
+`supports_tools: true`), but the base tag's detection quality stayed
+inconclusive and it was never adopted — see
+`unit-model-catalog-hf-co-mradermacher-cybersecqwen-4b-gguf-q4-k-m-dropped-tool-call-blocker-fixed-2026-07-04-detection-quality-inconclusive-not-adopted.md`.
+Not covered by either prior audit's exclusion list; independently verified
+before deletion (confirmed unloaded, confirmed the toolfix derivative is a
+distinct on-disk tag that survives).
+
+This review surfaced 67 further non-production models (~851GB) not yet
+adjudicated by any prior audit — a mix of bench-tied candidates with real
+eval evidence sitting in unresolved `PROMOTE_POLICY=confirm` limbo, and a
+smaller set with zero eval evidence at all. Deferred pending a proper
+workspace-slug-aware audit tool (raw model-tag substring matching proved
+unreliable — missed results keyed by workspace slug rather than model tag,
+`-ctxNk` derivative tags, and `config/portal.yaml` workspace `variants`
+fields serving production traffic under a non-primary `model_hint`).
+
 # Unused models — confirmed safe to delete (2026-08-10)
 
 Found during the RBP-arm oMLX coverage review (disk was flagged as tight,
