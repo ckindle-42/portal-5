@@ -1,13 +1,13 @@
 ---
 id: unit-fact-doc-migration-coverage
 kind: what
-title: 25/25 docs migrated (100.0%)
+title: 24/25 docs migrated (96.0%)
 sources:
 - type: code
   path: portal/platform/wiki/render.py
-  commit: b849a142e908
+  commit: 989000303b26
   section: render_report
-last_generated_commit: b849a142e908
+last_generated_commit: 989000303b26
 claims: []
 confidence: high
 tags:
@@ -15,10 +15,10 @@ tags:
 - wiki
 - migration
 created_at: 1784941448.187764
-updated_at: 1786396447.081663
+updated_at: 1786435466.017388
 ---
 
-# Doc migration coverage (25/25 docs migrated, 100.0%)
+# Doc migration coverage (24/25 docs migrated, 96.0%)
 
 Total generated blocks across migrated docs: 578
 
@@ -45,12 +45,13 @@ Total generated blocks across migrated docs: 578
 - `docs/AGENT_LOOP.md`
 - `docs/DESIGN_WIKI_GENERATION_LOOP_V1.md`
 - `docs/security/corpus_injection.md`
-- `config/MODEL_CATALOG.md`
 - `tests/PORTAL5_ACCEPTANCE_EXECUTE_V9.md`
 - `tests/PORTAL5_BENCH_EXECUTE_V4.md`
 - `tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md`
 
 ## Unmigrated docs
+
+- `config/MODEL_CATALOG.md`
 
 ## Why
 
