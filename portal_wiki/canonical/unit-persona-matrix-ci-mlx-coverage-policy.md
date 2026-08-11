@@ -13,7 +13,7 @@ sources:
   path: .github/workflows/persona_matrix_nightly.yml
 - type: code
   path: scripts/mlx-speech.py
-last_generated_commit: ed366c7a6eb34d822a5d4aa04f8072edca8acd5d
+last_generated_commit: d19bcd41d50c690918807eab095f1f738f9798d5
 claims: []
 confidence: high
 tags:

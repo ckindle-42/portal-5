@@ -308,7 +308,14 @@ def render_ledger(pending: list[tuple[dict, list[str]]]) -> str:
         prior = state.get(m["name"], {"checked": False, "extras": []})
         box = "x" if prior["checked"] else " "
         lines.append(f"- [{box}] `{m['name']}` — {gb(m['size']):.1f} GB")
-        for f in evidence[:3]:
+        # 6, not 3: with several capability-specific probe scripts now
+        # landing fresh evidence for the same tag on the same day (TPS
+        # sweep + vision/long-context/refusal/MTP probes), 3 slots crowd
+        # out real matches with incidental substring citations (e.g. an
+        # MTP probe's "base_tag" field mentioning a dense model that has
+        # no actual matching row in that file). More headroom reduces
+        # that risk without meaningfully bloating the ledger.
+        for f in evidence[:6]:
             lines.append(f"  - evidence: `{f}`")
         for extra in prior["extras"]:
             lines.append(extra)
