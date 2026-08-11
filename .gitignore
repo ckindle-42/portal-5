@@ -53,8 +53,7 @@ venv/
 # Agent task files
 coding_task/
 
-# Test outputs (bench_tps, matrix driver, UAT driver)
-tests/benchmarks/results/
+# tests/benchmarks/results/ is tracked (needed for off-machine analysis)
 tests/fixtures/audio/
 
 # Stage 2 propose/prove staged diffs + report — working dir, not source

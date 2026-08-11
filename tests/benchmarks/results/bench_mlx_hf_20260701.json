@@ -1,0 +1,69 @@
+{
+  "category": "general",
+  "results": [
+    {
+      "repo": "mlx-community/Qwen3.6-27B-4bit",
+      "load_s": 3.1,
+      "runs_success": 5,
+      "runs_total": 5,
+      "avg_tps": 14.2,
+      "min_tps": 14.1,
+      "max_tps": 14.5,
+      "tps_vals": [
+        14.5,
+        14.1,
+        14.1,
+        14.2,
+        14.3
+      ]
+    },
+    {
+      "repo": "mlx-community/Qwen3.6-35B-A3B-4bit",
+      "load_s": 9.1,
+      "runs_success": 5,
+      "runs_total": 5,
+      "avg_tps": 83.8,
+      "min_tps": 79.9,
+      "max_tps": 86.7,
+      "tps_vals": [
+        83.7,
+        86.7,
+        79.9,
+        83.5,
+        85.2
+      ]
+    },
+    {
+      "repo": "mlx-community/GLM-4.7-Flash-4bit",
+      "load_s": 7.8,
+      "runs_success": 5,
+      "runs_total": 5,
+      "avg_tps": 62.5,
+      "min_tps": 60.5,
+      "max_tps": 63.6,
+      "tps_vals": [
+        62.2,
+        63.2,
+        63.6,
+        63.2,
+        60.5
+      ]
+    },
+    {
+      "repo": "mlx-community/Mistral-Small-3.2-24B-Instruct-2506-4bit",
+      "load_s": 4.9,
+      "runs_success": 5,
+      "runs_total": 5,
+      "avg_tps": 17.0,
+      "min_tps": 16.8,
+      "max_tps": 17.2,
+      "tps_vals": [
+        17.2,
+        17.1,
+        16.9,
+        16.9,
+        16.8
+      ]
+    }
+  ]
+}

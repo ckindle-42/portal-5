@@ -1,0 +1,13 @@
+{
+  "timestamp": "20260624T001915Z",
+  "scenario": "kerberoast_to_da",
+  "all_scenarios": false,
+  "results": [],
+  "audit_tools": [],
+  "chain_tests": [],
+  "scenario_averages": [],
+  "blue_tests": [],
+  "purple_tests": [],
+  "evasion_tests": [],
+  "refusal_tests": []
+}

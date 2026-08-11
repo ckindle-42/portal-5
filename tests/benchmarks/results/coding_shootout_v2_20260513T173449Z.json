@@ -1,0 +1,1116 @@
+{
+  "schema": "portal5.persona_matrix.v1",
+  "timestamp_utc": "2026-05-13T17:58:34.684735+00:00",
+  "elapsed_s": 1424.9,
+  "plan": {
+    "workspace": "auto-coding-bench",
+    "personas": [
+      "sqlterminal",
+      "linuxterminal",
+      "pythoninterpreter",
+      "javascriptconsole",
+      "codereviewer",
+      "softwarequalityassurancetester",
+      "bugdiscoverycodeassistant",
+      "codereviewassistant",
+      "e2etestauthor",
+      "e2edebugger",
+      "fullstacksoftwaredeveloper",
+      "creativecoder",
+      "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "devopsautomator",
+      "githubexpert"
+    ],
+    "models": [
+      {
+        "id": "mlx-community/GLM-4.7-Flash-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 15.0
+      },
+      {
+        "id": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 15.0
+      },
+      {
+        "id": "mlx-community/Laguna-XS.2-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 19.0
+      },
+      {
+        "id": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 22.0
+      },
+      {
+        "id": "mlx-community/Qwen3-Coder-Next-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": true,
+        "memory_gb": 46.0
+      }
+    ],
+    "scenarios_total": 75,
+    "cells_total": 75
+  },
+  "cells": [
+    {
+      "persona": "sqlterminal",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "linuxterminal",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "pythoninterpreter",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "javascriptconsole",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "softwarequalityassurancetester",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "bugdiscoverycodeassistant",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "codereviewassistant",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "e2edebugger",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "fullstacksoftwaredeveloper",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "creativecoder",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "devopsautomator",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "githubexpert",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "sqlterminal",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "linuxterminal",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "pythoninterpreter",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "javascriptconsole",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "codereviewer",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "softwarequalityassurancetester",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "bugdiscoverycodeassistant",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "codereviewassistant",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "e2edebugger",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "fullstacksoftwaredeveloper",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "creativecoder",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "devopsautomator",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "githubexpert",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "sqlterminal",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "linuxterminal",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "pythoninterpreter",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "javascriptconsole",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "softwarequalityassurancetester",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "bugdiscoverycodeassistant",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "codereviewassistant",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "e2edebugger",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "fullstacksoftwaredeveloper",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "creativecoder",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "devopsautomator",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "githubexpert",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "sqlterminal",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "linuxterminal",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "pythoninterpreter",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "javascriptconsole",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "softwarequalityassurancetester",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "bugdiscoverycodeassistant",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "codereviewassistant",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "e2edebugger",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "fullstacksoftwaredeveloper",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "creativecoder",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "devopsautomator",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "githubexpert",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "sqlterminal",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "linuxterminal",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "pythoninterpreter",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "javascriptconsole",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "softwarequalityassurancetester",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "bugdiscoverycodeassistant",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "codereviewassistant",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "e2edebugger",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "fullstacksoftwaredeveloper",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "creativecoder",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "devopsautomator",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    },
+    {
+      "persona": "githubexpert",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 1
+      },
+      "skipped": "mlx_warmup_timeout"
+    }
+  ]
+}

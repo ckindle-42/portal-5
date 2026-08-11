@@ -1,0 +1,43 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "ollama",
+  "url": "http://localhost:9099",
+  "started": "2026-08-05T16:03:23.705676+00:00",
+  "models": [
+    "auto-coding"
+  ],
+  "gates": [
+    "shootout"
+  ],
+  "results": [
+    {
+      "test": "shootout",
+      "models": [
+        "auto-coding"
+      ],
+      "duration_s": 120,
+      "concurrency": 6,
+      "wall_s": 120.0,
+      "total_requests": 107359,
+      "ok": 0,
+      "failures": 107359,
+      "throughput_rps": 0.0,
+      "ttft_p50": null,
+      "ttft_p95": null,
+      "ttft_p99": null,
+      "tps_mean": null,
+      "tps_cv": null,
+      "per_model": {
+        "auto-coding": {
+          "requests": 0,
+          "ttft_p50": null,
+          "ttft_p95": null,
+          "tps_mean": null
+        }
+      },
+      "gate": "shootout",
+      "engine": "ollama"
+    }
+  ]
+}

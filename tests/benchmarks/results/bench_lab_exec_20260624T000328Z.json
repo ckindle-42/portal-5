@@ -1,0 +1,26 @@
+{
+  "bench": "lab_exec",
+  "started_at": "20260624T000328Z",
+  "dc": "10.10.11.21",
+  "srv": "10.10.11.33",
+  "domain": "portal.lab",
+  "dry_run": false,
+  "runs": 1,
+  "proxmox_lifecycle": false,
+  "lab_clean_snapshot": null,
+  "phases": {
+    "recon": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 16.34,
+        "max": 16.34,
+        "avg": 16.34
+      },
+      "detail": "0 AD ports open"
+    }
+  },
+  "total_elapsed_s": 16.3,
+  "finished_at": "20260624T000345Z"
+}

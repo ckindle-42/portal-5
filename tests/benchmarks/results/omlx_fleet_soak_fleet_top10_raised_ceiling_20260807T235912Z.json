@@ -1,0 +1,1840 @@
+{
+  "task": "omlx-fleet-soak-v1",
+  "started": "2026-08-07T23:59:12.328189+00:00",
+  "elapsed_s": 10841.8,
+  "duration_s": 10800,
+  "concurrency": 5,
+  "model_weights": {
+    "coder": [
+      "Qwen3-Coder-30B-A3B-Instruct-4bit",
+      34
+    ],
+    "granite-8b": [
+      "granite-4.1-8b-mxfp8",
+      11
+    ],
+    "vulnllm": [
+      "VulnLLM-R-7B-4bit",
+      10
+    ],
+    "deepseek-r1": [
+      "DeepSeek-R1-0528-Qwen3-8B-4bit",
+      9
+    ],
+    "qwen-vl": [
+      "Qwen3-VL-32B-Instruct-4bit",
+      8
+    ],
+    "tongyi-research": [
+      "Tongyi-DeepResearch-30B-A3B-abliterated-4bit",
+      8
+    ],
+    "granite-30b": [
+      "granite-4.1-30b-4bit",
+      7
+    ],
+    "gemma-daily": [
+      "gemma-4-26b-a4b-it-QAT-4bit",
+      4
+    ],
+    "hauhaucs-creative": [
+      "Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit",
+      4
+    ],
+    "qwen35-9b": [
+      "huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+      3
+    ]
+  },
+  "total_requests": 1150,
+  "ok": 809,
+  "failures": 341,
+  "failure_samples": [
+    {
+      "model": "gemma-daily",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill context too large for available memory (preflight safety guard, kv_len=41, min_chunk=32): predicted peak would require ~51.",
+      "t": 9891.657002666965
+    },
+    {
+      "model": "tongyi-research",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load Tongyi-DeepResearch-30B-A3B-abliterated-4bit: projected memory 58.69GB would exceed the metal_cap memory ceiling 56.00GB (current: 41.89GB, model: 16.80GB). Raise kern",
+      "t": 9978.781901499955
+    },
+    {
+      "model": "tongyi-research",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill context too large for available memory (preflight safety guard, kv_len=88, min_chunk=32): predicted peak would require ~52.",
+      "t": 9999.373344124993
+    },
+    {
+      "model": "tongyi-research",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill context too large for available memory (preflight safety guard, kv_len=50, min_chunk=32): predicted peak would require ~52.",
+      "t": 10125.197682874976
+    },
+    {
+      "model": "tongyi-research",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill context too large for available memory (preflight safety guard, kv_len=50, min_chunk=32): predicted peak would require ~52.",
+      "t": 10174.77899212495
+    },
+    {
+      "model": "granite-30b",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill context too large for available memory (preflight safety guard, kv_len=150, min_chunk=32): predicted peak would require ~52",
+      "t": 10246.155465332908
+    },
+    {
+      "model": "hauhaucs-creative",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~53.84 GB peak (current 53.83 GB + KV+SDPA 3.39 MB) but metal_cap ceiling is 53.20 GB. Raise kernel iogpu.wir",
+      "t": 10268.227655333001
+    },
+    {
+      "model": "qwen-vl",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load Qwen3-VL-32B-Instruct-4bit: projected memory 67.60GB would exceed the metal_cap memory ceiling 56.00GB (current: 48.41GB, model: 19.19GB). Raise kernel iogpu.wired_lim",
+      "t": 10268.59668954194
+    },
+    {
+      "model": "qwen35-9b",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~55.13 GB peak (current 55.13 GB + KV+SDPA 3.71 MB) but metal_cap ceiling is 53.20 GB. Raise kernel iogpu.wir",
+      "t": 10285.390666249907
+    },
+    {
+      "model": "hauhaucs-creative",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit: projected memory 61.55GB would exceed the metal_cap memory ceiling 56.00GB (committed: 42.47GB, model: 19.08GB). Raise kernel",
+      "t": 10326.134710124927
+    },
+    {
+      "model": "granite-8b",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~57.91 GB peak (current 48.41 GB + KV+SDPA 9.50 GB) but metal_cap ceiling is 53.20 GB. Raise kernel iogpu.wir",
+      "t": 10368.527231874992
+    },
+    {
+      "model": "qwen-vl",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~54.16 GB peak (current 54.13 GB + KV+SDPA 24.45 MB) but metal_cap ceiling is 53.20 GB. Raise kernel iogpu.wi",
+      "t": 10378.550212624948
+    },
+    {
+      "model": "granite-8b",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~54.03 GB peak (current 54.00 GB + KV+SDPA 27.93 MB) but metal_cap ceiling is 53.20 GB. Raise kernel iogpu.wi",
+      "t": 10513.20017687499
+    },
+    {
+      "model": "qwen-vl",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load Qwen3-VL-32B-Instruct-4bit: projected memory 71.52GB would exceed the metal_cap memory ceiling 56.00GB (current: 52.34GB, model: 19.19GB). Raise kernel iogpu.wired_lim",
+      "t": 10513.655547000002
+    },
+    {
+      "model": "deepseek-r1",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~53.72 GB peak (current 53.71 GB + KV+SDPA 11.56 MB) but metal_cap ceiling is 53.20 GB. Raise kernel iogpu.wi",
+      "t": 10521.274121749913
+    },
+    {
+      "model": "tongyi-research",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load Tongyi-DeepResearch-30B-A3B-abliterated-4bit: projected memory 60.11GB would exceed the dynamic memory ceiling 56.00GB (committed: 43.31GB, model: 16.80GB). Close othe",
+      "t": 10522.101757874945
+    },
+    {
+      "model": "granite-30b",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~54.52 GB peak (current 50.57 GB + KV+SDPA 3.94 GB) but metal_cap ceiling is 53.20 GB. Raise kernel iogpu.wir",
+      "t": 10582.62767579197
+    },
+    {
+      "model": "tongyi-research",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load Tongyi-DeepResearch-30B-A3B-abliterated-4bit: projected memory 59.54GB would exceed the metal_cap memory ceiling 56.00GB (current: 42.74GB, model: 16.80GB). Raise kern",
+      "t": 10638.700427707983
+    },
+    {
+      "model": "qwen-vl",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load Qwen3-VL-32B-Instruct-4bit: projected memory 58.56GB would exceed the metal_cap memory ceiling 56.00GB (committed: 39.37GB, model: 19.19GB). Raise kernel iogpu.wired_l",
+      "t": 10753.105673166923
+    },
+    {
+      "model": "coder",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill context too large for available memory (preflight safety guard, kv_len=36, min_chunk=32): predicted peak would require ~50.",
+      "t": 10800.044099374907
+    }
+  ],
+  "per_model": {
+    "coder": {
+      "ok": 305,
+      "fail": 73,
+      "tps_mean": 9.1
+    },
+    "granite-8b": {
+      "ok": 99,
+      "fail": 22,
+      "tps_mean": 13.2
+    },
+    "vulnllm": {
+      "ok": 114,
+      "fail": 10,
+      "tps_mean": 17.4
+    },
+    "deepseek-r1": {
+      "ok": 105,
+      "fail": 13,
+      "tps_mean": 15.5
+    },
+    "qwen-vl": {
+      "ok": 39,
+      "fail": 57,
+      "tps_mean": 6.2
+    },
+    "tongyi-research": {
+      "ok": 48,
+      "fail": 51,
+      "tps_mean": 9.4
+    },
+    "granite-30b": {
+      "ok": 31,
+      "fail": 61,
+      "tps_mean": 6.8
+    },
+    "gemma-daily": {
+      "ok": 26,
+      "fail": 20,
+      "tps_mean": 7.7
+    },
+    "hauhaucs-creative": {
+      "ok": 14,
+      "fail": 27,
+      "tps_mean": 7.7
+    },
+    "qwen35-9b": {
+      "ok": 28,
+      "fail": 7,
+      "tps_mean": 13.1
+    }
+  },
+  "health_snapshots": [
+    {
+      "t": 0.0,
+      "wall": "2026-08-07T23:59:12.363116+00:00",
+      "model_count": 41,
+      "loaded_count": 1,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 18040125593,
+      "status": "healthy"
+    },
+    {
+      "t": 60.0,
+      "wall": "2026-08-08T00:00:12.374485+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 55998525176,
+      "current_model_memory": 51342489694,
+      "status": "healthy"
+    },
+    {
+      "t": 120.1,
+      "wall": "2026-08-08T00:01:12.389786+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 55965191904,
+      "current_model_memory": 51002826832,
+      "status": "healthy"
+    },
+    {
+      "t": 180.1,
+      "wall": "2026-08-08T00:02:12.401396+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 56401987112,
+      "current_model_memory": 45600312964,
+      "status": "healthy"
+    },
+    {
+      "t": 240.1,
+      "wall": "2026-08-08T00:03:12.412695+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 56619959416,
+      "current_model_memory": 45600312964,
+      "status": "healthy"
+    },
+    {
+      "t": 300.1,
+      "wall": "2026-08-08T00:04:12.422977+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 59160467136,
+      "current_model_memory": 52469531825,
+      "status": "healthy"
+    },
+    {
+      "t": 360.1,
+      "wall": "2026-08-08T00:05:12.429372+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 58749849608,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 420.1,
+      "wall": "2026-08-08T00:06:12.443615+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 58798642928,
+      "current_model_memory": 52660222411,
+      "status": "healthy"
+    },
+    {
+      "t": 480.1,
+      "wall": "2026-08-08T00:07:12.456181+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 58985814544,
+      "current_model_memory": 52548963697,
+      "status": "healthy"
+    },
+    {
+      "t": 540.1,
+      "wall": "2026-08-08T00:08:12.466739+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 58600182584,
+      "current_model_memory": 48050399637,
+      "status": "healthy"
+    },
+    {
+      "t": 600.2,
+      "wall": "2026-08-08T00:09:12.479670+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 58841130592,
+      "current_model_memory": 32666987383,
+      "status": "healthy"
+    },
+    {
+      "t": 660.2,
+      "wall": "2026-08-08T00:10:12.494702+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 58550577048,
+      "current_model_memory": 43028902056,
+      "status": "healthy"
+    },
+    {
+      "t": 720.2,
+      "wall": "2026-08-08T00:11:12.523417+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 58445273296,
+      "current_model_memory": 52999885273,
+      "status": "healthy"
+    },
+    {
+      "t": 780.9,
+      "wall": "2026-08-08T00:12:13.271456+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 47978387692,
+      "status": "healthy"
+    },
+    {
+      "t": 840.9,
+      "wall": "2026-08-08T00:13:13.284486+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 58598926896,
+      "current_model_memory": 43479823769,
+      "status": "healthy"
+    },
+    {
+      "t": 900.9,
+      "wall": "2026-08-08T00:14:13.304217+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 58908126824,
+      "current_model_memory": 47978387829,
+      "status": "healthy"
+    },
+    {
+      "t": 960.9,
+      "wall": "2026-08-08T00:15:13.317145+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 1021.0,
+      "wall": "2026-08-08T00:16:13.363181+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 22538689653,
+      "status": "healthy"
+    },
+    {
+      "t": 1081.0,
+      "wall": "2026-08-08T00:17:13.373958+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 52548963697,
+      "status": "healthy"
+    },
+    {
+      "t": 1141.0,
+      "wall": "2026-08-08T00:18:13.388026+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50890383772,
+      "status": "healthy"
+    },
+    {
+      "t": 1201.0,
+      "wall": "2026-08-08T00:19:13.405286+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 49239538681,
+      "status": "healthy"
+    },
+    {
+      "t": 1261.1,
+      "wall": "2026-08-08T00:20:13.423402+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48787694795,
+      "status": "healthy"
+    },
+    {
+      "t": 1321.1,
+      "wall": "2026-08-08T00:21:13.437086+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 40578815383,
+      "status": "healthy"
+    },
+    {
+      "t": 1381.1,
+      "wall": "2026-08-08T00:22:13.447977+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48161658351,
+      "status": "healthy"
+    },
+    {
+      "t": 1441.1,
+      "wall": "2026-08-08T00:23:13.463986+00:00",
+      "model_count": 41,
+      "loaded_count": 1,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 4838226922,
+      "status": "healthy"
+    },
+    {
+      "t": 1501.1,
+      "wall": "2026-08-08T00:24:13.476063+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 29938262099,
+      "status": "healthy"
+    },
+    {
+      "t": 1561.1,
+      "wall": "2026-08-08T00:25:13.489397+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 47978387692,
+      "status": "healthy"
+    },
+    {
+      "t": 1621.1,
+      "wall": "2026-08-08T00:26:13.500622+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 1681.1,
+      "wall": "2026-08-08T00:27:13.507638+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48769894440,
+      "status": "healthy"
+    },
+    {
+      "t": 1741.2,
+      "wall": "2026-08-08T00:28:13.526454+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 1801.2,
+      "wall": "2026-08-08T00:29:13.540205+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43368564918,
+      "status": "healthy"
+    },
+    {
+      "t": 1861.2,
+      "wall": "2026-08-08T00:30:13.549443+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48658635726,
+      "status": "healthy"
+    },
+    {
+      "t": 1921.2,
+      "wall": "2026-08-08T00:31:13.562448+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 45417042305,
+      "status": "healthy"
+    },
+    {
+      "t": 1981.2,
+      "wall": "2026-08-08T00:32:13.574052+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50098877024,
+      "status": "healthy"
+    },
+    {
+      "t": 2041.2,
+      "wall": "2026-08-08T00:33:13.587885+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36896978216,
+      "status": "healthy"
+    },
+    {
+      "t": 2101.2,
+      "wall": "2026-08-08T00:34:13.606175+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50438539886,
+      "status": "healthy"
+    },
+    {
+      "t": 2161.2,
+      "wall": "2026-08-08T00:35:13.619528+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 38530337996,
+      "status": "healthy"
+    },
+    {
+      "t": 2221.3,
+      "wall": "2026-08-08T00:36:13.634739+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 39798908912,
+      "status": "healthy"
+    },
+    {
+      "t": 2281.3,
+      "wall": "2026-08-08T00:37:13.655561+00:00",
+      "model_count": 41,
+      "loaded_count": 5,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 44637135834,
+      "status": "healthy"
+    },
+    {
+      "t": 2341.3,
+      "wall": "2026-08-08T00:38:13.669028+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 18856852623,
+      "status": "healthy"
+    },
+    {
+      "t": 2401.3,
+      "wall": "2026-08-08T00:39:13.685628+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48161658351,
+      "status": "healthy"
+    },
+    {
+      "t": 2461.3,
+      "wall": "2026-08-08T00:40:13.696790+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 2521.3,
+      "wall": "2026-08-08T00:41:13.706029+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48161658351,
+      "status": "healthy"
+    },
+    {
+      "t": 2581.4,
+      "wall": "2026-08-08T00:42:13.725657+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 2641.4,
+      "wall": "2026-08-08T00:43:13.740739+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48769894440,
+      "status": "healthy"
+    },
+    {
+      "t": 2701.4,
+      "wall": "2026-08-08T00:44:13.751830+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48430231578,
+      "status": "healthy"
+    },
+    {
+      "t": 2761.4,
+      "wall": "2026-08-08T00:45:13.769159+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48430231578,
+      "status": "healthy"
+    },
+    {
+      "t": 2821.4,
+      "wall": "2026-08-08T00:46:13.787007+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 32398414156,
+      "status": "healthy"
+    },
+    {
+      "t": 2881.4,
+      "wall": "2026-08-08T00:47:13.796525+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48787694658,
+      "status": "healthy"
+    },
+    {
+      "t": 2941.4,
+      "wall": "2026-08-08T00:48:13.815787+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 40578815383,
+      "status": "healthy"
+    },
+    {
+      "t": 3001.9,
+      "wall": "2026-08-08T00:49:14.309197+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 3062.1,
+      "wall": "2026-08-08T00:50:14.520520+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 46504262635,
+      "status": "healthy"
+    },
+    {
+      "t": 3122.2,
+      "wall": "2026-08-08T00:51:14.529949+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48050399637,
+      "status": "healthy"
+    },
+    {
+      "t": 3182.5,
+      "wall": "2026-08-08T00:52:14.822843+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48658635726,
+      "status": "healthy"
+    },
+    {
+      "t": 3242.5,
+      "wall": "2026-08-08T00:53:14.829140+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 37688484964,
+      "status": "healthy"
+    },
+    {
+      "t": 3302.5,
+      "wall": "2026-08-08T00:54:14.856744+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 52469531825,
+      "status": "healthy"
+    },
+    {
+      "t": 3362.5,
+      "wall": "2026-08-08T00:55:14.870290+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 26177915370,
+      "status": "healthy"
+    },
+    {
+      "t": 3422.5,
+      "wall": "2026-08-08T00:56:14.880605+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50098877024,
+      "status": "healthy"
+    },
+    {
+      "t": 3482.5,
+      "wall": "2026-08-08T00:57:14.890180+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51009377320,
+      "status": "healthy"
+    },
+    {
+      "t": 3542.7,
+      "wall": "2026-08-08T00:58:15.023863+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 41489315679,
+      "status": "healthy"
+    },
+    {
+      "t": 3602.7,
+      "wall": "2026-08-08T00:59:15.043245+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 47978387692,
+      "status": "healthy"
+    },
+    {
+      "t": 3662.7,
+      "wall": "2026-08-08T01:00:15.062294+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 3722.7,
+      "wall": "2026-08-08T01:01:15.080427+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50098877024,
+      "status": "healthy"
+    },
+    {
+      "t": 3782.8,
+      "wall": "2026-08-08T01:02:15.116534+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 58169392184,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 3842.8,
+      "wall": "2026-08-08T01:03:15.133131+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 34429406095,
+      "status": "healthy"
+    },
+    {
+      "t": 3902.8,
+      "wall": "2026-08-08T01:04:15.164090+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36896978216,
+      "status": "healthy"
+    },
+    {
+      "t": 3962.8,
+      "wall": "2026-08-08T01:05:15.182870+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36896978216,
+      "status": "healthy"
+    },
+    {
+      "t": 4022.8,
+      "wall": "2026-08-08T01:06:15.200043+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50438539886,
+      "status": "healthy"
+    },
+    {
+      "t": 4082.8,
+      "wall": "2026-08-08T01:07:15.210984+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 45600312964,
+      "status": "healthy"
+    },
+    {
+      "t": 4142.9,
+      "wall": "2026-08-08T01:08:15.225292+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 23330196401,
+      "status": "healthy"
+    },
+    {
+      "t": 4202.9,
+      "wall": "2026-08-08T01:09:15.259161+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 44557703825,
+      "status": "healthy"
+    },
+    {
+      "t": 4262.9,
+      "wall": "2026-08-08T01:10:15.277654+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48769894440,
+      "status": "healthy"
+    },
+    {
+      "t": 4322.9,
+      "wall": "2026-08-08T01:11:15.290779+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48161658351,
+      "status": "healthy"
+    },
+    {
+      "t": 4382.9,
+      "wall": "2026-08-08T01:12:15.301828+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48161658351,
+      "status": "healthy"
+    },
+    {
+      "t": 4442.9,
+      "wall": "2026-08-08T01:13:15.311992+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48161658351,
+      "status": "healthy"
+    },
+    {
+      "t": 4503.0,
+      "wall": "2026-08-08T01:14:15.326004+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 4563.0,
+      "wall": "2026-08-08T01:15:15.337942+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 46320991976,
+      "status": "healthy"
+    },
+    {
+      "t": 4623.0,
+      "wall": "2026-08-08T01:16:15.270792+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 46320991976,
+      "status": "healthy"
+    },
+    {
+      "t": 4683.0,
+      "wall": "2026-08-08T01:17:15.288004+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 4743.0,
+      "wall": "2026-08-08T01:18:15.305271+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50438539886,
+      "status": "healthy"
+    },
+    {
+      "t": 4803.0,
+      "wall": "2026-08-08T01:19:15.317494+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 45417042305,
+      "status": "healthy"
+    },
+    {
+      "t": 4864.3,
+      "wall": "2026-08-08T01:20:16.526604+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48161658351,
+      "status": "healthy"
+    },
+    {
+      "t": 4924.3,
+      "wall": "2026-08-08T01:21:16.536449+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 4984.3,
+      "wall": "2026-08-08T01:22:16.548633+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 5044.3,
+      "wall": "2026-08-08T01:23:16.566723+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50098877024,
+      "status": "healthy"
+    },
+    {
+      "t": 5104.3,
+      "wall": "2026-08-08T01:24:16.574525+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50438539886,
+      "status": "healthy"
+    },
+    {
+      "t": 5164.3,
+      "wall": "2026-08-08T01:25:16.580211+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36896978353,
+      "status": "healthy"
+    },
+    {
+      "t": 5224.3,
+      "wall": "2026-08-08T01:26:16.596993+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 45417042305,
+      "status": "healthy"
+    },
+    {
+      "t": 5284.4,
+      "wall": "2026-08-08T01:27:16.613694+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36896978216,
+      "status": "healthy"
+    },
+    {
+      "t": 5344.4,
+      "wall": "2026-08-08T01:28:16.629235+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 45417042305,
+      "status": "healthy"
+    },
+    {
+      "t": 5404.4,
+      "wall": "2026-08-08T01:29:16.640735+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 41482765191,
+      "status": "healthy"
+    },
+    {
+      "t": 5464.4,
+      "wall": "2026-08-08T01:30:16.658711+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 28280866383,
+      "status": "healthy"
+    },
+    {
+      "t": 5524.4,
+      "wall": "2026-08-08T01:31:16.675121+00:00",
+      "model_count": 41,
+      "loaded_count": 5,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51611062784,
+      "status": "healthy"
+    },
+    {
+      "t": 5584.4,
+      "wall": "2026-08-08T01:32:16.691830+00:00",
+      "model_count": 41,
+      "loaded_count": 5,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51611062784,
+      "status": "healthy"
+    },
+    {
+      "t": 5648.3,
+      "wall": "2026-08-08T01:33:20.566532+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 54919618498,
+      "status": "healthy"
+    },
+    {
+      "t": 5708.3,
+      "wall": "2026-08-08T01:34:20.582171+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43368564918,
+      "status": "healthy"
+    },
+    {
+      "t": 5768.3,
+      "wall": "2026-08-08T01:35:20.593146+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 22878352515,
+      "status": "healthy"
+    },
+    {
+      "t": 5828.4,
+      "wall": "2026-08-08T01:36:20.602378+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48448031933,
+      "status": "healthy"
+    },
+    {
+      "t": 5888.4,
+      "wall": "2026-08-08T01:37:20.610533+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 23442639461,
+      "status": "healthy"
+    },
+    {
+      "t": 5948.4,
+      "wall": "2026-08-08T01:38:20.621050+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 46320991976,
+      "status": "healthy"
+    },
+    {
+      "t": 6008.4,
+      "wall": "2026-08-08T01:39:20.634457+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 44670146885,
+      "status": "healthy"
+    },
+    {
+      "t": 6068.4,
+      "wall": "2026-08-08T01:40:20.718816+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 44670146885,
+      "status": "healthy"
+    },
+    {
+      "t": 6128.4,
+      "wall": "2026-08-08T01:41:20.736736+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 22538689653,
+      "status": "healthy"
+    },
+    {
+      "t": 6188.4,
+      "wall": "2026-08-08T01:42:20.755593+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 49239538544,
+      "status": "healthy"
+    },
+    {
+      "t": 6248.5,
+      "wall": "2026-08-08T01:43:20.775851+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48050399637,
+      "status": "healthy"
+    },
+    {
+      "t": 6308.5,
+      "wall": "2026-08-08T01:44:20.788545+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 40138571774,
+      "status": "healthy"
+    },
+    {
+      "t": 6368.5,
+      "wall": "2026-08-08T01:45:20.823480+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 39458323740,
+      "status": "healthy"
+    },
+    {
+      "t": 6429.4,
+      "wall": "2026-08-08T01:46:21.725352+00:00",
+      "model_count": 41,
+      "loaded_count": 5,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 57498449333,
+      "status": "healthy"
+    },
+    {
+      "t": 6489.4,
+      "wall": "2026-08-08T01:47:21.738159+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51002826695,
+      "status": "healthy"
+    },
+    {
+      "t": 6549.4,
+      "wall": "2026-08-08T01:48:21.753086+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51002826695,
+      "status": "healthy"
+    },
+    {
+      "t": 6609.5,
+      "wall": "2026-08-08T01:49:21.760774+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 6669.5,
+      "wall": "2026-08-08T01:50:21.847570+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 6730.5,
+      "wall": "2026-08-08T01:51:22.840965+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48161658351,
+      "status": "healthy"
+    },
+    {
+      "t": 6790.5,
+      "wall": "2026-08-08T01:52:22.855771+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 52660222411,
+      "status": "healthy"
+    },
+    {
+      "t": 6851.7,
+      "wall": "2026-08-08T01:53:23.961377+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 41482765054,
+      "status": "healthy"
+    },
+    {
+      "t": 6911.7,
+      "wall": "2026-08-08T01:54:23.977832+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 45600312964,
+      "status": "healthy"
+    },
+    {
+      "t": 6971.7,
+      "wall": "2026-08-08T01:55:23.991462+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50438539886,
+      "status": "healthy"
+    },
+    {
+      "t": 7031.7,
+      "wall": "2026-08-08T01:56:24.001558+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50098877024,
+      "status": "healthy"
+    },
+    {
+      "t": 7091.7,
+      "wall": "2026-08-08T01:57:24.013912+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 52469531825,
+      "status": "healthy"
+    },
+    {
+      "t": 7151.7,
+      "wall": "2026-08-08T01:58:24.028317+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 34429406095,
+      "status": "healthy"
+    },
+    {
+      "t": 7211.7,
+      "wall": "2026-08-08T01:59:24.045605+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43949467736,
+      "status": "healthy"
+    },
+    {
+      "t": 7271.8,
+      "wall": "2026-08-08T02:00:24.062839+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51002826695,
+      "status": "healthy"
+    },
+    {
+      "t": 7331.8,
+      "wall": "2026-08-08T02:01:24.081620+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51342489557,
+      "status": "healthy"
+    },
+    {
+      "t": 7391.8,
+      "wall": "2026-08-08T02:02:24.097012+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51342489557,
+      "status": "healthy"
+    },
+    {
+      "t": 7451.8,
+      "wall": "2026-08-08T02:03:24.108439+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 52660222411,
+      "status": "healthy"
+    },
+    {
+      "t": 7511.8,
+      "wall": "2026-08-08T02:04:24.118229+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 7571.8,
+      "wall": "2026-08-08T02:05:24.131677+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48161658351,
+      "status": "healthy"
+    },
+    {
+      "t": 7631.8,
+      "wall": "2026-08-08T02:06:24.134729+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48787694658,
+      "status": "healthy"
+    },
+    {
+      "t": 7691.9,
+      "wall": "2026-08-08T02:07:24.147466+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43949467736,
+      "status": "healthy"
+    },
+    {
+      "t": 7751.9,
+      "wall": "2026-08-08T02:08:24.165281+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43949467736,
+      "status": "healthy"
+    },
+    {
+      "t": 7811.9,
+      "wall": "2026-08-08T02:09:24.187226+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36896978216,
+      "status": "healthy"
+    },
+    {
+      "t": 7872.0,
+      "wall": "2026-08-08T02:10:24.319195+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 22878352515,
+      "status": "healthy"
+    },
+    {
+      "t": 7932.1,
+      "wall": "2026-08-08T02:11:24.335895+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48318972864,
+      "status": "healthy"
+    },
+    {
+      "t": 7992.1,
+      "wall": "2026-08-08T02:12:24.347898+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48318972864,
+      "status": "healthy"
+    },
+    {
+      "t": 8052.5,
+      "wall": "2026-08-08T02:13:24.771734+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 52548963697,
+      "status": "healthy"
+    },
+    {
+      "t": 8112.5,
+      "wall": "2026-08-08T02:14:24.782529+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48050399637,
+      "status": "healthy"
+    },
+    {
+      "t": 8172.5,
+      "wall": "2026-08-08T02:15:24.797625+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 40578815383,
+      "status": "healthy"
+    },
+    {
+      "t": 8232.6,
+      "wall": "2026-08-08T02:16:24.902814+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 19648359371,
+      "status": "healthy"
+    },
+    {
+      "t": 8292.6,
+      "wall": "2026-08-08T02:17:24.920822+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 28168423323,
+      "status": "healthy"
+    },
+    {
+      "t": 8354.6,
+      "wall": "2026-08-08T02:18:26.875749+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 56570463726,
+      "status": "healthy"
+    },
+    {
+      "t": 8414.6,
+      "wall": "2026-08-08T02:19:26.893758+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 8474.6,
+      "wall": "2026-08-08T02:20:26.911827+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 48787694795,
+      "status": "healthy"
+    },
+    {
+      "t": 8534.6,
+      "wall": "2026-08-08T02:21:26.922685+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51349040182,
+      "status": "healthy"
+    },
+    {
+      "t": 8594.7,
+      "wall": "2026-08-08T02:22:26.933889+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 41828978541,
+      "status": "healthy"
+    },
+    {
+      "t": 8654.7,
+      "wall": "2026-08-08T02:23:26.946100+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 8714.7,
+      "wall": "2026-08-08T02:24:26.960424+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 8774.7,
+      "wall": "2026-08-08T02:25:26.972038+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 47978387692,
+      "status": "healthy"
+    },
+    {
+      "t": 8835.2,
+      "wall": "2026-08-08T02:26:27.465232+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 59869104134,
+      "status": "healthy"
+    },
+    {
+      "t": 8895.2,
+      "wall": "2026-08-08T02:27:27.479179+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 41482765054,
+      "status": "healthy"
+    },
+    {
+      "t": 8955.2,
+      "wall": "2026-08-08T02:28:27.489963+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 9015.2,
+      "wall": "2026-08-08T02:29:27.505119+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 41482765054,
+      "status": "healthy"
+    },
+    {
+      "t": 9075.2,
+      "wall": "2026-08-08T02:30:27.529939+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 9135.3,
+      "wall": "2026-08-08T02:31:27.547615+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 47978387692,
+      "status": "healthy"
+    },
+    {
+      "t": 9195.6,
+      "wall": "2026-08-08T02:32:27.933392+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51342489557,
+      "status": "healthy"
+    },
+    {
+      "t": 9255.7,
+      "wall": "2026-08-08T02:33:27.947895+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 9315.7,
+      "wall": "2026-08-08T02:34:27.958744+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 41482765054,
+      "status": "healthy"
+    },
+    {
+      "t": 9375.7,
+      "wall": "2026-08-08T02:35:27.972384+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 47978387692,
+      "status": "healthy"
+    },
+    {
+      "t": 9435.7,
+      "wall": "2026-08-08T02:36:27.983096+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 9495.7,
+      "wall": "2026-08-08T02:37:27.994381+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 46504262635,
+      "status": "healthy"
+    },
+    {
+      "t": 9555.7,
+      "wall": "2026-08-08T02:38:28.007612+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51342489557,
+      "status": "healthy"
+    },
+    {
+      "t": 9615.7,
+      "wall": "2026-08-08T02:39:28.021321+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43766197077,
+      "status": "healthy"
+    },
+    {
+      "t": 9675.8,
+      "wall": "2026-08-08T02:40:28.035884+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 39719476903,
+      "status": "healthy"
+    },
+    {
+      "t": 9736.4,
+      "wall": "2026-08-08T02:41:28.713376+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 41822427916,
+      "status": "healthy"
+    },
+    {
+      "t": 9796.4,
+      "wall": "2026-08-08T02:42:28.724454+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51794333443,
+      "status": "healthy"
+    },
+    {
+      "t": 9856.5,
+      "wall": "2026-08-08T02:43:28.737887+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51794333443,
+      "status": "healthy"
+    },
+    {
+      "t": 9916.5,
+      "wall": "2026-08-08T02:44:28.750656+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 9976.5,
+      "wall": "2026-08-08T02:45:28.763468+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 42274271802,
+      "status": "healthy"
+    },
+    {
+      "t": 10036.5,
+      "wall": "2026-08-08T02:46:28.777386+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 10096.5,
+      "wall": "2026-08-08T02:47:28.787876+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 10156.5,
+      "wall": "2026-08-08T02:48:28.802968+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 10216.5,
+      "wall": "2026-08-08T02:49:28.812768+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 46504262635,
+      "status": "healthy"
+    },
+    {
+      "t": 10276.8,
+      "wall": "2026-08-08T02:50:29.070505+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 10336.8,
+      "wall": "2026-08-08T02:51:29.094724+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 50098877024,
+      "status": "healthy"
+    },
+    {
+      "t": 10396.8,
+      "wall": "2026-08-08T02:52:29.128494+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 10456.8,
+      "wall": "2026-08-08T02:53:29.142667+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 37688484964,
+      "status": "healthy"
+    },
+    {
+      "t": 10517.1,
+      "wall": "2026-08-08T02:54:29.385767+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 42274271802,
+      "status": "healthy"
+    },
+    {
+      "t": 10577.1,
+      "wall": "2026-08-08T02:55:29.401411+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 46504262635,
+      "status": "healthy"
+    },
+    {
+      "t": 10637.1,
+      "wall": "2026-08-08T02:56:29.411663+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 10697.1,
+      "wall": "2026-08-08T02:57:29.423062+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 47978387692,
+      "status": "healthy"
+    },
+    {
+      "t": 10757.7,
+      "wall": "2026-08-08T02:58:29.991845+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51794333443,
+      "status": "healthy"
+    },
+    {
+      "t": 10817.7,
+      "wall": "2026-08-08T02:59:30.005510+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 60129542144,
+      "current_model_memory": 51794333443,
+      "status": "healthy"
+    }
+  ],
+  "outages": [],
+  "peak_memory_bytes": 59869104134,
+  "ceiling_bytes": 60129542144
+}

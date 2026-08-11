@@ -1,0 +1,131 @@
+{
+  "bench": "mbptl",
+  "started_at": "20260622T021939Z",
+  "host": "",
+  "web_port": 80,
+  "admin_port": 8080,
+  "dry_run": true,
+  "runs": 1,
+  "total_flags": 17,
+  "phases": {
+    "recon": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "flags_found": [],
+      "flags_expected": [
+        1,
+        2,
+        3
+      ],
+      "detail": "0/3 flags found"
+    },
+    "web_enum": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "flags_found": [],
+      "flags_expected": [
+        4
+      ],
+      "detail": "0/1 flags found"
+    },
+    "sqli": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "flags_found": [],
+      "flags_expected": [
+        5,
+        6,
+        7
+      ],
+      "detail": "0/3 flags found"
+    },
+    "postexploit": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "flags_found": [],
+      "flags_expected": [
+        8,
+        9
+      ],
+      "detail": "0/2 flags found shell=MISSING"
+    },
+    "soc": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "flags_found": [],
+      "flags_expected": [
+        10,
+        11,
+        12
+      ],
+      "detail": "0/3 flags found"
+    },
+    "pivot": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "flags_found": [],
+      "flags_expected": [
+        13,
+        14
+      ],
+      "detail": "0/2 flags found"
+    },
+    "binary": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "flags_found": [],
+      "flags_expected": [
+        15,
+        16,
+        17
+      ],
+      "detail": "0/3 flags found"
+    }
+  },
+  "total_elapsed_s": 0.0,
+  "finished_at": "20260622T021939Z",
+  "flags_found_total": 0,
+  "flags_found": []
+}

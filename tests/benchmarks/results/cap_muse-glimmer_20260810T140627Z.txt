@@ -1,0 +1,14 @@
+Capability Probe V11 — 20260810T190627Z
+  Workspaces: 1
+  Probes: ['C1', 'C4']
+  Baselines: ['auto-coding']
+
+── Baseline: auto-coding ──
+  C1 ... fmt=1.00 cap=0.00
+  C4 ... fmt=1.00 cap=0.89
+
+── Workspace: bench-muse-glimmer-30b ──
+  C1 ... fmt=1.00 cap=0.00
+  C4 ... fmt=1.00 cap=0.22
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-muse-glimmer-30b_20260810T190627Z.json

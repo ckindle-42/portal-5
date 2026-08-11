@@ -1,0 +1,1969 @@
+{
+  "timestamp": "2026-06-11T14:36:08.295052+00:00",
+  "mode": "all",
+  "order": "size",
+  "cooldown_s": 10.0,
+  "runs_per_model": 5,
+  "spec_decoding": "unspecified",
+  "kv_quant_tag": "unspecified",
+  "total_wall_time_s": 0,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "ollama_models_configured": 68,
+    "workspaces_configured": 69,
+    "personas_configured": 140
+  },
+  "backends": {
+    "ollama": {
+      "url": "http://localhost:11434"
+    },
+    "pipeline": {
+      "url": "http://localhost:9099"
+    }
+  },
+  "results": [
+    {
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 50.2,
+      "min_tps": 48.3,
+      "max_tps": 52.3,
+      "stddev_tps": 1.64,
+      "cv": 0.033,
+      "avg_completion_tokens": 112,
+      "avg_elapsed_s": 2.24,
+      "avg_ttft_s": 0.137,
+      "routed_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "prompt_category": "general",
+      "quality_score": 0.57,
+      "tps_quality": 28.6,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested llama-3.2-3b-instruct-abliterated-gguf",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 2.24,
+          "prompt_tokens": 0,
+          "completion_tokens": 108,
+          "tps": 48.3,
+          "time_to_first_token_s": 0.23,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Layer #1 - Physical - CSMA/CD Arbitration Protocol (CAPM)\n2. Layer #2 - Data Link - Ethernet\n3. Layer #3 - Internet - FTP (File Transfer Protocol)\n4. Layer #4 - Confirmed - TCP (Transmission Control Protocol)\n5. Layer #5 - Reliable - DSMX, DDP, or S/R (Data Stream Management, Display-Processor-Driver, or System/Reference)\n6. Layer #6 - Service - SNCM, SNAP, NOSAP, etc.\n7. Layer #7 - Presentation - PPSN, TNA, DTD, etc.\n\nNote: Some sources may group the layers differently, and some protocols shown here may be specific to each organization (i.e., CSMA/CD is more commonly associated with Ethernet)."
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.18,
+          "prompt_tokens": 0,
+          "completion_tokens": 114,
+          "tps": 52.3,
+          "time_to_first_token_s": 0.112,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here is the answer:\n\n1. **Layer 7**: Application - This is the highest level of OSI and is responsible for providing end-to-end logic for application-specific services.\n2. **Layer 6**: Presentation - Examples: MIME (MIME type specification) or XML Schema.\n3. **Layer 5**: Data Link - Examples: TCP (Transmission Control Protocol), UDP (Universal Datagram Protocol).\n4. **Layer 4**: Network - Examples: IP (Internet Protocol) or OSI's Frame-Relaying protocol.\n5. **Layer 3**: Host - Examples: IP address routing, VCDMA (Virtual Computer and Data Manager Architecture) \n6. **Layer 2**: LAN - Examples: Ethernet frames, token-priority transmission packets at the IEEE Token Ring\n7. **Layer 1** in the \"cable\" model: Physical - Examples: Copper cable or fiber optics"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 2.8,
+          "prompt_tokens": 0,
+          "completion_tokens": 139,
+          "tps": 49.6,
+          "time_to_first_token_s": 0.113,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here is the list of 7 OSI model layers:\n\n1. Layer 7 - Application\n\t* Standard Name: Application\n\t* Example Protocol/Tech: HTTP (Hypertext Transfer Protocol)\n2. Layer 6 - Presentation\n\t* Standard Name: Presentation Layer\n\t* Example Protocol/Tech: JPEG (Joint Image Grouping Efficiency)\n3. Layer 5 - DataLink\n\t* Standard Name: Data Link\n\t* Example Protocol/Tech: Ethernet\n4. Layer 4 - Network\n\t* Standard Name: Network Layer\n\t* Example Protocol/Tech: TCP/IP (Transmission Control Protocol/Internet Protocol)\n5. Layer 3 - Message\n\t* Standard Name: Message Routing and Switching\n\t* (No known standards by this name, but rather 'Message-Oriented' or similar names)\n6. Layer 2 - Function\n\t* Standard Name: Function Subsystems\n\t* Example Protocol/Tech: PPP (Point-to-Point Privacy), but also called, \"Functional Layer\"\n7. Layer 1 - Reference\n\t* Standard Name: Environmental or External\n\t* No standard names by this label"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.74,
+          "prompt_tokens": 0,
+          "completion_tokens": 86,
+          "tps": 49.4,
+          "time_to_first_token_s": 0.114,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model Layers:\n\n1. **Layer 5**: Data Link Layer - Frame Relay Protocol\n2. **Layer 4**: Session Layer - H.323 SLS (Session Layer)\n3. **Layer 3**: Presentation Layer - MIME and XML Encryption\n4. **Layer 2**: Session Layer - H.323 SLS (Session Layer) and SAP (Secure Association Protocol)\n5. **Layer 1**: Presentation Layer - MIMT (MIME Type Transformation), etc.\n6. **Layer 7**: Application Layer - FTP, TFTP, and NetBIOS\n7. **Layer 8** (not a standard layer): Not designated by the OSI model"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 2.23,
+          "prompt_tokens": 0,
+          "completion_tokens": 115,
+          "tps": 51.5,
+          "time_to_first_token_s": 0.114,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Layer 0 - Physical: \n   No specific title, but related to communication protocols.\n\n2. Layer 1 - Continental: Data Link Layer\n   Example: TCP (Transmission Control Protocol)\n\n3. Layer 2 - Network Access Unit (NAU):\n   Protocol: Frame Relay\n\n4. Layer 3 - Network Service:\n   Example: FTP (File Transfer Protocol)\n\n5. Layer 4 - Posn-Dependent:\n   Protocol: IP (Internet Protocol), TCP, and DTLS (Datagram Protection against TCP Egress)  \n\n6. Layer 5 - Connection/Control:\n   No specific layer title for this one.  \n   Some relate this to the \"upper layers\" that are used by connection control protocols as is with DNS, etc.\n\n7. Layer 6 - Presentation: \n   Example: MIME (Multiples of Internet Message Encoding)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 1.8,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "lily-cybersecurity:7b-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 31.7,
+      "min_tps": 29.3,
+      "max_tps": 33.6,
+      "stddev_tps": 2.0,
+      "cv": 0.063,
+      "avg_completion_tokens": 173,
+      "avg_elapsed_s": 5.48,
+      "avg_ttft_s": 0.118,
+      "routed_model": "lily-cybersecurity:7b-q4_k_m",
+      "prompt_category": "security",
+      "quality_score": 0.83,
+      "tps_quality": 26.3,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested lily-cybersecurity:7b-q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.76,
+          "prompt_tokens": 0,
+          "completion_tokens": 169,
+          "tps": 29.3,
+          "time_to_first_token_s": 0.416,
+          "response_model": "lily-cybersecurity:7b-q4_k_m",
+          "response_text": " 1. Classification: The scenario fits within the \"Credential Access\" realm of the MITRE ATT&CK framework, specifically the tactic \"#A02-Brute Force\". Among the techniques identified, \"#A02.013 - SSH Brute Forcing\" stands out as particularly relevant.\n\n2. Immediate containment actions: In response to the detected brute-force attempts, it's essential to establish immediate containment measures during the initial 30 minutes. First, a quick block of the threatening IP addresses is suggested using firewall rules, ensuring that these malicious actors are restricted from further access attempts. Furthermore, implementing port blocking on the affected services can be an effective approach to limit the potential harm caused by brute-force attacks targeting SSH ports.\n\n3. Detection rule to write: To create a detection rule tailored to this scenario, consider including the following field names and logic in your security configuration: \"Source IP\" for identifying the originating IP addresses and \"Destination Port (22)\" to monitor SSH port activity. The rule's logic should include comparisons like \"Equals\" or \"Matches Regular Expression\" with the offending IP addresses and S"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.39,
+          "prompt_tokens": 0,
+          "completion_tokens": 181,
+          "tps": 33.6,
+          "time_to_first_token_s": 0.044,
+          "response_model": "lily-cybersecurity:7b-q4_k_m",
+          "response_text": " 1. Classification: The scenario fits into the category of Brute Force, specifically APT250.008 - Brute Force SSH. It involves repeated attempts to exploit vulnerabilities in the SSH protocol.\n\n2. Immediate containment actions (first 30 minutes): The primary steps for immediate containment should include blocking the offending IPs at network level, restricting further access to the affected systems, and enabling real-time log monitoring to track any potential spread or activity changes.\n\n3. Detection rule to write (field names + logic): A detection rule that can be written for the purpose includes targeting a combination of field names such as source IP, destination port (port 22), server host names, and event type (brute-force attempts). The logic would involve combining these fields with a \"OR\" statement to capture any brute-force activities matching the given criteria.\n\n4. Root cause question to investigate: To delve deeper into the root cause, it may be worthwhile asking questions such as whether any configuration changes or exploits in SSH have occurred recently? Additionally, examine if there is an increase in the number of unauthorized access attempts or any specific"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.4,
+          "prompt_tokens": 0,
+          "completion_tokens": 175,
+          "tps": 32.4,
+          "time_to_first_token_s": 0.043,
+          "response_model": "lily-cybersecurity:7b-q4_k_m",
+          "response_text": " 1. Classification: This scenario can be classified as \"Brute Force\" under the \"Initial Access\" tactic of the MITRE ATT&CK framework. The specific technique ID associated with this tactic is T1106.1: Application-Layer Brute Forcing.\n\n2. Immediate containment actions: In the first 30 minutes, it's crucial to take immediate action to mitigate any potential vulnerabilities and prevent further compromise of the targeted systems. One of the first steps should be to block the identified IP addresses listed in the SIEM from accessing port 22 on the three servers located in the DMZ. This can be done by temporarily adding these IPs to a firewall rule that blocks their incoming traffic or by utilizing a network access control solution, like CrowdSec, to apply real-time filtering based on predefined rules. Additionally, analyzing the log data from SIEM and conducting forensic investigation of any failed login attempts can provide valuable insights into the nature of the brute-force attacks, helping with further understanding and response planning.\n\n3. Detection rule to write: To detect similar SSH brute-force attacks in the future, the"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 5.4,
+          "prompt_tokens": 0,
+          "completion_tokens": 180,
+          "tps": 33.3,
+          "time_to_first_token_s": 0.043,
+          "response_model": "lily-cybersecurity:7b-q4_k_m",
+          "response_text": " 1. Classification: The scenario can be classified under the Brute Force category of the MITRE ATT&CK tactic. Technique IDs for this category are generally represented as \"Brute Force\" or specific techniques such as \"Brute Force Single Sign-On (BF:SSO)\".\n\n2. Immediate containment actions: In response to such an incident, some immediate actions would be blocking these known malicious IP addresses at the network level or firewalling them. Additionally, network administrators can apply access lists or rule modifications to restrict access to critical ports like port 22 only to trusted entities or sources.\n\n3. Detection rule to write: To create a detection rule that captures a similar scenario in your logs, use the following logic: \"If Event X occurred on Server Y\" AND \"Source IP is Z\" and \"Destination Port P is equal to Q\". Be sure to replace \"Event X,\" \"Server Y,\" \"IP Z,\" \"Port Q,\" and \"Destination Port P\" with specific values or ranges relevant to your monitoring system.\n\n4. Root cause question to investigate: After implementing containment measures, ask questions like \"What vulnerabilities on the targeted systems may have"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.43,
+          "prompt_tokens": 0,
+          "completion_tokens": 162,
+          "tps": 29.8,
+          "time_to_first_token_s": 0.043,
+          "response_model": "lily-cybersecurity:7b-q4_k_m",
+          "response_text": " 1. Classification: Based on the information provided, this scenario can be classified as \"Brute Force\" under the MITRE ATT&CK tactic with ID T1110.\n\n2. Immediate containment actions (first 30 minutes): To mitigate any potential impact, immediate containment actions should be taken within the first thirty minutes of detection. These actions may include disabling SSH on these servers temporarily or implementing strong authentication mechanisms such as multi-factor authentication to prevent further attacks. Additionally, network segmentation can be utilized, ensuring that the affected servers are isolated from other critical systems.\n\n3. Detection rule to write (field names + logic): Considering the scenario description, a possible detection rule could involve monitoring TCP port 22 traffic and examining failed SSH login attempts. By capturing fields like source IP address, destination port, and failure status, the following logic can be used to identify potential brute-force attacks:\n\nif (source_ip in [blacklisted_ips]) and (destination_port == 22) and (failure_status = \"FAILED\") then \n    generate_alert(\"Brute-Force attempt detected on port 22 from unknown"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.2,
+      "groups": [
+        "security"
+      ]
+    },
+    {
+      "model": "llava:7b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 32.6,
+      "min_tps": 29.0,
+      "max_tps": 34.4,
+      "stddev_tps": 2.14,
+      "cv": 0.066,
+      "avg_completion_tokens": 108,
+      "avg_elapsed_s": 3.27,
+      "avg_ttft_s": 0.108,
+      "routed_model": "llava:7b",
+      "prompt_category": "vision",
+      "quality_score": 0.4,
+      "tps_quality": 13.0,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested llava:7b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.48,
+          "prompt_tokens": 0,
+          "completion_tokens": 151,
+          "tps": 33.7,
+          "time_to_first_token_s": 0.376,
+          "response_model": "llava:7b",
+          "response_text": " OBJECTS: No objects are present in a prompt as there is no need for an object in the abstract context of a template.\nTEXT: Transcribe any visible text exactly as written. In this case, there is visible text above every instruction.\nSCENE: Describe the setting in 2-3 sentences. Since there is no image or scene to describe, it does not apply here.\nANOMALIES: No anomalies are present as it is just a template with instructions.\nCONFIDENCE: Rate your analysis certainty (high/medium/low) per category. This section requires information about an image not provided for this text-only test case. Therefore, the confidence rating section does not apply here.\nImprovement to the analysis framework: For better and more accurate analysis of images, additional parameters should be included in the prompts, such as the type and nature of the objects present and their relationships. This would improve the precision and quality of multimodal vision analysis. "
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.69,
+          "prompt_tokens": 0,
+          "completion_tokens": 49,
+          "tps": 29.0,
+          "time_to_first_token_s": 0.042,
+          "response_model": "llava:7b",
+          "response_text": " 1. OBJECTS: None - this is a text-only description\n2. TEXT: This description template\n3. SCENE: Imaginary - describing pictures in human language\n4. ANOMALIES: No image provided, so no anomalies are visible here\n5. CONFIDENCE: Since the template is describing text without images, confidence would typically be 'high' "
+        },
+        {
+          "run": 3,
+          "elapsed_s": 2.24,
+          "prompt_tokens": 0,
+          "completion_tokens": 77,
+          "tps": 34.4,
+          "time_to_first_token_s": 0.039,
+          "response_model": "llava:7b",
+          "response_text": " OBJECTS: No objects were visible in this description\n\nTEXT: Template for analyzing images using a combination of object detection, natural language generation, and visual perception.\n\nSCENE: This scene is a prompt-based exercise used to evaluate advanced artificial intelligence capabilities. It is designed to assess the ability of a vision analyst to accurately describe and categorize objects present within an image through the use of text-only information.\n\nANOMALIES: No anomalies were noted in this analysis framework\n\nCONFIDENCE: High "
+        },
+        {
+          "run": 4,
+          "elapsed_s": 2.92,
+          "prompt_tokens": 0,
+          "completion_tokens": 98,
+          "tps": 33.5,
+          "time_to_first_token_s": 0.04,
+          "response_model": "llava:7b",
+          "response_text": " Based on the provided prompt template, here's a description of the prompt itself:\n\n1. OBJECTS:\n* No objects are listed in the image.\n2. TEXT:\n* There is no visible text in the image.\n3. SCENE:\n* The image does not provide enough information to describe the scene. Without any objects, it's impossible to establish a coherent setting.\n4. ANOMALIES:\n* No anomalies are observed as there is an absence of distinct objects within the image.\n5. CONFIDENCE:\n* There is no definite certainty because the image does not contain any information that can be analyzed or described. "
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.03,
+          "prompt_tokens": 0,
+          "completion_tokens": 163,
+          "tps": 32.4,
+          "time_to_first_token_s": 0.041,
+          "response_model": "llava:7b",
+          "response_text": " Based on the given prompt, here's the description:\n\n1. OBJECTS:\n\t* No objects are visible in this prompt text-image boundary conflict. No image is provided for analysis.\n2. TEXT:\n\t* \"For any\" (No specific object or action is related to this line of text)\n\t* \"You are a multimodal vision analyst.\" (Statement about the AI)\n\t* \"Describe what you see precisely:\" (Instruction for AI's description of image)\n\t* \"Since no image is provided for this\" (Explanation of why certain objects might be missing)\n\t* \"describe this prompt template itself\" (Continuation of explanation)\n\t* \"What it expects,\" (Instruction indicating that the AI should explain)\n\t* \"<ul>\" (HTML tag representing a bulleted list on the right side, which indicates the formatting of the document used to write this description)\n\t* \"<li>\" (HTML tag for list items)\n\t* \"one improvement to the analysis framework,\" (Instruction indicating that the AI should provide one suggested improvement to the analysis framework)\n\t* \"</ul>\" (Closing tag for bullet points)\n3"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.2,
+      "groups": [
+        "vision"
+      ]
+    },
+    {
+      "model": "dolphin-llama3:8b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 29.0,
+      "min_tps": 24.6,
+      "max_tps": 32.9,
+      "stddev_tps": 3.43,
+      "cv": 0.118,
+      "avg_completion_tokens": 104,
+      "avg_elapsed_s": 3.5,
+      "avg_ttft_s": 0.174,
+      "routed_model": "dolphin-llama3:8b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 29.0,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested dolphin-llama3:8b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.0,
+          "prompt_tokens": 0,
+          "completion_tokens": 119,
+          "tps": 29.7,
+          "time_to_first_token_s": 0.35,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1. Layer 1 (Physical): The standard name is Physical transmission and network access. An example protocol is Ethernet.\n\n2. Layer 2 (Data Link): The standard name is Medium-specific link layers. One example technology is ARP.\n\n3. Layer 3 (Network): The standard name is Internet Packet Switching. An example protocol is TCP/IP.\n\n4. Layer 4 (Transport): The standard name is Transport segments and end-to-end connections. One example protocol is TCP.\n\n5. Layer 5 (Session): The standard name is End-to-end session management. An example technology is NetBIOS.\n\n6. Layer 6 (Presentation): The standard name is Presentation services and functions. One example protocol is SSL/TLS.\n\n7. Layer 7 (Application): The standard name is Application services and functions. An example technology is HTTP/HTTPS."
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.68,
+          "prompt_tokens": 0,
+          "completion_tokens": 84,
+          "tps": 31.4,
+          "time_to_first_token_s": 0.124,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1) Layer 1 - Physical (Ethernet)\n2) Layer 2 - Data Link (ARP or PPP)\n3) Layer 3 - Network (TCP or IP) \n4) Layer 4 - Transport (UDP or HTTP)\n5) Layer 5 - Session (NetBIOS or AppleTalk)\n6) Layer 6 - Presentation (SSL/TLS or JPEG)\n7) Layer 7 - Application (HTTP or SMTP and DNS).\n\nNote: These are the original seven OSI model layers, but it's common to see a condensed version of just four or five layers in more modern discussions."
+        },
+        {
+          "run": 3,
+          "elapsed_s": 2.6,
+          "prompt_tokens": 0,
+          "completion_tokens": 69,
+          "tps": 26.5,
+          "time_to_first_token_s": 0.141,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1. Layer 1: Physical - Ethernet \n2. Layer 2: Data Link - ARP (Address Resolution Protocol)\n3. Layer 3: Network - TCP/IP (Transmission Control Protocol/Internet Protocol)\n4. Layer 4: Transport - UDP (User Datagram Protocol) or TCP (Transmission Control Protocol)\n5. Layer 5: Session - NetBIOS (Network Basic Input/Output System)\n6. Layer 6: Presentation - SSL/TLS (Secure Sockets Layer/Transport Layer Security)\n7. Layer 7: Application - HTTPS (HTTP Secure)"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 2.97,
+          "prompt_tokens": 0,
+          "completion_tokens": 73,
+          "tps": 24.6,
+          "time_to_first_token_s": 0.124,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1. Layer 1 (Physical): Wired/Wireless Connection. Example Protocol: Ethernet.\n2. Layer 2 (Data Link): Frame Presentation. Example Technology: ARP.\n3. Layer 3 (Network): IP Routing Decisions. Example Protocol: TCP/IP.\n4. Layer 4 (Transport): Reliable Delivery and End-to-End Connections. Example Protocol: TLS/SSL.\n5. Layer 5 (Session): Connection Management. Example Technology: NetBIOS.\n6. Layer 6 (Presentation): Data Encryption, Compression and Presentation Syntax. Example Protocol: JPEG.\n7. Layer 7 (Application): End User Interface. Example Application: HTTP."
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.26,
+          "prompt_tokens": 0,
+          "completion_tokens": 173,
+          "tps": 32.9,
+          "time_to_first_token_s": 0.13,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1) Layer 1: Physical - Defines the physical transmission of data over the network using different types of cables and connectors. Example: Ethernet.\n\n2) Layer 2: Data Link - Handles error-checking, framing, and manages the flow of information between two directly connected devices. Example: ARP (Address Resolution Protocol).\n\n3) Layer 3: Network - Determines the most efficient path for data to travel across a network and ensures proper routing. Example: Internet Control Message Protocol (ICMP).\n\n4) Layer 4: Transport - Manages end-to-end communication and offers the option of connection-oriented or connectionless transport methods. Example: Transmission Control Protocol (TCP).\n\n5) Layer 5: Session - Establishes, controls, and terminates networking sessions between devices for reliable dialogue. Example: Sequentially Opened Sessions initiative (SOSi).\n\n6) Layer 6: Presentation - Manages the formatting and presentation of data as it's transmitted across the network to ensure it's understandable by the receiving device. Example: ASCII.\n\n7) Layer 7: Application - Focuses on providing services directly beneficial to end-user applications, such as email or web browsing. Example: HTTP (Hypertext Transfer Protocol)."
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "creative"
+      ]
+    },
+    {
+      "model": "granite4.1:8b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 21.5,
+      "min_tps": 20.0,
+      "max_tps": 22.3,
+      "stddev_tps": 0.89,
+      "cv": 0.041,
+      "avg_completion_tokens": 96,
+      "avg_elapsed_s": 4.5,
+      "avg_ttft_s": 0.136,
+      "routed_model": "granite4.1:8b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 21.5,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested granite4.1:8b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 6.15,
+          "prompt_tokens": 0,
+          "completion_tokens": 132,
+          "tps": 21.5,
+          "time_to_first_token_s": 0.335,
+          "response_model": "granite4.1:8b",
+          "response_text": "1. **Layer 1 - Physical**: Transmits raw bitstreams over physical media.\n   * Example Protocol/Technology: Ethernet\n\n2. **Layer 2 - Data Link**: Provides node-to-node data transfer and error detection/correction.\n   * Example Protocol/Technology: Wi-Fi (IEEE 802.11)\n\n3. **Layer 3 - Network**: Handles routing, logical addressing, and packet forwarding.\n   * Example Protocol/Technology: Internet Protocol (IP)\n\n4. **Layer 4 - Transport**: Ensures reliable data transfer with flow control and error recovery.\n   * Example Protocol/Technology: Transmission Control Protocol (TCP)\n\n5. **Layer 5 - Session**: Manages sessions and dialogues between applications.\n   * Example Protocol/Technology: Secure Sockets Layer (SSL)\n\n6. **Layer 6 - Presentation**: Translates, encrypts, or compresses data for the application layer.\n   * Example Protocol/Technology: Transport Layer Security (TLS)\n\n7. **Layer 7 - Application**: Interfaces directly with end-user applications and services.\n   * Example Protocol/Technology: Hypertext Transfer Protocol (HTTP)"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 4.55,
+          "prompt_tokens": 0,
+          "completion_tokens": 100,
+          "tps": 22.0,
+          "time_to_first_token_s": 0.089,
+          "response_model": "granite4.1:8b",
+          "response_text": "1. **Physical Layer** \u2013 Transmits raw bitstreams over a physical medium; Example: Ethernet (IEEE 802.3)\n2. **Data Link Layer** \u2013 Provides node-to-node data transfer and error detection/correction; Example: Wi-Fi (IEEE 802.11), PPP\n3. **Network Layer** \u2013 Handles routing, logical addressing, and packet forwarding; Example: IP (Internet Protocol)\n4. **Transport Layer** \u2013 Ensures reliable or unreliable delivery of data segments between points; Example: TCP (Transmission Control Protocol)\n5. **Session Layer** \u2013 Establishes, manages, and terminates sessions; Example: NetBIOS\n6. **Presentation Layer** \u2013 Translates, encrypts, and compresses data; Example: SSL/TLS, JPEG\n7. **Application Layer** \u2013 Interfaces with end-user applications; Example: HTTP, SMTP"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 4.1,
+          "prompt_tokens": 0,
+          "completion_tokens": 82,
+          "tps": 20.0,
+          "time_to_first_token_s": 0.086,
+          "response_model": "granite4.1:8b",
+          "response_text": "1. **Layer 1 - Physical**\n   - Example protocol/technology: Ethernet\n\n2. **Layer 2 - Data Link**\n   - Example protocol/technology: Wi-Fi (802.11)\n\n3. **Layer 3 - Network**\n   - Example protocol/technology: Internet Protocol (IP)\n\n4. **Layer 4 - Transport**\n   - Example protocol/technology: Transmission Control Protocol (TCP)\n\n5. **Layer 5 - Session**\n   - Example protocol/technology: Secure Sockets Layer (SSL)/Transport Layer Security (TLS)\n\n6. **Layer 6 - Presentation**\n   - Example protocol/technology: JPEG (image compression), Unicode\n\n7. **Layer 7 - Application**\n   - Example protocol/technology: Hypertext Transfer Protocol (HTTP)"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 5.14,
+          "prompt_tokens": 0,
+          "completion_tokens": 111,
+          "tps": 21.6,
+          "time_to_first_token_s": 0.085,
+          "response_model": "granite4.1:8b",
+          "response_text": "1. **Layer 1 - Physical**: Transmits raw bitstreams over hardware; Example Protocol/Technology: Ethernet\n2. **Layer 2 - Data Link**: Provides node-to-node data transfer; Example Protocol/Technology: Wi-Fi (IEEE 802.11)\n3. **Layer 3 - Network**: Routes and forwards data packets across networks; Example Protocol/Technology: Internet Protocol (IP)\n4. **Layer 4 - Transport**: Ensures reliable end-to-end communication; Example Protocol/Technology: Transmission Control Protocol (TCP)\n5. **Layer 5 - Session**: Establishes, manages, and terminates connections; Example Protocol/Technology: Session Initiation Protocol (SIP)\n6. **Layer 6 - Presentation**: Translates data between the application and network; Example Protocol/Technology: TLS (Transport Layer Security) for encryption\n7. **Layer 7 - Application**: Interfaces with end-user applications; Example Protocol/Technology: HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 2.55,
+          "prompt_tokens": 0,
+          "completion_tokens": 57,
+          "tps": 22.3,
+          "time_to_first_token_s": 0.087,
+          "response_model": "granite4.1:8b",
+          "response_text": "1) Layer 1: Physical \u2013 Ethernet  \n2) Layer 2: Data Link \u2013 Wi-Fi (IEEE 802.11)  \n3) Layer 3: Network \u2013 Internet Protocol (IP)  \n4) Layer 4: Transport \u2013 Transmission Control Protocol (TCP)  \n5) Layer 5: Session \u2013 Secure Shell (SSH)  \n6) Layer 6: Presentation \u2013 JPEG image format  \n7) Layer 7: Application \u2013 File Transfer Protocol (FTP)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "reasoning"
+      ]
+    },
+    {
+      "model": "lfm2.5:8b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 86.7,
+      "min_tps": 84.6,
+      "max_tps": 89.5,
+      "stddev_tps": 1.79,
+      "cv": 0.021,
+      "avg_completion_tokens": 167,
+      "avg_elapsed_s": 1.92,
+      "avg_ttft_s": 0.172,
+      "routed_model": "lfm2.5:8b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 86.7,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested lfm2.5:8b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 2.02,
+          "prompt_tokens": 0,
+          "completion_tokens": 174,
+          "tps": 86.3,
+          "time_to_first_token_s": 0.263,
+          "response_model": "lfm2.5:8b",
+          "response_text": "",
+          "reasoning_text": "The user asks: \"List the 7 OSI model layers from bottom to top. For each layer, provide: 1) the layer number, 2) the standard name, 3) one example protocol or technology. Format as a numbered list with one line per layer.\"\n\nWe need to answer concisely, no extra commentary. Provide a numbered list (1., 2., etc.) Each line includes three items? Probably separated by commas or semicolons. The request: number list, each line per layer.\n\nThus we will have something like:\n\n1. Layer 1 - Physical \u2013 Ethernet\n2. Layer 2 - Data Link \u2013 MAC address / IEEE 802.3\n3. Layer 3 - Network \u2013 IP (Internet Protocol)\n4. Layer 4 - Transport \u2013 TCP\n5. Layer 5 - Session \u2013 NetBIOS\n6. Layer 6 - Presentation \u2013 SSL/TLS\n7. Layer 7 - Application \u2013 HTTP\n\nBut note that the OSI model standard names: Physical, Data Link, Network, Transport, Session, Presentation, Application. That's correct.\n\nWe could also use \"ARP\" for data link? Actually Physical uses cables/signals; Data Link includes MAC and switching; the"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 170,
+          "tps": 89.5,
+          "time_to_first_token_s": 0.149,
+          "response_model": "lfm2.5:8b",
+          "response_text": "",
+          "reasoning_text": "The user asks: \"List the 7 OSI model layers from bottom to top. For each layer, provide: 1) the layer number, 2) the standard name, 3) one example protocol or technology. Format as a numbered list with one line per layer.\"\n\nWe need to produce a concise answer, likely:\n\n1. Layer 1 \u2013 Physical \u2013 Ethernet (or maybe \"Physical Layer\" with technologies like fiber optics, copper cable)\n2. Layer 2 \u2013 Data Link \u2013 MAC (MAC address) etc., example protocol: IEEE 802.\n3. Layer 3 \u2013 Network \u2013 IP (Internet Protocol).\n4. Layer 4 \u2013 Transport \u2013 TCP (Transmission Control Protocol) or IPv6? Typically transport layer uses TCP/UDP as examples. Provide one.\n\n5. Layer 5 \u2013 Session \u2013 NetBIOS?\nActually session is L5, but protocols: Apple's Bonjour? Or SCTP is stream but for session maybe use \"SMTP\"? Hmm typical standard technology for session includes \"SSH\" for secure remote login, or \"TLS\". Let's think: In OSI, the Session layer uses protocols like HTTP (for application) but that's app; actual example: \"Net"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 165,
+          "tps": 87.0,
+          "time_to_first_token_s": 0.149,
+          "response_model": "lfm2.5:8b",
+          "response_text": "",
+          "reasoning_text": "The user asks: \"List the 7 OSI model layers from bottom to top. For each layer, provide: 1) the layer number, 2) the standard name, 3) one example protocol or technology. Format as a numbered list with one line per layer.\"\n\nWe need to output a numbered list (likely starting with 1). Each line should contain three items: layer number, standard name, and an example protocol or technology.\n\nThe OSI layers from bottom to top are:\n\nLayer 7: Application\nLayer 6: Presentation\nLayer 5: Session\nLayer 4: Transport\nLayer 3: Network\nLayer 2: Data Link\nLayer 1: Physical\n\nStandard names: Application, Presentation, Session, Transport, Network, Data Link, Physical.\n\nWe also need an example protocol or technology for each. For the application layer, perhaps \"HTTP/HTTPS\". But maybe \"Web Services\" or \"FTP\". Choose something common: \"HTTP\". So:\n\n1. 7 \u2013 Application \u2013 HTTP (Hypertext Transfer Protocol)\n\n2. 6 \u2013 Presentation \u2013 SSL/TLS\n\n3. 5 \u2013 Session \u2013 SNMP (Simple Network Management Protocol) is used for session management;"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 161,
+          "tps": 84.6,
+          "time_to_first_token_s": 0.15,
+          "response_model": "lfm2.5:8b",
+          "response_text": "",
+          "reasoning_text": "The user requests a concise answer: list the 7 OSI model layers from bottom to top (i.e., Layer 1 to Layer 7). For each layer, provide: 1) the layer number, 2) the standard name, and 3) one example protocol or technology. Format as a numbered list with one line per layer.\n\nWe need to produce something like:\n\n1. Layer 1 \u2013 Physical \u2013 Ethernet (or cable)\n2. Layer 2 \u2013 Data Link \u2013 IEEE 802.11 (Wi-Fi) maybe\n3. ... etc.\n\nBut we must ensure the info matches. The OSI model layers standard names: 7 Application, 6 Presentation, 5 Session, 4 Transport, 3 Network, 2 Data Link, 1 Physical. For each layer we need an example protocol or technology commonly associated with that layer.\n\nOne could choose:\n\n- Layer 1 (Physical): Ethernet (IEEE 802.3)\n- Layer 2 (Data Link): MAC address (e.g., IEEE 802.11 MAC sublayer) or ARP? Maybe \"IPsec\"? No, better: \"VLAN (IEEE 802.1Q)\" but that's an extension of Data Link"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 1.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 164,
+          "tps": 86.1,
+          "time_to_first_token_s": 0.15,
+          "response_model": "lfm2.5:8b",
+          "response_text": "",
+          "reasoning_text": "The user wants \"concise\". List the OSI model layers from bottom to top (the classic 7 layers: Physical, Data Link, Network, Transport, Session, Presentation, Application). For each layer, provide:\n\n1) the layer number,\n2) the standard name,\n3) one example protocol or technology.\n\nFormat as a numbered list with one line per layer.\n\nThus we need something like:\n\n1. Layer 1 \u2013 Physical: e.g., Ethernet (or Fiber optics)\n2. Layer 2 \u2013 Data Link: e.g., MAC address, IEEE 802.3\nand so on up to layer 7 Application: e.g., HTTP\n\nPotential preferences: could also use standard names like \"Physical\", \"Data Link\", etc. Or \"Layer 1 \u2013 Physical\". Use consistent style.\n\nMake sure it's one line per layer. Provide numbers from 1 to 7.\n\nThe instructions: \"Answer concisely.\" So brief but include required info.\n\nThus:\n\n1. Layer 1 \u2013 Physical: Ethernet\n2. Layer 2 \u2013 Data Link: MAC (IEEE 802.3)\n3. Layer 3 \u2013 Network: IP\n4. Layer 4 \u2013 Transport: TCP\n5. Layer 5 \u2013"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 33.3,
+      "min_tps": 30.2,
+      "max_tps": 35.4,
+      "stddev_tps": 2.0,
+      "cv": 0.06,
+      "avg_completion_tokens": 192,
+      "avg_elapsed_s": 5.76,
+      "avg_ttft_s": 0.195,
+      "routed_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+      "prompt_category": "security",
+      "quality_score": 0.5,
+      "tps_quality": 16.6,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested llama-3-whiterabbitneo-8b-v2.0:q4_0",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.96,
+          "prompt_tokens": 0,
+          "completion_tokens": 180,
+          "tps": 30.2,
+          "time_to_first_token_s": 0.425,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+          "response_text": "1. Classification:\nThe classification for these brute-force attacks would fall under the following MITRE ATT&CK tactics and techniques:\n\n- Credential Access - T1079: Credential Access by Default Passwords\n- Exploitation of System Vulnerabilities - T1210: Exploit Public-Facing Application\n- Lateral Movement - T1028: Obfuscated Web Traffic\n\nThe technique IDs for these tactics would be:\n- SSH: port 22 (T1079)\n- An attempt to leverage known vulnerabilities in the app or system being targeted: T1210, \n- Using tools that conceal the traffic of any network activities with no legitimate purpose. \n\n2. Immediate Containment Actions:\n\nImmediate mitigation actions could include blocking IPs at the firewall on both inbound and outbound using the IP address and port information provided.\n\nCreate security team alerts for these events to review potential targets and assess risk.\n\n3. Detection Rule Creation\n\nHere is an example of a SIEM detection rule to use for tracking brute-force attempts:\n\n```\nrule Brute_force_detection_rule {\n    message = \"Potential brute forces detected\";\n    condition=any;\n    field:events;\n    \n    description: Detect brute force login attempts\n    // Conditions for potential brute-forcing would be multiple failed logon events in a"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.68,
+          "prompt_tokens": 0,
+          "completion_tokens": 196,
+          "tps": 34.5,
+          "time_to_first_token_s": 0.137,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+          "response_text": "1. Classification: Compromise through use of valid credentials and brute force attack pattern detection, specifically Tactic: Privilege Escalation, Technique ID: T1070.001 \"Use of Alternate Authentication Credentials\". This is because the attacker (or automated script) is attempting multiple times to log in with a username and password combination that does not work frequently.\n\n2. Immediate Containment Actions:\n- Immediately block the IPs from accessing your environment using firewall rules if they have already been identified as malicious. However, since the IPs are part of the crowdsec community blocklist (a black list for cyber threats) blocking them may not be required as it is assumed the community will take care of it.\n- Increase logging to get a more granular view into what happened without overloading your servers performance\n- Monitor who from within or outside the company made API calls that led to this situation by examining logs, especially if you are seeing this across all servers\n\n3. Detection Rule:\nTo detect future brute-force attacks with better clarity and at scale for other environments that don't have CrowdSec:\n\nSensors (if applicable): user-logs-firewall; user-agents\nEvent Details: \"anomalies\" event containing:\n    alert on an authentication attempt to one IP that"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.7,
+          "prompt_tokens": 0,
+          "completion_tokens": 187,
+          "tps": 32.8,
+          "time_to_first_token_s": 0.138,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+          "response_text": "To properly analyze the provided scenario and provide a structured response, we must first determine if any of the following MITRE ATT&CK tactics and techniques are involved or represent red flags:\n\n1. Compromise (T1546: Leverage Accounts that have not entered) - Attempting to log in using commonly used credentials.\n2. Credential Access (T1480: Information stolen) - Gathering information about the organization, users, applications.\n3. Discovery (T1587: Scheduled Task/Job) - Creating scheduled tasks for persistence on a system without authorization.\n\nBased on the provided information, we can infer that an attacker is likely attempting to gain unauthorized access through brute force attacks. Although there is no specific indication of persistence within this scenario, it would be prudent to investigate further once immediate actions have been taken.\n\nImmediate Containment Actions (first 30 minutes):\n\n1. Increase security by alerting network team via page.\n2. Temporarily block the IP addresses using firewall rules during shift change.\n3. Update SSH server configurations to lockout users if they fail too often.\n\nDetection Rule to Write:\n\nalert [SSH-Brute-Force] {\n    count = 40; /* Number of failed attempts */\n    field = protocol; \n    values = tcp,22;\n   "
+        },
+        {
+          "run": 4,
+          "elapsed_s": 5.71,
+          "prompt_tokens": 0,
+          "completion_tokens": 193,
+          "tps": 33.8,
+          "time_to_first_token_s": 0.139,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+          "response_text": "1. Classification\nBased on the scenario provided, we can identify several MITRE ATT&CK tactics and techniques that are likely being used in this attack:\n\n- **Initial Compromise**: The initial technique used here would be `Tactics: Spear-phishing or Phishing (T1566)` or `Tactics: Supply chain compromise (T1190)`. In the first case, a phishing email could have been sent to targets within the organization with malicious attachments that initiate brute-force attacks when opened. In the second scenario, the supply chain is compromised via the installation of a zero-day exploit on software updates or through unauthorized access to an application used in the company.\n\n- **Persistence**: The technique here would be `Technique: SSH login attempts (T1068)`. This is the primary technique mentioned in the scenario where multiple IP addresses are performing brute-force attacks on SSH using common username and password lists. \n\n2. Immediate Containment Actions\nTo contain this threat immediately, we should:\n\n- **Identify and isolate compromised hosts**: Isolate potentially affected workstations and servers by disconnecting from network services that handle sensitive data.\n- Block at the firewall level: Block all traffic to/from the identified malicious IP addresses as temporary measures, or implement more granular controls for"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.73,
+          "prompt_tokens": 0,
+          "completion_tokens": 203,
+          "tps": 35.4,
+          "time_to_first_token_s": 0.138,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+          "response_text": "1. Classification:\nThe classification of this attack scenario falls under the reconnaissance category, specifically \"Discovery\" (Tactic T1018: Gather information on networks.\").\n\n2. Immediate Containment Actions:\nImmediate containment actions should be taken in order to prevent further exploitation attempts:\n\na. Isolate affected machines - Immediately isolate the servers from public facing networks to limit access and control further exploitation.\n\nb. Generate incident report and alert cybersecurity team - Document all details of the intrusion attempt and notify other members so they can assist with potential clean-up efforts.\n\nc. Block malicious IP addresses at network boundary - Apply permanent block rules for any identified IPs to avoid future intrusion attempts. \n\nd. Monitor traffic flows with security tools to detect any ongoing malicious activities - Tools like Intrusion Detection Systems (IDS), Firewalls, and SIEM should be used to monitor traffic for additional intrusion vectors.\n\ne. Update firewall rules to deny all external connections on port 22 - Block SSH access from any machine not under your control to prevent further brute-force attempts.\n\n3. Detection Rule:\nTo write a detection rule, we can use ElasticSearch which is a robust search engine that powers SIEM tools like the Elastic Stack (Elasticsearch, Kibana, Logstash).\n\nHere's an example log-based search"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "security"
+      ]
+    },
+    {
+      "model": "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 30.1,
+      "min_tps": 28.6,
+      "max_tps": 31.6,
+      "stddev_tps": 1.36,
+      "cv": 0.045,
+      "avg_completion_tokens": 381,
+      "avg_elapsed_s": 12.64,
+      "avg_ttft_s": 0.228,
+      "routed_model": "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M",
+      "prompt_category": "security",
+      "quality_score": 0.0,
+      "tps_quality": 0.0,
+      "reasoning_mode": true,
+      "expected_model_match": true,
+      "expected_model_detail": "requested josiefied-deepseek-r1-0528-qwen3-8b-abliterated-v1-gguf:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 12.62,
+          "prompt_tokens": 0,
+          "completion_tokens": 362,
+          "tps": 28.7,
+          "time_to_first_token_s": 0.459,
+          "response_model": "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M",
+          "response_text": "\nOkay, here's the analysis of the SSH brute-force attempts in a structured format:\n\n**1. Classification**\n\n*   **MITRE ATT&CK Tactic + Technique ID:** This activity primarily aligns with MITRE ATT&CK Tactic `Credential Access` (T1552) and Technique `\"SSH User Discovery\"` (`T1553`) or commonly falls under the categorization of brute-force attacks within `Account Compromise`.\n*   **Explanation:** CrowdSec blocklists often signify active malicious infrastructure, common indicators found in phases targeting initial access (early-stage tactics like T1069 for credential dumping) or leveraging stolen credentials from other techniques. However, based on the description, this appears to be an ongoing attack (`Brute force`) aimed at harvesting SSH credentials directly.\n\n**2. Immediate Containment Actions (First 30 minutes)**\n\n*   **Actions:** First, rapidly review and harden SSH configurations across servers #1 to #3: enforce key-based authentication over password-only, disable root login (if not already required), increase lockout thresholds or reduce allowed attempts in the SSH config (`pam_tally2` or `fail2ban`, depending on OS). Second, immediately block traffic inbound from all 47 IP addresses at the firewall network boundary closest to the DMZ servers using denylists",
+          "reasoning_text": "\nOkay, let's break down this SSH brute-force scenario from a cybersecurity analyst's perspective. The user needs a structured response with precise MITRE ATT&CK references and actionable steps.\n\nFirst, I should classify the attack properly - it matches classic credential harvesting under T1110.23 (TA0057). That makes sense to include since they requested frameworks as per their query.\n\nFor containment actions in those first 30 minutes... I'm considering immediate response options like network segmentation and access revocation, but also thinking about potential malware being introduced via SSH break-ins while we contain the threat. Including detection logic validation might uncover related attacks.\n\nWhen designing the detection rule - maybe combining CrowdSec indicators with standard SSH log anomalies plus process detection rules would cover both external threats and internal pivoting attempts based on MITRE ATT&CK knowledge.\n\nRoot cause investigation should examine multiple angles: could this be credential theft from a compromised user system, or an automated tool scan triggering blocklists? Need to check firewall configurations too since the DMZ is involved. The exact scenario isn't clear yet so we can't assume bad actors for now - just focus on blocking strategies first.\n"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 12.58,
+          "prompt_tokens": 0,
+          "completion_tokens": 388,
+          "tps": 30.8,
+          "time_to_first_token_s": 0.171,
+          "response_model": "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M",
+          "response_text": "\nOkay, here is the analysis of the scenario based on established cybersecurity frameworks:\n\n1.  **Classification**\n    - *Tactic:*Credential Access (TA0049) or Account Compromise (TA0701). The SSH brute-force attempts clearly target valid login credentials to gain unauthorized access via existing accounts. Alternatively, it could be part of broader reconnaissance preceding a targeted compromise.\n    - *Technique ID:* T1110 (Brute Force) or potentially B0092 (Account Discovery - if specifically hunting for credential reuse).\n    The detection aligns strongly with MITRE ATT&CK Technique T1110, Brute Force. CrowdSec blocklists often classify brute force activity.\n\n2.  **Immediate Containment Actions**\n    - First actions should include blocking the identified malicious IP addresses in the network firewall",
+          "reasoning_text": "\nOkay, the user is presenting a scenario where their SIEM detected SSH brute-force attempts from multiple IPs targeting servers in the DMZ. They need me to respond precisely as a cybersecurity analyst and cite frameworks like MITRE ATT&CK.\n\nThe structure they want has four specific parts: classification with MITRE ATT&CK tactic + technique ID, immediate containment actions for the first 30 minutes, detection rule details including field names and logic, and root cause questions to investigate. Each section should be about two to three sentences long according to their instructions.\n\nI need knowledge about cybersecurity frameworks to do this properly. For classification, I'll cite MITRE ATT&CK's credential harvesting or account compromise tactics which seems appropriate for brute-force attempts targeting SSH credentials.\n\nFor immediate containment actions in the first 30 minutes, the priority would be to stop the attacks to prevent potential access but while minimizing impact on legitimate users who might connect during this time. This involves standard cybersecurity response procedures.\n\nThe detection rule should include field names like `source_ip`, `destination_port`, and destination host matching criteria for SSH brute-force attempts that are common features they can look out for in monitoring systems.\n\nThe root cause investigation needs to focus on various possibilities including weak password policies, misconfigured access controls, inadequate user security practices (credential stuffing), or even compromised credentials being reused elsewhere within the network - I need to consider what would be most effective for containment while avoiding overkill on legitimate users.\n\nI'll keep my response focused and actionable since they specified a concise format. This is likely from someone in an organization dealing with this issue, possibly without hands-on technical experience but needing analysis aligned with their existing security measures.\n"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 12.67,
+          "prompt_tokens": 0,
+          "completion_tokens": 390,
+          "tps": 30.8,
+          "time_to_first_token_s": 0.172,
+          "response_model": "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M",
+          "response_text": "\nOkay, here is the analysis addressing each of your required points:\n\n1.  **Classification:**\n    *   The activity matches [TA0042/Psytelaire - User Account Credentialed Access (Initial Access)][1]. Automated SSH brute-force attacks are a common technique for adversaries seeking initial access, as they can reveal weak credentials or potentially",
+          "reasoning_text": "\nOkay, let me start by understanding what the user is asking for here. They're a cybersecurity analyst needing a structured response about an SSH brute-force attack detected in their SIEM.\n\nFirst, I need to classify this incident according to MITRE ATT&CK. Based on standard frameworks like CrowdStrike Falcon's Anti-Exploit framework or similar, repeated SSH attacks are clearly under Account Access Brokers targeting the Technique ID TA0042 - Exfiltration via FTP/SMB might not be relevant here though... Wait, no actually, brute-forcing is part of 'Initial Access' but specifically using credential stuffing? No, maybe it's T1110.003 which is Brute force: Online attack.\n\nNext, immediate containment actions for the first 30 minutes would focus on blocking the IPs and securing SSH access points. So temporary disabling of affected SSH servers or implementing stricter NAC rules. Also, changing credentials right after detection to prevent lateral movement once an account might be compromised.\n\nFor defining a CrowdSec policy, I'd look at the existing community blocklist plus custom attack patterns. The trigger field would include source IP and maybe connection attempts with status 4xx/5xx within five minutes across all three servers on port 22.\n\nThen root cause investigation needs to consider SSH account compromise or weak configurations as primary suspects but also think about C & M infrastructure sources, potential APT activity that uses open-source tools, or if it's part of a broader compromised environment. The user probably wants these concise points because they need actionable steps quickly while potentially looking into deeper security measures later.\n\nThe user is definitely the cybersecurity analyst themselves asking for this analysis as guidance in handling the incident response systematically. They might already have existing policies but are trying to fill gaps where brute-force attacks aren't properly integrated with CrowdSec threat intelligence, especially since two IPs were on a community blocklist which suggests these could be pre-listed C2 servers.\n\nSo I should structure my answer clearly covering classification within 30 minutes containment detection rules and root causes. Each section needs precise but concise points matching their exact requirements while adding framework context where beneficial.\n"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 12.71,
+          "prompt_tokens": 0,
+          "completion_tokens": 402,
+          "tps": 31.6,
+          "time_to_first_token_s": 0.173,
+          "response_model": "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "\nAs a cybersecurity analyst, I'm looking at this scenario about SSH brute-force attacks detected by the SIEM.\nThe user wants me to be precise and cite frameworks like MITRE ATT&CK, so I'll draw from that.\nFirst, classify the threat: it's clearly an attack on authentication services, probably using credential harvesting or brute force techniques under tactics like TA0045.\n\nNow, break down my response into four parts as they asked \u2013 classification, immediate containment, detection rule writing, and root cause investigation.\n\nFor classification, I need to name a MITRE ATT&CK tactic and technique ID.\nSomething like Credential Access with T1097.001 would fit this brute-force scenario perfectly because it's about guessing operating system credentials using methods like SSH/FTP password spraying or simple enumeration.\n\nMoving on to immediate containment actions for the next 30 minutes.\nThis should be quick, focusing on user education and adjusting security controls without disrupting legitimate users.\nPerhaps suggest educating affected teams and enabling CrowdSec's blocklist feed with a threshold rule based on activity rate.\n\nDetection rules are another key element they want me to address.\nI'll describe how to write such a rule using SIEM tools or log analysis, specifically in Sigma format since it's commonly used for open-source endpoints.\nThey're targeting SSH port 22 from multiple IPs over time; I can use Windows.Sys.EventLog.AuditDataAccess and correlate count-based lookups with frequency limits.\n\nFinally, root cause questions to investigate \u2013 this means probing why the attack is happening effectively or if legitimate users are being blocked by CrowdSec rules.\nI should ask about user authentication patterns before the incident, how SSH traffic has changed post-vulnerability discovery or patching efforts, and check for brute-force thresholds in configs like fail2ban.\n\nOverall structure-wise, my response needs to be concise with just 2-3 sentences per point as instructed by the user themselves.\nI should ensure each section is clear: one sentence outlining actions while another delves deeper into the classification itself or the rationale behind containment measures without exceeding limits unnecessarily since cybersecurity analysts know that brevity leads towards effective reporting \u2013 but I'm allowed up to three sentences so let's expand a bit there.\n\nAssessing the user - they're testing my knowledge as an advanced AI, perhaps for training purposes. Their actual need might be learning how to handle such incidents with framework support which aids deeper understanding.\nDeeper unspoken needs could include wanting best practices embedded here or reassurance that immediate actions prevent major"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 12.64,
+          "prompt_tokens": 0,
+          "completion_tokens": 362,
+          "tps": 28.6,
+          "time_to_first_token_s": 0.167,
+          "response_model": "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M",
+          "response_text": "\nOkay, here's the analysis of the SSH brute-force scenario based on established cybersecurity frameworks:\n\n**1. Classification**\n\n*   **Tactic:** T1552 (Account Discovery)\n*   **Technique ID:** TA",
+          "reasoning_text": "\nFirst, the user is asking me as a cybersecurity analyst to analyze a specific scenario and provide a structured response with precise information, including citing frameworks like MITRE ATT&CK.\n<br>\nThe scenario involves repeated SSH brute-force attempts detected by SIEM from 47 unique IPs over two hours. Two of these IPs are on a CrowdSec blocklist, which is helpful for context.\n\nI'm starting by classifying this under the right MITRE ATT&CK framework. It's clearly an attack that uses brute-force methods against SSH services.\n<br>\nFrom my knowledge base, authentication issues often lead to brute-force credential harvesting, so I'll classify it as T1552 (Account Discovery) with technique ID TA0046 or something similar. Specifically, it matches the T1552.008 sub-technique for SSH password spraying.\n\nNext, they're asking for immediate containment actions in the first 30 minutes after detection.\n<br>\nContainment focuses on isolating affected systems to prevent spread and damage. Since this is a brute-force attack likely aimed at privilege escalation or credential dumping, I need to suggest actionable steps like quarantining servers or blocking IP ranges temporarily.\n\nFor detection rules, it should specify field names and logic for monitoring similar attacks. This could be based on events like \"event.dataset=ssh auth\" or \"auth.event_type=logon_event,\" using conditions such as unsuccessful authentication attempts and SSH protocol version details.\n<br>\nSuch a rule can help detect future brute-force incidents more effectively.\n\nNow, root cause investigation questions should guide the user to understand why this happened. This means not just how but what allowed it \u2013 was there misconfiguration? Weak passwords? Open firewall rules or VPN issues?\n<br>\n\nThe MITRE ATT&CK tactics and techniques I'm referencing are: T1552 for credential access via brute-force.\n<br>\nTechnique like SSH service with password authentication exposed to internet, which falls under TA0046 (Network Intrusion).\n<br>\nSub-techniques might include brute-force detection in CrowdSec or similar, but my response should tie back properly.\n\nThe user could be a junior analyst seeking structured guidance for an exam preparation question; I'm making sure the content is clear and authoritative to assist them effectively.\n"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "security",
+        "reasoning"
+      ]
+    },
+    {
+      "model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 31.0,
+      "min_tps": 29.2,
+      "max_tps": 32.7,
+      "stddev_tps": 1.27,
+      "cv": 0.041,
+      "avg_completion_tokens": 393,
+      "avg_elapsed_s": 12.66,
+      "avg_ttft_s": 0.241,
+      "routed_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
+      "prompt_category": "reasoning",
+      "quality_score": 1.0,
+      "tps_quality": 31.0,
+      "reasoning_mode": true,
+      "expected_model_match": true,
+      "expected_model_detail": "requested deepseek-r1-0528-qwen3-8b-gguf:q4_k_xl",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 12.8,
+          "prompt_tokens": 0,
+          "completion_tokens": 403,
+          "tps": 31.5,
+          "time_to_first_token_s": 0.514,
+          "response_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
+          "response_text": "",
+          "reasoning_text": "\nFirst, the hospital has 30 patients arriving per hour during peak hours. So, the arrival rate is 30 patients/hour.\n\nAverage treatment time is 45 minutes per patient. I need to convert this to hours for consistency: 45 minutes is 45/60 = 0.75 hours per patient.\n\nCurrent wait time is 3.5 hours. Wait time probably means the time patients spend waiting before they start being treated.\n\nNow, I need to identify the primary bottleneck among beds, doctors, or nurses. The ER has 8 beds, 3 doctors, and 12 nurses. A bottleneck is the resource that limits the overall capacity, so I should look at the service rate of each.\n\nService rate: how many patients can be treated with the available resources per hour.\n\nBut let's define what each resource means in this context. Beds are probably the capacity to hold patients, doctors are the ones who perform the treatments, and nurses might be involved in supporting the treatment process, like preparing materials or assisting, but I need to see what the bottleneck is based on.\n\nTypically, in queuing theory or process flow, the bottleneck is determined by the resource with the lowest service rate.\n\nSo, let's find the service rate for each:\n\n- Beds: There are 8 beds. But beds are about capacity to stay, not directly about treatment rate. The arrival rate is 30 per hour, and average treatment time is 0.75 hours, so with 8 beds, the maximum patients that can be treated simultaneously might be limited by the beds, but let's think carefully.\n\nIn an emergency room, the treatment process probably uses multiple beds, meaning that a bed can be occupied by multiple patients at the same time if they are in different stages, but no, beds are probably meant for each patient undergoing treatment. The average treatment time is given as 45 minutes per patient, so I think the beds are used per patient during treatment.\n\nPerhaps the beds are the beds where patients are treated or held. But the question says \"ER has 30 patients arriving per hour\", and \"average treatment time is 45 minutes\", so the wait time might be due to a lack of available beds for treatment.\n\nSimilarly, doctors and nurses might be needed for the treatment process.\n\nBut to identify the bottleneck, I should consider the treatment capacity.\n\nLet's think about the treatment rate.\n\nWith 3 doctors, if each doctor can treat one patient every "
+        },
+        {
+          "run": 2,
+          "elapsed_s": 12.5,
+          "prompt_tokens": 0,
+          "completion_tokens": 387,
+          "tps": 31.0,
+          "time_to_first_token_s": 0.171,
+          "response_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
+          "response_text": "",
+          "reasoning_text": "\nFirst, the hospital has 30 patients arriving per hour during peak hours. So, arrival rate is 30 patients/hour.\n\nAverage treatment time is 45 minutes per patient. That's 45/60 = 0.75 hours per patient.\n\nCurrent wait time is 3.5 hours. Wait time is the time patients spend waiting before treatment starts.\n\nI need to identify the primary bottleneck: beds, doctors, or nurses.\n\nThe bottleneck is the resource that limits the system's capacity, causing the long wait time.\n\nThere are 8 beds, 3 doctors, and 12 nurses. But the wait time is about beds, I think, because patients have to wait for a bed to be available.\n\nLet me think in terms of flow rate and capacity.\n\nArrival rate: 30 patients per hour.\n\nTreatment time: 0.75 hours per patient.\n\nIf there's no capacity constraint, the maximum service rate depends on the number of doctors and nurses, but the beds might be a constraint because treatment requires a bed.\n\nThe problem says \"beds, doctors, or nurses\", so I need to consider which one is the most binding.\n\nFirst, let's find the effective arrival rate considering the wait time.\n\nIn queuing theory, the wait time depends on the service rate compared to arrival rate.\n\nBut here, it's not specified that this is a queuing system; we're given current wait time, so perhaps we can infer from that.\n\nAssume that the bottleneck is determined by the system's ability to process patients.\n\nThere are three resources: beds, doctors, and nurses.\n\nBut doctors and nurses might be working together or separately. The problem doesn't specify, so I need to model this.\n\nAverage treatment time is 45 minutes, which is probably per patient, done by one doctor with help from nurses, but I think we should consider the entire treatment process requiring one \"treatment unit\", but with multiple staff.\n\nPerhaps beds are the limiting factor because there are only 8 beds.\n\nLet me calculate the maximum number of patients that can be treated per hour if we had unlimited doctors and nurses but limited to beds.\n\nEach bed can serve one patient at a time. So with 8 beds, the maximum service rate is number of beds / treatment time per patient, but since patients are treated sequentially per bed, the service rate per bed is 1/0.75 patients per hour, which is 4/3 \u2248 1.3"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 12.59,
+          "prompt_tokens": 0,
+          "completion_tokens": 412,
+          "tps": 32.7,
+          "time_to_first_token_s": 0.181,
+          "response_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
+          "response_text": "",
+          "reasoning_text": "\nFirst, the hospital emergency room has 30 patients arriving per hour during peak hours. So, the arrival rate is 30 patients/hour.\n\nThere are 8 beds, 3 doctors, and 12 nurses. But the question is about the bottleneck, and it might not be directly about the numbers, but about how they are used in the treatment process.\n\nThe average treatment time is 45 minutes per patient. Current wait time is 3.5 hours. Wait time probably means the time patients wait before they are treated, not the total time from arrival.\n\nThe primary bottleneck is one of the resources: beds, doctors, or nurses. I need to figure out which one is limiting the service capacity.\n\nTypically, in a hospital ER, the bottleneck might be the doctors or the beds, depending on how the system is set up. Beds might be where patients are kept while waiting for treatment, and doctors provide the actual treatment or consultation.\n\nBut the question says \"beds, doctors, or nurses,\" so I need to consider the utilization of each.\n\nPerhaps I need to think about the service rate. The service rate is the number of patients that can be treated per hour.\n\nTreatment time is 45 minutes, so one doctor or one nurse can treat one patient every 45 minutes? But it's not specified if one doctor needs to perform the treatment or if there are other roles.\n\nLet's read the question carefully: \"Average treatment time is 45 minutes per patient.\" But it doesn't say if this treatment time is per doctor or shared. I think it might be that doctors are the key bottleneck, with one doctor handling the treatment.\n\nBut there are also nurses. Maybe nurses assist in treatment? The question is to identify the bottleneck as one of beds, doctors, or nurses.\n\nBeds: there are 8 beds. Each bed can hold a patient. But in terms of capacity, beds aren't directly treating; they're just space. So probably, the treatment is taking place, and beds are for holding patients after arrival or something.\n\nLet's think about the process. Typically in an ER, patients arrive, are triaged, then treated by doctors or nurses, and are discharged or admitted. Here, beds might indicate the number of available spots for waiting or treatment.\n\nPerhaps the ER has limited beds for waiting, so the wait time is affected by bed availability.\n\nBut the bottleneck might be in the service process.\n\nLet me assume that the average treatment time includes the care provided"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 12.71,
+          "prompt_tokens": 0,
+          "completion_tokens": 371,
+          "tps": 29.2,
+          "time_to_first_token_s": 0.172,
+          "response_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
+          "response_text": "",
+          "reasoning_text": "\nFirst, the hospital has 30 patients arriving per hour during peak hours. So, that's 30 patients/hour.\n\nAverage treatment time is 45 minutes per patient. Since treatment time is in minutes, I should convert everything to the same units. Let's use hours for consistency. 45 minutes is 45/60 = 0.75 hours per patient.\n\nThe ER has 8 beds, 3 doctors, and 12 nurses. I need to identify the primary bottleneck among these, using math.\n\nA bottleneck is a resource that limits the system's capacity. For example, if the arrival rate exceeds the service rate of a particular resource, that resource is a bottleneck.\n\nI should calculate the capacity for each resource to compare with the arrival rate.\n\nCapacity of beds: Each bed can treat one patient at a time, and since there are 8 beds, the maximum number of patients that can be treated simultaneously is 8. But the average treatment time is 0.75 hours, so the service rate for beds is how many patients per hour can be treated with 8 beds?\n\nService rate per bed: 1 patient per 0.75 hours, so in one hour, a bed can treat 1 / 0.75 = 4/3 \u2248 1.333 patients per hour.\n\nWith 8 beds, total service rate = 8 * (4/3) = 32/3 \u2248 10.666 patients per hour.\n\nArrival rate is 30 patients per hour. So, if we have only beds as the resource, the service rate is about 10.67 patients per hour, but arrival is 30, so beds are way underserved, which would cause a long wait.\n\nBut we have doctors and nurses too. I need to consider the full process. What is the full process for a patient in ER?\n\nThe problem doesn't specify the roles beyond beds, doctors, and nurses. It just gives the average treatment time, which might be per patient, involving both doctors and nurses.\n\nPerhaps the treatment involves doctors, and nurses support, but I need to figure out how these resources interact.\n\nMaybe the bottleneck is determined by the limiting factor in the process. Since average treatment time is given as 45 minutes per patient, and typically treatment involves medical staff, but with beds.\n\nLet's think about the service capacity for doctors and nurses separately, but I"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 12.69,
+          "prompt_tokens": 0,
+          "completion_tokens": 391,
+          "tps": 30.8,
+          "time_to_first_token_s": 0.168,
+          "response_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
+          "response_text": "",
+          "reasoning_text": "\nFirst, I need to identify the primary bottleneck among beds, doctors, or nurses. The bottleneck is the resource that limits the service rate, causing the wait time to be high.\n\nGiven:\n\n- Patients arriving: 30 per hour\n\n- Average treatment time: 45 minutes per patient\n\n- Wait time: 3.5 hours\n\n- Resources: 8 beds, 3 doctors, 12 nurses\n\nI should think about the service capacity. The service capacity is the maximum number of patients per hour that can be treated, which depends on the treatment time.\n\nSince treatment time is 45 minutes per patient, how many patients can be treated per hour?\n\nThere are 60 minutes in an hour, so each patient takes 45 minutes. Therefore, the service capacity per doctor or per nurse is limited by their ability to provide treatment.\n\nBut there are multiple resources. Beds are for accommodation, doctors and nurses are for providing medical treatment.\n\nI think I need to model this as a queuing system or simply calculate the utilization rates.\n\nLet's start by finding the service rate in patients per hour.\n\nTreatment time: 45 minutes = 0.75 hours\n\nSo, one doctor can treat one patient every 0.75 hours, meaning the service rate for one doctor is 1 / 0.75 = 4/3 \u2248 1.333 patients per hour.\n\nBut doctors might work in teams, or is the treatment time individual? The problem says \"average treatment time is 45 minutes per patient,\" but it doesn't specify if doctors or nurses are the primary providers or if they work together.\n\nPerhaps all treatments are done by beds, but with doctors and nurses involved. I need to clarify what the bottleneck means.\n\nLet me assume that one doctor or one nurse can provide service at a rate of one patient every 45 minutes, but I'm not sure about that. The bottleneck is in the resources, so I need to find which resource has the highest utilization.\n\nUtilization is a ratio of arrival rate to service rate.\n\nFirst, let's find the arrival rate: 30 patients per hour.\n\nNow, service rate: If the bottleneck is in one resource, then the maximum service rate is determined by that resource.\n\nLet's consider each resource separately.\n\nStart with beds.\n\nThere are 8 beds. Each bed can be used to treat one patient every 45 minutes, so the service rate based on beds is (8 beds)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "reasoning"
+      ]
+    },
+    {
+      "model": "hermes3:8b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 34.6,
+      "min_tps": 33.6,
+      "max_tps": 36.5,
+      "stddev_tps": 1.11,
+      "cv": 0.032,
+      "avg_completion_tokens": 186,
+      "avg_elapsed_s": 5.36,
+      "avg_ttft_s": 0.174,
+      "routed_model": "hermes3:8b",
+      "prompt_category": "creative",
+      "quality_score": 0.5,
+      "tps_quality": 17.3,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested hermes3:8b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.85,
+          "prompt_tokens": 0,
+          "completion_tokens": 163,
+          "tps": 33.6,
+          "time_to_first_token_s": 0.338,
+          "response_model": "hermes3:8b",
+          "response_text": "The acrid stench of cheap whiskey and stale cigarettes choked the air in Dusk's Edge, a dimly lit dive off the beaten path where whispers found a willing eavesdropper. I eased myself onto a rickety stool at the bar, nursing my bottle of memories with the others, their echoes like a symphony only audible to those who'd once danced to the music.\n\nA gruff voice cut through my musings, \"You Jake Carpenter, private dick?\" I nodded, not bothering to correct his assessment. He slid across a faded envelope\u2014a wad of memory chips nestled in its creases. The scent of someone else's life wafted off it. \"My wife's memories of her first love,\" he gritted through teeth, eyes spitting venom. \"She traded them for the ones we got married with. Stolen now.\"\n\nA tight band cinched around my chest, recognition twisting its way into my consciousness\u2014I'd never forget those memories. They were mine. I swallowed hard, my future a tangle of wires and echoes."
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.5,
+          "prompt_tokens": 0,
+          "completion_tokens": 189,
+          "tps": 34.4,
+          "time_to_first_token_s": 0.15,
+          "response_model": "hermes3:8b",
+          "response_text": "Sheets of rain drummed against the window like a thousand impatient hands, casting jagged shadows that danced across the dimly lit room. Detective Lila Novak's smoke-fogged mirror reflected her haggard features as she poured another shot of whiskey, watching the amber liquid swirl and ignite in the glass like a flame-crowned serpent.\n\nThe knock at her door was sharp and insistent\u2014a fist pounding an impatient rhythm. She didn't need to see who it was; those heels had followed her beat across every sordid corner of this city. With a sigh heavy enough to drown a small dog, Lila rose, tugging her robe around herself like a flimsy shield against the world's unrelenting grind.\n\n\"Cinderella done turned into Cinder-forsaken-wild,\" she muttered, snatching her coat from its hook and wrenching open the door with enough force to make the jangling dance of her doorbell befittingly apologetic. But there was nothing repentant in the eyes of her visitor\u2014a tall man with the sun-browned skin of a sailor and the mean-as-hell glitter of a career con artist. \"You got something for me, or you just wanna rattle my chains all night?\"\n\nHe flashed"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.48,
+          "prompt_tokens": 0,
+          "completion_tokens": 200,
+          "tps": 36.5,
+          "time_to_first_token_s": 0.127,
+          "response_model": "hermes3:8b",
+          "response_text": "The neon signs flickered like dying light bulbs in the sleazy underbelly of Memory City, their eerie glow casting jagged shadows across crumbling facades and rain-soaked streets. Trench coats flapping in the biting wind, I stepped out of my beat-up car, slamming the door with a resounding thump that echoed through the desolate alleyways.\n\nI was there to see Drift \u2013 kingpin of the memory trade \u2013 and the man who'd taken something he shouldn't have: my past. It had been erased from my mind without my permission, sold by an anonymous seller on the black market of cognition. My own life pilfered for profit. The very thought turned my stomach.\n\nI didn't bother knocking. Instead, I kicked open the door to Drift's dimly lit office, my boots splashing in a puddle that spread like a filthy stain across the peeling linoleum floor. Behind the desk, Drift looked up from his stack of memory blueprints with eyes that narrowed at the sight of me \u2013 a lone wolf tracker who never came without a purpose.\n\n\"Solve my case,\" I said, voice dripping with grit as another gust whipped rain through the grimy window glass, \"or we have a problem.\"\n\nDr"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 5.48,
+          "prompt_tokens": 0,
+          "completion_tokens": 189,
+          "tps": 34.5,
+          "time_to_first_token_s": 0.126,
+          "response_model": "hermes3:8b",
+          "response_text": "The smog-choked streets of Neo-Noir City gleamed an oily yellow under the flickering streetlamps. Detective Jack Rove stumbled out of Lumen's Diner, his trenchcoat heavy with the weight of the unspoken truth burning a hole in his mind. Memories traded like currency, and he'd just been swindled.\n\nA dame in a tight red dress sauntered toward him, her high-heeled shoes clicking against the cracked pavement. \"Got a case for you, sweetheart,\" she purred, smoke trailing from her painted lips. \"The job pays well if you can handle it.\"\n\nJack's eyes narrowed as he took a long drag from his cigarette. She was trouble, but trouble paid better than anything else in Neo-Noir City. He let the smoke curl from his nostrils before replying, voice low and gravelly. \"What's the mark?\"\n\nThe dame smirked, her green eyes glinting with a secretive gleam. \"A memory, baby. And it might just be your most interesting case yet.\"\n\nJack frowned as he realized what she said. \"It wouldn't happen to be\u2026 my own memory that went missing?\" He knew he was reaching for it the moment the words left his lips. The realization"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.48,
+          "prompt_tokens": 0,
+          "completion_tokens": 187,
+          "tps": 34.1,
+          "time_to_first_token_s": 0.128,
+          "response_model": "hermes3:8b",
+          "response_text": "The neon lights of Memory Lane pulsated like an angry blue vein against the night sky. I stumbled down the worn concrete path, my shoes sinking into a sea of forgotten footsteps. In this city, memories were currency\u2014purchasable, tradeable, extractible.\n\nMr. Memento, the old hag in her tiny storefront window, greeted me with a toothless grin. \"Got your notice, boy,\" she cackled, flipping through a leather-bound journal filled with faded parchment pages. \"Seems you've lost something.\"\n\nI shoved a buck into her gnarled hand, buying herself for another minute. \"It's not mine.\"\n\nBut it was. The memory I sought was the same one etched inside my skull, haunting me day and night\u2014a faceless betrayal that left me blackmailed and broken in this cold, cruel world.\n\nShe flipped faster, frustration making her tremble. Suddenly, she stopped and tapped a page with a weathered nail. \"Here it is.\" She held out the scrap\u2014and as our fingers touched, I felt an electric jolt, like the shock of my life. This piece of paper wasn't just worth money\u2014it was me.\n\nThe hook:\nWith trembling hands, I snatched the parchment from her"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "creative"
+      ]
+    },
+    {
+      "model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 95.5,
+      "min_tps": 89.7,
+      "max_tps": 100.0,
+      "stddev_tps": 3.79,
+      "cv": 0.04,
+      "avg_completion_tokens": 187,
+      "avg_elapsed_s": 1.96,
+      "avg_ttft_s": 0.172,
+      "routed_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+      "prompt_category": "creative",
+      "quality_score": 1.0,
+      "tps_quality": 95.5,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested lfm2.5-8b-a1b-uncensored-gaston-gguf:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 2.04,
+          "prompt_tokens": 0,
+          "completion_tokens": 183,
+          "tps": 89.7,
+          "time_to_first_token_s": 0.272,
+          "response_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "\nWe need to produce opening scene exactly 8-10 sentences. Narrative voice strong, creative writer. Noir detective story set in city where memories can be extracted and traded as currency. Detective hired to find stolen memory \u2014 but it belongs to the detective themselves. End scene on a hook. Use vivid sensory details and short, punchy sentences.\n\nConstraints: 8-10 sentences inclusive. Must end on a hook (i.e., a question or cliffhanger). Use vivid sensory details, short punchy sentences. No extra commentary. No markdown unless asked (not). So plain text with period punctuation.\n\nWe need to count sentences. Let's craft maybe 9 sentences.\n\nSentences must be short and punchy. Use noir vibe. Include sensory details: rain, neon, smells, etc. Memory extraction trade, city vibe.\n\nLet's draft:\n\n1. The rain fell like cold needles on the pavement.\n2. Neon signs flickered above pawnshops that sold dreams for a handful of credits.\n3. My office smelled of stale coffee and old tape reels.\n4. A case file lay on my desk, its edges frayed by cheap cigarettes.\n5. The client\u2019s voice was a whisper in my ear"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 183,
+          "tps": 96.1,
+          "time_to_first_token_s": 0.138,
+          "response_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "\nWe need to produce an opening scene exactly 8-10 sentences, with strong narrative voice, noir detective story set in a city where memories can be extracted and traded as currency. Detective hired to find a stolen memory \u2014 but that memory belongs to the detective themselves. End the scene on a hook. Use vivid sensory details and short, punchy sentences.\n\nConstraints: 8-10 sentences inclusive. Must end with a hook (some unresolved question or twist). Use vivid sensory details, short punchy sentences. No extra commentary. No markdown unless asked (not asked). So plain text.\n\nWe need to ensure exactly 8-10 sentences. Let's aim for 9 sentences maybe. Each sentence should be relatively short, punchy. Include noir vibe, memory extraction city, detective hired, stolen memory belongs to them. End on a hook: perhaps \"My own past is empty.\" Or \"The missing fragment was my own.\" Something like that.\n\nWe need sensory details: rusted neon, fog, whiskey smell, static hum, etc.\n\nLet's craft:\n\n1. Rain hammered the cracked pavement as I stalked the underbelly of memory-market.\n2. Neon signs flickered above stalls selling stolen moments for"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.91,
+          "prompt_tokens": 0,
+          "completion_tokens": 191,
+          "tps": 100.0,
+          "time_to_first_token_s": 0.138,
+          "response_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "\nWe need to produce opening scene exactly 8-10 sentences. Creative writer voice, noir detective story, city where memories can be extracted and traded as currency. Detective hired to find stolen memory \u2014 but it belongs to the detective themselves. End on a hook. Use vivid sensory details and short, punchy sentences.\n\nConstraints: length: 8-10 sentences inclusive. Must end on a hook (maybe something like \"And that was when I realized my own past had been sold\").\n\nWe need to ensure we have exactly 8-10 sentences. Let's aim for 9 sentences perhaps, or 8. Use short, punchy sentences. No extra commentary. No markdown unless asked; they didn't ask for formatting, so plain text.\n\nWe must include vivid sensory details: smell of rain, neon, copper, etc. The city where memories can be extracted and traded as currency. Detective hired to find a stolen memory \u2014 but it belongs to the detective themselves. So maybe \"You walk into a dim office...\" End hook like \"Your own past is now gone.\"\n\nMake sure each sentence ends with period (or appropriate punctuation). Use noir style.\n\nLet's draft 9 sentences:\n\n1. Rain hammered the alleys, turning neon"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 2.0,
+          "prompt_tokens": 0,
+          "completion_tokens": 194,
+          "tps": 97.0,
+          "time_to_first_token_s": 0.138,
+          "response_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "\nThe user wants: \"Write the opening scene (exactly 8-10 sentences) of a noir detective story set in a city where memories can be extracted and traded as currency. The detective has just been hired to find a stolen memory \u2014 but it belongs to the detective themselves. End the scene on a hook. Use vivid sensory details and short, punchy sentences.\"\n\nConstraints:\n\n- Exactly 8-10 sentences.\n- Must end with a hook (i.e., an unresolved question or cliffhanger).\n- Use vivid sensory details and short, punchy sentences.\n- No extra commentary, no markdown unless asked (they didn't ask). So plain text.\n\nWe need to count sentences. Let's aim for 9 sentences maybe. Or 8 if needed. Must be noir style, memory extraction and trading as currency. Hired detective finds a stolen memory that belongs to the detective themselves. End on a hook: perhaps something like \"When he opened his coat pocket, it was empty \u2014 except for a single, bloodstained note.\" Or \"The missing piece of his own past is hidden in the vault of someone else's mind.\" Must be short punchy sentences.\n\nWe need vivid sensory details: smell of rain, neon, stale coffee"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 1.95,
+          "prompt_tokens": 0,
+          "completion_tokens": 184,
+          "tps": 94.6,
+          "time_to_first_token_s": 0.176,
+          "response_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "\nWe need to produce exactly 8-10 sentences opening scene of noir detective story set in city where memories can be extracted and traded as currency. Detective hired to find stolen memory \u2014 but it belongs to the detective themselves. End on a hook. Use vivid sensory details and short, punchy sentences.\n\nConstraints: 8-10 sentences total. Must end with a hook (i.e., a cliffhanger). Short, punchy sentences; vivid sensory details. No extra commentary. No markdown unless requested. So plain text.\n\nWe need to ensure we have between 8 and 10 sentences inclusive. Let's aim for 9 sentences perhaps to leave room.\n\nSentences must be short and punchy, but with sensory details: smell of ozone, dim neon, etc. Need noir vibe. Also mention memory extraction trading as currency, detective hired to find stolen memory that belongs to him (so his own memory). End on a hook.\n\nLet's craft 9 sentences:\n\n1. Rain hammered the chrome streets.\n2. Neon flickered like dying fireflies over wet pavement.\n3. I sat in my office, cigar smoke curling into the dark.\n4. The client\u2019s voice was static: \u201cI lost something.\u201d\n"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "creative"
+      ]
+    },
+    {
+      "model": "huihui_ai/qwen3.5-abliterated:9b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 17.8,
+      "min_tps": 16.5,
+      "max_tps": 18.5,
+      "stddev_tps": 0.77,
+      "cv": 0.043,
+      "avg_completion_tokens": 130,
+      "avg_elapsed_s": 7.28,
+      "avg_ttft_s": 0.297,
+      "routed_model": "huihui_ai/qwen3.5-abliterated:9b",
+      "prompt_category": "general",
+      "quality_score": 0.71,
+      "tps_quality": 12.6,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested qwen3.5-abliterated:9b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 7.42,
+          "prompt_tokens": 0,
+          "completion_tokens": 137,
+          "tps": 18.5,
+          "time_to_first_token_s": 0.486,
+          "response_model": "huihui_ai/qwen3.5-abliterated:9b",
+          "response_text": "",
+          "reasoning_text": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Task: List the 7 OSI model layers from bottom to top.\n    *   Content per layer: 1) Layer number, 2) Standard name, 3) One example protocol/technology.\n    *   Format: Numbered list with one line per layer.\n    *   Constraint: Answer concisely.\n\n2.  **Identify the Data:**\n    *   Layer 7 (Top): Application - HTTP\n    *   Layer 6: Presentation - SSL/TLS (or JPEG) - Let's go with SSL/TLS for networking focus, or just keep it simple like JPEG. Actually, UDP at layer 4 is common, but presentation handles formatting. Let's stick to classic examples.\n    *   Layer 5: Session - NETBIOS or NTP - NTP/Netbios.\n    *   Layer 4: Transport - TCP\n    *   Layer 3: Network - IP\n    *   Layer 2: Data Link - Ethernet (MAC)\n    *   Layer 1 (Bottom): Physical - Fiber optic/Copper\n\n3.  **Draft the List:**"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 7.2,
+          "prompt_tokens": 0,
+          "completion_tokens": 119,
+          "tps": 16.5,
+          "time_to_first_token_s": 0.247,
+          "response_model": "huihui_ai/qwen3.5-abliterated:9b",
+          "response_text": "",
+          "reasoning_text": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Task: List the 7 OSI model layers from bottom to top.\n    *   Content per layer: 1) Layer number, 2) Standard name, 3) One example protocol/technology.\n    *   Format: Numbered list with one line per layer.\n    *   Constraint: Answer concisely.\n\n2.  **Recall OSI Model Layers (Bottom to Top):**\n    *   1: Physical\n    *   2: Data Link\n    *   3: Network\n    *   4: Transport\n    *   5: Session\n    *   6: Presentation\n    *   7: Application\n\n3.  **Select Example Protocols/Tech:**\n    *   Physical: Ethernet, Fiber Optic, Cable (Let's use \"Ethernet\" or \"Copper\").\n    *   Data Link: MAC addresses. Protocols: EtherneII (wait, that's physical/link), ARP, PPP, VLAN/802.3. Let's pick \"MAC Address/Ethernet II\". Or just \"MAC\". Actually, Ethernet is often associated with Physical too"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 7.2,
+          "prompt_tokens": 0,
+          "completion_tokens": 131,
+          "tps": 18.2,
+          "time_to_first_token_s": 0.249,
+          "response_model": "huihui_ai/qwen3.5-abliterated:9b",
+          "response_text": "",
+          "reasoning_text": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Task: List the 7 OSI model layers from bottom to top.\n    *   Content per layer: 1) Layer number, 2) Standard name, 3) Example protocol/technology.\n    *   Format: Numbered list, one line per layer (concise).\n\n2.  **Retrieve Knowledge (OSI Model):**\n    *   Bottom-up order: Physical -> Data Link -> Network -> Transport -> Session -> Presentation -> Application.\n    *   Numbers: 1 to 7 respectively.\n\n3.  **Draft the List:**\n    *   Layer 1: Physical - Example: Ethernet/Dual-Link Cable/Bluetooth\n    *   Layer 2: Data Link - Example: MAC Address, ARP, IEEE 802\n    *   Layer 3: Network - Example: IP (IPv4)\n    *   Layer 4: Transport - Example: TCP or UDP\n    *   Layer 5: Session - Example: NetBIOS, SIP, RPC\n    *   Layer 6: Presentation - Example: SSL/TLS, JPEG, ASCII\n    *   Layer 7: Application"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 7.25,
+          "prompt_tokens": 0,
+          "completion_tokens": 129,
+          "tps": 17.8,
+          "time_to_first_token_s": 0.249,
+          "response_model": "huihui_ai/qwen3.5-abliterated:9b",
+          "response_text": "",
+          "reasoning_text": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Task: List the 7 OSI model layers from bottom to top.\n    *   Required Elements for each layer: Layer Number, Standard Name, One Example Protocol/ Technology.\n    *   Format: Numbered list with one line per layer.\n    *   Constraint: Answer concisely.\n\n2.  **Draft the Content:**\n    *   Layer 1 (Bottom): Physical - Ethernet/Cable\n    *   Layer 2: Data Link - MAC Address/Hub/Switch/Fiber\n    *   Layer 3: Network - IP/Routing\n    *   Layer 4: Transport - TCP/UDP\n    *   Layer 5: Session - NetBIOS/NPS/Diameter\n    *   Layer 6: Presentation - JPEG/GIF/MPEG (or SSL/TLS)\n    *   Layer 7 (Top): Application - HTTP/SMTP/DNS\n\n3.  **Refine for Conciseness:**\n    *   Keep it clean. One line per layer means minimizing vertical whitespace but keeping the three data points together.\n    *   Check \"Standard Name\": Physical, Data Link, etc., are"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 7.33,
+          "prompt_tokens": 0,
+          "completion_tokens": 132,
+          "tps": 18.0,
+          "time_to_first_token_s": 0.254,
+          "response_model": "huihui_ai/qwen3.5-abliterated:9b",
+          "response_text": "",
+          "reasoning_text": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Task: List the 7 OSI model layers from bottom to top.\n    *   Content per layer: 1) Layer number, 2) Standard name, 3) Example protocol/technology.\n    *   Format: Numbered list with one line per layer.\n    *   Tone: Helpful assistant (concise).\n\n2.  **Recall OSI Model Layers:**\n    *   Bottom (Layer 1): Physical (Cables, Bits) -> Ethereal/CSMA CD? Let's say Ethernet.\n    *   Layer 2: Data Link (MAC addresses) -> Ethernet or HDLC.\n    *   Layer 3: Network (Logical addressing) -> IP.\n    *   Layer 4: Transport (End-to-end) -> TCP/UDP.\n    *   Layer 5: Session (Sessions) -> NetBIOS/NFS/SIP? Or just generic \"Session\". Let's pick NetBIOS or NFS. Actually, often session is abstract, so maybe HTTP (though HTTP is L7). Better to stick with specific: NBS or RPC. Or just keep it general like \"NetBIOS"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 5.4,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "qwen3.5:9b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 18.6,
+      "min_tps": 16.9,
+      "max_tps": 20.6,
+      "stddev_tps": 1.51,
+      "cv": 0.081,
+      "avg_completion_tokens": 137,
+      "avg_elapsed_s": 7.37,
+      "avg_ttft_s": 0.329,
+      "routed_model": "qwen3.5:9b",
+      "prompt_category": "coding",
+      "quality_score": 0.67,
+      "tps_quality": 12.5,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested qwen3.5:9b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 7.59,
+          "prompt_tokens": 0,
+          "completion_tokens": 148,
+          "tps": 19.5,
+          "time_to_first_token_s": 0.635,
+          "response_model": "qwen3.5:9b",
+          "response_text": "",
+          "reasoning_text": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   **Task:** Write a Python function `merge_intervals`.\n    *   **Input:** A list of tuples `(start, end)` integers representing intervals.\n    *   **Output:** A new list of merged intervals (list of tuples).\n    *   **Requirements:**\n        *   Clean, production-quality code.\n        *   Include type hints.\n        *   Include a docstring explaining the algorithm and edge cases.\n        *   Handle edge cases: empty list, single interval, fully overlapping.\n        *   Return *only* the function (no extra explanation outside the docstring).\n\n2.  **Determine the Algorithm:**\n    *   The standard approach for merging intervals is sorting first by start time.\n    *   Iterate through the sorted intervals.\n    *   Keep track of a `current_interval` variable initialized with the first interval.\n    *   For each subsequent interval:\n        *   If its start < current end (overlapping), update current end to max(current end, next end).\n        *   If its start >= current end (non-overlapping), add current interval to result and move `current"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 7.25,
+          "prompt_tokens": 0,
+          "completion_tokens": 126,
+          "tps": 17.4,
+          "time_to_first_token_s": 0.249,
+          "response_model": "qwen3.5:9b",
+          "response_text": "",
+          "reasoning_text": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Task: Write a Python function `merge_intervals`.\n    *   Input: A list of tuples, where each tuple is `(start, end)`.\n        *   Assumption based on typical interval problems: `start` <= `end`. Intervals might overlap or be adjacent.\n        *   Example given: `[(1,3),(2,6),(8,10),(15,18)]` -> `[(1,6),(8,10),(15,18)]`. This implies sorting is needed to process overlaps easily (e.g., `(1,3)` and `(2,6)` are overlapping if we consider continuous time). Note: The example merges 1-3 and 2-6 into 1-6. Usually, intervals `[a, b]` are considered merged with `[b+0.5?, c]` or simply `if next_start <= current_end`. Standard convention for inclusive integers vs floats usually depends on context, but LeetCode-style interval merging typically assumes continuous ranges where overlapping if `next.start < prev.end + 1` (for integer points) OR `next.start <= prev.end`"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 7.32,
+          "prompt_tokens": 0,
+          "completion_tokens": 151,
+          "tps": 20.6,
+          "time_to_first_token_s": 0.25,
+          "response_model": "qwen3.5:9b",
+          "response_text": "",
+          "reasoning_text": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Task: Write a Python function `merge_intervals`.\n    *   Input: A list of tuples, where each tuple is `(start, end)` integers.\n    *   Output: A new list of merged intervals (tuples).\n    *   Requirements: Clean, production-quality code, type hints, docstring with algorithm explanation, handle edge cases (empty list, single interval, fully overlapping), return only the function code (no external commentary outside the docstring/function body as requested implicitly by \"Return only the function\").\n\n2.  **Determine Algorithm:**\n    *   Sorting is key here. If intervals are sorted by start time, we can iterate through them linearly.\n    *   Maintain a `current_start` and `current_end`.\n    *   Initialize with the first interval (or handle empty input).\n    *   For each subsequent interval:\n        *   If it overlaps or is adjacent to the current one (`interval.start <= current.end`), extend the merge end (`max(current_end, interval.end)`). Note: Usually \"adjacent\" means `start == end`, but sometimes strictly overlapping. The example `(1,3"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 7.34,
+          "prompt_tokens": 0,
+          "completion_tokens": 124,
+          "tps": 16.9,
+          "time_to_first_token_s": 0.252,
+          "response_model": "qwen3.5:9b",
+          "response_text": "",
+          "reasoning_text": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Task: Write a Python function `merge_intervals`.\n    *   Input: List of tuples `(start, end)`, where integers represent start and end values (inclusive or exclusive? Usually, interval merging implies inclusive on one side or standard closed/open intervals. The example `(1,3),(2,6)` -> `(1,6)` suggests overlapping `[a,b]` and `[c,d]`. If `b >= c`, they overlap/adjacent depending on definition. Standard LeetCode style usually merges if current.start <= prev.end + 1 for integers (treating as points) or simply `current.start <= prev.end` for continuous ranges. Looking at the example: `(1,3)` and `(2,6)` merge to `(1,6)`. Here end=3, next start=2. Since $2 \\le 3$, they overlap. So standard merging logic applies).\n    *   Output: List of merged tuples.\n    *   Example Input: `[(1,3),(2,6),(8,10),(15,18)]`\n    *   Expected Output: `[(1,6),(8,"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 7.37,
+          "prompt_tokens": 0,
+          "completion_tokens": 138,
+          "tps": 18.7,
+          "time_to_first_token_s": 0.258,
+          "response_model": "qwen3.5:9b",
+          "response_text": "",
+          "reasoning_text": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   **Task:** Write a Python function called `merge_intervals`.\n    *   **Input:** A list of tuples, where each tuple contains two integers `(start, end)`. Represents intervals.\n    *   **Output:** A new list of merged non-overlapping intervals (list of tuples).\n    *   **Constraints:**\n        *   Clean, production-quality code.\n        *   Include type hints.\n        *   Include a docstring explaining the algorithm.\n        *   Handle edge cases: empty list, single interval, fully overlapping.\n        *   Output only the function (no external text/explanation outside the docstring).\n\n2.  **Determine the Algorithm:**\n    *   The standard approach for merging intervals is sorting by start time first.\n    *   Iterate through the sorted intervals.\n    *   Keep a `current_start` and `current_end`.\n        *   If there's overlap between current interval and next, extend `current_end`.\n        *   There's no overlap: save/currently merged interval to result list, start new one.\n    *   Complexity: $O(N \\log N)$"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 5.4,
+      "groups": [
+        "coding"
+      ]
+    },
+    {
+      "model": "omnicoder2:9b-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 20.8,
+      "min_tps": 19.9,
+      "max_tps": 21.9,
+      "stddev_tps": 0.8,
+      "cv": 0.038,
+      "avg_completion_tokens": 162,
+      "avg_elapsed_s": 7.79,
+      "avg_ttft_s": 0.654,
+      "routed_model": "omnicoder2:9b-q4_k_m",
+      "prompt_category": "coding",
+      "quality_score": 0.83,
+      "tps_quality": 17.3,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested omnicoder2:9b-q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 7.66,
+          "prompt_tokens": 0,
+          "completion_tokens": 168,
+          "tps": 21.9,
+          "time_to_first_token_s": 0.62,
+          "response_model": "omnicoder2:9b-q4_k_m",
+          "response_text": "```python\nfrom typing import List, Tuple\n\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merges a list of overlapping intervals into a single list of non-overlapping intervals.\n    \n    Algorithm explanation:\n    1. If the input is empty or contains a single interval, return it as-is.\n    2. Sort intervals by their start time to process in order.\n    3. Iterate through sorted intervals and merge overlapping ones:\n       - Maintain a running 'merged' list starting with the first interval\n       - For each subsequent interval, compare its start to the last merged interval's end:\n         \u2022 If they overlap (prev_end >= next_start), extend the merged interval's end if needed",
+          "reasoning_text": "The user wants me to write a Python function that merges overlapping intervals. This is a classic problem from LeetCode style problems.\n\nKey considerations:\n1. Sort intervals by start time first\n2. Merge overlapping intervals by comparing current interval's end with next interval's start\n3. Handle edge cases: empty list, single interval, fully overlapping\n\nLet me write clean, production-quality code with proper type hints and documentation.\n"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 7.69,
+          "prompt_tokens": 0,
+          "completion_tokens": 158,
+          "tps": 20.5,
+          "time_to_first_token_s": 0.633,
+          "response_model": "omnicoder2:9b-q4_k_m",
+          "response_text": "```python\nfrom typing import List, Tuple\n\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merges overlapping intervals from a list of interval tuples.\n\n    Algorithm:\n    1. Sort intervals by their start values (ascending).\n    2. Iterate through sorted intervals maintaining a 'current_merged' tuple.\n    3. If the current interval's start <= merged end, they overlap \u2192 extend end if needed.\n    4. If no overlap, store completed merged interval and start fresh.\n\n    Edge cases handled:\n        - Empty",
+          "reasoning_text": "The user wants a Python function that merges overlapping intervals. This is a classic problem:\n\n1. Sort intervals by start time\n2. Iterate through sorted intervals\n3. Keep track of current merged interval (current_start, current_end)\n4. If next interval's start <= current_end, merge them (extend end if needed)\n5. Otherwise, add the completed merged interval and start a new one\n\nLet me write clean production-quality code with:\n- Type hints\n- Docstring explaining the algorithm\n- Edge case handling (empty list, single interval, fully overlapping)\n"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 7.77,
+          "prompt_tokens": 0,
+          "completion_tokens": 166,
+          "tps": 21.4,
+          "time_to_first_token_s": 0.656,
+          "response_model": "omnicoder2:9b-q4_k_m",
+          "response_text": "```python\nfrom typing import List, Tuple\n\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals from the given list.\n\n    Algorithm explanation:\n    1. Sort intervals by their start values to ensure we process them in order.\n       This is critical for O(n log n) time complexity and correctness.\n    2. Iterate through sorted intervals, merging when they overlap or are adjacent.\n    3. Two intervals overlap if the next interval's start <=",
+          "reasoning_text": "The user wants me to write a Python function called `merge_intervals` that:\n1. Takes a list of tuples (start, end)\n2. Returns merged intervals where overlapping ones are combined\n3. Include type hints, docstring with algorithm explanation\n4. Handle edge cases (empty list, single interval, fully overlapping)\n\nAlgorithm:\n1. Sort intervals by start time\n2. Iterate through sorted intervals\n3. Keep track of current merged interval\n4. If next interval overlaps or touches current, merge them\n5. Otherwise, add current to result and move to next\n\nLet me write clean, production-quality code with proper type hints.\n"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 7.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 157,
+          "tps": 19.9,
+          "time_to_first_token_s": 0.676,
+          "response_model": "omnicoder2:9b-q4_k_m",
+          "response_text": "```python\nfrom typing import List, Tuple\n\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals.\n\n    Takes a list of interval tuples (start, end) and returns a new list \n    with overlapping intervals merged into one. Intervals are closed [start, end],\n    so two intervals overlap if the start of one is less than or equal to the \n    end of another. For example: (1,3) and (2,6) overlap to become (1,6).\n\n    Algorithm:\n        1. Sort intervals by their start values\n        2. Iterate through sorted intervals and merge overlapping ones:\n           - Keep track of current merged interval (current_start, current_end)\n           - If next interval's start <= current_end, they overlap: expand",
+          "reasoning_text": "I need to write a Python function `merge_intervals` that merges overlapping intervals. The approach:\n\n1. Sort intervals by start time\n2. Iterate through sorted intervals and merge overlapping ones\n3. Handle edge cases (empty list works naturally with my logic)\n\nLet me write clean, production-quality code with proper type hints and documentation.\n"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 7.92,
+          "prompt_tokens": 0,
+          "completion_tokens": 162,
+          "tps": 20.5,
+          "time_to_first_token_s": 0.683,
+          "response_model": "omnicoder2:9b-q4_k_m",
+          "response_text": "```python\nfrom typing import List, Tuple\n\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"Merge overlapping intervals in a list of (start, end) pairs.\n    \n    This function sorts the input intervals by start time and iterates through them,\n    merging any intervals that overlap or touch each other. Two intervals are considered\n    overlapping if the current interval's start is less than or equal to the merged\n    interval's end.\n\n    Args:\n        intervals: A list of tuples where each tuple contains (start, end) integers.\n                   The intervals can be in any order initially.\n    \n    Returns:\n        A new list with overlapping intervals merged. Each tuple represents a \n        non-overlapping range defined by their start and end values.\n\n    Examples:\n        >>> merge_intervals([(1,",
+          "reasoning_text": "I need to write a Python function that merges overlapping intervals. The standard approach is:\n\n1. Sort intervals by start time\n2. Iterate through sorted intervals and merge when overlap exists\n3. Handle edge cases (empty list, single interval, etc.)\n\nLet me write clean, production-quality code with proper type hints and documentation.\n"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 5.4,
+      "groups": [
+        "coding"
+      ]
+    },
+    {
+      "model": "portal5/gemma4-12b:q4_K_M-ctx8k",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 11.4,
+      "min_tps": 10.6,
+      "max_tps": 12.5,
+      "stddev_tps": 0.71,
+      "cv": 0.062,
+      "avg_completion_tokens": 125,
+      "avg_elapsed_s": 11.02,
+      "avg_ttft_s": 0.724,
+      "routed_model": "portal5/gemma4-12b:q4_K_M-ctx8k",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 11.4,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested gemma4-12b:q4_k_m-ctx8k",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 10.86,
+          "prompt_tokens": 0,
+          "completion_tokens": 136,
+          "tps": 12.5,
+          "time_to_first_token_s": 0.712,
+          "response_model": "portal5/gemma4-12b:q4_K_M-ctx8k",
+          "response_text": "",
+          "reasoning_text": "*   Role: Helpful assistant.\n    *   Task: List the 7 OSI model layers from bottom to top.\n    *   Details for each layer: 1) Layer number, 2) Standard name, 3) Example protocol/technology.\n    *   Formatting constraint: Numbered list with one line per layer.\n    *   Requirement: Answer concisely.\n\n    *   Layer 1: Physical - Ethernet (or Hubs/Cables)\n    *   Layer 2: Data Link - Ethernet (Switching), MAC, PPP\n    *   Layer 3: Network - IP (IPv4/v6), ICMP, IPX\n    *   Layer 4: Transport - TCP, UDP\n    *   Layer 5: Session - NetBIOS, RPC\n    *   Layer 6: Presentation - SSL/TLS, ASCII, JPEG (note: TLS is often argued for higher layers, but usually associated with presentation/application in OSI context) -> Let's stick to a clear one like MIME or TLS.\n    *   Layer 7: Application - HTTP, FTP, SMTP\n\n    1. Layer 1: Physical - Ethernet (Hardware)\n    2."
+        },
+        {
+          "run": 2,
+          "elapsed_s": 10.94,
+          "prompt_tokens": 0,
+          "completion_tokens": 116,
+          "tps": 10.6,
+          "time_to_first_token_s": 0.707,
+          "response_model": "portal5/gemma4-12b:q4_K_M-ctx8k",
+          "response_text": "",
+          "reasoning_text": "*   Context: Helpful assistant.\n    *   Constraint: Answer concisely.\n    *   Task: List 7 OSI model layers from bottom to top.\n    *   Details for each layer: 1) Layer number, 2) Standard name, 3) One example protocol/technology.\n    *   Format: Numbered list with one line per layer.\n\n    *   Layer 1: Physical (e.g., Ethernet, USB, Fiber)\n    *   Layer 2: Data Link (e.g., Ethernet, Switch, MAC)\n    *   Layer 3: Network (e.g., IP, ICMP, Router)\n    *   Layer 4: Transport (e.g., TCP, UDP)\n    *   Layer 5: Session (e.g., NetBIOS, RPC)\n    *   Layer 6: Presentation (e.g., SSL/TLS, JPEG)\n    *   Layer 7: Application (e.g., HTTP, FTP, SMTP)\n\n    1. Layer 1: Physical - Ethernet\n    2. Layer 2: Data Link - MAC\n    3. Layer 3: Network - IP\n    "
+        },
+        {
+          "run": 3,
+          "elapsed_s": 11.03,
+          "prompt_tokens": 0,
+          "completion_tokens": 121,
+          "tps": 11.0,
+          "time_to_first_token_s": 0.72,
+          "response_model": "portal5/gemma4-12b:q4_K_M-ctx8k",
+          "response_text": "",
+          "reasoning_text": "*   Role: Helpful assistant.\n    *   Constraint: Answer concisely.\n    *   Task: List the 7 OSI model layers from bottom to top.\n    *   Required details for each layer: 1) Number, 2) Standard name, 3) One example protocol/technology.\n    *   Formatting: Numbered list with one line per layer.\n\n    *   Layer 1: Physical\n    *   Layer 2: Data Link\n    *   Layer 3: Network\n    *   Layer 4: Transport\n    *   Layer 5: Session\n    *   Layer 6: Presentation\n    *   Layer 7: Application\n\n    *   Layer 1 (Physical): Ethernet, Wi-Fi (802.11), DSL, Hubs. -> Choice: Ethernet.\n    *   Layer 2 (Data Link): Ethernet (MAC), PPP, Switch. -> Choice: Ethernet.\n    *   Layer 3 (Network): IP, ICMP, IGMP. -> Choice: IP.\n    *   Layer 4 (Transport): TCP, UDP. -> Choice: TCP.\n    *   Layer 5 (Session): Net"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 11.13,
+          "prompt_tokens": 0,
+          "completion_tokens": 126,
+          "tps": 11.3,
+          "time_to_first_token_s": 0.742,
+          "response_model": "portal5/gemma4-12b:q4_K_M-ctx8k",
+          "response_text": "",
+          "reasoning_text": "*   Role: Helpful assistant.\n    *   Style: Concise.\n    *   Task: List the 7 OSI model layers from bottom to top.\n    *   Requirements for each layer:\n        1.  Layer number.\n        2.  Standard name.\n        3.  One example protocol/technology.\n    *   Formatting: Numbered list, one line per layer.\n\n    *   Bottom (Physical) -> Top (Application).\n    *   Layers:\n        1. Physical - Ethernet (or Cable types like Fiber/Twisted Pair), but \"Ethernet\" is often associated with Data Link; maybe \"Fiber Optics\" or \"RS-232\". Let's use \"Ethernet\" or just keep it simple. Or, technically, physical layer handles bits over wire.\n        2. Data Link - Ethernet, MAC address, PPP.\n        3. Network - IP (IPv4/IPv6), ICMP.\n        4. Transport - TCP, UDP.\n        5. Session - NetBIOS, RPC.\n        6. Presentation - SSL/TLS, JPEG (encoding).\n        7. Application - HTTP, FTP, SMTP.\n\n    *   "
+        },
+        {
+          "run": 5,
+          "elapsed_s": 11.15,
+          "prompt_tokens": 0,
+          "completion_tokens": 128,
+          "tps": 11.5,
+          "time_to_first_token_s": 0.741,
+          "response_model": "portal5/gemma4-12b:q4_K_M-ctx8k",
+          "response_text": "",
+          "reasoning_text": "*   Role: Helpful assistant (concise).\n    *   Task: List 7 OSI model layers from bottom to top.\n    *   Requirements for each layer:\n        1.  Layer number.\n        2.  Standard name.\n        3.  Example protocol/technology.\n    *   Formatting: Numbered list, one line per layer.\n\n    *   Layer 1 (Bottom): Physical\n    *   Layer 2: Data Link\n    *   Layer 3: Network\n    *   Layer 4: Transport\n    *   Layer 5: Session\n    *   Layer 6: Presentation\n    *   Layer 7 (Top): Application\n\n    *   1. Layer 1 - Physical - Ethernet (Physical layer), Hub, Fiber.\n    *   2. Layer 2 - Data Link - Ethernet, Switch, MAC.\n    *   3. Layer 3 - Network - IP, ICMP, Routers.\n    *   4. Layer 4 - Transport - TCP, UDP.\n    *   5. Layer 5 - Session - NetBIOS, RPC.\n    *   6. Layer 6 - Presentation - SSL/TLS"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 7.2,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "gemma4:12b-it-qat",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 12.3,
+      "min_tps": 11.8,
+      "max_tps": 12.7,
+      "stddev_tps": 0.34,
+      "cv": 0.028,
+      "avg_completion_tokens": 132,
+      "avg_elapsed_s": 10.76,
+      "avg_ttft_s": 1.009,
+      "routed_model": "gemma4:12b-it-qat",
+      "prompt_category": "vision",
+      "quality_score": 1.0,
+      "tps_quality": 12.3,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested gemma4:12b-it-qat",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 10.64,
+          "prompt_tokens": 0,
+          "completion_tokens": 126,
+          "tps": 11.8,
+          "time_to_first_token_s": 0.997,
+          "response_model": "gemma4:12b-it-qat",
+          "response_text": "",
+          "reasoning_text": "Multimodal vision analyst.\nDescribe exactly what is seen in a specific format.\n\n        1.  OBJECTS: Name + color + position.\n        2.  TEXT: Exact transcription.\n        3.  SCENE: 2-3 sentence description of the setting.\n        4.  ANOMALIES: Unusual/damaged/out of place items.\n        5.  CONFIDENCE: High/Medium/Low per category.\nNo image provided; instead, describe the *prompt template* itself (structure, function, and one improvement).\n\n    *   *OBJECTS:* This part requires identification of entities with attributes (color) and spatial orientation. It's for inventorying content.\n    *   *TEXT:* OCR-like task\u2014keeping transcription literal.\n    *   *SCENE:* Synthesis step\u2014summarizing context/environment.\n    *   *ANOMALIES:* Detection for outliers, degradation, or \"hallucinations\" in a visual sense (unexpected elements).\n    *   *CONFIDENCE:* A reliability check to signal the model's certainty.\n\n    *   *OBJECTS Analysis:* Requires spatial awareness and classification. It forces granular attention on every distinct item rather"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 10.66,
+          "prompt_tokens": 0,
+          "completion_tokens": 133,
+          "tps": 12.5,
+          "time_to_first_token_s": 0.992,
+          "response_model": "gemma4:12b-it-qat",
+          "response_text": "",
+          "reasoning_text": "Multimodal vision analyst.\nDescribe an image precisely based on a specific structure (OBJECTS, TEXT, SCENE, ANOMALIES, CONFIDENCE).\nNo image provided; describe the *prompt template* itself instead.\n\n        1.  Explain what it expects.\n        2.  Explain what each section does.\n        3.  Suggest one improvement to the analysis framework.\n\n    *   *Goal:* Convert visual data into a structured, descriptive report.\n    *   *Constraint:* High precision and adherence to schema.\n    *   *Input:* A multimodal input (image).\n    *   *Output:* Structured text categories.\n\n    *   **Section 1: OBJECTS (Name + Color + Position)**\n        *   *Purpose:* Inventorying physical components.\n        *   *Function:* Establishes spatial awareness and material identification. It prevents \"hallucinating\" objects by requiring specific location/color data.\n\n    *   **Section 2: TEXT (Transcription)**\n        *   *Purpose:* OCR (Optical Character Recognition).\n        *   *Function:* Extracts readable information, labels, or context within the image that isn't descriptive but literal.\n\n    *   "
+        },
+        {
+          "run": 3,
+          "elapsed_s": 10.75,
+          "prompt_tokens": 0,
+          "completion_tokens": 132,
+          "tps": 12.3,
+          "time_to_first_token_s": 1.001,
+          "response_model": "gemma4:12b-it-qat",
+          "response_text": "",
+          "reasoning_text": "Multimodal vision analyst.\nDescribe an image precisely using a specific structure (OBJECTS, TEXT, SCENE, ANOMALIES, CONFIDENCE).\nNo image provided. Instead, describe the *prompt template* itself (its expectations, section functions) and suggest one improvement.\n\n    *   *What does it expect?* It expects a multimodal input (image or video) to be processed by an AI model that can identify visual elements, OCR text, spatial context, and inconsistencies.\n    *   *Section 1: OBJECTS:* Identifying entities ($\\text{Name} + \\text{Color} + \\text{Position}$). Purpose: inventory/grounding.\n    *   *Section 2: TEXT:* Transcription. Purpose: OCR/data extraction.\n    *   *Section 3: SCENE:* Summary of the environment ($2-3$ sentences). Purpose: contextual understanding and relational logic.\n    *   *Section 4: ANOMALIES:* Identifying outliers or errors. Purpose: flaw detection, safety checks, or \"spot the difference.\"\n    *   *Section 5: CONFIDENCE:* Self-assessment of reliability. Purpose: quantifying uncertainty for downstream decision-making.\n\n    *"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 10.8,
+          "prompt_tokens": 0,
+          "completion_tokens": 137,
+          "tps": 12.7,
+          "time_to_first_token_s": 1.01,
+          "response_model": "gemma4:12b-it-qat",
+          "response_text": "",
+          "reasoning_text": "Multimodal vision analyst.\nDescribe a given image precisely using a specific 5-part structure (OBJECTS, TEXT, SCENE, ANOMALIES, CONFIDENCE).\nNo image provided because this is a \"text-only test.\"\n\n        1.  Describe the prompt template itself.\n        2.  Explain what it expects for each section.\n        3.  Suggest one improvement to the framework.\n\n    *   *Context:* The user wants me to act as an AI that evaluates visual data.\n    *   *OBJECTS Section:* Requirements: Name, Color, Position. Purpose: Identify everything in the frame spatially and visually.\n    *   *TEXT Section:* Requirement: Exact transcription. Purpose: OCR (Optical Character Recognition) for signs, labels, etc.\n    *   *SCENE Section:* Requirement: 2-3 sentences. Purpose: Contextual summary (where is this? what's happening?).\n    *   *ANOMALIES Section:* Requirement: Note unusual/damaged/out of place items. Purpose: Quality control and detection of edge cases.\n    *   *CONFIDENCE Section:* Requirement: High/Medium/Low for each category. Purpose: Reliability metric ("
+        },
+        {
+          "run": 5,
+          "elapsed_s": 10.93,
+          "prompt_tokens": 0,
+          "completion_tokens": 133,
+          "tps": 12.2,
+          "time_to_first_token_s": 1.046,
+          "response_model": "gemma4:12b-it-qat",
+          "response_text": "",
+          "reasoning_text": "Multimodal vision analyst.\nDescribe an image precisely using a specific structure (OBJECTS, TEXT, SCENE, ANOMALIES, CONFIDENCE).\nNo image provided; instead, describe the *prompt template* itself.\n\n        1.  What it expects.\n        2.  What each section does.\n        3.  Suggest one improvement to the framework.\n\n    *   *OBJECTS:* Requires identifying distinct items, noting their color and literal location (spatial orientation).\n    *   *TEXT:* Transcription of characters/words in any script or language.\n    *   *SCENE:* Summary description of environment/context (concise: 2-3 sentences).\n    *   *ANOMALIES:* Detection of irregularities (ARGs, physical damage, lighting glitches, logic errors).\n    *   *CONFIDENCE:* Self-assessment of reliability for each specific category.\n\n    *   \"What it expects\": High-precision image analysis using a structured data format. It wants to move from vague \"look at this\" instructions to a machine-readable or high-fidelity descriptive output.\n\n    *   *OBJECTS*: Inventory and localization.\n    *   *TEXT*: OCR/Transcription component"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 7.2,
+      "groups": [
+        "vision"
+      ]
+    },
+    {
+      "model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 19.8,
+      "min_tps": 19.5,
+      "max_tps": 20.2,
+      "stddev_tps": 0.29,
+      "cv": 0.015,
+      "avg_completion_tokens": 377,
+      "avg_elapsed_s": 19.05,
+      "avg_ttft_s": 0.273,
+      "routed_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+      "prompt_category": "security",
+      "quality_score": 0.67,
+      "tps_quality": 13.3,
+      "reasoning_mode": true,
+      "expected_model_match": true,
+      "expected_model_detail": "requested foundation-sec-8b-reasoning-q8_0-gguf:q8_0",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 18.92,
+          "prompt_tokens": 0,
+          "completion_tokens": 370,
+          "tps": 19.6,
+          "time_to_first_token_s": 0.473,
+          "response_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+          "response_text": "",
+          "reasoning_text": "\nTo classify this incident effectively within the MITRE ATT&CK framework, I first identify the observed behaviors: repeated SSH brute-force attempts originating from numerous unique sources targeting known services on critical infrastructure. This pattern strongly aligns with adversaries attempting to gain initial access through legitimate but exploited services. Therefore, **Resource Development** (TA0042) is relevant for the adversary's setup if they crafted specific tools or lists of targets and IPs. Conversely, their direct action against company assets falls under **Initial Access** (TA0001), specifically leveraging a known network service exploit to achieve entry. This leads to two classifications: Resource Development (T1584) as an underlying preparation step for the adversary, and Initial Access (T1190) as the immediate attack vector exploited by the brute-force activity.\n\nFor immediate containment actions, the primary objective is to neutralize the threat and prevent further compromise.\n1.  **Quarantine the targeted servers** from network traffic immediately to sever external access attempts while preserving internal connectivity for operational stability. The timeframe is crucial here\u2014within 30 minutes or less\u2014to mitigate active exploitation before an adversary achieves success.\n2.  **Block all known malicious IPs**, either at the perimeter firewall or via a proxy. This includes both the 47 unique IPs identified and especially those currently listed on any threat intelligence platforms like CrowdSec. Enabling automatic blocking of future crowd-sourced IP entries is also a proactive measure during this period.\n3.  **Enforce Multi-Factor Authentication (MFA)** on all SSH services, even if initially configured otherwise. This is particularly vital for the DMZ servers as it removes their single, vulnerable point of entry by adding an additional authentication layer beyond a potentially compromised password.\n\nNext, I need to formulate a detection rule that captures this specific activity using field names and logic.\n1.  The **field to monitor** is `sourcetype` (e.g., \"syslog:ssh\") to capture relevant login events from the targeted servers.\n2.  The **logic for detecting brute-force attempts** must identify rapid, failed accesses from a single source IP to the same account within a short timeframe. This can be expressed as: `(source_ip_count > 5 AND failed_attempts == count) within (30s)` targeting `Account: admin OR user_account` with `result:\"no\"`.\n3.  As an **additional refinement**, consider enabling IP denylisting. If CrowdSec integration exists, use its field names like `crowdsec.blocklisted_ip` to alert"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 19.02,
+          "prompt_tokens": 0,
+          "completion_tokens": 381,
+          "tps": 20.0,
+          "time_to_first_token_s": 0.223,
+          "response_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+          "response_text": "\n\nBased on the provided SIEM alert, here's a structured analysis:\n\n1.  **Classification:**\n    *   **Tactic:** Credential Access\n    *   **Technique ID:** T1110 (Brute Force) - Specifically targeting SSH credentials via repeated password guessing attempts.\n\n2.  **Immediate Containment Actions (First 30 Minutes):**\n    1.  **Network-Level Blocking:** Implement firewall rules to drop all traffic destined for the targeted DMZ servers on port 22 from *all* IPs involved in the brute-force attempts (*not just* those already flagged by CrowdSec or blocking lists). Verify these blocks are temporary but active.\n    2.  **Service Disabling (Temporary):** Disable SSH access to the affected 3 DMZ servers entirely as a precautionary measure until the attack subsides and the cause is fully assessed. Document the time of disabling for logging purposes.\n    3. ",
+          "reasoning_text": "\nOkay, the user is asking me to analyze an SSH brute-force scenario detected by a SIEM and provide a structured response. Let me break down their request:\n\nFirst, they want classification using MITRE ATT&CK Tactic & Technique IDs - this should be straightforward for credential access and remote services.\n\nFor immediate containment, I need to think of actions that would work within the first 30 minutes: blocking IPs at firewall level makes sense, then disabling SSH service temporarily as a precaution. Should also mention account lockdown procedures.\n\nThe detection rule part requires specific SIEM logic - since they're targeting DMZ servers, we should look for both source IPs and authentication failure volume. The CrowdSec detection already happened but need actual detection rules beyond that.\n\nRoot cause analysis questions will help them investigate why this might have happened: Are these accounts misconfigured? Was default admin credentials being used? Need to ask about baseline security practices and testing frequency here.\n\nHmm... user is likely a SOC analyst given their mention of SIEM/CrowdSec. They probably need actionable insights immediately rather than just theory. Since they cite MITRE, proper categorization is expected. The CrowdSec reference suggests they might be using cloud environments since community blocklists often come from threat intelligence platforms. Should verify if cloud-based IP reputation services matter here.\n\nBetter include specific fieldnames for detection rules (like source.ip and event.outcome) but explain why each matters - like how authentication failures over many IPs points to brute-force rather than targeted attack. Also need to emphasize logging requirements since post-mortem analysis would rely on full data.\n"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 19.17,
+          "prompt_tokens": 0,
+          "completion_tokens": 379,
+          "tps": 19.8,
+          "time_to_first_token_s": 0.224,
+          "response_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+          "response_text": "\n\nBased on the provided scenario, here is a structured security analysis using MITRE ATT&CK and industry best practices:\n\n1. **Classification**  \n   - **Tactic:** Credential Access (TA0006) \u2013 Adversaries are attempting to gain access using stolen/guessed credentials.  \n   - **Technique:** Brute Force (T1110.001) \u2013 Repeated login attempts with different credentials against the same target over time.\n\n2. **Immediate Containment Actions (First 30 Minutes)**  \n   - Temporarily disable SSH on all affected servers (DMZ hosts) to prevent exploitation.  \n   - Block all source IPs observed in SIEM logs via",
+          "reasoning_text": "\nThe user requires a cybersecurity analysis based on an SSH brute-force incident detected by their SIEM.\n\nFirst, I need to classify the observed activity using MITRE ATT&CK. The scenario describes repeated login attempts with multiple source IPs targeting port 22 on servers in the DMZ. This aligns directly with \"Brute Force\" attacks as defined under the `Authentication` technique and falls under the `Credential Access` tactic because the adversary is attempting to gain initial access using stolen or guessed credentials.\n\nNext, for immediate containment actions within the first 30 minutes, I will prioritize protecting data integrity by disabling SSH if critical. Then, to prevent further exploitation on other systems, restricting external network access to the DMZ servers via firewalls or VPCs is crucial. Finally, isolating the compromised hosts through network segmentation to limit lateral movement and preventing future login attempts from any of the detected IPs are also necessary.\n\nFor developing a detection rule based on SIEM data fields, I should look for multiple `source_ip` values associated with the same `target_host` over a short timeframe. A specific threshold like 5 failed authentication events within an hour would be effective. The key fields to monitor would include `event_type`, `severity`, `source_ip`, and an aggregation based on those parameters.\n\nFinally, to identify the root cause preventing proper logging or detection of brute-force attempts, I will investigate if critical logs or SSH process IDs (e.g., via `auditd`) were missing on the servers. Additionally, determining if rate-limiting features were properly configured for SSH services can explain why these events weren't automatically dropped.\n\nConsidering all these points, the answer structure provides an immediate classification, actionable containment steps within a specific timeframe, a clear and implementable SIEM rule with necessary fields and logic, and targeted questions to uncover the underlying causes of the incident.\n"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 19.1,
+          "prompt_tokens": 0,
+          "completion_tokens": 386,
+          "tps": 20.2,
+          "time_to_first_token_s": 0.224,
+          "response_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+          "response_text": "",
+          "reasoning_text": "\nThe user has provided a cybersecurity scenario describing repeated SSH brute-force attempts detected by their SIEM, along with specific details about the attack, and is asking for an analysis structured into four parts: MITRE ATT&CK classification, immediate containment actions, a new detection rule, and root cause questions. I need to address each of these points systematically, ensuring my knowledge base on cybersecurity frameworks like MITRE ATT&CK, incident response procedures, and SIEM architecture is applied accurately.\n\n1.  **Classification (MITRE ATT&CK tactic + technique ID):** \n    The scenario clearly describes \"repeated SSH brute-force attempts.\" This aligns directly with the concept of attackers attempting to gain access by systematically trying different credentials or password guesses on a network service. This maps precisely to \"Brute Force\" under the \"Credential Access\" tactic, as the goal is to find valid user credentials. I will look up the specific Tactic ID (TA0006) for Credential Access and the Technique ID (T1110) for Brute Force within that category.\n\n2.  **Immediate containment actions (first 30 minutes):**\n    Given that a brute-force attack against SSH is detected, the priority shifts to preventing further access. The most critical immediate action is to disable the SSH service on all affected servers to halt the active attack and prevent credential compromise or new unauthorized logins. Concurrently, it's vital to identify the source IPs and, if possible through firewall rules (like Cloudflare WAF or explicit blocklists in cloud security groups), temporarily block these IPs at the network edge before implementing host-based blocking within the DMZ. This buys time for more thorough investigation while preventing exploitation.\n\n3.  **Detection rule to write (field names + logic):**\n    The SIEM already alerted on the initial brute-force, but a robust detection rule would require further analysis of the volume and nature of the attempts to differentiate it from normal activity and potentially identify patterns. I need a log field that captures network flow or connection data (e.g., `source_ip`, `destination_port` for port 22, `action` like \"connection_attempt\"). The logic should then look for unusual spikes in failed connection attempts (e.g., greater than 10 attempts from a single source IP targeting the same destination port within a short timeout window) that exceed a certain threshold (like 80% of total successful connections). This would flag potential brute-force activity more effectively.\n    Furthermore, I should also consider a rule to detect *successful* SSH logins"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 19.02,
+          "prompt_tokens": 0,
+          "completion_tokens": 370,
+          "tps": 19.5,
+          "time_to_first_token_s": 0.22,
+          "response_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+          "response_text": "\n\n### Analysis of Repeated SSH Brute-Force Attack  \n**Scenario:** 47 unique IPs targeting port 22 on 3 DMZ servers over 2 hours, with 2 IPs blacklisted via CrowdSec.  \n\n1. **Classification (MITRE ATT&CK)**:  \n   - **Tactic**: Initial Access (TA0001) \u2192 **Technique**: Brute Force (T1110.001). SSH brute-forcing is a common initial access tactic targeting exposed services.  \n\n2. **Immediate Containment Actions** (",
+          "reasoning_text": "\nMy process begins by thoroughly analyzing the provided scenario of repeated SSH brute-force attempts. The core elements are: repeated attempts, 47 unique IPs over two hours on port 22 targeting 3 DMZ servers, and two IPS being on CrowdSec's community blocklist.\n\nFor classification, I identify this as a direct attempt to guess valid credentials (usernames/passwords) over the network using SSH. This immediately maps to MITRE ATT&CK T1078 (Valid Accounts) under \"Brute Force\" sub-techniques, specifically T1110.001 for its application in network services like SSH.\n\nNext, immediate containment actions are dictated by the need to stop this activity and protect critical infrastructure. The DMZ servers hosting public-facing services are key targets. My first priority is account disablement and password resets. Second, blocking all incoming traffic on port 22 via firewall rules is essential, as is blocking identified malicious IPs. Rate limiting must be implemented on all SSH instances to prevent rapid login attempts.\n\nFor detection rule design, focusing on the logs from the affected DMZ servers is crucial, likely in the Apache or Nginx access logs since they contain connection data for port 22. I determine that a key indicator would be the total number of failed SSH logins exceeding two hundred within an hour from any single IP address targeting these three servers. This specific metric helps identify brute-force patterns before too many attempts are made.\n\nFinally, root cause investigation requires understanding *why* accounts were targeted or vulnerable. Key questions include assessing the age of compromised accounts, scrutinizing password policies and last-password-change dates for weak credentials, analyzing public-facing service exposures (like outdated SSH versions), identifying any misconfigurations (SSRF, metadata services) that might have been exploited to reach these servers, checking for default user vulnerabilities, and investigating if credential stuffing from a previously leaked database was the vector. The goal is to identify how adversaries obtained their initial foothold or gained insights into potential targets.\n"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 8.0,
+      "groups": [
+        "security"
+      ]
+    },
+    {
+      "model": "starcoder2:15b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 2,
+      "avg_tps": 8.4,
+      "min_tps": 6.1,
+      "max_tps": 10.8,
+      "stddev_tps": 3.32,
+      "cv": 0.395,
+      "avg_completion_tokens": 12,
+      "avg_elapsed_s": 1.19,
+      "avg_ttft_s": 0.077,
+      "routed_model": "starcoder2:15b",
+      "prompt_category": "coding",
+      "quality_score": 0.0,
+      "tps_quality": 0.0,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested starcoder2:15b",
+      "runs": [
+        {
+          "run": 1,
+          "error": "empty response (0 tokens)",
+          "elapsed_s": 0.83
+        },
+        {
+          "run": 2,
+          "elapsed_s": 0.16,
+          "prompt_tokens": 0,
+          "completion_tokens": 1,
+          "tps": 6.1,
+          "time_to_first_token_s": 0.078,
+          "response_model": "starcoder2:15b",
+          "response_text": "\n\"\"\""
+        },
+        {
+          "run": 3,
+          "error": "empty response (0 tokens)",
+          "elapsed_s": 0.08
+        },
+        {
+          "run": 4,
+          "elapsed_s": 2.22,
+          "prompt_tokens": 0,
+          "completion_tokens": 24,
+          "tps": 10.8,
+          "time_to_first_token_s": 0.076,
+          "response_model": "starcoder2:15b",
+          "response_text": "\n\n<!---\nSTART HEADER\n***************************************************************************************************\n***************************************************************************************************\n***************************************************************************************************\n***************************************************************************************************\n\nThis file is generated by a automated job. Please do not edit it manually\n\n***************************************************************************************************\n***************************************************************************************************\n****************************************************************"
+        },
+        {
+          "run": 5,
+          "error": "empty response (0 tokens)",
+          "elapsed_s": 0.09
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 9.0,
+      "groups": [
+        "coding"
+      ]
+    },
+    {
+      "model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 43.8,
+      "min_tps": 39.8,
+      "max_tps": 46.1,
+      "stddev_tps": 2.59,
+      "cv": 0.059,
+      "avg_completion_tokens": 131,
+      "avg_elapsed_s": 3.0,
+      "avg_ttft_s": 0.118,
+      "routed_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+      "prompt_category": "coding",
+      "quality_score": 1.0,
+      "tps_quality": 43.8,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested deepseek-coder-v2:16b-lite-instruct-q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 3.14,
+          "prompt_tokens": 0,
+          "completion_tokens": 125,
+          "tps": 39.8,
+          "time_to_first_token_s": 0.286,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+          "response_text": " ```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merges overlapping intervals in a list of tuples.\n    \n    Args:\n        intervals (list of tuple): A list of integer pairs representing start and end values.\n        \n    Returns:\n        list of tuple: A new list with merged overlapping intervals.\n    \n    Algorithm:\n    1. Sort the intervals based on the start value.\n    2. Initialize an empty result list.\n    3. Iterate through each interval in the sorted list:\n       - If the current interval starts before the last added interval ends, merge them.\n       - Otherwise, add the current interval to the result list.\n    4. Return the result list.\n    \"\"\"\n    if not intervals:\n        return []\n    \n    # Sort intervals based on the start value\n    intervals.sort(key=lambda x: x[0])\n    \n    merged = [intervals[0]]\n    \n    for current_start, current_end in intervals[1:]:\n        last_merged_start, last_merged_end = merged[-1]\n        \n        if current_start <= last_merged_end:"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.93,
+          "prompt_tokens": 0,
+          "completion_tokens": 135,
+          "tps": 46.1,
+          "time_to_first_token_s": 0.077,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+          "response_text": " ```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merge overlapping intervals in a list of integer pairs.\n    \n    This function takes a list of tuples, where each tuple represents an interval (start, end),\n    and returns a new list with merged intervals. The merging is done by comparing the end \n    of one interval to the start of another, and if they overlap, merge them into a single larger interval.\n    \n    Args:\n        intervals (list of tuple): List of integer pairs representing intervals.\n        \n    Returns:\n        list of tuple: A new list with merged intervals.\n    \"\"\"\n    if not intervals:\n        return []\n\n    # Sort the intervals based on the start time\n    sorted_intervals = sorted(intervals, key=lambda x: x[0])\n    \n    merged = [sorted_intervals[0]]\n    \n    for current in sorted_intervals[1:]:\n        last = merged[-1]\n        if current[0] <= last[1]:\n            # Merge intervals by updating the end of the last interval\n            last[1] = max(last[1], current[1])\n        else"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 2.93,
+          "prompt_tokens": 0,
+          "completion_tokens": 135,
+          "tps": 46.1,
+          "time_to_first_token_s": 0.076,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+          "response_text": " ```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merges overlapping intervals in a list of tuples where each tuple is a pair of integers representing start and end values.\n    \n    Args:\n        intervals (List[Tuple[int, int]]): A list of integer intervals to be merged.\n        \n    Returns:\n        List[Tuple[int, int]]: A new list with overlapping intervals merged.\n    \n    Algorithm:\n    1. Sort the intervals based on the start times.\n    2. Initialize an empty list `merged` to store the non-overlapping intervals.\n    3. Iterate through each interval in the sorted list.\n    4. For each interval, if it overlaps with the last interval in `merged`, update the last interval to include the current one.\n    5. If it doesn't overlap, add it as a new interval to `merged`.\n    6. Return the `merged` list.\n    \"\"\"\n    if not intervals:\n        return []\n\n    intervals = sorted(intervals)\n    merged = [intervals[0]]\n\n    for current_start, current_end in intervals[1:]:\n        last_"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 2.93,
+          "prompt_tokens": 0,
+          "completion_tokens": 127,
+          "tps": 43.3,
+          "time_to_first_token_s": 0.076,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+          "response_text": " ```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merges overlapping intervals from a list of tuples where each tuple contains two integers.\n    \n    The function first sorts the intervals based on their start times. Then it iterates through \n    the sorted intervals and merges any that overlap. It returns a new list with merged intervals.\n    \n    Args:\n        intervals (list of tuple): List of integer pairs representing start and end values.\n        \n    Returns:\n        list of tuple: List of merged intervals.\n    \"\"\"\n    if not intervals:\n        return []\n\n    # Sort intervals by the start value\n    sorted_intervals = sorted(intervals, key=lambda x: x[0])\n    \n    merged = [sorted_intervals[0]]\n    \n    for current in sorted_intervals[1:]:\n        last = merged[-1]\n        if current[0] <= last[1]:\n            # Merge the intervals\n            last = (last[0], max(last[1], current[1]))\n            merged[-1] = last\n        else:\n            # No overlap, add the current interval as is\n            merged.append"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 3.05,
+          "prompt_tokens": 0,
+          "completion_tokens": 133,
+          "tps": 43.6,
+          "time_to_first_token_s": 0.077,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+          "response_text": " ```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merges overlapping intervals from a list of tuples.\n    \n    Args:\n        intervals (list of tuple): A list of integer pairs representing start and end values.\n        \n    Returns:\n        list of tuple: A new list with merged intervals.\n        \n    Algorithm:\n        1. Sort the intervals based on the start value.\n        2. Initialize an empty result list to store non-overlapping intervals.\n        3. Iterate over each interval in the sorted list.\n        4. If the current interval overlaps with the last added interval in the result, update the last added interval's end value.\n        5. If it does not overlap, add the current interval to the result list.\n    \"\"\"\n    if not intervals:\n        return []\n    \n    # Sort intervals based on the start value\n    intervals.sort(key=lambda x: x[0])\n    \n    merged = [intervals[0]]\n    \n    for current_start, current_end in intervals[1:]:\n        last_end = merged[-1][1]\n        \n        if current_start <= last"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 9.6,
+      "groups": [
+        "coding"
+      ]
+    },
+    {
+      "model": "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 0,
+      "avg_tps": 0.0,
+      "min_tps": 0.0,
+      "max_tps": 0.0,
+      "stddev_tps": null,
+      "cv": null,
+      "avg_completion_tokens": 0,
+      "avg_elapsed_s": 0.0,
+      "avg_ttft_s": null,
+      "routed_model": "",
+      "prompt_category": "reasoning",
+      "quality_score": 0.0,
+      "tps_quality": 0.0,
+      "reasoning_mode": false,
+      "expected_model_match": null,
+      "expected_model_detail": "",
+      "runs": [
+        {
+          "run": 1,
+          "error": "HTTP 500: {\"error\":{\"message\":\"llama-server process has terminated: exit status 1: error: ",
+          "elapsed_s": 1.67
+        },
+        {
+          "run": 2,
+          "error": "HTTP 500: {\"error\":{\"message\":\"llama-server process has terminated: exit status 1: error: ",
+          "elapsed_s": 1.67
+        },
+        {
+          "run": 3,
+          "error": "HTTP 500: {\"error\":{\"message\":\"llama-server process has terminated: exit status 1: error: ",
+          "elapsed_s": 1.67
+        },
+        {
+          "run": 4,
+          "error": "HTTP 500: {\"error\":{\"message\":\"llama-server process has terminated: exit status 1: error: ",
+          "elapsed_s": 1.67
+        },
+        {
+          "run": 5,
+          "error": "HTTP 500: {\"error\":{\"message\":\"llama-server process has terminated: exit status 1: error: ",
+          "elapsed_s": 1.67
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 10.5,
+      "groups": [
+        "reasoning"
+      ]
+    },
+    {
+      "model": "gpt-oss:20b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 34.3,
+      "min_tps": 31.8,
+      "max_tps": 37.1,
+      "stddev_tps": 2.35,
+      "cv": 0.069,
+      "avg_completion_tokens": 179,
+      "avg_elapsed_s": 5.22,
+      "avg_ttft_s": 0.311,
+      "routed_model": "gpt-oss:20b",
+      "prompt_category": "reasoning",
+      "quality_score": 1.0,
+      "tps_quality": 34.3,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested gpt-oss:20b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.41,
+          "prompt_tokens": 0,
+          "completion_tokens": 172,
+          "tps": 31.8,
+          "time_to_first_token_s": 0.511,
+          "response_model": "gpt-oss:20b",
+          "response_text": "",
+          "reasoning_text": "We need to analyze ER capacity and throughput.\n\nGiven: arrival rate \u03bb = 30 patients per hour during peak hours.\n\nResources:\n\n- Beds: 8\n- Doctors: 3\n- Nurses:12\n\nAverage treatment time per patient: 45 minutes (0.75 hour). This is total treatment time requiring both doctor and nurse? Likely each patient needs care from both doctor and nurse for the 45 min.\n\nWe assume both doctor's time and nurse's time consumption matters, but bed occupancy also limited. Beds are limited to 8, so at most 8 patients simultaneously receive treatment. But with 3 doctors and 12 nurses, we need to see constraints.\n\nIf each patient needs a doctor for full 0.75h and a nurse for same period.\n\nThus doctor's capacity per hour: each doctor can treat 1/0.75 = 1.333..., but times 3 doctors \u2192 4 patients per hour? Wait compute: 1 doctor can handle 60 min / 45 min = 1.333... patients per hour (approx). So 3 doctors give ~4 patients/hr at most.\n\nSimilarly, nurses: Each nurse can treat 1/0.75=1.333... patients/h; with"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.18,
+          "prompt_tokens": 0,
+          "completion_tokens": 178,
+          "tps": 34.4,
+          "time_to_first_token_s": 0.26,
+          "response_model": "gpt-oss:20b",
+          "response_text": "",
+          "reasoning_text": "We have an emergency room with arrival rate \u03bb=30 per hour (i.e., 30 patients/h). Treatment time mean \u03bc_t =45 minutes =0.75 hours. So service rate per patient is \u03bc=1/0.75=1.3333 patients/hour? Wait: that's the number of patients a single resource can treat per hour; for each doctor or nurse? But we need resources usage.\n\nWe have beds=8, doctors=3, nurses=12. The system seems like ER with patients waiting to be treated requiring bed and doctor involvement; and staff for nursing maybe concurrently but might be more capacity. We need to model capacities of each component: throughput limited by smallest capacity among these.\n\nAssume each patient requires one bed during treatment time 0.75h, needs a doctor for entire period, and receives care from nurses (say some number). The bottleneck would be whichever resource has the least effective processing rate given counts and service demands.\n\nGiven arrival 30/h, we can compute utilization rates: For beds: capacity =8 beds * (1 bed occupied per patient) / service time. Each bed can accommodate at most 1/0.75=1.333 patients/hour. So overall admission rate capacity for beds"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.17,
+          "prompt_tokens": 0,
+          "completion_tokens": 166,
+          "tps": 32.1,
+          "time_to_first_token_s": 0.262,
+          "response_model": "gpt-oss:20b",
+          "response_text": "",
+          "reasoning_text": "We need to analyze system: arrivals per hour 30 patients; treatment time average 45 minutes per patient. So service rate per resource? Compute utilization for each type.\n\nWe have beds: 8 beds, each occupied for 45 min average. That yields service capacity: 8 beds * (60/45) patients per hour = 8*1.333=10.667 patients per hour. Arrival rate \u03bb=30 per hr, so bed occupancy cannot handle; wait is high.\n\nDoctors: 3 doctors, each can treat a patient? Usually one doctor per patient at a time; service rate per doctor maybe same as treatment time 45 min per patient => each does 1/0.75 = 1.333 patients/hour? Actually 60 min / 45 = 1.333 patients/hour per doctor so total doctors capacity: 3 * 1.333 = 4 patients/hr.\n\nNurses: 12 nurses; if multiple can attend concurrently but one nurse per patient? Might be like each patient needs a nurse maybe same time as doctor? But likely nurse is per patient also. Each nurse can treat 60/45=1.333 p/h so capacity 12*1.333=16 p/h.\n\n"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 5.17,
+          "prompt_tokens": 0,
+          "completion_tokens": 192,
+          "tps": 37.1,
+          "time_to_first_token_s": 0.262,
+          "response_model": "gpt-oss:20b",
+          "response_text": "",
+          "reasoning_text": "We need to analyze system: There is arrival rate \u03bb = 30 patients/hour during peak hours. Each patient requires treatment time average 45 minutes = 0.75 hour.\n\nResources: 8 beds, 3 doctors,12 nurses. We must consider service capacity of each resource.\n\nBut we need to see which resource is bottleneck.\n\nAssuming a patient requires doctor and nurse simultaneously? In ER typical process maybe each patient sits in bed while being examined by doctor; nursing may be auxiliary but could be needed concurrently with doctor or after.\n\nSimplify: Each patient needs bed time equal to treatment time. So beds limited, capacity (in patients per hour) = (# beds)/(average service time per bed)? Actually each bed can host one patient at a time; service time 0.75 h. So capacity of beds = 8 / 0.75 = 10.6667 patients per hour. Similarly doctors: Each doctor sees one patient at a time; capacity = 3 / 0.75 = 4 patients per hour. Nurses: 12 nurses, but each may treat multiple? However typical nurse might service many patients concurrently? For simplicity assume each patient requires dedicated nursing time equal to treatment time (45 min). So capacity of"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.18,
+          "prompt_tokens": 0,
+          "completion_tokens": 187,
+          "tps": 36.1,
+          "time_to_first_token_s": 0.258,
+          "response_model": "gpt-oss:20b",
+          "response_text": "",
+          "reasoning_text": "We need to analyze throughput and bottleneck in ER.\n\nParameters:\n\n- Arrival rate \u03bb = 30 patients per hour during peak hours.\n  So 5 minutes per patient on average arrival; i.e., 0.05 patients per minute? Actually 30/h -> 1 patient every 2 minutes (since 60/30=2). Good.\n\n- Service time \u03bc: average treatment time 45 min per patient. That\u2019s the service rate for a doctor-nurse-team likely. So each patient uses one doctor and nurse simultaneously during those 45 minutes? We need to consider capacity of resources.\n\n- Resource counts: Beds 8 (beds are for waiting? They might be used for patients in treatment). Doctors 3, nurses 12.\n\nWe must identify bottleneck among beds, doctors, or nurses. Compute maximum possible throughput for each resource based on utilization?\n\nAssumptions:\n\n- Each patient requires one bed at a time, and occupies it for the entire treatment time (45 min?). Usually patients occupy a bed in ER only until discharge: perhaps includes waiting? But we treat 45 minute average service time implies that they require resources (doctor + nurse) for 45 minutes.\n\nBut to compute capacity of each resource:\n\n- Beds: With"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 12.0,
+      "groups": [
+        "reasoning"
+      ]
+    },
+    {
+      "model": "phi4:14b-q8_0",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 8.2,
+      "min_tps": 6.8,
+      "max_tps": 9.4,
+      "stddev_tps": 0.95,
+      "cv": 0.116,
+      "avg_completion_tokens": 73,
+      "avg_elapsed_s": 9.07,
+      "avg_ttft_s": 0.196,
+      "routed_model": "phi4:14b-q8_0",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 8.2,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested phi4:14b-q8_0",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 7.86,
+          "prompt_tokens": 0,
+          "completion_tokens": 63,
+          "tps": 8.0,
+          "time_to_first_token_s": 0.474,
+          "response_model": "phi4:14b-q8_0",
+          "response_text": "1. Layer 1: Physical - Example: Ethernet  \n2. Layer 2: Data Link - Example: Wi-Fi (IEEE 802.11)  \n3. Layer 3: Network - Example: IP (Internet Protocol)  \n4. Layer 4: Transport - Example: TCP (Transmission Control Protocol)  \n5. Layer 5: Session - Example: NetBIOS  \n6. Layer 6: Presentation - Example: TLS (Transport Layer Security)  \n7. Layer 7: Application - Example: HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 8.73,
+          "prompt_tokens": 0,
+          "completion_tokens": 75,
+          "tps": 8.6,
+          "time_to_first_token_s": 0.128,
+          "response_model": "phi4:14b-q8_0",
+          "response_text": "1. Layer 1: Physical - Example Protocol/Technology: Ethernet\n\n2. Layer 2: Data Link - Example Protocol/Technology: MAC (Media Access Control)\n\n3. Layer 3: Network - Example Protocol/Technology: IP (Internet Protocol)\n\n4. Layer 4: Transport - Example Protocol/Technology: TCP (Transmission Control Protocol)\n\n5. Layer 5: Session - Example Technology: NetBIOS\n\n6. Layer 6: Presentation - Example Protocol/Technology: SSL/TLS (Secure Sockets Layer / Transport Layer Security)\n\n7. Layer 7: Application - Example Protocol/Technology: HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 6.63,
+          "prompt_tokens": 0,
+          "completion_tokens": 62,
+          "tps": 9.4,
+          "time_to_first_token_s": 0.124,
+          "response_model": "phi4:14b-q8_0",
+          "response_text": "1. Layer 7: Application - Example Protocol: HTTP  \n2. Layer 6: Presentation - Example Technology: TLS/SSL  \n3. Layer 5: Session - Example Protocol: SMB (Session Message Block)  \n4. Layer 4: Transport - Example Protocol: TCP  \n5. Layer 3: Network - Example Protocol: IP  \n6. Layer 2: Data Link - Example Technology: Ethernet  \n7. Layer 1: Physical - Example Technology: Wi-Fi Radio Waves"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 14.02,
+          "prompt_tokens": 0,
+          "completion_tokens": 96,
+          "tps": 6.8,
+          "time_to_first_token_s": 0.127,
+          "response_model": "phi4:14b-q8_0",
+          "response_text": "1. **Layer Number:** 1  \n   **Standard Name:** Physical Layer  \n   **Example Protocol/Technology:** Ethernet\n\n2. **Layer Number:** 2  \n   **Standard Name:** Data Link Layer  \n   **Example Protocol/Technology:** MAC (Media Access Control)\n\n3. **Layer Number:** 3  \n   **Standard Name:** Network Layer  \n   **Example Protocol/Technology:** IP (Internet Protocol)\n\n4. **Layer Number:** 4  \n   **Standard Name:** Transport Layer  \n   **Example Protocol/Technology:** TCP (Transmission Control Protocol)\n\n5. **Layer Number:** 5  \n   **Standard Name:** Session Layer  \n   **Example Protocol/Technology:** NetBIOS\n\n6. **Layer Number:** 6  \n   **Standard Name:** Presentation Layer  \n   **Example Protocol/Technology:** SSL/TLS (Secure Sockets Layer / Transport Layer Security)\n\n7. **Layer Number:** 7  \n   **Standard Name:** Application Layer  \n   **Example Protocol/Technology:** HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 8.09,
+          "prompt_tokens": 0,
+          "completion_tokens": 68,
+          "tps": 8.4,
+          "time_to_first_token_s": 0.129,
+          "response_model": "phi4:14b-q8_0",
+          "response_text": "1. Layer 7 - Application Layer; Example Protocol/Technology: HTTP  \n2. Layer 6 - Presentation Layer; Example Protocol/Technology: TLS (Transport Layer Security)  \n3. Layer 5 - Session Layer; Example Protocol/Technology: NetBIOS  \n4. Layer 4 - Transport Layer; Example Protocol/Technology: TCP  \n5. Layer 3 - Network Layer; Example Protocol/Technology: IP  \n6. Layer 2 - Data Link Layer; Example Protocol/Technology: Ethernet  \n7. Layer 1 - Physical Layer; Example Technology: Copper Cables  "
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 14.0,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "mistral-small3.2:24b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 7.8,
+      "min_tps": 6.8,
+      "max_tps": 8.2,
+      "stddev_tps": 0.57,
+      "cv": 0.073,
+      "avg_completion_tokens": 52,
+      "avg_elapsed_s": 6.73,
+      "avg_ttft_s": 0.315,
+      "routed_model": "mistral-small3.2:24b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 7.8,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested mistral-small3.2:24b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 8.13,
+          "prompt_tokens": 0,
+          "completion_tokens": 65,
+          "tps": 8.0,
+          "time_to_first_token_s": 0.844,
+          "response_model": "mistral-small3.2:24b",
+          "response_text": "1. **Layer 1**: Physical \u2013 Ethernet\n2. **Layer 2**: Data Link \u2013 MAC (Media Access Control)\n3. **Layer 3**: Network \u2013 IP (Internet Protocol)\n4. **Layer 4**: Transport \u2013 TCP (Transmission Control Protocol)\n5. **Layer 5**: Session \u2013 NetBIOS (Network Basic Input/Output System)\n6. **Layer 6**: Presentation \u2013 SSL/TLS (Secure Sockets Layer / Transport Layer Security)\n7. **Layer 7**: Application \u2013 HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 6.47,
+          "prompt_tokens": 0,
+          "completion_tokens": 44,
+          "tps": 6.8,
+          "time_to_first_token_s": 0.179,
+          "response_model": "mistral-small3.2:24b",
+          "response_text": "1. **Physical** (Layer 1) \u2013 Ethernet\n2. **Data Link** (Layer 2) \u2013 MAC Address\n3. **Network** (Layer 3) \u2013 IP\n4. **Transport** (Layer 4) \u2013 TCP/UDP\n5. **Session** (Layer 5) \u2013 NetBIOS\n6. **Presentation** (Layer 6) \u2013 SSL/TLS\n7. **Application** (Layer 7) \u2013 HTTP"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 6.91,
+          "prompt_tokens": 0,
+          "completion_tokens": 57,
+          "tps": 8.2,
+          "time_to_first_token_s": 0.185,
+          "response_model": "mistral-small3.2:24b",
+          "response_text": "1. **Layer 1 - Physical**: Ethernet\n2. **Layer 2 - Data Link**: MAC address\n3. **Layer 3 - Network**: IP (Internet Protocol)\n4. **Layer 4 - Transport**: TCP (Transmission Control Protocol)\n5. **Layer 5 - Session**: RPC (Remote Procedure Call)\n6. **Layer 6 - Presentation**: SSL/TLS (for encryption/decryption)\n7. **Layer 7 - Application**: HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 6.17,
+          "prompt_tokens": 0,
+          "completion_tokens": 50,
+          "tps": 8.1,
+          "time_to_first_token_s": 0.185,
+          "response_model": "mistral-small3.2:24b",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. **Layer 5 - Transport**: TCP\n2. **Layer 4 - Network**: IP\n3. **Layer 3 - Data Link**: Ethernet\n4. **Layer 2 - Physical**: Fiber Optics\n5. **Layer 1 - Application**: HTTP\n6. **Layer 0 - Presentation**: SSL/TLS\n7. **Layer - Session**: NetBIOS"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.98,
+          "prompt_tokens": 0,
+          "completion_tokens": 46,
+          "tps": 7.7,
+          "time_to_first_token_s": 0.184,
+          "response_model": "mistral-small3.2:24b",
+          "response_text": "1. **Layer 1**: Physical - Ethernet\n2. **Layer 2**: Data Link - MAC address\n3. **Layer 3**: Network - IP (Internet Protocol)\n4. **Layer 4**: Transport - TCP/IP\n5. **Layer 5**: Session - NetBIOS\n6. **Layer 6**: Presentation - SSL/TLS\n7. **Layer 7**: Application - HTTP/HTTPS"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 14.4,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "devstral:24b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 8.7,
+      "min_tps": 8.2,
+      "max_tps": 10.0,
+      "stddev_tps": 0.74,
+      "cv": 0.085,
+      "avg_completion_tokens": 148,
+      "avg_elapsed_s": 17.01,
+      "avg_ttft_s": 0.407,
+      "routed_model": "devstral:24b",
+      "prompt_category": "coding",
+      "quality_score": 0.83,
+      "tps_quality": 7.2,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested devstral:24b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 17.86,
+          "prompt_tokens": 0,
+          "completion_tokens": 146,
+          "tps": 8.2,
+          "time_to_first_token_s": 1.339,
+          "response_model": "devstral:24b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals.\n\n    Algorithm Explanation:\n    1. If the list is empty or has a single interval, return it as is.\n    2. First sort the intervals by their starting points.\n    3. Iterate through sorted intervals and merge overlapping ones:\n       - Compare current interval with the last one in merged list\n       - If they overlap (current's start <= last end), merge them to\n         (min of starts, max of ends)\n       - Otherwise just append the current interval\n\n    Args:\n        intervals: A list of tuples, each tuple representing an interval [start, end]\n\n    Returns:\n        A list of merged and non-overlapping intervals\n    \"\"\"\n    if not intervals or len(intervals) == 1:\n        return intervals\n\n    # Sort intervals by their start values\n    intervals.sort(key=lambda x: x[0])\n\n    # Initialize with the first interval\n    merged = [intervals[0]]\n\n    for current in intervals[1:]:\n        last_merged = merged[-1]\n        if"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 16.86,
+          "prompt_tokens": 0,
+          "completion_tokens": 145,
+          "tps": 8.6,
+          "time_to_first_token_s": 0.177,
+          "response_model": "devstral:24b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merges overlapping intervals in a list.\n\n    Algorithm:\n    1. Sort the intervals based on their starting values.\n    2. Iterate through the sorted list and merge intervals if they overlap.\n    3. If an interval does not overlap with the last one in the merged list, add it to the result.\n\n    Edge cases handled:\n    - Empty list (returns empty list)\n    - Single interval (returns the same interval)\n    - Fully overlapping intervals (merges all)\n\n    Args:\n        intervals: List of tuples where each tuple represents an interval [start, end]\n\n    Returns:\n        A list of merged intervals\n    \"\"\"\n    if not intervals:\n        return []\n\n    # Sort intervals based on their start times\n    intervals.sort(key=lambda x: x[0])\n\n    merged = [intervals[0]]\n    for current in intervals[1:]:\n        last_merged = merged[-1]\n        # Check for overlap, if they do merge them\n        if current[0] <= last_merged[1]:\n            # Over"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 16.87,
+          "prompt_tokens": 0,
+          "completion_tokens": 142,
+          "tps": 8.4,
+          "time_to_first_token_s": 0.172,
+          "response_model": "devstral:24b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merges a list of intervals if they overlap.\n\n    This algorithm works by first sorting all intervals based on the starting value.\n    Then it iteratively checks for overlapping endpoints. If two contiguous intervals\n    overlap (i.e., end of one interval is greater than start of the next), they are merged\n    into a single interval with start being the smaller of both starts and end being the\n    larger of both ends.\n\n    Args:\n        intervals: List of tuples where each tuple contains two integers representing an interval [start, end].\n\n    Returns:\n        A list of tuples representing non-overlapping intervals after merging.\n\n    Edge cases handled:\n    - Empty list\n    - Single interval\n    - Fully overlapping intervals\n\n    Examples:\n        >>> merge_intervals([(1, 3), (2, 6), (8, 10), (15, 18)])\n        [(1, 6), (8, 10), (15, 18)]\n\n        >>> merge_intervals([])\n        []\n\n        >>> merge"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 16.75,
+          "prompt_tokens": 0,
+          "completion_tokens": 139,
+          "tps": 8.3,
+          "time_to_first_token_s": 0.172,
+          "response_model": "devstral:24b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list.\n\n    This algorithm works by first sorting all the intervals based on their start times,\n    then iteratively merging any overlapping intervals by comparing the current interval\n    with the previous one. If they overlap (i.e., the start of the current interval is less\n    than or equal to the end of the previous interval), we merge them by updating the end\n    time of the previous interval.\n\n    Args:\n        intervals: A list of tuples, where each tuple represents a start and end value\n            of an interval [start, end].\n\n    Returns:\n        A new list with overlapping intervals merged.\n\n    Example:\n        [(1,3),(2,6),(8,10),(15,18)] \u2192 [(1,6),(8,10),(15,18)]\n    \"\"\"\n    if not intervals:\n        return []\n\n    # Sort intervals based on the start time\n    intervals.sort(key=lambda x: x[0])\n\n    merged = [intervals[0]]\n\n    for current in intervals[1:]:\n"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 16.73,
+          "prompt_tokens": 0,
+          "completion_tokens": 168,
+          "tps": 10.0,
+          "time_to_first_token_s": 0.175,
+          "response_model": "devstral:24b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals.\n\n    This function takes a list of intervals where each interval is represented as a tuple of two integers.\n    The function will return a new list with all overlapping intervals merged.\n\n    Algorithm:\n    1. If the input list is empty, return an empty list\n    2. Sort the intervals based on the start value\n    3. Initialize an empty result list and a variable to keep track of the current interval being processed\n    4. Iterate through the sorted list:\n       - If the current interval overlaps with the next one (i.e., end of current >= start of next), merge them\n       - Otherwise, add the current interval to the results and update the current interval\n\n    Parameters:\n    intervals (List[Tuple[int, int]]): List of tuples where each tuple contains two integers representing\n                                        an interval [start, end]\n\n    Returns:\n    List[Tuple[int, int]]: A new list with overlapping intervals merged\n    \"\"\"\n    if not intervals:\n        return []\n\n    # Sort intervals based on the start value"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 14.4,
+      "groups": [
+        "coding"
+      ]
+    }
+  ]
+}

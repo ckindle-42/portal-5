@@ -1,0 +1,81 @@
+{
+  "schema": "kv_longctx_v1",
+  "captured_utc": "20260519T231710Z",
+  "host": "macOS-26.5-arm64-arm-64bit-Mach-O",
+  "mlx_url": "http://localhost:8081",
+  "kv_quant_tag": "off",
+  "models": [
+    {
+      "model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+      "ctx_sweep": [
+        1024,
+        8192,
+        32768,
+        131072,
+        200000
+      ],
+      "results": [
+        {
+          "ctx_tokens_requested": 1024,
+          "status": "OK",
+          "fail_reason": null,
+          "ttft_s": 61.842,
+          "decode_s": 0.91,
+          "tokens_generated": 51,
+          "tps": 56.02,
+          "pre_used_gb": null,
+          "peak_used_gb": 0.0,
+          "post_used_gb": null,
+          "delta_gb_to_pre": 0.0
+        },
+        {
+          "ctx_tokens_requested": 8192,
+          "status": "OK",
+          "fail_reason": null,
+          "ttft_s": 8.066,
+          "decode_s": 1.072,
+          "tokens_generated": 54,
+          "tps": 50.38,
+          "pre_used_gb": null,
+          "peak_used_gb": 0.0,
+          "post_used_gb": null,
+          "delta_gb_to_pre": 0.0
+        },
+        {
+          "ctx_tokens_requested": 32768,
+          "status": "OK",
+          "fail_reason": null,
+          "ttft_s": 34.321,
+          "decode_s": 1.151,
+          "tokens_generated": 49,
+          "tps": 42.59,
+          "pre_used_gb": null,
+          "peak_used_gb": 0.0,
+          "post_used_gb": null,
+          "delta_gb_to_pre": 0.0
+        },
+        {
+          "ctx_tokens_requested": 131072,
+          "status": "OK",
+          "fail_reason": null,
+          "ttft_s": 206.075,
+          "decode_s": 1.606,
+          "tokens_generated": 48,
+          "tps": 29.89,
+          "pre_used_gb": null,
+          "peak_used_gb": 0.0,
+          "post_used_gb": null,
+          "delta_gb_to_pre": 0.0
+        },
+        {
+          "ctx_tokens_requested": 200000,
+          "status": "FAIL",
+          "fail_reason": "RemoteProtocolError: illegal chunk header: bytearray(b'HTTP/1.0 502 Bad Gateway\\r\\n')",
+          "ttft_s": null,
+          "elapsed_s": 300.04012393951416
+        }
+      ],
+      "largest_ok_ctx": 131072
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+ "utc": "20260528T233409Z",
+ "floor_tps": 20.0,
+ "promote": {
+  "bench-qwen36-27b-optiq": {
+   "lane": "auto-coding",
+   "model": "mlx-community/Qwen3.6-27B-OptiQ-4bit"
+  }
+ }
+}

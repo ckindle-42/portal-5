@@ -1,0 +1,9 @@
+{
+  "generated_at": "2026-07-28T23:38:38Z",
+  "model": "kat-coder-v2.5-dev:Q4_K_M",
+  "audit_prompt": "What time is it in Paris right now?",
+  "audit_tool": "get_current_time",
+  "outcome": "tool_call",
+  "detail": "emitted 2 tool_call(s); first=get_current_time",
+  "elapsed_s": 2.36
+}

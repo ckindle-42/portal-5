@@ -1,0 +1,41 @@
+{
+  "probe": "tools_load",
+  "engine": "ollama",
+  "url": "http://localhost:11434",
+  "started": "2026-08-06T00:42:15.672120+00:00",
+  "results": [
+    {
+      "test": "tools_load",
+      "model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "duration_s": 90,
+      "concurrency": 5,
+      "wall_s": 90.9,
+      "total_requests": 352,
+      "counts": {
+        "tool_call": 352
+      },
+      "tool_call_rate": 1.0,
+      "ttft_p50": null,
+      "ttft_p99": null,
+      "verdict": "PASS",
+      "engine": "ollama"
+    },
+    {
+      "test": "tools_load",
+      "model": "gemma4:e4b-it-qat-ctx8k",
+      "duration_s": 90,
+      "concurrency": 5,
+      "wall_s": 96.9,
+      "total_requests": 60,
+      "counts": {
+        "no_tool": 28,
+        "tool_call": 32
+      },
+      "tool_call_rate": 0.533,
+      "ttft_p50": 1.174,
+      "ttft_p99": 5.108,
+      "verdict": "DEGRADED",
+      "engine": "ollama"
+    }
+  ]
+}

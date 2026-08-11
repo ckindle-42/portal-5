@@ -1,0 +1,101 @@
+{
+  "bench": "lab_exec",
+  "started_at": "20260618T014610Z",
+  "dc": "10.10.11.21",
+  "srv": "10.10.11.33",
+  "domain": "portal.lab",
+  "dry_run": false,
+  "runs": 1,
+  "phases": {
+    "recon": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.14,
+        "max": 0.14,
+        "avg": 0.14
+      },
+      "detail": "0 AD ports open"
+    },
+    "kerberoast": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.11,
+        "max": 0.11,
+        "avg": 0.11
+      },
+      "detail": "0/3 TGS hashes captured"
+    },
+    "asrep": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.11,
+        "max": 0.11,
+        "avg": 0.11
+      },
+      "detail": "0/2 AS-REP hashes captured"
+    },
+    "crack": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.11,
+        "max": 0.11,
+        "avg": 0.11
+      },
+      "detail": "see output"
+    },
+    "spray": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.11,
+        "max": 0.11,
+        "avg": 0.11
+      },
+      "detail": "0 valid account(s) found"
+    },
+    "bloodhound": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.11,
+        "max": 0.11,
+        "avg": 0.11
+      },
+      "detail": "check output"
+    },
+    "winrm": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.12,
+        "max": 0.12,
+        "avg": 0.12
+      },
+      "detail": "check output"
+    },
+    "dcsync": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.12,
+        "max": 0.12,
+        "avg": 0.12
+      },
+      "detail": "check output"
+    }
+  },
+  "total_elapsed_s": 0.9,
+  "finished_at": "20260618T014611Z"
+}

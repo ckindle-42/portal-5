@@ -1,0 +1,62 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "ollama",
+  "url": "http://localhost:11434",
+  "started": "2026-08-05T19:39:07.036263+00:00",
+  "models": [
+    "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+    "gemma4:e4b-it-qat-ctx8k",
+    "llama3.2:3b-instruct-q8_0-ctx8k"
+  ],
+  "gates": [
+    "shootout"
+  ],
+  "results": [
+    {
+      "test": "shootout",
+      "models": [
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+        "gemma4:e4b-it-qat-ctx8k",
+        "llama3.2:3b-instruct-q8_0-ctx8k"
+      ],
+      "duration_s": 90,
+      "concurrency": 12,
+      "wall_s": 336.3,
+      "total_requests": 18,
+      "ok": 18,
+      "failures": 0,
+      "throughput_rps": 0.05,
+      "ttft_p50": 1.31,
+      "ttft_p95": 112.871,
+      "ttft_p99": 141.462,
+      "tps_mean": 11.2,
+      "tps_cv": 0.277,
+      "truncated": 2,
+      "avg_response_chars": 3932.0,
+      "avg_reasoning_chars": 1346.0,
+      "per_model": {
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k": {
+          "requests": 6,
+          "ttft_p50": 1.31,
+          "ttft_p95": 31.62,
+          "tps_mean": 9.0
+        },
+        "gemma4:e4b-it-qat-ctx8k": {
+          "requests": 6,
+          "ttft_p50": 2.1,
+          "ttft_p95": 141.462,
+          "tps_mean": 10.2
+        },
+        "llama3.2:3b-instruct-q8_0-ctx8k": {
+          "requests": 6,
+          "ttft_p50": 0.461,
+          "ttft_p95": 0.905,
+          "tps_mean": 14.3
+        }
+      },
+      "gate": "shootout",
+      "engine": "ollama"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "bench": "mbptl",
+  "started_at": "20260622T042356Z",
+  "host": "10.0.1.140",
+  "web_port": 80,
+  "admin_port": 8080,
+  "dry_run": false,
+  "runs": 1,
+  "total_flags": 17,
+  "phases": {
+    "binary": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 6.32,
+        "max": 6.32,
+        "avg": 6.32
+      },
+      "flags_found": [
+        "MBPTL-15{cb4ca713115bfa8691b8577187a747e0}",
+        "MBPTL-16{1fb837a73ba131c382cc9bc53d4442f0}",
+        "MBPTL-17{03762a502a18e260a47da040eaae38fa}"
+      ],
+      "flags_expected": [
+        15,
+        16,
+        17
+      ],
+      "detail": "3/3 flags found BOF_RAN"
+    }
+  },
+  "total_elapsed_s": 6.3,
+  "finished_at": "20260622T042402Z",
+  "flags_found_total": 3,
+  "flags_found": [
+    "MBPTL-15{cb4ca713115bfa8691b8577187a747e0}",
+    "MBPTL-16{1fb837a73ba131c382cc9bc53d4442f0}",
+    "MBPTL-17{03762a502a18e260a47da040eaae38fa}"
+  ]
+}

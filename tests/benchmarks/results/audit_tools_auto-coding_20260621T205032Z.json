@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-06-21T20:50:32.181618+00:00",
+  "workspace": "auto-coding",
+  "audit_prompt": "What time is it in Paris right now?",
+  "audit_tool": "get_current_time",
+  "results": [
+    {
+      "model": "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf",
+      "backend": "ollama",
+      "memory_gb": 18.0,
+      "outcome": "api_error",
+      "http_status": 400,
+      "detail": "{\"error\":{\"message\":\"hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf does not support tools\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":null}}\n",
+      "elapsed_s": 0.13
+    }
+  ]
+}

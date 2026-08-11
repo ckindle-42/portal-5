@@ -1,0 +1,212 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260809T193213Z",
+  "candidate": "bench-aquila-mini-35b-a3b",
+  "baselines": [
+    "auto-research"
+  ],
+  "probes_run": [
+    "C1",
+    "C4"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "auto-research",
+      "results": [
+        {
+          "probe_id": "C1/c1_1",
+          "workspace": "auto-research",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 6,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C1/c1_2",
+          "workspace": "auto-research",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 3,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "auto-research",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": false,
+            "fence": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 155.4529532090528,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "auto-research",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### Numbered Plan\n\n1. **Capture HTTP traffic on port 443 using tcpdump:**\n   - Use an interface (e.g., `eth0`).\n   - Capture all TCP packets on port 443.\n   - Filter for TCP flags, focusing on RST packets.\n   - Dump output in hex and human-readable format for detailed analysis.\n\n2. **Use the resulting output to identify connection resets:**\n   - Analyze RST packets, sequence numbers, and window si",
+          "latency_s": 116.63672170799691,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "auto-research",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered Plan to Capture DNS Traffic\n\n1. **Start TCPDUMP**:  \n   Capture all DNS traffic (UDP/TCP on port 53) on the target service server.  \n2. **Filter Key Elements**:  \n   - Filter for DNS-specific data (queries, responses, AXFR, etc.).  \n   - Capture RTT (Round Trip Time) statistics.  \n3. **Monitor for Delays**:  \n   - Look for DNS queries/responses with RTT > 200 ms.  \n4. **Save & Anal",
+          "latency_s": 35.80847262509633,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-aquila-mini-35b-a3b",
+      "results": [
+        {
+          "probe_id": "C1/c1_1",
+          "workspace": "bench-aquila-mini-35b-a3b",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 6,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_1",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C1/c1_2",
+          "workspace": "bench-aquila-mini-35b-a3b",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 6,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_2",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "bench-aquila-mini-35b-a3b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered plan\n1. **Capture on the loopback interface** (`lo`) since nginx and the upstream are likely both on the same host; filter for `port 8080` to focus only on upstream traffic.  \n2. **Use `-s 0 -A`** to capture full packets and print ASCII payloads, allowing you to see HTTP request/response data alongside TCP flags.  \n3. **Look for**:  \n   - `SYN` packets without replies (upstream not",
+          "latency_s": 23.152435874915682,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "bench-aquila-mini-35b-a3b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "1. **Plan**  \n   1. Determine the network interface that carries the client-facing HTTP/HTTPS traffic (e.g., `eth0`, `ens3`).  \n   2. Run `tcpdump` with a filter that matches TCP packets whose destination or source port is 443 and checks for the RST flag. Use `-nn` to suppress DNS and service name lookups, which reduces overhead and makes output easier to parse.  \n   3. While the capture runs, rep",
+          "latency_s": 55.66408754198346,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "bench-aquila-mini-35b-a3b",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered Plan\n\n1. **Identify the network interface** you need to monitor (e.g., `eth0`, `en0`, or `any`).  \n2. **Run `tcpdump` with a filter for port 53**, capturing both DNS queries and responses.  \n3. **Observe the timestamps** of DNS request and reply packets to measure resolution latency.  \n4. **Compare measured response times** against your application\u2019s timeout thresholds; consistent ",
+          "latency_s": 19.27374624996446,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": 0.0
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-08-09T19:46:13.218854+00:00"
+}

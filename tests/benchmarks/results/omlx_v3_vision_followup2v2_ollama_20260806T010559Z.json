@@ -1,0 +1,116 @@
+{
+  "probe": "vision",
+  "engine": "ollama",
+  "url": "http://localhost:11434",
+  "started": "2026-08-06T01:05:59.894957+00:00",
+  "results": [
+    {
+      "test": "vision",
+      "probe": "shape_color",
+      "model": "gemma4:e4b-it-qat-ctx8k",
+      "verdict": "PASS",
+      "detail": "A Red Circle",
+      "ttft_s": 0.643,
+      "elapsed_s": 3.182,
+      "tps": 44.6,
+      "error": null,
+      "engine": "ollama"
+    },
+    {
+      "test": "vision",
+      "probe": "bar_count",
+      "model": "gemma4:e4b-it-qat-ctx8k",
+      "verdict": "FAIL",
+      "detail": "6",
+      "ttft_s": 0.57,
+      "elapsed_s": 3.808,
+      "tps": 47.3,
+      "error": null,
+      "engine": "ollama"
+    },
+    {
+      "test": "vision",
+      "probe": "ocr_text",
+      "model": "gemma4:e4b-it-qat-ctx8k",
+      "verdict": "PASS",
+      "detail": "PORTAL5",
+      "ttft_s": 0.527,
+      "elapsed_s": 0.583,
+      "tps": 6.9,
+      "error": null,
+      "engine": "ollama"
+    },
+    {
+      "test": "vision",
+      "probe": "shape_color",
+      "model": "supergemma4-26b-uncensored:Q4_K_M-ctx64k",
+      "verdict": "FAIL",
+      "detail": "HTTP 400: {\"error\":{\"message\":\"{\\\"error\\\":{\\\"code\\\":400,\\\"message\\\":\\\"Multimodal data provided, but model does not support multimodal requests.\\\",\\\"type\\\":\\\"invalid_request_error\\\"}}\",\"type\":\"invalid_request_er",
+      "ttft_s": null,
+      "elapsed_s": 0.3,
+      "tps": null,
+      "error": "HTTP 400: {\"error\":{\"message\":\"{\\\"error\\\":{\\\"code\\\":400,\\\"message\\\":\\\"Multimodal data provided, but model does not support multimodal requests.\\\",\\\"type\\\":\\\"invalid_request_error\\\"}}\",\"type\":\"invalid_request_er",
+      "engine": "ollama"
+    },
+    {
+      "test": "vision",
+      "probe": "bar_count",
+      "model": "supergemma4-26b-uncensored:Q4_K_M-ctx64k",
+      "verdict": "FAIL",
+      "detail": "HTTP 400: {\"error\":{\"message\":\"{\\\"error\\\":{\\\"code\\\":400,\\\"message\\\":\\\"Multimodal data provided, but model does not support multimodal requests.\\\",\\\"type\\\":\\\"invalid_request_error\\\"}}\",\"type\":\"invalid_request_er",
+      "ttft_s": null,
+      "elapsed_s": 0.248,
+      "tps": null,
+      "error": "HTTP 400: {\"error\":{\"message\":\"{\\\"error\\\":{\\\"code\\\":400,\\\"message\\\":\\\"Multimodal data provided, but model does not support multimodal requests.\\\",\\\"type\\\":\\\"invalid_request_error\\\"}}\",\"type\":\"invalid_request_er",
+      "engine": "ollama"
+    },
+    {
+      "test": "vision",
+      "probe": "ocr_text",
+      "model": "supergemma4-26b-uncensored:Q4_K_M-ctx64k",
+      "verdict": "FAIL",
+      "detail": "HTTP 400: {\"error\":{\"message\":\"{\\\"error\\\":{\\\"code\\\":400,\\\"message\\\":\\\"Multimodal data provided, but model does not support multimodal requests.\\\",\\\"type\\\":\\\"invalid_request_error\\\"}}\",\"type\":\"invalid_request_er",
+      "ttft_s": null,
+      "elapsed_s": 0.244,
+      "tps": null,
+      "error": "HTTP 400: {\"error\":{\"message\":\"{\\\"error\\\":{\\\"code\\\":400,\\\"message\\\":\\\"Multimodal data provided, but model does not support multimodal requests.\\\",\\\"type\\\":\\\"invalid_request_error\\\"}}\",\"type\":\"invalid_request_er",
+      "engine": "ollama"
+    },
+    {
+      "test": "vision",
+      "probe": "shape_color",
+      "model": "qwen3-vl:32b-ctx8k",
+      "verdict": "PASS",
+      "detail": "Red circle",
+      "ttft_s": 13.219,
+      "elapsed_s": 17.013,
+      "tps": 2.6,
+      "error": null,
+      "engine": "ollama"
+    },
+    {
+      "test": "vision",
+      "probe": "bar_count",
+      "model": "qwen3-vl:32b-ctx8k",
+      "verdict": "PASS",
+      "detail": "5",
+      "ttft_s": 14.98,
+      "elapsed_s": 20.976,
+      "tps": 3.2,
+      "error": null,
+      "engine": "ollama"
+    },
+    {
+      "test": "vision",
+      "probe": "ocr_text",
+      "model": "qwen3-vl:32b-ctx8k",
+      "verdict": "PASS",
+      "detail": "PORTAL5",
+      "ttft_s": 15.46,
+      "elapsed_s": 20.181,
+      "tps": 2.7,
+      "error": null,
+      "engine": "ollama"
+    }
+  ]
+}

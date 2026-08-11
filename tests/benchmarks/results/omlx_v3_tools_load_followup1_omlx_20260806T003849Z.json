@@ -1,0 +1,41 @@
+{
+  "probe": "tools_load",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-06T00:38:49.019923+00:00",
+  "results": [
+    {
+      "test": "tools_load",
+      "model": "Qwen3-Coder-30B-A3B-Instruct-4bit",
+      "duration_s": 90,
+      "concurrency": 5,
+      "wall_s": 90.5,
+      "total_requests": 216,
+      "counts": {
+        "tool_call": 211,
+        "no_tool": 5
+      },
+      "tool_call_rate": 0.977,
+      "ttft_p50": 0.542,
+      "ttft_p99": 0.546,
+      "verdict": "DEGRADED",
+      "engine": "omlx"
+    },
+    {
+      "test": "tools_load",
+      "model": "gemma-4-e4b-it-4bit",
+      "duration_s": 90,
+      "concurrency": 5,
+      "wall_s": 90.8,
+      "total_requests": 277,
+      "counts": {
+        "tool_call": 277
+      },
+      "tool_call_rate": 1.0,
+      "ttft_p50": null,
+      "ttft_p99": null,
+      "verdict": "PASS",
+      "engine": "omlx"
+    }
+  ]
+}

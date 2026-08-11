@@ -1,0 +1,173 @@
+{
+  "bench": "mbptl",
+  "started_at": "20260622T042406Z",
+  "host": "10.0.1.140",
+  "web_port": 80,
+  "admin_port": 8080,
+  "dry_run": false,
+  "runs": 1,
+  "total_flags": 17,
+  "phases": {
+    "recon": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.26,
+        "max": 0.26,
+        "avg": 0.26
+      },
+      "flags_found": [
+        "MBPTL-1{bf094c0b92d13d593cbff56b3c57ad4d}",
+        "MBPTL-2{10e0daf1aefdfa42ba53f1d03dc3b7da}",
+        "MBPTL-3{f74dc48447423d67699b233c461227a4}"
+      ],
+      "flags_expected": [
+        1,
+        2,
+        3
+      ],
+      "detail": "3/3 flags found"
+    },
+    "web_enum": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.19,
+        "max": 0.19,
+        "avg": 0.19
+      },
+      "flags_found": [
+        "MBPTL-4{eb75482e45154917d44882e0c4a8e68f}"
+      ],
+      "flags_expected": [
+        4
+      ],
+      "detail": "1/1 flags found"
+    },
+    "sqli": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.21,
+        "max": 0.21,
+        "avg": 0.21
+      },
+      "flags_found": [
+        "MBPTL-5{4bcce60b74914398c04eb5b546995408}",
+        "MBPTL-6{9fce407640f5425f688c98039bc67ee6}",
+        "MBPTL-7{e77ac27271c6e54470db47228b9eca09}"
+      ],
+      "flags_expected": [
+        5,
+        6,
+        7
+      ],
+      "detail": "3/3 flags found"
+    },
+    "postexploit": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.25,
+        "max": 0.25,
+        "avg": 0.25
+      },
+      "flags_found": [
+        "MBPTL-8{e284ebd7a0008f5f3a5ca02cc3e4764b}",
+        "MBPTL-9{74ac6fef30abfc98e8532548b9742050}"
+      ],
+      "flags_expected": [
+        8,
+        9
+      ],
+      "detail": "2/2 flags found shell=administrator/uploads/156700d2083f625a61aaf3d3e527d68c.php"
+    },
+    "soc": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.24,
+        "max": 0.24,
+        "avg": 0.24
+      },
+      "flags_found": [
+        "MBPTL-10{c1835d7d28a5394b38cfbf6f813a1553}",
+        "MBPTL-11{c2090290b9012cd448129e26626c8cde}",
+        "MBPTL-12{a475806f05e0416bcd8cde2d02dfde95}"
+      ],
+      "flags_expected": [
+        10,
+        11,
+        12
+      ],
+      "detail": "3/3 flags found"
+    },
+    "pivot": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.27,
+        "max": 0.27,
+        "avg": 0.27
+      },
+      "flags_found": [
+        "MBPTL-13{b20c7cd75fd17802261d0725ae2eb733}",
+        "MBPTL-14{c64184222cff6005e728bbfc2a672fe4}"
+      ],
+      "flags_expected": [
+        13,
+        14
+      ],
+      "detail": "2/2 flags found"
+    },
+    "binary": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 6.28,
+        "max": 6.28,
+        "avg": 6.28
+      },
+      "flags_found": [
+        "MBPTL-15{cb4ca713115bfa8691b8577187a747e0}",
+        "MBPTL-16{1fb837a73ba131c382cc9bc53d4442f0}",
+        "MBPTL-17{03762a502a18e260a47da040eaae38fa}"
+      ],
+      "flags_expected": [
+        15,
+        16,
+        17
+      ],
+      "detail": "3/3 flags found BOF_RAN"
+    }
+  },
+  "total_elapsed_s": 7.7,
+  "finished_at": "20260622T042413Z",
+  "flags_found_total": 17,
+  "flags_found": [
+    "MBPTL-10{c1835d7d28a5394b38cfbf6f813a1553}",
+    "MBPTL-11{c2090290b9012cd448129e26626c8cde}",
+    "MBPTL-12{a475806f05e0416bcd8cde2d02dfde95}",
+    "MBPTL-13{b20c7cd75fd17802261d0725ae2eb733}",
+    "MBPTL-14{c64184222cff6005e728bbfc2a672fe4}",
+    "MBPTL-15{cb4ca713115bfa8691b8577187a747e0}",
+    "MBPTL-16{1fb837a73ba131c382cc9bc53d4442f0}",
+    "MBPTL-17{03762a502a18e260a47da040eaae38fa}",
+    "MBPTL-1{bf094c0b92d13d593cbff56b3c57ad4d}",
+    "MBPTL-2{10e0daf1aefdfa42ba53f1d03dc3b7da}",
+    "MBPTL-3{f74dc48447423d67699b233c461227a4}",
+    "MBPTL-4{eb75482e45154917d44882e0c4a8e68f}",
+    "MBPTL-5{4bcce60b74914398c04eb5b546995408}",
+    "MBPTL-6{9fce407640f5425f688c98039bc67ee6}",
+    "MBPTL-7{e77ac27271c6e54470db47228b9eca09}",
+    "MBPTL-8{e284ebd7a0008f5f3a5ca02cc3e4764b}",
+    "MBPTL-9{74ac6fef30abfc98e8532548b9742050}"
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "task": "TASK_DAILY_WORK_FLEET_SOAK_V1",
+  "path": "direct",
+  "engine": "ollama",
+  "duration_s": 10800,
+  "concurrency": 3,
+  "elapsed_s": 300.9,
+  "total": 10,
+  "ok": 10,
+  "failures": 0,
+  "by_workspace": {
+    "auto-compliance": {
+      "ok": 2,
+      "fail": 0
+    },
+    "auto-reasoning": {
+      "ok": 1,
+      "fail": 0
+    },
+    "auto-daily": {
+      "ok": 1,
+      "fail": 0
+    },
+    "auto-research": {
+      "ok": 3,
+      "fail": 0
+    },
+    "auto-data": {
+      "ok": 2,
+      "fail": 0
+    },
+    "auto-coding": {
+      "ok": 1,
+      "fail": 0
+    }
+  },
+  "by_served_backend": {
+    "ollama": {
+      "ok": 10,
+      "fail": 0
+    }
+  },
+  "samples": [
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "ollama",
+      "ttft_s": 5.861,
+      "total_s": 27.928,
+      "tps": 20.8,
+      "t": 27.9
+    },
+    {
+      "workspace": "auto-reasoning",
+      "served_backend": "ollama",
+      "ttft_s": 31.944,
+      "total_s": 78.486,
+      "tps": 19.1,
+      "t": 78.5
+    },
+    {
+      "workspace": "auto-daily",
+      "served_backend": "ollama",
+      "ttft_s": 42.391,
+      "total_s": 87.31,
+      "tps": 16.6,
+      "t": 87.3
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "ollama",
+      "ttft_s": 74.704,
+      "total_s": 92.111,
+      "tps": 13.0,
+      "t": 120.0
+    },
+    {
+      "workspace": "auto-data",
+      "served_backend": "ollama",
+      "ttft_s": 45.987,
+      "total_s": 110.764,
+      "tps": 4.1,
+      "t": 198.1
+    },
+    {
+      "workspace": "auto-data",
+      "served_backend": "ollama",
+      "ttft_s": 54.811,
+      "total_s": 120.139,
+      "tps": 3.9,
+      "t": 198.6
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "ollama",
+      "ttft_s": 87.86,
+      "total_s": 99.259,
+      "tps": 8.1,
+      "t": 219.3
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "ollama",
+      "ttft_s": 26.731,
+      "total_s": 47.149,
+      "tps": 10.2,
+      "t": 245.2
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "ollama",
+      "ttft_s": 40.759,
+      "total_s": 53.437,
+      "tps": 11.5,
+      "t": 252.1
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "ollama",
+      "ttft_s": 35.169,
+      "total_s": 57.397,
+      "tps": 26.1,
+      "t": 276.7
+    }
+  ]
+}

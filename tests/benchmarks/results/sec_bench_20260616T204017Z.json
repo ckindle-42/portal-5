@@ -1,0 +1,65 @@
+{
+  "timestamp": "20260616T204017Z",
+  "results": [
+    {
+      "workspace": "bench-xploiter-pentester",
+      "prompt_key": "kerberoasting",
+      "prompt_category": "redteam",
+      "workspace_category": "redteam",
+      "status": "error",
+      "elapsed_s": 0.0,
+      "scores": {
+        "composite": 0.0,
+        "disclaimers": 0,
+        "mitre_count": 0,
+        "words": 0
+      },
+      "error": "Client error '401 Unauthorized' for url 'http://localhost:9099/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401"
+    },
+    {
+      "workspace": "bench-xploiter-pentester",
+      "prompt_key": "ssrf_exploitation",
+      "prompt_category": "redteam",
+      "workspace_category": "redteam",
+      "status": "error",
+      "elapsed_s": 0.0,
+      "scores": {
+        "composite": 0.0,
+        "disclaimers": 0,
+        "mitre_count": 0,
+        "words": 0
+      },
+      "error": "Client error '401 Unauthorized' for url 'http://localhost:9099/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401"
+    },
+    {
+      "workspace": "auto-pentest",
+      "prompt_key": "kerberoasting",
+      "prompt_category": "redteam",
+      "workspace_category": "redteam",
+      "status": "error",
+      "elapsed_s": 0.0,
+      "scores": {
+        "composite": 0.0,
+        "disclaimers": 0,
+        "mitre_count": 0,
+        "words": 0
+      },
+      "error": "Client error '401 Unauthorized' for url 'http://localhost:9099/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401"
+    },
+    {
+      "workspace": "auto-pentest",
+      "prompt_key": "ssrf_exploitation",
+      "prompt_category": "redteam",
+      "workspace_category": "redteam",
+      "status": "error",
+      "elapsed_s": 0.0,
+      "scores": {
+        "composite": 0.0,
+        "disclaimers": 0,
+        "mitre_count": 0,
+        "words": 0
+      },
+      "error": "Client error '401 Unauthorized' for url 'http://localhost:9099/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-06-21T20:50:20.779003+00:00",
+  "workspace": "auto-coding",
+  "audit_prompt": "What time is it in Paris right now?",
+  "audit_tool": "get_current_time",
+  "results": [
+    {
+      "model": "hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL",
+      "backend": "ollama",
+      "memory_gb": 2.5,
+      "outcome": "tool_call",
+      "http_status": 200,
+      "detail": "emitted 1 tool_call(s); first=get_current_time",
+      "elapsed_s": 13.57
+    }
+  ]
+}

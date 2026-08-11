@@ -1,0 +1,62 @@
+{
+  "bench": "lab_exec",
+  "started_at": "20260701T052555Z",
+  "dc": "10.10.11.21",
+  "srv": "10.10.11.33",
+  "domain": "portal.lab",
+  "dry_run": true,
+  "runs": 1,
+  "proxmox_lifecycle": true,
+  "targets": [
+    "dc01",
+    "srv01"
+  ],
+  "phases": {
+    "vulhub_redis": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "detail": "redis probe dry-run"
+    },
+    "vulhub_lfi": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "detail": "LFI probe dry-run"
+    },
+    "meta3_compromise": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "detail": "meta3 compromise dry-run"
+    },
+    "srv01_local": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "detail": "srv01 local probe dry-run"
+    }
+  },
+  "total_elapsed_s": 0.0,
+  "finished_at": "20260701T052555Z"
+}

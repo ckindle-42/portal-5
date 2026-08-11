@@ -1,0 +1,134 @@
+{
+  "task": "omlx-fleet-soak-v1",
+  "started": "2026-08-06T01:40:42.336469+00:00",
+  "elapsed_s": 115.1,
+  "duration_s": 90,
+  "concurrency": 3,
+  "model_weights": {
+    "coder": [
+      "Qwen3-Coder-30B-A3B-Instruct-4bit",
+      34
+    ],
+    "granite-8b": [
+      "granite-4.1-8b-oQ4",
+      11
+    ],
+    "vulnllm": [
+      "VulnLLM-R-7B-4bit",
+      10
+    ],
+    "deepseek-r1": [
+      "DeepSeek-R1-0528-Qwen3-8B-4bit",
+      9
+    ],
+    "qwen-vl": [
+      "Qwen3-VL-32B-Instruct-4bit",
+      8
+    ],
+    "tongyi-research": [
+      "Tongyi-DeepResearch-30B-A3B-abliterated-4bit",
+      8
+    ],
+    "granite-30b": [
+      "granite-4.1-30b-4bit",
+      7
+    ],
+    "gemma-daily": [
+      "gemma-4-26b-a4b-it-QAT-4bit",
+      4
+    ],
+    "hauhaucs-creative": [
+      "Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit",
+      4
+    ],
+    "qwen35-9b": [
+      "huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+      3
+    ]
+  },
+  "total_requests": 9,
+  "ok": 8,
+  "failures": 1,
+  "failure_samples": [
+    {
+      "model": "granite-8b",
+      "error": "HTTP 409: {\"error\":{\"message\":\"Model 'granite-4.1-8b-oQ4' failed to load: Received 2 parameters not in model: \\nlm_head.biases,\\nlm_head.scales.. Reload models after fixing the files to retry.\",\"type\":\"invalid_",
+      "t": 55.83104849990923
+    }
+  ],
+  "per_model": {
+    "coder": {
+      "ok": 3,
+      "fail": 0,
+      "tps_mean": 13.4
+    },
+    "granite-8b": {
+      "ok": 0,
+      "fail": 1,
+      "tps_mean": null
+    },
+    "vulnllm": {
+      "ok": 0,
+      "fail": 0,
+      "tps_mean": null
+    },
+    "deepseek-r1": {
+      "ok": 2,
+      "fail": 0,
+      "tps_mean": 26.6
+    },
+    "qwen-vl": {
+      "ok": 1,
+      "fail": 0,
+      "tps_mean": 9.1
+    },
+    "tongyi-research": {
+      "ok": 1,
+      "fail": 0,
+      "tps_mean": 14.5
+    },
+    "granite-30b": {
+      "ok": 0,
+      "fail": 0,
+      "tps_mean": null
+    },
+    "gemma-daily": {
+      "ok": 0,
+      "fail": 0,
+      "tps_mean": null
+    },
+    "hauhaucs-creative": {
+      "ok": 0,
+      "fail": 0,
+      "tps_mean": null
+    },
+    "qwen35-9b": {
+      "ok": 1,
+      "fail": 0,
+      "tps_mean": 24.4
+    }
+  },
+  "health_snapshots": [
+    {
+      "t": 0.0,
+      "wall": "2026-08-06T01:40:42.366125+00:00",
+      "model_count": 40,
+      "loaded_count": 1,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 4498564060,
+      "status": "healthy"
+    },
+    {
+      "t": 60.0,
+      "wall": "2026-08-06T01:41:42.381426+00:00",
+      "model_count": 40,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 23330196401,
+      "status": "healthy"
+    }
+  ],
+  "outages": [],
+  "peak_memory_bytes": 23330196401,
+  "ceiling_bytes": 50465865728
+}

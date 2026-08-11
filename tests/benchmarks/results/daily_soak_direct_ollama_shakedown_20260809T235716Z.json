@@ -1,0 +1,137 @@
+{
+  "task": "TASK_DAILY_WORK_FLEET_SOAK_V1",
+  "path": "direct",
+  "engine": "ollama",
+  "duration_s": 300,
+  "concurrency": 2,
+  "elapsed_s": 326.7,
+  "total": 11,
+  "ok": 11,
+  "failures": 0,
+  "by_workspace": {
+    "auto-creative": {
+      "ok": 1,
+      "fail": 0
+    },
+    "auto-daily": {
+      "ok": 2,
+      "fail": 0
+    },
+    "auto-documents": {
+      "ok": 2,
+      "fail": 0
+    },
+    "auto-security": {
+      "ok": 2,
+      "fail": 0
+    },
+    "auto-data": {
+      "ok": 1,
+      "fail": 0
+    },
+    "auto-compliance": {
+      "ok": 1,
+      "fail": 0
+    },
+    "auto-research": {
+      "ok": 2,
+      "fail": 0
+    }
+  },
+  "by_served_backend": {
+    "ollama": {
+      "ok": 11,
+      "fail": 0
+    }
+  },
+  "samples": [
+    {
+      "workspace": "auto-creative",
+      "served_backend": "ollama",
+      "ttft_s": 15.678,
+      "total_s": 32.233,
+      "tps": 27.6,
+      "t": 32.2
+    },
+    {
+      "workspace": "auto-daily",
+      "served_backend": "ollama",
+      "ttft_s": 42.31,
+      "total_s": 57.947,
+      "tps": 16.7,
+      "t": 57.9
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "ollama",
+      "ttft_s": 31.609,
+      "total_s": 52.887,
+      "tps": 10.3,
+      "t": 85.1
+    },
+    {
+      "workspace": "auto-security",
+      "served_backend": "ollama",
+      "ttft_s": 11.456,
+      "total_s": 18.087,
+      "tps": 12.3,
+      "t": 103.2
+    },
+    {
+      "workspace": "auto-daily",
+      "served_backend": "ollama",
+      "ttft_s": 35.638,
+      "total_s": 53.77,
+      "tps": 16.7,
+      "t": 111.7
+    },
+    {
+      "workspace": "auto-data",
+      "served_backend": "ollama",
+      "ttft_s": 24.707,
+      "total_s": 72.478,
+      "tps": 8.3,
+      "t": 175.7
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "ollama",
+      "ttft_s": 69.143,
+      "total_s": 99.394,
+      "tps": 7.9,
+      "t": 211.1
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "ollama",
+      "ttft_s": 50.867,
+      "total_s": 73.085,
+      "tps": 20.5,
+      "t": 248.8
+    },
+    {
+      "workspace": "auto-security",
+      "served_backend": "ollama",
+      "ttft_s": 4.102,
+      "total_s": 32.922,
+      "tps": 26.1,
+      "t": 281.7
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "ollama",
+      "ttft_s": 38.885,
+      "total_s": 91.226,
+      "tps": 10.6,
+      "t": 302.3
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "ollama",
+      "ttft_s": 22.701,
+      "total_s": 44.979,
+      "tps": 33.3,
+      "t": 326.7
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "ollama",
+  "url": "http://localhost:11434",
+  "started": "2026-08-05T20:38:03.933733+00:00",
+  "models": [
+    "gemma4:e4b-it-qat-ctx8k"
+  ],
+  "gates": [
+    "shootout"
+  ],
+  "results": [
+    {
+      "test": "shootout",
+      "models": [
+        "gemma4:e4b-it-qat-ctx8k"
+      ],
+      "duration_s": 90,
+      "concurrency": 5,
+      "wall_s": 218.9,
+      "total_requests": 6,
+      "ok": 6,
+      "failures": 0,
+      "throughput_rps": 0.03,
+      "ttft_p50": 1.39,
+      "ttft_p95": 66.563,
+      "ttft_p99": 66.563,
+      "tps_mean": 16.4,
+      "tps_cv": 0.151,
+      "truncated": 1,
+      "avg_response_chars": 3983.0,
+      "avg_reasoning_chars": 4274.0,
+      "per_model": {
+        "gemma4:e4b-it-qat-ctx8k": {
+          "requests": 6,
+          "ttft_p50": 1.39,
+          "ttft_p95": 66.563,
+          "tps_mean": 16.4
+        }
+      },
+      "gate": "shootout",
+      "engine": "ollama"
+    }
+  ]
+}

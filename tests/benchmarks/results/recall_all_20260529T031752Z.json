@@ -1,0 +1,420 @@
+{
+  "timestamp": "2026-05-29T04:05:11.733505+00:00",
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "cpu": "arm"
+  },
+  "config": {
+    "k": 12,
+    "seed": 42,
+    "n_lines": 20,
+    "pass_threshold": 8
+  },
+  "models": [
+    {
+      "timestamp": "2026-05-29T03:47:42.357039+00:00",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "max_kv_size": 65536,
+      "target_ctx": 65536,
+      "corpus_tokens_est": 121040,
+      "k": 12,
+      "seed": 42,
+      "n_lines": 20,
+      "pass_threshold": 8,
+      "hardware": {
+        "platform": "Darwin",
+        "machine": "arm64",
+        "cpu": "arm"
+      },
+      "by_bucket": {
+        "front": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.0,
+          "n": 4
+        },
+        "middle": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.0,
+          "n": 4
+        },
+        "tail": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.0,
+          "n": 4
+        }
+      },
+      "overall": {
+        "pass_rate": 0.0,
+        "mean_recall": 0.0
+      },
+      "lost_in_middle_delta": 0.0,
+      "results": [
+        {
+          "name": "_get_hardware_info",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 14,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 130.24
+        },
+        {
+          "name": "_get_health_semaphore",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 12,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 117.57
+        },
+        {
+          "name": "__post_init__",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 5,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 126.02
+        },
+        {
+          "name": "_mlx_preevict_if_pressure_high",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 126.95
+        },
+        {
+          "name": "_get_health_semaphore",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 12,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 118.44
+        },
+        {
+          "name": "_refresh_healthy_cache",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 12,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 123.76
+        },
+        {
+          "name": "_load_config",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 131.06
+        },
+        {
+          "name": "main",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 119.05
+        },
+        {
+          "name": "_is_reasoning_model",
+          "bucket": "tail",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 6,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 124.43
+        },
+        {
+          "name": "_check_image_freshness",
+          "bucket": "tail",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 122.8
+        },
+        {
+          "name": "shutdown",
+          "bucket": "tail",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 3,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 118.47
+        },
+        {
+          "name": "_warmup_pipeline_model",
+          "bucket": "tail",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 231.26
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-05-29T04:03:46.682673+00:00",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "max_kv_size": 131072,
+      "target_ctx": 131072,
+      "corpus_tokens_est": 181563,
+      "k": 12,
+      "seed": 42,
+      "n_lines": 20,
+      "pass_threshold": 8,
+      "hardware": {
+        "platform": "Darwin",
+        "machine": "arm64",
+        "cpu": "arm"
+      },
+      "by_bucket": {
+        "front": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.0,
+          "n": 4
+        },
+        "middle": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.0,
+          "n": 2
+        },
+        "tail": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.0,
+          "n": 0
+        }
+      },
+      "overall": {
+        "pass_rate": 0.0,
+        "mean_recall": 0.0
+      },
+      "lost_in_middle_delta": 0.0,
+      "results": [
+        {
+          "name": "active_server",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 3,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 96.18
+        },
+        {
+          "name": "__init__",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 39.96
+        },
+        {
+          "name": "process_request",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 2,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 145.65
+        },
+        {
+          "name": "ensure_server",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 25.07
+        },
+        {
+          "name": "_server_help_output",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 18,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 26.43
+        },
+        {
+          "name": "set_ready",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 16,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 318.24
+        },
+        {
+          "name": "_load_mlx_kv_config",
+          "bucket": "middle",
+          "error": "HTTP 503: {\"error\": {\"message\": \"Post-eviction memory still insufficient for 'mlx-communit",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0
+        },
+        {
+          "name": "_load_mlx_metadata",
+          "bucket": "middle",
+          "error": "aborted (OOM on prior query)",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0
+        },
+        {
+          "name": "_init_output",
+          "bucket": "tail",
+          "error": "aborted (OOM on prior query)",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0
+        },
+        {
+          "name": "list_backends",
+          "bucket": "tail",
+          "error": "aborted (OOM on prior query)",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0
+        },
+        {
+          "name": "_load_config",
+          "bucket": "tail",
+          "error": "aborted (OOM on prior query)",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0
+        },
+        {
+          "name": "_load_draft_model_map",
+          "bucket": "tail",
+          "error": "aborted (OOM on prior query)",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0
+        }
+      ]
+    }
+  ],
+  "skipped": [
+    {
+      "model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
+      "reason": "OOM during bench \u2014 9.4 GB post-drain was insufficient"
+    },
+    {
+      "model": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
+      "reason": "OOM during bench \u2014 27.5 GB post-drain was insufficient"
+    },
+    {
+      "model": "mlx-community/gemma-4-31b-it-4bit",
+      "reason": "OOM during bench \u2014 27.5 GB post-drain was insufficient"
+    },
+    {
+      "model": "mlx-community/granite-4.1-30b-mxfp4",
+      "reason": "OOM during bench \u2014 0.0 GB post-drain was insufficient"
+    }
+  ]
+}

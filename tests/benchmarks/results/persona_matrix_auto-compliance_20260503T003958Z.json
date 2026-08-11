@@ -1,0 +1,4167 @@
+{
+  "schema": "portal5.persona_matrix.v1",
+  "timestamp_utc": "2026-05-03T00:39:58.506713+00:00",
+  "elapsed_s": 4884.2,
+  "plan": {
+    "workspace": "auto-compliance",
+    "personas": [
+      "cippolicywriter",
+      "complianceanalyst",
+      "gdprdpoadvisor",
+      "hipaaprivacyofficer",
+      "nerccipcomplianceanalyst",
+      "pcidssassessor",
+      "soc2auditor"
+    ],
+    "models": [
+      {
+        "id": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+        "backend": "ollama",
+        "group": "general",
+        "big_model": false,
+        "memory_gb": 2.5
+      },
+      {
+        "id": "dolphin-llama3:8b",
+        "backend": "ollama",
+        "group": "reasoning",
+        "big_model": false,
+        "memory_gb": 5.5
+      },
+      {
+        "id": "granite4.1:8b",
+        "backend": "ollama",
+        "group": "general",
+        "big_model": false,
+        "memory_gb": 5.5
+      },
+      {
+        "id": "huihui_ai/tongyi-deepresearch-abliterated",
+        "backend": "ollama",
+        "group": "reasoning",
+        "big_model": false,
+        "memory_gb": 6.0
+      },
+      {
+        "id": "gpt-oss:20b",
+        "backend": "ollama",
+        "group": "reasoning",
+        "big_model": false,
+        "memory_gb": 12.0
+      },
+      {
+        "id": "supergemma4-26b-uncensored:q4_k_m",
+        "backend": "ollama",
+        "group": "reasoning",
+        "big_model": false,
+        "memory_gb": 16.0
+      },
+      {
+        "id": "deepseek-r1:32b-q4_k_m",
+        "backend": "ollama",
+        "group": "reasoning",
+        "big_model": false,
+        "memory_gb": 18.0
+      },
+      {
+        "id": "granite4.1:30b",
+        "backend": "ollama",
+        "group": "reasoning",
+        "big_model": false,
+        "memory_gb": 18.0
+      }
+    ],
+    "scenarios_total": 21,
+    "cells_total": 56
+  },
+  "cells": [
+    {
+      "persona": "cippolicywriter",
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1709,
+          "elapsed_s": 6.51
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2253,
+          "elapsed_s": 5.75
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1882,
+          "elapsed_s": 4.38
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "complianceanalyst",
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1400,
+          "elapsed_s": 3.87
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1331,
+          "elapsed_s": 3.27
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1237,
+          "elapsed_s": 2.95
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "gdprdpoadvisor",
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1348,
+          "elapsed_s": 3.32
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1392,
+          "elapsed_s": 3.4
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3256,
+          "elapsed_s": 7.98
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "hipaaprivacyofficer",
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2016,
+          "elapsed_s": 5.06
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1939,
+          "elapsed_s": 4.34
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 736,
+          "elapsed_s": 1.76
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "nerccipcomplianceanalyst",
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1772,
+          "elapsed_s": 4.61
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 477,
+          "elapsed_s": 1.35
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1195,
+          "elapsed_s": 2.85
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pcidssassessor",
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2904,
+          "elapsed_s": 8.59
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1402,
+          "elapsed_s": 3.4
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1808,
+          "elapsed_s": 4.27
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "soc2auditor",
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2349,
+          "elapsed_s": 6.17
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1226,
+          "elapsed_s": 6.87
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2153,
+          "elapsed_s": 10.02
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "cippolicywriter",
+      "model": "dolphin-llama3:8b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1011,
+          "elapsed_s": 10.76
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1959,
+          "elapsed_s": 11.98
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1364,
+          "elapsed_s": 7.94
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "complianceanalyst",
+      "model": "dolphin-llama3:8b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 845,
+          "elapsed_s": 7.07
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1144,
+          "elapsed_s": 6.93
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1018,
+          "elapsed_s": 6.12
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "gdprdpoadvisor",
+      "model": "dolphin-llama3:8b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1423,
+          "elapsed_s": 9.32
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1691,
+          "elapsed_s": 9.35
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1544,
+          "elapsed_s": 8.33
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "hipaaprivacyofficer",
+      "model": "dolphin-llama3:8b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1098,
+          "elapsed_s": 9.4
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1685,
+          "elapsed_s": 10.11
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1358,
+          "elapsed_s": 7.85
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "nerccipcomplianceanalyst",
+      "model": "dolphin-llama3:8b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 564,
+          "elapsed_s": 4.46
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2381,
+          "elapsed_s": 13.76
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "found 'Ambiguous' in classification context"
+            }
+          ],
+          "response_chars": 1761,
+          "elapsed_s": 11.07
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pcidssassessor",
+      "model": "dolphin-llama3:8b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1262,
+          "elapsed_s": 9.17
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 886,
+          "elapsed_s": 5.5
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1525,
+          "elapsed_s": 9.07
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "soc2auditor",
+      "model": "dolphin-llama3:8b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1104,
+          "elapsed_s": 8.21
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1446,
+          "elapsed_s": 9.34
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2593,
+          "elapsed_s": 15.3
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "cippolicywriter",
+      "model": "granite4.1:8b",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3565,
+          "elapsed_s": 32.01
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3365,
+          "elapsed_s": 27.81
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3449,
+          "elapsed_s": 27.92
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "complianceanalyst",
+      "model": "granite4.1:8b",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3213,
+          "elapsed_s": 30.34
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 4417,
+          "elapsed_s": 28.41
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Part', 'Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3409,
+          "elapsed_s": 28.12
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "gdprdpoadvisor",
+      "model": "granite4.1:8b",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3514,
+          "elapsed_s": 28.38
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3440,
+          "elapsed_s": 27.79
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3478,
+          "elapsed_s": 28.57
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "hipaaprivacyofficer",
+      "model": "granite4.1:8b",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3526,
+          "elapsed_s": 29.02
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3079,
+          "elapsed_s": 27.14
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3202,
+          "elapsed_s": 26.88
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "nerccipcomplianceanalyst",
+      "model": "granite4.1:8b",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "found 'None' in classification context"
+            }
+          ],
+          "response_chars": 3315,
+          "elapsed_s": 29.76
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3053,
+          "elapsed_s": 24.79
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3375,
+          "elapsed_s": 26.75
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pcidssassessor",
+      "model": "granite4.1:8b",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3583,
+          "elapsed_s": 27.67
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Part', 'Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3551,
+          "elapsed_s": 27.3
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3445,
+          "elapsed_s": 27.72
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "soc2auditor",
+      "model": "granite4.1:8b",
+      "backend": "ollama",
+      "group": "general",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3107,
+          "elapsed_s": 27.88
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3304,
+          "elapsed_s": 25.86
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3775,
+          "elapsed_s": 27.32
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "cippolicywriter",
+      "model": "huihui_ai/tongyi-deepresearch-abliterated",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2972,
+          "elapsed_s": 28.29
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3108,
+          "elapsed_s": 19.88
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3287,
+          "elapsed_s": 19.35
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "complianceanalyst",
+      "model": "huihui_ai/tongyi-deepresearch-abliterated",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3236,
+          "elapsed_s": 12.0
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2849,
+          "elapsed_s": 11.55
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3326,
+          "elapsed_s": 11.5
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "gdprdpoadvisor",
+      "model": "huihui_ai/tongyi-deepresearch-abliterated",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2966,
+          "elapsed_s": 11.97
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "found 'Partial' in classification context"
+            }
+          ],
+          "response_chars": 2849,
+          "elapsed_s": 11.73
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3441,
+          "elapsed_s": 17.69
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "hipaaprivacyofficer",
+      "model": "huihui_ai/tongyi-deepresearch-abliterated",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3346,
+          "elapsed_s": 11.96
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3395,
+          "elapsed_s": 11.55
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Part', 'Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3384,
+          "elapsed_s": 11.54
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "nerccipcomplianceanalyst",
+      "model": "huihui_ai/tongyi-deepresearch-abliterated",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 3
+      }
+    },
+    {
+      "persona": "pcidssassessor",
+      "model": "huihui_ai/tongyi-deepresearch-abliterated",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 3
+      }
+    },
+    {
+      "persona": "soc2auditor",
+      "model": "huihui_ai/tongyi-deepresearch-abliterated",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 3
+      }
+    },
+    {
+      "persona": "cippolicywriter",
+      "model": "gpt-oss:20b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3218,
+          "elapsed_s": 19.38
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3230,
+          "elapsed_s": 22.48
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Part', 'Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3320,
+          "elapsed_s": 22.59
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "complianceanalyst",
+      "model": "gpt-oss:20b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3362,
+          "elapsed_s": 21.72
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3302,
+          "elapsed_s": 20.24
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3511,
+          "elapsed_s": 20.92
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "gdprdpoadvisor",
+      "model": "gpt-oss:20b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3368,
+          "elapsed_s": 21.48
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3745,
+          "elapsed_s": 21.65
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3510,
+          "elapsed_s": 21.74
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "hipaaprivacyofficer",
+      "model": "gpt-oss:20b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3175,
+          "elapsed_s": 21.21
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3718,
+          "elapsed_s": 20.41
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Part', 'Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3493,
+          "elapsed_s": 21.19
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "nerccipcomplianceanalyst",
+      "model": "gpt-oss:20b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3093,
+          "elapsed_s": 21.41
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3508,
+          "elapsed_s": 21.79
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "ERROR",
+          "detail": "HTTP 0: Server disconnected without sending a response.",
+          "elapsed_s": 2.59
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 2,
+        "ERROR": 1
+      }
+    },
+    {
+      "persona": "pcidssassessor",
+      "model": "gpt-oss:20b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 3
+      }
+    },
+    {
+      "persona": "soc2auditor",
+      "model": "gpt-oss:20b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "ERROR",
+          "detail": "HTTP 0: All connection attempts failed",
+          "elapsed_s": 0.0
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 3
+      }
+    },
+    {
+      "persona": "cippolicywriter",
+      "model": "supergemma4-26b-uncensored:q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2738,
+          "elapsed_s": 20.27
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1409,
+          "elapsed_s": 23.04
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2679,
+          "elapsed_s": 23.03
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "complianceanalyst",
+      "model": "supergemma4-26b-uncensored:q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2895,
+          "elapsed_s": 22.16
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2789,
+          "elapsed_s": 22.87
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2915,
+          "elapsed_s": 23.65
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "gdprdpoadvisor",
+      "model": "supergemma4-26b-uncensored:q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2874,
+          "elapsed_s": 23.69
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Requirement', 'Part', 'Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2467,
+          "elapsed_s": 22.84
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2854,
+          "elapsed_s": 22.35
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "hipaaprivacyofficer",
+      "model": "supergemma4-26b-uncensored:q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2891,
+          "elapsed_s": 23.21
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2814,
+          "elapsed_s": 22.77
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2990,
+          "elapsed_s": 23.54
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "nerccipcomplianceanalyst",
+      "model": "supergemma4-26b-uncensored:q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2952,
+          "elapsed_s": 23.78
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3118,
+          "elapsed_s": 22.68
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2953,
+          "elapsed_s": 22.06
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pcidssassessor",
+      "model": "supergemma4-26b-uncensored:q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1257,
+          "elapsed_s": 23.22
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2628,
+          "elapsed_s": 23.32
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2664,
+          "elapsed_s": 23.31
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "soc2auditor",
+      "model": "supergemma4-26b-uncensored:q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2847,
+          "elapsed_s": 22.88
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2799,
+          "elapsed_s": 22.07
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2712,
+          "elapsed_s": 22.54
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "cippolicywriter",
+      "model": "deepseek-r1:32b-q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2382,
+          "elapsed_s": 71.06
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3696,
+          "elapsed_s": 81.93
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2720,
+          "elapsed_s": 56.53
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "complianceanalyst",
+      "model": "deepseek-r1:32b-q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3518,
+          "elapsed_s": 81.48
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3271,
+          "elapsed_s": 82.12
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3670,
+          "elapsed_s": 81.14
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "gdprdpoadvisor",
+      "model": "deepseek-r1:32b-q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3356,
+          "elapsed_s": 61.64
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3582,
+          "elapsed_s": 90.27
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3690,
+          "elapsed_s": 101.06
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "hipaaprivacyofficer",
+      "model": "deepseek-r1:32b-q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 767,
+          "elapsed_s": 25.1
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3440,
+          "elapsed_s": 94.06
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3677,
+          "elapsed_s": 102.55
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "nerccipcomplianceanalyst",
+      "model": "deepseek-r1:32b-q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2783,
+          "elapsed_s": 87.92
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2610,
+          "elapsed_s": 74.09
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 1346,
+          "elapsed_s": 37.38
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pcidssassessor",
+      "model": "deepseek-r1:32b-q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2955,
+          "elapsed_s": 95.7
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3606,
+          "elapsed_s": 101.04
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 998,
+          "elapsed_s": 24.66
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "soc2auditor",
+      "model": "deepseek-r1:32b-q4_k_m",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3509,
+          "elapsed_s": 100.46
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3713,
+          "elapsed_s": 102.03
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no markdown-table rows in response (need \u22653 pipes per row)"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3133,
+          "elapsed_s": 80.08
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "cippolicywriter",
+      "model": "granite4.1:30b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2975,
+          "elapsed_s": 71.47
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3395,
+          "elapsed_s": 64.94
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3515,
+          "elapsed_s": 65.3
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "complianceanalyst",
+      "model": "granite4.1:30b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3095,
+          "elapsed_s": 62.63
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3214,
+          "elapsed_s": 62.41
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3241,
+          "elapsed_s": 63.31
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "gdprdpoadvisor",
+      "model": "granite4.1:30b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Requirement', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3248,
+          "elapsed_s": 63.02
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Part', 'Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2955,
+          "elapsed_s": 63.72
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3118,
+          "elapsed_s": 62.92
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "hipaaprivacyofficer",
+      "model": "granite4.1:30b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2703,
+          "elapsed_s": 62.72
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3352,
+          "elapsed_s": 63.86
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2974,
+          "elapsed_s": 62.63
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "nerccipcomplianceanalyst",
+      "model": "granite4.1:30b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3066,
+          "elapsed_s": 62.56
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3108,
+          "elapsed_s": 62.83
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3250,
+          "elapsed_s": 63.38
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pcidssassessor",
+      "model": "granite4.1:30b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2956,
+          "elapsed_s": 64.29
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3179,
+          "elapsed_s": 64.31
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 2855,
+          "elapsed_s": 63.25
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "soc2auditor",
+      "model": "granite4.1:30b",
+      "backend": "ollama",
+      "group": "reasoning",
+      "scenarios": [
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "NERC_CIP",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3336,
+          "elapsed_s": 63.61
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "HIPAA",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3308,
+          "elapsed_s": 65.22
+        },
+        {
+          "id": "gap-analysis-table-structure",
+          "framework": "GDPR",
+          "status": "FAIL",
+          "results": [
+            {
+              "name": "structural.table_columns",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing columns: ['Coverage', 'Finding', 'Evidence Needed', 'Priority']"
+            },
+            {
+              "name": "classification.exact_token",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no mandated token (Full/Partial/None/Ambiguous) used as classification"
+            }
+          ],
+          "response_chars": 3334,
+          "elapsed_s": 64.52
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,1675 @@
+{
+  "timestamp": "2026-08-09T19:16:10.388766+00:00",
+  "mode": "direct",
+  "order": "size",
+  "cooldown_s": 10.0,
+  "runs_per_model": 5,
+  "spec_decoding": "unspecified",
+  "kv_quant_tag": "unspecified",
+  "total_wall_time_s": 0,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "ollama_models_configured": 121,
+    "workspaces_configured": 89,
+    "personas_configured": 138
+  },
+  "backends": {
+    "ollama": {
+      "url": "http://localhost:11434"
+    },
+    "pipeline": {
+      "url": "http://localhost:9099"
+    }
+  },
+  "results": [
+    {
+      "model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 98.4,
+      "min_tps": 84.7,
+      "max_tps": 115.4,
+      "stddev_tps": 13.57,
+      "cv": 0.138,
+      "avg_completion_tokens": 29,
+      "avg_elapsed_s": 0.29,
+      "avg_ttft_s": 0.08,
+      "routed_model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 98.4,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested lfm2.5-1.2b-instruct-gguf:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 0.42,
+          "prompt_tokens": 0,
+          "completion_tokens": 36,
+          "tps": 84.9,
+          "time_to_first_token_s": 0.175,
+          "response_model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+          "response_text": "1. Layer 7 - Application  \n2. Layer 6 - Presentation  \n3. Layer 5 - Session  \n4. Layer 4 - Transport  \n5. Layer 3 - Network  \n6. Layer 2 - Data Link  \n7. Layer 1 - Physical"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 0.21,
+          "prompt_tokens": 0,
+          "completion_tokens": 22,
+          "tps": 107.0,
+          "time_to_first_token_s": 0.056,
+          "response_model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+          "response_text": "1. Physical Layer  \n2. Data Link Layer  \n3. Network Layer  \n4. Transport Layer  \n5. Session Layer  \n6. Presentation Layer  \n7. Application Layer  "
+        },
+        {
+          "run": 3,
+          "elapsed_s": 0.29,
+          "prompt_tokens": 0,
+          "completion_tokens": 29,
+          "tps": 100.2,
+          "time_to_first_token_s": 0.057,
+          "response_model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+          "response_text": "1. Layer 1: Physical  \n2. Layer 2: Data Link  \n3. Layer 3: Network  \n4. Layer 4: Transport  \n5. Layer 5: Session  \n6. Layer 6: Presentation  \n7. Layer 7: Application"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 0.18,
+          "prompt_tokens": 0,
+          "completion_tokens": 15,
+          "tps": 84.7,
+          "time_to_first_token_s": 0.057,
+          "response_model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+          "response_text": "1. Physical  \n2. Data Link  \n3. Network  \n4. Transport  \n5. Session  \n6. Presentation  \n7. Application  "
+        },
+        {
+          "run": 5,
+          "elapsed_s": 0.37,
+          "prompt_tokens": 0,
+          "completion_tokens": 43,
+          "tps": 115.4,
+          "time_to_first_token_s": 0.057,
+          "response_model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+          "response_text": "1. Layer 1: Physical \u2014 USB  \n2. Layer 2: Data Link \u2014 Ethernet  \n3. Layer 3: Transport \u2014 TCP/IP  \n4. Layer 4: Network \u2014 IP  \n5. Layer 5: Session \u2014 RPC  \n6. Layer 6: Presentation \u2014 SSL/TLS  \n7. Layer 7: Application \u2014 HTTP"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 0.7,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 90.1,
+      "min_tps": 75.3,
+      "max_tps": 111.8,
+      "stddev_tps": 13.56,
+      "cv": 0.15,
+      "avg_completion_tokens": 167,
+      "avg_elapsed_s": 1.86,
+      "avg_ttft_s": 0.13,
+      "routed_model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+      "prompt_category": "general",
+      "quality_score": 0.0,
+      "tps_quality": 0.0,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested security-slm-unsloth-1.5b:latest",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.92,
+          "prompt_tokens": 0,
+          "completion_tokens": 167,
+          "tps": 87.1,
+          "time_to_first_token_s": 0.173,
+          "response_model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+          "response_text": "\n\nHere's the OUI layer breakdown as requested:\n\n| Layer | Number | Standard Name               | One Example Protocol/Technology           |\n|------|--------|-------|-------------------------------------|\n| 1 | HTTP | Client-Server, HTTP protocol        | http**, https**\n| 2+3 (TCP/IP, ISOIP) | Transport-Layer          | HTTP + DNS - client-side transport    |\n| 4 |",
+          "reasoning_text": "\nStep-by-step: Recognize that the request asks for a complete listing without any personal comments or opinions because this is intended to be a factual structure guide.\n\nThe user is likely preparing for a presentation, teaching material, or designing systems requirements and wants a clear authoritative breakdown of layers from first-to-last.\n\nThey may also expect concise definitions that can populate a whiteboard or project documentation quickly without external references.\n\nThe standard OUI specification aligns well with this task because their query matches the layering required in their context.\n\nProviding 7 valid examples is sufficient for clarity: a numbered chart covering HTTP (Layer1), TCP/IP (Layer2+3), CSRLT/MIRL (Layer4), DNS (Layer5), Web Services Security Policy (Layer6), and NIS/LASG (Layer7) forms an actionable guide.\n"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.84,
+          "prompt_tokens": 0,
+          "completion_tokens": 155,
+          "tps": 84.3,
+          "time_to_first_token_s": 0.115,
+          "response_model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+          "response_text": "\n\nThe OSI model consists of 7 layers:\n\n1. Physical (L1): Ethernet frame (8b), Wi-Fi frames, coaxial cables.<br>\n| Layer | Name                                   | Example |\n|-------|-------------------------------------------|----------|\n| L1    | Ethernet Frame                          | MAC lookup/write       |\n\nLayer",
+          "reasoning_text": "\nStep 1 - The OSI model has seven layers: Physical (Layer 1), Transport Control (Layer 2),Network Interface (Layer 3), Session-Level Control (Layer4), Application-Runtime (Layer5), Data Processing and Output Delivery (Layer6), and Layer7 - Application-Specific Routing/Control (optional). \n\nStep 2 - Protocols for each layer:\n- L1: Ethernet frame, Wi-Fi, coax. Example: MAC address lookup or MAC tracking.\n- L2: GBNP channel protocols such as 8-bit PPP (IP Spanning Tree Protocol).\n  \nLayer3 is sometimes included, providing encapsulation of GDNI to keep sessions contained.\n\nLayer5 has multiple roles like application-layer control via context windows and session management. Layer7 involves QoS, routing, security, and monitoring.\n\nEach layer should have a consistent name for future collaboration - follow the ILSIA specification used in standard protocols.\n"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.84,
+          "prompt_tokens": 0,
+          "completion_tokens": 139,
+          "tps": 75.3,
+          "time_to_first_token_s": 0.12,
+          "response_model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+          "response_text": "",
+          "reasoning_text": "\nStep 1 - Verify if multiple common answers exist for this query.\n Layer numbering can vary: ISO/OSI, BGP layers (layering principle), and OSI model each have different bottom-up conventions.\n Step 2 - Clarify what's included in \"example protocol/method\":\n Should cover both security-layered implementations and user convenience\n Layers should include networking, transport protocols, data link layer (error detection/compute), core networking layer (firewalls/c\u9632\u62a4 Core), application layer, and data storage/networking layers\n Step 3 - Confirm the expected correct order:\n Network (layer 1) \u2192 Token Ring/Star \u2192 Transport (layer 2, LCP) \u2192 Data Link (layer3: IP/Multipicast/TCP, UDP/RTP) \u2192 Comporate Core Layers (Layer 5: BGP/Distiller, Layer6: Firewalls/Clementine)\n Step 4 - Provide specific examples:\n Networking protocols: TCP/IP protocol suite\n Transport: FTP/TLS/VPN/TCP over HTTP\n Data Link: DNS/Log4j (web tools), Wi-Fi\n Core layers: Firewall, NAT, Carbon Bridge/Clementine\n Application/Storage: RESTful APIs using Node.js/Apache with Postman test coverage\n Step5"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.84,
+          "prompt_tokens": 0,
+          "completion_tokens": 169,
+          "tps": 91.9,
+          "time_to_first_token_s": 0.121,
+          "response_model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+          "response_text": "\n\n## OSI Model Layers\n\n1, 1 (#), Bit-level signaling for data",
+          "reasoning_text": "\nStep 1 - The OSI model divides networking into seven core layers, numbered 1 (\u4f20\u8f93\u5c42) to 7 (\u7f51\u7edc\u5c42).\n\nLayer 1: Data Link Layer (Numbering starts at 0). Technical Name: Physical. Function: Bit-level signaling for data transmission.\nLayer 2: Transport Layer (Layer 2). Technical Name: Data Transmitted through physical channels. Function: Sending and receiving data across the physical link.\n\nLayer 3: Frameset Layer (Layer 4). Technical Name: Frameset Service Bus architecture layer. Function: Aiding session establishment to avoid physical separation.\n\nLayer 4: Session Layer (Layer 5, or Layer 2 in the 1-7 model). Function: Ensuring sessions between two devices are not separated by network frames.\nLayer 5: Application Layer (Layer 6). Technical Name: Application Service. Function: Permissive access to application libraries and state.\n\nLayer 6: Network Layer (Layer 1, same as Data Link Layer in the 0-6 model). Technical Name: Transport Control Protocol layer. Function: Accepting a complete transport layer interface package and delivering it through network protocol layers.\n"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 1.84,
+          "prompt_tokens": 0,
+          "completion_tokens": 206,
+          "tps": 111.8,
+          "time_to_first_token_s": 0.123,
+          "response_model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+          "response_text": "\n\n**OASIS Model Layer Breakdown**\n\n---\n\n| Layer Number | Standard Name          | Full SOS Version Range\n---|---|---\n1 | OSI",
+          "reasoning_text": "\nAlright, so the user just asked for a complete breakdown of the seven OSI model layers from bottom to top with bullet points and examples. First off, they're likely an IT technician setting up networking security configurations or looking into system operation logs.\n\nBreaking it down, I need to remember each OSI layer: Frame Delivery, Data Link, Network Plane, Transport Layer, Session Control, Access Control (including access control data), and Application Layer. It's crucial these are numbered correctly from bottom up so anyone reviewing this can easily find information needed for their configuration task.\n\nFor each term, the standard name is the ILSI specification, then the full OSI acronym, last year's version number if it changes, and an example of a technology or protocol used that satisfies each role. Including examples like \"OSI Frame Delivery\" or \"OSI Data Link Control Plane\" helps with quick recall during development.\n\nThe user might seek these for network inspection \u2013 checking physical connections are working. They could be troubleshooting, updating outdated protocols, comparing to older versions for compliance, or preparing an incident response plan that addresses each layer in order.\n"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 0.9,
+      "groups": [
+        "general",
+        "security"
+      ]
+    },
+    {
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 49.7,
+      "min_tps": 37.5,
+      "max_tps": 58.0,
+      "stddev_tps": 8.16,
+      "cv": 0.164,
+      "avg_completion_tokens": 119,
+      "avg_elapsed_s": 2.38,
+      "avg_ttft_s": 0.164,
+      "routed_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "prompt_category": "general",
+      "quality_score": 0.86,
+      "tps_quality": 42.7,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested llama-3.2-3b-instruct-abliterated-gguf",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.7,
+          "prompt_tokens": 0,
+          "completion_tokens": 83,
+          "tps": 48.9,
+          "time_to_first_token_s": 0.234,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Layer 1: Physical - e.g., Ethernet\n2. Layer 2: Data Link - e.g., Frame Relay\n3. Layer 3: Network - e.g., HIPAA Network Address\n4. Layer 4: Hypertext Transfer (Hypnot) - uses a combination of TCP and IP to move data between servers.\n5. Layer 5: Presentation - example: SMTP authentication using SSL/TLS\n6. Layer 6: Semantics - e.g., Internet Message Routing\n7. Layer 7: Application - e.g., Secure File Transfer with Transport-Layer Security (TLS)"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 109,
+          "tps": 37.5,
+          "time_to_first_token_s": 0.147,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. **Layer 1: Network Access** \nLayer-1: FPDI (Frame-Delineation), Layer-2: HDLC (High-Level Data Link) \nExample: TCP/IP (Transmission Control Protocol/Internet Protocol)\n\n2. **Layer 2: Internet** \nFATIP (File Accelerator Transported Intelligent Protocol)\nExample: FTP (File Transfer Protocol)\n\n3. **Layer 3: End-ToEnd Recognition** \nATAP (Air-Traf - To-Airport Pilot), Layer 4: SPPU (Sonic - Pure-People-Underwater-Ukward) \nExample: DNS (Domain Name System)\n\n4. **Layer 4: Network** \nTCP/IP\nExample: HTTP (HyperText Protocol)\n\n5. **Layer 5: Presentment** \nDSCP (Dual-Stream Control), Layer 6: RSPC (Rate-Selective Packetizing) \nExample: GRE (Generic Routing Extensions)\n\n6. **Layer 6: Link** \nSLLM (Service Level Management) \nExample: MRRP (Multiband Rural Reduxing Protocol)\n\n7. **Layer 7:** Service\nTNSI (Time, Network"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 2.53,
+          "prompt_tokens": 0,
+          "completion_tokens": 143,
+          "tps": 56.4,
+          "time_to_first_token_s": 0.144,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Layer 0 - Physical Layer\n\t* Standard Name: None\n\t* Example Protocol/Technology: Modem connections\n\n2. 5 Layer - IE (Interface Endpoints)\n\t* Standard Name: Interface Endpoint\n\t* Example Technology: Message passing in Java\n\n3. 4 Layer - Presentation Layer\n\t* Standard Name: Data Compression\n\t* Example: MIME encoding in HTML\n\n4. 3 Layer - Synchronous Session Layer\n\t* Standard Name: Call Management System\n\t* Example: VoIP call management systems\n\n5. 2 Layer - Confessional Layer\n\t* Standard Name: Service Selection Algorithms\n\t* Example: BGP routing algorithms\n\t* (Note: Some sources may group the layers differently, with S0 and S4 merged)\n\n6. Session Layer \n\t* Standard Name: Connection Control\n\t* Example:\n\n7 (Physical for some) 7 Layer - Application Layer\n\t* Standard Name: None ( physical implementation)\n\t* Example: JSON data parsing in a web application"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 91,
+          "tps": 47.9,
+          "time_to_first_token_s": 0.149,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Layer 6 - Hypothetical, \"Datacenter\"\nExample: Hypertext-protocol-based data management\n\n2. Layer 5 - MAC Addresses\nNo standard name\nExample: Layer-1-specific device identification\n\n3. Layer 4 - Transport Protocols\nExample: TCP (Transmission Control Protocol)\n\n4. Layer 3 - Network Protocols\nStandard Name: IP (Internet Protocol)\n\nExample: IP-based routing and congestion control\n\n5. Layer 2 - Link Services\nStandard Name: IEEE (Institute of Electrical Electronics)\n\nExample: IEEE-158 standard \"DeviceLink's\"\n\n6. Layer 1 - Physical Interface\nStandard Name: FMC (Field-Module-Controller-\n\nExample: DVI Alliance's Field-level video transmission"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 2.89,
+          "prompt_tokens": 0,
+          "completion_tokens": 168,
+          "tps": 58.0,
+          "time_to_first_token_s": 0.145,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. **Layer 6: Physical** - This is the bottom-most layer, which deals with electrical and mechanical aspects of communication.\n\t* Example: Radio frequency transmission\n2. **Layer 5: Datastraction** - Provides a data abstraction function that converts real world data into an abstract, formatted representation.\n\t* Example: DNS (Domain Name System)\n3. **Layer 4: Presentation** - Defines the format for converting and processing non-formatted data.\n\t* Example: SSL encryption\n4. **Layer 3: Network** - Focuses on the protocols that provide a high level of abstraction between different layers.\n\t* Example: TCP/IP (Transmission Control Protocol/Internet Protocol)\n5. **Layer 2: Session** - Concerned with managing connections, sessions and dialogues in real-time applications\n\t* Example: RDP (Remote Desktop Protocol)\n6. **Layer 1: Transport** - Defines the protocol that provides a high-level of abstraction for data transmission.\n\t* Example: TCP (Transmission Control Protocol)\n7. **Layer 0: Session/Reference** - Concerned with sessions and references rather than physical devices.\n\nNote: There is no clear layer 6 or 'Data"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 1.8,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "llama3.2:3b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 47.7,
+      "min_tps": 41.2,
+      "max_tps": 55.8,
+      "stddev_tps": 5.34,
+      "cv": 0.112,
+      "avg_completion_tokens": 71,
+      "avg_elapsed_s": 1.48,
+      "avg_ttft_s": 0.16,
+      "routed_model": "llama3.2:3b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 47.7,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested llama3.2:3b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.14,
+          "prompt_tokens": 0,
+          "completion_tokens": 47,
+          "tps": 41.2,
+          "time_to_first_token_s": 0.23,
+          "response_model": "llama3.2:3b",
+          "response_text": "Here are the 7 OSI layers listed from bottom to top:\n\n1. **Layer 1**: Physical Layer\n2. **Layer 2**: Data Link Layer\n3. **Layer 3**: Network Layer\n4. **Layer 4**: Transport Layer\n5. **Layer 5**: Session Layer\n6. **Layer 6**: Presentation Layer\n7. **Layer 7**: Application Layer"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.51,
+          "prompt_tokens": 0,
+          "completion_tokens": 84,
+          "tps": 55.8,
+          "time_to_first_token_s": 0.138,
+          "response_model": "llama3.2:3b",
+          "response_text": "Here are the 7 OSI model layers listed from bottom to top:\n\n1. Layer 1 - Physical Layer (PHY), Ethernet Cable\n2. Layer 2 - Data Link Layer (DLL), Switching for LANs\n3. Layer 3 - Network Layer (NWL), Routing on Internet\n4. Layer 4 - Transport Layer (TL), TCP for Synchronous Connections\n5. Layer 5 - Session Layer (SL), Diameter Signaling\n6. Layer 6 - Presentation Layer (PL), Secure Sockets Layer (SSL)\n7. Layer 7 - Application Layer (AL), HTTP for Web Communication"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.49,
+          "prompt_tokens": 0,
+          "completion_tokens": 70,
+          "tps": 47.1,
+          "time_to_first_token_s": 0.144,
+          "response_model": "llama3.2:3b",
+          "response_text": "Here's the list of the 7 OSI model layers:\n\n1. Layer 1 - Physical (PDH), Ethernet\n2. Layer 2 - Data Link (L2), Spanning Tree Protocol (STP)\n3. Layer 3 - Network (N), BGP-4\n4. Layer 4 - Transport (T), TCP/IP Connection-Oriented Server\n5. Layer 5 - Session (S), NetBIOS over TCP/IP\n6. Layer 6 - Presentation (Pre), SSL/TLS Encryption\n7. Layer 7 - Application (App), HTTP Web Page Retrieval"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.73,
+          "prompt_tokens": 0,
+          "completion_tokens": 79,
+          "tps": 45.5,
+          "time_to_first_token_s": 0.143,
+          "response_model": "llama3.2:3b",
+          "response_text": "Here are the 7 OSI model layers in order from bottom to top, along with their numbers, names, and example protocols:\n\n1. Layer 1: Physical (PHY)\n   Protocol: Ethernet\n\n2. Layer 2: Data Link\n   Protocol: MAC (Media Access Control)\n\n3. Layer 3: Network\n   Protocol: TCP/IP\n\n4. Layer 4: Transport\n   Protocol: TCP (Transmission Control Protocol)\n\n5. Layer 5: Session\n   Protocol: NetBIOS\n\n6. Layer 6: Presentation\n   Protocol: SSL/TLS (Secure Sockets Layer/Transport Layer Security)\n\n7. Layer 7: Application\n   Protocol: HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 1.54,
+          "prompt_tokens": 0,
+          "completion_tokens": 75,
+          "tps": 48.8,
+          "time_to_first_token_s": 0.145,
+          "response_model": "llama3.2:3b",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Layer 1 - Physical (Media Access Control)\nExample: Ethernet cable\n\n2. Layer 2 - Data Link\nExample: MAC Addressing (IEEE 802.3)\n\n3. Layer 3 - Network\nExample: IP (Internet Protocol) routing\n\n4. Layer 4 - Transport\nExample: TCP/IP (Transmission Control Protocol/Internet Protocol)\n\n5. Layer 5 - Session\nExample: SSL/TLS (Secure Sockets Layer/Transport Layer Security)\n\n6. Layer 6 - Presentation\nExample: SSL/TLS encryption\n\n7. Layer 7 - Application"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 1.8,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 34.7,
+      "min_tps": 27.8,
+      "max_tps": 41.1,
+      "stddev_tps": 5.61,
+      "cv": 0.162,
+      "avg_completion_tokens": 77,
+      "avg_elapsed_s": 2.28,
+      "avg_ttft_s": 0.176,
+      "routed_model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 34.7,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested fastcontext-1.0-4b-sft-q4_k_m-gguf:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.89,
+          "prompt_tokens": 0,
+          "completion_tokens": 70,
+          "tps": 37.0,
+          "time_to_first_token_s": 0.353,
+          "response_model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "1. Layer 1 \u2013 Physical Layer \u2013 Ethernet\n2. Layer 2 \u2013 Data Link Layer \u2013 Point-to-Point Protocol (PPP)\n3. Layer 3 \u2013 Network Layer \u2013 Internet Protocol (IP)\n4. Layer 4 \u2013 Transport Layer \u2013 Transmission Control Protocol (TCP)\n5. Layer 5 \u2013 Session Layer \u2013 NetBIOS\n6. Layer 6 \u2013 Presentation Layer \u2013 Secure Sockets Layer (SSL)\n7. Layer 7 \u2013 Application Layer \u2013 Hypertext Transfer Protocol (HTTP)"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 78,
+          "tps": 41.1,
+          "time_to_first_token_s": 0.127,
+          "response_model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "1) Layer 1 - Physical Layer - Ethernet\n2) Layer 2 - Data Link Layer - PPP (Point-to-Point Protocol)\n3) Layer 3 - Network Layer - IP (Internet Protocol)\n4) Layer 4 - Transport Layer - TCP (Transmission Control Protocol)\n5) Layer 5 - Session Layer - NetBIOS (Network Basic Input/Output System)\n6) Layer 6 - Presentation Layer - SSL/TLS (Secure Sockets Layer / Transport Layer Security)\n7) Layer 7 - Application Layer - HTTP (Hypertext Transfer Protocol)\n"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 2.02,
+          "prompt_tokens": 0,
+          "completion_tokens": 76,
+          "tps": 37.7,
+          "time_to_first_token_s": 0.129,
+          "response_model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "1. Layer 1 \u2014 Physical Layer \u2014 Ethernet (IEEE 802.3)\n2. Layer 2 \u2014 Data Link Layer \u2014 PPP (Point-to-Point Protocol)\n3. Layer 3 \u2014 Network Layer \u2014 IP (Internet Protocol)\n4. Layer 4 \u2014 Transport Layer \u2014 TCP (Transmission Control Protocol)\n5. Layer 5 \u2014 Session Layer \u2014 NetBIOS (Network Basic Input/Output System)\n6. Layer 6 \u2014 Presentation Layer \u2014 SSL/TLS (Transport Layer Security)\n7. Layer 7 \u2014 Application Layer \u2014 HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 2.99,
+          "prompt_tokens": 0,
+          "completion_tokens": 83,
+          "tps": 27.8,
+          "time_to_first_token_s": 0.128,
+          "response_model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "1. **Layer 1** - Physical Layer: Ethernet (IEEE 802.3), Fibers (Fiber Channel, IEEE 802.3z/ab)\n2. **Layer 2** - Data Link Layer: TCP/IP (Ethernet, Wi-Fi IEEE 802.11), PPP, HDLC, SLIP\n3. **Layer 3** - Network Layer: IP (IPv4/IPv6), ICMP, UDP, TCP\n4. **Layer 4** - Transport Layer: TCP, UDP, SCTP\n5. **Layer 5** - Session Layer: PGP, RPC, SLP\n6. **Layer 6** - Presentation Layer: SSL/TLS, PGP, MIME, JPEG, PNG, GIF\n7. **Layer 7** - Application Layer: HTTP, FTP, SMTP, DNS, DHCP, SSH, SNMP"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 2.58,
+          "prompt_tokens": 0,
+          "completion_tokens": 77,
+          "tps": 29.9,
+          "time_to_first_token_s": 0.141,
+          "response_model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "1. Physical Layer (Layer 1) \u2014 Devices: Ethernet, Wi-Fi, RS-232, fiber optics\n2. Data Link Layer (Layer 2) \u2014 Protocols: Ethernet, Wi-Fi, PPP, HDLC\n3. Network Layer (Layer 3) \u2014 Protocols: IP, IPv6, ICMP, ARP\n4. Transport Layer (Layer 4) \u2014 Protocols: TCP, UDP\n5. Session Layer (Layer 5) \u2014 Protocols: NetBIOS, PPTP, RPC\n6. Presentation Layer (Layer 6) \u2014 Protocols: SSL/TLS, SNMP, MIME, DES/3DES\n7. Application Layer (Layer 7) \u2014 Protocols: HTTP, FTP, SMTP, DNS, NFS"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 2.4,
+      "groups": [
+        "general",
+        "coding"
+      ]
+    },
+    {
+      "model": "cybersecqwen-4b-toolfix:latest",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 31.3,
+      "min_tps": 25.8,
+      "max_tps": 37.7,
+      "stddev_tps": 5.21,
+      "cv": 0.166,
+      "avg_completion_tokens": 54,
+      "avg_elapsed_s": 1.73,
+      "avg_ttft_s": 0.169,
+      "routed_model": "cybersecqwen-4b-toolfix:latest",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 31.3,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested cybersecqwen-4b-toolfix:latest",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.78,
+          "prompt_tokens": 0,
+          "completion_tokens": 46,
+          "tps": 25.8,
+          "time_to_first_token_s": 0.322,
+          "response_model": "cybersecqwen-4b-toolfix:latest",
+          "response_text": "1) Layer 1: Physical \u2013 Ethernet  \n2) Layer 2: Data Link \u2013 Wi-Fi (IEEE 802.11)  \n3) Layer 3: Network \u2013 IP (IPv4/IPv6)  \n4) Layer 4: Transport \u2013 TCP/UDP  \n5) Layer 5: Session \u2013 NetBIOS  \n6) Layer 6: Presentation \u2013 SSL/TLS  \n7) Layer 7: Application \u2013 HTTP/FTP"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.72,
+          "prompt_tokens": 0,
+          "completion_tokens": 65,
+          "tps": 37.7,
+          "time_to_first_token_s": 0.129,
+          "response_model": "cybersecqwen-4b-toolfix:latest",
+          "response_text": "1) Layer 1 \u2013 Physical layer: Ethernet  \n2) Layer 2 \u2013 Data Link layer: Point-to-Point Protocol (PPP)  \n3) Layer 3 \u2013 Network layer: Internet Protocol (IP)  \n4) Layer 4 \u2013 Transport layer: Transmission Control Protocol (TCP)  \n5) Layer 5 \u2013 Session layer: Peripheral Device Manager  \n6) Layer 6 \u2013 Presentation layer: Hypertext Transfer Protocol (HTTP)  \n7) Layer 7 \u2013 Application layer: World Wide Web (WWW)"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.8,
+          "prompt_tokens": 0,
+          "completion_tokens": 48,
+          "tps": 26.6,
+          "time_to_first_token_s": 0.123,
+          "response_model": "cybersecqwen-4b-toolfix:latest",
+          "response_text": "1) Layer 1 \u2013 Physical; Ethernet  \n2) Layer 2 \u2013 Data Link; Wi-Fi (IEEE 802.11)  \n3) Layer 3 \u2013 Network; IP (IPv4/IPv6)  \n4) Layer 4 \u2013 Transport; TCP/UDP  \n5) Layer 5 \u2013 Session; PPTP/SAP  \n6) Layer 6 \u2013 Presentation; TLS/SSL, JPEG/PEG  \n7) Layer 7 \u2013 Application; HTTP, FTP"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.76,
+          "prompt_tokens": 0,
+          "completion_tokens": 62,
+          "tps": 35.2,
+          "time_to_first_token_s": 0.133,
+          "response_model": "cybersecqwen-4b-toolfix:latest",
+          "response_text": "1) Layer 1 - Physical Layer \u2013 Ethernet/Pins  \n2) Layer 2 - Data Link Layer \u2013 ARP/LAN Switching  \n3) Layer 3 - Network Layer \u2013 IP/Routing (BGP/OSPF)  \n4) Layer 4 - Transport Layer \u2013 TCP/UDP  \n5) Layer 5 - Session Layer \u2013 PPTP/SMB  \n6) Layer 6 - Presentation Layer \u2013 SSL/TLS, JPEG/PDF  \n7) Layer 7 - Application Layer \u2013 HTTP, FTP, SMTP"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 1.6,
+          "prompt_tokens": 0,
+          "completion_tokens": 50,
+          "tps": 31.2,
+          "time_to_first_token_s": 0.14,
+          "response_model": "cybersecqwen-4b-toolfix:latest",
+          "response_text": "1) Layer 1 - Physical; Ethernet  \n2) Layer 2 - Data Link; Wi-Fi (IEEE 802.11)  \n3) Layer 3 - Network; TCP/IP, IP  \n4) Layer 4 - Transport; TCP, UDP  \n5) Layer 5 - Session; PPTP, RPC  \n6) Layer 6 - Presentation; SSL/TLS, JPEG  \n7) Layer 7 - Application; HTTP, FTP"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 2.4,
+      "groups": [
+        "general",
+        "security"
+      ]
+    },
+    {
+      "model": "hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 33.0,
+      "min_tps": 30.8,
+      "max_tps": 34.0,
+      "stddev_tps": 1.28,
+      "cv": 0.039,
+      "avg_completion_tokens": 137,
+      "avg_elapsed_s": 4.15,
+      "avg_ttft_s": 0.196,
+      "routed_model": "hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M",
+      "prompt_category": "security",
+      "quality_score": 0.83,
+      "tps_quality": 27.4,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested cybersecqwen-4b-gguf:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.52,
+          "prompt_tokens": 0,
+          "completion_tokens": 150,
+          "tps": 33.2,
+          "time_to_first_token_s": 0.437,
+          "response_model": "hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M",
+          "response_text": "### Analysis: SSH Brute-Force Attempts\n\n**1. MITRE ATT&CK Classification**  \nCitation: **Initial Access \u2013 Development of Client (T1190)** or more accurately **Spearphishing Attachment / Social Engineering**, though the observed behavior is \"Pass-the-Hash\" prep. However, since it's brute-force on SSH (a direct credential delivery method), the best fit is **T1110 (Brute Force)** within **Initial Access**. The use of 47 unique IPs against DMZ ports indicates a volume-based attack targeting unauthorized access.\n\n**2. Immediate containment actions (first 30 minutes)**  \nImmediately place all 3 DMZ servers into maintenance mode or fail over to an OOB management gateway to prevent further SSH persistence. Rotate credentials for any users who allowed password authentication and immediately disable plaintext passwords in /etc/ssh/sshd_config, mandating RSA keys only. Push the blocklist IPs from CrowdSec to iptables/firewalld using CIDR blocks provided by CrowdSec.\n\n**3. Detection rule to write**  \n`event.category.id:\"Security\" AND process.name:sshd AND (process.command CONTAINS \"nc\" OR process.args CONTAINS \"-i\") AND (dest"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 4.14,
+          "prompt_tokens": 0,
+          "completion_tokens": 137,
+          "tps": 33.1,
+          "time_to_first_token_s": 0.14,
+          "response_model": "hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M",
+          "response_text": "### Analysis of SSH Brute-Force Scenario\n\n#### 1. Classification (MITRE ATT&CK)\n**Tactic**: Initial Access (**T1110**)  \n**Technique**: Credentials from Cache/Secrets (**T1073.004/1072**) - Specifically, brute-force is used to bypass authentication mechanisms, often overlapping with T1110.1 for password cracking.  \nThe secondary IP blocklisting (CrowdSec) indicates a common-wealth attack by an automated botnet, aligning with high-scale credential stuffing or direct enumeration.\n\n#### 2. Immediate containment actions (first 30 minutes)\nDisable public SSH access on the 3 DMZ servers immediately via `ufw`/iptables to block inbound TCP:22. Rotate ALL passwords and secrets for these services since they are compromised targets. Enforce IP whitelisting of allowed administrative hosts by modifying SSH config (`AllowUsers`) or using a jump host/pod.\n\n#### 3. Detection rule to write\n```yaml\nalert: Suspicious_SSH_BruteForce_Events\ndescription: Detect repeated short-lived SSH connection errors (auth failures) targeting port 22 from transient sources.\nfields:\n  dest_port:"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 4.17,
+          "prompt_tokens": 0,
+          "completion_tokens": 141,
+          "tps": 33.8,
+          "time_to_first_token_s": 0.146,
+          "response_model": "hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M",
+          "response_text": "### Analysis: SSH Brute-Force Attempts\n\n1. **Classification**  \n   MITRE ATT&CK Tactic: [Remote Services](https://attack.mitre.org/tactics/TK0002) \u2192 Technique T1210 (Brute Force). The goal is credential collection via high-volume authentication attempts to ports 22, indicating a reconnaissance phase leading toward privilege escalation or data exfiltration.\n\n2. **Immediate containment actions**  \n   Immediately rotate passwords for all accounts with ssh access via /etc/ssh/sshd_config and force user password change logs. Disable root SSH logins globally across DMZ servers. Flush the local cache from CrowdSec/Uncomplicate to ensure the two known bad actors are reassessed. Restrict SSH access to specific trusted clients using IP-based allow rules.\n\n3. **Detection rule to write**  \n   `event.source.port == 22 AND event.destination.address.first.in.familys: ipv4 AND count() > 5 in window 1 hour`  \n   *(Citation: SLES Hardening Guide / MITRE ATT&CK T1098; used as a threshold for brute-forcing)*. If the source IP is on the CrowdSec blacklist, escalate alert priority to"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 4.21,
+          "prompt_tokens": 0,
+          "completion_tokens": 143,
+          "tps": 34.0,
+          "time_to_first_token_s": 0.127,
+          "response_model": "hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M",
+          "response_text": "### Vulnerability Overload: SSH Brute-Force\n\n**1. Classification**  \n*Attack Tactic:* Remote Access *(T1078)* | *Technique ID:* <b>T1110</b> (Brute Force). This aligns with credential-based access against an unauthenticated entry point.\n\n**2. Immediate containment actions**  \nEnforce IP whitelisting for SSH/DMZ ports if known, flush all open port 22 sessions immediately on the 3 affected hosts using `systemctl reload sshd` or `/bin/sudo killall -w sshd`, and blacklist the 47 IPs in Cisco IPSec rules or OS-level drop rules. Rotate credentials via password change log to invalidate session tokens derived from previously cracked passwords.\n\n**3. Detection rule to write**  \nField: `<Connection Source IP>` | `<Dest Port> == 22` | `<Count Events >5 over 60 seconds` OR `<Source_IP> IN /etc/crowdsec/blocklist.txt`. Output alert if `<Counter >47 IPs within 120 seconds target_port 22`.\n\n**4. Root cause question to investigate**  \nDid the company perform Patch Management for SSH key rotation and login"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 3.73,
+          "prompt_tokens": 0,
+          "completion_tokens": 115,
+          "tps": 30.8,
+          "time_to_first_token_s": 0.132,
+          "response_model": "hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M",
+          "response_text": "### Analysis of SSH Brute-force Activity\n\n1. **Classification**: MITRE ATT&CK Tactic: [Remote Services](https://attack.mitre.org/Tactics/TK002), Technique: [Bruteforce](https://attack.mitre.org/techniques/T1110).  \n   The behavior aligns with high-precision credential stuffing or enumeration, targeting the SSH service port (TCP 22) on DMZ-facing assets to gain initial access.\n\n2. **Immediate containment actions**: Isolate affected servers from the public internet via firewall rules within 30 minutes. Terminate sessions instantly for all pending SSH connections. Rotate passwords and secrets for credentials stored in credentialists accessible to these endpoints.  \n   Prioritize blacklisting IPs identified at the network perimeter (e.g., CrowdSec) while maintaining IPSec/VPN tunnels for management.\n\n3. **Detection rule**: `source.addr IP REPEATS IN_LIST \"brute_force_ips\" FOR 2h` AND `${proto} == tcp` AND `${dst.port} == 22` \u2014 If true, trigger alert.  "
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 2.4,
+      "groups": [
+        "security"
+      ]
+    },
+    {
+      "model": "llama3.2:3b-instruct-q8_0-ctx8k",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 31.7,
+      "min_tps": 25.9,
+      "max_tps": 35.8,
+      "stddev_tps": 3.89,
+      "cv": 0.123,
+      "avg_completion_tokens": 65,
+      "avg_elapsed_s": 2.04,
+      "avg_ttft_s": 0.159,
+      "routed_model": "llama3.2:3b-instruct-q8_0-ctx8k",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 31.7,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested llama3.2:3b-instruct-q8_0-ctx8k",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.64,
+          "prompt_tokens": 0,
+          "completion_tokens": 52,
+          "tps": 31.7,
+          "time_to_first_token_s": 0.234,
+          "response_model": "llama3.2:3b-instruct-q8_0-ctx8k",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Layer 1 - Physical (PHY), EMT-1328, Copper cable\n2. Layer 2 - Data Link (DLL)\n3. Layer 3 - Network (NWK)\n4. Layer 4 - Transport (TPS)\n5. Layer 5 - Session (SPS)\n6. Layer 6 - Presentation (PRs)\n7. Layer 7 - Application"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.12,
+          "prompt_tokens": 0,
+          "completion_tokens": 76,
+          "tps": 35.8,
+          "time_to_first_token_s": 0.141,
+          "response_model": "llama3.2:3b-instruct-q8_0-ctx8k",
+          "response_text": "Here are the 7 OSI model layers listed from bottom to top:\n\n1. Layer 1: Physical (PHY) - Ethernet cable\n2. Layer 2: Data Link (LDL) - Ethernet frame\n3. Layer 3: Network (NPLM) - IPv4 routing\n4. Layer 4: Transport (SBLM) - TCP packets\n5. Layer 5: Session (MLS) - SSL/TLS connections\n6. Layer 6- Not universally agreed upon, sometimes layer 7 : Presentation - MIME attachments \n7. Layer 7: Application (APA) - HTTP requests"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 2.01,
+          "prompt_tokens": 0,
+          "completion_tokens": 52,
+          "tps": 25.9,
+          "time_to_first_token_s": 0.147,
+          "response_model": "llama3.2:3b-instruct-q8_0-ctx8k",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Physical (Layer 1)\n   Protocol/Technology: Ethernet\n2. Data Link (Layer 2)\n   Protocol/Technology: WiFi\n3. Network (Layer 3)\n   Protocol/Technology: IP address routing\n4. Transport (Layer 4)\n   Protocol/Technology: TCP/IP\n5. Session (Layer 5)\n   Protocol/Technology: SSL/TLS\n6. Presentation (Layer 6)\n   Protocol/Technology: MIME\n7. Application (Layer 7)\n   Protocol/Technology: HTTP"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 66,
+          "tps": 34.7,
+          "time_to_first_token_s": 0.131,
+          "response_model": "llama3.2:3b-instruct-q8_0-ctx8k",
+          "response_text": "Here is the list of OSI model layers:\n\n1. Physical Layer (Layer 1): Ethernet (TCP/IP)\n2. Data Link Layer (Layer 2): Wi-Fi\n3. Network Layer (Layer 3): IP (Internet Protocol)\n4. Transport Layer (Layer 4): TCP (Transmission Control Protocol)\n5. Session Layer (Layer 5): SSL (Secure Sockets Layer)\n6. Presentation Layer (Layer 6): PDF (Portable Document Format)\n7. Application Layer (Layer 7): HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 2.52,
+          "prompt_tokens": 0,
+          "completion_tokens": 77,
+          "tps": 30.6,
+          "time_to_first_token_s": 0.142,
+          "response_model": "llama3.2:3b-instruct-q8_0-ctx8k",
+          "response_text": "Here are the 7 OSI model layers, listed from bottom to top, along with their details:\n\n1. Layer 7: Application Layer\n   Protocol/Technology: World Wide Web (HTTP)\n\n2. Layer 6: Presentation Layer\n   Protocol/Technology: SSL/TLS Encryption\n\n3. Layer 5: Session Layer\n   Protocol/Technology: NetBIOS Over TCP/IP\n\n4. Layer 4: Transport Layer\n   Protocol/Technology: TCP/IP\n\n5. Layer 3: Network Layer\n   Protocol/Technology: IPv4 Routing\n\n6. Layer 2: Data Link Layer\n   Protocol/Technology: Ethernet Frame Structure\n\n7. Layer 1: Physical Layer\n   Protocol/Technology: Twisted Pair Cable"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 3.0,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 25.4,
+      "min_tps": 18.7,
+      "max_tps": 33.4,
+      "stddev_tps": 6.41,
+      "cv": 0.252,
+      "avg_completion_tokens": 101,
+      "avg_elapsed_s": 3.66,
+      "avg_ttft_s": 0.084,
+      "routed_model": "hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 25.4,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested mistral-7b-uncensored-gguf:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.84,
+          "prompt_tokens": 0,
+          "completion_tokens": 37,
+          "tps": 20.1,
+          "time_to_first_token_s": 0.247,
+          "response_model": "hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M",
+          "response_text": " 1) Physical Layer (Layer 1)\n2) Data Link Layer (Layer 2)\n3) Network Access Layer (Layer 3)\n4) Internet Layer (Layer 4)\n5) Transport Layer (Layer 5)\n6) Session Layer (Layer 6)\n7) Presentation Layer (Layer 7)"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 4.98,
+          "prompt_tokens": 0,
+          "completion_tokens": 152,
+          "tps": 30.5,
+          "time_to_first_token_s": 0.043,
+          "response_model": "hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M",
+          "response_text": " 1) Physical (Phys) layer - responsible for physical transmission of data over a physical medium. Example: Ethernet.\n2) Data Link (Data link) layer - responsible for error-free transmission of data between nodes on a network segment. Example: Wi-Fi Direct.\n3) Network (Network) layer - enables communication among different networks by routing and forwarding packets across these interconnected subnets. Example: IPv4, IPv6.\n4) Transport (Transport) layer - ensures reliable delivery of data between end hosts. It encapsulates or decompresses data packets in the event of errors during transmission. Examples include TCP, UDP.\n5) Session (Session) layer - manages connections among distributed processes across different systems. Protocols include NetBIOS, NFS, RPC.\n6) Presentation (Presentation) layer - responsible for formatting and compressing data for more efficient communication. Example: SSL/TLS for secure HTTPS transmissions.\n7) Application (Application) layer - provides access to network services from user applications. Examples include HTTP (web browsers), FTP, SMTP, DNS, NNTP."
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.15,
+          "prompt_tokens": 0,
+          "completion_tokens": 172,
+          "tps": 33.4,
+          "time_to_first_token_s": 0.044,
+          "response_model": "hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M",
+          "response_text": " 1. Physical Layer (Layer 1): It is responsible for transmitting raw bit streams over physical media. One example of this layer is Bluetooth.\n2. Data Link Layer (Layer 2): This layer provides reliable data transmission by organizing bits into frames and adding error checking information. An example of this protocol is Ethernet.\n3. Network Layer (Layer 3): This layer manages routing and forwarding data across networks using logical addresses such as IP addresses. A common protocol used in this layer is TCP/IP.\n4. Transport Layer (Layer 4): It ensures reliable delivery of information between end-users through flow control, error checking, and segmentation. An example of a transport layer protocol is HTTP.\n5. Session Layer (Layer 5): This layer establishes, maintains, and tears down communication sessions between two devices. One popular session layer protocol is SSL/TLS.\n6. Presentation Layer (Layer 6): It transforms data into a format suitable for the receiving system by performing encryption or decryption, compressing or decompressing, etc. An example of this layer is MIME.\n7. Application Layer (Layer 7"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.87,
+          "prompt_tokens": 0,
+          "completion_tokens": 35,
+          "tps": 18.7,
+          "time_to_first_token_s": 0.044,
+          "response_model": "hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M",
+          "response_text": " 1) Physical Layer (Physical)\n2) Data Link Layer (Data)\n3) Network Layer (Network)\n4) Transport Layer (Transport)\n5) Session Layer (Session)\n6) Presentation Layer (Presentation)\n7) Application Layer (Application)\n[Examples: Ethernet, TCP/IP, HTTP, FTP, SMTP]\n"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 4.45,
+          "prompt_tokens": 0,
+          "completion_tokens": 108,
+          "tps": 24.3,
+          "time_to_first_token_s": 0.043,
+          "response_model": "hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M",
+          "response_text": " 1. Physical Layer\n- Standard Name: Physical layer\n- Example Protocol/Technology: Ethernet\n2. Data Link Layer\n- Standard Name: Data Link Layer\n- Example Protocol/Technology: Wi-Fi Direct (WFD)\n3. Network Layer\n- Standard Name: Network Layer\n- Example Protocol/ Technology: Transmission Control Protocol / Internet Protocol (TCP/IP)\n4. Transport Layer\n- Standard Name: Transport Layer\n- Example Protocol/Technology: Secure Shell (SSH)\n5. Session Layer\n- Standard Name: Session Layer\n- Example Protocol/Technology: Simple Mail Transfer Protocol (SMTP)\n6. Presentation Layer\n- Standard Name: Presentation Layer\n- Example Protocol/Technology: Secure File Transfer Protocol (SFTP)\n7. Application Layer\n- Standard Name: Application Layer\n- Example Protocol/Technology: Hypertext Transfer Protocol (HTTP)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.2,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 29.0,
+      "min_tps": 22.6,
+      "max_tps": 36.3,
+      "stddev_tps": 5.38,
+      "cv": 0.186,
+      "avg_completion_tokens": 101,
+      "avg_elapsed_s": 3.35,
+      "avg_ttft_s": 0.169,
+      "routed_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 29.0,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested vulnllm-r-7b-gguf:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 2.3,
+          "prompt_tokens": 0,
+          "completion_tokens": 52,
+          "tps": 22.6,
+          "time_to_first_token_s": 0.34,
+          "response_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
+          "response_text": "1. Layer 1: Physical - Ethernet, coaxial cable\n2. Layer 2: Data Link - IEEE 802.3, VLANs\n3. Layer 3: Network - IP, ICMP\n4. Layer 4: Transport - TCP, UDP\n5. Layer 5: Session - NetBIOS, NFS\n6. Layer 6: Presentation - SSL/TLS, LDAP\n7. Layer 7: Application - HTTP, FTP"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.07,
+          "prompt_tokens": 0,
+          "completion_tokens": 52,
+          "tps": 25.2,
+          "time_to_first_token_s": 0.125,
+          "response_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
+          "response_text": "1. Layer 1: Physical - Ethernet, Token Ring\n2. Layer 2: Data Link - PPP, IEEE 802.3\n3. Layer 3: Network - IP, IPX\n4. Layer 4: Transport - TCP, UDP\n5. Layer 5: Session - NetBIOS, RPC\n6. Layer 6: Presentation - MIME, SSL/TLS\n7. Layer 7: Application - HTTP, FTP"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 3.28,
+          "prompt_tokens": 0,
+          "completion_tokens": 119,
+          "tps": 36.3,
+          "time_to_first_token_s": 0.125,
+          "response_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
+          "response_text": "1. The first layer is Layer 1, the Physical Layer. An example protocol here is Ethernet.\n2. Next up, Layer 2 is the Data Link Layer. Token Ring operates at this layer.\n3. Moving to Layer 3, the Network Layer involves IP technology.\n4. Then comes the Transport Layer, which uses TCP as a key protocol.\n5. The Session Layer is represented by protocols like NetWare Core Protocol (NCP).\n6. For Layer 6, the Presentation Layer might use SSL/TLS for encryption.\n7. Finally, Layer 7 is the Application Layer with HTTP as a common example.\n\nEach layer addresses distinct aspects of network communication, starting from hardware details in Layer 1 and progressing through abstract application interfaces at Layer 7."
+        },
+        {
+          "run": 4,
+          "elapsed_s": 5.38,
+          "prompt_tokens": 0,
+          "completion_tokens": 170,
+          "tps": 31.6,
+          "time_to_first_token_s": 0.115,
+          "response_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
+          "response_text": "1. Layer 1: Physical Layer - Uses protocols like Ethernet and Twisted Pair\u7535\u7f06.\n\n2. Layer 2: Data Link Layer (LLC) - Example includes Token Ring (\u4ee4\u724c\u73af).\n\n3. Layer 3: Network Layer - Protocols such as IP, ICMP.\n\n4. Layer 4: Transport Layer (TCP/IP) - Protocols like TCP.\n\n5. Layer 5: Session Layer - None listed in common use.\n\n6. Layer 6: Presentation Layer - Handling data representation via protocols like SSL/TLS.\n\n7. Layer 7: Application Layer - Includes technologies like FTP servers or SMTP clients.\n</edit>\n**Corrected:**  \nRephrased \"uses protocols like Ethernet and Twisted Pair\u7535\u7f06\" to \"utilizes protocols such as Ethernet and Twisted Pair,\" making the language more precise. The example for Ethernet remains appropriate. \n\nLayer 5's note about non-existent session layer examples could be updated if a modern protocol emerges, but currently, it\u2019s accurate. Presentation Layer mentions SSL/TLS correctly under TCP/IP context. Application Layer examples are valid.\n</edit>\n<remove>\nAdditional reflection: Checked for consistency in terminology (OSI model vs. TCP/IP stack) and ensured protocols align with their respective layers."
+        },
+        {
+          "run": 5,
+          "elapsed_s": 3.73,
+          "prompt_tokens": 0,
+          "completion_tokens": 110,
+          "tps": 29.5,
+          "time_to_first_token_s": 0.139,
+          "response_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
+          "response_text": "1. **Layer 1**: Physical Layer - Concerns transmission media like copper or fiber. Example: Ethernet.\n\n2. **Layer 2**: Data Link Layer - Handles link management and error checking. Example: PPP.\n\n3. **Layer 3**: Network Layer - Responsible for routing data between networks. Example: IP.\n\n4. **Layer 4**: Transport Layer - Manages end-to-end communication. Example: TCP.\n\n5. **Layer 5**: Session Layer - Establishes and maintains connections between applications. Example: NetBIOS.\n\n6. **Layer 6**: Presentation Layer - Processes data formats for higher layers. Example: SSL/TLS.\n\n7. **Layer 7**: Application Layer - Directly supports application software interactions. Example: HTTP.\n</div>\n\nAll layers listed follow the correct order and provide valid protocols for each."
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.2,
+      "groups": [
+        "general",
+        "security"
+      ]
+    },
+    {
+      "model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 29.4,
+      "min_tps": 27.4,
+      "max_tps": 30.5,
+      "stddev_tps": 1.36,
+      "cv": 0.046,
+      "avg_completion_tokens": 163,
+      "avg_elapsed_s": 5.54,
+      "avg_ttft_s": 0.209,
+      "routed_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      "prompt_category": "security",
+      "quality_score": 0.83,
+      "tps_quality": 24.4,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested vulnllm-r-7b-gguf:q4_k_m-ctx8k",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.69,
+          "prompt_tokens": 0,
+          "completion_tokens": 173,
+          "tps": 30.4,
+          "time_to_first_token_s": 0.483,
+          "response_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+          "response_text": "1. **Classification**: The attack involves unauthorized access attempts via SSH brute-force, which corresponds to the \"Authentication Bypass\" category under MITRE ATT&CK's \"Access Control\" domain. Specifically, this aligns with **Tactic T1077: Authentication for Cleartext Protocols** and **T1184: Improper Access Management**, as the attack exploits cleartext SSH authentication without proper rate limiting or credential validation.\n\n2. **Immediacy Response**: Within 30 minutes, block all identified IP addresses from accessing the servers via SSH. For the two IPs on CrowdSeD's community blocklist, use their existing status for automatic blocking. Enhance the existing rate-limiting mechanism if present, and temporarily disable port 22 access to affected internal systems.\n\n3. **Security Rule**: The detection rule should monitor SSH login attempts by checking **user-Agent field** (indicating SSH client) and **request_origin IP address** in network traffic logs. Apply a threshold-based alerting system where any individual server receives more than seven failed authentication attempts from the same IP within an hour triggers immediate block action.\n\n4. **Root Cause Investigation**: Verify if multi-factor authentication or password complexity requirements are enforced for SSH access. Examine"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.41,
+          "prompt_tokens": 0,
+          "completion_tokens": 154,
+          "tps": 28.5,
+          "time_to_first_token_s": 0.133,
+          "response_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+          "response_text": "**Scenario Analysis:**\n\nA company's SIEM identifies SSH brute-force attacks from 47 distinct IPs over two hours, targeting port 22 on three DMZ servers. Two attacker IPs are listed in the CrowdSec community blocklist.\n\n---\n\n1. **MITRE ATT&CK Tactic & Technique IDs:**\n   - **Tactic:** Identification [TA0023]\n   - ** Techniques:**  \n     - Brute-force Attack via SSH (T1284)  \n     - Credential-based Authentication (T1267)\n\n2. **Immediate Containment Actions (First 30 Minutes):**  \n   - **Blocklisted IPs:**  \n     - Contact CrowdSec support to confirm the blocklist's validity and implement blocking on internal systems immediately via iptables or similar tools.  \n     - Monitor network traffic for any bypass attempts post-blocking using logs or additional SIEM alerts.  \n   - **All 47 IPs:**  \n     - Document all observed attack vectors without immediate action to avoid introducing new vulnerabilities.  \n     - Focus containment efforts first on the two CrowdSec-verified IPs before expanding to other IP ranges once their validity is confirmed through deeper analysis.\n\n3. **Detection Rule (Fields & Logic):**  \n   - Protocol"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.47,
+          "prompt_tokens": 0,
+          "completion_tokens": 150,
+          "tps": 27.4,
+          "time_to_first_token_s": 0.127,
+          "response_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+          "response_text": "**1. Classification (MITRE ATT&CK):**\nThe attack involves repeated SSH login attempts, which align with **Mitigation of Authentication Mechanism via Spoofing (T1990)** under the Authentication category. This could also relate to **Improper Credential Protection** (T1783) if credentials are exposed during transmission.\n\n**2. Immediate Containment Actions:**\n- **Block IPs:** Immediately add the 47 unique SSH brute-force IPs to a blacklist on outbound network devices. Focus on the two CrowdSec-listed IPs first. \n- **Restrict Protocol Ports:** Temporarily disable remote SSH access or limit port 22 usage to internal-only traffic in the DMZ.\n- **Disable Accounts:** Suspend any user accounts linked to failed login attempts (if authentication checks are available).\n- **Network Isolation:** Consider temporarily isolating the affected servers from the DMZ or internal network while continuing operations.\n\n**3. Detection Rule:**\n```yaml\ntitle: SSH Brute Force (T1098)\ndescription: Detect repeated unauthorized SSH access attempts.\ndetection:\n  selection:\n    proto: TCP\n    service: ssh\n    first_time: within(minutes=2, value=60)\n    count:"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 5.58,
+          "prompt_tokens": 0,
+          "completion_tokens": 170,
+          "tps": 30.5,
+          "time_to_first_token_s": 0.152,
+          "response_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+          "response_text": "**Scenario Analysis for Repeated SSH Brute-Force Attempts**\n\n**1. MITRE ATT&CK Classification**\nThe attack involves unauthorized access attempts through SSH port 22 targeting servers in the DMZ. This aligns with **Tactic TA0003: Credential Access**, specifically **Technique T397: Authentication Bypass by Spoofing or Phishing** and **T1084: Use of Improperly Protected Credentials**. While brute-force attacks target authentication mechanisms, the primary issue here is unauthorized system access via credential invalidation rather than password guessing.\n\n**2. Immediate Containment Actions (First 30 Minutes)**\n- **Block Attacker IPs:** Immediately update network ACLs or use a Web Application Firewall (WAF) to block the two identified CrowdSec community blocklist IPs and all other 45 attackers not on the list.\n- **Disable SSH Service Temporarily:** As a safeguard, disable SSH access entirely for the affected servers until additional validation mechanisms are implemented. This prevents exploitation during mitigation.\n- **Check for Credential Exposure:** Review SSH logs for any leaked credentials or weak password policies that might be aiding the attack vector.\n\n**3. Detection Rule (Field Names + Logic)**\n```plaintext\nSELECT distinct"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.57,
+          "prompt_tokens": 0,
+          "completion_tokens": 167,
+          "tps": 30.0,
+          "time_to_first_token_s": 0.149,
+          "response_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+          "response_text": "**Scenario Analysis for SSH Brute-force Attempts**\n\n**1. Tactic/Technique Identification:**\nThe attack involves repeated SSH login attempts using numerous IP addresses targeting port 22. This aligns with **CWE-306 (Missing Authentication)** as a key concern, but the primary MITRE ATT&CK mapping is **T1171: Improper Output Neutralization** because brute-force attacks aim to bypass authentication mechanisms by exhausting credentials or system resources.\n\n**2. Immediate Containment Actions (First 30 Minutes):**\n- **Network Blocking:** Immediately block the four IPs identified on CrowdSec's community blocklist via firewall rules to prevent further access attempts.\n- **Access Control Adjustment:** Temporarily disable SSH access (via port closure) for the three DMZ servers unless authenticated credentials are re-approved, preventing exploitation during analysis.\n- **Credential Sanitization:** Reset server root passwords post-investigation and update security policies to require multi-factor authentication for all administrative sessions.\n\n**3. Detection Rule Formulation:**\n- **Source IP Count Analysis:** Monitor instances where \u226547 unique IP sources initiate SSH connection attempts within a 2-hour window.\n- **Protocol Port Validation:** Ensure the attempted connection targets port 22 (SSH)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.2,
+      "groups": [
+        "security"
+      ]
+    },
+    {
+      "model": "dolphin-llama3:8b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 28.8,
+      "min_tps": 25.1,
+      "max_tps": 33.2,
+      "stddev_tps": 3.63,
+      "cv": 0.126,
+      "avg_completion_tokens": 85,
+      "avg_elapsed_s": 2.88,
+      "avg_ttft_s": 0.19,
+      "routed_model": "dolphin-llama3:8b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 28.8,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested dolphin-llama3:8b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 2.75,
+          "prompt_tokens": 0,
+          "completion_tokens": 69,
+          "tps": 25.1,
+          "time_to_first_token_s": 0.361,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1. Layer 1 (Link): Data Link -802.3\n\n2. Layer 2 (Internet): Internet Protocol (IP)- TCP/IP\n\n3. Layer 3 (Network): Network layer - OSI model\n\n4. Layer 4 (Transport): Transport layer - Transmission Control Protocol (TCP)\n\n5. Layer 5 (Session): Session layer - Network Data-Link Switching (NDLS)\n\n6. Layer 6 (Presentation): Presentation layer - Standard Data Encryption Device (SDED)\n\n7. Layer 7 (Application): Application layer - File Transfer Protocol (FTP)"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.94,
+          "prompt_tokens": 0,
+          "completion_tokens": 61,
+          "tps": 31.5,
+          "time_to_first_token_s": 0.142,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1. Layer 4 (Transport): TCP - Transmission Control Protocol\n\n2. Layer 5 (Session): NetBIOS - Network Basic Input/Output System\n\n3. Layer 6 (Presentation): X.25 - Recommendations for the use of asynchronous or synchronous data transfer and communication, based on international standards, at the higher or terminal end of a data transmission link.\n\n4. Layer 7 (Application): HTTP - Hypertext Transfer Protocol"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 4.7,
+          "prompt_tokens": 0,
+          "completion_tokens": 156,
+          "tps": 33.2,
+          "time_to_first_token_s": 0.152,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1) Layer 1 - Physical: Defines the physical transmission of data over a network. Example protocol: Ethernet.\n\n2) Layer 2 - Data Link: Provides error-free and orderly transfer of data streams across a shared medium. Example technology: ARP (Address Resolution Protocol).\n\n3) Layer 3 - Network: Route selection based on IP address to facilitate communication between different networks. Example technology: TCP/IP (Transmission Control Protocol / Internet Protocol).\n\n4) Layer 4 - Transport: End-to-end communication and delivery of data packets against a network's unreliability. Example protocol: TCP (Transmission Control Protocol).\n\n5) Layer 5 - Session: Establishes, manages, and terminates connections between sending and receiving applications. Example technology: NetBIOS (Network Basic Input/Output System).\n\n6) Layer 6 - Presentation: Manages the formatting of data for presentation to a user or system and deals with encryption/decryption. Example protocol: SSL (Secure Sockets Layer).\n\n7) Layer 7 - Application: Interacts directly with end-user software and applications. Examples include HTTP, FTP, and SMTP."
+        },
+        {
+          "run": 4,
+          "elapsed_s": 3.16,
+          "prompt_tokens": 0,
+          "completion_tokens": 92,
+          "tps": 29.1,
+          "time_to_first_token_s": 0.151,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1. Layer 4: Transport - TCP (Transmission Control Protocol)\n2. Layer 5: Session - NetBIOS (Network Basic Input/Output System)\n3. Layer 6: Presentation - MIME (Multipurpose Internet Mail Extensions)\n4. Layer 7: Application - HTTP (Hypertext Transfer Protocol)\n\nThe list continues from the top (Layer 7) to the bottom (Layer 1) as follows:\n\n5. Layer 3: Network - TCP/IP's Internet Protocol (IP), IPv4, and IPv6 are common examples.\n6. Layer 2: Data Link - PPP (Point-to-Point Protocol)\n7. Layer 1: Physical - Ethernet is a popular technology that operates at this layer."
+        },
+        {
+          "run": 5,
+          "elapsed_s": 1.86,
+          "prompt_tokens": 0,
+          "completion_tokens": 47,
+          "tps": 25.3,
+          "time_to_first_token_s": 0.144,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1) Layer 1 - Physical (Ethernet)\n2) Layer 2 - Data Link (ARP/RTPA)\n3) Layer 3 - Network (TCP/IP, ICMP)\n4) Layer 4 - Transport (TCP, UDP)\n5) Layer 5 - Session (NetBIOS)\n6) Layer 6 - Presentation (HTTP, MIME)\n7) Layer 7 - Application (DNS, SMTP)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "creative"
+      ]
+    },
+    {
+      "model": "granite4.1:8b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 20.5,
+      "min_tps": 18.3,
+      "max_tps": 22.1,
+      "stddev_tps": 1.53,
+      "cv": 0.075,
+      "avg_completion_tokens": 87,
+      "avg_elapsed_s": 4.17,
+      "avg_ttft_s": 0.141,
+      "routed_model": "granite4.1:8b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 20.5,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested granite4.1:8b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.53,
+          "prompt_tokens": 0,
+          "completion_tokens": 100,
+          "tps": 22.1,
+          "time_to_first_token_s": 0.325,
+          "response_model": "granite4.1:8b",
+          "response_text": "1. **Layer 1 - Physical**: Transmits raw bitstreams over hardware; Example: Ethernet (IEEE 802.3)\n2. **Layer 2 - Data Link**: Provides node-to-node data transfer; Example: Wi-Fi (IEEE 802.11)\n3. **Layer 3 - Network**: Handles packet forwarding across network links; Example: Internet Protocol (IP)\n4. **Layer 4 - Transport**: Ensures reliable or session-oriented delivery of data; Example: Transmission Control Protocol (TCP)\n5. **Layer 5 - Session**: Establishes, manages, and terminates connections; Example: SSH\n6. **Layer 6 - Presentation**: Translates data between application and network; Example: SSL/TLS encryption\n7. **Layer 7 - Application**: Interfaces with end-user services; Example: Hypertext Transfer Protocol (HTTP)"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.67,
+          "prompt_tokens": 0,
+          "completion_tokens": 53,
+          "tps": 19.8,
+          "time_to_first_token_s": 0.092,
+          "response_model": "granite4.1:8b",
+          "response_text": "1. Physical (Layer 1): Ethernet  \n2. Data Link (Layer 2): Wi-Fi (IEEE 802.11)  \n3. Network (Layer 3): Internet Protocol (IP)  \n4. Transport (Layer 4): Transmission Control Protocol (TCP)  \n5. Session (Layer 5): Secure Sockets Layer/Transport Layer Security (SSL/TLS)  \n6. Presentation (Layer 6): JPEG image format  \n7. Application (Layer 7): Hypertext Transfer Protocol (HTTP)"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.99,
+          "prompt_tokens": 0,
+          "completion_tokens": 124,
+          "tps": 20.7,
+          "time_to_first_token_s": 0.092,
+          "response_model": "granite4.1:8b",
+          "response_text": "1. Physical Layer  \n   - Layer Number: 1  \n   - Standard Name: Physical  \n   - Example Protocol/Technology: Ethernet  \n\n2. Data Link Layer  \n   - Layer Number: 2  \n   - Standard Name: Data Link  \n   - Example Protocol/Technology: Wi-Fi (IEEE 802.11)  \n\n3. Network Layer  \n   - Layer Number: 3  \n   - Standard Name: Network  \n   - Example Protocol/Technology: IP (Internet Protocol)  \n\n4. Transport Layer  \n   - Layer Number: 4  \n   - Standard Name: Transport  \n   - Example Protocol/Technology: TCP (Transmission Control Protocol)  \n\n5. Session Layer  \n   - Layer Number: 5  \n   - Standard Name: Session  \n   - Example Protocol/Technology: NetBIOS  \n\n6. Presentation Layer  \n   - Layer Number: 6  \n   - Standard Name: Presentation  \n   - Example Protocol/Technology: SSL/TLS (Secure Sockets Layer / Transport Layer Security)  \n\n7. Application Layer  \n   - Layer Number: 7  \n   - Standard Name: Application  \n   - Example Protocol/Technology: HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 4.7,
+          "prompt_tokens": 0,
+          "completion_tokens": 102,
+          "tps": 21.7,
+          "time_to_first_token_s": 0.097,
+          "response_model": "granite4.1:8b",
+          "response_text": "1. **Layer 1 - Physical**: Transmits raw bitstreams over physical media. *Example*: Ethernet (IEEE 802.3)\n2. **Layer 2 - Data Link**: Provides node-to-node data transfer, error detection/correction. *Example*: Wi-Fi (IEEE 802.11)\n3. **Layer 3 - Network**: Handles packet forwarding across multiple networks. *Example*: Internet Protocol (IP)\n4. **Layer 4 - Transport**: Ensures reliable end-to-end communication. *Example*: Transmission Control Protocol (TCP)\n5. **Layer 5 - Session**: Establishes, manages, and terminates connections. *Example*: RPC (Remote Procedure Call)\n6. **Layer 6 - Presentation**: Translates data between the application and network formats. *Example*: SSL/TLS\n7. **Layer 7 - Application**: Interfaces directly with user applications. *Example*: HTTP"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 2.95,
+          "prompt_tokens": 0,
+          "completion_tokens": 54,
+          "tps": 18.3,
+          "time_to_first_token_s": 0.1,
+          "response_model": "granite4.1:8b",
+          "response_text": "1 **Physical** (Layer 1): Ethernet  \n2 **Data Link** (Layer 2): Wi-Fi (802.11)  \n3 **Network** (Layer 3): IP (Internet Protocol)  \n4 **Transport** (Layer 4): TCP (Transmission Control Protocol)  \n5 **Session** (Layer 5): SSH (Secure Shell)  \n6 **Presentation** (Layer 6): SSL/TLS (Secure Sockets Layer / Transport Layer Security)  \n7 **Application** (Layer 7): HTTP (Hypertext Transfer Protocol)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "security",
+        "reasoning"
+      ]
+    },
+    {
+      "model": "granite4.1:8b-ctx16k",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 20.2,
+      "min_tps": 17.3,
+      "max_tps": 22.4,
+      "stddev_tps": 2.43,
+      "cv": 0.12,
+      "avg_completion_tokens": 69,
+      "avg_elapsed_s": 3.37,
+      "avg_ttft_s": 0.142,
+      "routed_model": "granite4.1:8b-ctx16k",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 20.2,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested granite4.1:8b-ctx16k",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 3.57,
+          "prompt_tokens": 0,
+          "completion_tokens": 64,
+          "tps": 17.9,
+          "time_to_first_token_s": 0.341,
+          "response_model": "granite4.1:8b-ctx16k",
+          "response_text": "1. **Layer 1 \u2013 Physical**  \n   Example: Ethernet\n\n2. **Layer 2 \u2013 Data Link**  \n   Example: Wi-Fi (IEEE 802.11)\n\n3. **Layer 3 \u2013 Network**  \n   Example: IP (Internet Protocol)\n\n4. **Layer 4 \u2013 Transport**  \n   Example: TCP (Transmission Control Protocol)\n\n5. **Layer 5 \u2013 Session**  \n   Example: SSL/TLS\n\n6. **Layer 6 \u2013 Presentation**  \n   Example: TLS (for encrypting data streams)\n\n7. **Layer 7 \u2013 Application**  \n   Example: HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.95,
+          "prompt_tokens": 0,
+          "completion_tokens": 51,
+          "tps": 17.3,
+          "time_to_first_token_s": 0.092,
+          "response_model": "granite4.1:8b-ctx16k",
+          "response_text": "1. **Physical** (Layer 1): Ethernet  \n2. **Data Link** (Layer 2): Wi-Fi (802.11)  \n3. **Network** (Layer 3): IP (Internet Protocol)  \n4. **Transport** (Layer 4): TCP (Transmission Control Protocol)  \n5. **Session** (Layer 5): SSH (Secure Shell)  \n6. **Presentation** (Layer 6): TLS/SSL (encryption for secure communications)  \n7. **Application** (Layer 7): HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 2.63,
+          "prompt_tokens": 0,
+          "completion_tokens": 57,
+          "tps": 21.7,
+          "time_to_first_token_s": 0.091,
+          "response_model": "granite4.1:8b-ctx16k",
+          "response_text": "1) Layer 1: Physical - Ethernet  \n2) Layer 2: Data Link - Wi-Fi (IEEE 802.11)  \n3) Layer 3: Network - Internet Protocol (IP)  \n4) Layer 4: Transport - Transmission Control Protocol (TCP)  \n5) Layer 5: Session - Session Initiation Protocol (SIP)  \n6) Layer 6: Presentation - JPEG, SSL/TLS  \n7) Layer 7: Application - Hypertext Transfer Protocol (HTTP)"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 2.74,
+          "prompt_tokens": 0,
+          "completion_tokens": 60,
+          "tps": 21.9,
+          "time_to_first_token_s": 0.095,
+          "response_model": "granite4.1:8b-ctx16k",
+          "response_text": "1. Layer 1: Physical - Ethernet  \n2. Layer 2: Data Link - Wi-Fi (IEEE 802.11)  \n3. Layer 3: Network - Internet Protocol (IP)  \n4. Layer 4: Transport - Transmission Control Protocol (TCP)  \n5. Layer 5: Session - Secure Sockets Layer/Transport Layer Security (SSL/TLS)  \n6. Layer 6: Presentation - JPEG, MIME encoding  \n7. Layer 7: Application - Hypertext Transfer Protocol (HTTP)"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 4.95,
+          "prompt_tokens": 0,
+          "completion_tokens": 111,
+          "tps": 22.4,
+          "time_to_first_token_s": 0.092,
+          "response_model": "granite4.1:8b-ctx16k",
+          "response_text": "1. **Layer 1 - Physical**: Connects devices and transmits raw bitstreams over a physical medium. Example: Ethernet (IEEE 802.3)\n2. **Layer 2 - Data Link**: Provides node-to-node data transfer and error detection/correction. Example: Wi-Fi (IEEE 802.11)\n3. **Layer 3 - Network**: Handles packet forwarding across network boundaries. Example: Internet Protocol (IP)\n4. **Layer 4 - Transport**: Ensures reliable end-to-end communication. Example: Transmission Control Protocol (TCP)\n5. **Layer 5 - Session**: Establishes, manages, and terminates connections between applications. Example: Secure Shell (SSH)\n6. **Layer 6 - Presentation**: Translates data for the application layer; encoding/decoding, encryption. Example: SSL/TLS\n7. **Layer 7 - Application**: Interfaces directly with end-user services. Example: Hypertext Transfer Protocol (HTTP)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "security",
+        "reasoning"
+      ]
+    },
+    {
+      "model": "granite4.1:8b-ctx8k",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 19.6,
+      "min_tps": 15.6,
+      "max_tps": 22.2,
+      "stddev_tps": 2.68,
+      "cv": 0.137,
+      "avg_completion_tokens": 55,
+      "avg_elapsed_s": 2.81,
+      "avg_ttft_s": 0.14,
+      "routed_model": "granite4.1:8b-ctx8k",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 19.6,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested granite4.1:8b-ctx8k",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 3.32,
+          "prompt_tokens": 0,
+          "completion_tokens": 52,
+          "tps": 15.6,
+          "time_to_first_token_s": 0.338,
+          "response_model": "granite4.1:8b-ctx8k",
+          "response_text": "1. Layer 1: Physical  \n   Example Protocol/Technology: Ethernet  \n\n2. Layer 2: Data Link  \n   Example Protocol/Technology: Wi-Fi (802.11)  \n\n3. Layer 3: Network  \n   Example Protocol/Technology: IPv4  \n\n4. Layer 4: Transport  \n   Example Protocol/Technology: TCP  \n\n5. Layer 5: Session  \n   Example Protocol/Technology: SSH  \n\n6. Layer 6: Presentation  \n   Example Protocol/Technology: SSL/TLS (encryption)  \n\n7. Layer 7: Application  \n   Example Protocol/Technology: HTTP"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.02,
+          "prompt_tokens": 0,
+          "completion_tokens": 37,
+          "tps": 18.3,
+          "time_to_first_token_s": 0.091,
+          "response_model": "granite4.1:8b-ctx8k",
+          "response_text": "1. Physical (Layer 1): Ethernet  \n2. Data Link (Layer 2): Wi-Fi (802.11)  \n3. Network (Layer 3): IPv4/IPv6  \n4. Transport (Layer 4): TCP  \n5. Session (Layer 5): SSH  \n6. Presentation (Layer 6): TLS  \n7. Application (Layer 7): HTTP"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 2.43,
+          "prompt_tokens": 0,
+          "completion_tokens": 52,
+          "tps": 21.4,
+          "time_to_first_token_s": 0.091,
+          "response_model": "granite4.1:8b-ctx8k",
+          "response_text": "1) Layer 1: Physical - Example: Ethernet  \n2) Layer 2: Data Link - Example: Wi-Fi (IEEE 802.11)  \n3) Layer 3: Network - Example: IPv4  \n4) Layer 4: Transport - Example: TCP  \n5) Layer 5: Session - Example: NetBIOS  \n6) Layer 6: Presentation - Example: SSL/TLS  \n7) Layer 7: Application - Example: HTTP"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 2.7,
+          "prompt_tokens": 0,
+          "completion_tokens": 60,
+          "tps": 22.2,
+          "time_to_first_token_s": 0.092,
+          "response_model": "granite4.1:8b-ctx8k",
+          "response_text": "1. Layer 1: Physical - Ethernet  \n2. Layer 2: Data Link - Wi-Fi (IEEE 802.11)  \n3. Layer 3: Network - Internet Protocol (IP)  \n4. Layer 4: Transport - Transmission Control Protocol (TCP)  \n5. Layer 5: Session - Secure Sockets Layer/Transport Layer Security (SSL/TLS)  \n6. Layer 6: Presentation - JPEG, MIME encoding  \n7. Layer 7: Application - Hypertext Transfer Protocol (HTTP)"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 3.59,
+          "prompt_tokens": 0,
+          "completion_tokens": 74,
+          "tps": 20.6,
+          "time_to_first_token_s": 0.09,
+          "response_model": "granite4.1:8b-ctx8k",
+          "response_text": "Sure! Here are the seven layers of the OSI model from bottom to top:\n\n1. **Layer 1 - Physical**  \n   Example: Ethernet\n\n2. **Layer 2 - Data Link**  \n   Example: Wi-Fi (IEEE 802.11)\n\n3. **Layer 3 - Network**  \n   Example: Internet Protocol (IP)\n\n4. **Layer 4 - Transport**  \n   Example: Transmission Control Protocol (TCP)\n\n5. **Layer 5 - Session**  \n   Example: Sockets\n\n6. **Layer 6 - Presentation**  \n   Example: SSL/TLS\n\n7. **Layer 7 - Application**  \n   Example: Hypertext Transfer Protocol (HTTP)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "security",
+        "reasoning"
+      ]
+    },
+    {
+      "model": "lfm2.5:8b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 94.1,
+      "min_tps": 87.2,
+      "max_tps": 101.0,
+      "stddev_tps": 5.43,
+      "cv": 0.058,
+      "avg_completion_tokens": 170,
+      "avg_elapsed_s": 1.8,
+      "avg_ttft_s": 0.193,
+      "routed_model": "lfm2.5:8b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 94.1,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested lfm2.5:8b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.88,
+          "prompt_tokens": 0,
+          "completion_tokens": 164,
+          "tps": 87.2,
+          "time_to_first_token_s": 0.274,
+          "response_model": "lfm2.5:8b",
+          "response_text": "",
+          "reasoning_text": "The user wants concise answer: \"List the 7 OSI model layers from bottom to top. For each layer, provide: 1) the layer number, 2) the standard name, 3) one example protocol or technology. Format as a numbered list with one line per layer.\"\n\nThus we need:\n\n1. Layer 1 - Physical (Standard Name: Physical; Example Protocol/Technology: Ethernet, fiber optic, etc). Typically Ethernet is a technology that uses physical layer.\n\n2. Layer 2 - Data Link (standard name: Data Link; example: MAC address, Ethernet, or Switch)\n\n3. Layer 3 - Network (Network; example: IP protocol)\n\n4. Layer 4 - Transport (Transport; example: TCP, UDP)\n\n5. Layer 5 - Session (Session; example: NetBIOS, RPC)\n\n6. Layer 6 - Presentation (Presentation; example: SSL/TLS, JPEG)\n\n7. Layer 7 - Application (Application; example: HTTP, FTP)\n\nThus we need a numbered list with one line per layer containing these three items. Could combine items separated by commas or semicolons.\n\nWe could do:\n\n1. Physical \u2013 Ethernet, fiber optic, copper wiring"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.78,
+          "prompt_tokens": 0,
+          "completion_tokens": 163,
+          "tps": 91.4,
+          "time_to_first_token_s": 0.172,
+          "response_model": "lfm2.5:8b",
+          "response_text": "",
+          "reasoning_text": "The user wants: \"List the 7 OSI model layers from bottom to top. For each layer, provide: 1) the layer number, 2) the standard name, 3) one example protocol or technology. Format as a numbered list with one line per layer.\"\n\nThus we need something like:\n\n1. Layer 7 - Application - HTTP (or FTP)\nBut they want the standard name, not name of each service? Probably \"Transport\", \"Network\", etc. The \"standard name\" could be e.g., \"Application\" or \"Application layer\". Then one example protocol: for Application: HTTP, for Transport: TCP, for Network: IP, Data Link: Ethernet, Physical: Bits, sometimes also \"Physical\" has no standard protocol but we can mention \"Cu (copper wire)\" maybe. Or could use \"Fiber optic\". But typical examples: Application: HTTP, Transport: TCP, Network: IP, Session: N/A, Presentation: TLS, Data Link: Ethernet, Physical: Copper/Wireless.\n\nBut the OSI model has 7 layers from bottom (Layer 1) to top (Layer 7). However many people consider physical as layer 1, then data link as"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.78,
+          "prompt_tokens": 0,
+          "completion_tokens": 180,
+          "tps": 101.0,
+          "time_to_first_token_s": 0.174,
+          "response_model": "lfm2.5:8b",
+          "response_text": "",
+          "reasoning_text": "The user wants: \"List the 7 OSI model layers from bottom to top. For each layer, provide: 1) the layer number, 2) the standard name, 3) one example protocol or technology. Format as a numbered list with one line per layer.\"\n\nWe need to output a numbered list, i.e., 1., 2., etc., each line includes the three items: layer number, standard name, and an example protocol or technology. So something like:\n\n1. Layer 7 - Application - HTTP\n2. Layer 6 - Presentation - SSL/TLS\n3. Layer 5 - Session - NetBIOS\n4. Layer 4 - Transport - TCP\n5. Layer 3 - Network - IP\n6. Layer 2 - Data Link - Ethernet\n7. Layer 1 - Physical - USB\n\nThat would satisfy the request. The user didn't specify any particular constraints about formatting beyond a numbered list with one line per layer.\n\nWe need to be concise, but include required items: number, standard name, example protocol/tech. That is what we have above.\n\nMake sure it's from bottom (Layer 1) up to Layer 7. OSI model layers are usually"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.79,
+          "prompt_tokens": 0,
+          "completion_tokens": 175,
+          "tps": 97.9,
+          "time_to_first_token_s": 0.175,
+          "response_model": "lfm2.5:8b",
+          "response_text": "",
+          "reasoning_text": "We need to respond concisely, listing the OSI model layers from bottom (layer 7? Actually bottom is layer 1, top is layer 7). Wait: OSI model standard numbering: Layer 7 is Application, then 6 Presentation, 5 Session, 4 Transport, 3 Network, 2 Data Link, 1 Physical. However sometimes they start numbering at the bottom as 1 Physical, 2 Data Link, etc. The question says \"7 OSI model layers from bottom to top.\" Typically that means starting at the bottom of the stack (Physical) as layer 1 or the highest? It's ambiguous. Many people refer to bottom to top as: Layer 1 Physical, Layer 2 Data Link, Layer 3 Network, Layer 4 Transport, Layer 5 Session, Layer 6 Presentation, Layer 7 Application. That would be from \"bottom\" up: layer numbers increasing upward. So we should list them in that order.\n\nFor each layer, provide number, standard name, one example protocol or technology (e.g., Ethernet for Data Link, TCP/IP? For Physical maybe fiber optic? Or for application: HTTP/S, Presentation maybe JPEG/TLS? Standard name of protocols: Physical -"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 1.78,
+          "prompt_tokens": 0,
+          "completion_tokens": 166,
+          "tps": 93.2,
+          "time_to_first_token_s": 0.171,
+          "response_model": "lfm2.5:8b",
+          "response_text": "",
+          "reasoning_text": "The user wants a concise answer: list the 7 OSI model layers from bottom to top (i.e., Layer 7 up to Layer 1). For each layer, provide: 1) the layer number, 2) the standard name, 3) one example protocol or technology. Format as a numbered list with one line per layer.\n\nThus we need something like:\n\n1. Layer 7 - Application : HTTP\n2. Layer 6 - Presentation : SSL/TLS\n3. Layer 5 - Session : NetBIOS\n4. Layer 4 - Transport : TCP\n5. Layer 3 - Network : IP\n6. Layer 2 - Data Link : Ethernet\n7. Layer 1 - Physical : USB\n\nBut need \"one example protocol or technology\" per layer. Could be: HTTP, FTP, SMTP, Telnet? Actually for Presentation: SSL/TLS, for Session: NetBIOS, for Transport: TCP, for Network: IP (Internet Protocol), Data Link: Ethernet, Physical: Fiber optic etc. Or could also use \"Wi-Fi\", \"Bluetooth\", etc. But they likely want something like:\n\n1. Layer 7 \u2013 Application \u2013 HTTP\n2. Layer 6"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "security"
+      ]
+    },
+    {
+      "model": "lfm2.5:8b-ctx8k",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 89.6,
+      "min_tps": 84.3,
+      "max_tps": 92.3,
+      "stddev_tps": 3.27,
+      "cv": 0.036,
+      "avg_completion_tokens": 162,
+      "avg_elapsed_s": 1.81,
+      "avg_ttft_s": 0.197,
+      "routed_model": "lfm2.5:8b-ctx8k",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 89.6,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested lfm2.5:8b-ctx8k",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.88,
+          "prompt_tokens": 0,
+          "completion_tokens": 167,
+          "tps": 88.6,
+          "time_to_first_token_s": 0.281,
+          "response_model": "lfm2.5:8b-ctx8k",
+          "response_text": "",
+          "reasoning_text": "We need to answer concisely, list seven OSI layers (bottom to top). Provide for each: layer number, standard name, one example protocol or technology.\n\nStandard OSI model has 7 layers:\n\n5) Application\n\n6) Presentation\n\n7) Session\n\nBut numbering bottom up: Usually described as:\n\nLayer 1: Physical\n\nLayer 2: Data Link\n\nLayer 3: Network\n\nLayer 4: Transport\n\nLayer 5: Session\n\nWait standard order is from Bottom (Layer 1) to Top (Layer 7). The typical order listing is:\n\n1. Physical layer (Layer 1)\n\n2. Data Link layer (Layer 2)\n\n3. Network layer (Layer 3)\n\n4. Transport layer (Layer 4)\n\n5. Session layer (Layer 5)\n\n6. Presentation layer (Layer 6)\n\n7. Application layer (Layer 7)\n\nBut sometimes numbering is given from top to bottom; but problem says \"list the 7 OSI model layers from bottom to top.\" So we need to start with Physical (bottom), then Data Link, Network, Transport, Session, Presentation, Application (top). For each we give:\n\n- Layer number\n\n- Standard name\n\n- One example protocol or technology."
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.79,
+          "prompt_tokens": 0,
+          "completion_tokens": 151,
+          "tps": 84.3,
+          "time_to_first_token_s": 0.181,
+          "response_model": "lfm2.5:8b-ctx8k",
+          "response_text": "",
+          "reasoning_text": "The user wants a concise answer. List the 7 OSI model layers from bottom to top (i.e., Layer 1 to Layer 7). For each layer: number, standard name, one example protocol/technology. Format as numbered list, one line per layer.\n\nOSI model traditionally: Physical Layer 1, Data Link Layer 2, Network Layer 3, Transport Layer 4, Session Layer 5, Presentation Layer 6, Application Layer 7. Provide one example protocol or technology for each:\n\n- Layer 1 (Physical): Ethernet, Wi-Fi, fiber optics, etc. Provide \"Ethernet\".\n- Layer 2 (Data Link): MAC address, IEEE 802.11 (Wi-Fi) is link layer; also PPP, ARP? Actually ARP is network layer; maybe \"Ethernet MAC header\" but standard example: \"802.3 Ethernet\". We'll use \"Ethernet\".\n- Layer 3 (Network): IP protocol.\n- Layer 4 (Transport): TCP or UDP. Example: TCP.\n- Layer 5 (Session): SNMP? Or \"RPC\"? Could be \"NetBIOS\". But typical tech example: \"Telnet\" uses Session layer? Actually Telnet"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.79,
+          "prompt_tokens": 0,
+          "completion_tokens": 165,
+          "tps": 92.3,
+          "time_to_first_token_s": 0.175,
+          "response_model": "lfm2.5:8b-ctx8k",
+          "response_text": "",
+          "reasoning_text": "The user wants:\n\n- List the 7 OSI model layers from bottom to top.\n- For each layer, provide:\n  1) the layer number,\n  2) the standard name,\n  3) one example protocol or technology.\n- Format: numbered list with one line per layer.\n\nThus we need something like:\n\n1. Layer 1: Physical \u2013 e.g., Ethernet (but physics is just physical layer), but maybe \"Physical Layer\". Example protocol? Usually not a specific protocol; could be \"Wi-Fi\"? However standard name: Physical. Example: \"Fiber-optic, coaxial cable, copper wiring\" but they ask for one example protocol or technology. Could use \"Ethernet\" as an example? But Ethernet is more like Media Access Control and Physical layer combined. Or we can choose \"TCP/IP\". But that's not OSI.\n\nBetter: Use standard: \"Physical Layer \u2013 Transmission of raw bit streams (e.g., coaxial cable, twisted pair)\". That might satisfy. Or use \"Metal conductors\"? Not precise.\n\nOk number each:\n\n1. Layer 1: Physical \u2013 e.g., Copper wire/ fiber optic (technology)\n2. Layer 2: Data Link \u2013"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.78,
+          "prompt_tokens": 0,
+          "completion_tokens": 163,
+          "tps": 91.7,
+          "time_to_first_token_s": 0.171,
+          "response_model": "lfm2.5:8b-ctx8k",
+          "response_text": "",
+          "reasoning_text": "The user wants: \"List the 7 OSI model layers from bottom to top. For each layer, provide: 1) the layer number, 2) the standard name, 3) one example protocol or technology. Format as a numbered list with one line per layer.\"\n\nWe need to output a concise answer: a numbered list (likely starting at 1 to 7). Each line includes the three items: layer number, standard name, and an example protocol/technology. For OSI model layers (from bottom to top):\n\n1. Physical Layer\n2. Data Link Layer\n3. Network Layer\n4. Transport Layer\n5. Session Layer\n6. Presentation Layer\n7. Application Layer\n\nWe need a standard name for each: \"Physical\", \"Data Link\", \"Network\", \"Transport\", \"Session\", \"Presentation\", \"Application\". And provide an example protocol or technology per layer.\n\nExamples:\n\n- Physical: Ethernet (or fiber optic, etc.)\n- Data Link: MAC address / IEEE 802.3 (Ethernet) or PPP.\n- Network: IP (Internet Protocol)\n- Transport: TCP (Transmission Control Protocol) or UDP.\n- Session: NetBIOS\n- Presentation: SSL"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 1.79,
+          "prompt_tokens": 0,
+          "completion_tokens": 163,
+          "tps": 91.0,
+          "time_to_first_token_s": 0.175,
+          "response_model": "lfm2.5:8b-ctx8k",
+          "response_text": "",
+          "reasoning_text": "The user wants a concise answer: list 7 OSI model layers from bottom to top, each with number, standard name, and one example protocol/technology. That's the classic OSI layers: Layer 7 (Application), Layer 6 (Presentation), Layer 5 (Session), Layer 4 (Transport), Layer 3 (Network), Layer 2 (Data Link), Layer 1 (Physical). For each, provide number, standard name, and one example protocol or technology.\n\nThus:\n\n1. 7 \u2013 Application \u2013 HTTP\n2. 6 \u2013 Presentation \u2013 SSL/TLS\n3. 5 \u2013 Session \u2013 NetBIOS\n4. 4 \u2013 Transport \u2013 TCP\n5. 3 \u2013 Network \u2013 IP (Internet Protocol)\n6. 2 \u2013 Data Link \u2013 Ethernet\n7. 1 \u2013 Physical \u2013 USB (or fiber optic, but typical example: Wi-Fi radio? Maybe \"Physical layer: Electrical signaling\" like coaxial cable). Or could use \"Fiber-optic light pulses\". Provide one per.\n\nMake a numbered list with one line per layer: something like:\n\n1. 7 \u2013 Application \u2013 HTTP\n2. 6 \u2013 Presentation \u2013 SSL/TLS\n... etc.\n\nWe need to ensure"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "security"
+      ]
+    },
+    {
+      "model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 95.8,
+      "min_tps": 88.9,
+      "max_tps": 103.8,
+      "stddev_tps": 5.46,
+      "cv": 0.057,
+      "avg_completion_tokens": 173,
+      "avg_elapsed_s": 1.8,
+      "avg_ttft_s": 0.186,
+      "routed_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 95.8,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested lfm2.5-8b-a1b-uncensored-gaston-gguf:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.89,
+          "prompt_tokens": 0,
+          "completion_tokens": 168,
+          "tps": 88.9,
+          "time_to_first_token_s": 0.281,
+          "response_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "\nThe user wants concise answer: list the 7 OSI model layers from bottom to top (i.e., Layer 1 to Layer 7). For each layer provide:\n\n- The layer number,\n- The standard name,\n- One example protocol or technology.\n\nWe need a numbered list, one line per layer. Probably something like:\n\n1. Physical: Ethernet\n2. Data Link: MAC address (e.g., IEEE 802.3)\nBut they said \"standard name\". Typically for layers we have official names in ISO/IEC OSI model: Layer 7: Application, Layer 6: Presentation, Layer 5: Session, Layer 4: Transport, Layer 3: Network, Layer 2: Data Link, Layer 1: Physical. Or sometimes they refer to network layer as \"Network\", data link as \"Data Link\". However the user might accept any accepted labeling.\n\nBut we need one example protocol or technology per layer. For simplicity:\n\n- Layer 1 (Physical): Ethernet (or fiber optic)\n- Layer 2 (Data Link): IEEE 802.3 Ethernet MAC sublayer\n- Layer 3 (Network): IP address routing protocols, e.g., IPv4\n- Layer 4 (Transport): TCP ("
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.78,
+          "prompt_tokens": 0,
+          "completion_tokens": 174,
+          "tps": 97.6,
+          "time_to_first_token_s": 0.167,
+          "response_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "\nThe user wants \"the 7 OSI model layers from bottom to top\". Provide numbered list, each line includes: layer number, standard name, one example protocol or technology.\n\nStandard naming:\n\nLayer 1 \u2013 Physical Layer (PHY)\nLayer 2 \u2013 Data Link Layer (DLL) / MAC sublayer\nLayer 3 \u2013 Network Layer (Network)\nLayer 4 \u2013 Transport Layer (Transport)\nLayer 5 \u2013 Session Layer (Session)\nLayer 6 \u2013 Presentation Layer (Data translation, encryption)\nLayer 7 \u2013 Application Layer (Application)\n\nWe need to provide example protocol or technology for each:\n\n- Physical: Ethernet cable / fiber optic? Maybe \"Fiber optics\" but that's a medium. Could say \"Copper twisted pair\". Or \"Wi-Fi\"? Better use \"Physical layer examples: Coaxial cable, fiber optics.\" The prompt asks one example protocol or technology per layer.\n\nGiven the OSI model is conceptual; common protocols correspond to each layer:\n\n- Physical (PHY): Ethernet uses IEEE 802.3 physical specs.\n- Data Link: MAC sublayer \u2013 Ethernet MAC addresses? Or ARCNet?\nBetter pick \"Ethernet\" for L2 still ambiguous, but could name as \"Link Layer protocol: Ethernet"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.77,
+          "prompt_tokens": 0,
+          "completion_tokens": 168,
+          "tps": 94.7,
+          "time_to_first_token_s": 0.162,
+          "response_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "\nThe user asks:\n\n\"List the 7 OSI model layers from bottom to top. For each layer, provide: 1) the layer number, 2) the standard name, 3) one example protocol or technology. Format as a numbered list with one line per layer.\"\n\nSo we need:\n\nLayer 1 (Physical): \"Physical\" - e.g., Ethernet, Wi-Fi? Example could be \"Fiber optics\". Could use \"Wi\u2011Fi\".\n\nBut must follow OSI: bottom to top.\n\nStandard name includes the layered model naming; typical names are: Layer 1 Physical, Layer 2 Data Link, Layer 3 Network, Layer 4 Transport, Layer 5 Session, Layer 6 Presentation, Layer 7 Application. Provide an example protocol/technology per each:\n\n- Physical (L1) - for instance \"Fiber\u2011optic cable\" or \"Radio waves\". Typically they ask for a technology: e.g., \"Ethernet\". But that's more network access layer; we can pick something like \"Wi\u2011Fi\". We need standard name, maybe the protocol itself.\n\nThe answer must be concise. A numbered list with one line per layer:\n\n1 Physical - Fiber optics (or Ethernet) etc.\n\nWe should keep"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.79,
+          "prompt_tokens": 0,
+          "completion_tokens": 186,
+          "tps": 103.8,
+          "time_to_first_token_s": 0.157,
+          "response_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "\nThe user wants concise answer: list 7 OSI model layers from bottom to top (i.e., Layer 7 down to Layer 1). For each layer provide:\n\n- the layer number,\n- standard name,\n- one example protocol or technology.\n\nFormat as a numbered list, with one line per layer. No extra formatting unless requested; they didn't ask for markdown bold etc. So plain text lines like:\n\n1. 7 Data Link Layer \u2013 IEEE 802.11 (Wi\u2011Fi) \n2. 6 Network Layer \u2013 IP (Internet Protocol)\n... and so on.\n\nBut we need to be careful: OSI model layers are numbered often from top (Layer 7) to bottom (Layer 1). However phrasing \"from bottom to top\" suggests list with layer numbers descending? Actually they said \"List the 7 OSI model layers from bottom to top.\" That means start at Layer 1 (Physical) then up: Data Link, Network, Transport, Session, Presentation, Application. So we need order:\n\n1 Physical\n2 Data Link\n3 Network\n4 Transport\n5 Session\n6 Presentation\n7 Application\n\nBut they might expect the numbered list with layer numbers in descending order? Usually listing from bottom to top would"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 1.78,
+          "prompt_tokens": 0,
+          "completion_tokens": 167,
+          "tps": 94.0,
+          "time_to_first_token_s": 0.163,
+          "response_model": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "\nThe user wants concise answer: List the 7 OSI model layers from bottom to top. For each layer, provide:\n\n- Layer number,\n- Standard name,\n- One example protocol or technology.\n\nFormat as a numbered list with one line per layer. Likely \"1. Physical \u2013 Ethernet\" etc. Provide one line for each of seven layers: Layer 7 (Application), Layer 6 (Presentation), Layer 5 (Session), Layer 4 (Transport), Layer 3 (Network), Layer 2 (Data Link), Layer 1 (Physical). For each, give name and an example protocol/technology.\n\nThus:\n\n1. Physical \u2013 Ethernet\n2. Data Link \u2013 MAC addressing / 802.11? But maybe \"ARP\"? Actually ARP is network layer bridging to data link but not exactly a technology. Better: \"Token Ring\" or \"Ethernet\". However token ring could be considered earlier, but they want example protocol/technology; perhaps \"MAC sublayer of Data Link.\" Could give something like \"PPP\" (Point-to-Point Protocol) for layer 2? But PPP is data link as well. Probably choose EtherType etc.\n\nBetter to use known protocols: For Physical \u2013"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "creative"
+      ]
+    },
+    {
+      "model": "sylink/sylink:8b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 11.7,
+      "min_tps": 10.0,
+      "max_tps": 13.0,
+      "stddev_tps": 1.16,
+      "cv": 0.099,
+      "avg_completion_tokens": 162,
+      "avg_elapsed_s": 13.57,
+      "avg_ttft_s": 0.367,
+      "routed_model": "sylink/sylink:8b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 11.7,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested sylink:8b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 8.97,
+          "prompt_tokens": 0,
+          "completion_tokens": 101,
+          "tps": 11.3,
+          "time_to_first_token_s": 0.463,
+          "response_model": "sylink/sylink:8b",
+          "response_text": "",
+          "reasoning_text": "A great question for understanding network architecture! To provide an accurate answer, I'll walk you through each layer of the OSI model and include relevant protocols.\n\n## Answer:\n1. Layer 0: Physical layer - Ethernet / Fiber\n2. Layer 1: Physical layer - Ethernet / Fiber\n3. Layer 2: Data Link layer - Ethernet / VLAN\n4. Layer 3: Network layer - IP / Router\n5. Layer 4: Transport layer - TCP / UDP\n6. Layer 5: Session layer - SSH / FTP\n7. Layer 6: Presentation layer - SSL / TLS\n8. Layer 7: Application layer - HTTP / SMTP"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 16.29,
+          "prompt_tokens": 0,
+          "completion_tokens": 212,
+          "tps": 13.0,
+          "time_to_first_token_s": 0.297,
+          "response_model": "sylink/sylink:8b",
+          "response_text": "",
+          "reasoning_text": "Okay, I need to list the seven OSI model layers from bottom to top. Let me start by recalling what each layer does.\n\nLayer 1 is the Physical Layer. It handles the physical connection between devices, like cables and hubs. So the example protocol here could be Ethernet.\n\nNext is Layer 2, Data Link Layer. This deals with data framing and error checking. A common protocol here is Wi-Fi, or maybe something like Frame Relay for leased lines.\n\nLayer 3 is Network Layer. This is about routing data across networks. IP (Internet Protocol) definitely fits here since it's responsible for addressing and routing packets.\n\nLayer 4 is Transport Layer. It manages reliable data transfer between hosts. TCP (Transmission Control Protocol) is a good example because it ensures data integrity and flow control.\n\nLayer 5 is Session Layer. This layer establishes and maintains sessions between applications. HTTP could be an example, though I should check if that's the right layer, since HTTP is actually on Layer 7, Application. Maybe DNS or FTP at the application layer are better for illustration, but perhaps I got it mixed up. Wait, DNS is typically considered part of the Application layer. Maybe Session layer is about establishing connections, so protocols like SSH could be a relevant example"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 16.54,
+          "prompt_tokens": 0,
+          "completion_tokens": 206,
+          "tps": 12.5,
+          "time_to_first_token_s": 0.31,
+          "response_model": "sylink/sylink:8b",
+          "response_text": "",
+          "reasoning_text": "Okay, let's tackle this question about the OSI model layers. The user is asking for the seven layers from bottom to top with specific details for each. First, I need to recall the OSI model structure accurately.\n\nThe Open Systems Interconnection (OSI) model has seven layers: Physical, Data Link, Network, Transport, Session, Presentation, and Application. Each layer handles different aspects of data communication. I should start by listing them in order and making sure not to mix up any numbers or names. \n\nFor each layer, I need to include the layer number, standard name, and an example protocol or technology. Let me think: Physical layer deals with hardware like cables and signals, so Ethernet is a good example. Data Link handles MAC addresses and switches, so Wi-Fi might be appropriate here. Network involves IP addressing and routing, so TCP/IP fits well. Transport covers port numbers and protocols like TCP or UDP. Session manages connections and sessions, so SSH is a classic example. Presentation deals with data formatting and encryption, so SSL/TLS comes to mind. Application is where user applications operate, so HTTP is the most common protocol.\n\nI should double-check that I'm not missing any layers or mixing up examples. Also, ensuring that each layer's description"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 16.58,
+          "prompt_tokens": 0,
+          "completion_tokens": 194,
+          "tps": 11.7,
+          "time_to_first_token_s": 0.317,
+          "response_model": "sylink/sylink:8b",
+          "response_text": "",
+          "reasoning_text": "Okay, I need to list the seven OSI model layers from bottom to top. Let's start by recalling what each layer does and an example protocol or technology for each.\n\nThe first layer is Layer 1, Physical. This deals with the physical connection between devices, like cables and network cards. A typical example is Ethernet cables used in wired networks.\n\nNext is Layer 2, Data Link. This layer handles data frames and MAC addresses. Wi-Fi (802.11) is a good example here.\n\nThen we have Layer 3, Network. It's responsible for routing packets across networks. IP (Internet Protocol) is the main protocol at this level, especially IPv4 and IPv6.\n\nLayer 4 is Transport. This layer manages data transmission between hosts, ensuring reliable delivery. TCP (Transmission Control Protocol) is a common example, known for its reliability features like error checking and flow control.\n\nMoving on to Layer 5, Session. It establishes, maintains, and terminates connections between applications. Examples include protocols like SSH for secure remote access.\n\nLayer 6 is Presentation. This layer handles data representation, encryption, compression. HTTP/HTTPS uses SSL/TLS (Transport Layer Security), which is a protocol that provides encryption and security for data transmitted over"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 9.46,
+          "prompt_tokens": 0,
+          "completion_tokens": 95,
+          "tps": 10.0,
+          "time_to_first_token_s": 0.449,
+          "response_model": "sylink/sylink:8b",
+          "response_text": "14. Physical Layer - Physical medium (e.g., Ethernet cables)  \n7. Data Link Layer - Logical Link Control (LLC) for frame tagging (e.g., IEEE 802.2)  \n6. Network Layer - Internet Protocol (IP) for routing and forwarding packets  \n5. Transport Layer - Transmission Control Protocol (TCP) for reliable data transfer  \n4. Session Layer - Simple Mail Transfer Protocol (SMTP) for establishing communication sessions  \n3. Presentation Layer - Secure Sockets Layer/TLS for encryption and data formatting  \n2. Application Layer - HyperText Transfer Protocol (HTTP) providing internet services  \n1. Network Interface Layer - Ethernet providing physical communication over LANs"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "security"
+      ]
+    },
+    {
+      "model": "meta-secalign-8b-q4_k_m:latest",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 22.7,
+      "min_tps": 18.1,
+      "max_tps": 26.0,
+      "stddev_tps": 2.86,
+      "cv": 0.126,
+      "avg_completion_tokens": 59,
+      "avg_elapsed_s": 2.61,
+      "avg_ttft_s": 0.198,
+      "routed_model": "meta-secalign-8b-q4_k_m:latest",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 22.7,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested meta-secalign-8b-q4_k_m:latest",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 2.37,
+          "prompt_tokens": 0,
+          "completion_tokens": 43,
+          "tps": 18.1,
+          "time_to_first_token_s": 0.374,
+          "response_model": "meta-secalign-8b-q4_k_m:latest",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. **Layer 1**, **Physical**, Ethernet\n2. **Layer 2**, **Data Link**, Wi-Fi\n3. **Layer 3**, **Network**, IP\n4. **Layer 4**, **Transport**, TCP\n5. **Layer 5**, **Session**, SSH\n6. **Layer 6**, **Presentation**, SSL\n7. **Layer 7**, **Application**, HTTP"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 3.34,
+          "prompt_tokens": 0,
+          "completion_tokens": 78,
+          "tps": 23.4,
+          "time_to_first_token_s": 0.156,
+          "response_model": "meta-secalign-8b-q4_k_m:latest",
+          "response_text": "Here is the list of OSI model layers:\n\n1. **Layer 1**: Physical\n\t* Example protocol: Ethernet\n2. **Layer 2**: Data Link\n\t* Example protocol: Wi-Fi\n3. **Layer 3**: Network\n\t* Example protocol: IP (Internet Protocol)\n4. **Layer 4**: Transport\n\t* Example Protocol: TCP (Transmission Control Protocol)\n5. **Layer 5**: Session\n\t* Example Protocol: NetBIOS\n6. **Layer 6**: Presentation\n\t* Example Protocol: SSL/TLS (Secure Sockets Layer/Transport Layer Security)\n7. **Layer 7**: Application\n\t* Example protocol: HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.99,
+          "prompt_tokens": 0,
+          "completion_tokens": 45,
+          "tps": 22.6,
+          "time_to_first_token_s": 0.152,
+          "response_model": "meta-secalign-8b-q4_k_m:latest",
+          "response_text": "Here is the list of OSI model layers:\n\n1. 7, Physical, Ethernet\n2. 6, Data Link, PPP\n3. 5, Network, IP (Internet Protocol)\n4. 4, Transport, TCP (Transmission Control Protocol)\n5. 3, Session, NetBIOS\n6. 2, Presentation, SSL (Secure Sockets Layer)\n7. 1, Application, HTTP"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 2.89,
+          "prompt_tokens": 0,
+          "completion_tokens": 67,
+          "tps": 23.2,
+          "time_to_first_token_s": 0.155,
+          "response_model": "meta-secalign-8b-q4_k_m:latest",
+          "response_text": "Here is the list of 7 OSI model layers:\n\n1. **Layer 4**: Transport\n   * Example protocol: TCP\n\n2. **Layer 5**: Session\n   * Example technology: SSH\n\n3. **Layer 6**: Presentation\n   * Example protocol: SSL/TLS\n\n4. **Layer 7**: Application\n   * Example protocol: HTTP\n\n5. **Layer 3**: Network\n   * Example protocol: IP\n\n6. **Layer 2**: Data Link\n   * Example protocol: Ethernet\n\n7. **Layer 1**: Physical\n   * Example technology: Fiber Optic"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 2.46,
+          "prompt_tokens": 0,
+          "completion_tokens": 64,
+          "tps": 26.0,
+          "time_to_first_token_s": 0.152,
+          "response_model": "meta-secalign-8b-q4_k_m:latest",
+          "response_text": "Here is the list of OSI model layers:\n\n1. Layer 1 - Physical, Ethernet\n2. Layer 2 - Data Link, PPP (Point-to-Point Protocol)\n3. Layer 3 - Network, IP (Internet Protocol)\n4. Layer 4 - Transport, TCP (Transmission Control Protocol)\n5. Layer 5 - Session, NetBIOS\n6. Layer 6 - Presentation, SSL (Secure Sockets Layer)\n7. Layer 7 - Application, HTTP (Hypertext Transfer Protocol)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general"
+      ]
+    }
+  ]
+}

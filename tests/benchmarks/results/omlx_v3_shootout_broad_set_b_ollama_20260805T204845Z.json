@@ -1,0 +1,54 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "ollama",
+  "url": "http://localhost:11434",
+  "started": "2026-08-05T20:48:45.221392+00:00",
+  "models": [
+    "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+    "supergemma4-26b-uncensored:Q4_K_M-ctx64k"
+  ],
+  "gates": [
+    "shootout"
+  ],
+  "results": [
+    {
+      "test": "shootout",
+      "models": [
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "supergemma4-26b-uncensored:Q4_K_M-ctx64k"
+      ],
+      "duration_s": 150,
+      "concurrency": 5,
+      "wall_s": 444.1,
+      "total_requests": 6,
+      "ok": 6,
+      "failures": 0,
+      "throughput_rps": 0.01,
+      "ttft_p50": 1.518,
+      "ttft_p95": 332.991,
+      "ttft_p99": 332.991,
+      "tps_mean": 15.8,
+      "tps_cv": 0.275,
+      "truncated": 5,
+      "avg_response_chars": 698,
+      "avg_reasoning_chars": 11512.0,
+      "per_model": {
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k": {
+          "requests": 3,
+          "ttft_p50": 177.69,
+          "ttft_p95": 332.991,
+          "tps_mean": 14.9
+        },
+        "supergemma4-26b-uncensored:Q4_K_M-ctx64k": {
+          "requests": 3,
+          "ttft_p50": 1.518,
+          "ttft_p95": 1.518,
+          "tps_mean": 16.8
+        }
+      },
+      "gate": "shootout",
+      "engine": "ollama"
+    }
+  ]
+}

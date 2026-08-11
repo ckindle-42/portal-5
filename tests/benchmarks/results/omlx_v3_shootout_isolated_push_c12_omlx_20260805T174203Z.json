@@ -1,0 +1,61 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-05T17:42:03.933609+00:00",
+  "models": [
+    "Qwen3-Coder-30B-A3B-Instruct-4bit",
+    "gemma-4-e4b-it-4bit",
+    "Llama-3.2-3B-Instruct-8bit"
+  ],
+  "gates": [
+    "shootout"
+  ],
+  "results": [
+    {
+      "test": "shootout",
+      "models": [
+        "Qwen3-Coder-30B-A3B-Instruct-4bit",
+        "gemma-4-e4b-it-4bit",
+        "Llama-3.2-3B-Instruct-8bit"
+      ],
+      "duration_s": 90,
+      "concurrency": 12,
+      "wall_s": 125.6,
+      "total_requests": 27,
+      "ok": 27,
+      "failures": 0,
+      "throughput_rps": 0.22,
+      "ttft_p50": 1.323,
+      "ttft_p95": 2.671,
+      "ttft_p99": 2.672,
+      "tps_mean": 18.4,
+      "tps_cv": 0.401,
+      "truncated": 15,
+      "avg_response_chars": 2892.0,
+      "per_model": {
+        "Qwen3-Coder-30B-A3B-Instruct-4bit": {
+          "requests": 9,
+          "ttft_p50": 1.719,
+          "ttft_p95": 2.671,
+          "tps_mean": 12.3
+        },
+        "gemma-4-e4b-it-4bit": {
+          "requests": 9,
+          "ttft_p50": 1.138,
+          "ttft_p95": 2.672,
+          "tps_mean": 15.4
+        },
+        "Llama-3.2-3B-Instruct-8bit": {
+          "requests": 9,
+          "ttft_p50": 0.865,
+          "ttft_p95": 2.191,
+          "tps_mean": 27.5
+        }
+      },
+      "gate": "shootout",
+      "engine": "omlx"
+    }
+  ]
+}
