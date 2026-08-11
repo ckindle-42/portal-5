@@ -41,14 +41,26 @@ def _verify_coding(response: str) -> float:
     if not code:
         return 0.0
 
+    # TASK_MODEL_BENCH_VALIDITY_V1 follow-up: normalize the actual output before
+    # comparing. A common, entirely correct merge_intervals pattern returns a
+    # tuple for a merged pair (`(start, max(...))`) while passing an untouched
+    # interval through unchanged (whatever container type the caller passed —
+    # here a list). `[(1, 6), [8, 10]] == [[1, 6], [8, 10]]` is False in Python
+    # even though every value matches, because tuple != list. That was scoring
+    # correct answers 0.0 — the exact "wrong instrument" failure this task
+    # exists to fix, discovered live once the group-selection fix started
+    # routing far more models through this verifier. Compare semantically
+    # (each interval cast to a list) instead of demanding exact container type.
     test = (
         "from solution import merge_intervals\n\n"
+        "def _norm(xs):\n"
+        "    return [list(x) for x in xs]\n\n"
         "def test_basic():\n"
-        "    assert merge_intervals([[1,3],[2,6],[8,10]]) == [[1,6],[8,10]]\n\n"
+        "    assert _norm(merge_intervals([[1,3],[2,6],[8,10]])) == [[1,6],[8,10]]\n\n"
         "def test_single():\n"
-        "    assert merge_intervals([[1,4]]) == [[1,4]]\n\n"
+        "    assert _norm(merge_intervals([[1,4]])) == [[1,4]]\n\n"
         "def test_non_overlapping():\n"
-        "    assert merge_intervals([[1,2],[3,4],[5,6]]) == [[1,2],[3,4],[5,6]]\n"
+        "    assert _norm(merge_intervals([[1,2],[3,4],[5,6]])) == [[1,2],[3,4],[5,6]]\n"
     )
     passed, _ = run_python_against_tests(code, test)
     return 1.0 if passed else 0.0
