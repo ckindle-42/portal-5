@@ -5,8 +5,8 @@ title: 218 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 989000303b26
-last_generated_commit: d19bcd41d50c690918807eab095f1f738f9798d5
+  commit: dc96ff7df9a7
+last_generated_commit: dc96ff7df9a7
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -15,7 +15,7 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1786434528.993152
+updated_at: 1786489727.781368
 ---
 
 # Model catalog (218 model ids across 7 backend groups)
@@ -159,7 +159,7 @@ updated_at: 1786434528.993152
 - `portal5/deepwen-3.6:q4.5-moq-ctx32k`
 - `portal5/gemma4-12b:q4_K_M-ctx8k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`
-- `portal5/xyz-aquila-mini:q4_k_m`
+- `portal5/xyz-aquila-mini:Q4_K_M`
 - `portal5/xyz-aquila-mini:q4_k_m-ctx16k`
 - `qwen3-coder-next:latest`
 - `qwen3-coder:30b-a3b-q4_K_M`

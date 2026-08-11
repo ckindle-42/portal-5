@@ -181,7 +181,7 @@ backends:
   # see bench-aquila-mini-35b-a3b workspace description for the full root
   # cause). supports_tools: true is from a direct /api/chat probe (clean,
   # well-formed tool_calls, arguments correctly typed) — not inferred.
-  - id: portal5/xyz-aquila-mini:q4_k_m
+  - id: portal5/xyz-aquila-mini:Q4_K_M
     supports_tools: true
   # TASK-BATCH-BENCH-002 Part A/B intake (2026-08-10): supports_tools verified
   # via direct /api/chat probe (clean tool_calls, correctly typed arguments)

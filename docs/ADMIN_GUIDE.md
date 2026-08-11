@@ -868,7 +868,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `portal5/deepwen-3.6:q4.5-moq-ctx32k`
 - `portal5/gemma4-12b:q4_K_M-ctx8k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`
-- `portal5/xyz-aquila-mini:q4_k_m`
+- `portal5/xyz-aquila-mini:Q4_K_M`
 - `portal5/xyz-aquila-mini:q4_k_m-ctx16k`
 - `qwen3-coder-next:latest`
 - `qwen3-coder:30b-a3b-q4_K_M`
