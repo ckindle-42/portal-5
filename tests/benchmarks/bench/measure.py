@@ -104,6 +104,8 @@ def bench_tps(
     label: str = "",
     prompt_category: str = "",
     request_timeout: float = REQUEST_TIMEOUT,
+    predict_limit: int | None = None,
+    predict_limit_resolved: bool = False,
 ) -> dict:
     """Benchmark TPS for a single model/endpoint. Returns summary dict.
 
@@ -118,18 +120,50 @@ def bench_tps(
     _reasoning = _is_reasoning_model(model, label)
     _nothink = any(p in model for p in _NOTHINK_PATTERNS)
     content = "/nothink\n" + prompt if _nothink else prompt
-    # Math prompts (3 problems) require more tokens than the standard reasoning budget.
-    _max_tokens = (
-        MATH_MAX_TOKENS
-        if prompt_category == "math"
-        else (REASONING_MAX_TOKENS if _reasoning else MAX_TOKENS)
-    )
+
+    # TASK_BENCH_VALIDITY_V1: bench at the model's PRODUCTION token budget, not
+    # a small bench-only cap. A 256/512-token cap truncates reasoning/agentic
+    # models mid-answer (the thinking trace alone can exhaust it), producing
+    # invalid quality data. The production budget is each workspace's
+    # `predict_limit`; benching at anything smaller measures "how far it got in
+    # N tokens", not the model's actual output.
+    #
+    # Two modes:
+    #   * pipeline: the router injects max_tokens from the workspace's
+    #     predict_limit via setdefault — so we must NOT send max_tokens here
+    #     (a caller value would win over the router and re-truncate). Omit it.
+    #   * direct (no router): the caller resolves predict_limit from portal.yaml
+    #     and passes it. None => no cap (model default), exactly what production
+    #     does when predict_limit is unset.
+    # `predict_limit_resolved` signals the caller performed this resolution;
+    # when False (legacy callers/tests) we fall back to the old reasoning-aware
+    # constants so behaviour is unchanged for un-migrated call sites.
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": content}],
         "stream": True,
-        "max_tokens": _max_tokens,
     }
+    _is_pipeline = base_url == PIPELINE_URL
+    if _is_pipeline:
+        # Router injects max_tokens from predict_limit; sending nothing lets it.
+        # (An explicit math bump still helps the math specialists that route to
+        # a workspace without a predict_limit — only add it when the router
+        # would otherwise inject nothing, i.e. we can't know here, so leave it
+        # to the workspace config. Math specialists carry predict_limit >= 4096.)
+        pass
+    elif predict_limit_resolved:
+        # Direct mode with a resolved production budget.
+        if predict_limit:
+            payload["max_tokens"] = predict_limit
+        # else: None => omit => model default (== production unset behaviour)
+    else:
+        # Legacy/un-migrated caller: preserve prior reasoning-aware behaviour so
+        # nothing silently changes for callers that haven't been updated.
+        payload["max_tokens"] = (
+            MATH_MAX_TOKENS
+            if prompt_category == "math"
+            else (REASONING_MAX_TOKENS if _reasoning else MAX_TOKENS)
+        )
 
     headers: dict[str, str] = {}
     if base_url == PIPELINE_URL and PIPELINE_API_KEY:

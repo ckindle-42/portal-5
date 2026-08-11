@@ -23,7 +23,7 @@ _ANSWER_BOUNDARIES = [
     r"\n#{1,6}\s+\w",  # a markdown header
     r"\n```",  # a fenced code block
     r"\n\s*\d+[.)]\s+\S",  # a numbered list item
-    r"\n(?:Answer|Final answer|Solution|Here(?:'|\u2019)s)\b",
+    r"\n(?:Answer|Final answer|Solution|Here(?:'|’)s)\b",
 ]
 
 # Prose preambles a reasoning-in-plain-text model emits before the real answer.
@@ -90,14 +90,41 @@ def run_python_against_tests(source: str, test_source: str, timeout: int = 20) -
 
 
 def extract_code_block(text: str, lang: str = "python") -> str:
-    """Pull the first fenced code block (optionally language-tagged). Empty if none."""
+    """Pull the first fenced code block (optionally language-tagged). Empty if none.
+
+    Reasoning-tolerant (TASK_BENCH_VALIDITY_V1): a reasoning model wraps its
+    answer in a "Thinking Process:" / <think> preamble and may emit a fence
+    whose closing ``` never arrives (the answer is legitimately long, or —
+    before the token-budget fix — was truncated mid-block). Three tiers:
+      1. a complete fenced block (language-tagged or bare)
+      2. an UNCLOSED fence: opening ``` with no closing ``` — take everything
+         after the opening fence as the code body (recovers truncated /
+         still-streaming answers instead of scoring 0.0 on a real attempt)
+      3. no fence at all but the answer reads as bare code — return it so the
+         verifier can try to run it rather than discarding a fence-less answer
+    """
     body = extract_final_answer(text)
+
+    # Tier 1: complete fenced block, language-tagged then bare.
     m = re.search(rf"```(?:{lang}|py)?\s*\n(.*?)\n```", body, re.DOTALL | re.IGNORECASE)
     if m:
         return m.group(1)
-    # Fall back: a bare ``` block with no language tag.
     m = re.search(r"```\s*\n(.*?)\n```", body, re.DOTALL)
-    return m.group(1) if m else ""
+    if m:
+        return m.group(1)
+
+    # Tier 2: unclosed fence — opening ``` (optionally lang-tagged) with no
+    # closing fence. Everything after the opening newline is the code body.
+    m = re.search(rf"```(?:{lang}|py)?\s*\n(.*)\Z", body, re.DOTALL | re.IGNORECASE)
+    if m and m.group(1).strip():
+        return m.group(1)
+
+    # Tier 3: no fence at all. If the answer body looks like code (a def/class/
+    # import at the start of some line), hand it to the verifier as-is; a
+    # non-code answer still yields "" so the score is an honest miss.
+    if re.search(r"(?m)^\s*(?:def |class |import |from \w+ import )", body):
+        return body
+    return ""
 
 
 def parse_tcpdump_filter(cmd: str) -> dict:

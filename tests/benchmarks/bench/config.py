@@ -26,12 +26,17 @@ WARMUP_TIMEOUT = 300.0
 #   bytes arrive for this many seconds. If tokens are flowing (even at 2 t/s),
 #   this never triggers. It only catches a stuck/crashed backend.
 #   Applies after warmup confirms the model is loaded.
-INFERENCE_TIMEOUT = 90.0
+#
+#   TASK_BENCH_VALIDITY_V1: this idle-gap is the PRIMARY backstop and it is
+#   length-agnostic by design — a model producing a long-but-healthy answer
+#   never trips it because bytes keep flowing. It catches pathology (stuck /
+#   looping / crashed backend), not length. Kept moderate.
+INFERENCE_TIMEOUT = 120.0
 #
 # PIPELINE_INACTIVITY_TIMEOUT: same idea, but pipeline calls may buffer
 #   reasoning <think> blocks before forwarding any bytes. Allow more headroom
 #   so a complex security/redteam query doesn't abort mid-think.
-PIPELINE_INACTIVITY_TIMEOUT = 270.0
+PIPELINE_INACTIVITY_TIMEOUT = 300.0
 #
 # REQUEST_TIMEOUT kept as a fallback for one-shot non-streaming calls (health,
 # warmup probes, Ollama direct). Not used in the main bench streaming path.
@@ -61,6 +66,103 @@ PER_WORKSPACE_TIMEOUT: dict[str, float] = {
     # auto-purpleteam-exec NOT capped here — Phase 2 sets supports_tools=false
     # on supergemma4 which removes the underlying cause of long runtime.
 }
+
+# TASK_BENCH_VALIDITY_V1: with the bench-only token cap removed, a reasoning or
+# agentic workspace runs its FULL thinking + answer at production budget — which
+# can legitimately take many minutes. The idle-gap (INFERENCE_TIMEOUT /
+# PIPELINE_INACTIVITY_TIMEOUT) is the real pathology backstop; this wall-clock
+# ceiling is only a last-resort runaway guard and must be generous enough that a
+# healthy long generation is never the thing it kills. Sized off real
+# observations already recorded above (phi4-reasoning ~67min, tongyi 901s).
+#
+# resolve_request_timeout() gives any workspace NOT explicitly listed in
+# PER_WORKSPACE_TIMEOUT a category-appropriate ceiling instead of the short
+# streaming-inactivity default, so newly-wired bench-* reasoning/agentic
+# workspaces don't get killed mid-legitimate-answer.
+CEILING_REASONING_S = 1800.0  # 30 min — reasoning/agentic full-budget generation
+CEILING_STANDARD_S = 600.0  # 10 min — non-reasoning, uncapped but rarely long
+CEILING_HARD_MAX_S = 3600.0  # 60 min — absolute runaway guard, nothing legitimate exceeds
+
+
+_PORTAL_WS_CACHE: dict[str, dict] | None = None
+
+
+def _portal_workspace_fields() -> dict[str, dict]:
+    """Load per-workspace {predict_limit, emits_reasoning, tools} from
+    config/portal.yaml (the single source of truth). Cached after first read.
+    Returns {} on any failure so bench never hard-fails on config parsing —
+    callers then fall back to their own defaults."""
+    global _PORTAL_WS_CACHE
+    if _PORTAL_WS_CACHE is not None:
+        return _PORTAL_WS_CACHE
+    out: dict[str, dict] = {}
+    try:
+        import yaml as _yaml
+
+        portal_path = PROJECT_ROOT / "config" / "portal.yaml"
+        data = _yaml.safe_load(portal_path.read_text()) or {}
+        for slug, spec in (data.get("workspaces") or {}).items():
+            if not isinstance(spec, dict):
+                continue
+            out[slug] = {
+                "predict_limit": spec.get("predict_limit"),
+                "emits_reasoning": bool(spec.get("emits_reasoning")),
+                "tools": list(spec.get("tools") or []),
+                "model_hint": spec.get("model_hint"),
+            }
+    except Exception:
+        out = {}
+    _PORTAL_WS_CACHE = out
+    return out
+
+
+def workspace_budget(workspace_id: str) -> dict:
+    """Return {predict_limit, emits_reasoning, has_tools} for a workspace slug,
+    resolved from portal.yaml. Unknown workspace => all-None/False."""
+    fields = _portal_workspace_fields().get(workspace_id, {})
+    return {
+        "predict_limit": fields.get("predict_limit"),
+        "emits_reasoning": bool(fields.get("emits_reasoning")),
+        "has_tools": bool(fields.get("tools")),
+    }
+
+
+def budget_for_model_tag(model_tag: str) -> dict:
+    """Direct-mode resolution: map a bare Ollama model tag back to the first
+    bench-* workspace whose model_hint matches, and return its budget. Used by
+    direct-Ollama bench runs which get a tag, not a workspace slug. Unknown =>
+    all-None/False (=> no cap, model default, == production unset behaviour)."""
+    fields = _portal_workspace_fields()
+    for slug, spec in fields.items():
+        if spec.get("model_hint") == model_tag:
+            return {
+                "predict_limit": spec.get("predict_limit"),
+                "emits_reasoning": bool(spec.get("emits_reasoning")),
+                "has_tools": bool(spec.get("tools")),
+                "workspace": slug,
+            }
+    return {"predict_limit": None, "emits_reasoning": False, "has_tools": False, "workspace": None}
+
+
+def resolve_request_timeout(
+    workspace_id: str,
+    *,
+    emits_reasoning: bool = False,
+    has_tools: bool = False,
+    default: float = PIPELINE_INACTIVITY_TIMEOUT,
+) -> float:
+    """Wall-clock ceiling for a bench run. Explicit PER_WORKSPACE_TIMEOUT wins;
+    otherwise a reasoning/agentic workspace gets the generous reasoning ceiling,
+    a plain workspace gets the standard ceiling, and anything already larger
+    than those (a caller-supplied default) is preserved. Never below `default`,
+    never above the hard runaway guard."""
+    explicit = PER_WORKSPACE_TIMEOUT.get(workspace_id)
+    if explicit is not None:
+        return min(explicit, CEILING_HARD_MAX_S)
+    if emits_reasoning or has_tools:
+        return min(max(CEILING_REASONING_S, default), CEILING_HARD_MAX_S)
+    return min(max(CEILING_STANDARD_S, default), CEILING_HARD_MAX_S)
+
 
 # Reasoning models (Laguna, Phi-4-reasoning, Magistral, Qwopus, DeepSeek-R1)
 # emit <think> blocks that consume tokens before generating output. Two adjustments:
