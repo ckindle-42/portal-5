@@ -1,80 +1,183 @@
 #!/usr/bin/env python3
 """Dry-run disk-reclaim audit for the Ollama model store.
 
-Errs heavily toward KEEP: a model is DELETE only if its exact tag string
-appears nowhere in config/, config/personas/, portal/, or tests/. This
-single broad-grep approach catches every known reference mechanism
-(workspace model_hint, backends.yaml group membership, persona
-preferred_models, router rosters, hardcoded test/bench literals) without
-having to hand-enumerate each one — and never mutates or deletes anything.
-For each DELETE candidate, pulls its portal_wiki/canonical model-catalog
-unit (if any) so the report shows *why* the model is on disk, not just
-that it's unreferenced.
+Errs heavily toward KEEP. A model is a candidate only if its base tag
+(``-ctxNk`` suffix stripped, case-folded) appears nowhere in: workspace
+``model_hint``/``variants[*].model_hint`` in config/portal.yaml, a broad
+grep of config/portal/tests source, or a documented exclusion in either
+prior config/UNUSED_MODELS_*.md audit. Candidates are further split by
+whether their bench workspace (if any) has real eval evidence — checked
+by BOTH the raw model tag and the workspace slug, since result files are
+often keyed by workspace name, not model tag.
 
     python3 scripts/model_cleanup_audit.py
 
-Never calls `ollama rm`. This is report-only; a human decides what to do
-with the DELETE list.
+Never calls `ollama rm`. Report-only; a human decides what to delete.
 """
 
 from __future__ import annotations
 
 import glob
 import json
+import re
 import urllib.request
 from pathlib import Path
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OLLAMA_URL = "http://localhost:11434"
 
-SEARCH_GLOBS = [
-    "config/*.yaml",
-    "config/personas/*.yaml",
-    "portal/**/*.py",
-    "tests/**/*.py",
+CODE_SEARCH_GLOBS = ["config/*.yaml", "config/personas/*.yaml", "portal/**/*.py", "tests/**/*.py"]
+RESULT_SEARCH_GLOBS = [
+    "tests/benchmarks/results/**/*",
+    "results/**/*",
+    "tests/results/**/*",
+    "portal/modules/security/core/results/candidates/**/*",
+    "portal/modules/security/core/results/checkpoints/**/*",
+    "portal/modules/security/core/results/antares_probe/**/*",
+    "reports/**/*",
 ]
+PRIOR_AUDIT_DOCS = ["config/UNUSED_MODELS_20260721.md", "config/UNUSED_MODELS_20260810.md"]
+
+
+def base(tag: str) -> str:
+    return re.sub(r"-ctx\d+k$", "", tag, flags=re.I).lower()
 
 
 def fetch_on_disk() -> list[dict]:
     with urllib.request.urlopen(f"{OLLAMA_URL}/api/tags", timeout=10) as r:
-        data = json.load(r)
-    return data.get("models", [])
+        return json.load(r).get("models", [])
 
 
-def build_search_corpus() -> str:
-    chunks = []
-    for pattern in SEARCH_GLOBS:
+def read_globs(patterns: list[str]) -> str:
+    corpus = []
+    for pattern in patterns:
         for path in glob.glob(str(REPO_ROOT / pattern), recursive=True):
-            try:
-                chunks.append(Path(path).read_text(encoding="utf-8", errors="ignore"))
-            except OSError:
-                continue
-    return "\n".join(chunks).lower()
+            if Path(path).is_file():
+                try:
+                    corpus.append(Path(path).read_text(encoding="utf-8", errors="ignore"))
+                except OSError:
+                    continue
+    return "\n".join(corpus).lower()
 
 
-def referenced(tag: str, corpus_lower: str) -> bool:
-    """Case-insensitive; also matches the bare repo id (Ollama defaults a tagless
-    pull to :latest, so config referencing the bare id must still count as KEEP)."""
-    tag_l = tag.lower()
-    if tag_l in corpus_lower:
-        return True
-    base = tag_l.rsplit(":", 1)[0]
-    return tag_l.endswith(":latest") and base in corpus_lower
+def production_bases() -> set[str]:
+    """Every model a live production workspace can route to: top-level model_hint
+    plus every variant's model_hint. The Layer-1 router model is production infra
+    too but isn't a workspace, so it's added explicitly."""
+    d = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    bases = set()
+    for k, v in d.get("workspaces", {}).items():
+        if k.startswith("bench-"):
+            continue
+        if v.get("model_hint"):
+            bases.add(base(v["model_hint"]))
+        for variant in (v.get("variants") or {}).values():
+            if isinstance(variant, dict) and variant.get("model_hint"):
+                bases.add(base(variant["model_hint"]))
+    bases.add(base("hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M"))
+    return bases
 
 
-def find_catalog_unit(tag: str) -> str | None:
-    """Return the first non-frontmatter paragraph of the model's catalog unit, if any."""
+def bench_workspaces_by_base() -> dict[str, list[str]]:
+    d = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    out: dict[str, list[str]] = {}
+    for k, v in d.get("workspaces", {}).items():
+        if k.startswith("bench-") and v.get("model_hint"):
+            out.setdefault(base(v["model_hint"]), []).append(k)
+    return out
+
+
+def documented_keep_tags() -> set[str]:
+    """Tags mentioned anywhere in either prior UNUSED_MODELS audit doc — a tag that
+    appears there has already been individually adjudicated, one way or another."""
+    tags = set()
+    for doc in PRIOR_AUDIT_DOCS:
+        p = REPO_ROOT / doc
+        if p.exists():
+            tags.add(p.read_text(encoding="utf-8", errors="ignore").lower())
+    return tags
+
+
+def catalog_verdict(tag: str) -> str | None:
+    """DROPPED or PROMOTED if the model's OWN catalog unit title says so (matching
+    by title, not body, avoids false hits from another unit's cross-reference)."""
     for path in glob.glob(str(REPO_ROOT / "portal_wiki/canonical/unit-model-catalog-*.md")):
         text = Path(path).read_text(encoding="utf-8", errors="ignore")
-        if tag in text:
-            body = text.split("---", 2)[-1].strip()
-            para = body.split("\n\n")[0].replace("\n", " ")
-            return para[:500]
+        m = re.search(r'title: "(.*?)"', text, re.S)
+        title = (m.group(1) if m else "").replace("\\u2014", "—").replace("\\", "")
+        if tag not in title:
+            continue
+        if re.search(r"dropped|not.?adopted", title, re.I):
+            return "DROPPED"
+        if re.search(r"promoted", title, re.I):
+            return "PROMOTED"
     return None
+
+
+def classify(
+    m: dict,
+    *,
+    prod_bases: set,
+    bench_by_base: dict,
+    code_corpus: str,
+    result_corpus: str,
+    prior_docs: set,
+) -> str:
+    tag = m["name"]
+    b = base(tag)
+
+    if b in prod_bases:
+        return "PRODUCTION"
+    if any(tag.lower() in doc for doc in prior_docs):
+        return "DOCUMENTED_KEEP"
+
+    tag_l = tag.lower()
+    code_referenced = tag_l in code_corpus or (
+        tag_l.endswith(":latest") and tag_l.rsplit(":", 1)[0] in code_corpus
+    )
+
+    verdict = catalog_verdict(tag)
+    if verdict == "DROPPED":
+        return "DROPPED_VERDICT"
+    if verdict == "PROMOTED":
+        return "PROMOTED_NOT_WIRED"
+
+    bench_ws = bench_by_base.get(b, [])
+    has_evidence = tag_l in result_corpus or any(ws.lower() in result_corpus for ws in bench_ws)
+
+    if not bench_ws and not code_referenced:
+        return "NO_WORKSPACE_ORPHAN"
+    if has_evidence:
+        return "EVALUATED_PENDING"
+    return "NEVER_EVALUATED"
 
 
 def gb(nbytes: int) -> float:
     return nbytes / (1024**3)
+
+
+def render_report(categorized: dict[str, list[dict]]) -> str:
+    lines = ["# Model cleanup audit (dry-run — nothing deleted)", ""]
+    order = [
+        "PRODUCTION",
+        "DOCUMENTED_KEEP",
+        "PROMOTED_NOT_WIRED",
+        "DROPPED_VERDICT",
+        "NO_WORKSPACE_ORPHAN",
+        "NEVER_EVALUATED",
+        "EVALUATED_PENDING",
+    ]
+    for cat in order:
+        items = categorized.get(cat, [])
+        total = sum(gb(m["size"]) for m in items)
+        lines.append(f"## {cat}: {len(items)} models, {total:.1f} GB")
+        lines.append("")
+        for m in sorted(items, key=lambda x: -x["size"]):
+            lines.append(f"- {gb(m['size']):.1f} GB  `{m['name']}`")
+        lines.append("")
+    return "\n".join(lines)
 
 
 def main() -> int:
@@ -82,49 +185,31 @@ def main() -> int:
     on_disk = fetch_on_disk()
     print(f"  {len(on_disk)} models on disk")
 
-    print("Building search corpus (config/, portal/, tests/)...")
-    corpus = build_search_corpus()
+    prod_bases = production_bases()
+    bench_by_base = bench_workspaces_by_base()
+    code_corpus = read_globs(CODE_SEARCH_GLOBS)
+    result_corpus = read_globs(RESULT_SEARCH_GLOBS)
+    prior_docs = documented_keep_tags()
 
-    delete_candidates = []
-    keep_count = 0
+    categorized: dict[str, list[dict]] = {}
     for m in on_disk:
-        if referenced(m["name"], corpus):
-            keep_count += 1
-            continue
-        delete_candidates.append(m)
+        cat = classify(
+            m,
+            prod_bases=prod_bases,
+            bench_by_base=bench_by_base,
+            code_corpus=code_corpus,
+            result_corpus=result_corpus,
+            prior_docs=prior_docs,
+        )
+        categorized.setdefault(cat, []).append(m)
 
-    delete_candidates.sort(key=lambda m: m.get("size", 0), reverse=True)
-    total_delete_bytes = sum(m.get("size", 0) for m in delete_candidates)
-
-    print(f"\nKEEP (referenced somewhere in config/portal/tests): {keep_count}")
-    print(f"DELETE candidates (referenced nowhere found): {len(delete_candidates)}")
-    print(f"Total disk if all DELETE candidates removed: {gb(total_delete_bytes):.1f} GB\n")
-
-    lines = [
-        "# Model cleanup audit (dry-run — nothing deleted)",
-        "",
-        f"On-disk: {len(on_disk)}  KEEP: {keep_count}  DELETE candidates: {len(delete_candidates)}"
-        f"  Reclaimable: {gb(total_delete_bytes):.1f} GB",
-        "",
-        "Method: exact-substring match of each on-disk model tag against the full",
-        "contents of config/*.yaml, config/personas/*.yaml, portal/**/*.py, and",
-        "tests/**/*.py. A tag matched anywhere is KEEP. This is deliberately broad",
-        "(errs toward KEEP) and catches workspace model_hint, backends.yaml group",
-        "membership, persona preferred_models, router/council rosters, and",
-        "hardcoded test literals in one pass.",
-        "",
-        "| Model | Size (GB) | Catalog history |",
-        "|---|---:|---|",
-    ]
-    for m in delete_candidates:
-        tag = m["name"]
-        history = find_catalog_unit(tag) or "*(no model-catalog wiki unit found)*"
-        lines.append(f"| `{tag}` | {gb(m.get('size', 0)):.1f} | {history} |")
+    for cat, items in categorized.items():
+        print(f"  {cat}: {len(items)} models, {sum(gb(m['size']) for m in items):.1f} GB")
 
     out_path = REPO_ROOT / "reports" / "model_cleanup_audit.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text("\n".join(lines) + "\n")
-    print(f"Wrote {out_path}")
+    out_path.write_text(render_report(categorized))
+    print(f"\nWrote {out_path}")
     return 0
 
 
