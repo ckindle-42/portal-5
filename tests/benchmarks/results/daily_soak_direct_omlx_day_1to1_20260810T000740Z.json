@@ -1,0 +1,241 @@
+{
+  "task": "TASK_DAILY_WORK_FLEET_SOAK_V1",
+  "path": "direct",
+  "engine": "omlx",
+  "duration_s": 10800,
+  "concurrency": 3,
+  "elapsed_s": 601.8,
+  "total": 22,
+  "ok": 19,
+  "failures": 3,
+  "by_workspace": {
+    "auto-daily": {
+      "ok": 2,
+      "fail": 0
+    },
+    "auto-coding": {
+      "ok": 3,
+      "fail": 1
+    },
+    "auto-documents": {
+      "ok": 4,
+      "fail": 0
+    },
+    "auto-spl": {
+      "ok": 2,
+      "fail": 0
+    },
+    "auto-reasoning": {
+      "ok": 1,
+      "fail": 0
+    },
+    "auto-data": {
+      "ok": 0,
+      "fail": 1
+    },
+    "auto-research": {
+      "ok": 3,
+      "fail": 1
+    },
+    "auto-security": {
+      "ok": 2,
+      "fail": 0
+    },
+    "auto-compliance": {
+      "ok": 1,
+      "fail": 0
+    },
+    "auto-creative": {
+      "ok": 1,
+      "fail": 0
+    }
+  },
+  "by_served_backend": {
+    "omlx": {
+      "ok": 19,
+      "fail": 0
+    },
+    "unknown": {
+      "ok": 0,
+      "fail": 3
+    }
+  },
+  "samples": [
+    {
+      "workspace": "auto-daily",
+      "served_backend": "omlx",
+      "ttft_s": null,
+      "total_s": 265.591,
+      "tps": 0.0,
+      "t": 265.6
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx",
+      "ttft_s": 74.55,
+      "total_s": 273.995,
+      "tps": 0.0,
+      "t": 274.0
+    },
+    {
+      "workspace": "auto-daily",
+      "served_backend": "omlx",
+      "ttft_s": 51.459,
+      "total_s": 54.017,
+      "tps": 0.6,
+      "t": 328.0
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "omlx",
+      "ttft_s": 266.321,
+      "total_s": 346.476,
+      "tps": 1.6,
+      "t": 346.5
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "omlx",
+      "ttft_s": 0.386,
+      "total_s": 21.665,
+      "tps": 21.0,
+      "t": 349.7
+    },
+    {
+      "workspace": "auto-spl",
+      "served_backend": "omlx",
+      "ttft_s": 8.44,
+      "total_s": 30.623,
+      "tps": 12.8,
+      "t": 380.3
+    },
+    {
+      "workspace": "auto-reasoning",
+      "served_backend": "omlx",
+      "ttft_s": 51.773,
+      "total_s": 51.774,
+      "tps": 29.0,
+      "t": 398.2
+    },
+    {
+      "workspace": "auto-data",
+      "error": "HTTP 400",
+      "served_backend": null,
+      "ttft_s": null,
+      "tps": 0.0,
+      "t": 406.5
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx",
+      "ttft_s": 0.674,
+      "total_s": 4.994,
+      "tps": 35.8,
+      "t": 411.5
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx",
+      "ttft_s": 0.634,
+      "total_s": 34.814,
+      "tps": 19.4,
+      "t": 415.1
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx",
+      "ttft_s": 155.191,
+      "total_s": 155.191,
+      "tps": 9.7,
+      "t": 420.8
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "omlx",
+      "ttft_s": 4.812,
+      "total_s": 43.815,
+      "tps": 15.8,
+      "t": 458.9
+    },
+    {
+      "workspace": "auto-security",
+      "served_backend": "omlx",
+      "ttft_s": 4.268,
+      "total_s": 5.199,
+      "tps": 8.7,
+      "t": 464.1
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "omlx",
+      "ttft_s": 0.37,
+      "total_s": 35.216,
+      "tps": 22.3,
+      "t": 499.3
+    },
+    {
+      "workspace": "auto-coding",
+      "error": "HTTP 400",
+      "served_backend": null,
+      "ttft_s": null,
+      "tps": 0.0,
+      "t": 508.2
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx",
+      "ttft_s": 106.857,
+      "total_s": 111.978,
+      "tps": 13.4,
+      "t": 523.5
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx",
+      "ttft_s": 1.565,
+      "total_s": 20.416,
+      "tps": 30.4,
+      "t": 528.6
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "omlx",
+      "ttft_s": 4.82,
+      "total_s": 28.752,
+      "tps": 13.7,
+      "t": 552.2
+    },
+    {
+      "workspace": "auto-research",
+      "error": "HTTP 400",
+      "served_backend": null,
+      "ttft_s": null,
+      "tps": 0.0,
+      "t": 560.3
+    },
+    {
+      "workspace": "auto-creative",
+      "served_backend": "omlx",
+      "ttft_s": 141.238,
+      "total_s": 141.239,
+      "tps": 10.6,
+      "t": 562.0
+    },
+    {
+      "workspace": "auto-security",
+      "served_backend": "omlx",
+      "ttft_s": 7.8,
+      "total_s": 10.15,
+      "tps": 4.4,
+      "t": 570.5
+    },
+    {
+      "workspace": "auto-spl",
+      "served_backend": "omlx",
+      "ttft_s": 8.469,
+      "total_s": 44.975,
+      "tps": 5.8,
+      "t": 573.5
+    }
+  ]
+}

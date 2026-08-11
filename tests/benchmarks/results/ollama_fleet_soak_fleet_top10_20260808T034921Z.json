@@ -1,0 +1,2130 @@
+{
+  "task": "omlx-fleet-soak-v1",
+  "engine": "ollama",
+  "started": "2026-08-08T03:49:21.218910+00:00",
+  "elapsed_s": 10867.4,
+  "duration_s": 10800,
+  "concurrency": 5,
+  "model_weights": {
+    "coder": [
+      "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      34
+    ],
+    "granite-8b": [
+      "granite4.1:8b-ctx16k",
+      11
+    ],
+    "vulnllm": [
+      "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      10
+    ],
+    "deepseek-r1": [
+      "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      9
+    ],
+    "qwen-vl": [
+      "qwen3-vl:32b-ctx8k",
+      8
+    ],
+    "tongyi-research": [
+      "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+      8
+    ],
+    "granite-30b": [
+      "granite4.1:30b-ctx64k",
+      7
+    ],
+    "gemma-daily": [
+      "gemma4:26b-a4b-it-qat-ctx8k",
+      4
+    ],
+    "hauhaucs-creative": [
+      "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k",
+      4
+    ],
+    "qwen35-9b": [
+      "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+      3
+    ]
+  },
+  "total_requests": 483,
+  "ok": 483,
+  "failures": 0,
+  "failure_samples": [],
+  "per_model": {
+    "coder": {
+      "ok": 169,
+      "fail": 0,
+      "tps_mean": 13.8
+    },
+    "granite-8b": {
+      "ok": 60,
+      "fail": 0,
+      "tps_mean": 13.9
+    },
+    "vulnllm": {
+      "ok": 39,
+      "fail": 0,
+      "tps_mean": 6.2
+    },
+    "deepseek-r1": {
+      "ok": 55,
+      "fail": 0,
+      "tps_mean": 8.5
+    },
+    "qwen-vl": {
+      "ok": 35,
+      "fail": 0,
+      "tps_mean": 4.9
+    },
+    "tongyi-research": {
+      "ok": 42,
+      "fail": 0,
+      "tps_mean": 6.8
+    },
+    "granite-30b": {
+      "ok": 32,
+      "fail": 0,
+      "tps_mean": 4.8
+    },
+    "gemma-daily": {
+      "ok": 19,
+      "fail": 0,
+      "tps_mean": 10.2
+    },
+    "hauhaucs-creative": {
+      "ok": 18,
+      "fail": 0,
+      "tps_mean": 6.1
+    },
+    "qwen35-9b": {
+      "ok": 14,
+      "fail": 0,
+      "tps_mean": 9.1
+    }
+  },
+  "health_snapshots": [
+    {
+      "t": 0.0,
+      "wall": "2026-08-08T03:49:21.264726+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 33501258707,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 60.1,
+      "wall": "2026-08-08T03:50:21.275502+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 120.1,
+      "wall": "2026-08-08T03:51:21.291230+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 10944711228,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k"
+      ]
+    },
+    {
+      "t": 180.1,
+      "wall": "2026-08-08T03:52:21.304333+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 240.1,
+      "wall": "2026-08-08T03:53:21.322190+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 38522050312,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 300.1,
+      "wall": "2026-08-08T03:54:21.330731+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 360.1,
+      "wall": "2026-08-08T03:55:21.339596+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 27264569834,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "gemma4:26b-a4b-it-qat-ctx8k"
+      ]
+    },
+    {
+      "t": 420.1,
+      "wall": "2026-08-08T03:56:21.353643+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25479736196,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 480.1,
+      "wall": "2026-08-08T03:57:21.361854+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 37641026271,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "gemma4:26b-a4b-it-qat-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 540.2,
+      "wall": "2026-08-08T03:58:21.377011+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 600.2,
+      "wall": "2026-08-08T03:59:21.388129+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 660.2,
+      "wall": "2026-08-08T04:00:21.397271+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 32400599940,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k"
+      ]
+    },
+    {
+      "t": 720.2,
+      "wall": "2026-08-08T04:01:21.414150+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 780.2,
+      "wall": "2026-08-08T04:02:21.424357+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 840.2,
+      "wall": "2026-08-08T04:03:21.439929+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 900.2,
+      "wall": "2026-08-08T04:04:21.447407+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 43134526420,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 960.2,
+      "wall": "2026-08-08T04:05:21.461043+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25479736196,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 1020.3,
+      "wall": "2026-08-08T04:06:21.457341+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 1080.3,
+      "wall": "2026-08-08T04:07:21.473008+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 36858390116,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k",
+        "gemma4:26b-a4b-it-qat-ctx8k"
+      ]
+    },
+    {
+      "t": 1140.3,
+      "wall": "2026-08-08T04:08:21.484053+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21124895210,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 1200.3,
+      "wall": "2026-08-08T04:09:21.493838+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21124895210,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 1260.3,
+      "wall": "2026-08-08T04:10:21.506060+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 37119674284,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 1320.3,
+      "wall": "2026-08-08T04:11:21.517906+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 32884580678,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 1380.3,
+      "wall": "2026-08-08T04:12:21.526662+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 32884580678,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 1440.3,
+      "wall": "2026-08-08T04:13:21.532474+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 32884580678,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 1500.4,
+      "wall": "2026-08-08T04:14:21.546447+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 38522050312,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 1560.4,
+      "wall": "2026-08-08T04:15:21.567601+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 1620.4,
+      "wall": "2026-08-08T04:16:21.577064+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 1680.4,
+      "wall": "2026-08-08T04:17:21.591986+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 33540706138,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 1740.4,
+      "wall": "2026-08-08T04:18:21.604380+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 33540706138,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 1800.4,
+      "wall": "2026-08-08T04:19:21.608426+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25829792808,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 1860.4,
+      "wall": "2026-08-08T04:20:21.622792+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 37743126116,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "gemma4:26b-a4b-it-qat-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 1920.5,
+      "wall": "2026-08-08T04:21:21.636429+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 32552979004,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k"
+      ]
+    },
+    {
+      "t": 1980.5,
+      "wall": "2026-08-08T04:22:21.645153+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 2040.5,
+      "wall": "2026-08-08T04:23:21.664389+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 2100.5,
+      "wall": "2026-08-08T04:24:21.675592+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 33263819158,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k"
+      ]
+    },
+    {
+      "t": 2160.5,
+      "wall": "2026-08-08T04:25:21.685846+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 5969071308,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 2220.5,
+      "wall": "2026-08-08T04:26:21.704104+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 2280.5,
+      "wall": "2026-08-08T04:27:21.715042+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 32400599940,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k"
+      ]
+    },
+    {
+      "t": 2340.6,
+      "wall": "2026-08-08T04:28:21.734193+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 2400.6,
+      "wall": "2026-08-08T04:29:21.742679+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 43363136960,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 2460.6,
+      "wall": "2026-08-08T04:30:21.760817+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 2520.6,
+      "wall": "2026-08-08T04:31:21.768935+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 5822260182,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 2580.6,
+      "wall": "2026-08-08T04:32:21.781769+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 2640.6,
+      "wall": "2026-08-08T04:33:21.796228+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21124895210,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 2700.6,
+      "wall": "2026-08-08T04:34:21.812688+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21124895210,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 2760.7,
+      "wall": "2026-08-08T04:35:21.831757+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 2820.7,
+      "wall": "2026-08-08T04:36:21.847828+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25479736196,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 2880.7,
+      "wall": "2026-08-08T04:37:21.863262+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 39070979846,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "granite4.1:8b-ctx16k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 2940.7,
+      "wall": "2026-08-08T04:38:21.881849+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 31798864116,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 3000.7,
+      "wall": "2026-08-08T04:39:21.894966+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 3060.7,
+      "wall": "2026-08-08T04:40:21.912799+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 36769617672,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 3120.8,
+      "wall": "2026-08-08T04:41:21.932674+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 38194642942,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 3180.8,
+      "wall": "2026-08-08T04:42:21.947642+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 43134526420,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 3240.8,
+      "wall": "2026-08-08T04:43:21.957410+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 3300.8,
+      "wall": "2026-08-08T04:44:21.967480+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 33510821722,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 3360.8,
+      "wall": "2026-08-08T04:45:21.984106+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 3420.8,
+      "wall": "2026-08-08T04:46:21.992154+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 47182302410,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "gemma4:26b-a4b-it-qat-ctx8k",
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 3480.8,
+      "wall": "2026-08-08T04:47:22.006876+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 3540.8,
+      "wall": "2026-08-08T04:48:22.014693+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 3600.9,
+      "wall": "2026-08-08T04:49:22.027728+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 3660.9,
+      "wall": "2026-08-08T04:50:22.048135+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 3720.9,
+      "wall": "2026-08-08T04:51:22.067554+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 3780.9,
+      "wall": "2026-08-08T04:52:22.075895+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 32961839757,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "gemma4:26b-a4b-it-qat-ctx8k",
+        "granite4.1:8b-ctx16k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 3840.9,
+      "wall": "2026-08-08T04:53:22.087852+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 3900.9,
+      "wall": "2026-08-08T04:54:22.099673+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 11531074928,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k"
+      ]
+    },
+    {
+      "t": 3960.9,
+      "wall": "2026-08-08T04:55:22.152798+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 4021.0,
+      "wall": "2026-08-08T04:56:22.173142+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 4081.0,
+      "wall": "2026-08-08T04:57:22.189173+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25479736196,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 4141.0,
+      "wall": "2026-08-08T04:58:22.204847+00:00",
+      "loaded_count": 4,
+      "current_model_memory": 44923575331,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k",
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 4201.0,
+      "wall": "2026-08-08T04:59:22.223616+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 22220940246,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 4261.0,
+      "wall": "2026-08-08T05:00:22.241063+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 37641026271,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "gemma4:26b-a4b-it-qat-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 4321.1,
+      "wall": "2026-08-08T05:01:22.258353+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 4381.1,
+      "wall": "2026-08-08T05:02:22.276068+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 4441.1,
+      "wall": "2026-08-08T05:03:22.291764+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 32400599940,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k"
+      ]
+    },
+    {
+      "t": 4501.1,
+      "wall": "2026-08-08T05:04:22.302471+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 4561.1,
+      "wall": "2026-08-08T05:05:22.311641+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 32552979004,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k"
+      ]
+    },
+    {
+      "t": 4621.1,
+      "wall": "2026-08-08T05:06:22.322669+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25829792808,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 4681.1,
+      "wall": "2026-08-08T05:07:22.331843+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 4741.1,
+      "wall": "2026-08-08T05:08:22.341037+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 4801.2,
+      "wall": "2026-08-08T05:09:22.356630+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 4861.2,
+      "wall": "2026-08-08T05:10:22.369044+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 4921.2,
+      "wall": "2026-08-08T05:11:22.384303+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 4981.2,
+      "wall": "2026-08-08T05:12:22.400057+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 5041.2,
+      "wall": "2026-08-08T05:13:22.418104+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 27876602673,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 5101.2,
+      "wall": "2026-08-08T05:14:22.436612+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 39070979846,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "granite4.1:8b-ctx16k"
+      ]
+    },
+    {
+      "t": 5161.2,
+      "wall": "2026-08-08T05:15:22.453956+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 11289881476,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k"
+      ]
+    },
+    {
+      "t": 5221.3,
+      "wall": "2026-08-08T05:16:22.462823+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 5281.3,
+      "wall": "2026-08-08T05:17:22.471048+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 5341.3,
+      "wall": "2026-08-08T05:18:22.488386+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 43134526420,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 5401.3,
+      "wall": "2026-08-08T05:19:22.509199+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 5461.3,
+      "wall": "2026-08-08T05:20:22.512764+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25479736196,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 5521.3,
+      "wall": "2026-08-08T05:21:22.528075+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 5581.3,
+      "wall": "2026-08-08T05:22:22.543399+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 27978702518,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 5641.4,
+      "wall": "2026-08-08T05:23:22.554129+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 5701.4,
+      "wall": "2026-08-08T05:24:22.571206+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25479736196,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 5761.4,
+      "wall": "2026-08-08T05:25:22.588122+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 32400599940,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k"
+      ]
+    },
+    {
+      "t": 5821.4,
+      "wall": "2026-08-08T05:26:22.605863+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 37743126116,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "gemma4:26b-a4b-it-qat-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 5881.4,
+      "wall": "2026-08-08T05:27:22.618218+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 5941.4,
+      "wall": "2026-08-08T05:28:22.636339+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 6001.5,
+      "wall": "2026-08-08T05:29:22.648768+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 42776857145,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k",
+        "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k"
+      ]
+    },
+    {
+      "t": 6061.5,
+      "wall": "2026-08-08T05:30:22.662413+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 6121.5,
+      "wall": "2026-08-08T05:31:22.676841+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25479736196,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 6181.5,
+      "wall": "2026-08-08T05:32:22.686647+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 27678998525,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 6241.5,
+      "wall": "2026-08-08T05:33:22.713567+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 41213231102,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+        "gemma4:26b-a4b-it-qat-ctx8k"
+      ]
+    },
+    {
+      "t": 6301.5,
+      "wall": "2026-08-08T05:34:22.729560+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 33752015174,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 6361.5,
+      "wall": "2026-08-08T05:35:22.742418+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 38369671248,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 6421.6,
+      "wall": "2026-08-08T05:36:22.755681+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 6481.6,
+      "wall": "2026-08-08T05:37:22.764026+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 5515698502,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 6541.6,
+      "wall": "2026-08-08T05:38:22.776223+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21907531365,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 6601.6,
+      "wall": "2026-08-08T05:39:22.794357+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21124895210,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 6661.6,
+      "wall": "2026-08-08T05:40:22.802621+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21124895210,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 6721.6,
+      "wall": "2026-08-08T05:41:22.814733+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21732744230,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k"
+      ]
+    },
+    {
+      "t": 6781.6,
+      "wall": "2026-08-08T05:42:22.835420+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 6841.7,
+      "wall": "2026-08-08T05:43:22.850186+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25479736196,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 6901.7,
+      "wall": "2026-08-08T05:44:22.851478+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 33540706138,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 6961.7,
+      "wall": "2026-08-08T05:45:22.841748+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 43363136960,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 7021.7,
+      "wall": "2026-08-08T05:46:22.858018+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 7081.7,
+      "wall": "2026-08-08T05:47:22.869607+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 44141138408,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 7141.7,
+      "wall": "2026-08-08T05:48:22.881346+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 7201.7,
+      "wall": "2026-08-08T05:49:22.896833+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 7261.8,
+      "wall": "2026-08-08T05:50:22.910464+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 7321.8,
+      "wall": "2026-08-08T05:51:22.923587+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 7381.8,
+      "wall": "2026-08-08T05:52:22.938521+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 7441.8,
+      "wall": "2026-08-08T05:53:22.947862+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 7501.8,
+      "wall": "2026-08-08T05:54:22.964570+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 38656047838,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 7561.8,
+      "wall": "2026-08-08T05:55:22.976887+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 11531074928,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k"
+      ]
+    },
+    {
+      "t": 7621.8,
+      "wall": "2026-08-08T05:56:22.986830+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 7681.9,
+      "wall": "2026-08-08T05:57:23.001730+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 22220940246,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 7741.9,
+      "wall": "2026-08-08T05:58:23.016178+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 42541084832,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+        "granite4.1:8b-ctx16k",
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k"
+      ]
+    },
+    {
+      "t": 7801.9,
+      "wall": "2026-08-08T05:59:23.028317+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 36769617672,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 7861.9,
+      "wall": "2026-08-08T06:00:23.043377+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 43923506460,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+        "gemma4:26b-a4b-it-qat-ctx8k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 7921.9,
+      "wall": "2026-08-08T06:01:23.061818+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 7981.9,
+      "wall": "2026-08-08T06:02:23.078393+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 8041.9,
+      "wall": "2026-08-08T06:03:23.095465+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 42541084832,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k"
+      ]
+    },
+    {
+      "t": 8102.0,
+      "wall": "2026-08-08T06:04:23.106754+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 33540706138,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 8162.0,
+      "wall": "2026-08-08T06:05:23.121065+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 8222.0,
+      "wall": "2026-08-08T06:06:23.134040+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 8282.0,
+      "wall": "2026-08-08T06:07:23.145976+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21651961935,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k"
+      ]
+    },
+    {
+      "t": 8342.0,
+      "wall": "2026-08-08T06:08:23.164003+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 8402.0,
+      "wall": "2026-08-08T06:09:23.190744+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 22009631210,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 8462.1,
+      "wall": "2026-08-08T06:10:23.210940+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25479736196,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 8522.1,
+      "wall": "2026-08-08T06:11:23.227812+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 8582.1,
+      "wall": "2026-08-08T06:12:23.244624+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 8642.1,
+      "wall": "2026-08-08T06:13:23.257229+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25479736196,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 8702.1,
+      "wall": "2026-08-08T06:14:23.269926+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 32884580678,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 8762.1,
+      "wall": "2026-08-08T06:15:23.280689+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 8822.2,
+      "wall": "2026-08-08T06:16:23.308809+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 42857639440,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k",
+        "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k"
+      ]
+    },
+    {
+      "t": 8882.2,
+      "wall": "2026-08-08T06:17:23.324604+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 15733494906,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "gemma4:26b-a4b-it-qat-ctx8k"
+      ]
+    },
+    {
+      "t": 8942.2,
+      "wall": "2026-08-08T06:18:23.338414+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 9002.2,
+      "wall": "2026-08-08T06:19:23.352045+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 26896362370,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 9062.2,
+      "wall": "2026-08-08T06:20:23.368973+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 9122.2,
+      "wall": "2026-08-08T06:21:23.388853+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 33648069833,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 9182.2,
+      "wall": "2026-08-08T06:22:23.400145+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 9242.3,
+      "wall": "2026-08-08T06:23:23.412494+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 33183036863,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k"
+      ]
+    },
+    {
+      "t": 9302.3,
+      "wall": "2026-08-08T06:24:23.429400+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 43345835456,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 9362.3,
+      "wall": "2026-08-08T06:25:23.447201+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 43345835456,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 9422.3,
+      "wall": "2026-08-08T06:26:23.457787+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 38383847994,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-vl:32b-ctx8k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    },
+    {
+      "t": 9482.3,
+      "wall": "2026-08-08T06:27:23.472944+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 32414776686,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 9542.3,
+      "wall": "2026-08-08T06:28:23.487000+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 22220940246,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 9602.4,
+      "wall": "2026-08-08T06:29:23.502961+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 9662.4,
+      "wall": "2026-08-08T06:30:23.517530+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 43872902181,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 9722.4,
+      "wall": "2026-08-08T06:31:23.534455+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 11531074928,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k"
+      ]
+    },
+    {
+      "t": 9782.4,
+      "wall": "2026-08-08T06:32:23.544353+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 9842.4,
+      "wall": "2026-08-08T06:33:23.554078+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21353505750,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 9902.4,
+      "wall": "2026-08-08T06:34:23.586827+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 9962.4,
+      "wall": "2026-08-08T06:35:23.601221+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 32400599940,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k"
+      ]
+    },
+    {
+      "t": 10022.4,
+      "wall": "2026-08-08T06:36:23.611862+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 27124972910,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 10082.5,
+      "wall": "2026-08-08T06:37:23.627536+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 10142.5,
+      "wall": "2026-08-08T06:38:23.639189+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 10202.5,
+      "wall": "2026-08-08T06:39:23.653138+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 33438606293,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 10262.5,
+      "wall": "2026-08-08T06:40:23.663862+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 10322.5,
+      "wall": "2026-08-08T06:41:23.681119+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21124895210,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 10382.5,
+      "wall": "2026-08-08T06:42:23.698467+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 54287579217,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:30b-ctx64k"
+      ]
+    },
+    {
+      "t": 10442.5,
+      "wall": "2026-08-08T06:43:23.707854+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 10502.6,
+      "wall": "2026-08-08T06:44:23.720784+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 32400599940,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k"
+      ]
+    },
+    {
+      "t": 10562.6,
+      "wall": "2026-08-08T06:45:23.750294+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 15733494906,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "gemma4:26b-a4b-it-qat-ctx8k"
+      ]
+    },
+    {
+      "t": 10622.6,
+      "wall": "2026-08-08T06:46:23.767361+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 10682.6,
+      "wall": "2026-08-08T06:47:23.785150+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 21124895210,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-vl:32b-ctx8k"
+      ]
+    },
+    {
+      "t": 10742.6,
+      "wall": "2026-08-08T06:48:23.796616+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 33438606293,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "granite4.1:8b-ctx16k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 10802.6,
+      "wall": "2026-08-08T06:49:23.809434+00:00",
+      "loaded_count": 1,
+      "current_model_memory": 25829792808,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+      ]
+    },
+    {
+      "t": 10862.7,
+      "wall": "2026-08-08T06:50:23.824828+00:00",
+      "loaded_count": 2,
+      "current_model_memory": 27978702518,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    }
+  ],
+  "outages": [],
+  "peak_memory_bytes": 54287579217,
+  "ceiling_bytes": null
+}

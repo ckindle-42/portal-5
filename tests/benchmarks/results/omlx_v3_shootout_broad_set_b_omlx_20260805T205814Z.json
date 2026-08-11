@@ -1,0 +1,54 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-05T20:58:14.971410+00:00",
+  "models": [
+    "huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+    "Jiunsong--supergemma4-26b-abliterated-multimodal-mlx-4bit"
+  ],
+  "gates": [
+    "shootout"
+  ],
+  "results": [
+    {
+      "test": "shootout",
+      "models": [
+        "huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+        "Jiunsong--supergemma4-26b-abliterated-multimodal-mlx-4bit"
+      ],
+      "duration_s": 150,
+      "concurrency": 5,
+      "wall_s": 193.9,
+      "total_requests": 9,
+      "ok": 9,
+      "failures": 0,
+      "throughput_rps": 0.05,
+      "ttft_p50": 1.2,
+      "ttft_p95": 2.452,
+      "ttft_p99": 2.452,
+      "tps_mean": 20.7,
+      "tps_cv": 0.222,
+      "truncated": 5,
+      "avg_response_chars": 7910.0,
+      "avg_reasoning_chars": 7466.0,
+      "per_model": {
+        "huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit": {
+          "requests": 5,
+          "ttft_p50": 0.935,
+          "ttft_p95": 2.452,
+          "tps_mean": 24.7
+        },
+        "Jiunsong--supergemma4-26b-abliterated-multimodal-mlx-4bit": {
+          "requests": 4,
+          "ttft_p50": 2.431,
+          "ttft_p95": 2.431,
+          "tps_mean": 15.7
+        }
+      },
+      "gate": "shootout",
+      "engine": "omlx"
+    }
+  ]
+}

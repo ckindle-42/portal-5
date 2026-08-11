@@ -1,0 +1,167 @@
+{
+  "timestamp": "2026-05-14T13:24:44.520210+00:00",
+  "mode": "direct",
+  "order": "size",
+  "cooldown_s": 10.0,
+  "runs_per_model": 2,
+  "spec_decoding": "unspecified",
+  "total_wall_time_s": 121.4,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "mlx_models_configured": 35,
+    "ollama_models_configured": 27,
+    "workspaces_configured": 36,
+    "personas_configured": 101
+  },
+  "backends": {
+    "mlx": {
+      "url": "http://localhost:8081",
+      "available": false
+    },
+    "ollama": {
+      "url": "http://localhost:11434",
+      "available": true
+    },
+    "pipeline": {
+      "url": "http://localhost:9099",
+      "available": true
+    }
+  },
+  "results": [
+    {
+      "model": "deepseek-r1:32b-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 2,
+      "runs_success": 2,
+      "avg_tps": 8.1,
+      "min_tps": 7.2,
+      "max_tps": 8.9,
+      "stddev_tps": 1.2,
+      "cv": 0.148,
+      "avg_completion_tokens": 334,
+      "avg_elapsed_s": 40.88,
+      "avg_ttft_s": 0.747,
+      "routed_model": "deepseek-r1:32b-q4_k_m",
+      "prompt_category": "security",
+      "quality_score": 1.0,
+      "tps_quality": 8.1,
+      "reasoning_mode": true,
+      "expected_model_match": true,
+      "expected_model_detail": "requested deepseek-r1:32b-q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 37.82,
+          "prompt_tokens": 0,
+          "completion_tokens": 274,
+          "tps": 7.2,
+          "time_to_first_token_s": 1.365,
+          "response_model": "deepseek-r1:32b-q4_k_m",
+          "response_text": "\n5. Long-term mitigation (prevent recurrence)\n\nUse bullet points for each section.\n</think>\n\n### 1. Classification (MITRE ATT&CK tactic + technique ID)\n- **Tactic**: Initial Access  \n- **Technique ID**: T1078 - Valid Accounts  \n- **Subtechnique Description**: Brute Force Passwords  \n\n---\n\n### 2. Immediate containment actions (first 30 minutes)\n- Temporarily block the 47 unique IPs from accessing the DMZ servers via network firewall rules.\n- Enable multi-factor authentication (MFA) for SSH access to prevent unauthorized access.\n- Monitor logs and alert if any of the blocked IPs attempt connections or new brute-force attempts occur.\n\n---\n\n### 3. Detection rule to write (field names + logic)\n- **Field Names**: `source.ip`, `dest.port`, `event.id`, `user.id`, `auth.status`\n- **Logic**: Detect SSH connections (`dest.port=22`) from IPs with failed authentication attempts (`auth.status=failed`) occurring more than 10 times in 5 minutes from the same source IP.\n- **Rule Example**: \n  ```plaintext\n  (event.id: sshd) and (dest.port: \"22\") and (auth.status: \"failed\") and (source.ip not in trusted_ips)\n  | count by source.ip, user.id over 5m >=10\n  ```\n\n---\n\n### 4. Root cause question to investigate\n- Are the targeted accounts using weak or default passwords that are easily brute-forced?\n- Is there a lack of rate-limiting or MFA enforced on SSH access?\n- Have the compromised IPs been used in previous attacks, indicating an ongoing campaign?\n\n---\n\n### 5. Long-term mitigation (prevent recurrence)\n- Enforce strong password policies and implement MFA for SSH access.\n- Configure rate-limiting and account lockout mechanisms after a certain number of failed attempts.\n- Regularly audit user accounts and revoke access for inactive or unnecessary accounts.\n- Update detection rules to monitor for similar patterns and alert on potential brute-force attacks proactively."
+        },
+        {
+          "run": 2,
+          "elapsed_s": 43.94,
+          "prompt_tokens": 0,
+          "completion_tokens": 393,
+          "tps": 8.9,
+          "time_to_first_token_s": 0.129,
+          "response_model": "deepseek-r1:32b-q4_k_m",
+          "response_text": "\n5. Prevention recommendations\n6. Mitigation steps for affected servers\n\nUse only bullet points, no markdown.\nAlright, let's break this down.\n\nThe user is a cybersecurity analyst who wants a precise analysis of an SSH brute-force attack scenario. They specified using the MITRE ATT&CK framework and structured responses with specific sections. \n\nFirst, I need to classify the attack. Brute-force attacks fall under the \"Initial Access\" tactic in ATT&CK. The technique here would be TA0001 for Initial Access. Looking at specific techniques, brute-forcing SSH typically is T1110 (Brute Force). So that's the classification.\n\nImmediate containment actions should be quick and effective. Blocking those IPs via firewall or router makes sense to stop the attack immediately. Disconnecting the DMZ servers from the network adds another layer of protection while investigation happens. Monitoring for any subsequent attacks is crucial, so keeping an eye on logs and setting up alerts would help catch any bypass attempts.\n\nNext, the detection rule should be based on what was observed. The key fields are timestamp, destination IP (since it's a DMZ), source address (those 47 IPs), dest port as 22 for SSH, and using event types like failed login or authentication failure. The logic here would trigger an alert if, over the past 30 minutes, there are multiple failed attempts from those IPs targeting port 22.\n\nFor root cause, I need to ask why this attack was possible. Was the detection delay because of missing rules? Are SSH services exposed unnecessarily? Weak user credentials might be making brute-force easier. Are logs being captured and monitored properly?\n\nPrevention-wise, securing SSH with something like multi-factor authentication would add a layer beyond just passwords. Rate-limiting and account lockout after failed attempts can slow down attackers. Moving the service off port 22 to something less common reduces exposure, and enforcing strong password policies makes brute-forcing harder.\n\nFinally, mitigation steps for affected servers include changing all SSH-related credentials, checking for any unauthorized access by reviewing logs, installing a Web Application Firewall (WAF) tailored for SSH, and monitoring server statuses both in real-time and with anomaly detection tools to catch any future issues quickly.\n\nPutting it all together in bullet points as specified. The user wanted precision and references to frameworks, so making sure each point aligns with MITRE and best practices here is key.\n</think>\n\n### 1. Classification (MITRE ATT&CK tactic + technique ID)  \n- **"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 19.2,
+      "groups": [
+        "security",
+        "reasoning"
+      ]
+    }
+  ],
+  "prompts": {
+    "override": null,
+    "library": {
+      "general": "You are a helpful assistant. Answer concisely.\n\nList the 7 OSI model layers from...",
+      "coding": "You are a code assistant. Write clean, production-quality code.\n\nWrite a Python ...",
+      "security": "You are a cybersecurity analyst. Be precise and cite frameworks.\n\nAnalyze the fo...",
+      "reasoning": "You are a structured reasoner. Think step-by-step before concluding.\n\nA hospital...",
+      "creative": "You are a creative writer with strong narrative voice.\n\nWrite the opening scene ...",
+      "vision": "You are a multimodal vision analyst. Describe what you see precisely.\n\nFor any i..."
+    },
+    "workspace_map": {
+      "auto": "general",
+      "auto-coding": "coding",
+      "auto-agentic": "coding",
+      "auto-spl": "coding",
+      "auto-security": "security",
+      "auto-redteam": "security",
+      "auto-blueteam": "security",
+      "auto-creative": "creative",
+      "auto-reasoning": "reasoning",
+      "auto-documents": "coding",
+      "auto-video": "creative",
+      "auto-music": "creative",
+      "auto-research": "reasoning",
+      "auto-vision": "vision",
+      "auto-data": "reasoning",
+      "auto-compliance": "reasoning",
+      "auto-mistral": "reasoning",
+      "auto-math": "reasoning",
+      "bench-devstral": "coding",
+      "bench-qwen3-coder-next": "coding",
+      "bench-qwen3-coder-30b": "coding",
+      "bench-llama33-70b": "coding",
+      "bench-phi4": "reasoning",
+      "bench-phi4-reasoning": "reasoning",
+      "bench-dolphin8b": "creative",
+      "bench-glm": "coding",
+      "bench-laguna": "reasoning",
+      "bench-gptoss": "reasoning",
+      "bench-granite41-8b": "coding",
+      "bench-granite41-30b": "coding",
+      "bench-qwen35-abliterated": "general",
+      "bench-omnicoder2": "coding",
+      "bench-negentropy": "reasoning",
+      "bench-qwen36-27b": "coding",
+      "bench-qwen36-35b-a3b": "coding",
+      "bench-olmo3-32b": "reasoning"
+    },
+    "group_map": {
+      "general": "general",
+      "coding": "coding",
+      "security": "security",
+      "reasoning": "reasoning",
+      "vision": "vision",
+      "creative": "creative"
+    },
+    "persona_category_map": {
+      "security": "security",
+      "redteam": "security",
+      "blueteam": "security",
+      "pentesting": "security",
+      "coding": "coding",
+      "software": "coding",
+      "development": "coding",
+      "systems": "coding",
+      "architecture": "reasoning",
+      "reasoning": "reasoning",
+      "research": "reasoning",
+      "analysis": "reasoning",
+      "creative": "creative",
+      "writing": "creative",
+      "vision": "vision",
+      "multimodal": "vision",
+      "data": "reasoning",
+      "compliance": "reasoning",
+      "general": "general",
+      "benchmark": "coding"
+    }
+  }
+}

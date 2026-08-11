@@ -1,0 +1,22 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-09T19:47:17.429137+00:00",
+  "models": [
+    "mlx-community/XYZ-Aquila-mini-OptiQ-4bit"
+  ],
+  "gates": [
+    "tps"
+  ],
+  "results": [
+    {
+      "test": "tps",
+      "model": "mlx-community/XYZ-Aquila-mini-OptiQ-4bit",
+      "error": "warmup failed",
+      "gate": "tps",
+      "engine": "omlx"
+    }
+  ]
+}

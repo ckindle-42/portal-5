@@ -1,0 +1,202 @@
+{
+  "probe": "grammar_livelock",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-06T00:45:56.161870+00:00",
+  "results": [
+    {
+      "test": "grammar_livelock",
+      "model": "gemma-4-e4b-it-4bit",
+      "iterations": 20,
+      "timeout_s": 45.0,
+      "livelock_count": 0,
+      "livelock_rate": 0.0,
+      "constrained_elapsed_p50": 0.713,
+      "constrained_elapsed_max": 0.727,
+      "cycles": [
+        {
+          "i": 0,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.922,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.709,
+          "constrained_error": null
+        },
+        {
+          "i": 1,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.869,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.716,
+          "constrained_error": null
+        },
+        {
+          "i": 2,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.865,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.714,
+          "constrained_error": null
+        },
+        {
+          "i": 3,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.889,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.713,
+          "constrained_error": null
+        },
+        {
+          "i": 4,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.891,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.71,
+          "constrained_error": null
+        },
+        {
+          "i": 5,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.968,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.713,
+          "constrained_error": null
+        },
+        {
+          "i": 6,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.96,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.71,
+          "constrained_error": null
+        },
+        {
+          "i": 7,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.839,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.711,
+          "constrained_error": null
+        },
+        {
+          "i": 8,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.86,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.715,
+          "constrained_error": null
+        },
+        {
+          "i": 9,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.896,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.727,
+          "constrained_error": null
+        },
+        {
+          "i": 10,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.95,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.711,
+          "constrained_error": null
+        },
+        {
+          "i": 11,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.898,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.711,
+          "constrained_error": null
+        },
+        {
+          "i": 12,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.921,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.7,
+          "constrained_error": null
+        },
+        {
+          "i": 13,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.794,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.711,
+          "constrained_error": null
+        },
+        {
+          "i": 14,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.955,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.715,
+          "constrained_error": null
+        },
+        {
+          "i": 15,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.855,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.715,
+          "constrained_error": null
+        },
+        {
+          "i": 16,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.939,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.716,
+          "constrained_error": null
+        },
+        {
+          "i": 17,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.812,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.719,
+          "constrained_error": null
+        },
+        {
+          "i": 18,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.959,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.718,
+          "constrained_error": null
+        },
+        {
+          "i": 19,
+          "unconstrained_ok": true,
+          "unconstrained_elapsed_s": 0.911,
+          "unconstrained_error": null,
+          "constrained_ok": true,
+          "constrained_elapsed_s": 0.707,
+          "constrained_error": null
+        }
+      ],
+      "verdict": "PASS",
+      "engine": "omlx"
+    }
+  ]
+}

@@ -1,0 +1,212 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260810T190627Z",
+  "candidate": "bench-muse-glimmer-30b",
+  "baselines": [
+    "auto-coding"
+  ],
+  "probes_run": [
+    "C1",
+    "C4"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "auto-coding",
+      "results": [
+        {
+          "probe_id": "C1/c1_1",
+          "workspace": "auto-coding",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 2,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C1/c1_2",
+          "workspace": "auto-coding",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 2,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "auto-coding",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "1. First, identify the network interfaces and IP addresses involved in the communication between nginx and the upstream server\n2. Capture TCP traffic on the interface where the communication occurs, focusing on the specific port 8080 used by the upstream service\n3. Filter for TCP connections that are establishing or maintaining communication with the upstream server on port 8080\n4. Analyze packet ",
+          "latency_s": 3.23286100000405,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "auto-coding",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "## 1. Numbered Plan\n\n1. **Identify the target**: Capture HTTPS traffic on port 443 going to the web application behind nginx\n2. **Filter for connection resets**: Look specifically for TCP RST (reset) flags in the packets\n3. **Include essential HTTP information**: Capture enough data to analyze the nature of the resets\n4. **Specify capture interface**: Target the network interface where traffic flo",
+          "latency_s": 5.199026709000464,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "auto-coding",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "## 1. Numbered Plan\n\n1. **Identify DNS traffic**: Capture packets on port 53 which is the standard DNS port\n2. **Filter for DNS queries and responses**: Use tcpdump filter to specifically target DNS traffic\n3. **Capture both request and response**: Ensure we capture the complete DNS transaction\n4. **Include timing information**: Focus on packet timestamps to analyze delays\n5. **Analyze captured da",
+          "latency_s": 4.880841625003086,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-muse-glimmer-30b",
+      "results": [
+        {
+          "probe_id": "C1/c1_1",
+          "workspace": "bench-muse-glimmer-30b",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 6,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_1",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C1/c1_2",
+          "workspace": "bench-muse-glimmer-30b",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 6,
+          "markers": {
+            "reached_resolution": false,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_2",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "bench-muse-glimmer-30b",
+          "format_score": 1.0,
+          "capability_score": 0.33,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "**Debugging a 502 from nginx is about proving whether nginx can even complete a TCP conversation with the upstream on 8080.**\n\n### Plan\n1. **Identify the interface and IPs.** Find which interface nginx uses to reach the upstream and the IP of the upstream. `ss -ltnp | grep 8080` / `ip addr`. Same host = `lo`, different host = `eth0`.\n2. **Start a capture between nginx -> upstream:8080** and reprod",
+          "latency_s": 107.1545662080025,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": -0.67
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "bench-muse-glimmer-30b",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "**Intermittently slow behind nginx on 443 is almost always TCP/TLS layer, not HTTP content.**\n\n### 1. Numbered plan\n1. **Pick the interface and target.** Identify the NIC nginx is listening on `ip -o link show` and the server IP you want to watch.\n2. **Capture with a BPF filter that keeps the pcap small but grabs all TCP control flags on 443.** Write to file, don't dump to stdout. Limit time/size.",
+          "latency_s": 137.19414150000375,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": -1.0
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "bench-muse-glimmer-30b",
+          "format_score": 1.0,
+          "capability_score": 0.33,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "**1. Numbered plan**\n\n1. **Identify the interface and target.** Find the network interface the service uses: `ip a` / `ifconfig`. Note the service client IP or hostname you want to watch.\n2. **Start a focused capture.** Run tcpdump with timestamps, no name resolution and full packets only for port 53. Write to a file so you can re-analyze without losing packets.\n3. **Reproduce the timeout.** Exerc",
+          "latency_s": 84.65332187500462,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": -0.34
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-08-10T19:16:36.226313+00:00"
+}

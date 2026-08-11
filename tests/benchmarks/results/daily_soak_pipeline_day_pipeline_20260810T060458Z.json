@@ -1,0 +1,229 @@
+{
+  "task": "TASK_DAILY_WORK_FLEET_SOAK_V1",
+  "path": "pipeline",
+  "engine": "pipeline-routed",
+  "duration_s": 10800,
+  "concurrency": 3,
+  "elapsed_s": 300.9,
+  "total": 19,
+  "ok": 19,
+  "failures": 0,
+  "by_workspace": {
+    "auto-documents": {
+      "ok": 3,
+      "fail": 0
+    },
+    "auto-spl": {
+      "ok": 1,
+      "fail": 0
+    },
+    "auto-daily": {
+      "ok": 1,
+      "fail": 0
+    },
+    "auto-research": {
+      "ok": 3,
+      "fail": 0
+    },
+    "auto-coding": {
+      "ok": 4,
+      "fail": 0
+    },
+    "auto-compliance": {
+      "ok": 4,
+      "fail": 0
+    },
+    "auto-security": {
+      "ok": 2,
+      "fail": 0
+    },
+    "auto-creative": {
+      "ok": 1,
+      "fail": 0
+    }
+  },
+  "by_served_backend": {
+    "ollama-general": {
+      "ok": 3,
+      "fail": 0
+    },
+    "ollama-coding": {
+      "ok": 1,
+      "fail": 0
+    },
+    "omlx-general": {
+      "ok": 1,
+      "fail": 0
+    },
+    "omlx-reasoning": {
+      "ok": 7,
+      "fail": 0
+    },
+    "omlx-coding": {
+      "ok": 4,
+      "fail": 0
+    },
+    "omlx-security": {
+      "ok": 2,
+      "fail": 0
+    },
+    "omlx-creative": {
+      "ok": 1,
+      "fail": 0
+    }
+  },
+  "samples": [
+    {
+      "workspace": "auto-documents",
+      "served_backend": "ollama-general",
+      "ttft_s": 10.738,
+      "total_s": 13.673,
+      "tps": 8.1,
+      "t": 13.7
+    },
+    {
+      "workspace": "auto-spl",
+      "served_backend": "ollama-coding",
+      "ttft_s": 23.131,
+      "total_s": 30.765,
+      "tps": 11.1,
+      "t": 44.4
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "ollama-general",
+      "ttft_s": 12.397,
+      "total_s": 25.9,
+      "tps": 19.5,
+      "t": 70.3
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "ollama-general",
+      "ttft_s": 18.423,
+      "total_s": 25.397,
+      "tps": 3.9,
+      "t": 95.7
+    },
+    {
+      "workspace": "auto-daily",
+      "served_backend": "omlx-general",
+      "ttft_s": 92.346,
+      "total_s": 106.938,
+      "tps": 0.9,
+      "t": 106.9
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 14.334,
+      "total_s": 21.759,
+      "tps": 8.5,
+      "t": 128.7
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 8.317,
+      "total_s": 49.409,
+      "tps": 1.8,
+      "t": 145.1
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": null,
+      "total_s": 8.784,
+      "tps": 1.8,
+      "t": 153.9
+    },
+    {
+      "workspace": "auto-security",
+      "served_backend": "omlx-security",
+      "ttft_s": 92.512,
+      "total_s": 163.736,
+      "tps": 9.2,
+      "t": 163.7
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": null,
+      "total_s": 5.361,
+      "tps": 3.0,
+      "t": 169.1
+    },
+    {
+      "workspace": "auto-security",
+      "served_backend": "omlx-security",
+      "ttft_s": 2.4,
+      "total_s": 26.621,
+      "tps": 6.9,
+      "t": 180.6
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 0.519,
+      "total_s": 2.619,
+      "tps": 27.9,
+      "t": 183.2
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 8.445,
+      "total_s": 25.537,
+      "tps": 20.9,
+      "t": 194.6
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 9.917,
+      "total_s": 68.556,
+      "tps": 9.4,
+      "t": 197.3
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": null,
+      "total_s": 6.936,
+      "tps": 2.3,
+      "t": 204.2
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": null,
+      "total_s": 1.798,
+      "tps": 9.5,
+      "t": 206.0
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 0.557,
+      "total_s": 25.449,
+      "tps": 0.0,
+      "t": 208.6
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 19.257,
+      "total_s": 31.797,
+      "tps": 12.2,
+      "t": 240.4
+    },
+    {
+      "workspace": "auto-creative",
+      "served_backend": "omlx-creative",
+      "ttft_s": 54.777,
+      "total_s": 54.777,
+      "tps": 0.0,
+      "t": 249.4
+    }
+  ]
+}

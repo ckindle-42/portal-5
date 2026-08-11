@@ -1,0 +1,44 @@
+{
+  "probe": "vision",
+  "engine": "ollama",
+  "url": "http://localhost:11434",
+  "started": "2026-08-06T01:04:41.143091+00:00",
+  "results": [
+    {
+      "test": "vision",
+      "probe": "shape_color",
+      "model": "gemma4:e4b-it-qat-ctx8k",
+      "verdict": "FAIL",
+      "detail": "HTTP 400: {\"error\":\"json: cannot unmarshal array into Go struct field ChatRequest.messages.content of type string\"}",
+      "ttft_s": null,
+      "elapsed_s": 0.005,
+      "tps": null,
+      "error": "HTTP 400: {\"error\":\"json: cannot unmarshal array into Go struct field ChatRequest.messages.content of type string\"}",
+      "engine": "ollama"
+    },
+    {
+      "test": "vision",
+      "probe": "bar_count",
+      "model": "gemma4:e4b-it-qat-ctx8k",
+      "verdict": "FAIL",
+      "detail": "HTTP 400: {\"error\":\"json: cannot unmarshal array into Go struct field ChatRequest.messages.content of type string\"}",
+      "ttft_s": null,
+      "elapsed_s": 0.004,
+      "tps": null,
+      "error": "HTTP 400: {\"error\":\"json: cannot unmarshal array into Go struct field ChatRequest.messages.content of type string\"}",
+      "engine": "ollama"
+    },
+    {
+      "test": "vision",
+      "probe": "ocr_text",
+      "model": "gemma4:e4b-it-qat-ctx8k",
+      "verdict": "FAIL",
+      "detail": "HTTP 400: {\"error\":\"json: cannot unmarshal array into Go struct field ChatRequest.messages.content of type string\"}",
+      "ttft_s": null,
+      "elapsed_s": 0.004,
+      "tps": null,
+      "error": "HTTP 400: {\"error\":\"json: cannot unmarshal array into Go struct field ChatRequest.messages.content of type string\"}",
+      "engine": "ollama"
+    }
+  ]
+}

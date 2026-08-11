@@ -1,0 +1,42 @@
+======================================================================
+Portal 5 — Comprehensive TPS Benchmark
+======================================================================
+  WARNING: stale Docker images — run './launch.sh rebuild' before trusting results:
+    portal-pipeline (33m behind HEAD)
+    mcp-services (157m behind HEAD)
+Hardware: {"platform": "Darwin", "machine": "arm64", "unified_memory_gb": 64.0, "cpu": "Apple M4 Pro"}
+Prompts: 7 categories (coding, creative, general, math, reasoning, security, vision)
+Max tokens: 256  |  Runs per model: 5
+Mode: pipeline  |  Order: size  |  Cooldown: 10s
+
+Configured (from backends.yaml + persona YAMLs):
+  Ollama models: 125
+  Workspaces:    92
+  Personas:      138
+  Total to test: ~217 (mode=pipeline)
+
+Backends:
+  Ollama     (http://localhost:11434):    available
+  Pipeline   (http://localhost:9099):  available
+
+── Pipeline Workspace Tests ──
+
+  Pipeline workspaces to test: 1
+    [1/1] bench-jackrong-dsv4-9b ... (warm-up) 35.6 t/s  (5/5 ok)
+
+======================================================================
+AVAILABILITY REPORT
+======================================================================
+  Pipeline (workspaces): 1 configured | 1 passed | 0 failed
+======================================================================
+
+=========================================================================================================
+Workspace                      Avg TPS    Q-Score   TPS×Q    Tokens   Runs    
+=========================================================================================================
+bench-jackrong-dsv4-9b         35.6       0.67      23.9     256      5/5
+=========================================================================================================
+
+Total: 1/1 passed (1 total) in 42s
+
+  Cleaning up: unloading all models from memory ... ok
+Results: /Users/chris/projects/portal-5/tests/benchmarks/results/bench_tps_20260810T194749Z.json

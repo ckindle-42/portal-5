@@ -1,0 +1,92 @@
+======================================================================
+Portal 5 — Comprehensive TPS Benchmark
+======================================================================
+  WARNING: stale Docker images — run './launch.sh rebuild' before trusting results:
+    portal-pipeline (4315m behind HEAD)
+    mcp-services (4314m behind HEAD)
+Hardware: {"platform": "Darwin", "machine": "arm64", "unified_memory_gb": 64.0, "cpu": "Apple M4 Pro"}
+Prompts: 7 categories (coding, creative, general, math, reasoning, security, vision)
+Max tokens: 256  |  Runs per model: 5
+Mode: direct  |  Order: size  |  Cooldown: 10s
+
+Configured (from backends.yaml + persona YAMLs):
+  Ollama models: 121
+  Workspaces:    89
+  Personas:      138
+  Total to test: ~121 (mode=direct)
+
+Backends:
+  Ollama     (http://localhost:11434):    available
+  Pipeline   (http://localhost:9099):  available
+
+── Ollama Direct Tests ──
+
+  Ollama models configured: 121 (across 6 groups, order=size)
+  Ollama installed: 116/121
+  Ollama not installed: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k, phi4-mini, baronllm:q6_k, huihui_ai/tongyi-deepresearch-abliterated, phi4-mini-reasoning
+    [1/121] hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M (1GB) ... (warm-up) 98.4 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 42% — safe to proceed
+    [2/121] hf.co/Nguuma/security-slm-unsloth-1.5b:latest (1GB) ... (warm-up) 90.1 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 43% — safe to proceed
+    [3/121] hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF (2GB) ... (warm-up) 49.7 t/s  (5/5 ok)
+  ⚠ HIGH JITTER: cv=0.16 (stddev=8.16 avg=49.7)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 26% — safe to proceed
+    [4/121] llama3.2:3b (2GB) ... (warm-up) 47.7 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 25% — safe to proceed
+    [5/121] hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M (2GB) ... (warm-up) 34.7 t/s  (5/5 ok)
+  ⚠ HIGH JITTER: cv=0.16 (stddev=5.61 avg=34.7)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 7% — safe to proceed
+    [6/121] cybersecqwen-4b-toolfix:latest (2GB) ... (warm-up) 31.3 t/s  (5/5 ok)
+  ⚠ HIGH JITTER: cv=0.17 (stddev=5.21 avg=31.3)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 6% — safe to proceed
+    [7/121] hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M (2GB) ... (warm-up) 33.0 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 7% — safe to proceed
+    [8/121] llama3.2:3b-instruct-q8_0-ctx8k (3GB) ... (warm-up) 31.7 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 9% — safe to proceed
+    [9/121] hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M (4GB) ... (warm-up) 25.4 t/s  (5/5 ok)
+  ⚠ HIGH JITTER: cv=0.25 (stddev=6.41 avg=25.4)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 12% — safe to proceed
+    [10/121] hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M (4GB) ... (warm-up) 29.0 t/s  (5/5 ok)
+  ⚠ HIGH JITTER: cv=0.19 (stddev=5.38 avg=29.0)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 16% — safe to proceed
+    [11/121] hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k (4GB) ... (warm-up) 29.4 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 18% — safe to proceed
+    [12/121] dolphin-llama3:8b (5GB) ... (warm-up) 28.8 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 21% — safe to proceed
+    [13/121] granite4.1:8b (5GB) ... (warm-up) 20.5 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 9% — safe to proceed
+    [14/121] granite4.1:8b-ctx16k (5GB) ... (warm-up) 20.2 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 11% — safe to proceed
+    [15/121] granite4.1:8b-ctx8k (5GB) ... (warm-up) 19.6 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 11% — safe to proceed
+    [16/121] lfm2.5:8b (5GB) ... (warm-up) 94.1 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 15% — safe to proceed
+    [17/121] lfm2.5:8b-ctx8k (5GB) ... (warm-up) 89.6 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 15% — safe to proceed
+    [18/121] hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M (5GB) ... (warm-up) 95.8 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 19% — safe to proceed
+    [19/121] sylink/sylink:8b (5GB) ... (warm-up) 11.7 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 24% — safe to proceed
+    [20/121] meta-secalign-8b-q4_k_m:latest (5GB) ... (warm-up) 22.7 t/s  (5/5 ok)
+    ollama idle (memory clear) + 10s cooldown ... ok
+  [drain bench] Clear at 32% — safe to proceed
+    [21/121] sylink/sylink:8b-ctx8k (5GB) ... (warm-up) 

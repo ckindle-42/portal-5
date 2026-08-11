@@ -1,0 +1,340 @@
+{
+  "timestamp": "2026-08-11T05:57:12.161212+00:00",
+  "mode": "direct",
+  "order": "size",
+  "cooldown_s": 10.0,
+  "runs_per_model": 3,
+  "spec_decoding": "unspecified",
+  "kv_quant_tag": "unspecified",
+  "total_wall_time_s": 0,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "ollama_models_configured": 127,
+    "workspaces_configured": 94,
+    "personas_configured": 138
+  },
+  "backends": {
+    "ollama": {
+      "url": "http://localhost:11434"
+    },
+    "pipeline": {
+      "url": "http://localhost:9099"
+    }
+  },
+  "results": [
+    {
+      "model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 109.1,
+      "min_tps": 98.7,
+      "max_tps": 127.5,
+      "stddev_tps": 15.96,
+      "cv": 0.146,
+      "avg_completion_tokens": 33,
+      "avg_elapsed_s": 0.31,
+      "avg_ttft_s": 0.083,
+      "routed_model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 109.1,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested lfm2.5-1.2b-instruct-gguf:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 0.39,
+          "prompt_tokens": 0,
+          "completion_tokens": 39,
+          "tps": 101.2,
+          "time_to_first_token_s": 0.133,
+          "response_model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+          "response_text": "1. Layer 4 \u2013 Application  \n2. Layer 5 \u2013 Presentation  \n3. Layer 6 \u2013 Session  \n4. Layer 7 \u2013 Network  \n5. Layer 6 \u2013 Transport  \n6. Layer 4 \u2013 General Transport Services (TCP)  \n7. Layer 3 \u2013 Network Interface"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 0.25,
+          "prompt_tokens": 0,
+          "completion_tokens": 25,
+          "tps": 98.7,
+          "time_to_first_token_s": 0.058,
+          "response_model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+          "response_text": "1. Layer 2: Presentation  \n2. Layer 3: Session  \n3. Layer 4: Transport  \n4. Layer 5: Network  \n5. Layer 6: Data Link  \n6. Layer 7: Application  "
+        },
+        {
+          "run": 3,
+          "elapsed_s": 0.28,
+          "prompt_tokens": 0,
+          "completion_tokens": 36,
+          "tps": 127.5,
+          "time_to_first_token_s": 0.059,
+          "response_model": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+          "response_text": "1. Layer 7 \u2013 Application  \n2. Layer 6 \u2013 Presentation  \n3. Layer 5 \u2013 Session  \n4. Layer 4 \u2013 Transport  \n5. Layer 3 \u2013 Network  \n6. Layer 2 \u2013 Data Link  \n7. Layer 1 \u2013 Physical"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 0.7,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 105.9,
+      "min_tps": 103.6,
+      "max_tps": 108.4,
+      "stddev_tps": 2.41,
+      "cv": 0.023,
+      "avg_completion_tokens": 185,
+      "avg_elapsed_s": 1.75,
+      "avg_ttft_s": 0.125,
+      "routed_model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+      "prompt_category": "general",
+      "quality_score": 0.29,
+      "tps_quality": 30.7,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested security-slm-unsloth-1.5b:latest",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.79,
+          "prompt_tokens": 0,
+          "completion_tokens": 194,
+          "tps": 108.4,
+          "time_to_first_token_s": 0.167,
+          "response_model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+          "response_text": "\n\nThe seven-layer OSI model hierarchy from core to edge computing is:\n\n- **Layer 1 | Network Interface**: Unique physical input/output ports on the computing device. Example: RS232A connector, USB cable, or PCIe slot.\n- **Layer 2 | Physical Network**: Shared wires, connectors, and cables that deliver signals across devices. Fibre-Copter was the original copper-cable",
+          "reasoning_text": "\nStep 1 - Identify that this is a multi-layer communication diagram problem and that the user wants an organized presentation.\nStep 2 - Recognize that providing a clear hierarchical structure helps lay people down the path from physical devices through hardware, networking through protocols, to application software on top.\nStep 3 - Select a consistent standard naming format (Layer N <name> Protocol/Technology) so comparison across technical layers is straightforward.\nStep 4 - Ensure each layer covers all possible modes of operation: normal communication with no disruption, collision in physical signals causing interference, isolated communication channels due to separation of physical and logical paths, and the physical machine's hardware restrictions.\nStep 5 - Structure each entry with a clear number (Layer 1-7), protocol name for reference, and technology as technical shorthand that users can quickly understand what does/does or is done.\n"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.72,
+          "prompt_tokens": 0,
+          "completion_tokens": 182,
+          "tps": 105.7,
+          "time_to_first_token_s": 0.103,
+          "response_model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+          "response_text": "",
+          "reasoning_text": "\nStep 1 - Identify the seven OSI layers in order, starting at physical ( Layer 1 ) and moving to transport layer ( Layer 7 ).\n\nLayer 1: Physical Network (Network Layer)\n- Role: describe data path from input to output, physical characteristics of cables, connectors.\n- Standard name: Network Interface Level\n- Object: MAC address, IP address, port number.\n\nLayer 2: Transport Layer (Network Layer)\n- Role: handle link layer protocols - IP v4/8 addressing, TCP/IP protocol suite.\n- Standard name: Network Layer\n- Object: IPv4 address ranges, DNS look-up, TCP connection setup.\n\nLayer 3: Session Control Layer (Security Layer)\n- Role: manage sessions and authenticate communication.\n- Standard name: Session Management Level\n- Object: TCP/Ack transfer scheme, Sockets in Linux.\n\nLayer 4: Presentation Layer (Network Layer again - Core Service Layer)\n- Role: deliver raw data from the session manager back to the user.\n- Standard name: Network Core Layer\n- Object: Telnet, Telnet-like shell commands, socket.io for Python.\n\nLayer 5: Error Control Layer (Security Layer)\n- Role: detect and respond against network errors; no recovery from crashes.\n- Standard"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.73,
+          "prompt_tokens": 0,
+          "completion_tokens": 179,
+          "tps": 103.6,
+          "time_to_first_token_s": 0.104,
+          "response_model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+          "response_text": "\n\nLayer 1 ( Physical Signal): Layer 1 ( physical bit plane) --- Single layer bus model (SDN), Ethernet/TMCP/DMCP. [Physical switch mesh, T7 devices]. Layer 2 (Logical Bus): WEP/T1/T2/RSA family protocol (Wi-Fi standard). Layer 3 (Logical Controller): Layer 3 provides state information about the network connection - \"how\" the user is being acted upon, not \"who\". Network traffic. [Network MAC address mapping.] Layer 4 (Core Service Level): Core services are defined per network segment, each of small radius with clear \"what services it runs\", \"what is its security model, and \"what should happen if a break occurs.\" Small-radius, secure, isolated. Layer 5 (Layer",
+          "reasoning_text": "\nStep 1 - Identify the seven OSI navigation layers (OSI Model Core Layers).\nStep 2 - Each layer must be specified in order from down to up.\nStep 3 - For each layer, include the standard name (physical or logical), protocol number(s) + family name, and sample implementations or reference names that I can explain to someone whose technical knowledge is limited.\nStep 4 - Ensure each entry is a single line with minimal words without markdown.\n"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 0.9,
+      "groups": [
+        "general",
+        "security"
+      ]
+    },
+    {
+      "model": "llama3.2:3b",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 46.8,
+      "min_tps": 43.5,
+      "max_tps": 51.1,
+      "stddev_tps": 3.91,
+      "cv": 0.084,
+      "avg_completion_tokens": 64,
+      "avg_elapsed_s": 1.38,
+      "avg_ttft_s": 0.163,
+      "routed_model": "llama3.2:3b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 46.8,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested llama3.2:3b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.47,
+          "prompt_tokens": 0,
+          "completion_tokens": 64,
+          "tps": 43.5,
+          "time_to_first_token_s": 0.212,
+          "response_model": "llama3.2:3b",
+          "response_text": "Here are the 7 OSI model layers listed from bottom to top:\n\n1. Layer 1 - Physical (FP).\n   Protocol: Ethernet.\n\n2. Layer 2 - Data Link.\n   Protocol: Ethernet/IP.\n\n3. Layer 3 - Network.\n   Protocol: IP(SIP).\n\n4. Layer 4 - Transport.\n   Protocol: TCP/UDP.\n\n5. Layer 5 - Session.\n   Protocol: NetBIOS.\n\n6. Layer 6 - Presentation.\n   Protocol: SSL/TLS.\n\n7. Layer 7 - Application (AP).\n   Protocol: HTTP/SMTP."
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.08,
+          "prompt_tokens": 0,
+          "completion_tokens": 55,
+          "tps": 51.1,
+          "time_to_first_token_s": 0.132,
+          "response_model": "llama3.2:3b",
+          "response_text": "Here are the 7 OSI model layers listed from bottom to top:\n\n1. **Layer 1** - Physical Layer\n2. **Layer 2** - Data Link Layer\n3. **Layer 3** - Network Layer\n4. **Layer 4** - Transport Layer\n5. **Layer 5** - Session Layer\n6. **Layer 6** - Presentation Layer\n7. **Layer 7** - Application Layer"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.6,
+          "prompt_tokens": 0,
+          "completion_tokens": 73,
+          "tps": 45.7,
+          "time_to_first_token_s": 0.145,
+          "response_model": "llama3.2:3b",
+          "response_text": "Here's the list of 7 OSI model layers:\n\n1. Layer 1: Physical Layer (PPL)\n   Example Protocol: Ethernet\n\n2. Layer 2: Data Link Layer (DLL)\n   Example Protocol: IEEE 802.3\n\n3. Layer 3: Network Layer (NL)\n   Example Protocol: IPv4\n\n4. Layer 4: Transport Layer (TL)\n   Example Protocol: TCP/IP\n\n5. Layer 5: Session Layer (SL)\n   Example Protocol: SOCKS \n\n6. Layer 6: Presentation Layer (PL)\n   Example Protocol: SSL/TLS\n\n7. Layer 7: Application Layer (AL)\n   Example Protocol: HTTP"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 1.8,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 42.7,
+      "min_tps": 37.3,
+      "max_tps": 48.4,
+      "stddev_tps": 5.55,
+      "cv": 0.13,
+      "avg_completion_tokens": 85,
+      "avg_elapsed_s": 2.03,
+      "avg_ttft_s": 0.148,
+      "routed_model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 42.7,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested fastcontext-1.0-4b-sft-q4_k_m-gguf:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 2.23,
+          "prompt_tokens": 0,
+          "completion_tokens": 83,
+          "tps": 37.3,
+          "time_to_first_token_s": 0.226,
+          "response_model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "1. Layer 1 \u2014 Physical Layer \u2014 Ethernet (IEEE 802.3), USB\n2. Layer 2 \u2014 Data Link Layer \u2014 PPP (Point-to-Point Protocol), Ethernet (IEEE 802.3/802.11)\n3. Layer 3 \u2014 Network Layer \u2014 IP (TCP/IP), ICMP, BGP\n4. Layer 4 \u2014 Transport Layer \u2014 TCP, UDP\n5. Layer 5 \u2014 Session Layer \u2014 NetBIOS, PTP (Peer-to-Peer Transport Protocol)\n6. Layer 6 \u2014 Presentation Layer \u2014 SSL/TLS, PPTP, MIME, JPEG, PNG\n7. Layer 7 \u2014 Application Layer \u2014 HTTP, FTP, SMTP, DNS, SSH, SNMP, DHCP\n"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.26,
+          "prompt_tokens": 0,
+          "completion_tokens": 96,
+          "tps": 42.5,
+          "time_to_first_token_s": 0.108,
+          "response_model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "1. Layer 1 - Physical Layer: Ethernet (IEEE 802.3), fiber optic cabling\n2. Layer 2 - Data Link Layer: Wi-Fi (802.11), Point-to-Point Protocol (PPP)\n3. Layer 3 - Network Layer: Internet Protocol (IP), Routing Information Protocol (RIP)\n4. Layer 4 - Transport Layer: Transmission Control Protocol (TCP), User Datagram Protocol (UDP)\n5. Layer 5 - Session Layer: Pseudo-random number generation (PRNG) for session keys (symmetric encryption)\n6. Layer 6 - Presentation Layer: Secure Sockets Layer (SSL), Transport Layer Security (TLS)\n7. Layer 7 - Application Layer: Hypertext Transfer Protocol (HTTP), HyperText Transfer Protocol Secure (HTTPS)\n<tool_call>"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.59,
+          "prompt_tokens": 0,
+          "completion_tokens": 77,
+          "tps": 48.4,
+          "time_to_first_token_s": 0.111,
+          "response_model": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+          "response_text": "",
+          "reasoning_text": "1) Layer 1 - Physical Layer \u2014 Ethernet (e.g., IEEE 802.3)\n2) Layer 2 - Data Link Layer \u2014 ARP (Address Resolution Protocol)\n3) Layer 3 - Network Layer \u2014 IP (Internet Protocol)\n4) Layer 4 - Transport Layer \u2014 TCP (Transmission Control Protocol)\n5) Layer 5 - Session Layer \u2014 RPC (Remote Procedure Call)\n6) Layer 6 - Presentation Layer \u2014 TLS (Transport Layer Security)\n7) Layer 7 - Application Layer \u2014 HTTP (Hypertext Transfer Protocol)\n"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 2.4,
+      "groups": [
+        "general",
+        "coding"
+      ]
+    },
+    {
+      "model": "cybersecqwen-4b-toolfix:latest",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 39.5,
+      "min_tps": 33.2,
+      "max_tps": 47.6,
+      "stddev_tps": 7.35,
+      "cv": 0.186,
+      "avg_completion_tokens": 63,
+      "avg_elapsed_s": 1.59,
+      "avg_ttft_s": 0.161,
+      "routed_model": "cybersecqwen-4b-toolfix:latest",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 39.5,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested cybersecqwen-4b-toolfix:latest",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.62,
+          "prompt_tokens": 0,
+          "completion_tokens": 54,
+          "tps": 33.2,
+          "time_to_first_token_s": 0.267,
+          "response_model": "cybersecqwen-4b-toolfix:latest",
+          "response_text": "1) Layer 1 - Physical: Ethernet  \n2) Layer 2 - Data Link: Wi-Fi (IEEE 802.11)  \n3) Layer 3 - Network: IP (TCP/IP, IPv4/IPv6)  \n4) Layer 4 - Transport: TCP or UDP  \n5) Layer 5 - Session: NetBIOS or PPTP  \n6) Layer 6 - Presentation: SSL/TLS or JPEG  \n7) Layer 7 - Application: HTTP, FTP"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.51,
+          "prompt_tokens": 0,
+          "completion_tokens": 57,
+          "tps": 37.8,
+          "time_to_first_token_s": 0.106,
+          "response_model": "cybersecqwen-4b-toolfix:latest",
+          "response_text": "1) Layer 1 \u2013 Physical; Ethernet (IEEE 802.3)\n2) Layer 2 \u2013 Data Link; PPP (Point-to-Point Protocol)\n3) Layer 3 \u2013 Network; IP (Internet Protocol)\n4) Layer 4 \u2013 Transport; TCP/IP (Transmission Control Protocol)\n5) Layer 5 \u2013 Session; NetBIOS\n6) Layer 6 \u2013 Presentation; SSL/TLS (Secure Sockets Layer/Transport Layer Security)\n7) Layer 7 \u2013 Application; HTTP/HTTPS"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.64,
+          "prompt_tokens": 0,
+          "completion_tokens": 78,
+          "tps": 47.6,
+          "time_to_first_token_s": 0.11,
+          "response_model": "cybersecqwen-4b-toolfix:latest",
+          "response_text": "1) Layer 1 \u2013 Physical Layer \u2192 Ethernet\n2) Layer 2 \u2013 Data Link Layer \u2192 PPP (Point-to-Point Protocol)\n3) Layer 3 \u2013 Network Layer \u2192 IP (Internet Protocol)\n4) Layer 4 \u2013 Transport Layer \u2192 TCP (Transmission Control Protocol)\n5) Layer 5 \u2013 Session Layer \u2192 NetBIOS (Network Basic Input/Output System)\n6) Layer 6 \u2013 Presentation Layer \u2192 SSL/TLS (Secure Sockets Layer / Transport Layer Security)\n7) Layer 7 \u2013 Application Layer \u2192 HTTP (Hypertext Transfer Protocol)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 2.4,
+      "groups": [
+        "general",
+        "security"
+      ]
+    }
+  ]
+}

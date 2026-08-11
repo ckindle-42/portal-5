@@ -1,0 +1,107 @@
+{
+  "generated_at": "2026-05-14T23:45:57.953840+00:00",
+  "workspace": "auto-coding",
+  "audit_prompt": "What time is it in Paris right now?",
+  "audit_tool": "get_current_time",
+  "results": [
+    {
+      "model": "qwen3.5:9b",
+      "backend": "ollama",
+      "memory_gb": 5.5,
+      "outcome": "tool_call",
+      "http_status": 200,
+      "detail": "emitted 1 tool_call(s); first=get_current_time",
+      "elapsed_s": 8.17
+    },
+    {
+      "model": "qwen3-coder:30b",
+      "backend": "ollama",
+      "memory_gb": 18.0,
+      "outcome": "tool_call",
+      "http_status": 200,
+      "detail": "emitted 1 tool_call(s); first=get_current_time",
+      "elapsed_s": 8.33
+    },
+    {
+      "model": "omnicoder2:9b-q4_k_m",
+      "backend": "ollama",
+      "memory_gb": 5.5,
+      "outcome": "api_error",
+      "http_status": 400,
+      "detail": "{\"error\":{\"message\":\"registry.ollama.ai/library/omnicoder2:9b-q4_k_m does not support tools\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":null}}\n",
+      "elapsed_s": 0.09
+    },
+    {
+      "model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+      "backend": "ollama",
+      "memory_gb": 10.0,
+      "outcome": "api_error",
+      "http_status": 400,
+      "detail": "{\"error\":{\"message\":\"registry.ollama.ai/library/deepseek-coder-v2:16b-lite-instruct-q4_K_M does not support tools\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":null}}\n",
+      "elapsed_s": 0.06
+    },
+    {
+      "model": "devstral:24b",
+      "backend": "ollama",
+      "memory_gb": 16.0,
+      "outcome": "tool_call",
+      "http_status": 200,
+      "detail": "emitted 1 tool_call(s); first=get_current_time",
+      "elapsed_s": 22.4
+    },
+    {
+      "model": "llama3.3:70b-q4_k_m",
+      "backend": "ollama",
+      "memory_gb": 40.0,
+      "outcome": "api_error",
+      "http_status": 400,
+      "detail": "{\"error\":{\"message\":\"registry.ollama.ai/library/llama3.3:70b-q4_k_m does not support tools\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":null}}\n",
+      "elapsed_s": 0.08
+    },
+    {
+      "model": "huihui_ai/qwen3.5-abliterated:9b",
+      "backend": "ollama",
+      "memory_gb": 5.5,
+      "outcome": "tool_call",
+      "http_status": 200,
+      "detail": "emitted 1 tool_call(s); first=get_current_time",
+      "elapsed_s": 8.11
+    },
+    {
+      "model": "dolphin-llama3:8b",
+      "backend": "ollama",
+      "memory_gb": 5.5,
+      "outcome": "api_error",
+      "http_status": 400,
+      "detail": "{\"error\":{\"message\":\"registry.ollama.ai/library/dolphin-llama3:8b does not support tools\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":null}}\n",
+      "elapsed_s": 0.08
+    },
+    {
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "backend": "ollama",
+      "memory_gb": 2.5,
+      "outcome": "text_only",
+      "http_status": 200,
+      "detail": "no tool_calls; text response 121 chars",
+      "elapsed_s": 2.69
+    },
+    {
+      "model": "granite4.1:8b",
+      "backend": "ollama",
+      "memory_gb": 5.5,
+      "outcome": "tool_call",
+      "http_status": 200,
+      "detail": "emitted 1 tool_call(s); first=get_current_time",
+      "elapsed_s": 4.74
+    },
+    {
+      "model": "huihui_ai/Qwen3.6-abliterated:27b",
+      "backend": "ollama",
+      "memory_gb": 16.0,
+      "outcome": "tool_call",
+      "http_status": 200,
+      "detail": "emitted 1 tool_call(s); first=get_current_time",
+      "elapsed_s": 26.53
+    }
+  ]
+}

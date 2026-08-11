@@ -1,0 +1,9 @@
+{
+  "generated_at": "2026-07-28T23:22:56Z",
+  "model": "qwen36-fable-fusion-711:Q4_K_M",
+  "audit_prompt": "What time is it in Paris right now?",
+  "audit_tool": "get_current_time",
+  "outcome": "tool_call",
+  "detail": "emitted 1 tool_call(s); first=get_current_time",
+  "elapsed_s": 7.79
+}

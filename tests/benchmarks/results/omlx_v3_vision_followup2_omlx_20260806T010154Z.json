@@ -1,0 +1,116 @@
+{
+  "probe": "vision",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-06T01:01:54.573456+00:00",
+  "results": [
+    {
+      "test": "vision",
+      "probe": "shape_color",
+      "model": "gemma-4-e4b-it-4bit",
+      "verdict": "PASS",
+      "detail": "A red circle.",
+      "ttft_s": 1.479,
+      "elapsed_s": 1.479,
+      "tps": 2.7,
+      "error": null,
+      "engine": "omlx"
+    },
+    {
+      "test": "vision",
+      "probe": "bar_count",
+      "model": "gemma-4-e4b-it-4bit",
+      "verdict": "PASS",
+      "detail": "5",
+      "ttft_s": 0.694,
+      "elapsed_s": 0.694,
+      "tps": 1.4,
+      "error": null,
+      "engine": "omlx"
+    },
+    {
+      "test": "vision",
+      "probe": "ocr_text",
+      "model": "gemma-4-e4b-it-4bit",
+      "verdict": "PASS",
+      "detail": "PORTAL5",
+      "ttft_s": 0.682,
+      "elapsed_s": 0.683,
+      "tps": 4.4,
+      "error": null,
+      "engine": "omlx"
+    },
+    {
+      "test": "vision",
+      "probe": "shape_color",
+      "model": "supergemma4-26b-abliterated-multimodal-mlx-4bit",
+      "verdict": "PASS",
+      "detail": "A red circle",
+      "ttft_s": 1.589,
+      "elapsed_s": 1.589,
+      "tps": 1.9,
+      "error": null,
+      "engine": "omlx"
+    },
+    {
+      "test": "vision",
+      "probe": "bar_count",
+      "model": "supergemma4-26b-abliterated-multimodal-mlx-4bit",
+      "verdict": "PASS",
+      "detail": "5",
+      "ttft_s": 1.438,
+      "elapsed_s": 1.438,
+      "tps": 0.7,
+      "error": null,
+      "engine": "omlx"
+    },
+    {
+      "test": "vision",
+      "probe": "ocr_text",
+      "model": "supergemma4-26b-abliterated-multimodal-mlx-4bit",
+      "verdict": "PASS",
+      "detail": "PORTAL5",
+      "ttft_s": 1.461,
+      "elapsed_s": 1.461,
+      "tps": 2.1,
+      "error": null,
+      "engine": "omlx"
+    },
+    {
+      "test": "vision",
+      "probe": "shape_color",
+      "model": "Qwen3-VL-32B-Instruct-4bit",
+      "verdict": "PASS",
+      "detail": "Red circle",
+      "ttft_s": 2.485,
+      "elapsed_s": 2.485,
+      "tps": 0.8,
+      "error": null,
+      "engine": "omlx"
+    },
+    {
+      "test": "vision",
+      "probe": "bar_count",
+      "model": "Qwen3-VL-32B-Instruct-4bit",
+      "verdict": "PASS",
+      "detail": "5",
+      "ttft_s": 1.954,
+      "elapsed_s": 1.954,
+      "tps": 0.5,
+      "error": null,
+      "engine": "omlx"
+    },
+    {
+      "test": "vision",
+      "probe": "ocr_text",
+      "model": "Qwen3-VL-32B-Instruct-4bit",
+      "verdict": "PASS",
+      "detail": "PORTAL5",
+      "ttft_s": 1.727,
+      "elapsed_s": 1.815,
+      "tps": 1.7,
+      "error": null,
+      "engine": "omlx"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-06-21T21:19:11.547154+00:00",
+  "workspace": "auto-coding",
+  "audit_prompt": "What time is it in Paris right now?",
+  "audit_tool": "get_current_time",
+  "results": [
+    {
+      "model": "qwen3-coder-next:latest",
+      "backend": "ollama",
+      "memory_gb": 6.0,
+      "outcome": "tool_call",
+      "http_status": 200,
+      "detail": "emitted 1 tool_call(s); first=get_current_time",
+      "elapsed_s": 28.77
+    }
+  ]
+}

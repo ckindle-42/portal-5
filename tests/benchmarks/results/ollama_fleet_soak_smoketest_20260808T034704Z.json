@@ -1,0 +1,146 @@
+{
+  "task": "omlx-fleet-soak-v1",
+  "engine": "ollama",
+  "started": "2026-08-08T03:47:04.526564+00:00",
+  "elapsed_s": 120.2,
+  "duration_s": 90,
+  "concurrency": 3,
+  "model_weights": {
+    "coder": [
+      "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      34
+    ],
+    "granite-8b": [
+      "granite4.1:8b-ctx16k",
+      11
+    ],
+    "vulnllm": [
+      "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      10
+    ],
+    "deepseek-r1": [
+      "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      9
+    ],
+    "qwen-vl": [
+      "qwen3-vl:32b-ctx8k",
+      8
+    ],
+    "tongyi-research": [
+      "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+      8
+    ],
+    "granite-30b": [
+      "granite4.1:30b-ctx64k",
+      7
+    ],
+    "gemma-daily": [
+      "gemma4:26b-a4b-it-qat-ctx8k",
+      4
+    ],
+    "hauhaucs-creative": [
+      "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k",
+      4
+    ],
+    "qwen35-9b": [
+      "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+      3
+    ]
+  },
+  "total_requests": 7,
+  "ok": 7,
+  "failures": 0,
+  "failure_samples": [],
+  "per_model": {
+    "coder": {
+      "ok": 2,
+      "fail": 0,
+      "tps_mean": 16.1
+    },
+    "granite-8b": {
+      "ok": 1,
+      "fail": 0,
+      "tps_mean": 28.0
+    },
+    "vulnllm": {
+      "ok": 2,
+      "fail": 0,
+      "tps_mean": 13.5
+    },
+    "deepseek-r1": {
+      "ok": 0,
+      "fail": 0,
+      "tps_mean": null
+    },
+    "qwen-vl": {
+      "ok": 0,
+      "fail": 0,
+      "tps_mean": null
+    },
+    "tongyi-research": {
+      "ok": 0,
+      "fail": 0,
+      "tps_mean": null
+    },
+    "granite-30b": {
+      "ok": 0,
+      "fail": 0,
+      "tps_mean": null
+    },
+    "gemma-daily": {
+      "ok": 0,
+      "fail": 0,
+      "tps_mean": null
+    },
+    "hauhaucs-creative": {
+      "ok": 0,
+      "fail": 0,
+      "tps_mean": null
+    },
+    "qwen35-9b": {
+      "ok": 2,
+      "fail": 0,
+      "tps_mean": 14.6
+    }
+  },
+  "health_snapshots": [
+    {
+      "t": 0.0,
+      "wall": "2026-08-08T03:47:04.566508+00:00",
+      "loaded_count": 0,
+      "current_model_memory": 0,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": []
+    },
+    {
+      "t": 60.1,
+      "wall": "2026-08-08T03:48:04.583709+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 33501258707,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k"
+      ]
+    },
+    {
+      "t": 120.1,
+      "wall": "2026-08-08T03:49:04.591914+00:00",
+      "loaded_count": 3,
+      "current_model_memory": 33501258707,
+      "final_ceiling": null,
+      "status": "healthy",
+      "loaded_models": [
+        "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+        "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k"
+      ]
+    }
+  ],
+  "outages": [],
+  "peak_memory_bytes": 33501258707,
+  "ceiling_bytes": null
+}

@@ -1,0 +1,86 @@
+{
+  "task": "P5-FUT-013 v3 Phase-0 re-evaluation",
+  "omlx_version": "0.5.4",
+  "engine": "omlx",
+  "url": "http://localhost:8085",
+  "started": "2026-08-05T20:09:41.956582+00:00",
+  "models": [
+    "Qwen3-Coder-30B-A3B-Instruct-4bit",
+    "gemma-4-e4b-it-4bit",
+    "Llama-3.2-3B-Instruct-8bit",
+    "Phi-4-reasoning-plus-MLX-4bit",
+    "huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+    "Qwen3-VL-32B-Instruct-4bit"
+  ],
+  "gates": [
+    "shootout"
+  ],
+  "results": [
+    {
+      "test": "shootout",
+      "models": [
+        "Qwen3-Coder-30B-A3B-Instruct-4bit",
+        "gemma-4-e4b-it-4bit",
+        "Llama-3.2-3B-Instruct-8bit",
+        "Phi-4-reasoning-plus-MLX-4bit",
+        "huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+        "Qwen3-VL-32B-Instruct-4bit"
+      ],
+      "duration_s": 120,
+      "concurrency": 6,
+      "wall_s": 358.8,
+      "total_requests": 10,
+      "ok": 8,
+      "failures": 2,
+      "throughput_rps": 0.02,
+      "ttft_p50": 14.938,
+      "ttft_p95": 25.496,
+      "ttft_p99": 25.496,
+      "tps_mean": 10.9,
+      "tps_cv": 0.378,
+      "truncated": 3,
+      "avg_response_chars": 4156,
+      "avg_reasoning_chars": 6028.0,
+      "per_model": {
+        "Qwen3-Coder-30B-A3B-Instruct-4bit": {
+          "requests": 1,
+          "ttft_p50": 12.581,
+          "ttft_p95": 12.581,
+          "tps_mean": 5.5
+        },
+        "gemma-4-e4b-it-4bit": {
+          "requests": 2,
+          "ttft_p50": 1.293,
+          "ttft_p95": 20.879,
+          "tps_mean": 6.5
+        },
+        "Llama-3.2-3B-Instruct-8bit": {
+          "requests": 2,
+          "ttft_p50": 0.861,
+          "ttft_p95": 22.93,
+          "tps_mean": 12.8
+        },
+        "Phi-4-reasoning-plus-MLX-4bit": {
+          "requests": 2,
+          "ttft_p50": 2.91,
+          "ttft_p95": 14.938,
+          "tps_mean": 15.2
+        },
+        "huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit": {
+          "requests": 1,
+          "ttft_p50": 25.496,
+          "ttft_p95": 25.496,
+          "tps_mean": 12.8
+        },
+        "Qwen3-VL-32B-Instruct-4bit": {
+          "requests": 0,
+          "ttft_p50": null,
+          "ttft_p95": null,
+          "tps_mean": null
+        }
+      },
+      "gate": "shootout",
+      "engine": "omlx"
+    }
+  ]
+}

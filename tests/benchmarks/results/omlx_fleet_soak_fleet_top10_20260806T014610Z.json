@@ -1,0 +1,1840 @@
+{
+  "task": "omlx-fleet-soak-v1",
+  "started": "2026-08-06T01:46:10.414320+00:00",
+  "elapsed_s": 10831.7,
+  "duration_s": 10800,
+  "concurrency": 5,
+  "model_weights": {
+    "coder": [
+      "Qwen3-Coder-30B-A3B-Instruct-4bit",
+      34
+    ],
+    "granite-8b": [
+      "granite-4.1-8b-mxfp8",
+      11
+    ],
+    "vulnllm": [
+      "VulnLLM-R-7B-4bit",
+      10
+    ],
+    "deepseek-r1": [
+      "DeepSeek-R1-0528-Qwen3-8B-4bit",
+      9
+    ],
+    "qwen-vl": [
+      "Qwen3-VL-32B-Instruct-4bit",
+      8
+    ],
+    "tongyi-research": [
+      "Tongyi-DeepResearch-30B-A3B-abliterated-4bit",
+      8
+    ],
+    "granite-30b": [
+      "granite-4.1-30b-4bit",
+      7
+    ],
+    "gemma-daily": [
+      "gemma-4-26b-a4b-it-QAT-4bit",
+      4
+    ],
+    "hauhaucs-creative": [
+      "Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit",
+      4
+    ],
+    "qwen35-9b": [
+      "huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+      3
+    ]
+  },
+  "total_requests": 1685,
+  "ok": 986,
+  "failures": 699,
+  "failure_samples": [
+    {
+      "model": "vulnllm",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~45.97 GB peak (current 45.96 GB + KV+SDPA 10.61 MB) but metal_cap ceiling is 44.65 GB. Raise kernel iogpu.wi",
+      "t": 10568.834744875086
+    },
+    {
+      "model": "granite-30b",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load granite-4.1-30b-4bit: projected memory 63.07GB would exceed the metal_cap memory ceiling 47.00GB (current: 45.43GB, model: 17.64GB). Raise kernel iogpu.wired_limit_mb ",
+      "t": 10569.212273915997
+    },
+    {
+      "model": "coder",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill context too large for available memory (preflight safety guard, kv_len=120, min_chunk=32): predicted peak would require ~42",
+      "t": 10595.00838158303
+    },
+    {
+      "model": "granite-8b",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load granite-4.1-8b-mxfp8: projected memory 51.08GB would exceed the metal_cap memory ceiling 47.00GB (current: 42.21GB, model: 8.87GB). Raise kernel iogpu.wired_limit_mb i",
+      "t": 10595.014768125024
+    },
+    {
+      "model": "gemma-daily",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load gemma-4-26b-a4b-it-QAT-4bit: projected memory 57.48GB would exceed the metal_cap memory ceiling 47.00GB (current: 42.22GB, model: 15.26GB). Raise kernel iogpu.wired_li",
+      "t": 10595.019856041064
+    },
+    {
+      "model": "vulnllm",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~46.15 GB peak (current 46.14 GB + KV+SDPA 6.02 MB) but metal_cap ceiling is 44.65 GB. Raise kernel iogpu.wir",
+      "t": 10597.171698249993
+    },
+    {
+      "model": "gemma-daily",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load gemma-4-26b-a4b-it-QAT-4bit: projected memory 61.14GB would exceed the metal_cap memory ceiling 47.00GB (current: 45.87GB, model: 15.26GB). Raise kernel iogpu.wired_li",
+      "t": 10597.536047916044
+    },
+    {
+      "model": "deepseek-r1",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill context too large for available memory (preflight safety guard, kv_len=132, min_chunk=32): predicted peak would require ~43",
+      "t": 10643.756664958084
+    },
+    {
+      "model": "granite-8b",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~47.82 GB peak (current 47.81 GB + KV+SDPA 12.93 MB) but metal_cap ceiling is 44.65 GB. Raise kernel iogpu.wi",
+      "t": 10648.05046633305
+    },
+    {
+      "model": "granite-30b",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load granite-4.1-30b-4bit: projected memory 49.71GB would exceed the metal_cap memory ceiling 47.00GB (committed: 32.06GB, model: 17.64GB). Raise kernel iogpu.wired_limit_m",
+      "t": 10663.883874583058
+    },
+    {
+      "model": "granite-8b",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load granite-4.1-8b-mxfp8: projected memory 47.45GB would exceed the metal_cap memory ceiling 47.00GB (current: 38.58GB, model: 8.87GB). Raise kernel iogpu.wired_limit_mb i",
+      "t": 10701.97537400003
+    },
+    {
+      "model": "granite-8b",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load granite-4.1-8b-mxfp8: projected memory 47.51GB would exceed the metal_cap memory ceiling 47.00GB (current: 38.64GB, model: 8.87GB). Raise kernel iogpu.wired_limit_mb i",
+      "t": 10710.363395333057
+    },
+    {
+      "model": "qwen-vl",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load Qwen3-VL-32B-Instruct-4bit: projected memory 52.79GB would exceed the metal_cap memory ceiling 47.00GB (committed: 33.60GB, model: 19.19GB). Raise kernel iogpu.wired_l",
+      "t": 10741.112655416015
+    },
+    {
+      "model": "granite-30b",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load granite-4.1-30b-4bit: projected memory 56.36GB would exceed the metal_cap memory ceiling 47.00GB (current: 38.72GB, model: 17.64GB). Raise kernel iogpu.wired_limit_mb ",
+      "t": 10741.120895583066
+    },
+    {
+      "model": "granite-30b",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load granite-4.1-30b-4bit: projected memory 53.70GB would exceed the metal_cap memory ceiling 47.00GB (current: 36.05GB, model: 17.64GB). Raise kernel iogpu.wired_limit_mb ",
+      "t": 10757.537393583101
+    },
+    {
+      "model": "hauhaucs-creative",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit: projected memory 59.44GB would exceed the metal_cap memory ceiling 47.00GB (current: 40.35GB, model: 19.08GB). Raise kernel i",
+      "t": 10771.297636708012
+    },
+    {
+      "model": "granite-8b",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load granite-4.1-8b-mxfp8: projected memory 48.85GB would exceed the metal_cap memory ceiling 47.00GB (current: 39.99GB, model: 8.87GB). Raise kernel iogpu.wired_limit_mb i",
+      "t": 10775.193968041101
+    },
+    {
+      "model": "qwen-vl",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load Qwen3-VL-32B-Instruct-4bit: projected memory 59.17GB would exceed the metal_cap memory ceiling 47.00GB (current: 39.99GB, model: 19.19GB). Raise kernel iogpu.wired_lim",
+      "t": 10775.199500750052
+    },
+    {
+      "model": "gemma-daily",
+      "error": "HTTP 507: {\"error\":{\"message\":\"Cannot load gemma-4-26b-a4b-it-QAT-4bit: projected memory 55.25GB would exceed the metal_cap memory ceiling 47.00GB (current: 39.99GB, model: 15.26GB). Raise kernel iogpu.wired_li",
+      "t": 10775.204495875048
+    },
+    {
+      "model": "granite-8b",
+      "error": "HTTP 400: {\"error\":{\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill context too large for available memory (preflight safety guard, kv_len=36, min_chunk=32): predicted peak would require ~44.",
+      "t": 10798.969598208088
+    }
+  ],
+  "per_model": {
+    "coder": {
+      "ok": 445,
+      "fail": 148,
+      "tps_mean": 11.8
+    },
+    "granite-8b": {
+      "ok": 74,
+      "fail": 121,
+      "tps_mean": 12.3
+    },
+    "vulnllm": {
+      "ok": 143,
+      "fail": 37,
+      "tps_mean": 21.4
+    },
+    "deepseek-r1": {
+      "ok": 120,
+      "fail": 22,
+      "tps_mean": 16.7
+    },
+    "qwen-vl": {
+      "ok": 54,
+      "fail": 93,
+      "tps_mean": 6.5
+    },
+    "tongyi-research": {
+      "ok": 47,
+      "fail": 75,
+      "tps_mean": 15.5
+    },
+    "granite-30b": {
+      "ok": 21,
+      "fail": 92,
+      "tps_mean": 7.2
+    },
+    "gemma-daily": {
+      "ok": 24,
+      "fail": 43,
+      "tps_mean": 13.2
+    },
+    "hauhaucs-creative": {
+      "ok": 26,
+      "fail": 49,
+      "tps_mean": 10.9
+    },
+    "qwen35-9b": {
+      "ok": 32,
+      "fail": 19,
+      "tps_mean": 16.1
+    }
+  },
+  "health_snapshots": [
+    {
+      "t": 0.1,
+      "wall": "2026-08-06T01:46:10.482840+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596847,
+      "status": "healthy"
+    },
+    {
+      "t": 60.1,
+      "wall": "2026-08-06T01:47:10.494395+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 35411603566,
+      "status": "healthy"
+    },
+    {
+      "t": 120.1,
+      "wall": "2026-08-06T01:48:10.505157+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 34959759680,
+      "status": "healthy"
+    },
+    {
+      "t": 180.1,
+      "wall": "2026-08-06T01:49:10.517283+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 34959759680,
+      "status": "healthy"
+    },
+    {
+      "t": 240.1,
+      "wall": "2026-08-06T01:50:10.529957+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 39458323740,
+      "status": "healthy"
+    },
+    {
+      "t": 300.1,
+      "wall": "2026-08-06T01:51:10.543998+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43368564918,
+      "status": "healthy"
+    },
+    {
+      "t": 360.1,
+      "wall": "2026-08-06T01:52:10.556850+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32850258042,
+      "status": "healthy"
+    },
+    {
+      "t": 420.2,
+      "wall": "2026-08-06T01:53:10.549391+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 27828760461,
+      "status": "healthy"
+    },
+    {
+      "t": 480.2,
+      "wall": "2026-08-06T01:54:10.559377+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 540.2,
+      "wall": "2026-08-06T01:55:10.574682+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 600.2,
+      "wall": "2026-08-06T01:56:10.588231+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 35411603566,
+      "status": "healthy"
+    },
+    {
+      "t": 660.2,
+      "wall": "2026-08-06T01:57:10.602818+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 35228332907,
+      "status": "healthy"
+    },
+    {
+      "t": 720.2,
+      "wall": "2026-08-06T01:58:10.617931+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 29938262099,
+      "status": "healthy"
+    },
+    {
+      "t": 780.2,
+      "wall": "2026-08-06T01:59:10.636633+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 840.3,
+      "wall": "2026-08-06T02:00:10.657546+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 900.3,
+      "wall": "2026-08-06T02:01:10.675590+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 960.3,
+      "wall": "2026-08-06T02:02:10.691082+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 1020.3,
+      "wall": "2026-08-06T02:03:10.700730+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43028902056,
+      "status": "healthy"
+    },
+    {
+      "t": 1080.3,
+      "wall": "2026-08-06T02:04:10.722067+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43368564918,
+      "status": "healthy"
+    },
+    {
+      "t": 1140.4,
+      "wall": "2026-08-06T02:05:10.749121+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 27560187234,
+      "status": "healthy"
+    },
+    {
+      "t": 1200.4,
+      "wall": "2026-08-06T02:06:10.761488+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 1260.4,
+      "wall": "2026-08-06T02:07:10.771733+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40578815383,
+      "status": "healthy"
+    },
+    {
+      "t": 1320.4,
+      "wall": "2026-08-06T02:08:10.785821+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40918478245,
+      "status": "healthy"
+    },
+    {
+      "t": 1380.4,
+      "wall": "2026-08-06T02:09:10.825661+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 1440.4,
+      "wall": "2026-08-06T02:10:10.835795+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 37348822102,
+      "status": "healthy"
+    },
+    {
+      "t": 1500.5,
+      "wall": "2026-08-06T02:11:10.846325+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 25100035177,
+      "status": "healthy"
+    },
+    {
+      "t": 1560.5,
+      "wall": "2026-08-06T02:12:10.863404+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 35411603566,
+      "status": "healthy"
+    },
+    {
+      "t": 1620.5,
+      "wall": "2026-08-06T02:13:10.876074+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40578815383,
+      "status": "healthy"
+    },
+    {
+      "t": 1680.5,
+      "wall": "2026-08-06T02:14:10.893669+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 1740.5,
+      "wall": "2026-08-06T02:15:10.903620+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 1800.5,
+      "wall": "2026-08-06T02:16:10.913804+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 1860.5,
+      "wall": "2026-08-06T02:17:10.924290+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41828978541,
+      "status": "healthy"
+    },
+    {
+      "t": 1920.5,
+      "wall": "2026-08-06T02:18:10.936280+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41828978541,
+      "status": "healthy"
+    },
+    {
+      "t": 1980.5,
+      "wall": "2026-08-06T02:19:10.945072+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 2040.6,
+      "wall": "2026-08-06T02:20:10.959587+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 27560187234,
+      "status": "healthy"
+    },
+    {
+      "t": 2100.6,
+      "wall": "2026-08-06T02:21:10.981792+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 34959759680,
+      "status": "healthy"
+    },
+    {
+      "t": 2160.6,
+      "wall": "2026-08-06T02:22:10.995065+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 2220.6,
+      "wall": "2026-08-06T02:23:11.007281+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 2280.8,
+      "wall": "2026-08-06T02:24:11.223024+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 27560187234,
+      "status": "healthy"
+    },
+    {
+      "t": 2340.8,
+      "wall": "2026-08-06T02:25:11.239465+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32398414156,
+      "status": "healthy"
+    },
+    {
+      "t": 2400.9,
+      "wall": "2026-08-06T02:26:11.250995+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 2460.9,
+      "wall": "2026-08-06T02:27:11.258067+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 34959759680,
+      "status": "healthy"
+    },
+    {
+      "t": 2520.9,
+      "wall": "2026-08-06T02:28:11.272479+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41489315679,
+      "status": "healthy"
+    },
+    {
+      "t": 2581.2,
+      "wall": "2026-08-06T02:29:11.594091+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 21679351310,
+      "status": "healthy"
+    },
+    {
+      "t": 2641.2,
+      "wall": "2026-08-06T02:30:11.614498+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 2701.2,
+      "wall": "2026-08-06T02:31:11.632541+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 2761.3,
+      "wall": "2026-08-06T02:32:11.654901+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 22878352515,
+      "status": "healthy"
+    },
+    {
+      "t": 2821.3,
+      "wall": "2026-08-06T02:33:11.667276+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32666987383,
+      "status": "healthy"
+    },
+    {
+      "t": 2881.3,
+      "wall": "2026-08-06T02:34:11.723467+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36896978216,
+      "status": "healthy"
+    },
+    {
+      "t": 2941.3,
+      "wall": "2026-08-06T02:35:11.735719+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 22878352515,
+      "status": "healthy"
+    },
+    {
+      "t": 3001.4,
+      "wall": "2026-08-06T02:36:11.726655+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 27376916575,
+      "status": "healthy"
+    },
+    {
+      "t": 3061.4,
+      "wall": "2026-08-06T02:37:11.746151+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 3121.4,
+      "wall": "2026-08-06T02:38:11.758259+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38927970155,
+      "status": "healthy"
+    },
+    {
+      "t": 3181.4,
+      "wall": "2026-08-06T02:39:11.775634+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32398414156,
+      "status": "healthy"
+    },
+    {
+      "t": 3241.4,
+      "wall": "2026-08-06T02:40:11.790306+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 3301.4,
+      "wall": "2026-08-06T02:41:11.802987+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 3361.4,
+      "wall": "2026-08-06T02:42:11.820757+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 3421.7,
+      "wall": "2026-08-06T02:43:12.090145+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 34429406095,
+      "status": "healthy"
+    },
+    {
+      "t": 3481.7,
+      "wall": "2026-08-06T02:44:12.103982+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 34429406095,
+      "status": "healthy"
+    },
+    {
+      "t": 3541.8,
+      "wall": "2026-08-06T02:45:12.123778+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 3602.1,
+      "wall": "2026-08-06T02:46:12.522097+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43368564918,
+      "status": "healthy"
+    },
+    {
+      "t": 3662.2,
+      "wall": "2026-08-06T02:47:12.537620+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38927970155,
+      "status": "healthy"
+    },
+    {
+      "t": 3722.2,
+      "wall": "2026-08-06T02:48:12.606196+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 34429406095,
+      "status": "healthy"
+    },
+    {
+      "t": 3782.2,
+      "wall": "2026-08-06T02:49:12.621501+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 39267633017,
+      "status": "healthy"
+    },
+    {
+      "t": 3842.3,
+      "wall": "2026-08-06T02:50:12.635823+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 27376916575,
+      "status": "healthy"
+    },
+    {
+      "t": 3902.3,
+      "wall": "2026-08-06T02:51:12.655132+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 3962.3,
+      "wall": "2026-08-06T02:52:12.672725+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 4022.3,
+      "wall": "2026-08-06T02:53:12.683558+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 4082.3,
+      "wall": "2026-08-06T02:54:12.692512+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 4142.3,
+      "wall": "2026-08-06T02:55:12.699105+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40578815383,
+      "status": "healthy"
+    },
+    {
+      "t": 4202.8,
+      "wall": "2026-08-06T02:56:13.121970+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 39267633017,
+      "status": "healthy"
+    },
+    {
+      "t": 4262.8,
+      "wall": "2026-08-06T02:57:13.141173+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38927970155,
+      "status": "healthy"
+    },
+    {
+      "t": 4322.8,
+      "wall": "2026-08-06T02:58:13.159465+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 34429406095,
+      "status": "healthy"
+    },
+    {
+      "t": 4382.8,
+      "wall": "2026-08-06T02:59:13.169521+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43368565055,
+      "status": "healthy"
+    },
+    {
+      "t": 4442.8,
+      "wall": "2026-08-06T03:00:13.179741+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41822428053,
+      "status": "healthy"
+    },
+    {
+      "t": 4503.1,
+      "wall": "2026-08-06T03:01:13.479060+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41822428053,
+      "status": "healthy"
+    },
+    {
+      "t": 4563.1,
+      "wall": "2026-08-06T03:02:13.494488+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 28280866383,
+      "status": "healthy"
+    },
+    {
+      "t": 4623.1,
+      "wall": "2026-08-06T03:03:13.502524+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 37800928024,
+      "status": "healthy"
+    },
+    {
+      "t": 4683.2,
+      "wall": "2026-08-06T03:04:13.514662+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32962701102,
+      "status": "healthy"
+    },
+    {
+      "t": 4743.2,
+      "wall": "2026-08-06T03:05:13.529111+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38252771910,
+      "status": "healthy"
+    },
+    {
+      "t": 4803.2,
+      "wall": "2026-08-06T03:06:13.545858+00:00",
+      "model_count": 41,
+      "loaded_count": 5,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43090998832,
+      "status": "healthy"
+    },
+    {
+      "t": 4863.2,
+      "wall": "2026-08-06T03:07:13.561857+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 27560187234,
+      "status": "healthy"
+    },
+    {
+      "t": 4923.2,
+      "wall": "2026-08-06T03:08:13.574329+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41378056965,
+      "status": "healthy"
+    },
+    {
+      "t": 4983.2,
+      "wall": "2026-08-06T03:09:13.585155+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 27828760461,
+      "status": "healthy"
+    },
+    {
+      "t": 5043.8,
+      "wall": "2026-08-06T03:10:14.196236+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 50438539886,
+      "status": "healthy"
+    },
+    {
+      "t": 5105.0,
+      "wall": "2026-08-06T03:11:15.372354+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 46510813260,
+      "status": "healthy"
+    },
+    {
+      "t": 5165.0,
+      "wall": "2026-08-06T03:12:15.389192+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 39458323740,
+      "status": "healthy"
+    },
+    {
+      "t": 5225.1,
+      "wall": "2026-08-06T03:13:15.402038+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 28168423323,
+      "status": "healthy"
+    },
+    {
+      "t": 5285.1,
+      "wall": "2026-08-06T03:14:15.422607+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 37688484964,
+      "status": "healthy"
+    },
+    {
+      "t": 5345.1,
+      "wall": "2026-08-06T03:15:15.443052+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40578815383,
+      "status": "healthy"
+    },
+    {
+      "t": 5405.1,
+      "wall": "2026-08-06T03:16:15.453544+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40918478245,
+      "status": "healthy"
+    },
+    {
+      "t": 5465.1,
+      "wall": "2026-08-06T03:17:15.468999+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 5525.1,
+      "wall": "2026-08-06T03:18:15.489547+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43931667518,
+      "status": "healthy"
+    },
+    {
+      "t": 5585.2,
+      "wall": "2026-08-06T03:19:15.505811+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 5645.2,
+      "wall": "2026-08-06T03:20:15.532689+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41482765054,
+      "status": "healthy"
+    },
+    {
+      "t": 5705.2,
+      "wall": "2026-08-06T03:21:15.542889+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 5765.2,
+      "wall": "2026-08-06T03:22:15.569469+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 5825.2,
+      "wall": "2026-08-06T03:23:15.586982+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 5885.2,
+      "wall": "2026-08-06T03:24:15.608416+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 5945.3,
+      "wall": "2026-08-06T03:25:15.630133+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 28168423323,
+      "status": "healthy"
+    },
+    {
+      "t": 6005.3,
+      "wall": "2026-08-06T03:26:15.656820+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 37800928024,
+      "status": "healthy"
+    },
+    {
+      "t": 6065.3,
+      "wall": "2026-08-06T03:27:15.664577+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41822427916,
+      "status": "healthy"
+    },
+    {
+      "t": 6125.3,
+      "wall": "2026-08-06T03:28:15.678510+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 42274271802,
+      "status": "healthy"
+    },
+    {
+      "t": 6185.3,
+      "wall": "2026-08-06T03:29:15.690762+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 42274271802,
+      "status": "healthy"
+    },
+    {
+      "t": 6245.3,
+      "wall": "2026-08-06T03:30:15.705863+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 6305.4,
+      "wall": "2026-08-06T03:31:15.720391+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 27560187234,
+      "status": "healthy"
+    },
+    {
+      "t": 6365.4,
+      "wall": "2026-08-06T03:32:15.737318+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 6425.7,
+      "wall": "2026-08-06T03:33:16.026093+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 22878352515,
+      "status": "healthy"
+    },
+    {
+      "t": 6485.9,
+      "wall": "2026-08-06T03:34:16.292310+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38530337996,
+      "status": "healthy"
+    },
+    {
+      "t": 6546.0,
+      "wall": "2026-08-06T03:35:16.311675+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 22878352515,
+      "status": "healthy"
+    },
+    {
+      "t": 6606.0,
+      "wall": "2026-08-06T03:36:16.323140+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 6666.0,
+      "wall": "2026-08-06T03:37:16.341168+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 6726.0,
+      "wall": "2026-08-06T03:38:16.359865+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40918478245,
+      "status": "healthy"
+    },
+    {
+      "t": 6786.0,
+      "wall": "2026-08-06T03:39:16.373468+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38927970155,
+      "status": "healthy"
+    },
+    {
+      "t": 6846.1,
+      "wall": "2026-08-06T03:40:16.450625+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 6906.1,
+      "wall": "2026-08-06T03:41:16.463436+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 6966.1,
+      "wall": "2026-08-06T03:42:16.483188+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 7026.2,
+      "wall": "2026-08-06T03:43:16.519188+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 22538689653,
+      "status": "healthy"
+    },
+    {
+      "t": 7086.5,
+      "wall": "2026-08-06T03:44:16.853212+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32058751431,
+      "status": "healthy"
+    },
+    {
+      "t": 7146.5,
+      "wall": "2026-08-06T03:45:16.875786+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 25726071484,
+      "status": "healthy"
+    },
+    {
+      "t": 7206.5,
+      "wall": "2026-08-06T03:46:16.890969+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36037639873,
+      "status": "healthy"
+    },
+    {
+      "t": 7266.6,
+      "wall": "2026-08-06T03:47:16.898700+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 37688484964,
+      "status": "healthy"
+    },
+    {
+      "t": 7328.1,
+      "wall": "2026-08-06T03:48:18.458229+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41378056965,
+      "status": "healthy"
+    },
+    {
+      "t": 7388.1,
+      "wall": "2026-08-06T03:49:18.467579+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40918478245,
+      "status": "healthy"
+    },
+    {
+      "t": 7448.1,
+      "wall": "2026-08-06T03:50:18.479507+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 37688485101,
+      "status": "healthy"
+    },
+    {
+      "t": 7508.2,
+      "wall": "2026-08-06T03:51:18.496795+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 37800928024,
+      "status": "healthy"
+    },
+    {
+      "t": 7568.5,
+      "wall": "2026-08-06T03:52:18.866182+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38252771910,
+      "status": "healthy"
+    },
+    {
+      "t": 7628.5,
+      "wall": "2026-08-06T03:53:18.881652+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38592434772,
+      "status": "healthy"
+    },
+    {
+      "t": 7688.6,
+      "wall": "2026-08-06T03:54:18.890962+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41822427916,
+      "status": "healthy"
+    },
+    {
+      "t": 7748.6,
+      "wall": "2026-08-06T03:55:18.908731+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 39267633017,
+      "status": "healthy"
+    },
+    {
+      "t": 7808.6,
+      "wall": "2026-08-06T03:56:18.927811+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32398414156,
+      "status": "healthy"
+    },
+    {
+      "t": 7868.8,
+      "wall": "2026-08-06T03:57:19.102877+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40578815383,
+      "status": "healthy"
+    },
+    {
+      "t": 7928.8,
+      "wall": "2026-08-06T03:58:19.141716+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 7989.0,
+      "wall": "2026-08-06T03:59:19.287921+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 8049.0,
+      "wall": "2026-08-06T04:00:19.302209+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32398414156,
+      "status": "healthy"
+    },
+    {
+      "t": 8109.0,
+      "wall": "2026-08-06T04:01:19.315501+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 8169.0,
+      "wall": "2026-08-06T04:02:19.335977+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43368564918,
+      "status": "healthy"
+    },
+    {
+      "t": 8229.0,
+      "wall": "2026-08-06T04:03:19.353312+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36896978216,
+      "status": "healthy"
+    },
+    {
+      "t": 8289.0,
+      "wall": "2026-08-06T04:04:19.372574+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 34959759680,
+      "status": "healthy"
+    },
+    {
+      "t": 8349.1,
+      "wall": "2026-08-06T04:05:19.386496+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 8409.1,
+      "wall": "2026-08-06T04:06:19.396455+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 8469.9,
+      "wall": "2026-08-06T04:07:20.184939+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 46504262635,
+      "status": "healthy"
+    },
+    {
+      "t": 8529.9,
+      "wall": "2026-08-06T04:08:20.205243+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41822427916,
+      "status": "healthy"
+    },
+    {
+      "t": 8589.9,
+      "wall": "2026-08-06T04:09:20.172980+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41822427916,
+      "status": "healthy"
+    },
+    {
+      "t": 8650.2,
+      "wall": "2026-08-06T04:10:20.428902+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40918478245,
+      "status": "healthy"
+    },
+    {
+      "t": 8710.2,
+      "wall": "2026-08-06T04:11:20.437059+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40918478245,
+      "status": "healthy"
+    },
+    {
+      "t": 8770.2,
+      "wall": "2026-08-06T04:12:20.445081+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 8830.2,
+      "wall": "2026-08-06T04:13:20.467985+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38530337996,
+      "status": "healthy"
+    },
+    {
+      "t": 8890.2,
+      "wall": "2026-08-06T04:14:20.484276+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32850258179,
+      "status": "healthy"
+    },
+    {
+      "t": 8950.2,
+      "wall": "2026-08-06T04:15:20.493171+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 27828760598,
+      "status": "healthy"
+    },
+    {
+      "t": 9010.2,
+      "wall": "2026-08-06T04:16:20.511097+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 9070.3,
+      "wall": "2026-08-06T04:17:20.528745+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 9130.3,
+      "wall": "2026-08-06T04:18:20.543627+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 9190.3,
+      "wall": "2026-08-06T04:19:20.558369+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32058751294,
+      "status": "healthy"
+    },
+    {
+      "t": 9250.3,
+      "wall": "2026-08-06T04:20:20.569637+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40578815383,
+      "status": "healthy"
+    },
+    {
+      "t": 9310.7,
+      "wall": "2026-08-06T04:21:20.951138+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 9370.7,
+      "wall": "2026-08-06T04:22:20.974130+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36984200994,
+      "status": "healthy"
+    },
+    {
+      "t": 9430.7,
+      "wall": "2026-08-06T04:23:21.012727+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 32850258042,
+      "status": "healthy"
+    },
+    {
+      "t": 9490.8,
+      "wall": "2026-08-06T04:24:21.026206+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41482765054,
+      "status": "healthy"
+    },
+    {
+      "t": 9550.8,
+      "wall": "2026-08-06T04:25:21.031329+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43028902056,
+      "status": "healthy"
+    },
+    {
+      "t": 9610.8,
+      "wall": "2026-08-06T04:26:21.049843+00:00",
+      "model_count": 41,
+      "loaded_count": 4,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40138571774,
+      "status": "healthy"
+    },
+    {
+      "t": 9670.8,
+      "wall": "2026-08-06T04:27:21.060620+00:00",
+      "model_count": 41,
+      "loaded_count": 5,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 42187049024,
+      "status": "healthy"
+    },
+    {
+      "t": 9730.8,
+      "wall": "2026-08-06T04:28:21.078797+00:00",
+      "model_count": 41,
+      "loaded_count": 5,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 42187049024,
+      "status": "healthy"
+    },
+    {
+      "t": 9791.0,
+      "wall": "2026-08-06T04:29:21.215961+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 41370322131,
+      "status": "healthy"
+    },
+    {
+      "t": 9851.0,
+      "wall": "2026-08-06T04:30:21.231318+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40578815383,
+      "status": "healthy"
+    },
+    {
+      "t": 9911.0,
+      "wall": "2026-08-06T04:31:21.241490+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38927970155,
+      "status": "healthy"
+    },
+    {
+      "t": 9971.0,
+      "wall": "2026-08-06T04:32:21.257446+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43028902056,
+      "status": "healthy"
+    },
+    {
+      "t": 10031.0,
+      "wall": "2026-08-06T04:33:21.270293+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 10091.0,
+      "wall": "2026-08-06T04:34:21.289664+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38530337996,
+      "status": "healthy"
+    },
+    {
+      "t": 10151.2,
+      "wall": "2026-08-06T04:35:21.468913+00:00",
+      "model_count": 41,
+      "loaded_count": 1,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 18040125593,
+      "status": "healthy"
+    },
+    {
+      "t": 10211.2,
+      "wall": "2026-08-06T04:36:21.486105+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38641596710,
+      "status": "healthy"
+    },
+    {
+      "t": 10271.3,
+      "wall": "2026-08-06T04:37:21.497331+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 10332.1,
+      "wall": "2026-08-06T04:38:22.334428+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 44383773440,
+      "status": "healthy"
+    },
+    {
+      "t": 10392.1,
+      "wall": "2026-08-06T04:39:22.347742+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 27828760461,
+      "status": "healthy"
+    },
+    {
+      "t": 10452.1,
+      "wall": "2026-08-06T04:40:22.363716+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 10512.1,
+      "wall": "2026-08-06T04:41:22.378799+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43140160770,
+      "status": "healthy"
+    },
+    {
+      "t": 10572.1,
+      "wall": "2026-08-06T04:42:22.386247+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 43479823632,
+      "status": "healthy"
+    },
+    {
+      "t": 10632.2,
+      "wall": "2026-08-06T04:43:22.401468+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 10692.2,
+      "wall": "2026-08-06T04:44:22.418662+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 38530337996,
+      "status": "healthy"
+    },
+    {
+      "t": 10752.2,
+      "wall": "2026-08-06T04:45:22.428228+00:00",
+      "model_count": 41,
+      "loaded_count": 2,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 36080251323,
+      "status": "healthy"
+    },
+    {
+      "t": 10812.2,
+      "wall": "2026-08-06T04:46:22.434990+00:00",
+      "model_count": 41,
+      "loaded_count": 3,
+      "final_ceiling": 50465865728,
+      "current_model_memory": 40918478245,
+      "status": "healthy"
+    }
+  ],
+  "outages": [],
+  "peak_memory_bytes": 50438539886,
+  "ceiling_bytes": 50465865728
+}

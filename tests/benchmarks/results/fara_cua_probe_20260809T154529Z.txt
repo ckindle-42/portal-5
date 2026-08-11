@@ -1,0 +1,12 @@
+FAIL: no tool_call (native or inline) with an 'action' field emitted
+content: 
+thinking: The page shows a sign-in form requiring username and password. The user has not provided these credentials, so I cannot proceed without asking. This is a critical point because required personal information is missing.
+<tool_call>
+<function=computer_use>
+<parameter=action>
+ask_user_question>
+<parameter=text>
+Please provide the username and password to use for signing in.
+</parameter>
+</function>
+<

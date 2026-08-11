@@ -1,0 +1,9 @@
+{
+  "emitted_tool_call": true,
+  "action": "ask_user_question>\n<parameter=text>\nPlease provide the username and password to use for signing in.",
+  "action_supported": false,
+  "has_coordinate": true,
+  "raw_args": {
+    "action": "ask_user_question>\n<parameter=text>\nPlease provide the username and password to use for signing in."
+  }
+}

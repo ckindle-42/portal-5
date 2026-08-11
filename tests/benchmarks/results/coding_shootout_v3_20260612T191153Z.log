@@ -1,0 +1,165 @@
+
+=== PERSONA MATRIX SWEEP — workspace=auto-coding-bench ===
+  personas:  15  (sqlterminal, linuxterminal, pythoninterpreter, javascriptconsole, codereviewer, softwarequalityassurancetester, bugdiscoverycodeassistant, codereviewassistant, e2etestauthor, e2edebugger, fullstacksoftwaredeveloper, creativecoder, pythoncodegeneratorcleanoptimizedproduction-ready, devopsautomator, githubexpert)
+  models:    8  (smallest-first)
+  scenarios: 280
+  cells:     120
+
+  [1/8] model: ollama/laguna-xs.2:Q4_K_M  (6.0GB)
+    [1/15] sqlterminal                          PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (74.9s)
+    [2/15] linuxterminal                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (7.7s)
+    [3/15] pythoninterpreter                    PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (8.6s)
+    [4/15] javascriptconsole                    PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (11.9s)
+    [5/15] codereviewer                         PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (19.1s)
+    [6/15] softwarequalityassurancetester       PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (18.3s)
+    [7/15] bugdiscoverycodeassistant            PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (20.1s)
+    [8/15] codereviewassistant                  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (16.2s)
+    [9/15] e2etestauthor                        PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (7.0s)
+    [10/15] e2edebugger                          PASS=  0 WARN= 0 FAIL= 0 ERR= 1  (6.8s)
+    [11/15] fullstacksoftwaredeveloper           PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (18.9s)
+    [12/15] creativecoder                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (19.8s)
+    [13/15] pythoncodegeneratorcleanoptimizedproduction-ready  PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (18.9s)
+    [14/15] devopsautomator                      PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (19.0s)
+    [15/15] githubexpert                         PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (18.5s)
+
+  [2/8] model: ollama/glm-4.7-flash:Q4_K_M  (6.0GB)
+    [1/15] sqlterminal                          PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (25.3s)
+    [2/15] linuxterminal                        PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (17.4s)
+    [3/15] pythoninterpreter                    PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (16.1s)
+    [4/15] javascriptconsole                    PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (15.6s)
+    [5/15] codereviewer                         PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (17.7s)
+    [6/15] softwarequalityassurancetester       PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (17.0s)
+    [7/15] bugdiscoverycodeassistant            PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (19.0s)
+    [8/15] codereviewassistant                  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (17.5s)
+    [9/15] e2etestauthor                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (16.3s)
+    [10/15] e2edebugger                          PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (15.7s)
+    [11/15] fullstacksoftwaredeveloper           PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (19.4s)
+    [12/15] creativecoder                        PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (17.7s)
+    [13/15] pythoncodegeneratorcleanoptimizedproduction-ready  PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (17.3s)
+    [14/15] devopsautomator                      PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (17.8s)
+    [15/15] githubexpert                         PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (17.2s)
+
+  [3/8] model: ollama/devstral-small-2  (6.0GB)
+    [1/15] sqlterminal                          PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (17.5s)
+    [2/15] linuxterminal                        PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (10.7s)
+    [3/15] pythoninterpreter                    PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (5.8s)
+    [4/15] javascriptconsole                    PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (9.4s)
+    [5/15] codereviewer                         PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (50.6s)
+    [6/15] softwarequalityassurancetester       PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (48.3s)
+    [7/15] bugdiscoverycodeassistant            PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (47.8s)
+    [8/15] codereviewassistant                  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (34.6s)
+    [9/15] e2etestauthor                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (19.0s)
+    [10/15] e2edebugger                          PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (45.7s)
+    [11/15] fullstacksoftwaredeveloper           PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (50.2s)
+    [12/15] creativecoder                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (49.7s)
+    [13/15] pythoncodegeneratorcleanoptimizedproduction-ready  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (42.4s)
+    [14/15] devopsautomator                      PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (46.6s)
+    [15/15] githubexpert                         PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (47.6s)
+
+  [4/8] model: ollama/hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M  (6.0GB)
+    [1/15] sqlterminal                          PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (21.7s)
+    [2/15] linuxterminal                        PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (13.7s)
+    [3/15] pythoninterpreter                    PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (17.7s)
+    [4/15] javascriptconsole                    PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (8.4s)
+    [5/15] codereviewer                         PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (32.6s)
+    [6/15] softwarequalityassurancetester       PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (31.5s)
+    [7/15] bugdiscoverycodeassistant            PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (31.0s)
+    [8/15] codereviewassistant                  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (27.7s)
+    [9/15] e2etestauthor                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (30.7s)
+    [10/15] e2edebugger                          PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (29.7s)
+    [11/15] fullstacksoftwaredeveloper           PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (32.9s)
+    [12/15] creativecoder                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (16.9s)
+    [13/15] pythoncodegeneratorcleanoptimizedproduction-ready  PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (32.0s)
+    [14/15] devopsautomator                      PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (32.5s)
+    [15/15] githubexpert                         PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (31.0s)
+
+  [5/8] model: ollama/qwen3-coder-next  (6.0GB)
+    [1/15] sqlterminal                          PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (30.3s)
+    [2/15] linuxterminal                        PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (4.7s)
+    [3/15] pythoninterpreter                    PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (2.7s)
+    [4/15] javascriptconsole                    PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (2.0s)
+    [5/15] codereviewer                         PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (21.6s)
+    [6/15] softwarequalityassurancetester       PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (21.4s)
+    [7/15] bugdiscoverycodeassistant            PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (21.1s)
+    [8/15] codereviewassistant                  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (13.4s)
+    [9/15] e2etestauthor                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (13.0s)
+    [10/15] e2edebugger                          PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (20.3s)
+    [11/15] fullstacksoftwaredeveloper           PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (21.8s)
+    [12/15] creativecoder                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (21.7s)
+    [13/15] pythoncodegeneratorcleanoptimizedproduction-ready  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (12.6s)
+    [14/15] devopsautomator                      PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (15.6s)
+    [15/15] githubexpert                         PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (21.0s)
+
+  [6/8] model: ollama/hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M  (6.0GB)
+    [1/15] sqlterminal                          PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (26.7s)
+    [2/15] linuxterminal                        PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (4.9s)
+    [3/15] pythoninterpreter                    PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (2.9s)
+    [4/15] javascriptconsole                    PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (2.2s)
+    [5/15] codereviewer                         PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (21.0s)
+    [6/15] softwarequalityassurancetester       PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (20.5s)
+    [7/15] bugdiscoverycodeassistant            PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (20.1s)
+    [8/15] codereviewassistant                  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (13.6s)
+    [9/15] e2etestauthor                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (16.6s)
+    [10/15] e2edebugger                          PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (19.9s)
+    [11/15] fullstacksoftwaredeveloper           PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (21.5s)
+    [12/15] creativecoder                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (21.3s)
+    [13/15] pythoncodegeneratorcleanoptimizedproduction-ready  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (21.0s)
+    [14/15] devopsautomator                      PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (21.2s)
+    [15/15] githubexpert                         PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (20.3s)
+
+  [7/8] model: ollama/hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf  (16.0GB)
+    [1/15] sqlterminal                          PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (84.6s)
+    [2/15] linuxterminal                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (51.0s)
+    [3/15] pythoninterpreter                    PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (71.2s)
+    [4/15] javascriptconsole                    PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (30.2s)
+    [5/15] codereviewer                         PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (75.8s)
+    [6/15] softwarequalityassurancetester       PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (73.9s)
+    [7/15] bugdiscoverycodeassistant            PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (72.6s)
+    [8/15] codereviewassistant                  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (74.6s)
+    [9/15] e2etestauthor                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (72.0s)
+    [10/15] e2edebugger                          PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (70.1s)
+    [11/15] fullstacksoftwaredeveloper           PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (75.7s)
+    [12/15] creativecoder                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (74.8s)
+    [13/15] pythoncodegeneratorcleanoptimizedproduction-ready  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (74.0s)
+    [14/15] devopsautomator                      PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (75.2s)
+    [15/15] githubexpert                         PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (72.4s)
+
+  [8/8] model: ollama/qwen3-coder:30b-a3b-q4_K_M  (18.0GB)
+    [1/15] sqlterminal                          PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (17.4s)
+    [2/15] linuxterminal                        PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (3.1s)
+    [3/15] pythoninterpreter                    PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (1.1s)
+    [4/15] javascriptconsole                    PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (1.2s)
+    [5/15] codereviewer                         PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (13.3s)
+    [6/15] softwarequalityassurancetester       PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (10.0s)
+    [7/15] bugdiscoverycodeassistant            PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (12.4s)
+    [8/15] codereviewassistant                  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (6.1s)
+    [9/15] e2etestauthor                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (5.3s)
+    [10/15] e2edebugger                          PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (11.9s)
+    [11/15] fullstacksoftwaredeveloper           PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (13.3s)
+    [12/15] creativecoder                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (13.0s)
+    [13/15] pythoncodegeneratorcleanoptimizedproduction-ready  PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (8.5s)
+    [14/15] devopsautomator                      PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (13.1s)
+    [15/15] githubexpert                         PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (12.2s)
+
+=== SWEEP COMPLETE — 3212s ===
+
+wrote tests/benchmarks/results/coding_shootout_v3_20260612T191153Z.json
+
+--- MATRIX (PASS/WARN/FAIL per cell) ---
+                                                   | laguna-xs.2:Q4_K_M | glm-4.7-flash:Q4_K_M | devstral-small-2 | gemma-4-12B-coder-fable5 | qwen3-coder-next | huihui-ai_Qwen3-Coder-Ne | Qwopus3.6-27B-Coder-MTP- | qwen3-coder:30b-a3b-q4_K
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bugdiscoverycodeassistant                          | P1/W0/F0                 | P0/W0/F1                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                
+codereviewassistant                                | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                
+codereviewer                                       | P1/W0/F0                 | P1/W0/F0                 | P0/W0/F1                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                
+creativecoder                                      | P1/W0/F0                 | P0/W0/F1                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                
+devopsautomator                                    | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                
+e2edebugger                                        | P0/W0/F0                 | P0/W0/F1                 | P1/W0/F0                 | P1/W0/F0                 | P0/W0/F1                 | P1/W0/F0                 | P0/W0/F1                 | P1/W0/F0                
+e2etestauthor                                      | P0/W0/F1                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                
+fullstacksoftwaredeveloper                         | P0/W0/F1                 | P0/W0/F1                 | P1/W0/F0                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P1/W0/F0                 | P1/W0/F0                
+githubexpert                                       | P1/W0/F0                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                
+javascriptconsole                                  | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P0/W0/F1                
+linuxterminal                                      | P1/W0/F0                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P1/W0/F0                 | P0/W0/F1                
+pythoncodegeneratorcleanoptimizedproduction-ready  | P0/W0/F1                 | P0/W0/F1                 | P1/W0/F0                 | P0/W0/F1                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                
+pythoninterpreter                                  | P1/W0/F0                 | P0/W0/F1                 | P0/W0/F1                 | P1/W0/F0                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                
+softwarequalityassurancetester                     | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P0/W0/F1                 | P1/W0/F0                 | P0/W0/F1                 | P1/W0/F0                
+sqlterminal                                        | P1/W0/F0                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P0/W0/F1                 | P1/W0/F0                 | P0/W0/F1                

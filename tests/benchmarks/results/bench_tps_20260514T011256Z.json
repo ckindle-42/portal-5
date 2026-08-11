@@ -1,0 +1,131 @@
+{
+  "timestamp": "2026-05-14T01:12:56.438365+00:00",
+  "mode": "all",
+  "order": "size",
+  "cooldown_s": 10.0,
+  "runs_per_model": 5,
+  "spec_decoding": "unspecified",
+  "total_wall_time_s": 0,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "mlx_models_configured": 35,
+    "ollama_models_configured": 27,
+    "workspaces_configured": 36,
+    "personas_configured": 101
+  },
+  "backends": {
+    "mlx": {
+      "url": "http://localhost:8081"
+    },
+    "ollama": {
+      "url": "http://localhost:11434"
+    },
+    "pipeline": {
+      "url": "http://localhost:9099"
+    }
+  },
+  "results": [
+    {
+      "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+      "label": "mlx-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 227.3,
+      "min_tps": 216.2,
+      "max_tps": 232.8,
+      "stddev_tps": 6.78,
+      "cv": 0.03,
+      "avg_completion_tokens": 203,
+      "avg_elapsed_s": 0.89,
+      "avg_ttft_s": 0.082,
+      "routed_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+      "prompt_category": "general",
+      "quality_score": 0.43,
+      "tps_quality": 97.7,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "requested qwen2.5-0.5b-instruct-4bit",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 0.94,
+          "prompt_tokens": 0,
+          "completion_tokens": 203,
+          "tps": 216.2,
+          "time_to_first_token_s": 0.105,
+          "response_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+          "response_text": "1. Network Layer (Layer 1)\n   - The Network Layer is the first layer of the OSI model, located at the top of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Ethernet\n\n2. Data Link Layer (Layer 2)\n   - The Data Link Layer is the second layer of the OSI model, located at the second level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Frame Relay\n\n3. Physical Layer (Layer 3)\n   - The Physical Layer is the third layer of the OSI model, located at the third level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Ethernet\n\n4. Data Link Layer (Layer 4)\n   - The Data Link Layer is the fourth layer of the OSI model, located at the fourth level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Frame Relay\n\n5. Network Layer (Layer 5)\n   - The Network Layer is",
+          "memory_free_gb_before": 9.1,
+          "memory_used_gb_before": 0.0,
+          "memory_free_gb_after": 9.1,
+          "memory_used_gb_after": 0.0
+        },
+        {
+          "run": 2,
+          "elapsed_s": 0.89,
+          "prompt_tokens": 0,
+          "completion_tokens": 203,
+          "tps": 227.5,
+          "time_to_first_token_s": 0.076,
+          "response_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+          "response_text": "1. Network Layer (Layer 1)\n   - The Network Layer is the first layer of the OSI model, located at the top of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Ethernet\n\n2. Data Link Layer (Layer 2)\n   - The Data Link Layer is the second layer of the OSI model, located at the second level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Frame Relay\n\n3. Physical Layer (Layer 3)\n   - The Physical Layer is the third layer of the OSI model, located at the third level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Ethernet\n\n4. Data Link Layer (Layer 4)\n   - The Data Link Layer is the fourth layer of the OSI model, located at the fourth level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Frame Relay\n\n5. Network Layer (Layer 5)\n   - The Network Layer is",
+          "memory_free_gb_before": 9.1,
+          "memory_used_gb_before": 0.0,
+          "memory_free_gb_after": 9.1,
+          "memory_used_gb_after": 0.0
+        },
+        {
+          "run": 3,
+          "elapsed_s": 0.87,
+          "prompt_tokens": 0,
+          "completion_tokens": 203,
+          "tps": 232.8,
+          "time_to_first_token_s": 0.078,
+          "response_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+          "response_text": "1. Network Layer (Layer 1)\n   - The Network Layer is the first layer of the OSI model, located at the top of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Ethernet\n\n2. Data Link Layer (Layer 2)\n   - The Data Link Layer is the second layer of the OSI model, located at the second level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Frame Relay\n\n3. Physical Layer (Layer 3)\n   - The Physical Layer is the third layer of the OSI model, located at the third level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Ethernet\n\n4. Data Link Layer (Layer 4)\n   - The Data Link Layer is the fourth layer of the OSI model, located at the fourth level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Frame Relay\n\n5. Network Layer (Layer 5)\n   - The Network Layer is",
+          "memory_free_gb_before": 9.1,
+          "memory_used_gb_before": 0.0,
+          "memory_free_gb_after": 9.1,
+          "memory_used_gb_after": 0.0
+        },
+        {
+          "run": 4,
+          "elapsed_s": 0.87,
+          "prompt_tokens": 0,
+          "completion_tokens": 203,
+          "tps": 232.8,
+          "time_to_first_token_s": 0.075,
+          "response_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+          "response_text": "1. Network Layer (Layer 1)\n   - The Network Layer is the first layer of the OSI model, located at the top of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Ethernet\n\n2. Data Link Layer (Layer 2)\n   - The Data Link Layer is the second layer of the OSI model, located at the second level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Frame Relay\n\n3. Physical Layer (Layer 3)\n   - The Physical Layer is the third layer of the OSI model, located at the third level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Ethernet\n\n4. Data Link Layer (Layer 4)\n   - The Data Link Layer is the fourth layer of the OSI model, located at the fourth level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Frame Relay\n\n5. Network Layer (Layer 5)\n   - The Network Layer is",
+          "memory_free_gb_before": 9.1,
+          "memory_used_gb_before": 0.0,
+          "memory_free_gb_after": 9.1,
+          "memory_used_gb_after": 0.0
+        },
+        {
+          "run": 5,
+          "elapsed_s": 0.89,
+          "prompt_tokens": 0,
+          "completion_tokens": 203,
+          "tps": 227.2,
+          "time_to_first_token_s": 0.076,
+          "response_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+          "response_text": "1. Network Layer (Layer 1)\n   - The Network Layer is the first layer of the OSI model, located at the top of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Ethernet\n\n2. Data Link Layer (Layer 2)\n   - The Data Link Layer is the second layer of the OSI model, located at the second level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Frame Relay\n\n3. Physical Layer (Layer 3)\n   - The Physical Layer is the third layer of the OSI model, located at the third level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Ethernet\n\n4. Data Link Layer (Layer 4)\n   - The Data Link Layer is the fourth layer of the OSI model, located at the fourth level of the hierarchy. It is responsible for the physical layer of the network, including the transmission of data over a network.\n   - Example Protocol: Frame Relay\n\n5. Network Layer (Layer 5)\n   - The Network Layer is",
+          "memory_free_gb_before": 9.1,
+          "memory_used_gb_before": 0.0,
+          "memory_free_gb_after": 9.1,
+          "memory_used_gb_after": 0.0
+        }
+      ],
+      "backend": "mlx",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 0.5
+    }
+  ]
+}

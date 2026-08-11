@@ -1,0 +1,101 @@
+{
+  "bench": "lab_exec",
+  "started_at": "20260618T020128Z",
+  "dc": "10.10.11.21",
+  "srv": "10.10.11.33",
+  "domain": "portal.lab",
+  "dry_run": false,
+  "runs": 1,
+  "phases": {
+    "recon": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.24,
+        "max": 0.24,
+        "avg": 0.24
+      },
+      "detail": "1 AD ports open"
+    },
+    "kerberoast": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.33,
+        "max": 0.33,
+        "avg": 0.33
+      },
+      "detail": "3/3 TGS hashes captured"
+    },
+    "asrep": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.31,
+        "max": 0.31,
+        "avg": 0.31
+      },
+      "detail": "2/2 AS-REP hashes captured"
+    },
+    "crack": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 1.2,
+        "max": 1.2,
+        "avg": 1.2
+      },
+      "detail": "3/3 cracked (Backup123!, IisAdmin1!, Mssql2022!)"
+    },
+    "spray": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.71,
+        "max": 0.71,
+        "avg": 0.71
+      },
+      "detail": "1 valid account(s) found"
+    },
+    "bloodhound": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.9,
+        "max": 0.9,
+        "avg": 0.9
+      },
+      "detail": "graph collected"
+    },
+    "winrm": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.77,
+        "max": 0.77,
+        "avg": 0.77
+      },
+      "detail": "WinRM exec OK"
+    },
+    "dcsync": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.66,
+        "max": 0.66,
+        "avg": 0.66
+      },
+      "detail": "krbtgt hash dumped"
+    }
+  },
+  "total_elapsed_s": 5.1,
+  "finished_at": "20260618T020133Z"
+}

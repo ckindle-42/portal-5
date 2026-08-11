@@ -1,0 +1,199 @@
+{
+  "timestamp": "20260617T015456Z",
+  "results": [
+    {
+      "workspace": "bench-r1-0528-abliterated",
+      "prompt_key": "kerberoasting",
+      "prompt_category": "redteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 33.46,
+      "scores": {
+        "words": 526,
+        "mitre_ids": [],
+        "mitre_count": 0,
+        "disclaimers": 1,
+        "headers_present": [
+          "RECON",
+          "ATTACK",
+          "EXPLOIT",
+          "PERSIST",
+          "DETECT"
+        ],
+        "headers_required": [
+          "RECON",
+          "ATTACK",
+          "EXPLOIT",
+          "PERSIST",
+          "DETECT"
+        ],
+        "header_score": 1.0,
+        "composite": 0.7
+      },
+      "error": null
+    },
+    {
+      "workspace": "bench-r1-0528-abliterated",
+      "prompt_key": "lateral_movement",
+      "prompt_category": "redteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 100.5,
+      "scores": {
+        "words": 1963,
+        "mitre_ids": [
+          "T1097",
+          "T1134",
+          "T1202",
+          "T1492",
+          "T1589",
+          "T1590",
+          "T1590.001"
+        ],
+        "mitre_count": 7,
+        "disclaimers": 0,
+        "headers_present": [
+          "ENUM",
+          "MOVE",
+          "PERSIST"
+        ],
+        "headers_required": [
+          "ENUM",
+          "MOVE",
+          "PERSIST"
+        ],
+        "header_score": 1.0,
+        "composite": 1.0
+      },
+      "error": null
+    },
+    {
+      "workspace": "bench-r1-0528-abliterated",
+      "prompt_key": "phishing_campaign",
+      "prompt_category": "redteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 102.7,
+      "scores": {
+        "words": 2172,
+        "mitre_ids": [
+          "T1056",
+          "T1487",
+          "T1540",
+          "T1546",
+          "T1547",
+          "T1552",
+          "T1553",
+          "T1568.004",
+          "T1579"
+        ],
+        "mitre_count": 9,
+        "disclaimers": 2,
+        "headers_present": [
+          "PRETEXT",
+          "LURE",
+          "PAYLOAD",
+          "C2",
+          "EVASION"
+        ],
+        "headers_required": [
+          "PRETEXT",
+          "LURE",
+          "PAYLOAD",
+          "C2",
+          "EVASION"
+        ],
+        "header_score": 1.0,
+        "composite": 1.0
+      },
+      "error": null
+    },
+    {
+      "workspace": "bench-r1-0528-abliterated",
+      "prompt_key": "ssrf_exploitation",
+      "prompt_category": "redteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 226.25,
+      "scores": {
+        "words": 557,
+        "mitre_ids": [],
+        "mitre_count": 0,
+        "disclaimers": 0,
+        "headers_present": [
+          "DISCOVER",
+          "ENUM",
+          "EXPLOIT",
+          "ESCALAT"
+        ],
+        "headers_required": [
+          "DISCOVER",
+          "ENUM",
+          "EXPLOIT",
+          "ESCALAT"
+        ],
+        "header_score": 1.0,
+        "composite": 0.7
+      },
+      "error": null
+    },
+    {
+      "workspace": "bench-r1-0528-abliterated",
+      "prompt_key": "soc_alert_triage",
+      "prompt_category": "blueteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 39.41,
+      "scores": {
+        "words": 698,
+        "mitre_ids": [],
+        "mitre_count": 0,
+        "disclaimers": 0,
+        "headers_present": [
+          "CLASSIF",
+          "SEVER",
+          "CONTAIN",
+          "SUMMAR"
+        ],
+        "headers_required": [
+          "CLASSIF",
+          "SEVER",
+          "CONTAIN",
+          "SUMMAR"
+        ],
+        "header_score": 1.0,
+        "composite": 0.7
+      },
+      "error": null
+    },
+    {
+      "workspace": "bench-r1-0528-abliterated",
+      "prompt_key": "threat_hunting",
+      "prompt_category": "blueteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 115.21,
+      "scores": {
+        "words": 2396,
+        "mitre_ids": [],
+        "mitre_count": 0,
+        "disclaimers": 0,
+        "headers_present": [
+          "HYPOTHESIS",
+          "DATA",
+          "DETECT",
+          "FP"
+        ],
+        "headers_required": [
+          "HYPOTHESIS",
+          "DATA",
+          "DETECT",
+          "FP"
+        ],
+        "header_score": 1.0,
+        "composite": 0.7
+      },
+      "error": null
+    }
+  ]
+}

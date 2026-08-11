@@ -1,0 +1,174 @@
+{
+  "timestamp": "20260617T010452Z",
+  "results": [
+    {
+      "workspace": "bench-vulnllm-r7b",
+      "prompt_key": "ssrf_exploitation",
+      "prompt_category": "redteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 8.8,
+      "scores": {
+        "words": 222,
+        "mitre_ids": [],
+        "mitre_count": 0,
+        "disclaimers": 0,
+        "headers_present": [
+          "DISCOVER",
+          "EXPLOIT",
+          "ESCALAT"
+        ],
+        "headers_required": [
+          "DISCOVER",
+          "ENUM",
+          "EXPLOIT",
+          "ESCALAT"
+        ],
+        "header_score": 0.75,
+        "composite": 0.6
+      },
+      "error": null
+    },
+    {
+      "workspace": "bench-vulnllm-r7b",
+      "prompt_key": "soc_alert_triage",
+      "prompt_category": "blueteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 9.96,
+      "scores": {
+        "words": 307,
+        "mitre_ids": [],
+        "mitre_count": 0,
+        "disclaimers": 0,
+        "headers_present": [
+          "CONTAIN",
+          "SUMMAR"
+        ],
+        "headers_required": [
+          "CLASSIF",
+          "SEVER",
+          "CONTAIN",
+          "SUMMAR"
+        ],
+        "header_score": 0.5,
+        "composite": 0.5
+      },
+      "error": null
+    },
+    {
+      "workspace": "bench-vulnllm-r7b",
+      "prompt_key": "threat_hunting",
+      "prompt_category": "blueteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 26.75,
+      "scores": {
+        "words": 762,
+        "mitre_ids": [],
+        "mitre_count": 0,
+        "disclaimers": 1,
+        "headers_present": [
+          "HYPOTHESIS",
+          "DATA",
+          "DETECT"
+        ],
+        "headers_required": [
+          "HYPOTHESIS",
+          "DATA",
+          "DETECT",
+          "FP"
+        ],
+        "header_score": 0.75,
+        "composite": 0.6
+      },
+      "error": null
+    },
+    {
+      "workspace": "auto-security",
+      "prompt_key": "ssrf_exploitation",
+      "prompt_category": "redteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 17.82,
+      "scores": {
+        "words": 360,
+        "mitre_ids": [],
+        "mitre_count": 0,
+        "disclaimers": 0,
+        "headers_present": [
+          "DISCOVER",
+          "ENUM",
+          "EXPLOIT",
+          "ESCALAT"
+        ],
+        "headers_required": [
+          "DISCOVER",
+          "ENUM",
+          "EXPLOIT",
+          "ESCALAT"
+        ],
+        "header_score": 1.0,
+        "composite": 0.7
+      },
+      "error": null
+    },
+    {
+      "workspace": "auto-security",
+      "prompt_key": "soc_alert_triage",
+      "prompt_category": "blueteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 6.99,
+      "scores": {
+        "words": 215,
+        "mitre_ids": [],
+        "mitre_count": 0,
+        "disclaimers": 0,
+        "headers_present": [
+          "CLASSIF",
+          "SEVER",
+          "CONTAIN",
+          "SUMMAR"
+        ],
+        "headers_required": [
+          "CLASSIF",
+          "SEVER",
+          "CONTAIN",
+          "SUMMAR"
+        ],
+        "header_score": 1.0,
+        "composite": 0.7
+      },
+      "error": null
+    },
+    {
+      "workspace": "auto-security",
+      "prompt_key": "threat_hunting",
+      "prompt_category": "blueteam",
+      "workspace_category": "general",
+      "status": "ok",
+      "elapsed_s": 13.74,
+      "scores": {
+        "words": 347,
+        "mitre_ids": [],
+        "mitre_count": 0,
+        "disclaimers": 0,
+        "headers_present": [
+          "HYPOTHESIS",
+          "DATA",
+          "DETECT"
+        ],
+        "headers_required": [
+          "HYPOTHESIS",
+          "DATA",
+          "DETECT",
+          "FP"
+        ],
+        "header_score": 0.75,
+        "composite": 0.6
+      },
+      "error": null
+    }
+  ]
+}

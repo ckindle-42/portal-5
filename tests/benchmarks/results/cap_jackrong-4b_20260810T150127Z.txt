@@ -1,0 +1,12 @@
+Capability Probe V11 — 20260810T200127Z
+  Workspaces: 1
+  Probes: ['C4']
+  Baselines: ['auto-compliance']
+
+── Baseline: auto-compliance ──
+  C4 ... fmt=1.00 cap=0.89
+
+── Workspace: bench-jackrong-dsv4-4b ──
+  C4 ... fmt=1.00 cap=0.56
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-jackrong-dsv4-4b_20260810T200127Z.json

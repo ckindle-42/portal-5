@@ -1,0 +1,142 @@
+{
+  "timestamp": "2026-05-23T15:03:20.928445+00:00",
+  "mode": "all",
+  "order": "largest",
+  "cooldown_s": 10.0,
+  "runs_per_model": 5,
+  "spec_decoding": "unspecified",
+  "kv_quant_tag": "unspecified",
+  "total_wall_time_s": 0,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "mlx_models_configured": 43,
+    "ollama_models_configured": 30,
+    "workspaces_configured": 44,
+    "personas_configured": 110
+  },
+  "backends": {
+    "mlx": {
+      "url": "http://localhost:8081"
+    },
+    "ollama": {
+      "url": "http://localhost:11434"
+    },
+    "pipeline": {
+      "url": "http://localhost:9099"
+    }
+  },
+  "results": [
+    {
+      "model": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q8_0",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 4.0,
+      "min_tps": 3.8,
+      "max_tps": 4.4,
+      "stddev_tps": 0.22,
+      "cv": 0.055,
+      "avg_completion_tokens": 320,
+      "avg_elapsed_s": 79.23,
+      "avg_ttft_s": 0.694,
+      "routed_model": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q8_0",
+      "prompt_category": "reasoning",
+      "quality_score": 1.0,
+      "tps_quality": 4.0,
+      "reasoning_mode": true,
+      "expected_model_match": true,
+      "expected_model_detail": "requested qwopus3.6-27b-v2-mtp-gguf:q8_0",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 74.72,
+          "prompt_tokens": 0,
+          "completion_tokens": 282,
+          "tps": 3.8,
+          "time_to_first_token_s": 1.766,
+          "response_model": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q8_0",
+          "response_text": "",
+          "reasoning_text": "1. **Deconstruct the Prompt:**\n    *   Arrival rate ($\\lambda$): 30 patients per hour.\n    *   Resources: 8 beds, 3 doctors, 12 nurses.\n    *   Average treatment time ($S$): 45 minutes = 0.75 hours per patient.\n    *   Current wait time: 3.5 hours.\n    *   Target: Wait time < 1 hour.\n    *   Tasks to complete:\n        1.  Identify the primary bottleneck (beds, doctors, or nurses) with math.\n        2.  Calculate minimum additional resources of each type to achieve <1 hour wait time.\n        3.  Suggest one process change without adding resources.\n\n2.  **Task 1: Identify the Primary Bottleneck**\n    *   Need to calculate the capacity (or utilization in a steady-state queuing model) for beds, doctors, and nurses. Wait, \"nurses\" usually support multiple patients simultaneously or handle tasks that don't require continuous bed/doctor time. Let's assume standard ER processing bottlenecks: Beds (treatment rooms), Doctors (physician consultation/treatment provision).\n    *   Capacity of a resource = Number of resources / Average service time per customer. Wait, capacity is usually measured in customers per hour.\n    *   Service rate ($\\mu$) for 1 bed or 1 doctor: $1 / 0.75 \\text{ hours} = 4/3 \\approx 1.333$ patients/hour.\n    *   Wait, do we assume beds and doctors are tied to treatment time? Yes, typically \"treatment time\" implies the patient occupies a bed and requires doctor time. Nurses often work on multiple patients or handle ancillary tasks (like vitals) and aren't bound by the 45-minute continuous block in the same way. Let's calculate capacities for Beds and Doctors based on $\\lambda = 30$ / hour and $S = 0.75$ h/patient.\n\n    *   **Bed Capacity:**\n        *   Number of beds = 8\n        *   Max output capacity (if always busy) = $8 \\text{ beds} \\times (1 / 0.75 \\text{ hours/bed}) = 8 \\times 1.333 = 10.67"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 77.41,
+          "prompt_tokens": 0,
+          "completion_tokens": 309,
+          "tps": 4.0,
+          "time_to_first_token_s": 0.416,
+          "response_model": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q8_0",
+          "response_text": "",
+          "reasoning_text": "1.  **Deconstruct the Prompt:**\n    *   Arrival rate ($\\lambda$): 30 patients/hour (peak).\n    *   Resources: 8 beds, 3 doctors, 12 nurses.\n    *   Service time per patient ($T$): 45 minutes = 0.75 hours.\n    *   Current wait time ($W_q$): 3.5 hours.\n    *   Target wait time ($W_{q,target}$): $< 1$ hour.\n    *   Tasks:\n        1) Identify the primary bottleneck (beds, doctors, nurses - show math).\n        2) Calculate minimum additional resources of each type needed to hit the target wait time.\n        3) Suggest one process change without adding resources.\n\n2.  **Task 1: Identify the Primary Bottleneck**\n    *   Service rate per patient ($\\mu$): $1 / 0.75$ hours = 4 patients per hour (if a resource could do all steps). But wait, this is a multi-resource queuing system. Let's analyze capacity for each resource type assuming they are the limiting factor in sequence.\n    *   Actually, usually in an ED, a patient needs a bed, a doctor, and nurses simultaneously or sequentially. However, we can approximate their capacities to find the bottleneck (the resource with the least capacity relative to demand).\n    *   Total demand: 30 patients/hour.\n    *   Service time is 45 minutes per patient. Does this mean total time in system? Or time each resource spends on a patient? \"Average treatment time is 45 min per patient\" implies the doctor/nurse touch time, or the total process time if sequential. Let's assume the bottleneck capacity calculation relies on how many patients a single unit can handle in an hour based on this 45-min cycle time (or parallel handling).\n    *   Wait, let's think about utilization $\\rho = \\lambda / (c \\mu)$ where $c$ is number of servers and $\\mu$ is service rate per server. But who is the server? Is it a doctor? A bed?\n    *   If $\\lambda = 30$, and total service time per patient is 45 min = 0.75 hours:\n        *   Total capacity required = 30 patients/hr / (1 patient/0"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 74.46,
+          "prompt_tokens": 0,
+          "completion_tokens": 331,
+          "tps": 4.4,
+          "time_to_first_token_s": 0.419,
+          "response_model": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q8_0",
+          "response_text": "",
+          "reasoning_text": "The question asks for an analysis of a hospital emergency room system based on given parameters:\n- Arrival rate ($\\lambda$) = 30 patients/hour\n- Resources:\n  - Beds = 8\n  - Doctors = 3\n  - Nurses = 12\n- Average treatment time ($t_s$) = 45 minutes/patient = 0.75 hours/patient\n- Current wait time ($W_q$) = 3.5 hours\nGoal:\n1) Identify the primary bottleneck (beds, doctors, or nurses - show math).\n2) Find the minimum number of additional resources of each type needed to reduce wait time to under 1 hour.\n3) Suggest one process change without adding resources.\n\nLet's break down the required calculations.\n\n**Part 1: Identify the primary bottleneck.**\nThis is a queuing theory problem, likely an M/G/c or similar system, but with multiple resource constraints (beds, doctors, nurses). We need to calculate the utilization of each resource type and determine which one limits the throughput the most.\n\nIn many healthcare queuing models, patients arrive and require:\n- 1 bed for the duration of their stay (or at least during treatment). Wait time often includes waiting *for* a bed or for treatment? \"Current wait time is 3.5 hours.\" Usually, this means queueing before being served. Let's assume it's an M/M/c or similar model per resource type. Since there are multiple bottlenecks (beds, doctors, nurses), we can treat them as serial tandem queues or a single multistation queue. The overall bottleneck is the station with the highest utilization or the lowest capacity relative to arrival rate.\n\nArrival rate $\\lambda = 30$ patients/hour.\nProcessing time per patient $t_s = 45$ min = 0.75 hours.\n\nCapacity of each resource type:\n- Doctors: 1 doctor can treat 1 patient in 0.75 hours -> throughput = 1/0.75 = 1.33 patients/hour per doctor. Total doctor capacity = $3 \\times 1.33 = 4$ patients/hour. Wait, if doctors are needed for the entire treatment time (which is typical), then the number of doctors required to maintain a steady state without queueing would be $\\lambda \\times t_s / C_d$.\nActually"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 92.32,
+          "prompt_tokens": 0,
+          "completion_tokens": 367,
+          "tps": 4.0,
+          "time_to_first_token_s": 0.438,
+          "response_model": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q8_0",
+          "response_text": "",
+          "reasoning_text": "The problem asks for a structured analysis of an ER bottleneck and resource allocation to reduce wait times.\n\nGiven:\n- Arrival rate ($\\lambda$): 30 patients per hour\n- Number of beds: 8\n- Number of doctors: 3\n- Number of nurses: 12\n- Average treatment time: 45 minutes (0.75 hours) per patient\n- Current wait time: 3.5 hours\n\nWe need to find:\n1) The primary bottleneck (beds, doctors, or nurses \u2014 show math).\n2) The minimum number of additional resources of each type needed to reduce wait time to under 1 hour.\n3) One process change that could help without adding resources.\n\nLet's understand the system using queuing theory concepts (like Little's Law, Erlang, server utilization, etc.).\nA patient needs a bed, a doctor, and nurses to be treated. Wait time is likely waiting for a room or staff to attend to them before they can start receiving treatment, or it could include the total time in system minus service time. Usually, \"wait time\" means waiting before starting service (waiting in queue). Let's clarify: Wait time = Time in Queue ($W_q$) or Total system time? Typically \"wait time\" implies $W_q$. However, since multiple resources are involved, it might be an AND gate (need a bed AND doctor to start treatment) or OR gate. In an ER, patients typically wait for a room (bed) and then doctors/nurses alternate attending them. But let's calculate the utilization of each resource assuming they all process the 30 patients/hour independently in sequence, or together.\n\nIf it's an M/M/c queue model, we can use Erlang-C formula to estimate average waiting time.\nAlternatively, just look at capacity/utilization first.\nService rate ($\\mu$): per server of a certain type.\nTotal available service capacity per hour for each resource:\n- Beds: A bed provides 1 bed-hour per hour. Wait, beds are usually occupied for the entire treatment time (45 mins) or longer? Let's assume the \"treatment time\" is the duration the patient occupies a bed, doctor, AND nurses simultaneously or sequentially. Actually, doctors and nurses can attend multiple patients in an hour. A nurse might see many more than 1 patient per hour, but let's assume each patient consumes resources based on arrival rate and treatment time"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 77.24,
+          "prompt_tokens": 0,
+          "completion_tokens": 310,
+          "tps": 4.0,
+          "time_to_first_token_s": 0.431,
+          "response_model": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q8_0",
+          "response_text": "",
+          "reasoning_text": "1.  **Deconstruct the Prompt:**\n    *   Arrival rate ($\\lambda$): 30 patients/hour (peak).\n    *   Resources: 8 beds, 3 doctors, 12 nurses.\n    *   Treatment time per patient ($T$: service time or process time): 45 minutes = 0.75 hours. *Self-correction: Is this total service time or shared among resources? Usually, treatment time implies the time each resource is occupied with that patient.* Let's assume the 45 minutes requires all three types of resources simultaneously (1 bed, 1 doctor, some portion of nurses), OR it means the total capacity required.\n    *   Wait time ($W_q$ in a queueing model): Currently 3.5 hours. We want to reduce it to < 1 hour.\n    *   Task 1: Identify primary bottleneck (beds, doctors, or nurses - show math).\n    *   Task 2: Minimum additional resources of each type needed to get wait time < 1 hour.\n    *   Task 3: One process change without adding resources.\n\n2.  **Analyze the System & Bottleneck (Task 1):**\n    *   Arrival rate $\\lambda = 30$ patients/hour.\n    *   Let's calculate the required capacity for each resource type based on a 45-minute treatment time.\n    *   Wait, does \"Average treatment time is 45 minutes per patient\" mean that a doctor is occupied for 45 mins, a nurse for 45 mins, and a bed is occupied for maybe longer (say, the whole ER stay)? ER stays are usually much longer than just treatment. However, if we strictly use the given numbers:\n        *   Let's assume treatment time applies to all three resources concurrently (they work on the patient in parallel).\n        *   Service rate per resource ($\\mu$): 1 patient / 0.75 hours = 1.33 patients/hour/resource.\n    *   What is the required capacity for each resource?\n        *   **Beds:** If treatment time = bed occupancy time (simplifying assumption based on provided data), beds needed = $30 \\times 0.75 / \\text{utilization}$. Or just look at ratios: 1 patient uses 1 bed, 1 doctor, some nurses for 4"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 27.0,
+      "groups": [
+        "bench-qwopus36"
+      ]
+    },
+    {
+      "model": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q6_K",
+      "label": "ollama-direct",
+      "backend": "ollama",
+      "path": "direct",
+      "available": false,
+      "error": "not installed in Ollama",
+      "est_memory_gb": 21.6,
+      "groups": [
+        "bench-qwopus36"
+      ],
+      "runs_total": 5,
+      "runs_success": 0,
+      "avg_tps": 0,
+      "min_tps": 0,
+      "max_tps": 0,
+      "stddev_tps": null,
+      "cv": null,
+      "avg_completion_tokens": 0,
+      "avg_elapsed_s": 0,
+      "runs": []
+    }
+  ]
+}

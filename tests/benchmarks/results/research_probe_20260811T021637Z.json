@@ -1,0 +1,740 @@
+{
+  "generated_at": "20260811T021637Z",
+  "candidate": "portal5/xyz-aquila-mini:q4_k_m-ctx16k",
+  "incumbent": "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+  "qset_path": "tests/benchmarks/fixtures/research_eval_qset.jsonl",
+  "candidate_summary": {
+    "n": 10,
+    "factuality_pass": 6,
+    "factuality_partial": 0,
+    "factuality_fail": 4,
+    "factuality_pass_rate": 0.6,
+    "avg_synthesis_1_5": 3.7,
+    "avg_citation_grounding": 0.3,
+    "avg_latency_s": 38.2,
+    "errors": 0
+  },
+  "incumbent_summary": {
+    "n": 10,
+    "factuality_pass": 4,
+    "factuality_partial": 0,
+    "factuality_fail": 6,
+    "factuality_pass_rate": 0.4,
+    "avg_synthesis_1_5": 1.2,
+    "avg_citation_grounding": 0.0,
+    "avg_latency_s": 131.8,
+    "errors": 4
+  },
+  "verdict": "CANDIDATE_WINS",
+  "candidate_results": [
+    {
+      "qid": "rq01",
+      "question": "What was the final crewed launch vehicle NASA selected for the Artemis III lunar landing, and which company built the human landing system?",
+      "checkable": "Space Launch System (SLS) for launch; SpaceX Starship HLS (Human Landing System) for the lunar lander.",
+      "final_answer": "<tool_call>\n<function=web_search>\n<parameter=query>\nArtemis III launch vehicle SLS SpaceX Starship HLS contract award date\n</parameter>\n<parameter=num_results>\n5\n</parameter>\n</function>\n</tool_call>",
+      "hops_used": 5,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Artemis III crewed launch vehicle NASA selected SLS",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Artemis III human landing system contractor company selected",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Artemis III crewed launch vehicle NASA selected SLS rocket",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "NASA final selection crewed launch vehicle Artemis III SLS vs Falcon Heavy 2024 2025",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Artemis III human landing system SpaceX Starship contract 2021",
+            "num_results": 5
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "Artemis III crewed launch vehicle NASA selected SLS",
+        "Artemis III human landing system contractor company selected",
+        "Artemis III crewed launch vehicle NASA selected SLS rocket",
+        "NASA final selection crewed launch vehicle Artemis III SLS vs Falcon Heavy 2024 2025",
+        "Artemis III human landing system SpaceX Starship contract 2021"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 81.1
+    },
+    {
+      "qid": "rq02",
+      "question": "As of the most recent public data, what is the approximate current population of Japan, and is it growing or shrinking?",
+      "checkable": "Approximately 123-124 million as of recent years; population has been shrinking/declining for over a decade.",
+      "final_answer": "As of the most recent public data (the preliminary results of the 2025 Population Census, taken on October\u202f1,\u202f2025), Japan\u2019s total population was **approximately 123.05\u202fmillion**. The population is **shrinking** \u2013 it fell by about 3.1\u202fmillion (\u20112.5%) compared with the 2020 census.\n\n**Source:**  \nStatistics Bureau of Japan, \u201cPreliminary Counts of the 2025 Population Census\u201d (June\u202f25,\u202f2026): total population 123.05\u202fmillion, down 3.097\u202fmillion from 2020.  \nhttps://www.stat.go.jp/english/info/news/20260625.html",
+      "hops_used": 4,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Japan population 2024 estimate",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Japan population 2025 latest estimate shrinking growing",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Japan population 2025 census preliminary results total",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.stat.go.jp/english/info/news/20260625.html"
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "Japan population 2024 estimate",
+        "Japan population 2025 latest estimate shrinking growing",
+        "Japan population 2025 census preliminary results total",
+        "https://www.stat.go.jp/english/info/news/20260625.html"
+      ],
+      "citation_grounding": 1.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 36.5
+    },
+    {
+      "qid": "rq03",
+      "question": "What is the name of the current(most recent) Federal Reserve Chair, and when does their term expire?",
+      "checkable": "Jerome Powell; term as Chair runs through May 2026 (confirmed 2022, four-year term).",
+      "final_answer": "The current (most recent) Chair of the Federal Reserve is **Kevin M. Warsh**. He assumed office on May 22, 2026, and his term as Chairman expires on **May 21, 2030** [[1](https://www.federalreserve.gov/aboutthefed/bios/board/warsh.htm)][[2](https://www.federalreserve.gov/newsevents/pressreleases/other20260522a.htm)].\n\nHis term as a member of the Board of Governors extends further, ending on January 31, 2040.",
+      "hops_used": 5,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "current Federal Reserve Chair term expiration date 2025",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Jerome Powell Federal Reserve Chair term expires 2026",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Kevin Warsh Federal Reserve Chair term expiration date",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.federalreserve.gov/aboutthefed/bios/board/warsh.htm"
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Kevin Warsh Federal Reserve chair term expires May 2030",
+            "num_results": 10
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "current Federal Reserve Chair term expiration date 2025",
+        "Jerome Powell Federal Reserve Chair term expires 2026",
+        "Kevin Warsh Federal Reserve Chair term expiration date",
+        "https://www.federalreserve.gov/aboutthefed/bios/board/warsh.htm",
+        "Kevin Warsh Federal Reserve chair term expires May 2030"
+      ],
+      "citation_grounding": 1.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 4,
+      "error": null,
+      "latency_s": 52.6
+    },
+    {
+      "qid": "rq04",
+      "question": "What programming language is Rust primarily designed to compete with/replace for systems programming, and who originally created Rust?",
+      "checkable": "Positioned as a safer alternative to C/C++; originally created by Graydon Hoare at Mozilla.",
+      "final_answer": "Rust was primarily designed to compete with and eventually replace **C and C++** for systems programming, offering memory safety without sacrificing performance.\n\nIt was originally created by **Graydon Hoare**, who started working on it in 2006 while at Mozilla (which officially sponsored the project from 2009 onward).",
+      "hops_used": 5,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Rust primarily designed to compete with replace systems programming language",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Rust originally created by Graydon Hoare Mozilla",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://en.wikipedia.org/wiki/Rust_(programming_language)"
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Rust designed to replace C C++ systems programming language goal",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Rust programming language \"designed to\" replace C C++ systems programming safety",
+            "num_results": 5
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "Rust primarily designed to compete with replace systems programming language",
+        "Rust originally created by Graydon Hoare Mozilla",
+        "https://en.wikipedia.org/wiki/Rust_(programming_language)",
+        "Rust designed to replace C C++ systems programming language goal",
+        "Rust programming language \"designed to\" replace C C++ systems programming safety"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 31.8
+    },
+    {
+      "qid": "rq05",
+      "question": "What is the tallest building in the world as of recent record, and in which city is it located?",
+      "checkable": "Burj Khalifa, Dubai, UAE (828m) remains the tallest completed building as of recent record.",
+      "final_answer": "The tallest building in the world is the **Burj Khalifa**, located in **Dubai, United Arab Emirates**.  \n\n- Height: 828\u202fm (2,717\u202fft)  \n- Completed: 2009  \n- It has held the title of the world\u2019s tallest building since its opening and remains so as of recent records.\n\n**Sources:**  \n- Wikipedia \u2013 List of tallest buildings  \n- Britannica \u2013 Burj Khalifa  \n- The Tower Info (2025/2026 rankings)  \n\nLet me know if you\u2019d like details on other tall structures or upcoming projects that might challenge this record!",
+      "hops_used": 4,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "tallest building in the world 2025",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://en.wikipedia.org/wiki/List_of_tallest_buildings"
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "tallest building in the world 2025 Burj Khalifa still tallest",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Burj Khalifa tallest building world city location",
+            "num_results": 5
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "tallest building in the world 2025",
+        "https://en.wikipedia.org/wiki/List_of_tallest_buildings",
+        "tallest building in the world 2025 Burj Khalifa still tallest",
+        "Burj Khalifa tallest building world city location"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 25.4
+    },
+    {
+      "qid": "rq06",
+      "question": "Which company developed the GPT model family, and what is the name of their most recent flagship API-accessible model line as of 2026?",
+      "checkable": "OpenAI developed GPT; flagship lines include GPT-5.x/GPT-5.2-class models as of 2026 (accept any well-sourced 2026-era GPT-5.x naming).",
+      "final_answer": "<tool_call>\n<function=web_search>\n<parameter=query>\nOpenAI latest model line 2026 GPT-5.6 Sol Terra Luna API\n</parameter>\n<parameter=num_results>\n10\n</parameter>\n</function>\n</tool_call>",
+      "hops_used": 5,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "OpenAI most recent flagship API-accessible model line 2026",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "OpenAI latest model 2026 GPT-5.6 or newer",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "OpenAI new model release August September October 2026",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "OpenAI most recent model 2026 latest flagship API",
+            "num_results": 10
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://developers.openai.com/api/docs/models"
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "OpenAI most recent flagship API-accessible model line 2026",
+        "OpenAI latest model 2026 GPT-5.6 or newer",
+        "OpenAI new model release August September October 2026",
+        "OpenAI most recent model 2026 latest flagship API",
+        "https://developers.openai.com/api/docs/models"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 50.0
+    },
+    {
+      "qid": "rq07",
+      "question": "What is the boiling point of water at standard atmospheric pressure (sea level), in Celsius, and how does altitude affect it?",
+      "checkable": "100\u00b0C at sea level (1 atm); boiling point decreases with increasing altitude due to lower atmospheric pressure.",
+      "final_answer": "The boiling point of pure water at standard atmospheric pressure (sea level, 1 atm) is **100\u00b0C** (212\u00b0F).  \n\n**Effect of altitude:**  \n- As altitude increases, atmospheric pressure decreases, causing the boiling point of water to drop. For example, at the summit of Mount Everest (~8,848 m), water boils at about 72\u00b0C.  \n- Conversely, below sea level (e.g., Dead Sea, ~430 m below), the higher pressure raises the boiling point slightly above 100\u00b0C.  \n\nThis relationship occurs because boiling happens when a liquid\u2019s vapor pressure equals the surrounding atmospheric pressure. Lower pressure at high altitudes means water molecules can escape more easily, requiring less heat (lower temperature) to reach that equilibrium.  \n\n*Source: Engineering Toolbox \u2013 Water Boiling Points vs. Altitude.*",
+      "hops_used": 2,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "boiling point of water at sea level Celsius altitude effect",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.engineeringtoolbox.com/boiling-points-water-altitude-d_1344.html"
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "boiling point of water at sea level Celsius altitude effect",
+        "https://www.engineeringtoolbox.com/boiling-points-water-altitude-d_1344.html"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 21.7
+    },
+    {
+      "qid": "rq08",
+      "question": "What treaty or agreement is commonly cited as the primary international framework for limiting global greenhouse gas emissions post-2015, and what temperature target does it set?",
+      "checkable": "Paris Agreement (2015); aims to limit global warming to well below 2\u00b0C, pursuing efforts to limit to 1.5\u00b0C above pre-industrial levels.",
+      "final_answer": "The **Paris Agreement** (adopted in December 2015 at COP21) is commonly cited as the primary international framework for limiting global greenhouse gas emissions post-2015.  \n\nIt sets the temperature target of holding the increase in the global average temperature to **well below 2\u00b0C above pre-industrial levels**, while pursuing efforts to limit the temperature increase to **1.5\u00b0C**.",
+      "hops_used": 4,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Paris Agreement temperature target limit global greenhouse gas emissions post-2015",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://unfccc.int/process-and-meetings/the-paris-agreement"
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Paris Agreement temperature target well below 2\u00b0C 1.5\u00b0C",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Paris Agreement primary international framework climate change post-2015 temperature target",
+            "num_results": 5
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "Paris Agreement temperature target limit global greenhouse gas emissions post-2015",
+        "https://unfccc.int/process-and-meetings/the-paris-agreement",
+        "Paris Agreement temperature target well below 2\u00b0C 1.5\u00b0C",
+        "Paris Agreement primary international framework climate change post-2015 temperature target"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 25.3
+    },
+    {
+      "qid": "rq09",
+      "question": "Who is the current Secretary-General of the United Nations, and what is their nationality?",
+      "checkable": "Ant\u00f3nio Guterres, Portuguese (term began Jan 2017, re-elected for second term through 2026).",
+      "final_answer": "The current Secretary-General of the United Nations is **Ant\u00f3nio Guterres**. He is **Portuguese** by nationality.\n\nGuterres, who previously served as Prime Minister of Portugal (1995\u20132002) and UN High Commissioner for Refugees (2005\u20132015), began his first term as UN Secretary-General on January 1, 2017. He was reappointed for a second term, which runs until December 31, 2026.",
+      "hops_used": 2,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "current Secretary-General of the United Nations 2025",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "Ant\u00f3nio Guterres nationality",
+            "num_results": 3
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "current Secretary-General of the United Nations 2025",
+        "Ant\u00f3nio Guterres nationality"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 5,
+      "error": null,
+      "latency_s": 14.1
+    },
+    {
+      "qid": "rq10",
+      "question": "What vulnerability class does CVE identifiers typically track, and which organization maintains the official CVE database?",
+      "checkable": "CVEs track publicly disclosed cybersecurity vulnerabilities/exposures; the CVE Program is maintained/sponsored by MITRE Corporation (funded by CISA/DHS).",
+      "final_answer": "<tool_call>\n<function=web_fetch>\n<parameter=url>\nhttps://www.cve.org/About/Overview\n</parameter>\n</function>\n</tool_call>",
+      "hops_used": 5,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": "CVE identifiers vulnerability class tracked organization maintains official database",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": "https://www.cve.org/"
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "CVE Common Vulnerabilities and Exposures what does it track vulnerability class",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "who maintains the official CVE database MITRE",
+            "num_results": 5
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": "CVE identifiers track what type of vulnerability class",
+            "num_results": 5
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "CVE identifiers vulnerability class tracked organization maintains official database",
+        "https://www.cve.org/",
+        "CVE Common Vulnerabilities and Exposures what does it track vulnerability class",
+        "who maintains the official CVE database MITRE",
+        "CVE identifiers track what type of vulnerability class"
+      ],
+      "citation_grounding": 1.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 43.9
+    }
+  ],
+  "incumbent_results": [
+    {
+      "qid": "rq01",
+      "question": "What was the final crewed launch vehicle NASA selected for the Artemis III lunar landing, and which company built the human landing system?",
+      "checkable": "Space Launch System (SLS) for launch; SpaceX Starship HLS (Human Landing System) for the lunar lander.",
+      "final_answer": "The user asks: \"What was the final crewed launch vehicle NASA selected for the Artemis III lunar landing, and which company built the human landing system?\" The question: \"What was the final crewed launch vehicle NASA selected for the Artemis III lunar landing, and which company built the human landing system?\" We need to answer: The final crewed launch vehicle for Artemis III and the company that built the human landing system (HLS).\n\nWe need to find the final crewed launch vehicle NASA selected for Artemis III lunar landing. It might be the Space Launch System (SLS) Block 1B or the SLS Block 2? Or perhaps the final crewed launch vehicle is the Orion spacecraft? But the question says \"final crewed launch vehicle NASA selected for the Artemis III lunar landing\". The \"final crewed launch vehicle\" could be the \"Space Launch System (SLS) Block 1B\" or \"SLS Block 2 (or Exploration Upper Stage)\". But let's search.\n\nWe need to find NASA's final crewed launch vehicle for Artemis III. Likely the \"SLS Block 1B\" is used for Artemis III. But there might be a \"Space Launch System (SLS) Block 2\" with an \"Exploration Upper Stage (EUS)\" that will be used for later missions. The \"final crewed launch vehicle\" might be \"SLS Block 1B with the Exploration Upper Stage (EUS)\", but maybe the final selection is \"SLS Block 1B (or SLS Block 2)\". Let's search.\n\nWe'll use the web search tool to search for \"Artemis III final crewed launch vehicle NASA selected\" and \"Artemis III human landing system company\".\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 24.6
+    },
+    {
+      "qid": "rq02",
+      "question": "As of the most recent public data, what is the approximate current population of Japan, and is it growing or shrinking?",
+      "checkable": "Approximately 123-124 million as of recent years; population has been shrinking/declining for over a decade.",
+      "final_answer": "",
+      "hops_used": 4,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": [
+              "Japan population 2024",
+              "Japan population 2023",
+              "Japan population 2022",
+              "Japan population growth shrinking",
+              "UN World Urbanization Prospects Japan population 2023",
+              "Japan Statistics Bureau population 2024"
+            ]
+          }
+        },
+        {
+          "name": "web_search",
+          "args": {
+            "query": [
+              "Japan population 2024",
+              "Japan population 2023",
+              "Japan population 2022",
+              "Japan population growth shrinking",
+              "UN World Urbanization Prospects Japan population 2023",
+              "Japan Statistics Bureau population 2024"
+            ]
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "goal": "Extract Japan's population and growth trends from UN and Statistics Bureau data",
+            "url": [
+              "https://population.un.org/wup/",
+              "https://www.stat.go.jp/"
+            ]
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "goal": "Extract Japan's population and growth trends from UN and Statistics Bureau data",
+            "url": [
+              "https://population.un.org/wup/",
+              "https://www.stat.go.jp/"
+            ]
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "[\"Japan population 2024\", \"Japan population 2023\", \"Japan population 2022\", \"Japan population growth shrinking\", \"UN World Urbanization Prospects Japan population 2023\", \"Japan Statistics Bureau population 2024\"]",
+        "[\"Japan population 2024\", \"Japan population 2023\", \"Japan population 2022\", \"Japan population growth shrinking\", \"UN World Urbanization Prospects Japan population 2023\", \"Japan Statistics Bureau population 2024\"]",
+        "[\"https://population.un.org/wup/\", \"https://www.stat.go.jp/\"]",
+        "[\"https://population.un.org/wup/\", \"https://www.stat.go.jp/\"]"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": "ReadTimeout: timed out",
+      "latency_s": 329.2
+    },
+    {
+      "qid": "rq03",
+      "question": "What is the name of the current(most recent) Federal Reserve Chair, and when does their term expire?",
+      "checkable": "Jerome Powell; term as Chair runs through May 2026 (confirmed 2022, four-year term).",
+      "final_answer": "The user asks: \"What is the name of the current (most recent) Federal Reserve Chair, and when does their term expire?\" We need to provide the name and term expiration date.\n\nWe need to find the current Fed Chair. As of 2025, the Fed Chair is Jerome Powell, who was appointed in February 2018, and his term as Chair is for four years, with a possible extension. However, there may have been changes. Let's search.\n\nWe need to verify the most recent Fed Chair and term expiration. Likely Jerome Powell is still the Fed Chair. He was reappointed for a second term as Chair in 2022? Actually, he was appointed Chair in Feb 2018 for a four-year term, ending Feb 2022. He was then reappointed for a second term in Feb 2022, and his term would expire Feb 2026. He might have been nominated for a third term? Let's search.\n\nWe'll search for \"current Federal Reserve Chair term expires\" and \"Jerome Powell term expires\".\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 7.1
+    },
+    {
+      "qid": "rq04",
+      "question": "What programming language is Rust primarily designed to compete with/replace for systems programming, and who originally created Rust?",
+      "checkable": "Positioned as a safer alternative to C/C++; originally created by Graydon Hoare at Mozilla.",
+      "final_answer": "The user asks: \"What programming language is Rust primarily designed to compete with/replace for systems programming, and who originally created Rust?\" We need to answer: Rust is primarily designed to compete with/replace C and C++ for systems programming. It was originally created by Graydon Hoare (or Graydon Hoare? Actually Graydon Hoare is the original creator). It was initially developed at Mozilla, but the original creator is Graydon Hoare. However, the question may ask: \"What programming language is Rust primarily designed to compete with/replace for systems programming, and who originally created Rust?\" So answer: It is primarily designed to compete with C (and C++) and originally created by Graydon Hoare (also known as Graydon Hoare). It could be \"C\" and \"C++\". Let's verify with sources.\n\nWe need to provide answer with citations. Let's search.\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 2,
+      "error": null,
+      "latency_s": 6.3
+    },
+    {
+      "qid": "rq05",
+      "question": "What is the tallest building in the world as of recent record, and in which city is it located?",
+      "checkable": "Burj Khalifa, Dubai, UAE (828m) remains the tallest completed building as of recent record.",
+      "final_answer": "",
+      "hops_used": 3,
+      "tool_calls": [
+        {
+          "name": "web_search",
+          "args": {
+            "query": [
+              "tallest building in the world 2024",
+              "Burj Khalifa height",
+              "Jeddah Tower progress 2024"
+            ]
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": [
+              "https://en.wikipedia.org/wiki/Burj_Khalifa",
+              "https://en.wikipedia.org/wiki/Jeddah_Tower"
+            ],
+            "goal": "Extract current height and location of the tallest building"
+          }
+        },
+        {
+          "name": "web_fetch",
+          "args": {
+            "url": [
+              "https://en.wikipedia.org/wiki/Burj_Khalifa",
+              "https://en.wikipedia.org/wiki/Jeddah_Tower"
+            ],
+            "goal": "Extract current height and location of the tallest building"
+          }
+        }
+      ],
+      "searched_or_fetched": [
+        "[\"tallest building in the world 2024\", \"Burj Khalifa height\", \"Jeddah Tower progress 2024\"]",
+        "[\"https://en.wikipedia.org/wiki/Burj_Khalifa\", \"https://en.wikipedia.org/wiki/Jeddah_Tower\"]",
+        "[\"https://en.wikipedia.org/wiki/Burj_Khalifa\", \"https://en.wikipedia.org/wiki/Jeddah_Tower\"]"
+      ],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": "ReadTimeout: timed out",
+      "latency_s": 328.7
+    },
+    {
+      "qid": "rq06",
+      "question": "Which company developed the GPT model family, and what is the name of their most recent flagship API-accessible model line as of 2026?",
+      "checkable": "OpenAI developed GPT; flagship lines include GPT-5.x/GPT-5.2-class models as of 2026 (accept any well-sourced 2026-era GPT-5.x naming).",
+      "final_answer": "",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": "ReadTimeout: timed out",
+      "latency_s": 300.0
+    },
+    {
+      "qid": "rq07",
+      "question": "What is the boiling point of water at standard atmospheric pressure (sea level), in Celsius, and how does altitude affect it?",
+      "checkable": "100\u00b0C at sea level (1 atm); boiling point decreases with increasing altitude due to lower atmospheric pressure.",
+      "final_answer": "",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "FAIL",
+      "synthesis_1_5": 1,
+      "error": "ReadTimeout: timed out",
+      "latency_s": 300.0
+    },
+    {
+      "qid": "rq08",
+      "question": "What treaty or agreement is commonly cited as the primary international framework for limiting global greenhouse gas emissions post-2015, and what temperature target does it set?",
+      "checkable": "Paris Agreement (2015); aims to limit global warming to well below 2\u00b0C, pursuing efforts to limit to 1.5\u00b0C above pre-industrial levels.",
+      "final_answer": "We need to answer: \"What treaty or agreement is commonly cited as the primary international framework for limiting global greenhouse gas emissions post-2015, and what temperature target does it set?\" This is likely the Paris Agreement (2015), which is the primary framework. The temperature target: limit global warming to well below 2\u00b0C, preferably to 1.5\u00b0C, above pre-industrial levels. The question: \"What treaty or agreement is commonly cited as the primary international framework for limiting global greenhouse gas emissions post-2015, and what temperature target does it set?\" They want the name and the temperature target. The answer: The Paris Agreement, target: limit global temperature increase to \"well below 2\u00b0C\" and \"to 1.5\u00b0C\" if possible. Possibly also \"to 2\u00b0C\" is the primary target. Let's confirm with sources. We'll search.\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 2,
+      "error": null,
+      "latency_s": 6.8
+    },
+    {
+      "qid": "rq09",
+      "question": "Who is the current Secretary-General of the United Nations, and what is their nationality?",
+      "checkable": "Ant\u00f3nio Guterres, Portuguese (term began Jan 2017, re-elected for second term through 2026).",
+      "final_answer": "The user asks: \"Who is the current Secretary-General of the United Nations, and what is their nationality?\" We need to answer: the current Secretary-General (as of now, 2025) is Ant\u00f3nio Guterres, and his nationality is Portuguese. However, we need to verify that it's up to date. The user likely expects a short answer. But we need to confirm. The current Secretary-General is Ant\u00f3nio Guterres, who is Portuguese. He started his term on 1 January 2017, and his second term runs from 2021 to 2025. He is indeed the 9th Secretary-General. He is Portuguese. But we might want to confirm if there have been any changes. As of 2025, is there any new Secretary-General? Possibly there could be a new SG elected for 2026? Let's check. We'll do a web search for \"current Secretary-General of the United Nations 2025\".\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 6.4
+    },
+    {
+      "qid": "rq10",
+      "question": "What vulnerability class does CVE identifiers typically track, and which organization maintains the official CVE database?",
+      "checkable": "CVEs track publicly disclosed cybersecurity vulnerabilities/exposures; the CVE Program is maintained/sponsored by MITRE Corporation (funded by CISA/DHS).",
+      "final_answer": "The user asks: \"What vulnerability class does CVE identifiers typically track, and which organization maintains the official CVE database?\" They want to know: what vulnerability class does CVE identifiers typically track? Also, which organization maintains the official CVE database?\n\nWe need to answer: CVE identifiers typically track vulnerabilities (class: Common Vulnerabilities and Exposures). They track vulnerability \"class\" known as \"Common Vulnerabilities and Exposures (CVE)\". But perhaps they ask: \"What vulnerability class does CVE identifiers typically track?\" That is, CVE IDs are used to track \"vulnerabilities\" as a class. But maybe they refer to \"vulnerability class\" like \"CWE\"? Actually, CVE is a list of vulnerabilities, but each CVE ID is a \"vulnerability\". However, the question: \"What vulnerability class does CVE identifiers typically track, and which organization maintains the official CVE database?\" Could be answered: CVE identifiers typically track vulnerabilities (the vulnerability class is \"Common Vulnerabilities and Exposures (CVE)\"). The official CVE database is maintained by MITRE Corporation.\n\nBut is that correct? Let's verify: The CVE system is a standardized naming scheme for vulnerabilities. It is maintained by MITRE, and the official CVE database is hosted at cve.mitre.org. The vulnerability class is \"Common Vulnerabilities and Exposures (CVE)\". The question might be looking for: \"CVE identifiers typically track vulnerabilities (the vulnerability class is 'Common Vulnerabilities and Exposures (CVE)'), and the organization that maintains the official CVE database is MITRE.\"\n\nBut perhaps they want to know: \"What vulnerability class does CVE identifiers typically track?\" The answer: \"Common Vulnerabilities and Exposures (CVE) is the vulnerability class.\" But maybe they want to know: \"CVE identifiers typically track the vulnerability class 'Common Vulnerabilities and Exposures (CVE)'. The organization that maintains the official CVE database is MITRE.\"\n\nLet's search to confirm.\n",
+      "hops_used": 0,
+      "tool_calls": [],
+      "searched_or_fetched": [],
+      "citation_grounding": 0.0,
+      "factuality": "PASS",
+      "synthesis_1_5": 1,
+      "error": null,
+      "latency_s": 9.2
+    }
+  ]
+}

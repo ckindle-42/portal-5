@@ -1,0 +1,44 @@
+
+=== PERSONA MATRIX SWEEP — workspace=auto-coding-bench ===
+  personas:  15  (sqlterminal, linuxterminal, pythoninterpreter, javascriptconsole, codereviewer, softwarequalityassurancetester, bugdiscoverycodeassistant, codereviewassistant, e2etestauthor, e2edebugger, fullstacksoftwaredeveloper, creativecoder, pythoncodegeneratorcleanoptimizedproduction-ready, devopsautomator, githubexpert)
+  models:    5  (smallest-first)
+  scenarios: 75
+  cells:     75
+
+  [1/5] model: mlx/mlx-community/GLM-4.7-Flash-4bit  (15.0GB)
+      MLX warmup: TIMED OUT (281.1s)
+
+  [2/5] model: mlx/lmstudio-community/Devstral-Small-2507-MLX-4bit  (15.0GB)
+      MLX warmup: TIMED OUT (283.1s)
+
+  [3/5] model: mlx/mlx-community/Laguna-XS.2-4bit  (19.0GB)
+      MLX warmup: TIMED OUT (280.4s)
+
+  [4/5] model: mlx/mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit  (22.0GB)
+      MLX warmup: TIMED OUT (286.0s)
+
+  [5/5] model: mlx/mlx-community/Qwen3-Coder-Next-4bit  (46.0GB)
+      MLX warmup: TIMED OUT (294.2s)
+
+=== SWEEP COMPLETE — 1425s ===
+
+wrote tests/benchmarks/results/coding_shootout_v2_20260513T173449Z.json
+
+--- MATRIX (PASS/WARN/FAIL per cell) ---
+                                                   | GLM-4.7-Flash-4bit | Devstral-Small-2507-MLX- | Laguna-XS.2-4bit | Qwen3-Coder-30B-A3B-Inst | Qwen3-Coder-Next-4bit
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bugdiscoverycodeassistant                          | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+codereviewassistant                                | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+codereviewer                                       | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+creativecoder                                      | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+devopsautomator                                    | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+e2edebugger                                        | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+e2etestauthor                                      | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+fullstacksoftwaredeveloper                         | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+githubexpert                                       | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+javascriptconsole                                  | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+linuxterminal                                      | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+pythoncodegeneratorcleanoptimizedproduction-ready  | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+pythoninterpreter                                  | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+softwarequalityassurancetester                     | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                
+sqlterminal                                        | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                 | P0/W0/F0                

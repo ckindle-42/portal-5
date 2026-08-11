@@ -1,0 +1,101 @@
+{
+  "bench": "lab_exec",
+  "started_at": "20260618T015018Z",
+  "dc": "10.10.11.21",
+  "srv": "10.10.11.33",
+  "domain": "portal.lab",
+  "dry_run": false,
+  "runs": 1,
+  "phases": {
+    "recon": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.2,
+        "max": 0.2,
+        "avg": 0.2
+      },
+      "detail": "0 AD ports open"
+    },
+    "kerberoast": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.34,
+        "max": 0.34,
+        "avg": 0.34
+      },
+      "detail": "3/3 TGS hashes captured"
+    },
+    "asrep": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.29,
+        "max": 0.29,
+        "avg": 0.29
+      },
+      "detail": "2/2 AS-REP hashes captured"
+    },
+    "crack": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 1.24,
+        "max": 1.24,
+        "avg": 1.24
+      },
+      "detail": "\"stdout\": \"Created directory: /root/.john\\nUsing default input encoding: UTF-8\\nLoaded 3 password hashes with 3 different salts (krb5tgs, Kerberos 5 TGS etype 23 [MD4 HMAC-MD5 RC4])\\nWill run 14 OpenMP threads\\nPress Ctrl-C to abort, or send SIGUSR1 to john process for status\\nWarning: Only 5 candidates left, minimum 14 needed for performance.\\nBackup123!       (?)     \\nIisAdmin1!       (?)     \\nMssql2022!       (?)     \\n3g 0:00:00:00 DONE (2026-06-18 01:50) 300.0g/s 500.0p/s 1500c/s 1500C/s LabAdmin1!..Winter1!\\nUse the \\\"--show\\\" option to display all of the cracked passwords reliably\\nSession completed. \\n?:Mssql2022!\\n?:IisAdmin1!\\n?:Backup123!\\n\\n3 password hashes cracked, 0 left\\n\","
+    },
+    "spray": {
+      "runs": 1,
+      "ok": 1,
+      "fail": 0,
+      "elapsed_s": {
+        "min": 0.7,
+        "max": 0.7,
+        "avg": 0.7
+      },
+      "detail": "1 valid account(s) found"
+    },
+    "bloodhound": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.41,
+        "max": 0.41,
+        "avg": 0.41
+      },
+      "detail": "check output"
+    },
+    "winrm": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.66,
+        "max": 0.66,
+        "avg": 0.66
+      },
+      "detail": "check output"
+    },
+    "dcsync": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.46,
+        "max": 0.46,
+        "avg": 0.46
+      },
+      "detail": "check output"
+    }
+  },
+  "total_elapsed_s": 4.3,
+  "finished_at": "20260618T015022Z"
+}

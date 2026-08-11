@@ -1,0 +1,437 @@
+{
+  "task": "TASK_DAILY_WORK_FLEET_SOAK_V1",
+  "path": "pipeline",
+  "engine": "pipeline-routed",
+  "duration_s": 10800,
+  "concurrency": 3,
+  "elapsed_s": 901.0,
+  "total": 44,
+  "ok": 44,
+  "failures": 0,
+  "by_workspace": {
+    "auto-spl": {
+      "ok": 2,
+      "fail": 0
+    },
+    "auto-compliance": {
+      "ok": 6,
+      "fail": 0
+    },
+    "auto-research": {
+      "ok": 7,
+      "fail": 0
+    },
+    "auto-data": {
+      "ok": 4,
+      "fail": 0
+    },
+    "auto-creative": {
+      "ok": 1,
+      "fail": 0
+    },
+    "auto-coding": {
+      "ok": 12,
+      "fail": 0
+    },
+    "auto-security": {
+      "ok": 1,
+      "fail": 0
+    },
+    "auto-reasoning": {
+      "ok": 5,
+      "fail": 0
+    },
+    "auto-documents": {
+      "ok": 4,
+      "fail": 0
+    },
+    "auto-daily": {
+      "ok": 2,
+      "fail": 0
+    }
+  },
+  "by_served_backend": {
+    "ollama-coding": {
+      "ok": 2,
+      "fail": 0
+    },
+    "omlx-reasoning": {
+      "ok": 22,
+      "fail": 0
+    },
+    "omlx-creative": {
+      "ok": 1,
+      "fail": 0
+    },
+    "omlx-coding": {
+      "ok": 12,
+      "fail": 0
+    },
+    "omlx-security": {
+      "ok": 1,
+      "fail": 0
+    },
+    "ollama-general": {
+      "ok": 4,
+      "fail": 0
+    },
+    "omlx-general": {
+      "ok": 2,
+      "fail": 0
+    }
+  },
+  "samples": [
+    {
+      "workspace": "auto-spl",
+      "served_backend": "ollama-coding",
+      "ttft_s": 35.949,
+      "total_s": 35.95,
+      "tps": 0.0,
+      "t": 36.0
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": null,
+      "total_s": 1.694,
+      "tps": 9.4,
+      "t": 37.6
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 37.57,
+      "total_s": 51.034,
+      "tps": 5.2,
+      "t": 51.0
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": null,
+      "total_s": 0.123,
+      "tps": 0.0,
+      "t": 51.2
+    },
+    {
+      "workspace": "auto-data",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 49.694,
+      "total_s": 49.695,
+      "tps": 2.9,
+      "t": 100.9
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 25.302,
+      "total_s": 131.294,
+      "tps": 10.0,
+      "t": 131.3
+    },
+    {
+      "workspace": "auto-data",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": null,
+      "total_s": 0.459,
+      "tps": 0.0,
+      "t": 131.8
+    },
+    {
+      "workspace": "auto-creative",
+      "served_backend": "omlx-creative",
+      "ttft_s": 100.989,
+      "total_s": 103.523,
+      "tps": 7.7,
+      "t": 141.2
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 0.506,
+      "total_s": 23.145,
+      "tps": 10.8,
+      "t": 154.9
+    },
+    {
+      "workspace": "auto-security",
+      "served_backend": "omlx-security",
+      "ttft_s": 7.434,
+      "total_s": 45.987,
+      "tps": 32.6,
+      "t": 200.9
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 8.874,
+      "total_s": 111.484,
+      "tps": 13.0,
+      "t": 212.3
+    },
+    {
+      "workspace": "auto-reasoning",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 55.089,
+      "total_s": 55.09,
+      "tps": 27.2,
+      "t": 256.0
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": null,
+      "total_s": 0.362,
+      "tps": 0.0,
+      "t": 256.3
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 15.332,
+      "total_s": 140.564,
+      "tps": 8.3,
+      "t": 281.7
+    },
+    {
+      "workspace": "auto-spl",
+      "served_backend": "ollama-coding",
+      "ttft_s": 74.752,
+      "total_s": 74.752,
+      "tps": 0.0,
+      "t": 287.1
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 7.966,
+      "total_s": 38.189,
+      "tps": 9.4,
+      "t": 294.5
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 9.185,
+      "total_s": 17.704,
+      "tps": 8.5,
+      "t": 312.2
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 33.318,
+      "total_s": 33.318,
+      "tps": 0.0,
+      "t": 315.1
+    },
+    {
+      "workspace": "auto-data",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 54.041,
+      "total_s": 54.041,
+      "tps": 4.4,
+      "t": 369.1
+    },
+    {
+      "workspace": "auto-reasoning",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 87.533,
+      "total_s": 87.534,
+      "tps": 17.1,
+      "t": 374.6
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "ollama-general",
+      "ttft_s": 11.637,
+      "total_s": 11.637,
+      "tps": 0.0,
+      "t": 386.3
+    },
+    {
+      "workspace": "auto-daily",
+      "served_backend": "omlx-general",
+      "ttft_s": 14.881,
+      "total_s": 18.102,
+      "tps": 6.7,
+      "t": 404.4
+    },
+    {
+      "workspace": "auto-data",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 46.28,
+      "total_s": 77.295,
+      "tps": 4.6,
+      "t": 481.7
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 0.964,
+      "total_s": 186.214,
+      "tps": 8.1,
+      "t": 498.4
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 0.72,
+      "total_s": 152.782,
+      "tps": 9.8,
+      "t": 521.9
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "ollama-general",
+      "ttft_s": 30.161,
+      "total_s": 30.162,
+      "tps": 0.0,
+      "t": 552.0
+    },
+    {
+      "workspace": "auto-reasoning",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 63.177,
+      "total_s": 63.177,
+      "tps": 23.7,
+      "t": 561.6
+    },
+    {
+      "workspace": "auto-reasoning",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 41.419,
+      "total_s": 41.42,
+      "tps": 36.2,
+      "t": 593.5
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 6.407,
+      "total_s": 21.404,
+      "tps": 20.2,
+      "t": 614.9
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 13.878,
+      "total_s": 161.686,
+      "tps": 4.6,
+      "t": 643.3
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 5.961,
+      "total_s": 12.685,
+      "tps": 12.1,
+      "t": 656.0
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": null,
+      "total_s": 0.998,
+      "tps": 16.0,
+      "t": 657.0
+    },
+    {
+      "workspace": "auto-research",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 13.014,
+      "total_s": 135.309,
+      "tps": 8.3,
+      "t": 696.9
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "ollama-general",
+      "ttft_s": 10.958,
+      "total_s": 10.958,
+      "tps": 0.0,
+      "t": 707.9
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 8.239,
+      "total_s": 98.249,
+      "tps": 15.3,
+      "t": 713.1
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 11.997,
+      "total_s": 62.68,
+      "tps": 17.2,
+      "t": 719.7
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 0.952,
+      "total_s": 17.495,
+      "tps": 7.7,
+      "t": 725.4
+    },
+    {
+      "workspace": "auto-documents",
+      "served_backend": "ollama-general",
+      "ttft_s": null,
+      "total_s": 15.41,
+      "tps": 0.0,
+      "t": 740.8
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 0.439,
+      "total_s": 4.388,
+      "tps": 28.7,
+      "t": 745.2
+    },
+    {
+      "workspace": "auto-daily",
+      "served_backend": "omlx-general",
+      "ttft_s": 19.187,
+      "total_s": 49.201,
+      "tps": 11.6,
+      "t": 768.9
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 1.913,
+      "total_s": 16.171,
+      "tps": 9.8,
+      "t": 785.1
+    },
+    {
+      "workspace": "auto-reasoning",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 53.331,
+      "total_s": 53.332,
+      "tps": 28.1,
+      "t": 798.5
+    },
+    {
+      "workspace": "auto-coding",
+      "served_backend": "omlx-coding",
+      "ttft_s": 1.168,
+      "total_s": 39.512,
+      "tps": 4.2,
+      "t": 838.0
+    },
+    {
+      "workspace": "auto-compliance",
+      "served_backend": "omlx-reasoning",
+      "ttft_s": 8.637,
+      "total_s": 89.378,
+      "tps": 16.8,
+      "t": 874.5
+    }
+  ]
+}

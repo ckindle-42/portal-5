@@ -1,0 +1,33 @@
+{
+  "bench": "mbptl",
+  "started_at": "20260622T042353Z",
+  "host": "10.0.1.140",
+  "web_port": 80,
+  "admin_port": 8080,
+  "dry_run": true,
+  "runs": 1,
+  "total_flags": 17,
+  "phases": {
+    "binary": {
+      "runs": 1,
+      "ok": 0,
+      "fail": 1,
+      "elapsed_s": {
+        "min": 0.0,
+        "max": 0.0,
+        "avg": 0.0
+      },
+      "flags_found": [],
+      "flags_expected": [
+        15,
+        16,
+        17
+      ],
+      "detail": "0/3 flags found"
+    }
+  },
+  "total_elapsed_s": 0.0,
+  "finished_at": "20260622T042353Z",
+  "flags_found_total": 0,
+  "flags_found": []
+}

@@ -1,0 +1,23 @@
+DFlash-ON  run 1: 23.03 t/s (200 tokens)
+DFlash-ON  run 2: 20.74 t/s (200 tokens)
+DFlash-ON  run 3: 20.34 t/s (200 tokens)
+DFlash-ON  run 4: 19.09 t/s (200 tokens)
+DFlash-ON  run 5: 19.35 t/s (200 tokens)
+DFlash-ON  run 6: 19.48 t/s (200 tokens)
+DFlash-ON  run 7: 19.54 t/s (200 tokens)
+DFlash-ON  run 8: 21.46 t/s (200 tokens)
+DFlash-OFF run 1: 19.45 t/s (200 tokens)
+DFlash-OFF run 2: 21.11 t/s (200 tokens)
+DFlash-OFF run 3: 19.99 t/s (200 tokens)
+DFlash-OFF run 4: 20.77 t/s (200 tokens)
+DFlash-OFF run 5: 19.74 t/s (200 tokens)
+DFlash-OFF run 6: 18.96 t/s (200 tokens)
+DFlash-OFF run 7: 18.93 t/s (200 tokens)
+DFlash-OFF run 8: 21.00 t/s (200 tokens)
+
+DFlash-ON  avg: 20.38 t/s  (stdev 1.34)
+DFlash-OFF avg: 19.99 t/s  (stdev 0.88)
+Delta: 1.9%
+Output identical across ON runs: True
+Output identical across OFF runs: True
+ON vs OFF output identical: True
