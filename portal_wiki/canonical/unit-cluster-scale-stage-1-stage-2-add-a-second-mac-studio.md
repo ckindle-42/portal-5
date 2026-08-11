@@ -9,7 +9,7 @@ sources:
   path: portal/platform/inference/cluster_backends.py
 - type: code
   path: deploy/portal-5/docker-compose.yml
-last_generated_commit: 0fec84d46a8898b1b5baf0508af1e25634b099af
+last_generated_commit: 1896bb7da29dd96ff280b8ffb495519d507070ee
 claims: []
 confidence: high
 tags:

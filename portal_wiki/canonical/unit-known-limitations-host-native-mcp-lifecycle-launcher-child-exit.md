@@ -13,7 +13,7 @@ sources:
   path: tests/unit/test_native_mcp_service.py
 - type: code
   path: scripts/validate_system.py
-last_generated_commit: a81c5e73569f981ecedb0d95b088563fcce651ed
+last_generated_commit: 1896bb7da29dd96ff280b8ffb495519d507070ee
 claims: []
 confidence: high
 tags:
