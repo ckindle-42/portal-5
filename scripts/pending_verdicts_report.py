@@ -1010,8 +1010,16 @@ def extract_card_claims(body: str) -> dict:
             "speculative / MTP drafting",
         ),
     ]
+    negation_re = re.compile(
+        r"(?i)\b(?:no|not|without|removed|lacks?|isn'?t|doesn'?t\s+(?:have|support)|"
+        r"was\s+removed|has\s+been\s+removed)\b"
+    )
     for pat, label in deploy_patterns:
-        if re.search(pat, text):
+        m = re.search(pat, text)
+        if not m:
+            continue
+        window = text[max(0, m.start() - 40) : m.end() + 60]
+        if not negation_re.search(window):
             deployment_notes.append(label)
 
     return {
