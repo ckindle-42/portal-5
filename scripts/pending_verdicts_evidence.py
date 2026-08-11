@@ -126,6 +126,31 @@ def evidence_date(rel_path: str) -> _dt.date | None:
         return None
 
 
+def harness_of(rel_path: str) -> str:
+    """Infer which bench harness produced a results file from its filename
+    prefix. TASK_BENCH_VALIDITY_V1: harness provenance drives the coherence
+    gate — a bench_tps row is not valid evidence for a capability that needs
+    a dedicated probe."""
+    base = rel_path.rsplit("/", 1)[-1]
+    for prefix, harness in (
+        ("bench_tps_", "bench_tps"),
+        ("mtp_probe_", "mtp_probe"),
+        ("vision_probe_", "vision_probe"),
+        ("refusal_preservation_probe_", "refusal_preservation_probe"),
+        ("long_context_probe_", "long_context_probe"),
+        ("cad_probe_", "cad_probe"),
+        ("fara_cua_probe_", "fara_cua_probe"),
+        ("security_exec_probe_", "security_exec_probe"),
+        ("tool_use_probe_", "tool_use_probe"),
+        ("research_probe_", "research_probe"),
+        ("persona_matrix_", "persona_matrix"),
+        ("v11_capability_", "capability_probe"),
+    ):
+        if base.startswith(prefix):
+            return harness
+    return "unknown"
+
+
 def mine_tps_json(path: Path, needles: set[str]) -> list[dict]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -134,6 +159,8 @@ def mine_tps_json(path: Path, needles: set[str]) -> list[dict]:
     rows = data.get("results") if isinstance(data, dict) else data
     if not isinstance(rows, list):
         return []
+    rel = str(path.relative_to(REPO_ROOT))
+    harness = harness_of(rel)
     out = []
     for r in rows:
         if not isinstance(r, dict):
@@ -144,7 +171,8 @@ def mine_tps_json(path: Path, needles: set[str]) -> list[dict]:
             continue
         out.append(
             {
-                "path": str(path.relative_to(REPO_ROOT)),
+                "path": rel,
+                "harness": harness,
                 "model": r.get("model"),
                 "avg_tps": r.get("avg_tps"),
                 "quality_score": r.get("quality_score"),
