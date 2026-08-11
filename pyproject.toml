@@ -229,6 +229,7 @@ max-complexity = 15
 "scripts/gen-video.py" = ["C90", "PLR0912", "PLR0915"]
 "scripts/lab_targets.py" = ["C90", "PLR0912", "PLR0915"]
 "scripts/openwebui_init.py" = ["C90", "PLR0912", "PLR0915"]
+"scripts/pending_verdicts_report.py" = ["C90", "PLR0912", "PLR0915"]
 "scripts/reconcile_security_arm.py" = ["C90", "PLR0912", "PLR0915"]
 "scripts/security_capture_recipes.py" = ["C90", "PLR0912", "PLR0915"]
 "scripts/update_grafana_benchmarks.py" = ["C90", "PLR0912", "PLR0915"]
