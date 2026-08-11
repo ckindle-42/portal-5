@@ -7,7 +7,7 @@ sources:
   path: config/portal.yaml
   commit: 6df4cdf8e6e7
   section: mcp_fleet
-last_generated_commit: ed366c7a6eb34d822a5d4aa04f8072edca8acd5d
+last_generated_commit: 1ed83b22525c97ed996c835b7519e10c75d13ad0
 claims:
 - probe: mcp.fleet.entries
   pattern: MCP fleet ({value} servers)
