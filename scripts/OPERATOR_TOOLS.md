@@ -45,6 +45,7 @@ python3 scripts/model_cleanup_audit.py              # workspace-variants + resul
 python3 scripts/pending_verdicts_evidence.py        # mine PENDING_MODEL_VERDICTS.md evidence into a decision sheet
 python3 scripts/fetch_pending_model_cards.py        # one-time network prefetch of model cards for pending tags
 python3 scripts/pending_verdicts_report.py          # per-model informed-decision analysis (intake/capability/fleet/card-alignment)
+python3 scripts/rebench_plan.py                     # category-grouped re-bench run plan from the newest analysis report
 python3 scripts/execute_pending_verdicts.py         # two-stage plan/execute reclaim executor for recorded verdicts
 ```
 
