@@ -1,0 +1,8 @@
+{
+  "tag": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+  "status": "ok",
+  "url": "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/raw/main/README.md",
+  "http_code": 200,
+  "fetched_at": "2026-08-11T05:43:33.487100+00:00",
+  "body_size": 1615
+}

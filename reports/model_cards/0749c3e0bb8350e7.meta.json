@@ -1,0 +1,8 @@
+{
+  "tag": "gemma4:26b-a4b-it-q4_K_M",
+  "status": "ok",
+  "url": "https://ollama.com/library/gemma4",
+  "http_code": 200,
+  "fetched_at": "2026-08-11T05:43:07.922816+00:00",
+  "body_size": 6079
+}

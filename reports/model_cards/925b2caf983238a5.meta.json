@@ -1,0 +1,8 @@
+{
+  "tag": "llama3.2:3b",
+  "status": "ok",
+  "url": "https://ollama.com/library/llama3.2",
+  "http_code": 200,
+  "fetched_at": "2026-08-11T05:43:31.441781+00:00",
+  "body_size": 1133
+}

@@ -1,0 +1,8 @@
+{
+  "tag": "hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k",
+  "status": "ok",
+  "url": "https://huggingface.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF/raw/main/README.md",
+  "http_code": 200,
+  "fetched_at": "2026-08-11T05:43:16.118315+00:00",
+  "body_size": 7379
+}
