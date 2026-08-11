@@ -37,6 +37,29 @@ OLLAMA_URL = "http://localhost:11434"
 RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
 TIMEOUT = 180
 
+# TASK_MODEL_BENCH_VALIDITY_V1 follow-up: bench at the temperature the model
+# is actually configured to run at (portal.yaml), not its Modelfile default —
+# the same "wrong instrument" failure as the token-budget bug, on the
+# sampling axis. Fall back to a low default (needle recall wants
+# determinism) only when the tag isn't wired to a bench-* workspace yet.
+_DEFAULT_TEMPERATURE = 0.1
+
+
+def _temperature_for_tag(model_tag: str) -> float:
+    try:
+        import yaml as _yaml
+
+        data = _yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text()) or {}
+        for slug, spec in (data.get("workspaces") or {}).items():
+            if not slug.startswith("bench-") or not isinstance(spec, dict):
+                continue
+            if spec.get("model_hint") == model_tag and spec.get("temperature") is not None:
+                return float(spec["temperature"])
+    except Exception:
+        pass
+    return _DEFAULT_TEMPERATURE
+
+
 NEEDLE_CODE = "QZ-7734-PORTAL"
 NEEDLE_SENTENCE = (
     f"The secret verification code for this document is {NEEDLE_CODE}. "
@@ -96,7 +119,11 @@ def run_case(model: str, case: dict) -> dict:
         "messages": [{"role": "user", "content": prompt}],
         "stream": False,
         "think": False,
-        "options": {"num_predict": 64, "num_ctx": case["num_ctx"]},
+        "options": {
+            "num_predict": 64,
+            "num_ctx": case["num_ctx"],
+            "temperature": _temperature_for_tag(model),
+        },
     }
     req = urllib.request.Request(
         f"{OLLAMA_URL}/api/chat",

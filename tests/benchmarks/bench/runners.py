@@ -150,6 +150,7 @@ def bench_direct(
                 request_timeout=_direct_timeout,
                 predict_limit=_db["predict_limit"],
                 predict_limit_resolved=True,
+                temperature=_db["temperature"],
             )
             r["backend"] = "ollama"
             r["path"] = "direct"
@@ -202,6 +203,7 @@ def bench_direct(
                         ),
                         predict_limit=_mdb["predict_limit"],
                         predict_limit_resolved=True,
+                        temperature=_mdb["temperature"],
                     )
                     rm["backend"] = "ollama"
                     rm["path"] = "direct"

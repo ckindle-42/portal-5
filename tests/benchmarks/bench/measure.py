@@ -106,6 +106,7 @@ def bench_tps(
     request_timeout: float = REQUEST_TIMEOUT,
     predict_limit: int | None = None,
     predict_limit_resolved: bool = False,
+    temperature: float | None = None,
 ) -> dict:
     """Benchmark TPS for a single model/endpoint. Returns summary dict.
 
@@ -145,17 +146,26 @@ def bench_tps(
     }
     _is_pipeline = base_url == PIPELINE_URL
     if _is_pipeline:
-        # Router injects max_tokens from predict_limit; sending nothing lets it.
-        # (An explicit math bump still helps the math specialists that route to
-        # a workspace without a predict_limit — only add it when the router
-        # would otherwise inject nothing, i.e. we can't know here, so leave it
-        # to the workspace config. Math specialists carry predict_limit >= 4096.)
+        # Router injects max_tokens (and temperature) from workspace config via
+        # setdefault; sending nothing lets it. (An explicit math bump still
+        # helps the math specialists that route to a workspace without a
+        # predict_limit — only add it when the router would otherwise inject
+        # nothing, i.e. we can't know here, so leave it to the workspace
+        # config. Math specialists carry predict_limit >= 4096.)
         pass
     elif predict_limit_resolved:
         # Direct mode with a resolved production budget.
         if predict_limit:
             payload["max_tokens"] = predict_limit
         # else: None => omit => model default (== production unset behaviour)
+        # Direct mode has no router to inject temperature either — the caller
+        # resolves it from portal.yaml (same pattern as predict_limit). A
+        # model benched at its Modelfile-default temperature instead of the
+        # temperature it's actually configured to run at is the same
+        # "wrong instrument" failure as the token-budget bug, just on the
+        # sampling axis instead of the length axis.
+        if temperature is not None:
+            payload["temperature"] = temperature
     else:
         # Legacy/un-migrated caller: preserve prior reasoning-aware behaviour so
         # nothing silently changes for callers that haven't been updated.
