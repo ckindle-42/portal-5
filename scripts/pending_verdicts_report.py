@@ -1060,6 +1060,7 @@ def workspace_slotting_for_tag(tag: str, portal: dict) -> list[dict]:
                 "system_prompt": spec.get("owui_system_prompt")
                 or spec.get("system_prompt_append", ""),
                 "temperature": spec.get("temperature"),
+                "predict_limit": spec.get("predict_limit"),
             }
         )
     return slots
