@@ -1,0 +1,92 @@
+{
+  "results": [
+    {
+      "model": "hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K",
+      "avg_tps": 9.99,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "security-tooling",
+      "artifact_validity_rate": 1.0,
+      "capability_preserved": true,
+      "cases": [
+        {
+          "id": "detection_rule",
+          "ok": true,
+          "matched": true,
+          "response_preview": "```yaml\ntitle: Spike in Failed Windows Logons from Single Source\nlogsource:\n  product: windows\n  category: authentication\ndetection:\n  selection:\n    EventID: 4625\n    TargetUserName|is_not: 'ANONYMOU",
+          "tps": 10.10274415411118,
+          "wall_s": 16.45852862499305
+        },
+        {
+          "id": "log_parser",
+          "ok": true,
+          "matched": true,
+          "response_preview": "```python\nimport re\n\ndef parse_auth_line(line: str) -> dict:\n    \"\"\"\n    Parses a standard Linux auth.log line into its constituent fields.\n    \n    Args:\n        line (str): A single line from an aut",
+          "tps": 9.677084878237217,
+          "wall_s": 61.94142170800478
+        },
+        {
+          "id": "regex_ioc",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Target: DEFANGED IPv4 indicator.\n    *   Format example: `192[.]168[.]1[.]1`.\n    *   Key characteristic: Dots are wrapped in square brackets `[",
+          "tps": 9.923720892946486,
+          "wall_s": 104.34634600000572
+        },
+        {
+          "id": "capability_check",
+          "ok": true,
+          "matched": true,
+          "response_preview": "The purpose of a correlation rule in a SIEM is to analyze multiple log events across different sources to identify complex attack patterns and generate actionable alerts for potential security threats",
+          "tps": 10.264566279791664,
+          "wall_s": 17.970426417014096
+        }
+      ]
+    },
+    {
+      "model": "cybersecqwen-4b-toolfix:latest",
+      "avg_tps": 77.97,
+      "quality_score": 0.5,
+      "runs_success": 2,
+      "runs_total": 4,
+      "prompt_category": "security-tooling",
+      "artifact_validity_rate": 0.33,
+      "capability_preserved": true,
+      "cases": [
+        {
+          "id": "detection_rule",
+          "ok": true,
+          "matched": false,
+          "response_preview": "```\n# This rule detects bursts of authentication failures (failed logon attempts)\n# originating from a single source IP address within a short time window.\n# It is intended to identify brute force or ",
+          "tps": 75.93204427183328,
+          "wall_s": 8.317590666993055
+        },
+        {
+          "id": "log_parser",
+          "ok": true,
+          "matched": true,
+          "response_preview": "```python\ndef parse_auth_line(line: str) -> dict:\n    # Standard Linux auth.log format is typically: <timestamp> <host> <process>: <message>\n    import re\n    \n    # Regular expression to match common",
+          "tps": 77.4327996922888,
+          "wall_s": 2.5850221249856986
+        },
+        {
+          "id": "regex_ioc",
+          "ok": true,
+          "matched": false,
+          "response_preview": "/^[1-9]\\d{1,2}\\.[1-9]\\d{1,2}\\.[1-9]\\d{1,2}\\.[1-9]\\d{1,2}$/",
+          "tps": 78.9234112533772,
+          "wall_s": 0.7540508749953005
+        },
+        {
+          "id": "capability_check",
+          "ok": true,
+          "matched": true,
+          "response_preview": "A correlation rule in a SIEM identifies and aggregates related log events to detect potential security incidents by matching specific patterns or anomalies across multiple sources.",
+          "tps": 79.59925890345158,
+          "wall_s": 0.541645499994047
+        }
+      ]
+    }
+  ]
+}

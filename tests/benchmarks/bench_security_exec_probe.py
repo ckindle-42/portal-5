@@ -127,6 +127,15 @@ def _score_regex_ioc(text: str) -> bool:
     # line containing regex metacharacters.
     candidates = re.findall(r"r?['\"]([^'\"]{4,})['\"]", block)
     candidates += [ln.strip() for ln in block.splitlines() if any(c in ln for c in r"\d[](){}+")]
+    # A model may answer with a JS/PCRE-style delimited literal (/pattern/ or
+    # /pattern/flags) instead of a Python string — the leading/trailing slash
+    # isn't part of the pattern and would otherwise be tested literally,
+    # scoring a correct regex as wrong purely on delimiter style.
+    normalized: list[str] = []
+    for c in candidates:
+        m = re.fullmatch(r"/(.+)/[a-zA-Z]*", c)
+        normalized.append(m.group(1) if m else c)
+    candidates = normalized
     sample = "192[.]168[.]1[.]1"  # benign defanged IOC
     for pat in candidates:
         try:
@@ -216,13 +225,21 @@ def run_case(model: str, case: dict) -> dict:
             data = json.load(r)
     except Exception as e:
         return {"id": case["id"], "ok": False, "error": str(e), "wall_s": time.monotonic() - t0}
-    content = (data.get("message") or {}).get("content", "") or ""
+    msg = data.get("message") or {}
+    content = msg.get("content", "") or ""
+    # A reasoning model's whole answer can land entirely in Ollama's separate
+    # "thinking" field with empty "content" (same pattern already handled in
+    # bench_vision_probe.py / bench_fara_cua_probe.py). Combine both so a
+    # security-tooling model that reasons its way to a correct artifact isn't
+    # scored as a blank response.
+    thinking = msg.get("thinking", "") or ""
+    text = content + ("\n" + thinking if thinking else "")
 
     if case["kind"] == "capability":
-        matched = any(k in content.lower() for k in case.get("expect_any", []))
+        matched = any(k in text.lower() for k in case.get("expect_any", []))
     else:
         scorer = _SCORERS[case["scorer"]]
-        matched = scorer(content)
+        matched = scorer(text)
 
     eval_count = data.get("eval_count") or 0
     eval_duration_ns = data.get("eval_duration") or 0
@@ -231,7 +248,7 @@ def run_case(model: str, case: dict) -> dict:
         "id": case["id"],
         "ok": True,
         "matched": matched,
-        "response_preview": content[:200],
+        "response_preview": (content or thinking)[:200],
         "tps": tps,
         "wall_s": time.monotonic() - t0,
     }

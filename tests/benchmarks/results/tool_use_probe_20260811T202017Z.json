@@ -1,0 +1,90 @@
+{
+  "results": [
+    {
+      "model": "hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M",
+      "avg_tps": 61.91,
+      "quality_score": 0.25,
+      "runs_success": 1,
+      "runs_total": 4,
+      "prompt_category": "agent-toolcall",
+      "tools_supported": true,
+      "cases": [
+        {
+          "id": "single_call",
+          "ok": true,
+          "matched": false,
+          "emitted_calls": [],
+          "response_preview": "Final answer:\nThe current weather in Tokyo is 15\u00b0C.",
+          "tps": 61.12344899248182,
+          "wall_s": 3.3594567920081317
+        },
+        {
+          "id": "arg_fidelity",
+          "ok": true,
+          "matched": false,
+          "emitted_calls": [],
+          "response_preview": "Final answer:\n100 kilometers is approximately 62.1371 miles.",
+          "tps": 60.69737715921993,
+          "wall_s": 1.100381208001636
+        },
+        {
+          "id": "tool_select",
+          "ok": true,
+          "matched": false,
+          "emitted_calls": [],
+          "response_preview": "Final answer:\nI'll search for flights from Boston to Denver on May 3rd.",
+          "tps": 61.557402277623886,
+          "wall_s": 1.140251041011652
+        },
+        {
+          "id": "capability_check",
+          "ok": true,
+          "matched": true,
+          "emitted_calls": [],
+          "response_preview": "Final answer:\n2 + 2 = 4.",
+          "tps": 64.2769909797956,
+          "wall_s": 0.9338870420178864
+        }
+      ]
+    },
+    {
+      "model": "dolphin-llama3:8b",
+      "avg_tps": null,
+      "quality_score": 0.0,
+      "runs_success": 0,
+      "runs_total": 4,
+      "prompt_category": "agent-toolcall",
+      "tools_supported": false,
+      "cases": [
+        {
+          "id": "single_call",
+          "ok": false,
+          "tools_unsupported": true,
+          "error": "{\"error\":\"registry.ollama.ai/library/dolphin-llama3:8b does not support tools\"}",
+          "wall_s": 0.08003508401452564
+        },
+        {
+          "id": "arg_fidelity",
+          "ok": false,
+          "tools_unsupported": true,
+          "error": "{\"error\":\"registry.ollama.ai/library/dolphin-llama3:8b does not support tools\"}",
+          "wall_s": 0.07949770902632736
+        },
+        {
+          "id": "tool_select",
+          "ok": false,
+          "tools_unsupported": true,
+          "error": "{\"error\":\"registry.ollama.ai/library/dolphin-llama3:8b does not support tools\"}",
+          "wall_s": 0.07885595798143186
+        },
+        {
+          "id": "capability_check",
+          "ok": false,
+          "tools_unsupported": true,
+          "error": "{\"error\":\"registry.ollama.ai/library/dolphin-llama3:8b does not support tools\"}",
+          "wall_s": 0.07817387499380857
+        }
+      ]
+    }
+  ]
+}

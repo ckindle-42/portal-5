@@ -1,0 +1,82 @@
+{
+  "results": [
+    {
+      "model": "sylink/sylink:8b",
+      "avg_tps": 16.7,
+      "quality_score": 1.0,
+      "runs_success": 2,
+      "runs_total": 2,
+      "prompt_category": "long_context",
+      "cases": [
+        {
+          "id": "needle_2k",
+          "ok": true,
+          "matched": true,
+          "response_preview": "QZ-7734-PORTAL",
+          "target_tokens": 2000,
+          "tps": 17.224721546717358,
+          "wall_s": 15.32681166700786
+        },
+        {
+          "id": "needle_8k",
+          "ok": true,
+          "matched": true,
+          "response_preview": "QZ-7734-PORTAL",
+          "target_tokens": 8000,
+          "tps": 16.169622277623596,
+          "wall_s": 20.325227040972095
+        }
+      ]
+    },
+    {
+      "model": "sylink/sylink:8b-ctx8k",
+      "avg_tps": 16.84,
+      "quality_score": 1.0,
+      "runs_success": 2,
+      "runs_total": 2,
+      "prompt_category": "long_context",
+      "cases": [
+        {
+          "id": "needle_2k",
+          "ok": true,
+          "matched": true,
+          "response_preview": "QZ-7734-PORTAL",
+          "target_tokens": 2000,
+          "tps": 17.192630925791917,
+          "wall_s": 7.177380125009222
+        },
+        {
+          "id": "needle_8k",
+          "ok": true,
+          "matched": true,
+          "response_preview": "QZ-7734-PORTAL",
+          "target_tokens": 8000,
+          "tps": 16.490789893844287,
+          "wall_s": 20.2700867090025
+        }
+      ]
+    },
+    {
+      "model": "phi4:14b-q8_0",
+      "avg_tps": null,
+      "quality_score": 0.0,
+      "runs_success": 0,
+      "runs_total": 2,
+      "prompt_category": "long_context",
+      "cases": [
+        {
+          "id": "needle_2k",
+          "ok": false,
+          "error": "HTTP Error 500: Internal Server Error",
+          "wall_s": 0.33823066600598395
+        },
+        {
+          "id": "needle_8k",
+          "ok": false,
+          "error": "HTTP Error 500: Internal Server Error",
+          "wall_s": 0.34967041699565016
+        }
+      ]
+    }
+  ]
+}
