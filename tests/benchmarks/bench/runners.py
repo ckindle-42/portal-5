@@ -122,7 +122,19 @@ def bench_direct(
                     _append_result(output_path, r)
                 continue
             model_groups = [g for g, ms in ollama_groups.items() if model in ms]
-            group = model_groups[0] if model_groups else ""
+            # TASK_BENCH_VALIDITY_V1 follow-up: a model can be registered under
+            # multiple backend groups in backends.yaml (e.g. also listed under
+            # "general" as a catch-all alongside its real "security"/"reasoning"
+            # group). Picking model_groups[0] silently always chose "general"
+            # for ~65% of the fleet because that group happens to be declared
+            # first in the YAML — not because it's the most relevant capability.
+            # Prefer the most specific (non-general) group; "general" is only
+            # used when it's the model's sole group. This is the same "wrong
+            # instrument" failure the rest of this task fixes, one layer
+            # deeper: inside bench_tps's own prompt selection.
+            group = next(
+                (g for g in model_groups if g != "general"), model_groups[0] if model_groups else ""
+            )
             prompt = _get_prompt_for_model(model, group=group)
             # Warm-up: force Ollama to load model before timed runs so run 1
             # doesn't include model-load latency.
