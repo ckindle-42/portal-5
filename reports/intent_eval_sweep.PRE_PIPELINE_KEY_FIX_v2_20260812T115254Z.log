@@ -1,0 +1,7 @@
+Capability Probe V11 — 20260812T115207Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... 

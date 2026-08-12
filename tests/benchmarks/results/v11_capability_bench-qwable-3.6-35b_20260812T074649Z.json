@@ -1,0 +1,767 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260812T074649Z",
+  "candidate": "bench-qwable-3.6-35b",
+  "baselines": [
+    "auto-daily"
+  ],
+  "probes_run": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "auto-daily",
+      "results": [
+        {
+          "probe_id": "C1/c1_1",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 3,
+          "markers": {
+            "reached_resolution": true,
+            "recovered_from_error": false,
+            "no_redundant_calls": true
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C1/c1_2",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 3,
+          "markers": {
+            "reached_resolution": true,
+            "recovered_from_error": false,
+            "no_redundant_calls": true
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_1",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merges all overlapping intervals from a list of [start, end] pairs.\n    \n    Args:\n        intervals (list[list[int]]): A list of intervals where each interval is [start, end].\n        \n    Returns:\n        list[list[int]]: The list of merged intervals sorted by start time.\n    \"\"\"\n    if not intervals:\n        return []\n\n    # 1. Sort the inte",
+          "latency_s": 16.8773461249948,
+          "notes": "c2_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_2",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef first_missing_positive(nums):\n    \"\"\"\n    Finds the smallest positive integer missing from the list.\n    \n    Args:\n        nums (list[int]): A list of integers.\n        \n    Returns:\n        int: The smallest missing positive integer.\n    \"\"\"\n    # Convert to a set for O(1) average time complexity lookups\n    num_set = set(nums)\n    \n    # Start checking from the smallest positive i",
+          "latency_s": 26.71183216702775,
+          "notes": "c2_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_3",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef can_jump(nums: list[int]) -> bool:\n    \"\"\"\n    Determines if you can reach the last index of the array starting from index 0,\n    where each element represents your maximum jump length at that position.\n    \"\"\"\n    max_reachable = 0\n    target = len(nums) - 1\n    \n    for i, jump in enumerate(nums):\n        # If the current index is greater than our max reachable distance,\n        # ",
+          "latency_s": 26.04149691600469,
+          "notes": "c2_3",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_4",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef flatten_nested(items):\n    \"\"\"\n    Flattens an arbitrarily nested list of integers into a flat list,\n    preserving order.\n    \n    Args:\n        items (list): A list that may contain integers or other nested lists.\n        \n    Returns:\n        list: A single flat list containing all the integers found in the input.\n    \"\"\"\n    flat_list = []\n    for item in items:\n        if isinst",
+          "latency_s": 21.97667145798914,
+          "notes": "c2_4",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_5",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef roman_to_int(s: str) -> int:\n    \"\"\"\n    Converts a Roman numeral string to an integer using the standard \n    subtractive notation rules.\n    \"\"\"\n    roman_map = {\n        'I': 1,\n        'V': 5,\n        'X': 10,\n        'L': 50,\n        'C': 100,\n        'D': 500,\n        'M': 1000\n    }\n    \n    total = 0\n    n = len(s)\n    \n    for i in range(n):\n        current_val = roman_map[s",
+          "latency_s": 32.06851712500793,
+          "notes": "c2_5",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_6",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\nimport re\n\ndef parse_kv(s):\n    \"\"\"\n    Parses a string of key-value pairs into a dictionary.\n    Pairs are separated by semicolons (;), which can be escaped with a \n    backslash (\\;) to be treated as literal text. Key and value are \n    separated by an equals sign (=).\n    \"\"\"\n    if not s:\n        return {}\n\n    # Use regex split with a negative lookbehind to split on semicolons \n    ",
+          "latency_s": 37.79236279099132,
+          "notes": "c2_6",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_7",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef rotate_90(matrix):\n    \"\"\"\n    Takes a 2D list and returns a new 2D list rotated 90 degrees clockwise.\n    Does not mutate the original input.\n    \"\"\"\n    # matrix[::-1] reverses the order of the rows (top-to-bottom becomes bottom-to-top)\n    # zip(*...) unpacks these reversed rows and groups their elements by index,\n    # effectively performing a transpose on the reversed rows, whic",
+          "latency_s": 62.549711708008545,
+          "notes": "c2_7",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_8",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\nimport re\n\ndef parse_log_line(line):\n    \"\"\"\n    Parses a log line of the form [TIMESTAMP] LEVEL=X msg=\"the message\" \n    into a dictionary.\n    \n    Args:\n        line (str): The log line to parse.\n        \n    Returns:\n        dict: A dictionary containing 'timestamp', 'level', and 'msg' if successful,\n              None otherwise.\n    \"\"\"\n    # Regex explanation:\n    # ^\\[(?P<timestam",
+          "latency_s": 21.668652916006977,
+          "notes": "c2_8",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_9",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef topological_sort(graph):\n    \"\"\"\n    Performs a topological sort on a directed acyclic graph (DAG) using Kahn's Algorithm.\n    \n    Args:\n        graph (dict): A dictionary where keys are nodes and values are lists of \n                      nodes that depend on the key (successors).\n\n    Returns:\n        list: A list of nodes in topological order, or None if a cycle is detected.\n    ",
+          "latency_s": 33.624332042003516,
+          "notes": "c2_9",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_10",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\nimport ipaddress\n\ndef parse_ip_range(cidr):\n    \"\"\"\n    Takes a CIDR string and returns a list of all IPv4 addresses in the range \n    as strings, including the network and broadcast addresses.\n\n    Args:\n        cidr (str): The CIDR notation (e.g., \"10.0.0.0/30\").\n\n    Returns:\n        list: A list of IP address strings in ascending order.\n    \"\"\"\n    # Create an IPv4Network object from",
+          "latency_s": 14.130860165983904,
+          "notes": "c2_10",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C3/c3_1",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "```\n1\n2\n3\n4\n5\n```",
+          "latency_s": 3.7910518329881597,
+          "notes": "c3_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C3/c3_2",
+          "workspace": "auto-daily",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "",
+          "latency_s": 75.24760491700727,
+          "notes": "c3_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C3/c3_3",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "```\nFilesystem Size Used Avail Capacity Mounted on\n/dev/disk3s5  468Gi  210Gi  258Gi   48%   /\n/dev/disk3s1   7.8G  654M   7.1G     9%   /System/Volumes/Recovery\n```",
+          "latency_s": 27.534847917006118,
+          "notes": "c3_3",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 0.33,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### Plan\n1. **Identify the target port**: Since the upstream is known to be on port 8080, we will filter specifically for that port to reduce noise.\n2. **Capture traffic bidirectionally**: Use the `any` interface to catch both Nginx's attempts to connect and the upstream's responses (or lack thereof).\n3. **Monitor connection lifecycle**: Focus on TCP handshakes (SYN/ACK) and termination flags (RST",
+          "latency_s": 17.71360858398839,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "To diagnose an intermittently slow web application, it is important to realize that capturing **only** the reset packets (RST) provides no context for why the slowness occurred. To find \"the cause,\" you must capture the entire conversation leading up to the resets to see if there are delays or buffer issues preceding them.\n\n### 1. Numbered Plan\n1.  **Identify Interfaces:** Determine which network ",
+          "latency_s": 38.35167137498502,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 0.33,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "To diagnose whether DNS latency is the root cause of your service timeouts, follow this plan and use the command provided below.\n\n### 1. Numbered Plan\n1.  **Identify the Interface:** Determine which network interface handles your traffic (using `ip addr` or `ifconfig`). We will use `-i any` to listen on all interfaces for simplicity.\n2.  **Apply Port Filtering:** Filter specifically for **Port 53*",
+          "latency_s": 22.44119725000928,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C5/c5_10pct",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": false
+          },
+          "transcript_excerpt": "Please provide the text you are referring to. There is currently no text or document above your message to search through.",
+          "latency_s": 30.576798291003797,
+          "notes": "depth=10%",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C5/c5_50pct",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": false
+          },
+          "transcript_excerpt": "Please provide the text you are referring to; it appears you haven't included any text above your question for me to search through.",
+          "latency_s": 43.20195366599364,
+          "notes": "depth=50%",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C5/c5_90pct",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": false
+          },
+          "transcript_excerpt": "Please provide the text you are referring to, as there is no text provided above your question.",
+          "latency_s": 32.66191841699765,
+          "notes": "depth=90%",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-qwable-3.6-35b",
+      "results": [
+        {
+          "probe_id": "C1/c1_1",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 6,
+          "markers": {
+            "reached_resolution": true,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_1",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C1/c1_2",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 3,
+          "markers": {
+            "reached_resolution": true,
+            "recovered_from_error": false,
+            "no_redundant_calls": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_2",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C2/c2_1",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "\u2026[0]`, `[4,5], [6,[8,[9]] is wrong! Because I wrote loop iterates: `start = interval[0], end]: merge last=[[[1,2], [3,[4,6]] -> merged: [1]` and the rest becomes 2 [2,[7]`. [2`, `[4,5],[8,9]`: it works correctly.\n\nBut! I think `res[-1][0] < start:` will miss merging overlapping ones where they share borders? No, `start >= res[-1][1]` means no overlap. So if `res[-[0] <` means non-overlap is `res[-",
+          "latency_s": 72.96067137498176,
+          "notes": "c2_1",
+          "error": null,
+          "baseline_delta": -1.0
+        },
+        {
+          "probe_id": "C2/c2_2",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 162.69671233400004,
+          "notes": "c2_2",
+          "error": null,
+          "baseline_delta": -1.0
+        },
+        {
+          "probe_id": "C2/c2_3",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef can_jump(nums) -> bool:\n    reach = 0\n    for i in range(len(nums)):\n        if i > reach: return False\n        reach = max(reach, i + nums[i])\n    return True\n```",
+          "latency_s": 85.54145087499637,
+          "notes": "c2_3",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C2/c2_4",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef flatten_nested(items):\n    \"\"\"Flattens an arbitrarily nested list of integers into a flat list.\"\"\"\n    result = []\n    for item in items:\n        if isinstance(item, (list, tuple)):\n            result.extend(flatten_nested(item))\n        else:\n            result.append(item)\n    return result\n```",
+          "latency_s": 13.725687833008124,
+          "notes": "c2_4",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C2/c2_5",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 162.5426572499855,
+          "notes": "c2_5",
+          "error": null,
+          "baseline_delta": -1.0
+        },
+        {
+          "probe_id": "C2/c2_6",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 162.56519604098867,
+          "notes": "c2_6",
+          "error": null,
+          "baseline_delta": -1.0
+        },
+        {
+          "probe_id": "C2/c2_7",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef rotate_90(matrix):\n    \"\"\"Returns a new 2D list rotated 90 degrees clockwise.\"\"\"\n    return [list(row) for row in zip(*reversed(matrix))]\n```",
+          "latency_s": 44.27369266698952,
+          "notes": "c2_7",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C2/c2_8",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 162.9686631669756,
+          "notes": "c2_8",
+          "error": null,
+          "baseline_delta": -1.0
+        },
+        {
+          "probe_id": "C2/c2_9",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "Below is the complete function. It uses **Kahn's algorithm** (BFS-based topological sort), which naturally detects cycles: if a valid ordering exists, every node's in-degree must eventually hit zero exactly once; otherwise, a cycle keeps its members stuck with `> 0` incoming edges forever. The solution works on the raw value lists from your dictionary without copying them and is correct even when ",
+          "latency_s": 148.03515012498247,
+          "notes": "c2_9",
+          "error": null,
+          "baseline_delta": -1.0
+        },
+        {
+          "probe_id": "C2/c2_10",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\nimport ipaddress\n\n\ndef parse_ip_range(cidr):\n    # Parse CIDR notation; strict=False ensures non-aligned starting IPs snap to \n    # correct subnet boundaries without raising an error.\n    network = ipaddress.IPv4Network(cidr.strip(), strict=False)\n    \n    start = int(network.network_address)\n    end = int(network.broadcast_address)\n    \n    # Standard IPv4Network iteration excludes the",
+          "latency_s": 73.31171170799644,
+          "notes": "c2_10",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C3/c3_1",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "```\n1\n2\n3\n4\n5\n```",
+          "latency_s": 1.4927109160053078,
+          "notes": "c3_1",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C3/c3_2",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "<tool_call>` tags with content=\"...\". Let me look at the tool description again: there's no explicit mention of how many lines, just that you MUST include exactly one block per request (unless the user wants multiple)\u2014here they didn't specify format constraints, but \"Output exactly what would appear...\" doesn't strictly require a fenced block unless it's part of the answer format. I'll verify whet",
+          "latency_s": 12.15440291701816,
+          "notes": "c3_2",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C3/c3_3",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "I will generate a fresh macOS virtual environment and run the command inside it? No! Let me first check: **No.  ...  let's let me try to simulate via terminal agent. But actually, is a real one?  *Wait*! I have a sandboxed macOS VM. So I can just run it with this setup to get the actual output on my Mac.\n   No wait! **MacBook Air (M2)** has a 967G drive? Wait, that's weird \u2014 the \"size\" column show",
+          "latency_s": 162.2325938330032,
+          "notes": "c3_3",
+          "error": null,
+          "baseline_delta": -0.5
+        },
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### Plan\n1. Start `tcpdump` listening on the relevant network interface, filtering strictly to port 8080 with full packet capture (to include HTTP headers/bodies) and verbose TCP flags (`-vvv`).\n2. Reproduce one failing client request while the capture runs, then stop it immediately to keep the stream focused on a single failure cycle.\n3. Scan the output for abort patterns, timeout chains, or appl",
+          "latency_s": 41.81603904100484,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": 0.67
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### **1\ufe0f\u20e3 Plan**\na. Capture only TCP handshakes/TCP flags on port 443 without decoding TLS payloads.`-200` and a strict size filter to keep it won't see decrypted HTTP payloads (that's fine \u2014 connection resets are diagnosed at the TCP layer via flags, not HTML/JSON). \nb. Run `sudo tcpdump -i any port 443 and (dst host <app-server-ip>) or (src port 4 \u2026 a time-stamped PCAP for later Wireshark/tshark",
+          "latency_s": 60.80197200001567,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": false,
+            "fence": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 17.682334584009368,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": -0.33
+        },
+        {
+          "probe_id": "C5/c5_10pct",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": true
+          },
+          "transcript_excerpt": "portal5-blue-falcon-42",
+          "latency_s": 66.21760204102611,
+          "notes": "depth=10%",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C5/c5_50pct",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": true
+          },
+          "transcript_excerpt": "portal5-crimson-hawk-77",
+          "latency_s": 52.72721745900344,
+          "notes": "depth=50%",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C5/c5_90pct",
+          "workspace": "bench-qwable-3.6-35b",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 66.4153872919851,
+          "notes": "depth=90%",
+          "error": null,
+          "baseline_delta": 0.0
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-08-12T08:24:07.163813+00:00"
+}

@@ -1,0 +1,569 @@
+{
+  "rows": [
+    {
+      "intent": "coding",
+      "candidate": "devstral-small-2:latest-ctx8k",
+      "note": "no result row"
+    },
+    {
+      "intent": "coding",
+      "candidate": "devstral-small-2:latest",
+      "incumbent": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "cand_quality": 0.66,
+      "incumbent_quality": 0.9,
+      "delta_vs_incumbent": -0.24,
+      "cand_tps": null,
+      "prompt_category": "coding_repair"
+    },
+    {
+      "intent": "coding",
+      "candidate": "devstral:24b",
+      "incumbent": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "cand_quality": 0.76,
+      "incumbent_quality": 0.9,
+      "delta_vs_incumbent": -0.14,
+      "cand_tps": null,
+      "prompt_category": "coding_repair"
+    },
+    {
+      "intent": "general",
+      "candidate": "portal5/xyz-aquila-mini:Q4_K_M",
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.651,
+      "incumbent_quality": 0.65,
+      "delta_vs_incumbent": 0.001,
+      "cand_tps": null,
+      "prompt_category": "general_capability"
+    },
+    {
+      "intent": "general",
+      "candidate": "portal5/xyz-aquila-mini:q4_k_m-ctx16k",
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.667,
+      "incumbent_quality": 0.65,
+      "delta_vs_incumbent": 0.017,
+      "cand_tps": null,
+      "prompt_category": "general_capability"
+    },
+    {
+      "intent": "general",
+      "candidate": "portal5/deepwen-3.6:q4.5-moq-ctx32k",
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.222,
+      "incumbent_quality": 0.65,
+      "delta_vs_incumbent": -0.428,
+      "cand_tps": null,
+      "prompt_category": "general_capability"
+    },
+    {
+      "intent": "general",
+      "candidate": "portal5/deepwen-3.6:q4.5-moq",
+      "note": "no result row"
+    },
+    {
+      "intent": "general",
+      "candidate": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.548,
+      "incumbent_quality": 0.65,
+      "delta_vs_incumbent": -0.102,
+      "cand_tps": null,
+      "prompt_category": "general_capability"
+    },
+    {
+      "intent": "general",
+      "candidate": "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k",
+      "note": "no result row"
+    },
+    {
+      "intent": "general",
+      "candidate": "glm-4.7-flash:Q4_K_M",
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.746,
+      "incumbent_quality": 0.65,
+      "delta_vs_incumbent": 0.096,
+      "cand_tps": null,
+      "prompt_category": "general_capability"
+    },
+    {
+      "intent": "general",
+      "candidate": "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf",
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.762,
+      "incumbent_quality": 0.65,
+      "delta_vs_incumbent": 0.112,
+      "cand_tps": null,
+      "prompt_category": "general_capability"
+    },
+    {
+      "intent": "general",
+      "candidate": "mistral-small3.2:24b",
+      "note": "no result row"
+    },
+    {
+      "intent": "general",
+      "candidate": "portal5/gemma4-12b:q4_K_M-ctx8k",
+      "note": "no result row"
+    },
+    {
+      "intent": "general",
+      "candidate": "dolphin-llama3:8b",
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.365,
+      "incumbent_quality": 0.65,
+      "delta_vs_incumbent": -0.285,
+      "cand_tps": null,
+      "prompt_category": "general_capability"
+    },
+    {
+      "intent": "general",
+      "candidate": "llama3.2:3b-instruct-q8_0-ctx8k",
+      "note": "no result row"
+    },
+    {
+      "intent": "general",
+      "candidate": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.0,
+      "incumbent_quality": 0.65,
+      "delta_vs_incumbent": -0.65,
+      "cand_tps": null,
+      "prompt_category": "general_capability"
+    },
+    {
+      "intent": "general",
+      "candidate": "llama3.2:3b",
+      "note": "no result row"
+    },
+    {
+      "intent": "general",
+      "candidate": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.389,
+      "incumbent_quality": 0.65,
+      "delta_vs_incumbent": -0.261,
+      "cand_tps": null,
+      "prompt_category": "general_capability"
+    },
+    {
+      "intent": "general",
+      "candidate": "hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M",
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.111,
+      "incumbent_quality": 0.65,
+      "delta_vs_incumbent": -0.539,
+      "cand_tps": null,
+      "prompt_category": "general_capability"
+    },
+    {
+      "intent": "general",
+      "candidate": "hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M",
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.222,
+      "incumbent_quality": 0.65,
+      "delta_vs_incumbent": -0.428,
+      "cand_tps": null,
+      "prompt_category": "general_capability"
+    },
+    {
+      "intent": "long-context",
+      "candidate": "sylink/sylink:8b",
+      "incumbent": "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": 0.0,
+      "cand_tps": 16.88,
+      "prompt_category": "long_context"
+    },
+    {
+      "intent": "long-context",
+      "candidate": "sylink/sylink:8b-ctx8k",
+      "incumbent": "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": 0.0,
+      "cand_tps": 16.89,
+      "prompt_category": "long_context"
+    },
+    {
+      "intent": "long-context",
+      "candidate": "phi4:14b-q8_0",
+      "incumbent": "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+      "cand_quality": 0.0,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": -1.0,
+      "cand_tps": null,
+      "prompt_category": "long_context"
+    },
+    {
+      "intent": "mtp-speculative",
+      "candidate": "portal5/qwen3.6-27b-mtp:q8_0-drafted",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 0.0,
+      "delta_vs_incumbent": 1.0,
+      "cand_tps": 12.422095627912428,
+      "prompt_category": "mtp_speculative"
+    },
+    {
+      "intent": "mtp-speculative",
+      "candidate": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 0.0,
+      "delta_vs_incumbent": 1.0,
+      "cand_tps": 10.32567080013409,
+      "prompt_category": "mtp_speculative"
+    },
+    {
+      "intent": "mtp-speculative",
+      "candidate": "hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 0.0,
+      "delta_vs_incumbent": 1.0,
+      "cand_tps": 12.037113618644586,
+      "prompt_category": "mtp_speculative"
+    },
+    {
+      "intent": "mtp-speculative",
+      "candidate": "qwen3.6:27b-mtp-q4_K_M",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 0.0,
+      "delta_vs_incumbent": 1.0,
+      "cand_tps": 10.738830263684845,
+      "prompt_category": "mtp_speculative"
+    },
+    {
+      "intent": "mtp-speculative",
+      "candidate": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 0.0,
+      "delta_vs_incumbent": 1.0,
+      "cand_tps": 27.049461631183974,
+      "prompt_category": "mtp_speculative"
+    },
+    {
+      "intent": "mtp-speculative",
+      "candidate": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 0.0,
+      "delta_vs_incumbent": 1.0,
+      "cand_tps": 56.94604264276766,
+      "prompt_category": "mtp_speculative"
+    },
+    {
+      "intent": "reasoning",
+      "candidate": "qwen3.6:27b-q8_0",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 1.0,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": 8.23,
+      "prompt_category": "reasoning-explicit"
+    },
+    {
+      "intent": "reasoning",
+      "candidate": "qwen3.6:35b-a3b-q4_K_M",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 1.0,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": 54.22,
+      "prompt_category": "reasoning-explicit"
+    },
+    {
+      "intent": "reasoning",
+      "candidate": "hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 0.0,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": null,
+      "prompt_category": "reasoning-explicit"
+    },
+    {
+      "intent": "reasoning",
+      "candidate": "deepseek-r1:32b-q4_k_m",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 0.75,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": 11.61,
+      "prompt_category": "reasoning-explicit"
+    },
+    {
+      "intent": "reasoning",
+      "candidate": "hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 0.0,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": 36.15,
+      "prompt_category": "reasoning-explicit"
+    },
+    {
+      "intent": "reasoning",
+      "candidate": "gpt-oss:20b",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 1.0,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": 50.74,
+      "prompt_category": "reasoning-explicit"
+    },
+    {
+      "intent": "reasoning",
+      "candidate": "hermes3:8b",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 0.25,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": 49.22,
+      "prompt_category": "reasoning-explicit"
+    },
+    {
+      "intent": "reasoning",
+      "candidate": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+      "incumbent": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "cand_quality": 0.75,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": 136.63,
+      "prompt_category": "reasoning-explicit"
+    },
+    {
+      "intent": "security",
+      "candidate": "hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K",
+      "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      "cand_quality": 0.493,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": null,
+      "prompt_category": "security_chain_coverage"
+    },
+    {
+      "intent": "security",
+      "candidate": "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M",
+      "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      "cand_quality": 0.468,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": null,
+      "prompt_category": "security_chain_coverage"
+    },
+    {
+      "intent": "security",
+      "candidate": "hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M",
+      "note": "no result row"
+    },
+    {
+      "intent": "security",
+      "candidate": "hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf",
+      "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      "cand_quality": 0.393,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": null,
+      "prompt_category": "security_chain_coverage"
+    },
+    {
+      "intent": "security",
+      "candidate": "huihui_ai/qwen3-abliterated:14b-v2",
+      "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      "cand_quality": 0.493,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": null,
+      "prompt_category": "security_chain_coverage"
+    },
+    {
+      "intent": "security",
+      "candidate": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+      "note": "no result row"
+    },
+    {
+      "intent": "security",
+      "candidate": "hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M",
+      "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      "cand_quality": 0.518,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": null,
+      "prompt_category": "security_chain_coverage"
+    },
+    {
+      "intent": "security",
+      "candidate": "meta-secalign-8b-q4_k_m:latest",
+      "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      "cand_quality": 0.518,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": null,
+      "prompt_category": "security_chain_coverage"
+    },
+    {
+      "intent": "security",
+      "candidate": "huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k",
+      "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      "cand_quality": 0.518,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": null,
+      "prompt_category": "security_chain_coverage"
+    },
+    {
+      "intent": "security",
+      "candidate": "huihui_ai/gemma-4-abliterated:E2b-qat",
+      "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      "cand_quality": 0.393,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": null,
+      "prompt_category": "security_chain_coverage"
+    },
+    {
+      "intent": "security",
+      "candidate": "hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M",
+      "note": "no result row"
+    },
+    {
+      "intent": "security",
+      "candidate": "cybersecqwen-4b-toolfix:latest",
+      "note": "no result row"
+    },
+    {
+      "intent": "security",
+      "candidate": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest",
+      "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+      "cand_quality": 0.418,
+      "incumbent_quality": null,
+      "delta_vs_incumbent": null,
+      "cand_tps": null,
+      "prompt_category": "security_chain_coverage"
+    },
+    {
+      "intent": "vision",
+      "candidate": "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": 0.0,
+      "cand_tps": 11.17,
+      "prompt_category": "vision"
+    },
+    {
+      "intent": "vision",
+      "candidate": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": 0.0,
+      "cand_tps": 77.3,
+      "prompt_category": "vision"
+    },
+    {
+      "intent": "vision",
+      "candidate": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": 0.0,
+      "cand_tps": 79.9,
+      "prompt_category": "vision"
+    },
+    {
+      "intent": "vision",
+      "candidate": "muse-glimmer:30b-mlx",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": 0.0,
+      "cand_tps": 21.36,
+      "prompt_category": "vision"
+    },
+    {
+      "intent": "vision",
+      "candidate": "gemma4:31b-it-qat-ctx8k",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": 0.0,
+      "cand_tps": 22.15,
+      "prompt_category": "vision"
+    },
+    {
+      "intent": "vision",
+      "candidate": "gemma4:31b-it-qat",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": 0.0,
+      "cand_tps": 22.01,
+      "prompt_category": "vision"
+    },
+    {
+      "intent": "vision",
+      "candidate": "gemma4:26b-a4b-it-q4_K_M",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": 0.0,
+      "cand_tps": 92.05,
+      "prompt_category": "vision"
+    },
+    {
+      "intent": "vision",
+      "candidate": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 1.0,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": 0.0,
+      "cand_tps": 66.59,
+      "prompt_category": "vision"
+    },
+    {
+      "intent": "vision",
+      "candidate": "gemma4:e4b-it-qat-ctx8k",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 0.5,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": -0.5,
+      "cand_tps": 91.8,
+      "prompt_category": "vision"
+    },
+    {
+      "intent": "vision",
+      "candidate": "gemma4:e4b-it-qat",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 0.5,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": -0.5,
+      "cand_tps": 93.97,
+      "prompt_category": "vision"
+    },
+    {
+      "intent": "vision",
+      "candidate": "gemma4:e2b-it-qat-ctx8k",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 0.75,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": -0.25,
+      "cand_tps": 144.93,
+      "prompt_category": "vision"
+    },
+    {
+      "intent": "vision",
+      "candidate": "gemma4:e2b-it-qat",
+      "incumbent": "qwen3-vl:32b-ctx8k",
+      "cand_quality": 0.75,
+      "incumbent_quality": 1.0,
+      "delta_vs_incumbent": -0.25,
+      "cand_tps": 145.46,
+      "prompt_category": "vision"
+    }
+  ]
+}

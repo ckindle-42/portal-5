@@ -1,0 +1,316 @@
+Capability Probe V11 — 20260812T062343Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.67
+  C4 ... fmt=1.00 cap=0.22
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-aquila-mini-35b-a3b ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=0.90
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.56
+  C5 ... fmt=1.00 cap=0.00
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-aquila-mini-35b-a3b_20260812T062343Z.json
+Capability Probe V11 — 20260812T064938Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.11
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-aquila-research ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.33
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=0.33 cap=0.00
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-aquila-research_20260812T064938Z.json
+Capability Probe V11 — 20260812T071515Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=0.90 cap=0.90
+  C3 ... fmt=1.00 cap=1.00
+  C4 ... fmt=1.00 cap=0.22
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-deepwen-cad ──
+  C1 ... fmt=0.50 cap=0.00
+  C2 ... fmt=0.10 cap=0.10
+  C3 ... fmt=0.33 cap=0.33
+  C4 ... fmt=1.00 cap=0.89
+  C5 ... fmt=0.67 cap=0.00
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-deepwen-cad_20260812T071515Z.json
+Capability Probe V11 — 20260812T074649Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.67
+  C4 ... fmt=1.00 cap=0.22
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-qwable-3.6-35b ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=0.60 cap=0.40
+  C3 ... fmt=1.00 cap=0.83
+  C4 ... fmt=0.67 cap=0.67
+  C5 ... fmt=0.67 cap=0.67
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-qwable-3.6-35b_20260812T074649Z.json
+Capability Probe V11 — 20260812T082407Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.33
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-glm ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=0.90 cap=0.90
+  C3 ... fmt=1.00 cap=0.33
+  C4 ... fmt=1.00 cap=0.56
+  C5 ... fmt=1.00 cap=1.00
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-glm_20260812T082407Z.json
+Capability Probe V11 — 20260812T090052Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.67
+  C4 ... fmt=1.00 cap=0.33
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-gemma4-31b-crack ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=0.90
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.33
+  C5 ... fmt=1.00 cap=1.00
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-gemma4-31b-crack_20260812T090052Z.json
+Capability Probe V11 — 20260812T095418Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=1.00 cap=0.22
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-dolphin-llama3 ──
+  C1 ... fmt=0.00 cap=0.00
+  C2 ... fmt=1.00 cap=0.30
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.89
+  C5 ... fmt=1.00 cap=0.00
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-dolphin-llama3_20260812T095418Z.json
+Capability Probe V11 — 20260812T100618Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-fastcontext ──
+  C1 ... fmt=0.00 cap=0.00
+  C2 ... fmt=0.00 cap=0.00
+  C3 ... fmt=0.00 cap=0.00
+  C4 ... fmt=0.00 cap=0.00
+  C5 ... fmt=0.00 cap=0.00
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-fastcontext_20260812T100618Z.json
+Capability Probe V11 — 20260812T102259Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.67
+  C4 ... fmt=1.00 cap=0.33
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-lfm-micro-1p2b ──
+  C1 ... fmt=1.00 cap=0.25
+  C2 ... fmt=1.00 cap=0.50
+  C3 ... fmt=1.00 cap=0.00
+  C4 ... fmt=1.00 cap=0.56
+  C5 ... fmt=1.00 cap=0.33
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-lfm-micro-1p2b_20260812T102259Z.json
+Capability Probe V11 — 20260812T103536Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=1.00
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-lfm-micro-350m ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=0.00
+  C3 ... fmt=0.33 cap=0.00
+  C4 ... fmt=1.00 cap=0.45
+  C5 ... fmt=1.00 cap=0.00
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-lfm-micro-350m_20260812T103536Z.json
+Capability Probe V11 — 20260812T104520Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-lfm-micro-230m ──
+  C1 ... fmt=0.50 cap=0.25
+  C2 ... fmt=1.00 cap=0.10
+  C3 ... fmt=1.00 cap=0.83
+  C4 ... fmt=1.00 cap=0.22
+  C5 ... fmt=1.00 cap=0.00
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-lfm-micro-230m_20260812T104520Z.json
+Probing 4 model(s) at needle depths: ['needle_2k', 'needle_8k']
+  [1/4] sylink/sylink:8b ...
+    quality=1.0 (2/2) avg_tps=16.88
+  [2/4] sylink/sylink:8b-ctx8k ...
+    quality=1.0 (2/2) avg_tps=16.89
+  [3/4] phi4:14b-q8_0 ...
+    quality=0.0 (0/2) avg_tps=None
+  [4/4] huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k ...
+    quality=1.0 (2/2) avg_tps=55.26
+
+Wrote tests/benchmarks/results/long_context_probe_20260812T105740Z.json
+Probing 7 model(s), fixed prompt, temperature=0
+  [1/7] portal5/qwen3.6-27b-mtp:q8_0-drafted ...
+    tps=12.422095627912428 base_tps=8.30497988329492 speedup=1.5x
+  [2/7] hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf ...
+    tps=10.32567080013409 base_tps=8.195992038234047 speedup=1.26x
+  [3/7] hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M ...
+    tps=12.037113618644586 (no baseline pair identified in fleet — TPS floor check only)
+  [4/7] qwen3.6:27b-mtp-q4_K_M ...
+    tps=10.738830263684845 base_tps=8.310511618793196 speedup=1.29x
+  [5/7] hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M ...
+    tps=27.049461631183974 base_tps=27.052288586628876 speedup=1.0x
+  [6/7] hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M ...
+    tps=56.94604264276766 (no baseline pair identified in fleet — TPS floor check only)
+  [7/7] hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k ...
+    tps=43.83959503174089 (no baseline pair identified in fleet — TPS floor check only)
+
+Wrote tests/benchmarks/results/mtp_probe_20260812T110332Z.json
+Probing 8 model(s) with 4 reasoning cases each
+  [baseline] hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k ...
+    baseline quality=1.0 trace=1.0 avg_tps=41.35
+  [1/8] qwen3.6:27b-q8_0 ...
+    quality=1.0 trace=0.75 avg_tps=8.23 (Δ vs baseline +0.0)
+  [2/8] qwen3.6:35b-a3b-q4_K_M ...
+    quality=1.0 trace=0.75 avg_tps=54.22 (Δ vs baseline +0.0)
+  [3/8] hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M ...
+    quality=0.0 trace=0.0 avg_tps=None (Δ vs baseline -1.0)
+  [4/8] deepseek-r1:32b-q4_k_m ...
+    quality=0.75 trace=1.0 avg_tps=11.61 (Δ vs baseline -0.25)
+  [5/8] hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k ...
+    quality=0.0 trace=0.5 avg_tps=36.15 (Δ vs baseline -1.0)
+  [6/8] gpt-oss:20b ...
+    quality=1.0 trace=0.5 avg_tps=50.74 (Δ vs baseline +0.0)
+  [7/8] hermes3:8b ...
+    quality=0.25 trace=1.0 avg_tps=49.22 (Δ vs baseline -0.75)
+  [8/8] hf.co/Nguuma/security-slm-unsloth-1.5b:latest ...
+    quality=0.75 trace=1.0 avg_tps=136.63 (Δ vs baseline -0.25)
+
+Wrote tests/benchmarks/results/reasoning_probe_20260812T114518Z.json
+
+============================================================
+  CANDIDATE EVAL: hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K
+  Slot: solo | Incumbent: (solo — no incumbent pin)
+  Scenarios: 6 fixed
+============================================================
+
+  [1/4] Intake gate (pull → tool-call (TPS floor forced off)) ...
+
+── Candidate Intake Pipeline ──
+
+  pulling  hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K ... done (success)
+  tps-probe hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6 ... 5.0 t/s
+  audit-tools  hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K ... tool_call  emitted 1 tool_call(s); first=get_current_time
+  INTAKE PASSED (forced): TPS=5.0 below the 20 t/s floor — scoring anyway, chain turns will run slower than the fleet norm.
+
+  [2/4] Building step_models for slot=solo ...
+  step_models: {'default': 'hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K'}
+
+  [3/4] Running 6 scenario(s) ...
+
+  ── kerberoast_to_da (candidate) ──
+  multi-model chain [lab-exec]  steps=8  models=['hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K'] ... depth=0/8  unique=0/8  lcs_acc=0.00  0s  usage={}  ERR:Client error '401 Unauthorized' for url 
+
+  ── web_sqli_dump (candidate) ──
+  multi-model chain [lab-exec]  steps=4  models=['hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K'] ... depth=0/4  unique=0/4  lcs_acc=0.00  0s  usage={}  ERR:Client error '401 Unauthorized' for url 
+
+  ── web_deserial_rce (candidate) ──
+  multi-model chain [lab-exec]  steps=4  models=['hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K'] ... depth=0/4  unique=0/4  lcs_acc=0.00  0s  usage={}  ERR:Client error '401 Unauthorized' for url 
+  SKIP meta3_full_chain: target-unrecoverable
+
+  ── web_ssrf (candidate) ──
+  multi-model chain [lab-exec]  steps=2  models=['hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K'] ... depth=0/2  unique=0/2  lcs_acc=0.00  0s  usage={}  ERR:Client error '401 Unauthorized' for url 
+
+  ── ctf_multi_service (candidate) ──
+  multi-model chain [lab-exec]  steps=7  models=['hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K'] ... depth=0/7  unique=0/7  lcs_acc=0.00  0s  usage={}  ERR:Client error '401 Unauthorized' for url 
+
+  [3b/4] Running incumbent baseline ((solo — no incumbent pin)) ...
+
+  ── kerberoast_to_da (incumbent) ──
+  multi-model chain [lab-exec]  steps=8  models=['(solo — no incumbent pin)'] ... depth=0/8  unique=0/8  lcs_acc=0.00  0s  usage={}  ERR:Client error '401 Unauthorized' for url 
+
+  ── web_sqli_dump (incumbent) ──
+  multi-model chain [lab-exec]  steps=4  models=['(solo — no incumbent pin)'] ... depth=0/4  unique=0/4  lcs_acc=0.00  0s  usage={}  ERR:Client error '401 Unauthorized' for url 
+
+  ── web_deserial_rce (incumbent) ──
+  multi-model chain [lab-exec]  steps=4  models=['(solo — no incumbent pin)'] ...
