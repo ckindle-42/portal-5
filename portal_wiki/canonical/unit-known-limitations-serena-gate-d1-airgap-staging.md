@@ -5,7 +5,7 @@ title: "KNOWN_LIMITATIONS \u2014 Serena GATE-D1 air-gap LSP staging"
 sources:
 - type: code
   path: config/portal.yaml
-last_generated_commit: 1ed83b22525c97ed996c835b7519e10c75d13ad0
+last_generated_commit: 640a004e4a83811639544dfada51fcd1268b0688
 claims: []
 confidence: high
 tags:
