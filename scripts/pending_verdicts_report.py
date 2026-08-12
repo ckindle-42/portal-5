@@ -388,6 +388,10 @@ def evidence_date(rel_path: str) -> _dt.date | None:
 # a TPS-floor data point for every category, but for capability-specialized
 # categories it is NOT the capability-appropriate signal on its own.
 _HARNESS_FOR_CATEGORY: dict[str, set[str]] = {
+    "cad": {"cad_probe"},
+    "spl": {"spl_probe"},
+    "compliance": {"compliance_probe"},
+    "data": {"data_probe"},
     "security-tooling": {"security_exec_probe"},  # harness to be built; bench_tps insufficient
     "cua": {"cad_probe", "fara_cua_probe"},
     "vision": {"vision_probe"},
@@ -418,6 +422,10 @@ def _harness_of_path(rel_path: str) -> str:
         ("security_exec_probe_", "security_exec_probe"),
         ("tool_use_probe_", "tool_use_probe"),
         ("reasoning_probe_", "reasoning_probe"),
+        ("cad_probe_", "cad_probe"),
+        ("spl_probe_", "spl_probe"),
+        ("compliance_probe_", "compliance_probe"),
+        ("data_probe_", "data_probe"),
         ("research_probe_", "research_probe"),
         ("persona_matrix_", "persona_matrix"),
         ("v11_capability_", "capability_probe"),
