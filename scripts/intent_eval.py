@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import re
 from pathlib import Path
 
 import yaml
@@ -33,6 +34,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PORTAL_YAML = REPO_ROOT / "config" / "portal.yaml"
 RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
 REPORTS = REPO_ROOT / "reports"
+SECURITY_CANDIDATES_DIR = (
+    REPO_ROOT / "portal" / "modules" / "security" / "core" / "results" / "candidates"
+)
 
 # intent domain -> (workspace whose model_hint is the incumbent, probe command stem)
 INTENT_MAP: dict[str, tuple[str, str]] = {
@@ -80,6 +84,161 @@ def resolve_incumbent(workspace: str) -> str:
     return (d.get("workspaces", {}).get(workspace, {}) or {}).get("model_hint", "")
 
 
+# Alias: resolve_incumbent works for any workspace, not just intent incumbents.
+_workspace_model_hint = resolve_incumbent
+
+
+def _load_bench_repair_results() -> list[dict]:
+    """bench_repair.py (coding intent) writes a markdown matrix, not a JSON file
+    matching the {"results":[{"model","quality_score"}]} shape every other probe
+    uses — cmd_analyze()'s generic _latest() glob can never find it. Parse the
+    matrix table directly instead; "quality_score" here = one-shot pass rate
+    (raw capability, comparable across workspaces the way the other probes' solo
+    quality_score is)."""
+    md_files = sorted(REPORTS.glob("CODING_BENCH_REPAIR*.md"))
+    if not md_files:
+        return []
+    text = md_files[-1].read_text()
+    row_re = re.compile(
+        r"^\|\s*`([^`]+)`\s*\|\s*\S+\s*\|\s*`([^`]+)`\s*\|\s*([\d.]+)%\s*\(\d+\)\s*\|"
+        r"\s*([\d.]+)%\s*\(\d+\)\s*\|",
+        re.MULTILINE,
+    )
+    results = []
+    for ws, model_hint, one_shot_pct, _repair_pct in row_re.findall(text):
+        results.append(
+            {
+                "model": model_hint,
+                "quality_score": round(float(one_shot_pct) / 100, 3),
+                "avg_tps": None,
+                "prompt_category": "coding_repair",
+                "workspace": ws,
+            }
+        )
+    return results
+
+
+def _load_bench_capability_results() -> list[dict]:
+    """bench_capability.py (general intent) has no --model flag (--workspace only)
+    and writes results/v11_capability_<workspace>_<ts>.json in a nested
+    {"results":[{"role","workspace","results":[ProbeResult...]}]} shape — not the
+    flat {"model","quality_score"} shape cmd_analyze() expects, and under a
+    "v11_capability_" prefix the generic glob never matches. Load every
+    v11_capability_bench-*.json (latest per workspace, skipping .bak files),
+    average each workspace's C1-C5 capability_score into one quality_score, and
+    map workspace -> model_hint via portal.yaml so results key the same way
+    every other probe's "model" field does."""
+    files = sorted(RESULTS_DIR.glob("v11_capability_bench-*.json"))
+    by_workspace: dict[str, Path] = {}
+    for f in files:
+        if f.suffix == ".bak" or ".bak" in f.name:
+            continue
+        m = re.match(r"v11_capability_(bench-[a-z0-9.\-]+)_\d{8}T\d{6}Z\.json$", f.name)
+        if not m:
+            continue
+        ws = m.group(1)
+        # dict preserves insertion order; sorted() above means later files win
+        by_workspace[ws] = f
+
+    results: list[dict] = []
+    baseline_done = False
+    for ws, f in by_workspace.items():
+        try:
+            data = json.loads(f.read_text())
+        except Exception:
+            continue
+        for block in data.get("results", []):
+            role = block.get("role")
+            probe_results = block.get("results", [])
+            scores = [
+                r["capability_score"]
+                for r in probe_results
+                if r.get("capability_score") is not None
+            ]
+            if not scores:
+                continue
+            avg = round(sum(scores) / len(scores), 3)
+            if role == "candidate":
+                hint = _workspace_model_hint(ws) or ws
+                results.append(
+                    {
+                        "model": hint,
+                        "quality_score": avg,
+                        "avg_tps": None,
+                        "prompt_category": "general_capability",
+                        "workspace": ws,
+                    }
+                )
+            elif role == "baseline" and not baseline_done:
+                inc_ws = block.get("workspace", "")
+                hint = _workspace_model_hint(inc_ws) or inc_ws
+                results.append(
+                    {
+                        "model": hint,
+                        "quality_score": avg,
+                        "avg_tps": None,
+                        "prompt_category": "general_capability",
+                        "workspace": inc_ws,
+                    }
+                )
+                baseline_done = True
+    return results
+
+
+def _load_candidate_eval_results() -> list[dict]:
+    """candidate-eval (security intent) writes to
+    portal/modules/security/core/results/candidates/cand_*.json — a directory
+    cmd_analyze() never looked at (it only globs RESULTS_DIR under
+    tests/benchmarks/results/), and in a per-scenario shape, not
+    {"model","quality_score"}. Load every cand_*.json (latest timestamp per
+    candidate tag wins — this also self-corrects for stray --dry-run artifacts,
+    which sort earlier than a real --lab-exec run for the same candidate), and
+    reduce to quality_score = mean(unique_coverage) across scenarios that
+    actually ran (skips SKIPped/None scenarios), which is this probe's
+    coverage-of-the-intended-chain metric — the closest single-number analog to
+    the other probes' quality_score. Candidates with no file at all (failed
+    intake) are correctly left absent, which cmd_analyze() already reports
+    honestly as "no result row"."""
+    if not SECURITY_CANDIDATES_DIR.exists():
+        return []
+    files = sorted(SECURITY_CANDIDATES_DIR.glob("cand_*.json"))
+    by_candidate: dict[str, Path] = {}
+    for f in files:
+        try:
+            data = json.loads(f.read_text())
+        except Exception:
+            continue
+        cand = data.get("candidate", "")
+        if not cand:
+            continue
+        by_candidate[cand] = f  # sorted() -> later timestamp overwrites, wins
+
+    results: list[dict] = []
+    for cand, f in by_candidate.items():
+        try:
+            data = json.loads(f.read_text())
+        except Exception:
+            continue
+        cand_results = data.get("candidate_results", [])
+        coverages = [
+            r["unique_coverage"] for r in cand_results if r.get("unique_coverage") is not None
+        ]
+        wins = sum(1 for r in cand_results if r.get("lab_success"))
+        scored = sum(1 for r in cand_results if r.get("unique_coverage") is not None)
+        if not coverages:
+            continue
+        results.append(
+            {
+                "model": cand,
+                "quality_score": round(sum(coverages) / len(coverages), 3),
+                "avg_tps": None,
+                "prompt_category": "security_chain_coverage",
+                "lab_wins": f"{wins}/{scored}",
+            }
+        )
+    return results
+
+
 def load_intent_assignments() -> dict[str, str]:
     """Read the tag->intent map produced by the planning step (Part 3a)."""
     p = REPORTS / "intent_assignments.json"
@@ -125,8 +284,10 @@ def cmd_plan() -> int:
     out = REPORTS / "intent_eval_run.sh"
     REPORTS.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines) + "\n")
-    print(f"Wrote {out.relative_to(REPO_ROOT)} — {len(by_intent)} intent groups, "
-          f"{len(assignments)} models. Run it, then: intent_eval.py analyze")
+    print(
+        f"Wrote {out.relative_to(REPO_ROOT)} — {len(by_intent)} intent groups, "
+        f"{len(assignments)} models. Run it, then: intent_eval.py analyze"
+    )
     return 0
 
 
@@ -147,10 +308,20 @@ def cmd_analyze() -> int:
 
     # index every result row by model across the relevant probe files
     rows: list[dict] = []
-    for intent in sorted({i for i in assignments.values()}):
+    for intent in sorted(set(assignments.values())):
         ws, probe = INTENT_MAP.get(intent, ("", "bench_capability"))
         prefix = PROBE_PREFIX.get(probe, probe)
-        data = _latest(prefix)
+        if probe == "bench_repair":
+            results = _load_bench_repair_results()
+            data = {"results": results} if results else None
+        elif probe == "bench_capability":
+            results = _load_bench_capability_results()
+            data = {"results": results} if results else None
+        elif probe == "candidate-eval":
+            results = _load_candidate_eval_results()
+            data = {"results": results} if results else None
+        else:
+            data = _latest(prefix)
         if not data:
             rows.append({"intent": intent, "note": f"no {prefix}_*.json results yet"})
             continue
@@ -165,40 +336,58 @@ def cmd_analyze() -> int:
                 rows.append({"intent": intent, "candidate": t, "note": "no result row"})
                 continue
             cq = r.get("quality_score")
-            delta = (round(cq - inc_q, 3) if cq is not None and inc_q is not None else None)
-            rows.append({
-                "intent": intent, "candidate": t, "incumbent": inc,
-                "cand_quality": cq, "incumbent_quality": inc_q,
-                "delta_vs_incumbent": delta, "cand_tps": r.get("avg_tps"),
-                "prompt_category": r.get("prompt_category"),
-            })
+            delta = round(cq - inc_q, 3) if cq is not None and inc_q is not None else None
+            rows.append(
+                {
+                    "intent": intent,
+                    "candidate": t,
+                    "incumbent": inc,
+                    "cand_quality": cq,
+                    "incumbent_quality": inc_q,
+                    "delta_vs_incumbent": delta,
+                    "cand_tps": r.get("avg_tps"),
+                    "prompt_category": r.get("prompt_category"),
+                }
+            )
 
     # render
-    print(f"\n{'='*104}")
-    print("INTENT-ALIGNED EVALUATION — candidate vs incumbent (delta = candidate - incumbent quality)")
-    print(f"{'='*104}")
+    print(f"\n{'=' * 104}")
+    print(
+        "INTENT-ALIGNED EVALUATION — candidate vs incumbent (delta = candidate - incumbent quality)"
+    )
+    print(f"{'=' * 104}")
     print(f"{'intent':14s} {'candidate':46s} {'cand_q':>7s} {'inc_q':>6s} {'Δ':>7s} {'tps':>7s}")
     print("-" * 104)
-    for r in sorted(rows, key=lambda x: (x.get("intent", ""), -(x.get("delta_vs_incumbent") or -9))):
+    for r in sorted(
+        rows, key=lambda x: (x.get("intent", ""), -(x.get("delta_vs_incumbent") or -9))
+    ):
         if r.get("note"):
-            print(f"{r.get('intent',''):14s} {r.get('candidate','(all)')[:46]:46s}  -- {r['note']}")
+            print(
+                f"{r.get('intent', ''):14s} {r.get('candidate', '(all)')[:46]:46s}  -- {r['note']}"
+            )
             continue
         d = r.get("delta_vs_incumbent")
         ds = f"{d:+.3f}" if d is not None else "  n/a"
-        print(f"{r['intent']:14s} {r['candidate'][:46]:46s} {str(r['cand_quality']):>7s} "
-              f"{str(r['incumbent_quality']):>6s} {ds:>7s} {str(r['cand_tps']):>7s}")
+        print(
+            f"{r['intent']:14s} {r['candidate'][:46]:46s} {str(r['cand_quality']):>7s} "
+            f"{str(r['incumbent_quality']):>6s} {ds:>7s} {str(r['cand_tps']):>7s}"
+        )
 
     out = REPORTS / "INTENT_EVAL_DECISION.json"
     out.write_text(json.dumps({"rows": rows}, indent=2))
     print(f"\nWrote {out.relative_to(REPO_ROOT)}")
-    print("\nBEATS incumbent (positive Δ) = swap candidate. MATCHES + smaller/faster = swap on cost.")
+    print(
+        "\nBEATS incumbent (positive Δ) = swap candidate. MATCHES + smaller/faster = swap on cost."
+    )
     print("TRAILS = keep-as-bench or drop. Operator decides — PROMOTE_POLICY=confirm.")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Intent-aligned candidate-vs-incumbent eval driver.")
-    ap.add_argument("mode", choices=["plan", "analyze"], help="plan = emit run script; analyze = diff results")
+    ap.add_argument(
+        "mode", choices=["plan", "analyze"], help="plan = emit run script; analyze = diff results"
+    )
     args = ap.parse_args(argv)
     return cmd_plan() if args.mode == "plan" else cmd_analyze()
 

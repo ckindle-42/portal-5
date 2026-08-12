@@ -194,6 +194,12 @@ def agentic_loop(
         if not tool_calls:
             break
 
+        # The assistant's own tool-call message must precede the "tool" role
+        # replies that answer it (OpenAI/Ollama tool-calling contract) — without
+        # this, each turn drops the model's own prior turn from context, so it
+        # never sees what it already asked for and just re-issues the same call.
+        messages.append(msg)
+
         turn_result = {"turn": turn + 1, "calls": []}
         for tc in tool_calls:
             fn = tc.get("function", {})
@@ -258,16 +264,18 @@ def agentic_loop(
 
 
 def _args_match(args: dict, sig: str) -> bool:
-    """Check if args dict matches a backend signature string like 'target=10.0.0.1'."""
-    if not sig:
-        return False
+    """Check if args dict matches a backend signature string like 'target=10.0.0.1'.
+
+    An empty signature (e.g. verify_fix's catch-all "") means no constraints —
+    it matches any args, not zero args.
+    """
     expected: dict[str, str] = {}
     for part in sig.split(","):
         part = part.strip()
         if "=" in part:
             k, _, v = part.partition("=")
             expected[k.strip()] = v.strip()
-    return all(str(args.get(k, "")) == v for k, v in expected.items())
+    return all(v == "*" or str(args.get(k, "")) == v for k, v in expected.items())
 
 
 def _resolution_check(all_outputs: str, task: str) -> bool:

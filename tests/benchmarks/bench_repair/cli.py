@@ -189,7 +189,7 @@ def _finalize_results(
         episode_id=f"bench_repair_{gsha}_{int(time.time())}",
         scenario=gsha,
         capability_verdict=f"corpus={len(corpus)}  models={len(workspaces)}  samples={len(samples)}",
-        evidence_refs=[str(out_path.relative_to(REPO_ROOT))],
+        evidence_refs=[str(out_path.resolve().relative_to(REPO_ROOT))],
         event="bench_repair_run",
     )
     print("Appended provenance ledger entry")
