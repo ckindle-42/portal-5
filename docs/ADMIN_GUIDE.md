@@ -517,7 +517,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (23 production, 77 eval, 100 total)
+# Workspace roster (23 production, 81 eval, 104 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -570,6 +570,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-foundation-sec-8b-reasoning`
 - `bench-gemma4-12b`
 - `bench-gemma4-12b-agentic`
+- `bench-gemma4-12b-general`
 - `bench-gemma4-26b-optiq`
 - `bench-gemma4-26b-qat`
 - `bench-gemma4-31b-crack`
@@ -595,7 +596,10 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-lfm-micro-350m`
 - `bench-lfm25-8b`
 - `bench-lfm25-8b-uncensored`
+- `bench-llama32-3b`
+- `bench-llama32-3b-q8`
 - `bench-meta-secalign-8b`
+- `bench-mistral-small-3-2`
 - `bench-mistral7b-uncensored`
 - `bench-muse-glimmer-30b`
 - `bench-nex-n2-mini`

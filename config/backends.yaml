@@ -965,3 +965,11 @@ workspace_routing:
   - general
   bench-deepwen-cad:
   - general
+  bench-mistral-small-3-2:
+  - general
+  bench-gemma4-12b-general:
+  - general
+  bench-llama32-3b-q8:
+  - general
+  bench-llama32-3b:
+  - general

@@ -1,12 +1,12 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 23 production + 77 eval workspaces
+title: 23 production + 81 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 251189ea9511
-last_generated_commit: 640a004e4a83811639544dfada51fcd1268b0688
+  commit: ac7b1a264277
+last_generated_commit: ac7b1a264277
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -15,10 +15,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1786498279.579764
+updated_at: 1786543101.1292531
 ---
 
-# Workspace roster (23 production, 77 eval, 100 total)
+# Workspace roster (23 production, 81 eval, 104 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -71,6 +71,7 @@ updated_at: 1786498279.579764
 - `bench-foundation-sec-8b-reasoning`
 - `bench-gemma4-12b`
 - `bench-gemma4-12b-agentic`
+- `bench-gemma4-12b-general`
 - `bench-gemma4-26b-optiq`
 - `bench-gemma4-26b-qat`
 - `bench-gemma4-31b-crack`
@@ -96,7 +97,10 @@ updated_at: 1786498279.579764
 - `bench-lfm-micro-350m`
 - `bench-lfm25-8b`
 - `bench-lfm25-8b-uncensored`
+- `bench-llama32-3b`
+- `bench-llama32-3b-q8`
 - `bench-meta-secalign-8b`
+- `bench-mistral-small-3-2`
 - `bench-mistral7b-uncensored`
 - `bench-muse-glimmer-30b`
 - `bench-nex-n2-mini`
