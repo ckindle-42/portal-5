@@ -398,9 +398,9 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total loaded workspace count is 23 (module: eval's 65 bench-*
+        """Total loaded workspace count is 23 (module: eval's 81 bench-*
         workspaces are gated off by default at boot as of
-        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4; the full 88 (23 + 65) still
+        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4; the full 104 (23 + 81) still
         loads with PORTAL_ENABLE_EVAL=1, see test_eval_gate_loads_all_104.
         44 -> 37 after Phase 5 folded 8 coding/agentic workspaces into
         auto-coding's variants; 37 -> 29 after Phase 6 folded 8 security
@@ -409,20 +409,20 @@ class TestComplianceWorkspace:
         from portal.platform.inference.router_pipe import WORKSPACES
 
         assert len(WORKSPACES) == 23, (
-            f"Expected 23 workspaces (module: eval's 65 bench-* gated off by default), "
+            f"Expected 23 workspaces (module: eval's 81 bench-* gated off by default), "
             f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
     def test_eval_gate_loads_all_104(self, monkeypatch):
-        """PORTAL_ENABLE_EVAL=1 re-admits the 65 module: eval workspaces —
+        """PORTAL_ENABLE_EVAL=1 re-admits the 81 module: eval workspaces —
         get_workspace_dict is called fresh here (not the module-level
         WORKSPACES constant, which is computed once at import time)."""
         from portal.platform.inference.config import get_workspace_dict, load_portal_config
 
         monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
         ws = get_workspace_dict(load_portal_config())
-        assert len(ws) == 100, f"Expected 100 workspaces with eval enabled, got {len(ws)}"
+        assert len(ws) == 104, f"Expected 104 workspaces with eval enabled, got {len(ws)}"
 
 
 class TestR17bModelExpansion:
