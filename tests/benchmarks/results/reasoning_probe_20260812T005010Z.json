@@ -1,0 +1,781 @@
+{
+  "results": [
+    {
+      "model": "qwen3.6:27b-q8_0",
+      "avg_tps": 8.36,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "reasoning-explicit",
+      "trace_quality_rate": 0.75,
+      "predict_limit": 8192,
+      "temperature": 0.6,
+      "cases": [
+        {
+          "id": "rate_work",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 646,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "Step 1: Determine the work rate per painter. If 3 painters paint 3 rooms in 3 hours, that means each painter is responsible for exactly 1 room during that time. Therefore, 1 painter takes 3 hours to paint 1 room.\n\nStep 2: Analyze the new sc",
+          "tps": 8.356879403313073,
+          "wall_s": 202.8866046250041
+        },
+        {
+          "id": "multi_hop_age",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 494,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "Let Ben's current age be \\( B \\) and Anna's current age be \\( A \\).\n\n1. From the first statement: \\( A = 3B \\)\n2. From the second statement (in five years): \\( A + 5 = 2(B + 5) \\)\n\nSubstitute \\( A = 3B \\) into the second equation:\n\\( 3B + 5",
+          "tps": 8.34769228624109,
+          "wall_s": 208.8204858749814
+        },
+        {
+          "id": "units_chain",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 835,
+            "showed_work": true,
+            "intermediate_coverage": 0.0,
+            "trace_ok": false
+          },
+          "response_preview": "To convert the speed from kilometers per hour (km/h) to meters per second (m/s), follow these steps:\n\n**Step 1: Convert distance from kilometers to meters.**\nThere are 1,000 meters in 1 kilometer.\n$$90 \\text{ km} = 90 \\times 1,000 \\text{ me",
+          "tps": 8.340232965697307,
+          "wall_s": 305.8799983750214
+        },
+        {
+          "id": "constraint_logic",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 772,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "Here is the step-by-step solution:\n\n**Step 1: Define the variables.**\nLet the three consecutive integers be represented by $x$, $x+1$, and $x+2$.\n*   $x$ is the first (smallest) integer.\n*   $x+1$ is the second (middle) integer.\n*   $x+2$ i",
+          "tps": 8.380219473648957,
+          "wall_s": 170.79673070801073
+        }
+      ],
+      "baseline_tag": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "baseline_quality_score": 1.0,
+      "baseline_trace_quality_rate": 1.0,
+      "quality_delta_vs_baseline": 0.0,
+      "trace_delta_vs_baseline": -0.25
+    },
+    {
+      "model": "qwen3.6:35b-a3b-q4_K_M",
+      "avg_tps": 57.64,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "reasoning-explicit",
+      "trace_quality_rate": 0.75,
+      "predict_limit": 8192,
+      "temperature": 0.2,
+      "cases": [
+        {
+          "id": "rate_work",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 560,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "First, find the work rate of a single painter. If 3 painters paint 3 rooms in 3 hours, they are working simultaneously, meaning each painter is responsible for exactly 1 room in that 3-hour period. So, it takes 1 painter 3 hours to paint 1 ",
+          "tps": 59.11543275455477,
+          "wall_s": 28.200823000021046
+        },
+        {
+          "id": "multi_hop_age",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 1107,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "Here is the step-by-step solution:\n\n1.  **Define variables for their current ages:**\n    Let $B$ be Ben's current age.\n    Let $A$ be Anna's current age.\n\n2.  **Translate the first statement into an equation:**\n    \"Anna is three times as o",
+          "tps": 58.1669918940142,
+          "wall_s": 30.02443754201522
+        },
+        {
+          "id": "units_chain",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 689,
+            "showed_work": true,
+            "intermediate_coverage": 0.0,
+            "trace_ok": false
+          },
+          "response_preview": "To convert the speed from kilometers per hour (km/h) to meters per second (m/s), we need to convert the distance unit from kilometers to meters and the time unit from hours to seconds.\n\n**Step 1: Convert kilometers to meters.**\nThere are 1,",
+          "tps": 54.32830634821984,
+          "wall_s": 130.20485579199158
+        },
+        {
+          "id": "constraint_logic",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 364,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "Let the three consecutive integers be $x$, $x+1$, and $x+2$.\n\nAccording to the problem, their sum is 51:\n$$x + (x + 1) + (x + 2) = 51$$\n\nCombine like terms:\n$$3x + 3 = 51$$\n\nSubtract 3 from both sides:\n$$3x = 48$$\n\nDivide by 3:\n$$x = 16$$\n\n",
+          "tps": 58.96454302149133,
+          "wall_s": 14.056238958000904
+        }
+      ],
+      "baseline_tag": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "baseline_quality_score": 1.0,
+      "baseline_trace_quality_rate": 1.0,
+      "quality_delta_vs_baseline": 0.0,
+      "trace_delta_vs_baseline": -0.25
+    },
+    {
+      "model": "hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M",
+      "avg_tps": null,
+      "quality_score": 0.0,
+      "runs_success": 0,
+      "runs_total": 4,
+      "prompt_category": "reasoning-explicit",
+      "trace_quality_rate": 0.0,
+      "predict_limit": 16384,
+      "temperature": 0.85,
+      "cases": [
+        {
+          "id": "rate_work",
+          "ok": false,
+          "error": "HTTP Error 500: Internal Server Error",
+          "wall_s": 0.7026605829887558
+        },
+        {
+          "id": "multi_hop_age",
+          "ok": false,
+          "error": "HTTP Error 500: Internal Server Error",
+          "wall_s": 0.6925681660068221
+        },
+        {
+          "id": "units_chain",
+          "ok": false,
+          "error": "HTTP Error 500: Internal Server Error",
+          "wall_s": 0.6909730000188574
+        },
+        {
+          "id": "constraint_logic",
+          "ok": false,
+          "error": "HTTP Error 500: Internal Server Error",
+          "wall_s": 0.688577124994481
+        }
+      ],
+      "baseline_tag": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "baseline_quality_score": 1.0,
+      "baseline_trace_quality_rate": 1.0,
+      "quality_delta_vs_baseline": -1.0,
+      "trace_delta_vs_baseline": -1.0
+    },
+    {
+      "model": "deepseek-r1:32b-q4_k_m",
+      "avg_tps": 11.7,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "reasoning-explicit",
+      "trace_quality_rate": 1.0,
+      "predict_limit": 8192,
+      "temperature": 0.6,
+      "cases": [
+        {
+          "id": "rate_work",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 1385,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "\n\nLet's solve the problem step by step:\n\n**Given:**\n- **3 painters** can paint **3 rooms** in **3 hours**.\n\n**Find:**\nHow many hours do **9 painters** need to paint **9 rooms**?\n\n---\n\n### Step 1: Determine the Painting Rate per Painter\nFirs",
+          "tps": 11.638997595111016,
+          "wall_s": 62.80029550002655
+        },
+        {
+          "id": "multi_hop_age",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 707,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "\n\nLet's determine Ben's current age step by step.\n\n**Step 1: Define the Variables**\n\n- Let Ben's current age be \\( x \\) years.\n- Since Anna is three times as old as Ben, her age will be \\( 3x \\) years.\n\n**Step 2: Set Up the Equation for Fut",
+          "tps": 11.502637560068964,
+          "wall_s": 38.81565699999919
+        },
+        {
+          "id": "units_chain",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 656,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "\n\n**Solution:**\n\nTo convert the car's speed from kilometers per hour (km/h) to meters per second (m/s), follow these steps:\n\n1. **Understand the Conversion Factors:**\n   - \\(1 \\text{ kilometer} = 1000 \\text{ meters}\\)\n   - \\(1 \\text{ hour} ",
+          "tps": 11.865988838038161,
+          "wall_s": 31.593163791985717
+        },
+        {
+          "id": "constraint_logic",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 738,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "\n\nLet the three consecutive integers be \\( x \\), \\( x + 1 \\), and \\( x + 2 \\). Their sum is given as 51. We can set up the equation:\n\n\\[\nx + (x + 1) + (x + 2) = 51\n\\]\n\nCombining like terms, we get:\n\n\\[\n3x + 3 = 51\n\\]\n\nSubtracting 3 from bot",
+          "tps": 11.780485429244356,
+          "wall_s": 111.66741724999156
+        }
+      ],
+      "baseline_tag": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "baseline_quality_score": 1.0,
+      "baseline_trace_quality_rate": 1.0,
+      "quality_delta_vs_baseline": 0.0,
+      "trace_delta_vs_baseline": 0.0
+    },
+    {
+      "model": "hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k",
+      "avg_tps": 25.52,
+      "quality_score": 0.0,
+      "runs_success": 0,
+      "runs_total": 4,
+      "prompt_category": "reasoning-explicit",
+      "trace_quality_rate": 0.25,
+      "predict_limit": 8192,
+      "temperature": 0.6,
+      "cases": [
+        {
+          "id": "rate_work",
+          "ok": true,
+          "correct": false,
+          "trace": {
+            "response_chars": 0,
+            "showed_work": false,
+            "intermediate_coverage": 0.0,
+            "trace_ok": false
+          },
+          "response_preview": "",
+          "tps": 25.540300425702746,
+          "wall_s": 330.28495179201127
+        },
+        {
+          "id": "multi_hop_age",
+          "ok": true,
+          "correct": false,
+          "trace": {
+            "response_chars": 23536,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "Let\u2019s break this down step by step.\n\n1.  Define variables:\n    - \\( A \\) = Annas' current age\n    - \\( B \\) =bens\" [sic] *current* (present tense, implies \"now\") Age\n\n2.  Set up the first equation based on present conditions.\n   Anna is thr",
+          "tps": 25.518597905558583,
+          "wall_s": 321.418654167006
+        },
+        {
+          "id": "units_chain",
+          "ok": true,
+          "correct": false,
+          "trace": {
+            "response_chars": 0,
+            "showed_work": false,
+            "intermediate_coverage": 0.0,
+            "trace_ok": false
+          },
+          "response_preview": "",
+          "tps": 25.51096426334626,
+          "wall_s": 321.50403504099813
+        },
+        {
+          "id": "constraint_logic",
+          "ok": true,
+          "correct": false,
+          "trace": {
+            "response_chars": 0,
+            "showed_work": false,
+            "intermediate_coverage": 0.0,
+            "trace_ok": false
+          },
+          "response_preview": "",
+          "tps": 25.518238129631765,
+          "wall_s": 321.4135505000013
+        }
+      ],
+      "baseline_tag": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "baseline_quality_score": 1.0,
+      "baseline_trace_quality_rate": 1.0,
+      "quality_delta_vs_baseline": -1.0,
+      "trace_delta_vs_baseline": -0.75
+    },
+    {
+      "model": "gpt-oss:20b",
+      "avg_tps": 55.31,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "reasoning-explicit",
+      "trace_quality_rate": 0.25,
+      "predict_limit": 16384,
+      "temperature": 0.6,
+      "cases": [
+        {
+          "id": "rate_work",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 1,
+            "showed_work": false,
+            "intermediate_coverage": 0.5,
+            "trace_ok": false
+          },
+          "response_preview": "3",
+          "tps": 55.21624702780214,
+          "wall_s": 20.69415716599906
+        },
+        {
+          "id": "multi_hop_age",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 1,
+            "showed_work": false,
+            "intermediate_coverage": 0.333,
+            "trace_ok": false
+          },
+          "response_preview": "5",
+          "tps": 55.45484763365532,
+          "wall_s": 3.492798749997746
+        },
+        {
+          "id": "units_chain",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 677,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "**Step\u2011by\u2011step conversion**\n\n1. **Start with the given speed:**  \n   \\(90 \\text{ km/h}\\).\n\n2. **Convert kilometers to meters:**  \n   \\(1\\;\\text{km} = 1000\\;\\text{m}\\).  \n   So, \\(90\\;\\text{km} = 90 \\times 1000 = 90\\,000\\;\\text{m}\\).\n\n3. **C",
+          "tps": 55.03149437549733,
+          "wall_s": 7.858926334010903
+        },
+        {
+          "id": "constraint_logic",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 2,
+            "showed_work": false,
+            "intermediate_coverage": 0.0,
+            "trace_ok": false
+          },
+          "response_preview": "18",
+          "tps": 55.544516639591095,
+          "wall_s": 2.232085041992832
+        }
+      ],
+      "baseline_tag": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "baseline_quality_score": 1.0,
+      "baseline_trace_quality_rate": 1.0,
+      "quality_delta_vs_baseline": 0.0,
+      "trace_delta_vs_baseline": -0.75
+    },
+    {
+      "model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+      "avg_tps": 29.0,
+      "quality_score": 0.5,
+      "runs_success": 2,
+      "runs_total": 4,
+      "prompt_category": "reasoning-explicit",
+      "trace_quality_rate": 1.0,
+      "predict_limit": 8192,
+      "temperature": 0.6,
+      "cases": [
+        {
+          "id": "rate_work",
+          "ok": true,
+          "correct": false,
+          "trace": {
+            "response_chars": 3332,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "My task is to determine how many hours it will take for 9 painters to complete painting 9 rooms, given that 3 painters can paint 3 rooms in 3 hours.\n\nFirst, I need to analyze the initial scenario: 3 painters working on 3 rooms takes 3 hours",
+          "tps": 28.942223559996112,
+          "wall_s": 36.758654082979774
+        },
+        {
+          "id": "multi_hop_age",
+          "ok": true,
+          "correct": false,
+          "trace": {
+            "response_chars": 3223,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "To determine Ben's current age, I need to set up algebraic equations based on the information provided about Anna and Ben's ages.\n\nLet B represent Ben's current age in years.\nAccording to the first statement, \"Anna is three times as old as ",
+          "tps": 28.732863263302196,
+          "wall_s": 34.66313387500122
+        },
+        {
+          "id": "units_chain",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 1936,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "The user has provided a question about converting units of speed from kilometers per hour (km/h) to meters per second (m/s). This is a straightforward unit conversion problem that falls outside my domain of cybersecurity expertise.\n\nMy know",
+          "tps": 29.198303930934934,
+          "wall_s": 16.181133750011213
+        },
+        {
+          "id": "constraint_logic",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 2290,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "The problem states that three consecutive integers sum to 51. I need to determine the largest of these three numbers.\n\nFirst, I will represent the three consecutive integers algebraically. Let's denote the middle integer as 'x'. Then, the t",
+          "tps": 29.11948387183399,
+          "wall_s": 24.062033249996603
+        }
+      ],
+      "baseline_tag": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "baseline_quality_score": 1.0,
+      "baseline_trace_quality_rate": 1.0,
+      "quality_delta_vs_baseline": -0.5,
+      "trace_delta_vs_baseline": 0.0
+    },
+    {
+      "model": "hermes3:8b",
+      "avg_tps": 50.83,
+      "quality_score": 0.75,
+      "runs_success": 3,
+      "runs_total": 4,
+      "prompt_category": "reasoning-explicit",
+      "trace_quality_rate": 1.0,
+      "predict_limit": 8192,
+      "temperature": 0.6,
+      "cases": [
+        {
+          "id": "rate_work",
+          "ok": true,
+          "correct": false,
+          "trace": {
+            "response_chars": 943,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "Let's approach this problem step by step:\n\n1. Understand the given information:\n   * 3 painters can paint 3 rooms in 3 hours.\n   * We need to find how many hours 9 painters will take to paint 9 rooms.\n\n2. Calculate the painting rate of one ",
+          "tps": 50.85670430062785,
+          "wall_s": 9.859556167008122
+        },
+        {
+          "id": "multi_hop_age",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 657,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "Let's solve this problem step by step:\n\n1. Understand the given information:\n   * Anna is three times as old as Ben.\n   * In five years, Anna will be twice as old as Ben.\n\n2. Let's express their ages with variables:\n   * Let Ben's current a",
+          "tps": 50.89328466692854,
+          "wall_s": 4.469485625013476
+        },
+        {
+          "id": "units_chain",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 566,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "To convert the speed from kilometers per hour to meters per second, we need to follow these steps:\n\n1. Understand the conversion factors:\n   * 1 kilometer = 1000 meters\n   * 1 hour = 3600 seconds\n\n2. Set up the conversion equation:\n   * \\( ",
+          "tps": 50.68740434093367,
+          "wall_s": 3.9958847910165787
+        },
+        {
+          "id": "constraint_logic",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 691,
+            "showed_work": true,
+            "intermediate_coverage": 0.5,
+            "trace_ok": true
+          },
+          "response_preview": "Let's solve this problem step by step:\n\n1. Understand the given information:\n   * We have three consecutive integers.\n   * The sum of these three integers is 51.\n\n2. Let's assign variables to the numbers:\n   * Let the smallest integer be x.",
+          "tps": 50.87823379275767,
+          "wall_s": 4.390620499994839
+        }
+      ],
+      "baseline_tag": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "baseline_quality_score": 1.0,
+      "baseline_trace_quality_rate": 1.0,
+      "quality_delta_vs_baseline": -0.25,
+      "trace_delta_vs_baseline": 0.0
+    },
+    {
+      "model": "hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M",
+      "avg_tps": 51.62,
+      "quality_score": 0.0,
+      "runs_success": 0,
+      "runs_total": 4,
+      "prompt_category": "reasoning-explicit",
+      "trace_quality_rate": 1.0,
+      "predict_limit": 8192,
+      "temperature": 0.7,
+      "cases": [
+        {
+          "id": "rate_work",
+          "ok": true,
+          "correct": false,
+          "trace": {
+            "response_chars": 522,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": " Let's break this down first:\n1. We know that 3 painters working simultaneously can complete one room in three hours.\n2. Therefore, each painter individually takes nine times longer than that to paint their own room (since they are working ",
+          "tps": 51.56031685630212,
+          "wall_s": 6.005638041009661
+        },
+        {
+          "id": "multi_hop_age",
+          "ok": true,
+          "correct": false,
+          "trace": {
+            "response_chars": 1560,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": " Let's solve this logically:\n[1] Firstly, let's call \"x\" the current age of Ben. According to the problem, Anna is three times as old as Ben, so her current age would be 3x. In five years, Anna will be twice as old as Ben, so her age in fiv",
+          "tps": 50.961564572668735,
+          "wall_s": 8.539310041989665
+        },
+        {
+          "id": "units_chain",
+          "ok": true,
+          "correct": false,
+          "trace": {
+            "response_chars": 122,
+            "showed_work": true,
+            "intermediate_coverage": 0.5,
+            "trace_ok": true
+          },
+          "response_preview": " Firstly, we need to convert the distance from kilometers to meters. We know that there are 1000 meters in a kilometer, so:\n",
+          "tps": 52.48777885905754,
+          "wall_s": 0.8877130839973688
+        },
+        {
+          "id": "constraint_logic",
+          "ok": true,
+          "correct": false,
+          "trace": {
+            "response_chars": 310,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": " Let's denote the first integer as x. Then the next two consecutive integers are x+1 and x+2. According to the problem, x + (x+1) + (x+2) = 51. Simplifying this equation gives us 3x + 3 = 51. Solving for x, we get x = 17. Therefore, the thr",
+          "tps": 51.46701303063506,
+          "wall_s": 2.3972891249868553
+        }
+      ],
+      "baseline_tag": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "baseline_quality_score": 1.0,
+      "baseline_trace_quality_rate": 1.0,
+      "quality_delta_vs_baseline": -1.0,
+      "trace_delta_vs_baseline": 0.0
+    },
+    {
+      "model": "hf.co/Nguuma/security-slm-unsloth-1.5b:latest",
+      "avg_tps": 144.64,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "reasoning-explicit",
+      "trace_quality_rate": 1.0,
+      "predict_limit": 8192,
+      "temperature": 0.6,
+      "cases": [
+        {
+          "id": "rate_work",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 403,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "\n\n**Solution:**\n\n1. **Determine individual painter rate:**\n   \n   - 3 painters paint 3 rooms in 3 hours.\n   - This means one painter paints \\(\\frac{3}{3} = 1\\) room in 3 hours.\n\n2. **Calculate time for 9 painters to paint 9 rooms:**\n   \n   ",
+          "tps": 106.26949743089713,
+          "wall_s": 3.7284960840188432
+        },
+        {
+          "id": "multi_hop_age",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 813,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "\nLet \\( B \\) represent Ben's current age. Since Anna is three times as old, her current age is \\( 3B \\).\n\nIn five years:\n- Ben will be \\( B + 5 \\) years old.\n- Anna will be \\( 3B + 5 \\) years old.\n\nAccording to the problem statement:\n\\[ 3B ",
+          "tps": 156.6033322070023,
+          "wall_s": 3.2568422919721343
+        },
+        {
+          "id": "units_chain",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 423,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "\n\n**Solution**\n\nWe need to convert **kilometers per hour (km/h)** to **meters per second (m/s)** using unit conversions:\n\n\\[\n1 \\text{ km/h} = \\frac{1000 \\text{ m}}{3600 \\text{ s}} = \\frac{5}{18} \\text{ m/s}\n\\]\n\nGiven:\n\\[\nv = 90 \\text{ km/h}",
+          "tps": 157.55154186155187,
+          "wall_s": 2.017326500004856
+        },
+        {
+          "id": "constraint_logic",
+          "ok": true,
+          "correct": true,
+          "trace": {
+            "response_chars": 302,
+            "showed_work": true,
+            "intermediate_coverage": 1.0,
+            "trace_ok": true
+          },
+          "response_preview": "\nTo find three consecutive integers that sum to 51:\n\nLet the three integers be \\( n \\), \\( n + 1 \\), and \\( n + 2 \\).\n\nTheir sum:\n\\[\nn + (n + 1) + (n + 2) = 51\n\\]\n\nSimplify:\n\\[\n3n + 3 = 51 \\\\\n3n = 48 \\\\\nn = 16\n\\]\n\nThe three integers are \\( ",
+          "tps": 158.1335866537553,
+          "wall_s": 1.895689874974778
+        }
+      ],
+      "baseline_tag": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "baseline_quality_score": 1.0,
+      "baseline_trace_quality_rate": 1.0,
+      "quality_delta_vs_baseline": 0.0,
+      "trace_delta_vs_baseline": 0.0
+    }
+  ],
+  "baseline": {
+    "model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "avg_tps": 41.43,
+    "quality_score": 1.0,
+    "runs_success": 4,
+    "runs_total": 4,
+    "prompt_category": "reasoning-explicit",
+    "trace_quality_rate": 1.0,
+    "predict_limit": 16384,
+    "temperature": 0.6,
+    "cases": [
+      {
+        "id": "rate_work",
+        "ok": true,
+        "correct": true,
+        "trace": {
+          "response_chars": 907,
+          "showed_work": true,
+          "intermediate_coverage": 1.0,
+          "trace_ok": true
+        },
+        "response_preview": "\nThe given information states that 3 painters can paint 3 rooms in 3 hours. This implies that the combined work rate of 3 painters is 1 room per hour (since 3 rooms / 3 hours = 1 room/hour).\n\nEach painter's individual work rate is therefore",
+        "tps": 39.9741526076913,
+        "wall_s": 74.67564858301193
+      },
+      {
+        "id": "multi_hop_age",
+        "ok": true,
+        "correct": true,
+        "trace": {
+          "response_chars": 561,
+          "showed_work": true,
+          "intermediate_coverage": 1.0,
+          "trace_ok": true
+        },
+        "response_preview": "\nBen is currently 5 years old.  \nAnna is three times as old as Ben, so Anna is 15 years old.  \nIn five years, Ben will be 10 years old and Anna will be 20 years old, which is twice Ben's age at that time.  \n\nThe equation is derived from the",
+        "tps": 40.83697296154585,
+        "wall_s": 67.20320941699902
+      },
+      {
+        "id": "units_chain",
+        "ok": true,
+        "correct": true,
+        "trace": {
+          "response_chars": 478,
+          "showed_work": true,
+          "intermediate_coverage": 1.0,
+          "trace_ok": true
+        },
+        "response_preview": "\nTo convert the speed from kilometers per hour (km/h) to meters per second (m/s), use the conversion factor where 1 km/h = 1000/3600 m/s, which simplifies to 5/18 m/s.\n\nFor 90 km/h:  \n90 \u00d7 (5/18) = 90 \u00d7 5 / 18 = 450 / 18 = 25 m/s.\n\nAlternat",
+        "tps": 42.39839263381825,
+        "wall_s": 44.79873241702444
+      },
+      {
+        "id": "constraint_logic",
+        "ok": true,
+        "correct": true,
+        "trace": {
+          "response_chars": 1103,
+          "showed_work": true,
+          "intermediate_coverage": 1.0,
+          "trace_ok": true
+        },
+        "response_preview": "\nThe three consecutive integers that sum to 51 are 16, 17, and 18.\n\nTo find this, let the smallest integer be \\(x\\). Then the three integers are \\(x\\), \\(x+1\\), and \\(x+2\\).\n\nTheir sum is \\(x + (x+1) + (x+2) = 51\\).\n\nSimplify the equation: ",
+        "tps": 42.49511257817697,
+        "wall_s": 46.76846895800554
+      }
+    ]
+  }
+}

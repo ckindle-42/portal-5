@@ -1,0 +1,41 @@
+{
+  "results": [
+    {
+      "model": "_selftest_",
+      "avg_tps": null,
+      "quality_score": 0.0,
+      "runs_success": 0,
+      "runs_total": 4,
+      "prompt_category": "reasoning-explicit",
+      "trace_quality_rate": 0.0,
+      "predict_limit": null,
+      "temperature": null,
+      "cases": [
+        {
+          "id": "rate_work",
+          "ok": false,
+          "error": "HTTP Error 404: Not Found",
+          "wall_s": 0.022444541013101116
+        },
+        {
+          "id": "multi_hop_age",
+          "ok": false,
+          "error": "HTTP Error 404: Not Found",
+          "wall_s": 0.006269124976824969
+        },
+        {
+          "id": "units_chain",
+          "ok": false,
+          "error": "HTTP Error 404: Not Found",
+          "wall_s": 0.0064525839989073575
+        },
+        {
+          "id": "constraint_logic",
+          "ok": false,
+          "error": "HTTP Error 404: Not Found",
+          "wall_s": 0.006000791996484622
+        }
+      ]
+    }
+  ]
+}
