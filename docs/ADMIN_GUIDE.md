@@ -517,7 +517,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (23 production, 76 eval, 99 total)
+# Workspace roster (23 production, 77 eval, 100 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -602,6 +602,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-north-mini-code`
 - `bench-omnicoder2`
 - `bench-ornith-35b`
+- `bench-qwable-3.6-35b`
 - `bench-qwable-35b`
 - `bench-qwen3-14b-abliterated`
 - `bench-qwen3-coder-30b`

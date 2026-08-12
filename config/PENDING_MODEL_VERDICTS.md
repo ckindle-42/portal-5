@@ -13,7 +13,7 @@ Check the box once a decision is made and recorded (promote → wire the
 exists yet).
 
 - [x] `portal5/qwen3.6-27b-mtp:q8_0-drafted` — 43.6 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/mtp_probe_20260811T200235Z.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
@@ -21,21 +21,22 @@ exists yet).
   - evidence: `tests/benchmarks/results/CC01_CHALLENGE_MATRIX_20260611T122254Z.md`
   - verdict: investigate (unique capability: MTP speculative drafting (draft model bound to base); post-boundary: below 20 t/s floor (avg 12.14))
 - [x] `qwen3.6:27b-q8_0` — 27.9 GB
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/reasoning_probe_20260812T005010Z.json`
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `reports/rebench_reasoning.log`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
 - [x] `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` — 24.2 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T065729Z.json`
   - verdict: investigate (card/slot mismatch: 1 advertised capabilities untested; post-boundary: below 20 t/s floor (avg 10.55))
 - [x] `qwen3.6:35b-a3b-q4_K_M` — 22.3 GB
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/reasoning_probe_20260812T005010Z.json`
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T220820Z.json`
   - evidence: `reports/rebench_reasoning.log`
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
@@ -43,7 +44,7 @@ exists yet).
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
   - note: TASK_MODEL_BENCH_VALIDITY_V1: was one of the four originally-flagged false-0.0 rows — root cause was a coding-verifier bug (exact list-vs-tuple equality on a correct merge_intervals answer), now fixed and rescored to quality=1.0. The coherence gate still marks this row 'wrong-instrument' because reasoning-explicit's ideal harness is a reasoning-aware persona_matrix (not built) rather than bench_tps — that's an honest, documented gap, not a data-quality problem.
 - [x] `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL` — 21.7 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
@@ -51,7 +52,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/CC01_CHALLENGE_MATRIX_20260611T122254Z.md`
   - verdict: keep-open (card/slot mismatch: 2 advertised capabilities untested; unique capability: MoE architecture (routes tokens to expert subsets))
 - [x] `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` — 21.4 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
@@ -59,7 +60,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/v8b_pipeline_bench-nex-n2-mini_20260610T142636Z.json`
   - verdict: keep-open (removes Nex-N2 arch from fleet entirely; removes vendor 'sjakek' from fleet; net-new: arch family: 'Nex-N2' (not in fleet elsewhere); only exploration of this arch in the fleet)
 - [x] `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K` — 20.6 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/security_exec_probe_20260811T202002Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T081314Z.json`
   - evidence: `portal/modules/security/core/results/candidates/cand_hf.co_BugTraceAI_BugTraceAI-CORE-Ultra-27B-Q6_Q6_K_solo_20260705T204429Z.json`
@@ -68,7 +69,7 @@ exists yet).
   - verdict: keep-open (removes BugTraceAI arch from fleet entirely; removes vendor 'BugTraceAI' from fleet; net-new: arch family: 'BugTraceAI' (not in fleet elsewhere); only exploration of this arch in the fleet; post-boundary: below 20 t/s floor (avg 9.79))
   - note: TASK_MODEL_BENCH_VALIDITY_V1: security_exec_probe now scores 1.0/1.0 artifact-validity after fixing a thinking-field-fallback bug in the probe (the model's whole answer was landing in Ollama's separate 'thinking' field with empty 'content'); this was one of the four originally-flagged false-0.0 rows.
 - [x] `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` — 20.3 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
@@ -76,7 +77,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/quant_trueup_bench-huihui-qwen36-35b-a3b_20260528T233409Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; unique capability: MoE architecture (routes tokens to expert subsets))
 - [x] `portal5/xyz-aquila-mini:Q4_K_M` — 19.9 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T230905Z.json`
   - evidence: `tests/benchmarks/results/research_probe_20260811T021637Z.json`
   - evidence: `tests/benchmarks/results/tps_aquila_refix_20260810T204708Z.txt`
@@ -85,7 +86,7 @@ exists yet).
   - verdict: keep-open (introduced 1d ago — still in eval window)
   - note: TASK_MODEL_BENCH_VALIDITY_V1: config/backends.yaml and config/portal.yaml declared this tag's base variant with wrong casing ('portal5/xyz-aquila-mini:q4_k_m' vs the actually-installed '...Q4_K_M') — bench_tps's config-driven discovery does an exact match against `ollama list` and silently skipped this tag as 'not installed' on every run, so it had zero fresh bench evidence despite genuinely being on disk. Production routing was unaffected (Ollama resolves case-insensitively). Fixed the config casing + re-synced + re-benched fresh (bench_tps_20260811T230905Z.json, quality=1.0). Also fixed a related evidence-citation bug in model_cleanup_audit.py: whole-file substring matching against a tag/workspace name was false-positive-matching on unrelated bench_tps runs' embedded fleet-config metadata, and a date-only (not full-timestamp) sort key let same-day citations rank in arbitrary order instead of true recency — both fixed.
 - [x] `portal5/xyz-aquila-mini:q4_k_m-ctx16k` — 19.9 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/research_probe_20260811T021637Z.json`
   - evidence: `tests/benchmarks/results/tps_aquila_refix_20260810T204708Z.txt`
@@ -93,7 +94,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/cap_bench-aquila-mini-35b-a3b_20260809T143213Z.txt`
   - verdict: keep-open (introduced 1d ago — still in eval window)
 - [x] `muse-glimmer:30b-mlx` — 19.8 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `reports/BATCH_BENCH_V2_20260810T202645Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260810T191800Z.json`
@@ -101,64 +102,66 @@ exists yet).
   - evidence: `tests/benchmarks/results/cap_muse-glimmer_20260810T140627Z.txt`
   - verdict: keep-open (removes Muse-Glimmer arch from fleet entirely; net-new: arch family: 'Muse-Glimmer' (not in fleet elsewhere); only exploration of this arch in the fleet; introduced 1d ago — still in eval window)
 - [x] `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` — 19.7 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/tool_use_probe_20260811T202017Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T081314Z.json`
   - evidence: `tests/benchmarks/results/v11_capability_bench-superqwen-agentworld-ablit_20260701T053951Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/v11_capability_bench-superqwen-agentworld-ablit_20260701T053258Z.json`
   - verdict: keep-open (removes vendor 'Jiunsong' from fleet; net-new: vendor: 'Jiunsong' (not in fleet elsewhere))
   - note: TASK_MODEL_BENCH_VALIDITY_V1: was one of the four originally-flagged false-0.0 rows. tool_use_probe (fixed for the thinking-field fallback) shows genuinely weak tool-call usage (0.25/0.5 across two runs) — the model answers in prose ('Final answer: ...') instead of emitting structured tool_calls for 3 of 4 cases. Real capability finding, not a scorer artifact.
 - [x] `portal5/deepwen-3.6:q4.5-moq-ctx32k` — 19.7 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/cad_probe_20260811T030316Z.json`
   - evidence: `reports/BATCH_BENCH_V2_20260810T202645Z.md`
   - evidence: `tests/benchmarks/results/tps_deepwen-cad_20260810T151439Z.txt`
-  - evidence: `tests/benchmarks/results/bench_tps_20260811T060322Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - verdict: investigate (introduced 1d ago — still in eval window; arch already 14-strong; this adds no capability)
 - [x] `portal5/deepwen-3.6:q4.5-moq` — 19.7 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/cad_probe_20260811T030316Z.json`
   - evidence: `reports/BATCH_BENCH_V2_20260810T202645Z.md`
   - evidence: `tests/benchmarks/results/tps_deepwen-cad_20260810T151439Z.txt`
-  - evidence: `tests/benchmarks/results/bench_tps_20260811T060322Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - verdict: investigate (introduced 1d ago — still in eval window; arch already 15-strong; this adds no capability)
 - [x] `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` — 19.7 GB
+  - evidence: `tests/benchmarks/results/bench_tps_20260812T013905Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
+  - evidence: `reports/bench_qwable-3.6-35b.log`
   - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260621T030634Z.json`
-  - evidence: `tests/benchmarks/results/bench_tps_20260621T012359Z.json`
-  - evidence: `tests/benchmarks/results/bench_tps_20260619T031107Z.json`
-  - evidence: `tests/benchmarks/results/bench_tps_20260619T014513Z.json`
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
   - note: vision_probe live-checked this tag's Ollama capabilities and found no vision encoder (capabilities=['tools','thinking','completion']) — it is not actually a multimodal export despite the analyzer's card-derived 'vision' categorization. The category assignment itself needs a fix upstream of any bench; re-running vision_probe will never produce valid evidence for this tag.
 - [x] `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` — 19.7 GB
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/reasoning_probe_20260812T005010Z.json`
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T220820Z.json`
   - evidence: `reports/rebench_reasoning.log`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T081314Z.json`
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
   - note: TASK_MODEL_BENCH_VALIDITY_V1: was one of the four originally-flagged false-0.0 rows. Load reliability is genuinely inconsistent: an earlier same-day pipeline run loaded it and produced a real (if unscored-by-the-then-buggy-verifier) answer, but every direct-mode attempt since — including after a fresh checksum-verified re-pull — fails with 'missing tensor blk.40.attn_norm.weight'. Not resolved; needs deeper investigation (possibly a partial/flaky upstream blob) before either verdict is safe.
 - [x] `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` — 18.7 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T220820Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T060322Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260621T203830Z.json`
-  - evidence: `tests/benchmarks/results/bench_tps_20260621T030634Z.json`
   - verdict: investigate (card/slot mismatch: 1 advertised capabilities untested; post-boundary: below 20 t/s floor (avg 7.35))
 - [x] `deepseek-r1:32b-q4_k_m` — 18.5 GB
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/reasoning_probe_20260812T005010Z.json`
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `reports/rebench_reasoning.log`
   - evidence: `tests/benchmarks/results/bench_tps_v5_ladders.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
 - [x] `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf` — 18.2 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/mtp_probe_20260811T200235Z.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
@@ -166,7 +169,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/CAPABILITY_PROBE_V3_CODERS_20260616T030339Z.md`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; unique capability: MTP speculative drafting (draft model bound to base); post-boundary: below 20 t/s floor (avg 9.38))
 - [x] `glm-4.7-flash:Q4_K_M` — 17.7 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T220820Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_v5_ladders.json`
   - evidence: `tests/benchmarks/results/v10_candidates_20260629T194541Z.json`
@@ -174,7 +177,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/CAPABILITY_PROBE_D8D9D10_20260615.md`
   - verdict: investigate (arch already 3-strong; this adds no capability)
 - [x] `gemma4:31b-it-qat-ctx8k` — 17.6 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
@@ -182,7 +185,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/v8b_pipeline_bench-gemma4-31b-qat_20260610T142636Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested)
 - [x] `gemma4:31b-it-qat` — 17.6 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_gemma_mtp_20260701.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
@@ -190,16 +193,16 @@ exists yet).
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested)
 - [x] `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` — 17.4 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `tests/benchmarks/results/bench_tps_20260812T013127Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
+  - evidence: `reports/bench_gemma4-31b-crack.log`
   - evidence: `tests/benchmarks/results/bench_tps_gemma_mtp_20260701.json`
-  - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
   - evidence: `tests/results/bench_agentworld_20260625T134532.json`
   - evidence: `tests/benchmarks/results/CAPABILITY_PROBE_V3_CODERS_20260616T030339Z.md`
-  - evidence: `tests/benchmarks/results/bench_tps_20260621T030634Z.json`
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
   - note: Same as Qwable-3.6-35b above: vision_probe found no vision encoder (capabilities=['tools','completion']) — miscategorized as 'vision', not actually multimodal.
 - [x] `gemma4:26b-a4b-it-q4_K_M` — 16.8 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_gemma_mtp_20260701.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
@@ -207,7 +210,7 @@ exists yet).
   - evidence: `tests/results/bench_agentworld_20260625T134532.json`
   - verdict: keep-open (card/slot mismatch: 2 advertised capabilities untested)
 - [x] `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` — 16.7 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/mtp_probe_20260811T200235Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
   - evidence: `tests/results/bench_agentworld_20260625T134532.json`
@@ -215,7 +218,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/quant_trueup_bench-qwen36-27b-optiq_20260528T233409Z.json`
   - verdict: investigate (card/slot mismatch: 1 advertised capabilities untested; post-boundary: below 20 t/s floor (avg 12.0))
 - [x] `qwen3.6:27b-mtp-q4_K_M` — 16.5 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/mtp_probe_20260811T200235Z.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
@@ -223,7 +226,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; unique capability: MTP speculative drafting (draft model bound to base); introduced 1d ago — still in eval window; post-boundary: below 20 t/s floor (avg 10.73))
 - [x] `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf` — 16.4 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_gemma_mtp_20260701.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
@@ -231,7 +234,7 @@ exists yet).
   - evidence: `tests/results/bench_agentworld_20260625T134532.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; introduced 1d ago — still in eval window)
 - [x] `sylink/sylink:8b` — 15.3 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/long_context_probe_20260811T200823Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260809T191609Z.json`
   - evidence: `tests/benchmarks/results/tps_bench-aquila-mini-35b-a3b_20260809T141609Z.txt`
@@ -239,15 +242,15 @@ exists yet).
   - evidence: `tests/benchmarks/results/sec_bench_20260616T220338Z.json`
   - verdict: keep-open (removes vendor 'sylink' from fleet; net-new: vendor: 'sylink' (not in fleet elsewhere); post-boundary: below 20 t/s floor (avg 16.5))
 - [x] `sylink/sylink:8b-ctx8k` — 15.3 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/long_context_probe_20260811T200823Z.json`
   - evidence: `tests/benchmarks/results/tps_bench-aquila-mini-35b-a3b_20260809T141609Z.txt`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
   - evidence: `tests/benchmarks/results/sec_bench_20260616T220338Z.json`
-  - evidence: `tests/benchmarks/results/long_context_probe_20260811T065940Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - verdict: investigate (card/slot mismatch: 1 advertised capabilities untested; post-boundary: below 20 t/s floor (avg 16.44))
 - [x] `phi4:14b-q8_0` — 14.5 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/long_context_probe_20260811T200823Z.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
@@ -255,7 +258,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; introduced 1d ago — still in eval window)
 - [x] `mistral-small3.2:24b` — 14.1 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `results/sec_bench_archive/ABLATION_POC_COUNCIL_19SCENARIO_20260722T200513Z.raw.jsonl`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
@@ -263,7 +266,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; introduced 20d ago — still in eval window; post-boundary: below 20 t/s floor (avg 9.35))
 - [x] `devstral-small-2:latest-ctx8k` — 14.1 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T220820Z.json`
   - evidence: `tests/benchmarks/results/CAPABILITY_PROBE_D8D9D10_20260615T200000Z.md`
   - evidence: `tests/benchmarks/results/CAPABILITY_PROBE_D8D9D10_20260615.md`
@@ -271,7 +274,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
   - verdict: investigate (card/slot mismatch: 1 advertised capabilities untested; post-boundary: below 20 t/s floor (avg 8.4))
 - [x] `devstral-small-2:latest` — 14.1 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/CAPABILITY_PROBE_D8D9D10_20260615T200000Z.md`
   - evidence: `tests/benchmarks/results/CAPABILITY_PROBE_D8D9D10_20260615.md`
@@ -279,7 +282,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
   - verdict: investigate (post-boundary: below 20 t/s floor (avg 8.53))
 - [x] `devstral:24b` — 13.3 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T220820Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_v5_ladders.json`
   - evidence: `tests/results/bench_agentworld_20260625T134532.json`
@@ -287,36 +290,37 @@ exists yet).
   - evidence: `tests/benchmarks/results/CAPABILITY_PROBE_D8D9D10_20260615T200000Z.md`
   - verdict: investigate (post-boundary: below 20 t/s floor (avg 7.6))
 - [x] `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` — 13.3 GB
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/reasoning_probe_20260812T005010Z.json`
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T220820Z.json`
   - evidence: `reports/rebench_reasoning.log`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T081314Z.json`
-  - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
 - [x] `gpt-oss:20b` — 12.8 GB
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/reasoning_probe_20260812T005010Z.json`
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T220820Z.json`
   - evidence: `reports/rebench_reasoning.log`
   - evidence: `tests/benchmarks/results/bench_tps_v5_ladders.json`
   - evidence: `tests/benchmarks/results/v10_candidates_20260629T194541Z.json`
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
 - [x] `huihui_ai/qwen3-abliterated:14b-v2` — 8.4 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/refusal_preservation_probe_20260811T074007Z.json`
   - verdict: investigate (unique capability: Abliterated (safety-vector ablation))
 - [x] `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0` — 8.0 GB
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/reasoning_probe_20260812T005010Z.json`
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `reports/rebench_reasoning.log`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `results/sec_bench_archive/VALIDATION_TRIGGER_FIX_20260722T214817Z.raw.jsonl`
   - evidence: `results/sec_bench_archive/ABLATION_POC_COUNCIL_19SCENARIO_20260722T200513Z.raw.jsonl`
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
 - [x] `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M` — 7.1 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `tests/benchmarks/results/v11_capability_bench-jackrong-dsv4-9b_20260810T194846Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260810T194749Z.json`
@@ -324,7 +328,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/tps_jackrong-9b_20260810T144749Z.txt`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; unique capability: MTP speculative drafting (draft model bound to base); introduced 1d ago — still in eval window)
 - [x] `portal5/gemma4-12b:q4_K_M-ctx8k` — 7.0 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_gemma_mtp_20260701.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
@@ -332,19 +336,21 @@ exists yet).
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
   - verdict: investigate (introduced 1d ago — still in eval window; post-boundary: below 20 t/s floor (avg 13.15); arch already 14-strong; this adds no capability)
 - [x] `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M` — 6.9 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/mtp_probe_20260811T200235Z.json`
   - evidence: `tests/benchmarks/results/v11_capability_bench-gemma4-12b-agentic_20260701T060330Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_gemma_mtp_20260701.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/mtp_probe_20260811T074821Z.json`
   - verdict: keep-open (removes vendor 'yuxinlu1' from fleet; net-new: vendor: 'yuxinlu1' (not in fleet elsewhere); arch already 13-strong; this adds no capability)
 - [x] `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M` — 5.8 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T065729Z.json`
   - verdict: investigate (net-new: capability: Explicit thinking / reasoning traces; arch already 7-strong; this adds no capability)
 - [x] `gemma4:e4b-it-qat-ctx8k` — 5.7 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `tests/benchmarks/results/omlx_v3_vision_followup2v2_ollama_20260806T010559Z.json`
   - evidence: `tests/benchmarks/results/omlx_v3_vision_followup2_thinkoff_ollama_20260806T010441Z.json`
@@ -352,7 +358,7 @@ exists yet).
   - evidence: `reports/OMLX_OLLAMA_FOLLOWUP_PROBES_20260806T005000Z.md`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested)
 - [x] `gemma4:e4b-it-qat` — 5.7 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `reports/OMLX_OLLAMA_FOLLOWUP_PROBES_20260806T005000Z.md`
   - evidence: `reports/OMLX_OLLAMA_MULTIMODEL_BAKEOFF_V3_20260805T201200Z.md`
@@ -360,14 +366,15 @@ exists yet).
   - evidence: `tests/benchmarks/results/omlx_v3_kv_kv-baseline_ollama_20260802T231536Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested)
 - [x] `meta-secalign-8b-q4_k_m:latest` — 4.6 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/tps_bench-aquila-mini-35b-a3b_20260809T141609Z.txt`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T060322Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260809T191609Z.json`
   - verdict: investigate (no signals extracted — pure investigate)
 - [x] `dolphin-llama3:8b` — 4.3 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/tool_use_probe_20260811T202017Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_v5_ladders.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260809T191609Z.json`
@@ -375,15 +382,15 @@ exists yet).
   - evidence: `tests/benchmarks/results/omlx_v3_reeval_20260802T221435Z.md`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; removes Llama3 arch from fleet entirely; net-new: arch family: 'Llama3' (not in fleet elsewhere); only exploration of this arch in the fleet; introduced 1d ago — still in eval window)
 - [x] `hermes3:8b` — 4.3 GB
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/reasoning_probe_20260812T005010Z.json`
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `reports/rebench_reasoning.log`
   - evidence: `tests/benchmarks/results/bench_tps_v5_ladders.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/results/bench_agentworld_20260625T134532.json`
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
 - [x] `huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k` — 4.1 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json`
   - evidence: `portal/modules/security/core/results/candidates/cand_hf.co_BugTraceAI_BugTraceAI-CORE-Ultra-27B-Q6_Q6_K_exploit_20260705T202453Z.json`
   - evidence: `portal/modules/security/core/results/candidates/cand_huihui_ai_baronllm-abliterated_latest_exploit_20260704T055814Z.json`
@@ -391,7 +398,7 @@ exists yet).
   - evidence: `portal/modules/security/core/results/candidates/cand_ravenx-cyberagent-35b_Q4_K_M_exploit_20260703T141854Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; unique capability: Abliterated (safety-vector ablation))
 - [x] `huihui_ai/gemma-4-abliterated:E2b-qat` — 4.1 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json`
   - evidence: `portal/modules/security/core/results/candidates/cand_hf.co_BugTraceAI_BugTraceAI-CORE-Ultra-27B-Q6_Q6_K_exploit_20260705T202453Z.json`
   - evidence: `portal/modules/security/core/results/candidates/cand_huihui_ai_baronllm-abliterated_latest_exploit_20260704T055814Z.json`
@@ -399,15 +406,15 @@ exists yet).
   - evidence: `portal/modules/security/core/results/candidates/cand_ravenx-cyberagent-35b_Q4_K_M_exploit_20260703T141854Z.json`
   - verdict: investigate (unique capability: Abliterated (safety-vector ablation))
 - [x] `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M` — 4.1 GB
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/reasoning_probe_20260812T005010Z.json`
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `reports/rebench_reasoning.log`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/tps_bench-aquila-mini-35b-a3b_20260809T141609Z.txt`
-  - evidence: `tests/benchmarks/results/bench_tps_20260811T081314Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
 - [x] `gemma4:e2b-it-qat-ctx8k` — 4.0 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
@@ -415,7 +422,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/v8b_pipeline_bench-gemma4-e2b_20260610T142636Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested)
 - [x] `gemma4:e2b-it-qat` — 4.0 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/vision_probe_20260811T200619Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_gemma_mtp_20260701.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
@@ -423,7 +430,7 @@ exists yet).
   - evidence: `tests/benchmarks/results/bench_20260611T151541Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested)
 - [x] `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M` — 3.8 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/mtp_probe_20260811T200235Z.json`
   - evidence: `tests/benchmarks/results/v11_capability_bench-jackrong-dsv4-4b_20260810T200127Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260810T200041Z.json`
@@ -431,30 +438,31 @@ exists yet).
   - evidence: `tests/benchmarks/results/tps_jackrong-4b_20260810T150041Z.txt`
   - verdict: keep-open (unique capability: MTP speculative drafting (draft model bound to base); introduced 1d ago — still in eval window)
 - [x] `llama3.2:3b-instruct-q8_0-ctx8k` — 3.2 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/tps_bench-aquila-mini-35b-a3b_20260809T141609Z.txt`
   - evidence: `reports/OMLX_OLLAMA_MULTIMODEL_BAKEOFF_V3_20260805T201200Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T060322Z.json`
-  - evidence: `tests/benchmarks/results/bench_tps_20260809T191609Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; introduced 1d ago — still in eval window)
 - [x] `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M` — 2.3 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T220820Z.json`
   - evidence: `tests/benchmarks/results/tps_bench-aquila-mini-35b-a3b_20260809T141609Z.txt`
   - evidence: `tests/results/bench_agentworld_20260625T134532.json`
   - evidence: `tests/benchmarks/results/CAPABILITY_PROBE_FASTCONTEXT_20260615T223333Z.md`
-  - evidence: `tests/benchmarks/results/bench_tps_20260811T060322Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - verdict: keep-open (removes vendor 'mitkox' from fleet; net-new: vendor: 'mitkox' (not in fleet elsewhere))
 - [x] `cybersecqwen-4b-toolfix:latest` — 2.3 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/security_exec_probe_20260811T202002Z.json`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T055711Z.json`
   - evidence: `tests/benchmarks/results/tps_bench-aquila-mini-35b-a3b_20260809T141609Z.txt`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260809T191609Z.json`
   - verdict: investigate (no signals extracted — pure investigate)
 - [x] `llama3.2:3b` — 1.9 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/tps_bench-aquila-mini-35b-a3b_20260809T141609Z.txt`
   - evidence: `reports/OMLX_OLLAMA_MULTIMODEL_BAKEOFF_V3_20260805T201200Z.md`
@@ -462,39 +470,40 @@ exists yet).
   - evidence: `reports/OMLX_OLLAMA_MULTIMODEL_BAKEOFF_20260805T160244Z.md`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; introduced 1d ago — still in eval window)
 - [x] `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest` — 1.3 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/refusal_preservation_probe_20260811T074007Z.json`
   - verdict: keep-open (card/slot mismatch: 1 advertised capabilities untested; removes vendor 'QuantFactory' from fleet; net-new: vendor: 'QuantFactory' (not in fleet elsewhere); introduced 1d ago — still in eval window)
 - [x] `hf.co/Nguuma/security-slm-unsloth-1.5b:latest` — 1.0 GB
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/reasoning_probe_20260812T005010Z.json`
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `reports/rebench_reasoning.log`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/tps_bench-aquila-mini-35b-a3b_20260809T141609Z.txt`
-  - evidence: `tests/benchmarks/results/bench_tps_20260811T055711Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - verdict: investigate-refresh (no post-boundary evidence — stack changed, must re-bench before any decision)
 - [x] `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M` — 0.7 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/tps_bench-aquila-mini-35b-a3b_20260809T141609Z.txt`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
   - evidence: `tests/results/router_bench_round4_20260625T133607.json`
-  - evidence: `tests/benchmarks/results/bench_tps_20260811T060322Z.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - verdict: investigate (net-new: capability: Instruction-tuned; arch already 6-strong; this adds no capability)
 - [x] `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M` — 0.2 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
   - evidence: `tests/results/router_bench_round4_20260625T133607.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T060322Z.json`
-  - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
   - verdict: investigate (arch already 6-strong; this adds no capability)
 - [x] `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M` — 0.1 GB
-  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
+  - evidence: `reports/REBENCH_PLAN_20260812T012833Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T172511Z.json`
   - evidence: `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`
   - evidence: `tests/results/router_bench_round4_20260625T133607.json`
+  - evidence: `reports/REBENCH_PLAN_20260811T235850Z.md`
   - evidence: `tests/benchmarks/results/bench_tps_20260811T060322Z.json`
-  - evidence: `tests/benchmarks/results/bench_tps_20260627T192858Z.json`
   - verdict: investigate (arch already 6-strong; this adds no capability)
