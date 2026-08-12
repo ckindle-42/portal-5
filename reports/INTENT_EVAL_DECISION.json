@@ -13,7 +13,8 @@
       "incumbent_quality": 0.9,
       "delta_vs_incumbent": -0.24,
       "cand_tps": null,
-      "prompt_category": "coding_repair"
+      "prompt_category": "coding_repair",
+      "native_delta": null
     },
     {
       "intent": "coding",
@@ -23,37 +24,41 @@
       "incumbent_quality": 0.9,
       "delta_vs_incumbent": -0.14,
       "cand_tps": null,
-      "prompt_category": "coding_repair"
+      "prompt_category": "coding_repair",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "portal5/xyz-aquila-mini:Q4_K_M",
       "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
-      "cand_quality": 0.651,
-      "incumbent_quality": 0.65,
+      "cand_quality": 0.683,
+      "incumbent_quality": 0.682,
       "delta_vs_incumbent": 0.001,
       "cand_tps": null,
-      "prompt_category": "general_capability"
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "portal5/xyz-aquila-mini:q4_k_m-ctx16k",
       "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
       "cand_quality": 0.667,
-      "incumbent_quality": 0.65,
-      "delta_vs_incumbent": 0.017,
+      "incumbent_quality": 0.635,
+      "delta_vs_incumbent": 0.032,
       "cand_tps": null,
-      "prompt_category": "general_capability"
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "portal5/deepwen-3.6:q4.5-moq-ctx32k",
       "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
-      "cand_quality": 0.222,
-      "incumbent_quality": 0.65,
-      "delta_vs_incumbent": -0.428,
+      "cand_quality": 0.119,
+      "incumbent_quality": 0.667,
+      "delta_vs_incumbent": -0.548,
       "cand_tps": null,
-      "prompt_category": "general_capability"
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
@@ -64,11 +69,12 @@
       "intent": "general",
       "candidate": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
       "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
-      "cand_quality": 0.548,
-      "incumbent_quality": 0.65,
-      "delta_vs_incumbent": -0.102,
+      "cand_quality": 0.31,
+      "incumbent_quality": 0.698,
+      "delta_vs_incumbent": -0.388,
       "cand_tps": null,
-      "prompt_category": "general_capability"
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
@@ -79,91 +85,122 @@
       "intent": "general",
       "candidate": "glm-4.7-flash:Q4_K_M",
       "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
-      "cand_quality": 0.746,
-      "incumbent_quality": 0.65,
-      "delta_vs_incumbent": 0.096,
+      "cand_quality": 0.603,
+      "incumbent_quality": 0.651,
+      "delta_vs_incumbent": -0.048,
       "cand_tps": null,
-      "prompt_category": "general_capability"
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf",
       "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
-      "cand_quality": 0.762,
-      "incumbent_quality": 0.65,
-      "delta_vs_incumbent": 0.112,
+      "cand_quality": 0.81,
+      "incumbent_quality": 0.778,
+      "delta_vs_incumbent": 0.032,
       "cand_tps": null,
-      "prompt_category": "general_capability"
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "mistral-small3.2:24b",
-      "note": "no result row"
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.746,
+      "incumbent_quality": 0.635,
+      "delta_vs_incumbent": 0.111,
+      "cand_tps": null,
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "portal5/gemma4-12b:q4_K_M-ctx8k",
-      "note": "no result row"
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.603,
+      "incumbent_quality": 0.667,
+      "delta_vs_incumbent": -0.064,
+      "cand_tps": null,
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "dolphin-llama3:8b",
       "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
-      "cand_quality": 0.365,
-      "incumbent_quality": 0.65,
-      "delta_vs_incumbent": -0.285,
+      "cand_quality": 0.301,
+      "incumbent_quality": 0.73,
+      "delta_vs_incumbent": -0.429,
       "cand_tps": null,
-      "prompt_category": "general_capability"
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "llama3.2:3b-instruct-q8_0-ctx8k",
-      "note": "no result row"
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.403,
+      "incumbent_quality": 0.635,
+      "delta_vs_incumbent": -0.232,
+      "cand_tps": null,
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
       "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
       "cand_quality": 0.0,
-      "incumbent_quality": 0.65,
-      "delta_vs_incumbent": -0.65,
+      "incumbent_quality": 0.603,
+      "delta_vs_incumbent": -0.603,
       "cand_tps": null,
-      "prompt_category": "general_capability"
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "llama3.2:3b",
-      "note": "no result row"
+      "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
+      "cand_quality": 0.507,
+      "incumbent_quality": 0.715,
+      "delta_vs_incumbent": -0.208,
+      "cand_tps": null,
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
       "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
-      "cand_quality": 0.389,
-      "incumbent_quality": 0.65,
-      "delta_vs_incumbent": -0.261,
+      "cand_quality": 0.254,
+      "incumbent_quality": 0.714,
+      "delta_vs_incumbent": -0.46,
       "cand_tps": null,
-      "prompt_category": "general_capability"
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M",
       "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
-      "cand_quality": 0.111,
-      "incumbent_quality": 0.65,
-      "delta_vs_incumbent": -0.539,
+      "cand_quality": 0.103,
+      "incumbent_quality": 0.699,
+      "delta_vs_incumbent": -0.596,
       "cand_tps": null,
-      "prompt_category": "general_capability"
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "general",
       "candidate": "hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M",
       "incumbent": "gemma4:26b-a4b-it-qat-ctx8k",
-      "cand_quality": 0.222,
-      "incumbent_quality": 0.65,
-      "delta_vs_incumbent": -0.428,
+      "cand_quality": 0.151,
+      "incumbent_quality": 0.667,
+      "delta_vs_incumbent": -0.516,
       "cand_tps": null,
-      "prompt_category": "general_capability"
+      "prompt_category": "general_capability",
+      "native_delta": null
     },
     {
       "intent": "long-context",
@@ -173,7 +210,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": 0.0,
       "cand_tps": 16.88,
-      "prompt_category": "long_context"
+      "prompt_category": "long_context",
+      "native_delta": null
     },
     {
       "intent": "long-context",
@@ -183,7 +221,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": 0.0,
       "cand_tps": 16.89,
-      "prompt_category": "long_context"
+      "prompt_category": "long_context",
+      "native_delta": null
     },
     {
       "intent": "long-context",
@@ -193,7 +232,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": -1.0,
       "cand_tps": null,
-      "prompt_category": "long_context"
+      "prompt_category": "long_context",
+      "native_delta": null
     },
     {
       "intent": "mtp-speculative",
@@ -203,7 +243,8 @@
       "incumbent_quality": 0.0,
       "delta_vs_incumbent": 1.0,
       "cand_tps": 12.422095627912428,
-      "prompt_category": "mtp_speculative"
+      "prompt_category": "mtp_speculative",
+      "native_delta": null
     },
     {
       "intent": "mtp-speculative",
@@ -213,7 +254,8 @@
       "incumbent_quality": 0.0,
       "delta_vs_incumbent": 1.0,
       "cand_tps": 10.32567080013409,
-      "prompt_category": "mtp_speculative"
+      "prompt_category": "mtp_speculative",
+      "native_delta": null
     },
     {
       "intent": "mtp-speculative",
@@ -223,7 +265,8 @@
       "incumbent_quality": 0.0,
       "delta_vs_incumbent": 1.0,
       "cand_tps": 12.037113618644586,
-      "prompt_category": "mtp_speculative"
+      "prompt_category": "mtp_speculative",
+      "native_delta": null
     },
     {
       "intent": "mtp-speculative",
@@ -233,7 +276,8 @@
       "incumbent_quality": 0.0,
       "delta_vs_incumbent": 1.0,
       "cand_tps": 10.738830263684845,
-      "prompt_category": "mtp_speculative"
+      "prompt_category": "mtp_speculative",
+      "native_delta": null
     },
     {
       "intent": "mtp-speculative",
@@ -243,7 +287,8 @@
       "incumbent_quality": 0.0,
       "delta_vs_incumbent": 1.0,
       "cand_tps": 27.049461631183974,
-      "prompt_category": "mtp_speculative"
+      "prompt_category": "mtp_speculative",
+      "native_delta": null
     },
     {
       "intent": "mtp-speculative",
@@ -253,7 +298,8 @@
       "incumbent_quality": 0.0,
       "delta_vs_incumbent": 1.0,
       "cand_tps": 56.94604264276766,
-      "prompt_category": "mtp_speculative"
+      "prompt_category": "mtp_speculative",
+      "native_delta": null
     },
     {
       "intent": "reasoning",
@@ -263,7 +309,8 @@
       "incumbent_quality": null,
       "delta_vs_incumbent": null,
       "cand_tps": 8.23,
-      "prompt_category": "reasoning-explicit"
+      "prompt_category": "reasoning-explicit",
+      "native_delta": null
     },
     {
       "intent": "reasoning",
@@ -273,7 +320,8 @@
       "incumbent_quality": null,
       "delta_vs_incumbent": null,
       "cand_tps": 54.22,
-      "prompt_category": "reasoning-explicit"
+      "prompt_category": "reasoning-explicit",
+      "native_delta": null
     },
     {
       "intent": "reasoning",
@@ -283,7 +331,8 @@
       "incumbent_quality": null,
       "delta_vs_incumbent": null,
       "cand_tps": null,
-      "prompt_category": "reasoning-explicit"
+      "prompt_category": "reasoning-explicit",
+      "native_delta": null
     },
     {
       "intent": "reasoning",
@@ -293,7 +342,8 @@
       "incumbent_quality": null,
       "delta_vs_incumbent": null,
       "cand_tps": 11.61,
-      "prompt_category": "reasoning-explicit"
+      "prompt_category": "reasoning-explicit",
+      "native_delta": null
     },
     {
       "intent": "reasoning",
@@ -303,7 +353,8 @@
       "incumbent_quality": null,
       "delta_vs_incumbent": null,
       "cand_tps": 36.15,
-      "prompt_category": "reasoning-explicit"
+      "prompt_category": "reasoning-explicit",
+      "native_delta": null
     },
     {
       "intent": "reasoning",
@@ -313,7 +364,8 @@
       "incumbent_quality": null,
       "delta_vs_incumbent": null,
       "cand_tps": 50.74,
-      "prompt_category": "reasoning-explicit"
+      "prompt_category": "reasoning-explicit",
+      "native_delta": null
     },
     {
       "intent": "reasoning",
@@ -323,7 +375,8 @@
       "incumbent_quality": null,
       "delta_vs_incumbent": null,
       "cand_tps": 49.22,
-      "prompt_category": "reasoning-explicit"
+      "prompt_category": "reasoning-explicit",
+      "native_delta": null
     },
     {
       "intent": "reasoning",
@@ -333,117 +386,208 @@
       "incumbent_quality": null,
       "delta_vs_incumbent": null,
       "cand_tps": 136.63,
-      "prompt_category": "reasoning-explicit"
+      "prompt_category": "reasoning-explicit",
+      "native_delta": null
     },
     {
       "intent": "security",
       "candidate": "hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K",
       "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
-      "cand_quality": 0.493,
-      "incumbent_quality": null,
-      "delta_vs_incumbent": null,
+      "cand_quality": 0.543,
+      "incumbent_quality": 0.543,
+      "delta_vs_incumbent": 0.0,
       "cand_tps": null,
-      "prompt_category": "security_chain_coverage"
+      "prompt_category": "security_chain_coverage",
+      "native_delta": {
+        "scenario": "__aggregate__",
+        "candidate_model": "multi:hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K",
+        "incumbent_model": "multi:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "unique_coverage_delta": 0.0,
+        "order_accuracy_delta": 0.0,
+        "chain_depth_delta": 0.0,
+        "lab_success_delta": 0,
+        "elapsed_s_delta": -17.8
+      }
     },
     {
       "intent": "security",
       "candidate": "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M",
       "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
-      "cand_quality": 0.468,
-      "incumbent_quality": null,
-      "delta_vs_incumbent": null,
+      "cand_quality": 0.48,
+      "incumbent_quality": 0.48,
+      "delta_vs_incumbent": 0.0,
       "cand_tps": null,
-      "prompt_category": "security_chain_coverage"
+      "prompt_category": "security_chain_coverage",
+      "native_delta": {
+        "scenario": "__aggregate__",
+        "candidate_model": "multi:hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M",
+        "incumbent_model": "multi:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "unique_coverage_delta": 0.0,
+        "order_accuracy_delta": 0.0,
+        "chain_depth_delta": 0.0,
+        "lab_success_delta": 0,
+        "elapsed_s_delta": -14.9
+      }
     },
     {
       "intent": "security",
       "candidate": "hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M",
-      "note": "no result row"
+      "note": "BLOCKED \u2014 tool-template incompatible at intake"
     },
     {
       "intent": "security",
       "candidate": "hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf",
       "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
-      "cand_quality": 0.393,
-      "incumbent_quality": null,
-      "delta_vs_incumbent": null,
+      "cand_quality": 0.48,
+      "incumbent_quality": 0.48,
+      "delta_vs_incumbent": 0.0,
       "cand_tps": null,
-      "prompt_category": "security_chain_coverage"
+      "prompt_category": "security_chain_coverage",
+      "native_delta": {
+        "scenario": "__aggregate__",
+        "candidate_model": "multi:hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf",
+        "incumbent_model": "multi:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "unique_coverage_delta": 0.0,
+        "order_accuracy_delta": 0.0,
+        "chain_depth_delta": 0.0,
+        "lab_success_delta": -1,
+        "elapsed_s_delta": -10.6
+      }
     },
     {
       "intent": "security",
       "candidate": "huihui_ai/qwen3-abliterated:14b-v2",
       "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
-      "cand_quality": 0.493,
-      "incumbent_quality": null,
-      "delta_vs_incumbent": null,
+      "cand_quality": 0.48,
+      "incumbent_quality": 0.48,
+      "delta_vs_incumbent": 0.0,
       "cand_tps": null,
-      "prompt_category": "security_chain_coverage"
+      "prompt_category": "security_chain_coverage",
+      "native_delta": {
+        "scenario": "__aggregate__",
+        "candidate_model": "multi:huihui_ai/qwen3-abliterated:14b-v2",
+        "incumbent_model": "multi:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "unique_coverage_delta": 0.0,
+        "order_accuracy_delta": 0.0,
+        "chain_depth_delta": 0.0,
+        "lab_success_delta": 0,
+        "elapsed_s_delta": -24.0
+      }
     },
     {
       "intent": "security",
       "candidate": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
-      "note": "no result row"
+      "note": "BLOCKED \u2014 tool-template incompatible at intake"
     },
     {
       "intent": "security",
       "candidate": "hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M",
       "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
-      "cand_quality": 0.518,
-      "incumbent_quality": null,
-      "delta_vs_incumbent": null,
+      "cand_quality": 0.48,
+      "incumbent_quality": 0.48,
+      "delta_vs_incumbent": 0.0,
       "cand_tps": null,
-      "prompt_category": "security_chain_coverage"
+      "prompt_category": "security_chain_coverage",
+      "native_delta": {
+        "scenario": "__aggregate__",
+        "candidate_model": "multi:hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M",
+        "incumbent_model": "multi:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "unique_coverage_delta": 0.0,
+        "order_accuracy_delta": 0.0,
+        "chain_depth_delta": 0.0,
+        "lab_success_delta": 0,
+        "elapsed_s_delta": -11.4
+      }
     },
     {
       "intent": "security",
       "candidate": "meta-secalign-8b-q4_k_m:latest",
       "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
-      "cand_quality": 0.518,
-      "incumbent_quality": null,
-      "delta_vs_incumbent": null,
+      "cand_quality": 0.48,
+      "incumbent_quality": 0.48,
+      "delta_vs_incumbent": 0.0,
       "cand_tps": null,
-      "prompt_category": "security_chain_coverage"
+      "prompt_category": "security_chain_coverage",
+      "native_delta": {
+        "scenario": "__aggregate__",
+        "candidate_model": "multi:meta-secalign-8b-q4_k_m:latest",
+        "incumbent_model": "multi:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "unique_coverage_delta": 0.0,
+        "order_accuracy_delta": 0.0,
+        "chain_depth_delta": 0.0,
+        "lab_success_delta": 0,
+        "elapsed_s_delta": -10.9
+      }
     },
     {
       "intent": "security",
       "candidate": "huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k",
       "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
-      "cand_quality": 0.518,
-      "incumbent_quality": null,
-      "delta_vs_incumbent": null,
+      "cand_quality": 0.48,
+      "incumbent_quality": 0.48,
+      "delta_vs_incumbent": 0.0,
       "cand_tps": null,
-      "prompt_category": "security_chain_coverage"
+      "prompt_category": "security_chain_coverage",
+      "native_delta": {
+        "scenario": "__aggregate__",
+        "candidate_model": "multi:huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k",
+        "incumbent_model": "multi:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "unique_coverage_delta": 0.0,
+        "order_accuracy_delta": 0.0,
+        "chain_depth_delta": 0.0,
+        "lab_success_delta": 0,
+        "elapsed_s_delta": -23.5
+      }
     },
     {
       "intent": "security",
       "candidate": "huihui_ai/gemma-4-abliterated:E2b-qat",
       "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
-      "cand_quality": 0.393,
-      "incumbent_quality": null,
-      "delta_vs_incumbent": null,
+      "cand_quality": 0.48,
+      "incumbent_quality": 0.48,
+      "delta_vs_incumbent": 0.0,
       "cand_tps": null,
-      "prompt_category": "security_chain_coverage"
+      "prompt_category": "security_chain_coverage",
+      "native_delta": {
+        "scenario": "__aggregate__",
+        "candidate_model": "multi:huihui_ai/gemma-4-abliterated:E2b-qat",
+        "incumbent_model": "multi:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "unique_coverage_delta": 0.0,
+        "order_accuracy_delta": -0.07,
+        "chain_depth_delta": 0.0,
+        "lab_success_delta": 0,
+        "elapsed_s_delta": -24.0
+      }
     },
     {
       "intent": "security",
       "candidate": "hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M",
-      "note": "no result row"
+      "note": "BLOCKED \u2014 tool-template incompatible at intake"
     },
     {
       "intent": "security",
       "candidate": "cybersecqwen-4b-toolfix:latest",
-      "note": "no result row"
+      "note": "BLOCKED \u2014 tool-template incompatible at intake"
     },
     {
       "intent": "security",
       "candidate": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest",
       "incumbent": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
-      "cand_quality": 0.418,
-      "incumbent_quality": null,
-      "delta_vs_incumbent": null,
+      "cand_quality": 0.48,
+      "incumbent_quality": 0.48,
+      "delta_vs_incumbent": 0.0,
       "cand_tps": null,
-      "prompt_category": "security_chain_coverage"
+      "prompt_category": "security_chain_coverage",
+      "native_delta": {
+        "scenario": "__aggregate__",
+        "candidate_model": "multi:hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest",
+        "incumbent_model": "multi:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+        "unique_coverage_delta": 0.0,
+        "order_accuracy_delta": 0.0,
+        "chain_depth_delta": 0.0,
+        "lab_success_delta": 0,
+        "elapsed_s_delta": -10.9
+      }
     },
     {
       "intent": "vision",
@@ -453,7 +597,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": 0.0,
       "cand_tps": 11.17,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     },
     {
       "intent": "vision",
@@ -463,7 +608,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": 0.0,
       "cand_tps": 77.3,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     },
     {
       "intent": "vision",
@@ -473,7 +619,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": 0.0,
       "cand_tps": 79.9,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     },
     {
       "intent": "vision",
@@ -483,7 +630,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": 0.0,
       "cand_tps": 21.36,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     },
     {
       "intent": "vision",
@@ -493,7 +641,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": 0.0,
       "cand_tps": 22.15,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     },
     {
       "intent": "vision",
@@ -503,7 +652,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": 0.0,
       "cand_tps": 22.01,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     },
     {
       "intent": "vision",
@@ -513,7 +663,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": 0.0,
       "cand_tps": 92.05,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     },
     {
       "intent": "vision",
@@ -523,7 +674,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": 0.0,
       "cand_tps": 66.59,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     },
     {
       "intent": "vision",
@@ -533,7 +685,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": -0.5,
       "cand_tps": 91.8,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     },
     {
       "intent": "vision",
@@ -543,7 +696,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": -0.5,
       "cand_tps": 93.97,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     },
     {
       "intent": "vision",
@@ -553,7 +707,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": -0.25,
       "cand_tps": 144.93,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     },
     {
       "intent": "vision",
@@ -563,7 +718,8 @@
       "incumbent_quality": 1.0,
       "delta_vs_incumbent": -0.25,
       "cand_tps": 145.46,
-      "prompt_category": "vision"
+      "prompt_category": "vision",
+      "native_delta": null
     }
   ]
 }

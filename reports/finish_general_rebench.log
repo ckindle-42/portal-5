@@ -1,0 +1,357 @@
+=== bench-aquila-mini-35b-a3b ===
+Capability Probe V11 — 20260812T141106Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.44
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-aquila-mini-35b-a3b ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.33
+  C4 ... fmt=1.00 cap=0.78
+  C5 ... fmt=0.67 cap=0.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-aquila-mini-35b-a3b_20260812T141106Z.json
+=== bench-deepwen-cad ===
+Capability Probe V11 — 20260812T143611Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.67
+  C4 ... fmt=1.00 cap=0.33
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-deepwen-cad ──
+  C1 ... fmt=1.00 cap=0.25
+  C2 ... fmt=0.20 cap=0.10
+  C3 ... fmt=0.67 cap=0.00
+  C4 ... fmt=0.33 cap=0.00
+  C5 ... fmt=1.00 cap=0.33
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-deepwen-cad_20260812T143611Z.json
+=== bench-qwable-3.6-35b ===
+Capability Probe V11 — 20260812T150402Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.55
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-qwable-3.6-35b ──
+  C1 ... fmt=1.00 cap=0.25
+  C2 ... fmt=0.80 cap=0.20
+  C3 ... fmt=0.67 cap=0.00
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=0.67 cap=0.67
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-qwable-3.6-35b_20260812T150402Z.json
+=== bench-glm ===
+Capability Probe V11 — 20260812T154231Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=1.00 cap=0.56
+  C5 ... fmt=0.67 cap=0.00
+
+── Workspace: bench-glm ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=0.80 cap=0.70
+  C3 ... fmt=1.00 cap=0.00
+  C4 ... fmt=1.00 cap=0.55
+  C5 ... fmt=1.00 cap=1.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-glm_20260812T154231Z.json
+=== bench-gemma4-31b-crack ===
+Capability Probe V11 — 20260812T162145Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=1.00
+  C4 ... fmt=1.00 cap=0.78
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-gemma4-31b-crack ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=0.90
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=1.00 cap=1.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-gemma4-31b-crack_20260812T162145Z.json
+=== bench-dolphin-llama3 ===
+Capability Probe V11 — 20260812T171615Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.78
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-dolphin-llama3 ──
+  C1 ... fmt=0.00 cap=0.00
+  C2 ... fmt=1.00 cap=0.30
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=1.00 cap=0.78
+  C5 ... fmt=1.00 cap=0.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-dolphin-llama3_20260812T171615Z.json
+=== bench-fastcontext ===
+Capability Probe V11 — 20260812T172838Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.33
+  C4 ... fmt=1.00 cap=0.22
+  C5 ... fmt=0.67 cap=0.00
+
+── Workspace: bench-fastcontext ──
+  C1 ... fmt=0.00 cap=0.00
+  C2 ... fmt=0.00 cap=0.00
+  C3 ... fmt=0.00 cap=0.00
+  C4 ... fmt=0.00 cap=0.00
+  C5 ... fmt=0.00 cap=0.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-fastcontext_20260812T172838Z.json
+=== bench-lfm-micro-1p2b ===
+Capability Probe V11 — 20260812T174541Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.67
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-lfm-micro-1p2b ──
+  C1 ... fmt=1.00 cap=0.25
+  C2 ... fmt=1.00 cap=0.30
+  C3 ... fmt=1.00 cap=0.17
+  C4 ... fmt=1.00 cap=0.11
+  C5 ... fmt=1.00 cap=0.33
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-lfm-micro-1p2b_20260812T174541Z.json
+=== bench-lfm-micro-230m ===
+Capability Probe V11 — 20260812T175816Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-lfm-micro-230m ──
+  C1 ... fmt=1.00 cap=0.25
+  C2 ... fmt=1.00 cap=0.10
+  C3 ... fmt=1.00 cap=0.11
+  C4 ... fmt=1.00 cap=0.45
+  C5 ... fmt=1.00 cap=0.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-lfm-micro-230m_20260812T175816Z.json
+=== bench-lfm-micro-350m ===
+Capability Probe V11 — 20260812T180823Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.56
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-lfm-micro-350m ──
+  C1 ... fmt=1.00 cap=0.25
+  C2 ... fmt=1.00 cap=0.10
+  C3 ... fmt=0.33 cap=0.00
+  C4 ... fmt=0.89 cap=0.22
+  C5 ... fmt=1.00 cap=0.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-lfm-micro-350m_20260812T180823Z.json
+=== bench-jackrong-dsv4-4b ===
+Capability Probe V11 — 20260812T181916Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-jackrong-dsv4-4b ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=0.40 cap=0.00
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=0.67 cap=0.33
+  C5 ... fmt=1.00 cap=1.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-jackrong-dsv4-4b_20260812T181916Z.json
+=== bench-jackrong-dsv4-9b ===
+Capability Probe V11 — 20260812T185811Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.67
+  C4 ... fmt=1.00 cap=0.33
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-jackrong-dsv4-9b ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=0.60 cap=0.00
+  C3 ... fmt=0.33 cap=0.00
+  C4 ... fmt=1.00 cap=0.56
+  C5 ... fmt=1.00 cap=1.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-jackrong-dsv4-9b_20260812T185811Z.json
+=== bench-muse-glimmer-30b ===
+Capability Probe V11 — 20260812T194057Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.67
+  C4 ... fmt=1.00 cap=0.33
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-muse-glimmer-30b ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.33
+  C5 ... fmt=1.00 cap=1.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-muse-glimmer-30b_20260812T194057Z.json
+=== bench-mistral-small-3-2 ===
+Capability Probe V11 — 20260812T202251Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=0.90 cap=0.90
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=1.00 cap=0.78
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-mistral-small-3-2 ──
+  C1 ... fmt=1.00 cap=0.00
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.44
+  C4 ... fmt=1.00 cap=0.44
+  C5 ... fmt=1.00 cap=1.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-mistral-small-3-2_20260812T202251Z.json
+=== bench-gemma4-12b-general ===
+Capability Probe V11 — 20260812T205219Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-gemma4-12b-general ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=0.90 cap=0.90
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.22
+  C5 ... fmt=0.00 cap=0.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-gemma4-12b-general_20260812T205219Z.json
+=== bench-llama32-3b-q8 ===
+Capability Probe V11 — 20260812T213247Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=1.00 cap=0.45
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-llama32-3b-q8 ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=0.30
+  C3 ... fmt=1.00 cap=0.93
+  C4 ... fmt=0.89 cap=0.56
+  C5 ... fmt=1.00 cap=0.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-llama32-3b-q8_20260812T213247Z.json
+=== bench-llama32-3b ===
+Capability Probe V11 — 20260812T214543Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.50
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=0.67
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=0.67 cap=0.00
+
+── Workspace: bench-llama32-3b ──
+  C1 ... fmt=1.00 cap=0.25
+  C2 ... fmt=1.00 cap=0.60
+  C3 ... fmt=1.00 cap=0.60
+  C4 ... fmt=1.00 cap=0.78
+  C5 ... fmt=1.00 cap=0.00
+
+Results → /Users/chris/projects/portal-5/tests/benchmarks/results/v11_capability_bench-llama32-3b_20260812T214543Z.json
