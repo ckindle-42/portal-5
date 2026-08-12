@@ -85,6 +85,19 @@ def _get_incumbent_model(slot: str) -> str:
     return ws_cfg.get("variants", {}).get(variant, {}).get("model_hint", "")
 
 
+def _resolve_incumbent(slot: str, explicit: str | None) -> str:
+    """Resolve an explicit or fleet incumbent, including solo evaluations.
+
+    A solo candidate replaces every chain role, so its comparison baseline is
+    the top-level ``auto-security`` incumbent (the same workspace used by the
+    recon slot). Older code used a display sentinel for solo mode and thereby
+    skipped the baseline entirely.
+    """
+    if explicit:
+        return explicit
+    return _get_incumbent_model("recon" if slot == "solo" else slot)
+
+
 def _build_step_models(slot: str, candidate: str, incumbent: str) -> dict[str, str]:
     """Build step_models dict for single-slot or solo mode.
 
@@ -116,7 +129,12 @@ def _compute_delta(candidate_results: list[dict], incumbent_results: list[dict])
     # Per-scenario deltas
     for cr in candidate_results:
         sc = cr.get("scenario", "")
-        ir = inc_by_sc.get(sc, {})
+        ir = inc_by_sc.get(sc)
+        # A target gate can recover or fail between the two arms. Comparing a
+        # real result against an indeterminate placeholder would manufacture a
+        # win/loss from infrastructure state rather than model behavior.
+        if cr.get("outcome") == "indeterminate" or not ir or ir.get("outcome") == "indeterminate":
+            continue
         delta = {
             "scenario": sc,
             "candidate_model": cr.get("model", ""),
@@ -137,12 +155,13 @@ def _compute_delta(candidate_results: list[dict], incumbent_results: list[dict])
         deltas.append(delta)
 
     # Aggregate delta
-    if candidate_results and incumbent_results:
-        n = len(candidate_results)
+    if deltas:
+        n = len(deltas)
+        first = deltas[0]
         agg = {
             "scenario": "__aggregate__",
-            "candidate_model": candidate_results[0].get("model", ""),
-            "incumbent_model": incumbent_results[0].get("model", ""),
+            "candidate_model": first.get("candidate_model", ""),
+            "incumbent_model": first.get("incumbent_model", ""),
             "unique_coverage_delta": round(sum(d["unique_coverage_delta"] for d in deltas) / n, 3),
             "order_accuracy_delta": round(sum(d["order_accuracy_delta"] for d in deltas) / n, 3),
             "chain_depth_delta": round(sum(d["chain_depth_delta"] for d in deltas) / n, 1),
@@ -152,6 +171,20 @@ def _compute_delta(candidate_results: list[dict], incumbent_results: list[dict])
         deltas.append(agg)
 
     return deltas
+
+
+def _load_incumbent_results(path: Path, incumbent: str) -> list[dict]:
+    """Load a previously captured incumbent arm for reuse across candidates."""
+    data = json.loads(path.read_text())
+    captured_incumbent = data.get("incumbent")
+    if captured_incumbent != incumbent:
+        raise ValueError(
+            f"cached incumbent mismatch: expected {incumbent!r}, found {captured_incumbent!r}"
+        )
+    results = data.get("incumbent_results")
+    if not isinstance(results, list) or not results:
+        raise ValueError("cached result has no incumbent_results")
+    return results
 
 
 def _print_verdict(deltas: list[dict], slot: str) -> None:
@@ -200,6 +233,12 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
         help="Incumbent model override (auto-resolved from fleet config if omitted)",
     )
     parser.add_argument(
+        "--incumbent-results",
+        type=Path,
+        metavar="PATH",
+        help="Reuse a validated candidate-eval JSON's incumbent_results arm",
+    )
+    parser.add_argument(
         "--scenario",
         default="",
         metavar="NAME",
@@ -239,19 +278,16 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
     slot = args.slot
 
     # ── Resolve incumbent: explicit override → auto from config ──────────────
-    incumbent = args.incumbent
-    if not incumbent and slot != "solo":
-        incumbent = _get_incumbent_model(slot)
-    if not incumbent and slot != "solo":
-        workspace = _SLOT_TO_WORKSPACE.get(slot, "?")
+    incumbent = _resolve_incumbent(slot, args.incumbent)
+    if not incumbent:
+        lookup_slot = "recon" if slot == "solo" else slot
+        workspace = _SLOT_TO_WORKSPACE.get(lookup_slot, "?")
         print(
             f"  ERROR: could not resolve incumbent for slot '{slot}' "
             f"(workspace '{workspace}' not found or model_hint missing in portal.yaml).\n"
             f"  Pass --incumbent <model> explicitly, or fix the fleet config."
         )
         return 1
-    if slot == "solo":
-        incumbent = incumbent or "(solo — no incumbent pin)"
 
     # ── Step 1: Intake gate ──────────────────────────────────────────────────
     print(f"\n{'=' * 60}")
@@ -349,16 +385,19 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
             result["scenario"] = sc["name"]
             candidate_results.append(result)
 
-    # Run incumbent baseline (skip if dry-run, no real incumbent, or same model).
-    # "(solo — no incumbent pin)" is a display-only sentinel set above when slot
-    # == "solo" and no explicit --incumbent was passed — it is NOT a real model
-    # tag. Without this guard it was passed straight through to the pipeline as
-    # if it were one, which the pipeline correctly rejects (500), and each
-    # rejection can take minutes (lab scenario setup runs regardless of the
-    # bogus model name) — multiplied across every scenario x every solo-slot
-    # candidate. An explicit --incumbent override with --slot solo is still honored.
+    # Run the real incumbent baseline (skip only for dry-run).
     incumbent_results: list[dict] = []
-    if not args.dry_run and incumbent and incumbent != "(solo — no incumbent pin)":
+    incumbent_results_source = "none"
+    if args.incumbent_results:
+        try:
+            incumbent_results = _load_incumbent_results(args.incumbent_results, incumbent)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"  ERROR: cannot reuse incumbent results: {exc}")
+            return 1
+        incumbent_results_source = str(args.incumbent_results)
+        print(f"\n  [3b/4] Reusing incumbent baseline ({incumbent}) from {args.incumbent_results}")
+    elif not args.dry_run:
+        incumbent_results_source = "live"
         print(f"\n  [3b/4] Running incumbent baseline ({incumbent}) ...")
         for sc in scenarios:
             gate = _prepare_scenario(sc, cfg, dry_run=False, lab_exec=args.lab_exec)
@@ -451,6 +490,7 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
         "timestamp": ts,
         "candidate_results": candidate_results,
         "incumbent_results": incumbent_results,
+        "incumbent_results_source": incumbent_results_source,
         "deltas": deltas,
     }
     out_path.write_text(json.dumps(output, indent=2))
