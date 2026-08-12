@@ -21,6 +21,10 @@ REPORTS = REPO_ROOT / "reports"
 
 # category -> the command that benches it correctly (None = harness not built)
 CATEGORY_HARNESS_CMD: dict[str, str | None] = {
+    "cad": "python3 tests/benchmarks/bench_cad_probe.py",
+    "spl": "python3 tests/benchmarks/bench_spl_probe.py",
+    "compliance": "python3 tests/benchmarks/bench_compliance_probe.py",
+    "data": "python3 tests/benchmarks/bench_data_probe.py",
     "general": "python3 -m tests.benchmarks.bench_tps --mode pipeline|direct",
     "moe": "python3 -m tests.benchmarks.bench_tps --mode pipeline|direct",
     "reasoning-explicit": "python3 tests/benchmarks/bench_reasoning_probe.py",
