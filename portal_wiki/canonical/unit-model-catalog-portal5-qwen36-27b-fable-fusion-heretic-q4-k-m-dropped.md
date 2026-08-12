@@ -1,11 +1,11 @@
 ---
 id: unit-model-catalog-portal5-qwen36-27b-fable-fusion-heretic-q4-k-m-dropped
 kind: what
-title: "MODEL_CATALOG — `portal5/qwen36-27b-fable-fusion-heretic:q4_k_m` (DROPPED)"
+title: "MODEL_CATALOG \u2014 `portal5/qwen36-27b-fable-fusion-heretic:q4_k_m` (DROPPED)"
 sources:
 - type: code
   path: portal/modules/security/core/candidate_eval.py
-last_generated_commit: f037c2307ea25af67d58343aa773077218d03580
+last_generated_commit: 206d6a3f87fd93be416be23d7878a5f6c23e7cb5
 claims: []
 confidence: high
 tags:

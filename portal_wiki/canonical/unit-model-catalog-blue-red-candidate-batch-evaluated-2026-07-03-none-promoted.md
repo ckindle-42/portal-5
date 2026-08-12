@@ -8,7 +8,7 @@ sources:
   path: portal/modules/security/core/candidate_eval.py
 - type: code
   path: tests/benchmarks/results/v10_candidates_20260629T194541Z.json
-last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
+last_generated_commit: 206d6a3f87fd93be416be23d7878a5f6c23e7cb5
 claims: []
 confidence: high
 tags:

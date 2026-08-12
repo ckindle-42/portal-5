@@ -8,7 +8,7 @@ sources:
   path: portal/modules/security/core/candidate_eval.py
 - type: code
   path: config/portal.yaml
-last_generated_commit: 640a004e4a83811639544dfada51fcd1268b0688
+last_generated_commit: 206d6a3f87fd93be416be23d7878a5f6c23e7cb5
 claims: []
 confidence: high
 tags:
