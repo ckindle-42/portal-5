@@ -34,9 +34,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PORTAL_YAML = REPO_ROOT / "config" / "portal.yaml"
 RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
 REPORTS = REPO_ROOT / "reports"
-SECURITY_CANDIDATES_DIR = (
-    REPO_ROOT / "portal" / "modules" / "security" / "core" / "results" / "candidates"
-)
+SECURITY_CANDIDATES_DIR = REPO_ROOT / "tests" / "benchmarks" / "results" / "candidates"
 
 SECURITY_TOOL_TEMPLATE_BLOCKED = {
     "hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M",
@@ -172,9 +170,6 @@ def _load_bench_capability_results() -> list[dict]:
             {
                 "model": hint,
                 "quality_score": arm_scores["candidate"],
-                # Baseline was captured alongside this candidate. Keep that
-                # paired value rather than borrowing one run's fluctuating
-                # auto-daily score for every model in the table.
                 "incumbent_quality": arm_scores.get("baseline"),
                 "avg_tps": None,
                 "prompt_category": "general_capability",
@@ -272,6 +267,30 @@ def _missing_result_note(intent: str, candidate: str) -> str:
     if intent == "security" and candidate in SECURITY_TOOL_TEMPLATE_BLOCKED:
         return "BLOCKED — tool-template incompatible at intake"
     return "no result row"
+
+
+def _render_rows(rows: list[dict]) -> None:
+    print(f"\n{'=' * 104}")
+    print(
+        "INTENT-ALIGNED EVALUATION — candidate vs incumbent (delta = candidate - incumbent quality)"
+    )
+    print(f"{'=' * 104}")
+    print(f"{'intent':14s} {'candidate':46s} {'cand_q':>7s} {'inc_q':>6s} {'Δ':>7s} {'tps':>7s}")
+    print("-" * 104)
+    for row in sorted(
+        rows, key=lambda x: (x.get("intent", ""), -(x.get("delta_vs_incumbent") or -9))
+    ):
+        if row.get("note"):
+            print(
+                f"{row.get('intent', ''):14s} {row.get('candidate', '(all)')[:46]:46s}  -- {row['note']}"
+            )
+            continue
+        delta = row.get("delta_vs_incumbent")
+        delta_text = f"{delta:+.3f}" if delta is not None else "  n/a"
+        print(
+            f"{row['intent']:14s} {row['candidate'][:46]:46s} {str(row['cand_quality']):>7s} "
+            f"{str(row['incumbent_quality']):>6s} {delta_text:>7s} {str(row['cand_tps']):>7s}"
+        )
 
 
 def cmd_plan() -> int:
@@ -383,28 +402,7 @@ def cmd_analyze() -> int:
                 }
             )
 
-    # render
-    print(f"\n{'=' * 104}")
-    print(
-        "INTENT-ALIGNED EVALUATION — candidate vs incumbent (delta = candidate - incumbent quality)"
-    )
-    print(f"{'=' * 104}")
-    print(f"{'intent':14s} {'candidate':46s} {'cand_q':>7s} {'inc_q':>6s} {'Δ':>7s} {'tps':>7s}")
-    print("-" * 104)
-    for r in sorted(
-        rows, key=lambda x: (x.get("intent", ""), -(x.get("delta_vs_incumbent") or -9))
-    ):
-        if r.get("note"):
-            print(
-                f"{r.get('intent', ''):14s} {r.get('candidate', '(all)')[:46]:46s}  -- {r['note']}"
-            )
-            continue
-        d = r.get("delta_vs_incumbent")
-        ds = f"{d:+.3f}" if d is not None else "  n/a"
-        print(
-            f"{r['intent']:14s} {r['candidate'][:46]:46s} {str(r['cand_quality']):>7s} "
-            f"{str(r['incumbent_quality']):>6s} {ds:>7s} {str(r['cand_tps']):>7s}"
-        )
+    _render_rows(rows)
 
     out = REPORTS / "INTENT_EVAL_DECISION.json"
     out.write_text(json.dumps({"rows": rows}, indent=2))

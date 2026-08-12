@@ -8,6 +8,7 @@ polluted. PROMOTE_POLICY=confirm: reports deltas, never swaps fleet config.
 
 from __future__ import annotations
 
+import argparse
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -86,13 +87,7 @@ def _get_incumbent_model(slot: str) -> str:
 
 
 def _resolve_incumbent(slot: str, explicit: str | None) -> str:
-    """Resolve an explicit or fleet incumbent, including solo evaluations.
-
-    A solo candidate replaces every chain role, so its comparison baseline is
-    the top-level ``auto-security`` incumbent (the same workspace used by the
-    recon slot). Older code used a display sentinel for solo mode and thereby
-    skipped the baseline entirely.
-    """
+    """Resolve an explicit or fleet incumbent, including solo evaluations."""
     if explicit:
         return explicit
     return _get_incumbent_model("recon" if slot == "solo" else slot)
@@ -130,9 +125,6 @@ def _compute_delta(candidate_results: list[dict], incumbent_results: list[dict])
     for cr in candidate_results:
         sc = cr.get("scenario", "")
         ir = inc_by_sc.get(sc)
-        # A target gate can recover or fail between the two arms. Comparing a
-        # real result against an indeterminate placeholder would manufacture a
-        # win/loss from infrastructure state rather than model behavior.
         if cr.get("outcome") == "indeterminate" or not ir or ir.get("outcome") == "indeterminate":
             continue
         delta = {
@@ -187,6 +179,21 @@ def _load_incumbent_results(path: Path, incumbent: str) -> list[dict]:
     return results
 
 
+def _add_incumbent_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--incumbent",
+        default="",
+        metavar="MODEL",
+        help="Incumbent model override (auto-resolved from fleet config if omitted)",
+    )
+    parser.add_argument(
+        "--incumbent-results",
+        type=Path,
+        metavar="PATH",
+        help="Reuse a validated candidate-eval JSON's incumbent_results arm",
+    )
+
+
 def _print_verdict(deltas: list[dict], slot: str) -> None:
     """Print a one-line verdict respecting confirm-policy."""
     agg = [d for d in deltas if d.get("scenario") == "__aggregate__"]
@@ -209,8 +216,6 @@ def _print_verdict(deltas: list[dict], slot: str) -> None:
 
 def candidate_eval_main(argv: list[str] | None = None) -> int:
     """Entry point for `python3 -m bench_security candidate-eval`."""
-    import argparse
-
     parser = argparse.ArgumentParser(
         description="Candidate model eval — single-slot or solo, delta vs incumbent, isolated",
     )
@@ -226,18 +231,7 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
         choices=["recon", "exploit", "post", "solo"],
         help="Chain slot to test (solo = all slots)",
     )
-    parser.add_argument(
-        "--incumbent",
-        default="",
-        metavar="MODEL",
-        help="Incumbent model override (auto-resolved from fleet config if omitted)",
-    )
-    parser.add_argument(
-        "--incumbent-results",
-        type=Path,
-        metavar="PATH",
-        help="Reuse a validated candidate-eval JSON's incumbent_results arm",
-    )
+    _add_incumbent_args(parser)
     parser.add_argument(
         "--scenario",
         default="",
