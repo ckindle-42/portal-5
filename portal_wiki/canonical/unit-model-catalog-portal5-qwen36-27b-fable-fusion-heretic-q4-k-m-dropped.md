@@ -5,7 +5,7 @@ title: "MODEL_CATALOG \u2014 `portal5/qwen36-27b-fable-fusion-heretic:q4_k_m` (D
 sources:
 - type: code
   path: portal/modules/security/core/candidate_eval.py
-last_generated_commit: 158d8c82a32277341565438b237ff551b163e123
+last_generated_commit: a23f47b3e687df1693600eeea5b4f3f381b9da20
 claims: []
 confidence: high
 tags:

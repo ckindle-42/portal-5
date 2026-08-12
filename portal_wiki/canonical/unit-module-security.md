@@ -13,7 +13,7 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-last_generated_commit: 10c7734f3f87df5a9d525bb5c1f3970c96a73a91
+last_generated_commit: a23f47b3e687df1693600eeea5b4f3f381b9da20
 claims: []
 confidence: high
 tags:
