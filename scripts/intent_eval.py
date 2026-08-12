@@ -38,6 +38,13 @@ SECURITY_CANDIDATES_DIR = (
     REPO_ROOT / "portal" / "modules" / "security" / "core" / "results" / "candidates"
 )
 
+SECURITY_TOOL_TEMPLATE_BLOCKED = {
+    "hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M",
+    "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+    "hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M",
+    "cybersecqwen-4b-toolfix:latest",
+}
+
 # intent domain -> (workspace whose model_hint is the incumbent, probe command stem)
 INTENT_MAP: dict[str, tuple[str, str]] = {
     "coding": ("auto-coding", "bench_repair"),
@@ -141,12 +148,12 @@ def _load_bench_capability_results() -> list[dict]:
         by_workspace[ws] = f
 
     results: list[dict] = []
-    baseline_done = False
     for ws, f in by_workspace.items():
         try:
             data = json.loads(f.read_text())
         except Exception:
             continue
+        arm_scores: dict[str, float] = {}
         for block in data.get("results", []):
             role = block.get("role")
             probe_results = block.get("results", [])
@@ -157,31 +164,23 @@ def _load_bench_capability_results() -> list[dict]:
             ]
             if not scores:
                 continue
-            avg = round(sum(scores) / len(scores), 3)
-            if role == "candidate":
-                hint = _workspace_model_hint(ws) or ws
-                results.append(
-                    {
-                        "model": hint,
-                        "quality_score": avg,
-                        "avg_tps": None,
-                        "prompt_category": "general_capability",
-                        "workspace": ws,
-                    }
-                )
-            elif role == "baseline" and not baseline_done:
-                inc_ws = block.get("workspace", "")
-                hint = _workspace_model_hint(inc_ws) or inc_ws
-                results.append(
-                    {
-                        "model": hint,
-                        "quality_score": avg,
-                        "avg_tps": None,
-                        "prompt_category": "general_capability",
-                        "workspace": inc_ws,
-                    }
-                )
-                baseline_done = True
+            arm_scores[role] = round(sum(scores) / len(scores), 3)
+        if "candidate" not in arm_scores:
+            continue
+        hint = _workspace_model_hint(ws) or ws
+        results.append(
+            {
+                "model": hint,
+                "quality_score": arm_scores["candidate"],
+                # Baseline was captured alongside this candidate. Keep that
+                # paired value rather than borrowing one run's fluctuating
+                # auto-daily score for every model in the table.
+                "incumbent_quality": arm_scores.get("baseline"),
+                "avg_tps": None,
+                "prompt_category": "general_capability",
+                "workspace": ws,
+            }
+        )
     return results
 
 
@@ -220,20 +219,42 @@ def _load_candidate_eval_results() -> list[dict]:
         except Exception:
             continue
         cand_results = data.get("candidate_results", [])
+        incumbent_results = data.get("incumbent_results", [])
+        scenario_deltas = [
+            r for r in data.get("deltas", []) if r.get("scenario") != "__aggregate__"
+        ]
+        comparable = {r.get("scenario") for r in scenario_deltas}
         coverages = [
-            r["unique_coverage"] for r in cand_results if r.get("unique_coverage") is not None
+            r["unique_coverage"]
+            for r in cand_results
+            if r.get("scenario") in comparable and r.get("unique_coverage") is not None
         ]
         wins = sum(1 for r in cand_results if r.get("lab_success"))
         scored = sum(1 for r in cand_results if r.get("unique_coverage") is not None)
         if not coverages:
             continue
+        incumbent_coverages = [
+            r["unique_coverage"]
+            for r in incumbent_results
+            if r.get("scenario") in comparable and r.get("unique_coverage") is not None
+        ]
+        aggregate_delta = next(
+            (r for r in data.get("deltas", []) if r.get("scenario") == "__aggregate__"),
+            None,
+        )
         results.append(
             {
                 "model": cand,
                 "quality_score": round(sum(coverages) / len(coverages), 3),
+                "incumbent_quality": (
+                    round(sum(incumbent_coverages) / len(incumbent_coverages), 3)
+                    if incumbent_coverages
+                    else None
+                ),
                 "avg_tps": None,
                 "prompt_category": "security_chain_coverage",
                 "lab_wins": f"{wins}/{scored}",
+                "native_delta": aggregate_delta,
             }
         )
     return results
@@ -245,6 +266,12 @@ def load_intent_assignments() -> dict[str, str]:
     if p.exists():
         return json.loads(p.read_text())
     return {}
+
+
+def _missing_result_note(intent: str, candidate: str) -> str:
+    if intent == "security" and candidate in SECURITY_TOOL_TEMPLATE_BLOCKED:
+        return "BLOCKED — tool-template incompatible at intake"
+    return "no result row"
 
 
 def cmd_plan() -> int:
@@ -333,20 +360,26 @@ def cmd_analyze() -> int:
         for t in cand_tags:
             r = by_model.get(t)
             if not r:
-                rows.append({"intent": intent, "candidate": t, "note": "no result row"})
+                rows.append(
+                    {"intent": intent, "candidate": t, "note": _missing_result_note(intent, t)}
+                )
                 continue
             cq = r.get("quality_score")
-            delta = round(cq - inc_q, 3) if cq is not None and inc_q is not None else None
+            paired_inc_q = r.get("incumbent_quality", inc_q)
+            delta = (
+                round(cq - paired_inc_q, 3) if cq is not None and paired_inc_q is not None else None
+            )
             rows.append(
                 {
                     "intent": intent,
                     "candidate": t,
                     "incumbent": inc,
                     "cand_quality": cq,
-                    "incumbent_quality": inc_q,
+                    "incumbent_quality": paired_inc_q,
                     "delta_vs_incumbent": delta,
                     "cand_tps": r.get("avg_tps"),
                     "prompt_category": r.get("prompt_category"),
+                    "native_delta": r.get("native_delta"),
                 }
             )
 
