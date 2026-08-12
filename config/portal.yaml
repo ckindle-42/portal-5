@@ -1370,6 +1370,22 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
+  bench-qwable-3.6-35b:
+    module: eval
+    name: 🔬 Bench · Qwable-3.6-35b (Mia-AiLab)
+    description: |-
+      Benchmark: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf (Mia-AiLab fine-tune of unsloth/Qwen3.6-35b, ~19.7GB Q4_K_M, coding/structured-answer focus). Card advertised vision but TASK_MODEL_REASONING_HARNESS_V1's runtime preflight found no vision capability at runtime (ollama show capabilities=['tools','thinking','completion']) — recategorized general. Was bench-orphaned before this workspace; TASK_MODEL_REASONING_HARNESS_V1 Part 3 follow-up adds it so bench_tps can produce valid post-boundary evidence.
+    model_hint: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
   bench-omnicoder2:
     module: eval
     name: 🔬 Bench · OmniCoder-2-9B

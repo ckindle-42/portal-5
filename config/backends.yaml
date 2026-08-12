@@ -836,6 +836,8 @@ workspace_routing:
   - general
   bench-qwen36-35b-a3b:
   - general
+  bench-qwable-3.6-35b:
+  - general
   bench-omnicoder2:
   - general
   bench-qwen36-27b-ud:

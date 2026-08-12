@@ -75,6 +75,7 @@
   "bench-omnicoder2": "coding",
   "bench-ornith-35b": "coding",
   "bench-qwable-35b": "coding",
+  "bench-qwable-3.6-35b": "coding",
   "bench-qwen3-14b-abliterated": "general",
   "bench-qwen3-coder-30b": "coding",
   "bench-qwen3-coder-next": "coding",
