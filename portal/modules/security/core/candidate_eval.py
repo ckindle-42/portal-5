@@ -349,9 +349,16 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
             result["scenario"] = sc["name"]
             candidate_results.append(result)
 
-    # Run incumbent baseline (skip if dry-run or same model)
+    # Run incumbent baseline (skip if dry-run, no real incumbent, or same model).
+    # "(solo — no incumbent pin)" is a display-only sentinel set above when slot
+    # == "solo" and no explicit --incumbent was passed — it is NOT a real model
+    # tag. Without this guard it was passed straight through to the pipeline as
+    # if it were one, which the pipeline correctly rejects (500), and each
+    # rejection can take minutes (lab scenario setup runs regardless of the
+    # bogus model name) — multiplied across every scenario x every solo-slot
+    # candidate. An explicit --incumbent override with --slot solo is still honored.
     incumbent_results: list[dict] = []
-    if not args.dry_run and incumbent:
+    if not args.dry_run and incumbent and incumbent != "(solo — no incumbent pin)":
         print(f"\n  [3b/4] Running incumbent baseline ({incumbent}) ...")
         for sc in scenarios:
             gate = _prepare_scenario(sc, cfg, dry_run=False, lab_exec=args.lab_exec)
