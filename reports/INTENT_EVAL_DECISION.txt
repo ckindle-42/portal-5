@@ -1,0 +1,113 @@
+
+========================================================================================================
+INTENT-ALIGNED EVALUATION — candidate vs incumbent (delta = candidate - incumbent quality)
+========================================================================================================
+intent         candidate                                       cand_q  inc_q       Δ     tps
+--------------------------------------------------------------------------------------------------------
+coding         devstral:24b                                      0.76    0.9  -0.140    None
+coding         devstral-small-2:latest                           0.66    0.9  -0.240    None
+coding         devstral-small-2:latest-ctx8k                   -- no result row
+general        hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:g   0.762   0.65  +0.112    None
+general        glm-4.7-flash:Q4_K_M                             0.746   0.65  +0.096    None
+general        portal5/xyz-aquila-mini:q4_k_m-ctx16k            0.667   0.65  +0.017    None
+general        portal5/xyz-aquila-mini:Q4_K_M                   0.651   0.65  +0.001    None
+general        hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_   0.548   0.65  -0.102    None
+general        hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_   0.389   0.65  -0.261    None
+general        dolphin-llama3:8b                                0.365   0.65  -0.285    None
+general        portal5/deepwen-3.6:q4.5-moq-ctx32k              0.222   0.65  -0.428    None
+general        hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M           0.222   0.65  -0.428    None
+general        hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M           0.111   0.65  -0.539    None
+general        hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGU     0.0   0.65  -0.650    None
+general        portal5/deepwen-3.6:q4.5-moq                    -- no result row
+general        hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-04  -- no result row
+general        mistral-small3.2:24b                            -- no result row
+general        portal5/gemma4-12b:q4_K_M-ctx8k                 -- no result row
+general        llama3.2:3b-instruct-q8_0-ctx8k                 -- no result row
+general        llama3.2:3b                                     -- no result row
+long-context   phi4:14b-q8_0                                      0.0    1.0  -1.000    None
+long-context   sylink/sylink:8b                                   1.0    1.0  +0.000   16.88
+long-context   sylink/sylink:8b-ctx8k                             1.0    1.0  +0.000   16.89
+mtp-speculative portal5/qwen3.6-27b-mtp:q8_0-drafted               1.0    0.0  +1.000 12.422095627912428
+mtp-speculative hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopu     1.0    0.0  +1.000 10.32567080013409
+mtp-speculative hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M       1.0    0.0  +1.000 12.037113618644586
+mtp-speculative qwen3.6:27b-mtp-q4_K_M                             1.0    0.0  +1.000 10.738830263684845
+mtp-speculative hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-comp     1.0    0.0  +1.000 27.049461631183974
+mtp-speculative hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-     1.0    0.0  +1.000 56.94604264276766
+reasoning      qwen3.6:27b-q8_0                                   1.0   None     n/a    8.23
+reasoning      qwen3.6:35b-a3b-q4_K_M                             1.0   None     n/a   54.22
+reasoning      hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M          0.0   None     n/a    None
+reasoning      deepseek-r1:32b-q4_k_m                            0.75   None     n/a   11.61
+reasoning      hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:     0.0   None     n/a   36.15
+reasoning      gpt-oss:20b                                        1.0   None     n/a   50.74
+reasoning      hermes3:8b                                        0.25   None     n/a   49.22
+reasoning      hf.co/Nguuma/security-slm-unsloth-1.5b:latest     0.75   None     n/a  136.63
+security       hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:   0.493   None     n/a    None
+security       hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abli   0.468   None     n/a    None
+security       hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-ab  -- no result row
+security       hf.co/mradermacher/gemma-4-26B-A4B-it-uncensor   0.393   None     n/a    None
+security       huihui_ai/qwen3-abliterated:14b-v2               0.493   None     n/a    None
+security       hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0  -- no result row
+security       hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighI   0.518   None     n/a    None
+security       meta-secalign-8b-q4_k_m:latest                   0.518   None     n/a    None
+security       huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k      0.518   None     n/a    None
+security       huihui_ai/gemma-4-abliterated:E2b-qat            0.393   None     n/a    None
+security       hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q  -- no result row
+security       cybersecqwen-4b-toolfix:latest                  -- no result row
+security       hf.co/QuantFactory/Llama-3.2-3B-Instruct-ablit   0.418   None     n/a    None
+vision         gemma4:e2b-it-qat-ctx8k                           0.75    1.0  -0.250  144.93
+vision         gemma4:e2b-it-qat                                 0.75    1.0  -0.250  145.46
+vision         gemma4:e4b-it-qat-ctx8k                            0.5    1.0  -0.500    91.8
+vision         gemma4:e4b-it-qat                                  0.5    1.0  -0.500   93.97
+vision         hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-c     1.0    1.0  +0.000   11.17
+vision         hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL      1.0    1.0  +0.000    77.3
+vision         hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M            1.0    1.0  +0.000    79.9
+vision         muse-glimmer:30b-mlx                               1.0    1.0  +0.000   21.36
+vision         gemma4:31b-it-qat-ctx8k                            1.0    1.0  +0.000   22.15
+vision         gemma4:31b-it-qat                                  1.0    1.0  +0.000   22.01
+vision         gemma4:26b-a4b-it-q4_K_M                           1.0    1.0  +0.000   92.05
+vision         hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-     1.0    1.0  +0.000   66.59
+
+Wrote reports/INTENT_EVAL_DECISION.json
+
+BEATS incumbent (positive Δ) = swap candidate. MATCHES + smaller/faster = swap on cost.
+TRAILS = keep-as-bench or drop. Operator decides — PROMOTE_POLICY=confirm.
+
+========================================================================================================
+BLOCKED / no-result rows — reasons (11 of 62)
+========================================================================================================
+coding (1): devstral-small-2:latest-ctx8k -- no matching portal.yaml workspace exists for this exact
+  ctx8k tag; cannot add one under this task's PROMOTE_POLICY=confirm ground rules (config/portal.yaml
+  is out of scope). Needs the operator to add a bench-* workspace, or the harness to accept raw tags.
+general (6): portal5/deepwen-3.6:q4.5-moq ; hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:... ;
+  mistral-small3.2:24b ; portal5/gemma4-12b:q4_K_M-ctx8k ; llama3.2:3b-instruct-q8_0-ctx8k ; llama3.2:3b
+  -- same root cause: bench_capability.py is --workspace-only, no matching bench-* workspace exists.
+security (4): hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit (text_only, no
+  tool_calls) ; hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF (400 Bad Request on tool probe) ;
+  hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF (400 Bad Request on tool probe) ;
+  cybersecqwen-4b-toolfix:latest (text_only, no tool_calls) -- all 4 failed the intake gate's
+  tool-call probe (genuine chat-template incompatibility, confirmed by direct transcript inspection,
+  not a harness bug). --force only bypasses the TPS floor, not the tool-call check, by design.
+
+Notes on interpreting specific lanes:
+- security "inc_q"/"Δ" are None/n/a for all 13 rows: candidate-eval runs candidates solo (no incumbent
+  pin) by design at --slot solo; VulnLLM-R-7B (auto-security's incumbent) was never itself run through
+  candidate-eval in this sweep. cand_q above = mean(unique_coverage) across the 5 scored scenarios
+  (meta3_full_chain is always skipped, target-unrecoverable, for every candidate). A true
+  apples-to-apples VulnLLM-R-7B comparison needs its own `candidate-eval --candidate
+  hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k --slot solo --force --lab-exec` run as a follow-up.
+- mtp-speculative "inc_q=0.0" for every candidate is a real but misleading number: DeepSeek-R1
+  (borrowed as this lane's incumbent) produced an empty/incoherent completion under bench_mtp_probe.py's
+  fixed prompt+token-budget (plausible reasoning-model token-budget exhaustion, not a probe bug), so its
+  quality_score floor to 0.0 dominates the delta. The MEANINGFUL number for each MTP candidate is its own
+  speedup_vs_base against its OWN paired dense baseline (see tests/benchmarks/results/mtp_probe_*.json):
+  portal5/qwen3.6-27b-mtp:q8_0-drafted 1.50x, qwen3.6:27b-mtp-q4_K_M 1.29x,
+  Qwopus3.6-27B-v2-MTP 1.26x, gemma-4-12B-agentic-fable5 1.00x (no measurable speedup),
+  Qwen_Qwen3.6-27B-GGUF and DeepSeek-V4-Pro-Qwen3.5-4B-MTP had no baseline pair in the fleet (TPS-only).
+- long-context phi4:14b-q8_0 (baseline for that lane) failed both cases with an instant HTTP 500 from
+  Ollama (~0.3s, not a timeout) -- looks like a transient/model-specific fault, not reproduced elsewhere
+  in the sweep. Worth a standalone retry to confirm before trusting the -1.000 delta it produces for that
+  lane's baseline row.
+- general hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF (bench-fastcontext) scoring a genuine 0.0
+  matches a PRE-EXISTING, already-documented finding in that workspace's own portal.yaml description
+  (PROMOTE_POLICY=blocked, dated 2026-06-15): the model returns empty content on standard chat prompts,
+  only activates on long-document retrieval patterns. Confirmed consistent with the prior record.

@@ -1,0 +1,130 @@
+bench_repair — gsha=6a1cf4a3f706
+  workspaces (3):
+    bench-devstral-small-2            devstral-small-2:latest
+    bench-devstral                    devstral:24b
+    auto-coding                       qwen3-coder:30b-a3b-q4_K_M-ctx16k
+  problems: 10  arms: one-shot(n=5) + repair(n=2)
+  total samples: 210
+  ollama_version: 0.32.7
+
+[1/3] bench-devstral-small-2  (devstral-small-2:latest)
+  [1/10] c2_1
+  one-shot... 5/5  repair... 2/2
+  [2/10] c2_2
+  one-shot... 3/5  repair... 2/2
+  [3/10] c2_3
+  one-shot... 3/5  repair... 2/2
+  [4/10] c2_4
+  one-shot... 5/5  repair... 2/2
+  [5/10] c2_5
+  one-shot... 4/5  repair... 2/2
+  [6/10] c2_6
+  one-shot... 0/5  repair... 0/2
+  [7/10] c2_7
+  one-shot... 4/5  repair... 2/2
+  [8/10] c2_8
+  one-shot... 4/5  repair... 2/2
+  [9/10] c2_9
+  one-shot... 3/5  repair... 2/2
+  [10/10] c2_10
+  one-shot... 2/5  repair... 1/2
+  ── bench-devstral-small-2 elapsed 28.8m
+
+[2/3] bench-devstral  (devstral:24b)
+  [1/10] c2_1
+  one-shot... 5/5  repair... 2/2
+  [2/10] c2_2
+  one-shot... 4/5  repair... 2/2
+  [3/10] c2_3
+  one-shot... 5/5  repair... 2/2
+  [4/10] c2_4
+  one-shot... 5/5  repair... 2/2
+  [5/10] c2_5
+  one-shot... 5/5  repair... 2/2
+  [6/10] c2_6
+  one-shot... 0/5  repair... 0/2
+  [7/10] c2_7
+  one-shot... 5/5  repair... 2/2
+  [8/10] c2_8
+  one-shot... 1/5  repair... 2/2
+  [9/10] c2_9
+  one-shot... 3/5  repair... 2/2
+  [10/10] c2_10
+  one-shot... 5/5  repair... 2/2
+  ── bench-devstral elapsed 21.8m
+
+[3/3] auto-coding  (qwen3-coder:30b-a3b-q4_K_M-ctx16k)
+  [1/10] c2_1
+  one-shot... 5/5  repair... 2/2
+  [2/10] c2_2
+  one-shot... 5/5  repair... 2/2
+  [3/10] c2_3
+  one-shot... 5/5  repair... 2/2
+  [4/10] c2_4
+  one-shot... 5/5  repair... 2/2
+  [5/10] c2_5
+  one-shot... 5/5  repair... 2/2
+  [6/10] c2_6
+  one-shot... 3/5  repair... 2/2
+  [7/10] c2_7
+  one-shot... 5/5  repair... 2/2
+  [8/10] c2_8
+  one-shot... 5/5  repair... 2/2
+  [9/10] c2_9
+  one-shot... 2/5  repair... 1/2
+  [10/10] c2_10
+  one-shot... 5/5  repair... 2/2
+  ── auto-coding elapsed 5.9m
+
+Total elapsed: 56.5m over 210 samples
+Wrote reports/CODING_BENCH_REPAIR.md
+Traceback (most recent call last):
+  File "/Users/chris/portal-5/tests/benchmarks/bench_repair.py", line 40, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/Users/chris/portal-5/tests/benchmarks/bench_repair/cli.py", line 230, in main
+    _finalize_results(
+    ~~~~~~~~~~~~~~~~~^
+        samples,
+        ^^^^^^^^
+    ...<4 lines>...
+        output=args.output,
+        ^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/chris/portal-5/tests/benchmarks/bench_repair/cli.py", line 192, in _finalize_results
+    evidence_refs=[str(out_path.relative_to(REPO_ROOT))],
+                       ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/Users/chris/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_local.py", line 385, in relative_to
+    raise ValueError(f"{str(self)!r} is not in the subpath of {str(other)!r}")
+ValueError: 'reports/CODING_BENCH_REPAIR.md' is not in the subpath of '/Users/chris/portal-5'
+Capability Probe V11 — 20260812T054132Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.00
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=1.00
+  C4 ... fmt=1.00 cap=0.33
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-aquila-mini-35b-a3b ──
+  C1 ... fmt=1.00 cap=0.00
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=0.67 cap=0.00
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-aquila-mini-35b-a3b_20260812T054132Z.json
+Capability Probe V11 — 20260812T060902Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.00
+  C2 ... fmt=0.90 cap=0.90
+  C3 ... fmt=1.00 cap=1.00
+  C4 ... 

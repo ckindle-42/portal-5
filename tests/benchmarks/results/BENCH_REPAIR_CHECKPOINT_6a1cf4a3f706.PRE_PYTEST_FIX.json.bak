@@ -1,0 +1,1965 @@
+{
+  "gsha": "6a1cf4a3f706",
+  "samples": [
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 25.854832665994763
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 18.667822332994547
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 23.54036424998776
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 9.800885749980807
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 21.79764800000703
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 43.96724937600084
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 42.48121800000081
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 11.731963666010415
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 31.172431207989575
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 22.26793525001267
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 23.35945074999472
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 15.533735915989382
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 45.883246667013736
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 56.74353949900251
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 9.880086165998364
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 20.47740737500135
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 21.83227316700504
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 5.3439807500108145
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 15.849360332998913
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 24.147349666018272
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 43.639842376025626
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 10.450546166975982
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 19.754806374985492
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 9.390399374999106
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 7.137286790995859
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 15.481284417008283
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 20.149874666996766
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 24.46762095799204
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 21.33177670801524
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 27.300335916981567
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 12.777490499982378
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 21.830090375005966
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 13.415250583988382
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 36.544988832989475
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 44.227282126026694
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 29.8461570419895
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 30.299174791987753
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 88.78730587501195
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 23.666294207971077
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 28.00569037499372
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 90.16916512500029
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 51.683570958004566
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 6.441999083006522
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 17.218483915989054
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 19.37322970799869
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 15.529749250010354
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 20.150200624979334
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 43.513803208014
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 41.65858558297623
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 20.624495291995117
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 17.168532832991332
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 17.347043958026916
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 12.68617791699944
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 16.545445166993886
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 42.89411850000033
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 36.191127666970715
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 21.927866667014314
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 17.344583457976114
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 19.172046332998434
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 24.88648324998212
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 41.66430962498998
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_9",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 68.38486620900221
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_9",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 39.79061141598504
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 15.371846750000259
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 24.269365417014342
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 12.324525833013467
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 3.5808553749811836
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 6.849288166995393
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_10",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 39.240324833022896
+    },
+    {
+      "workspace": "bench-devstral-small-2",
+      "model_hint": "devstral-small-2:latest",
+      "arm": "one_repair",
+      "problem_id": "c2_10",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 49.432305416994495
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 26.765831249998882
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 9.250857250008266
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 13.190175625000848
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 21.825097041990375
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 10.892222666996531
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 50.967170415999135
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 57.28083991698804
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 26.31906783298473
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 16.524841292004567
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 12.222702458995627
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 4.987753749999683
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 10.02209916699212
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 52.13685762597015
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 44.300358250009594
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 17.072394875023747
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 17.210719124996103
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 26.16626479101251
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 19.417495874979068
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 20.52401987501071
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 15.435135582985822
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 46.4969017499825
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 17.020994208025513
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 6.708598375000292
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 9.764468000008492
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 8.322461667004973
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 8.18480470898794
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 41.90021916796104
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 26.468702957994537
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 13.669525540986797
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 13.337617959012277
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 17.63160845800303
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 20.701161874982063
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 13.953378625010373
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 24.051325999986148
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 61.969584166043205
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 46.62913304200629
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 32.43169383300119
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 34.71895999999833
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 26.02294816597714
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 7.99653837500955
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 42.835078625008464
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 66.31201887503266
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 13.778058916999726
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 13.40076124999905
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 11.680483208008809
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 23.91051400001743
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 10.56707370802178
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 47.63824679199024
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 45.19506095899851
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 7.484956500004046
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 8.68815766699845
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 15.202083665993996
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 4.877111166977556
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 26.515823041991098
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 23.318158832989866
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 41.92976683299639
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 20.464849790994776
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 31.338698249979643
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 43.64946658400004
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 36.83148125000298
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_9",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 18.706487624993315
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_9",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 60.6203930839838
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_9",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 51.32662529099616
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 18.161262874986278
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 8.190025083982619
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 22.445510084013222
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 10.262987957976293
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_shot",
+      "problem_id": "c2_10",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 18.44615645799786
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_10",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 31.522731792007107
+    },
+    {
+      "workspace": "bench-devstral",
+      "model_hint": "devstral:24b",
+      "arm": "one_repair",
+      "problem_id": "c2_10",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 22.35788983301609
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 10.685114499996416
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 2.2930255829996895
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 2.29910312499851
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 2.385509957995964
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 2.32961070901365
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 7.233077665994642
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 10.151704958960181
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 3.7660622500116006
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 4.647096541011706
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 5.320661915990058
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 4.976761624973733
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 5.184555084008025
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 15.883493375004036
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 12.846013083995786
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 2.8242451249971054
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 2.79319712499273
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 4.908186584012583
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 4.486141250003129
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 4.595164583006408
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 13.241547125013312
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 22.39751104201423
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 2.2109217919933144
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 1.9669574160070624
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 1.8604427500104066
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 2.1421508330095094
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 1.9963062909955624
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 5.707795541005908
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 8.772013415989932
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 5.33325799999875
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 4.069702292006696
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 50.81338304199744
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 47.73735008298536
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_5",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 4.02207241699216
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 96.07968345901463
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_5",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 96.16997975000413
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 11.68121362500824
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 4.611713916994631
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 3.193703041994013
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 3.083767625008477
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_6",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 3.4856394590169657
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 11.863762791006593
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_6",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 4.522210165974684
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 2.752037875005044
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 2.1416824589832686
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 3.0802398329833522
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 3.244711208011722
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_7",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 3.079381832998479
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 2.4038810830097646
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_7",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 3.0147699999797624
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 1.863992541009793
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 1.6439334169845097
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 2.2962881249841303
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 1.6495375419908669
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_shot",
+      "problem_id": "c2_8",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 2.596212042000843
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 2.3557877500134055
+    },
+    {
+      "workspace": "auto-coding",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+      "arm": "one_repair",
+      "problem_id": "c2_8",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 2.4045523750246502
+    }
+  ]
+}

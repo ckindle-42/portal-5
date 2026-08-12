@@ -1,0 +1,110 @@
+{
+  "results": [
+    {
+      "model": "sylink/sylink:8b",
+      "avg_tps": 16.88,
+      "quality_score": 1.0,
+      "runs_success": 2,
+      "runs_total": 2,
+      "prompt_category": "long_context",
+      "cases": [
+        {
+          "id": "needle_2k",
+          "ok": true,
+          "matched": true,
+          "response_preview": "QZ-7734-PORTAL",
+          "target_tokens": 2000,
+          "tps": 17.310866975429587,
+          "wall_s": 16.25088016598602
+        },
+        {
+          "id": "needle_8k",
+          "ok": true,
+          "matched": true,
+          "response_preview": "QZ-7734-PORTAL",
+          "target_tokens": 8000,
+          "tps": 16.458171556987917,
+          "wall_s": 18.242081333999522
+        }
+      ]
+    },
+    {
+      "model": "sylink/sylink:8b-ctx8k",
+      "avg_tps": 16.89,
+      "quality_score": 1.0,
+      "runs_success": 2,
+      "runs_total": 2,
+      "prompt_category": "long_context",
+      "cases": [
+        {
+          "id": "needle_2k",
+          "ok": true,
+          "matched": true,
+          "response_preview": "QZ-7734-PORTAL",
+          "target_tokens": 2000,
+          "tps": 17.292253227756266,
+          "wall_s": 6.443073917005677
+        },
+        {
+          "id": "needle_8k",
+          "ok": true,
+          "matched": true,
+          "response_preview": "QZ-7734-PORTAL",
+          "target_tokens": 8000,
+          "tps": 16.494053893571365,
+          "wall_s": 18.64906962501118
+        }
+      ]
+    },
+    {
+      "model": "phi4:14b-q8_0",
+      "avg_tps": null,
+      "quality_score": 0.0,
+      "runs_success": 0,
+      "runs_total": 2,
+      "prompt_category": "long_context",
+      "cases": [
+        {
+          "id": "needle_2k",
+          "ok": false,
+          "error": "HTTP Error 500: Internal Server Error",
+          "wall_s": 0.3385855829983484
+        },
+        {
+          "id": "needle_8k",
+          "ok": false,
+          "error": "HTTP Error 500: Internal Server Error",
+          "wall_s": 0.3733293339901138
+        }
+      ]
+    },
+    {
+      "model": "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
+      "avg_tps": 55.26,
+      "quality_score": 1.0,
+      "runs_success": 2,
+      "runs_total": 2,
+      "prompt_category": "long_context",
+      "cases": [
+        {
+          "id": "needle_2k",
+          "ok": true,
+          "matched": true,
+          "response_preview": "The secret verification code is mentioned at the end of the document. Let me find it:\n\n\"The secret verification code for this document is QZ-7734-PORT",
+          "target_tokens": 2000,
+          "tps": 61.57167472069068,
+          "wall_s": 20.812686458026292
+        },
+        {
+          "id": "needle_8k",
+          "ok": true,
+          "matched": true,
+          "response_preview": "The secret verification code is mentioned at the end of the document. It is:\n\nQZ-7734-PORTAL\n\nSo I just need to reply with this code.\n</think>\n\nQZ-773",
+          "target_tokens": 8000,
+          "tps": 48.9469072896629,
+          "wall_s": 11.723792125005275
+        }
+      ]
+    }
+  ]
+}

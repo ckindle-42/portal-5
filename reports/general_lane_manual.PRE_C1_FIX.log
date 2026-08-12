@@ -1,0 +1,30 @@
+Capability Probe V11 — 20260812T054132Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.00
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=1.00 cap=1.00
+  C4 ... fmt=1.00 cap=0.33
+  C5 ... fmt=1.00 cap=0.00
+
+── Workspace: bench-aquila-mini-35b-a3b ──
+  C1 ... fmt=1.00 cap=0.00
+  C2 ... fmt=1.00 cap=1.00
+  C3 ... fmt=0.67 cap=0.33
+  C4 ... fmt=1.00 cap=0.67
+  C5 ... fmt=0.67 cap=0.00
+
+Results → /Users/chris/portal-5/tests/benchmarks/results/v11_capability_bench-aquila-mini-35b-a3b_20260812T054132Z.json
+Capability Probe V11 — 20260812T060902Z
+  Workspaces: 1
+  Probes: ['C1', 'C2', 'C3', 'C4', 'C5']
+  Baselines: ['auto-daily']
+
+── Baseline: auto-daily ──
+  C1 ... fmt=1.00 cap=0.00
+  C2 ... fmt=0.90 cap=0.90
+  C3 ... fmt=1.00 cap=1.00
+  C4 ... 

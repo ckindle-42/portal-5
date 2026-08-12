@@ -1,0 +1,563 @@
+{
+  "results": [
+    {
+      "model": "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k",
+      "skipped": false,
+      "avg_tps": 11.17,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "The image is a solid color. The color appears to be a shade of red. There are no other discernible colors or objects in the image. The color is consistent throughout, so the dominant color is clearly ",
+          "tps": 10.421798407245236,
+          "wall_s": 22.38707104101195
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 13.569395585197146,
+          "wall_s": 0.9935126670170575
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "The image shows three blue circles arranged horizontally. To determine the number of circles, I simply count them. There is one circle on the left, one in the middle, and one on the right. Adding them",
+          "tps": 10.364834555139014,
+          "wall_s": 7.688883666996844
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "greenThe image shows a square on a black background. The square is clearly filled with a solid color. The color of the square appears to be bright and distinct from the black background. By observing ",
+          "tps": 10.330179992087727,
+          "wall_s": 7.330348540999694
+        }
+      ]
+    },
+    {
+      "model": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "skipped": false,
+      "avg_tps": 77.3,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "red",
+          "tps": 83.46200392271417,
+          "wall_s": 11.042930124996928
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 59.10776823844074,
+          "wall_s": 0.5828152920003049
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 82.3282427036595,
+          "wall_s": 0.6498664160026237
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 84.31703204047217,
+          "wall_s": 0.6926801250083372
+        }
+      ]
+    },
+    {
+      "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M",
+      "skipped": false,
+      "avg_tps": 79.9,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "red",
+          "tps": 85.91434339963057,
+          "wall_s": 15.4186229580082
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 60.870757093280744,
+          "wall_s": 0.6023977079894394
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 86.88097306689835,
+          "wall_s": 0.6834052499907557
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 85.92541673827118,
+          "wall_s": 0.6772135420178529
+        }
+      ]
+    },
+    {
+      "model": "muse-glimmer:30b-mlx",
+      "skipped": false,
+      "avg_tps": 21.36,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "red",
+          "tps": 22.99554855647115,
+          "wall_s": 12.177788250002777
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 19.43402089702244,
+          "wall_s": 6.651772499986691
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 16.84899222030286,
+          "wall_s": 11.0579581669881
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 26.155507613485742,
+          "wall_s": 3.647219167003641
+        }
+      ]
+    },
+    {
+      "model": "gemma4:31b-it-qat-ctx8k",
+      "skipped": false,
+      "avg_tps": 22.15,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 23.865209297885542,
+          "wall_s": 15.318364332983037
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 16.389278134244577,
+          "wall_s": 2.2129195839806926
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 24.218645935505744,
+          "wall_s": 2.082529750012327
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 24.136516135261036,
+          "wall_s": 2.111109582998324
+        }
+      ]
+    },
+    {
+      "model": "gemma4:31b-it-qat",
+      "skipped": false,
+      "avg_tps": 22.01,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 23.888012995079066,
+          "wall_s": 4.780644291982753
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 16.35463388107728,
+          "wall_s": 2.2391026669938583
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 23.913719300762846,
+          "wall_s": 2.1338264170044567
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 23.88202280733178,
+          "wall_s": 2.1169995839882176
+        }
+      ]
+    },
+    {
+      "model": "gemma4:26b-a4b-it-q4_K_M",
+      "skipped": false,
+      "avg_tps": 92.05,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 97.13924911360435,
+          "wall_s": 15.842005417012842
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 71.45792021723207,
+          "wall_s": 0.8592551250185352
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 99.16208042044723,
+          "wall_s": 0.8049765829928219
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 100.43185698503565,
+          "wall_s": 0.808846458006883
+        }
+      ]
+    },
+    {
+      "model": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "skipped": false,
+      "avg_tps": 66.59,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 72.30657989877079,
+          "wall_s": 6.066946542006917
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 49.19625616490585,
+          "wall_s": 0.6517673750058748
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 72.50317201377561,
+          "wall_s": 0.6942926669726148
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 72.33796296296296,
+          "wall_s": 0.7313047920179088
+        }
+      ]
+    },
+    {
+      "model": "gemma4:e4b-it-qat-ctx8k",
+      "skipped": false,
+      "avg_tps": 91.8,
+      "quality_score": 0.5,
+      "runs_success": 2,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 94.93971328206588,
+          "wall_s": 5.274006708001252
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": false,
+          "response_preview": "PORTALS",
+          "tps": 78.47240387130526,
+          "wall_s": 0.6342851250083186
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": false,
+          "response_preview": "4",
+          "tps": 97.59430049285122,
+          "wall_s": 0.6179347920115106
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 96.195469193401,
+          "wall_s": 0.6332641250046436
+        }
+      ]
+    },
+    {
+      "model": "gemma4:e4b-it-qat",
+      "skipped": false,
+      "avg_tps": 93.97,
+      "quality_score": 0.5,
+      "runs_success": 2,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 97.23370120083621,
+          "wall_s": 1.9758307079900987
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": false,
+          "response_preview": "PORTALS",
+          "tps": 78.26359177710529,
+          "wall_s": 0.6308847500185948
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": false,
+          "response_preview": "4",
+          "tps": 100.6491872578129,
+          "wall_s": 0.611440250009764
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 99.73570039395601,
+          "wall_s": 0.6385860000154935
+        }
+      ]
+    },
+    {
+      "model": "gemma4:e2b-it-qat-ctx8k",
+      "skipped": false,
+      "avg_tps": 144.93,
+      "quality_score": 0.75,
+      "runs_success": 3,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 156.56802880851728,
+          "wall_s": 4.424151874991367
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 113.33050007083156,
+          "wall_s": 0.5048609170189593
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": false,
+          "response_preview": "4",
+          "tps": 157.39356260328952,
+          "wall_s": 0.47383920798893087
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 152.4390243902439,
+          "wall_s": 0.4767827090108767
+        }
+      ]
+    },
+    {
+      "model": "gemma4:e2b-it-qat",
+      "skipped": false,
+      "avg_tps": 145.46,
+      "quality_score": 0.75,
+      "runs_success": 3,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Red",
+          "tps": 156.8258448992394,
+          "wall_s": 1.8927827079896815
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 113.52992932761899,
+          "wall_s": 0.5290769169805571
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": false,
+          "response_preview": "4",
+          "tps": 152.80006112002445,
+          "wall_s": 0.4881539580237586
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "Green",
+          "tps": 158.69237483138934,
+          "wall_s": 0.5124627909972332
+        }
+      ]
+    },
+    {
+      "model": "qwen3-vl:32b-ctx8k",
+      "skipped": false,
+      "avg_tps": 11.44,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "vision",
+      "cases": [
+        {
+          "id": "color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "red",
+          "tps": 11.60242268254297,
+          "wall_s": 38.452355999994325
+        },
+        {
+          "id": "text",
+          "ok": true,
+          "matched": true,
+          "response_preview": "PORTAL5",
+          "tps": 11.325749247130583,
+          "wall_s": 19.72019087499939
+        },
+        {
+          "id": "shape_count",
+          "ok": true,
+          "matched": true,
+          "response_preview": "3",
+          "tps": 11.365554441094158,
+          "wall_s": 18.158644666982582
+        },
+        {
+          "id": "shape_color",
+          "ok": true,
+          "matched": true,
+          "response_preview": "green",
+          "tps": 11.453790436024702,
+          "wall_s": 17.359366624994436
+        }
+      ]
+    }
+  ]
+}
