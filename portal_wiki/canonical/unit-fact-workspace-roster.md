@@ -6,7 +6,7 @@ sources:
 - type: code
   path: config/portal.yaml
   commit: f88abc4e3ed5
-last_generated_commit: f88abc4e3ed5
+last_generated_commit: 75c5054f791636f367b62a1776bcc9f631794766
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
