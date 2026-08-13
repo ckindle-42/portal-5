@@ -5,7 +5,7 @@ providers:
   # auto-mistral provider removed (BUILD_PROGRAM_COLLAPSE_V1.md Phase 7 —
   # auto-mistral was a model-tied workspace deleted outright, folded into
   # auto-coding with no preserved variant slot to quality-test separately).
-  - id: ollama:chat:huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
+  - id: ollama:chat:portal5/xyz-aquila-mini:q4_k_m-ctx16k
     label: auto-research
     config:
       temperature: 0

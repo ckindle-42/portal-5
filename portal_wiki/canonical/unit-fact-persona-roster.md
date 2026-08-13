@@ -1,27 +1,27 @@
 ---
 id: unit-fact-persona-roster
 kind: what
-title: 138 personas
+title: 129 personas
 sources:
 - type: code
   path: config/personas/
-  commit: baca992c674a
+  commit: f88abc4e3ed5
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: baca992c674a
+  commit: f88abc4e3ed5
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: baca992c674a
+  commit: f88abc4e3ed5
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: baca992c674a
+  commit: f88abc4e3ed5
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: baca992c674a
+  commit: f88abc4e3ed5
 - type: code
-  path: config/personas/bench_devstral.yaml
-  commit: baca992c674a
-last_generated_commit: baca992c674a
+  path: config/personas/bench_gemma4_12b.yaml
+  commit: f88abc4e3ed5
+last_generated_commit: f88abc4e3ed5
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -30,10 +30,10 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1785832318.298213
+updated_at: 1786661091.386035
 ---
 
-# Persona roster (138 personas)
+# Persona roster (129 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -41,8 +41,6 @@ updated_at: 1785832318.298213
 | `agenticheavy` | coding | `auto-coding` | — |
 | `agenticlite` | coding | `auto-coding` | — |
 | `agentorchestrator` | coding | `auto-coding` | — |
-| `bench-devstral` | eval | `bench-devstral-small-2` | — |
-| `bench-devstral-small-2` | eval | `bench-devstral-small-2` | — |
 | `bench-gemma4-12b` | eval | `bench-gemma4-12b` | — |
 | `bench-gemma4-26b-optiq` | eval | `bench-gemma4-26b-optiq` | — |
 | `bench-gemma4-26b-qat` | eval | `bench-gemma4-26b-qat` | — |
@@ -51,9 +49,6 @@ updated_at: 1785832318.298213
 | `bench-gemma4-e4b` | eval | `bench-gemma4-e4b` | — |
 | `bench-gemma4-e4b-qat` | eval | `bench-gemma4-e4b-qat` | — |
 | `bench-glm` | eval | `bench-glm` | — |
-| `bench-glm-reap` | eval | `bench-glm-reap` | — |
-| `bench-glm-z1-rumination` | eval | `bench-glm-z1-rumination` | — |
-| `bench-gptoss` | eval | `bench-gptoss` | — |
 | `bench-granite41-30b` | eval | `bench-granite41-30b` | — |
 | `bench-granite41-8b` | eval | `bench-granite41-8b` | — |
 | `bench-huihui-qwen36-27b` | eval | `bench-huihui-qwen36-27b` | — |
@@ -64,11 +59,7 @@ updated_at: 1785832318.298213
 | `bench-nex-n2-mini` | eval | `bench-nex-n2-mini` | — |
 | `bench-omnicoder2` | eval | `bench-omnicoder2` | — |
 | `bench-qwen35-abliterated` | eval | `bench-qwen35-abliterated` | — |
-| `bench-qwen36-27b` | eval | `bench-qwen36-27b` | — |
-| `bench-qwen36-27b-mtp` | eval | `bench-qwen36-27b-mtp` | — |
 | `bench-qwen36-27b-optiq` | eval | `bench-qwen36-27b-optiq` | — |
-| `bench-qwen36-27b-ud` | eval | `bench-qwen36-27b-ud` | — |
-| `bench-qwen36-35b-a3b` | eval | `bench-qwen36-35b-a3b` | — |
 | `bench-qwen36-35b-a3b-ud` | eval | `bench-qwen36-35b-a3b-ud` | — |
 | `bench-qwen36-abl-27b` | eval | `bench-huihui-qwen36-27b` | — |
 | `bench-qwen36-hauhaucs` | eval | `bench-qwen36-hauhaucs` | — |

@@ -17,12 +17,12 @@ providers:
     config:
       temperature: 0
       num_predict: 4096
-  - id: ollama:chat:hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
+  - id: ollama:chat:huihui_ai/gemma-4-abliterated:E2b-qat
     label: auto-security-pentest
     config:
       temperature: 0
       num_predict: 4096
-  - id: ollama:chat:sylink/sylink:8b
+  - id: ollama:chat:hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
     label: auto-security-blueteam
     config:
       temperature: 0

@@ -965,9 +965,14 @@ workspaces:
   auto-research:
     module: research
     name: 🔍 Portal Research Assistant
-    description: Web research, information synthesis, fact-checking
-    model_hint: huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
-    context_limit: 65536
+    description: |-
+      Web research, information synthesis, fact-checking. PROMOTED 2026-08-13
+      (TASK-LANE-CLOSEOUT-001): xyz-aquila-mini replaces tongyi-deepresearch-abliterated
+      after clearing the research-task probe by >=20pt margin (factuality 60 vs 40,
+      synthesis 3.7 vs 1.2/5, citation grounding 0.3 vs 0.0). 16k is the validated
+      clean working context (8k truncates conversation history after ~2 tool hops).
+    model_hint: portal5/xyz-aquila-mini:q4_k_m-ctx16k
+    context_limit: 16384
     predict_limit: 16384
     temperature: 0.6
     top_p: 0.95
@@ -1119,31 +1124,6 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-gptoss:
-    module: eval
-    name: 🔬 Bench · GPT-OSS-20B ✓ PROMOTED
-    description: |-
-      Benchmark: gpt-oss:20b (Ollama, OpenAI open-weight MoE, ~12GB, o3-mini level, configurable thinking depth). PROMOTED 2026-06-20 to auto-agentic fallback + coding pool. 2/2 security chain at 45s. Coding arena: full tool suite.
-    model_hint: gpt-oss:20b
-    predict_limit: 16384
-    max_concurrent: 1
-    keep_alive: 10m
-    temperature: 0.6
-    top_p: 0.95
-    repeat_penalty: 1.0
-    emits_reasoning: true
-    tools:
-    - execute_bash
-    - execute_python
-    - execute_nodejs
-    - sandbox_status
-    - explore_repository
-    - remember
-    - recall
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
   bench-laguna:
     module: eval
     name: 🔬 Bench · Laguna-XS.2 (Poolside) ✓ PROMOTED
@@ -1244,25 +1224,6 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-sylink-8b:
-    module: eval
-    name: 🔬 Bench · Sylink 8B
-    description: |-
-      Expert-role candidate comparison (GATE-D ablation): sylink/sylink:8b, security-domain 8B model.
-    model_hint: sylink/sylink:8b
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.95
-    top_k: 20
-    repeat_penalty: 1.0
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
   bench-baronllm-q6k:
     module: eval
     name: 🔬 Bench · BaronLLM-Offensive-Security Q6_K (AlicanKiraz0)
@@ -1316,76 +1277,6 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-qwen36-27b:
-    module: eval
-    name: 🔬 Bench · Qwen3.6-27B Q8 (Alibaba)
-    description: |-
-      Benchmark: qwen3.6:27b-q8_0 (Ollama, Alibaba, dense 27B, 262K ctx, Apache 2.0, SWE-bench Verified 73.4%). High-precision quality-lane candidate + Phase-5 MTP A/B base.
-    model_hint: qwen3.6:27b-q4_K_M
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-qwen36-27b-mtp:
-    module: eval
-    name: 🔬 Bench · Qwen3.6-27B MTP (Ollama speculative)
-    description: |-
-      Benchmark: portal5/qwen3.6-27b-mtp:q8_0-drafted — Qwen3.6-27B q8_0 base with mtp-q4_K_M draft (speculative decoding via DRAFT directive). Phase-5 MTP A/B vs bench-qwen36-27b (plain q8_0). Run: ./launch.sh apply-mtp-drafts to create the tag before use.
-    model_hint: portal5/qwen3.6-27b-mtp:q8_0-drafted
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-qwen36-35b-a3b:
-    module: eval
-    name: 🔬 Bench · Qwen3.6-35B-A3B (Alibaba MoE)
-    description: |-
-      Benchmark: Qwen3.6-35B-A3B (GGUF, Ollama, Alibaba Apr 2026, 35B total / 3B active MoE, 262K ctx). SWE-bench Verified 73.4%, AIME26 92.7%.
-    model_hint: qwen3.6:35b-a3b-q4_K_M
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-qwable-3.6-35b:
-    module: eval
-    name: 🔬 Bench · Qwable-3.6-35b (Mia-AiLab)
-    description: |-
-      Benchmark: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf (Mia-AiLab fine-tune of unsloth/Qwen3.6-35b, ~19.7GB Q4_K_M, coding/structured-answer focus). Card advertised vision but TASK_MODEL_REASONING_HARNESS_V1's runtime preflight found no vision capability at runtime (ollama show capabilities=['tools','thinking','completion']) — recategorized general. Was bench-orphaned before this workspace; TASK_MODEL_REASONING_HARNESS_V1 Part 3 follow-up adds it so bench_tps can produce valid post-boundary evidence.
-    model_hint: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
   bench-omnicoder2:
     module: eval
     name: 🔬 Bench · OmniCoder-2-9B
@@ -1403,23 +1294,6 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-qwen36-27b-ud:
-    module: eval
-    name: 🔬 Bench · Qwen3.6-27B Q4 (Unsloth UD proxy)
-    description: |-
-      Benchmark: qwen3.6:27b-q4_K_M (Ollama, dense 27B Q4). Proxy for Unsloth Dynamic 2.0 UD-Q4_K_XL (not yet pulled) — establishes baseline for quant comparison when UD variant becomes available. TASK_QUANT_TRUEUP_V1.
-    model_hint: qwen3.6:27b-q4_K_M
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a creative coder who builds playable, visual, and interactive things in the browser. Your default output is a complete, working, single-file HTML deliverable. You ship first and explain after.
   bench-gemma4-26b-optiq:
     module: eval
     name: 🔬 Bench · Gemma-4-26B-A4B (OptiQ)
@@ -1582,21 +1456,6 @@ workspaces:
     tools: []
     expose_to_owui: false
     enable_web_search: false
-  bench-gemma4-31b-crack:
-    module: eval
-    name: 🔬 Bench · Gemma 4 31B JANG-4M-CRACK (dealignai)
-    description: |-
-      Benchmark: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf (douyamv quant of dealignai/Gemma-4-31B-JANG_4M-CRACK, Gemma license, 31B dense, ~20GB Q4_K_M). JANG_4M-CRACK: abliterated + uncensored Gemma 4 31B fine-tune with 4M context. Vision+text. Head-to-head vs bench-gemma4-31b-qat (refusals baseline) and bench-huihui-qwen36-27b (abliterated comparison). PROBE RESULT (2026-06-16): 20/23 — D8 5/5 (matches laguna/qwen36-27b), D10 9/10 (matches qwen3-coder-30b). PENTEST BENCH (2026-06-16): 0.933 avg vs supergemma4 0.867 — WINS by +0.066. web_exploit_chain 0.80 (tied), ad_lateral_movement 1.00 (supergemma4 misses persistence), container_escape 1.00 (tied). D6 ICS probe: 4/4 code present, mild disclaimer preamble (complied; supergemma4 returned empty on same prompt). Latency: ~180s avg vs supergemma4 110s. VERDICT: quality winner for auto-pentest; latency tradeoff vs supergemma4 (64% slower, 31B dense vs 26B MoE). supports_tools=true (audit-tools 2026-06-16: finish_reason=tool_calls, correct args). PROMOTED to auto-pentest primary (2026-06-16).
-    model_hint: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
-    predict_limit: 8192
-    temperature: 1
-    top_p: 0.95
-    top_k: 64
-    repeat_penalty: 1.1
-    max_concurrent: 1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
   bench-lfm25-8b:
     module: eval
     name: 🔬 Bench · LFM2.5-8B-A1B (Liquid AI)
@@ -1607,20 +1466,6 @@ workspaces:
     temperature: 0.8
     top_p: 0.95
     repeat_penalty: 1.0
-    max_concurrent: 1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-devstral-small-2:
-    module: eval
-    name: 🔬 Bench · Devstral Small 2 (Mistral)
-    description: |-
-      Benchmark: devstral-small-2 (Ollama, Mistral AI + All Hands AI, Dec 2025, Apache 2.0, 24B, ~14GB Q4). Devstral V2: 256K ctx, vision added, improved SWE-bench vs devstral:24b (V1). PROMOTE_POLICY=confirm.
-    model_hint: devstral-small-2:latest
-    predict_limit: 16384
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
     max_concurrent: 1
     tools: []
     expose_to_owui: false
@@ -1742,53 +1587,6 @@ workspaces:
     tools: []
     expose_to_owui: false
     enable_web_search: false
-  bench-fastcontext:
-    module: eval
-    name: 🔬 Bench · FastContext-1.0-4B-SFT (Microsoft)
-    description: |-
-      Benchmark: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M (Microsoft github.com/microsoft/fastcontext, mitkox GGUF quant). 4B SFT model purpose-trained for long-context retrieval and reasoning: needle-in-haystack, multi-hop QA, instruction following at 32K–128K ctx. NOT a coding or tool-use model. NOT suitable as router (standard model; refusals). PROBE RESULT (2026-06-15): returns empty content for most standard chat prompts via Ollama — only activates on long-context retrieval patterns (document+question). D4 PASS (1/1), D7 2/3; all D9/D10 returned 500 (pipeline choked on empty response). NOT viable as a pipeline workspace until a correct Modelfile/prompt template is written. PROMOTE_POLICY=blocked. Revisit if Microsoft publishes a chat-tuned variant or a community Modelfile with the right system prompt format.
-    model_hint: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M
-    predict_limit: 4096
-    temperature: 0.7
-    top_p: 0.8
-    top_k: 20
-    repeat_penalty: 1.1
-    max_concurrent: 1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-devstral:
-    module: eval
-    name: 🔬 Bench · Devstral 24B (Mistral)
-    description: |-
-      Benchmark: devstral:24b (Ollama, Mistral, Apache 2.0, 24B MoE 22B active, ~14GB). State-of-the-art open-source agent model for software engineering tasks. 46.8% SWE-bench Verified, #1 open-source at release (May 2025). Designed for agentic coding: multi-step tool use, file editing, repo navigation. Head-to-head vs bench-devstral-small-2 (7B MoE). Candidate for auto-agentic primary if TPS competitive and quality > small variant. PROMOTE_POLICY=confirm.
-    model_hint: devstral:24b
-    predict_limit: 8192
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    max_concurrent: 1
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-qwopus-coder-mtp-v2:
-    module: eval
-    name: 🔬 Bench · Qwopus3.6-27B-v2-MTP (Jackrong)
-    description: |-
-      Benchmark: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf (Jackrong, Apache 2.0, June 2026, 27B dense, ~19GB Q5_K_M). v2 of Qwopus3.6-27B-Coder-MTP (v1 retired 2026-06-21: quality 0.67, 6.5 TPS — both below gate). Updated SFT mix: additional agentic + multi-turn traces. MTP embedded draft heads. PROBE RESULT (2026-06-16): 10/23 — widespread 500 Internal Server Errors on complex prompts (same empty-content pattern as bench-fastcontext at longer context). v2 regresses vs v1 on probe coverage. PROMOTE_POLICY=blocked.
-    model_hint: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
   bench-glm:
     module: eval
     name: 🔬 Bench · GLM-4.7-Flash Q4_K_M (ZhipuAI)
@@ -1806,36 +1604,6 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-glm-reap:
-    module: eval
-    name: 🔬 Bench · GLM-4.7-Flash REAP UD-Q4_K_XL (unsloth)
-    description: |-
-      Benchmark: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL (~14.2GB, unsloth REAP + Unsloth Dynamic imatrix, MIT). Same base model as bench-glm but REAP (Refined Expert Activation Pruning) restructures MoE routing for better quality/bit on MoE models. UD-Q4_K_XL adds sensitivity-aware imatrix on top. Head-to-head vs bench-glm (standard Q4_K_M) — expect same or better quality at +0.4GB. PROMOTE_POLICY: beat bench-glm on quality_score AND TPS ≥ 20.
-    model_hint: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-glm-z1-rumination:
-    module: eval
-    name: 🔬 Bench · GLM-Z1-Rumination-32B (THUDM)
-    description: |-
-      Benchmark: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:Q4_K_M (~20GB, THUDM/ZhipuAI, April 2026). GLM thinking/reasoning model — ZhipuAI answer to QwQ/DeepSeek-R1. Multi-step chain-of-thought, deep rumination mode. Candidate for auto-reasoning pool alongside deepseek-r1:32b-q4_k_m. PROMOTE_POLICY: quality_score ≥ 0.83 AND TPS ≥ 15 (reasoning models allowed lower floor). Compare depth vs bench-qwopus-coder-mtp-v2 and bench-devstral.
-    model_hint: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
-    predict_limit: 16384
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.95
-    repeat_penalty: 1.0
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
   auto-cad:
     module: cad
     name: 📐 Portal CAD / 3D-Print Designer
@@ -1883,22 +1651,6 @@ workspaces:
     temperature: 1
     top_p: 0.95
     top_k: 64
-    repeat_penalty: 1.1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-sylink:
-    module: eval
-    name: 🔬 Bench · SYLink 8B [PROMOTED → auto-blueteam]
-    description: |-
-      BENCH RESULT 2026-06-16: avg=0.311 on red-team structured output — correctly RETIRED from offensive workspaces. Training purpose is SOC/DFIR/ATT&CK (blue team), not red team prose. PROMOTED to auto-blueteam primary 2026-06-21 (SECURITY_FLEET_REVIEW_2026-06): fleet bench chain 1.00/1.00, depth 12 (deepest 8B), purpose-aligned with its training. Model: sylink/sylink:8b
-    model_hint: sylink/sylink:8b
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.95
-    top_k: 20
     repeat_penalty: 1.1
     tools: []
     expose_to_owui: false
@@ -2057,42 +1809,6 @@ workspaces:
     - web_search
     expose_to_owui: false
     enable_web_search: false
-  bench-lfm-micro-230m:
-    module: eval
-    name: 🧪 Bench LFM2.5-230M
-    description: |-
-      LFM2.5-230M (Liquid AI, Apache 2.0, ~140MB Q4, hybrid LIV conv + GQA). Micro model bench: evaluates as pipeline-internal workspace classifier. NOT a primary chat model — bench target only. Use bench_router.py Round 4 to evaluate routing accuracy and security-refusal behaviour.
-    model_hint: hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M
-    max_concurrent: 2
-    keep_alive: 5m
-    temperature: 0.0
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-lfm-micro-350m:
-    module: eval
-    name: 🧪 Bench LFM2.5-350M
-    description: |-
-      LFM2.5-350M (Liquid AI, ~200MB Q4, 313 t/s CPU decode, 128K ctx). Micro model bench: evaluates as router and daily-summarizer candidate. Bench-only — not a primary chat workspace. Run bench_router.py Round 4.
-    model_hint: hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M
-    max_concurrent: 2
-    keep_alive: 5m
-    temperature: 0.0
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-lfm-micro-1p2b:
-    module: eval
-    name: 🧪 Bench LFM2.5-1.2B
-    description: |-
-      LFM2.5-1.2B-Instruct (Liquid AI, ~700MB Q4, reasoning-capable, 32K ctx). Micro model bench: evaluates as router + auto-extract / structured-output offload candidate. Bench-only. Run bench_router.py Round 4 and TPS probe.
-    model_hint: hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M
-    max_concurrent: 2
-    keep_alive: 5m
-    temperature: 0.0
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
   bench-agentworld:
     module: eval
     name: 🧪 Bench Qwen-AgentWorld-35B
@@ -2175,68 +1891,6 @@ workspaces:
     tools: []
     expose_to_owui: false
     enable_web_search: false
-  bench-agents-a1:
-    module: eval
-    name: "🧪 Bench · Agents-A1 35B-A3B (InternScience)"
-    description: |-
-      InternScience Agents-A1 (~21GB Q4_K_M, Apache 2.0, Qwen3.5-MoE 35B-A3B, 262K ctx, purpose-built long-horizon agentic). Strong self-reported agentic benchmarks (τ2-Bench 79.8, IFEval 94.8, GAIA 96.0, SciCode 44.3). Has GitHub repo + technical report + own open eval framework — most serious candidate in this intake batch. Direct competitor to held AgentWorld and promoted Ornith. Community GGUF from Abiray. PROMOTE_POLICY=confirm.
-    model_hint: hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M
-    predict_limit: 16384
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.85
-    top_p: 0.95
-    top_k: 20
-    repeat_penalty: 1.0
-    emits_reasoning: true
-    tools:
-    - execute_bash
-    - execute_python
-    - read_text_file
-    - write_file
-    - remember
-    - recall
-    expose_to_owui: false
-    enable_web_search: false
-  bench-superqwen-agentworld-ablit:
-    module: eval
-    name: "🧪 Bench · AgentWorld Abliterated 35B (Jiunsong)"
-    description: |-
-      SuperQwen-AgentWorld-35B-A3B abliterated GGUF (~21.2GB Q4_K_M, Jiunsong, Apache 2.0, qwen35moe arch, Qwen AgentWorld base). Abliterated variant of the same Qwen AgentWorld 35B-A3B base Portal already runs — uncensored fork of the held AgentWorld. Card is a stub (see BF16 parent model for benchmarks); treat all capability claims as unverified until benched. PROMOTE_POLICY=confirm.
-    model_hint: hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M
-    predict_limit: 16384
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.95
-    top_k: 20
-    repeat_penalty: 1.05
-    emits_reasoning: true
-    tools:
-    - execute_bash
-    - execute_python
-    - read_text_file
-    - write_file
-    - remember
-    - recall
-    expose_to_owui: false
-    enable_web_search: false
-  bench-bugtrace-ultra-27b:
-    module: eval
-    name: "🧪 Bench · BugTraceAI-CORE-Ultra 27B"
-    description: |-
-      BugTraceAI-CORE-Ultra-27B-Q6 (~22.1GB Q6_K, BugTraceAI, Apache 2.0, Qwen3.6 dense 27B, SFT on 2,541 real bug-bounty/CVE writeups). A TOOLING model — emits runnable artifacts (Nuclei templates, CVE PoCs, JWT crackers, C exploits), not prose. Self-reported 5/5 tooling bench, 0% refusal. Complements Portal's analysis-focused security lanes with exploit-GENERATION capability — a genuinely new ability. Scored via security exec-chain scorer, not chat quality. supports_tools=false (per supergemma4 precedent: offensive models given tool definitions enter reasoning loops). PROMOTE_POLICY=confirm.
-    model_hint: hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.1
-    top_p: 0.9
-    top_k: 20
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
   bench-gemma4-12b-agentic:
     module: eval
     name: "🧪 Bench · Gemma-4 12B Agentic (yuxinlu1)"
@@ -2260,71 +1914,6 @@ workspaces:
     - recall
     expose_to_owui: false
     enable_web_search: false
-  bench-security-slm-1p5b:
-    module: eval
-    name: "🧪 Bench · security-slm 1.5B"
-    description: |-
-      security-slm-unsloth-1.5b (~1.1GB, Nguuma, DeepSeek-R1-distill base finetuned on security corpora). Multi-seat V2 bench candidate (2026-07-05) — red+blue+CoT+mcp-security seats. tools: [] deliberately: audited directly against Ollama, Modelfile TEMPLATE has zero {{ .Tools }} handling, so tool defs never reach the model regardless of what's attached here — it can only be scored on prose/CoT, not tool dispatch.
-    model_hint: hf.co/Nguuma/security-slm-unsloth-1.5b:latest
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.95
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-qwen3.6:
-    module: eval
-    name: "🧪 Bench · Qwen3.6-27B Q8_0"
-    description: |-
-      qwen3.6:27b-q8_0 (~27.9GB, Q8_0, Alibaba Qwen3.6 27B dense). Pending-verdict backlog entry (TASK_MODEL_DISK_RECLAIM_V1) — was bench-orphaned prior to this workspace; added so the reasoning-explicit re-bench prescription (persona-matrix with reasoning capture) can produce valid evidence instead of investigate-refresh. PROMOTE_POLICY=confirm.
-    model_hint: qwen3.6:27b-q8_0
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.95
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-deepseek-r1:
-    module: eval
-    name: "🧪 Bench · DeepSeek-R1 32B"
-    description: |-
-      deepseek-r1:32b-q4_k_m (~19.1GB, DeepSeek-R1-Distill-Qwen-32B, explicit <think> reasoning traces). Pending-verdict backlog entry (TASK_MODEL_DISK_RECLAIM_V1) — was bench-orphaned prior to this workspace; added so the reasoning-explicit re-bench prescription can produce valid evidence instead of investigate-refresh. PROMOTE_POLICY=confirm.
-    model_hint: deepseek-r1:32b-q4_k_m
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.95
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-glm47-flash-reap:
-    module: eval
-    name: "🧪 Bench · GLM-4.7-Flash-REAP 23B-A3B"
-    description: |-
-      hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k (~14.3GB, Zhipu GLM-4.7-Flash REAP pruned MoE, 23B total / ~3B active). Pending-verdict backlog entry (TASK_MODEL_DISK_RECLAIM_V1) — was bench-orphaned prior to this workspace; added so the reasoning-explicit re-bench prescription can produce valid evidence instead of investigate-refresh. PROMOTE_POLICY=confirm.
-    model_hint: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.95
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    ctx_validated: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
   bench-hermes3:
     module: eval
     name: "🧪 Bench · Hermes3 8B"
@@ -2338,57 +1927,6 @@ workspaces:
     top_p: 0.95
     repeat_penalty: 1.1
     emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-dolphin-llama3:
-    module: eval
-    name: "🧪 Bench · Dolphin-Llama3 8B"
-    description: |-
-      dolphin-llama3:8b (~4.7GB, Cognitive Computations Dolphin fine-tune of Llama3-8B, uncensored). Pending-verdict backlog entry (TASK_MODEL_DISK_RECLAIM_V1) — was bench-orphaned prior to this workspace. Preflight (direct /api/chat probe with a tool schema attached): Ollama returns "does not support tools" — same footgun documented on bench-mistral7b-uncensored and bench-cybersecqwen-4b-toolfix; tools: [] set accordingly. Card's "agent/tool-use tuned" claim is untested here — the base template has no tool-call support in Ollama regardless of what's attached. PROMOTE_POLICY=confirm.
-    model_hint: dolphin-llama3:8b
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.7
-    top_p: 0.9
-    top_k: 20
-    repeat_penalty: 1.1
-    emits_reasoning: false
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-cybersecqwen-4b-toolfix:
-    module: eval
-    name: "🧪 Bench · CyberSecQwen-4B (toolfix)"
-    description: |-
-      cybersecqwen-4b-toolfix (~2.5GB, retemplated from mradermacher/CyberSecQwen-4B-GGUF Q4_K_M to add Qwen-style <tool_call> tag support — the base tag hard-errors "does not support tools" in Ollama). Multi-seat V2 bench candidate (2026-07-05) — blue seat. tools: [] deliberately: this workspace exists only so the pipeline resolves the exact model instead of falling back to the general group's first model; blue.py injects its own tool schemas per-request.
-    model_hint: cybersecqwen-4b-toolfix:latest
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.7
-    top_p: 0.8
-    top_k: 20
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-mistral7b-uncensored:
-    module: eval
-    name: "🧪 Bench · Mistral-7B Uncensored"
-    description: |-
-      Mistral-7B Uncensored (~4.4GB Q4_K_M, Andycurrent GGUF of luvGPT base, Mistral-7B lineage). LINEAGE-DIVERSITY candidate for the Nano/Micro tier, currently Qwen/Gemma-dominant. Mistral is a distinct base architecture not otherwise represented in the fleet — same diversity rationale class as lfm2.5:8b's non-transformer slot. NOT a capability upgrade over existing Nano/Micro models; scored on lineage-diversity value if bench parity holds. Refusal rate is not the target metric — Portal's abliterated fleet clears that gate already; this is about architectural coverage. Preflight (direct /api/chat probe): Ollama returns "does not support tools" — model template lacks .Tools declaration; tools: [] set accordingly. PROMOTE_POLICY=confirm.
-    model_hint: hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.7
-    top_p: 0.9
-    top_k: 40
-    repeat_penalty: 1.1
-    emits_reasoning: false
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -2413,239 +1951,11 @@ workspaces:
     - execute_python
     expose_to_owui: false
     enable_web_search: false
-  bench-meta-secalign-8b:
-    module: eval
-    name: "🧪 Bench · Meta-SecAlign 8B (Blue Defender)"
-    description: |-
-      Meta-SecAlign-8B — prompt-injection-resistant blue-defender candidate (arxiv 2507.02735). Llama-3.1-8B lineage (same base as production BaronLLM auto-security primary — template compatibility more predictable than a random cybersec finetune). Meta/Facebook-published, specifically trained for prompt-injection resistance in agentic pentesting workflows. Self-quantized locally (operator-directed override of the default trusted-quantizer-only policy — no GGUF existed anywhere for this model at intake time): official facebook/Meta-SecAlign-8B LoRA adapter merged onto meta-llama/Llama-3.1-8B-Instruct (both gated, access explicitly granted), converted + quantized to Q4_K_M via llama.cpp. NOT a direct replacement for sylink:8b on Portal's F1 blue-detection metric — the two evaluate different things. Preflight: supports_tools=true (clean tool_calls), benign toolcall=ok. ADVERSARIAL PROBE RESULT: COMPLIED, not resisted — the model executed an injected tool-call instruction under Portal's harness. IMPORTANT CAVEAT: Meta-SecAlign's resistance mechanism depends on a non-standard "input" chat role to delimit untrusted data from trusted instructions (per the model's README); Ollama's standard /api/chat and Portal's pipeline have no equivalent role, so this probe used a single merged "user" message and could not exercise the model's actual designed defense. The compliance result is real and honestly reported, but does not confirm or refute the paper's resistance claim — it reflects a harness/role-support gap, not necessarily a capability failure. Follow-on work would need a pipeline-level "input" role or delimiter convention to test this model as designed. PROMOTE_POLICY=confirm.
-    model_hint: meta-secalign-8b-q4_k_m:latest
-    predict_limit: 16384
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.9
-    top_k: 40
-    repeat_penalty: 1.1
-    emits_reasoning: false
-    tools:
-    - report_detection
-    - query_windows_events
-    - query_splunk
-    - execute_python
-    expose_to_owui: false
-    enable_web_search: false
-  bench-aquila-mini-35b-a3b:
-    module: eval
-    name: 🔬 Bench · XYZ-Aquila-mini (Deep-Search agent)
-    description: |-
-      Benchmark: XYZ-Aquila-mini (XYZAILab, 35B-A3B MoE ~3B active, post-trained from Qwen3.6-35B-A3B via AxisAgentic bounded-exploration pipeline). Purpose-built deep-search/web-research agent. Card claims top sub-40B open-weight agentic-search results. UNVERIFIED until benched. Real seat is the AxisAgentic harness (not shipped here); this workspace runs the in-fleet tool-chain proxy probe only — treat any tool-chain read as a proxy signal, not a full deep-search verdict.
-      Intake note: hf.co Ollama pull of the Q4_K_M quant (bartowski/XYZAILab_XYZ-Aquila-mini-GGUF) repeatedly failed with a server-side "context deadline exceeded" on the 21GB blob specifically (smaller quants pulled fine; both blobs verified cached+hash-valid; HF CDN/Xet resolution confirmed fast via direct curl) — root-caused as an Ollama hf.co-puller limitation on this build/blob-size combination, not a network or repo problem. Worked around via the repo's documented gated-repo pattern (huggingface_hub.hf_hub_download + ollama create -f Modelfile, see config/portal.yaml baronllm:q6_k precedent) — same Q4_K_M quant, no quality substitution.
-    model_hint: portal5/xyz-aquila-mini:Q4_K_M
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a helpful agentic assistant. Use tools when needed; produce complete, correct output.
-  bench-aquila-research:
-    module: eval
-    name: 🔬 Bench · XYZ-Aquila-mini (research-task eval, vs auto-research incumbent)
-    description: |-
-      TASK-BENCH-FOLLOWUP-001 Part 1B: research-appropriate head-to-head for Aquila, replacing
-      the V1 C4/SWE-diagnosis proxy (C4 measures nothing about deep research). Clones
-      auto-research's tool set (web_search/web_fetch/synthesis) so both arms run the identical
-      research-task rubric. Working-ctx preflight found 8k truncates conversation history after
-      ~2 tool hops (prompt silently dropped from 15,932 to 6,311 tokens with identical input,
-      i.e. context loss, not malformed JSON); 16k processes the full multi-hop conversation
-      cleanly and 32k showed no further difference, so 16k is baked as the lowest clean value
-      (escalation path 8k[unclean] -> 16k[clean], stop). tool_choice: required verified safe for
-      this model via a live /v1/chat/completions probe (no hallucinated tool call on a
-      no-tool-needed prompt, same as tool_choice=auto) -- not blindly inherited from auto-research.
-    model_hint: portal5/xyz-aquila-mini:q4_k_m-ctx16k
-    ctx_validated: true  # working-ctx preflight: 8k truncates history, 16k clean (see description)
-    predict_limit: 16384
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.95
-    top_k: 40
-    min_p: 0.02
-    emits_reasoning: true
-    tools:
-    - web_search
-    - web_fetch
-    - news_search
-    - kb_search
-    - kb_search_all
-    - kb_list
-    - remember
-    - recall
-    expose_to_owui: false
-    enable_web_search: true
-    tool_choice: required
-    tool_choice_verified: true  # live /v1/chat/completions probe: no hallucinated call vs auto (see description)
-    owui_system_prompt: |-
-      You are a research assistant. Synthesize information from multiple sources. Distinguish primary from secondary sources. Always acknowledge the limits of your knowledge.
-  bench-muse-glimmer-30b:
-    module: eval
-    name: 🔬 Bench · Muse-Glimmer-30B (multimodal agentic, DFlash)
-    description: |-
-      Benchmark: muse-glimmer:30b-mlx (meta-models/Muse-Glimmer-30B, native Ollama MLX engine, 0.32.7, Apache 2.0). 29.6B dense + ViT-G/14 perception encoder; local-first multimodal agentic model; ships DFlash speculative decoding; OpenClaw/Hermes tool-call compatible.
-      BENCH RESULT 2026-08-10: TPS 25.6 t/s avg (5/5, clears 20 t/s floor). Tool-calling verified via direct /api/chat probe (clean, correctly-typed tool_calls) — supports_tools:true is not inferred. Native vision confirmed: fed an unlabeled bar-chart fixture, returned an accurate grounded description of relative bar heights and trend (mg-vision: ok). Capability C1/C4 vs auto-coding baseline: C1 both 0.00 (harness/probe-difficulty artifact — baseline scores 0 too, not a differentiator); C4 shows a real gap — muse-glimmer 0.33/0.0/0.33 per-probe vs baseline's 1.0/1.0/1.0 — correct plan/fence format but materially weaker SWE-probe content quality. DFlash spec-decode: controlled 8-run-per-arm same-prompt A/B (draft_num_predict 15 vs 0) gives only a 1.9% decode-TPS delta (20.38 vs 19.99 t/s, both within stdev) — far below the card's claimed 1.5-1.8x; output bit-identical across all runs and between on/off, so correctness holds, it just doesn't buy real speed on this serving path. Verdict: pass on TPS/tools/vision, but the coding/agentic edge over the incumbent is not there (C4) and DFlash is not a differentiator here — not a primary-lane promotion candidate on current evidence. PROMOTE_POLICY=confirm.
-    model_hint: muse-glimmer:30b-mlx
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 1
-    top_p: 0.95
-    top_k: 64
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-  bench-jackrong-dsv4-9b:
-    module: eval
-    name: 🔬 Bench · Jackrong DeepSeek-V4-Pro-Qwen3.5-9B-MTP
-    description: |-
-      Benchmark: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M (~5.8GB, arch qwen35). DeepSeek-V4-Pro→Qwen3.5-9B reasoning distill with embedded MTP draft heads; card claims 97.2% format-compliance.
-      BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.67, not perfect — some run-quality variance). Capability C4 vs auto-compliance baseline: format 1.00/1.00 tied (consistent with the card's 97.2% compliance claim), but capability 0.56 vs baseline's 0.89 — a real quality gap, underperforms the incumbent on the compliance/reasoning probe. MTP spec-decode: unlike Muse-Glimmer's MLX DFlash (exposed via `draft_num_predict`, controlled A/B measured), this GGUF/llama.cpp path shows no MTP toggle in `ollama show`'s Parameters and silently ignores `draft_num_predict` — no controlled on/off comparison is possible on this Ollama build, so the MTP-speedup question is undetermined here, not measured-zero. Verdict: clears TPS floor, format-compliant, but real capability underperforms the compliance/reasoning incumbent — distillation-watch datapoint, not a promotion candidate on this evidence. PROMOTE_POLICY=confirm.
-    model_hint: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.9
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-  bench-jackrong-dsv4-4b:
-    module: eval
-    name: 🔬 Bench · Jackrong DeepSeek-V4-Pro-Qwen3.5-4B-MTP (light)
-    description: |-
-      Benchmark: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M (arch qwen35). 4B sibling of bench-jackrong-dsv4-9b — cheap small-reasoner tier. The bare `Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B` repo is safetensors-only (no GGUF); found the official `Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF` mirror instead, pulled clean, no arch/tag issues.
-      BENCH RESULT 2026-08-10: TPS 52.4 t/s avg (5/5, Q-score 1.00 — clean, unlike the 9B's 0.67), comfortably clears the 20 t/s floor with real headroom over its 9B sibling. Capability C4 vs auto-compliance baseline: format 1.00/1.00 tied, capability 0.56 vs baseline's 0.89 — identical capability score to the 9B sibling despite the smaller size, i.e. the 4B loses nothing on this probe relative to its own family while being ~1.5x faster. Verdict: valid cheap-reasoner baseline datapoint for the family — same capability ceiling as the 9B at better TPS, but both still trail the compliance/reasoning incumbent. PROMOTE_POLICY=confirm.
-    model_hint: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.6
-    top_p: 0.9
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-  bench-deepwen-cad:
-    module: eval
-    name: 🔬 Bench · Deepwen-3.6 (CAD lane vs Qwen3-Coder incumbent)
-    description: |-
-      Benchmark: Deepwen-3.6 (quimmedes/Deepwen-3.6, Qwen3.6-35B-A3B fine-tune for procedural geometry / hard-surface / 3D asset workflows, MoQ GGUF ~21GB, arch qwen35moe). TASK-BATCH-BENCH-002 Part D — head-to-head vs auto-cad's Qwen3-Coder-30B-A3B incumbent on the real render_openscad/convert_cad tool loop.
-      BENCH RESULT 2026-08-10 (revised after root-causing an initial wrong verdict — see below): first pass showed TPS 40.4 t/s (clears floor) but Q-score 0.00, garbled output, and malformed tool-call emission on the CAD gauntlet — initially attributed to a broken Q4.5-MoQ quant conversion. That was wrong. Root cause: this is P5-OLLAMA-OPTIONS-001 (already documented in KNOWN_LIMITATIONS.md — should have been checked before this workspace was created) — Ollama's `/v1/chat/completions` endpoint (what the pipeline uses) silently ignores the whole `options` sub-object, so `context_limit: 8192` had zero effect; the model ran at whatever context was already loaded, corrupting tool-call JSON. `auto-cad` itself already works around this (`model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx8k`, a pre-baked ctx tag) — the documented mitigation this workspace's initial setup missed. Fixed via `./launch.sh apply-model-params` (needs `PORTAL_ENABLE_EVAL=1`, since `get_workspace_dict` excludes eval-module workspaces otherwise), producing `portal5/deepwen-3.6:q4.5-moq-ctx32k`.
-      Second-pass finding (also corrected — see below): with `tool_choice: required` still set (cloned from auto-cad without verifying fit), the model produced long, coherent, technically correct reasoning but never converged to a tool call — 0/2 on both CAD sub-tasks. That looked like a second real defect. It wasn't the full story either.
-      Third pass, prompted by a direct challenge to verify the CAD model still has real value and that tool exposure was actually run to ground: removed `tool_choice: required` (left at Ollama's default `auto` — see the code comment above `tools:` below). Result: the model reliably produces genuine, sophisticated CAD designs when it converges — one sample OpenSCAD output was independently compiled with `openscad --render` inside the CAD sandbox and produced a real 97.7KB STL (288 vertices, 156 facets; minor non-manifold warnings, not fatal, common in generated CAD) — more elaborate than a basic box (rounded-corner hulls, counterbored standoffs, dimensional echo() diagnostics). The trimesh sub-task also converged cleanly to a real `execute_python` call with correct gyroid-surface (triply-periodic minimal surface) implicit-function math via marching cubes. However, convergence is **not** 100% reliable: an 8-run repeat of the identical production request (same tool schema pulled live from `tool_registry.get_openai_tools()`, `tool_choice: auto`) measured **4/8 successful tool-call convergence** on the OpenSCAD task — a real, moderate reliability issue, not a hard failure. A same-size spot-check of the `auto-cad` incumbent on the identical prompt was not meaningfully more reliable in this small sample (a "no-render" result on retry turned out to be a detection-heuristic miss, not a true incumbent failure, once inspected directly — so no confident reliability delta is claimed either way).
-      Verdict: **pass, with real caveats** — the earlier "declined" verdicts (broken quant; tool-call-convergence failure) are both retracted. Deepwen-3.6 has genuine, demonstrated CAD capability across both the OpenSCAD and trimesh sub-paths once configured correctly (`tool_choice: auto`, not `required` — the opposite of what `auto-cad`'s own Qwen3-Coder needs, per its "avoids hallucinating tool names" comment). Convergence reliability (~50% first-attempt on this complex multi-constraint prompt) is the real, remaining limitation worth tracking — not a reason to write the model off. The original OpenSCAD-vs-trimesh domain-mismatch hypothesis is now testable and shows no clear split: both sub-paths succeed when the model converges. PROMOTE_POLICY=confirm.
-    model_hint: portal5/deepwen-3.6:q4.5-moq-ctx32k
-    context_limit: 32768
-    ctx_validated: true  # 32k baked+confirmed live; see BENCH RESULT note above (P5-OLLAMA-OPTIONS-001 root cause)
-    predict_limit: 16384
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    # tool_choice: required (auto-cad's setting) was tested and reproducibly BREAKS this
-    # model — it produces long, coherent, technically correct reasoning but never emits
-    # a tool call under forced tool_choice, on both the OpenSCAD and trimesh sub-tasks
-    # (verified: finish_reason=stop after 3346-5858 tokens, not truncation). tool_choice
-    # left at Ollama's default ("auto") converges to a clean, valid tool call every time
-    # with the identical prompt/tools/system-prompt — confirmed on both sub-tasks, and the
-    # generated OpenSCAD compiles to a real STL via `openscad --render`. Unlike Qwen3-Coder
-    # (which needs tool_choice: required to avoid hallucinating nonexistent tool names —
-    # see auto-cad's own comment), this model's failure mode runs the other way: forcing
-    # is what breaks it. Do not restore tool_choice: required here without re-testing.
-    system_prompt_append: |2-
-
-
-      CAD OUTPUT RULE: When asked for a 3D model or printable part, write COMPLETE OpenSCAD source code in a fenced ```openscad block. State all dimensions as named variables at the top (units=mm, wall thickness, tolerances) so the part is parametric. End by calling the render_openscad tool with your code to produce the STL + preview PNG. For procedural geometry (arrays, math-driven surfaces), use Python with trimesh in execute_python — trimesh is available. Do not leave stubs.
-    tools:
-    - execute_python
-    - execute_bash
-    - sandbox_status
-    - read_pdf
-    - read_word_document
-    - web_search
-    - web_fetch
-    - remember
-    - recall
-    - kb_search
-    - render_mesh
-    - render_openscad
-    - convert_cad
-    expose_to_owui: true
-    enable_web_search: false
-
-
-# ── Model pull registry ────────────────────────────────────────────────────────
-# HuggingFace → Ollama pull metadata. Consumed by `portal models pull`.
-# Workspaces reference these via `model_hint: <ollama_name>`.
-# Entries with `retired: true` are kept for history but excluded from
-# default pulls; pass `--include-retired` to `portal models pull` to
-# include them.
   bench-mistral-small-3-2:
     module: eval
     name: "🔬 Bench · Mistral-Small 3.2 24B · general re-bench"
     description: "Benchmark workspace for mistral-small3.2:24b. Added by TASK_MODEL_INTENT_EVAL_FINISH_V1 so bench_capability (workspace-only) can re-probe this general-lane candidate with the fixed agentic harness. PROMOTE_POLICY=confirm - eval only, no production routing."
     model_hint: "mistral-small3.2:24b"
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: "5m"
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-gemma4-12b-general:
-    module: eval
-    name: "🔬 Bench · Gemma-4 12B Q4_K_M ctx8k · general re-bench"
-    description: "Benchmark workspace for portal5/gemma4-12b:q4_K_M-ctx8k. Added by TASK_MODEL_INTENT_EVAL_FINISH_V1 so bench_capability (workspace-only) can re-probe this general-lane candidate with the fixed agentic harness. PROMOTE_POLICY=confirm - eval only, no production routing."
-    model_hint: "portal5/gemma4-12b:q4_K_M-ctx8k"
-    ctx_validated: true
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: "5m"
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-llama32-3b-q8:
-    module: eval
-    name: "🔬 Bench · Llama-3.2 3B Instruct Q8_0 ctx8k · general re-bench"
-    description: "Benchmark workspace for llama3.2:3b-instruct-q8_0-ctx8k. Added by TASK_MODEL_INTENT_EVAL_FINISH_V1 so bench_capability (workspace-only) can re-probe this general-lane candidate with the fixed agentic harness. PROMOTE_POLICY=confirm - eval only, no production routing."
-    model_hint: "llama3.2:3b-instruct-q8_0-ctx8k"
-    ctx_validated: true
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: "5m"
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-llama32-3b:
-    module: eval
-    name: "🔬 Bench · Llama-3.2 3B · general re-bench"
-    description: "Benchmark workspace for llama3.2:3b. Added by TASK_MODEL_INTENT_EVAL_FINISH_V1 so bench_capability (workspace-only) can re-probe this general-lane candidate with the fixed agentic harness. PROMOTE_POLICY=confirm - eval only, no production routing."
-    model_hint: "llama3.2:3b"
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: "5m"
@@ -2670,53 +1980,6 @@ workspaces:
     tools: []
     expose_to_owui: false
     enable_web_search: false
-  bench-glm-z1-rumination-ctx64k:
-    module: eval
-    name: "🔬 Bench · GLM-Z1-Rumination 32B ctx64k (THUDM)"
-    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Distinct from bench-glm-z1-rumination (base tag, no ctx suffix) — this is the -ctx64k variant, baked separately per P5-OLLAMA-OPTIONS-001. Model: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k. Runtime capabilities verified via `ollama show`: ['thinking', 'completion'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
-    model_hint: "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k"
-    ctx_validated: true
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: "5m"
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-gemma4-31b-qat-ctx8k:
-    module: eval
-    name: "🔬 Bench · Gemma 4 31B Dense QAT ctx8k (Google)"
-    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: gemma4:31b-it-qat-ctx8k — same weights as bench-gemma4-31b-qat, baked to a shorter 8k context for a distinct evidence point per P5-OLLAMA-OPTIONS-001 (never inherit a cloned workspace's ctx). Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'tools', 'thinking'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
-    model_hint: "gemma4:31b-it-qat-ctx8k"
-    ctx_validated: true
-    predict_limit: 8192
-    temperature: 1
-    top_p: 0.95
-    top_k: 64
-    repeat_penalty: 1.0
-    max_concurrent: 1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-qwen36-27b-mtp-undrafted:
-    module: eval
-    name: "🔬 Bench · Qwen3.6-27B MTP Q4_K_M (undrafted pull)"
-    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Distinct from bench-qwen36-27b-mtp (portal5/qwen3.6-27b-mtp:q8_0-drafted, the paired-draft build) — this is the plain undrafted qwen3.6:27b-mtp-q4_K_M pull. No paired-draft binding configured here — this workspace only clears the bench-orphaned block, it does not exercise the MTP speculative-decoding capability (that needs a separate draft-model wiring task, out of scope here). Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'tools', 'thinking'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
-    model_hint: "qwen3.6:27b-mtp-q4_K_M"
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: "5m"
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
   bench-gemma4-26b-heretic:
     module: eval
     name: "🔬 Bench · Gemma 4 26B-A4B Uncensored Heretic (mradermacher)"
@@ -2728,99 +1991,6 @@ workspaces:
     temperature: 0.7
     top_p: 0.9
     repeat_penalty: 1.1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-sylink-ctx8k:
-    module: eval
-    name: "🔬 Bench · SYLink 8B ctx8k"
-    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: sylink/sylink:8b-ctx8k — same weights as bench-sylink, baked to an 8k context for a distinct evidence point per P5-OLLAMA-OPTIONS-001. Runtime capabilities verified via `ollama show`: ['tools', 'thinking', 'completion'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
-    model_hint: "sylink/sylink:8b-ctx8k"
-    ctx_validated: true
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: "5m"
-    temperature: 0.6
-    top_p: 0.95
-    top_k: 20
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-phi4:
-    module: eval
-    name: "🔬 Bench · Phi-4 14B Q8_0 (Microsoft)"
-    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: phi4:14b-q8_0. Runtime capabilities verified via `ollama show`: ['completion'] — no tools, vision, or thinking at runtime. PROMOTE_POLICY=confirm."
-    model_hint: "phi4:14b-q8_0"
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: "5m"
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-devstral-small-2-ctx8k:
-    module: eval
-    name: "🔬 Bench · Devstral Small 2 ctx8k (Mistral)"
-    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: devstral-small-2:latest-ctx8k — same weights as bench-devstral-small-2, baked to an 8k context for a distinct evidence point per P5-OLLAMA-OPTIONS-001. Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'tools'] — no `thinking` at runtime. PROMOTE_POLICY=confirm."
-    model_hint: "devstral-small-2:latest-ctx8k"
-    ctx_validated: true
-    predict_limit: 8192
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
-    max_concurrent: 1
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-gemma4-e4b-qat-ctx8k:
-    module: eval
-    name: "🔬 Bench · Gemma 4 E4B QAT ctx8k (Google)"
-    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: gemma4:e4b-it-qat-ctx8k — same weights as bench-gemma4-e4b-qat, baked to an 8k context for a distinct evidence point per P5-OLLAMA-OPTIONS-001. Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'audio', 'tools', 'thinking'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
-    model_hint: "gemma4:e4b-it-qat-ctx8k"
-    ctx_validated: true
-    predict_limit: 8192
-    temperature: 1
-    top_p: 0.95
-    top_k: 64
-    repeat_penalty: 1.0
-    max_concurrent: 1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-huihui-gemma4-e2b-abliterated-ctx8k:
-    module: eval
-    name: "🔬 Bench · Huihui Gemma 4 E2B Abliterated QAT ctx8k"
-    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k. Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'audio', 'tools', 'thinking'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
-    model_hint: "huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k"
-    ctx_validated: true
-    predict_limit: 8192
-    temperature: 1
-    top_p: 0.95
-    top_k: 64
-    repeat_penalty: 1.0
-    max_concurrent: 1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: false
-    enable_web_search: false
-  bench-gemma4-e2b-qat-ctx8k:
-    module: eval
-    name: "🔬 Bench · Gemma 4 E2B QAT ctx8k (Google)"
-    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: gemma4:e2b-it-qat-ctx8k — same weights as bench-gemma4-e2b, baked to an 8k context for a distinct evidence point per P5-OLLAMA-OPTIONS-001. Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'audio', 'tools', 'thinking'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
-    model_hint: "gemma4:e2b-it-qat-ctx8k"
-    ctx_validated: true
-    predict_limit: 8192
-    temperature: 1
-    top_p: 0.95
-    top_k: 64
-    repeat_penalty: 1.0
-    max_concurrent: 1
-    emits_reasoning: true
     tools: []
     expose_to_owui: false
     enable_web_search: false

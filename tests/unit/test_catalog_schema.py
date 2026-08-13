@@ -63,9 +63,9 @@ def test_persona_missing_workspace_model_raises(tmp_path: Path) -> None:
 
 
 def test_all_production_personas_have_valid_parents() -> None:
-    """All 150 production personas reference an existing workspace."""
+    """All production personas reference an existing workspace."""
     personas = load_persona_map()
-    assert len(personas) == 138, f"Expected 138 personas, got {len(personas)}"
+    assert len(personas) == 129, f"Expected 129 personas, got {len(personas)}"
     validate_persona_parents(personas)  # raises if any parent is invalid
 
 

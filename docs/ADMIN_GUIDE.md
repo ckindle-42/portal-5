@@ -268,17 +268,17 @@ The router is a classification model, not an inference tier, so swapping it is c
 ### Ollama is Native — Plist Is the Source of Truth
 
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-ollama-is-native-plist-is-the-source-of-truth -->
-On Apple Silicon the default Ollama is native under launchd, not a container — but **not** via Homebrew. `homebrew.mxcl.ollama` was disabled and fully uninstalled 2026-08-10: Homebrew's formula lags upstream releases and shipped below this project's minimum version (`OLLAMA_MIN_VERSION` in `scripts/lib/util.sh`), and a stale Homebrew reinstall had silently taken over `:11434` at one point, running an outdated build undetected. The supported native install is a pinned binary release run as `com.portal5.ollama`, a **system** LaunchDaemon (deliberately system-domain rather than a per-user LaunchAgent, so it's up before any user is logged in). `_launch_install_ollama` in scripts/lib/services.sh reports its status (it does not install — that's a deliberate one-time manual step, see the function's own guidance); `_ensure_native_services` in scripts/lib/util.sh restarts it via `sudo -n launchctl kickstart -k system/com.portal5.ollama` whenever `up` finds it installed but not responding — a narrowly-scoped passwordless sudoers rule (`/etc/sudoers.d/portal5-ollama`, exactly this one command) makes that possible without a password prompt hanging the launch. The compose `ollama` service is gated behind the `docker-ollama` profile, so compose env vars (e.g. `OLLAMA_MAX_LOADED_MODELS`) do not reach the native server. The authoritative config for native is the launchd plist:
+On Apple Silicon the default Ollama is native under launchd, not a container — but **not** via Homebrew. `homebrew.mxcl.ollama` was disabled and fully uninstalled 2026-08-10: Homebrew's formula lags upstream releases and shipped below this project's minimum version (`OLLAMA_MIN_VERSION` in `scripts/lib/util.sh`), and a stale Homebrew reinstall had silently taken over `:11434` at one point, running an outdated build undetected. The supported native install is a pinned binary release run as `com.portal5.ollama`, a **system** LaunchDaemon (deliberately system-domain rather than a per-user LaunchAgent, so it's up before any user is logged in). `_launch_install_ollama` in scripts/lib/services.sh reports its status (it does not install — that's a deliberate one-time manual step, see the function's own guidance); `_ensure_native_services` in scripts/lib/util.sh restarts it via `sudo -n launchctl kickstart -k system/com.portal5.ollama` whenever `up` finds it installed but not responding — passwordless sudoers rules under `/etc/sudoers.d/` (`portal5-ollama`, `portal5-claude`) cover `launchctl` and `plutil` invocations on this box (kickstart, unload/load, and in-place plist edits all run without a password prompt; plain file operations like `cp` do not — the exact per-file grant boundary is root-readable only, not verified from an unprivileged shell). The compose `ollama` service is gated behind the `docker-ollama` profile, so compose env vars (e.g. `OLLAMA_MAX_LOADED_MODELS`) do not reach the native server. The authoritative config for native is the launchd plist:
 
 ```
 /Library/LaunchDaemons/com.portal5.ollama.plist
 ```
 
-Root-owned — edit with `sudo`, then reload with `sudo launchctl bootout system/com.portal5.ollama && sudo launchctl bootstrap system /Library/LaunchDaemons/com.portal5.ollama.plist` (a mere `kickstart -k` restarts the process but does **not** re-read the plist from disk — a full bootout/bootstrap cycle is required to pick up env var changes).
+Root-owned — edit with `sudo`. Since the 2026-08-13 upgrade to v0.32.9, `ProgramArguments` points at `/Users/chris/ollama-current/ollama`, a symlink to the active versioned install directory (currently `ollama-0.32.9/`), not a hardcoded version path — this was a deliberate fix after the previous scheme (editing the plist's binary path on every upgrade) left the PATH symlink and the plist able to drift out of sync. **A version upgrade is now just:** unpack the new release to `~/ollama-<version>/`, flip the symlink (`ln -sfn ~/ollama-<version> ~/ollama-current`), then reload the daemon — no plist edit needed. Reload with `sudo launchctl unload /Library/LaunchDaemons/com.portal5.ollama.plist && sudo launchctl load /Library/LaunchDaemons/com.portal5.ollama.plist` (equivalent to `bootout`/`bootstrap` — both fully remove and re-register the service, re-reading the plist from disk; a mere `kickstart -k` restarts the process but does **not** re-read the plist, so it only picks up env var or `ProgramArguments` changes via the full unload/load or bootout/bootstrap cycle). The previous version directory (e.g. `ollama-0.32.7/`) is left on disk after an upgrade so a rollback is one more symlink flip, no reinstall.
 
 ## Why
 
-Native and container Ollama are two separate config surfaces, and the compose file documents only the container one. An operator who tunes the container's env block while running native (the default) has made a change that never takes effect — the plist is the only lever that does, so the source of truth must be stated explicitly. The Homebrew-vs-pinned-install distinction is called out explicitly because the failure mode is silent: both bind the same port, so a stale Homebrew reinstall serving an outdated Ollama version produces no error, just quietly-wrong behavior (a whole 3-hour benchmark leg ran against it undetected) until someone thinks to check `/api/version` against the live server instead of trusting `command -v ollama`, which resolves whatever is first on PATH.
+Native and container Ollama are two separate config surfaces, and the compose file documents only the container one. An operator who tunes the container's env block while running native (the default) has made a change that never takes effect — the plist is the only lever that does, so the source of truth must be stated explicitly. The Homebrew-vs-pinned-install distinction is called out explicitly because the failure mode is silent: both bind the same port, so a stale Homebrew reinstall serving an outdated Ollama version produces no error, just quietly-wrong behavior (a whole 3-hour benchmark leg ran against it undetected) until someone thinks to check `/api/version` against the live server instead of trusting `command -v ollama`, which resolves whatever is first on PATH. The `ollama-current` symlink indirection exists because the direct-path scheme required editing the plist's `ProgramArguments` and the `/opt/homebrew/bin/ollama` PATH symlink separately on every upgrade — two places that could silently disagree after a future upgrade if only one got updated.
 <!-- /WIKI:GENERATED -->
 
 ### Runtime VRAM vs File Size Gap
@@ -366,7 +366,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-# Persona roster (138 personas)
+# Persona roster (129 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -374,8 +374,6 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `agenticheavy` | coding | `auto-coding` | — |
 | `agenticlite` | coding | `auto-coding` | — |
 | `agentorchestrator` | coding | `auto-coding` | — |
-| `bench-devstral` | eval | `bench-devstral-small-2` | — |
-| `bench-devstral-small-2` | eval | `bench-devstral-small-2` | — |
 | `bench-gemma4-12b` | eval | `bench-gemma4-12b` | — |
 | `bench-gemma4-26b-optiq` | eval | `bench-gemma4-26b-optiq` | — |
 | `bench-gemma4-26b-qat` | eval | `bench-gemma4-26b-qat` | — |
@@ -384,9 +382,6 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `bench-gemma4-e4b` | eval | `bench-gemma4-e4b` | — |
 | `bench-gemma4-e4b-qat` | eval | `bench-gemma4-e4b-qat` | — |
 | `bench-glm` | eval | `bench-glm` | — |
-| `bench-glm-reap` | eval | `bench-glm-reap` | — |
-| `bench-glm-z1-rumination` | eval | `bench-glm-z1-rumination` | — |
-| `bench-gptoss` | eval | `bench-gptoss` | — |
 | `bench-granite41-30b` | eval | `bench-granite41-30b` | — |
 | `bench-granite41-8b` | eval | `bench-granite41-8b` | — |
 | `bench-huihui-qwen36-27b` | eval | `bench-huihui-qwen36-27b` | — |
@@ -397,11 +392,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `bench-nex-n2-mini` | eval | `bench-nex-n2-mini` | — |
 | `bench-omnicoder2` | eval | `bench-omnicoder2` | — |
 | `bench-qwen35-abliterated` | eval | `bench-qwen35-abliterated` | — |
-| `bench-qwen36-27b` | eval | `bench-qwen36-27b` | — |
-| `bench-qwen36-27b-mtp` | eval | `bench-qwen36-27b-mtp` | — |
 | `bench-qwen36-27b-optiq` | eval | `bench-qwen36-27b-optiq` | — |
-| `bench-qwen36-27b-ud` | eval | `bench-qwen36-27b-ud` | — |
-| `bench-qwen36-35b-a3b` | eval | `bench-qwen36-35b-a3b` | — |
 | `bench-qwen36-35b-a3b-ud` | eval | `bench-qwen36-35b-a3b-ud` | — |
 | `bench-qwen36-abl-27b` | eval | `bench-huihui-qwen36-27b` | — |
 | `bench-qwen36-hauhaucs` | eval | `bench-qwen36-hauhaucs` | — |
@@ -517,7 +508,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (23 production, 93 eval, 116 total)
+# Workspace roster (23 production, 46 eval, 69 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -540,7 +531,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
 | `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
-| `auto-research` | research | `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` |
+| `auto-research` | research | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` |
 | `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |
 | `auto-spl` | general | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` |
 | `auto-video` | media | `granite4.1:8b-ctx16k` |
@@ -549,97 +540,50 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 
 ## Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
 
-- `bench-agents-a1`
 - `bench-agentworld`
-- `bench-aquila-mini-35b-a3b`
-- `bench-aquila-research`
 - `bench-baronllm-q6k`
-- `bench-bugtrace-ultra-27b`
 - `bench-cybersecqwen-4b`
-- `bench-cybersecqwen-4b-toolfix`
-- `bench-deepseek-r1`
-- `bench-deepwen-cad`
-- `bench-devstral`
-- `bench-devstral-small-2`
-- `bench-devstral-small-2-ctx8k`
-- `bench-dolphin-llama3`
 - `bench-e2b-pentest`
 - `bench-exec-exploit`
 - `bench-exec-reasoning`
 - `bench-exec-recon`
-- `bench-fastcontext`
 - `bench-foundation-sec-8b-reasoning`
 - `bench-gemma4-12b`
 - `bench-gemma4-12b-agentic`
-- `bench-gemma4-12b-general`
 - `bench-gemma4-26b-heretic`
 - `bench-gemma4-26b-optiq`
 - `bench-gemma4-26b-qat`
-- `bench-gemma4-31b-crack`
 - `bench-gemma4-31b-qat`
-- `bench-gemma4-31b-qat-ctx8k`
 - `bench-gemma4-e2b`
-- `bench-gemma4-e2b-qat-ctx8k`
 - `bench-gemma4-e4b`
 - `bench-gemma4-e4b-qat`
-- `bench-gemma4-e4b-qat-ctx8k`
 - `bench-glm`
-- `bench-glm-reap`
-- `bench-glm-z1-rumination`
-- `bench-glm-z1-rumination-ctx64k`
-- `bench-glm47-flash-reap`
-- `bench-gptoss`
 - `bench-granite41-30b`
 - `bench-granite41-8b`
 - `bench-hermes3`
-- `bench-huihui-gemma4-e2b-abliterated-ctx8k`
 - `bench-huihui-qwen36-27b`
 - `bench-huihui-qwen36-35b-a3b`
-- `bench-jackrong-dsv4-4b`
-- `bench-jackrong-dsv4-9b`
 - `bench-laguna`
-- `bench-lfm-micro-1p2b`
-- `bench-lfm-micro-230m`
-- `bench-lfm-micro-350m`
 - `bench-lfm25-8b`
 - `bench-lfm25-8b-uncensored`
-- `bench-llama32-3b`
 - `bench-llama32-3b-abliterated`
-- `bench-llama32-3b-q8`
 - `bench-magistral-small`
-- `bench-meta-secalign-8b`
 - `bench-mistral-small-3-2`
-- `bench-mistral7b-uncensored`
-- `bench-muse-glimmer-30b`
 - `bench-nex-n2-mini`
 - `bench-north-mini-code`
 - `bench-omnicoder2`
 - `bench-ornith-35b`
-- `bench-phi4`
-- `bench-qwable-3.6-35b`
 - `bench-qwable-35b`
 - `bench-qwen3-14b-abliterated`
 - `bench-qwen3-coder-30b`
 - `bench-qwen3-coder-next`
 - `bench-qwen3-coder-next-abliterated`
-- `bench-qwen3.6`
 - `bench-qwen35-9b-heretic-vision`
 - `bench-qwen35-abliterated`
-- `bench-qwen36-27b`
-- `bench-qwen36-27b-mtp`
-- `bench-qwen36-27b-mtp-undrafted`
 - `bench-qwen36-27b-optiq`
-- `bench-qwen36-27b-ud`
-- `bench-qwen36-35b-a3b`
 - `bench-qwen36-35b-a3b-ud`
 - `bench-qwen36-hauhaucs`
-- `bench-qwopus-coder-mtp-v2`
-- `bench-security-slm-1p5b`
 - `bench-supergemma4-sec`
-- `bench-superqwen-agentworld-ablit`
-- `bench-sylink`
-- `bench-sylink-8b`
-- `bench-sylink-ctx8k`
 - `bench-vulnllm-r-7b`
 - `bench-vulnllm-r7b`
 
@@ -679,7 +623,7 @@ default.
 | `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
-| `auto-research` | `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` | yes |
+| `auto-research` | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` | yes |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-spl` | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` | yes |
 | `auto-video` | `granite4.1:8b-ctx16k` | yes |

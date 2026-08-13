@@ -810,8 +810,6 @@ workspace_routing:
   - general
   bench-qwen3-coder-30b:
   - general
-  bench-gptoss:
-  - general
   bench-laguna:
   - general
   bench-granite41-8b:
@@ -822,25 +820,13 @@ workspace_routing:
   - security
   bench-vulnllm-r-7b:
   - general
-  bench-sylink-8b:
-  - general
   bench-baronllm-q6k:
   - security
   bench-foundation-sec-8b-reasoning:
   - reasoning
   bench-qwen35-abliterated:
   - general
-  bench-qwen36-27b:
-  - general
-  bench-qwen36-27b-mtp:
-  - general
-  bench-qwen36-35b-a3b:
-  - general
-  bench-qwable-3.6-35b:
-  - coding
   bench-omnicoder2:
-  - general
-  bench-qwen36-27b-ud:
   - general
   bench-gemma4-26b-optiq:
   - general
@@ -862,11 +848,7 @@ workspace_routing:
   - general
   bench-gemma4-31b-qat:
   - general
-  bench-gemma4-31b-crack:
-  - general
   bench-lfm25-8b:
-  - general
-  bench-devstral-small-2:
   - general
   bench-nex-n2-mini:
   - general
@@ -880,24 +862,12 @@ workspace_routing:
   - general
   bench-qwable-35b:
   - general
-  bench-fastcontext:
-  - general
-  bench-devstral:
-  - general
-  bench-qwopus-coder-mtp-v2:
-  - general
   bench-glm:
-  - general
-  bench-glm-reap:
-  - general
-  bench-glm-z1-rumination:
   - general
   auto-cad:
   - coding
   - general
   bench-supergemma4-sec:
-  - general
-  bench-sylink:
   - general
   bench-vulnllm-r7b:
   - general
@@ -911,12 +881,6 @@ workspace_routing:
   - general
   bench-exec-exploit:
   - general
-  bench-lfm-micro-230m:
-  - general
-  bench-lfm-micro-350m:
-  - general
-  bench-lfm-micro-1p2b:
-  - general
   bench-agentworld:
   - general
   bench-ornith-35b:
@@ -925,75 +889,17 @@ workspace_routing:
   - general
   bench-qwen35-9b-heretic-vision:
   - general
-  bench-agents-a1:
-  - general
-  bench-superqwen-agentworld-ablit:
-  - general
-  bench-bugtrace-ultra-27b:
-  - general
   bench-gemma4-12b-agentic:
-  - general
-  bench-security-slm-1p5b:
-  - general
-  bench-qwen3.6:
-  - general
-  bench-deepseek-r1:
-  - general
-  bench-glm47-flash-reap:
   - general
   bench-hermes3:
   - general
-  bench-dolphin-llama3:
-  - general
-  bench-cybersecqwen-4b-toolfix:
-  - general
-  bench-mistral7b-uncensored:
-  - general
   bench-qwen3-14b-abliterated:
-  - general
-  bench-meta-secalign-8b:
-  - general
-  bench-aquila-mini-35b-a3b:
-  - general
-  bench-aquila-research:
-  - general
-  bench-muse-glimmer-30b:
-  - general
-  bench-jackrong-dsv4-9b:
-  - general
-  bench-jackrong-dsv4-4b:
-  - general
-  bench-deepwen-cad:
   - general
   bench-mistral-small-3-2:
   - general
-  bench-gemma4-12b-general:
-  - general
-  bench-llama32-3b-q8:
-  - general
-  bench-llama32-3b:
-  - general
   bench-magistral-small:
   - general
-  bench-glm-z1-rumination-ctx64k:
-  - general
-  bench-gemma4-31b-qat-ctx8k:
-  - general
-  bench-qwen36-27b-mtp-undrafted:
-  - general
   bench-gemma4-26b-heretic:
-  - general
-  bench-sylink-ctx8k:
-  - general
-  bench-phi4:
-  - general
-  bench-devstral-small-2-ctx8k:
-  - general
-  bench-gemma4-e4b-qat-ctx8k:
-  - general
-  bench-huihui-gemma4-e2b-abliterated-ctx8k:
-  - general
-  bench-gemma4-e2b-qat-ctx8k:
   - general
   bench-llama32-3b-abliterated:
   - general

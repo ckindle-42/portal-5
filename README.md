@@ -152,9 +152,9 @@ and a `tools:` array (the tool grants), both defined in `config/portal.yaml` and
 loaded at import time into `WORKSPACES` by `portal/platform/inference/router/workspaces.py`
 via `get_workspace_dict()`.
 
-Portal 5 includes **23 functional workspaces** (plus 93 benchmark workspaces for
+Portal 5 includes **23 functional workspaces** (plus 46 benchmark workspaces for
 performance comparison, gated off by default behind the `eval` module, which is
-disabled unless `PORTAL_ENABLE_EVAL=1` is set; 116 total —
+disabled unless `PORTAL_ENABLE_EVAL=1` is set; 69 total —
 `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
 Benchmark workspaces are excluded from routing when the eval module is off, so the
 daily model dropdown stays limited to the functional set.
@@ -235,16 +235,15 @@ List the current set with:
 python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"
 ```
 
-The live count is currently 93 workspaces. Verified examples from `config/portal.yaml`:
+The live count is currently 46 workspaces. Verified examples from `config/portal.yaml`:
 
 | Workspace | Pinned model (`model_hint`) |
 |---|---|
-| `bench-devstral` | `devstral:24b` |
-| `bench-fastcontext` | FastContext-1.0-4B-SFT (repository explorer subagent) |
+| `bench-glm` | `glm-4.7-flash:Q4_K_M` |
+| `bench-granite41-30b` | `granite4.1:30b-ctx16k` |
 | `bench-gemma4-26b-qat` | `gemma4:26b-a4b-it-qat` |
 | `bench-laguna` | `laguna-xs.2:Q4_K_M` |
 | `bench-qwen3-coder-30b` | `qwen3-coder:30b-a3b-q4_K_M` |
-| `bench-sylink` | `sylink/sylink:8b` |
 | `bench-vulnllm-r-7b` | VulnLLM-R-7B GGUF Q4_K_M |
 
 The remaining lanes cover security exec chains, LFM micro models, MTP draft pairs
