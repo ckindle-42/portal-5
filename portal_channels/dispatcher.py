@@ -51,23 +51,16 @@ VALID_WORKSPACES = frozenset(
         "bench-qwen3-coder-next",
         "bench-qwen3-coder-30b",
         "bench-glm",
-        "bench-glm-reap",
-        "bench-glm-z1-rumination",
-        "bench-gptoss",
         "bench-laguna",
         "bench-granite41-8b",
         "bench-granite41-30b",
         "bench-qwen35-abliterated",
         # V6 candidate benches (TASK_MODEL_REFRESH_V6)
-        "bench-qwen36-27b",
-        "bench-qwen36-35b-a3b",
         "bench-omnicoder2",
         # May 2026 additions (TASK_BENCH_COVERAGE_V1)
         # V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2)
         # V7 catalog refresh (TASK_MODEL_REFRESH_V7)
-        "bench-qwen36-27b-ud",
         "bench-qwen36-35b-a3b-ud",
-        "bench-qwen36-27b-mtp",
         # V8 quant-trueup (TASK_QUANT_TRUEUP_V1)
         "bench-qwen36-27b-optiq",
         "bench-gemma4-26b-optiq",
@@ -83,7 +76,6 @@ VALID_WORKSPACES = frozenset(
         "bench-gemma4-26b-qat",
         "bench-gemma4-31b-qat",
         "bench-lfm25-8b",
-        "bench-devstral-small-2",
         "bench-nex-n2-mini",
         # V8 uncensored candidates (TASK_MODEL_REFRESH_V8_UNCENSORED)
         "bench-lfm25-8b-uncensored",
@@ -95,13 +87,7 @@ VALID_WORKSPACES = frozenset(
         "auto-bigfix",
         "auto-cad",
         # June 2026 bench candidates
-        "bench-gemma4-31b-crack",
-        "bench-devstral",
-        "bench-fastcontext",
-        "bench-qwopus-coder-mtp-v2",
         "bench-supergemma4-sec",
-        # June 2026 security candidate round 2
-        "bench-sylink",
         # June 2026 uncensored coding + stranded-model lanes (TASK_CODING_UNCENSORED_LANES_V1)
         "auto-extract-uncensored",
         "auto-general-uncensored",
@@ -115,9 +101,6 @@ VALID_WORKSPACES = frozenset(
         "bench-exec-reasoning",
         "bench-exec-exploit",
         # TASK_LFM_AGENTWORLD_ROUTER_V1
-        "bench-lfm-micro-230m",
-        "bench-lfm-micro-350m",
-        "bench-lfm-micro-1p2b",
         "bench-agentworld",
         # TASK_MODEL_EVAL_V10_CANDIDATES — bench-ornith-9b, bench-qwythos-9b,
         # bench-glm47f-claude-distill dropped 2026-06-30 (operator verdict: Drop)
@@ -125,18 +108,9 @@ VALID_WORKSPACES = frozenset(
         "bench-north-mini-code",
         # Bench candidates 2026-06-30 (intake V11) — bench-only, PROMOTE_POLICY=confirm
         "bench-qwen35-9b-heretic-vision",
-        "bench-agents-a1",
-        "bench-superqwen-agentworld-ablit",
-        "bench-bugtrace-ultra-27b",
         "bench-gemma4-12b-agentic",
-        "bench-security-slm-1p5b",
-        "bench-cybersecqwen-4b-toolfix",
-        # V13-A candidate intake 2026-07-08 — bench-only, PROMOTE_POLICY=confirm
-        "bench-mistral7b-uncensored",
         # V13-B candidate intake 2026-07-08 — bench-only, PROMOTE_POLICY=confirm
         "bench-qwen3-14b-abliterated",
-        # V13-D candidate intake 2026-07-10 — bench-only, PROMOTE_POLICY=confirm
-        "bench-meta-secalign-8b",
     }
 )
 

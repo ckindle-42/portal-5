@@ -1,0 +1,411 @@
+{
+  "timestamp": "20260528T145902Z",
+  "mode": "all",
+  "models_tested": [
+    "Llama-3.2-3B",
+    "Qwen3-Coder-30B",
+    "Llama-3.3-70B"
+  ],
+  "skip_large": false,
+  "kv_rounds": 3,
+  "tps_runs": 3,
+  "concurrent_workers": 4,
+  "mtp_model": "Qwen3.6-27B-oQ8-mtp",
+  "mtp_baseline": "mlx-community/Qwen3.6-27B-4bit",
+  "mtp_sizes": [
+    "short",
+    "medium",
+    "long"
+  ],
+  "mtp_gate_speedup": 1.5,
+  "omlx_version": "0.3.12",
+  "results": [
+    {
+      "test": "kv_cache_ttft",
+      "endpoint": "mlx-proxy",
+      "model": "mlx-community/Llama-3.2-3B-Instruct-8bit",
+      "cold_ttft_s": 0.28,
+      "warm_ttft_avg_s": 0.175,
+      "ttft_speedup_x": 1.6,
+      "rounds": [
+        {
+          "round": 1,
+          "round_label": "cold",
+          "ttft_s": 0.28,
+          "tps": 35.0
+        },
+        {
+          "round": 2,
+          "round_label": "warm-1",
+          "ttft_s": 0.17,
+          "tps": 36.0
+        },
+        {
+          "round": 3,
+          "round_label": "warm-2",
+          "ttft_s": 0.18,
+          "tps": 35.7
+        }
+      ]
+    },
+    {
+      "test": "tps_large",
+      "endpoint": "mlx-proxy",
+      "model": "mlx-community/Llama-3.2-3B-Instruct-8bit",
+      "avg_tps": 32.4,
+      "avg_ttft_s": null,
+      "runs_success": 9,
+      "runs_total": 9
+    },
+    {
+      "test": "concurrent",
+      "endpoint": "mlx-proxy",
+      "model": "mlx-community/Llama-3.2-3B-Instruct-8bit",
+      "workers": 4,
+      "serial_avg_s": 3.66,
+      "serial_total_est_s": 14.64,
+      "concurrent_wall_s": 5.42,
+      "speedup_x": 2.7,
+      "requests_success": 4,
+      "requests_total": 4
+    },
+    {
+      "test": "kv_cache_ttft",
+      "endpoint": "mlx-proxy",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "cold_ttft_s": 0.74,
+      "warm_ttft_avg_s": 0.61,
+      "ttft_speedup_x": 1.2,
+      "rounds": [
+        {
+          "round": 1,
+          "round_label": "cold",
+          "ttft_s": 0.74,
+          "tps": 25.4
+        },
+        {
+          "round": 2,
+          "round_label": "warm-1",
+          "ttft_s": 0.62,
+          "tps": 26.0
+        },
+        {
+          "round": 3,
+          "round_label": "warm-2",
+          "ttft_s": 0.6,
+          "tps": 26.2
+        }
+      ]
+    },
+    {
+      "test": "tps_large",
+      "endpoint": "mlx-proxy",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "avg_tps": 25.0,
+      "avg_ttft_s": null,
+      "runs_success": 9,
+      "runs_total": 9
+    },
+    {
+      "test": "concurrent",
+      "endpoint": "mlx-proxy",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "workers": 4,
+      "serial_avg_s": 4.16,
+      "serial_total_est_s": 16.64,
+      "concurrent_wall_s": 8.19,
+      "speedup_x": 2.03,
+      "requests_success": 4,
+      "requests_total": 4
+    },
+    {
+      "test": "kv_cache_ttft",
+      "endpoint": "mlx-proxy",
+      "model": "mlx-community/Llama-3.3-70B-Instruct-4bit",
+      "cold_ttft_s": 4.4,
+      "warm_ttft_avg_s": 1.075,
+      "ttft_speedup_x": 4.1,
+      "rounds": [
+        {
+          "round": 1,
+          "round_label": "cold",
+          "ttft_s": 4.4,
+          "tps": 3.2
+        },
+        {
+          "round": 2,
+          "round_label": "warm-1",
+          "ttft_s": 1.02,
+          "tps": 3.3
+        },
+        {
+          "round": 3,
+          "round_label": "warm-2",
+          "ttft_s": 1.13,
+          "tps": 3.4
+        }
+      ]
+    },
+    {
+      "test": "tps_large",
+      "endpoint": "mlx-proxy",
+      "model": "mlx-community/Llama-3.3-70B-Instruct-4bit",
+      "avg_tps": 3.5,
+      "avg_ttft_s": null,
+      "runs_success": 9,
+      "runs_total": 9
+    },
+    {
+      "test": "concurrent",
+      "endpoint": "mlx-proxy",
+      "model": "mlx-community/Llama-3.3-70B-Instruct-4bit",
+      "workers": 4,
+      "serial_avg_s": 36.78,
+      "serial_total_est_s": 147.12,
+      "concurrent_wall_s": 71.97,
+      "speedup_x": 2.04,
+      "requests_success": 4,
+      "requests_total": 4
+    },
+    {
+      "test": "kv_cache_ttft",
+      "endpoint": "omlx",
+      "model": "mlx-community/Llama-3.2-3B-Instruct-8bit",
+      "cold_ttft_s": 0.29,
+      "warm_ttft_avg_s": 0.65,
+      "ttft_speedup_x": 0.45,
+      "rounds": [
+        {
+          "round": 1,
+          "round_label": "cold",
+          "ttft_s": 0.29,
+          "tps": 38.4
+        },
+        {
+          "round": 2,
+          "round_label": "warm-1",
+          "ttft_s": 0.66,
+          "tps": 32.6
+        },
+        {
+          "round": 3,
+          "round_label": "warm-2",
+          "ttft_s": 0.64,
+          "tps": 30.4
+        }
+      ]
+    },
+    {
+      "test": "tps_large",
+      "endpoint": "omlx",
+      "model": "mlx-community/Llama-3.2-3B-Instruct-8bit",
+      "avg_tps": 36.1,
+      "avg_ttft_s": null,
+      "runs_success": 9,
+      "runs_total": 9
+    },
+    {
+      "test": "concurrent",
+      "endpoint": "omlx",
+      "model": "mlx-community/Llama-3.2-3B-Instruct-8bit",
+      "workers": 4,
+      "serial_avg_s": 3.39,
+      "serial_total_est_s": 13.56,
+      "concurrent_wall_s": 5.55,
+      "speedup_x": 2.44,
+      "requests_success": 4,
+      "requests_total": 4
+    },
+    {
+      "test": "kv_cache_ttft",
+      "endpoint": "omlx",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "cold_ttft_s": 0.49,
+      "warm_ttft_avg_s": 0.945,
+      "ttft_speedup_x": 0.52,
+      "rounds": [
+        {
+          "round": 1,
+          "round_label": "cold",
+          "ttft_s": 0.49,
+          "tps": 25.5
+        },
+        {
+          "round": 2,
+          "round_label": "warm-1",
+          "ttft_s": 0.95,
+          "tps": 25.5
+        },
+        {
+          "round": 3,
+          "round_label": "warm-2",
+          "ttft_s": 0.94,
+          "tps": 20.4
+        }
+      ]
+    },
+    {
+      "test": "tps_large",
+      "endpoint": "omlx",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "avg_tps": 26.2,
+      "avg_ttft_s": null,
+      "runs_success": 9,
+      "runs_total": 9
+    },
+    {
+      "test": "concurrent",
+      "endpoint": "omlx",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "workers": 4,
+      "serial_avg_s": 4.17,
+      "serial_total_est_s": 16.68,
+      "concurrent_wall_s": 10.7,
+      "speedup_x": 1.56,
+      "requests_success": 4,
+      "requests_total": 4
+    },
+    {
+      "test": "kv_cache_ttft",
+      "endpoint": "omlx",
+      "model": "mlx-community/Llama-3.3-70B-Instruct-4bit",
+      "cold_ttft_s": null,
+      "warm_ttft_avg_s": 13.825,
+      "ttft_speedup_x": null,
+      "error_note": "Round 1 failed with HTTP 507 (memory). Rounds 2-3 succeeded with very high TTFT.",
+      "rounds": [
+        {
+          "round": 1,
+          "round_label": "cold",
+          "error": "HTTP 507"
+        },
+        {
+          "round": 2,
+          "round_label": "warm-1",
+          "ttft_s": 22.27,
+          "tps": 1.8
+        },
+        {
+          "round": 3,
+          "round_label": "warm-2",
+          "ttft_s": 5.38,
+          "tps": 3.1
+        }
+      ]
+    },
+    {
+      "test": "tps_large",
+      "endpoint": "omlx",
+      "model": "mlx-community/Llama-3.3-70B-Instruct-4bit",
+      "avg_tps": 3.5,
+      "avg_ttft_s": null,
+      "runs_success": 9,
+      "runs_total": 9
+    },
+    {
+      "test": "concurrent",
+      "endpoint": "omlx",
+      "model": "mlx-community/Llama-3.3-70B-Instruct-4bit",
+      "workers": 4,
+      "serial_avg_s": 36.19,
+      "serial_total_est_s": 144.76,
+      "concurrent_wall_s": 78.25,
+      "speedup_x": 1.85,
+      "requests_success": 4,
+      "requests_total": 4
+    },
+    {
+      "size": "short",
+      "condition": "omlx_control",
+      "model": "Qwen3.6-27B-oQ8-mtp",
+      "endpoint": "omlx",
+      "available": true,
+      "tps": 7.8,
+      "elapsed_s": 16.3,
+      "output_tokens": 128
+    },
+    {
+      "size": "short",
+      "condition": "omlx_mtp",
+      "model": "Qwen3.6-27B-oQ8-mtp",
+      "endpoint": "omlx",
+      "available": true,
+      "tps": 12.2,
+      "elapsed_s": 10.5,
+      "output_tokens": 128,
+      "mtp_engaged": true
+    },
+    {
+      "size": "short",
+      "condition": "mlx_proxy_4bit",
+      "model": "mlx-community/Qwen3.6-27B-4bit",
+      "endpoint": "mlx-proxy",
+      "available": true,
+      "tps": 11.8,
+      "elapsed_s": 10.9,
+      "output_tokens": 128
+    },
+    {
+      "size": "medium",
+      "condition": "omlx_control",
+      "model": "Qwen3.6-27B-oQ8-mtp",
+      "endpoint": "omlx",
+      "available": true,
+      "tps": 8.2,
+      "elapsed_s": 62.6,
+      "output_tokens": 512
+    },
+    {
+      "size": "medium",
+      "condition": "omlx_mtp",
+      "model": "Qwen3.6-27B-oQ8-mtp",
+      "endpoint": "omlx",
+      "available": true,
+      "tps": 12.9,
+      "elapsed_s": 39.8,
+      "output_tokens": 512,
+      "mtp_engaged": true
+    },
+    {
+      "size": "medium",
+      "condition": "mlx_proxy_4bit",
+      "model": "mlx-community/Qwen3.6-27B-4bit",
+      "endpoint": "mlx-proxy",
+      "available": true,
+      "tps": 13.6,
+      "elapsed_s": 37.8,
+      "output_tokens": 512
+    },
+    {
+      "size": "long",
+      "condition": "omlx_control",
+      "model": "Qwen3.6-27B-oQ8-mtp",
+      "endpoint": "omlx",
+      "available": true,
+      "tps": 8.2,
+      "elapsed_s": 249.3,
+      "output_tokens": 2048
+    },
+    {
+      "size": "long",
+      "condition": "omlx_mtp",
+      "model": "Qwen3.6-27B-oQ8-mtp",
+      "endpoint": "omlx",
+      "available": true,
+      "tps": 13.6,
+      "elapsed_s": 151.1,
+      "output_tokens": 2048,
+      "mtp_engaged": true
+    },
+    {
+      "size": "long",
+      "condition": "mlx_proxy_4bit",
+      "model": "mlx-community/Qwen3.6-27B-4bit",
+      "endpoint": "mlx-proxy",
+      "available": true,
+      "tps": 11.8,
+      "elapsed_s": 173.0,
+      "output_tokens": 2048
+    }
+  ]
+}

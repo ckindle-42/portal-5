@@ -5,14 +5,14 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 778def71961fd1bb2f1088be9754388706facf7a
+  commit: f88abc4e3ed5
 - type: code
   path: config/portal.yaml
-  commit: 778def71961fd1bb2f1088be9754388706facf7a
+  commit: f88abc4e3ed5
 - type: code
   path: config/personas/
-  commit: 778def71961fd1bb2f1088be9754388706facf7a
-last_generated_commit: f5987f1ea6b0cdb25b66e33a02b95183205d0605
+  commit: f88abc4e3ed5
+last_generated_commit: f88abc4e3ed5
 claims: []
 confidence: high
 tags:
@@ -20,7 +20,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1785829024.575975
+updated_at: 1786661091.6100218
 ---
 
 # Model bindings (reachability-resolved)
@@ -51,7 +51,7 @@ default.
 | `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
-| `auto-research` | `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` | yes |
+| `auto-research` | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` | yes |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-spl` | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` | yes |
 | `auto-video` | `granite4.1:8b-ctx16k` | yes |

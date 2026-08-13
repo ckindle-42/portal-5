@@ -35,16 +35,15 @@ List the current set with:
 python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"
 ```
 
-The live count is currently 93 workspaces. Verified examples from `config/portal.yaml`:
+The live count is currently 46 workspaces. Verified examples from `config/portal.yaml`:
 
 | Workspace | Pinned model (`model_hint`) |
 |---|---|
-| `bench-devstral` | `devstral:24b` |
-| `bench-fastcontext` | FastContext-1.0-4B-SFT (repository explorer subagent) |
+| `bench-glm` | `glm-4.7-flash:Q4_K_M` |
+| `bench-granite41-30b` | `granite4.1:30b-ctx16k` |
 | `bench-gemma4-26b-qat` | `gemma4:26b-a4b-it-qat` |
 | `bench-laguna` | `laguna-xs.2:Q4_K_M` |
 | `bench-qwen3-coder-30b` | `qwen3-coder:30b-a3b-q4_K_M` |
-| `bench-sylink` | `sylink/sylink:8b` |
 | `bench-vulnllm-r-7b` | VulnLLM-R-7B GGUF Q4_K_M |
 
 The remaining lanes cover security exec chains, LFM micro models, MTP draft pairs
