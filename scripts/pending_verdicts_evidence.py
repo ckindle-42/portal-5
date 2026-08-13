@@ -219,6 +219,24 @@ def mine_closeout_verdict(path: Path, tag: str) -> str | None:
         idx = tl.find(needle)
         if idx == -1:
             continue
+        # A "final verdict" marker anywhere near the tag supersedes any verdict
+        # token in the narrow window below — reports that walk through retracted
+        # intermediate verdicts (e.g. "declined ... **also wrong**") before
+        # landing on the real one would otherwise mine the retracted word, since
+        # VERDICT_TOKENS checks "decline" before "pass" regardless of which one
+        # the text actually settled on.
+        wide = tl[max(0, idx - 2000) : idx + 2000]
+        fv_idx = wide.find("final verdict")
+        if fv_idx != -1:
+            fv_window = wide[fv_idx : fv_idx + 200]
+            # Closest token to "final verdict:" wins, not VERDICT_TOKENS priority
+            # order — otherwise "pass" sitting right after the marker loses to a
+            # "decline" substring match inside an unrelated later word (e.g.
+            # "declines are retracted").
+            hits = [(fv_window.find(t), t) for t in VERDICT_TOKENS if t in fv_window]
+            if hits:
+                _, token = min(hits)
+                return token.replace(" ", "-")
         window = tl[max(0, idx - 400) : idx + 400]
         for token in VERDICT_TOKENS:
             if token in window:
