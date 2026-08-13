@@ -11,7 +11,7 @@ sources:
   path: portal/platform/inference/router/workspaces.py
 - type: code
   path: portal/platform/inference/config.py
-last_generated_commit: a23f47b3e687df1693600eeea5b4f3f381b9da20
+last_generated_commit: f5987f1ea6b0cdb25b66e33a02b95183205d0605
 claims:
 - probe: workspaces.bench
   pattern: currently {value} workspaces

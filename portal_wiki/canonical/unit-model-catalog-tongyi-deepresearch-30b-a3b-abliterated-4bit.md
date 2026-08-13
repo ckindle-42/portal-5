@@ -5,7 +5,7 @@ title: "MODEL_CATALOG \u2014 `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: 10c7734f3f87df5a9d525bb5c1f3970c96a73a91
+last_generated_commit: f5987f1ea6b0cdb25b66e33a02b95183205d0605
 claims: []
 confidence: high
 tags:
