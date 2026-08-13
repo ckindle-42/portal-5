@@ -152,9 +152,9 @@ and a `tools:` array (the tool grants), both defined in `config/portal.yaml` and
 loaded at import time into `WORKSPACES` by `portal/platform/inference/router/workspaces.py`
 via `get_workspace_dict()`.
 
-Portal 5 includes **23 functional workspaces** (plus 81 benchmark workspaces for
+Portal 5 includes **23 functional workspaces** (plus 93 benchmark workspaces for
 performance comparison, gated off by default behind the `eval` module, which is
-disabled unless `PORTAL_ENABLE_EVAL=1` is set; 104 total —
+disabled unless `PORTAL_ENABLE_EVAL=1` is set; 116 total —
 `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
 Benchmark workspaces are excluded from routing when the eval module is off, so the
 daily model dropdown stays limited to the functional set.
@@ -235,7 +235,7 @@ List the current set with:
 python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"
 ```
 
-The live count is currently 81 workspaces. Verified examples from `config/portal.yaml`:
+The live count is currently 93 workspaces. Verified examples from `config/portal.yaml`:
 
 | Workspace | Pinned model (`model_hint`) |
 |---|---|

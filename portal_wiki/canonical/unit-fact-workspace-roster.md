@@ -1,12 +1,12 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 23 production + 81 eval workspaces
+title: 23 production + 93 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: ac7b1a264277
-last_generated_commit: a23f47b3e687df1693600eeea5b4f3f381b9da20
+  commit: ee9272eee208
+last_generated_commit: ee9272eee208
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -15,10 +15,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1786543101.1292531
+updated_at: 1786638521.214427
 ---
 
-# Workspace roster (23 production, 81 eval, 104 total)
+# Workspace roster (23 production, 93 eval, 116 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -62,6 +62,7 @@ updated_at: 1786543101.1292531
 - `bench-deepwen-cad`
 - `bench-devstral`
 - `bench-devstral-small-2`
+- `bench-devstral-small-2-ctx8k`
 - `bench-dolphin-llama3`
 - `bench-e2b-pentest`
 - `bench-exec-exploit`
@@ -72,21 +73,27 @@ updated_at: 1786543101.1292531
 - `bench-gemma4-12b`
 - `bench-gemma4-12b-agentic`
 - `bench-gemma4-12b-general`
+- `bench-gemma4-26b-heretic`
 - `bench-gemma4-26b-optiq`
 - `bench-gemma4-26b-qat`
 - `bench-gemma4-31b-crack`
 - `bench-gemma4-31b-qat`
+- `bench-gemma4-31b-qat-ctx8k`
 - `bench-gemma4-e2b`
+- `bench-gemma4-e2b-qat-ctx8k`
 - `bench-gemma4-e4b`
 - `bench-gemma4-e4b-qat`
+- `bench-gemma4-e4b-qat-ctx8k`
 - `bench-glm`
 - `bench-glm-reap`
 - `bench-glm-z1-rumination`
+- `bench-glm-z1-rumination-ctx64k`
 - `bench-glm47-flash-reap`
 - `bench-gptoss`
 - `bench-granite41-30b`
 - `bench-granite41-8b`
 - `bench-hermes3`
+- `bench-huihui-gemma4-e2b-abliterated-ctx8k`
 - `bench-huihui-qwen36-27b`
 - `bench-huihui-qwen36-35b-a3b`
 - `bench-jackrong-dsv4-4b`
@@ -98,7 +105,9 @@ updated_at: 1786543101.1292531
 - `bench-lfm25-8b`
 - `bench-lfm25-8b-uncensored`
 - `bench-llama32-3b`
+- `bench-llama32-3b-abliterated`
 - `bench-llama32-3b-q8`
+- `bench-magistral-small`
 - `bench-meta-secalign-8b`
 - `bench-mistral-small-3-2`
 - `bench-mistral7b-uncensored`
@@ -107,6 +116,7 @@ updated_at: 1786543101.1292531
 - `bench-north-mini-code`
 - `bench-omnicoder2`
 - `bench-ornith-35b`
+- `bench-phi4`
 - `bench-qwable-3.6-35b`
 - `bench-qwable-35b`
 - `bench-qwen3-14b-abliterated`
@@ -118,6 +128,7 @@ updated_at: 1786543101.1292531
 - `bench-qwen35-abliterated`
 - `bench-qwen36-27b`
 - `bench-qwen36-27b-mtp`
+- `bench-qwen36-27b-mtp-undrafted`
 - `bench-qwen36-27b-optiq`
 - `bench-qwen36-27b-ud`
 - `bench-qwen36-35b-a3b`
@@ -129,6 +140,7 @@ updated_at: 1786543101.1292531
 - `bench-superqwen-agentworld-ablit`
 - `bench-sylink`
 - `bench-sylink-8b`
+- `bench-sylink-ctx8k`
 - `bench-vulnllm-r-7b`
 - `bench-vulnllm-r7b`
 

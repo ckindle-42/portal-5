@@ -1531,6 +1531,7 @@ workspaces:
     top_k: 64
     repeat_penalty: 1.0
     max_concurrent: 1
+    emits_reasoning: true
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1546,6 +1547,7 @@ workspaces:
     top_k: 64
     repeat_penalty: 1.0
     max_concurrent: 1
+    emits_reasoning: true
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1576,6 +1578,7 @@ workspaces:
     top_k: 64
     repeat_penalty: 1.0
     max_concurrent: 1
+    emits_reasoning: true
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1782,6 +1785,7 @@ workspaces:
     temperature: 0.2
     top_p: 0.9
     repeat_penalty: 1.1
+    emits_reasoning: true
     tools: []
     expose_to_owui: false
     enable_web_search: false
@@ -1889,6 +1893,7 @@ workspaces:
     description: |-
       BENCH RESULT 2026-06-16: avg=0.311 on red-team structured output — correctly RETIRED from offensive workspaces. Training purpose is SOC/DFIR/ATT&CK (blue team), not red team prose. PROMOTED to auto-blueteam primary 2026-06-21 (SECURITY_FLEET_REVIEW_2026-06): fleet bench chain 1.00/1.00, depth 12 (deepest 8B), purpose-aligned with its training. Model: sylink/sylink:8b
     model_hint: sylink/sylink:8b
+    predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
     temperature: 0.6
@@ -2641,6 +2646,189 @@ workspaces:
     name: "🔬 Bench · Llama-3.2 3B · general re-bench"
     description: "Benchmark workspace for llama3.2:3b. Added by TASK_MODEL_INTENT_EVAL_FINISH_V1 so bench_capability (workspace-only) can re-probe this general-lane candidate with the fixed agentic harness. PROMOTE_POLICY=confirm - eval only, no production routing."
     model_hint: "llama3.2:3b"
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: "5m"
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-magistral-small:
+    module: eval
+    name: "🔬 Bench · Magistral-Small-2509 Q8_0 ctx64k (Mistral)"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k. Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'tools']. PROMOTE_POLICY=confirm."
+    model_hint: "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k"
+    ctx_validated: true
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: "5m"
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-glm-z1-rumination-ctx64k:
+    module: eval
+    name: "🔬 Bench · GLM-Z1-Rumination 32B ctx64k (THUDM)"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Distinct from bench-glm-z1-rumination (base tag, no ctx suffix) — this is the -ctx64k variant, baked separately per P5-OLLAMA-OPTIONS-001. Model: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k. Runtime capabilities verified via `ollama show`: ['thinking', 'completion'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
+    model_hint: "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k"
+    ctx_validated: true
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: "5m"
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-gemma4-31b-qat-ctx8k:
+    module: eval
+    name: "🔬 Bench · Gemma 4 31B Dense QAT ctx8k (Google)"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: gemma4:31b-it-qat-ctx8k — same weights as bench-gemma4-31b-qat, baked to a shorter 8k context for a distinct evidence point per P5-OLLAMA-OPTIONS-001 (never inherit a cloned workspace's ctx). Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'tools', 'thinking'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
+    model_hint: "gemma4:31b-it-qat-ctx8k"
+    ctx_validated: true
+    predict_limit: 8192
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
+    max_concurrent: 1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-qwen36-27b-mtp-undrafted:
+    module: eval
+    name: "🔬 Bench · Qwen3.6-27B MTP Q4_K_M (undrafted pull)"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Distinct from bench-qwen36-27b-mtp (portal5/qwen3.6-27b-mtp:q8_0-drafted, the paired-draft build) — this is the plain undrafted qwen3.6:27b-mtp-q4_K_M pull. No paired-draft binding configured here — this workspace only clears the bench-orphaned block, it does not exercise the MTP speculative-decoding capability (that needs a separate draft-model wiring task, out of scope here). Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'tools', 'thinking'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
+    model_hint: "qwen3.6:27b-mtp-q4_K_M"
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: "5m"
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-gemma4-26b-heretic:
+    module: eval
+    name: "🔬 Bench · Gemma 4 26B-A4B Uncensored Heretic (mradermacher)"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf. Runtime capabilities verified via `ollama show`: ['tools', 'completion', 'vision'] — no `thinking` capability, so emits_reasoning left false. PROMOTE_POLICY=confirm."
+    model_hint: "hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf"
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: "5m"
+    temperature: 0.7
+    top_p: 0.9
+    repeat_penalty: 1.1
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-sylink-ctx8k:
+    module: eval
+    name: "🔬 Bench · SYLink 8B ctx8k"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: sylink/sylink:8b-ctx8k — same weights as bench-sylink, baked to an 8k context for a distinct evidence point per P5-OLLAMA-OPTIONS-001. Runtime capabilities verified via `ollama show`: ['tools', 'thinking', 'completion'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
+    model_hint: "sylink/sylink:8b-ctx8k"
+    ctx_validated: true
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: "5m"
+    temperature: 0.6
+    top_p: 0.95
+    top_k: 20
+    repeat_penalty: 1.1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-phi4:
+    module: eval
+    name: "🔬 Bench · Phi-4 14B Q8_0 (Microsoft)"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: phi4:14b-q8_0. Runtime capabilities verified via `ollama show`: ['completion'] — no tools, vision, or thinking at runtime. PROMOTE_POLICY=confirm."
+    model_hint: "phi4:14b-q8_0"
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: "5m"
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-devstral-small-2-ctx8k:
+    module: eval
+    name: "🔬 Bench · Devstral Small 2 ctx8k (Mistral)"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: devstral-small-2:latest-ctx8k — same weights as bench-devstral-small-2, baked to an 8k context for a distinct evidence point per P5-OLLAMA-OPTIONS-001. Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'tools'] — no `thinking` at runtime. PROMOTE_POLICY=confirm."
+    model_hint: "devstral-small-2:latest-ctx8k"
+    ctx_validated: true
+    predict_limit: 8192
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    max_concurrent: 1
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-gemma4-e4b-qat-ctx8k:
+    module: eval
+    name: "🔬 Bench · Gemma 4 E4B QAT ctx8k (Google)"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: gemma4:e4b-it-qat-ctx8k — same weights as bench-gemma4-e4b-qat, baked to an 8k context for a distinct evidence point per P5-OLLAMA-OPTIONS-001. Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'audio', 'tools', 'thinking'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
+    model_hint: "gemma4:e4b-it-qat-ctx8k"
+    ctx_validated: true
+    predict_limit: 8192
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
+    max_concurrent: 1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-huihui-gemma4-e2b-abliterated-ctx8k:
+    module: eval
+    name: "🔬 Bench · Huihui Gemma 4 E2B Abliterated QAT ctx8k"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k. Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'audio', 'tools', 'thinking'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
+    model_hint: "huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k"
+    ctx_validated: true
+    predict_limit: 8192
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
+    max_concurrent: 1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-gemma4-e2b-qat-ctx8k:
+    module: eval
+    name: "🔬 Bench · Gemma 4 E2B QAT ctx8k (Google)"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: gemma4:e2b-it-qat-ctx8k — same weights as bench-gemma4-e2b, baked to an 8k context for a distinct evidence point per P5-OLLAMA-OPTIONS-001. Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'audio', 'tools', 'thinking'] — emits_reasoning enabled to match. PROMOTE_POLICY=confirm."
+    model_hint: "gemma4:e2b-it-qat-ctx8k"
+    ctx_validated: true
+    predict_limit: 8192
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
+    max_concurrent: 1
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-llama32-3b-abliterated:
+    module: eval
+    name: "🔬 Bench · Llama-3.2 3B Instruct Abliterated (QuantFactory)"
+    description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest. Runtime capabilities verified via `ollama show`: ['completion', 'tools'] — no `thinking` at runtime. PROMOTE_POLICY=confirm."
+    model_hint: "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest"
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: "5m"

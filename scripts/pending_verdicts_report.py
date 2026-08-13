@@ -9,7 +9,7 @@ backlog was pulled with intent — the informed decision needs to surface
 that intent alongside the numbers.
 
 Emits reports/PENDING_VERDICTS_ANALYSIS_<UTC>.md. Report-only; never writes
-the ledger, never calls ollama, no network calls.
+the ledger. Best-effort local `ollama show` calls gate capability claims.
 """
 
 from __future__ import annotations
@@ -850,6 +850,7 @@ OLLAMA_SHOW_URL = "http://localhost:11434/api/show"
 _CATEGORY_REQUIRES_CAPABILITY = {
     "vision": "vision",
     "agent-toolcall": "tools",
+    "reasoning-explicit": "thinking",
 }
 
 
@@ -1244,7 +1245,16 @@ def workspace_slotting_for_tag(tag: str, portal: dict) -> list[dict]:
     return slots
 
 
-def alignment_analysis(claims: dict, slots: list[dict]) -> dict:
+def _runtime_gated(
+    runtime_caps, cap: str, mismatch_msg: str, resolved_msg: str
+) -> tuple[str | None, str | None]:
+    """(mismatch_or_None, match_or_None); abstains to mismatch_msg if runtime_caps is None."""
+    if runtime_caps is not None and cap not in runtime_caps:
+        return None, resolved_msg
+    return mismatch_msg, None
+
+
+def alignment_analysis(claims: dict, slots: list[dict], tag: str = "") -> dict:
     """Compare card claims against workspace slotting. Surface mismatches
     the operator should probe before deciding. Never authoritative — the
     operator eyeballs both sides."""
@@ -1254,8 +1264,9 @@ def alignment_analysis(claims: dict, slots: list[dict]) -> dict:
     mismatches = []
     matches = []
 
+    runtime_caps = _ollama_capabilities(tag) if tag else None
+
     if not slots:
-        # Bench-orphaned: card exists but nothing routes to it
         return {
             "available": True,
             "mismatches": [
@@ -1270,7 +1281,6 @@ def alignment_analysis(claims: dict, slots: list[dict]) -> dict:
         for s in slots
     ).lower()
 
-    # Tool-use disagreement: card says no tools, slot exposes tools (or vice versa)
     card_says_no_tools = "advises against tool exposure" in claims.get(
         "deployment_notes", []
     ) or "tool-use not supported" in claims.get("deployment_notes", [])
@@ -1288,11 +1298,14 @@ def alignment_analysis(claims: dict, slots: list[dict]) -> dict:
                 f"card advises against tools; `{s['workspace']}` correctly has `tools: []`"
             )
         if card_says_yes_tools and not slot_has_tools:
-            mismatches.append(
-                f"card advertises tool-use / function-calling but `{s['workspace']}` has no tools — advertised capability untested"
+            mm, mt = _runtime_gated(
+                runtime_caps,
+                "tools",
+                f"card advertises tool-use / function-calling but `{s['workspace']}` has no tools — advertised capability untested",
+                f"card advertises tool-use but caps={runtime_caps or '[]'} has no `tools` — `{s['workspace']}`'s `tools: []` is correct (false-flag resolved by runtime check)",
             )
+            (mismatches if mm else matches).append(mm or mt)
 
-    # Vision / CUA claims: does any slot indicate vision/CUA testing?
     if "vision / multimodal capability advertised" in claims.get("deployment_notes", []):
         if not any(
             k in all_slot_text
@@ -1309,12 +1322,15 @@ def alignment_analysis(claims: dict, slots: list[dict]) -> dict:
                 "card advertises CUA (computer-use agent) but no slot text mentions CUA, browser, or UI tasks — advertised capability untested"
             )
 
-    # Reasoning claim: does slot enable reasoning capture?
     if "reasoning-trace capability" in claims.get("deployment_notes", []):
         if not any(s.get("emits_reasoning") for s in slots):
-            mismatches.append(
-                "card advertises reasoning traces but no slot has `emits_reasoning: true` — advertised capability untested"
+            mm, mt = _runtime_gated(
+                runtime_caps,
+                "thinking",
+                "card advertises reasoning traces but no slot has `emits_reasoning: true` — advertised capability untested",
+                f"card mentions reasoning but caps={runtime_caps or '[]'} has no `thinking` — `emits_reasoning: false` is correct (false-flag resolved by runtime check)",
             )
+            (mismatches if mm else matches).append(mm or mt)
         else:
             matches.append("card advertises reasoning; slot has `emits_reasoning: true`")
 
@@ -2015,7 +2031,7 @@ def main(argv: list[str] | None = None) -> int:
             }
         )
         slots = workspace_slotting_for_tag(tag, portal)
-        alignment = alignment_analysis(card_claims, slots)
+        alignment = alignment_analysis(card_claims, slots, tag=tag)
         losses = what_wed_lose(features, position, diversity)
         prescription = bench_prescription(features, card_claims, alignment, slots, numeric)
         # TASK_BENCH_VALIDITY_V1: now that the capability category is known,
