@@ -5,7 +5,7 @@ title: "COMFYUI_SETUP \u2014 View logs"
 sources:
 - type: code
   path: scripts/lib/services.sh
-last_generated_commit: a81c5e73569f981ecedb0d95b088563fcce651ed
+last_generated_commit: 75c5054f791636f367b62a1776bcc9f631794766
 claims: []
 confidence: high
 tags:

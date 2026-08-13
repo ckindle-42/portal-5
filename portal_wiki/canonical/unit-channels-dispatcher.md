@@ -6,7 +6,7 @@ sources:
 - type: code
   path: portal_channels/dispatcher.py
   commit: 5b73259d
-last_generated_commit: 5b73259d
+last_generated_commit: 75c5054f791636f367b62a1776bcc9f631794766
 claims: []
 confidence: high
 tags:
