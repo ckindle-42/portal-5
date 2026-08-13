@@ -105,8 +105,13 @@ def _extract_scad(text: str) -> str:
 
 
 def _score_scad(code: str, expect_dims) -> dict:
-    result = {"compiles": False, "watertight": False, "positive_volume": False,
-              "dims_sane": None, "error": None}
+    result = {
+        "compiles": False,
+        "watertight": False,
+        "positive_volume": False,
+        "dims_sane": None,
+        "error": None,
+    }
     if not code.strip():
         result["error"] = "no OpenSCAD code extracted"
         return result
@@ -122,7 +127,10 @@ def _score_scad(code: str, expect_dims) -> dict:
         try:
             proc = subprocess.run(
                 [OPENSCAD_BIN, "--render", "-o", str(stl), str(scad)],
-                capture_output=True, text=True, timeout=120, check=False,
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
             )
         except FileNotFoundError:
             result["error"] = f"openscad binary not found (set OPENSCAD_BIN); tried {OPENSCAD_BIN}"
@@ -166,6 +174,7 @@ def run_case(model: str, case: dict) -> dict:
         "model": model,
         "messages": [{"role": "user", "content": case["prompt"]}],
         "stream": False,
+        "think": False,
         "options": {"num_predict": 1024},
     }
     req = urllib.request.Request(
@@ -188,9 +197,13 @@ def run_case(model: str, case: dict) -> dict:
     eval_duration_ns = data.get("eval_duration") or 0
     tps = (eval_count / (eval_duration_ns / 1e9)) if eval_duration_ns else None
     return {
-        "id": case["id"], "ok": True, "matched": matched,
-        "scad_score": score, "response_preview": content[:160],
-        "tps": tps, "wall_s": time.monotonic() - t0,
+        "id": case["id"],
+        "ok": True,
+        "matched": matched,
+        "scad_score": score,
+        "response_preview": content[:160],
+        "tps": tps,
+        "wall_s": time.monotonic() - t0,
     }
 
 
@@ -204,9 +217,11 @@ def probe_model(model: str, cases: list[dict]) -> dict:
     tps_vals = [c["tps"] for c in ok if c.get("tps")]
     avg_tps = round(sum(tps_vals) / len(tps_vals), 2) if tps_vals else None
     return {
-        "model": model, "avg_tps": avg_tps,
+        "model": model,
+        "avg_tps": avg_tps,
         "quality_score": round(matched / total, 2) if total else None,
-        "runs_success": matched, "runs_total": total,
+        "runs_success": matched,
+        "runs_total": total,
         "prompt_category": "cad",
         "compile_rate": round(compiles / total, 2) if total else None,
         "cases": case_results,
@@ -224,7 +239,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  [{i}/{len(args.model)}] {model[:70]} ...", flush=True)
         r = probe_model(model, cases)
         results.append(r)
-        print(f"    quality={r['quality_score']} compile_rate={r['compile_rate']} avg_tps={r['avg_tps']}")
+        print(
+            f"    quality={r['quality_score']} compile_rate={r['compile_rate']} avg_tps={r['avg_tps']}"
+        )
     stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
     out_path = RESULTS_DIR / f"cad_probe_{stamp}.json"
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)

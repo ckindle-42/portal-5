@@ -7,3 +7,12 @@ Probing 3 model(s) with 4 CAD cases each
     quality=1.0 compile_rate=1.0 avg_tps=68.22
 
 Wrote tests/benchmarks/results/cad_probe_20260813T061348Z.json
+Probing 3 model(s) with 4 CAD cases each
+  [1/3] portal5/deepwen-3.6:q4.5-moq ...
+    quality=0.75 compile_rate=0.75 avg_tps=54.62
+  [2/3] portal5/deepwen-3.6:q4.5-moq-ctx32k ...
+    quality=0.5 compile_rate=0.5 avg_tps=54.04
+  [3/3] qwen3-coder:30b-a3b-q4_K_M-ctx8k ...
+    quality=1.0 compile_rate=1.0 avg_tps=67.66
+
+Wrote tests/benchmarks/results/cad_probe_20260813T140900Z.json
