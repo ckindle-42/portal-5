@@ -1,0 +1,16 @@
+
+============================================================
+  CANDIDATE EVAL: hf.co/Nguuma/security-slm-unsloth-1.5b:latest
+  Slot: solo | Incumbent: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
+  Scenarios: 6 fixed
+============================================================
+
+  [1/4] Intake gate (pull → tool-call (TPS floor forced off)) ...
+
+── Candidate Intake Pipeline ──
+
+  pulling  hf.co/Nguuma/security-slm-unsloth-1.5b:latest ... done (success)
+  tps-probe hf.co/Nguuma/security-slm-unsloth-1.5b:latest ... 38.0 t/s
+  audit-tools  hf.co/Nguuma/security-slm-unsloth-1.5b:latest ... text_only  no tool_calls; text=301chars
+  INTAKE FAILED: tool probe returned 'text_only' — needs chat-template fix before chain bench
+  Candidate does not meet intake gates — not scoring.

@@ -1,0 +1,184 @@
+bench_repair — gsha=c6db519927bd
+  workspaces (10):
+    bench-qwen36-35b-a3b              qwen3.6:35b-a3b-q4_K_M
+    bench-qwen36-35b-a3b-ud           hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
+    bench-muse-glimmer-30b            muse-glimmer:30b-mlx
+    bench-qwable-3.6-35b              hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
+    bench-gemma4-12b-agentic          hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M
+    bench-gptoss                      gpt-oss:20b
+    bench-gemma4-26b-optiq            gemma4:26b-a4b-it-q4_K_M
+    bench-gemma4-e2b                  gemma4:e2b-it-qat
+    bench-jackrong-dsv4-9b            hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M
+    bench-qwen3-coder-30b             qwen3-coder:30b-a3b-q4_K_M
+  problems: 4  arms: one-shot(n=5) + repair(n=2)
+  total samples: 280
+  ollama_version: 0.32.7
+
+[1/10] bench-qwen36-35b-a3b  (qwen3.6:35b-a3b-q4_K_M)
+  [1/4] c2_1
+  one-shot... 1/5  repair... 2/2
+  [2/4] c2_2
+  one-shot... 2/5  repair... 0/2
+  [3/4] c2_3
+  one-shot... 4/5  repair... 2/2
+  [4/4] c2_4
+  one-shot...bench_repair — gsha=c6db519927bd
+  workspaces (10):
+    bench-qwen36-35b-a3b              qwen3.6:35b-a3b-q4_K_M
+    bench-qwen36-35b-a3b-ud           hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
+    bench-muse-glimmer-30b            muse-glimmer:30b-mlx
+    bench-qwable-3.6-35b              hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
+    bench-gemma4-12b-agentic          hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M
+    bench-gptoss                      gpt-oss:20b
+    bench-gemma4-26b-optiq            gemma4:26b-a4b-it-q4_K_M
+    bench-gemma4-e2b                  gemma4:e2b-it-qat
+    bench-jackrong-dsv4-9b            hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M
+    bench-qwen3-coder-30b             qwen3-coder:30b-a3b-q4_K_M
+  problems: 4  arms: one-shot(n=5) + repair(n=2)
+  total samples: 280
+  ollama_version: 0.32.7
+Resuming: 21 sample(s) already checkpointed at /Users/chris/projects/portal-5/tests/benchmarks/results/BENCH_REPAIR_CHECKPOINT_c6db519927bd.json
+
+[1/10] bench-qwen36-35b-a3b  (qwen3.6:35b-a3b-q4_K_M)
+  [1/4] c2_1
+  one-shot: skip (checkpointed) 1/5  repair: skip (checkpointed) 2/2
+  [2/4] c2_2
+  one-shot: skip (checkpointed) 2/5  repair: skip (checkpointed) 0/2
+  [3/4] c2_3
+  one-shot: skip (checkpointed) 4/5  repair: skip (checkpointed) 2/2
+  [4/4] c2_4
+  one-shot... 5/5  repair... 0/2
+  ── bench-qwen36-35b-a3b elapsed 16.4m
+
+[2/10] bench-qwen36-35b-a3b-ud  (hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL)
+  [1/4] c2_1
+  one-shot...bench_repair — gsha=c6db519927bd
+  workspaces (10):
+    bench-qwen36-35b-a3b              qwen3.6:35b-a3b-q4_K_M
+    bench-qwen36-35b-a3b-ud           hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
+    bench-muse-glimmer-30b            muse-glimmer:30b-mlx
+    bench-qwable-3.6-35b              hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
+    bench-gemma4-12b-agentic          hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M
+    bench-gptoss                      gpt-oss:20b
+    bench-gemma4-26b-optiq            gemma4:26b-a4b-it-q4_K_M
+    bench-gemma4-e2b                  gemma4:e2b-it-qat
+    bench-jackrong-dsv4-9b            hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M
+    bench-qwen3-coder-30b             qwen3-coder:30b-a3b-q4_K_M
+  problems: 4  arms: one-shot(n=5) + repair(n=2)
+  total samples: 280
+  ollama_version: 0.32.7
+Resuming: 28 sample(s) already checkpointed at /Users/chris/projects/portal-5/tests/benchmarks/results/BENCH_REPAIR_CHECKPOINT_c6db519927bd.json
+
+[1/10] bench-qwen36-35b-a3b  (qwen3.6:35b-a3b-q4_K_M)
+  [1/4] c2_1
+  one-shot: skip (checkpointed) 1/5  repair: skip (checkpointed) 2/2
+  [2/4] c2_2
+  one-shot: skip (checkpointed) 2/5  repair: skip (checkpointed) 0/2
+  [3/4] c2_3
+  one-shot: skip (checkpointed) 4/5  repair: skip (checkpointed) 2/2
+  [4/4] c2_4
+  one-shot: skip (checkpointed) 5/5  repair: skip (checkpointed) 0/2
+  ── bench-qwen36-35b-a3b elapsed 0.0m
+
+[2/10] bench-qwen36-35b-a3b-ud  (hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL)
+  [1/4] c2_1
+  one-shot... 1/5  repair... 2/2
+  [2/4] c2_2
+  one-shot... 3/5  repair... 2/2
+  [3/4] c2_3
+  one-shot... 3/5  repair... 2/2
+  [4/4] c2_4
+  one-shot... 4/5  repair... 2/2
+  ── bench-qwen36-35b-a3b-ud elapsed 76.6m
+
+[3/10] bench-muse-glimmer-30b  (muse-glimmer:30b-mlx)
+  [1/4] c2_1
+  one-shot... 5/5  repair... 2/2
+  [2/4] c2_2
+  one-shot... 5/5  repair... 2/2
+  [3/4] c2_3
+  one-shot... 5/5  repair... 2/2
+  [4/4] c2_4
+  one-shot... 5/5  repair... 2/2
+  ── bench-muse-glimmer-30b elapsed 16.5m
+
+[4/10] bench-qwable-3.6-35b  (hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf)
+  [1/4] c2_1
+  one-shot... 3/5  repair... 0/2
+  [2/4] c2_2
+  one-shot... 3/5  repair... 1/2
+  [3/4] c2_3
+  one-shot... 4/5  repair... 1/2
+  [4/4] c2_4
+  one-shot... 4/5  repair... 2/2
+  ── bench-qwable-3.6-35b elapsed 35.0m
+
+[5/10] bench-gemma4-12b-agentic  (hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M)
+  [1/4] c2_1
+  one-shot... 2/5  repair... 2/2
+  [2/4] c2_2
+  one-shot... 4/5  repair... 2/2
+  [3/4] c2_3
+  one-shot... 3/5  repair... 2/2
+  [4/4] c2_4
+  one-shot... 4/5  repair... 2/2
+  ── bench-gemma4-12b-agentic elapsed 9.2m
+
+[6/10] bench-gptoss  (gpt-oss:20b)
+  [1/4] c2_1
+  one-shot... 5/5  repair... 2/2
+  [2/4] c2_2
+  one-shot... 5/5  repair... 2/2
+  [3/4] c2_3
+  one-shot... 5/5  repair... 2/2
+  [4/4] c2_4
+  one-shot... 5/5  repair... 2/2
+  ── bench-gptoss elapsed 5.1m
+
+[7/10] bench-gemma4-26b-optiq  (gemma4:26b-a4b-it-q4_K_M)
+  [1/4] c2_1
+  one-shot... 5/5  repair... 2/2
+  [2/4] c2_2
+  one-shot... 5/5  repair... 2/2
+  [3/4] c2_3
+  one-shot... 5/5  repair... 2/2
+  [4/4] c2_4
+  one-shot... 5/5  repair... 2/2
+  ── bench-gemma4-26b-optiq elapsed 11.2m
+
+[8/10] bench-gemma4-e2b  (gemma4:e2b-it-qat)
+  [1/4] c2_1
+  one-shot... 5/5  repair... 2/2
+  [2/4] c2_2
+  one-shot... 5/5  repair... 2/2
+  [3/4] c2_3
+  one-shot... 5/5  repair... 2/2
+  [4/4] c2_4
+  one-shot... 5/5  repair... 2/2
+  ── bench-gemma4-e2b elapsed 10.4m
+
+[9/10] bench-jackrong-dsv4-9b  (hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M)
+  [1/4] c2_1
+  one-shot... 0/5  repair... 0/2
+  [2/4] c2_2
+  one-shot... 0/5  repair... 0/2
+  [3/4] c2_3
+  one-shot... 0/5  repair... 0/2
+  [4/4] c2_4
+  one-shot... 0/5  repair... 0/2
+  ── bench-jackrong-dsv4-9b elapsed 20.3m
+
+[10/10] bench-qwen3-coder-30b  (qwen3-coder:30b-a3b-q4_K_M)
+  [1/4] c2_1
+  one-shot... 5/5  repair... 2/2
+  [2/4] c2_2
+  one-shot... 5/5  repair... 2/2
+  [3/4] c2_3
+  one-shot... 5/5  repair... 2/2
+  [4/4] c2_4
+  one-shot... 5/5  repair... 2/2
+  ── bench-qwen3-coder-30b elapsed 2.4m
+
+Total elapsed: 186.7m over 280 samples
+Wrote /Users/chris/projects/portal-5/tests/benchmarks/results/BENCH_REPAIR_20260813T055934Z.md
+Appended provenance ledger entry

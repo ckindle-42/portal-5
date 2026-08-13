@@ -1,0 +1,217 @@
+{
+  "results": [
+    {
+      "model": "portal5/deepwen-3.6:q4.5-moq",
+      "avg_tps": 53.53,
+      "quality_score": 0.0,
+      "runs_success": 0,
+      "runs_total": 4,
+      "prompt_category": "cad",
+      "compile_rate": 0.0,
+      "cases": [
+        {
+          "id": "param_box",
+          "ok": true,
+          "matched": false,
+          "scad_score": {
+            "compiles": false,
+            "watertight": false,
+            "positive_volume": false,
+            "dims_sane": null,
+            "error": "no OpenSCAD code extracted"
+          },
+          "response_preview": "",
+          "tps": 51.049063234733865,
+          "wall_s": 37.55848862498533
+        },
+        {
+          "id": "cylinder_hole",
+          "ok": true,
+          "matched": false,
+          "scad_score": {
+            "compiles": false,
+            "watertight": false,
+            "positive_volume": false,
+            "dims_sane": null,
+            "error": "openscad failed rc=1: ERROR: Parser error: syntax error in file ../../../../private/var/folders/1r/140k52_x789f31ybwq9bt2300000gn/T/tmpi6yxl_zs/m.scad, line 3\nCan't parse file '/var/folders/1r/140k52_x789f31ybwq9bt2300000g"
+          },
+          "response_preview": "```openscad\ndifference() {\n    // Outer",
+          "tps": 54.532398528732934,
+          "wall_s": 20.947074750001775
+        },
+        {
+          "id": "bracket",
+          "ok": true,
+          "matched": false,
+          "scad_score": {
+            "compiles": false,
+            "watertight": false,
+            "positive_volume": false,
+            "dims_sane": null,
+            "error": "no OpenSCAD code extracted"
+          },
+          "response_preview": "",
+          "tps": 53.64802650966934,
+          "wall_s": 19.53845820800052
+        },
+        {
+          "id": "param_gear_blank",
+          "ok": true,
+          "matched": false,
+          "scad_score": {
+            "compiles": false,
+            "watertight": false,
+            "positive_volume": false,
+            "dims_sane": null,
+            "error": "no OpenSCAD code extracted"
+          },
+          "response_preview": "",
+          "tps": 54.89226508482597,
+          "wall_s": 19.074307666014647
+        }
+      ]
+    },
+    {
+      "model": "portal5/deepwen-3.6:q4.5-moq-ctx32k",
+      "avg_tps": 53.47,
+      "quality_score": 0.0,
+      "runs_success": 0,
+      "runs_total": 4,
+      "prompt_category": "cad",
+      "compile_rate": 0.0,
+      "cases": [
+        {
+          "id": "param_box",
+          "ok": true,
+          "matched": false,
+          "scad_score": {
+            "compiles": false,
+            "watertight": false,
+            "positive_volume": false,
+            "dims_sane": null,
+            "error": "no OpenSCAD code extracted"
+          },
+          "response_preview": "",
+          "tps": 55.04097677093402,
+          "wall_s": 27.368796000024304
+        },
+        {
+          "id": "cylinder_hole",
+          "ok": true,
+          "matched": false,
+          "scad_score": {
+            "compiles": false,
+            "watertight": false,
+            "positive_volume": false,
+            "dims_sane": null,
+            "error": "no OpenSCAD code extracted"
+          },
+          "response_preview": "",
+          "tps": 54.53394064119026,
+          "wall_s": 19.185058916016715
+        },
+        {
+          "id": "bracket",
+          "ok": true,
+          "matched": false,
+          "scad_score": {
+            "compiles": false,
+            "watertight": false,
+            "positive_volume": false,
+            "dims_sane": null,
+            "error": "no OpenSCAD code extracted"
+          },
+          "response_preview": "",
+          "tps": 50.67663201519983,
+          "wall_s": 20.608369166002376
+        },
+        {
+          "id": "param_gear_blank",
+          "ok": true,
+          "matched": false,
+          "scad_score": {
+            "compiles": false,
+            "watertight": false,
+            "positive_volume": false,
+            "dims_sane": null,
+            "error": "no OpenSCAD code extracted"
+          },
+          "response_preview": "",
+          "tps": 53.64702312459123,
+          "wall_s": 19.531459249992622
+        }
+      ]
+    },
+    {
+      "model": "qwen3-coder:30b-a3b-q4_K_M-ctx8k",
+      "avg_tps": 68.22,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "cad",
+      "compile_rate": 1.0,
+      "cases": [
+        {
+          "id": "param_box",
+          "ok": true,
+          "matched": true,
+          "scad_score": {
+            "compiles": true,
+            "watertight": true,
+            "positive_volume": true,
+            "dims_sane": true,
+            "error": null
+          },
+          "response_preview": "```openscad\nwidth = 40;\ndepth = 20;\nheight = 10;\nwall_thickness = 2;\n\ndifference() {\n    cube([width, depth, height]);\n    cube([width - wall_thickness*2, depth",
+          "tps": 68.58015859952985,
+          "wall_s": 10.299784458999056
+        },
+        {
+          "id": "cylinder_hole",
+          "ok": true,
+          "matched": true,
+          "scad_score": {
+            "compiles": true,
+            "watertight": true,
+            "positive_volume": true,
+            "dims_sane": true,
+            "error": null
+          },
+          "response_preview": "```openscad\ncylinder(h = 15, r = 15, center = true);\nrotate([0, 0, 90])\ncylinder(h = 16, r = 5, center = true);\n```",
+          "tps": 69.21483753147945,
+          "wall_s": 1.249325292010326
+        },
+        {
+          "id": "bracket",
+          "ok": true,
+          "matched": true,
+          "scad_score": {
+            "compiles": true,
+            "watertight": true,
+            "positive_volume": true,
+            "dims_sane": null,
+            "error": null
+          },
+          "response_preview": "```openscad\n// L-shaped bracket\n// Two plates: 30mm x 20mm x 4mm meeting at right angle\n\ndifference() {\n    union() {\n        // Vertical plate\n        translat",
+          "tps": 68.17767566070893,
+          "wall_s": 2.6599059170112014
+        },
+        {
+          "id": "param_gear_blank",
+          "ok": true,
+          "matched": true,
+          "scad_score": {
+            "compiles": true,
+            "watertight": true,
+            "positive_volume": true,
+            "dims_sane": true,
+            "error": null
+          },
+          "response_preview": "```openscad\n// Round gear blank\n// 50mm diameter, 6mm thick disc with 8mm center bore and 6 lightening holes\n\ndifference() {\n    // Main disc\n    cylinder(h = 6",
+          "tps": 66.91876791597922,
+          "wall_s": 3.1944973340141587
+        }
+      ]
+    }
+  ]
+}

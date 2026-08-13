@@ -1,0 +1,2805 @@
+{
+  "gsha": "c6db519927bd",
+  "samples": [
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 173.56150512499153
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 34.80498849999276
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 161.10017179200076
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 161.4819459169812
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 163.3101348329801
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 276.0778480010049
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 199.51558658402064
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 162.09931087499717
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 161.57396154198796
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 138.96522583300248
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 161.18299670799752
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 47.648641125008
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 322.1619410419662
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 322.31217095800093
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 145.31655150000006
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 116.98293662499054
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 136.1235750420019
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 144.81272233399795
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 161.60876970901154
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 73.04998441698262
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 120.3316716660047
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 126.13494008299313
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 28.82760491699446
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 61.23227070798748
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 32.20635937497718
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 79.78170070800115
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 324.65608141597477
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b",
+      "model_hint": "qwen3.6:35b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 326.8340667919838
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 192.8142035420169
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 190.93815958299092
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 191.14473112500855
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 126.18490558300982
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 190.91687866600114
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 359.7480822489888
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 45.49220825001248
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 114.08867070800625
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 75.96962608399917
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 94.62351933401078
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 191.69038279200322
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 169.31990266701905
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 321.171805874008
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 266.94921037601307
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 73.18830100001651
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 192.79301500000292
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 102.69485366699519
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 190.87127062497893
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 188.59882037498755
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 148.3493348750053
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 184.79916170900105
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 142.476424374996
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 164.80307412499678
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 190.8136100419797
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 117.7663621249958
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 81.50714679199154
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 126.37445029200171
+    },
+    {
+      "workspace": "bench-qwen36-35b-a3b-ud",
+      "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 151.10802387501462
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 37.68122516700532
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 34.07111237497884
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 29.5105068749981
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 24.275345000001835
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 33.549839332990814
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 35.073984541988466
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 31.97874774999218
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 40.08543424998061
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 60.901961625000695
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 35.36852825002279
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 42.52884270899813
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 49.61393783398671
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 31.867184125003405
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 48.798230207990855
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 27.581137208995642
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 41.87053124999511
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 30.28361391701037
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 32.15359379097936
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 29.768867250008043
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 27.95406408299459
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 47.88545145801618
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 31.66813745800755
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 28.2925796250056
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 32.63980833400274
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 23.90779162500985
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 33.510636708990205
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 25.608576875005383
+    },
+    {
+      "workspace": "bench-muse-glimmer-30b",
+      "model_hint": "muse-glimmer:30b-mlx",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 28.039247584005352
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 60.25049391700304
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 73.63630854099756
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 163.23781829199288
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 48.37277141600498
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 26.79349362498033
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 74.102704000019
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 122.72816054100986
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 91.73998804099392
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 42.94046933299978
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 130.57173029097612
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 162.19405874999939
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 126.95636345801177
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 73.84244954198948
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 31.097069374023704
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 35.69310783297988
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 22.245117583021056
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 10.656691582989879
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 61.26319483399857
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 23.222942167019937
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 133.4564963329758
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 55.86483125001541
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 39.59739566699136
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 161.7241368330142
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 7.529160167003283
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 8.392401583987521
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 24.5076267090044
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 169.9891187499743
+    },
+    {
+      "workspace": "bench-qwable-3.6-35b",
+      "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 107.74045370798558
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 21.977591291011777
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 12.041188041010173
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 14.127310417010449
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 11.468281875015236
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 14.507120166992536
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 38.98666925000725
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 14.857804458006285
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 11.0396777499991
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 15.164971042016987
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 11.60771612499957
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 11.269340875005582
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 12.432393833005335
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 14.46578254099586
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 10.646112916001584
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 100.3346629999869
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 18.53474037500564
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 21.07633291601087
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 15.904663875000551
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 12.492488166986732
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 11.893629375001183
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 35.10043608301203
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 11.971258749981644
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 10.222351874981541
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 9.1635841250245
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 41.4160323330143
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 9.412993291014573
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 9.713958292006282
+    },
+    {
+      "workspace": "bench-gemma4-12b-agentic",
+      "model_hint": "hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 14.406757415999891
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 27.278434542007744
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 12.335794374987017
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 7.394791333004832
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 10.566141000017524
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 8.728054083010647
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 8.375061291997554
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 20.281440916005522
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 11.419937957980437
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 10.171831083018333
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 9.87799375000759
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 13.28221587499138
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 12.144455083005596
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 12.097531709005125
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 8.98751070900471
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 9.409617541008629
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 8.602169707999565
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 7.868638291984098
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 9.55267887498485
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 8.305120459001046
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 13.10084004199598
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 8.01929529098561
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 5.752514791995054
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 6.673010875005275
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 6.158285207988229
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 8.85011920897523
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 6.454617417010013
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 8.703694458992686
+    },
+    {
+      "workspace": "bench-gptoss",
+      "model_hint": "gpt-oss:20b",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 10.014010041981237
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 36.245214708003914
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 18.310865999985253
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 19.787816291005583
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 23.623256874998333
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 21.920376666996162
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 19.14609150000615
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 20.762201625009766
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 31.35422333300812
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 35.26995354198152
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 31.983961457997793
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 29.08472499999334
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 30.881429290981032
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 31.801550708012655
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 20.50319783302257
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 18.751929165999172
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 24.252600874984637
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 22.03370562501368
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 21.35977483401075
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 33.07702899997821
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 16.913823457987746
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 19.831358374998672
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 18.658086209004978
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 21.795940834010253
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 18.453945124987513
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 16.42837095799041
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 20.042278000008082
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 15.58642537498963
+    },
+    {
+      "workspace": "bench-gemma4-26b-optiq",
+      "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 19.097225665987935
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 21.024707540986128
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 20.35012537500006
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 20.527103750006063
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 16.3046315840038
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 16.06763320902246
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 15.869754917017417
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 18.324497458990663
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 27.247586249985034
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 17.38723354099784
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 25.271021166990977
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 22.278694208012894
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 11.9261737090128
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 40.70566029200563
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 27.59998645799351
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 22.6512022500101
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 21.957958292012336
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 27.686320250009885
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 22.0637697079801
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 29.176763333001873
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 20.855889375001425
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_after_repair",
+      "latency_s": 65.72404908199678
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 16.600302666978678
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 13.562905625003623
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 10.922890874993755
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 10.868551166000543
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 14.005764333996922
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 23.928378625016194
+    },
+    {
+      "workspace": "bench-gemma4-e2b",
+      "model_hint": "gemma4:e2b-it-qat",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 10.527780749980593
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 18.731962707999628
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 18.095736999996006
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 20.13543216700782
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 23.81293449999066
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 18.21819533300004
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 28.159829000011086
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 45.92241224998725
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 31.612787042016862
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 55.21808333299123
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 65.8696409590193
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 13.742191958008334
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 39.54369933399721
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 188.09211770803086
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 146.88139362397487
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 8.303152583015617
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 17.089644249994308
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 22.69077583399485
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 9.77424837500439
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 18.045063291996485
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 19.079082707990892
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 29.271597583021503
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 22.862983208004152
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 26.845909750001738
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 53.31281829200452
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 19.212065250001615
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": false,
+      "detail": "fail",
+      "latency_s": 25.35911970899906
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 189.85733379301382
+    },
+    {
+      "workspace": "bench-jackrong-dsv4-9b",
+      "model_hint": "hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": false,
+      "detail": "fail_after_repair",
+      "latency_s": 24.579063457989832
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 23.098766417009756
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 3.5649166249786504
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 3.608996875002049
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 3.4903488749987446
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_1",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 3.7599576670036186
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 2.3926150829938706
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_1",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 2.3992124169890303
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 3.822636875003809
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 4.746016041986877
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 7.524713792023249
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 5.542965041997377
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_2",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 4.742589750007028
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 3.677102916990407
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_2",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 5.489626291993773
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 3.9205582500144374
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 5.623532875004457
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 6.110321208019741
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 4.230491291004
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_3",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 6.889168457972119
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 5.850908666005125
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_3",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 6.563730499998201
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 2.2089812499762047
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 1.9294333330180962
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 2,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 1.9691329580091406
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 3,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 1.9687134170089848
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_shot",
+      "problem_id": "c2_4",
+      "sample_idx": 4,
+      "passed": true,
+      "detail": "pass",
+      "latency_s": 2.7454200409993064
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 0,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 2.2611209169845097
+    },
+    {
+      "workspace": "bench-qwen3-coder-30b",
+      "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+      "arm": "one_repair",
+      "problem_id": "c2_4",
+      "sample_idx": 1,
+      "passed": true,
+      "detail": "pass_first_try",
+      "latency_s": 3.1858584999863524
+    }
+  ]
+}
