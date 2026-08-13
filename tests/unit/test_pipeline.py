@@ -398,31 +398,32 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total loaded workspace count is 23 (module: eval's 81 bench-*
+        """Total loaded workspace count is 23 (module: eval's 93 bench-*
         workspaces are gated off by default at boot as of
-        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4; the full 104 (23 + 81) still
-        loads with PORTAL_ENABLE_EVAL=1, see test_eval_gate_loads_all_104.
+        BUILD_PROGRAM_COLLAPSE_V1.md Phase 4; the full 116 (23 + 93) still
+        loads with PORTAL_ENABLE_EVAL=1, see test_eval_gate_loads_all_116.
         44 -> 37 after Phase 5 folded 8 coding/agentic workspaces into
         auto-coding's variants; 37 -> 29 after Phase 6 folded 8 security
         workspaces into auto-security's variants; later catalog changes,
-        including Council Review, produce the current total)."""
+        including Council Review and TASK-DECISION-GATE-001's 12 slot-fix
+        workspace adds, produce the current total)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
         assert len(WORKSPACES) == 23, (
-            f"Expected 23 workspaces (module: eval's 81 bench-* gated off by default), "
+            f"Expected 23 workspaces (module: eval's 93 bench-* gated off by default), "
             f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
-    def test_eval_gate_loads_all_104(self, monkeypatch):
-        """PORTAL_ENABLE_EVAL=1 re-admits the 81 module: eval workspaces —
+    def test_eval_gate_loads_all_116(self, monkeypatch):
+        """PORTAL_ENABLE_EVAL=1 re-admits the 93 module: eval workspaces —
         get_workspace_dict is called fresh here (not the module-level
         WORKSPACES constant, which is computed once at import time)."""
         from portal.platform.inference.config import get_workspace_dict, load_portal_config
 
         monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
         ws = get_workspace_dict(load_portal_config())
-        assert len(ws) == 104, f"Expected 104 workspaces with eval enabled, got {len(ws)}"
+        assert len(ws) == 116, f"Expected 116 workspaces with eval enabled, got {len(ws)}"
 
 
 class TestR17bModelExpansion:
@@ -830,17 +831,17 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total loaded workspace count is 23 (module: eval's 65 bench-*
+        """Total loaded workspace count is 23 (module: eval's 93 bench-*
         workspaces are gated off by default at boot as of
         BUILD_PROGRAM_COLLAPSE_V1.md Phase 4, 44 -> 37 after Phase 5 folded 8
         coding/agentic workspaces, 37 -> 29 after Phase 6 folded 8 security
         workspaces; later catalog changes produce the current total. See
-        TestComplianceWorkspace.test_eval_gate_loads_all_104 for the
+        TestComplianceWorkspace.test_eval_gate_loads_all_116 for the
         PORTAL_ENABLE_EVAL=1 path)."""
         from portal.platform.inference.router_pipe import WORKSPACES
 
         assert len(WORKSPACES) == 23, (
-            f"Expected 23 workspaces (module: eval's 65 bench-* gated off by default), "
+            f"Expected 23 workspaces (module: eval's 93 bench-* gated off by default), "
             f"got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
