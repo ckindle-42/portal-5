@@ -1,11 +1,11 @@
 ---
 id: unit-model-catalog-nvidia-nemotron-3-5-lightning-30b-a3b-oq4e-mtp
 kind: what
-title: "MODEL_CATALOG — `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`"
+title: "MODEL_CATALOG \u2014 `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: 5acee6003d90283638510b0d65019042bf70dfc8
+last_generated_commit: 41df61e0a6102275a700700e9765972f1508c4c5
 claims: []
 confidence: high
 tags:

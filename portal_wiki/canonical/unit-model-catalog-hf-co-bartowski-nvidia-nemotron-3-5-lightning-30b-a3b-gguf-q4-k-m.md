@@ -1,11 +1,11 @@
 ---
 id: unit-model-catalog-hf-co-bartowski-nvidia-nemotron-3-5-lightning-30b-a3b-gguf-q4-k-m
 kind: what
-title: "MODEL_CATALOG — `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M`"
+title: "MODEL_CATALOG \u2014 `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M`"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: 5acee6003d90283638510b0d65019042bf70dfc8
+last_generated_commit: 41df61e0a6102275a700700e9765972f1508c4c5
 claims: []
 confidence: high
 tags:

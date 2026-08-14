@@ -5,7 +5,7 @@ title: "Acceptance harness \u2014 staged live-stack scenario suite"
 sources:
 - type: code
   path: tests/acceptance/*.py
-last_generated_commit: 9623f6b25b3e922bd0cf4b3885a926a4728b26a1
+last_generated_commit: 41df61e0a6102275a700700e9765972f1508c4c5
 claims: []
 confidence: high
 tags:
