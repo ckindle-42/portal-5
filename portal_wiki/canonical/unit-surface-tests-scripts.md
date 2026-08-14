@@ -5,7 +5,6 @@ title: "Bench matrix analyzers \u2014 no-verdict comparative scoring"
 sources:
 - type: code
   path: tests/scripts/*.py
-last_generated_commit: 9623f6b25b3e922bd0cf4b3885a926a4728b26a1
 claims: []
 confidence: high
 tags:

@@ -11,7 +11,6 @@ sources:
   path: tests/unit/test_spine_drift.py
 - type: code
   path: tests/unit/test_detector_precision.py
-last_generated_commit: a6c3cee783274e7e3cc2199f5798ce466dcf7330
 claims:
 - probe: validate.checks
   pattern: '{value} validate checks'
@@ -60,38 +59,38 @@ families are skipped because their figures regenerate from live config or the
 MITRE mapping and are already gated by `AW`. `tests/unit/test_detector_precision.py`
 locks the narrowing.
 
-The census carries two further axes. **Pin health** classifies every unit that
-cites a repo-local path: 461 units shipped pinned to `05e42ec2`, a SHA absent
-from all 1904 commits, so `last_generated_commit` was decoration rather than a
-stale anchor — that is reported as `phantom`, distinct from units whose pin
-resolves but whose cited sources have moved since. **Doc path references**
-reports repo-relative paths named in Tier-1 docs that do not exist and are not
-gitignored — `portal/<workspace-or-persona>` is suppressed as an OpenAI-style
-served model id by checking the live roster (so retired ids such as
-`portal/auto-agentic-ornith` are still reported while live ones are not), and a
-path git itself reports as intentionally untracked (`git check-ignore`, e.g. a
-scratch task file under `coding_task/` or a harness-written directory like
-`results/candidates/`) is not a broken reference — it was never going to exist
-in any checkout, so its absence is not drift.
+The census carried a second axis until P0 (`TASK_BULLY_P0_SPINE_REDUCTION_V1`
+A1) deleted it whole: **pin health** classified every unit that cited a
+repo-local path against its `last_generated_commit` pin. 461 units shipped
+pinned to `05e42ec2`, a SHA absent from all 1904 commits — the pin resolving
+to a real commit never proved the body was still true, so it added no
+truth-checking `claims` didn't already provide, while forcing a two-commit
+re-pin dance on every fact edit (`scripts/repin_stale.py`, now removed). There
+is no pin axis to restore. **Doc path references** is the axis P0 kept
+alongside `claims`: it reports repo-relative paths named in Tier-1 docs that do
+not exist and are not gitignored — `portal/<workspace-or-persona>` is
+suppressed as an OpenAI-style served model id by checking the live roster (so
+retired ids such as `portal/auto-agentic-ornith` are still reported while live
+ones are not), and a path git itself reports as intentionally untracked (`git
+check-ignore`, e.g. a scratch task file under `coding_task/` or a
+harness-written directory like `results/candidates/`) is not a broken
+reference — it was never going to exist in any checkout, so its absence is
+not drift.
 
-`TASK_WIKI_ZERO_DEBT_V1` deleted `config/spine_drift_baseline.yaml`: claims,
-pins, and doc refs are all absolute now, with nothing left to ratchet or
-tolerate. The census is re-runnable outside CI as `python3 -m portal_wiki
-drift`, which exits non-zero on any claim violation or any drift at all.
+`TASK_WIKI_ZERO_DEBT_V1` deleted `config/spine_drift_baseline.yaml`: claims
+and doc refs are both absolute now, with nothing left to ratchet or tolerate.
+The census is re-runnable outside CI as `python3 -m portal_wiki drift`, which
+exits non-zero on any claim violation or any doc-ref drift.
 
-## Operational note: pin staleness is always a two-commit fix
+## Operational note: a fact change is a single commit (post-P0)
 
-`BS` runs at push, not commit, and a commit that touches a cited path makes
-every unit citing that path stale the instant it lands — including the
-commit itself, since a unit cannot be pinned to a hash that does not exist
-until after `git commit` returns. There is no one-commit way to satisfy
-Rule 12 here: make the functional commit, then run `python3
-scripts/repin_stale.py --apply` and commit the pin bumps separately
-(`chore(spine): re-pin units stale after <change>`) before pushing. Two
-dozen-plus commits in this history follow exactly that shape. The script
-only ever rewrites `last_generated_commit`; a unit whose cited fact
-actually changed (not just moved) needs its body edited by hand first, or
-the re-pin certifies a now-wrong claim as current.
+Before P0, `BS` ran at push and hard-failed the moment HEAD advanced past a
+unit's pin while a cited path had moved — including the commit that made the
+fact change itself, since a unit could not be pinned to a hash that did not
+exist yet. That forced the functional commit and a separate
+`chore(spine): re-pin units stale after <change>` commit before every push.
+P0 A1 removed the pin outright, so there is no second commit: editing a
+fact-unit's live-config-derived body and landing it is one commit, full stop.
 
 ## Why
 
@@ -100,12 +99,11 @@ against its own unit body or proved a code surface had *some* citation —
 never that the cited prose was true — which is how README carried a wrong
 workspace count with every gate green. The mechanism is grounded in the
 code it describes: `claims.py` defines the probes and the `{value}`
-pattern contract, `drift.py` classifies pin health and broken doc path
-references (delegating "is this path allowed to be missing" to `git
-check-ignore` rather than a hand-maintained allowlist, so a renamed or
-newly-ignored path never needs a second update to stay accurate), and
+pattern contract, `drift.py` classifies broken doc path references
+(delegating "is this path allowed to be missing" to `git check-ignore`
+rather than a hand-maintained allowlist, so a renamed or newly-ignored path
+never needs a second update to stay accurate), and
 `tests/unit/test_spine_drift.py` and `tests/unit/test_detector_precision.py`
 lock the behavior. The declared claim on
-`validate.checks` keeps the unit's own count honest, and the
-`phantom`/`stale`/`unpinned` vocabulary is re-derivable by re-running the
-census rather than trusting this prose.
+`validate.checks` keeps the unit's own count honest, and the axis vocabulary
+is re-derivable by re-running the census rather than trusting this prose.

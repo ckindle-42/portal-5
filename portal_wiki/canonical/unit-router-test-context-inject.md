@@ -6,7 +6,6 @@ sources:
 - type: code
   path: tests/unit/router/test_context_inject.py
   commit: dfa74e2e
-last_generated_commit: dfa74e2e
 claims: []
 confidence: high
 tags:

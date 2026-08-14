@@ -7,7 +7,6 @@ sources:
   path: portal/platform/inference/notifications/dispatcher.py
 - type: code
   path: portal/platform/inference/notifications/channels/__init__.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

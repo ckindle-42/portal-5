@@ -5,7 +5,6 @@ title: "UAT driver library \u2014 modularized live-stack acceptance runner"
 sources:
 - type: code
   path: tests/uat/*.py
-last_generated_commit: 3446c27ae252eec143dfbaebea1ccc1595eb333e
 claims: []
 confidence: high
 tags:

@@ -1,14 +1,17 @@
-"""Tests for the spine drift census — claims, pin health, and doc path refs.
+"""Tests for the spine drift census — claims and doc path refs.
 
 The design error these tests exist to pin down: an earlier draft let a claim
 restate the number it was checking (`equals: 65`), which compared the probe with
 itself and passed while the doc body still said 60. `test_pattern_claim_catches_*`
 is the regression guard for that — a claim must bind the *body text*, not a copy.
+
+P0 (`TASK_BULLY_P0_SPINE_REDUCTION_V1` A1) deleted the third axis this module
+used to also test — per-unit `last_generated_commit` pin health
+(`PinHealth`/`pin_health`). There is no pin axis left to test.
 """
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -20,16 +23,13 @@ from portal.platform.wiki.schema import KnowledgeUnit, SourceRef
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _unit(
-    uid: str, body: str, unit_claims: list[dict] | None = None, pin: str = ""
-) -> KnowledgeUnit:
+def _unit(uid: str, body: str, unit_claims: list[dict] | None = None) -> KnowledgeUnit:
     return KnowledgeUnit(
         id=uid,
         kind="what",
         title=uid,
         sources=[SourceRef(type="code", path="config/portal.yaml")],
         body=body,
-        last_generated_commit=pin,
         claims=unit_claims or [],
     )
 
@@ -151,54 +151,6 @@ def test_claim_with_no_operator_is_a_violation():
     assert len(claims_mod.evaluate_claims([unit], REPO_ROOT)) == 1
 
 
-# ── pin health ───────────────────────────────────────────────────────────────
-
-
-def test_phantom_pin_is_classified_separately_from_stale():
-    """An unresolvable SHA is not merely old — nothing can ever be diffed against
-    it. 461 units shipped pinned to 05e42ec2, absent from the whole history."""
-    unit = _unit("u12", "x", pin="0" * 40)
-    health = drift_mod.pin_health(REPO_ROOT, [unit])
-    assert health.phantom == ("u12",)
-    assert health.stale == () and health.fresh == ()
-
-
-def test_unpinned_unit_is_classified_as_unpinned():
-    health = drift_mod.pin_health(REPO_ROOT, [_unit("u13", "x")])
-    assert health.unpinned == ("u13",)
-
-
-def test_pin_at_head_is_fresh_and_an_older_pin_is_stale():
-    head = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
-    ).stdout.strip()
-    assert drift_mod.pin_health(REPO_ROOT, [_unit("u14", "x", pin=head)]).fresh == ("u14",)
-
-    first_change = subprocess.run(
-        ["git", "log", "-2", "--format=%H", "--", "config/portal.yaml"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.split()
-    if len(first_change) < 2:
-        pytest.skip("config/portal.yaml has fewer than two commits in this clone")
-    assert drift_mod.pin_health(REPO_ROOT, [_unit("u15", "x", pin=first_change[1])]).stale == (
-        "u15",
-    )
-
-
-def test_unit_citing_no_repo_local_path_is_not_classified():
-    unit = KnowledgeUnit(
-        id="u16",
-        kind="what",
-        title="u16",
-        sources=[SourceRef(type="doc", path="https://example.invalid/spec")],
-        body="x",
-    )
-    assert drift_mod.pin_health(REPO_ROOT, [unit]).total == 0
-
-
 # ── doc path references ──────────────────────────────────────────────────────
 
 
@@ -222,22 +174,25 @@ def test_broken_path_refs_are_reported_as_doc_and_path():
 # ── absolute drift gate (baseline retired in TASK_WIKI_ZERO_DEBT_V1) ─────────
 
 
-def test_pin_health_classifies_phantom_unpinned_and_stale(tmp_path):
-    """Every pin condition is reported directly — no baseline to absorb it."""
-    health = drift_mod.PinHealth(phantom=("p",), unpinned=("u",), stale=("s",), fresh=("f",))
-    assert health.phantom == ("p",)
-    assert health.unpinned == ("u",)
-    assert health.stale == ("s",)
-    assert health.total == 4
+def test_pin_axis_is_fully_removed():
+    """P0 A1: no pin/phantom vocabulary survives anywhere in the module."""
+    assert not hasattr(drift_mod, "pin_health")
+    assert not hasattr(drift_mod, "PinHealth")
+    unit = KnowledgeUnit(
+        id="u16",
+        kind="what",
+        title="u16",
+        sources=[SourceRef(type="doc", path="https://example.invalid/spec")],
+        body="x",
+    )
+    assert not hasattr(unit, "last_generated_commit")
 
 
 def test_census_is_read_only_and_self_consistent():
     before = drift_mod.broken_path_refs(REPO_ROOT)
     report = drift_mod.census(REPO_ROOT)
     assert report["units_total"] > 0
-    assert report["pins"]["total"] == sum(
-        report["pins"][k] for k in ("fresh", "stale", "phantom", "unpinned")
-    )
+    assert "pins" not in report
     assert tuple(report["broken_path_refs"]) == before
     assert "ratchet" not in report and "retired" not in report
 
@@ -251,3 +206,91 @@ def test_undeclared_numeric_census_skips_units_that_declare_a_claim():
     )
     found = drift_mod.undeclared_numeric_claims([plain, declared])
     assert "u17" in found and "u18" not in found
+
+
+# ── P0 regression: BS-claims still HARD-FAILs a wrong declared number ────────
+
+
+def test_bs_check_hard_fails_a_deliberately_wrong_declared_number(tmp_path, monkeypatch):
+    """TASK_BULLY_P0_SPINE_REDUCTION_V1 P0.2 exit criterion: with the pin axis
+    gone, `check_spine_drift` (BS) must still HARD-FAIL when a unit's body
+    states a number that disagrees with its declared claim's live probe —
+    the anti-drift core (A2) is untouched by deleting the pin (A1)."""
+    from portal.platform.wiki import store as store_mod
+    from scripts.validation import wiki as wiki_checks
+
+    live = claims_mod.probe("workspaces.total", REPO_ROOT)
+    wrong = _unit(
+        "unit-p0-regression-wrong-count",
+        f"Portal ships {live + 1} workspaces today.",
+        [{"probe": "workspaces.total", "pattern": "{value} workspaces"}],
+    )
+
+    canonical = tmp_path / "canonical"
+    canonical.mkdir()
+    store_mod.set_canonical_dir(canonical)
+    monkeypatch.setattr(wiki_checks, "REPO_ROOT", REPO_ROOT)
+    try:
+        store_mod.save_unit(wrong)
+        status, detail, _subs = wiki_checks.check_spine_drift()
+    finally:
+        store_mod.reset_canonical_dir()
+
+    assert status == "FAIL", detail
+    assert "unit-p0-regression-wrong-count" in detail or "claim violation" in detail
+
+
+def test_bs_check_passes_when_declared_number_is_correct(tmp_path, monkeypatch):
+    """Sibling of the HARD-FAIL regression: a correct claim must not be
+    penalized just because the pin axis it used to run alongside is gone."""
+    from portal.platform.wiki import store as store_mod
+    from scripts.validation import wiki as wiki_checks
+
+    live = claims_mod.probe("workspaces.total", REPO_ROOT)
+    right = _unit(
+        "unit-p0-regression-right-count",
+        f"Portal ships {live} workspaces today.",
+        [{"probe": "workspaces.total", "pattern": "{value} workspaces"}],
+    )
+
+    canonical = tmp_path / "canonical"
+    canonical.mkdir()
+    store_mod.set_canonical_dir(canonical)
+    monkeypatch.setattr(wiki_checks, "REPO_ROOT", REPO_ROOT)
+    try:
+        store_mod.save_unit(right)
+        status, detail, _subs = wiki_checks.check_spine_drift()
+    finally:
+        store_mod.reset_canonical_dir()
+
+    assert status == "PASS", detail
+
+
+# ── P0 regression: a fact change regenerates + commits in one commit ────────
+
+
+def test_fact_unit_regeneration_touches_no_pin_field(tmp_path, monkeypatch):
+    """TASK_BULLY_P0_SPINE_REDUCTION_V1 exit criterion: a live-count change
+    (e.g. re-deriving unit-fact-persona-roster after a persona is added) is a
+    single-commit operation — nothing in the round-tripped unit file requires
+    a second, pin-bumping commit, because there is no pin field to bump."""
+    from portal.platform.wiki import store as store_mod
+    from portal.platform.wiki.adapters.seed_facts import derive_persona_roster
+
+    canonical = tmp_path / "canonical"
+    canonical.mkdir()
+    store_mod.set_canonical_dir(canonical)
+    try:
+        unit = derive_persona_roster("deadbeef", save=True)
+        on_disk = (canonical / f"{unit.id}.md").read_text(encoding="utf-8")
+        assert "last_generated_commit" not in on_disk
+
+        # Re-deriving with a *different* commit but unchanged live config must
+        # produce a byte-identical file — there is nothing left that a mere
+        # HEAD advance would need to re-stamp.
+        before = on_disk
+        derive_persona_roster("cafef00d", save=True)
+        after = (canonical / f"{unit.id}.md").read_text(encoding="utf-8")
+        assert before == after
+    finally:
+        store_mod.reset_canonical_dir()

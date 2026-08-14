@@ -5,7 +5,6 @@ title: "Security eval subpackage \u2014 bench-facing re-export boundary and abla
 sources:
 - type: code
   path: portal/modules/security/eval/*.py
-last_generated_commit: 396e4d374796b040d06dc1c3c56eb0a3f2fe8757
 claims: []
 confidence: high
 tags:

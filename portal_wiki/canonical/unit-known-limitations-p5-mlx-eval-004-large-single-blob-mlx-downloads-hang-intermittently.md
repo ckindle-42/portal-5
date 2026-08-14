@@ -10,7 +10,6 @@ sources:
   path: scripts/lib/services.sh
 - type: code
   path: tests/benchmarks/bench_mlx_hf.py
-last_generated_commit: 75c5054f791636f367b62a1776bcc9f631794766
 claims: []
 confidence: high
 tags:

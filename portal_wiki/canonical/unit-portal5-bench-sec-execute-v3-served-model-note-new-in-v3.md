@@ -9,7 +9,6 @@ sources:
   path: portal/platform/inference/router/handlers.py
 - type: code
   path: config/personas/glm_coder.yaml
-last_generated_commit: ca0f99d64c0644df1d5fc30674b6c476fceb1a42
 claims: []
 confidence: high
 tags:

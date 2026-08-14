@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/platform/wiki/audit.py
   commit: 4ca84409
-last_generated_commit: 4ca84409
 claims: []
 confidence: high
 tags:

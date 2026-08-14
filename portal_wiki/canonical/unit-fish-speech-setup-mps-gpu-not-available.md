@@ -7,7 +7,6 @@ sources:
   path: portal/modules/media/tools/utils.py
 - type: code
   path: portal/modules/media/tools/tts_mcp.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

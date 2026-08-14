@@ -6,7 +6,6 @@ sources:
 - type: code
   path: tests/frontends/__init__.py
   commit: '96146826'
-last_generated_commit: '96146826'
 claims: []
 confidence: high
 tags:

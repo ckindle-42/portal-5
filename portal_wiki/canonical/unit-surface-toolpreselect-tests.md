@@ -5,7 +5,6 @@ title: "Tool-preselect acceptance harness \u2014 corpus, repped bench, prefill b
 sources:
 - type: code
   path: tests/toolpreselect/*.py
-last_generated_commit: 9623f6b25b3e922bd0cf4b3885a926a4728b26a1
 claims: []
 confidence: high
 tags:

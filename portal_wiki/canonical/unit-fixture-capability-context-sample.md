@@ -6,7 +6,6 @@ sources:
 - type: code
   path: tests/fixtures/capability_context/sample_module.py
   commit: c23c27d9
-last_generated_commit: c23c27d9
 claims: []
 confidence: high
 tags:

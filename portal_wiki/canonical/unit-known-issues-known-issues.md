@@ -7,7 +7,6 @@ sources:
   path: portal/platform/wiki/render.py
 - type: code
   path: portal_wiki/canonical/unit-known-limitations-known-limitations.md
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

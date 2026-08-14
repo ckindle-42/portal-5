@@ -5,7 +5,6 @@ title: "corpus_injection \u2014 on the target, from the lab network"
 sources:
 - type: code
   path: scripts/caldera_emulate.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

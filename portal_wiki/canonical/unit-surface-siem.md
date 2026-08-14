@@ -5,7 +5,6 @@ title: "Security SIEM subpackage \u2014 Splunk integration boundary"
 sources:
 - type: code
   path: portal/modules/security/core/siem/*.py
-last_generated_commit: 9623f6b25b3e922bd0cf4b3885a926a4728b26a1
 claims: []
 confidence: high
 tags:

@@ -11,7 +11,6 @@ sources:
   path: tests/acceptance/s06_security_workspaces.py
 - type: code
   path: scripts/routing_regression.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

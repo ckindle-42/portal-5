@@ -21,7 +21,6 @@ sources:
   path: portal/platform/agent/tests/test_agent_core.py
 - type: code
   path: scripts/validate_system.py
-last_generated_commit: 1896bb7da29dd96ff280b8ffb495519d507070ee
 claims: []
 confidence: high
 tags:
