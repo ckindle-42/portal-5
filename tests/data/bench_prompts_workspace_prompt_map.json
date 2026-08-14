@@ -12,6 +12,7 @@
   "auto-documents": "coding",
   "auto-extract-uncensored": "general",
   "auto-general-uncensored": "general",
+  "auto-nemotron": "general",
   "auto-image": "creative",
   "auto-math": "reasoning",
   "auto-music": "creative",

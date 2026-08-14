@@ -1,12 +1,12 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 219 model ids, 7 backend groups
+title: 222 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 47d3e884c8f0
-last_generated_commit: 64c5f5f41652bf67e97863ee1a6285289eaeea00
+  commit: 5acee6003d90
+last_generated_commit: 5acee6003d90
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -15,15 +15,16 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1786720824.81733
+updated_at: 1786736581.197869
 ---
 
-# Model catalog (219 model ids across 7 backend groups)
+# Model catalog (222 model ids across 7 backend groups)
 
-## coding (42)
+## coding (43)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
+- `Qwen3.8-27B-oQ4e-mtp`
 - `devstral-small-2`
 - `devstral-small-2:latest-ctx8k`
 - `devstral:24b`
@@ -79,8 +80,9 @@ updated_at: 1786720824.81733
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (89)
+## general (91)
 
+- `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
 - `deepseek-r1:32b-q4_k_m`
 - `devstral-small-2:latest`
@@ -116,6 +118,7 @@ updated_at: 1786720824.81733
 - `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M`
 - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`
+- `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M`
 - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
 - `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
 - `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M`

@@ -771,6 +771,7 @@ PERSONA_PROMPTS_EXCLUDED: set[str] = {
     "soc2auditor",
     # Specialized personas tested via workspace routing or S24
     "dailydriver",  # auto-daily workspace, general-purpose
+    "nemotronlightning",  # auto-nemotron workspace, general-purpose (2026-08-14)
 }
 PERSONA_PROMPTS = {
     k: tuple(v) for k, v in load_data("tests/data", "acceptance_common_persona_prompts").items()

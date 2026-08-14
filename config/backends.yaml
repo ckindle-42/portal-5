@@ -6,6 +6,11 @@ backends:
 - group: general
   id: ollama-general
   models:
+  # Nemotron 3.5 Lightning added 2026-08-14 for auto-nemotron workspace
+  # (architectural diversity vs the Gemma-4 daily driver). supports_tools
+  # verified via direct tool-call probe (clean tool_calls, typed arguments).
+  - id: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M
+    supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b-ctx8k
@@ -605,6 +610,19 @@ backends:
 # automatically and `_hint_fallback` fires honestly. aliases translate the
 # GGUF model_hint each workspace already carries to this backend's native
 # oMLX directory name — no workspace_routing or persona change needed.
+# Qwen3.8-27B-oQ4e-mtp added 2026-08-14 (TASK_OMLX_LIGHTNING_MTP_ROLLOUT_V1
+# follow-up): mlx-community's plain Qwen3.8-27B-4bit conversion carries no
+# mtp.* weights (checkpoint-level gap, confirmed at the tensor level — the
+# upstream Qwen/Qwen3.8-27B release itself never shipped an MTP head), so
+# Lightning MTP silently no-ops on it. This is a side-car MTP checkpoint
+# (txgsync/Qwen3.8-27B-oQ4e-mtp, oMLX 0.6.0.dev1's MTPLX side-car import
+# path) that does carry real mtp.* weights — verified live: MTP path
+# activates, 60-65% draft accept rate, ~17.5-18.6 tok/s vs 12.25 tok/s on
+# the Ollama GGUF baseline (~1.45x), same prompt/hardware/session.
+# supports_tools:true verified via a direct tool-call probe (clean
+# tool_calls, correctly typed arguments). Only wired into the bench lane
+# (model_hint in config/portal.yaml's Bench · Qwen3.8-27B workspace,
+# PROMOTE_POLICY=confirm) — does not touch auto-coding production traffic.
 - group: coding
   id: omlx-coding
   models:
@@ -612,10 +630,13 @@ backends:
     supports_tools: true
   - id: Laguna-XS.2-4bit
     supports_tools: true
+  - id: Qwen3.8-27B-oQ4e-mtp
+    supports_tools: true
   priority: 10
   aliases:
     qwen3-coder:30b-a3b-q4_K_M-ctx16k: Qwen3-Coder-30B-A3B-Instruct-4bit
     laguna-xs.2:Q4_K_M-ctx64k: Laguna-XS.2-4bit
+    hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M: Qwen3.8-27B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 # oMLX shadow-shift extended to the rest of the daily fleet
@@ -649,9 +670,20 @@ backends:
   models:
   - id: gemma-4-26b-a4b-it-QAT-4bit
     supports_tools: true
+  # Nemotron 3.5 Lightning oQ4e-mtp added 2026-08-14 (txgsync/NVIDIA-Nemotron-
+  # 3.5-Lightning-30B-A3B-oQ4e-mtp, oMLX 0.6.0.dev1 MTPLX side-car import —
+  # real mtp.* weights verified at the tensor level, unlike the plain
+  # mlx-community 4bit conversion which ships none). MTP path activates live:
+  # 76-87% draft accept rate (MoE ~3B active params/token keeps the verify
+  # backbone cheap), 70.0-70.3 tok/s vs 52.9-53.1 tok/s Ollama GGUF baseline
+  # (~1.33x), same prompt/hardware/session. supports_tools:true verified via
+  # direct tool-call probe.
+  - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+    supports_tools: true
   priority: 10
   aliases:
     gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit
+    hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 # omlx-reasoning carries 4 models, not 1: the reasoning group's daily
@@ -759,6 +791,8 @@ workspace_routing:
   auto-general-uncensored:
   - general
   auto-daily:
+  - general
+  auto-nemotron:
   - general
   auto-coding:
   - coding
