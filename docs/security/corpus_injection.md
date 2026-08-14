@@ -1,6 +1,5 @@
 # Corpus Injection — getting hunt-ready telemetry into lab Splunk
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-corpus-injection-getting-hunt-ready-telemetry-into-lab-splunk -->
 Blue and purple need adversary telemetry to hunt. Waiting for red bench runs to
 produce it is the bottleneck. Three lanes fill the lab SIEM, each landing in
 the same evidence-tagged, reversible fashion.
@@ -35,13 +34,11 @@ namespace, so a single tagged search can attribute or remove any of them.
 Keeping lanes A and B pre-labeled and finite while reserving lane C for
 unlabeled novelty lets detection coverage be measured honestly without
 conflating "data exists" with "the scenario ran".
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Combined corpus validation gate
 
-<!-- WIKI:GENERATED unit=unit-security-combined-corpus-validation -->
 Live Portal captures and outside corpora are one detection-development input,
 but they prove different things. A schema-v2, episode-scoped Portal capture
 with scenario-specific validity and a real PCAP proves an end-to-end lab
@@ -111,13 +108,11 @@ capture-recipe transaction — is grounded in the cited code so the
 distinction stays enforceable rather than aspirational. The corpus
 section it used to cite is a rendered block of this very unit, so it is
 not a source; the code it cites is.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Why corpus data coexists safely with bench runs
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs -->
 Lane B writes into the same `portal5_lab` index the bench uses. Three properties
 keep the two from contaminating each other — all three are enforced in
 `scripts/corpus_ingest.py` and verifiable after any injection:
@@ -145,13 +140,11 @@ alert, an untagged event must not enter a scored episode, and an
 unattributable event cannot be rolled back. Encoding all three in the loader at
 ship time — rather than relying on the consuming side to filter — is what makes
 a single shared index safe.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Lane A — BOTS pre-indexed datasets
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-lane-a-bots-pre-indexed-datasets -->
 BOTS ships as pre-indexed Splunk buckets, so it does **not** go through HEC.
 `scripts/lab_bots_install.py` downloads each tarball (botsv1/botsv2/botsv3
 from the published S3 URLs), verifies md5 where one is published, and untars it
@@ -174,13 +167,11 @@ already carry their own indexes, and Splunk reads them as-is. The tradeoff is
 that the installer is a one-way, on-host operation — it mutates the Splunk
 host's app directory directly, so retention pinning and restart are part of the
 same script rather than a separate pipeline.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # inside LXC 301, as the splunk user (uid 41812) — the apps dir is splunk-owned.
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-inside-lxc-301-as-the-splunk-user-uid-41812-the-apps-dir-is-splunk-owned -->
 The BOTS installer must run on the Splunk host, where `$SPLUNK_HOME` and
 network egress both exist. For Portal 5 that is the `splunk` Docker container
 inside LXC 301, run as the `splunk` user so the apps dir stays splunk-owned:
@@ -230,13 +221,11 @@ on-host mutation: everything lives in `$SPLUNK_HOME/etc/apps` and nothing in
 git. The idempotence, the retention pin, and the archive cleanup are all
 defenses against that one-way-ness — they let the same script both install and
 repair without ever deleting, so a reset can be followed by a safe re-run.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Lane B — ATT&CK-labeled corpora over HEC
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-lane-b-att-ck-labeled-corpora-over-hec -->
 `scripts/corpus_ingest.py` is the Lane B loader. It reuses the existing
 `ship_batch` primitive from `hec_ship.py` — no new HEC code — and maps each
 event onto one of the four sourcetypes `spl_detections.yaml` actually fires on
@@ -260,13 +249,11 @@ the same `evidence_origin` and `episode_id` fields, and the same index. And
 mapping onto the detections' own sourcetypes is what makes the canned library
 fire without edits — the loader's job is to reshape public corpora into the
 shape the SPL already expects, not to extend the SPL to the corpora.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # Always dry-run first: it prints exact per-sourcetype volume without injecting.
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting -->
 The loader is deliberately two-phase: `--dry-run` and `--ship` are mutually
 exclusive in the argument parser, and the dry-run prints the exact
 per-sourcetype volume a ship pass would inject without posting anything to HEC.
@@ -294,13 +281,11 @@ can be hundreds of files and millions of lines, and a bad sourcetype mapping
 would inject an entire corpus that indexes fine but matches every canned
 detection zero times. Printing the volume before shipping makes the damage
 predictable and reversible before any HEC write happens.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Two format traps that silently produce useless data
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-two-format-traps-that-silently-produce-useless-data -->
 Both traps were hit building Lane B, and neither fails loudly — they yield
 events that index fine and match nothing.
 
@@ -336,13 +321,11 @@ JSON envelope without complaint, so nothing in the index signals the failure —
 only the detection hit rate drops to zero. Encoding the reshape (record
 reassembly, key=value flattening) into the loader is what converts "data
 present" into "detections can fire".
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Verify Lane B
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-verify-lane-b -->
 Verifying a Lane B ship is a three-query ritual, all scoped by the
 `evidence_origin=corpus:*` tag the loader stamps on every event via
 `ship_batch`. First confirm the injection landed and see its sourcetype
@@ -371,13 +354,11 @@ Because the loader maps onto detection sourcetypes and flattens Windows
 envelopes, the same three queries prove each link in that chain — landing,
 extraction, and a real detection firing. A raw volume check alone would bless
 an injection whose events no SPL can match.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # landing + which sourcetypes got data
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-landing-which-sourcetypes-got-data -->
 Because every injected event is tagged at ship time, one search tells you the
 whole injection landed and how it is distributed. The loader stamps each event
 `evidence_origin=corpus:<src>:<label>` and a `host=corpus-<src>` via
@@ -400,13 +381,11 @@ sourcetype is invisible to the canned SPL library no matter how good the
 underlying data is, so the loader's sourcetype mapping — not volume — is what
 makes corpus data huntable. The breakdown query turns that property into a
 visible distribution instead of a hope.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # the property that matters: field extraction actually works
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-the-property-that-matters-field-extraction-actually-works -->
 The property that makes an injected corpus huntable is not that events landed,
 but that the canned SPL library can extract the fields it filters on.
 `spl_detections.yaml` matches on flat `EventCode=` fields (for example
@@ -432,13 +411,11 @@ because the SPL library has exactly one expected shape. Counting events with an
 extractable `EventCode` catches silent failure — events that indexed fine but
 will never fire a detection — which is the failure mode a raw event count would
 miss entirely.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # a canned detection firing on corpus data (T1558.004 AS-REP roasting, verbatim SPL)
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl -->
 T1558.004 (AS-REP roasting) is one of the canned detections the injection lane
 is built to feed. The detection in `spl_detections.yaml` fires on
 `sourcetype="windows:security"` events that carry `EventCode=4768` and
@@ -466,13 +443,11 @@ library expects. Windows event ids arrive nested in a JSON envelope, so the
 loader flattens them to `EventCode=` text rather than trusting Splunk's default
 extraction — otherwise the canned detection matches zero corpus events despite
 a full index. Verification is therefore not about volume but about shape.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # confirm the live triage window is still clean
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-confirm-the-live-triage-window-is-still-clean -->
 The point of backdating is that injected corpus events never surface as live
 alerts in the bench's triage path. `blue_triage.poll_alerts` polls with
 `earliest=-{since_minutes}m` and defaults `since_minutes` to 5, so any event
@@ -497,13 +472,11 @@ window silently corrupts every subsequent bench run's alert set. The confirm
 query is the cheap check that backdating held: it should return zero while the
 corpus still shows data at `earliest=0`. Keeping those two views honest is what
 lets corpus and bench data share one index safely.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Rollback
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-rollback -->
 Because every injected event is tagged `evidence_origin=corpus:<src>:<label>`
 and backdated, removal is surgical and never touches bench data. The loader's
 own docstring documents the exact rollback search:
@@ -531,13 +504,11 @@ the start: every corpus event carries a single `evidence_origin=corpus:*`
 marker and no `episode_id`, so one delete removes the whole injection while
 leaving bench episodes intact. A loader that shipped untagged or episode-scoped
 events would make the "rollback" a dangerous full-index delete.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Lane C — live emulation (Caldera + Atomic Red Team)
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-lane-c-live-emulation-caldera-atomic-red-team -->
 `scripts/caldera_emulate.py` is the Lane C driver. It talks to Caldera's API
 at `CALDERA_URL` (default `http://10.10.11.60:8888`), lists adversaries and
 checked-in agents, and runs one adversary profile against an agent group. After
@@ -567,13 +538,11 @@ emulation against owned lab targets produces the novel-threat signal that
 `ANOMALOUS_UNCLASSIFIED` discovery needs, and reusing the bench's own
 collect/ship/wait primitives keeps that signal in the exact shape blue already
 consumes.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # on the target, from the lab network
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-on-the-target-from-the-lab-network -->
 Deploying a sandcat agent onto a lab target is a two-command operation from
 inside the lab network: download the agent binary from Caldera's file endpoint
 and start it against the Caldera server. The driver-side assumptions that make
@@ -599,13 +568,11 @@ collect, ship, index confirmation — is driven by `caldera_emulate.py` from tha
 one checked-in agent. Keeping the deployment to a one-liner is deliberate,
 because the sandcat agent lives in `/tmp` and does not survive a target
 rollback, so it will be redeployed often.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Verify Lane C
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-verify-lane-c -->
 Verifying a Lane C run confirms both that the telemetry shipped and that it is
 episode-scoped the way bench telemetry is. The events carry
 `evidence_origin=live:caldera:<profile>` and the Caldera operation id as
@@ -629,13 +596,11 @@ blue/purple episode-scoped paths the bench uses. Verifying through
 `query_episode` proves that contract held — that the shipped telemetry is
 genuinely episode-scoped, not just indexed somewhere the bench would never
 look.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Durability — surviving a lab reset
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-durability-surviving-a-lab-reset -->
 Everything these three lanes produce lives only in the lab, not in git. The
 scripts are versioned; the indexed events they ship are not. A rollback of the
 Splunk container to an older snapshot silently erases all of it, and the
@@ -662,13 +627,11 @@ derived from a script plus a public dataset, losing the lab loses data but
 never the ability to recreate it. The idempotence rules in the installers are
 what make that bet safe — a re-run after a reset is a repair, not a
 rebuild-by-hand.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Related
 
-<!-- WIKI:GENERATED unit=unit-corpus-injection-related -->
 The injection lanes are glued from one shared transport and one shared
 detection library:
 
@@ -686,6 +649,5 @@ three scripts own the three lanes, one transport primitive is shared by lanes B
 and C, and one detection library defines the target shape all injected data
 must match. Holding the whole mechanism to six files is what keeps the
 injection reversible — nothing about it lives in git beyond these.
-<!-- /WIKI:GENERATED -->
 
 ---
