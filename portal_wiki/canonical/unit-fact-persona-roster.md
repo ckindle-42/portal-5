@@ -1,27 +1,27 @@
 ---
 id: unit-fact-persona-roster
 kind: what
-title: 130 personas
+title: 131 personas
 sources:
 - type: code
   path: config/personas/
-  commit: 47d3e884c8f0
+  commit: 5acee6003d90
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: 47d3e884c8f0
+  commit: 5acee6003d90
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: 47d3e884c8f0
+  commit: 5acee6003d90
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: 47d3e884c8f0
+  commit: 5acee6003d90
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: 47d3e884c8f0
+  commit: 5acee6003d90
 - type: code
   path: config/personas/bench_gemma4_12b.yaml
-  commit: 47d3e884c8f0
-last_generated_commit: 64c5f5f41652bf67e97863ee1a6285289eaeea00
+  commit: 5acee6003d90
+last_generated_commit: 5acee6003d90
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -30,10 +30,10 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1786721901.874277
+updated_at: 1786736580.903234
 ---
 
-# Persona roster (130 personas)
+# Persona roster (131 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -126,6 +126,7 @@ updated_at: 1786721901.874277
 | `magistralstrategist` | general | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` |
 | `marketanalyst` | research | `auto-research` | — |
 | `mathreasoner` | general | `auto-math` | — |
+| `nemotronlightning` | general | `auto-nemotron` | — |
 | `nerccipcomplianceanalyst` | compliance | `auto-compliance` | — |
 | `networkengineer` | security | `auto-security` | — |
 | `ocrspecialist` | general | `auto-vision` | — |

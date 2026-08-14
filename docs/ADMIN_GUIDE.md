@@ -366,7 +366,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-# Persona roster (130 personas)
+# Persona roster (131 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -459,6 +459,7 @@ Router quality is a measured property, not an assumption — the bench pins the 
 | `magistralstrategist` | general | `auto-reasoning` | `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` |
 | `marketanalyst` | research | `auto-research` | — |
 | `mathreasoner` | general | `auto-math` | — |
+| `nemotronlightning` | general | `auto-nemotron` | — |
 | `nerccipcomplianceanalyst` | compliance | `auto-compliance` | — |
 | `networkengineer` | security | `auto-security` | — |
 | `ocrspecialist` | general | `auto-vision` | — |
@@ -509,7 +510,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-# Workspace roster (23 production, 46 eval, 69 total)
+# Workspace roster (24 production, 46 eval, 70 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -531,6 +532,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-image` | media | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
+| `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M` |
 | `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
 | `auto-research` | research | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` |
 | `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |
@@ -623,6 +625,7 @@ default.
 | `auto-image` | `granite4.1:8b-ctx16k` | yes |
 | `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
+| `auto-nemotron` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
 | `auto-research` | `portal5/xyz-aquila-mini:q4_k_m-ctx16k` | yes |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | yes |
@@ -690,12 +693,13 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-# Model catalog (219 model ids across 7 backend groups)
+# Model catalog (222 model ids across 7 backend groups)
 
-## coding (42)
+## coding (43)
 
 - `Laguna-XS.2-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
+- `Qwen3.8-27B-oQ4e-mtp`
 - `devstral-small-2`
 - `devstral-small-2:latest-ctx8k`
 - `devstral:24b`
@@ -751,8 +755,9 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (89)
+## general (91)
 
+- `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
 - `deepseek-r1:32b-q4_k_m`
 - `devstral-small-2:latest`
@@ -788,6 +793,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M`
 - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`
+- `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M`
 - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
 - `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
 - `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M`
