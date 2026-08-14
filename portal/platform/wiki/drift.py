@@ -2,29 +2,29 @@
 
 Three gates guard the spine:
 
-  AW  every `WIKI:GENERATED` block equals its unit's body        (copy vs source)
-  BR  every code surface is cited by a gate-passing unit         (existence, not truth)
-  BS  every claim holds, every pin resolves, no dead doc refs    (absolute, no baseline)
+  AW  every `WIKI:GENERATED` block equals its unit's body (fact-units only, A4)
+  BR  every code surface is cited by a gate-passing unit  (existence, not truth)
+  BS  every claim holds, no dead doc refs                 (absolute, no baseline)
 
-This module measures BS in three axes that are all exact rather than heuristic:
+This module measures BS in two axes that are both exact rather than heuristic:
 
   claims      declared assertions evaluated against live probes (see claims.py)
-  pins        `last_generated_commit` resolvable, and cited sources unchanged since
   path refs   repo-relative paths named in Tier-1 docs that no longer exist
 
-Axis 2 deliberately reports rather than fails on prose. `maintain.check_staleness`
-decided that "advancing HEAD alone does not make an authored canonical unit stale"
-— defensible for a *why* unit explaining a design rationale, wrong for a *what*
-unit describing an interface. The census keeps both visible, and since
-TASK_WIKI_ZERO_DEBT_V1 deleted the drift baseline, every finding is a hard fail
-with nothing to tolerate.
+P0 (A1) deleted the third axis this module used to carry — per-unit
+`last_generated_commit` pin health. 461 of ~720 units were pinned to a SHA
+absent from all history; the field forced a two-commit re-pin dance on every
+fact edit while adding no truth-checking of its own (a pin resolving to a
+real commit says nothing about whether the body is still correct — `claims`
+is what does that). There is no pin axis to restore; `claims` is the
+anti-drift core (A2) and `broken_path_refs` is the cheap, exact axis kept
+alongside it (A3).
 """
 
 from __future__ import annotations
 
 import re
 import subprocess
-from dataclasses import dataclass, field
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -68,95 +68,9 @@ def _git(root: Path, *args: str, input: str | None = None) -> subprocess.Complet
     )
 
 
-# ── Axis 2: pin health ───────────────────────────────────────────────────────
-
-
-@dataclass(frozen=True)
-class PinHealth:
-    """Per-unit provenance-pin status. Every tuple holds sorted unit ids."""
-
-    fresh: tuple[str, ...] = ()
-    stale: tuple[str, ...] = ()
-    phantom: tuple[str, ...] = ()
-    unpinned: tuple[str, ...] = ()
-    stale_detail: dict[str, int] = field(default_factory=dict)
-    authored_stale: tuple[str, ...] = ()
-
-    @property
-    def total(self) -> int:
-        return len(self.fresh) + len(self.stale) + len(self.phantom) + len(self.unpinned)
-
-
-def _local_source_paths(unit) -> list[str]:
-    out = []
-    for src in unit.sources:
-        raw = (src.path or "").split("#", 1)[0].strip()
-        if not raw or raw.startswith(("http://", "https://", "/")):
-            continue
-        out.append(raw)
-    return out
-
-
-def pin_health(repo_root: Path | None = None, units=None) -> PinHealth:
-    """Classify every unit that cites a repo-local path.
-
-    phantom  — `last_generated_commit` does not resolve to a commit in this clone.
-               The pin is not merely old, it is unverifiable: nothing can ever be
-               diffed against it, so the field is decoration.
-    stale    — pin resolves and at least one cited path has a commit in pin..HEAD.
-    unpinned — cites repo paths but records no pin at all.
-    """
-    root = repo_root or _REPO_ROOT
-    if units is None:
-        from portal.platform.wiki.store import load_all
-
-        units = load_all()
-
-    fresh: list[str] = []
-    stale: list[str] = []
-    phantom: list[str] = []
-    unpinned: list[str] = []
-    authored_stale: list[str] = []
-    detail: dict[str, int] = {}
-    rev_ok: dict[str, bool] = {}
-
-    for unit in units:
-        paths = _local_source_paths(unit)
-        if not paths:
-            continue
-        pin = (unit.last_generated_commit or "").strip()
-        if not pin:
-            unpinned.append(unit.id)
-            continue
-        if pin not in rev_ok:
-            rev_ok[pin] = _git(root, "cat-file", "-e", f"{pin}^{{commit}}").returncode == 0
-        if not rev_ok[pin]:
-            phantom.append(unit.id)
-            continue
-        out = _git(root, "log", "--oneline", f"{pin}..HEAD", "--", *paths).stdout.strip()
-        if out:
-            # Authored-v1 units carry the enforceable staleness contract: their
-            # cited source moving is a FAIL, not a report. They are tracked
-            # separately so BS can hard-fail on them while legacy units keep the
-            # report-only doctrine and their baseline entry.
-            if "authored-v1" in (unit.tags or []):
-                authored_stale.append(unit.id)
-            stale.append(unit.id)
-            detail[unit.id] = len(out.splitlines())
-        else:
-            fresh.append(unit.id)
-
-    return PinHealth(
-        fresh=tuple(sorted(fresh)),
-        stale=tuple(sorted(stale)),
-        phantom=tuple(sorted(phantom)),
-        unpinned=tuple(sorted(unpinned)),
-        stale_detail=detail,
-        authored_stale=tuple(sorted(authored_stale)),
-    )
-
-
-# ── Axis 3: doc path references ──────────────────────────────────────────────
+# ── Axis 2 (formerly): doc path references ──────────────────────────────────
+# The pin-health axis that used to live here (`PinHealth`/`pin_health`) was
+# deleted whole by P0 A1 — see module docstring.
 
 
 def _served_model_ids(root: Path) -> frozenset[str]:
@@ -313,7 +227,6 @@ def census(repo_root: Path | None = None) -> dict:
 
     root = repo_root or _REPO_ROOT
     units = load_all()
-    pins = pin_health(root, units)
     refs = broken_path_refs(root)
     violations = evaluate_claims(units, root)
     undeclared = undeclared_numeric_claims(units)
@@ -326,14 +239,6 @@ def census(repo_root: Path | None = None) -> dict:
         "claim_violations": [str(v) for v in violations],
         "undeclared_numeric_units": len(undeclared),
         "undeclared_numeric_sample": dict(sorted(undeclared.items())[:10]),
-        "pins": {
-            "fresh": len(pins.fresh),
-            "stale": len(pins.stale),
-            "phantom": len(pins.phantom),
-            "unpinned": len(pins.unpinned),
-            "total": pins.total,
-            "stalest": sorted(pins.stale_detail.items(), key=lambda kv: -kv[1])[:10],
-        },
         "broken_path_refs": list(refs),
         "generated_blocks": blocks["blocks_total"],
     }

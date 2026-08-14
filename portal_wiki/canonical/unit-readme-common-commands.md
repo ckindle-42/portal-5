@@ -13,7 +13,6 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: scripts/lib/users.sh
-last_generated_commit: 75c5054f791636f367b62a1776bcc9f631794766
 claims: []
 confidence: high
 tags:

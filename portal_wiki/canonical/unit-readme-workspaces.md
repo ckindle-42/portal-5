@@ -9,7 +9,6 @@ sources:
   path: portal/platform/inference/router/workspaces.py
 - type: code
   path: config/backends.yaml
-last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims:
 - probe: workspaces.functional
   pattern: '**{value} functional workspaces**'

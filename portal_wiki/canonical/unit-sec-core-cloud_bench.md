@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/modules/security/core/cloud_bench.py
   commit: 11d83e41
-last_generated_commit: 11d83e41
 claims: []
 confidence: high
 tags:

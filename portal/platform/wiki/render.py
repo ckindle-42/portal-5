@@ -126,11 +126,16 @@ def render_all_generated_blocks(repo_root: Path, doc_paths: list[Path] | None = 
 
 
 def check_generated_blocks_current(
-    repo_root: Path, doc_paths: list[Path] | None = None
+    repo_root: Path,
+    doc_paths: list[Path] | None = None,
+    unit_ids: set[str] | None = None,
 ) -> list[str]:
     """Read-only drift check: which docs have a generated block that does
     NOT match its unit's current body right now. Empty list = clean. Used
     by the validate gate — does not write anything.
+
+    `unit_ids`, if given, scopes the check to that set (P0 A4: AW governs
+    the KEEP-FACT set only — see `claims.fact_unit_ids`).
     """
     if doc_paths is None:
         doc_paths = [repo_root / rel for rel in TIER1_DOCS]
@@ -141,6 +146,8 @@ def check_generated_blocks_current(
             continue
         text = doc_path.read_text(encoding="utf-8")
         for unit_id in _find_unit_ids_outside_human_owned(text):
+            if unit_ids is not None and unit_id not in unit_ids:
+                continue
             unit = load_unit(unit_id)
             if unit is None:
                 drifted.append(f"{doc_path}: block references missing unit {unit_id!r}")

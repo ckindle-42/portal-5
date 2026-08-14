@@ -1,6 +1,5 @@
 # PORTAL5_ACCEPTANCE_EXECUTE_V9 — Claude Code Prompt
 
-<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-portal5-acceptance-execute-v9-claude-code-prompt -->
 The current acceptance entry point is `tests/portal5_acceptance_v6.py`, a thin
 script that re-exports the routing signal dicts and delegates to
 `acceptance.cli.main`; confirm it is still the newest runner by listing the
@@ -32,13 +31,11 @@ retired security ids, both already wrong at the codebase state the doc
 described. The corrected surface derives everything from the preflight and the
 section code, so the suite's target is whatever `config/portal.yaml` says today,
 and the retired-id guard turns a regression back into an immediate failure.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Your Role
 
-<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-your-role -->
 The acceptance operator acts as the execution agent for the suite: launch the
 section runner against a live stack, watch the live progress log for stalls,
 diagnose failures using the recorded detail and evidence, retry sections
@@ -63,13 +60,11 @@ the suite would measure nothing. Recording a fixed schema of status, detail,
 and evidence per check, and summarizing routing intent versus actual model,
 gives the owner everything needed to reproduce a failure without changing
 product code.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Phase 0 — Preflight (required)
 
-<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-phase-0-preflight-required -->
 Before any run, verify the environment in order. First run
 `scripts/execute_preflight.py`: it prints the live production, eval, and total
 workspace counts plus the persona and MCP-fleet counts from `config/portal.yaml`
@@ -93,13 +88,11 @@ follows, and the pipeline health probe confirms the routing surface is actually
 serving before the first request. Preflight is the difference between a wasted
 multi-hour run and a clean one, which is why the script prints live counts
 instead of trusting a number baked into a document.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Autonomous Monitoring Loop — required default
 
-<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-autonomous-monitoring-loop-required-default -->
 The acceptance suite runs many Ollama-routed sections back to back against a
 live stack, so a full run is long and the machine is unattended for extended
 windows. The S10c compliance section is the most expensive phase: it drives
@@ -128,13 +121,11 @@ health endpoint precisely so an operator can distinguish a slow-but-alive run
 from a wedged one, and can point at recorded evidence when stopping. Nothing in
 the code stops a hung section for you, so the monitoring cadence is an operator
 discipline the preflight and the progress log exist to support.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Running
 
-<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-running -->
 The runner entry point is `tests/portal5_acceptance_v6.py`, which is a thin
 wrapper: it re-exports `WORKSPACE_PROMPTS` and the related signal dicts and
 calls `acceptance.cli.main`, with all real behavior in
@@ -161,13 +152,11 @@ selection supports ids, comma lists, and ranges because operators frequently
 re-run just the sections relevant to a change rather than the whole suite,
 which takes a long wall-clock time. Confirming the newest runner up front
 prevents executing an outdated suite.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Coverage (current)
 
-<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-coverage-current -->
 Section S3 (a wrapper that runs S3a) covers production-workspace routing. Its
 catalog is the hand-maintained `PRODUCTION_WORKSPACES` list in
 `tests/acceptance/s03_routing.py`, paired with the prompt-and-signal entries in
@@ -194,13 +183,11 @@ workspace list evolves. Baked counts drift exactly the way the acceptance doc's
 older workspace count did, which is why the preflight prints the live
 production set and the operator reconciles section coverage against it instead
 of trusting a number written into prose.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## New in V9 — routing + served-model verification
 
-<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-new-in-v9-routing-served-model-verification -->
 Routing integrity is verified in two layers. Before the suite, run
 `scripts/routing_regression.py --assert-baseline`: it resolves the fixed corpus
 in `tests/routing/corpus.json` through the keyword routing layer and asserts
@@ -227,13 +214,11 @@ pins, and id-only comparison would not catch it. The baseline gate and the S10
 expected-model check therefore compare the served model, not just the
 destination, so the suite fails loudly on the exact regression that previously
 slipped through as a green routing result.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Results + dashboard
 
-<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-results-dashboard -->
 After a run completes, the results file is written to the repository root as
 `ACCEPTANCE_RESULTS.md` by `_write_results` in `tests/lib/results.py`, carrying
 the date, git SHA, section list, runtime, summary counts, and one row per
@@ -257,13 +242,11 @@ the markdown, not authored by hand. The corpus archive additionally preserves a
 time series so a section's pass rate can be compared across runs. Wiring the
 runner's output path and the updater's input path explicitly prevents the two
 sides from silently pointing at different files.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Failure playbook
 
-<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-failure-playbook -->
 The runner catches any exception a section module raises and records it as a
 `{sec}-ERR` row with status FAIL; see the exception handler in `run_sections`
 in `tests/acceptance/runner.py`. A NameError in such a row classifies as a
@@ -292,13 +275,11 @@ served-model failures are product regressions that loosening acceptance
 expectations would hide. The classification in `tests/lib/results.py` and the
 hard-fail behavior in the regression script keep the suite honest about what it
 protects.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Non-negotiables
 
-<!-- WIKI:GENERATED unit=unit-portal5-acceptance-execute-v9-non-negotiables -->
 Run the preflight first: `scripts/execute_preflight.py` prints the live
 production workspace count from `config/portal.yaml` and the persona catalog
 size, so acceptance targets the current surface rather than a baked number.
@@ -323,6 +304,5 @@ catalog after a collapse or expansion; keeping eval workspaces and bench
 sections out bounds the run to what production actually serves; and refusing to
 loosen expectations means a routing regression surfaces immediately rather than
 as silent drift behind green results.
-<!-- /WIKI:GENERATED -->
 
 ---

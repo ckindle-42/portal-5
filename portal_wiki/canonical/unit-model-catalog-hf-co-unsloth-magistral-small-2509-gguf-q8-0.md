@@ -5,7 +5,6 @@ title: "MODEL_CATALOG \u2014 `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0`"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims: []
 confidence: high
 tags:

@@ -11,7 +11,6 @@ sources:
   path: .env.example
 - type: code
   path: deploy/portal-5/docker-compose.yml
-last_generated_commit: a81c5e73569f981ecedb0d95b088563fcce651ed
 claims: []
 confidence: high
 tags:

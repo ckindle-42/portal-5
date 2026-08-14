@@ -1,6 +1,5 @@
 # Known Issues
 
-<!-- WIKI:GENERATED unit=unit-known-issues-known-issues -->
 # Known Issues
 
 `KNOWN_ISSUES.md` is intentionally empty by design. Architectural
@@ -27,6 +26,5 @@ fixable and should be filed) from accepted design tradeoffs (which
 the limitations page is never misled into treating a recorded decision as
 an open defect. This unit is grounded to the renderer that produces the
 page and to the limitation units that supply its substance.
-<!-- /WIKI:GENERATED -->
 
 ---

@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/platform/wiki/quality.py
   commit: 4ca84409
-last_generated_commit: 6afb262648d307376dfb4f839eeed69c02112d04
 claims: []
 confidence: high
 tags:
@@ -54,14 +53,15 @@ checks (structure floor, substance floor, claim-binding) apply only to units
 tagged `authored-v1`; the legacy corpus predates the convention and is
 exempt, which is itself a documented calibration decision.
 
-An authored-v1 unit carries an enforceable staleness contract that legacy units
-do not: `BS` hard-fails when the unit's cited source has a commit after its
-`last_generated_commit` pin. Clearing that failure is a read-first procedure,
-not a re-pin. Read the diff (`git log <pin>..HEAD -- <cited source>`), update
-the affected sections of the unit to match what the code now does, re-assess
-against the quality gate, and only then re-pin to the current commit. The
-re-pin is the last step, not the first — a rubber-stamp re-pin that skips the
-reading is how the 461 phantom pins happened, and it would defeat the entire
-purpose of the staleness contract. The drift census's `portal_wiki drift`
-command surfaces exactly which units are stale and which probes they failed,
-so clearing starts from the census output.
+Before P0 (`TASK_BULLY_P0_SPINE_REDUCTION_V1` A1), an authored-v1 unit carried
+an enforceable staleness contract legacy units did not: `BS` hard-failed when
+the unit's cited source had a commit after its `last_generated_commit` pin.
+P0 deleted the pin — and that contract with it — because a pin resolving to a
+real commit never proved the body was still true; it only forced a two-commit
+re-pin dance on every fact edit, and a rubber-stamp re-pin that skipped
+reading the diff is how 461 phantom pins happened in the first place. There is
+no pin-based staleness contract to restore. What remains, for authored-v1 and
+legacy units alike: `claims` hard-fails a unit whose body states a wrong
+number against a live probe, and `broken_path_refs` hard-fails a dead
+repo-relative path in a Tier-1 doc. The drift census's `portal_wiki drift`
+command surfaces exactly which claims and doc refs are currently broken.

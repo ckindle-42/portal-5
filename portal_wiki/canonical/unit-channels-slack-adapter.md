@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal_channels/slack/bot.py
   commit: c23c27d9
-last_generated_commit: c23c27d9
 claims: []
 confidence: high
 tags:

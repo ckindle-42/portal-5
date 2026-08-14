@@ -6,7 +6,6 @@ sources:
 - type: code
   path: scripts/openwebui_init.py
   commit: af437ebd
-last_generated_commit: af437ebd
 claims: []
 confidence: high
 tags:

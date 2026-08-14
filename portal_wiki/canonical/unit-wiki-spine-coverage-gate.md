@@ -9,7 +9,6 @@ sources:
   path: config/spine_surfaces.yaml
 - type: code
   path: portal/platform/wiki/adapters/seed_code.py
-last_generated_commit: 916b1931ff69939a98aca98aa5ea64444ceee56c
 claims: []
 confidence: high
 tags:

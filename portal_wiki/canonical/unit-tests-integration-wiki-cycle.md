@@ -6,7 +6,6 @@ sources:
 - type: code
   path: tests/integration/test_wiki_self_improving_cycle.py
   commit: '96146826'
-last_generated_commit: '96146826'
 claims: []
 confidence: high
 tags:

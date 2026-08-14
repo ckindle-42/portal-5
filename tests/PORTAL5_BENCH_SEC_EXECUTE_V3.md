@@ -1,6 +1,5 @@
 # PORTAL5_BENCH_SEC_EXECUTE_V3 — Security Bench Execution Prompt
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-portal5-bench-sec-execute-v3-security-bench-execution-prompt -->
 Supersedes the V2 execute prompt, archived at
 `docs/_archive_execdocs/PORTAL5_BENCH_SEC_EXECUTE_V2.md`. V3 reflects the
 post-alias-retirement codebase: the pre-collapse security workspace ids
@@ -30,13 +29,11 @@ the code that actually executes the bench, instead of a snapshot from a dated
 document.
 
 ---
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## What changed in the security surface (read before running)
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-what-changed-in-the-security-surface-read-before-running -->
 The collapse (commit a7d9dcc8) folded nine security workspaces into one
 `auto-security` base with `variants:` blocks, and the alias shim that let old
 ids keep working was removed. `scripts/execute_preflight.py` hard-codes the 23
@@ -64,13 +61,11 @@ variant set is config-driven and the harness must never trust a table typed
 from memory.
 
 ---
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### 0a. Ground truth
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-0a-ground-truth -->
 Run `python3 scripts/execute_preflight.py` before every session.
 `scripts/execute_preflight.py` reads `config/portal.yaml` at runtime, collects
 every `variants:` sub-key of the `auto-security` workspace into a
@@ -90,13 +85,11 @@ The doc's table drifted because variants are defined in exactly one place —
 print reality at run time: workspace counts, the canonical variant list, the
 model-pin personas, and any retired-alias leak, so an execute agent benches
 against live config rather than a baked table that has already gone stale.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### 0b. Lab readiness gate — do not bench a cold or unreachable lab
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-0b-lab-readiness-gate-do-not-bench-a-cold-or-unreachable-lab -->
 `./launch.sh lab-up` starts the core lab stack (Incalmo C2 + Talon SOC
 analyst) via `_launch_lab_up` in `scripts/lib/lab.sh`; `./launch.sh lab-up-wazuh`
 adds the Wazuh/OpenSearch telemetry stack via `_launch_lab_up_wazuh` (requires
@@ -119,13 +112,11 @@ automation and CI, and its required-versus-best-effort split keeps optional
 telemetry from blocking an otherwise ready bench.
 
 ---
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Your Role
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-your-role -->
 The execute agent's role is to run the security bench, not to build it.
 Concretely: run `scripts/execute_preflight.py` and the lab readiness gate,
 invoke `python3 -m portal.modules.security.core` with the flags the run
@@ -144,13 +135,11 @@ measurement instrument. If the same agent wrote the harness and then judged its
 own candidates, a failing score could be "fixed" by editing the rubric; keeping
 product code read-only forces capability problems to surface as findings, which
 is exactly what a qualification run is supposed to produce.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Autonomous Monitoring Loop — required default
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-autonomous-monitoring-loop-required-default -->
 Security chains are slow by construction: thinking models plus tool
 round-trips, with `_data.py`'s `PER_WORKSPACE_TIMEOUT` capping per-workspace
 requests at up to 1500 seconds for the `auto-security::redteam`,
@@ -173,13 +162,11 @@ converting a silent multi-hour stall into an observed, recorded decision instead
 of burned compute.
 
 ---
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Running
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-running -->
 The bench entry point is `python3 -m portal.modules.security.core`, which
 dispatches through `portal/modules/security/core/__main__.py` into `cli.main`.
 With no arguments it benches `DEFAULT_WORKSPACES` — the eight canonical
@@ -199,13 +186,11 @@ replaces it with the invocation that actually exists. The default is
 deliberately broad (all workspaces across all prompts) while the slow and
 lab-touching passes stay opt-in, so a quick dry-run and a full multi-hour live
 campaign are both one command away without risking unintended live execution.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # Single variant on the prompt set
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-single-variant-on-the-prompt-set -->
 ```bash
 python3 -m portal.modules.security.core --workspaces auto-security::pentest
 ```
@@ -224,13 +209,11 @@ A single-variant run is the cheapest way to smoke-test a new candidate model or
 a changed prompt before committing hours to the full fleet. The variant still
 resolves through the canonical `::` key, so routing, per-workspace timeouts, and
 scoring all use the same vocabulary as a full multi-variant run.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # Several variants
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-several-variants -->
 ```bash
 python3 -m portal.modules.security.core --workspaces \
     auto-security::redteam auto-security::blueteam auto-security::purpleteam
@@ -252,13 +235,11 @@ candidate-comparison shape: identical prompts and scoring, only the served
 model differs. The cross-category skip in `run_bench` matters because a blueteam
 variant handed offensive prompts would score against the wrong rubric, so the
 harness removes that mismatch deterministically before any model is called.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # Dry-run the full expanded plan first (each step no-ops if its module is absent)
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-dry-run-the-full-expanded-plan-first-each-step-no-ops-if-its-module-is-absent -->
 ```bash
 python3 -m portal.modules.security.core --full-expanded --dry-run
 ```
@@ -281,13 +262,11 @@ only cheap way to confirm every step resolves before committing real time. The
 per-step ImportError fallback is intentional: the suite must never crash on a
 box that lacks one optional module, and it must say so explicitly when one is
 missing.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # Full expanded with live lab execution (needs green lab-ready)
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-full-expanded-with-live-lab-execution-needs-green-lab-ready -->
 ```bash
 python3 -m portal.modules.security.core --full-expanded --lab-exec
 ```
@@ -315,13 +294,11 @@ workspaces, and blue correlation; re-grounding shows each of those is a separate
 opt-in flag. Conflating them makes an operator believe a flag-composed suite is
 monolithic, which either over-runs the lab or silently skips the passes they
 intended to run.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Served-model note (new in V3)
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-served-model-note-new-in-v3 -->
 Persona-level model pins (`model_pin`) are consumed by the pipeline, not the
 bench: `portal/platform/inference/router/handlers.py` Phase 4c applies a
 persona's `model_pin` through `_resolve_model_override` (bounded to the
@@ -343,13 +320,11 @@ means nothing, so the pin check is not cosmetic. Re-grounding replaces the
 doc's unverifiable "two security-adjacent personas" claim with the preflight's
 live enumeration, which is the only ground truth that stays correct as pins move
 between personas over time.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Candidate qualification report
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-candidate-qualification-report -->
 The qualification report summarizes the scored rows `run_bench` returns. Per
 variant, the theory pass yields `score_response` metrics — `header_score`
 (structured-output adherence to the prompt's `required_headers`), MITRE
@@ -373,13 +348,11 @@ and its rules exist to keep that decision conservative. Zero auto-promotion is
 the load-bearing guarantee: a passing candidate is a recommendation and a
 clearance record, so a bench artifact can never silently change which model the
 fleet serves.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Failure playbook
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-failure-playbook -->
 - `--workspaces auto-pentest` errors — `auto-pentest` is a retired alias (it is
   in `RETIRED_ALIASES` in `scripts/execute_preflight.py`) and is not registered
   in `config/portal.yaml`, so `call_pipeline` forwards it as the pipeline
@@ -403,13 +376,11 @@ retired-alias and timeout entries both trace to one design decision: the
 harness addresses variants by their literal `::` string, so aliases and
 uncapped folds fail in ways that look like model faults but are vocabulary
 faults. The playbook names the code that decides each outcome.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Non-negotiables
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-sec-execute-v3-non-negotiables -->
 - Run `scripts/execute_preflight.py` first and use its live `security_variants`
   list, never a baked table — the variant set is config-driven in
   `config/portal.yaml`.
@@ -431,6 +402,5 @@ is the only current source of variant names, the canonical key is the only
 vocabulary both harness and router accept, the lab gates exist because a cold
 lab yields hours of meaningless zeros, and confirm-only promotion keeps a
 benchmark artifact from ever editing fleet config on its own.
-<!-- /WIKI:GENERATED -->
 
 ---

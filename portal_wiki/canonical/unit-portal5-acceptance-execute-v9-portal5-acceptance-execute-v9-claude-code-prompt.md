@@ -16,7 +16,6 @@ sources:
   path: tests/acceptance/runner.py
 - type: code
   path: tests/expected_models.py
-last_generated_commit: 1c013743834d850604632980a093809f65c3c3ed
 claims: []
 confidence: high
 tags:

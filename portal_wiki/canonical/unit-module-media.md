@@ -13,7 +13,6 @@ sources:
   path: config/portal.yaml
 - type: code
   path: module-state-change:media:cli
-last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims: []
 confidence: high
 tags:

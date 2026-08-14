@@ -5,7 +5,6 @@ title: "Retired MLX inference tier \u2014 archival record of the dual-stack aban
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/*.py
-last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
 claims: []
 confidence: high
 tags:

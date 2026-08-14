@@ -15,7 +15,6 @@ sources:
   path: portal/modules/security/core/agentic_blue_eval.py
 - type: code
   path: portal/modules/security/core/_sweep_driver.py
-last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims: []
 confidence: high
 tags:

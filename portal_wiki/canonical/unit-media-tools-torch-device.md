@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/modules/media/tools/utils.py
   commit: 1a0e2df4
-last_generated_commit: 1a0e2df4
 claims: []
 confidence: high
 tags:

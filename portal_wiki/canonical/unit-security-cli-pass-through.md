@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/modules/security/cli/__init__.py
   commit: b0aa6770
-last_generated_commit: b0aa6770
 claims: []
 confidence: high
 tags:

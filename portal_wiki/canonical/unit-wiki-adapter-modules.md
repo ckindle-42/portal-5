@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/platform/wiki/adapters/modules.py
   commit: 66aa9fda
-last_generated_commit: 66aa9fda
 claims: []
 confidence: high
 tags:

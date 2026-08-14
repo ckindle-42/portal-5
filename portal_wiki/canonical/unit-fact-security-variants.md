@@ -7,7 +7,6 @@ sources:
   path: config/portal.yaml
   commit: db75e444cdca521f9be63059be9180bb380a4a64
   section: workspaces.auto-security.variants
-last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims: []
 confidence: high
 tags:

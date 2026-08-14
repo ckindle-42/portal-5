@@ -5,7 +5,6 @@ title: "Script \u2014 spine_census"
 sources:
 - type: code
   path: scripts/spine_census.py
-last_generated_commit: 481c0daaa9f701c6dfc81e76f2040755f7cd8334
 claims: []
 confidence: high
 tags:

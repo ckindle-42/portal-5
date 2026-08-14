@@ -127,14 +127,14 @@ def cmd_drift(args: argparse.Namespace) -> int:
     """Drift census — the re-runnable form of the code-to-doc audit.
 
     Read-only. Exit code reflects the absolute gate: non-zero when a claim
-    fails or any drift exists (phantom/unpinned/stale pins, dead doc refs),
-    so this doubles as a pre-commit probe without going through the full
-    validate harness. There is no baseline to tolerate drift.
+    fails or a dead doc ref exists, so this doubles as a pre-commit probe
+    without going through the full validate harness. There is no baseline
+    to tolerate drift. (P0 A1 removed the pin axis this used to also gate on.)
     """
     import json as _json
 
     from portal.platform.wiki.claims import evaluate_claims
-    from portal.platform.wiki.drift import broken_path_refs, census, pin_health
+    from portal.platform.wiki.drift import broken_path_refs, census
     from portal.platform.wiki.store import load_all, set_canonical_dir
 
     repo_root = Path(__file__).resolve().parent.parent
@@ -151,20 +151,14 @@ def cmd_drift(args: argparse.Namespace) -> int:
         print(f"  claim violations      : {len(report['claim_violations'])}")
         for line in report["claim_violations"]:
             print(f"      ! {line}")
-        pins = report["pins"]
-        print(
-            f"  pins                  : {pins['fresh']} fresh / {pins['stale']} stale / "
-            f"{pins['phantom']} phantom / {pins['unpinned']} unpinned of {pins['total']}"
-        )
         print(f"  broken doc path refs  : {len(report['broken_path_refs'])}")
         for line in report["broken_path_refs"]:
             print(f"      ! {line}")
         print(f"  undeclared numeric    : {report['undeclared_numeric_units']} unit(s) (debt)")
 
     units = load_all()
-    pins = pin_health(repo_root, units)
     refs = broken_path_refs(repo_root)
-    dirty = evaluate_claims(units, repo_root) or pins.phantom or pins.unpinned or pins.stale or refs
+    dirty = evaluate_claims(units, repo_root) or refs
     return 1 if dirty else 0
 
 
@@ -214,10 +208,10 @@ def cmd_archive(args: argparse.Namespace) -> int:
 
 def cmd_re_ground(args: argparse.Namespace) -> int:
     """Re-ground a unit: replace its sources with verified code/config paths,
-    re-pin to HEAD, tag verified-v1, and refuse to save unless the quality gate
-    passes. This is the mechanical half of TASK_WIKI_ZERO_DEBT_V1 Phase 3 — the
-    operator still reads the code; this command proves the result is pinned,
-    re-sourced, and gate-clean.
+    tag verified-v1, and refuse to save unless the quality gate passes. This
+    is the mechanical half of TASK_WIKI_ZERO_DEBT_V1 Phase 3 — the operator
+    still reads the code; this command proves the result is re-sourced and
+    gate-clean. (P0 A1 removed the pin this command used to also stamp.)
     """
     from portal.platform.wiki.quality import assess
     from portal.platform.wiki.schema import SourceRef
@@ -262,21 +256,20 @@ def cmd_re_ground(args: argparse.Namespace) -> int:
         ["git", "rev-parse", "HEAD"], cwd=repo_root, capture_output=True, text=True
     ).stdout.strip()
     unit.sources = new_sources
-    unit.last_generated_commit = head_sha
     tags = [t for t in (unit.tags or []) if t not in ("authored-v1", "verified-v1")]
     tags.append("verified-v1")
     unit.tags = sorted(set(tags))
 
     issues = list(assess([unit], repo_root).issues)
     if issues:
-        print(f"refused: {len(issues)} quality issue(s) — fix the body, not the pin")
+        print(f"refused: {len(issues)} quality issue(s) — fix the body")
         for i in issues[:10]:
             print(f"  ! {i}")
         reset_canonical_dir()
         return 1
 
     save_unit(unit)
-    print(f"re-grounded {args.unit_id} -> {head_sha[:8]} ({len(new_sources)} code source(s))")
+    print(f"re-grounded {args.unit_id} @ {head_sha[:8]} ({len(new_sources)} code source(s))")
     reset_canonical_dir()
     return 0
 
@@ -297,7 +290,7 @@ def main() -> int:
     sub.add_parser("status", help="Wiki status report")
 
     # drift
-    drift_p = sub.add_parser("drift", help="Drift census: claims, pins, doc path refs")
+    drift_p = sub.add_parser("drift", help="Drift census: claims, doc path refs")
     drift_p.add_argument("--json", action="store_true", help="Emit the raw census as JSON")
 
     # archive
@@ -318,9 +311,7 @@ def main() -> int:
     )
 
     # re-ground
-    rg_p = sub.add_parser(
-        "re-ground", help="Re-source a unit to code/config, re-pin, tag verified-v1"
-    )
+    rg_p = sub.add_parser("re-ground", help="Re-source a unit to code/config, tag verified-v1")
     rg_p.add_argument("unit_id", help="Unit id to re-ground")
     rg_p.add_argument(
         "--source", action="append", default=[], help="Code/config source path (repeatable)"

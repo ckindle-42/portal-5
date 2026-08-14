@@ -12,7 +12,6 @@ sources:
   path: tests/benchmarks/bench/cli.py
 - type: code
   path: scripts/update_grafana_benchmarks.py
-last_generated_commit: 3ddc2edf72414664d711390cd563cfb3e02f9130
 claims: []
 confidence: high
 tags:

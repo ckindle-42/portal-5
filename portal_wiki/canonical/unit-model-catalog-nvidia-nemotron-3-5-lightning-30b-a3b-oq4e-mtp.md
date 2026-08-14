@@ -5,7 +5,6 @@ title: "MODEL_CATALOG \u2014 `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`"
 sources:
 - type: code
   path: config/backends.yaml
-last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims: []
 confidence: high
 tags:

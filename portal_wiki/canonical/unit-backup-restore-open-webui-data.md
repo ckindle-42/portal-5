@@ -9,7 +9,6 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: launch.sh
-last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
 claims: []
 confidence: high
 tags:

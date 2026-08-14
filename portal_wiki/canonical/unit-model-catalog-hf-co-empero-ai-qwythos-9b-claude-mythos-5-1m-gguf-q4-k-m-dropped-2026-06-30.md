@@ -6,7 +6,6 @@ title: "MODEL_CATALOG \u2014 `hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF
 sources:
 - type: code
   path: tests/benchmarks/results/v10_candidates_20260629T194541Z.json
-last_generated_commit: ba66a30a47f104a137e20da5d5a3e3e9cc0b3360
 claims: []
 confidence: high
 tags:

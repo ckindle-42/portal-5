@@ -6,7 +6,6 @@ sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
   commit: c23c27d9
-last_generated_commit: c23c27d9
 claims: []
 confidence: high
 tags:

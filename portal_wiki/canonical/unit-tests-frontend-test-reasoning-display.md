@@ -5,7 +5,6 @@ title: Reasoning display live-stack integration test
 sources:
 - type: code
   path: tests/frontend/test_reasoning_display.py
-last_generated_commit: baca992c674a3cbb36a619e8f62e7e88b8fccfff
 claims: []
 confidence: high
 tags:

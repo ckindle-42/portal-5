@@ -5,7 +5,6 @@ title: "Wiki adapters \u2014 Portal wiring: seeds, writeback, source connectors"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/*.py
-last_generated_commit: 22007054d6cba73357ea3c5d7d7c97f5c252d7dc
 claims: []
 confidence: high
 tags:
