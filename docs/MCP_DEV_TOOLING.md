@@ -1,6 +1,5 @@
 # MCP Dev Tooling — Claude Code & opencode Integration
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-mcp-dev-tooling-claude-code-opencode-integration -->
 Portal 5 ships two root-level configuration files that wire AI coding tools into the
 stack. `.mcp.json` is the MCP server roster that Claude Code auto-discovers when it
 opens the repo, covering the local transport servers and the remote portal-* HTTP
@@ -16,13 +15,11 @@ The two files exist because the two clients have different configuration surface
 Claude Code consumes `.mcp.json` natively, while opencode needs a provider block and
 its own MCP roster. Keeping them separate but in lockstep means each tool reads the
 format it expects and the integration stays declarative rather than scripted.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## MCP Servers (`.mcp.json`)
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-mcp-servers-mcp-json -->
 `.mcp.json` is the MCP server roster consumed by Claude Code. Four entries are
 command-transport servers launched through `npx` or `uvx`: `filesystem`, `fetch`,
 `git`, and `docker`. The rest are remote HTTP servers pointing at the reserved
@@ -37,13 +34,11 @@ The roster is the single place Claude Code learns which capabilities exist, and 
 shape mirrors the project's port reservation table: every portal-* server is an HTTP
 endpoint on a fixed port with no per-client packaging. That keeps tool delivery
 cheap and makes the list auditable against `config/portal.yaml`'s fleet table.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Prerequisites
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-prerequisites -->
 The four command-transport servers in `.mcp.json` (`filesystem`, `fetch`, `git`,
 `docker`) are spawned through `npx` or `uvx`, so those two runners must be on PATH.
 `npx` ships with Node.js, and `uvx` ships with uv — both are single-install tools.
@@ -57,13 +52,11 @@ Prerequisites are worth stating as a list because the failure they prevent is si
 an MCP server that fails to spawn because `uvx` is missing looks exactly like a
 server that crashed. Naming the two runners and the one stack command up front turns
 that ambiguity into a two-minute check instead of a debugging session.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # Install if missing:
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-install-if-missing -->
 The four command-transport servers in `.mcp.json` — `filesystem`, `fetch`, `git`,
 and `docker` — are launched via `npx` or `uvx`, so Node.js and uv must be installed
 and on PATH before Claude Code or opencode can start them. The remote portal-*
@@ -79,13 +72,11 @@ diagnostic instead of magical. If an MCP server fails to load, the first questio
 whether its transport depends on `npx` or `uvx` on PATH or on a service that only
 exists after launch, and the answer is visible from how the server is declared in
 `.mcp.json`.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Portal Pipeline MCP (`portal-pipeline`, `:8928`)
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-portal-pipeline-mcp-portal-pipeline-8928 -->
 The pipeline MCP is a host-native MCP SDK v2 server on port 8928 (overridable via
 `PIPELINE_MCP_PORT`). `./launch.sh up` starts it through `_ensure_native_mcp_service`
 in `scripts/lib/util.sh`, which on macOS registers a launchd agent that runs
@@ -102,13 +93,11 @@ repo tree and the local pipeline without volume mounts or networking, and the
 zero-import rule keeps the coding-tools surface decoupled from the inference stack.
 The launchd wrapper makes it start and stop with the stack, so the IDE tools are
 simply there when the project is up.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Tools
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-tools -->
 The pipeline MCP exposes introspection and repository tools, all implemented as
 `_impl_*` helpers in `portal/platform/mcp_host/pipeline_mcp.py`. `get_pipeline_status`
 reports pipeline health, `list_workspaces` lists the model catalog with an optional
@@ -128,13 +117,11 @@ Two consumer paths exist because the same tools serve both an IDE and the in-pip
 agentic workspaces, and sharing the `_impl_*` helpers guarantees identical behaviour
 from both. That single-source-of-truth design is what keeps the tool contract from
 diverging between a Claude Code session and a workspace tool call.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### FastContext Repository Explorer
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-fastcontext-repository-explorer -->
 `explore_repository` in `portal/platform/mcp_host/pipeline_mcp.py` runs the
 FastContext model (`hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`) as a
 dedicated repository-exploration subagent. It issues parallel READ, GLOB, and GREP
@@ -150,13 +137,11 @@ scanning the tree. A small specialist that only finds files and line ranges keep
 the expensive reasoning model focused on the change itself, and the citation format
 means the returned paths are directly actionable instead of being vague hints about
 where something might live.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## opencode Integration (`opencode.jsonc`)
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-opencode-integration-opencode-jsonc -->
 `opencode.jsonc` at the repo root tells opencode to use Portal 5 as its AI backend
 instead of a cloud API. It declares a `portal` provider using the OpenAI wire format
 with a base URL of :9099/v1, lists `PIPELINE_API_KEY` in the provider `env` block so the
@@ -172,13 +157,11 @@ its own provider, key plumbing, and MCP roster or the client falls back to whate
 global config exists — potentially a cloud provider. Centralising the local
 integration in one committed file makes the local-first posture the default for
 anyone opening the repo.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### What opencode gets
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-what-opencode-gets -->
 Opening the repo with opencode delivers three things. First, fully local inference:
 every completion goes through the `portal` provider in `opencode.jsonc` to the
 pipeline on :9099 and then to Ollama, so no tokens leave the machine. Second, the
@@ -195,13 +178,11 @@ local-first posture without configuration: local provider, local models, local t
 cloud locked out. Stating what opencode actually receives makes it possible to verify
 that posture from the config alone, which is the difference between a claimed local
 setup and a real one.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Quick start
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-quick-start -->
 The quick start is three steps. First bring the stack up with `./launch.sh up`, which
 starts the compose services and the host-native pipeline MCP. Second, make sure
 `PIPELINE_API_KEY` is exported — the wrapper scripts do this automatically, and
@@ -216,13 +197,11 @@ A quick start exists to make the zero-setup claim testable: if these three steps
 not produce a working local session, the integration is broken. Each step maps to a
 concrete file or command — `launch.sh`, the key plumbing, and the per-client entry
 point — so the check stays mechanical instead of depending on tribal knowledge.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # 1. Ensure stack is running
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-1-ensure-stack-is-running -->
 Every Portal MCP tool is a thin client that proxies to live services, so the stack
 must be up before anything works. `./launch.sh up` (the `up` case in `launch.sh`)
 first pulls the Docker images, then calls `_ensure_native_services` from
@@ -237,13 +216,11 @@ The pipeline MCP and sandbox MCP hold no state of their own; they forward every 
 to the pipeline, Ollama, or an isolated container. Treating `./launch.sh up` as a
 mandatory first step keeps health checks from failing at the network layer, which is
 exactly the failure the tooling workflow is designed to avoid.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # 2. Export the pipeline API key into the environment
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-2-export-the-pipeline-api-key-into-the-environment -->
 The pipeline requires a bearer token on its authenticated endpoints. The key lives as
 `PIPELINE_API_KEY` in `.env` (see `.env.example`), and every entry point that talks
 to the pipeline must carry it. `scripts/cc-portal.sh` and `scripts/cc-local.sh`
@@ -260,13 +237,11 @@ is deliberately kept out of source control. Centralising the export in the wrapp
 scripts and the provider config means an operator never has to paste the secret into
 a shell by hand, which is both a convenience and a way to avoid leaking it into a
 history or a log.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # 3. Launch opencode (reads opencode.jsonc + .mcp.json automatically)
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-3-launch-opencode-reads-opencode-jsonc-mcp-json-automatically -->
 Opening the repo with bare `opencode .` picks up `opencode.jsonc` at the root, which
 carries the whole IDE integration: the `portal` provider block (base URL
 :9099/v1), the `env` list for `PIPELINE_API_KEY`, a cloud-provider guard,
@@ -281,13 +256,11 @@ opencode merges configuration by working directory and has no strict-MCP bypass,
 the project's behaviour has to be declared in the project's own config file. Keeping
 the provider, the key plumbing, and the MCP roster together in `opencode.jsonc` makes
 a bare launch from the repo root fully local without any shell incantation.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Workspace selection
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-workspace-selection -->
 opencode selects a model with `--model portal/<key>`, where the key is a base
 workspace id or a curated persona slug from the `models` block in `opencode.jsonc`.
 The default is `portal/codingagentic`, the Laguna agentic persona. Other curated
@@ -305,13 +278,11 @@ across agentic loop, one-shot generation, and long-horizon refactor, and each
 workspace is tuned for one of them. Exposing the curated subset as named personas
 keeps the picker legible while the full catalog stays reachable through discovery,
 which is why the keys must match the pipeline's advertised ids exactly.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Dual mode: Portal vs stock (no file renaming)
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-dual-mode-portal-vs-stock-no-file-renaming -->
 opencode runs in Portal mode by default inside the repo: bare `opencode .` reads
 `opencode.jsonc` and gets the local pipeline backend plus the `mcp` roster.
 `scripts/oc-portal.sh` is the explicit Portal wrapper; `scripts/oc-stock.sh` runs
@@ -327,13 +298,11 @@ opencode has no strict-MCP flag and merges configs by working directory, so the 
 clean way to get stock behaviour inside the repo is to force the global config into
 play. Wrapping that in a script, and leaving the project config untouched, gives the
 operator a reversible switch instead of a file edit they will have to undo later.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Claude Code Integration
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-claude-code-integration -->
 Claude Code has three operating modes with Portal 5, each a thin wrapper script
 around the `claude` CLI. Mode A (`scripts/cc-portal.sh`) keeps Anthropic cloud as
 the intelligence and adds Portal tools via `.mcp.json`. Mode B (`scripts/cc-local.sh`)
@@ -350,13 +319,11 @@ pristine stock behaviour. Keeping each intent in its own script means the operat
 picks a mode by name and never has to remember the environment variables or the
 CLI flags that implement it, and none of the modes rename or delete the project's
 config files to switch.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Mode A — Cloud intelligence + Portal tools (default, `cc-portal.sh`)
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-mode-a-cloud-intelligence-portal-tools-default-cc-portal-sh -->
 Mode A is the default Claude Code posture: Anthropic cloud supplies the reasoning,
 and Portal 5 supplies tools. `scripts/cc-portal.sh` runs `claude` from the repo
 root so `.mcp.json` and `CLAUDE.md` are auto-discovered, and it exports
@@ -372,13 +339,11 @@ operational surface — the sandbox, the pipeline introspection tools, and the r
 filesystem — without any of that intelligence being replaced. It is the default
 because it needs no model routing configuration; the tools are simply present and
 the cloud model uses them.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Mode B — Local model intelligence + Portal tools (`cc-local.sh`)
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-mode-b-local-model-intelligence-portal-tools-cc-local-sh -->
 Mode B keeps the same Portal tool set as Mode A but moves the intelligence on-box.
 `scripts/cc-local.sh` exports `ANTHROPIC_BASE_URL=http://localhost:9099` and
 `ANTHROPIC_API_KEY=$PIPELINE_API_KEY`, verifies the pipeline answers on /health, and
@@ -395,13 +360,11 @@ IDE without forking the CLI: the SDK's base URL and key are the only moving part
 Keeping the wrapper responsible for those two variables, plus the default persona
 selection, means local inference stays a one-command operation with the full tool set
 intact.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Mode C — Stock cloud (zero Portal MCP, `cc-stock.sh`)
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-mode-c-stock-cloud-zero-portal-mcp-cc-stock-sh -->
 Mode C runs vanilla cloud Claude Code inside the repo with none of Portal's MCP
 servers. `scripts/cc-stock.sh` builds the argument list starting with
 `--strict-mcp-config`, which tells Claude Code to load only command-line MCP servers
@@ -418,13 +381,11 @@ Stock mode exists because occasionally the operator wants pristine cloud Claude 
 repo. The strict-mcp-config flag delivers exactly that, and the two environment
 switches give a graduated path from zero MCP to the generic-only subset without ever
 touching a file.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## `auto-coding` Workspace — `laguna` Variant
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-auto-coding-workspace-laguna-variant -->
 The `laguna` variant of the `auto-coding` workspace is the default agentic coding lane
 for opencode and Claude Code. `config/portal.yaml` pins its `model_hint` to
 `laguna-xs.2:Q4_K_M-ctx64k`, sets `keep_alive` to 15 minutes and `context_limit` to
@@ -442,13 +403,11 @@ edit, verify directly in the system prompt removes the guesswork about which too
 exist and which order to call them, and the persona indirection lets the picker
 address the variant by a stable name rather than by an implementation detail of the
 workspace config.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Fixing a bug (Claude Code)
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-fixing-a-bug-claude-code -->
 Fixing a routing bug with Claude Code in Portal mode follows the tool chain that
 `.mcp.json` and the pipeline MCP provide. The session starts with
 `explore_repository` to locate the routing and workspace-selection code, then reads
@@ -465,13 +424,11 @@ exploration, targeted read, edit, test, and version control are each owned by on
 server. That separation keeps the expensive reasoning model focused on diagnosis
 while the mechanical steps stay cheap and auditable, which is the whole point of
 assembling the IDE tool set.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Adding a feature (opencode with local Laguna)
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-adding-a-feature-opencode-with-local-laguna -->
 Adding a new workspace with opencode and the local Laguna persona follows the
 agentic loop that the `laguna` variant's `system_prompt_append` in `config/portal.yaml`
 bakes into every turn. First call `explore_repository` (FastContext) to learn how
@@ -487,13 +444,11 @@ the shape the router expects or every request for it mis-routes. Making explorat
 edit, and verification explicit steps forces the model to confirm the exact definition
 shape before writing anything, which keeps a one-file addition from becoming a
 routing incident.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Debugging a failing MCP server (Claude Code)
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-debugging-a-failing-mcp-server-claude-code -->
 When a Portal MCP tool errors, the containerised servers and the pipeline MCP expose
 enough surface to diagnose without leaving Claude Code. The sandbox runs as the
 `mcp-sandbox` compose service bound to :8914 (see `deploy/portal-5/docker-compose.yml`);
@@ -510,13 +465,11 @@ endpoint answering, or is the tool's own logic throwing? The tool roster in
 `.mcp.json` was assembled so each of those questions has a server to answer it,
 turning a black-box tool failure into a short read of logs, health, and one direct
 call.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Checking what's in VRAM before a long task
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-checking-what-s-in-vram-before-a-long-task -->
 Before a long coding session, check whether the model you need is already resident in
 memory so the first request is not a cold load. The `get_loaded_models` tool in
 `portal/platform/mcp_host/pipeline_mcp.py` asks Ollama's `/api/ps` endpoint and
@@ -531,13 +484,11 @@ Warm-model awareness is what turns a long agentic task from a sequence of
 ten-second stalls into a continuous flow. Checking residency once at the start, and
 optionally warming the workspace you plan to use, lets the model plan around cold
 starts instead of being surprised by them mid-task.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Prometheus Fetch Patterns
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-prometheus-fetch-patterns -->
 The pipeline exposes Prometheus text on /metrics from `portal/platform/inference/router/handlers.py`.
 Hand-rolled gauges report `portal_backends_healthy`, `portal_backends_total`,
 `portal_uptime_seconds`, and `portal_workspaces_total`, while the registry adds the
@@ -555,13 +506,11 @@ tool dispatch, errors — without guessing. Metric names are the contract betwee
 exposition and any consumer, so they are stated here as they are defined in the
 code, and the dashboard and MCP consumers all read from the one /metrics endpoint
 rather than maintaining their own instrumentation.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Security Boundaries
 
-<!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-security-boundaries -->
 Each MCP server in `.mcp.json` has an explicit boundary. `filesystem` is launched
 with `${HOME}/projects` and `/tmp` as its allowed roots. `docker` reaches the Docker
 socket, which is acceptable only on a single-user machine. `fetch` performs HTTP
@@ -578,6 +527,5 @@ stated explicitly because each server is a different kind of surface. Reading th
 together shows which servers are sandboxed, which inherit host trust, and which are
 read-only — the information an operator needs before granting a coding agent broader
 access or exposing a port.
-<!-- /WIKI:GENERATED -->
 
 ---

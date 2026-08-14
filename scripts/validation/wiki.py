@@ -101,28 +101,39 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
 
 
 @register(
-    "wiki_facts_current", "AW. wiki facts current (fact-units + generated doc blocks)", order=47
+    "wiki_facts_current",
+    "AW. wiki facts current (fact-units only, P0 A4)",
+    order=47,
 )
 def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
-    """AW. Wiki fact-units are current vs live config, generated doc
-    blocks match their units, and migrated docs have no un-fenced substance.
+    """AW. Wiki fact-units are current vs live config, and every KEEP-FACT
+    generated doc block matches its unit's current body.
 
     DESIGN_WIKI_GENERATION_LOOP_V1.md F3 — the precise replacement for a
     coarse "a bound directory changed" doc-currency signal on the docs
     that now carry generated fact-blocks: read-only diff of each
     fact-unit's would-be body against what's stored, plus every
-    `<!-- WIKI:GENERATED unit=... -->` block in the Tier-1 docs against
-    its unit's current body. A mismatch here is precise ("unit says 138,
-    doc block says 130"), not "a directory changed, re-stamp" — it means
-    `sync-config` was not re-run after a source change before commit.
+    `<!-- WIKI:GENERATED unit=... -->` block bound to a KEEP-FACT unit in
+    the Tier-1 docs against its unit's current body. A mismatch here is
+    precise ("unit says 138, doc block says 130"), not "a directory
+    changed, re-stamp" — it means `sync-config` was not re-run after a
+    source change before commit.
+
+    P0 A4 scoped this check to the KEEP-FACT set (`claims.fact_unit_ids`):
+    executable-claims units plus `unit-fact-*` volatile-fact units. Ordinary
+    prose — released from the fence obligation — carries no AW currency
+    requirement, no matter how many Tier-1 docs quote it; editing it is not
+    a `sync-config` event.
 
     Additionally enforces A1: a doc that has graduated to "migrated" status
     must have zero substantive remainder (no hand-edited facts outside
     WIKI:GENERATED or WIKI:HUMAN-OWNED fences). Edit the unit, not the shell.
     """
     from portal.platform.wiki.adapters.seed_facts import check_facts_current
+    from portal.platform.wiki.claims import fact_unit_ids
     from portal.platform.wiki.migration import substantive_remainder
     from portal.platform.wiki.render import check_generated_blocks_current, render_report
+    from portal.platform.wiki.store import load_all
 
     subs: list[dict] = []
 
@@ -135,10 +146,11 @@ def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
         }
     )
 
-    drift = check_generated_blocks_current(REPO_ROOT)
+    fact_ids = fact_unit_ids(load_all())
+    drift = check_generated_blocks_current(REPO_ROOT, unit_ids=fact_ids)
     subs.append(
         {
-            "name": "generated doc blocks vs units",
+            "name": "generated doc blocks vs units (fact-units only, A4)",
             "status": "PASS" if not drift else "FAIL",
             "detail": "; ".join(drift) if drift else "all match",
         }

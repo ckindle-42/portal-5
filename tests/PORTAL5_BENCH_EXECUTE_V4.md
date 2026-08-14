@@ -1,6 +1,5 @@
 # PORTAL5_BENCH_EXECUTE_V4 — opencode Bench Execution Prompt
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-portal5-bench-execute-v4-opencode-bench-execution-prompt -->
 > **Supersedes** `PORTAL5_BENCH_EXECUTE_V3.md` (archived under
 > `docs/_archive_execdocs/`). V4 is the current opencode bench execution
 > prompt for the post-collapse / post-alias-retirement codebase: corrected
@@ -31,13 +30,11 @@ ground truth and at `bench_tps.py --dry-run` for the plan, so an execution
 agent derives numbers from live config instead of a paragraph. `bench_tps.py`
 is a re-export shim over `tests/benchmarks/bench/`, keeping the operator
 entry point stable while the implementation was modularized.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Your Role
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-your-role -->
 You are the **benchmark execution agent**, not the implementation agent. You
 execute the suite, diagnose failures, adjust the run, retry intelligently, and
 produce a Grafana dashboard update. Results go to `tests/benchmarks/results/`
@@ -61,13 +58,11 @@ results trustworthy. The read-only rule and fresh-run rule protect against the
 two ways a bench corrupts itself — patching the code under test, or
 over-trusting cached resident models — so the dashboard update reflects what
 actually ran.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Phase 0 — Preflight (required before any run)
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-phase-0-preflight-required-before-any-run -->
 ```bash
 python3 scripts/execute_preflight.py
 ```
@@ -86,13 +81,11 @@ so an execution agent needs the current ground truth, not a doc's baked
 numbers. The retired-alias check catches a regression where a retired id like
 `auto-redteam` silently reappears; benching that surface would waste hours and
 produce results that mislead, which is why the nonzero exit is a stop signal.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # 1. Ground truth — counts + no retired-alias leak
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-1-ground-truth-counts-no-retired-alias-leak -->
 ```bash
 python3 scripts/execute_preflight.py
 ```
@@ -111,13 +104,11 @@ counts in an execution doc went stale and mis-planned runs. The preflight
 recomputes reality from `config/portal.yaml` at run time and hard-fails on a
 retired alias like `auto-redteam` or `auto-phi4` reappearing, which would
 silently corrupt a whole bench. Trust its numbers, never the doc.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # 2. Bench plan — the real test count for THIS run
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-2-bench-plan-the-real-test-count-for-this-run -->
 ```bash
 PORTAL_ENABLE_EVAL=1 python3 tests/benchmarks/bench_tps.py --dry-run
 ```
@@ -137,13 +128,11 @@ rather than a doc: `_config_ollama_models_unique`, `_config_workspaces`, and
 A plan written by hand goes stale the moment a workspace or persona is added.
 The `PORTAL_ENABLE_EVAL=1` prefix mirrors the eval module opt-in so the plan
 matches what a real run against the pipeline can actually route.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 # 3. Backends up?
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-3-backends-up -->
 ```bash
 curl -s localhost:11434/api/tags  >/dev/null && echo "ollama ok"
 curl -s localhost:9099/health     >/dev/null && echo "pipeline ok"
@@ -164,13 +153,11 @@ eval-module workspaces at pipeline load, and a bench plan that lists eval
 workspaces is incomplete if the pipeline cannot route them. The retired-alias
 check is the other gate — a leak there means the surface is not canonical, so
 bench a broken surface is pointless and the run must stop.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Autonomous Monitoring Loop — required default
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-autonomous-monitoring-loop-required-default -->
 Full bench runs take hours: the default `--runs 5` multiplies every direct
 model, pipeline workspace, and persona test, and each model swap is gated by a
 cooldown and Metal-drain wait. Immediately after launching, establish a
@@ -187,13 +174,11 @@ resident-model reuse. A multi-hour unattended run therefore cannot self-heal;
 a wakeup loop is what turns a stalled overnight run into a diagnosed, resumed
 one. This is why the V4 prompt made the loop a required default rather than a
 suggestion.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### On launch
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-on-launch -->
 1. Start the run detached, logging to a timestamped file under
    `tests/benchmarks/results/`.
 2. Record the PID and the expected test count (from `--dry-run`).
@@ -208,13 +193,11 @@ run spans hours and the CLI appends as it goes, the output file doubles as the
 run's log of progress, so recording where it lives and the planned count on
 launch is what lets a later wakeup compare completed tests against the
 `--dry-run` plan and decide between reschedule, filter, or halt.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### On each wakeup
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-on-each-wakeup -->
 1. Is the process alive? (`ps`), how far along? (tail the log, count completed
    tests vs planned).
 2. If progressing: reschedule ~20–30 min out.
@@ -233,13 +216,11 @@ via `_result_already_done` in `tests/benchmarks/bench/results_io.py`. A wakeup
 check therefore judges progress from the log and the dry-run plan, and reacts
 by scoping the run or stopping with evidence rather than waiting blindly for a
 run that will never finish.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Modes
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-modes -->
 `bench_tps.py` selects test tiers with `--mode` (choices in
 `tests/benchmarks/bench/cli.py`: `direct`, `pipeline`, `personas`, `all`,
 default `all`):
@@ -260,13 +241,11 @@ the persona slug, so a `model_pin` persona benches its workspace's pool
 default — pin-serving correctness is verified separately by
 `scripts/persona_intent_audit.py` and `routing_regression.py`, not by this
 mode's TPS.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Served-model sanity (new in V4)
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-served-model-sanity-new-in-v4 -->
 Persona served-model correctness was a recent bug class, so V4 adds a sanity
 check. The bench records the model the API actually returned as `routed_model`
 and a boolean `expected_model_match` per test (`tests/benchmarks/bench/measure.py`);
@@ -289,13 +268,11 @@ intended model. The bench therefore records `routed_model` and
 audit plus the routing-regression baseline assert the full
 `(base, variant, served_model)` tuple against a versioned corpus — the two
 checks cover the paths the bench's own request shape cannot reach.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Results + dashboard
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-results-dashboard -->
 1. Confirm the run completed the planned test count (allow documented skips).
 2. Update `config/grafana/dashboards/portal5_benchmarks.json` from the results
    JSON via the updater:
@@ -318,13 +295,11 @@ together so the dashboard and its source stay in sync; results live under
 `tests/benchmarks/results/` per `RESULTS_DIR` in
 `tests/benchmarks/bench/config.py`. Confirming the count first prevents a
 partial run from being blessed as a baseline.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Failure playbook
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-failure-playbook -->
 - **A model won't load / OOMs** — a very large quantized model plus a long
   context window can exceed unified memory. Skip it and note it; don't force.
 - **Persona benches at pool-default TPS not its pin** — served-model
@@ -344,13 +319,11 @@ handlers, so `scripts/routing_regression.py --assert-baseline` exists as a
 deterministic gate on the resolved `(base, variant, served_model)` tuple. The
 retired-alias leak is a hard stop because a non-canonical surface invalidates
 every number the run would produce.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Non-negotiables
 
-<!-- WIKI:GENERATED unit=unit-portal5-bench-execute-v4-non-negotiables -->
 - Preflight + `--dry-run` before every run; counts come from there, not this
   doc.
 - `PORTAL_ENABLE_EVAL=1` for full coverage of the eval-module workspaces.
@@ -367,6 +340,5 @@ The preflight and `--dry-run` recompute scale from `config/portal.yaml` and
 stale-plan errors. `PORTAL_ENABLE_EVAL=1` mirrors the eval-module opt-in that
 the pipeline enforces at boot, and the read-only rule keeps the bench a
 measurement instrument rather than a place to patch routing bugs.
-<!-- /WIKI:GENERATED -->
 
 ---

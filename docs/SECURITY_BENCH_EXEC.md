@@ -23,7 +23,6 @@ The canonical variant set is the `variants` map on the `auto-security` workspace
 
 ---
 
-<!-- WIKI:GENERATED unit=unit-SEC_BENCH-what-it-is -->
 `bench_security` is a **package** (`portal/modules/security/core/`), decomposed from a single module. Chain execution, scoring, and lab-exec logic were further split into focused sub-modules; `chain.py` and `cli.py` are now thin re-export shims over the implementations that moved out.
 
 | Module | Purpose |
@@ -46,11 +45,9 @@ The canonical variant set is the `variants` map on the `auto-security` workspace
 ## Why
 
 The package boundary exists so the security bench can grow without a single monolithic script. The refactors split chain, blue, and lab-exec logic out of the original module, and the module-level shims (`chain.py`, `cli.py`, `__init__.py`) keep import compatibility while the implementation moves. Knowing which file owns which concern — configuration in `_data.py`, pure math in `scoring.py`, live lab I/O in `lab.py` — is what lets a new contributor add a scenario or a scoring rule without touching unrelated code paths.
-<!-- /WIKI:GENERATED -->
 
 ---
 
-<!-- WIKI:GENERATED unit=unit-SEC_BENCH-sub-components -->
 ## Capability Index
 
 `portal.modules.security.core.capability` makes the scattered security library legible to a decide step. Read-only — indexes what already exists.
@@ -94,11 +91,9 @@ Reuses existing notification subsystem. Fire-and-forget, non-fatal.
 ## Why
 
 Each sub-component extends the bench without touching the core chain: the capability index gives a decide step something legible to query, the goal-driven and emergent loops layer reasoning on top, drift gate flags model regressions across runs, and loop notifications surface long-running engagements. The deliberate pattern is containment — the capability index is read-only, goal decide stops at proposal, the emergent loop is flag-gated, and drift is a flag, not a verdict.
-<!-- /WIKI:GENERATED -->
 
 ---
 
-<!-- WIKI:GENERATED unit=unit-SEC_BENCH-prerequisites -->
 ## Lab VMs must be running
 
 ```bash
@@ -148,11 +143,9 @@ hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
 ## Why
 
 Every item here is a silent-failure precondition: the bench degrades to synthetic, unreachable, or wrong-model results rather than erroring when one is missing. `SANDBOX_LAB_EXEC` gates the entire lab-exec lane, the `LAB_TARGET_*` addresses are what the attack image actually reaches, and the model list is what the exec chain must have pulled locally before a run starts.
-<!-- /WIKI:GENERATED -->
 
 ---
 
-<!-- WIKI:GENERATED unit=unit-SEC_BENCH-quick-start-tiers -->
 ## Tier 1 — Theory (prose quality, workspace prompts only)
 
 Runs the prompt set against the listed security workspaces with tools disabled. Measures structure adherence, disclaimer density, MITRE coverage. No lab needed.
@@ -183,11 +176,9 @@ Multi-model chain with real sandbox execution, blue defender, snapshot lifecycle
 ## Why
 
 These three tiers are the same bench at increasing cost and fidelity, and the quick-start framing exists so an operator can pick the cheapest tier that answers the current question. Theory validates many models quickly, exec adds tool-call sequence without lab dependencies, and lab-exec is reserved for runs whose results must be trusted as real. The `--exec-eval` flag is what switches exec workspaces into tier two, which is why it appears in exactly that command.
-<!-- /WIKI:GENERATED -->
 
 ---
 
-<!-- WIKI:GENERATED unit=unit-SEC_BENCH-single-prompt-tests -->
 ## Single prompt, lab-exec
 
 ```bash
@@ -214,11 +205,9 @@ python3 -m portal.modules.security.core --probe-lab --dry-run 2>&1
 ## Why
 
 These two commands are the fastest paths to a single answer: run one prompt end-to-end against the live lab, or just check reachability before committing to a long run. The single-prompt form is also the debugging loop — when a full scenario fails, isolating one prompt with one model roster makes the failure reproducible in minutes instead of hours.
-<!-- /WIKI:GENERATED -->
 
 ---
 
-<!-- WIKI:GENERATED unit=unit-SEC_BENCH-execution-chain-features -->
 22 features of the execution chain (drawn from `exec_chain.py`, `scoring.py`, `lab.py`, and `_data.py`):
 
 1. **Adaptive Retry** — `fallback_techniques` tried when primary fails
@@ -247,11 +236,9 @@ These two commands are the fastest paths to a single answer: run one prompt end-
 ## Why
 
 The feature list is the map a reviewer uses to decide whether a behavior is already covered before adding a new flag or scorer. Every item traces to a concrete hook in the bench code — a data field, a CLI flag, or a scoring function — so "we should add X" is answerable by checking the list first. The execution chain is deliberately the thickest surface of the bench: it is where theory, real command dispatch, blue detection, and lab lifecycle all meet.
-<!-- /WIKI:GENERATED -->
 
 ---
 
-<!-- WIKI:GENERATED unit=unit-SEC_BENCH-exercises -->
 ## Execution modes — 33 executable prompts plus theory-only exercises
 
 `PROMPTS` contains both theory exercises and executable lab exercises.
@@ -280,11 +267,9 @@ Cross-target chains: `web_to_dc_pivot`, `htb_responder_chain`, `htb_lfi_log_pois
 ## Why
 
 The `EXEC_SEQUENCES` boundary is the line between prompts that may drive real commands and prompts that only score prose. Keeping it explicit matters because a theory prompt can turn destructive once dispatched — `cron_privesc` and `container_escape` would attack the disposable image itself. The retained FTP/MySQL IDs show the cost of result compatibility: their names survived so historical result files stay comparable, while their actual steps were re-pointed at the Metasploitable3 Windows service fleet.
-<!-- /WIKI:GENERATED -->
 
 ---
 
-<!-- WIKI:GENERATED unit=unit-SEC_BENCH-scoring -->
 The exec-chain summary line and result JSON expose these per-chain metrics (`chain_exec_composite`, `chain_handoff_quality`, `blue_detection_rate`, and the reliability block in `exec_chain.py`):
 
 | Metric | What it measures |
@@ -307,11 +292,9 @@ Each step has two independent scoring paths. A step is marked **hit** if either 
 ## Why
 
 The two-path scoring exists because a model can name the right technique without executing it, or execute it without naming it — scoring only one path would reward half the skill. Method match credits procedural knowledge from the tool arguments; result match credits the lab output actually produced. The metric table exists so a reader can tell which number measures what: `exec` is a composite, `stealth` is gated on proven execution, and `reliability` carries its own hard floor rather than being folded into a composite.
-<!-- /WIKI:GENERATED -->
 
 ---
 
-<!-- WIKI:GENERATED unit=unit-SEC_BENCH-verification -->
 ## What to Verify After Running
 
 1. **Real execution** — the chain phase prints a per-prompt `chain(...)` summary with `exec=`, `tools=`, and `handoff=`; real dispatch yields `steps_proven`/`proven_coverage` in the result JSON rather than the `(synthetic.)` fallback marker
@@ -332,11 +315,9 @@ The two-path scoring exists because a model can name the right technique without
 ## Why
 
 Verification matters here more than in a unit test because lab-exec results are only as trustworthy as the evidence they carry: a model can emit plausible tool calls that never reached a real target, and a synthetic fallback must never be read as a live win. The checklist therefore greps for the markers that only real dispatch produces, and the known-issues list records the failure modes that already misled people once — stale HTB IPs, clock skew, and a read-only filesystem that silently breaks certain tools.
-<!-- /WIKI:GENERATED -->
 
 ---
 
-<!-- WIKI:GENERATED unit=unit-SEC_BENCH-coding-agent-reentry -->
 ## File locations after refactor
 
 ```
@@ -370,11 +351,9 @@ The bench NEVER modifies Open WebUI or the pipeline. It communicates directly wi
 ## Why
 
 Re-entering this package after a refactor is cheap only if the module map is current; the map above is the first thing a contributor checks before adding a prompt, a scenario, or a lab hook. The rebuild triggers matter because the lab-exec lane runs inside Docker images that do not pick up Python edits automatically — only `_data.py` and `__init__.py` are hot-reloadable, so knowing which layer a change lands in determines whether a rebuild is required.
-<!-- /WIKI:GENERATED -->
 
 ---
 
-<!-- WIKI:GENERATED unit=unit-SEC_BENCH-blue-orchestration -->
 `--blue-mode` selects which blue investigation path a run uses:
 
 | Mode | Shape | Prompt |
@@ -409,4 +388,3 @@ Escalation is a SCORED win, not a miss.
 ## Why
 
 The mode table exists because a single blue prompt cannot serve every evaluation question. Scripted and discovery measure a lone defender; orchestrated, council, and multichain isolate how multiple models split evidence gathering from verdicts. The default is discovery so an operator who omits the flag gets the least-leading evaluation, while the standalone modes intentionally require a captured episode so comparisons stay reproducible against the same red evidence.
-<!-- /WIKI:GENERATED -->

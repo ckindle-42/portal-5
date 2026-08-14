@@ -1,6 +1,5 @@
 # Agent Loop (platform core)
 
-<!-- WIKI:GENERATED unit=unit-agent-loop-agent-loop-platform-core -->
 `portal/platform/agent/` is the discipline-agnostic agent loop: a bounded,
 grounded, writeback-capable engine that any module drives with its own action
 space. It is **platform core** — always present, never a toggleable module;
@@ -28,13 +27,11 @@ capability model. Keeping the package free of `portal.modules.*` imports is
 what makes a single engine safe for every module at once — each module
 implements the structural contracts and plugs in, which is exactly the
 dependency-inversion relationship the AO guard exists to protect.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Shape
 
-<!-- WIKI:GENERATED unit=unit-agent-loop-shape -->
 The loop's shape is a single bounded engine over a module's contracts:
 
 ```
@@ -59,13 +56,11 @@ the loop is event-driven: each executor result becomes the next decide-turn's
 observations, and stop/budget conditions are checked after each fold. Keeping
 record outside the body means a wiki write can never change what the loop does
 next — learning is a side channel, not control flow.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Contracts (the "key" modules implement)
 
-<!-- WIKI:GENERATED unit=unit-agent-loop-contracts-the-key-modules-implement -->
 The `interfaces.py` protocols are the contracts every module implements to
 unlock the loop:
 
@@ -87,13 +82,11 @@ coupling cost to join the loop. Security's `Capability` already carries
 engine reason over candidates without knowing security internals. Returning
 errors in-band keeps a failed action a scored observation rather than a crash,
 which is what lets the loop report honest outcomes instead of dying mid-run.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Discipline (borrowed from the Campaign Supervisor)
 
-<!-- WIKI:GENERATED unit=unit-agent-loop-discipline-borrowed-from-the-campaign-supervisor -->
 `run_loop` enforces the Campaign-Supervisor discipline:
 
 - Caps: `max_iterations` and `max_wall_clock_sec` from `goal.budget` bound the
@@ -114,13 +107,11 @@ or an ungrounded decide turn invented actions, "completed" would be meaningless
 for an engagement or a code change. Budgets and the confidence floor are the
 backstops that keep bounded execution honest, and the explicit invalid-goal
 exit surfaces a bad spec instead of burning its budget on nothing.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Record path (writing enabled, CI-gated)
 
-<!-- WIKI:GENERATED unit=unit-agent-loop-record-path-writing-enabled-ci-gated -->
 `agent.writeback.record_outcome(...)` is the loop's write path: it distills an
 outcome into a cited unit and proposes it via
 `portal.platform.wiki.writeback.propose_unit`, landing in
@@ -137,13 +128,11 @@ and provenance-required. A loop that could write straight into the canonical
 wiki would certify its own outcomes; staging proposals first means every unit
 passes through a human gate, and the `sources` requirement in `propose_unit`
 forces a loop to cite real evidence before its learning can be recorded.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Operator surface
 
-<!-- WIKI:GENERATED unit=unit-agent-loop-operator-surface -->
 The `portal agent` CLI (`portal/platform/inference/cli/agent.py`) is the
 operator surface for the loop:
 
@@ -166,13 +155,11 @@ grounding requirement, while `proposed` exposes the confirm/reject gate — the
 only way a loop's learning reaches the canonical wiki. Both commands are
 read-only, keeping operator power bounded until a module actually wires a live
 executor.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Consumers
 
-<!-- WIKI:GENERATED unit=unit-agent-loop-consumers -->
 Security is the only live consumer: `security.core.goal` / `decision_engine`
 / `goal_decide` re-home onto this core while keeping their public symbols —
 `EngagementGoal` subclasses the platform `Goal`, `decision_engine` re-exports
@@ -198,6 +185,5 @@ first validated the platform contracts without any module-coupling risk. The
 security shims stay byte-compatible so the existing suite and CLI never notice
 the engine moved. Other modules are deliberately not claimed as consumers
 until they actually implement the contracts; a roadmap is not an implementation.
-<!-- /WIKI:GENERATED -->
 
 ---

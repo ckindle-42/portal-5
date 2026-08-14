@@ -1,6 +1,5 @@
 # P5_ROADMAP.md — Portal 5 v7 Future Enhancements
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements -->
 The roadmap document at the repo root is the tracking file for open Portal 5
 work. Its header states the current release as 8.0.0, which matches the `version`
 field in `pyproject.toml`. Completed work is not kept in the open queue:
@@ -17,13 +16,11 @@ version in `pyproject.toml` and the location of the completed-work record in
 `CHANGELOG.md`; the roadmap itself is a planning artifact, not a fact source, so
 the unit now asserts only those two anchors and does not restate the roadmap
 body.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Future Considerations (Not Yet Implemented)
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-future-considerations-not-yet-implemented -->
 This queue lists open roadmap items. Two of them are grounded in current code:
 `P5-FUT-WS-FROM-MODULE` and `P5-FUT-MODEL-CHAINWALK` both hinge on
 `workspace_model` in `config/personas/*.yaml` being the canonical served-model
@@ -53,13 +50,11 @@ decide that `workspace_model` is canonical and `preferred_models` is dead, so
 those two items are grounded; the security and prompt-guard rows have no
 implementing code, so their bodies only assert the existing surface that planned
 work would extend, leaving the aspirational status explicit.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Speculative Decoding / MTP — RETIRED (commit 3a0c58e)
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e -->
 Speculative decoding and MTP support lived in the retired MLX proxy and are not
 part of the current serving stack. The archived
 `scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py` reads the draft-model map
@@ -78,13 +73,11 @@ the dual-stack admission and thread-patch complexity. The archived implementatio
 is intentionally retained as reference but is not runnable at HEAD, so this unit
 records the removal and the surviving reference rather than describing a live
 feature.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### workspace-clean Utility (LOW priority)
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-workspace-clean-utility-low-priority -->
 A `workspace-clean` command is planned but does not exist: `launch.sh` has no such
 subcommand. What the code does determine is the layout the utility would operate
 on. `portal/platform/mcp_host/workspace.py` resolves the shared workspace root
@@ -103,13 +96,11 @@ only expiry-driven janitor that exists is scoped to one category (`mlx-speech.py
 generalizing it to the full workspace is planned but unimplemented, so the body
 asserts the layout the planned command would target and the absence of the command
 in `launch.sh`.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### P5-FUT-004: Webhook-Based Event Notifications
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications -->
 P5-FUT-004 is implemented. `WebhookChannel`
 (`portal/platform/inference/notifications/channels/webhook.py`) is a
 `NotificationChannel` registered in
@@ -134,13 +125,11 @@ event shapes (`send_alert` / `send_summary`) separate lets a receiver distinguis
 a per-backend failure from the periodic digest without parsing the payload, and
 the header override covers authenticated endpoints without storing credentials
 in the repo.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### P5-FUT-006: LLM-Based Intent Routing
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-006-llm-based-intent-routing -->
 P5-FUT-006 is implemented as Layer 1 of auto-routing. `_route_with_llm()`
 (`portal/platform/inference/router/routing.py`) calls the Ollama `/api/generate`
 endpoint with `format: _ROUTER_JSON_SCHEMA`, grammar-enforced JSON that can only
@@ -167,13 +156,11 @@ answer is structurally valid, and the hard 1000ms timeout plus `keep_alive: -1`
 turn the classifier into a cheap, always-warm first opinion. Routing is
 non-fatal by design — every failure mode degrades to the deterministic keyword
 scorer rather than erroring the request.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### P5-FUT-009: Model-Size-Aware Admission Control (MLX Proxy)
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy -->
 P5-FUT-009 shipped in the retired MLX proxy and is now historical. The archived
 `scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py` holds the implementation:
 `MODEL_MEMORY` maps model ids to estimated GB (loaded from the `mlx_models`
@@ -197,13 +184,11 @@ difference between a clean swap and an OOM crash. Retiring the proxy moved that
 niche to Ollama's native `OLLAMA_MAX_LOADED_MODELS` cap, while the archived
 implementation remains the documented pattern if a successor engine ever needs a
 memory gate again.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### P5-FUT-013: OMLX Evaluation — CANCELED
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled -->
 P5-FUT-013 evaluated oMLX as a candidate inference engine and is superseded by
 Phase 1 integration. `OMLX_DECISION.md` records the decision chain: the
 2026-04-25 bake-off RETIRED oMLX because KV-cache persistence was not functional
@@ -228,13 +213,11 @@ short prefixes never show a warm-cache win. Re-measuring on agentic-length
 prefixes cleared the cancel trigger, and the dual-backend decision registers
 oMLX in `config/backends.yaml` without disturbing production routing —
 evidence before promotion, the same rule the bench fleet follows.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### P5-FUT-014-V7: Model Refresh Waterline
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline -->
 TASK_MODEL_REFRESH_V7 (2026-05-27, recorded in `CHANGELOG.md`) added six bench
 workspaces to the fleet. Two survive in current config:
 `bench-qwen36-27b-ud` (in `config/portal.yaml`, `model_hint` qwen3.6:27b-q4_K_M,
@@ -257,13 +240,11 @@ source of truth for what the fleet serves, so the two surviving UD workspaces
 and the absence of the speech bench entries are the facts this unit asserts; the
 promotion gates are future intent, anchored only to the benchmark harnesses that
 would measure them.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### P5-FUT-EMBED-001: EmbeddingGemma Migration Seed
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed -->
 P5-FUT-EMBED-001 is an open migration. Current production embedding is
 `scripts/embedding-server.py`, which serves a sentence-transformers model —
 `microsoft/harrier-oss-v1-0.6b` by default — on CPU on port 8917; the same
@@ -289,13 +270,11 @@ a shadow-index A/B and a rollback window before the Harrier index is retired.
 The code makes the dimension-binding the load-bearing constraint, and the
 `embedding_candidates` block keeps the swap decision in config rather than
 hardcoded.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### P5-FUT-SPEECH-002: Speech-Model Shootout
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-p5-fut-speech-002-speech-model-shootout -->
 P5-FUT-SPEECH-002 is planned work. The current production speech stack is
 `scripts/mlx-transcribe.py` — mlx-whisper (`mlx-community/whisper-large-v3-turbo`)
 with pyannote speaker-diarization-3.1 and a lazy-loaded
@@ -318,13 +297,11 @@ chunk rather than first token, and TTS has no transcript to score. The bench
 candidates are kept out of the serving fleet until the shootout runs, so
 `config/portal.yaml`, which defines the fleet, registers only the production
 speech servers and the roadmap keeps the candidates out of routing.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Score History
 
-<!-- WIKI:GENERATED unit=unit-p5-roadmap-score-history -->
 The roadmap score-history records which P5-FUT items shipped, and each shipped
 item is verifiable in current code. P5-FUT-004 (webhook notifications) is
 implemented in `portal/platform/inference/notifications/channels/webhook.py`.
@@ -344,6 +321,5 @@ stale the moment anything changes, so the unit drops the historical figures. Wha
 stays true is the mapping of each shipped roadmap item to its implementation, and
 that mapping is asserted here with file paths so the unit remains verifiable
 against the live tree rather than against a snapshot.
-<!-- /WIKI:GENERATED -->
 
 ---

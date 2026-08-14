@@ -2,7 +2,6 @@
 
 ## Getting Access
 
-<!-- WIKI:GENERATED unit=unit-user-guide-getting-access -->
 Using Portal 5 requires an account. Open WebUI runs with `WEBUI_AUTH=true`, so
 the interface always demands authentication, and `ENABLE_SIGNUP` defaults to true
 so a login page is available for new signups. New accounts land in the `pending`
@@ -18,13 +17,11 @@ the Open WebUI environment and the bootstrap script. Anchoring these claims to
 `WEBUI_AUTH`, `ENABLE_SIGNUP`, and `DEFAULT_USER_ROLE` means the unit stays true
 if an operator changes the signup or approval defaults, and it documents where
 the approval flow actually lives.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Workspaces
 
-<!-- WIKI:GENERATED unit=unit-user-guide-workspaces -->
 Workspaces are the routing layer. Each workspace defined in `config/portal.yaml`
 declares a `name`, a `model_hint` that selects its model, `expose_to_owui`
 (whether it becomes an Open WebUI preset), a tool list, and optional `variants`.
@@ -43,13 +40,11 @@ in config. Workspace presence in the interface is a mechanical consequence of
 `expose_to_owui` in `portal.yaml` plus the preset generator, so the unit must
 describe that rule instead of reprinting a snapshot. This keeps the claim stable
 as workspaces are added or shelved.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Personas
 
-<!-- WIKI:GENERATED unit=unit-user-guide-personas -->
 Personas are pre-configured specialists defined one-per-file under
 `config/personas/`. Each YAML carries a `name`, `slug`, `category`, and a
 `workspace_model` that routes the persona to a workspace (for example
@@ -66,13 +61,11 @@ are declarative artifacts: one YAML file per specialist, resolved to presets onl
 by the seeding script. Grounding to `config/personas/` and `openwebui_init.py`
 keeps the unit aligned with how a new persona is actually added, and explains why
 persona names in the dropdown always mirror the YAML `name` field.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Tools (MCP Servers)
 
-<!-- WIKI:GENERATED unit=unit-user-guide-tools-mcp-servers -->
 Tool servers are registered with Open WebUI from `imports/openwebui/mcp-servers.json`,
 which lists each server's name, stable id, and port. In a chat you enable a tool
 server with the `+` icon, then call its tools through the model. Portal Documents
@@ -91,13 +84,11 @@ mapping to ports and code unstated. The fleet table, registration logic, and
 every tool signature live in the repository, so this unit anchors each Portal
 tool to the manifest entry and the MCP module that implements it, making the tool
 list verifiable rather than anecdotal.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Knowledge Base & Document RAG
 
-<!-- WIKI:GENERATED unit=unit-user-guide-knowledge-base-document-rag -->
 Knowledge features are built on Open WebUI's RAG plus the pipeline's own
 knowledge bases. The Open WebUI container is configured with
 `RAG_EMBEDDING_ENGINE=openai` backed by the local Harrier embedding server,
@@ -115,13 +106,11 @@ a vendor UI with repository-owned plumbing. The repository actually owns two
 layers: Open WebUI's attachment pipeline configured through the compose manifest,
 and the LanceDB-backed knowledge bases exposed as MCP tools. Grounding this unit
 to both lets a reader see which file governs each retrieval path.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Uploading Documents
 
-<!-- WIKI:GENERATED unit=unit-user-guide-uploading-documents -->
 Open the chat interface at the Open WebUI address (bound to `127.0.0.1:8080` by
 default in the compose manifest), click the paperclip to attach a file, and
 upload one of the supported formats. The attachment is automatically chunked per
@@ -138,13 +127,11 @@ ad-hoc chat attachments handled by Open WebUI with repository-controlled chunk
 and embedding settings, versus persistent knowledge collections owned by the RAG
 MCP server. Grounding both halves to the compose manifest and `rag_mcp.py` makes
 the distinction explicit and keeps the unit accurate if either path changes.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Supported Formats
 
-<!-- WIKI:GENERATED unit=unit-user-guide-supported-formats -->
 Knowledge-base ingestion accepts `.md`, `.txt`, `.pdf`, `.docx`, `.pptx`,
 `.xlsx`, `.html`, `.htm`, and `.epub` source files via the RAG server's
 `kb_ingest` tool. Chat attachments additionally benefit from
@@ -160,13 +147,11 @@ ingestion and invented a CSV claim. The formats Portal actually determines are t
 `kb_ingest` extension set in `rag_mcp.py` and the `read_*`/`create_*` tools in
 `document_mcp.py`. Grounding this unit to those files makes the supported-format
 statement testable against the code instead of a stale doc paragraph.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### How It Works
 
-<!-- WIKI:GENERATED unit=unit-user-guide-how-it-works -->
 When you attach a document, Open WebUI chunks it at `CHUNK_SIZE` (1500
 characters) with `CHUNK_OVERLAP` (100 characters) and embeds each chunk locally.
 The embedding engine is not a chat model in Ollama: `RAG_EMBEDDING_ENGINE=openai`
@@ -183,13 +168,11 @@ shows the RAG engine is the Harrier model served on port 8917, so the claim had
 to be corrected against the manifest rather than preserved. Grounding the chunk
 sizes to `CHUNK_SIZE` and `CHUNK_OVERLAP` makes this unit's numbers enforceable
 against the actual configuration.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ### Cross-Session Memory
 
-<!-- WIKI:GENERATED unit=unit-user-guide-cross-session-memory -->
 Portal 5 keeps a persistent memory of facts you share across conversations.
 `ENABLE_MEMORY_FEATURE=true` turns on Open WebUI's native memory store, and the
 pipeline's `remember`/`recall` tools let workspaces such as `auto-daily`
@@ -206,13 +189,11 @@ existence and its indexer are decided by repository configuration. Grounding her
 anchors the claim to `ENABLE_MEMORY_FEATURE` and `MEMORY_EMBEDDING_MODEL`, so a
 future change to either flag cannot silently invalidate this unit's statement
 about how memories are stored and retrieved across sessions.
-<!-- /WIKI:GENERATED -->
 
 ---
 
 ## Tips
 
-<!-- WIKI:GENERATED unit=unit-user-guide-tips -->
 Several day-to-day behaviors follow from repository configuration rather than
 from this guide. You can attach files for document analysis through Open WebUI's
 uploader; attachments are then chunked and embedded according to the RAG settings
@@ -231,6 +212,5 @@ behaviors this repo actually decides are attachment chunking, knowledge
 collection retrieval, and which workspaces run slow reasoning models. Grounding
 the unit to the compose manifest and `config/portal.yaml` separates repo-owned
 behavior from vendor UI.
-<!-- /WIKI:GENERATED -->
 
 ---
