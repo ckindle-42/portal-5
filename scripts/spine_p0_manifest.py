@@ -1,18 +1,7 @@
-"""P0.1 — keep/release/archive manifest generator (read-only, discovery-first).
+"""P0.1 — keep/release/archive manifest (read-only, TASK_BULLY_P0_SPINE_REDUCTION_V1).
 
-TASK_BULLY_P0_SPINE_REDUCTION_V1.md P0.1: classify every canonical unit into
-exactly one bucket:
-
-  KEEP-FACT  has executable `claims` (A2) OR is a live-config-derived
-             volatile-fact unit (`unit-fact-*`, A4).
-  RELEASE    prose feeding a Tier-1 `WIKI:GENERATED` block that is not a
-             volatile fact (A4) — un-fence to plain prose, drop from AW.
-  ARCHIVE    prose-only: no claim, no fact, not referenced by any live
-             generated block (A5) — bridge-rule archive candidate.
-
-Read-only. Writes `docs/SPINE_P0_MANIFEST.md` when run as a script; importable
-as a library (`classify()`) for P0.3/P0.4 to consume the same classification.
-"""
+KEEP-FACT: `claims` (A2) or `unit-fact-*` (A4). RELEASE: Tier-1-block prose,
+not volatile. ARCHIVE: prose-only, unreferenced. Writes SPINE_P0_MANIFEST.md."""
 
 from __future__ import annotations
 
@@ -22,13 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def classify(repo_root: Path | None = None) -> dict:
-    """Return the full P0.1 classification.
-
-    {
-      "keep_fact": {id: reason}, "release": {id: reason}, "archive": {id: reason},
-      "total": int,
-    }
-    """
+    """Full P0.1 classification: {keep_fact, release, archive: {id: reason}, total}."""
     import sys
 
     root = repo_root or REPO_ROOT

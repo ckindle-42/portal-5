@@ -1,13 +1,5 @@
-"""P0.4 (A5) — archive prose-only + now-orphaned RELEASE units via the real
-bridge rule in `portal.platform.wiki.archive`. No overrides, no weakened
-preconditions: every unit here either passes `archive_unit`'s real
-preconditions or is left alone and reported as blocked, with the specific
-refusal reason from the module that enforces it.
-
-Candidates: P0.1's ARCHIVE bucket, plus P0.1's RELEASE bucket now that P0.3
-un-fenced their Tier-1 doc blocks (rule 1's "a live doc block references the
-id" no longer applies to any of them). KEEP-FACT units are never candidates.
-"""
+"""P0.4 (A5) — archive prose-only/orphaned RELEASE units via the real
+`portal.platform.wiki.archive` bridge rule. No overrides."""
 
 from __future__ import annotations
 
@@ -43,14 +35,8 @@ def main() -> None:
     result = classify(REPO_ROOT)
     candidates = sorted(set(result["archive"]) | set(result["release"]))
 
-    # check_archivable's inbound-link precondition re-reads + re-parses the
-    # entire 719-unit store from disk on every single call — O(candidates *
-    # corpus) file I/O, minutes to run for real. Cache one load_all()
-    # snapshot for the duration of this batch: a stale cache can only make a
-    # later archive MORE conservative (an already-archived unit's cached body
-    # still "counts" as a live inbound link), never less safe — it can never
-    # let an unsafe archive through, only occasionally refuse one that a
-    # fully re-read pass would have allowed.
+    # Cache one load_all() snapshot (avoids O(candidates*corpus) re-reads);
+    # only makes a later archive more conservative, never unsafe.
     real_load_all = store_mod.load_all
     snapshot = real_load_all()
     store_mod.load_all = lambda: snapshot  # type: ignore[assignment]

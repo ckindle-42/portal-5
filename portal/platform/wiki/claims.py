@@ -316,11 +316,8 @@ def claim_count(units=None) -> int:
 
 
 def fact_unit_ids(units=None) -> set[str]:
-    """The KEEP-FACT set (P0 A2/A4): units carrying executable `claims` plus
-    live-config-derived `unit-fact-*` units. This is the only set AW's
-    generated-block-currency check governs post-P0 — ordinary prose released
-    from the fence obligation is not in it, no matter how many Tier-1 blocks
-    still cite it."""
+    """KEEP-FACT set (P0 A2/A4): units with `claims` plus `unit-fact-*`. The
+    only set AW's generated-block-currency check governs post-P0."""
     if units is None:
         from portal.platform.wiki.store import load_all
 

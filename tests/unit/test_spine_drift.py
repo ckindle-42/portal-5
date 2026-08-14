@@ -1,13 +1,8 @@
 """Tests for the spine drift census — claims and doc path refs.
 
-The design error these tests exist to pin down: an earlier draft let a claim
-restate the number it was checking (`equals: 65`), which compared the probe with
-itself and passed while the doc body still said 60. `test_pattern_claim_catches_*`
-is the regression guard for that — a claim must bind the *body text*, not a copy.
-
-P0 (`TASK_BULLY_P0_SPINE_REDUCTION_V1` A1) deleted the third axis this module
-used to also test — per-unit `last_generated_commit` pin health
-(`PinHealth`/`pin_health`). There is no pin axis left to test.
+`test_pattern_claim_catches_*` guards against a claim restating the number it
+checks (`equals: 65`), which would pass trivially. P0 A1 deleted the pin axis
+this module used to also test (`PinHealth`/`pin_health`) — none left to test.
 """
 
 from __future__ import annotations
@@ -212,10 +207,8 @@ def test_undeclared_numeric_census_skips_units_that_declare_a_claim():
 
 
 def test_bs_check_hard_fails_a_deliberately_wrong_declared_number(tmp_path, monkeypatch):
-    """TASK_BULLY_P0_SPINE_REDUCTION_V1 P0.2 exit criterion: with the pin axis
-    gone, `check_spine_drift` (BS) must still HARD-FAIL when a unit's body
-    states a number that disagrees with its declared claim's live probe —
-    the anti-drift core (A2) is untouched by deleting the pin (A1)."""
+    """P0.2 exit criterion: BS still HARD-FAILs a wrong declared number
+    with the pin axis gone — A2's anti-drift core is untouched by A1."""
     from portal.platform.wiki import store as store_mod
     from scripts.validation import wiki as wiki_checks
 
@@ -241,8 +234,7 @@ def test_bs_check_hard_fails_a_deliberately_wrong_declared_number(tmp_path, monk
 
 
 def test_bs_check_passes_when_declared_number_is_correct(tmp_path, monkeypatch):
-    """Sibling of the HARD-FAIL regression: a correct claim must not be
-    penalized just because the pin axis it used to run alongside is gone."""
+    """Sibling check: a correct claim isn't penalized by the pin axis's removal."""
     from portal.platform.wiki import store as store_mod
     from scripts.validation import wiki as wiki_checks
 
@@ -270,10 +262,8 @@ def test_bs_check_passes_when_declared_number_is_correct(tmp_path, monkeypatch):
 
 
 def test_fact_unit_regeneration_touches_no_pin_field(tmp_path, monkeypatch):
-    """TASK_BULLY_P0_SPINE_REDUCTION_V1 exit criterion: a live-count change
-    (e.g. re-deriving unit-fact-persona-roster after a persona is added) is a
-    single-commit operation — nothing in the round-tripped unit file requires
-    a second, pin-bumping commit, because there is no pin field to bump."""
+    """Exit criterion: a live-count re-derivation is single-commit — no pin
+    field left to bump in a second commit."""
     from portal.platform.wiki import store as store_mod
     from portal.platform.wiki.adapters.seed_facts import derive_persona_roster
 
