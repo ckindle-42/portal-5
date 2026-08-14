@@ -40,6 +40,10 @@ python3 scripts/blend_acceptance_results.py        # blend ACCEPTANCE_RESULTS.md
 python3 scripts/check_model_bindings.py             # live gate: every model_pin/model_hint/alias/promptfoo-provider resolves to an installed Ollama tag
 python3 scripts/verify_proxmox_mcp.py              # quick Proxmox MCP check (no Docker)
 python3 scripts/spine_census.py                    # wiki granularity census (mirror/surface/orphan)
+python3 scripts/spine_p0_manifest.py               # TASK_BULLY_P0 P0.1 keep/release/archive classification (docs/SPINE_P0_MANIFEST.md)
+python3 scripts/spine_p0_strip_pins.py             # TASK_BULLY_P0 A1 one-shot last_generated_commit stripper (already run; kept for reproducibility)
+python3 scripts/spine_p0_release_prose.py          # TASK_BULLY_P0 A4 one-shot RELEASE-block un-fencer (already run; kept for reproducibility)
+python3 scripts/spine_p0_archive_run.py            # TASK_BULLY_P0 A5 archive bridge-rule batch driver (docs/SPINE_P0_ARCHIVE_RUN.md)
 python3 scripts/collapse_snapshot.py               # read-only surface snapshot for BUILD_PROGRAM_COLLAPSE_V1
 python3 scripts/model_cleanup_audit.py              # workspace-variants + result-evidence aware model reclaim audit
 python3 scripts/pending_verdicts_evidence.py        # mine PENDING_MODEL_VERDICTS.md evidence into a decision sheet

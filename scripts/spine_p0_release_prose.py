@@ -1,17 +1,5 @@
-"""P0.3 (A4) — collapse RELEASE `WIKI:GENERATED` blocks back to plain prose.
-
-For every unit P0.1 classified RELEASE (prose feeding a Tier-1 generated
-block with no live-probe claim and no volatile fact), replace its
-`<!-- WIKI:GENERATED unit=<id> -->...<!-- /WIKI:GENERATED -->` block in every
-Tier-1 doc that carries one with the block's current rendered content, marker
-lines dropped. The prose becomes ordinary human-owned text — AW no longer
-governs it (see `claims.fact_unit_ids` / the P0.3 scoping change in
-`scripts/validation/wiki.py`).
-
-Pure mechanical text surgery: the body text inside the markers is untouched
-byte-for-byte, only the two marker comment lines are removed. Safe to re-run
-(idempotent — a doc with no more markers for a RELEASE id is a no-op).
-"""
+"""P0.3 (A4) — strip RELEASE `WIKI:GENERATED` fence markers back to plain
+prose (body untouched). AW no longer governs the result. Idempotent."""
 
 from __future__ import annotations
 
@@ -23,10 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def collapse_release_blocks(release_ids: set[str], repo_root: Path | None = None) -> dict:
-    """Strip the GENERATED fence (marker lines only) for every block in
-    every Tier-1 doc whose unit id is in `release_ids`. Returns
-    {doc_rel_path: [unit_ids collapsed]}.
-    """
+    """Strip fence markers for `release_ids`; returns {doc: [ids collapsed]}."""
     sys.path.insert(0, str(repo_root or REPO_ROOT))
     from portal.platform.wiki.render import TIER1_DOCS
 
@@ -46,9 +31,7 @@ def collapse_release_blocks(release_ids: set[str], repo_root: Path | None = None
                 re.escape(start) + r"\n(.*?)\n" + re.escape(end),
                 re.DOTALL,
             )
-            # count=0: a unit's block can legitimately repeat in one doc (a
-            # model catalog entry cross-linked from two sections, etc.) —
-            # every occurrence is released, not just the first.
+            # count=0: a unit's block can legitimately repeat in one doc.
             new_text, n = pattern.subn(lambda m: m.group(1), text, count=0)
             if n:
                 text = new_text

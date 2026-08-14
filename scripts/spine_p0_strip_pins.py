@@ -1,11 +1,5 @@
-"""P0.2 (A1) — mechanically strip `last_generated_commit:` frontmatter from
-every live canonical unit. `portal_wiki/archive/*.md` is deliberately left
-alone: the exit criteria only require the field gone "outside archive/
-history" — archived units are frozen historical records.
-
-YAML-parses every touched file after the edit to confirm it still round-trips
-through `KnowledgeUnit.from_markdown`.
-"""
+"""P0.2 (A1) — strip `last_generated_commit:` from live canonical units
+(archive/*.md left alone). Round-trips each touched file to confirm parse."""
 
 from __future__ import annotations
 

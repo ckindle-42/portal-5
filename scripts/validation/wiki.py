@@ -119,11 +119,9 @@ def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
     changed, re-stamp" — it means `sync-config` was not re-run after a
     source change before commit.
 
-    P0 A4 scoped this check to the KEEP-FACT set (`claims.fact_unit_ids`):
-    executable-claims units plus `unit-fact-*` volatile-fact units. Ordinary
-    prose — released from the fence obligation — carries no AW currency
-    requirement, no matter how many Tier-1 docs quote it; editing it is not
-    a `sync-config` event.
+    P0 A4 scoped this check to the KEEP-FACT set (`claims.fact_unit_ids`) —
+    released prose carries no AW currency requirement, editing it is not a
+    `sync-config` event.
 
     Additionally enforces A1: a doc that has graduated to "migrated" status
     must have zero substantive remainder (no hand-edited facts outside
@@ -327,11 +325,9 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
       doc refs   — repo-relative paths named in Tier-1 docs must exist.
 
     P0 A1 deleted the third axis this check used to carry — the
-    `last_generated_commit` pins axis. 461 of ~720 units were pinned to a SHA
-    absent from all history, so a pin resolving proved nothing about whether
-    the body was still true; it only forced a two-commit re-pin dance on
-    every fact edit. `claims` is the axis that actually catches a wrong
-    number; there is no pin axis to restore.
+    `last_generated_commit` pins axis, which proved nothing about whether a
+    body was still true and only forced a two-commit re-pin dance. No pin
+    axis to restore.
     """
     from portal.platform.wiki.claims import claim_count, evaluate_claims
     from portal.platform.wiki.drift import broken_path_refs

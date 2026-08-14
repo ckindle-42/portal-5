@@ -134,11 +134,8 @@ def check_generated_blocks_current(
     NOT match its unit's current body right now. Empty list = clean. Used
     by the validate gate — does not write anything.
 
-    `unit_ids`, if given, scopes the check to that set of unit ids (P0 A4:
-    AW governs the KEEP-FACT set only — see `claims.fact_unit_ids`). A block
-    for a unit outside the scope is not inspected at all, generated fence or
-    not; released prose carries no AW obligation regardless of whether its
-    block has actually been physically un-fenced yet.
+    `unit_ids`, if given, scopes the check to that set (P0 A4: AW governs
+    the KEEP-FACT set only — see `claims.fact_unit_ids`).
     """
     if doc_paths is None:
         doc_paths = [repo_root / rel for rel in TIER1_DOCS]
