@@ -298,7 +298,7 @@ def _surface_manifests_differ(committed: list[dict], fresh: list[dict]) -> bool:
 
 @register(
     "spine_drift",
-    "BS. spine drift census (claims hold + pins resolvable + doc refs exist)",
+    "BS. spine drift census (claims hold + doc refs exist)",
     order=69,
 )
 def check_spine_drift() -> tuple[str, str, list[dict]]:
@@ -309,22 +309,24 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
     At the commit this gate landed, both were green while README asserted 60
     benchmark workspaces against a live 65 and 22 MCP servers against a live 21.
 
-    Three axes, two enforcement modes:
-      claims     — declared unit assertions vs live probes. HARD FAIL, never
-                   baselinable: a unit that states a wrong number is a bug.
-      pins       — `last_generated_commit` must resolve to a real commit.
-                   Ratcheted: 461 units were pinned to 05e42ec2, a SHA absent
-                   from all 1904 commits, so the field was decoration.
+    Two axes, both HARD FAIL, neither baselinable:
+      claims     — declared unit assertions vs live probes. A unit that
+                   states a wrong number is a bug.
       doc refs   — repo-relative paths named in Tier-1 docs must exist.
-                   Ratcheted.
+
+    P0 A1 deleted the third axis this check used to carry — the
+    `last_generated_commit` pins axis. 461 of ~720 units were pinned to a SHA
+    absent from all history, so a pin resolving proved nothing about whether
+    the body was still true; it only forced a two-commit re-pin dance on
+    every fact edit. `claims` is the axis that actually catches a wrong
+    number; there is no pin axis to restore.
     """
     from portal.platform.wiki.claims import claim_count, evaluate_claims
-    from portal.platform.wiki.drift import broken_path_refs, pin_health
+    from portal.platform.wiki.drift import broken_path_refs
     from portal.platform.wiki.store import load_all
 
     units = load_all()
     violations = evaluate_claims(units, REPO_ROOT)
-    pins = pin_health(REPO_ROOT, units)
     refs = broken_path_refs(REPO_ROOT)
 
     subs: list[dict] = [
@@ -338,33 +340,6 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
             ),
         },
         {
-            "name": "no phantom pin",
-            "status": "PASS" if not pins.phantom else "FAIL",
-            "detail": (
-                "every pin resolves to a real commit"
-                if not pins.phantom
-                else f"{len(pins.phantom)} phantom: {', '.join(pins.phantom[:6])}"
-            ),
-        },
-        {
-            "name": "no unpinned unit",
-            "status": "PASS" if not pins.unpinned else "FAIL",
-            "detail": (
-                "every unit records a pin"
-                if not pins.unpinned
-                else f"{len(pins.unpinned)} unpinned: {', '.join(pins.unpinned[:6])}"
-            ),
-        },
-        {
-            "name": "no stale unit",
-            "status": "PASS" if not pins.stale else "FAIL",
-            "detail": (
-                "every cited source is current at its pin"
-                if not pins.stale
-                else f"{len(pins.stale)} stale: {', '.join(pins.stale[:6])}"
-            ),
-        },
-        {
             "name": "no broken doc reference",
             "status": "PASS" if not refs else "FAIL",
             "detail": (
@@ -373,37 +348,18 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
                 else f"{len(refs)} dead refs: {', '.join(refs[:6])}"
             ),
         },
-        {
-            "name": "pin census measured",
-            "status": "PASS",
-            "detail": (
-                f"{len(pins.fresh)} fresh / {len(pins.stale)} stale / "
-                f"{len(pins.phantom)} phantom / {len(pins.unpinned)} unpinned "
-                f"of {pins.total}"
-            ),
-        },
     ]
 
-    hard = (
-        bool(violations)
-        or bool(pins.phantom)
-        or bool(pins.unpinned)
-        or bool(pins.stale)
-        or bool(refs)
-    )
+    hard = bool(violations) or bool(refs)
     if hard:
         return (
             "FAIL",
-            f"{len(violations)} claim violation(s), "
-            f"{len(pins.phantom)} phantom pin(s), "
-            f"{len(pins.unpinned)} unpinned unit(s), "
-            f"{len(pins.stale)} stale unit(s), "
-            f"{len(refs)} dead doc ref(s)",
+            f"{len(violations)} claim violation(s), {len(refs)} dead doc ref(s)",
             subs,
         )
     return (
         "PASS",
-        f"{claim_count(units)} claim(s) hold; no phantom pins, unpinned units, stale units, or dead refs",
+        f"{claim_count(units)} claim(s) hold; no dead refs",
         subs,
     )
 

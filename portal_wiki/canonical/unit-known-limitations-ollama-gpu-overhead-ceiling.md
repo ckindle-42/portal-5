@@ -5,7 +5,6 @@ title: "KNOWN_LIMITATIONS — Ollama GPU overhead reservation (resolved)"
 sources:
 - type: code
   path: scripts/lib/util.sh
-last_generated_commit: b849a142e908b69008d6d69246f500aab0ce430f
 claims: []
 confidence: high
 tags:

@@ -11,7 +11,6 @@ sources:
   path: portal/modules/eval/persona_matrix/_common.py
 - type: code
   path: portal/modules/compliance/config/__init__.py
-last_generated_commit: aae69a16de501e8524f279c9bff13f3fdc241f32
 claims: []
 confidence: high
 tags:

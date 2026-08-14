@@ -5,7 +5,6 @@ title: "ComfyUI test suite \u2014 staged image/video stack verification"
 sources:
 - type: code
   path: tests/comfyui/*.py
-last_generated_commit: 22007054d6cba73357ea3c5d7d7c97f5c252d7dc
 claims: []
 confidence: high
 tags:

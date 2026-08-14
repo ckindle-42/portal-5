@@ -9,7 +9,6 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: pyproject.toml
-last_generated_commit: 5ac2ba7ee3849ad2062c91edccece2a495f18da5
 claims: []
 confidence: high
 tags:

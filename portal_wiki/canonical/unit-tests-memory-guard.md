@@ -6,7 +6,6 @@ sources:
 - type: code
   path: tests/memory_guard.py
   commit: 4900007a
-last_generated_commit: 4900007a
 claims: []
 confidence: high
 tags:

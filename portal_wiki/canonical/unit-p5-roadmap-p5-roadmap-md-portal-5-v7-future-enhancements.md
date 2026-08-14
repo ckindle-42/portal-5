@@ -7,7 +7,6 @@ sources:
   path: pyproject.toml
 - type: code
   path: CHANGELOG.md
-last_generated_commit: 5ac2ba7ee3849ad2062c91edccece2a495f18da5
 claims: []
 confidence: high
 tags:

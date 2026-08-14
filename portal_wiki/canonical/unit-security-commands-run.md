@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/modules/security/core/commands/run.py
   commit: 5b73259d
-last_generated_commit: 794b3575d040c73f2c2af8ad7a8bca350ad57e4b
 claims: []
 confidence: high
 tags:

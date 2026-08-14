@@ -5,7 +5,6 @@ title: "README \u2014 Documentation"
 sources:
 - type: code
   path: portal/platform/wiki/render.py
-last_generated_commit: 97b85a5b4384209107aa2e6b3e7d009679ba5096
 claims: []
 confidence: high
 tags:

@@ -2,9 +2,10 @@
 
 Phase W3 of BUILD_PROGRAM_SEC_RBP_WIKI_FIXES_V1.
 
-Re-runs the code pass → updates WHAT units + re-cites + bumps
-last_generated_commit.  WHY units persist unless deliberately revised.
-Snapshot-diff (hash the canonical dir) so a no-change run produces no churn.
+Re-runs the code pass → updates WHAT units + re-cites.  WHY units persist
+unless deliberately revised.  Snapshot-diff (hash the canonical dir) so a
+no-change run produces no churn.  (P0 A1 removed the `last_generated_commit`
+pin this module used to also bump.)
 """
 
 from __future__ import annotations
@@ -71,7 +72,6 @@ def check_staleness(
                 {
                     "unit_id": fresh.id,
                     "kind": fresh.kind,
-                    "generated_commit": stored.last_generated_commit if stored else "",
                     "current_commit": current_commit,
                 }
             )

@@ -9,7 +9,6 @@ sources:
   path: scripts/lib/lab.sh
 - type: code
   path: deploy/portal-5/docker-compose.lab.yml
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

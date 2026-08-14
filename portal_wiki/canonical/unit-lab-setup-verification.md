@@ -11,7 +11,6 @@ sources:
   path: scripts/verify_attack_image.py
 - type: code
   path: scripts/lab_host.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

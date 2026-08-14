@@ -9,7 +9,6 @@ sources:
   path: Dockerfile.mcp
 - type: code
   path: deploy/portal-5/docker-compose.yml
-last_generated_commit: 3d2aca98eaf073d6bc9028a05b44d5321f3f2d87
 claims: []
 confidence: high
 tags:

@@ -8,7 +8,6 @@ sources:
   path: portal/modules/security/core/investigation/agents.py
 - type: code
   path: portal/modules/security/core/unknown_defense.py
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
 claims: []
 confidence: high
 tags:

@@ -7,7 +7,6 @@ sources:
   path: .github/workflows/unit-tests.yml
 - type: code
   path: .pre-commit-config.yaml
-last_generated_commit: f28832a459fb834ed6696f953f9955694b962483
 claims: []
 confidence: high
 tags:

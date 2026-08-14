@@ -6,7 +6,6 @@ sources:
 - type: code
   path: tests/comfyui/_common.py
   commit: 441fd2a1
-last_generated_commit: 441fd2a1
 claims: []
 confidence: high
 tags:

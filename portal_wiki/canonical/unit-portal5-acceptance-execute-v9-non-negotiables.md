@@ -13,7 +13,6 @@ sources:
   path: scripts/routing_regression.py
 - type: code
   path: tests/acceptance/s10_personas_ollama.py
-last_generated_commit: ca0f99d64c0644df1d5fc30674b6c476fceb1a42
 claims: []
 confidence: high
 tags:

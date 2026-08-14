@@ -11,7 +11,6 @@ sources:
   path: portal/platform/inference/router/workspaces.py
 - type: code
   path: .mcp.json
-last_generated_commit: 925f52c4b7e7ec876ea24823d3a221c7f2f8f505
 claims: []
 confidence: high
 tags:

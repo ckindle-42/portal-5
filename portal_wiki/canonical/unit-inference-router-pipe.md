@@ -6,7 +6,6 @@ sources:
 - type: code
   path: portal/platform/inference/router_pipe.py
   commit: 5fbf51f8
-last_generated_commit: 5fbf51f8
 claims: []
 confidence: high
 tags:

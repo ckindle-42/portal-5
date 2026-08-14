@@ -6,7 +6,6 @@ sources:
 - type: code
   path: tests/benchmarks/bench_mlx_hf.py
   commit: f09fdb85
-last_generated_commit: f09fdb85
 claims: []
 confidence: high
 tags:

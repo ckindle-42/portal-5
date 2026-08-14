@@ -7,7 +7,6 @@ sources:
   path: scripts/update_grafana_acceptance.py
 - type: code
   path: tests/lib/results.py
-last_generated_commit: 3ddc2edf72414664d711390cd563cfb3e02f9130
 claims: []
 confidence: high
 tags:

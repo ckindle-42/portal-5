@@ -20,7 +20,6 @@ sources:
   path: portal/modules/security/core/goal_cli.py
 - type: code
   path: portal/modules/security/core/emergent_gaps.py
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
 claims: []
 confidence: high
 tags:

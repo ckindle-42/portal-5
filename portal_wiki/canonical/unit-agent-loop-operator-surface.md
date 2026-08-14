@@ -5,7 +5,6 @@ title: "AGENT_LOOP \u2014 Operator surface"
 sources:
 - type: code
   path: portal/platform/inference/cli/agent.py
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
 claims: []
 confidence: high
 tags:

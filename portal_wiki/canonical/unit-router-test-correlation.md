@@ -6,7 +6,6 @@ sources:
 - type: code
   path: tests/unit/router/test_correlation.py
   commit: dfa74e2e
-last_generated_commit: dfa74e2e
 claims: []
 confidence: high
 tags:

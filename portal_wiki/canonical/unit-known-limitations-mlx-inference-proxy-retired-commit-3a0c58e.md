@@ -9,7 +9,6 @@ sources:
   path: scripts/mlx-speech.py
 - type: code
   path: scripts/mlx-transcribe.py
-last_generated_commit: 41df61e0a6102275a700700e9765972f1508c4c5
 claims: []
 confidence: high
 tags:

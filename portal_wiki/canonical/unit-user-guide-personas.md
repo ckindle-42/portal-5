@@ -7,7 +7,6 @@ sources:
   path: config/personas
 - type: code
   path: scripts/openwebui_init.py
-last_generated_commit: 41df61e0a6102275a700700e9765972f1508c4c5
 claims: []
 confidence: high
 tags:

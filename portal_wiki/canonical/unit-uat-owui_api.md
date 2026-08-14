@@ -6,7 +6,6 @@ sources:
 - type: code
   path: tests/uat/owui_api.py
   commit: 85bb65bd
-last_generated_commit: 85bb65bd
 claims: []
 confidence: high
 tags:
