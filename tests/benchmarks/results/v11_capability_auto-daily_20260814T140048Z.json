@@ -1,0 +1,128 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260814T140048Z",
+  "candidate": "auto-daily",
+  "baselines": [],
+  "probes_run": [
+    "D1",
+    "D2"
+  ],
+  "results": [
+    {
+      "role": "candidate",
+      "workspace": "auto-daily",
+      "results": [
+        {
+          "probe_id": "D1/d1_decline_email",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 77,
+            "line_count": 7
+          },
+          "transcript_excerpt": "Subject: Re: [Meeting Name]\n\nHi [Name],\n\nThanks for the invite! My schedule is a bit tight this week, so I won\u2019t be able to join the meeting live. \n\nTo keep momentum going, could you send your key questions or updates via email (or in a shared doc) instead? I'll review them and provide my feedback i",
+          "latency_s": 32.688606833980884,
+          "notes": "d1_decline_email",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_tighten_passive",
+          "workspace": "auto-daily",
+          "format_score": 0.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 185,
+            "line_count": 17
+          },
+          "transcript_excerpt": "Depending on how much authority you want to project and who you are talking to, here are a few ways to rewrite this:\n\n### Direct & Professional (Best for most situations)\n*   \"Let\u2019s review the routing logic.\"\n*   \"We should investigate the routing issue.\"\n*   \"Let's look into the routing setup.\"\n\n##",
+          "latency_s": 11.274075582972728,
+          "notes": "d1_tighten_passive",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_slack_eta",
+          "workspace": "auto-daily",
+          "format_score": 0.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 109,
+            "line_count": 10
+          },
+          "transcript_excerpt": "Since the best response depends on your specific situation, here are three options ranging from direct to context-heavy. Choose the one that fits best:\n\n**Option 1: Direct and professional (Best for most situations)**\nRunning a bit behind on my reviews today. \nI\u2019ll have feedback to you by [Time/End ",
+          "latency_s": 12.802034124964848,
+          "notes": "d1_slack_eta",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_decision_actions",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 4,
+            "line_count": 4
+          },
+          "transcript_excerpt": "**Decision:** Proceed with a multi-engine configuration.\n\n**Action Items:**\n1. Configure the engine bench for multiple engines.\n2. Finalize all tasks by the Friday deadline.",
+          "latency_s": 24.341234542021994,
+          "notes": "d2_decision_actions",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_status_bullets",
+          "workspace": "auto-daily",
+          "format_score": 0.5,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 12,
+            "line_count": 13
+          },
+          "transcript_excerpt": "Since you have four pieces of information but only want three bullets, I have grouped them logically to maintain clarity. Here are three options depending on your needed tone:\n\n**Option 1: Professional & Polished (Best for management)**\n* **Completed:** Routing is functional; soak period initiated.\n",
+          "latency_s": 12.479878459009342,
+          "notes": "d2_status_bullets",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_standup",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 8,
+            "line_count": 23
+          },
+          "transcript_excerpt": "Since you didn\u2019t provide your specific tasks, I have drafted **three different versions** based on common roles. \n\nChoose the one that fits you best, or **reply with your actual tasks and I will write it perfectly for you.**\n\n### Option 1: Software Engineer (Technical)\n*Focuses on tickets, code, and",
+          "latency_s": 14.699942375009414,
+          "notes": "d2_standup",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-08-14T14:02:36.781283+00:00"
+}

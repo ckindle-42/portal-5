@@ -1,0 +1,767 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260814T032935Z",
+  "candidate": "bench-gemma4-26b-heretic",
+  "baselines": [
+    "auto-general-uncensored"
+  ],
+  "probes_run": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "auto-general-uncensored",
+      "results": [
+        {
+          "probe_id": "C1/c1_1",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 3,
+          "markers": {
+            "reached_resolution": true,
+            "recovered_from_error": false,
+            "no_redundant_calls": true
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C1/c1_2",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 3,
+          "markers": {
+            "reached_resolution": true,
+            "recovered_from_error": false,
+            "no_redundant_calls": true
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_1",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 329.34372225002153,
+          "notes": "c2_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_2",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 329.3583343750215,
+          "notes": "c2_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_3",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 329.4210417919676,
+          "notes": "c2_3",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_4",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 329.5358852079953,
+          "notes": "c2_4",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_5",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef roman_to_int(s):\n    \"\"\"\n    Converts a Roman numeral string to an integer.\n    \n    Args:\n        s (str): A valid Roman numeral string (I, V, X, L, C, D, M).\n        \n    Returns:\n        int: The integer representation of the Roman numeral.\n    \"\"\"\n    # Map of Roman numerals to their integer values\n    roman_values = {\n        'I': 1,\n        'V': 5,\n        'X': 10,\n        'L':",
+          "latency_s": 238.76550804200815,
+          "notes": "c2_5",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_6",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 330.1750587080023,
+          "notes": "c2_6",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_7",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 329.55914291599765,
+          "notes": "c2_7",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_8",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 329.93158945802134,
+          "notes": "c2_8",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_9",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 330.3562195409904,
+          "notes": "c2_9",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C2/c2_10",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": false,
+            "tests_passed": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 329.968524625001,
+          "notes": "c2_10",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C3/c3_1",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "```text\n1\n2\n3\n4\n5\n```",
+          "latency_s": 53.63423462497303,
+          "notes": "c3_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C3/c3_2",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "",
+          "latency_s": 329.095782459015,
+          "notes": "c3_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C3/c3_3",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "```bash\n   Filesystem         Size   Used Avail Capacity Mounted on\n/dev/disk1s5     ...T  ....G xxxK     xx%       .x%. \n```",
+          "latency_s": 271.90274537500227,
+          "notes": "c3_3",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "Here is a structured approach to diagnosing the 502 issue with `tcpdump`:\n\n### Numbered Plan\n1. **Prepare the capture command:** Run `nginx` reverse proxy server, and target port 80**. I'll keep it clean: Just give exactly what you need? Let's go!\n   - Identify the network (`any`) or specific interface (often used for real-time debugging in this context). \n2nd ...\n3rd step**): **Execute `tcpdump` ",
+          "latency_s": 140.1453539999784,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 0.33,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered Plan\n\n1. **Identify the Network Interface**: Determine which network interface handles external traffic (e.g., `eth0`, `ens5`). You can use `ip link` or run a short live capture with `tcpdump -D`.  \n2. **Filter for TCP Traffic on Port 443**: Restrict captures to HTTPS connections using `tcp port 443`. This reduces noise and focuses only on the service under investigation.\n3. **Flag",
+          "latency_s": 73.77277733298251,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "**1. Numbered Plan**\n1. Identify the primary network interface used by the affected service for outbound queries (e.g., `eth0`, `ens4`).\n2. Launch `tcpdump` with name/port resolution disabled (`-n`) to prevent meta-DNS lookups from skewing capture performance or introducing recursive calls on port 53 itself.\n3. Use high-resolution relative timestamps (`-ttt`) to enable precise round-trip time (RTT",
+          "latency_s": 261.23015516699525,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C5/c5_10pct",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 328.8104545829701,
+          "notes": "depth=10%",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C5/c5_50pct",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": false
+          },
+          "transcript_excerpt": "",
+          "latency_s": 328.55155691696564,
+          "notes": "depth=50%",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "C5/c5_90pct",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": false
+          },
+          "transcript_excerpt": "[No text provided",
+          "latency_s": 199.84172937495168,
+          "notes": "depth=90%",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-gemma4-26b-heretic",
+      "results": [
+        {
+          "probe_id": "C1/c1_1",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 3,
+          "markers": {
+            "reached_resolution": true,
+            "recovered_from_error": false,
+            "no_redundant_calls": true
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_1",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C1/c1_2",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 3,
+          "markers": {
+            "reached_resolution": true,
+            "recovered_from_error": false,
+            "no_redundant_calls": true
+          },
+          "transcript_excerpt": "",
+          "latency_s": 0.0,
+          "notes": "c1_2",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C2/c2_1",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merges all overlapping intervals from a list of intervals.\n    \n    Args:\n        intervals (List[List[int]]): A list of lists, where each sub-list \n                                     represents an interval [start, end].\n                                     \n    Returns:\n        List[List[int]]: A list of merged intervals sorted by start time",
+          "latency_s": 22.520648000005167,
+          "notes": "c2_1",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C2/c2_2",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "The most efficient way to solve this problem is using the \"Cyclic Sort\" pattern. This allows us to achieve $O(n)$ time complexity and $O(1)$ auxiliary space by treating the input array itself as a hash map.\n\n```python\ndef first_missing_positive(nums):\n    \"\"\"\n    Finds the smallest positive integer not present in the list.\n    Uses an in-place cyclic sort algorithm.\n    \n    Time Complexity: O(n)\n",
+          "latency_s": 36.54521675000433,
+          "notes": "c2_2",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C2/c2_3",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef can_jump(nums):\n    \"\"\"\n    Determines if you can reach the last index starting from the first index.\n    Uses a greedy approach to track the maximum reachable index.\n    \"\"\"\n    max_reachable = 0\n    target = len(nums) - 1\n    \n    for i, jump in enumerate(nums):\n        # If the current index is greater than the maximum index we could reach,\n        # it means we are stuck and cann",
+          "latency_s": 21.872521957964636,
+          "notes": "c2_3",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C2/c2_4",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef flatten_nested(items):\n    \"\"\"\n    Flattens an arbitrarily nested list of integers into a single flat list.\n    \n    Args:\n        items (list): A list containing integers or nested lists of integers.\n        \n    Returns:\n        list: A flat list of all integers found within the input.\n    \"\"\"\n    flat_list = []\n    for item in items:\n        if isinstance(item, list):\n            ",
+          "latency_s": 15.394289958989248,
+          "notes": "c2_4",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C2/c2_5",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef roman_to_int(s: str) -> int:\n    \"\"\"\n    Converts a Roman numeral string to an integer.\n    \n    Args:\n        s (str): A string representing a Roman numeral.\n        \n    Returns:\n        int: The integer representation of the Roman numeral.\n    \"\"\"\n    roman_map = {\n        'I': 1,\n        'V': 5,\n        'X': 10,\n        'L': 50,\n        'C': 100,\n        'D': 500,\n        'M': 10",
+          "latency_s": 46.34024099999806,
+          "notes": "c2_5",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C2/c2_6",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\nimport re\n\ndef parse_kv(s):\n    \"\"\"\n    Parses a string of key-value pairs separated by semicolons.\n    Supports escaped semicolons (\\;) and trims whitespace around keys and values.\n    \"\"\"\n    if not s:\n        return {}\n\n    # Use regex split with a negative lookbehind assertion to split on \n    # semicolons only if they are NOT preceded by a backslash.\n    parts = re.split(r'(?<!\\\\);'",
+          "latency_s": 36.42355179198785,
+          "notes": "c2_6",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C2/c2_7",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\ndef rotate_90(matrix):\n    \"\"\"\n    Rotates a 2D list 90 degrees clockwise.\n    Works for both square and non-square matrices.\n    Does not mutate the original input.\n    \"\"\"\n    if not matrix:\n        return []\n    \n    # matrix[::-1] reverses the order of the rows.\n    # zip(*...) transposes the reversed rows, effectively rotating them 90 degrees.\n    # We convert each resulting tuple b",
+          "latency_s": 42.61644229205558,
+          "notes": "c2_7",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C2/c2_8",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\nimport re\n\ndef parse_log_line(line):\n    \"\"\"\n    Parses a log line of the form [TIMESTAMP] LEVEL=X msg=\"the message\"\n    into a dictionary.\n    \n    Args:\n        line (str): The log line to parse.\n        \n    Returns:\n        dict: A dictionary containing 'timestamp', 'level', and 'msg' if the \n              format matches; otherwise, None.\n    \"\"\"\n    # Regex pattern breakdown:\n    # ",
+          "latency_s": 24.324982749996707,
+          "notes": "c2_8",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C2/c2_9",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "```python\nfrom collections import deque\n\ndef topological_sort(graph):\n    \"\"\"\n    Performs a topological sort on a directed graph using Kahn's Algorithm.\n    \n    Args:\n        graph (dict): A dictionary mapping node -> list of successor nodes.\n        \n    Returns:\n        list: A valid topological ordering of all nodes, or None if a cycle is detected.\n    \"\"\"\n    # 1. Identify all unique nodes i",
+          "latency_s": 29.954736292012967,
+          "notes": "c2_9",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C2/c2_10",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "code_found": true,
+            "tests_passed": true
+          },
+          "transcript_excerpt": "The most efficient and robust way to handle IP addresses in Python is using the built-in `ipaddress` module.\n\n```python\nimport ipaddress\n\ndef parse_ip_range(cidr):\n    \"\"\"\n    Takes a CIDR string and returns a list of all IPv4 addresses \n    within that range as strings, including network and broadcast addresses.\n    \"\"\"\n    # Create an IPv4Network object from the CIDR string\n    network = ipaddre",
+          "latency_s": 13.044561167014763,
+          "notes": "c2_10",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C3/c3_1",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "```\n1\n2\n3\n4\n5\n```",
+          "latency_s": 3.595080707978923,
+          "notes": "c3_1",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C3/c3_2",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "```\nAutomator.app\nCalculator.app\nCalendar.app\n```",
+          "latency_s": 72.21930837497348,
+          "notes": "c3_2",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C3/c3_3",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 0.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {},
+          "transcript_excerpt": "```bash\nFilesystem   Size   Used  Avail Capacity iused      ifree %iused  Mounted on\n/dev/disk3s5  460Gi  221Gi   221Gi   51% 1780490 25483908    2%   /\n/dev/disk3s1  512Mi   6.4Mi    506Mi    2%     114K   1574398    0%   /dev/disk3s1\n```",
+          "latency_s": 52.271453957946505,
+          "notes": "c3_3",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "C4/c4_1",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Plan\n1. **Identify the target port:** Focus specifically on traffic involving port `8080` to filter out noise from other services.\n2. **Enable payload inspection:** Use flags to capture the actual ASCII content of the packets so you can see the HTTP request/response headers.\n3. **Monitor connection lifecycle:** Observe the TCP handshake (SYN, ACK) and termination (FIN, RST) to identify wher",
+          "latency_s": 22.246435625012964,
+          "notes": "c4_1",
+          "error": null,
+          "baseline_delta": -0.33
+        },
+        {
+          "probe_id": "C4/c4_2",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered Plan\n\n1.  **Identify Network Interface**: Determine which network interface is handling the web traffic (or use `any` to monitor all interfaces).\n2.  **Apply BPF Filter**: Use a Berkeley Packet Filter (BPF) that specifically targets TCP packets on port 443 where the `RST` (Reset) flag is set in the TCP header.\n3.  **Disable Name Resolution**: Use flags to prevent `tcpdump` from att",
+          "latency_s": 27.25624808401335,
+          "notes": "c4_2",
+          "error": null,
+          "baseline_delta": 0.67
+        },
+        {
+          "probe_id": "C4/c4_3",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 0.67,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "plan": true,
+            "fence": true
+          },
+          "transcript_excerpt": "### 1. Numbered Plan\n\n1.  **Identify Interface:** Determine which network interface is handling the traffic (e.g., `eth0`, `any`).\n2.  **Execute Capture:** Run `tcpdump` specifically filtering for UDP/TCP port 53 to isolate DNS packets.\n3.  **Enable Detailed Timestamps:** Use specific flags to ensure every packet is timestamped with microsecond precision to calculate the delay between a query and ",
+          "latency_s": 20.176950125023723,
+          "notes": "c4_3",
+          "error": null,
+          "baseline_delta": 0.67
+        },
+        {
+          "probe_id": "C5/c5_10pct",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": true
+          },
+          "transcript_excerpt": "portal5-blue-falcon-42",
+          "latency_s": 38.464265750022605,
+          "notes": "depth=10%",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C5/c5_50pct",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": true
+          },
+          "transcript_excerpt": "portal5-crimson-hawk-77",
+          "latency_s": 56.95310979196802,
+          "notes": "depth=50%",
+          "error": null,
+          "baseline_delta": 1.0
+        },
+        {
+          "probe_id": "C5/c5_90pct",
+          "workspace": "bench-gemma4-26b-heretic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "needle_found": true
+          },
+          "transcript_excerpt": "portal5-emerald-owl-99",
+          "latency_s": 74.58124308299739,
+          "notes": "depth=90%",
+          "error": null,
+          "baseline_delta": 1.0
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-08-14T06:55:50.363098+00:00"
+}

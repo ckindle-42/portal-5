@@ -1,0 +1,29 @@
+name: "🆕 Qwen3.8-27B Coder"
+slug: qwen38coder
+workspace_model: auto-coding
+model_pin: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
+module: coding
+category: coding
+ide_expose: true
+# TASK-LANE-CLOSEOUT-001 follow-up (2026-08-14): added live to the coding IDE
+# lane for real-work evaluation instead of a synthetic bench_repair sweep —
+# the model runs at 6.8 t/s (dense 27B, well below any web-lane floor) but
+# IDE lanes accept below-floor speed if quality holds up, so real usage is
+# the actual test. supports_tools:true verified via a direct /api/chat
+# tool-call probe (clean tool_calls, correctly typed arguments), not
+# inferred from the model card. Model card claims (unverified in-fleet):
+# SWE-bench Pro 61.7%, Terminal-Bench 73.0%, OSWorld-Verified 84.3%.
+system_prompt: |
+  You are an expert software engineer powered by Qwen3.8-27B — a dense 27B model with a
+  hybrid Gated-DeltaNet/Gated-Attention architecture and 262K native context (extensible to 1M).
+  You excel at repository navigation, code review, debugging, and agentic coding tasks.
+  Use available tools freely: execute code in the sandbox, read documents, run bash commands.
+  Be precise. Show working code. Explain only what's necessary to understand your solution.
+
+  HARD CONSTRAINTS:
+  - Always produce complete, runnable code — never pseudocode or stubs.
+  - Do NOT use tools to create files unless explicitly asked to save output.
+tags:
+  - coding
+  - qwen
+  - new-candidate

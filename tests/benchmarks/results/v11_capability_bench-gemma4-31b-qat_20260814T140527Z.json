@@ -1,0 +1,244 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260814T140527Z",
+  "candidate": "bench-gemma4-31b-qat",
+  "baselines": [
+    "auto-daily"
+  ],
+  "probes_run": [
+    "D1",
+    "D2"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "auto-daily",
+      "results": [
+        {
+          "probe_id": "D1/d1_decline_email",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 79,
+            "line_count": 7
+          },
+          "transcript_excerpt": "Subject: Regarding our upcoming meeting\n\nHi [Name],\n\nThanks for the invite! My schedule is quite tight this week, so I won't be able to join the live session.\n\nTo keep things moving efficiently, could we handle this asynchronously instead? Please drop your updates in [the shared doc/this email threa",
+          "latency_s": 18.35089658299694,
+          "notes": "d1_decline_email",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_tighten_passive",
+          "workspace": "auto-daily",
+          "format_score": 0.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 173,
+            "line_count": 18
+          },
+          "transcript_excerpt": "Because your original sentence contains several \"filler\" words (*maybe, could, possibly, thing, at some point*), it sounds indecisive and vague. \n\nDepending on who you are talking to and how urgent this is, choose one of the following:\n\n**Direct & Action-Oriented (Best for Slack/Teams)**\n* \"Let\u2019s in",
+          "latency_s": 13.498203709023073,
+          "notes": "d1_tighten_passive",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_slack_eta",
+          "workspace": "auto-daily",
+          "format_score": 0.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 89,
+            "line_count": 7
+          },
+          "transcript_excerpt": "Since the \"real ETA\" depends on your actual schedule, choose the option below that fits your situation:\n\n**Option 1: If you can do it later today**\n> Thanks for the ping. I\u2019ll have eyes on this by EOD today.\n\n**Option 2: If you need to finish something else first**\n> Got it\u2014I'm finishing up [Task Na",
+          "latency_s": 10.533498207980301,
+          "notes": "d1_slack_eta",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_decision_actions",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 4,
+            "line_count": 4
+          },
+          "transcript_excerpt": "**Decision:** Proceed with the multi-engine configuration.\n\n**Action Items:**\n1. Complete the engine bench setup.\n2. Finalize all bench requirements by Friday.",
+          "latency_s": 15.773727916006465,
+          "notes": "d2_decision_actions",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_status_bullets",
+          "workspace": "auto-daily",
+          "format_score": 0.5,
+          "capability_score": 0.75,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 9,
+            "line_count": 14
+          },
+          "transcript_excerpt": "Since you have four pieces of information but only want three bullets, I have grouped the \"active\" work items to keep it concise. \n\nHere are three ways to present this depending on your audience:\n\n### Option 1: Professional & Polished (Best for Email/Management)\n* **Status:** Routing functional; soa",
+          "latency_s": 20.28609112498816,
+          "notes": "d2_status_bullets",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_standup",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 17,
+            "line_count": 25
+          },
+          "transcript_excerpt": "Since you didn't specify your job role, I have provided three different versions: one **Generic/Professional**, one for a **Software Developer**, and one for a **Creative/Designer**.\n\nChoose the one that fits your situation best or use the \"Template\" at the bottom to fill in your own.\n\n### Option 1:",
+          "latency_s": 16.75590300001204,
+          "notes": "d2_standup",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-gemma4-31b-qat",
+      "results": [
+        {
+          "probe_id": "D1/d1_decline_email",
+          "workspace": "bench-gemma4-31b-qat",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 72,
+            "line_count": 7
+          },
+          "transcript_excerpt": "Subject: Meeting regarding [Project/Topic]\n\nHi [Name],\n\nThanks for the invite! My schedule is quite packed at the moment, so I don\u2019t think I can make a meeting work this week.\n\nWould you be open to handling this asynchronously instead? If you can send over your main questions or talking points, I\u2019ll",
+          "latency_s": 35.65209958300693,
+          "notes": "d1_decline_email",
+          "error": null,
+          "baseline_delta": -0.5
+        },
+        {
+          "probe_id": "D1/d1_tighten_passive",
+          "workspace": "bench-gemma4-31b-qat",
+          "format_score": 0.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 137,
+            "line_count": 15
+          },
+          "transcript_excerpt": "Depending on who you are talking to and how urgent the task is, here are a few ways to rewrite it:\n\n**Direct & Action-Oriented (Best for colleagues)**\n* \"Let\u2019s review the routing soon.\"\n* \"We should address the routing.\"\n* \"Let's look at the routing logic next.\"\n\n**Professional & Polished (Best for ",
+          "latency_s": 45.529769957996905,
+          "notes": "d1_tighten_passive",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D1/d1_slack_eta",
+          "workspace": "bench-gemma4-31b-qat",
+          "format_score": 0.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 79,
+            "line_count": 7
+          },
+          "transcript_excerpt": "Depending on when you actually plan to do it, here are three options:\n\n**Option 1: Doing it later today**\nThanks for the ping! I\u2019ll have my review in by EOD today.\n\n**Option 2: Doing it tomorrow**\nApologies for the delay here. I'm tied up today but will get this reviewed first thing tomorrow morning",
+          "latency_s": 44.85227837500861,
+          "notes": "d1_slack_eta",
+          "error": null,
+          "baseline_delta": -0.5
+        },
+        {
+          "probe_id": "D2/d2_decision_actions",
+          "workspace": "bench-gemma4-31b-qat",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 4,
+            "line_count": 4
+          },
+          "transcript_excerpt": "**Decision:** Selected multi-engine architecture.\n\n**Action Items:**\n1. Complete benchmarking.\n2. Submit results by Friday.",
+          "latency_s": 60.05393645801814,
+          "notes": "d2_decision_actions",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D2/d2_status_bullets",
+          "workspace": "bench-gemma4-31b-qat",
+          "format_score": 0.5,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 12,
+            "line_count": 13
+          },
+          "transcript_excerpt": "Depending on who you are sending this to, here are three ways to frame it:\n\n**Option 1: Professional & Balanced (Best for a manager)**\n* Routing verified; soak testing pending.\n* Documentation currently lagging.\n* Deployment scheduled for Monday.\n\n**Option 2: Executive/High-Level (Focuses on the bot",
+          "latency_s": 51.61873712501256,
+          "notes": "d2_status_bullets",
+          "error": null,
+          "baseline_delta": 0.25
+        },
+        {
+          "probe_id": "D2/d2_standup",
+          "workspace": "bench-gemma4-31b-qat",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 17,
+            "line_count": 23
+          },
+          "transcript_excerpt": "Since you didn\u2019t specify your role, I have provided a **universal template** and **three specific examples** (Technical, Creative/Marketing, and General Admin).\n\n### 1. The \"Fill-in-the-Blanks\" Template\n**Yesterday:** Finished [Task A] and made progress on [Task B].\n**Today:** Focusing on [Main Goal",
+          "latency_s": 69.7452651669737,
+          "notes": "d2_standup",
+          "error": null,
+          "baseline_delta": 0.0
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-08-14T14:16:52.882358+00:00"
+}

@@ -1,0 +1,244 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260814T142306Z",
+  "candidate": "bench-huihui-qwen36-35b-a3b",
+  "baselines": [
+    "auto-general-uncensored"
+  ],
+  "probes_run": [
+    "D1",
+    "D2"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "auto-general-uncensored",
+      "results": [
+        {
+          "probe_id": "D1/d1_decline_email",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 70,
+            "line_count": 7
+          },
+          "transcript_excerpt": "Subject: Re: Meeting Request / Async Update?\n\nHi [Name],\n\nThanks for reaching out! I'd love to connect, but my calendar is fully booked this week. Could we switch to async notes instead? \n\nFeel free to share a quick update here or via Loom, and I'll reply with any feedback directly. This helps us ke",
+          "latency_s": 63.28870175004704,
+          "notes": "d1_decline_email",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_tighten_passive",
+          "workspace": "auto-general-uncensored",
+          "format_score": 0.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 76,
+            "line_count": 5
+          },
+          "transcript_excerpt": "Here are three tighter, more active options depending on your exact intent:\n\n**\u2022 Collaborative & direct:** `Let's review the routing configuration soon.`  \n**\u2022 Takes ownership:** `I'll investigate the routing issue this week.`  \n**\u2022 Prioritized/urgent:** `We should address the setup next sprint/meet",
+          "latency_s": 90.5794759580167,
+          "notes": "d1_tighten_passive",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_slack_eta",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 21,
+            "line_count": 1
+          },
+          "transcript_excerpt": "Reviewing after my sync wraps at 3:00 PM ET; you'll see comments from me by EOD today so this stays unblocked.",
+          "latency_s": 111.07599549996667,
+          "notes": "d1_slack_eta",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_decision_actions",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 3,
+            "line_count": 3
+          },
+          "transcript_excerpt": "**Decision:** Selected multi-engine configuration after comparative analysis.  \n**Action Item 1:** Complete benchmark evaluation by Friday.  \n**Action Item 2:** Document comparison findings & update project specifications for the chosen system.",
+          "latency_s": 65.51204495801358,
+          "notes": "d2_decision_actions",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_status_bullets",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 3,
+            "line_count": 3
+          },
+          "transcript_excerpt": "*   \u2705 **Routing functional; soak test queued.** Technical validation complete, awaiting prolonged testing initiation.\n*   \u26a0\ufe0f **Documentation update lagging.** Docs are trailing behind the current schedule/cadence.\n*   \ud83d\udcc5 **Deployment targeted for Monday.** Release planned to proceed this coming Monda",
+          "latency_s": 116.09344687499106,
+          "notes": "d2_status_bullets",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_standup",
+          "workspace": "auto-general-uncensored",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 4,
+            "line_count": 4
+          },
+          "transcript_excerpt": "**Yesterday:** Finalized the API integration for user authentication and pushed changes to staging after resolving two minor linting issues.  \n**Today:** Focusing on writing unit tests for the new payment endpoint and kicking off low-fidelity UI mockups for the dashboard refresh.  \n**Blocker:** Wait",
+          "latency_s": 52.91146629099967,
+          "notes": "d2_standup",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-huihui-qwen36-35b-a3b",
+      "results": [
+        {
+          "probe_id": "D1/d1_decline_email",
+          "workspace": "bench-huihui-qwen36-35b-a3b",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 64,
+            "line_count": 6
+          },
+          "transcript_excerpt": "Subject: Rethinking our catch-up \ud83d\udcddHi [Name],\n\nThanks for the invite! My calendar's a bit full, so I'd prefer to swap our meeting for async notes.\n\nI'll draft a quick update and share it in the comments. Please add your thoughts whenever you have a moment\u2014it saves us both the scheduling hassle while ",
+          "latency_s": 35.58963883295655,
+          "notes": "d1_decline_email",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D1/d1_tighten_passive",
+          "workspace": "bench-huihui-qwen36-35b-a3b",
+          "format_score": 0.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 82,
+            "line_count": 5
+          },
+          "transcript_excerpt": "Here are a few tighter, more active options depending on your exact tone:\n\n\u2022 **Direct & decisive:** `We'll examine our routing setup.`  \n\u2022 **Slightly tentative but sharp:** `Let's explore the routing next.`  \n\u2022 **Action-forward:** `Consider prioritizing the routing process.`  \n\n**Why they work:** Th",
+          "latency_s": 19.614861125010066,
+          "notes": "d1_tighten_passive",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D1/d1_slack_eta",
+          "workspace": "bench-huihui-qwen36-35b-a3b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 12,
+            "line_count": 2
+          },
+          "transcript_excerpt": "Reviewing this now \ud83d\udc4d  \nComments will be up by **3 PM today**.",
+          "latency_s": 19.533565624966286,
+          "notes": "d1_slack_eta",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D2/d2_decision_actions",
+          "workspace": "bench-huihui-qwen36-35b-a3b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 4,
+            "line_count": 4
+          },
+          "transcript_excerpt": "**Decision:** Selected multi-engine option.  \n**Action Items:**  \n1. Finalize engine comparison analysis.  \n2. Complete and submit bench deliverables by Friday.",
+          "latency_s": 13.267139500007033,
+          "notes": "d2_decision_actions",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D2/d2_status_bullets",
+          "workspace": "bench-huihui-qwen36-35b-a3b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 3,
+            "line_count": 3
+          },
+          "transcript_excerpt": "\u2022 **Routing** \u2013 Stable and fully operational  \n\u2022 **Soak & Docs** \u2013 Testing underway, documentation catching up  \n\u2022 **Deployment** \u2013 Confirmed for Monday",
+          "latency_s": 31.559778166993055,
+          "notes": "d2_status_bullets",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D2/d2_standup",
+          "workspace": "bench-huihui-qwen36-35b-a3b",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 4,
+            "line_count": 5
+          },
+          "transcript_excerpt": "Here\u2019s a concise, ready-to-use standup update:\n\n**Yesterday:** Wrapped up the API integration for the user auth module and pushed it to staging.  \n**Today\u2019s Plan:** Writing unit tests (focusing on the new endpoints) and addressing any feedback from QA.  \n**Blocker:** Still waiting on access credenti",
+          "latency_s": 10.843566209019627,
+          "notes": "d2_standup",
+          "error": null,
+          "baseline_delta": 0.0
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-08-14T14:33:36.369836+00:00"
+}

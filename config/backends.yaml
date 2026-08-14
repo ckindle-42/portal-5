@@ -253,6 +253,8 @@ backends:
 - group: coding
   id: ollama-coding
   models:
+  - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
+    supports_tools: true
   - id: omnicoder2:9b-q4_k_m
     supports_tools: true
   - id: omnicoder2:9b-q4_k_m-ctx8k
@@ -561,7 +563,7 @@ backends:
     supports_tools: true
   - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M
     supports_tools: false
-  - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k
+  - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
     supports_tools: false
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -816,8 +818,6 @@ workspace_routing:
   - general
   bench-granite41-30b:
   - general
-  bench-cybersecqwen-4b:
-  - security
   bench-vulnllm-r-7b:
   - general
   bench-baronllm-q6k:
@@ -827,6 +827,8 @@ workspace_routing:
   bench-qwen35-abliterated:
   - general
   bench-omnicoder2:
+  - general
+  bench-qwen38-27b:
   - general
   bench-gemma4-26b-optiq:
   - general

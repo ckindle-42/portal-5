@@ -205,7 +205,7 @@ workspaces:
     name: 🔓 Portal Extract (Uncensored)
     description: |-
       Text-only entity/data extraction and summarization with an uncensored model — fewer content refusals on sensitive source text. LFM2.5-8B-A1B Uncensored (gaston-parravicini, ~5GB, abliterated LFM2.5 base). BENCH-PASSED: EX-01 5/5 (100%, 18s) on this hardware. tools=false — extraction/summarization only, no tool loop. Explicit-select; not a default.
-    model_hint: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k
+    model_hint: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
     context_limit: 8192
     keep_alive: 10m
     temperature: 0.6
@@ -1186,25 +1186,6 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
-  bench-cybersecqwen-4b:
-    module: eval
-    name: 🔬 Bench · CyberSecQwen-4B (mradermacher)
-    description: |-
-      Expert-role candidate comparison (GATE-D ablation): hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M, no-tools security-domain 4B model.
-    model_hint: hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M
-    predict_limit: 8192
-    max_concurrent: 1
-    keep_alive: 5m
-    temperature: 0.7
-    top_p: 0.8
-    top_k: 20
-    repeat_penalty: 1.1
-    emits_reasoning: true
-    tools: []
-    expose_to_owui: true
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
   bench-vulnllm-r-7b:
     module: eval
     name: 🔬 Bench · VulnLLM-R-7B (mradermacher)
@@ -1283,6 +1264,23 @@ workspaces:
     description: |-
       Benchmark: omnicoder2:9b-q4_k_m (Ollama, Qwen3.5-9B base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro). Apache 2.0, ~5.7GB. v2 fixes v1's repetition loops + bloated thinking + agentic-loop instability. Ollama-only stack (MLX inference tier retired 3a0c58e); served as omnicoder2:9b-q4_k_m.
     model_hint: omnicoder2:9b-q4_k_m
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.2
+    top_p: 0.9
+    repeat_penalty: 1.1
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+    owui_system_prompt: |-
+      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
+  bench-qwen38-27b:
+    module: eval
+    name: 🔬 Bench · Qwen3.8-27B (unsloth Q4_K_M)
+    description: |-
+      Benchmark: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M (Qwen, released 2026-08, Apache 2.0). Dense 27B, hybrid Gated-DeltaNet/Gated-Attention layers, 262K native ctx (extensible to 1M via YaRN). Model card reports SWE-bench Pro 61.7%, Terminal-Bench 73.0%, OSWorld-Verified 84.3%, GPQA Diamond 89.2%, LiveCodeBench 90.3% -- coding/agentic-flavored per its own benchmark focus, so bench_repair is the lane-appropriate instrument vs the auto-coding incumbent (qwen3-coder:30b-a3b, 90% one-shot / 95% +1-repair). supports_tools:true verified via a direct /api/chat tool-call probe (clean tool_calls, correctly typed arguments), not inferred from the card. Head-to-head not yet run. PROMOTE_POLICY=confirm.
+    model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m

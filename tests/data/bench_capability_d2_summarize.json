@@ -1,0 +1,21 @@
+[
+  {
+    "id": "d2_decision_actions",
+    "prompt": "Summarize into one decision + two action items: we compared engines, chose multi-engine, bench due Friday.",
+    "required_all": [["multi-engine"], ["friday"], ["bench"]],
+    "structure_check": "numbered_or_bulleted"
+  },
+  {
+    "id": "d2_status_bullets",
+    "prompt": "Turn these into 3 crisp status bullets: routing works, soak pending, docs behind, deploy Monday.",
+    "required_all": [["routing"], ["soak"], ["docs"], ["monday"]],
+    "structure_check": "bulleted",
+    "max_bullets": 4
+  },
+  {
+    "id": "d2_standup",
+    "prompt": "Draft a short standup update covering yesterday, today, and one blocker.",
+    "required_all": [["yesterday"], ["today"], ["blocker"]],
+    "structure_check": "sectioned"
+  }
+]

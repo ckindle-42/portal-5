@@ -697,6 +697,157 @@ def run_c5_long_context(workspace: str) -> list[ProbeResult]:
     return results
 
 
+# D1: Daily-driver writing/editing/tone — chat, writing, editing, light back-and-forth.
+# Added for TASK-LANE-CLOSEOUT-001: C1-C5 are all SWE/agentic/coding-flavored and
+# don't reflect auto-daily's/auto-general-uncensored's actual stated job ("chat,
+# writing, editing, summarization, planning, light technical help"), so a candidate
+# could win C1-C5 by being a better coder while being a worse everyday assistant.
+# Prompts sourced from bench_daily_soak.py's auto-daily PROMPT_BANKS entry (the
+# same tool-provoking task bank used for production soak testing).
+D1_WRITING = load_data("tests/data", "bench_capability_d1_writing")
+
+
+def _score_writing(text: str, spec: dict) -> tuple[float, float, dict]:
+    """Score writing/tone: format = length/line constraints; capability = required content, banned hedging."""
+    final = extract_final_answer(text)
+    lower = final.lower()
+    words = final.split()
+    lines = [line for line in final.splitlines() if line.strip()]
+
+    fmt_ok = True
+    if "max_words" in spec:
+        fmt_ok = fmt_ok and len(words) <= spec["max_words"] * 1.15  # small slack
+    if "max_lines" in spec:
+        fmt_ok = fmt_ok and len(lines) <= spec["max_lines"]
+    fmt_score = 1.0 if fmt_ok else 0.0
+
+    checks = []
+    for group in spec.get("required_any", []):
+        checks.append(any(term in lower for term in group))
+    for group in spec.get("required_all", []):
+        checks.append(all(term in lower for term in group))
+    banned_any = spec.get("banned_any", [])
+    if banned_any:
+        checks.append(not any(term in lower for term in banned_any))
+    if "banned_count_max" in spec:
+        bc = spec["banned_count_max"]
+        count = sum(lower.count(w) for w in bc["words"])
+        checks.append(count <= bc["max"])
+
+    cap_score = round(sum(checks) / max(len(checks), 1), 2) if checks else (1.0 if final else 0.0)
+    return fmt_score, cap_score, {"word_count": len(words), "line_count": len(lines)}
+
+
+def run_d1_writing(workspace: str) -> list[ProbeResult]:
+    results = []
+    for item in D1_WRITING:
+        try:
+            content, elapsed, _ = call_chat(
+                workspace, [{"role": "user", "content": item["prompt"]}]
+            )
+            fmt_score, cap_score, markers = _score_writing(content, item)
+            results.append(
+                ProbeResult(
+                    probe_id=f"D1/{item['id']}",
+                    workspace=workspace,
+                    format_score=fmt_score,
+                    capability_score=cap_score,
+                    max_format=1.0,
+                    max_capability=1.0,
+                    markers=markers,
+                    transcript_excerpt=content[:300],
+                    latency_s=elapsed,
+                    notes=item["id"],
+                )
+            )
+        except Exception as exc:
+            results.append(
+                ProbeResult(
+                    probe_id=f"D1/{item['id']}",
+                    workspace=workspace,
+                    format_score=0.0,
+                    capability_score=0.0,
+                    max_format=1.0,
+                    max_capability=1.0,
+                    error=str(exc),
+                )
+            )
+    return results
+
+
+# D2: Daily-driver summarization/status-distillation/planning.
+D2_SUMMARIZE = load_data("tests/data", "bench_capability_d2_summarize")
+
+
+def _score_summarize(text: str, spec: dict) -> tuple[float, float, dict]:
+    """Score summarization: format = requested structure present; capability = fact preservation."""
+    final = extract_final_answer(text)
+    lower = final.lower()
+    lines = [line.strip() for line in final.splitlines() if line.strip()]
+    bullet_lines = [
+        line
+        for line in lines
+        if line.lstrip().startswith(("-", "*", "•")) or re.match(r"^\d+[.)]\s", line)
+    ]
+
+    check = spec.get("structure_check")
+    if check == "bulleted":
+        fmt_score = 1.0 if bullet_lines else 0.0
+        if "max_bullets" in spec and len(bullet_lines) > spec["max_bullets"]:
+            fmt_score = 0.5
+    elif check == "numbered_or_bulleted":
+        fmt_score = 1.0 if bullet_lines else 0.0
+    elif check == "sectioned":
+        fmt_score = 1.0 if len(lines) >= 2 else 0.0
+    else:
+        fmt_score = 1.0 if final else 0.0
+
+    required_all = spec.get("required_all", [])
+    matched = sum(1 for group in required_all if all(term in lower for term in group))
+    cap_score = (
+        round(matched / max(len(required_all), 1), 2) if required_all else (1.0 if final else 0.0)
+    )
+
+    return fmt_score, cap_score, {"bullet_count": len(bullet_lines), "line_count": len(lines)}
+
+
+def run_d2_summarize(workspace: str) -> list[ProbeResult]:
+    results = []
+    for item in D2_SUMMARIZE:
+        try:
+            content, elapsed, _ = call_chat(
+                workspace, [{"role": "user", "content": item["prompt"]}]
+            )
+            fmt_score, cap_score, markers = _score_summarize(content, item)
+            results.append(
+                ProbeResult(
+                    probe_id=f"D2/{item['id']}",
+                    workspace=workspace,
+                    format_score=fmt_score,
+                    capability_score=cap_score,
+                    max_format=1.0,
+                    max_capability=1.0,
+                    markers=markers,
+                    transcript_excerpt=content[:300],
+                    latency_s=elapsed,
+                    notes=item["id"],
+                )
+            )
+        except Exception as exc:
+            results.append(
+                ProbeResult(
+                    probe_id=f"D2/{item['id']}",
+                    workspace=workspace,
+                    format_score=0.0,
+                    capability_score=0.0,
+                    max_format=1.0,
+                    max_capability=1.0,
+                    error=str(exc),
+                )
+            )
+    return results
+
+
 # ── Probe registry ───────────────────────────────────────────────────────────
 
 PROBES = {
@@ -705,6 +856,8 @@ PROBES = {
     "C3": run_c3_env_simulation,
     "C4": run_c4_swe_diagnosis,
     "C5": run_c5_long_context,
+    "D1": run_d1_writing,
+    "D2": run_d2_summarize,
 }
 
 
@@ -796,6 +949,7 @@ def main() -> None:
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument(
         "--workspace",
+        action="append",
         help="Workspace ID to probe (repeatable for multiple)",
     )
     target.add_argument(
@@ -832,7 +986,7 @@ def main() -> None:
     ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
     probes_to_run = args.probes if args.probes else list(PROBES.keys())
 
-    workspaces = _production_workspaces() if args.all else [args.workspace]
+    workspaces = _production_workspaces() if args.all else args.workspace
 
     if args.dry_run:
         print(f"Capability Probe V11 — DRY RUN — {ts}")

@@ -1,0 +1,244 @@
+{
+  "task_id": "TASK_BENCH_CAPABILITY_V11",
+  "timestamp": "20260814T140527Z",
+  "candidate": "bench-gemma4-12b-agentic",
+  "baselines": [
+    "auto-daily"
+  ],
+  "probes_run": [
+    "D1",
+    "D2"
+  ],
+  "results": [
+    {
+      "role": "baseline",
+      "workspace": "auto-daily",
+      "results": [
+        {
+          "probe_id": "D1/d1_decline_email",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 78,
+            "line_count": 6
+          },
+          "transcript_excerpt": "Subject: Regarding our meeting on [Topic]\n\nHi [Name],\n\nThanks for the invite to discuss [Topic]. My schedule is a bit tight this week, so I won't be able to make our scheduled time.\n\nTo save us both some time and keep things moving quickly, would you be open to handling this asynchronously instead? ",
+          "latency_s": 11.960315165983047,
+          "notes": "d1_decline_email",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_tighten_passive",
+          "workspace": "auto-daily",
+          "format_score": 0.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 228,
+            "line_count": 21
+          },
+          "transcript_excerpt": "The best rewrite depends on how much authority you want to convey and who you are talking to. Here are a few ways to rewrite it, categorized by tone:\n\n### 1. Direct & Decisive (Best for leadership or setting tasks)\nThese versions remove all \"hedge words\" (*maybe, possibly*) and replace the vague \"*t",
+          "latency_s": 15.972309208009392,
+          "notes": "d1_tighten_passive",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D1/d1_slack_eta",
+          "workspace": "auto-daily",
+          "format_score": 0.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 92,
+            "line_count": 10
+          },
+          "transcript_excerpt": "Depending on your relationship with the person, here are three ways to do it.\n\n**Option 1: Professional & Direct (Best for managers or stakeholders)**\nRunning a bit behind on reviews today\u2014I'll have feedback to you by [Time].\nThanks for your patience!\n\n**Option 2: Casual (Best for close teammates or",
+          "latency_s": 14.419561708986294,
+          "notes": "d1_slack_eta",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_decision_actions",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 4,
+            "line_count": 4
+          },
+          "transcript_excerpt": "**Decision:** Proceed with the multi-engine configuration.\n\n**Action Items:**\n*   Implement the multi-engine setup.\n*   Complete the engine bench by Friday\u2019s deadline.",
+          "latency_s": 31.55519629199989,
+          "notes": "d2_decision_actions",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_status_bullets",
+          "workspace": "auto-daily",
+          "format_score": 0.5,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 9,
+            "line_count": 14
+          },
+          "transcript_excerpt": "Since you have four pieces of information but need exactly **three** bullets, it is best to group the technical status together. \n\nHere are three ways to do it depending on your audience:\n\n### Option 1: Professional (Best for email or stakeholders)\n*   **Technical Status:** Routing verified; soak te",
+          "latency_s": 17.855252540961374,
+          "notes": "d2_status_bullets",
+          "error": null,
+          "baseline_delta": null
+        },
+        {
+          "probe_id": "D2/d2_standup",
+          "workspace": "auto-daily",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 16,
+            "line_count": 22
+          },
+          "transcript_excerpt": "Since I don't know your specific job or tasks, I have provided four different templates based on common roles. Choose the one that fits you best and swap out the bracketed text.\n\n### Option 1: Software Engineer (Technical)\n*   **Yesterday:** Finished the [Feature Name] implementation and submitted a",
+          "latency_s": 16.020644166972488,
+          "notes": "d2_standup",
+          "error": null,
+          "baseline_delta": null
+        }
+      ]
+    },
+    {
+      "role": "candidate",
+      "workspace": "bench-gemma4-12b-agentic",
+      "results": [
+        {
+          "probe_id": "D1/d1_decline_email",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 1.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 76,
+            "line_count": 5
+          },
+          "transcript_excerpt": "Subject: Project X status / async update\n\nHi team \u2014 rather than find a time to meet this week, I\u2019ll share my notes/we can sync here. It saves everyone the coordination and lets me keep moving things forward while you catch up on your own schedule.\n\nIf there are specific questions, drop them in [chan",
+          "latency_s": 18.515200125053525,
+          "notes": "d1_decline_email",
+          "error": null,
+          "baseline_delta": -0.5
+        },
+        {
+          "probe_id": "D1/d1_tighten_passive",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 0.0,
+          "capability_score": 0.5,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 34,
+            "line_count": 1
+          },
+          "transcript_excerpt": "You could say \"Let me know when we can discuss routing\" (more assertive) or \"Worth surface routing at some point\" (one word replaces three modifiers), depending on how much authority you want to project.",
+          "latency_s": 12.234703499998432,
+          "notes": "d1_tighten_passive",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D1/d1_slack_eta",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "word_count": 33,
+            "line_count": 3
+          },
+          "transcript_excerpt": "Be direct with a firm, realistic deadline instead of apologizing:\n\n**I'm finishing tasks in my queue and will get to your PR this afternoon.**  \n**Heads up on the delay \u2014 appreciate your patience!**",
+          "latency_s": 8.387228041014168,
+          "notes": "d1_slack_eta",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D2/d2_decision_actions",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 4,
+            "line_count": 4
+          },
+          "transcript_excerpt": "**Decision:** Adopt a multi-engine architecture after comparison analysis\n\n**Action Items:**\n* Prepare and complete engine benchmarking on bench\n* Deliver benchmark report by Friday deadline",
+          "latency_s": 6.525178791955113,
+          "notes": "d2_decision_actions",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D2/d2_status_bullets",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 2,
+            "line_count": 5
+          },
+          "transcript_excerpt": "Here are the two shortest versions:\n\n**Ifnate-compact:**\nRoute done \u00b7 baking/review \u2192 land Monday\n\n**Slightly more readable:**\nRouting resolved. Soak & docs in progress \u2014 deploy Mon.",
+          "latency_s": 14.537515709002037,
+          "notes": "d2_status_bullets",
+          "error": null,
+          "baseline_delta": 0.0
+        },
+        {
+          "probe_id": "D2/d2_standup",
+          "workspace": "bench-gemma4-12b-agentic",
+          "format_score": 1.0,
+          "capability_score": 1.0,
+          "max_format": 1.0,
+          "max_capability": 1.0,
+          "turns_used": 0,
+          "markers": {
+            "bullet_count": 12,
+            "line_count": 23
+          },
+          "transcript_excerpt": "Depending on where you post it (Slack is more casual than Email/Jira), here are three versions of the same update, each shorter and punchier than the last:\n\n### Version 1: Standard Slack\nBest for a team channel \u2014 readable at a glance while standing up.\n\n**Yesterday:** Merged PR #45 for user auth; pu",
+          "latency_s": 19.603114790981635,
+          "notes": "d2_standup",
+          "error": null,
+          "baseline_delta": 0.0
+        }
+      ]
+    }
+  ],
+  "methodology_version": "v2-capability",
+  "scored_at": "2026-08-14T14:22:12.426106+00:00"
+}
